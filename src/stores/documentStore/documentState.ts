@@ -11,9 +11,9 @@
  * FIELD CONTRACT — which text domain each snapshot holds (decision D3). These
  * three are NOT interchangeable, and comparing across them is the bug class the
  * contract exists to prevent: a strict compare of `content` against
- * `lastDiskContent` never matches for a CRLF document, which is why
- * `buildPostSaveState` had to reach for `softContentEquals`, and why a tab could
- * stay dirty forever.
+ * `lastDiskContent` never matches for a CRLF document — the defect that kept a
+ * saved tab dirty forever until the dual-snapshot contract (WI-1.4) put each
+ * snapshot in its own domain.
  *
  *   - `content`         — `canonicalEditorText`: LF-only, BOM-free. What every
  *                         editor surface reads and writes.
@@ -28,7 +28,7 @@
  */
 
 import type { CursorInfo } from "@/types/cursorSync";
-import { canonicalizeLineEndings, ingestExternalText } from "@/utils/editorText";
+import { ingestExternalText } from "@/utils/editorText";
 import {
   INGEST_ORIGIN_SNAPSHOT,
   resolveIngestMetadata,
@@ -36,7 +36,6 @@ import {
   type LineMetadata,
 } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
-import { softContentEquals } from "@/utils/linebreaks";
 
 /** Per-tab document state — content snapshots, dirty tracking, file path, and external-change flags. */
 export interface DocumentState {
@@ -82,10 +81,13 @@ export interface DocumentState {
 /**
  * A fresh document for `tabId`, with `content` treated as EXTERNAL text.
  *
- * The line endings are canonicalised on the way in. Writing the argument
- * verbatim is what let a CRLF file reach the editor with literal carriage
- * returns in its text nodes — and, once WI-1.2 armed the editor-domain
- * assertion, made the first keystroke on such a file throw.
+ * Canonicalised through the SAME boundary as every other door
+ * (`ingestExternalText`): line endings to LF, a leading BOM stripped into
+ * `hasBom`. Writing the argument verbatim is what let a CRLF file reach the
+ * editor with literal carriage returns in its text nodes — and, once WI-1.2
+ * armed the editor-domain assertion, made the first keystroke on such a file
+ * throw. The BOM strip became safe once `saveToPath` re-emits the mark
+ * (decision D1); before that, stripping here would have LOST it on save.
  *
  * `lastDiskContent` keeps the RAW bytes: it is the disk domain, and both
  * external-change detection and `lineEndingsOnSave: "preserve"` need what is
@@ -94,24 +96,27 @@ export interface DocumentState {
 export const createInitialDocument = (
   content = "",
   filePath: string | null = null
-): DocumentState => ({
-  content: canonicalizeLineEndings(content),
-  savedContent: canonicalizeLineEndings(content),
-  lastDiskContent: content,
-  filePath,
-  isDirty: false,
-  documentId: 0,
-  cursorInfo: null,
-  selectedText: "",
-  lastAutoSave: null,
-  isMissing: false,
-  isDivergent: false,
-  readOnly: false,
-  lineEnding: "unknown",
-  hardBreakStyle: "unknown",
-  hasBom: false,
-  mode: "wysiwyg",
-});
+): DocumentState => {
+  const { canonicalEditorText, hasBom } = ingestExternalText(content);
+  return {
+    content: canonicalEditorText,
+    savedContent: canonicalEditorText,
+    lastDiskContent: content,
+    filePath,
+    isDirty: false,
+    documentId: 0,
+    cursorInfo: null,
+    selectedText: "",
+    lastAutoSave: null,
+    isMissing: false,
+    isDivergent: false,
+    readOnly: false,
+    lineEnding: "unknown",
+    hardBreakStyle: "unknown",
+    hasBom,
+    mode: "wysiwyg",
+  };
+};
 
 /**
  * Helper to update a document by tabId. Returns unchanged state if the
@@ -220,17 +225,11 @@ export function buildIngestState(
  * the disk snapshot — but keeps `loadContent`'s explicit `filePath` and `meta`
  * arguments, which the origin-driven ingest path does not carry.
  *
- * DELIBERATE DIVERGENCE, not drift. This path canonicalises line endings but
- * does NOT strip the BOM, while `buildIngestState` does. Converging them looks
- * obviously right and is currently WRONG: nothing re-emits a BOM on save
- * (`saveToPath` has zero `hasBom` references — decision D1 is unbuilt), so
- * stripping here would make every BOM'd file lose its mark on first save.
- * `loadContent` carries the BOM inside `content` today and round-trips it,
- * which is the behaviour worth preserving until D1 lands.
- *
- * Converge these two when D1 is built — or delete this one, since WI-1.5 routes
- * every ingress through the origin-driven path and should leave it with no
- * callers.
+ * All three constructors (`createInitialDocument`, this, `buildIngestState`)
+ * now converge on `ingestExternalText`: LF canonicalisation AND the BOM strip.
+ * The strip was deliberately withheld until `saveToPath` re-emitted the mark
+ * (decision D1) — before that, converging would have made every BOM'd file
+ * lose its BOM on first save.
  */
 export function buildLoadState(
   doc: DocumentState,
@@ -238,50 +237,50 @@ export function buildLoadState(
   filePath: string | null | undefined,
   meta: Partial<LineMetadata> | undefined
 ): Partial<DocumentState> {
+  const { canonicalEditorText, hasBom } = ingestExternalText(content);
   return {
-    content: canonicalizeLineEndings(content),
-    savedContent: canonicalizeLineEndings(content),
+    content: canonicalEditorText,
+    savedContent: canonicalEditorText,
     lastDiskContent: content,
     filePath: filePath === undefined ? doc.filePath : filePath,
     isDirty: false,
     isDivergent: false, // Reload from disk clears divergent state
     documentId: doc.documentId + 1,
     selectedText: "",
+    hasBom,
     lineEnding: meta?.lineEnding ?? doc.lineEnding,
     hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
   };
 }
 
+/** What a successful write produced, one snapshot per text domain (WI-1.4). */
+export interface SaveSnapshots {
+  /** The canonical editor text handed to the writer — same domain as `content`. */
+  editorSnapshot: string;
+  /** The exact bytes written to disk, EOL/hard-break normalisation included. */
+  diskSnapshot: string;
+}
+
 /**
- * Compute post-save state, comparing written disk content against current
- * editor content to catch TOCTOU races (user edits during an async save).
- * `softContentEquals` because `doc.content` is LF but `diskContent` is
- * `saveToPath`'s EOL-normalized output — a strict compare never matched for a
- * CRLF doc, leaving its tab dirty forever.
+ * Compute post-save state from the two snapshots, honouring the field contract
+ * above: `savedContent` stays in the EDITOR domain, `lastDiskContent` in the
+ * DISK domain.
  *
- * KNOWN CONTRACT VIOLATION — this function writes the RAW disk bytes into
- * `savedContent`, which the field contract at the top of this file says holds
- * canonical editor text. That is the reason the compare has to be "soft" at all,
- * and it has two live consequences: a CRLF document is re-dirtied by the next
- * `setContent` (strict compare, LF vs CRLF) and rewritten on every auto-save
- * interval; and `softContentEquals` folds one trailing newline, so an edit that
- * only adds or removes the final newline during an in-flight save is read as
- * clean and discarded. **WI-1.4 replaces this with a dual-snapshot contract**
- * (`{ editorSnapshot, diskSnapshot }`) and a same-domain strict compare. Until
- * then the contract above describes the intent and this function is the
- * exception — documented rather than silently contradicted.
+ * The dirty compare is STRICT and same-domain — it exists to catch the TOCTOU
+ * race where the user edits during the async save. The old single-string API
+ * stored the disk bytes in `savedContent` and had to compare "softly" across
+ * domains, which cost twice: a CRLF document was re-dirtied by the very next
+ * flush and rewritten every auto-save interval forever, and an edit that only
+ * touched the final newline during an in-flight save was folded away as clean
+ * and silently discarded.
  *
- * See __tests__/postSaveDirtyState.test.ts.
+ * See __tests__/dualSnapshotSave.test.ts and __tests__/postSaveDirtyState.test.ts.
  */
-export function buildPostSaveState(
-  doc: DocumentState,
-  lastDiskContent: string | undefined
-) {
-  const diskContent = lastDiskContent ?? doc.content;
+export function buildPostSaveState(doc: DocumentState, snapshots: SaveSnapshots) {
   return {
-    savedContent: diskContent,
-    lastDiskContent: diskContent,
-    isDirty: !softContentEquals(doc.content, diskContent),
+    savedContent: snapshots.editorSnapshot,
+    lastDiskContent: snapshots.diskSnapshot,
+    isDirty: doc.content !== snapshots.editorSnapshot,
     isDivergent: false,
   };
 }

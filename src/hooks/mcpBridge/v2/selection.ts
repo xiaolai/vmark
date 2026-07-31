@@ -403,7 +403,7 @@ export async function handleSelectionSet(
         tiptap.state.doc,
         opts,
       );
-      useDocumentStore.getState().setContent(focused.tabId, contentAfter);
+      useDocumentStore.getState().setEditorContent(focused.tabId, contentAfter);
       revisionStore.updateRevision(focused.tabId);
       const revisionAfter = revisionStore.getRevision(focused.tabId);
       if (contentAfter !== contentBefore) {
@@ -442,7 +442,7 @@ export async function handleSelectionSet(
       // SourceEditor component's CM updateListener also runs in
       // production — idempotent because the content matches.
       const contentAfter = cm.state.doc.toString();
-      useDocumentStore.getState().setContent(focused.tabId, contentAfter);
+      useDocumentStore.getState().setEditorContent(focused.tabId, contentAfter);
       revisionStore.updateRevision(focused.tabId);
       const revisionAfter = revisionStore.getRevision(focused.tabId);
       if (contentAfter !== contentBefore) {

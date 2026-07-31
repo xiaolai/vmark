@@ -6,19 +6,12 @@
  * Re-exported through `../documentStore.ts` so existing consumers keep
  * `import { useDocumentStore } from "@/stores/documentStore"`.
  *
- * Two doors are INTENDED — `setEditorContent` (editor domain, asserts its input
- * is already canonical) and `ingestExternalContent` (external domain,
- * canonicalises and records the source's metadata per its origin). The field
- * contract they write against lives with the shape, in `documentState.ts`.
- *
- * They are not yet the only two, and saying otherwise would be false: the
- * deprecated `setContent` is still exported and still has seven production
- * callers (MCP document/selection/workflow, history restore, hot exit), and
- * `initDocument`/`loadContent` also write content — they canonicalise line
- * endings but do not take an origin. Conversely `ingestExternalContent` has no
- * production caller yet, so its origin policies are dormant. WI-1.5 routes the
- * callers; until it lands this is a boundary under construction, not a closed
- * one.
+ * Two doors in — `setEditorContent` (editor domain, asserts its input is
+ * already canonical; every production caller migrated, `setContent` survives
+ * only as a deprecated test-facing alias gated by externalWriterGate.test) and
+ * the external door: `initDocument`/`loadContent`/`ingestExternalContent`, all
+ * canonicalising via `ingestExternalText`. The field contract they write
+ * against lives with the shape, in `documentState.ts`.
  *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
@@ -29,10 +22,10 @@
 
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
-import { canonicalizeLineEndings } from "@/utils/editorText";
+import { canonicalizeLineEndings, ingestExternalText } from "@/utils/editorText";
 import type { IngestOrigin, LineMetadata } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
-import type { DocumentState } from "./documentState";
+import type { DocumentState, SaveSnapshots } from "./documentState";
 import {
   assertCanonicalEditorText,
   buildIngestState,
@@ -86,8 +79,14 @@ interface DocumentStore {
   toggleReadOnly: (tabId: string) => void;
   isReadOnly: (tabId: string) => boolean;
 
-  markSaved: (tabId: string, lastDiskContent?: string) => void;
-  markAutoSaved: (tabId: string, lastDiskContent?: string) => void;
+  /**
+   * Record a successful write. REQUIRED dual snapshot (WI-1.4): the optional
+   * single-string form let an un-migrated caller type-check clean while the
+   * store fell back to assuming disk held the LF editor text.
+   */
+  markSaved: (tabId: string, snapshots: SaveSnapshots) => void;
+  /** `markSaved` plus the auto-save timestamp — an auto-save IS a save. */
+  markAutoSaved: (tabId: string, snapshots: SaveSnapshots) => void;
   /**
    * Silently refresh the stored disk snapshot without touching content, dirty
    * state, or any UI flags. Used when a cloud sync engine rewrote the file with
@@ -172,9 +171,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }
     const doc = createInitialDocument(content, filePath);
     if (savedContent !== undefined) {
-      // Both sides canonical before comparing — a raw `savedContent` reported
-      // every CRLF document dirty the instant it opened.
-      const canonicalSaved = canonicalizeLineEndings(savedContent);
+      // Both sides through the same boundary before comparing — a raw
+      // `savedContent` reported every CRLF or BOM'd document dirty on open.
+      const canonicalSaved = ingestExternalText(savedContent).canonicalEditorText;
       doc.savedContent = canonicalSaved;
       doc.lastDiskContent = savedContent;
       doc.isDirty = canonicalSaved !== doc.content;
@@ -186,7 +185,14 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
   setEditorContent: (tabId, canonicalEditorText) => {
     assertCanonicalEditorText(canonicalEditorText, "setEditorContent");
-    get().setContent(tabId, canonicalEditorText);
+    const previous = get().documents[tabId]?.content;
+    set((state) =>
+      updateDoc(state, tabId, (doc) => ({
+        content: canonicalEditorText,
+        isDirty: doc.savedContent !== canonicalEditorText,
+      }))
+    );
+    bumpRevisionIfContentChanged(tabId, previous, canonicalEditorText);
   },
 
   ingestExternalContent: (tabId, rawDiskText, origin, persisted) => {
@@ -203,15 +209,10 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
   },
 
+  // Delegates INTO the guard: the alias's only caller class is tests
+  // (externalWriterGate.test enforces that), and they get the assert too.
   setContent: (tabId, content) => {
-    const previous = get().documents[tabId]?.content;
-    set((state) =>
-      updateDoc(state, tabId, (doc) => ({
-        content,
-        isDirty: doc.savedContent !== content,
-      }))
-    );
-    bumpRevisionIfContentChanged(tabId, previous, content);
+    get().setEditorContent(tabId, content);
   },
 
   loadContent: (tabId, content, filePath, meta) => {
@@ -245,15 +246,15 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     return doc?.readOnly ?? false;
   },
 
-  markSaved: (tabId, lastDiskContent) =>
+  markSaved: (tabId, snapshots) =>
     set((state) =>
-      updateDoc(state, tabId, (doc) => buildPostSaveState(doc, lastDiskContent))
+      updateDoc(state, tabId, (doc) => buildPostSaveState(doc, snapshots))
     ),
 
-  markAutoSaved: (tabId, lastDiskContent) =>
+  markAutoSaved: (tabId, snapshots) =>
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
-        ...buildPostSaveState(doc, lastDiskContent),
+        ...buildPostSaveState(doc, snapshots),
         lastAutoSave: Date.now(),
       }))
     ),

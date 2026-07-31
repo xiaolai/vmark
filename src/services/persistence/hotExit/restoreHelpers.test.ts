@@ -112,7 +112,7 @@ vi.mock("@/stores/documentStore", () => ({
     getState: () => ({
       initDocument: mockInitDocument,
       loadContent: mockLoadContent,
-      setContent: mockSetContent,
+      setEditorContent: mockSetContent,
       markMissing: mockMarkMissing,
       markDivergent: mockMarkDivergent,
       setCursorInfo: mockSetCursorInfo,
@@ -658,7 +658,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -685,7 +685,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -704,11 +704,11 @@ describe('restoreHelpers', () => {
       expect(mockSetContent).toHaveBeenCalledWith('tab-1', 'modified');
     });
 
-    it('should NOT call setContent when not dirty', async () => {
+    it('should NOT call setEditorContent when not dirty', async () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -731,7 +731,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -755,7 +755,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -782,7 +782,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -801,7 +801,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -820,7 +820,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -840,7 +840,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -869,7 +869,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -888,7 +888,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -908,7 +908,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -928,7 +928,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -948,7 +948,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -968,7 +968,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -988,7 +988,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1008,7 +1008,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1028,7 +1028,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1048,7 +1048,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1068,7 +1068,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1092,7 +1092,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1126,7 +1126,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1155,7 +1155,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1176,7 +1176,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1197,7 +1197,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1218,7 +1218,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,
@@ -1246,7 +1246,7 @@ describe('restoreHelpers', () => {
       const docStore = {
         initDocument: mockInitDocument,
         loadContent: mockLoadContent,
-        setContent: mockSetContent,
+        setEditorContent: mockSetContent,
         markMissing: mockMarkMissing,
         markDivergent: mockMarkDivergent,
         setCursorInfo: mockSetCursorInfo,

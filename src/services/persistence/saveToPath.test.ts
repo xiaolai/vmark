@@ -158,7 +158,7 @@ describe("saveToPath", () => {
     expect(result).toBe(true);
     expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "Hello" });
     expect(mockSetFilePath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
-    expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", "Hello");
+    expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "Hello", diskSnapshot: "Hello" });
     expect(mockUpdateTabPath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
     expect(mockAddFile).toHaveBeenCalledWith("/tmp/doc.md");
     expect(createSnapshot).toHaveBeenCalledWith("/tmp/doc.md", "Hello", "manual", {
@@ -309,7 +309,7 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "content", "manual");
 
-      expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", "content");
+      expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "content", diskSnapshot: "content" });
       expect(mockMarkAutoSaved).not.toHaveBeenCalled();
     });
 
@@ -318,7 +318,7 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "content", "auto");
 
-      expect(mockMarkAutoSaved).toHaveBeenCalledWith("tab-1", "content");
+      expect(mockMarkAutoSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "content", diskSnapshot: "content" });
       expect(mockMarkSaved).not.toHaveBeenCalled();
     });
 
@@ -565,6 +565,47 @@ describe("saveToPath", () => {
       expect(registerCalls).toHaveLength(2);
       expect(registerCalls[0][0]).toBe("/tmp/doc.md");
       expect(registerCalls[1][0]).toBe("/tmp/doc.md");
+    });
+  });
+
+  describe("BOM re-emission (decision D1)", () => {
+    // `hasBom` records that the file on disk began with U+FEFF while the editor
+    // buffer stays BOM-free. A save that does not put the mark back silently
+    // strips it from the user's file — the flag had writers and no readers.
+    it("prepends the BOM when the document carries hasBom", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: true });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "﻿a\nb",
+      });
+    });
+
+    it("writes no BOM when the document has none", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: false });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "a\nb",
+      });
+    });
+
+    it("the BOM precedes CRLF conversion output", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: true, lineEnding: "crlf" });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb\n", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "﻿a\r\nb\r\n",
+      });
     });
   });
 });

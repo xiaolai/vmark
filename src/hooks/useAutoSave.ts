@@ -6,8 +6,8 @@
  *
  * Pipeline: Interval timer fires → iterate all tabs for window → check
  *   isDirty + hasFilePath + !isDivergent → if dirty, call saveToPath() →
- *   markAutoSaved() clears dirty flag without touching savedContent (so
- *   external change detection still works)
+ *   markAutoSaved() records both save snapshots exactly as a manual save does
+ *   (an auto-save IS a save) plus the lastAutoSave timestamp
  *
  * Key decisions:
  *   - Uses saveToPath() for consistent line ending normalization + history snapshots

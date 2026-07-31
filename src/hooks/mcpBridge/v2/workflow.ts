@@ -241,7 +241,7 @@ export async function handleWorkflowApplyPatch(
 
     const contentBefore = tabOrError.content;
     const revisionBefore = revisionStore.getRevision(tabOrError.tabId);
-    useDocumentStore.getState().setContent(tabOrError.tabId, nextContent);
+    useDocumentStore.getState().setEditorContent(tabOrError.tabId, nextContent);
     revisionStore.updateRevision(tabOrError.tabId);
     const revisionAfter = revisionStore.getRevision(tabOrError.tabId);
 

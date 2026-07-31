@@ -173,7 +173,7 @@ describe("documentStore", () => {
       setContent(WINDOW_LABEL, "Modified");
       expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(true);
 
-      markSaved(WINDOW_LABEL);
+      markSaved(WINDOW_LABEL, { editorSnapshot: "Modified", diskSnapshot: "Modified" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(false);
@@ -186,8 +186,8 @@ describe("documentStore", () => {
       initDocument(WINDOW_LABEL, "Original");
       // User edits to "Version B"
       setContent(WINDOW_LABEL, "Version B");
-      // But the save wrote "Version A" (normalized content from before edit)
-      markSaved(WINDOW_LABEL, "Version A");
+      // But the save wrote "Version A" (the content from before the edit)
+      markSaved(WINDOW_LABEL, { editorSnapshot: "Version A", diskSnapshot: "Version A" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(true);
@@ -201,7 +201,7 @@ describe("documentStore", () => {
 
       initDocument(WINDOW_LABEL, "Original");
       setContent(WINDOW_LABEL, "Saved content");
-      markSaved(WINDOW_LABEL, "Saved content");
+      markSaved(WINDOW_LABEL, { editorSnapshot: "Saved content", diskSnapshot: "Saved content" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(false);
@@ -218,7 +218,7 @@ describe("documentStore", () => {
       setContent(WINDOW_LABEL, "Modified");
 
       const beforeTime = Date.now();
-      markAutoSaved(WINDOW_LABEL);
+      markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Modified", diskSnapshot: "Modified" });
       const afterTime = Date.now();
 
       const doc = getDocument(WINDOW_LABEL);
@@ -233,7 +233,7 @@ describe("documentStore", () => {
       initDocument(WINDOW_LABEL, "Original");
       setContent(WINDOW_LABEL, "Edited during save");
       // Auto-save wrote the pre-edit content
-      markAutoSaved(WINDOW_LABEL, "Pre-edit content");
+      markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Pre-edit content", diskSnapshot: "Pre-edit content" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(true);
@@ -246,7 +246,7 @@ describe("documentStore", () => {
 
       initDocument(WINDOW_LABEL, "Original");
       setContent(WINDOW_LABEL, "Auto-saved content");
-      markAutoSaved(WINDOW_LABEL, "Auto-saved content");
+      markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Auto-saved content", diskSnapshot: "Auto-saved content" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(false);
@@ -297,7 +297,7 @@ describe("documentStore", () => {
       markDivergent(WINDOW_LABEL);
       expect(getDocument(WINDOW_LABEL)?.isDivergent).toBe(true);
 
-      markSaved(WINDOW_LABEL, "content");
+      markSaved(WINDOW_LABEL, { editorSnapshot: "content", diskSnapshot: "content" });
       expect(getDocument(WINDOW_LABEL)?.isDivergent).toBe(false);
     });
   });

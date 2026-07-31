@@ -99,6 +99,43 @@ describe("loadContent canonicalises", () => {
   });
 });
 
+describe("BOM convergence (decision D1): every door strips, the flag remembers", () => {
+  const BOM = "﻿";
+
+  it("initDocument strips a leading BOM into hasBom", () => {
+    useDocumentStore.getState().initDocument(TAB, `${BOM}a\r\nb`, "/f.md");
+    expect(doc()?.content).toBe("a\nb");
+    expect(doc()?.hasBom).toBe(true);
+    expect(doc()?.lastDiskContent).toBe(`${BOM}a\r\nb`);
+  });
+
+  it("initDocument canonicalises an explicit savedContent's BOM the same way", () => {
+    useDocumentStore.getState().initDocument(TAB, `${BOM}a`, "/f.md", `${BOM}a`);
+    expect(doc()?.savedContent).toBe("a");
+    expect(doc()?.isDirty).toBe(false);
+  });
+
+  it("loadContent strips a leading BOM into hasBom", () => {
+    useDocumentStore.getState().initDocument(TAB, "", null);
+    useDocumentStore.getState().loadContent(TAB, `${BOM}a\r\nb`, "/f.md");
+    expect(doc()?.content).toBe("a\nb");
+    expect(doc()?.hasBom).toBe(true);
+    expect(doc()?.lastDiskContent).toBe(`${BOM}a\r\nb`);
+  });
+
+  it("loadContent clears a stale hasBom when the new text has none", () => {
+    useDocumentStore.getState().initDocument(TAB, `${BOM}a`, "/f.md");
+    useDocumentStore.getState().loadContent(TAB, "a", "/f.md");
+    expect(doc()?.hasBom).toBe(false);
+  });
+
+  it("a BOM that is not at offset 0 stays content", () => {
+    useDocumentStore.getState().initDocument(TAB, `a${BOM}b`, "/f.md");
+    expect(doc()?.content).toBe(`a${BOM}b`);
+    expect(doc()?.hasBom).toBe(false);
+  });
+});
+
 describe("the regression these doors caused", () => {
   it("a CRLF document opened then edited does not trip the editor-domain assertion", () => {
     // The exact shipped failure: fileOpen -> initDocument (verbatim), WYSIWYG

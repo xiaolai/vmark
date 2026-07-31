@@ -1,9 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
-import { useDocumentStore } from '@/stores/documentStore';
+import { useDocumentStore, useUnifiedHistoryStore } from '@/stores/documentStore';
+import { canonicalizeLineEndings } from '@/utils/editorText';
 import { useUIStore, TERMINAL_MAX_RATIO } from '@/stores/uiStore';
-import { useUnifiedHistoryStore } from '@/stores/documentStore';
 import {
   clearExistingWindowTabs,
   deduplicateTabsByPath,
@@ -333,9 +333,9 @@ export async function restoreDocumentState(
     documentStore.updateLastDiskContent(tabId, docState.last_disk_content);
   }
 
-  // If dirty, apply current content (different from saved)
+  // If dirty, apply current content (may be legacy CRLF, so canonicalise)
   if (docState.is_dirty) {
-    documentStore.setContent(tabId, docState.content);
+    documentStore.setEditorContent(tabId, canonicalizeLineEndings(docState.content));
   }
 
   // Restore flags
