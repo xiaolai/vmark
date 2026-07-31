@@ -14,7 +14,9 @@
  *     and cleanup all yield; an edit (human or MCP — VMark exposes writes over
  *     MCP) landing mid-await must trigger another prompt, not be dropped. The
  *     loop is bounded: a document that cannot be brought to rest is a cancel,
- *     never a silent discard.
+ *     never a silent discard. One exemption: a buffer byte-identical to a
+ *     completed save is AT REST even with isDirty standing — save-time
+ *     normalization (hard-break style) is an artifact, not an edit.
  *   - Concurrent closes of one tab share ONE promise and ONE outcome (WI-7).
  *     The old boolean guard answered `true` to the second caller while the
  *     first might still be cancelled.
@@ -58,7 +60,21 @@ function needsResolution(doc: Pick<DocumentState, "isDirty" | "isDivergent">): b
  */
 const MAX_RESOLUTION_ATTEMPTS = 3;
 
-type Resolution = "clean" | "discarded" | "cancelled";
+type Resolution =
+  /** `settledContent` set: saved at that content, residual isDirty is a
+   *  save-normalization artifact — at rest AS LONG AS the content matches. */
+  | { kind: "clean"; settledContent?: string }
+  | { kind: "discarded" }
+  | { kind: "cancelled" };
+
+/** At rest: genuinely clean, or dirty only by the save-normalization artifact. */
+function atRest(
+  doc: Pick<DocumentState, "isDirty" | "isDivergent" | "content">,
+  resolution: Resolution
+): boolean {
+  if (!needsResolution(doc)) return true;
+  return resolution.kind === "clean" && doc.content === resolution.settledContent;
+}
 
 /**
  * Bring one document to rest: prompt while it needs resolution, re-checking
@@ -75,22 +91,35 @@ async function resolveDirtyState(
     // WI-10: an edit still in the editor's debounce window must count.
     flushAllWysiwygNow();
     const doc = useDocumentStore.getState().getDocument(tabId);
-    if (!doc || !needsResolution(doc)) return "clean";
+    if (!doc || !needsResolution(doc)) return { kind: "clean" };
 
+    const contentAtPrompt = doc.content;
     const result = await promptSaveForDirtyDocument({
       windowLabel,
       tabId,
       title: doc.filePath || fallbackTitle,
       filePath: doc.filePath,
-      content: doc.content,
+      content: contentAtPrompt,
       divergent: !doc.isDirty && doc.isDivergent,
     });
-    if (result.action === "cancelled") return "cancelled";
-    if (result.action === "discarded") return "discarded";
-    // "saved" — loop: revalidate rather than trust it (WI-5).
+    if (result.action === "cancelled") return { kind: "cancelled" };
+    if (result.action === "discarded") return { kind: "discarded" };
+    // "saved" — revalidate rather than trust it (WI-5), but distinguish the
+    // two ways isDirty can still stand: save-time normalization (hard-break
+    // style) makes markSaved compare the SAVED bytes against the untouched
+    // buffer, which is not an edit — the buffer being byte-identical to what
+    // was just prompted-and-saved means the content is safe on disk, and
+    // re-prompting looped three identical dialogs then refused the close
+    // (review finding). Changed content is a real mid-save edit: go around.
+    flushAllWysiwygNow();
+    const after = useDocumentStore.getState().getDocument(tabId);
+    if (!after || !needsResolution(after)) return { kind: "clean" };
+    if (after.content === contentAtPrompt) {
+      return { kind: "clean", settledContent: contentAtPrompt };
+    }
   }
   // Still unsettled after the bound — refuse to close rather than drop content.
-  return "cancelled";
+  return { kind: "cancelled" };
 }
 
 /** In-flight closes by tabId — concurrent callers share the outcome (WI-7). */
@@ -151,10 +180,10 @@ async function performTabClose(windowLabel: string, tabId: string): Promise<bool
 
   // Resolve → cleanup → revalidate, bounded (WI-5): cleanup does file IO, and
   // an edit landing during it must not be dropped under a stale "clean".
-  let resolution: Resolution = "clean";
+  let resolution: Resolution = { kind: "clean" };
   for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt++) {
     resolution = await resolveDirtyState(windowLabel, tabId, tab.title);
-    if (resolution === "cancelled") return false;
+    if (resolution.kind === "cancelled") return false;
 
     // Pinning DURING the prompt is a "keep this around" signal (WI-5).
     const tabNow = useTabStore.getState().tabs[windowLabel]?.find((t) => t.id === tabId);
@@ -168,13 +197,13 @@ async function performTabClose(windowLabel: string, tabId: string): Promise<bool
 
     const after = useDocumentStore.getState().getDocument(tabId);
     if (!after) break;
-    if (resolution === "discarded") break; // the user chose to drop it
-    if (!needsResolution(after)) break; // still clean — safe to close
+    if (resolution.kind === "discarded") break; // the user chose to drop it
+    if (atRest(after, resolution)) break; // still at rest — safe to close
     // An edit landed during cleanup — go around again.
   }
 
   const final = useDocumentStore.getState().getDocument(tabId);
-  if (final && needsResolution(final) && resolution !== "discarded") {
+  if (final && resolution.kind !== "discarded" && !atRest(final, resolution)) {
     // Could not bring the document to rest — refuse rather than drop content.
     return false;
   }

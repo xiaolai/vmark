@@ -164,4 +164,58 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     expect(result).toBe(true);
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
   });
+
+  // Save-time normalization (hard-break style) makes markSaved compare the
+  // SAVED bytes against the untouched buffer — isDirty stays true with the
+  // content safely on disk. Re-prompting looped three identical dialogs and
+  // then REFUSED the close (review finding). Byte-identical buffer after a
+  // completed save = at rest.
+  it("closes after ONE prompt when only save-normalization keeps the doc dirty", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/breaks.md");
+    useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
+    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+
+    vi.mocked(message).mockResolvedValue("Yes");
+    vi.mocked(saveToPath).mockImplementation(async (id) => {
+      // saveToPath normalizes trailing-double-space breaks to backslash form;
+      // the saved bytes differ from the buffer, so isDirty SURVIVES the save.
+      useDocumentStore.getState().markSaved(id, "line\\\nnext");
+      return true;
+    });
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(useDocumentStore.getState().documents[tabId]).toBeUndefined();
+    expect(result).toBe(true);
+    expect(message).toHaveBeenCalledTimes(1);
+    expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
+  });
+
+  it("still re-prompts when a REAL edit hides behind the normalization artifact", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/breaks.md");
+    useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
+    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+
+    vi.mocked(message).mockResolvedValue("Yes");
+    vi.mocked(saveToPath)
+      .mockImplementationOnce(async (id) => {
+        useDocumentStore.getState().markSaved(id, "line\\\nnext");
+        // A concurrent MCP write lands during the save — the content CHANGED,
+        // so the artifact exemption must not swallow it.
+        useDocumentStore.getState().setContent(id, "line  \nnext plus more");
+        return true;
+      })
+      .mockImplementationOnce(async (id, _p, content) => {
+        useDocumentStore.getState().markSaved(id, content);
+        return true;
+      });
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(result).toBe(true);
+    expect(message).toHaveBeenCalledTimes(2);
+    expect(saveToPath).toHaveBeenLastCalledWith(
+      tabId, "/tmp/breaks.md", "line  \nnext plus more", "manual",
+    );
+  });
 });
