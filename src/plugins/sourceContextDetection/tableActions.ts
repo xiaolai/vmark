@@ -1,99 +1,44 @@
 /**
  * Table Actions for Source Mode
  *
- * Functions to modify markdown tables in raw text.
+ * View-coupled functions that modify markdown tables in raw text. The pure
+ * formatting arithmetic (alignment parsing, width calculation, row
+ * rendering) lives in tableFormat.ts.
+ *
+ * @coordinates-with sourceContextDetection/tableFormat.ts — pure formatting helpers
  */
 
 import type { EditorView } from "@codemirror/view";
-import { getDisplayWidth, padToWidth } from "@/utils/stringWidth";
-import { parseTableRow, splitTableCells } from "@/utils/tableParser";
+import { getDisplayWidth } from "@/utils/stringWidth";
+import { parseTableRow } from "@/utils/tableParser";
 import type { SourceTableInfo, TableAlignment } from "./tableTypes";
+import {
+  buildEmptyCells,
+  computeColCount,
+  computeColumnWidths,
+  formatAlignmentCell,
+  parseAlignments,
+  renderTableLines,
+} from "./tableFormat";
 
 /**
- * Parse alignment from a separator cell.
- */
-function parseAlignment(cell: string): TableAlignment {
-  const trimmed = cell.trim();
-  const hasLeft = trimmed.startsWith(":");
-  const hasRight = trimmed.endsWith(":");
-
-  if (hasLeft && hasRight) return "center";
-  if (hasRight) return "right";
-  return "left";
-}
-
-/**
- * Format a separator cell with alignment, to the requested total width.
+ * Insert an empty data row adjacent to the current row.
  *
- * `explicitLeft` separates SETTING left alignment (a request, written `:---`)
- * from RE-FORMATTING a table (which must leave an unaligned column alone).
- * `parseAlignment` reports both spellings as "left", so without the flag one
- * caller is always wrong: bare dashes made "align left" do nothing visible,
- * an unconditional colon made "format table" stamp alignment everywhere.
+ * From the header or the separator (rowIndex <= 1) there is no legal data
+ * position "above" or "below" within the header block — a data row placed
+ * between header and separator breaks table detection entirely — so both
+ * directions insert immediately after the separator instead.
  */
-function formatAlignmentCell(alignment: TableAlignment, width = 5, explicitLeft = false): string {
-  const minDashes = 3;
-  const dashes = (pad: number): string => "-".repeat(Math.max(minDashes, width - pad));
-  switch (alignment) {
-    case "center":
-      return `:${dashes(2)}:`;
-    case "right":
-      return `${dashes(1)}:`;
-    default:
-      return explicitLeft ? `:${dashes(1)}` : dashes(0);
-  }
-}
-
-/**
- * Build empty cells matching the widths of existing table columns.
- * Uses raw (untrimmed) cell content from splitTableCells to match
- * the actual column display widths in a formatted table.
- */
-function buildEmptyCells(info: SourceTableInfo): string[] {
-  // Use splitTableCells on raw header to preserve padding widths
-  let rawHeader = info.lines[0].trim();
-  if (rawHeader.startsWith("|")) rawHeader = rawHeader.slice(1);
-  rawHeader = rawHeader.trimEnd();
-  if (rawHeader.endsWith("|") && !rawHeader.endsWith("\\|")) rawHeader = rawHeader.slice(0, -1);
-  const rawCells = splitTableCells(rawHeader);
-
-  return Array.from({ length: info.colCount }, (_, i) => {
-    const cellWidth = i < rawCells.length ? getDisplayWidth(rawCells[i]) : 3;
-    const width = Math.max(3, cellWidth);
-    return padToWidth("", width);
-  });
-}
-
-/**
- * Insert a new row below current position.
- */
-export function insertRowBelow(view: EditorView, info: SourceTableInfo): void {
+function insertEmptyRow(
+  view: EditorView,
+  info: SourceTableInfo,
+  where: "above" | "below"
+): void {
   const doc = view.state.doc;
-  const currentLineNum = info.startLine + 1 + info.rowIndex;
-  const currentLine = doc.line(currentLineNum);
+  const newRow = `| ${buildEmptyCells(info).join(" | ")} |`;
 
-  const cells = buildEmptyCells(info);
-  const newRow = `| ${cells.join(" | ")} |`;
-
-  view.dispatch({
-    changes: { from: currentLine.to, insert: `\n${newRow}` },
-    selection: { anchor: currentLine.to + 3 },
-  });
-
-  view.focus();
-}
-
-/**
- * Insert a new row above current position.
- */
-export function insertRowAbove(view: EditorView, info: SourceTableInfo): void {
-  const doc = view.state.doc;
-
-  // Can't insert above header - insert below separator instead
-  if (info.rowIndex === 0) {
+  if (info.rowIndex <= 1) {
     const separatorLine = doc.line(info.startLine + 2);
-    const cells = buildEmptyCells(info);
-    const newRow = `| ${cells.join(" | ")} |`;
     view.dispatch({
       changes: { from: separatorLine.to, insert: `\n${newRow}` },
       selection: { anchor: separatorLine.to + 3 },
@@ -102,69 +47,72 @@ export function insertRowAbove(view: EditorView, info: SourceTableInfo): void {
     return;
   }
 
-  const currentLineNum = info.startLine + 1 + info.rowIndex;
-  const currentLine = doc.line(currentLineNum);
+  const currentLine = doc.line(info.startLine + 1 + info.rowIndex);
+  if (where === "below") {
+    view.dispatch({
+      changes: { from: currentLine.to, insert: `\n${newRow}` },
+      selection: { anchor: currentLine.to + 3 },
+    });
+  } else {
+    view.dispatch({
+      changes: { from: currentLine.from, insert: `${newRow}\n` },
+      selection: { anchor: currentLine.from + 2 },
+    });
+  }
+  view.focus();
+}
 
-  const cells = buildEmptyCells(info);
-  const newRow = `| ${cells.join(" | ")} |\n`;
+/**
+ * Insert a new row below current position.
+ */
+export function insertRowBelow(view: EditorView, info: SourceTableInfo): void {
+  insertEmptyRow(view, info, "below");
+}
 
-  view.dispatch({
-    changes: { from: currentLine.from, insert: newRow },
-    selection: { anchor: currentLine.from + 2 },
-  });
+/**
+ * Insert a new row above current position.
+ */
+export function insertRowAbove(view: EditorView, info: SourceTableInfo): void {
+  insertEmptyRow(view, info, "above");
+}
 
+/**
+ * Insert an empty column into every table row, at the index `indexFor`
+ * computes from that row's cells. The separator row gets dashes.
+ */
+function insertColumn(
+  view: EditorView,
+  info: SourceTableInfo,
+  indexFor: (cells: string[]) => number
+): void {
+  const changes: { from: number; to: number; insert: string }[] = [];
+  const doc = view.state.doc;
+
+  for (let i = 0; i < info.lines.length; i++) {
+    const line = doc.line(info.startLine + 1 + i);
+    const cells = parseTableRow(info.lines[i]);
+
+    cells.splice(indexFor(cells), 0, i === 1 ? "-----" : "     ");
+
+    changes.push({ from: line.from, to: line.to, insert: `| ${cells.join(" | ")} |` });
+  }
+
+  view.dispatch({ changes });
   view.focus();
 }
 
 /**
  * Insert a new column to the right of current position.
  */
-export function insertColumnRight(
-  view: EditorView,
-  info: SourceTableInfo
-): void {
-  const changes: { from: number; to: number; insert: string }[] = [];
-  const doc = view.state.doc;
-
-  for (let i = 0; i < info.lines.length; i++) {
-    const lineNum = info.startLine + 1 + i;
-    const line = doc.line(lineNum);
-    const cells = parseTableRow(info.lines[i]);
-
-    const insertIdx = Math.min(info.colIndex + 1, cells.length);
-    cells.splice(insertIdx, 0, i === 1 ? "-----" : "     ");
-
-    const newLine = `| ${cells.join(" | ")} |`;
-    changes.push({ from: line.from, to: line.to, insert: newLine });
-  }
-
-  view.dispatch({ changes });
-  view.focus();
+export function insertColumnRight(view: EditorView, info: SourceTableInfo): void {
+  insertColumn(view, info, (cells) => Math.min(info.colIndex + 1, cells.length));
 }
 
 /**
  * Insert a new column to the left of current position.
  */
-export function insertColumnLeft(
-  view: EditorView,
-  info: SourceTableInfo
-): void {
-  const changes: { from: number; to: number; insert: string }[] = [];
-  const doc = view.state.doc;
-
-  for (let i = 0; i < info.lines.length; i++) {
-    const lineNum = info.startLine + 1 + i;
-    const line = doc.line(lineNum);
-    const cells = parseTableRow(info.lines[i]);
-
-    cells.splice(info.colIndex, 0, i === 1 ? "-----" : "     ");
-
-    const newLine = `| ${cells.join(" | ")} |`;
-    changes.push({ from: line.from, to: line.to, insert: newLine });
-  }
-
-  view.dispatch({ changes });
-  view.focus();
+export function insertColumnLeft(view: EditorView, info: SourceTableInfo): void {
+  insertColumn(view, info, () => info.colIndex);
 }
 
 /**
@@ -242,14 +190,36 @@ export function deleteTable(view: EditorView, info: SourceTableInfo): void {
 }
 
 /**
- * Get current column alignment.
+ * Rewrite the separator row through a per-cell transform, then dispatch and
+ * refocus. Shared by the single-column and all-columns alignment setters.
  */
-export function getColumnAlignment(info: SourceTableInfo): TableAlignment {
-  const separatorCells = parseTableRow(info.lines[1]);
-  if (info.colIndex < separatorCells.length) {
-    return parseAlignment(separatorCells[info.colIndex]);
-  }
-  return "left";
+function rewriteSeparatorRow(
+  view: EditorView,
+  info: SourceTableInfo,
+  transform: (cell: string, col: number) => string
+): void {
+  const doc = view.state.doc;
+  const separatorLine = doc.line(info.startLine + 2);
+  const cells = parseTableRow(info.lines[1]).map(transform);
+
+  view.dispatch({
+    changes: {
+      from: separatorLine.from,
+      to: separatorLine.to,
+      insert: `| ${cells.join(" | ")} |`,
+    },
+  });
+
+  view.focus();
+}
+
+/**
+ * Rebuild one separator cell with the requested alignment, preserving the
+ * cell's current display width — a hardcoded width shrank wide columns and
+ * broke the table's visual alignment.
+ */
+function alignedSeparatorCell(cell: string, alignment: TableAlignment): string {
+  return formatAlignmentCell(alignment, getDisplayWidth(cell), true);
 }
 
 /**
@@ -260,21 +230,9 @@ export function setColumnAlignment(
   info: SourceTableInfo,
   alignment: TableAlignment
 ): void {
-  const doc = view.state.doc;
-  const separatorLineNum = info.startLine + 2;
-  const separatorLine = doc.line(separatorLineNum);
-
-  const cells = parseTableRow(info.lines[1]);
-  if (info.colIndex < cells.length) {
-    cells[info.colIndex] = formatAlignmentCell(alignment, 5, true);
-  }
-
-  const newLine = `| ${cells.join(" | ")} |`;
-  view.dispatch({
-    changes: { from: separatorLine.from, to: separatorLine.to, insert: newLine },
-  });
-
-  view.focus();
+  rewriteSeparatorRow(view, info, (cell, col) =>
+    col === info.colIndex ? alignedSeparatorCell(cell, alignment) : cell
+  );
 }
 
 /**
@@ -285,34 +243,7 @@ export function setAllColumnsAlignment(
   info: SourceTableInfo,
   alignment: TableAlignment
 ): void {
-  const doc = view.state.doc;
-  const separatorLineNum = info.startLine + 2;
-  const separatorLine = doc.line(separatorLineNum);
-
-  const cells = parseTableRow(info.lines[1]);
-  const newCells = cells.map(() => formatAlignmentCell(alignment, 5, true));
-
-  const newLine = `| ${newCells.join(" | ")} |`;
-  view.dispatch({
-    changes: { from: separatorLine.from, to: separatorLine.to, insert: newLine },
-  });
-
-  view.focus();
-}
-
-/**
- * Get minimum width for a separator cell based on alignment.
- * center (:---:) = 5, right (---:) = 4, left (---) = 3
- */
-function getMinWidthForAlignment(alignment: TableAlignment): number {
-  switch (alignment) {
-    case "center":
-      return 5;
-    case "right":
-      return 4;
-    default:
-      return 3;
-  }
+  rewriteSeparatorRow(view, info, (cell) => alignedSeparatorCell(cell, alignment));
 }
 
 /**
@@ -324,43 +255,12 @@ export function formatTable(view: EditorView, info: SourceTableInfo): boolean {
   const doc = view.state.doc;
   const parsedRows = info.lines.map((line) => parseTableRow(line));
 
-  // First pass: determine alignments from separator row
-  const separatorCells = parsedRows[1] || [];
-  const alignments: TableAlignment[] = [];
-  for (let col = 0; col < info.colCount; col++) {
-    alignments.push(parseAlignment(separatorCells[col] || ""));
-  }
-
-  // Calculate max width for each column with alignment-aware minimums
-  const colWidths: number[] = [];
-  for (let col = 0; col < info.colCount; col++) {
-    const minWidth = getMinWidthForAlignment(alignments[col]);
-    let maxWidth = minWidth;
-    for (let row = 0; row < parsedRows.length; row++) {
-      if (row === 1) continue; // Skip separator row
-      const cell = parsedRows[row][col] || "";
-      maxWidth = Math.max(maxWidth, getDisplayWidth(cell));
-    }
-    colWidths.push(maxWidth);
-  }
-
-  // Build formatted lines
-  const formattedLines: string[] = [];
-  for (let row = 0; row < parsedRows.length; row++) {
-    const cells = parsedRows[row];
-    const formattedCells: string[] = [];
-
-    for (let col = 0; col < info.colCount; col++) {
-      const cell = cells[col] || "";
-      if (row === 1) {
-        formattedCells.push(formatAlignmentCell(alignments[col], colWidths[col]));
-      } else {
-        formattedCells.push(padToWidth(cell, colWidths[col]));
-      }
-    }
-
-    formattedLines.push(`| ${formattedCells.join(" | ")} |`);
-  }
+  // Body rows may carry MORE cells than the header declares; those cells are
+  // data, so the widest row (not info.colCount) sets the column count.
+  const colCount = computeColCount(parsedRows, info.colCount);
+  const alignments = parseAlignments(parsedRows[1] || [], colCount);
+  const colWidths = computeColumnWidths(parsedRows, alignments);
+  const formattedLines = renderTableLines(parsedRows, alignments, colWidths);
 
   const startLine = doc.line(info.startLine + 1);
   const endLine = doc.line(info.endLine + 1);
