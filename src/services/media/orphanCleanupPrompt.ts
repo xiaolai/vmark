@@ -46,6 +46,15 @@ import {
  */
 export type LiveContentsProvider = () => ReadonlyMap<string, string>;
 
+/**
+ * Re-reads the subject document at delete time. Returns null when it can no
+ * longer be vouched for — dirty, divergent, closed, or changed since the
+ * preview. The confirmation dialog can stand open for minutes, and the subject
+ * gaining a reference in that window used to be invisible: the re-scan reused
+ * the ORIGINAL content and deleted an image the document had started using.
+ */
+export type SubjectContentProvider = () => string | null;
+
 /** How many filenames the preview lists before collapsing into a count. */
 const PREVIEW_LIMIT = 10;
 
@@ -110,7 +119,8 @@ export async function runOrphanCleanup(
   documentPath: string | null,
   documentContent: string | null,
   autoCleanupEnabled = false,
-  liveContents?: LiveContentsProvider
+  liveContents?: LiveContentsProvider,
+  subjectContent?: SubjectContentProvider
 ): Promise<OrphanCleanupOutcome> {
   if (!documentPath) {
     await message(t("unsavedDocument.messageOrphanCheck"), {
@@ -171,8 +181,18 @@ export async function runOrphanCleanup(
   // open for minutes. Delete only what is STILL orphaned.
   let stillOrphaned: OrphanedImage[];
   try {
-    // Re-read the live buffers here, not from a pre-dialog snapshot.
-    const fresh = await findOrphanedImages(documentPath, documentContent, {
+    // Re-read the subject too, not just the siblings — it can have gained a
+    // reference while the dialog stood open. Null means it can no longer be
+    // vouched for, and deleting on stale content is exactly the mistake here.
+    const freshSubject = subjectContent ? subjectContent() : documentContent;
+    if (freshSubject === null) {
+      await message(t("orphanCleanup.scanFailedMessage"), {
+        title: t("orphanCleanup.scanFailedTitle"),
+        kind: "error",
+      });
+      return { status: "failed" };
+    }
+    const fresh = await findOrphanedImages(documentPath, freshSubject, {
       knownContents: liveContents?.(),
     });
     // An incomplete re-scan protects every candidate, so intersecting would

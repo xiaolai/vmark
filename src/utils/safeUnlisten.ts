@@ -33,14 +33,16 @@ export function safeUnlisten(unlisten: (() => void) | null | undefined): void {
     // Observed live as `listeners[eventId].handlerId` on an inconsistent
     // registry. Deliberately not awaited: cleanup must not block unmount.
     if (isThenable(result)) {
-      result.catch(() => {
-        // Same reasons as the sync branch below.
+      result.catch((error: unknown) => {
+        cleanupWarn("Listener cleanup failed:", errorMessage(error));
       });
     }
-  } catch {
-    // Ignore errors from Tauri's internal listener cleanup
-    // These occur when the listener was never fully registered
-    // or was already cleaned up
+  } catch (error) {
+    // Errors from Tauri's internal listener cleanup are not fatal — they occur
+    // when the listener was never fully registered, or was already cleaned up.
+    // Logged rather than discarded: the module contract says cleanup failures
+    // are reported, and a silent swallow hides a genuinely broken registry.
+    cleanupWarn("Listener cleanup failed:", errorMessage(error));
   }
 }
 

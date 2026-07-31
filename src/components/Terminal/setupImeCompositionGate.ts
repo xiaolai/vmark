@@ -84,6 +84,12 @@ export function createNoopImeHandle(): ImeCompositionHandle {
   };
 }
 
+/** True for exactly one CHARACTER — `𠀀` is one, though it is two code units. */
+function isSingleCharacter(text: string): boolean {
+  const iter = text[Symbol.iterator]();
+  return iter.next().done === false && iter.next().done === true;
+}
+
 export function setupImeCompositionGate({ container, textarea }: GateOptions): ImeCompositionHandle {
   let composing = false;
   let onCompositionCommit: ((text: string) => void) | null = null;
@@ -158,7 +164,12 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     // else delivers it. resolveCommit returns null for ASCII (correct for the
     // no-composition onInput path — xterm keydown owns that), so fall back to the
     // composition's own text here (audit D3.1). Orphan ends are NOT eligible.
-    if (!text && wasStarted) text = e.data || textareaDiff || null;
+    //
+    // Gated on e.data being NON-EMPTY. An empty `data` is how a CANCELLED
+    // composition reports itself (Escape), and at that instant the textarea
+    // still holds the preedit — so falling back to the diff typed the raw
+    // pinyin into the shell: cancel "ni" and the shell received "ni".
+    if (!text && wasStarted && e.data) text = e.data;
     terminalLog("gate compositionend", e.data, "->", text);
     // T3: clear the textarea synchronously so xterm's setTimeout(0)
     // _finalizeComposition reads "" and emits nothing.
@@ -188,7 +199,7 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     // still put the character in the textarea — but only a SINGLE character is a
     // credible substitute. The textarea can hold a whole accumulated line, and
     // handing that to the shell would execute it.
-    const data = ie.data || (textarea.value.length === 1 ? textarea.value : "");
+    const data = ie.data || (isSingleCharacter(textarea.value) ? textarea.value : "");
     if (!data) {
       textarea.value = "";
       return;
@@ -202,8 +213,12 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     }
     // Non-ASCII insert. Either a no-composition WeChat commit (forward it) or the
     // post-commit echo of a composition that just ended (drop it — F1).
+    //
+    // Ownership applies here too: a keyboard layout that types non-ASCII
+    // DIRECTLY (AZERTY `é`, keyCode 50) is written by xterm's keydown path, and
+    // forwarding it as well doubled the character.
     textarea.value = "";
-    if (!isEcho(data)) commit(data);
+    if (!xtermWroteIt && !isEcho(data)) commit(data);
   };
 
   // T4: capture-phase so it runs before xterm's own textarea keydown listener.

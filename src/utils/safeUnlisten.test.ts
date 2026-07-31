@@ -149,3 +149,29 @@ describe("safeUnlisten — rejected promises from unlisten()", () => {
     expect(onUnhandled).not.toHaveBeenCalled();
   });
 });
+
+// The module contract says cleanup failures are logged. Swallowing them
+// silently hides a genuinely inconsistent listener registry.
+describe("safeUnlisten — failures are reported", () => {
+  beforeEach(() => {
+    mockCleanupWarn.mockClear();
+  });
+
+  it("logs a synchronous throw", () => {
+    safeUnlisten(() => {
+      throw new Error("already cleaned up");
+    });
+    expect(mockCleanupWarn).toHaveBeenCalledWith("Listener cleanup failed:", "already cleaned up");
+  });
+
+  it("logs a rejected promise", async () => {
+    safeUnlisten((() => Promise.reject(new Error("registry inconsistent"))) as unknown as () => void);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockCleanupWarn).toHaveBeenCalledWith("Listener cleanup failed:", "registry inconsistent");
+  });
+
+  it("stays silent on success", () => {
+    safeUnlisten(vi.fn());
+    expect(mockCleanupWarn).not.toHaveBeenCalled();
+  });
+});

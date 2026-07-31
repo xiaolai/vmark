@@ -71,6 +71,31 @@ export interface OrphanScanOptions {
  *  large notes folder exhausts file descriptors and stalls window close. */
 const SIBLING_READ_CONCURRENCY = 8;
 
+/**
+ * Is `filename` in the assets folder referenced by any key in `refs`?
+ *
+ * Matches on the `assets/images/<name>` SUFFIX rather than on equality, because
+ * the same file is legitimately written several ways: relative from the
+ * document (`assets/images/x.png`), absolute (`/notes/assets/images/x.png`), or
+ * from a subdirectory (`../assets/images/x.png`). Requiring exact equality
+ * treated every non-relative spelling as unreferenced — and deleted the file.
+ * A suffix match can only ever protect more, which is the safe direction.
+ */
+function isReferenced(refs: ReadonlySet<string>, filename: string): boolean {
+  const suffix = assetKey(`${ASSETS_FOLDER}/${filename}`);
+  if (refs.has(suffix)) return true;
+  for (const ref of refs) {
+    if (ref.endsWith(`/${suffix}`)) return true;
+  }
+  return false;
+}
+
+/** True when `filePath` sits directly in `dir` (not in a subdirectory). */
+function isSameDirectory(filePath: string, dir: string): boolean {
+  const cut = filePath.lastIndexOf("/");
+  return cut !== -1 && filePath.slice(0, cut) === dir;
+}
+
 const emptyResult = (scanComplete = true): OrphanCleanupResult => ({
   orphanedImages: [],
   referencedCount: 0,
@@ -120,28 +145,40 @@ async function collectSiblingReferences(
   }
 
   const siblings = entries.filter((entry) => entry.isFile && isMarkdownFileName(entry.name));
+  const onDisk = await Promise.all(siblings.map((entry) => join(docDir, entry.name)));
+
+  // An open document that readDir did NOT return still holds references — it may
+  // have been deleted or moved externally while its buffer stays on screen.
+  // Missing it deletes an image that document still displays.
+  const buffered = [...knownContents.keys()].filter(
+    (path) => path !== documentPath && !onDisk.includes(path) && isSameDirectory(path, docDir)
+  );
 
   const keys = new Set<string>();
   let complete = true;
+  const add = (content: string) =>
+    extractImageReferenceKeys(content).forEach((key) => keys.add(key));
 
-  const paths = await Promise.all(siblings.map((entry) => join(docDir, entry.name)));
-
-  await mapWithConcurrency(paths, SIBLING_READ_CONCURRENCY, async (fullPath) => {
+  await mapWithConcurrency([...onDisk, ...buffered], SIBLING_READ_CONCURRENCY, async (fullPath) => {
     // The subject document's authoritative content is the caller's argument;
     // the on-disk copy may be stale (unsaved edits) and would resurrect the
     // very images the user just removed.
     if (fullPath === documentPath) return;
+
     const known = knownContents.get(fullPath);
-    if (known !== undefined) {
-      extractImageReferenceKeys(known).forEach((key) => keys.add(key));
-      return;
-    }
+    if (known !== undefined) add(known);
+
+    // Read the file EVEN WHEN a buffer exists, and union both. The buffer can be
+    // behind the file (a sync client or another editor just rewrote it), and
+    // trusting only one side deletes what the other still references. A missing
+    // file is fine when a buffer covered it; otherwise the scan is incomplete.
     try {
-      const content = await readTextFile(fullPath);
-      extractImageReferenceKeys(content).forEach((key) => keys.add(key));
+      add(await readTextFile(fullPath));
     } catch (error) {
-      orphanCleanupError(` Failed to read sibling ${fullPath}:`, error);
-      complete = false;
+      if (known === undefined) {
+        orphanCleanupError(` Failed to read sibling ${fullPath}:`, error);
+        complete = false;
+      }
     }
   });
 
@@ -173,7 +210,7 @@ export async function findOrphanedImages(
   let referencedCount = 0;
 
   for (const entry of imageFiles) {
-    if (refs.has(assetKey(`${ASSETS_FOLDER}/${entry.name}`))) {
+    if (isReferenced(refs, entry.name)) {
       referencedCount++;
     } else {
       candidates.push(entry.name);
@@ -193,7 +230,7 @@ export async function findOrphanedImages(
   for (const filename of candidates) {
     // An incomplete scan means "we don't know" — keep the file. A stray image
     // costs disk; a wrong delete costs a document's picture.
-    if (!siblings.complete || siblings.keys.has(assetKey(`${ASSETS_FOLDER}/${filename}`))) {
+    if (!siblings.complete || isReferenced(siblings.keys, filename)) {
       sharedCount++;
       continue;
     }
