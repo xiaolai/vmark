@@ -83,14 +83,16 @@ describe("getListBlockBounds", () => {
       view.destroy();
     });
 
-    it("mixed markers treated as one contiguous block", () => {
+    // CommonMark: a bullet-char change starts a NEW list, so "- one" /
+    // "* two" / "+ three" is three lists and the bounds stop at the change.
+    it("mixed markers split into separate lists at each change", () => {
       const content = "- one\n* two\n+ three";
       const view = createView(content, 3);
       const bounds = getListBlockBounds(view);
 
       expect(bounds).not.toBeNull();
       expect(bounds!.from).toBe(0);
-      expect(bounds!.to).toBe(content.length);
+      expect(bounds!.to).toBe("- one".length);
       view.destroy();
     });
 
@@ -212,6 +214,30 @@ describe("getListBlockBounds", () => {
     });
   });
 
+  describe("continuation lines", () => {
+    it("a continuation paragraph does not split the list", () => {
+      const content = "- item one\n  continuation text\n- item two";
+      const view = createView(content, 3);
+      const bounds = getListBlockBounds(view);
+
+      expect(bounds).not.toBeNull();
+      expect(bounds!.from).toBe(0);
+      expect(bounds!.to).toBe(content.length);
+      view.destroy();
+    });
+
+    it("an indented child block after a blank stays in the list", () => {
+      const content = "- item one\n\n  child block\n- item two";
+      const view = createView(content, content.length - 3);
+      const bounds = getListBlockBounds(view);
+
+      expect(bounds).not.toBeNull();
+      expect(bounds!.from).toBe(0);
+      expect(bounds!.to).toBe(content.length);
+      view.destroy();
+    });
+  });
+
   describe("edge cases", () => {
     it("single-item list returns that one line", () => {
       const content = "- only item";
@@ -234,6 +260,18 @@ describe("getListBlockBounds", () => {
     it("horizontal rule (***) is not detected as list", () => {
       const content = "***";
       const view = createView(content, 1);
+      expect(getListBlockBounds(view)).toBeNull();
+      view.destroy();
+    });
+
+    it("spaced thematic break (- - -) is not detected as list", () => {
+      const view = createView("- - -", 1);
+      expect(getListBlockBounds(view)).toBeNull();
+      view.destroy();
+    });
+
+    it("spaced thematic break (* * *) is not detected as list", () => {
+      const view = createView("* * *", 1);
       expect(getListBlockBounds(view)).toBeNull();
       view.destroy();
     });
