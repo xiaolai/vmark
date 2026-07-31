@@ -2,8 +2,11 @@
  * resolveCommit
  *
  * Purpose: the PURE decision at the heart of the gate-path IME handler — given
- * what a `compositionend` (or a plain non-composition `input`) carried, decide
- * the single string to commit to the PTY, or null for "nothing".
+ * what a `compositionend` carried, decide the single string to commit to the
+ * PTY, or null for "nothing". (Plain non-composition `input` events are
+ * classified inline by the gate's onInput, NOT here: outside a composition
+ * there is no textarea diff to weigh, and the question there is "did anyone
+ * else already write this?", which this helper cannot see. WI-8d.)
  *
  * This replaced the five sequential, side-effecting early-returns the now-deleted
  * legacy IME path used (each committing on partial evidence at a different point,
@@ -19,7 +22,7 @@
 import { ALL_ASCII_RE, NON_ASCII_RE } from "./imeCharClass";
 
 export interface CommitInput {
-  /** `compositionend`'s e.data, or the plain `input` event's data. May lie. */
+  /** `compositionend`'s e.data. May lie. */
   eventData: string | null;
   /** textarea.value.slice(startLen) — what the IME actually inserted. Authoritative
    *  when eventData lies (macOS Pinyin punctuation: e.data="?", textarea="？"). */

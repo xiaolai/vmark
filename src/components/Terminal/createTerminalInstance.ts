@@ -97,6 +97,9 @@ export interface TerminalInstance {
    * Set by useTerminalSessions to write directly to PTY (single writer).
    */
   onCompositionCommit: ((text: string) => void) | null;
+  /** Report a byte-run the wiring actually forwarded from onData to the PTY
+   *  — feeds the gate's write-derived insert ownership (WI-13). */
+  noteExternalWrite: (data: string) => void;
   /**
    * User-triggered "redraw the terminal" action (#856). Clears the WebGL
    * texture atlas (if WebGL is active) and re-paints the viewport. Safe to
@@ -259,6 +262,7 @@ export function createTerminalInstance(
       set onCompositionCommit(cb: ((text: string) => void) | null) {
         ime.onCompositionCommit = cb;
       },
+      noteExternalWrite: (data: string) => ime.noteExternalWrite(data),
     };
   } catch (error) {
     // Partial construction must not leak: unwind what was acquired, then let

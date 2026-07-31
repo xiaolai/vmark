@@ -44,6 +44,11 @@ serde_json = { version = "1", features = ["preserve_order"] }
 # spec §2) — same pinned crate, no new package (ADR-C5).
 uuid = { version = "1", features = ["v4", "v7"] }
 regex = "1"
+# Recoverable deletion for orphan-image cleanup (WI-12). Cleanup DELETES user
+# files on inference; the trash gives every wrong call an undo. `trash` is the
+# de-facto standard (maintained by Byron of gitoxide, ~5M downloads,
+# cross-platform: macOS NSFileManager, Windows Recycle Bin, XDG trash).
+trash = "5"
 urlencoding = "2"
 # WHATWG-spec URL parser — the same spec the browser's `URL` implements, so the
 # Rust origin guard (browser/origin_guard.rs) and the TS spec it mirrors parse

@@ -31,8 +31,12 @@ function makeGateTerminal(): Harness {
   const gate = setupImeCompositionGate({ container, textarea });
   // Single writer: commits go straight to the "PTY".
   gate.onCompositionCommit = (t) => ptyWrites.push(t);
-  // xterm's own onData (ASCII via keydown) is the other legitimate producer.
-  term.onData((d) => ptyWrites.push(d));
+  // xterm's own onData (ASCII via keydown) is the other legitimate producer —
+  // and, as in the real wiring, every forwarded write is reported to the gate.
+  term.onData((d) => {
+    ptyWrites.push(d);
+    gate.noteExternalWrite(d);
+  });
 
   return {
     term,
@@ -76,5 +80,84 @@ describe("gate path (real WebKit) — single writer", () => {
     console.log("[GATE] direct non-ASCII writes:", JSON.stringify(h.ptyWrites));
     expect(h.ptyWrites.filter((w) => w.includes("。")).join("")).toBe("。");
     expect(h.ptyWrites.join("").match(/。/g)?.length ?? 0).toBe(1);
+  });
+});
+
+// Ownership rule, verified against a REAL xterm in real WebKit (#1176 follow-up).
+//
+// The gate forwards an `insertText` unless a real non-IME keydown preceded it.
+// That rule rests on a claim about xterm that is not safe to take from reading
+// minified source: with T1 stopping the event, xterm's `_inputEvent` can never
+// write a keyless insert, so the gate must. These tests pin both halves by
+// counting what actually reaches the PTY.
+describe("gate path (real WebKit) — who writes an insertText", () => {
+  let h: Harness;
+  beforeEach(() => {
+    h = makeGateTerminal();
+    h.term.focus();
+    h.term.textarea!.focus();
+  });
+  afterEach(() => h.cleanup());
+
+  function fireInsert(data: string) {
+    const ta = h.term.textarea!;
+    ta.value = data;
+    ta.dispatchEvent(
+      new InputEvent("input", { data, inputType: "insertText", isComposing: false, bubbles: true }),
+    );
+  }
+
+  it("a keyless insertText is carried by the gate, exactly once", async () => {
+    // Nothing else can: xterm's keydown path never ran, and T1 already stopped
+    // the event so `_inputEvent` cannot fire either.
+    fireInsert("/");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.ptyWrites.join("")).toBe("/");
+  });
+
+  it("carries it once in IME mode too", async () => {
+    const ta = h.term.textarea!;
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "a", keyCode: 229, bubbles: true }));
+    fireInsert("/");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.ptyWrites.join("")).toBe("/");
+  });
+
+  it("an insertText after a real keydown is not written twice", async () => {
+    // userEvent drives a genuine keydown, so xterm's keydown path owns it; the
+    // redundant input event that follows must not add a second write.
+    await userEvent.keyboard("x");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.ptyWrites.join("")).toBe("x");
+  });
+});
+
+// Does xterm write a keyCode-229 keydown at all? The #1176 fix hinged on this,
+// and it cannot be answered from minified source. NO custom key handler is
+// attached here — this is xterm's unaided behaviour.
+describe("gate path (real WebKit) — xterm and keyCode 229", () => {
+  let h: Harness;
+  beforeEach(() => {
+    h = makeGateTerminal();
+    h.term.focus();
+    h.term.textarea!.focus();
+  });
+  afterEach(() => h.cleanup());
+
+  it("writes a plain keydown for `/` (control)", async () => {
+    const ta = h.term.textarea!;
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "/", keyCode: 191, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(h.ptyWrites.join("")).toBe("/");
+  });
+
+  it("REFUSES a keyCode-229 keydown, even for a printable key", async () => {
+    const ta = h.term.textarea!;
+    ta.dispatchEvent(new KeyboardEvent("keydown", { key: "/", keyCode: 229, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    console.log("[229] writes:", JSON.stringify(h.ptyWrites));
+    // If this is empty, xterm can never deliver these keystrokes and the gate
+    // must write them itself — letting T2 "pass them through" achieves nothing.
+    expect(h.ptyWrites.join("")).toBe("");
   });
 });

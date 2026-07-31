@@ -107,7 +107,7 @@ vi.mock("@/utils/paths", async (importOriginal) => ({
   }),
 }));
 
-vi.mock("@/hooks/closeSave", () => ({
+vi.mock("@/hooks/closeSaveBatch", () => ({
   saveAllDocuments: mockSaveAllDocuments,
 }));
 

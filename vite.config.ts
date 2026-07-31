@@ -69,7 +69,40 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // Vite full-reloads the page for ANY watched file it cannot map to a
+      // module — not just source. Two ways that bites a VMark developer:
+      //
+      //   1. Build/test output. `pnpm test:coverage` writes ~1600 HTML files
+      //      into coverage/, and each one fired a reload — 1620 in a single run,
+      //      which tears down whatever the app was doing. Most visibly it
+      //      destroys the terminal panel, reading as "the terminal closed by
+      //      itself" seconds after an unrelated test run started.
+      //   2. CONTENT. VMark is a markdown editor and we dogfood it on this very
+      //      repo, so saving AGENTS.md from inside the app reloaded the app —
+      //      losing the workspace on every Cmd+S. Reproduced with a bare
+      //      `touch README.md`.
+      //
+      // Nothing here is imported by the app (no module imports a `.md`), so
+      // ignoring it costs no HMR. `.git` matters too: a commit rewrites dozens
+      // of files under it and would reload the app mid-operation.
+      ignored: [
+        // Build and test output
+        "**/src-tauri/**",
+        "**/coverage/**",
+        "**/dist/**",
+        "**/__screenshots__/**",
+        "**/reports/**",
+        "**/tmp/**",
+        // Content and docs — edited BY the app, never imported by it
+        "**/*.md",
+        "**/website/**",
+        "**/docs/**",
+        "**/dev-docs/**",
+        "**/.vmark/**",
+        // Repository plumbing
+        "**/.git/**",
+        "**/e2e/**",
+      ],
     },
   },
 
