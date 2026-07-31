@@ -7,7 +7,11 @@
  * Key decisions:
  *   - `dev` gets `--config src-tauri/tauri.dev.conf.json` automatically unless
  *     the caller supplied one, so `pnpm tauri dev` and `pnpm tauri:dev` behave
- *     identically.
+ *     identically. Detection follows clap's parsing: the subcommand is the
+ *     first non-flag token (global flags may precede it), and a config flag
+ *     counts in every spelling (`--config x`, `--config=x`, `-c x`, `-cx`).
+ *     This matters because Tauri merges configs in ORDER — appending the dev
+ *     config after an undetected user config silently overrode it.
  *   - A SIDECAR PREFLIGHT runs before `dev` and `build`. Tauri bundles the MCP
  *     sidecar as an external binary, and that binary is a gitignored build
  *     artifact — so a fresh clone or git worktree has an empty
@@ -65,22 +69,76 @@ export function checkSidecarPresent(targetKey, exists) {
   };
 }
 
-function main() {
-  const args = process.argv.slice(2);
-  const isDev = args[0] === "dev";
-  const needsSidecar = isDev || args[0] === "build";
-  const hasConfig = args.includes("--config") || args.includes("-c");
+/** Reverse of TARGET_MAP: Tauri target triple -> platform-arch key. */
+const TRIPLE_TO_TARGET_KEY = Object.fromEntries(
+  Object.entries(TARGET_MAP).map(([key, target]) => [target.triple, key]),
+);
 
-  if (needsSidecar) {
-    const check = checkSidecarPresent(`${process.platform}-${process.arch}`, (name) =>
-      existsSync(path.join(projectRoot, "src-tauri", "binaries", name)),
-    );
-    if (!check.ok) {
-      console.error(check.message);
-      process.exit(1);
+/**
+ * Parse the wrapper-relevant shape of a Tauri CLI invocation.
+ *
+ * Clap accepts global flags BEFORE the subcommand and four spellings of a
+ * value flag (`--config x`, `--config=x`, `-c x`, `-cx`). Reading `args[0]`
+ * and exact tokens missed all of them: `--verbose dev` skipped the preflight
+ * and the dev config entirely, and an undetected `--config=...` had the dev
+ * config appended AFTER it, silently overriding it.
+ */
+export function parseTauriArgs(args) {
+  const subcommand = args.find((token) => !token.startsWith("-")) ?? null;
+  const hasConfig = args.some(
+    (token) =>
+      token === "--config" ||
+      token.startsWith("--config=") ||
+      token === "-c" ||
+      /^-c./.test(token),
+  );
+
+  let target = null;
+  for (let i = 0; i < args.length; i++) {
+    const token = args[i];
+    if (token === "--target" || token === "-t") {
+      target = args[i + 1] ?? null;
+    } else if (token.startsWith("--target=")) {
+      target = token.slice("--target=".length);
+    } else if (/^-t./.test(token)) {
+      target = token.slice(2).replace(/^=/, "");
     }
   }
 
+  return { subcommand, hasConfig, target };
+}
+
+/**
+ * Decide and run one wrapper invocation. Everything effectful is injected —
+ * `spawnFn(argv)` runs the CLI, `existsFn(name)` probes `src-tauri/binaries/`
+ * — so every branch is testable. Returns `{ argv, exitCode, message? }`;
+ * `argv` is null when the preflight refused and nothing was spawned.
+ */
+export function runTauri({ args, env, spawnFn, existsFn }) {
+  const { subcommand, hasConfig, target } = parseTauriArgs(args);
+  const isDev = subcommand === "dev";
+
+  if (isDev || subcommand === "build") {
+    // A cross-build bundles the REQUESTED target's sidecar, not the host's —
+    // preflighting the host binary verified a file Tauri would never bundle.
+    // A triple outside TARGET_MAP maps to no key and rides
+    // checkSidecarPresent's fail-open path, like an unsupported host.
+    const targetKey = target
+      ? (TRIPLE_TO_TARGET_KEY[target] ?? `unmapped-triple:${target}`)
+      : `${env.platform}-${env.arch}`;
+    const check = checkSidecarPresent(targetKey, existsFn);
+    if (!check.ok) return { argv: null, exitCode: 1, message: check.message };
+  }
+
+  const argv =
+    isDev && !hasConfig ? [...args, "--config", "src-tauri/tauri.dev.conf.json"] : [...args];
+
+  const result = spawnFn(argv);
+  if (result.error) return { argv, exitCode: 1, message: result.error.message };
+  return { argv, exitCode: typeof result.status === "number" ? result.status : 1 };
+}
+
+function main() {
   // Use platform-specific tauri CLI path from node_modules
   const isWindows = process.platform === "win32";
   const tauriBin = path.join(
@@ -90,16 +148,14 @@ function main() {
     isWindows ? "tauri.cmd" : "tauri"
   );
 
-  const tauriArgs = isDev && !hasConfig
-    ? [...args, "--config", "src-tauri/tauri.dev.conf.json"]
-    : args;
-
-  const result = spawnSync(tauriBin, tauriArgs, { stdio: "inherit", shell: isWindows });
-  if (result.error) {
-    console.error(result.error.message);
-    process.exit(1);
-  }
-  process.exit(typeof result.status === "number" ? result.status : 1);
+  const outcome = runTauri({
+    args: process.argv.slice(2),
+    env: { platform: process.platform, arch: process.arch },
+    existsFn: (name) => existsSync(path.join(projectRoot, "src-tauri", "binaries", name)),
+    spawnFn: (argv) => spawnSync(tauriBin, argv, { stdio: "inherit", shell: isWindows }),
+  });
+  if (outcome.message) console.error(outcome.message);
+  process.exit(outcome.exitCode);
 }
 
 // Only run when executed directly, so the helpers above stay importable by tests.
