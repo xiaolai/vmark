@@ -93,3 +93,31 @@ describe("selectionBlockSpan", () => {
     expect(selectionBlockSpan(lines, 1, 3, lineNumberAt)).toEqual({ start: 0, end: 0 });
   });
 });
+
+describe("sourceBlockSpan treats a fence as a hard boundary", () => {
+  it("does not widen up through a closing fence", () => {
+    // Markdown does not require a blank line after ```, so the paragraph below
+    // one used to expand across the whole code block and hand it to the action.
+    const l = lines("```js\ncode();\n```\nparagraph here");
+    expect(sourceBlockSpan(l, 3, 3)).toEqual({ start: 3, end: 3 });
+  });
+
+  it("does not widen down through an opening fence", () => {
+    const l = lines("paragraph here\n```js\ncode();\n```");
+    expect(sourceBlockSpan(l, 0, 0)).toEqual({ start: 0, end: 0 });
+  });
+
+  it("keeps a fence containing a blank line whole", () => {
+    const l = lines("```\na\n\nb\n```");
+    expect(sourceBlockSpan(l, 1, 1)).toEqual({ start: 0, end: 4 });
+  });
+
+  it("still widens normally where no fence is involved", () => {
+    expect(sourceBlockSpan(lines("one\ntwo\nthree"), 1, 1)).toEqual({ start: 0, end: 2 });
+  });
+
+  it("does not let a tilde run close a backtick fence", () => {
+    const l = lines("```\n~~~\ncode\n```\nafter");
+    expect(sourceBlockSpan(l, 4, 4)).toEqual({ start: 4, end: 4 });
+  });
+});

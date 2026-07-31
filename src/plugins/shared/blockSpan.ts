@@ -28,6 +28,8 @@
  * @module plugins/shared/blockSpan
  */
 
+import { fenceRanges } from "./lineContent";
+
 /** Inclusive line range, 0-based. */
 export interface BlockSpan {
   start: number;
@@ -51,8 +53,20 @@ export function sourceBlockSpan(lines: readonly string[], fromLine: number, toLi
   // A selection anchored on a blank line has no block to widen to.
   if (start === end && isBlank(lines[start])) return { start, end };
 
-  while (start > 0 && !isBlank(lines[start - 1])) start -= 1;
-  while (end < last && !isBlank(lines[end + 1])) end += 1;
+  // A FENCE is a hard boundary in both directions. Blank lines alone do not
+  // bound a code block — markdown does not require one after a closing fence —
+  // so a caret in the paragraph directly below ``` used to widen straight up
+  // through the fence and hand the whole code block to whatever ran next.
+  // Wrapping, converting or CJK-formatting that "block" rewrote the user's code.
+  const fences = fenceRanges(lines);
+  const fenceOf = (i: number) => fences.find((f) => i >= f.open && i <= f.close);
+
+  // Inside a fence the whole fence IS the block, blank lines included.
+  const own = fenceOf(start) ?? fenceOf(end);
+  if (own) return { start: Math.min(start, own.open), end: Math.max(end, own.close) };
+
+  while (start > 0 && !isBlank(lines[start - 1]) && !fenceOf(start - 1)) start -= 1;
+  while (end < last && !isBlank(lines[end + 1]) && !fenceOf(end + 1)) end += 1;
   return { start, end };
 }
 

@@ -33,6 +33,7 @@ import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 import {
+  isBlockedInCodeBlock,
   isBlockedInTableCell,
   paletteRequirementFor,
   type NodeAxis,
@@ -139,6 +140,10 @@ export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): b
   // disabling the toolbar button alone would still leave the native
   // accelerator able to run the action and lose the user's text.
   if (ctx.inTable && isBlockedInTableCell(adapterKeyFor(id))) return false;
+  // A code fence holds LITERAL TEXT. Any action that writes markdown syntax into
+  // it corrupts source code, and the same reasoning as the table gate applies:
+  // the native accelerator does not consult the toolbar, so this has to be here.
+  if (ctx.inCodeBlock && isBlockedInCodeBlock(adapterKeyFor(id))) return false;
   return isCategoryAllowedByFormat(def.category, ctx.formatId);
 }
 

@@ -151,3 +151,48 @@ describe("fence length adapts to the content", () => {
     expect(view.state.doc.toString().startsWith("``````plaintext\n")).toBe(true);
   });
 });
+
+/**
+ * The code-block action is a TOGGLE, and inside a fence it is the only action
+ * still permitted (`CODE_BLOCK_SAFE_ACTIONS`) — so it has to be the way out.
+ * It previously always wrapped, nesting a fence inside a fence and leaving the
+ * caret trapped in a block where every other action is refused.
+ */
+describe("insertCodeBlock unfences an existing block", () => {
+  it("removes the enclosing fence when the caret is inside one", () => {
+    const view = createView("```js\nconst a = 1;\n```", 10);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("const a = 1;");
+  });
+
+  it("keeps surrounding blocks intact when unfencing", () => {
+    const doc = "before\n\n```\ncode();\n```\n\nafter";
+    const view = createView(doc, 12);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("before\n\ncode();\n\nafter");
+  });
+
+  it("unfences a multi-line block", () => {
+    const view = createView("```\na\nb\nc\n```", 6);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("a\nb\nc");
+  });
+
+  it("unfences a tilde block", () => {
+    const view = createView("~~~\nx\n~~~", 5);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("x");
+  });
+
+  it("unfences from the opening delimiter line itself", () => {
+    const view = createView("```js\ncode\n```", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("code");
+  });
+
+  it("still WRAPS when the caret is not in a fence", () => {
+    const view = createView("plain", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\nplain\n```");
+  });
+});

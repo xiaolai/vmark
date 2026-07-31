@@ -36,7 +36,7 @@ import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
-import { stripBlockMarkup } from "@/plugins/shared/lineContent";
+import { enclosingFence, stripBlockMarkup, type EnclosingFence } from "@/plugins/shared/lineContent";
 
 /** Caret lands inside the first header cell: `| ` is two characters. */
 const FIRST_CELL_OFFSET = 2;
@@ -82,6 +82,12 @@ export function insertFootnote(view: EditorView): boolean {
  */
 export function insertCodeBlock(view: EditorView): boolean {
   const { all, span, blockFrom, blockTo } = resolveBlockRange(view);
+
+  // TOGGLE, not insert: inside a fence this UNFENCES. It is the one action left
+  // available in a code block, so it has to be the way out — wrapping again
+  // nested a fence inside a fence and left the caret trapped.
+  const enclosing = enclosingFence(all, view.state.doc.lineAt(view.state.selection.main.from).number - 1);
+  if (enclosing) return unfence(view, all, enclosing);
 
   // A code block holds the block's TEXT, not the markup that made it a heading
   // or a list item — `### Title` becomes a fence containing `Title`, which is
@@ -188,6 +194,21 @@ function resolveBlockRange(view: EditorView): {
     blockFrom: doc.line(span.start + 1).from,
     blockTo: doc.line(span.end + 1).to,
   };
+}
+
+/** Replace a fenced block with its literal contents. */
+function unfence(view: EditorView, all: string[], fence: EnclosingFence): boolean {
+  const { doc } = view.state;
+  const body = all.slice(fence.open + 1, fence.closed ? fence.close : fence.close + 1);
+  const from = doc.line(fence.open + 1).from;
+  const to = doc.line(fence.close + 1).to;
+
+  view.dispatch({
+    changes: { from, to, insert: body.join("\n") },
+    selection: { anchor: Math.min(from, doc.length) },
+  });
+  view.focus();
+  return true;
 }
 
 /** Longest run of consecutive backticks anywhere in `text`. */

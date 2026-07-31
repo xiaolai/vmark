@@ -84,3 +84,66 @@ export function stripBlockMarkup(line: string): LineContent {
   // structure of a quoted nested list.
   return { quote, indent, content: rest };
 }
+
+/** A fence delimiter line: three or more backticks or tildes, up to 3 spaces in. */
+const FENCE_LINE_RE = /^ {0,3}([`~])\1{2,}\s*(.*)$/;
+
+/** The fence enclosing `lineIndex`, or null when that line is not inside one. */
+export interface EnclosingFence {
+  /** 0-based line index of the opening delimiter. */
+  open: number;
+  /** 0-based line index of the closing delimiter, or the last line if unclosed. */
+  close: number;
+  /** Whether a closing delimiter was actually present. */
+  closed: boolean;
+}
+
+/**
+ * Find the fenced code block containing `lineIndex`, scanning from the top.
+ *
+ * Scanning from the start rather than outward is what makes this correct: fence
+ * delimiters only pair in document order, so "is there a ``` above me" cannot be
+ * answered locally — the run above may itself be a closer.
+ *
+ * A line ON either delimiter counts as inside, because the toggle has to be
+ * reachable from there too.
+ */
+export function enclosingFence(lines: readonly string[], lineIndex: number): EnclosingFence | null {
+  return fenceRanges(lines).find((f) => lineIndex >= f.open && lineIndex <= f.close) ?? null;
+}
+
+/**
+ * Every fenced code block in the document, in order.
+ *
+ * ONE scanner, because "am I in a fence" cannot be answered locally — delimiters
+ * pair in document order, so a run of backticks above the cursor may itself be a
+ * closer. Every fence question in the codebase resolves through this rather than
+ * re-deriving it, which is how two slightly different fence parsers appeared the
+ * first time.
+ */
+export function fenceRanges(lines: readonly string[]): EnclosingFence[] {
+  const ranges: EnclosingFence[] = [];
+  let open = -1;
+  let marker = "";
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = FENCE_LINE_RE.exec(lines[i] ?? "");
+    if (open === -1) {
+      if (match) {
+        open = i;
+        marker = match[1];
+      }
+      continue;
+    }
+    // Only the SAME character closes, and a closer carries no info string.
+    if (match && match[1] === marker && match[2].trim() === "") {
+      ranges.push({ open, close: i, closed: true });
+      open = -1;
+      marker = "";
+    }
+  }
+
+  // An unclosed fence runs to the end of the document.
+  if (open !== -1) ranges.push({ open, close: lines.length - 1, closed: false });
+  return ranges;
+}

@@ -185,6 +185,57 @@ export const TABLE_CELL_BLOCKED_ACTIONS: ReadonlySet<string> = new Set<string>([
   "moveLineUp", "moveLineDown", "joinLines", "sortLinesAsc", "sortLinesDesc",
 ]);
 
+/**
+ * Actions that stay available with the caret inside a CODE BLOCK.
+ *
+ * An ALLOW-list, not a block-list, and deliberately so: a fence holds literal
+ * text, so any action that writes markdown syntax into it corrupts source code.
+ * Listing what is safe means a newly added action is refused there by default —
+ * the fail-closed direction. A block-list would let every future action through
+ * until someone remembered to add it.
+ *
+ * This is a correctness gate, not a discoverability one. Greying out the toolbar
+ * button is not enough: a native menu accelerator bypasses the toolbar entirely,
+ * and pressing Ctrl+Shift+8 with the caret in a fence turned `const a = 1;` into
+ * `- const a = 1;`.
+ *
+ * What earns a place here:
+ *   - history and navigation, which never write markdown;
+ *   - `insertCodeBlock`, the ESCAPE hatch — it must unfence, or the user is
+ *     trapped inside the block with every other action refused;
+ *   - line operations with literal-text semantics, which manipulate lines
+ *     without introducing markdown syntax.
+ */
+export const CODE_BLOCK_SAFE_ACTIONS: ReadonlySet<string> = new Set<string>([
+  // History — bypasses the editor entirely (unified history).
+  "undo", "redo",
+  // The way OUT of the block. Refusing this would trap the caret.
+  "insertCodeBlock",
+  // Selection and navigation change no text.
+  "selectWord", "selectLine", "selectBlock", "expandSelection",
+  // Literal-line operations: they reorder or duplicate lines without writing
+  // markdown syntax. `duplicateLine` is safe only because it now suppresses the
+  // hard-break backslash inside a fence.
+  "moveLineUp", "moveLineDown", "duplicateLine", "deleteLine",
+  "sortLinesAsc", "sortLinesDesc",
+  "transformUppercase", "transformLowercase", "transformTitleCase", "transformToggleCase",
+  // Whole-document utilities. These are not scoped to the cursor, so gating them
+  // on it would be meaningless; each must preserve fence content itself.
+  "formatCJKFile", "removeTrailingSpaces", "lineEndingsLF", "lineEndingsCRLF",
+]);
+
+/**
+ * Whether `action` must be refused with the caret inside a code block.
+ *
+ * `joinLines` is NOT safe: it fuses a fence delimiter with its neighbour.
+ * `collapseBlankLines` is NOT safe: it rewrites blank lines document-wide,
+ * including inside fences, so it needs to become fence-aware before it can be
+ * listed above.
+ */
+export function isBlockedInCodeBlock(action: string): boolean {
+  return !CODE_BLOCK_SAFE_ACTIONS.has(action);
+}
+
 /** Whether `action` must be refused with the caret inside a table cell. */
 export function isBlockedInTableCell(action: string): boolean {
   return TABLE_CELL_BLOCKED_ACTIONS.has(action);
