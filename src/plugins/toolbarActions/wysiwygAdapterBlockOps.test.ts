@@ -63,6 +63,10 @@ function createMockResolved(opts: {
     before: vi.fn(() => 10),
     after: vi.fn(() => 22),
     start: vi.fn(() => 11),
+    // `textblockLineAt` inspects the cursor's parent for hardBreak children;
+    // a non-textblock parent makes it bow out so these mocks keep exercising
+    // the block-level paths.
+    parent: { isTextblock: false },
   };
 }
 
@@ -324,26 +328,9 @@ describe("handleWysiwygRemoveBlankLines", () => {
     expect(handleWysiwygRemoveBlankLines(ctx)).toBe(true);
   });
 
-  it("deletes blank textblocks within selection range", () => {
-    const ctx = createContext();
-    (ctx.view!.state.selection as { from: number; to: number }).from = 5;
-    (ctx.view!.state.selection as { from: number; to: number }).to = 30;
-
-    const tr = createMockTr();
-    (ctx.view!.state as { tr: typeof tr }).tr = tr;
-
-    const nodesBetween = vi.fn((_from: number, _to: number, cb: (node: Record<string, unknown>, pos: number) => boolean) => {
-      // An empty textblock fully within selection
-      cb({ isBlock: false, isTextblock: true, textContent: "  ", nodeSize: 4 }, 8);
-    });
-    (ctx.view!.state.doc as { nodesBetween: typeof nodesBetween }).nodesBetween = nodesBetween;
-
-    const result = handleWysiwygRemoveBlankLines(ctx);
-    expect(result).toBe(true);
-    expect(tr.delete).toHaveBeenCalled();
-    expect(ctx.view!.dispatch).toHaveBeenCalled();
-    expect(ctx.editor!.commands.focus).toHaveBeenCalled();
-  });
+  // The deletion path itself is covered against a real document in
+  // `wysiwygAdapterBlockOps.realdoc.test.ts` — a transaction mock cannot see
+  // whether the replace-fitter undoes the delete, which is the whole defect.
 
   it("skips blank textblocks outside selection range", () => {
     const ctx = createContext();
