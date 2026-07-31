@@ -2,11 +2,21 @@
  * Tab Operations (Hooks Layer)
  *
  * Purpose: Async tab lifecycle functions with side effects — close with
- *   dirty check and orphan image cleanup.
+ *   dirty check, plus the orphan-image cleanup both the tab-close and the
+ *   window-close path run before their documents are dropped.
  *
  * Key decisions:
  *   - Lives in hooks/ (not utils/) because it has Tauri dialog + store side effects
- *   - Orphan image cleanup runs only on explicitly closed tabs (not discarded)
+ *   - Orphan image cleanup scans the content that will BE on disk after the
+ *     close: the in-memory buffer for a clean or just-saved document, the file
+ *     itself when the buffer is not what survives (discarded edits, or a
+ *     divergent document). Discarding does not un-orphan an image the editor
+ *     wrote to the assets folder, so skipping cleanup there left the file
+ *     behind forever (#1179). If the file cannot be re-read, the scan is
+ *     skipped rather than run against content we are not sure about.
+ *   - Cleanup is batched per assets DIRECTORY and fed every open document's
+ *     live buffer, so closing one tab cannot delete an image a sibling tab
+ *     references but has not saved yet.
  *   - Closing the last tab does NOT close the window. The window stays open and
  *     the render layer shows the Welcome screen (empty-workspace window, like
  *     VSCode), with the workspace sidebar still visible if one is open. This is
@@ -30,38 +40,105 @@
  * @module hooks/useTabOperations
  */
 
+import { readTextFile } from "@tauri-apps/plugin-fs";
+import { dirname } from "@tauri-apps/api/path";
 import { fileOpsError } from "@/utils/debug";
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { findOrphanedImages, deleteOrphanedImages } from "@/services/media/orphanAssetCleanup";
+import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 
+/** A closing document and the content it will leave behind on disk. */
+interface ClosingDocument {
+  filePath: string;
+  content: string;
+}
+
 /**
- * Clean up orphaned images for a document if setting is enabled.
- * Only runs on saved documents (not discarded changes).
+ * The content this document will leave on disk once the tab closes: the
+ * in-memory buffer only when we know it matches disk, otherwise the file
+ * itself. Discarded edits and a divergent document (the user kept local
+ * content while the file changed underneath) both mean the buffer is NOT what
+ * survives — scanning it would judge the wrong set of references.
+ * `null` means "unknowable"; the caller then skips cleanup entirely.
  */
-async function cleanupOrphansIfEnabled(
-  filePath: string | null,
-  content: string
-): Promise<void> {
-  if (!filePath) return;
-
-  const { cleanupOrphansOnClose } = useSettingsStore.getState().image;
-  if (!cleanupOrphansOnClose) return;
-
+async function contentAfterClose(
+  filePath: string,
+  content: string,
+  bufferMatchesDisk: boolean
+): Promise<string | null> {
+  if (bufferMatchesDisk) return content;
   try {
-    const result = await findOrphanedImages(filePath, content);
-    if (result.orphanedImages.length > 0) {
-      await deleteOrphanedImages(result.orphanedImages);
-    }
+    return await readTextFile(filePath);
   } catch (error) {
-    // Silent failure - don't block close for cleanup errors
-    fileOpsError("OrphanCleanup error during close cleanup:", error);
+    fileOpsError("OrphanCleanup could not re-read closing document:", error);
+    return null;
+  }
+}
+
+/**
+ * Run orphan-image cleanup for a set of tabs closing together.
+ *
+ * Window close (traffic light / Cmd+Q) tears every tab down at once without
+ * going through closeTabWithDirtyCheck, so the auto-cleanup setting did nothing
+ * on the path most users actually take to leave the app (#1179).
+ *
+ * Scans ONCE per assets directory, not once per tab: the assets folder is
+ * shared by the whole directory, so N tabs from one folder would otherwise each
+ * re-list the folder and re-read the other N-1 documents. Every closing
+ * document's post-close content is supplied to that single scan, so a sibling
+ * still open — or closing alongside — keeps its images.
+ *
+ * Never rejects: a cleanup failure must not strand a window the user asked to
+ * close.
+ */
+export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<void> {
+  if (!useSettingsStore.getState().image.cleanupOrphansOnClose) return;
+
+  const closing = new Set(tabIds);
+  const knownContents = liveContentsExcluding(closing);
+  const subjects: ClosingDocument[] = [];
+
+  for (const tabId of tabIds) {
+    const doc = useDocumentStore.getState().getDocument(tabId);
+    if (!doc?.filePath) continue;
+    try {
+      const content = await contentAfterClose(
+        doc.filePath,
+        doc.content,
+        !doc.isDirty && !doc.isDivergent
+      );
+      if (content === null) continue;
+      subjects.push({ filePath: doc.filePath, content });
+      knownContents.set(doc.filePath, content);
+    } catch (error) {
+      fileOpsError("OrphanCleanup could not resolve closing content:", error);
+    }
+  }
+
+  const scannedDirs = new Set<string>();
+  for (const subject of subjects) {
+    try {
+      const dir = await dirname(subject.filePath);
+      if (scannedDirs.has(dir)) continue;
+      scannedDirs.add(dir);
+
+      const result = await findOrphanedImages(subject.filePath, subject.content, {
+        knownContents,
+      });
+      if (result.orphanedImages.length > 0) {
+        await deleteOrphanedImages(result.orphanedImages);
+      }
+    } catch (error) {
+      // Silent failure — don't block close for cleanup errors.
+      fileOpsError("OrphanCleanup error during close cleanup:", error);
+    }
   }
 }
 
@@ -122,7 +199,7 @@ export async function closeTabWithDirtyCheck(
   try {
     // If not dirty, clean up orphans and close immediately
     if (!doc.isDirty) {
-      await cleanupOrphansIfEnabled(doc.filePath, doc.content);
+      await cleanupOrphansForClosingTabs([tabId]);
       useTabStore.getState().closeTab(windowLabel, tabId);
       cleanupTabState(tabId);
       return true;
@@ -141,15 +218,10 @@ export async function closeTabWithDirtyCheck(
       return false;
     }
 
-    // If user saved, clean up orphans based on saved content
-    // If user discarded, don't clean up (would delete based on unsaved changes)
-    if (result.action === "saved") {
-      // Re-fetch document content after save
-      const savedDoc = useDocumentStore.getState().getDocument(tabId);
-      if (savedDoc) {
-        await cleanupOrphansIfEnabled(savedDoc.filePath, savedDoc.content);
-      }
-    }
+    // Saved or discarded, the same question applies: which images does the file
+    // that survives this close still reference? cleanupOrphansForClosingTabs
+    // answers it from the saved content or from disk accordingly.
+    await cleanupOrphansForClosingTabs([tabId]);
 
     // Proceed to close
     useTabStore.getState().closeTab(windowLabel, tabId);

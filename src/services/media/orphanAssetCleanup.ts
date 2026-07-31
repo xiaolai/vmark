@@ -1,27 +1,41 @@
 /**
  * Orphan Asset Cleanup
  *
- * Purpose: Finds and removes images in the assets folder that are no longer
- * referenced in the document. Prevents asset folder bloat from deleted images.
+ * Purpose: Finds and removes images in the assets folder that no document
+ * references. Prevents asset folder bloat from deleted images. This module is
+ * the scan-and-delete half; the confirmation flow for the manual command lives
+ * in orphanCleanupPrompt.ts, and reference parsing in utils/imageReferences.ts.
  *
  * Key decisions:
- *   - Scans both markdown image syntax and HTML img tags for references
- *   - Shows confirmation dialog before deletion (with preview of up to 10 files)
- *   - Can be triggered manually or auto-run on document close (setting-controlled)
- *   - Requires saved document — refuses to run on unsaved/dirty docs to avoid
- *     incorrectly identifying referenced images as orphans
+ *   - Callers pass the content that will BE on disk after the close; this module
+ *     never reads the subject document itself, so unsaved edits can't resurrect
+ *     an image the user removed
+ *   - The assets folder is resolved from the document's DIRECTORY, so every
+ *     document in that directory shares it. An image the subject does not
+ *     reference may still belong to a sibling, so candidates are checked against
+ *     sibling documents before deletion
+ *   - Siblings are read from disk UNLESS the caller supplies `knownContents` for
+ *     them. An open tab that just pasted an image references it only in its
+ *     unsaved buffer; disk alone would call that image an orphan and delete it
+ *     out from under a document the user is still looking at
+ *   - A scan that could not read everything reports `scanComplete: false` and
+ *     protects every candidate. Deleting is the irreversible move; keeping a
+ *     stray file is not
  *
- * @coordinates-with imageUtils.ts — ASSETS_FOLDER and IMAGE_EXTENSIONS constants
+ * @coordinates-with utils/imageReferences.ts — reference parsing and matching
+ * @coordinates-with imageUtils.ts — ASSETS_FOLDER and isImageFile
  * @coordinates-with imageHandler/tiptap.ts — creates images in assets folder
  * @coordinates-with settingsStore.ts — autoCleanupEnabled user preference
+ * @coordinates-with orphanCleanupPrompt.ts — the confirm-before-delete flow
+ * @coordinates-with hooks/useTabOperations.ts — auto-cleanup on close
  * @module services/media/orphanAssetCleanup
  */
 
-import { readDir, remove, exists } from "@tauri-apps/plugin-fs";
+import { readDir, readTextFile, remove, exists } from "@tauri-apps/plugin-fs";
 import { dirname, join } from "@tauri-apps/api/path";
-import { confirm, message } from "@tauri-apps/plugin-dialog";
-import i18n from "@/i18n";
-import { ASSETS_FOLDER, IMAGE_EXTENSIONS } from "@/utils/imageUtils";
+import { ASSETS_FOLDER, isImageFile } from "@/utils/imageUtils";
+import { isMarkdownFileName } from "@/utils/dropPaths";
+import { assetKey, extractImageReferenceKeys } from "@/utils/imageReferences";
 import { orphanCleanupError } from "@/utils/debug";
 
 export interface OrphanedImage {
@@ -31,209 +45,194 @@ export interface OrphanedImage {
 
 export interface OrphanCleanupResult {
   orphanedImages: OrphanedImage[];
+  /** Images referenced by the document being cleaned. */
   referencedCount: number;
+  /** Images held by a sibling document sharing the same assets folder. */
+  sharedCount: number;
   totalInFolder: number;
+  /**
+   * False when a sibling document or the directory itself could not be read.
+   * Every candidate was protected, so "no orphans" means "could not tell",
+   * not "nothing to clean" — callers must not report it as the latter.
+   */
+  scanComplete: boolean;
 }
 
-/**
- * Check if a file is an image based on extension.
- */
-function isImageExtension(filename: string): boolean {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  return (IMAGE_EXTENSIONS as readonly string[]).includes(ext || "");
+export interface OrphanScanOptions {
+  /**
+   * Authoritative content for documents the caller already holds, keyed by
+   * absolute path — open tabs whose buffer is ahead of disk, and other
+   * documents closing in the same batch. Consulted instead of reading the file.
+   */
+  knownContents?: ReadonlyMap<string, string>;
 }
 
-/**
- * Extract all image references from markdown content.
- * Handles both inline images ![alt](path) and block images.
- * Exported for testing.
- */
-export function extractImageReferences(content: string): Set<string> {
-  const refs = new Set<string>();
+/** How many sibling documents to read at once. Unbounded `Promise.all` over a
+ *  large notes folder exhausts file descriptors and stalls window close. */
+const SIBLING_READ_CONCURRENCY = 8;
 
-  // Match markdown image syntax:
-  // - ![alt](path) or ![alt](path "title")
-  // - ![alt](<path with spaces>) - angle bracket syntax
-  const imageRegex = /!\[[^\]]*\]\((?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\)/g;
-  let match;
-  while ((match = imageRegex.exec(content)) !== null) {
-    // Group 1 is angle-bracket path, Group 2 is regular path
-    const path = match[1] || match[2];
-    /* v8 ignore next -- @preserve regex alternation guarantees one group always captures */
-    if (!path) continue;
-    // Normalize path: remove leading ./ if present, decode URL encoding
-    let normalized = path.startsWith("./") ? path.slice(2) : path;
-    try {
-      normalized = decodeURIComponent(normalized);
-    } catch {
-      // If decoding fails, use as-is
+const emptyResult = (scanComplete = true): OrphanCleanupResult => ({
+  orphanedImages: [],
+  referencedCount: 0,
+  sharedCount: 0,
+  totalInFolder: 0,
+  scanComplete,
+});
+
+/** Run `worker` over `items` at most `limit` at a time, in order-independent batches. */
+async function mapWithConcurrency<T>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
     }
-    refs.add(normalized);
+  });
+  await Promise.all(runners);
+}
+
+interface SiblingScan {
+  /** Reference keys held by the other documents sharing this assets folder. */
+  keys: Set<string>;
+  /** False if any sibling (or the directory listing) could not be read. */
+  complete: boolean;
+}
+
+/**
+ * Collect every image reference held by the OTHER documents in `docDir`, which
+ * share this assets folder.
+ */
+async function collectSiblingReferences(
+  docDir: string,
+  documentPath: string,
+  knownContents: ReadonlyMap<string, string>
+): Promise<SiblingScan> {
+  let entries;
+  try {
+    entries = await readDir(docDir);
+  } catch (error) {
+    orphanCleanupError(" Failed to list sibling documents:", error);
+    return { keys: new Set(), complete: false };
   }
 
-  // Also match HTML img tags: <img src="path" ...>
-  const imgTagRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  while ((match = imgTagRegex.exec(content)) !== null) {
-    const path = match[1];
-    let normalized = path.startsWith("./") ? path.slice(2) : path;
-    try {
-      normalized = decodeURIComponent(normalized);
-    } catch {
-      // If decoding fails, use as-is
-    }
-    refs.add(normalized);
-  }
+  const siblings = entries.filter((entry) => entry.isFile && isMarkdownFileName(entry.name));
 
-  return refs;
+  const keys = new Set<string>();
+  let complete = true;
+
+  const paths = await Promise.all(siblings.map((entry) => join(docDir, entry.name)));
+
+  await mapWithConcurrency(paths, SIBLING_READ_CONCURRENCY, async (fullPath) => {
+    // The subject document's authoritative content is the caller's argument;
+    // the on-disk copy may be stale (unsaved edits) and would resurrect the
+    // very images the user just removed.
+    if (fullPath === documentPath) return;
+    const known = knownContents.get(fullPath);
+    if (known !== undefined) {
+      extractImageReferenceKeys(known).forEach((key) => keys.add(key));
+      return;
+    }
+    try {
+      const content = await readTextFile(fullPath);
+      extractImageReferenceKeys(content).forEach((key) => keys.add(key));
+    } catch (error) {
+      orphanCleanupError(` Failed to read sibling ${fullPath}:`, error);
+      complete = false;
+    }
+  });
+
+  return { keys, complete };
 }
 
 /**
- * Find orphaned images in the assets folder.
- * Returns images that exist in the folder but aren't referenced in the document.
+ * Find orphaned images in the assets folder: present on disk, referenced
+ * neither by `documentContent` nor by any sibling document sharing the folder.
  */
 export async function findOrphanedImages(
   documentPath: string,
-  documentContent: string
+  documentContent: string,
+  options: OrphanScanOptions = {}
 ): Promise<OrphanCleanupResult> {
+  const knownContents = options.knownContents ?? new Map<string, string>();
   const docDir = await dirname(documentPath);
   const assetsPath = await join(docDir, ASSETS_FOLDER);
 
-  // Check if assets folder exists
   const assetsExists = await exists(assetsPath);
-  if (!assetsExists) {
-    return { orphanedImages: [], referencedCount: 0, totalInFolder: 0 };
-  }
+  if (!assetsExists) return emptyResult();
 
-  // Read all files in assets folder
   const entries = await readDir(assetsPath);
-  const imageFiles = entries.filter(
-    (entry) => entry.isFile && isImageExtension(entry.name)
-  );
+  const imageFiles = entries.filter((entry) => entry.isFile && isImageFile(entry.name));
 
-  // Extract references from document
-  const refs = extractImageReferences(documentContent);
+  const refs = extractImageReferenceKeys(documentContent);
 
-  // Find orphans: images in folder but not in references
-  const orphanedImages: OrphanedImage[] = [];
+  const candidates: string[] = [];
   let referencedCount = 0;
 
   for (const entry of imageFiles) {
-    const filename = entry.name;
-    // Build the expected reference path
-    const refPath = `${ASSETS_FOLDER}/${filename}`;
-
-    if (refs.has(refPath)) {
+    if (refs.has(assetKey(`${ASSETS_FOLDER}/${entry.name}`))) {
       referencedCount++;
     } else {
-      orphanedImages.push({
-        filename,
-        fullPath: await join(assetsPath, filename),
-      });
+      candidates.push(entry.name);
     }
+  }
+
+  // Nothing to delete → no reason to pay for the sibling scan.
+  if (candidates.length === 0) {
+    return { ...emptyResult(), referencedCount, totalInFolder: imageFiles.length };
+  }
+
+  const siblings = await collectSiblingReferences(docDir, documentPath, knownContents);
+
+  const orphanedImages: OrphanedImage[] = [];
+  let sharedCount = 0;
+
+  for (const filename of candidates) {
+    // An incomplete scan means "we don't know" — keep the file. A stray image
+    // costs disk; a wrong delete costs a document's picture.
+    if (!siblings.complete || siblings.keys.has(assetKey(`${ASSETS_FOLDER}/${filename}`))) {
+      sharedCount++;
+      continue;
+    }
+    orphanedImages.push({ filename, fullPath: await join(assetsPath, filename) });
   }
 
   return {
     orphanedImages,
     referencedCount,
+    sharedCount,
     totalInFolder: imageFiles.length,
+    scanComplete: siblings.complete,
   };
 }
 
+/** Outcome of a delete pass — partial failure is normal (permissions, races). */
+export interface DeleteOutcome {
+  deleted: number;
+  /** Filenames that could not be removed. */
+  failed: string[];
+}
+
 /**
- * Delete orphaned images from the assets folder.
+ * Delete orphaned images from the assets folder. Never throws: a file that
+ * disappeared or is locked is reported, not escalated.
  */
-export async function deleteOrphanedImages(images: OrphanedImage[]): Promise<number> {
-  let deletedCount = 0;
+export async function deleteOrphanedImages(images: OrphanedImage[]): Promise<DeleteOutcome> {
+  let deleted = 0;
+  const failed: string[] = [];
 
   for (const image of images) {
     try {
       await remove(image.fullPath);
-      deletedCount++;
+      deleted++;
     } catch (error) {
       orphanCleanupError(` Failed to delete ${image.filename}:`, error);
+      failed.push(image.filename);
     }
   }
 
-  return deletedCount;
-}
-
-/**
- * Show orphan cleanup preview and optionally delete with confirmation.
- * Returns the number of deleted images, or -1 if cancelled/no orphans.
- *
- * @param documentPath - Path to the document file, or null if unsaved
- * @param documentContent - Document content to analyze, or null if document has unsaved changes
- * @param autoCleanupEnabled - Whether auto-cleanup on close is enabled
- */
-export async function runOrphanCleanup(
-  documentPath: string | null,
-  documentContent: string | null,
-  autoCleanupEnabled = false
-): Promise<number> {
-  if (!documentPath) {
-    await message(i18n.t("dialog:unsavedDocument.messageOrphanCheck"), {
-      title: i18n.t("dialog:unsavedDocument.title"),
-      kind: "warning",
-    });
-    return -1;
-  }
-
-  if (documentContent === null) {
-    await message(
-      i18n.t("dialog:unsavedDocument.messageOrphanCheckUnsaved"),
-      {
-        title: i18n.t("dialog:unsavedChanges.title"),
-        kind: "warning",
-      }
-    );
-    return -1;
-  }
-
-  // Find orphaned images
-  const result = await findOrphanedImages(documentPath, documentContent);
-
-  if (result.orphanedImages.length === 0) {
-    await message(
-      `No unused images found.\n\n` +
-        `Assets folder has ${result.totalInFolder} image(s), all are referenced in the document.`,
-      { title: "Image Status", kind: "info" }
-    );
-    return 0;
-  }
-
-  // Show list of orphans
-  const orphanList = result.orphanedImages
-    .slice(0, 10)
-    .map((img) => `• ${img.filename}`)
-    .join("\n");
-  const moreText =
-    result.orphanedImages.length > 10
-      ? `\n... and ${result.orphanedImages.length - 10} more`
-      : "";
-
-  const settingHint = autoCleanupEnabled
-    ? "\n\nThese will be automatically deleted when you close this document."
-    : "\n\nTip: Enable \"Clean up unused images on close\" in Settings → Images " +
-      "to automatically remove these when closing the document.";
-
-  const confirmed = await confirm(
-    `Found ${result.orphanedImages.length} unused image(s) not referenced in the document:\n\n` +
-      `${orphanList}${moreText}${settingHint}\n\n` +
-      `Delete these images now?`,
-    { title: "Unused Images", kind: "warning", okLabel: "Delete Now", cancelLabel: "Later" }
-  );
-
-  if (!confirmed) {
-    return -1;
-  }
-
-  // Delete orphaned images
-  const deletedCount = await deleteOrphanedImages(result.orphanedImages);
-
-  await message(`Deleted ${deletedCount} orphaned image(s).`, {
-    title: "Cleanup Complete",
-    kind: "info",
-  });
-
-  return deletedCount;
+  return { deleted, failed };
 }

@@ -1,207 +1,11 @@
 /**
- * Tests for orphanAssetCleanup module.
+ * Tests for the orphan asset scanner (async, mocked Tauri FS).
  *
- * extractImageReferences is a pure function — tested exhaustively.
- * Async functions (findOrphanedImages, deleteOrphanedImages, runOrphanCleanup)
- * are tested via mocked Tauri APIs from test/setup.ts.
+ * Reference parsing lives in utils/imageReferences.test.ts; the confirm-before-
+ * delete flow in orphanCleanupPrompt.test.ts.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { extractImageReferences } from "./orphanAssetCleanup";
-
-// ---- extractImageReferences (pure) ----
-
-describe("extractImageReferences", () => {
-  it("extracts standard markdown image paths", () => {
-    const content = "![alt](assets/images/test.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("extracts paths with ./ prefix and normalizes them", () => {
-    const content = "![alt](./assets/images/test.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("extracts paths with title attribute", () => {
-    const content = '![alt](./assets/images/test.png "Title")';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("extracts angle bracket syntax for paths with spaces", () => {
-    const content = "![alt](<./assets/images/my image.png>)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/my image.png")).toBe(true);
-  });
-
-  it("extracts URL-encoded paths and decodes them", () => {
-    const content = "![alt](./assets/images/my%20image.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/my image.png")).toBe(true);
-  });
-
-  it("extracts multiple images from content", () => {
-    const content = `
-# Document
-
-![first](./assets/images/first.png)
-
-Some text here.
-
-![second](./assets/images/second.jpg)
-
-More text.
-
-![third](./assets/images/third.gif)
-`;
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(3);
-    expect(refs.has("assets/images/first.png")).toBe(true);
-    expect(refs.has("assets/images/second.jpg")).toBe(true);
-    expect(refs.has("assets/images/third.gif")).toBe(true);
-  });
-
-  it("extracts HTML img tags", () => {
-    const content = '<img src="./assets/images/test.png" alt="test">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("extracts HTML img with single quotes", () => {
-    const content = "<img src='./assets/images/test.png' alt='test'>";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("handles mixed markdown and HTML images", () => {
-    const content = `
-![md](./assets/images/markdown.png)
-<img src="./assets/images/html.png">
-`;
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(2);
-    expect(refs.has("assets/images/markdown.png")).toBe(true);
-    expect(refs.has("assets/images/html.png")).toBe(true);
-  });
-
-  it("handles empty alt text", () => {
-    const content = "![](./assets/images/test.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/test.png")).toBe(true);
-  });
-
-  it("handles alt text with special characters", () => {
-    const content = "![image with [brackets] and (parens)](./assets/images/test.png)";
-    const refs = extractImageReferences(content);
-    // The bracket handling in the regex is simple, this tests actual behavior
-    expect(refs.size).toBeGreaterThanOrEqual(0);
-  });
-
-  it("returns empty set for content with no images", () => {
-    const content = "# Just text\n\nNo images here.";
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(0);
-  });
-
-  it("handles external URLs (should still extract)", () => {
-    const content = "![external](https://example.com/image.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("https://example.com/image.png")).toBe(true);
-  });
-
-  it("deduplicates repeated references", () => {
-    const content = `
-![first](./assets/images/same.png)
-![second](./assets/images/same.png)
-![third](./assets/images/same.png)
-`;
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(1);
-    expect(refs.has("assets/images/same.png")).toBe(true);
-  });
-
-  // ---- Additional edge cases for coverage ----
-
-  it("returns empty set for empty string", () => {
-    expect(extractImageReferences("").size).toBe(0);
-  });
-
-  it("handles path without ./ prefix (no normalization needed)", () => {
-    const content = "![alt](assets/photo.jpg)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/photo.jpg")).toBe(true);
-  });
-
-  it("handles CJK filenames in markdown images", () => {
-    const content = "![alt](./assets/images/\u622a\u56fe.png)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/\u622a\u56fe.png")).toBe(true);
-  });
-
-  it("handles CJK filenames in HTML img tags", () => {
-    const content = '<img src="./assets/images/\u622a\u56fe.png">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/\u622a\u56fe.png")).toBe(true);
-  });
-
-  it("handles URL-encoded CJK in img src", () => {
-    const content = '<img src="./assets/images/%E6%88%AA%E5%9B%BE.png">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/\u622a\u56fe.png")).toBe(true);
-  });
-
-  it("handles malformed percent encoding gracefully", () => {
-    const content = "![alt](./assets/images/%ZZ%invalid.png)";
-    const refs = extractImageReferences(content);
-    // decodeURIComponent fails, so raw string (with ./ stripped) is used
-    expect(refs.has("assets/images/%ZZ%invalid.png")).toBe(true);
-  });
-
-  it("handles malformed percent encoding in HTML img tags", () => {
-    const content = '<img src="./assets/images/%ZZ%bad.png">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/%ZZ%bad.png")).toBe(true);
-  });
-
-  it("handles img tag without ./ prefix", () => {
-    const content = '<img src="assets/images/direct.png">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/images/direct.png")).toBe(true);
-  });
-
-  it("handles multiple img tags on same line", () => {
-    const content = '<img src="a.png"><img src="b.png">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("a.png")).toBe(true);
-    expect(refs.has("b.png")).toBe(true);
-  });
-
-  it("handles img tag with extra attributes", () => {
-    const content = '<img width="100" src="./assets/photo.png" height="50" alt="pic">';
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/photo.png")).toBe(true);
-  });
-
-  it("handles angle bracket path without ./ prefix", () => {
-    const content = "![alt](<assets/my image.png>)";
-    const refs = extractImageReferences(content);
-    expect(refs.has("assets/my image.png")).toBe(true);
-  });
-
-  it("handles markdown link (not image) — should not extract", () => {
-    const content = "[click here](https://example.com)";
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(0);
-  });
-
-  it("handles content with only whitespace", () => {
-    const content = "   \n\n   \t  ";
-    const refs = extractImageReferences(content);
-    expect(refs.size).toBe(0);
-  });
-});
 
 // ---- findOrphanedImages (async, mocked FS) ----
 
@@ -219,7 +23,9 @@ describe("findOrphanedImages", () => {
     expect(result).toEqual({
       orphanedImages: [],
       referencedCount: 0,
+      sharedCount: 0,
       totalInFolder: 0,
+      scanComplete: true,
     });
   });
 
@@ -300,6 +106,163 @@ describe("findOrphanedImages", () => {
   });
 });
 
+// ---- sibling documents share one assets folder ----
+//
+// `assets/images` is resolved from the document's DIRECTORY, so every markdown
+// file in that directory references the same folder. Scanning only the closing
+// document would report a neighbour's images as orphans and delete them.
+
+const dirEntry = (name: string) => ({
+  name,
+  isFile: false,
+  isDirectory: true,
+  isSymlink: false,
+});
+const fileEntry = (name: string) => ({
+  name,
+  isFile: true,
+  isDirectory: false,
+  isSymlink: false,
+});
+
+/** Route readDir per directory: assets folder vs. the document's own folder. */
+function mockDirs(assets: string[], docDir: string[]) {
+  return async (path: string | URL) => {
+    const p = String(path);
+    return p.includes("assets")
+      ? assets.map(fileEntry)
+      : docDir.map((n) => (n.includes(".") ? fileEntry(n) : dirEntry(n)));
+  };
+}
+
+describe("findOrphanedImages — sibling documents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not orphan an image referenced by a sibling document", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["shared.png"], ["test.md", "neighbour.md", "assets"]) as never,
+    );
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/shared.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images here");
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.sharedCount).toBe(1);
+    expect(result.referencedCount).toBe(0);
+    expect(result.totalInFolder).toBe(1);
+  });
+
+  it("still deletes an image no document references", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["orphan.png"], ["test.md", "neighbour.md"]) as never,
+    );
+    vi.mocked(readTextFile).mockResolvedValue("nothing in here either");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images here");
+
+    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
+    expect(result.sharedCount).toBe(0);
+  });
+
+  it("never reads the closing document itself back off disk", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["orphan.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/orphan.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    // The caller's in-memory content is authoritative for THIS document — a
+    // stale on-disk copy must not resurrect an image the user just removed.
+    const result = await findOrphanedImages("/doc/test.md", "no images here");
+
+    expect(readTextFile).not.toHaveBeenCalled();
+    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
+  });
+
+  it("skips the sibling scan entirely when nothing is orphaned", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["used.png"], ["test.md", "neighbour.md"]) as never,
+    );
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "![](./assets/images/used.png)");
+
+    expect(readTextFile).not.toHaveBeenCalled();
+    expect(result.referencedCount).toBe(1);
+  });
+
+  it("ignores non-document siblings", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["orphan.png"], ["test.md", "notes.txt", "data.json"]) as never,
+    );
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/orphan.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images");
+
+    expect(readTextFile).not.toHaveBeenCalled();
+    expect(result.orphanedImages).toHaveLength(1);
+  });
+
+  it("keeps the image when ONE unreadable sibling makes the scan incomplete", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["maybe.png"], ["test.md", "locked.md"]) as never,
+    );
+    vi.mocked(readTextFile).mockRejectedValue(new Error("EACCES"));
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images");
+
+    // A sibling we could not read might reference it — deleting would be a guess.
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.sharedCount).toBe(1);
+  });
+
+  it("keeps the image when the sibling directory cannot be listed", async () => {
+    const { exists, readDir } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation((async (path: string | URL) => {
+      if (String(path).includes("assets")) return [fileEntry("maybe.png")];
+      throw new Error("EACCES");
+    }) as never);
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images");
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.sharedCount).toBe(1);
+  });
+
+  it("recognises every markdown extension as a sibling document", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["shared.png"], ["test.md", "a.MARKDOWN", "b.mdown", "c.mkd", "d.mdx"]) as never,
+    );
+    vi.mocked(readTextFile).mockImplementation((async (p: string) =>
+      String(p).endsWith("d.mdx") ? "![](./assets/images/shared.png)" : "") as never);
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images");
+
+    expect(result.orphanedImages).toEqual([]);
+  });
+});
+
 // ---- deleteOrphanedImages (async, mocked FS) ----
 
 describe("deleteOrphanedImages", () => {
@@ -307,26 +270,27 @@ describe("deleteOrphanedImages", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes all provided orphaned images and returns count", async () => {
+  it("deletes all provided orphaned images and reports the count", async () => {
     const { remove } = await import("@tauri-apps/plugin-fs");
     vi.mocked(remove).mockResolvedValue(undefined);
 
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
-    const count = await deleteOrphanedImages([
+    const outcome = await deleteOrphanedImages([
       { filename: "a.png", fullPath: "/doc/assets/images/a.png" },
       { filename: "b.png", fullPath: "/doc/assets/images/b.png" },
     ]);
-    expect(count).toBe(2);
+    expect(outcome).toEqual({ deleted: 2, failed: [] });
     expect(remove).toHaveBeenCalledTimes(2);
   });
 
-  it("returns 0 for empty array", async () => {
+  it("reports nothing for an empty array", async () => {
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
-    const count = await deleteOrphanedImages([]);
-    expect(count).toBe(0);
+    expect(await deleteOrphanedImages([])).toEqual({ deleted: 0, failed: [] });
   });
 
-  it("continues deleting when one file fails and counts successes", async () => {
+  // A locked or already-removed file must be NAMED, not folded into a success
+  // count — the prompt reports "Cleanup Complete" off this value.
+  it("names the files it could not delete and keeps going", async () => {
     const { remove } = await import("@tauri-apps/plugin-fs");
     vi.mocked(remove)
       .mockRejectedValueOnce(new Error("permission denied"))
@@ -335,145 +299,192 @@ describe("deleteOrphanedImages", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
 
-    const count = await deleteOrphanedImages([
+    const outcome = await deleteOrphanedImages([
       { filename: "fail.png", fullPath: "/fail.png" },
       { filename: "ok.png", fullPath: "/ok.png" },
     ]);
-    expect(count).toBe(1);
+    expect(outcome).toEqual({ deleted: 1, failed: ["fail.png"] });
     expect(consoleSpy).toHaveBeenCalledTimes(1);
+    consoleSpy.mockRestore();
+  });
+
+  it("reports every failure when nothing can be deleted", async () => {
+    const { remove } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(remove).mockRejectedValue(new Error("EACCES"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { deleteOrphanedImages } = await import("./orphanAssetCleanup");
+
+    const outcome = await deleteOrphanedImages([
+      { filename: "a.png", fullPath: "/a.png" },
+      { filename: "b.png", fullPath: "/b.png" },
+    ]);
+    expect(outcome).toEqual({ deleted: 0, failed: ["a.png", "b.png"] });
     consoleSpy.mockRestore();
   });
 });
 
-// ---- runOrphanCleanup (async, mocked dialogs) ----
+// ---- knownContents: an open sibling's UNSAVED buffer ----
+//
+// A tab that just pasted an image references it only in memory. Reading that
+// sibling from disk misses the reference, and closing another tab then deletes
+// the image out from under a document the user is still looking at.
 
-describe("runOrphanCleanup", () => {
+describe("findOrphanedImages — knownContents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns -1 and shows warning when documentPath is null", async () => {
-    const { message } = await import("@tauri-apps/plugin-dialog");
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    const result = await runOrphanCleanup(null, "content");
-    expect(result).toBe(-1);
-    expect(message).toHaveBeenCalledWith(
-      expect.stringContaining("save the document first"),
-      expect.objectContaining({ kind: "warning" }),
+  it("protects an image referenced only by an open sibling's unsaved buffer", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["pasted.png"], ["test.md", "neighbour.md"]) as never,
     );
+    // Disk copy of the neighbour predates the paste.
+    vi.mocked(readTextFile).mockResolvedValue("no images yet");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no images here", {
+      knownContents: new Map([["/doc/neighbour.md", "![](./assets/images/pasted.png)"]]),
+    });
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.sharedCount).toBe(1);
+    expect(readTextFile).not.toHaveBeenCalled(); // the buffer answered for it
   });
 
-  it("returns -1 and shows warning when documentContent is null", async () => {
-    const { message } = await import("@tauri-apps/plugin-dialog");
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    const result = await runOrphanCleanup("/doc/test.md", null);
-    expect(result).toBe(-1);
-    expect(message).toHaveBeenCalledWith(
-      expect.stringContaining("save your changes first"),
-      expect.objectContaining({ kind: "warning" }),
+  it("still deletes when the open sibling's buffer does not reference it either", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["orphan.png"], ["test.md", "neighbour.md"]) as never,
     );
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/orphan.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "", {
+      knownContents: new Map([["/doc/neighbour.md", "the paste was undone"]]),
+    });
+
+    // The buffer WINS over the stale disk copy — that reference is gone.
+    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
   });
 
-  it("returns 0 and shows info when no orphans found", async () => {
-    const { exists } = await import("@tauri-apps/plugin-fs");
-    const { message } = await import("@tauri-apps/plugin-dialog");
-    vi.mocked(exists).mockResolvedValue(false);
-
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    const result = await runOrphanCleanup("/doc/test.md", "content");
-    expect(result).toBe(0);
-    expect(message).toHaveBeenCalledWith(
-      expect.stringContaining("No unused images"),
-      expect.objectContaining({ kind: "info" }),
+  it("reads siblings from disk when no buffer is supplied for them", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["shared.png"], ["test.md", "a.md", "b.md"]) as never,
     );
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/shared.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "", {
+      knownContents: new Map([["/doc/a.md", "nothing"]]),
+    });
+
+    expect(vi.mocked(readTextFile).mock.calls.map((c) => c[0])).toEqual(["/doc/b.md"]);
+    expect(result.orphanedImages).toEqual([]);
+  });
+});
+
+// ---- scan completeness is reported, not silently folded in ----
+
+describe("findOrphanedImages — scanComplete", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("returns -1 when user cancels deletion", async () => {
+  it("is true for a scan that read everything", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["orphan.png"], ["test.md", "n.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    expect((await findOrphanedImages("/doc/test.md", "")).scanComplete).toBe(true);
+  });
+
+  it("is false when a sibling could not be read", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["maybe.png"], ["test.md", "n.md"]) as never);
+    vi.mocked(readTextFile).mockRejectedValue(new Error("EACCES"));
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "");
+    expect(result.scanComplete).toBe(false);
+    expect(result.orphanedImages).toEqual([]);
+  });
+
+  it("is true when there is nothing to delete (no sibling scan needed)", async () => {
     const { exists, readDir } = await import("@tauri-apps/plugin-fs");
-    const { confirm } = await import("@tauri-apps/plugin-dialog");
     vi.mocked(exists).mockResolvedValue(true);
-    vi.mocked(readDir).mockResolvedValue([
-      { name: "orphan.png", isFile: true, isDirectory: false, isSymlink: false },
-    ]);
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(readDir).mockImplementation(mockDirs(["used.png"], ["test.md"]) as never);
 
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    const result = await runOrphanCleanup("/doc/test.md", "no images here");
-    expect(result).toBe(-1);
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "![](./assets/images/used.png)");
+    expect(result.scanComplete).toBe(true);
+  });
+});
+
+// ---- matching rules that gate deletion ----
+
+describe("findOrphanedImages — reference matching", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("deletes orphans and returns count on confirmation", async () => {
-    const { exists, readDir, remove } = await import("@tauri-apps/plugin-fs");
-    const { confirm, message } = await import("@tauri-apps/plugin-dialog");
-    vi.mocked(exists).mockResolvedValue(true);
-    vi.mocked(readDir).mockResolvedValue([
-      { name: "orphan1.png", isFile: true, isDirectory: false, isSymlink: false },
-      { name: "orphan2.jpg", isFile: true, isDirectory: false, isSymlink: false },
-    ]);
-    vi.mocked(confirm).mockResolvedValue(true);
-    vi.mocked(remove).mockResolvedValue(undefined);
-
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    const result = await runOrphanCleanup("/doc/test.md", "no images");
-    expect(result).toBe(2);
-    expect(message).toHaveBeenCalledWith(
-      expect.stringContaining("Deleted 2"),
-      expect.objectContaining({ kind: "info" }),
-    );
-  });
-
-  it("shows more text for more than 10 orphans", async () => {
+  it.each([
+    ["![](./assets/images/Photo.PNG)", "case differs from disk"],
+    ["![](./assets/images/photo.png?v=2)", "cache-busting query"],
+    ["![](./assets/images/photo.png#top)", "fragment"],
+    ["![](assets%2Fimages%2Fphoto.png)", "percent-encoded separators"],
+    ["![alt][p]\n\n[p]: ./assets/images/photo.png", "reference-style image"],
+  ])("keeps photo.png when referenced with a %s", async (content) => {
     const { exists, readDir } = await import("@tauri-apps/plugin-fs");
-    const { confirm } = await import("@tauri-apps/plugin-dialog");
-    const entries = Array.from({ length: 12 }, (_, i) => ({
-      name: `img${i}.png`,
-      isFile: true,
-      isDirectory: false,
-      isSymlink: false,
-    }));
     vi.mocked(exists).mockResolvedValue(true);
-    vi.mocked(readDir).mockResolvedValue(entries);
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(readDir).mockImplementation(mockDirs(["photo.png"], ["test.md"]) as never);
 
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    await runOrphanCleanup("/doc/test.md", "no images");
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("and 2 more"),
-      expect.anything(),
-    );
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", content);
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.referencedCount).toBe(1);
   });
 
-  it("shows auto-cleanup hint when autoCleanupEnabled is true", async () => {
-    const { exists, readDir } = await import("@tauri-apps/plugin-fs");
-    const { confirm } = await import("@tauri-apps/plugin-dialog");
+  it("does not confuse a same-named file in a different folder", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(exists).mockResolvedValue(true);
-    vi.mocked(readDir).mockResolvedValue([
-      { name: "orphan.png", isFile: true, isDirectory: false, isSymlink: false },
-    ]);
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(readDir).mockImplementation(mockDirs(["photo.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("");
 
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    await runOrphanCleanup("/doc/test.md", "no images", true);
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("automatically deleted"),
-      expect.anything(),
-    );
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "![](./elsewhere/photo.png)");
+    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["photo.png"]);
   });
 
-  it("shows tip hint when autoCleanupEnabled is false", async () => {
-    const { exists, readDir } = await import("@tauri-apps/plugin-fs");
-    const { confirm } = await import("@tauri-apps/plugin-dialog");
+  it("bounds sibling reads instead of opening every file at once", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    const siblings = Array.from({ length: 40 }, (_, i) => `n${i}.md`);
     vi.mocked(exists).mockResolvedValue(true);
-    vi.mocked(readDir).mockResolvedValue([
-      { name: "orphan.png", isFile: true, isDirectory: false, isSymlink: false },
-    ]);
-    vi.mocked(confirm).mockResolvedValue(false);
-
-    const { runOrphanCleanup } = await import("./orphanAssetCleanup");
-    await runOrphanCleanup("/doc/test.md", "no images", false);
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("Tip:"),
-      expect.anything(),
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["orphan.png"], ["test.md", ...siblings]) as never,
     );
+
+    let inFlight = 0;
+    let peak = 0;
+    vi.mocked(readTextFile).mockImplementation((async () => {
+      peak = Math.max(peak, ++inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return "";
+    }) as never);
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "");
+
+    expect(readTextFile).toHaveBeenCalledTimes(40);
+    expect(peak).toBeLessThanOrEqual(8);
+    expect(result.orphanedImages).toHaveLength(1);
   });
 });

@@ -27,9 +27,12 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 const mockCloseTabWithDirtyCheck = vi.fn(
   (_windowLabel: string, _tabId: string) => Promise.resolve(true)
 );
+const mockCleanupOrphansForClosingTabs = vi.fn((_tabIds: string[]) => Promise.resolve());
 vi.mock("@/hooks/useTabOperations", () => ({
   closeTabWithDirtyCheck: (windowLabel: string, tabId: string) =>
     mockCloseTabWithDirtyCheck(windowLabel, tabId),
+  cleanupOrphansForClosingTabs: (tabIds: string[]) =>
+    mockCleanupOrphansForClosingTabs(tabIds),
 }));
 
 const mockPromptSaveForDirtyDocument = vi.fn();
@@ -691,5 +694,98 @@ describe("useWindowClose — dirtyContexts filter when doc becomes clean (line 1
     // dirtyContexts should be empty after filtering null, so promptSaveForMultipleDocuments
     // is called with empty array (or single-doc prompt is not called)
     expect(mockPromptSaveForDirtyDocument).not.toHaveBeenCalled();
+  });
+});
+
+// #1179 — the auto-cleanup setting did nothing when the app was quit or the
+// window closed from the traffic light: handleCloseRequest tore every document
+// down without ever consulting it. Cmd+W (menu:close) delegates to
+// closeTabWithDirtyCheck, which owns cleanup for that path.
+describe("useWindowClose — orphan image cleanup", () => {
+  beforeEach(() => {
+    listeners.clear();
+    resetStores();
+    vi.clearAllMocks();
+    vi.mocked(invoke).mockResolvedValue(undefined);
+  });
+
+  async function renderAndFire(event: string) {
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has(event)).toBe(true));
+    await act(async () => {
+      await listeners.get(event)!({ payload: WINDOW });
+    });
+  }
+
+  it("cleans up orphans for every tab before closing a window with no dirty docs", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    const b = useTabStore.getState().createTab(WINDOW, "/tmp/b.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    useDocumentStore.getState().initDocument(b, "B", "/tmp/b.md");
+
+    await renderAndFire("window:close-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([a, b]);
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
+  });
+
+  it("cleans up after the save prompt resolves, so it scans the saved content", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
+    useDocumentStore.getState().setContent(tabId, "modified");
+
+    const order: string[] = [];
+    mockPromptSaveForDirtyDocument.mockImplementation(async () => {
+      order.push("prompt");
+      return { action: "saved" };
+    });
+    mockCleanupOrphansForClosingTabs.mockImplementation(async () => {
+      order.push("cleanup");
+    });
+
+    await renderAndFire("window:close-requested");
+
+    expect(order).toEqual(["prompt", "cleanup"]);
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([tabId]);
+  });
+
+  it("cleans up on app quit", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "A", "/tmp/a.md");
+
+    await renderAndFire("app:quit-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([tabId]);
+  });
+
+  it("cleans up BEFORE the documents are dropped from the store", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "A", "/tmp/a.md");
+
+    let docStillPresent: boolean | null = null;
+    mockCleanupOrphansForClosingTabs.mockImplementation(async () => {
+      docStillPresent = Boolean(useDocumentStore.getState().getDocument(tabId));
+    });
+
+    await renderAndFire("window:close-requested");
+
+    // Cleanup reads the document's content and path — running it after
+    // removeDocument would leave it with nothing to scan.
+    expect(docStillPresent).toBe(true);
+  });
+
+  it("does not clean up when the user cancels the close", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
+    useDocumentStore.getState().setContent(tabId, "modified");
+
+    mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
+
+    await renderAndFire("window:close-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("close_window", expect.anything());
   });
 });
