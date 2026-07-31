@@ -18,6 +18,8 @@
  *   - `insertCodeBlock` fences the block's CONTENT, not its markup: `### Title`
  *     yields a fence containing `Title`. An enclosing blockquote stays OUTSIDE
  *     the fence, because a block converted inside a quote is still inside it.
+ *   - It is a TOGGLE: inside a fence it UNFENCES. It is the only action the
+ *     executor still permits in a code block, so it has to be the way out.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
  * @coordinates-with sourceBlockPlacement.ts — the placement helpers
