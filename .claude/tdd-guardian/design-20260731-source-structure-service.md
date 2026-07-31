@@ -94,6 +94,31 @@ for the worker; this needs its own, under `dev-docs/grills/source-structure/`:
 
 Only after those does this material become work items again.
 
+## Carried in from the audit (2026-08-01): the fence-parser remainder
+
+The audit's one PARTIAL finding (`lineContent.ts:176`) lands here. Three fence
+parsers became two: `multiSelectionContext` now resolves through the shared
+scanner, and `codeFenceDetection`'s delimiter grammar is aligned and pinned by
+a DRIFT GATE (`sourceContextDetection/__tests__/fenceGrammarAgreement.test.ts`)
+that asserts agreement where the grammars must agree and pins both sides of
+every deliberate divergence.
+
+What remains is a POSITIONAL-INFO ADAPTER over `fenceRanges` so
+`codeFenceDetection` can drop its own traversal:
+
+- [ ] expose language token + `fenceStartPos`/`languageStartPos`/`languageEndPos`
+      from the shared scanner's opener line;
+- [ ] reproduce the opener-inclusion semantics detection's consumers rely on
+      (closed fence: opener and closer inside; UNCLOSED fence: opener outside,
+      so autoPair is not suppressed while the fence is being typed);
+- [ ] decide the deep-indent question: detection accepts 4+-space openers so
+      list-nested fences keep their guard, the shared scanner rejects them as
+      indented code — the structure index makes the list context visible and
+      dissolves the ambiguity;
+- [ ] close the REAL gap the drift gate documents: quoted and list-item fences
+      are invisible to `codeFenceDetection`, so cursor-context guards do not
+      engage inside them. The gate's divergence pins flip when this lands.
+
 ## Prior art in this repo
 
 - `.claude/tdd-guardian/plan-20260731-113906.md` — Phase 0's WI-0.1 holds the

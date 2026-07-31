@@ -1,7 +1,7 @@
 /**
  * List toggle strategy tests — the heading-to-list single-transaction path.
  *
- * The strategy split itself is pinned by the nodeActions and headingToList
+ * The strategy split itself is pinned by the nodeActions and nodeActions.headingToList
  * suites (delegation, range conversion, task lists, toggle-off). This file
  * covers what those cannot: that flattening a heading and wrapping it in a
  * list is ONE dispatched transaction — one undo step — and that a failed wrap
