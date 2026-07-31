@@ -15,9 +15,13 @@ const testSchema = new Schema({
 });
 
 /**
- * A line cannot be a heading AND a list item, so converting one to the other has
- * to drop the heading. Source mode already did (`### Title` -> `- Title`);
- * WYSIWYG's `wrapInList` simply refused on a heading and the button did nothing.
+ * nodeActions' heading-to-list conversion, end to end.
+ *
+ * A line cannot be a heading AND a list item, so converting one to the other
+ * has to drop the heading. Source mode already did (`### Title` -> `- Title`);
+ * WYSIWYG's `wrapInList` simply refused on a heading and the button did
+ * nothing. The flattening now lives inside `listToggle.ts` on ONE transaction;
+ * the standalone `headingToList.ts` module this file was named after is gone.
  */
 describe("list conversion from a heading", () => {
   function headingView(text: string) {
@@ -56,28 +60,5 @@ describe("list conversion from a heading", () => {
       if (n.type.name === "heading") hasHeading = true;
     });
     expect(hasHeading).toBe(false);
-  });
-});
-
-describe("flattenHeadingForList guards", () => {
-  it("declines when the schema has no paragraph type", async () => {
-    const { flattenHeadingForList } = await import("./headingToList");
-    const noParagraph = new Schema({
-      nodes: { doc: { content: "heading+" }, heading: { content: "text*" }, text: {} },
-    });
-    const state = EditorState.create({
-      doc: noParagraph.node("doc", null, [noParagraph.node("heading", null, [noParagraph.text("x")])]),
-    });
-    const view = { state, dispatch: vi.fn(), focus: vi.fn() } as unknown as import("@tiptap/pm/view").EditorView;
-    expect(flattenHeadingForList(view)).toBeNull();
-  });
-
-  it("declines when the cursor is not in a heading", async () => {
-    const { flattenHeadingForList } = await import("./headingToList");
-    const state = EditorState.create({
-      doc: testSchema.node("doc", null, [testSchema.node("paragraph", null, [testSchema.text("x")])]),
-    });
-    const view = { state, dispatch: vi.fn(), focus: vi.fn() } as unknown as import("@tiptap/pm/view").EditorView;
-    expect(flattenHeadingForList(view)).toBeNull();
   });
 });
