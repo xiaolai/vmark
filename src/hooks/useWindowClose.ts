@@ -7,7 +7,8 @@
  *
  * Pipeline (window close): Traffic light / Cmd+Q → Tauri close-requested →
  *   this hook → check dirty tabs → promptSaveForMultipleDocuments() →
- *   persist workspace session → allow close or cancel
+ *   orphan-image cleanup → drop documents → persist workspace session →
+ *   allow close or cancel
  *
  * Pipeline (menu close): Cmd+W menu accelerator → menu:close event →
  *   closeTabWithDirtyCheck (active tab). When the window is already empty
@@ -20,6 +21,8 @@
  *     closing — honors the same "keep this around" signal that tab close
  *     (Cmd+W) already enforces. Skipped when dirty docs trigger the save
  *     dialog (that dialog already interrupts intent).
+ *   - Runs orphan-image cleanup for every closing tab, after the save prompts
+ *     resolve and before the documents are dropped (#1179)
  *   - Persists workspace session (open tabs) before closing
  *   - Dev-only closeLog for debugging window close race conditions
  *
@@ -44,7 +47,10 @@ import {
   promptSaveForMultipleDocuments,
   type CloseSaveContext,
 } from "@/hooks/closeSave";
-import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import {
+  closeTabWithDirtyCheck,
+  cleanupOrphansForClosingTabs,
+} from "@/hooks/useTabOperations";
 import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug";
 
@@ -62,6 +68,33 @@ const closeLog = import.meta.env.DEV
     }
   : () => {};
 /* v8 ignore stop */
+
+/**
+ * Everything that happens once the close is confirmed: orphan-image cleanup,
+ * store teardown, session persistence, and the native close.
+ *
+ * ONE definition, because the clean and dirty branches ran their own copies of
+ * this sequence and had already drifted apart — the cleanup step is exactly the
+ * kind of thing that lands in one copy and not the other.
+ *
+ * Order is load-bearing: cleanup needs each document's path and final content,
+ * so it must run BEFORE removeDocument.
+ */
+async function finalizeWindowClose(
+  windowLabel: string,
+  tabIds: string[],
+  log: (label: string, ...args: unknown[]) => void,
+): Promise<true> {
+  await cleanupOrphansForClosingTabs(tabIds);
+  tabIds.forEach((id) => useDocumentStore.getState().removeDocument(id));
+  await persistWorkspaceSession(windowLabel);
+  useTabStore.getState().removeWindow(windowLabel);
+  usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
+  log(windowLabel, "invoking close_window with label:", windowLabel);
+  await invoke("close_window", { label: windowLabel });
+  log(windowLabel, "close_window returned");
+  return true;
+}
 
 /**
  * Handle window and tab close events with save confirmation.
@@ -134,14 +167,7 @@ export function useWindowClose() {
           }
         }
         closeLog(windowLabel, "no dirty tabs, closing window");
-        tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
-        await persistWorkspaceSession(windowLabel);
-        useTabStore.getState().removeWindow(windowLabel);
-      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
-        closeLog(windowLabel, "invoking close_window with label:", windowLabel);
-        await invoke("close_window", { label: windowLabel });
-        closeLog(windowLabel, "close_window returned");
-        return true;
+        return await finalizeWindowClose(windowLabel, tabs.map((t) => t.id), closeLog);
       }
 
       // Build contexts for dirty documents
@@ -174,12 +200,7 @@ export function useWindowClose() {
       }
 
       // All dirty tabs handled - close the window
-      tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
-      await persistWorkspaceSession(windowLabel);
-      useTabStore.getState().removeWindow(windowLabel);
-      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
-      await invoke("close_window", { label: windowLabel });
-      return true;
+      return await finalizeWindowClose(windowLabel, tabs.map((t) => t.id), closeLog);
     } catch (error) {
       windowCloseError("Failed to close window:", error);
       return false;

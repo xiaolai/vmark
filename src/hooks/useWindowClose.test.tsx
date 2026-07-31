@@ -23,6 +23,7 @@ const mockCloseTabWithDirtyCheck = vi.fn(
 vi.mock("@/hooks/useTabOperations", () => ({
   closeTabWithDirtyCheck: (windowLabel: string, tabId: string) =>
     mockCloseTabWithDirtyCheck(windowLabel, tabId),
+  cleanupOrphansForClosingTabs: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/hooks/closeSave", () => ({
