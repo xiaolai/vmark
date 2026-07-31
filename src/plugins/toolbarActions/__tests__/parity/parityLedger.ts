@@ -5,9 +5,11 @@
  * and Source mode, with what each surface does and an assessment of which is
  * wrong.
  *
- * THE LEDGER IS EMPTY. Every one of the 64 compared actions now produces the
- * same document in both surfaces, across all nine fixtures and both selection
- * shapes. It started at 31 declared divergences across 9 root causes.
+ * THE LEDGER IS EMPTY. Every compared action now produces the same document in
+ * both surfaces — 67 entries in `COVERED_ACTIONS`, of which 64 are shared switch
+ * labels and 3 are dynamic heading levels — across every applicable fixture and
+ * both selection shapes. It started at 31 declared divergences across 9 root
+ * causes.
  *
  * An empty ledger is not the end of the mechanism, it is the point of it: with
  * `MAX_PARITY_DIVERGENCES` at 0, the NEXT divergence cannot be declared away. It

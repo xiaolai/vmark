@@ -14,7 +14,7 @@ import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsS
 import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
-import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
+import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 import { normalizeLineEndings, resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getSourceBlockRange } from "@/utils/sourceSelection";
 
@@ -48,7 +48,7 @@ export function handleFormatCJK(view: EditorView): boolean {
     // name a region to fix rather than the exact text to rewrite.
     const doc = view.state.doc;
     const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
-    const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
+    const span = selectionBlockSpan(all, from, to, (offset) => doc.lineAt(offset).number);
     const blockFrom = doc.line(span.start + 1).from;
     const blockTo = doc.line(span.end + 1).to;
 

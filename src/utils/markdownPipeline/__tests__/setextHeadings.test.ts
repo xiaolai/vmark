@@ -79,3 +79,51 @@ describe("the empty-nested-list-item protection still applies", () => {
     expect(blocks("Title\n=====\n\n- item\n  -\n")).not.toContain("heading(1)");
   });
 });
+
+describe("setext protection is scoped to real ambiguity", () => {
+  it("does not disable setext headings for a marker inside a fenced code block", () => {
+    // `  -` in a code sample is literal text. Treating it as an ambiguous
+    // underline disabled setext parsing document-wide, so this real heading
+    // silently became a paragraph.
+    const md = ["```yaml", "list:", "  -", "```", "", "Real Heading", "-----------", ""].join("\n");
+    const doc = parseMarkdown(getProductionSchema(), md);
+    const types: string[] = [];
+    doc.descendants((n) => {
+      types.push(n.type.name);
+    });
+    expect(types).toContain("heading");
+  });
+
+  it("still disables setext when the ambiguous marker is real", () => {
+    const md = ["Paragraph", "  -", ""].join("\n");
+    const doc = parseMarkdown(getProductionSchema(), md);
+    let sawHeading = false;
+    doc.descendants((n) => {
+      if (n.type.name === "heading") sawHeading = true;
+    });
+    expect(sawHeading).toBe(false);
+  });
+});
+
+describe("fence stripping recognises valid closing fences", () => {
+  it("still sees ambiguity after a fence closed by a LONGER run", () => {
+    // CommonMark lets a 3-backtick block close with 4+. Matching repetitions of
+    // the whole opener missed that, so the strip ran to end-of-input and hid
+    // the real ambiguous marker below.
+    const md = ["```", "code", "````", "", "Para", "  -", ""].join("\n");
+    const doc = parseMarkdown(getProductionSchema(), md);
+    let sawHeading = false;
+    doc.descendants((n) => {
+      if (n.type.name === "heading") sawHeading = true;
+    });
+    expect(sawHeading).toBe(false); // protection still applies — ambiguity was seen
+  });
+
+  it("does not let a tilde run close a backtick fence", () => {
+    const md = ["```", "~~~", "  -", "```", "", "Real Heading", "-----------", ""].join("\n");
+    const doc = parseMarkdown(getProductionSchema(), md);
+    const types: string[] = [];
+    doc.descendants((n) => types.push(n.type.name));
+    expect(types).toContain("heading");
+  });
+});

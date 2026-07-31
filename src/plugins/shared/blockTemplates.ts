@@ -30,7 +30,13 @@
  */
 import i18n from "@/i18n";
 
-/** Shape of a freshly inserted table. `rows` counts body rows, header excluded. */
+/**
+ * Shape of a freshly inserted table.
+ *
+ * `rows` is the TOTAL row count including the header, which is Tiptap's
+ * `insertTable` semantics — the markdown renderer below matches it rather than
+ * the other way round, so the two surfaces cannot describe different tables.
+ */
 export const NEW_TABLE = { rows: 2, cols: 2, withHeaderRow: true } as const;
 
 /** A freshly inserted `<details>` starts expanded. */
@@ -63,12 +69,22 @@ export function newDetailsSummary(): string {
  * raw HTML rather than markdown.
  */
 export function newDetailsMarkdown(selection: string): string {
-  const open = NEW_DETAILS_OPEN ? "<details open>" : "<details>";
-  return `${open}\n<summary>${newDetailsSummary()}</summary>\n\n${selection}\n</details>`;
+  return `${detailsPrefix()}${selection}\n</details>`;
 }
 
 /** Caret offset that lands inside the details body, after the summary line. */
 export function newDetailsCursorOffset(): number {
-  return `${NEW_DETAILS_OPEN ? "<details open>" : "<details>"}\n<summary>${newDetailsSummary()}</summary>\n\n`
-    .length;
+  return detailsPrefix().length;
+}
+
+/**
+ * Everything before the body: opening tag, summary line, and the blank line.
+ *
+ * Built once and shared, because the offset and the text MUST agree. Spelling
+ * the same prefix out twice meant a template edit in one of them would move the
+ * caret to the wrong place with nothing to catch it.
+ */
+function detailsPrefix(): string {
+  const open = NEW_DETAILS_OPEN ? "<details open>" : "<details>";
+  return `${open}\n<summary>${newDetailsSummary()}</summary>\n\n`;
 }

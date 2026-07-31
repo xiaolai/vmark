@@ -12,8 +12,23 @@
  * @module plugins/toolbarActions/__tests__/parity/parityFixtures
  */
 
-/** Documents chosen so block actions start from different existing structures. */
-export const DOCS: Array<{ label: string; markdown: string; needle: string }> = [
+/**
+ * Documents chosen so block actions start from different existing structures.
+ *
+ * `onlyFor` restricts a fixture to named actions. It exists because a fixture is
+ * only valid for an action if BOTH surfaces start from the same document, and
+ * WYSIWYG canonicalises whitespace when it parses — trailing spaces go, blank
+ * runs collapse. A deliberately untidy document is therefore a different
+ * document in the two surfaces, and every action that echoes raw text
+ * "diverges" for a reason that has nothing to do with the action. Scoping it to
+ * the whitespace actions measures them without that noise.
+ */
+export const DOCS: Array<{
+  label: string;
+  markdown: string;
+  needle: string;
+  onlyFor?: string[];
+}> = [
   { label: "paragraph", markdown: "The quick brown fox\n", needle: "brown" },
   { label: "heading-h3", markdown: "### The quick brown fox\n", needle: "brown" },
   { label: "list-item", markdown: "- The quick brown fox\n", needle: "brown" },
@@ -33,6 +48,25 @@ export const DOCS: Array<{ label: string; markdown: string; needle: string }> = 
   { label: "multi-para", markdown: "First para\n\nSecond brown para\n\nThird para\n", needle: "brown" },
   { label: "multi-item-list", markdown: "- one\n- two brown\n- three\n", needle: "brown" },
   { label: "nested-list", markdown: "- outer\n  - inner brown\n- last\n", needle: "brown" },
+
+  // Whitespace actions were "covered" while proving NOTHING: every fixture above
+  // is already clean, so `removeTrailingSpaces`, `collapseBlankLines` and
+  // `removeBlankLines` were mutual no-ops in both surfaces and compared equal by
+  // construction. A gate that cannot tell agreement from two no-ops is not
+  // measuring those actions.
+  //
+  // NOT added here: a CRLF fixture. It belongs, and it immediately shows a real
+  // divergence — WYSIWYG round-trips `\r\n` while Source normalises to `\n`, so
+  // EVERY action disagrees on a CRLF document. That is a line-ending policy
+  // decision in the pipeline, not a toolbar-action defect, and folding ~60
+  // divergences into this gate would bury the thing it measures. Tracked as its
+  // own work; `lineEndingsLF`/`lineEndingsCRLF` stay unverified until then.
+  {
+    label: "untidy",
+    markdown: "First brown para   \n\n\n\nSecond para\t\n\n\n\nThird para  \n",
+    needle: "brown",
+    onlyFor: ["removeTrailingSpaces", "collapseBlankLines", "removeBlankLines"],
+  },
 ];
 
 /**
@@ -116,7 +150,7 @@ export const UNCOVERED_ACTIONS: Record<string, string> = {
 /**
  * Ceiling on shared actions left uncompared.
  *
- * 20 of 83 is the standing gap after the first coverage pass took the compared
+ * 19 of 83 is the standing gap after the first coverage pass took the compared
  * set from 33 to 63. Ratchets DOWN only: cover an action, delete its entry, lower
  * this number. Never raise it — a new uncompared action means the harness fell
  * behind the adapters, which the contract test exists to catch.

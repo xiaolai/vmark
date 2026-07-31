@@ -104,6 +104,29 @@ export interface ContentAnalysis {
  */
 const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/m;
 
+/** Fenced code regions, whose contents are literal text and not list markers. */
+// Matches on the fence CHARACTER, not the whole opening run. `\1+` meant
+// "repetitions of the entire opener", so a valid four-backtick closer after a
+// three-backtick opener was not recognised and the match ran to end-of-input —
+// swallowing the rest of the document and hiding genuine ambiguity after it.
+// A closer shorter than its opener is accepted here, which can end the strip
+// early; that errs toward DETECTING ambiguity, the safe direction.
+// `(?![\s\S])` is end-of-INPUT — plain `$` under the `m` flag means end of line.
+const FENCED_CODE = /^[ \t]*([`~])\1{2,}[^\n]*\n[\s\S]*?(?:^[ \t]*\1{3,}[ \t]*$|(?![\s\S]))/gm;
+
+/**
+ * Whether the document contains the ambiguous shape, OUTSIDE fenced code.
+ *
+ * The bare regex matches a lone indented marker anywhere — including inside a
+ * fenced block, where `  -` is just a character in a code sample. One such line
+ * used to disable setext headings for the WHOLE document, so a real `Title` /
+ * `-----` heading elsewhere in the same file silently parsed as a paragraph and
+ * could be rewritten on save.
+ */
+function hasAmbiguousListUnderline(markdown: string): boolean {
+  return AMBIGUOUS_LIST_UNDERLINE.test(markdown.replace(FENCED_CODE, ""));
+}
+
 /**
  * Analyze markdown content to determine which plugins are needed.
  * This enables lazy loading of plugins for better performance.
@@ -117,7 +140,9 @@ export function analyzeContent(markdown: string): ContentAnalysis {
     // Wiki links: look for [[
     hasWikiLinks: markdown.includes("[["),
     // Details block: look for <details pattern
-    hasDetails: markdown.includes("<details"),
-    hasAmbiguousListUnderline: AMBIGUOUS_LIST_UNDERLINE.test(markdown),
+    // Case-insensitive: the details plugin accepts `<DETAILS>` and `<Details>`,
+    // so a case-sensitive probe left those parsing as raw HTML instead.
+    hasDetails: /<details(?:[\s>]|$)/i.test(markdown),
+    hasAmbiguousListUnderline: hasAmbiguousListUnderline(markdown),
   };
 }

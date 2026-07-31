@@ -9,7 +9,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { isBlockquoteLine } from "./blockquoteDetection";
-import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
+import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 
 // Pattern to extract blockquote parts (indent, content)
 const BLOCKQUOTE_PATTERN = /^(\s*)>\s?(.*)$/;
@@ -30,7 +30,7 @@ export function toggleBlockquote(view: EditorView): void {
   // there was one. WYSIWYG wraps the enclosing list as a unit; `blockSpan` is
   // the shared rule.
   const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
-  const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
+  const span = selectionBlockSpan(all, from, to, (offset) => doc.lineAt(offset).number);
   const startLine = doc.line(span.start + 1);
   const endLine = doc.line(span.end + 1);
 
@@ -63,10 +63,16 @@ export function toggleBlockquote(view: EditorView): void {
       }
     }
   } else {
-    // Add blockquote prefix - filter out empty lines for compact output
+    // Add blockquote prefix. `blockSpan` never widens across a blank line, so a
+    // span is either one block of non-blank lines or a single blank line — and
+    // that blank case used to filter down to nothing and dispatch NO edit, so
+    // the button was silently dead on an empty line. It now opens an empty quote.
     const nonEmptyLines = lines.filter((l) => l.text.trim() !== "");
 
-    if (nonEmptyLines.length > 0) {
+    if (nonEmptyLines.length === 0) {
+      const only = lines[0];
+      if (only) changes.push({ from: only.from, to: only.to, insert: "> " });
+    } else {
       // Calculate the range to replace (from first non-empty to last non-empty)
       const firstLine = nonEmptyLines[0];
       const lastLine = nonEmptyLines[nonEmptyLines.length - 1];

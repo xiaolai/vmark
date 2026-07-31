@@ -22,6 +22,7 @@
  */
 
 import { InputRule, Node } from "@tiptap/core";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
@@ -40,6 +41,19 @@ declare module "@tiptap/core" {
       insertDetailsBlock: () => ReturnType;
     };
   }
+}
+
+/**
+ * Offset from a details node's start to the first position inside its BODY.
+ *
+ * One definition for all three paths — wrapping, plain insertion, and the input
+ * rule. It was spelled out separately in each, and the wrapping path simply
+ * omitted it, so wrapping a selection left the caret in the summary where typing
+ * renamed the disclosure instead of editing the content.
+ */
+export function detailsBodyCaretOffset(details: PMNode): number {
+  /* v8 ignore next -- @preserve null-coalesce: a details node always has a summary firstChild */
+  return 1 + (details.firstChild?.nodeSize ?? 0) + 1;
 }
 
 function createDetailsBlockNode(state: EditorState, open: boolean) {
@@ -115,11 +129,14 @@ export const detailsBlockExtension = Node.create({
           const summaryType = state.schema.nodes.detailsSummary;
           const wrapping =
             detailsType && summaryType
-              ? wrapSpannedBlocks(state, (content) =>
-                  detailsType.create({ open: NEW_DETAILS_OPEN }, [
-                    summaryType.create(null, state.schema.text(newDetailsSummary())),
-                    ...content.content,
-                  ]),
+              ? wrapSpannedBlocks(
+                  state,
+                  (content) =>
+                    detailsType.create({ open: NEW_DETAILS_OPEN }, [
+                      summaryType.create(null, state.schema.text(newDetailsSummary())),
+                      ...content.content,
+                    ]),
+                  detailsBodyCaretOffset,
                 )
               : null;
           if (wrapping) {
@@ -135,9 +152,9 @@ export const detailsBlockExtension = Node.create({
           if (!dispatch) return true;
 
           const tr = state.tr.insert(insertPos, detailsNode);
-          /* v8 ignore next -- @preserve null-coalesce: detailsNode always has a firstChild (summaryNode), nullish branch unreachable */
-          const summarySize = detailsNode.firstChild?.nodeSize ?? 0;
-          tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1 + summarySize + 1)));
+          tr.setSelection(
+            TextSelection.near(tr.doc.resolve(insertPos + detailsBodyCaretOffset(detailsNode))),
+          );
           dispatch(tr.scrollIntoView());
           return true;
         },
@@ -157,9 +174,7 @@ export const detailsBlockExtension = Node.create({
           const paragraphEnd = $start.after($start.depth);
 
           commands.insertContentAt({ from: paragraphStart, to: paragraphEnd }, detailsNode);
-          /* v8 ignore next -- @preserve null-coalesce: detailsNode always has a firstChild (summaryNode), nullish branch unreachable */
-          const summarySize = detailsNode.firstChild?.nodeSize ?? 0;
-          commands.setTextSelection(paragraphStart + 1 + summarySize + 1);
+          commands.setTextSelection(paragraphStart + detailsBodyCaretOffset(detailsNode));
           return null;
         },
       }),
