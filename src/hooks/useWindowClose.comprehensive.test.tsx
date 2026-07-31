@@ -32,8 +32,25 @@ vi.mock("@/hooks/useTabOperations", () => ({
     mockCloseTabWithDirtyCheck(windowLabel, tabId),
 }));
 
-const mockPromptSaveForDirtyDocument = vi.fn();
-const mockPromptSaveForMultipleDocuments = vi.fn();
+const mockCleanupOrphansForClosingTabs = vi.fn((_tabIds: string[]) => Promise.resolve());
+vi.mock("@/services/media/closeCleanup", () => ({
+  cleanupOrphansForClosingTabs: (tabIds: string[]) =>
+    mockCleanupOrphansForClosingTabs(tabIds),
+}));
+
+/** Mirror the real prompt: "saved" means the doc was actually saved. */
+const settleDoc = (ctx: { tabId: string; content: string }) =>
+  useDocumentStore.getState().markSaved(ctx.tabId, ctx.content);
+const mockPromptSaveForDirtyDocument = vi.fn(async (ctx: { tabId: string; content: string }) => {
+  settleDoc(ctx);
+  return { action: "saved" as const };
+});
+const mockPromptSaveForMultipleDocuments = vi.fn(
+  async (ctxs: Array<{ tabId: string; content: string }>) => {
+    ctxs.forEach(settleDoc);
+    return { action: "saved-all" as const };
+  },
+);
 vi.mock("@/hooks/closeSave", () => ({
   promptSaveForDirtyDocument: (...args: unknown[]) =>
     mockPromptSaveForDirtyDocument(...args),
@@ -127,7 +144,10 @@ describe("useWindowClose — window:close-requested", () => {
     useDocumentStore.getState().initDocument(tabId, "initial", null);
     useDocumentStore.getState().setContent(tabId, "modified");
 
-    mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "saved" });
+    mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
+      settleDoc(ctx);
+      return { action: "saved" as const };
+    });
 
     await act(async () => {
       render(<TestHarness />);
@@ -169,7 +189,10 @@ describe("useWindowClose — window:close-requested", () => {
     useDocumentStore.getState().setContent(tab1, "dirty1");
     useDocumentStore.getState().setContent(tab2, "dirty2");
 
-    mockPromptSaveForMultipleDocuments.mockResolvedValue({ action: "saved" });
+    mockPromptSaveForMultipleDocuments.mockImplementation(async (ctxs) => {
+      ctxs.forEach(settleDoc);
+      return { action: "saved-all" as const };
+    });
 
     await act(async () => {
       render(<TestHarness />);
@@ -300,7 +323,10 @@ describe("useWindowClose — window:close-requested", () => {
     useTabStore.getState().togglePin(WINDOW, pinnedTab);
     useDocumentStore.getState().setContent(pinnedTab, "dirty");
 
-    mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "saved" });
+    mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
+      settleDoc(ctx);
+      return { action: "saved" as const };
+    });
 
     await act(async () => {
       render(<TestHarness />);
@@ -357,13 +383,15 @@ describe("useWindowClose — app:quit-requested", () => {
     expect(invoke).toHaveBeenCalledWith("cancel_quit");
   });
 
-  it("skips duplicate quit-requested when already closing (lines 202-204)", async () => {
-    // Create a dirty tab so handleCloseRequest blocks on the save prompt
+  // WI-1: a second quit event JOINS the in-flight close — and however many
+  // events join, Rust is answered with cancel_quit exactly ONCE per attempt.
+  // The old boolean guard returned without answering at all, leaving
+  // quit_in_progress set and Cmd+Q dead for the rest of the session.
+  it("joins an in-flight close and answers Rust exactly once", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
     useDocumentStore.getState().setContent(tabId, "dirty");
 
-    // Make the save prompt hang so isClosingRef stays true
     let resolvePrompt!: (v: { action: string }) => void;
     mockPromptSaveForDirtyDocument.mockReturnValue(
       new Promise((resolve) => { resolvePrompt = resolve; })
@@ -374,25 +402,52 @@ describe("useWindowClose — app:quit-requested", () => {
     });
     await waitFor(() => expect(listeners.has("app:quit-requested")).toBe(true));
 
-    // Fire first quit-requested — this starts handleCloseRequest and blocks
-    const firstQuit = act(async () => {
-      await listeners.get("app:quit-requested")!({ payload: WINDOW });
-    });
+    // Two quit events while the prompt hangs — both must JOIN one close.
+    const quit1 = listeners.get("app:quit-requested")!({ payload: WINDOW });
+    const quit2 = listeners.get("app:quit-requested")!({ payload: WINDOW });
+    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1));
 
-    // Wait for the prompt to be called (isClosingRef is now true)
-    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalled());
-
-    // Fire second quit-requested — should hit the isClosingRef guard (lines 202-204)
+    // The user cancels the close.
+    resolvePrompt({ action: "cancelled" });
     await act(async () => {
-      await listeners.get("app:quit-requested")!({ payload: WINDOW });
+      await Promise.all([quit1, quit2]);
     });
 
-    // The second call should NOT have triggered another save prompt
+    // One prompt, and exactly ONE cancel_quit despite two joined quit events.
     expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1);
+    const cancelQuits = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "cancel_quit");
+    expect(cancelQuits).toHaveLength(1);
+  });
 
-    // Resolve the hanging prompt so the test can finish
-    resolvePrompt({ action: "saved" });
-    await firstQuit;
+  // WI-1, the reported shape: the close was started by the TRAFFIC LIGHT, quit
+  // arrives mid-flight, the user cancels — quit must still be answered.
+  it("answers cancel_quit for a close another trigger started", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "initial", null);
+    useDocumentStore.getState().setContent(tabId, "dirty");
+
+    let resolvePrompt!: (v: { action: string }) => void;
+    mockPromptSaveForDirtyDocument.mockReturnValue(
+      new Promise((resolve) => { resolvePrompt = resolve; })
+    );
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("app:quit-requested")).toBe(true));
+
+    // Traffic light starts the close…
+    const closeReq = listeners.get("window:close-requested")!({ payload: WINDOW });
+    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1));
+    // …then Cmd+Q lands while the prompt is open.
+    const quit = listeners.get("app:quit-requested")!({ payload: WINDOW });
+
+    resolvePrompt({ action: "cancelled" });
+    await act(async () => {
+      await Promise.all([closeReq, quit]);
+    });
+
+    expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "cancel_quit")).toHaveLength(1);
   });
 
   it("handles cancel_quit invoke rejection (lines 210-211)", async () => {
@@ -523,51 +578,6 @@ describe("useWindowClose — menu:close", () => {
   });
 });
 
-describe("useWindowClose — handleCloseRequest re-entry guard (lines 74-76)", () => {
-  beforeEach(() => {
-    listeners.clear();
-    resetStores();
-    vi.clearAllMocks();
-    vi.mocked(invoke).mockResolvedValue(undefined);
-  });
-
-  it("ignores duplicate close-requested while first is still processing", async () => {
-    const tabId = useTabStore.getState().createTab(WINDOW, null);
-    useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
-
-    // Make the save prompt hang
-    let resolvePrompt!: (v: { action: string }) => void;
-    mockPromptSaveForDirtyDocument.mockReturnValue(
-      new Promise((resolve) => { resolvePrompt = resolve; })
-    );
-
-    await act(async () => {
-      render(<TestHarness />);
-    });
-    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
-
-    // First close-requested — blocks on save prompt
-    const first = act(async () => {
-      await listeners.get("window:close-requested")!({ payload: WINDOW });
-    });
-
-    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalled());
-
-    // Second close-requested — should be ignored (isClosingRef is true, lines 74-76)
-    await act(async () => {
-      await listeners.get("window:close-requested")!({ payload: WINDOW });
-    });
-
-    // Only one prompt should have been shown
-    expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1);
-
-    // Resolve to unblock
-    resolvePrompt({ action: "saved" });
-    await first;
-  });
-});
-
 describe("useWindowClose — closeLog debug_log catch (line 50)", () => {
   beforeEach(() => {
     listeners.clear();
@@ -639,7 +649,7 @@ describe("useWindowClose — handleCloseRequest catch block (lines 144-146)", ()
   });
 });
 
-describe("useWindowClose — dirtyContexts filter when doc becomes clean (line 113)", () => {
+describe("useWindowClose — orphan image cleanup", () => {
   beforeEach(() => {
     listeners.clear();
     resetStores();
@@ -647,49 +657,84 @@ describe("useWindowClose — dirtyContexts filter when doc becomes clean (line 1
     vi.mocked(invoke).mockResolvedValue(undefined);
   });
 
-  it("filters out tab whose doc becomes clean between dirty check and context build", async () => {
-    const tabId = useTabStore.getState().createTab(WINDOW, null);
-    useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
-
-    // Mock multi-doc prompt in case it's reached (empty array)
-    mockPromptSaveForMultipleDocuments.mockResolvedValue({ action: "discard" });
-
+  async function renderAndFire(event: string) {
     await act(async () => {
       render(<TestHarness />);
     });
-    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
-
-    // Spy on getDocument — first call (filter, line 93) returns dirty doc,
-    // second call (map, line 112) returns doc with isDirty=false.
-    const realGetState = useDocumentStore.getState.bind(useDocumentStore);
-    let getDocCallCount = 0;
-    const getStateSpy = vi.spyOn(useDocumentStore, "getState").mockImplementation(() => {
-      const real = realGetState();
-      return {
-        ...real,
-        getDocument: (id: string) => {
-          getDocCallCount++;
-          const doc = real.getDocument(id);
-          if (!doc) return undefined;
-          // First call: return dirty (for filter at line 93)
-          // Second call: return clean (for map at line 112) — triggers line 113
-          if (getDocCallCount >= 2 && id === tabId) {
-            return { ...doc, isDirty: false };
-          }
-          return doc;
-        },
-      };
-    });
-
+    await waitFor(() => expect(listeners.has(event)).toBe(true));
     await act(async () => {
-      await listeners.get("window:close-requested")!({ payload: WINDOW });
+      await listeners.get(event)!({ payload: WINDOW });
+    });
+  }
+
+  it("cleans up orphans for every tab before closing a window with no dirty docs", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    const b = useTabStore.getState().createTab(WINDOW, "/tmp/b.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    useDocumentStore.getState().initDocument(b, "B", "/tmp/b.md");
+
+    await renderAndFire("window:close-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([a, b]);
+    expect(invoke).toHaveBeenCalledWith("close_window", { label: WINDOW });
+  });
+
+  it("cleans up after the save prompt resolves, so it scans the saved content", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
+    useDocumentStore.getState().setContent(tabId, "modified");
+
+    const order: string[] = [];
+    mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
+      order.push("prompt");
+      settleDoc(ctx); // the real prompt saves — leaving it dirty would (rightly) re-prompt
+      return { action: "saved" };
+    });
+    mockCleanupOrphansForClosingTabs.mockImplementation(async () => {
+      order.push("cleanup");
     });
 
-    getStateSpy.mockRestore();
+    await renderAndFire("window:close-requested");
 
-    // dirtyContexts should be empty after filtering null, so promptSaveForMultipleDocuments
-    // is called with empty array (or single-doc prompt is not called)
-    expect(mockPromptSaveForDirtyDocument).not.toHaveBeenCalled();
+    expect(order).toEqual(["prompt", "cleanup"]);
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([tabId]);
+  });
+
+  it("cleans up on app quit", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "A", "/tmp/a.md");
+
+    await renderAndFire("app:quit-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).toHaveBeenCalledWith([tabId]);
+  });
+
+  it("cleans up BEFORE the documents are dropped from the store", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "A", "/tmp/a.md");
+
+    let docStillPresent: boolean | null = null;
+    mockCleanupOrphansForClosingTabs.mockImplementation(async () => {
+      docStillPresent = Boolean(useDocumentStore.getState().getDocument(tabId));
+    });
+
+    await renderAndFire("window:close-requested");
+
+    // Cleanup reads the document's content and path — running it after
+    // removeDocument would leave it with nothing to scan.
+    expect(docStillPresent).toBe(true);
+  });
+
+  it("does not clean up when the user cancels the close", async () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
+    useDocumentStore.getState().setContent(tabId, "modified");
+
+    mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
+
+    await renderAndFire("window:close-requested");
+
+    expect(mockCleanupOrphansForClosingTabs).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalledWith("close_window", expect.anything());
   });
 });

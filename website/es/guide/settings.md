@@ -160,7 +160,7 @@ Estas configuraciones solo se aplican cuando hay un espacio de trabajo (carpeta)
 |---------------|-------------|----------------|---------|
 | Redimensionar automáticamente al pegar | Redimensiona automáticamente las imágenes grandes antes de guardarlas en la carpeta de recursos. El valor es la dimensión máxima en píxeles | Desactivado | Desactivado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar a la carpeta de recursos | Copia las imágenes pegadas o arrastradas a la carpeta de recursos del documento en lugar de incrustarlas | Activado | Activado / Desactivado |
-| Limpiar imágenes no usadas al cerrar | Elimina automáticamente las imágenes de la carpeta de recursos que ya no están referenciadas en el documento cuando lo cierras | Desactivado | Activado / Desactivado |
+| Limpiar imágenes no usadas al cerrar | Elimina automáticamente las imágenes de la carpeta de recursos que el documento ya no referencia. Se ejecuta al cerrar el documento, la ventana o la aplicación. Las imágenes aún referenciadas por otro documento de la misma carpeta se conservan, y las eliminadas van a la papelera del sistema | Desactivado | Activado / Desactivado |
 | Umbral de imagen en línea | Tamaño máximo (MB) para incrustar imágenes como URLs de datos base64 en la exportación HTML/PDF. Los archivos más grandes se enlazan en su lugar | 1.0 MB | 0.1 – 10 MB |
 
 ### Archivos Grandes

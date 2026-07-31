@@ -160,7 +160,7 @@ Ces paramètres s'appliquent uniquement lorsqu'un espace de travail (dossier) es
 |-----------|-------------|------------|---------|
 | Redimensionner automatiquement au collage | Redimensionner automatiquement les grandes images avant de les enregistrer dans le dossier assets. La valeur est la dimension maximale en pixels | Désactivé | Désactivé, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copier dans le dossier assets | Copier les images collées ou déposées dans le dossier assets du document au lieu de les incorporer | Activé | Activé / Désactivé |
-| Nettoyer les images inutilisées à la fermeture | Supprimer automatiquement les images du dossier assets qui ne sont plus référencées dans le document à sa fermeture | Désactivé | Activé / Désactivé |
+| Nettoyer les images inutilisées à la fermeture | Supprimer automatiquement les images du dossier assets que le document ne référence plus. S'exécute à la fermeture du document, de la fenêtre ou de l'application. Les images encore référencées par un autre document du même dossier sont conservées, et les images supprimées vont dans la corbeille du système | Désactivé | Activé / Désactivé |
 | Seuil d'image en ligne | Taille maximale (Mo) pour intégrer les images comme URL de données base64 dans l'export HTML/PDF. Les fichiers plus volumineux sont liés à la place | 1,0 Mo | 0,1 – 10 Mo |
 
 ### Fichiers volumineux

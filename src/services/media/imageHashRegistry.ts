@@ -112,6 +112,31 @@ export async function findExistingImage(
 }
 
 /**
+ * Drop every registry entry whose filename is in `filenames` (WI-8a).
+ *
+ * Orphan cleanup removes the files; without this the registry keeps their
+ * hashes forever, and a future paste of identical content would "dedup" to a
+ * path that no longer exists. (findExistingImage self-heals one entry at a
+ * time on lookup — this reconciles the whole batch at the moment of truth.)
+ */
+export async function unregisterImageFilenames(
+  documentPath: string,
+  filenames: readonly string[]
+): Promise<void> {
+  if (filenames.length === 0) return;
+  const registry = await loadHashRegistry(documentPath);
+  const doomed = new Set(filenames);
+  let changed = false;
+  for (const [hash, filename] of Object.entries(registry.hashes)) {
+    if (doomed.has(filename)) {
+      delete registry.hashes[hash];
+      changed = true;
+    }
+  }
+  if (changed) await saveHashRegistry(documentPath, registry);
+}
+
+/**
  * Register a new image hash.
  */
 export async function registerImageHash(

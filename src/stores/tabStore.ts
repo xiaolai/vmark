@@ -101,7 +101,7 @@ interface TabActions {
     tabId: string,
     patch: { url?: string; title?: string; scrollY?: number; generation?: number },
   ) => void;
-  closeTab: (windowLabel: string, tabId: string) => void;
+  closeTab(windowLabel: string, tabId: string): boolean; // false = nothing removed (pinned/unknown), WI-5
 
   // Tab state
   setActiveTab: (windowLabel: string, tabId: string | null) => void;
@@ -249,7 +249,6 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     set((state) => {
       const windowTabs = state.tabs[windowLabel] || [];
       const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
-
       if (tabIndex === -1) return state;
 
       const tab = windowTabs[tabIndex];
@@ -270,6 +269,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     if (removed && removedTab) {
       notifyTabRemoved(windowLabel, tabId, { tab: removedTab, reason: "close" });
     }
+    return removed;
   },
 
   detachTab: (windowLabel, tabId) => {

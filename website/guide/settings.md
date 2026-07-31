@@ -188,7 +188,7 @@ These settings only apply when a workspace (folder) is open.
 |---------|-------------|---------|---------|
 | Auto-resize on paste | Automatically resize large images before saving to the assets folder. The value is the maximum dimension in pixels | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copy to assets folder | Copy pasted or dropped images into the document's assets folder instead of embedding them | On | On / Off |
-| Clean up unused images on close | Automatically delete images from the assets folder that are no longer referenced in the document when you close it | Off | On / Off |
+| Clean up unused images on close | Automatically delete images from the assets folder that the document no longer references. Runs when you close the document, the window, or the app. Images still referenced by another document in the same folder are kept, and removed images go to the system Trash | Off | On / Off |
 
 ::: tip
 Enable **Auto-resize on paste** if you frequently paste screenshots or photos — it keeps your assets folder lightweight without manual resizing.
