@@ -15,6 +15,15 @@
  *     existing "insert an empty block here" path.
  *   - The wrapper is built by the caller, because only it knows the node type
  *     and attributes; this module owns the range, not the content.
+ *   - ProseMirror's `to` is EXCLUSIVE, so an end sitting at a block's offset 0
+ *     belongs to the PREVIOUS block. Resolving it with `after(1)` reached into
+ *     the next one and wrapped a paragraph the user never selected — the same
+ *     off-by-one `selectionBlockSpan` corrects for the line-oriented surface.
+ *
+ * Known limitations:
+ *   - An AllSelection or a top-level NodeSelection has depth-0 endpoints and is
+ *     rejected, so the caller falls back to inserting an empty block. Wrapping
+ *     a whole-document selection is not supported.
  *
  * @coordinates-with blockSpan.ts — the same rule for the line-oriented surface
  * @coordinates-with alertBlock/tiptap.ts — insertAlertBlock
@@ -33,7 +42,16 @@ export function spannedBlockRange(state: EditorState): { from: number; to: numbe
   const { $from, $to, empty } = state.selection;
   if (empty) return null;
   if ($from.depth === 0 || $to.depth === 0) return null;
-  return { from: $from.before(1), to: $to.after(1) };
+
+  // ProseMirror's `to` is EXCLUSIVE, so a selection ending at the START of the
+  // next block (parentOffset 0) already resolves INTO that block, and
+  // `$to.after(1)` then returns ITS end — wrapping a paragraph the user never
+  // selected. `$to.before(1)` is the position just before that block, i.e. the
+  // end of the one actually covered. `selectionBlockSpan` corrects the same
+  // off-by-one on the Source surface; this is the WYSIWYG half, missed until an
+  // audit found it.
+  const to = $to.parentOffset === 0 ? $to.before(1) : $to.after(1);
+  return { from: $from.before(1), to };
 }
 
 /**

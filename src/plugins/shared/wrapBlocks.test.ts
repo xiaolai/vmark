@@ -110,3 +110,34 @@ describe("wrapSpannedBlocks caret placement", () => {
     expect(tr.selection.$from.parent.textContent).toBe("body text");
   });
 });
+
+describe("wrapSpannedBlocks respects ProseMirror's EXCLUSIVE `to`", () => {
+  // The same off-by-one `selectionBlockSpan` corrects on the Source surface.
+  // A selection ending at the START of the next paragraph has a `to` that
+  // already resolves INTO that paragraph, so `$to.after(1)` returns its end and
+  // the wrapper swallows a block the user never selected.
+  //
+  // Fixture positions for docOf("alpha", "beta"), read off `doc.resolve`:
+  //   6 → depth 1, parentOffset 5 (end of "alpha")
+  //   7 → depth 0 (BETWEEN the paragraphs — already rejected by the depth guard)
+  //   8 → depth 1, parentOffset 0 (start of "beta")  ← the boundary that bites
+  //   9 → depth 1, parentOffset 1 (genuinely inside "beta")
+  it("does not swallow the next paragraph when the range ends at its start", () => {
+    const state = stateWithRange(docOf("alpha", "beta"), 1, 8);
+    const tr = wrapSpannedBlocks(state, wrap);
+    expect(tr).not.toBeNull();
+    expect(tr!.doc.firstChild?.type.name).toBe("wrapper");
+    expect(tr!.doc.firstChild?.textContent).toBe("alpha");
+    // `beta` survives OUTSIDE the wrapper.
+    expect(tr!.doc.childCount).toBe(2);
+    expect(tr!.doc.lastChild?.type.name).toBe("paragraph");
+    expect(tr!.doc.lastChild?.textContent).toBe("beta");
+  });
+
+  it("still wraps both when the range genuinely reaches into the second block", () => {
+    const state = stateWithRange(docOf("alpha", "beta"), 1, 9);
+    const tr = wrapSpannedBlocks(state, wrap);
+    expect(tr!.doc.childCount).toBe(1);
+    expect(tr!.doc.firstChild?.childCount).toBe(2);
+  });
+});
