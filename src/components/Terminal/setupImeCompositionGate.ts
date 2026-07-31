@@ -23,19 +23,21 @@
  *     commit?", where e.data can lie and the textarea diff is the tiebreak.
  *     Outside a composition there is no diff to weigh — the question is only
  *     "did anyone else already write this?", which resolveCommit cannot see.
- *   - T4: a capture-phase `keydown` listener records who OWNS the next insert.
- *     "xterm's keydown path owns plain ASCII" holds only when xterm actually saw
- *     a usable keydown: T2 consumes keyCode-229 ones, and macOS Chinese IMEs set
- *     229 for keys they claim even with no composition running (`/`, numpad
- *     digits under Shuangpin, #1176). An insert with NO keydown behind it (IME
- *     palette click, dictation) is ours too — T1 has already stopped the event,
- *     so xterm's `_inputEvent` can never write it. Only a real non-IME keydown
- *     means "xterm already wrote this; drop the echo".
- *
- *     Ownership is deliberately NOT retired on keyup. An IME can defer its
- *     insert past the key release — likeliest at the start of a line, where it
- *     must first decide whether a Chinese word is beginning — and retiring
- *     there dropped exactly that first keystroke.
+ *   - Insert OWNERSHIP is WRITE-derived, never keydown-derived (WI-13). The
+ *     session wiring reports every onData it ACTUALLY forwarded to the PTY
+ *     via `noteExternalWrite`; an insert arriving while such a write is
+ *     unclaimed is xterm's echo of that write and is dropped, anything else
+ *     is the gate's to commit. Keydown shape cannot answer this: macOS
+ *     Chinese IMEs stamp keyCode 229 on keys they merely CLAIM with no
+ *     composition running (`/`, numpad digits under Shuangpin, #1176), IME
+ *     inserts arrive ~2 ms BEFORE their own keydown, and a palette click or
+ *     dictation has no keydown at all — three measured ways a keydown
+ *     listener judged the WRONG keystroke, which is why the old T4 listener
+ *     was deleted. The write claim expires on the next macrotask (via
+ *     `expireExternalWrite`): a keystroke's paired input arrives inside that
+ *     window, but a single-character term.paste() has NO paired input — its
+ *     native insert is preventDefaulted — and a lingering claim would swallow
+ *     the next gate-owned insert.
  *
  * Commits are delivered via onCompositionCommit, which the wiring writes DIRECTLY
  * to the PTY (bypassing xterm's onData), so the single-writer guarantee holds end
@@ -150,7 +152,13 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     get composing() { return machine.composing; },
     get onCompositionCommit() { return onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
-    noteExternalWrite: (data: string) => machine.externalWrite(data),
+    noteExternalWrite: (data: string) => {
+      // The claim lives one macrotask, like the echo token: a keystroke's
+      // paired input event beats the timer, a paste's never-arriving input
+      // must not leave the claim armed to swallow the NEXT insert.
+      const gen = machine.externalWrite(data);
+      setTimeout(() => machine.expireExternalWrite(gen), 0);
+    },
     cleanup,
   };
 }

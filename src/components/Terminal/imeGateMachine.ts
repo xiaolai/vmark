@@ -24,7 +24,12 @@
  *     since the last insert? Ownership derives from writes, never keydowns
  *     (WI-13): IME inserts arrive before their own keydown, non-inserting
  *     keydowns write nothing, and a mid-composition keydown's onData is
- *     suppressed by the wiring.
+ *     suppressed by the wiring. The flag EXPIRES on the next macrotask (same
+ *     lifetime as echoText, host-scheduled): a keystroke's paired input event
+ *     arrives before that timer fires, but a write with NO paired input — a
+ *     single-character term.paste(), whose native insert xterm preventDefaults
+ *     — must not linger and swallow the next gate-owned insert. A generation
+ *     token keeps a stale timer from clearing a FRESH write's claim.
  *
  * @coordinates-with setupImeCompositionGate.ts — DOM wiring, sole consumer
  * @coordinates-with resolveCommit.ts — the compositionend decision helper
@@ -73,8 +78,12 @@ export interface ImeGateMachine {
     ev: { data: string | null; inputType: string; isComposing: boolean },
     textareaValue: string
   ): GateAction;
-  /** The wiring forwarded this onData to the PTY (WI-13). */
-  externalWrite(data: string): void;
+  /** The wiring forwarded this onData to the PTY (WI-13). Returns a
+   *  generation token the host passes back to `expireExternalWrite`. */
+  externalWrite(data: string): number;
+  /** Next-macrotask callback: `gen`'s write can no longer own an insert.
+   *  A stale token (a newer write happened since) is a no-op. */
+  expireExternalWrite(gen: number): void;
   /** Next-macrotask callback: the echo window is over. */
   clearEcho(): void;
 }
@@ -85,6 +94,7 @@ export function createImeGateMachine(): ImeGateMachine {
   let startLen = 0;
   let echoText: string | null = null;
   let externalWrote = false;
+  let writeGeneration = 0;
 
   const isEcho = (text: string) => text === echoText;
 
@@ -152,6 +162,11 @@ export function createImeGateMachine(): ImeGateMachine {
 
     externalWrite(data) {
       externalWrote = isPrintableWrite(data);
+      return ++writeGeneration;
+    },
+
+    expireExternalWrite(gen) {
+      if (gen === writeGeneration) externalWrote = false;
     },
 
     clearEcho() {

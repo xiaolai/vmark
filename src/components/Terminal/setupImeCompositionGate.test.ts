@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setupImeCompositionGate, createNoopImeHandle } from "./setupImeCompositionGate";
+import { createImeGateMachine } from "./imeGateMachine";
 
 function makeHarness() {
   const container = document.createElement("div");
@@ -535,5 +536,46 @@ describe("setupImeCompositionGate — audit findings", () => {
       new InputEvent("input", { data: null, inputType: "insertText", isComposing: false, bubbles: true }),
     );
     expect(commits).toEqual([]);
+  });
+});
+
+// The write claim must live exactly one macrotask (like the echo token). A
+// single-character term.paste() produces an onData with NO paired input event
+// — xterm preventDefaults the native paste — and a claim that never expired
+// swallowed the NEXT gate-owned insert (review finding).
+describe("setupImeCompositionGate — a paste's write claim expires", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("does not let a single-character paste swallow the NEXT gate-owned insert", () => {
+    const { textarea, handle, commits } = makeHarness();
+    handle.noteExternalWrite("v"); // Cmd+V of one character: no input follows
+    vi.advanceTimersByTime(1); // the macrotask passes; the claim expires
+    // First keystroke of an IME run: an insert with no write behind it — ours.
+    fireInput(textarea, "1");
+    expect(commits).toEqual(["1"]);
+  });
+
+  it("a keystroke's paired insert is still consumed before the claim expires", () => {
+    const { textarea, handle, commits } = makeHarness();
+    firePlainKeydown(textarea, "a", 65);
+    handle.noteExternalWrite("a");
+    fireInput(textarea, "a"); // same task — always beats the expiry timer
+    expect(commits).toEqual([]);
+  });
+
+  it("a stale expiry cannot clear a FRESH write's claim (machine-level)", () => {
+    const machine = createImeGateMachine();
+    const stale = machine.externalWrite("a");
+    machine.externalWrite("b"); // a newer write re-arms the claim
+    machine.expireExternalWrite(stale); // the old timer fires — must be a no-op
+    const action = machine.input(
+      { data: "b", inputType: "insertText", isComposing: false },
+      "b",
+    );
+    expect(action.commit).toBeNull(); // the echo of "b" is still dropped
   });
 });
