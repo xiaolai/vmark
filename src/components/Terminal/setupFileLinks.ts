@@ -52,7 +52,7 @@ export function setupFileLinks(term: Terminal, getCwd?: () => string | null): vo
       readTextFile(filePath).then((content) => {
         const windowLabel = getCurrentWindowLabel();
         const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-        useDocumentStore.getState().initDocument(tabId, content, filePath);
+        useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
         // Jump to the parsed line (WI-4.1). Empty query → scroll only, no FindBar.
         // The Source/WYSIWYG editor consumes this pending nav on mount.
         if (line && line > 0) {

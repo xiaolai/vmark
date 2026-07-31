@@ -145,7 +145,7 @@ describe("resolveIngestMetadata — per-origin precedence", () => {
     ).toBe("backslash");
   });
 
-  it.each(["mcp-write", "paste"] as const)(
+  it.each(["mcp-write"] as const)(
     "%s does not redefine the document's disk convention",
     (origin) => {
       expect(

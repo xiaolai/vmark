@@ -5,10 +5,10 @@
  * Purpose: `lineEndingsOnSave: "preserve"` writes back the convention the
  * document is believed to use. That belief has to come from somewhere, and the
  * right source is NOT the same for every ingress. Deriving it from whatever
- * string is being written is correct for a disk read and wrong for the other
- * four cases — most visibly for hot-exit restore, where the persisted body was
- * already canonicalised to LF, so re-deriving answers "lf" and the next save
- * silently rewrites a CRLF user's file.
+ * string is being written is correct for a disk read and wrong for the others —
+ * most visibly for hot-exit restore, where the persisted body was already
+ * canonicalised to LF, so re-deriving answers "lf" and the next save silently
+ * rewrites a CRLF user's file.
  *
  * Before this module the rule lived at each call site, which is to say nowhere:
  * the plan review found four ingress paths that each derived from their own
@@ -21,8 +21,8 @@
  *     `lineEnding` and an unknown `hardBreakStyle`; treating the record as one
  *     unit throws away the known half or resurrects the unknown one.
  *   - `keep-existing` returns the document's CURRENT metadata rather than
- *     `unknown`. A tool write or a paste is not a statement about what
- *     convention the file on disk uses.
+ *     `unknown`. A tool write is not a statement about what convention the
+ *     file on disk uses.
  *   - An unrecognised origin THROWS. Falling back to `derive` would make the
  *     exhaustiveness gate decorative — the bug it exists to catch would still
  *     ship, just quietly.
@@ -45,7 +45,6 @@ export const INGEST_ORIGINS = [
   "hot-exit-restore",
   "crash-recovery",
   "mcp-write",
-  "paste",
 ] as const;
 
 /** Where a piece of external text came from. */
@@ -78,7 +77,6 @@ export const INGEST_ORIGIN_SNAPSHOT: Record<IngestOrigin, SnapshotPolicy> = {
   // for nothing: the recovery loses the work it exists to rescue.
   "crash-recovery": "edit",
   "mcp-write": "edit",
-  paste: "edit",
 };
 
 /** How an origin decides the document's line metadata. */
@@ -101,8 +99,10 @@ export const INGEST_ORIGIN_POLICY: Record<IngestOrigin, MetadataPolicy> = {
   "disk-open": "derive",
   "hot-exit-restore": "prefer-persisted",
   "crash-recovery": "derive",
+  // `paste` is NOT an origin: paste enters through the editors' own input
+  // handling and the store only ever sees the post-flush serialisation, so an
+  // origin could never be passed. Declaring it anyway was dead policy.
   "mcp-write": "keep-existing",
-  paste: "keep-existing",
 };
 
 /** The line-convention metadata a document carries. */

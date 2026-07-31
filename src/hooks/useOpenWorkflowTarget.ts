@@ -42,7 +42,7 @@ export async function openLocalFileInTab(
   // Not yet open: create a new tab + load.
   const tabId = useTabStore.getState().createTab(windowLabel, absPath);
   try {
-    await loadFileIntoTab(tabId, absPath, true);
+    await loadFileIntoTab(tabId, absPath);
   } catch {
     useTabStore.getState().detachTab(windowLabel, tabId);
     return { ok: false, reason: "load-failed" };

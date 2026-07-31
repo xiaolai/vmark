@@ -99,8 +99,9 @@ vi.mock('@/stores/tabStore', () => ({
   },
 }));
 
-const mockInitDocument = vi.fn();
-const mockLoadContent = vi.fn();
+// ONE store door for external ingresses: hot-exit restore now routes through
+// ingestExternalContent instead of initDocument/loadContent/updateLastDiskContent.
+const mockIngest = vi.fn();
 const mockSetContent = vi.fn();
 const mockMarkMissing = vi.fn();
 const mockMarkDivergent = vi.fn();
@@ -110,8 +111,7 @@ const mockRemoveDocument = vi.fn();
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      initDocument: mockInitDocument,
-      loadContent: mockLoadContent,
+      ingestExternalContent: mockIngest,
       setEditorContent: mockSetContent,
       markMissing: mockMarkMissing,
       markDivergent: mockMarkDivergent,
@@ -259,6 +259,21 @@ function makeWindowState(overrides: Partial<WindowState> = {}): WindowState {
     geometry: null,
     ...overrides,
   };
+}
+
+/**
+ * restoreDocumentState takes the store as a parameter; this builds the
+ * minimal mocked surface it touches. Pass extras (e.g. setMode) per test.
+ */
+function makeDocStore(extra: Record<string, unknown> = {}) {
+  return {
+    ingestExternalContent: mockIngest,
+    setEditorContent: mockSetContent,
+    markMissing: mockMarkMissing,
+    markDivergent: mockMarkDivergent,
+    setCursorInfo: mockSetCursorInfo,
+    ...extra,
+  } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
 }
 
 function makeCursorInfo(overrides: Partial<CursorInfo> = {}): CursorInfo {
@@ -654,15 +669,8 @@ describe('restoreHelpers', () => {
   // =========================================================================
 
   describe('restoreDocumentState', () => {
-    it('should initialize and load document with saved content', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+    it('should ingest saved content once with path and persisted line ending', async () => {
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         file_path: '/docs/readme.md',
@@ -675,21 +683,17 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockInitDocument).toHaveBeenCalledWith('tab-1', 'saved text', '/docs/readme.md');
-      expect(mockLoadContent).toHaveBeenCalledWith('tab-1', 'saved text', '/docs/readme.md', {
-        lineEnding: 'lf',
+      // Exact opts match: no last_disk_content persisted, so no deriveFrom
+      // key may leak in (detection would otherwise run on the wrong text).
+      expect(mockIngest).toHaveBeenCalledTimes(1);
+      expect(mockIngest).toHaveBeenCalledWith('tab-1', 'saved text', 'hot-exit-restore', {
+        filePath: '/docs/readme.md',
+        persisted: { lineEnding: 'lf' },
       });
     });
 
     it('should apply dirty content when is_dirty is true', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({
@@ -705,14 +709,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should NOT call setEditorContent when not dirty', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ is_dirty: false }),
@@ -728,14 +725,7 @@ describe('restoreHelpers', () => {
       { lineEnding: '\r\n' as const, expected: 'crlf' },
       { lineEnding: 'unknown' as const, expected: 'unknown' },
     ])('should convert line ending "$lineEnding" to "$expected"', async ({ lineEnding, expected }) => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ line_ending: lineEnding }),
@@ -743,23 +733,16 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockLoadContent).toHaveBeenCalledWith(
+      expect(mockIngest).toHaveBeenCalledWith(
         'tab-1',
         expect.any(String),
-        expect.anything(),
-        { lineEnding: expected },
+        'hot-exit-restore',
+        expect.objectContaining({ persisted: { lineEnding: expected } }),
       );
     });
 
     it('should default to "unknown" for invalid line ending', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({
@@ -770,23 +753,16 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockLoadContent).toHaveBeenCalledWith(
+      expect(mockIngest).toHaveBeenCalledWith(
         'tab-1',
         expect.any(String),
-        expect.anything(),
-        { lineEnding: 'unknown' },
+        'hot-exit-restore',
+        expect.objectContaining({ persisted: { lineEnding: 'unknown' } }),
       );
     });
 
     it('should mark document as missing when is_missing is true', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ is_missing: true }),
@@ -798,14 +774,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should mark document as divergent when is_divergent is true', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ is_divergent: true }),
@@ -817,14 +786,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should NOT mark missing or divergent when flags are false', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ is_missing: false, is_divergent: false }),
@@ -837,14 +799,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should restore valid cursor info', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo();
       const tab = makeTabState({
@@ -866,14 +821,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should NOT set cursor info when cursor_info is null', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({ cursor_info: null }),
@@ -885,14 +833,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with NaN source_line', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ source_line: NaN });
       const tab = makeTabState({
@@ -905,14 +846,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with Infinity offset_in_word', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ offset_in_word: Infinity });
       const tab = makeTabState({
@@ -925,14 +859,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with NaN percent_in_line', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ percent_in_line: NaN });
       const tab = makeTabState({
@@ -945,14 +872,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with negative source_line', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ source_line: -3 });
       const tab = makeTabState({
@@ -965,14 +885,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with zero source_line (1-indexed)', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ source_line: 0 });
       const tab = makeTabState({
@@ -985,14 +898,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with fractional source_line', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ source_line: 5.5 });
       const tab = makeTabState({
@@ -1005,14 +911,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with negative offset_in_word', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ offset_in_word: -1 });
       const tab = makeTabState({
@@ -1025,14 +924,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with percent_in_line below 0', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ percent_in_line: -0.1 });
       const tab = makeTabState({
@@ -1045,14 +937,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should skip cursor info with percent_in_line above 1', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const cursor = makeCursorInfo({ percent_in_line: 1.5 });
       const tab = makeTabState({
@@ -1065,14 +950,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should restore cursor info at percent_in_line boundaries (0 and 1)', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tabZero = makeTabState({
         document: makeDocState({ cursor_info: makeCursorInfo({ percent_in_line: 0, offset_in_word: 0 }) }),
@@ -1089,14 +967,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should use defaults for missing optional cursor fields', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       // Cursor with null/undefined optional fields
       const cursor: CursorInfo = {
@@ -1123,14 +994,7 @@ describe('restoreHelpers', () => {
     });
 
     it('should handle document with empty content', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         file_path: null,
@@ -1142,8 +1006,12 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockInitDocument).toHaveBeenCalledWith('tab-1', '', null);
-      expect(mockLoadContent).toHaveBeenCalledWith('tab-1', '', null, expect.any(Object));
+      expect(mockIngest).toHaveBeenCalledWith(
+        'tab-1',
+        '',
+        'hot-exit-restore',
+        expect.objectContaining({ filePath: null }),
+      );
     });
 
     // ------------------------------------------------------------------------
@@ -1152,15 +1020,7 @@ describe('restoreHelpers', () => {
 
     it('restores per-tab mode when persisted (ADR-009)', async () => {
       const mockSetMode = vi.fn();
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-        setMode: mockSetMode,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore({ setMode: mockSetMode });
 
       const tab = makeTabState({
         document: makeDocState({ mode: 'source' }),
@@ -1173,15 +1033,7 @@ describe('restoreHelpers', () => {
 
     it('does not call setMode when mode field is absent (pre-mode sessions)', async () => {
       const mockSetMode = vi.fn();
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-        setMode: mockSetMode,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore({ setMode: mockSetMode });
 
       const tab = makeTabState({
         document: makeDocState({}),  // no mode field
@@ -1194,15 +1046,7 @@ describe('restoreHelpers', () => {
 
     it('does not call setMode for an invalid mode value (e.g. "split-pane")', async () => {
       const mockSetMode = vi.fn();
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-        setMode: mockSetMode,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+      const docStore = makeDocStore({ setMode: mockSetMode });
 
       const tab = makeTabState({
         // @ts-expect-error — exercising untyped persisted payload defense
@@ -1214,15 +1058,8 @@ describe('restoreHelpers', () => {
       expect(mockSetMode).not.toHaveBeenCalled();
     });
 
-    it('restores hardBreakStyle via loadContent meta when persisted', async () => {
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+    it('restores hardBreakStyle via ingest persisted meta when persisted', async () => {
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({
@@ -1233,25 +1070,18 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockLoadContent).toHaveBeenCalledWith(
+      expect(mockIngest).toHaveBeenCalledWith(
         'tab-1',
         'x',
-        expect.anything(),
-        expect.objectContaining({ hardBreakStyle: 'twoSpaces' }),
+        'hot-exit-restore',
+        expect.objectContaining({
+          persisted: expect.objectContaining({ hardBreakStyle: 'twoSpaces' }),
+        }),
       );
     });
 
-    it('restores lastDiskContent via updateLastDiskContent when persisted', async () => {
-      const mockUpdateLastDiskContent = vi.fn();
-      const docStore = {
-        initDocument: mockInitDocument,
-        loadContent: mockLoadContent,
-        setEditorContent: mockSetContent,
-        markMissing: mockMarkMissing,
-        markDivergent: mockMarkDivergent,
-        setCursorInfo: mockSetCursorInfo,
-        updateLastDiskContent: mockUpdateLastDiskContent,
-      } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
+    it('passes persisted lastDiskContent as deriveFrom (raw disk bytes drive detection)', async () => {
+      const docStore = makeDocStore();
 
       const tab = makeTabState({
         document: makeDocState({
@@ -1262,7 +1092,12 @@ describe('restoreHelpers', () => {
 
       await restoreDocumentState('tab-1', tab, docStore);
 
-      expect(mockUpdateLastDiskContent).toHaveBeenCalledWith('tab-1', 'on-disk-normalized');
+      expect(mockIngest).toHaveBeenCalledWith(
+        'tab-1',
+        'saved',
+        'hot-exit-restore',
+        expect.objectContaining({ deriveFrom: 'on-disk-normalized' }),
+      );
     });
   });
 

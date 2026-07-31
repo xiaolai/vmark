@@ -316,22 +316,18 @@ export async function restoreDocumentState(
       ? docState.hard_break_style
       : undefined;
 
-  // Initialize document with saved content first
-  documentStore.initDocument(tabId, docState.saved_content, file_path);
-
-  // Load saved content with metadata
-  documentStore.loadContent(tabId, docState.saved_content, file_path, {
-    lineEnding,
-    ...(hardBreakStyle ? { hardBreakStyle } : {}),
+  // ONE hot-exit ingest replaces the old init/load/updateLastDiskContent
+  // sequence whose write ORDER was load-bearing. The origin's prefer-persisted
+  // rule (WI-1.3) applies the snapshot's line ending where it is decided;
+  // `deriveFrom` points detection at the RAW disk bytes when present, because
+  // the saved body is canonical LF and would answer "lf" for every file.
+  documentStore.ingestExternalContent(tabId, docState.saved_content, 'hot-exit-restore', {
+    filePath: file_path,
+    persisted: { lineEnding, ...(hardBreakStyle ? { hardBreakStyle } : {}) },
+    ...(typeof docState.last_disk_content === 'string'
+      ? { deriveFrom: docState.last_disk_content }
+      : {}),
   });
-
-  // Restore the actual on-disk snapshot when present. Falling back to
-  // `saved_content` (loadContent's default) is workable but can fool the
-  // external-change detector when the saver normalized line endings or
-  // hard-break style differently from the in-memory saved content.
-  if (typeof docState.last_disk_content === 'string') {
-    documentStore.updateLastDiskContent(tabId, docState.last_disk_content);
-  }
 
   // If dirty, apply current content (may be legacy CRLF, so canonicalise)
   if (docState.is_dirty) {

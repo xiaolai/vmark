@@ -14,7 +14,6 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import type { ReplaceableTabInfo } from "@/utils/openPolicy";
 import { getFileName } from "@/utils/pathUtils";
@@ -46,19 +45,15 @@ interface PendingFileOpen {
 export async function loadFileIntoTab(
   tabId: string,
   path: string,
-  isNewTab: boolean,
-): Promise<void> {
+  ): Promise<void> {
   const content = await readTextFile(path);
-  const meta = detectLinebreaks(content);
   // WI-1B.6 / WI-2.6 — registry-driven mode dispatch. .yaml / .yml
   // route to the YAML adapter (kind: "split-pane"), so no
-  // force-source is needed.
-  if (isNewTab) {
-    useDocumentStore.getState().initDocument(tabId, content, path);
-  } else {
-    useDocumentStore.getState().loadContent(tabId, content, path, meta);
-  }
-  useDocumentStore.getState().setLineMetadata(tabId, meta);
+  // force-source is needed. The disk-open ingest creates the document when
+  // the tab is new and replaces it otherwise — one door for both branches.
+  useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
+    filePath: path,
+  });
   useRecentFilesStore.getState().addFile(path);
 }
 
@@ -126,7 +121,7 @@ export function useFinderFileOpen(): void {
         await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
       }
       try {
-        await loadFileIntoTab(tab.tabId, path, false);
+        await loadFileIntoTab(tab.tabId, path);
         if (cancelled) return;
         useTabStore.getState().updateTabPath(tab.tabId, path);
         applyFileOwnershipAfterOpen(tab.tabId, path);
@@ -160,7 +155,7 @@ export function useFinderFileOpen(): void {
       if (cancelled) return;
       const tabId = useTabStore.getState().createTab(windowLabel, path);
       try {
-        await loadFileIntoTab(tabId, path, true);
+        await loadFileIntoTab(tabId, path);
         applyFileOwnershipAfterOpen(tabId, path);
       } catch (error) {
         finderFileOpenError("Failed to load file:", path, error);

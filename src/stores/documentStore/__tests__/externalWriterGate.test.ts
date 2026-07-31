@@ -90,8 +90,10 @@ describe("external text enters only through listed modules", () => {
     "components/StatusBar/tabTransferActions.ts",
     "components/StatusBar/StatusBar.tsx",
     "services/workspaces/workspaceWindowActions.ts",
-    // MCP bridge.
+    // MCP bridge — workspace opens a file (disk-open), document.write applies
+    // an AI payload (mcp-write: an EDIT that keeps the file's convention).
     "hooks/mcpBridge/v2/workspace.ts",
+    "hooks/mcpBridge/v2/document.ts",
     // Terminal file links, new-tab commands.
     "components/Terminal/setupFileLinks.ts",
     "hooks/tabCommands.ts",

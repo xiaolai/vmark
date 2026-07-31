@@ -8,7 +8,6 @@
 
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 
 /**
  * Reload a tab's document content from disk.
@@ -21,6 +20,6 @@ import { detectLinebreaks } from "@/utils/linebreakDetection";
 export async function reloadTabFromDisk(tabId: string, filePath: string): Promise<void> {
   const content = await readTextFile(filePath);
   const docStore = useDocumentStore.getState();
-  docStore.loadContent(tabId, content, filePath, detectLinebreaks(content));
+  docStore.ingestExternalContent(tabId, content, "disk-open", { filePath });
   docStore.clearMissing(tabId);
 }
