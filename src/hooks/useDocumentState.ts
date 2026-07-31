@@ -141,7 +141,7 @@ export function useDocumentActions(ownTabId?: string | null) {
     (content: string) => {
       const tabId = getActiveTabId();
       if (tabId) {
-        useDocumentStore.getState().setContent(tabId, content);
+        useDocumentStore.getState().setEditorContent(tabId, content);
       }
     },
     [getActiveTabId]

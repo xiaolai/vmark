@@ -212,14 +212,14 @@ export function GhaWorkflowSidePanel(): ReactElement | null {
         // (auditor finding: data-loss risk).
         const ok = await saveToPath(tabId, tabDoc.filePath, next, "manual");
         if (!ok) return;
-        docState.setContent(tabId, next);
+        docState.setEditorContent(tabId, next);
         editStore.clearPatches();
         toast.success(t("workflowEditor:save.savedToast"));
       } else {
         // Untitled workflows have no path. Reflect the change in the
         // editor so the user can Cmd+Shift+S to save; the queue clears
         // because the IR-side change is already applied to the doc.
-        docState.setContent(tabId, next);
+        docState.setEditorContent(tabId, next);
         editStore.clearPatches();
         toast.success(t("workflowEditor:save.updatedNoPathToast"));
       }
