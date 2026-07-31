@@ -102,29 +102,57 @@ export interface ContentAnalysis {
  * only to documents that need it, instead of costing every document its setext
  * headings.
  */
-const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/m;
-
-/** Fenced code regions, whose contents are literal text and not list markers. */
-// Matches on the fence CHARACTER, not the whole opening run. `\1+` meant
-// "repetitions of the entire opener", so a valid four-backtick closer after a
-// three-backtick opener was not recognised and the match ran to end-of-input —
-// swallowing the rest of the document and hiding genuine ambiguity after it.
-// A closer shorter than its opener is accepted here, which can end the strip
-// early; that errs toward DETECTING ambiguity, the safe direction.
-// `(?![\s\S])` is end-of-INPUT — plain `$` under the `m` flag means end of line.
-const FENCED_CODE = /^[ \t]*([`~])\1{2,}[^\n]*\n[\s\S]*?(?:^[ \t]*\1{3,}[ \t]*$|(?![\s\S]))/gm;
+const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/;
 
 /**
- * Whether the document contains the ambiguous shape, OUTSIDE fenced code.
+ * A fence line by CommonMark's rules: at most 3 spaces of indent, then a run
+ * of 3+ backticks or tildes. Four or more spaces make the line indented CODE,
+ * so it can neither open nor close a fence — the old scanner accepted
+ * unlimited indentation and a four-space-indented backtick run swallowed the
+ * rest of the document, hiding genuine ambiguity after it.
+ */
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
+
+/** Indented-code line: 4+ spaces or a tab. Its content is literal text. */
+const INDENTED_CODE_LINE = /^(?: {4}|\t)/;
+
+/**
+ * Whether the document contains the ambiguous shape, OUTSIDE code regions.
  *
  * The bare regex matches a lone indented marker anywhere — including inside a
- * fenced block, where `  -` is just a character in a code sample. One such line
- * used to disable setext headings for the WHOLE document, so a real `Title` /
- * `-----` heading elsewhere in the same file silently parsed as a paragraph and
- * could be rewritten on save.
+ * fenced block or an indented code block, where `  -` is just a character in a
+ * code sample. One such line used to disable setext headings for the WHOLE
+ * document, so a real `Title` / `-----` heading elsewhere in the same file
+ * silently parsed as a paragraph and could be rewritten on save.
+ *
+ * The scanner walks lines, tracking one open fence at a time. A closer must
+ * repeat the OPENER'S character at least the opener's length (CommonMark keeps
+ * a 5-backtick block open across a 3-backtick line) and carry nothing but
+ * trailing whitespace. Indented-code lines are skipped too: `    -` is never a
+ * setext underline — indented code cannot interrupt a paragraph, and a setext
+ * underline allows at most 3 spaces of indent.
  */
 function hasAmbiguousListUnderline(markdown: string): boolean {
-  return AMBIGUOUS_LIST_UNDERLINE.test(markdown.replace(FENCED_CODE, ""));
+  let fence: { char: string; size: number } | null = null;
+  for (const line of markdown.split("\n")) {
+    const fenceRun = FENCE_LINE.exec(line);
+    if (fence) {
+      const closes =
+        fenceRun !== null &&
+        fenceRun[1][0] === fence.char &&
+        fenceRun[1].length >= fence.size &&
+        /^[ \t]*$/.test(line.slice(fenceRun[0].length));
+      if (closes) fence = null;
+      continue;
+    }
+    if (fenceRun) {
+      fence = { char: fenceRun[1][0], size: fenceRun[1].length };
+      continue;
+    }
+    if (INDENTED_CODE_LINE.test(line)) continue;
+    if (AMBIGUOUS_LIST_UNDERLINE.test(line)) return true;
+  }
+  return false;
 }
 
 /**

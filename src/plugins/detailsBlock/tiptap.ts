@@ -9,7 +9,9 @@
  *   - Input rule triggers on `<details>` or `:::details` at line start
  *   - Click on summary toggles the open/closed state via node attribute
  *   - A SELECTION is wrapped: the whole top-level blocks it spans become the
- *     body. Only an empty selection inserts a blank details block.
+ *     body. Only an empty selection inserts a blank details block; a non-empty
+ *     selection that cannot be wrapped (AllSelection, a top-level
+ *     NodeSelection) declines rather than inserting an unrelated blank block.
  *   - Default summary text for new blocks comes from the
  *     shared `blockTemplates` module, so both surfaces insert the same block
  *
@@ -144,6 +146,11 @@ export const detailsBlockExtension = Node.create({
             return true;
           }
 
+          // A non-empty selection that cannot be wrapped (AllSelection, a
+          // top-level NodeSelection) declines: falling through would insert an
+          // unrelated blank block instead of the wrap promised above.
+          if (!state.selection.empty) return false;
+
           const detailsNode = createDetailsBlockNode(state, NEW_DETAILS_OPEN);
           if (!detailsNode) return false;
 
@@ -175,7 +182,9 @@ export const detailsBlockExtension = Node.create({
 
           commands.insertContentAt({ from: paragraphStart, to: paragraphEnd }, detailsNode);
           commands.setTextSelection(paragraphStart + detailsBodyCaretOffset(detailsNode));
-          return null;
+          // No return on success: Tiptap's runner treats a null return as
+          // CANCELLATION and skips dispatching, so returning null here meant
+          // the rule never fired. Null stays reserved for the guard above.
         },
       }),
     ];
