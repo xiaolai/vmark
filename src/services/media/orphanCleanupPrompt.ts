@@ -112,6 +112,35 @@ async function reportNothingToDelete(result: OrphanCleanupResult): Promise<void>
 }
 
 /**
+ * Re-scan at delete time and intersect with the confirmed list. The dialog can
+ * stand open for minutes; the confirmed list is a snapshot, and both the
+ * subject and its siblings may have gained references since. `null` means the
+ * re-scan could not be trusted — the caller reports failure and deletes
+ * nothing (an incomplete re-scan protects every candidate, so intersecting
+ * would fake an empty "success").
+ */
+async function rescanStillOrphaned(
+  documentPath: string,
+  confirmed: OrphanedImage[],
+  liveContents: LiveContentsProvider | undefined,
+  freshSubject: string | null
+): Promise<OrphanedImage[] | null> {
+  if (freshSubject === null) return null;
+  try {
+    const fresh = await findOrphanedImages(documentPath, freshSubject, {
+      knownContents: liveContents?.(),
+      externalRefKeys: await collectRemoteLiveRefs(getCurrentWindowLabel()),
+    });
+    if (!fresh.scanComplete) return null;
+    const live = new Set(fresh.orphanedImages.map((img) => img.fullPath));
+    return confirmed.filter((img) => live.has(img.fullPath));
+  } catch (error) {
+    orphanCleanupError(" Re-scan before delete failed:", error);
+    return null;
+  }
+}
+
+/**
  * Show the orphan cleanup preview and delete on confirmation.
  *
  * @param documentPath - Path to the document file, or null if unsaved
@@ -181,39 +210,13 @@ export async function runOrphanCleanup(
 
   if (!confirmed) return { status: "cancelled" };
 
-  // Re-scan: the confirmed list is a snapshot, and the dialog may have been
-  // open for minutes. Delete only what is STILL orphaned.
-  let stillOrphaned: OrphanedImage[];
-  try {
-    // Re-read the subject too, not just the siblings — it can have gained a
-    // reference while the dialog stood open. Null means it can no longer be
-    // vouched for, and deleting on stale content is exactly the mistake here.
-    const freshSubject = subjectContent ? subjectContent() : documentContent;
-    if (freshSubject === null) {
-      await message(t("orphanCleanup.scanFailedMessage"), {
-        title: t("orphanCleanup.scanFailedTitle"),
-        kind: "error",
-      });
-      return { status: "failed" };
-    }
-    const fresh = await findOrphanedImages(documentPath, freshSubject, {
-      knownContents: liveContents?.(),
-      externalRefKeys: await collectRemoteLiveRefs(getCurrentWindowLabel()),
-    });
-    // An incomplete re-scan protects every candidate, so intersecting would
-    // yield an empty list — and reporting "deleted 0" as success would tell the
-    // user the folder is clean when we simply could not check.
-    if (!fresh.scanComplete) {
-      await message(t("orphanCleanup.scanFailedMessage"), {
-        title: t("orphanCleanup.scanFailedTitle"),
-        kind: "error",
-      });
-      return { status: "failed" };
-    }
-    const live = new Set(fresh.orphanedImages.map((img) => img.fullPath));
-    stillOrphaned = result.orphanedImages.filter((img) => live.has(img.fullPath));
-  } catch (error) {
-    orphanCleanupError(" Re-scan before delete failed:", error);
+  const stillOrphaned = await rescanStillOrphaned(
+    documentPath,
+    result.orphanedImages,
+    liveContents,
+    subjectContent ? subjectContent() : documentContent
+  );
+  if (stillOrphaned === null) {
     await message(t("orphanCleanup.scanFailedMessage"), {
       title: t("orphanCleanup.scanFailedTitle"),
       kind: "error",

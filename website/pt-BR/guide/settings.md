@@ -160,7 +160,7 @@ Essas configurações só se aplicam quando uma área de trabalho (pasta) estive
 |-------------|-----------|--------|--------|
 | Redimensionar automaticamente ao colar | Redimensionar automaticamente imagens grandes antes de salvar na pasta de ativos. O valor é a dimensão máxima em pixels | Desligado | Desligado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar para pasta de ativos | Copiar imagens coladas ou arrastadas para a pasta de ativos do documento em vez de incorporá-las | Ligado | Ligado / Desligado |
-| Limpar imagens não utilizadas ao fechar | Excluir automaticamente imagens da pasta de ativos que o documento não referencia mais. Executa ao fechar o documento, a janela ou o aplicativo. Imagens ainda referenciadas por outro documento na mesma pasta são mantidas | Desligado | Ligado / Desligado |
+| Limpar imagens não utilizadas ao fechar | Excluir automaticamente imagens da pasta de ativos que o documento não referencia mais. Executa ao fechar o documento, a janela ou o aplicativo. Imagens ainda referenciadas por outro documento na mesma pasta são mantidas, e as removidas vão para a lixeira do sistema | Desligado | Ligado / Desligado |
 | Limite de imagem inline | Tamanho máximo (MB) para incorporar imagens como URLs de dados base64 na exportação HTML/PDF. Arquivos maiores são vinculados | 1.0 MB | 0.1 – 10 MB |
 
 ### Arquivos grandes
