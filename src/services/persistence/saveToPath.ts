@@ -2,8 +2,9 @@
  * Save Document to Path
  *
  * Purpose: Central save logic — normalizes content (line endings, hard breaks),
- * writes to disk, updates stores, records history snapshots, and manages
- * pending save tracking for file watcher coordination.
+ * re-emits the document's BOM (decision D1), writes to disk, updates stores
+ * with the dual save snapshots (WI-1.4), records history snapshots, and
+ * manages pending save tracking for file watcher coordination.
  *
  * Key decisions:
  *   - Pending save is registered BEFORE write and cleared AFTER with 1000ms delay
@@ -104,7 +105,12 @@ function normalizeSaveContent(tabId: string, content: string): NormalizedSaveCon
     settings.markdown.hardBreakStyleOnSave
   );
   const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
-  const output = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
+  const normalized = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
+  // Decision D1: the editor buffer is BOM-free and `hasBom` remembers that the
+  // file began with U+FEFF. The save is the READER of that flag — without this
+  // line it had writers and no readers, and a BOM'd file lost its mark on the
+  // first save.
+  const output = doc?.hasBom ? `\u{FEFF}${normalized}` : normalized;
   return { output, targetLineEnding, targetHardBreakStyle };
 }
 
@@ -157,10 +163,17 @@ function handleWriteError(
 /**
  * Update stores after a successful write: file path, line metadata, saved
  * markers, deferred pending-save clear, tab path sync, and recent files.
+ *
+ * `editorSnapshot` is the PRE-normalisation content the caller handed to the
+ * writer — not a fresh store read, which would defeat the TOCTOU check: an
+ * edit landing mid-save must compare against what was actually written, and it
+ * cannot be reconstructed from `output` because `normalizeHardBreaks` is not
+ * invertible.
  */
 function applyPostSaveState(
   tabId: string,
   path: string,
+  editorSnapshot: string,
   normalized: NormalizedSaveContent,
   saveToken: ReturnType<typeof registerPendingSave>,
   saveType: SaveType
@@ -170,10 +183,11 @@ function applyPostSaveState(
   useDocumentStore
     .getState()
     .setLineMetadata(tabId, { lineEnding: targetLineEnding, hardBreakStyle: targetHardBreakStyle });
+  const snapshots = { editorSnapshot, diskSnapshot: output };
   if (saveType === "auto") {
-    useDocumentStore.getState().markAutoSaved(tabId, output);
+    useDocumentStore.getState().markAutoSaved(tabId, snapshots);
   } else {
-    useDocumentStore.getState().markSaved(tabId, output);
+    useDocumentStore.getState().markSaved(tabId, snapshots);
   }
 
   // Delay clearing pending save to allow late-arriving watcher events
@@ -240,7 +254,7 @@ export async function saveToPath(
     return handleWriteError(tabId, path, saveToken, saveType, error);
   }
 
-  applyPostSaveState(tabId, path, normalized, saveToken, saveType);
+  applyPostSaveState(tabId, path, content, normalized, saveToken, saveType);
   await recordHistorySnapshot(path, normalized.output, saveType);
 
   // Coherence capture (WI-1.6, human funnel): fire-and-forget — a failed

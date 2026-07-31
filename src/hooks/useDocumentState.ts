@@ -169,19 +169,10 @@ export function useDocumentActions(ownTabId?: string | null) {
     [getActiveTabId]
   );
 
-  const markSaved = useCallback(() => {
-    const tabId = getActiveTabId();
-    if (tabId) {
-      useDocumentStore.getState().markSaved(tabId);
-    }
-  }, [getActiveTabId]);
-
-  const markAutoSaved = useCallback(() => {
-    const tabId = getActiveTabId();
-    if (tabId) {
-      useDocumentStore.getState().markAutoSaved(tabId);
-    }
-  }, [getActiveTabId]);
+  // markSaved/markAutoSaved wrappers were DELETED here (WI-1.4): they had zero
+  // production consumers, and they could not honestly supply the disk snapshot
+  // the dual-snapshot contract requires — a hook has no idea what bytes were
+  // written. The real save path is saveToPath, which calls the store directly.
 
   const setCursorInfo = useCallback(
     (info: CursorInfo | null) => {
@@ -208,8 +199,6 @@ export function useDocumentActions(ownTabId?: string | null) {
     setContent,
     loadContent,
     setFilePath,
-    markSaved,
-    markAutoSaved,
     setCursorInfo,
     setSelectedText,
   };

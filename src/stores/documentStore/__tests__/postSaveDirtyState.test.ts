@@ -12,11 +12,12 @@
  *   dot, prompted on close, and was refused by the non-force close guard,
  *   despite being fully saved.
  *
- * The comparison exists to catch a real TOCTOU race (the user edits during the
- * async save), so it cannot simply be dropped — it must fold only the benign
- * transforms the save pipeline itself applies (line endings, BOM, trailing
- * newline) while still reporting genuine edits as dirty. Both halves are
- * asserted here.
+ * The dual-snapshot contract (WI-1.4) fixed this structurally: `saveToPath`
+ * now passes the PRE-normalisation editor text as `editorSnapshot`, so the
+ * dirty compare is same-domain and STRICT — no soft folding, which also closes
+ * the trailing-newline TOCTOU hole the folding opened. The disk bytes live in
+ * `diskSnapshot`/`lastDiskContent` for external-change detection. Both halves
+ * are asserted here.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { useDocumentStore } from "../document";
@@ -38,7 +39,9 @@ describe("post-save dirty state vs. line-ending normalization", () => {
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
     useDocumentStore.getState().setContent(TAB, editorContent);
-    useDocumentStore.getState().markSaved(TAB, writtenToDisk);
+    useDocumentStore
+      .getState()
+      .markSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
 
     expect(docState().isDirty).toBe(false);
   });
@@ -49,7 +52,9 @@ describe("post-save dirty state vs. line-ending normalization", () => {
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
     useDocumentStore.getState().setContent(TAB, editorContent);
-    useDocumentStore.getState().markAutoSaved(TAB, writtenToDisk);
+    useDocumentStore
+      .getState()
+      .markAutoSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
 
     expect(docState().isDirty).toBe(false);
   });
@@ -60,7 +65,9 @@ describe("post-save dirty state vs. line-ending normalization", () => {
 
     useDocumentStore.getState().initDocument(TAB, "# Doc\n\nbody\n");
     useDocumentStore.getState().setContent(TAB, editedSince);
-    useDocumentStore.getState().markSaved(TAB, writtenToDisk);
+    useDocumentStore
+      .getState()
+      .markSaved(TAB, { editorSnapshot: "# Doc\n\nbody\n", diskSnapshot: writtenToDisk });
 
     expect(docState().isDirty).toBe(true);
   });
@@ -71,10 +78,12 @@ describe("post-save dirty state vs. line-ending normalization", () => {
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
     useDocumentStore.getState().setContent(TAB, editorContent);
-    useDocumentStore.getState().markSaved(TAB, writtenToDisk);
+    useDocumentStore
+      .getState()
+      .markSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
 
-    // Folding CRLF for the DIRTY check must not rewrite what we believe is on
-    // disk — useExternalFileChanges compares real disk bytes against this.
+    // The DISK snapshot holds the real bytes — useExternalFileChanges compares
+    // actual disk content against this.
     expect(docState().lastDiskContent).toBe(writtenToDisk);
   });
 
@@ -83,7 +92,9 @@ describe("post-save dirty state vs. line-ending normalization", () => {
 
     useDocumentStore.getState().initDocument(TAB, content);
     useDocumentStore.getState().setContent(TAB, content);
-    useDocumentStore.getState().markSaved(TAB, content);
+    useDocumentStore
+      .getState()
+      .markSaved(TAB, { editorSnapshot: content, diskSnapshot: content });
 
     expect(docState().isDirty).toBe(false);
   });
