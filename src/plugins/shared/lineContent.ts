@@ -20,8 +20,10 @@
  *
  * @coordinates-with toolbarActions/sourceInsertActions.ts — insertCodeBlock
  * @coordinates-with sourceContextDetection/headingDetection.ts — the heading-only variant
- * `fenceRanges` also lives here as the ONE fence scanner: pairing cannot be
- * decided locally, since a run of backticks above the cursor may be a closer.
+ * `fenceRanges` lives here as the fence scanner the SAFETY BOUNDARY resolves
+ * through — pairing cannot be decided locally, since a run of backticks above
+ * the cursor may itself be a closer. It is not yet the only one in the codebase;
+ * see its own doc comment.
  *
  * @module plugins/shared/lineContent
  */
@@ -88,10 +90,61 @@ export function stripBlockMarkup(line: string): LineContent {
   return { quote, indent, content: rest };
 }
 
-/** A fence delimiter line: three or more backticks or tildes, up to 3 spaces in. */
-const FENCE_LINE_RE = /^ {0,3}([`~])\1{2,}\s*(.*)$/;
+/**
+ * A fence delimiter, with the details CommonMark needs to pair it.
+ *
+ * `run` matters: a closer must be at LEAST as long as its opener. Comparing only
+ * the marker character treated ```` ```` ```` + ``` ``` ``` as a closed block, so
+ * everything after it was classified as ordinary markdown and lost its
+ * protection — a real bypass of the safety boundary.
+ */
+interface FenceDelimiter {
+  marker: "`" | "~";
+  run: number;
+  info: string;
+  /** Blockquote prefix the delimiter sits behind, e.g. `> `. */
+  prefix: string;
+}
 
-/** The fence enclosing `lineIndex`, or null when that line is not inside one. */
+/** Leading blockquote markers, which a fence may legally sit behind. */
+const CONTAINER_PREFIX_RE = /^(?: {0,3}>[ \t]?)*/;
+
+/** Number of `>` markers in a container prefix. */
+function quoteDepth(prefix: string): number {
+  return (prefix.match(/>/g) ?? []).length;
+}
+
+/**
+ * Whether a closer's trailing run is blank.
+ *
+ * `.trim()` would accept NBSP and other Unicode spaces; CommonMark allows only
+ * spaces and tabs after a closing fence.
+ */
+function isBlankInfo(info: string): boolean {
+  return /^[ \t]*$/.test(info);
+}
+
+/** Parse a line as a fence delimiter, or null. Whitespace is spaces/tabs only. */
+function parseFenceDelimiter(line: string): FenceDelimiter | null {
+  const prefix = CONTAINER_PREFIX_RE.exec(line)?.[0] ?? "";
+  const rest = line.slice(prefix.length);
+  const match = /^[ \t]{0,3}([`~])(\1*)([^\n]*)$/.exec(rest);
+  if (!match) return null;
+
+  const marker = match[1] as "`" | "~";
+  const run = match[2].length + 1;
+  if (run < 3) return null;
+
+  const info = match[3];
+  // CommonMark: a BACKTICK fence's info string may not contain a backtick —
+  // otherwise it is not a fence at all. Accepting one invented fences out of
+  // ordinary prose and let the toggle "unfence" it destructively.
+  if (marker === "`" && info.includes("`")) return null;
+
+  return { marker, run, info, prefix };
+}
+
+/** A fenced code block's line range. */
 export interface EnclosingFence {
   /** 0-based line index of the opening delimiter. */
   open: number;
@@ -101,48 +154,64 @@ export interface EnclosingFence {
   closed: boolean;
 }
 
-/**
- * Find the fenced code block containing `lineIndex`, scanning from the top.
- *
- * Scanning from the start rather than outward is what makes this correct: fence
- * delimiters only pair in document order, so "is there a ``` above me" cannot be
- * answered locally — the run above may itself be a closer.
- *
- * A line ON either delimiter counts as inside, because the toggle has to be
- * reachable from there too.
- */
+/** The fence enclosing `lineIndex`, or null when that line is not inside one. */
 export function enclosingFence(lines: readonly string[], lineIndex: number): EnclosingFence | null {
   return fenceRanges(lines).find((f) => lineIndex >= f.open && lineIndex <= f.close) ?? null;
+}
+
+/** Whether `lineIndex` is a fence DELIMITER line rather than fenced content. */
+export function isFenceDelimiter(lines: readonly string[], lineIndex: number): boolean {
+  const fence = enclosingFence(lines, lineIndex);
+  if (!fence) return false;
+  return lineIndex === fence.open || (fence.closed && lineIndex === fence.close);
 }
 
 /**
  * Every fenced code block in the document, in order.
  *
- * ONE scanner, because "am I in a fence" cannot be answered locally — delimiters
- * pair in document order, so a run of backticks above the cursor may itself be a
- * closer. Every fence question in the codebase resolves through this rather than
- * re-deriving it, which is how two slightly different fence parsers appeared the
- * first time.
+ * This is the scanner the SAFETY BOUNDARY resolves through: "am I in a fence"
+ * cannot be answered locally, because delimiters pair in document order and a
+ * run of backticks above the cursor may itself be a closer.
+ *
+ * It is NOT yet the only fence parser in the codebase —
+ * `sourceContextDetection/codeFenceDetection.ts` and
+ * `toolbarActions/multiSelectionContext.ts` each carry their own, and they
+ * disagree with this one about run lengths, tildes, info strings and container
+ * prefixes. Consolidating them is tracked in the source-block-model plan; until
+ * then, treat a disagreement between them as a bug in the other two.
  */
 export function fenceRanges(lines: readonly string[]): EnclosingFence[] {
   const ranges: EnclosingFence[] = [];
   let open = -1;
-  let marker = "";
+  let opener: FenceDelimiter | null = null;
 
   for (let i = 0; i < lines.length; i += 1) {
-    const match = FENCE_LINE_RE.exec(lines[i] ?? "");
+    const delimiter = parseFenceDelimiter(lines[i] ?? "");
     if (open === -1) {
-      if (match) {
+      if (delimiter) {
         open = i;
-        marker = match[1];
+        opener = delimiter;
       }
       continue;
     }
-    // Only the SAME character closes, and a closer carries no info string.
-    if (match && match[1] === marker && match[2].trim() === "") {
+    // A closer matches the opener's CHARACTER, is at least as LONG, and carries
+    // no info string. Any of the three getting dropped leaves real code outside
+    // the fence and unprotected.
+    if (
+      delimiter &&
+      opener &&
+      delimiter.marker === opener.marker &&
+      delimiter.run >= opener.run &&
+      // Same CONTAINER: a fence opened inside a blockquote is not closed by a
+      // delimiter outside it. Capturing the prefix and then ignoring it paired
+      // `> \`\`\`` with a bare \`\`\`, so the real fenced code after it was
+      // classified as ordinary markdown and lost its protection.
+      quoteDepth(delimiter.prefix) === quoteDepth(opener.prefix) &&
+      isBlankInfo(delimiter.info)
+    ) {
       ranges.push({ open, close: i, closed: true });
       open = -1;
-      marker = "";
+      opener = null;
     }
   }
 
