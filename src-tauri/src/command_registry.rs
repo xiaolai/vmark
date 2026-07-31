@@ -70,6 +70,8 @@ macro_rules! all_commands {
             file_tree::list_directory_entries,
             file_ops::get_file_size_bytes,
             file_ops::move_paths_to_trash,
+            live_docs::collect_live_document_refs,
+            live_docs::live_docs_response,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
             workspace_validation::validate_workspace_dir,

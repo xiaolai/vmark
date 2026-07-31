@@ -209,7 +209,7 @@ describe("runOrphanCleanup — re-scans before deleting", () => {
     await runOrphanCleanup("/doc/a.md", "x", false, () => live);
 
     for (const call of vi.mocked(findOrphanedImages).mock.calls) {
-      expect(call[2]).toEqual({ knownContents: live });
+      expect(call[2]).toEqual({ knownContents: live, externalRefKeys: expect.anything() });
     }
   });
 

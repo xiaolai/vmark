@@ -31,14 +31,13 @@
  * @module services/media/orphanAssetCleanup
  */
 
-import { readDir, readTextFile, exists } from "@tauri-apps/plugin-fs";
+import { readDir, exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import { ASSETS_FOLDER, isImageFile } from "@/utils/imageUtils";
-import { isMarkdownFileName } from "@/utils/dropPaths";
 import { assetKey, extractImageReferenceKeys } from "@/utils/imageReferences";
 import { unregisterImageFilenames } from "@/services/media/imageHashRegistry";
-import { canonicalPathKey } from "@/utils/paths/pathComparison";
+import { collectSiblingReferences } from "@/services/media/siblingReferences";
 import { orphanCleanupError } from "@/utils/debug";
 
 export interface OrphanedImage {
@@ -68,11 +67,14 @@ export interface OrphanScanOptions {
    * documents closing in the same batch. Consulted instead of reading the file.
    */
   knownContents?: ReadonlyMap<string, string>;
+  /**
+   * Reference keys from OTHER WINDOWS' live buffers (WI-9). `complete: false`
+   * — any window unheard from — makes the whole scan incomplete, and an
+   * incomplete scan protects every candidate. Absent means the caller has no
+   * cross-window source (unit tests, single-surface flows): neutral.
+   */
+  externalRefKeys?: { complete: boolean; keys: ReadonlySet<string> };
 }
-
-/** How many sibling documents to read at once. Unbounded `Promise.all` over a
- *  large notes folder exhausts file descriptors and stalls window close. */
-const SIBLING_READ_CONCURRENCY = 8;
 
 /**
  * Is `filename` in the assets folder referenced by any key in `refs`?
@@ -93,12 +95,6 @@ function isReferenced(refs: ReadonlySet<string>, filename: string): boolean {
   return false;
 }
 
-/** True when `filePath` sits directly in `dir` (not in a subdirectory). */
-function isSameDirectory(filePath: string, dir: string): boolean {
-  const cut = filePath.lastIndexOf("/");
-  return cut !== -1 && filePath.slice(0, cut) === dir;
-}
-
 const emptyResult = (scanComplete = true): OrphanCleanupResult => ({
   orphanedImages: [],
   referencedCount: 0,
@@ -106,92 +102,6 @@ const emptyResult = (scanComplete = true): OrphanCleanupResult => ({
   totalInFolder: 0,
   scanComplete,
 });
-
-/** Run `worker` over `items` at most `limit` at a time, in order-independent batches. */
-async function mapWithConcurrency<T>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T) => Promise<void>
-): Promise<void> {
-  let cursor = 0;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const item = items[cursor++];
-      await worker(item);
-    }
-  });
-  await Promise.all(runners);
-}
-
-interface SiblingScan {
-  /** Reference keys held by the other documents sharing this assets folder. */
-  keys: Set<string>;
-  /** False if any sibling (or the directory listing) could not be read. */
-  complete: boolean;
-}
-
-/**
- * Collect every image reference held by the OTHER documents in `docDir`, which
- * share this assets folder.
- */
-async function collectSiblingReferences(
-  docDir: string,
-  documentPath: string,
-  knownContents: ReadonlyMap<string, string>
-): Promise<SiblingScan> {
-  let entries;
-  try {
-    entries = await readDir(docDir);
-  } catch (error) {
-    orphanCleanupError(" Failed to list sibling documents:", error);
-    return { keys: new Set(), complete: false };
-  }
-
-  const siblings = entries.filter((entry) => entry.isFile && isMarkdownFileName(entry.name));
-  const onDisk = await Promise.all(siblings.map((entry) => join(docDir, entry.name)));
-
-  // An open document that readDir did NOT return still holds references — it may
-  // have been deleted or moved externally while its buffer stays on screen.
-  // Missing it deletes an image that document still displays.
-  const onDiskKeys = new Set(onDisk.map(canonicalPathKey));
-  const buffered = [...knownContents.keys()].filter(
-    (path) =>
-      canonicalPathKey(path) !== canonicalPathKey(documentPath) &&
-      !onDiskKeys.has(canonicalPathKey(path)) &&
-      isSameDirectory(canonicalPathKey(path), canonicalPathKey(docDir))
-  );
-
-  const keys = new Set<string>();
-  let complete = true;
-  const add = (content: string) =>
-    extractImageReferenceKeys(content).forEach((key) => keys.add(key));
-
-  const subjectKey = canonicalPathKey(documentPath);
-  await mapWithConcurrency([...onDisk, ...buffered], SIBLING_READ_CONCURRENCY, async (fullPath) => {
-    // The subject document's authoritative content is the caller's argument;
-    // the on-disk copy may be stale (unsaved edits) and would resurrect the
-    // very images the user just removed. Compared canonically (WI-8c).
-    if (canonicalPathKey(fullPath) === subjectKey) return;
-
-    const known = knownContents.get(canonicalPathKey(fullPath));
-    if (known !== undefined) add(known);
-
-    // Read the file EVEN WHEN a buffer exists, and union both. The buffer can be
-    // behind the file (a sync client or another editor just rewrote it), and
-    // trusting only one side deletes what the other still references. A missing
-    // file is fine when a buffer covered it; otherwise the scan is incomplete.
-    try {
-      add(await readTextFile(fullPath));
-    } catch (error) {
-      if (known === undefined) {
-        orphanCleanupError(` Failed to read sibling ${fullPath}:`, error);
-        complete = false;
-      }
-    }
-  });
-
-  return { keys, complete };
-}
 
 /**
  * Find orphaned images in the assets folder: present on disk, referenced
@@ -231,6 +141,13 @@ export async function findOrphanedImages(
   }
 
   const siblings = await collectSiblingReferences(docDir, documentPath, knownContents);
+  // WI-9: fold in other windows' live buffers. Their keys only ever protect;
+  // their absence (incomplete) poisons completeness, which also protects.
+  const external = options.externalRefKeys;
+  if (external) {
+    external.keys.forEach((key) => siblings.keys.add(key));
+    siblings.complete = siblings.complete && external.complete;
+  }
 
   const orphanedImages: OrphanedImage[] = [];
   let sharedCount = 0;

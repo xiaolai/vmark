@@ -30,6 +30,8 @@ import { confirm, message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { orphanCleanupError } from "@/utils/debug";
 import { withoutWorkspaceReferenced } from "@/services/media/workspaceReferenceCheck";
+import { collectRemoteLiveRefs } from "@/services/media/crossWindowRefs";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
   deleteOrphanedImages,
   findOrphanedImages,
@@ -143,6 +145,7 @@ export async function runOrphanCleanup(
   try {
     result = await findOrphanedImages(documentPath, documentContent, {
       knownContents: liveContents?.(),
+      externalRefKeys: await collectRemoteLiveRefs(getCurrentWindowLabel()),
     });
   } catch (error) {
     // The menu dispatcher only logs a rejection, leaving the user staring at a
@@ -195,6 +198,7 @@ export async function runOrphanCleanup(
     }
     const fresh = await findOrphanedImages(documentPath, freshSubject, {
       knownContents: liveContents?.(),
+      externalRefKeys: await collectRemoteLiveRefs(getCurrentWindowLabel()),
     });
     // An incomplete re-scan protects every candidate, so intersecting would
     // yield an empty list — and reporting "deleted 0" as success would tell the
