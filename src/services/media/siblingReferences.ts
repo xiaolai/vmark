@@ -3,9 +3,10 @@
  *
  * Purpose: gather every image reference held by the OTHER documents sharing an
  * assets folder — from their live buffers when the caller supplies them,
- * unioned with their on-disk content otherwise. Split out of
- * orphanAssetCleanup.ts along this seam when it crossed the size limit; the
- * public scan/delete API stays there.
+ * unioned with their on-disk content otherwise — plus the keys of every other
+ * open buffer anywhere (cross-directory, untitled), which only ever ADD
+ * protection. Split out of orphanAssetCleanup.ts along this seam when it
+ * crossed the size limit; the public scan/delete API stays there.
  *
  * @coordinates-with orphanAssetCleanup.ts — sole consumer
  * @module services/media/siblingReferences
@@ -88,6 +89,16 @@ export async function collectSiblingReferences(
     extractImageReferenceKeys(content).forEach((key) => keys.add(key));
 
   const subjectKey = canonicalPathKey(documentPath);
+
+  // Every OTHER open buffer is evidence regardless of directory: a document
+  // elsewhere (or an untitled one, keyed synthetically) can reference this
+  // assets folder by absolute or ../ path, and its UNSAVED reference exists
+  // nowhere on disk for the workspace search to see (review finding). The
+  // subject stays excluded — the caller's argument is its authoritative
+  // content, and a stale buffer would resurrect just-removed references.
+  for (const [path, content] of knownContents) {
+    if (canonicalPathKey(path) !== subjectKey) add(content);
+  }
   await mapWithConcurrency([...onDisk, ...buffered], SIBLING_READ_CONCURRENCY, async (fullPath) => {
     // The subject document's authoritative content is the caller's argument;
     // the on-disk copy may be stale (unsaved edits) and would resurrect the

@@ -172,6 +172,7 @@ macro_rules! all_commands {
             pandoc::commands::detect_pandoc,
             pandoc::commands::export_via_pandoc,
             content_search::search_workspace_content,
+            content_search::search_workspace_content_checked,
             content_server::commands::content_server_start,
             content_server::commands::content_server_stop,
             content_server::commands::content_server_status,

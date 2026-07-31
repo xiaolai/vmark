@@ -44,9 +44,13 @@ describe("liveContentsExcluding", () => {
     expect(live.get("/tmp/b.md")).toBe("B");
   });
 
-  it("omits untitled documents (they have no assets folder of their own)", () => {
-    useDocumentStore.getState().initDocument("t1", "draft", null);
-    expect(liveContentsExcluding().size).toBe(0);
+  it("carries untitled documents under a synthetic key", () => {
+    // A never-saved buffer can hold an absolute-path reference that exists
+    // nowhere on disk — omitting it deleted the image (review finding). The
+    // synthetic key never matches a directory filter, so it acts purely as
+    // extra reference evidence.
+    useDocumentStore.getState().initDocument("t1", "![](/w/assets/images/x.png)", null);
+    expect(liveContentsExcluding().get("untitled:t1")).toBe("![](/w/assets/images/x.png)");
   });
 
   it("prefers the dirty buffer when two tabs hold one path", () => {

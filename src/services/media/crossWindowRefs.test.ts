@@ -67,8 +67,11 @@ describe("localLiveRefKeys", () => {
     expect(localLiveRefKeys()).toContain("assets/images/pasted.png");
   });
 
-  it("skips untitled documents", () => {
-    useDocumentStore.getState().initDocument("t1", "![](./assets/images/x.png)", null);
-    expect(localLiveRefKeys()).toEqual([]);
+  it("includes untitled documents — their buffers exist nowhere on disk", () => {
+    // A never-saved buffer holding an absolute reference is invisible to every
+    // OTHER evidence source (disk scan, workspace search). Dropping it here
+    // deleted an image an open window still displayed (review finding).
+    useDocumentStore.getState().initDocument("t1", "![](/w/assets/images/x.png)", null);
+    expect(localLiveRefKeys()).toContain("/w/assets/images/x.png");
   });
 });

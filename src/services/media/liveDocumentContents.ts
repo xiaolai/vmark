@@ -1,8 +1,9 @@
 /**
  * Live Document Contents
  *
- * Purpose: Snapshot the in-memory buffer of every open document, keyed by file
- * path, for orphan-image cleanup to consult instead of reading those files off
+ * Purpose: Snapshot the in-memory buffer of every open document — keyed by
+ * file path, or by a synthetic `untitled:<tabId>` key for never-saved ones —
+ * for orphan-image cleanup to consult instead of reading those files off
  * disk.
  *
  * Why it exists: `assets/images` is shared by every document in a directory, so
@@ -26,7 +27,11 @@ import { canonicalPathKey } from "@/utils/paths/pathComparison";
 
 /**
  * In-memory content of every open document except those in `excludedTabIds`,
- * keyed by absolute path.
+ * keyed by absolute path — or by a synthetic `untitled:<tabId>` key for
+ * never-saved documents, whose buffers exist nowhere on disk yet can hold
+ * absolute-path references. Synthetic keys cannot collide with real paths
+ * (those are absolute) and never match a directory filter, so they act purely
+ * as extra reference evidence.
  *
  * When two tabs hold the same path, the dirty buffer wins: it is the one
  * carrying references its clean twin does not.
@@ -42,7 +47,11 @@ export function liveContentsExcluding(
   const live = new Map<string, string>();
   const { documents } = useDocumentStore.getState();
   for (const [tabId, doc] of Object.entries(documents)) {
-    if (excludedTabIds.has(tabId) || !doc.filePath) continue;
+    if (excludedTabIds.has(tabId)) continue;
+    if (!doc.filePath) {
+      live.set(`untitled:${tabId}`, doc.content);
+      continue;
+    }
     // WI-8c: two spellings of one path must land on ONE key, or a lookup
     // misses the buffer and the scan falls back to a stale file.
     const key = canonicalPathKey(doc.filePath);

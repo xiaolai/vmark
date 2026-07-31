@@ -63,13 +63,16 @@ export async function collectRemoteLiveRefs(windowLabel: string): Promise<Extern
 /**
  * This window's answer: reference keys from every open document's live
  * buffer, editors flushed first. Exported for the responder hook and tests.
+ *
+ * UNTITLED documents count too: a never-saved buffer can hold an
+ * absolute-path reference (drag-drop, MCP write), and it exists nowhere on
+ * disk for any other evidence source to find. Extra keys only protect.
  */
 export function localLiveRefKeys(): string[] {
   flushAllWysiwygNow();
   const keys = new Set<string>();
   const { documents } = useDocumentStore.getState();
   for (const doc of Object.values(documents)) {
-    if (!doc.filePath) continue;
     for (const key of extractImageReferenceKeys(doc.content)) keys.add(key);
   }
   return [...keys];
