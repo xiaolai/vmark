@@ -15,7 +15,8 @@ import { useTabStore } from "@/stores/tabStore";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
-import { normalizeLineEndings, resolveHardBreakStyle } from "@/utils/linebreaks";
+import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
+import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getSourceBlockRange } from "@/utils/sourceSelection";
 
 // --- CJK formatting helpers ---
@@ -147,18 +148,12 @@ export function handleCollapseBlankLines(view: EditorView): boolean {
   return applyFullDocumentTransform(view, collapseNewlines);
 }
 
-/** Normalizes all line endings to the specified style and updates document metadata. */
-export function handleLineEndings(view: EditorView, target: "lf" | "crlf"): boolean {
-  const windowLabel = getWindowLabel();
-  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-
-  // Apply the transformation via proper transaction
-  applyFullDocumentTransform(view, (content) => normalizeLineEndings(content, target));
-
-  // Update metadata in store (this doesn't affect editor state)
-  if (tabId) {
-    useDocumentStore.getState().setLineMetadata(tabId, { lineEnding: target });
-  }
-
-  return true;
+/**
+ * Record the document's line-ending convention. METADATA-ONLY (WI-1.7): the
+ * buffer is LF-canonical — CodeMirror normalises CRLF on insert anyway, so the
+ * old whole-document round-trip changed nothing while adding a useless undo
+ * entry and collapsing the selection.
+ */
+export function handleLineEndings(_view: EditorView, target: "lf" | "crlf"): boolean {
+  return setDocumentLineEnding(target);
 }

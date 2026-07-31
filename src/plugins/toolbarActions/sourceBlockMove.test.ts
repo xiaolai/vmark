@@ -5,7 +5,8 @@
  * @module plugins/toolbarActions/sourceBlockMove.test
  */
 import { describe, it, expect } from "vitest";
-import { duplicateNeedsHardBreak, moveBlockAware } from "./sourceBlockMove";
+import { moveBlockAware } from "./sourceBlockMove";
+import { duplicateNeedsHardBreak, joinWouldFuseBlocks } from "./sourceLineClassifier";
 
 describe("duplicateNeedsHardBreak inside a code fence", () => {
   const fenced = ["```js", "const a = 1;", "```", "", "paragraph"];
@@ -52,14 +53,18 @@ describe("moveBlockAware refuses to disturb a fence", () => {
     expect(moveBlockAware(["para", "```", "x", "```"], { start: 0, end: 0 }, "down")).toBeNull();
   });
 
-  it("still reorders content WITHIN one fence", () => {
-    expect(moveBlockAware(["```", "a", "b", "```"], { start: 2, end: 2 }, "up")).toEqual([
-      "```", "b", "a", "```",
-    ]);
+  it("still reorders content WITHIN one fence, reporting the landing line", () => {
+    expect(moveBlockAware(["```", "a", "b", "```"], { start: 2, end: 2 }, "up")).toEqual({
+      lines: ["```", "b", "a", "```"],
+      selectionStart: 1,
+    });
   });
 
   it("still moves ordinary lines with no fence involved", () => {
-    expect(moveBlockAware(["a", "b"], { start: 1, end: 1 }, "up")).toEqual(["b", "a"]);
+    expect(moveBlockAware(["a", "b"], { start: 1, end: 1 }, "up")).toEqual({
+      lines: ["b", "a"],
+      selectionStart: 0,
+    });
   });
 });
 
@@ -77,8 +82,64 @@ describe("moveBlockAware and blank lines inside a fence", () => {
   });
 
   it("still swaps real paragraphs across a blank line", () => {
-    expect(moveBlockAware(["one", "", "two"], { start: 0, end: 0 }, "down")).toEqual([
-      "two", "", "one",
-    ]);
+    expect(moveBlockAware(["one", "", "two"], { start: 0, end: 0 }, "down")).toEqual({
+      lines: ["two", "", "one"],
+      selectionStart: 2,
+    });
+  });
+});
+
+describe("joinWouldFuseBlocks sees through container prefixes", () => {
+  // `listIndent` on the raw line cannot see "> - one" as a list item, so a
+  // join produced the malformed "> - one > - two".
+  it("refuses to fuse two QUOTED list items", () => {
+    expect(joinWouldFuseBlocks(["> - one", "> - two"], 0, 0)).toBe(true);
+  });
+
+  it("refuses to fuse a paragraph with a heading", () => {
+    expect(joinWouldFuseBlocks(["para", "# head"], 0, 0)).toBe(true);
+  });
+
+  it("refuses to fuse a paragraph with a thematic break", () => {
+    expect(joinWouldFuseBlocks(["para", "---"], 0, 0)).toBe(true);
+  });
+
+  it("refuses to fuse a paragraph with a table row", () => {
+    expect(joinWouldFuseBlocks(["para", "| a | b |"], 0, 0)).toBe(true);
+  });
+
+  it("still allows joining two plain quoted lines", () => {
+    // Two lines of one quoted paragraph are the case join exists for.
+    expect(joinWouldFuseBlocks(["> one", "> two"], 0, 0)).toBe(false);
+  });
+
+  it("multi-line selection: a structural line anywhere after the first refuses", () => {
+    expect(joinWouldFuseBlocks(["a", "b", "# c"], 0, 2)).toBe(true);
+  });
+});
+
+describe("duplicateNeedsHardBreak treats structural lines as siblings", () => {
+  it.each([
+    { line: "---", label: "thematic break" },
+    { line: "* * *", label: "spaced thematic break" },
+    { line: "    code", label: "indented code" },
+    { line: "\tcode", label: "tab-indented code" },
+    { line: "<div>", label: "HTML block" },
+    { line: "$$", label: "math delimiter" },
+  ])("$label duplicates without a backslash", ({ line }) => {
+    // Appending "\" turned "---" into "---\" — a paragraph, not a break.
+    expect(duplicateNeedsHardBreak([line], 0)).toBe(false);
+  });
+
+  it("a plain paragraph line still needs the break", () => {
+    expect(duplicateNeedsHardBreak(["plain text"], 0)).toBe(true);
+  });
+
+  it("a QUOTED paragraph still needs the break", () => {
+    expect(duplicateNeedsHardBreak(["> quoted text"], 0)).toBe(true);
+  });
+
+  it("a quoted thematic break does NOT", () => {
+    expect(duplicateNeedsHardBreak(["> ---"], 0)).toBe(false);
   });
 });
