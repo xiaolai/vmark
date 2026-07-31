@@ -87,6 +87,49 @@ function seedStore(sessionIds: string[], terminalVisible: boolean): void {
   });
 }
 
+// A clean exit hides the panel with no trace anywhere. Reported as "the
+// terminal closes after several seconds" — and the Tauri log had nothing to
+// say about it, because nothing logged it.
+describe("useTerminalShellLifecycle — a vanishing panel leaves evidence", () => {
+  beforeEach(() => {
+    vi.mocked(spawnPty).mockReset();
+  });
+
+  it("logs the clean exit that hides the panel", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    seedStore(["term-1"], true);
+    const { entry } = makeEntry();
+    const sessionsRef = { current: new Map([["term-1", entry]]) };
+    const onExit = await startAndCaptureExit(sessionsRef, "term-1");
+
+    act(() => onExit(0));
+
+    expect(warn).toHaveBeenCalledWith(
+      "[Terminal]",
+      expect.stringContaining("exited"),
+      expect.objectContaining({ sessionId: "term-1", exitCode: 0 }),
+    );
+    warn.mockRestore();
+  });
+
+  it("logs a non-zero exit too", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    seedStore(["term-1"], true);
+    const { entry } = makeEntry();
+    const sessionsRef = { current: new Map([["term-1", entry]]) };
+    const onExit = await startAndCaptureExit(sessionsRef, "term-1");
+
+    act(() => onExit(3));
+
+    expect(warn).toHaveBeenCalledWith(
+      "[Terminal]",
+      expect.stringContaining("exited"),
+      expect.objectContaining({ sessionId: "term-1", exitCode: 3 }),
+    );
+    warn.mockRestore();
+  });
+});
+
 describe("useTerminalShellLifecycle — shell exit (#1103)", () => {
   beforeEach(() => {
     vi.mocked(spawnPty).mockReset();
