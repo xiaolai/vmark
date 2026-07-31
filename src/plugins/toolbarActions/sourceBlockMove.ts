@@ -27,6 +27,10 @@
  *
  * @coordinates-with sourceTextTransforms.ts — the handlers that call this
  * @coordinates-with wysiwygLineUnit.ts — the WYSIWYG side of the same question
+ * Inside a fenced code block a line is LITERAL TEXT, so `duplicateNeedsHardBreak`
+ * declines there — a markdown hard-break backslash is a stray character in the
+ * user's source code.
+ *
  * @module plugins/toolbarActions/sourceBlockMove
  */
 

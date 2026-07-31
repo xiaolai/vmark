@@ -23,6 +23,11 @@
  * a cell drops block children on serialize, so letting a native accelerator run
  * a block action there would lose the user's text.
  *
+ * Two correctness boundaries are enforced here rather than in the toolbar,
+ * because the native menu path never consults a button's enabled state: table
+ * cells (which drop block children) and CODE FENCES (which hold literal text,
+ * so any markdown written into one corrupts source code).
+ *
  * @module services/commands/actionAvailability
  */
 

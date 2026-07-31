@@ -14,8 +14,14 @@
  * a single item of a structure.
  *
  * Key decisions:
- *   - A blank line separates blocks. That is markdown's own rule, so a paragraph
- *     is the contiguous run of non-blank lines around the cursor.
+ *   - A blank line separates PARAGRAPHS, and a fence bounds a code block. That
+ *     is not the whole of markdown's block grammar — CommonMark only defines a
+ *     paragraph that way, and headings, quotes, thematic breaks and HTML can
+ *     start a block with no blank line before them, so `para` + `# heading`
+ *     still resolves here as one span. Fences are handled because getting them
+ *     wrong was DESTRUCTIVE: a caret below a closing ``` resolved to the whole
+ *     code block. The remaining cases are non-destructive over-reach, and the
+ *     real fix is the CodeMirror syntax tree rather than more line rules.
  *   - A list is ONE block, items included. Wrapping a single item shatters the
  *     list into three structures — list, wrapped item, list — which is the exact
  *     defect already recorded for blockquote in the parity ledger. The same

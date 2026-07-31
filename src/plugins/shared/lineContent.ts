@@ -20,6 +20,9 @@
  *
  * @coordinates-with toolbarActions/sourceInsertActions.ts — insertCodeBlock
  * @coordinates-with sourceContextDetection/headingDetection.ts — the heading-only variant
+ * `fenceRanges` also lives here as the ONE fence scanner: pairing cannot be
+ * decided locally, since a run of backticks above the cursor may be a closer.
+ *
  * @module plugins/shared/lineContent
  */
 
