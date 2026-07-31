@@ -451,3 +451,82 @@ describe("setupImeCompositionGate — textarea fallback is bounded", () => {
     expect(commits).toEqual([]);
   });
 });
+
+// Found by an independent Codex audit of this branch, each reproduced before
+// fixing. All three are ways a keystroke reaches the shell wrongly.
+describe("setupImeCompositionGate — audit findings", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => vi.useRealTimers());
+
+  // Escape during pinyin used to type the raw preedit into the shell.
+  it("commits NOTHING when a composition is cancelled", () => {
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionstart");
+    textarea.value = "ni"; // preedit still present when the cancel arrives
+    fireComposition(textarea, "compositionend", ""); // Escape → empty data
+    expect(commits).toEqual([]);
+  });
+
+  it("commits nothing when a longer pinyin run is cancelled", () => {
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionstart");
+    textarea.value = "zhongwen";
+    fireComposition(textarea, "compositionend", "");
+    expect(commits).toEqual([]);
+  });
+
+  it("still commits a real ASCII composition result", () => {
+    // Japanese/Korean can commit half-width alphanumerics; e.data is non-empty.
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionstart");
+    textarea.value = "abc";
+    fireComposition(textarea, "compositionend", "abc");
+    expect(commits).toEqual(["abc"]);
+  });
+
+  it("still commits a CJK composition result", () => {
+    const { textarea, commits } = makeHarness();
+    fireComposition(textarea, "compositionstart");
+    textarea.value = "你好";
+    fireComposition(textarea, "compositionend", "你好");
+    expect(commits).toEqual(["你好"]);
+  });
+
+  // A layout that types non-ASCII directly is xterm's to write.
+  it("does not double a non-ASCII character typed on a normal layout", () => {
+    const { textarea, commits } = makeHarness();
+    firePlainKeydown(textarea, "é", 50); // AZERTY — xterm writes it
+    fireInput(textarea, "é");
+    expect(commits).toEqual([]);
+  });
+
+  it("still forwards non-ASCII the IME inserted with no keydown of its own", () => {
+    const { textarea, commits } = makeHarness();
+    fireInput(textarea, "？"); // WeChat Shift punctuation
+    expect(commits).toEqual(["？"]);
+  });
+
+  it("forwards a supplementary character reported with null data", () => {
+    // "𠀀" is ONE character but TWO UTF-16 code units; a length check dropped it.
+    const { textarea, commits } = makeHarness();
+    fireImeKeydown(textarea);
+    textarea.value = "𠀀";
+    textarea.dispatchEvent(
+      new InputEvent("input", { data: null, inputType: "insertText", isComposing: false, bubbles: true }),
+    );
+    expect(commits).toEqual(["𠀀"]);
+  });
+
+  it("still refuses a whole buffer reported with null data", () => {
+    const { textarea, commits } = makeHarness();
+    fireImeKeydown(textarea);
+    textarea.value = "rm -rf /tmp/x";
+    textarea.dispatchEvent(
+      new InputEvent("input", { data: null, inputType: "insertText", isComposing: false, bubbles: true }),
+    );
+    expect(commits).toEqual([]);
+  });
+});

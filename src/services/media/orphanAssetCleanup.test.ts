@@ -350,23 +350,73 @@ describe("findOrphanedImages — knownContents", () => {
 
     expect(result.orphanedImages).toEqual([]);
     expect(result.sharedCount).toBe(1);
-    expect(readTextFile).not.toHaveBeenCalled(); // the buffer answered for it
   });
 
-  it("still deletes when the open sibling's buffer does not reference it either", async () => {
+  it("deletes only when NEITHER the buffer nor the file references it", async () => {
     const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readDir).mockImplementation(
       mockDirs(["orphan.png"], ["test.md", "neighbour.md"]) as never,
     );
-    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/orphan.png)");
+    vi.mocked(readTextFile).mockResolvedValue("nothing here");
 
     const { findOrphanedImages } = await import("./orphanAssetCleanup");
     const result = await findOrphanedImages("/doc/test.md", "", {
       knownContents: new Map([["/doc/neighbour.md", "the paste was undone"]]),
     });
 
-    // The buffer WINS over the stale disk copy — that reference is gone.
+    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
+  });
+
+  // Buffer and file are UNIONED, not one-wins-over-the-other. A buffer can be
+  // behind its file — a sync client or another editor may have just rewritten
+  // it — so trusting only the buffer deletes what the file still references.
+  it("protects an image the FILE references even when the buffer does not", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(
+      mockDirs(["shared.png"], ["test.md", "neighbour.md"]) as never,
+    );
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/shared.png)");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "", {
+      knownContents: new Map([["/doc/neighbour.md", "buffer has not caught up"]]),
+    });
+
+    expect(result.orphanedImages).toEqual([]);
+  });
+
+  // An open document readDir did not return — deleted or moved externally while
+  // its buffer stays on screen — still holds references.
+  it("scans a buffered sibling that the directory listing no longer contains", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["shared.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockRejectedValue(new Error("ENOENT"));
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "", {
+      knownContents: new Map([["/doc/vanished.md", "![](./assets/images/shared.png)"]]),
+    });
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.scanComplete).toBe(true); // a buffer covered the unreadable file
+  });
+
+  it("ignores a buffered document from another directory", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["orphan.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "", {
+      knownContents: new Map([["/elsewhere/other.md", "![](./assets/images/orphan.png)"]]),
+    });
+
+    // A different directory has a different assets folder — that reference is
+    // not to this file.
     expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
   });
 
@@ -383,7 +433,11 @@ describe("findOrphanedImages — knownContents", () => {
       knownContents: new Map([["/doc/a.md", "nothing"]]),
     });
 
-    expect(vi.mocked(readTextFile).mock.calls.map((c) => c[0])).toEqual(["/doc/b.md"]);
+    // Both siblings are read — buffered ones too, so buffer and file union.
+    expect(vi.mocked(readTextFile).mock.calls.map((c) => c[0]).sort()).toEqual([
+      "/doc/a.md",
+      "/doc/b.md",
+    ]);
     expect(result.orphanedImages).toEqual([]);
   });
 });

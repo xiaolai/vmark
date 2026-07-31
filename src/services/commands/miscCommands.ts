@@ -127,6 +127,12 @@ export function registerMiscCommands(): void {
           // must not be offered for deletion. Passed as a getter so the
           // pre-delete re-scan sees edits made while the dialog was open.
           () => liveContentsExcluding(new Set([tabId])),
+          // The subject, re-read at delete time. Null once it is dirty or gone:
+          // its content is then no longer what the scan was based on.
+          () => {
+            const live = useDocumentStore.getState().getDocument(tabId);
+            return live && !live.isDirty ? live.content : null;
+          },
         );
       });
     },

@@ -534,3 +534,61 @@ describe("assetKey", () => {
     expect(assetKey("./assets/images/A#B.PNG")).toBe("assets/images/a#b.png");
   });
 });
+
+// Every case below is a file the document DISPLAYS whose reference the parser
+// could not see — i.e. a picture orphan cleanup would have deleted. Found by an
+// independent Codex audit of this branch and reproduced before fixing.
+describe("references a renderer resolves but the scanner missed", () => {
+  it("alt text containing a code span with a bracket", () => {
+    expect(extractImageReferenceKeys("![a `]` b](assets/images/photo.png)").has("assets/images/photo.png")).toBe(true);
+  });
+
+  it("a paren inside an angle-bracket destination", () => {
+    expect(extractImageReferenceKeys("![x](<assets/images/foo(1.png>)").has("assets/images/foo(1.png")).toBe(true);
+  });
+
+  it("a paren inside a quoted title", () => {
+    expect(extractImageReferenceKeys('![x](assets/images/photo.png "title (")').has("assets/images/photo.png")).toBe(true);
+  });
+
+  it("a single-quoted title with a paren", () => {
+    expect(extractImageReferenceKeys("![x](assets/images/p.png 'a (b')").has("assets/images/p.png")).toBe(true);
+  });
+
+  it.each([
+    ["CRLF", "![b](assets/images/b.png\r\n\r\n![real](assets/images/real.png)\r\nprose)"],
+    ["whitespace-only blank line", "![b](assets/images/b.png\n   \n![real](assets/images/real.png)\nx)"],
+    ["tab-only blank line", "![b](assets/images/b.png\n\t\n![real](assets/images/real.png)\nx)"],
+  ])("a malformed image before a %s blank line does not swallow the next", (_l, content) => {
+    expect(extractImageReferenceKeys(content).has("assets/images/real.png")).toBe(true);
+  });
+
+  it("a reference definition whose destination is on the next line", () => {
+    expect(extractImageReferenceKeys("![x][id]\n\n[id]:\n  assets/images/photo.png").has("assets/images/photo.png")).toBe(true);
+  });
+
+  it.each([
+    ["&amp;", "assets/images/a&amp;b.png", "assets/images/a&b.png"],
+    ["&#38;", "assets/images/a&#38;b.png", "assets/images/a&b.png"],
+    ["&#x26;", "assets/images/a&#x26;b.png", "assets/images/a&b.png"],
+  ])("a %s character reference resolves to the real filename", (_l, ref, expected) => {
+    expect(extractImageReferenceKeys(`![](${ref})`).has(expected)).toBe(true);
+  });
+
+  it("leaves an unknown entity alone rather than mangling it", () => {
+    expect(extractImageReferenceKeys("![](assets/images/a&zzz;b.png)").has("assets/images/a&zzz;b.png")).toBe(true);
+  });
+
+  it.each([
+    ['<img srcset="assets/images/retina.png 2x">', "assets/images/retina.png"],
+    ['<img srcset="assets/images/a.png 1x, assets/images/b.png 2x">', "assets/images/b.png"],
+    ['<source srcset="assets/images/wide.png" media="(min-width: 60em)">', "assets/images/wide.png"],
+  ])("a srcset candidate in %s is protected", (content, expected) => {
+    expect(extractImageReferenceKeys(content).has(expected)).toBe(true);
+  });
+
+  it("collects every candidate in a srcset list", () => {
+    const keys = extractImageReferenceKeys('<img srcset="assets/images/a.png 1x, assets/images/b.png 2x, assets/images/c.png 3x">');
+    for (const f of ["a", "b", "c"]) expect(keys.has(`assets/images/${f}.png`)).toBe(true);
+  });
+});
