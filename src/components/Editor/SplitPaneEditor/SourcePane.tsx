@@ -139,7 +139,7 @@ export function SourcePane({
       if (!update.docChanged) return;
       const next = update.state.doc.toString();
       lastSyncedRef.current = next;
-      useDocumentStore.getState().setContent(tabId, next);
+      useDocumentStore.getState().setEditorContent(tabId, next);
     });
 
     // WI-2.4 — the validator-backed lint gutter and the rest of the base

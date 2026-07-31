@@ -34,6 +34,12 @@ interface DocumentStore {
 
   // Actions - now take tabId instead of windowLabel
   initDocument: (tabId: string, content?: string, filePath?: string | null, savedContent?: string) => void;
+  /**
+   * EDITOR-domain write: the caller guarantees canonical text (LF, no BOM).
+   * Asserts that in development; performs no scan in production.
+   */
+  setEditorContent: (tabId: string, canonicalEditorText: string) => void;
+  /** @deprecated Use `setEditorContent` (editor domain) or `loadContent` (external). */
   setContent: (tabId: string, content: string) => void;
   loadContent: (
     tabId: string,
@@ -123,6 +129,30 @@ function bumpRevisionIfContentChanged(
   }
 }
 
+/**
+ * Fail loudly, in DEVELOPMENT ONLY, when a writer hands the store non-canonical
+ * text.
+ *
+ * `content` is `canonicalEditorText`: LF-only, BOM-free. A literal `\r` reaching
+ * it does not announce itself — it surfaces later as a stray control character
+ * in word count, search, lint or CJK formatting, far from the writer that
+ * introduced it. Throwing here names that writer.
+ *
+ * Production performs NO scan. The keystroke path runs through this on every
+ * flush, and paying an O(n) scan per keypress to re-check an invariant the
+ * editor already maintains would be the wrong trade.
+ */
+function assertCanonicalEditorText(text: string, action: string): void {
+  if (!import.meta.env.DEV) return;
+  const index = text.indexOf("\r");
+  if (index === -1) return;
+  throw new Error(
+    `${action}() was given non-canonical text: a carriage return at offset ${index}. ` +
+      `Editor text is LF-only — canonicalise external text with ingestExternalText() ` +
+      `from utils/editorText before it reaches the store.`,
+  );
+}
+
 /** Manages per-tab document content, dirty tracking, and external-change detection. Use selectors, not destructuring. */
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
@@ -143,6 +173,11 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     set((state) => ({
       documents: { ...state.documents, [tabId]: doc },
     }));
+  },
+
+  setEditorContent: (tabId, canonicalEditorText) => {
+    assertCanonicalEditorText(canonicalEditorText, "setEditorContent");
+    get().setContent(tabId, canonicalEditorText);
   },
 
   setContent: (tabId, content) => {
