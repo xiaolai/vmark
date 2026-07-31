@@ -18,7 +18,24 @@
  *     then (T3) clears textarea.value synchronously so xterm's setTimeout(0)
  *     finalizer reads "" and emits nothing.
  *   - The plain-insertText path (WeChat Shift punctuation: no composition cycle)
- *     is the same container `input` listener — resolveCommit handles it.
+ *     is the same container `input` listener. It classifies inline rather than
+ *     calling resolveCommit: that helper answers "what did this COMPOSITION
+ *     commit?", where e.data can lie and the textarea diff is the tiebreak.
+ *     Outside a composition there is no diff to weigh — the question is only
+ *     "did anyone else already write this?", which resolveCommit cannot see.
+ *   - T4: a capture-phase `keydown` listener records who OWNS the next insert.
+ *     "xterm's keydown path owns plain ASCII" holds only when xterm actually saw
+ *     a usable keydown: T2 consumes keyCode-229 ones, and macOS Chinese IMEs set
+ *     229 for keys they claim even with no composition running (`/`, numpad
+ *     digits under Shuangpin, #1176). An insert with NO keydown behind it (IME
+ *     palette click, dictation) is ours too — T1 has already stopped the event,
+ *     so xterm's `_inputEvent` can never write it. Only a real non-IME keydown
+ *     means "xterm already wrote this; drop the echo".
+ *
+ *     Ownership is deliberately NOT retired on keyup. An IME can defer its
+ *     insert past the key release — likeliest at the start of a line, where it
+ *     must first decide whether a Chinese word is beginning — and retiring
+ *     there dropped exactly that first keystroke.
  *
  * Commits are delivered via onCompositionCommit, which the wiring writes DIRECTLY
  * to the PTY (bypassing xterm's onData), so the single-writer guarantee holds end
@@ -29,6 +46,7 @@
  * @module components/Terminal/setupImeCompositionGate
  */
 import { terminalLog } from "@/utils/debug";
+import { isImeKeyEvent } from "@/utils/imeGuard";
 import { NON_ASCII_RE } from "./imeCharClass";
 import { resolveCommit } from "./resolveCommit";
 
@@ -83,6 +101,25 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
    *  recorded real trace to characterise (gate mode still needs human-IME
    *  verification before its default flip — see the plan). */
   let echoText: string | null = null;
+  /**
+   * Did xterm's keydown path already WRITE the character this insert carries?
+   *
+   * True only for a keydown xterm actually turns into output: a real keyCode
+   * (not IME-claimed), a single printable key, no Meta/Ctrl/Alt. Everything
+   * else — Enter, Backspace, arrows, Escape, bare modifiers, Cmd chords, and
+   * every keyCode-229 keydown — writes nothing, so an insert that follows one
+   * is still ours to deliver.
+   *
+   * Tracking merely "was there a keydown?" loses a character after every Enter:
+   * the Enter keydown set the flag and cleared IME mode, so the next
+   * IME-claimed insert looked like something xterm had written when nothing had.
+   *
+   * Reset by each insert, so one keydown answers for one insert. An insert with
+   * no such keydown behind it is IME-origin by ordering alone — a live Shuangpin
+   * trace shows the IME's `input` arriving ~2ms BEFORE its own keydown, while
+   * normal typing is keydown → xterm writes → input.
+   */
+  let xtermWroteSinceInsert = false;
 
   const isEcho = (text: string) => text === echoText;
 
@@ -93,8 +130,11 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     }, 0);
     try {
       onCompositionCommit?.(text);
-    } catch {
-      // best-effort: PTY may already be closing
+    } catch (error) {
+      // Best-effort: the PTY may already be closing. Log it — a delivery
+      // failure here IS silent character loss, and swallowing it without a
+      // trace is how that gets misreported as an IME bug.
+      terminalLog("gate commit delivery failed", error);
     }
   };
 
@@ -135,16 +175,29 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
   // cycle is exactly what the human matrix must confirm before Phase 4 (audit D1.4/D3.2).
   const onInput = (e: Event) => {
     const ie = e as InputEvent;
+    // Composition-phase inserts belong to the composition cycle; leave ownership
+    // untouched so the keydown still answers for the insertText that follows.
     if (ie.inputType !== "insertText" || ie.isComposing || composing) {
       return;
     }
+    const xtermWroteIt = xtermWroteSinceInsert;
+    xtermWroteSinceInsert = false;
     // Sever xterm's _inputEvent for this insert.
     e.stopPropagation();
-    const data = ie.data;
-    if (!data || !NON_ASCII_RE.test(data)) {
-      // Plain ASCII already went to the PTY via xterm's keydown path; just drop
-      // the redundant (now-stopped) input event and clear the textarea.
+    // `data` is the inserted text for insertText. An IME that reports it as null
+    // still put the character in the textarea — but only a SINGLE character is a
+    // credible substitute. The textarea can hold a whole accumulated line, and
+    // handing that to the shell would execute it.
+    const data = ie.data || (textarea.value.length === 1 ? textarea.value : "");
+    if (!data) {
       textarea.value = "";
+      return;
+    }
+    if (!NON_ASCII_RE.test(data)) {
+      textarea.value = "";
+      // isEcho still guards the trailing insertText that restates an ASCII
+      // composition result.
+      if (!xtermWroteIt && !isEcho(data)) commit(data);
       return;
     }
     // Non-ASCII insert. Either a no-composition WeChat commit (forward it) or the
@@ -153,14 +206,31 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     if (!isEcho(data)) commit(data);
   };
 
+  // T4: capture-phase so it runs before xterm's own textarea keydown listener.
+  // Records ownership only — it never consumes or mutates the event.
+  const onKeyDown = (e: Event) => {
+    const ev = e as KeyboardEvent;
+    // keyCode 229 means an input method owns this keystroke, and T2 consumes
+    // every one of those — xterm writes nothing. Nor does it for a key that
+    // produces no character (Enter, arrows) or a host chord (Cmd+K).
+    xtermWroteSinceInsert =
+      !isImeKeyEvent(ev) &&
+      ev.key.length === 1 &&
+      !ev.metaKey &&
+      !ev.ctrlKey &&
+      !ev.altKey;
+  };
+
   container.addEventListener("compositionstart", onCompositionStart, true);
   container.addEventListener("compositionend", onCompositionEnd, true);
   container.addEventListener("input", onInput, true);
+  container.addEventListener("keydown", onKeyDown, true);
 
   const cleanup = () => {
     container.removeEventListener("compositionstart", onCompositionStart, true);
     container.removeEventListener("compositionend", onCompositionEnd, true);
     container.removeEventListener("input", onInput, true);
+    container.removeEventListener("keydown", onKeyDown, true);
   };
 
   return {
