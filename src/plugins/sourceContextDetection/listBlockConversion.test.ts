@@ -140,4 +140,54 @@ describe("convertListBlock", () => {
     convertListBlock(view, "ordered");
     expect(view.state.doc.toString()).toBe("1. one\n2. two");
   });
+
+  // "1. [x] done" is a valid GFM task item. Recognising only BULLET tasks
+  // turned it into "- [ ] [x] done" — checkbox duplicated, state lost.
+  it("preserves an ORDERED task's checkbox when converting to task", () => {
+    const view = createView("1. [x] done\n2. [ ] todo", 3);
+    convertListBlock(view, "task");
+    expect(view.state.doc.toString()).toBe("- [x] done\n- [ ] todo");
+  });
+
+  it("consumes the checkbox when converting an ordered task to bullets", () => {
+    const view = createView("1. [x] done\n2. todo", 3);
+    convertListBlock(view, "bullet");
+    expect(view.state.doc.toString()).toBe("- done\n- todo");
+  });
+
+  // CommonMark: "- one" / "* two" is TWO lists; converting the first must not
+  // destructively rewrite the second.
+  it("converts only the cursor's list when the bullet char changes", () => {
+    const view = createView("- one\n* two", 2);
+    convertListBlock(view, "ordered");
+    expect(view.state.doc.toString()).toBe("1. one\n* two");
+  });
+
+  it("leaves a spaced thematic break untouched", () => {
+    const view = createView("- a\n* * *\n- b", 2);
+    convertListBlock(view, "ordered");
+    expect(view.state.doc.toString()).toBe("1. a\n* * *\n- b");
+  });
+
+  it("carries a continuation paragraph through unchanged", () => {
+    const view = createView("- one\n  continuation\n- two", 2);
+    convertListBlock(view, "ordered");
+    expect(view.state.doc.toString()).toBe("1. one\n  continuation\n2. two");
+  });
+
+  // A blank line inside the selection has indent zero; deriving the base
+  // indent from it widened a nested conversion to the whole outer list.
+  it("keeps a nested conversion nested when the selection spans a blank line", () => {
+    const doc = "- outer\n  - a\n\n  - b\n- last";
+    const parent = document.createElement("div");
+    const selFrom = doc.indexOf("  - a");
+    const selTo = doc.indexOf("  - b") + "  - b".length;
+    const view = new EditorView({
+      state: EditorState.create({ doc, selection: EditorSelection.create([EditorSelection.range(selFrom, selTo)]) }),
+      parent,
+    });
+    views.push(view);
+    convertListBlock(view, "ordered");
+    expect(view.state.doc.toString()).toBe("- outer\n  1. a\n\n  2. b\n- last");
+  });
 });

@@ -22,18 +22,26 @@
  */
 
 import type { EditorView } from "@codemirror/view";
+import { parseListMarker } from "./listMarkerParsing";
 export interface HeadingInfo {
   level: number; // 1-6, or 0 for paragraph
   lineStart: number;
   lineEnd: number;
 }
 
-/** Leading blockquote markers, e.g. `> ` or `> > `. */
-const QUOTE_RE = /^\s*(?:>\s?)+/;
-/** A bullet or ordered marker, optionally a task checkbox, with its indent. */
-const LIST_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
-/** An ATX heading run. */
-const HEADING_RE = /^(#{1,6})(?:\s+|$)/;
+// CommonMark allows up to THREE leading spaces before a block marker — four
+// make indented code. Both the quote and heading patterns honour that cap;
+// the old quote pattern accepted unlimited whitespace while the heading
+// pattern accepted none.
+/** Leading blockquote markers, e.g. `> ` or `> > `, each up to 3 spaces indented. */
+const QUOTE_RE = /^(?: {0,3}>[ \t]?)+/;
+/** An ATX heading run with its 0-3 space indent. */
+const HEADING_RE = /^ {0,3}(#{1,6})(?:[ \t]+|$)/;
+/**
+ * An optional ATX CLOSING run: a space, then hashes, then only spaces to the
+ * end. The required preceding space (or start) excludes an escaped `\#`.
+ */
+const CLOSING_RUN_RE = /(?:^|[ \t])#+[ \t]*$/;
 
 interface LineParts {
   /** Blockquote wrapper to preserve, already normalised with a trailing space. */
@@ -57,12 +65,17 @@ function splitLine(lineText: string): LineParts {
   const quote = quoteMatch ? quoteMatch[0] : "";
   rest = rest.slice(quote.length);
 
-  const listMatch = LIST_RE.exec(rest);
-  if (listMatch) rest = rest.slice(listMatch[0].length);
+  const listMarker = parseListMarker(rest);
+  if (listMarker) rest = listMarker.content;
 
   const headingMatch = HEADING_RE.exec(rest);
   const level = headingMatch ? headingMatch[1].length : 0;
-  if (headingMatch) rest = rest.slice(headingMatch[0].length);
+  if (headingMatch) {
+    rest = rest.slice(headingMatch[0].length);
+    // CommonMark: a trailing run of #s closes the heading; strip it so
+    // `## title ##` converts to `title`, not `title ##`.
+    rest = rest.replace(CLOSING_RUN_RE, "");
+  }
 
   // Normalise `>`/`>  ` to a single trailing space so rebuilt lines are stable.
   const normalisedQuote = quote ? `${quote.trimEnd()} ` : "";
