@@ -232,5 +232,7 @@
   "orphanCleanup.partialMessage_one": "已删除 {{deleted}} 张图片，{{count}} 张无法删除：",
   "orphanCleanup.partialMessage_other": "已删除 {{deleted}} 张图片，{{count}} 张无法删除：",
   "orphanCleanup.scanFailedTitle": "清理失败",
-  "orphanCleanup.scanFailedMessage": "无法检查资产文件夹。详情请查看日志。"
+  "orphanCleanup.scanFailedMessage": "无法检查资产文件夹。详情请查看日志。",
+  "divergentChanges.title": "文件已在磁盘上被修改",
+  "divergentChanges.single": "“{{title}}”已在磁盘上被修改，而你选择了保留本地版本。现在保存你的版本，还是直接关闭并保留磁盘上的文件？"
 }

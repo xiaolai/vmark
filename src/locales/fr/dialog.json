@@ -232,5 +232,7 @@
   "orphanCleanup.partialMessage_one": "{{deleted}} images supprimées. {{count}} n'a pas pu être supprimée :",
   "orphanCleanup.partialMessage_other": "{{deleted}} images supprimées. {{count}} n'ont pas pu être supprimées :",
   "orphanCleanup.scanFailedTitle": "Échec du nettoyage",
-  "orphanCleanup.scanFailedMessage": "Le dossier assets n'a pas pu être vérifié. Consultez le journal pour plus de détails."
+  "orphanCleanup.scanFailedMessage": "Le dossier assets n'a pas pu être vérifié. Consultez le journal pour plus de détails.",
+  "divergentChanges.title": "Fichier modifié sur le disque",
+  "divergentChanges.single": "« {{title}} » a été modifié sur le disque et vous avez conservé votre version locale. Enregistrer votre version maintenant, ou fermer et laisser le fichier tel qu'il est sur le disque ?"
 }

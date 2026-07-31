@@ -135,9 +135,14 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    // message() returns 'Yes' when user clicks "Save"
+    // message() returns 'Yes' when user clicks "Save". The mock must mirror
+    // the real saveToPath (markSaved), or the revalidation loop correctly
+    // treats the still-dirty doc as an unresolved save and re-prompts.
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockResolvedValueOnce(true);
+    vi.mocked(saveToPath).mockImplementationOnce(async (id, _p, content) => {
+      useDocumentStore.getState().markSaved(id, content);
+      return true;
+    });
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
@@ -161,7 +166,7 @@ describe("closeTabWithDirtyCheck", () => {
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
   });
 
-  it("deduplicates concurrent close calls for the same tab (re-entry guard)", async () => {
+  it("concurrent closes share ONE prompt and ONE outcome (WI-7)", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
@@ -176,15 +181,16 @@ describe("closeTabWithDirtyCheck", () => {
     const call1 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
     const call2 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
-    // Second call returns immediately (re-entry guard)
-    expect(await call2).toBe(true);
+    // The user cancels — BOTH callers must learn the truth. The old boolean
+    // guard answered `true` to the second caller while the first was still
+    // undecided, so callers acted on a success that never happened.
+    resolveDialog("Cancel");
+    expect(await call1).toBe(false);
+    expect(await call2).toBe(false);
 
-    // message() only called once (not twice)
+    // One prompt, not two
     expect(message).toHaveBeenCalledTimes(1);
-
-    // Resolve the dialog so call1 completes
-    resolveDialog("No");
-    expect(await call1).toBe(true);
+    expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
   });
 
   it("returns true when tab doesn't exist (already closed)", async () => {
@@ -519,7 +525,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("cleans every closing tab that has a file", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
@@ -538,7 +544,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("deletes what it finds", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages, deleteOrphanedImages } = await import(
       "@/services/media/orphanAssetCleanup"
     );
@@ -555,7 +561,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("ignores tabs with no document and unsaved tabs", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const untitled = useTabStore.getState().createTab(WINDOW_LABEL, null);
@@ -567,7 +573,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("does not reject when one tab's cleanup fails", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     vi.mocked(findOrphanedImages).mockRejectedValue(new Error("fs error"));
 
@@ -580,7 +586,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("scans once per assets DIRECTORY, not once per tab", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     // Three docs, two directories → two scans. Per-tab scanning would re-list
@@ -603,7 +609,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   // pasted an image references it only in its unsaved buffer, so closing a
   // neighbour would have deleted a picture still on screen.
   it("carries the live buffer of every tab that is NOT closing", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const closing = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/closing.md");
@@ -619,7 +625,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("does not treat a closing tab's own buffer as a live sibling", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(readTextFile).mockResolvedValue("on disk");
@@ -640,7 +646,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   // disk file that survives the close — scanning the buffer judges the wrong
   // set of references even though isDirty is false.
   it("reads from disk for a divergent document even when it is not dirty", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/external.png)");
@@ -660,7 +666,7 @@ describe("cleanupOrphansForClosingTabs", () => {
   });
 
   it("skips a directory whose only closing document could not be re-read", async () => {
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(readTextFile).mockRejectedValue(new Error("ENOENT"));
@@ -680,7 +686,7 @@ describe("cleanupOrphansForClosingTabs", () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: false } } as never);
 
-    const { cleanupOrphansForClosingTabs } = await import("@/hooks/useTabOperations");
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
     const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");

@@ -232,5 +232,7 @@
   "orphanCleanup.partialMessage_one": "{{deleted}} 個の画像を削除しました。{{count}} 個は削除できませんでした:",
   "orphanCleanup.partialMessage_other": "{{deleted}} 個の画像を削除しました。{{count}} 個は削除できませんでした:",
   "orphanCleanup.scanFailedTitle": "クリーンアップ失敗",
-  "orphanCleanup.scanFailedMessage": "アセットフォルダーを確認できませんでした。詳細はログをご覧ください。"
+  "orphanCleanup.scanFailedMessage": "アセットフォルダーを確認できませんでした。詳細はログをご覧ください。",
+  "divergentChanges.title": "ファイルがディスク上で変更されました",
+  "divergentChanges.single": "「{{title}}」はディスク上で変更され、あなたはローカル版を保持しています。今あなたの版を保存しますか？それとも閉じてディスク上のファイルをそのまま残しますか？"
 }
