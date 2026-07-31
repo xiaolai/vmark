@@ -76,3 +76,40 @@ describe("stripBlockMarkup", () => {
     expect(stripBlockMarkup("- - two").content).toBe("- two");
   });
 });
+
+describe("stripBlockMarkup — CommonMark limits", () => {
+  it.each(["- - -", "* * *", "_ _ _", "-  -  -", "- - - -"])(
+    "treats %s as a thematic break, not a list item",
+    (line) => {
+      expect(stripBlockMarkup(line).content).toBe(line);
+    },
+  );
+
+  it("still strips a real list marker that merely looks similar", () => {
+    expect(stripBlockMarkup("- - two").content).toBe("- two");
+    expect(stripBlockMarkup("* item").content).toBe("item");
+  });
+
+  it("does not treat mixed break characters as a break", () => {
+    // CommonMark requires the SAME character throughout.
+    expect(stripBlockMarkup("- * -").content).toBe("* -");
+  });
+
+  it("keeps a 10-digit number as text — CommonMark caps ordered markers at 9", () => {
+    expect(stripBlockMarkup("1234567890. text").content).toBe("1234567890. text");
+  });
+
+  it("still strips a 9-digit ordered marker", () => {
+    expect(stripBlockMarkup("123456789. text").content).toBe("text");
+  });
+
+  it("keeps `>` as content when indented four spaces (indented code)", () => {
+    const r = stripBlockMarkup("    > literal");
+    expect(r.quote).toBe("");
+    expect(r.content).toBe("> literal");
+  });
+
+  it("still treats up to three spaces before `>` as a quote", () => {
+    expect(stripBlockMarkup("   > quoted").quote).toBe("> ");
+  });
+});

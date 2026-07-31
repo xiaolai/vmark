@@ -23,14 +23,27 @@
  * @module plugins/shared/lineContent
  */
 
-/** Leading blockquote markers, normalised to a single `> ` on the way out. */
-const QUOTE_RE = /^\s*(?:>\s?)+/;
-/** A bullet or ordered marker with optional task checkbox, WITHOUT its indent. */
-const LIST_MARKER_RE = /^(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/;
+/**
+ * Leading blockquote markers. CommonMark allows at most THREE spaces of indent
+ * before the marker — at four it is indented code, and `    > literal` must keep
+ * its `>` as content rather than lose it as markup.
+ */
+const QUOTE_RE = /^ {0,3}(?:>\s?)+/;
+/**
+ * A bullet or ordered marker with optional task checkbox, WITHOUT its indent.
+ * CommonMark caps an ordered marker at NINE digits, so `1234567890. text` is a
+ * paragraph and must keep its number.
+ */
+const LIST_MARKER_RE = /^(?:[-*+]|\d{1,9}[.)])\s+(?:\[[ xX]\]\s+)?/;
 /** An ATX heading run. */
 const HEADING_RE = /^#{1,6}(?:\s+|$)/;
-/** `---`, `***`, `___` — a thematic break, not a list marker. */
-const THEMATIC_BREAK_RE = /^[-*_]{3,}$/;
+/**
+ * A thematic break: three or more of the SAME `-`, `*` or `_`, which CommonMark
+ * lets you separate with spaces or tabs. Matching only unbroken runs meant
+ * `- - -` and `* * *` read as list items and had their first marker stripped,
+ * turning a horizontal rule into `- -`.
+ */
+const THEMATIC_BREAK_RE = /^(?:([-*_])[ \t]*)(?:\1[ \t]*){2,}$/;
 
 export interface LineContent {
   /** Blockquote wrapper to keep OUTSIDE the converted block, or "". */
@@ -45,11 +58,15 @@ export interface LineContent {
 export function stripBlockMarkup(line: string): LineContent {
   let rest = line;
 
+  // `trim`, not `trimEnd`: the 0-3 spaces CommonMark allows before a `>` are
+  // insignificant, and carrying them into the marker made a re-emitted quote
+  // line start with stray indentation.
   const quoteMatch = QUOTE_RE.exec(rest);
-  const quote = quoteMatch ? `${quoteMatch[0].trimEnd()} ` : "";
+  const quote = quoteMatch ? `${quoteMatch[0].trim()} ` : "";
   if (quoteMatch) rest = rest.slice(quoteMatch[0].length);
 
-  const indent = /^\s*/.exec(rest)?.[0] ?? "";
+  // `^\s*` matches every string, so this never returns null.
+  const indent = /^\s*/.exec(rest)![0];
   rest = rest.slice(indent.length);
 
   // A run of three or more `-`/`*`/`_` is a thematic break; treating its first

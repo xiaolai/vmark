@@ -45,18 +45,27 @@ export function spannedBlockRange(state: EditorState): { from: number; to: numbe
 export function wrapSpannedBlocks(
   state: EditorState,
   build: (content: Fragment) => PMNode | null,
+  /**
+   * Offset from the wrapper's start to where the caret belongs. Defaults to 2 —
+   * inside the first child — which is right only when that child is the body.
+   * A details wrapper prepends its summary, so it must pass its own offset or
+   * the caret lands in the summary and typing renames the disclosure.
+   */
+  caretOffset?: (wrapper: PMNode) => number,
 ): Transaction | null {
   const range = spannedBlockRange(state);
   if (!range) return null;
 
   const content = state.doc.slice(range.from, range.to).content;
+  /* v8 ignore next -- @preserve defensive: the range always spans a whole depth-1 block, so the slice is never empty */
   if (content.size === 0) return null;
 
   const wrapper = build(content);
   if (!wrapper) return null;
 
   const tr = state.tr.replaceWith(range.from, range.to, wrapper);
-  // Caret just inside the wrapper's first child, where typing continues.
-  tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + 2)));
+  const offset = caretOffset ? caretOffset(wrapper) : 2;
+  const target = Math.min(range.from + offset, tr.doc.content.size);
+  tr.setSelection(TextSelection.near(tr.doc.resolve(target)));
   return tr.scrollIntoView();
 }

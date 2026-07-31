@@ -49,9 +49,28 @@ export function sourceBlockSpan(lines: readonly string[], fromLine: number, toLi
   if (start > end) [start, end] = [end, start];
 
   // A selection anchored on a blank line has no block to widen to.
-  if (isBlank(lines[start] ?? "") && start === end) return { start, end };
+  if (start === end && isBlank(lines[start])) return { start, end };
 
-  while (start > 0 && !isBlank(lines[start - 1] ?? "")) start -= 1;
-  while (end < last && !isBlank(lines[end + 1] ?? "")) end += 1;
+  while (start > 0 && !isBlank(lines[start - 1])) start -= 1;
+  while (end < last && !isBlank(lines[end + 1])) end += 1;
   return { start, end };
+}
+
+/**
+ * The block span touched by a CodeMirror selection, as line NUMBERS (0-based).
+ *
+ * Exists so the three source-mode callers stop repeating — and stop repeating
+ * the same off-by-one. CodeMirror's `to` is EXCLUSIVE, so a selection ending at
+ * a line start resolves through `lineAt(to)` to the NEXT line and quietly pulled
+ * an untouched block into the operation. A non-empty selection therefore reads
+ * its last line from `to - 1`.
+ */
+export function selectionBlockSpan(
+  lines: readonly string[],
+  fromOffset: number,
+  toOffset: number,
+  lineNumberAt: (offset: number) => number,
+): BlockSpan {
+  const lastOffset = toOffset > fromOffset ? toOffset - 1 : toOffset;
+  return sourceBlockSpan(lines, lineNumberAt(fromOffset) - 1, lineNumberAt(lastOffset) - 1);
 }

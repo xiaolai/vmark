@@ -41,12 +41,21 @@ import { isBlockedInTableCell } from "../../actionApplicability";
 
 const schema = getProductionSchema();
 
-/** Meaning of a markdown string, or a sentinel if it no longer parses. */
-function meaning(md: string): string {
+/**
+ * Meaning of a markdown string, or a parse failure.
+ *
+ * Discriminated rather than stringified: folding a failure into a sentinel
+ * STRING made two differently-corrupt outputs compare equal whenever the parser
+ * happened to complain the same way, so a case where both surfaces produced
+ * garbage passed as agreement.
+ */
+type Meaning = { ok: true; fingerprint: string } | { ok: false; error: string };
+
+function meaning(md: string): Meaning {
   try {
-    return docFingerprint(parseMarkdown(schema, md));
+    return { ok: true, fingerprint: docFingerprint(parseMarkdown(schema, md)) };
   } catch (e) {
-    return `<unparseable: ${e instanceof Error ? e.message : String(e)}>`;
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -60,6 +69,8 @@ interface Comparison {
   source: string;
   wysiwygError?: string;
   sourceError?: string;
+  /** Set when either surface produced markdown the parser rejects. */
+  unparseable?: string;
 }
 
 /**
@@ -91,12 +102,20 @@ function compare(action: string, doc: (typeof DOCS)[number], shape: (typeof SHAP
   const target: Target = shape === "range" ? { select: doc.needle } : { caret: doc.needle };
   const w = runOnWysiwyg(doc.markdown, target, action);
   const s = runOnSource(doc.markdown, target, action);
+  const wm = meaning(w.markdown);
+  const sm = meaning(s.markdown);
   const result: Comparison = {
-    agree: meaning(w.markdown) === meaning(s.markdown),
+    agree: wm.ok && sm.ok && wm.fingerprint === sm.fingerprint,
     wysiwyg: w.markdown,
     source: s.markdown,
     wysiwygError: w.error,
     sourceError: s.error,
+    unparseable: [
+      wm.ok ? "" : `wysiwyg output does not parse: ${wm.error}`,
+      sm.ok ? "" : `source output does not parse: ${sm.error}`,
+    ]
+      .filter(Boolean)
+      .join("; ") || undefined,
   };
   RESULTS.set(cacheKey, result);
   return result;
@@ -110,6 +129,8 @@ describe("toolbar adapter behavioral parity", () => {
       const declared = PARITY_DIVERGENCES[action];
 
       for (const doc of DOCS) {
+        // A fixture may be scoped to the actions it can validly measure.
+        if (doc.onlyFor && !doc.onlyFor.includes(action)) continue;
         for (const shape of SHAPES) {
           // Actions the availability policy forbids in a table cell are
           // unreachable in the app, so comparing what the raw adapters would do
@@ -128,9 +149,11 @@ describe("toolbar adapter behavioral parity", () => {
           it.skipIf(unreachableHere)(`agrees on ${doc.label} [${shape}]`, () => {
             const r = compare(action, doc, shape);
 
-            // A declared divergence is allowed to disagree, but never to throw.
+            // A declared divergence is allowed to disagree, but never to throw,
+            // and never to emit markdown the parser rejects.
             expect(r.wysiwygError ?? "", `wysiwyg threw on ${action}`).toBe("");
             expect(r.sourceError ?? "", `source threw on ${action}`).toBe("");
+            expect(r.unparseable ?? "", `${action} on ${doc.label} [${shape}]`).toBe("");
 
             expect(
               r.agree || declared
@@ -148,7 +171,7 @@ describe("toolbar adapter behavioral parity", () => {
 
   it("declares no divergence that has been converged", () => {
     const fixed = Object.keys(PARITY_DIVERGENCES).filter((action) =>
-      DOCS.every((doc) =>
+      DOCS.filter((d) => !d.onlyFor || d.onlyFor.includes(action)).every((doc) =>
         doc.label === "table" && isBlockedInTableCell(action)
           ? true // unreachable in a cell, so it cannot diverge there
           : SHAPES.every((shape) => compare(action, doc, shape).agree),

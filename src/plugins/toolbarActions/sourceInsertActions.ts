@@ -35,7 +35,7 @@ import { toggleBlockquote } from "@/plugins/sourceContextDetection/blockquoteAct
 import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
-import { sourceBlockSpan } from "@/plugins/shared/blockSpan";
+import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 import { stripBlockMarkup } from "@/plugins/shared/lineContent";
 
 /** Caret lands inside the first header cell: `| ` is two characters. */
@@ -81,13 +81,7 @@ export function insertFootnote(view: EditorView): boolean {
  * two surfaces producing different documents for the same action.
  */
 export function insertCodeBlock(view: EditorView): boolean {
-  const { doc, selection } = view.state;
-  const { from, to } = selection.main;
-
-  const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
-  const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
-  const blockFrom = doc.line(span.start + 1).from;
-  const blockTo = doc.line(span.end + 1).to;
+  const { all, span, blockFrom, blockTo } = resolveBlockRange(view);
 
   // A code block holds the block's TEXT, not the markup that made it a heading
   // or a list item — `### Title` becomes a fence containing `Title`, which is
@@ -97,14 +91,19 @@ export function insertCodeBlock(view: EditorView): boolean {
   const quote = parts[0]?.quote ?? "";
   const body = parts.map((p) => `${p.indent}${p.content}`).join(`\n${quote}`);
 
+  // The fence must be LONGER than any backtick run it contains, or content
+  // holding a ``` line closes the block early and spills the rest outside it.
+  const fence = "`".repeat(Math.max(3, longestBacktickRun(body) + 1));
+
   // The quote wrapper stays OUTSIDE the fence: a block converted inside a
   // blockquote is still inside it. Source used to replace the quote outright.
-  const fenced = `${quote}\`\`\`plaintext\n${quote}${body}\n${quote}\`\`\``;
+  const opening = `${quote}${fence}plaintext\n${quote}`;
+  const fenced = `${opening}${body}\n${quote}${fence}`;
 
   view.dispatch({
     changes: { from: blockFrom, to: blockTo, insert: fenced },
     // Caret onto the first line of the converted content.
-    selection: { anchor: blockFrom + `${quote}\`\`\`plaintext\n${quote}`.length },
+    selection: { anchor: blockFrom + opening.length },
   });
   view.focus();
   return true;
@@ -160,16 +159,40 @@ export function handleBuildInsert(
   // Whole top-level blocks, not merely whole lines: wrapping one item of a list
   // shatters it into list / wrapped-item / list. `blockSpan` is the one place
   // that decides this, shared with the WYSIWYG side.
-  const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
-  const span = sourceBlockSpan(all, doc.lineAt(from).number - 1, doc.lineAt(to).number - 1);
-  const spanned = doc.sliceString(doc.line(span.start + 1).from, doc.line(span.end + 1).to);
-
-  const { text, cursorOffset } = build(spanned);
-  replaceLinesWithBlock(view, text, cursorOffset, {
-    from: doc.line(span.start + 1).from,
-    to: doc.line(span.end + 1).to,
-  });
+  const { blockFrom, blockTo } = resolveBlockRange(view);
+  const { text, cursorOffset } = build(doc.sliceString(blockFrom, blockTo));
+  replaceLinesWithBlock(view, text, cursorOffset, { from: blockFrom, to: blockTo });
   return true;
+}
+
+/**
+ * The block range a source-mode block action operates on.
+ *
+ * One definition, because two copies of this drifted into two copies of the same
+ * off-by-one: CodeMirror's selection `to` is exclusive, so a selection ending at
+ * a line start resolved to the FOLLOWING line and dragged an untouched block in.
+ */
+function resolveBlockRange(view: EditorView): {
+  all: string[];
+  span: { start: number; end: number };
+  blockFrom: number;
+  blockTo: number;
+} {
+  const { doc, selection } = view.state;
+  const { from, to } = selection.main;
+  const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
+  const span = selectionBlockSpan(all, from, to, (offset) => doc.lineAt(offset).number);
+  return {
+    all,
+    span,
+    blockFrom: doc.line(span.start + 1).from,
+    blockTo: doc.line(span.end + 1).to,
+  };
+}
+
+/** Longest run of consecutive backticks anywhere in `text`. */
+function longestBacktickRun(text: string): number {
+  return (text.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 0);
 }
 
 /**

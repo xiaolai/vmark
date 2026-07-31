@@ -126,3 +126,28 @@ describe("source code-block conversion", () => {
     expect(view.state.doc.toString()).toBe("```plaintext\n中文段落内容\n```");
   });
 });
+
+describe("fence length adapts to the content", () => {
+  it("uses a LONGER fence when the block already contains a triple backtick", () => {
+    // A three-backtick fence would be closed by the content's own ``` line,
+    // spilling the rest of the block outside the code block.
+    const view = createView("before\n```\ninner\n```\nafter", 0, 25);
+    convert(view);
+    const out = view.state.doc.toString();
+    expect(out.startsWith("````plaintext\n")).toBe(true);
+    expect(out.endsWith("\n````")).toBe(true);
+    expect(out).toContain("```\ninner\n```");
+  });
+
+  it("keeps the standard three backticks when nothing collides", () => {
+    const view = createView("plain text", 0);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\nplain text\n```");
+  });
+
+  it("outgrows a run longer than three", () => {
+    const view = createView("a\n`````\nb", 0, 9);
+    convert(view);
+    expect(view.state.doc.toString().startsWith("``````plaintext\n")).toBe(true);
+  });
+});

@@ -67,3 +67,46 @@ describe("wrapSpannedBlocks", () => {
     expect(tr.selection.$from.parent.type.name).toBe("paragraph");
   });
 });
+
+/**
+ * The caret callback is what stops a details wrapper putting the cursor in its
+ * summary. Nothing exercised it, so the parameter could have been ignored
+ * entirely and every test would still pass.
+ */
+describe("wrapSpannedBlocks caret placement", () => {
+  const summarySchema = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { group: "block", content: "inline*" },
+      disclosure: { group: "block", content: "summary block+" },
+      summary: { content: "inline*" },
+      text: { group: "inline" },
+    },
+  });
+
+  function disclosureState(text: string, from: number, to: number) {
+    const doc = summarySchema.node("doc", null, [
+      summarySchema.node("paragraph", null, [summarySchema.text(text)]),
+    ]);
+    const state = EditorState.create({ doc });
+    return state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+  }
+
+  const buildDisclosure = (content: Parameters<Parameters<typeof wrapSpannedBlocks>[1]>[0]) =>
+    summarySchema.node("disclosure", null, [
+      summarySchema.node("summary", null, [summarySchema.text("Summary")]),
+      ...content.content,
+    ]);
+
+  it("without a callback the caret lands in the SUMMARY — the bug being guarded", () => {
+    const tr = wrapSpannedBlocks(disclosureState("body text", 2, 6), buildDisclosure)!;
+    expect(tr.selection.$from.parent.type.name).toBe("summary");
+  });
+
+  it("with the callback it lands in the BODY", () => {
+    const bodyOffset = (w: import("@tiptap/pm/model").Node) => 1 + (w.firstChild?.nodeSize ?? 0) + 1;
+    const tr = wrapSpannedBlocks(disclosureState("body text", 2, 6), buildDisclosure, bodyOffset)!;
+    expect(tr.selection.$from.parent.type.name).toBe("paragraph");
+    expect(tr.selection.$from.parent.textContent).toBe("body text");
+  });
+});

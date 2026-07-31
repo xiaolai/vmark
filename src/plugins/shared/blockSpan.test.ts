@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sourceBlockSpan } from "./blockSpan";
+import { sourceBlockSpan, selectionBlockSpan } from "./blockSpan";
 
 /** `sourceBlockSpan` works on lines, so the fixtures are line arrays. */
 const lines = (s: string): string[] => s.split("\n");
@@ -62,5 +62,34 @@ describe("sourceBlockSpan", () => {
 
   it("handles an empty document", () => {
     expect(sourceBlockSpan([""], 0, 0)).toEqual({ start: 0, end: 0 });
+  });
+});
+
+describe("selectionBlockSpan", () => {
+  // "alpha" @0, "" @6, "beta" @7. A selection of exactly `alpha\n` ends at
+  // offset 6 — the START of the blank line. Reading the last line from `to`
+  // lands on that blank, widens through it, and swallows `beta`; reading from
+  // `to - 1` stays on `alpha`. The two answers DIFFER here, which is what makes
+  // this a regression test rather than a restatement.
+  const lines = ["alpha", "", "beta"];
+  const lineNumberAt = (offset: number): number => (offset < 6 ? 1 : offset < 7 ? 2 : 3);
+
+  it("stops at the block boundary when the selection ends at a line start", () => {
+    expect(selectionBlockSpan(lines, 0, 6, lineNumberAt)).toEqual({ start: 0, end: 0 });
+  });
+
+  it("differs from the naive reading, proving the off-by-one is what is tested", () => {
+    // The naive version resolved the last line from `to` rather than `to - 1`.
+    const naive = sourceBlockSpan(lines, lineNumberAt(0) - 1, lineNumberAt(6) - 1);
+    expect(naive).not.toEqual(selectionBlockSpan(lines, 0, 6, lineNumberAt));
+    expect(naive).toEqual({ start: 0, end: 2 }); // swallowed `beta`
+  });
+
+  it("treats a caret as a single point, not a range", () => {
+    expect(selectionBlockSpan(lines, 7, 7, lineNumberAt)).toEqual({ start: 2, end: 2 });
+  });
+
+  it("widens to the whole block a mid-line selection sits in", () => {
+    expect(selectionBlockSpan(lines, 1, 3, lineNumberAt)).toEqual({ start: 0, end: 0 });
   });
 });
