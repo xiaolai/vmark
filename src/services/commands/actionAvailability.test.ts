@@ -348,21 +348,44 @@ describe("completeness — nothing is accidentally always-false", () => {
   // reachable in EITHER context — which is what "not accidentally always-false"
   // actually means. `inLink` stays off in both: a link context forbids the link
   // actions for the same kind of reason.
+  //
+  // `inCodeBlock` splits the sweep for the SAME reason `inTable` does, and was
+  // added when the code-fence boundary landed: a fence holds literal text, so
+  // every markdown-writing action is legitimately refused inside one. Leaving
+  // `inCodeBlock: true` in the single "rich" context made bold, italic, code and
+  // the rest look permanently unreachable, which is the opposite of what this
+  // sweep is asking.
   const axes = {
     hasSelection: true,
     inLink: false,
     inList: true,
     inBlockquote: true,
-    inCodeBlock: true,
     inHeading: true,
   };
-  const outsideTable = ctx({ ...axes, inTable: false });
-  const insideTable = ctx({ ...axes, inTable: true });
+  const outsideTable = ctx({ ...axes, inTable: false, inCodeBlock: false });
+  const insideTable = ctx({ ...axes, inTable: true, inCodeBlock: false });
+  const insideCodeBlock = ctx({ ...axes, inTable: false, inCodeBlock: true });
 
   it.each(ALL_IDS)("%s is reachable in some rich single-selection iff it supports WYSIWYG", (id) => {
     const reachable =
-      actionAvailability(id, outsideTable) || actionAvailability(id, insideTable);
+      actionAvailability(id, outsideTable) ||
+      actionAvailability(id, insideTable) ||
+      actionAvailability(id, insideCodeBlock);
     expect(reachable).toBe(ACTION_DEFINITIONS[id].supports.wysiwyg);
+  });
+
+  // The complement of the sweep above: the boundary must actually BITE, or the
+  // three-context union would hide a guard that never fires.
+  it.each(["bold", "bulletList", "insertTable", "heading:1", "insertBlockquote"] as const)(
+    "%s is refused inside a code block",
+    (id) => {
+      expect(actionAvailability(id, insideCodeBlock)).toBe(false);
+    },
+  );
+
+  it("still permits the escape hatch and history inside a code block", () => {
+    expect(actionAvailability("codeBlock", insideCodeBlock)).toBe(true);
+    expect(actionAvailability("selectLine", insideCodeBlock)).toBe(true);
   });
 
   it.each(ALL_IDS)("%s is unavailable with no document", (id) => {

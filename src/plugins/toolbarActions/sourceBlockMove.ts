@@ -30,6 +30,8 @@
  * @module plugins/toolbarActions/sourceBlockMove
  */
 
+import { enclosingFence } from "@/plugins/shared/lineContent";
+
 const isBlank = (line: string): boolean => line.trim() === "";
 
 /** Indentation width of a list item line, or null when it is not one. */
@@ -142,6 +144,11 @@ export function joinWouldFuseBlocks(
  * siblings and need no marker.
  */
 export function duplicateNeedsHardBreak(lines: readonly string[], lineIndex: number): boolean {
+  // Inside a fence the line is LITERAL TEXT, not markdown. A hard-break
+  // backslash appended there is a stray character in the user's source code —
+  // `const a = 1;` duplicated became `const a = 1;\` on the first copy.
+  if (enclosingFence(lines, lineIndex)) return false;
+
   const raw = lines[lineIndex] ?? "";
   if (isBlank(raw)) return false;
   // A QUOTED paragraph is still a paragraph, so the quote marker is peeled
