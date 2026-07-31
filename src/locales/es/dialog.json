@@ -232,5 +232,7 @@
   "orphanCleanup.partialMessage_one": "Se eliminaron {{deleted}} imágenes. {{count}} no se pudo eliminar:",
   "orphanCleanup.partialMessage_other": "Se eliminaron {{deleted}} imágenes. {{count}} no se pudieron eliminar:",
   "orphanCleanup.scanFailedTitle": "Error de limpieza",
-  "orphanCleanup.scanFailedMessage": "No se pudo revisar la carpeta de recursos. Consulta el registro para más detalles."
+  "orphanCleanup.scanFailedMessage": "No se pudo revisar la carpeta de recursos. Consulta el registro para más detalles.",
+  "divergentChanges.title": "Archivo modificado en disco",
+  "divergentChanges.single": "“{{title}}” cambió en el disco y conservaste tu versión local. ¿Guardar tu versión ahora, o cerrar y dejar el archivo tal como está en el disco?"
 }

@@ -31,7 +31,7 @@ import {
   isSameFilePath,
   promptForSavePath,
 } from "@/hooks/saveDialog";
-import { saveAllDocuments, type CloseSaveContext } from "@/hooks/closeSave";
+import { type CloseSaveContext } from "@/hooks/closeSave"; import { saveAllDocuments } from "@/hooks/closeSaveBatch";
 import { fileOpsLog, fileOpsWarn, fileOpsError } from "@/utils/debug";
 
 /**

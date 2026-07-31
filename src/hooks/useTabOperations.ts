@@ -2,234 +2,183 @@
  * Tab Operations (Hooks Layer)
  *
  * Purpose: Async tab lifecycle functions with side effects — close with
- *   dirty check, plus the orphan-image cleanup both the tab-close and the
- *   window-close path run before their documents are dropped.
+ *   dirty check and close-time orphan cleanup.
  *
  * Key decisions:
  *   - Lives in hooks/ (not utils/) because it has Tauri dialog + store side effects
- *   - Orphan image cleanup scans the content that will BE on disk after the
- *     close: the in-memory buffer for a clean or just-saved document, the file
- *     itself when the buffer is not what survives (discarded edits, or a
- *     divergent document). Discarding does not un-orphan an image the editor
- *     wrote to the assets folder, so skipping cleanup there left the file
- *     behind forever (#1179). If the file cannot be re-read, the scan is
- *     skipped rather than run against content we are not sure about.
- *   - Cleanup is batched per assets DIRECTORY and fed every open document's
- *     live buffer, so closing one tab cannot delete an image a sibling tab
- *     references but has not saved yet.
- *   - Closing the last tab does NOT close the window. The window stays open and
- *     the render layer shows the Welcome screen (empty-workspace window, like
- *     VSCode), with the workspace sidebar still visible if one is open. This is
- *     the same on every platform. The window itself is closed via the
- *     traffic-light button / Cmd+Q (handleCloseRequest in useWindowClose), or by
- *     Cmd+W when the window is already empty.
- *   - Re-entry guard (closingTabIds) prevents duplicate save prompts when
- *     Cmd+W fires both keydown and menu:close concurrently
- *   - Pinned tabs are short-circuited with the unpin-before-closing toast
- *     BEFORE cleanup runs — tabStore.closeTab silently refuses them, so
- *     letting cleanupTabState run anyway wipes the document of a visible tab
- *   - Browser tabs close without a document. "No document" is the normal state
- *     for a web page, not a sign the tab is already gone, so they get their own
- *     branch ahead of the missing-document check — nothing to save, nothing to
- *     prompt about, and no orphan-image cleanup to run
+ *   - Dirty AND divergent documents need resolution before closing (WI-2). A
+ *     divergent doc — the user kept local content after an external edit — has
+ *     isDirty false, but closing it silently would discard exactly the content
+ *     the user already chose once to keep.
+ *   - Document state is REVALIDATED after every await (WI-5). Prompts, saves
+ *     and cleanup all yield; an edit (human or MCP — VMark exposes writes over
+ *     MCP) landing mid-await must trigger another prompt, not be dropped. The
+ *     loop is bounded: a document that cannot be brought to rest is a cancel,
+ *     never a silent discard.
+ *   - Concurrent closes of one tab share ONE promise and ONE outcome (WI-7).
+ *     The old boolean guard answered `true` to the second caller while the
+ *     first might still be cancelled.
+ *   - A document tab whose document state is missing is CLOSED, not reported
+ *     closed (WI-6) — the old `return true` left the tab on screen forever and
+ *     defeated useFileOpen's close-during-open guard.
+ *   - closeTab's return value gates cleanupTabState (WI-5): a pinned refusal
+ *     must not wipe the document of a tab still visible.
+ *   - Pinned tabs are short-circuited with the unpin-before-closing toast, and
+ *     pin state is re-checked after the prompts — pinning DURING the dialog is
+ *     a "keep this" signal too.
+ *   - Browser tabs close without a document — a web page has nothing to save.
  *
  * @coordinates-with closeSave.ts — promptSaveForDirtyDocument dialog
- * @coordinates-with tabStore.ts — closeTab leaves a valid empty-window state
- * @coordinates-with tabCleanup.ts — cleanupTabState centralises all per-tab store cleanup
- * @coordinates-with components/Welcome/WelcomeScreen.tsx — shown when no tab remains
+ * @coordinates-with services/media/closeCleanup.ts — close-time orphan cleanup
+ * @coordinates-with tabStore.ts — closeTab reports whether removal happened
+ * @coordinates-with tabCleanup.ts — cleanupTabState centralises per-tab store cleanup
  * @module hooks/useTabOperations
  */
 
-import { readTextFile } from "@tauri-apps/plugin-fs";
-import { dirname } from "@tauri-apps/api/path";
-import { fileOpsError } from "@/utils/debug";
 import { promptSaveForDirtyDocument } from "@/hooks/closeSave";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { findOrphanedImages, deleteOrphanedImages } from "@/services/media/orphanAssetCleanup";
-import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
+import { cleanupOrphansForClosingTabs } from "@/services/media/closeCleanup";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
+import type { DocumentState } from "@/stores/documentStore";
 
-/** A closing document and the content it will leave behind on disk. */
-interface ClosingDocument {
-  filePath: string;
-  content: string;
+/** A document needs resolving before close when it is dirty OR divergent (WI-2). */
+function needsResolution(doc: Pick<DocumentState, "isDirty" | "isDivergent">): boolean {
+  return doc.isDirty || doc.isDivergent;
 }
 
 /**
- * The content this document will leave on disk once the tab closes: the
- * in-memory buffer only when we know it matches disk, otherwise the file
- * itself. Discarded edits and a divergent document (the user kept local
- * content while the file changed underneath) both mean the buffer is NOT what
- * survives — scanning it would judge the wrong set of references.
- * `null` means "unknowable"; the caller then skips cleanup entirely.
+ * Bound on prompt→revalidate iterations. Each pass means "the document changed
+ * while we were saving or asking" — twice is a race, three times is a hostile
+ * concurrent writer, and at that point refusing to close loses nothing.
  */
-async function contentAfterClose(
-  filePath: string,
-  content: string,
-  bufferMatchesDisk: boolean
-): Promise<string | null> {
-  if (bufferMatchesDisk) return content;
-  try {
-    return await readTextFile(filePath);
-  } catch (error) {
-    fileOpsError("OrphanCleanup could not re-read closing document:", error);
-    return null;
-  }
-}
+const MAX_RESOLUTION_ATTEMPTS = 3;
+
+type Resolution = "clean" | "discarded" | "cancelled";
 
 /**
- * Run orphan-image cleanup for a set of tabs closing together.
- *
- * Window close (traffic light / Cmd+Q) tears every tab down at once without
- * going through closeTabWithDirtyCheck, so the auto-cleanup setting did nothing
- * on the path most users actually take to leave the app (#1179).
- *
- * Scans ONCE per assets directory, not once per tab: the assets folder is
- * shared by the whole directory, so N tabs from one folder would otherwise each
- * re-list the folder and re-read the other N-1 documents. Every closing
- * document's post-close content is supplied to that single scan, so a sibling
- * still open — or closing alongside — keeps its images.
- *
- * Never rejects: a cleanup failure must not strand a window the user asked to
- * close.
+ * Bring one document to rest: prompt while it needs resolution, re-checking
+ * after every save because an edit that lands DURING the save leaves it dirty
+ * again (WI-5). "discarded" is the user's explicit choice to drop whatever the
+ * buffer holds at close time — later edits included.
  */
-export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<void> {
-  if (!useSettingsStore.getState().image.cleanupOrphansOnClose) return;
-
-  const closing = new Set(tabIds);
-  const knownContents = liveContentsExcluding(closing);
-  const subjects: ClosingDocument[] = [];
-
-  for (const tabId of tabIds) {
+async function resolveDirtyState(
+  windowLabel: string,
+  tabId: string,
+  fallbackTitle: string
+): Promise<Resolution> {
+  for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt++) {
     const doc = useDocumentStore.getState().getDocument(tabId);
-    if (!doc?.filePath) continue;
-    try {
-      const content = await contentAfterClose(
-        doc.filePath,
-        doc.content,
-        !doc.isDirty && !doc.isDivergent
-      );
-      if (content === null) continue;
-      subjects.push({ filePath: doc.filePath, content });
-      knownContents.set(doc.filePath, content);
-    } catch (error) {
-      fileOpsError("OrphanCleanup could not resolve closing content:", error);
-    }
-  }
+    if (!doc || !needsResolution(doc)) return "clean";
 
-  const scannedDirs = new Set<string>();
-  for (const subject of subjects) {
-    try {
-      const dir = await dirname(subject.filePath);
-      if (scannedDirs.has(dir)) continue;
-      scannedDirs.add(dir);
-
-      const result = await findOrphanedImages(subject.filePath, subject.content, {
-        knownContents,
-      });
-      if (result.orphanedImages.length > 0) {
-        await deleteOrphanedImages(result.orphanedImages);
-      }
-    } catch (error) {
-      // Silent failure — don't block close for cleanup errors.
-      fileOpsError("OrphanCleanup error during close cleanup:", error);
-    }
+    const result = await promptSaveForDirtyDocument({
+      windowLabel,
+      tabId,
+      title: doc.filePath || fallbackTitle,
+      filePath: doc.filePath,
+      content: doc.content,
+      divergent: !doc.isDirty && doc.isDivergent,
+    });
+    if (result.action === "cancelled") return "cancelled";
+    if (result.action === "discarded") return "discarded";
+    // "saved" — loop: revalidate rather than trust it (WI-5).
   }
+  // Still unsettled after the bound — refuse to close rather than drop content.
+  return "cancelled";
 }
 
-/**
- * Tabs currently being closed — prevents duplicate save prompts when Cmd+W
- * fires both keydown (useTabShortcuts) and menu:close (useWindowClose).
- */
-const closingTabIds = new Set<string>();
+/** In-flight closes by tabId — concurrent callers share the outcome (WI-7). */
+const inFlightCloses = new Map<string, Promise<boolean>>();
 
 /**
- * Close a tab with dirty check. If the document has unsaved changes,
- * prompts the user to save, don't save, or cancel.
+ * Close a tab with dirty check. If the document has unsaved (or divergent)
+ * changes, prompts the user to save, don't save, or cancel.
  *
  * Closing the last tab leaves the window open on the Welcome screen rather
- * than closing it (empty-workspace window — see the module header). The window
- * is closed elsewhere (traffic-light / Cmd+Q / Cmd+W-when-empty).
- *
- * Re-entrant calls for the same tabId are treated as no-ops (returns true).
+ * than closing it (empty-workspace window). Concurrent calls for the same
+ * tabId join the in-flight close and resolve to the same outcome.
  *
  * @returns true if tab was closed, false if user cancelled
  */
 export async function closeTabWithDirtyCheck(
   windowLabel: string,
-  tabId: string,
+  tabId: string
 ): Promise<boolean> {
-  // Re-entry guard: another close for this tab is already in progress
-  if (closingTabIds.has(tabId)) return true;
+  const existing = inFlightCloses.get(tabId);
+  if (existing) return existing;
 
-  const doc = useDocumentStore.getState().getDocument(tabId);
+  const run = performTabClose(windowLabel, tabId);
+  inFlightCloses.set(tabId, run);
+  try {
+    return await run;
+  } finally {
+    inFlightCloses.delete(tabId);
+  }
+}
+
+async function performTabClose(windowLabel: string, tabId: string): Promise<boolean> {
   const tab = useTabStore.getState().tabs[windowLabel]?.find((t) => t.id === tabId);
 
   // No tab at all — treat as already closed.
   if (!tab) return true;
 
-  // Pinned tabs are refused by tabStore.closeTab — but the caller path
-  // here would still run cleanupTabState() and wipe the document state
-  // for a tab that remains visible in the UI. Short-circuit with the
-  // same toast tabStore would have shown.
   if (tab.isPinned) {
     toast.info(i18n.t("dialog:toast.unpinBeforeClosing"));
     return false;
   }
 
-  // A BROWSER tab has no document, and that is not a defect — it is a web page, not a
-  // file. The old guard was `if (!doc || !tab) return true`, so a browser tab took the
-  // "already closed" branch and was reported closed while remaining on screen: the close
-  // button and Cmd+W simply did nothing, forever. Nothing to save, so nothing to prompt
-  // about — close it. (Audit finding, High.)
+  // A BROWSER tab has no document, and that is not a defect — it is a web
+  // page. Nothing to save, nothing to prompt about — close it.
   if (isBrowserTab(tab)) {
-    useTabStore.getState().closeTab(windowLabel, tabId);
-    return true;
+    return useTabStore.getState().closeTab(windowLabel, tabId);
   }
 
-  // A document tab with no document state is genuinely already gone.
-  if (!doc) return true;
+  // A document tab with no document state: close the TAB anyway (WI-6). This
+  // state is reachable while a file read is in flight, and reporting success
+  // while the tab stays on screen made Cmd+W look dead — and defeated the
+  // close-during-open guard, which checks whether the tab still exists.
+  if (!useDocumentStore.getState().getDocument(tabId)) {
+    const removed = useTabStore.getState().closeTab(windowLabel, tabId);
+    if (removed) cleanupTabState(tabId);
+    return removed;
+  }
 
-  closingTabIds.add(tabId);
-  try {
-    // If not dirty, clean up orphans and close immediately
-    if (!doc.isDirty) {
-      await cleanupOrphansForClosingTabs([tabId]);
-      useTabStore.getState().closeTab(windowLabel, tabId);
-      cleanupTabState(tabId);
-      return true;
-    }
+  // Resolve → cleanup → revalidate, bounded (WI-5): cleanup does file IO, and
+  // an edit landing during it must not be dropped under a stale "clean".
+  let resolution: Resolution = "clean";
+  for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt++) {
+    resolution = await resolveDirtyState(windowLabel, tabId, tab.title);
+    if (resolution === "cancelled") return false;
 
-    // Prompt user for dirty document
-    const result = await promptSaveForDirtyDocument({
-      windowLabel,
-      tabId,
-      title: doc.filePath || tab.title,
-      filePath: doc.filePath,
-      content: doc.content,
-    });
-
-    if (result.action === "cancelled") {
+    // Pinning DURING the prompt is a "keep this around" signal (WI-5).
+    const tabNow = useTabStore.getState().tabs[windowLabel]?.find((t) => t.id === tabId);
+    if (!tabNow) return true;
+    if (tabNow.isPinned) {
+      toast.info(i18n.t("dialog:toast.unpinBeforeClosing"));
       return false;
     }
 
-    // Saved or discarded, the same question applies: which images does the file
-    // that survives this close still reference? cleanupOrphansForClosingTabs
-    // answers it from the saved content or from disk accordingly.
     await cleanupOrphansForClosingTabs([tabId]);
 
-    // Proceed to close
-    useTabStore.getState().closeTab(windowLabel, tabId);
-    cleanupTabState(tabId);
-    return true;
-  } finally {
-    closingTabIds.delete(tabId);
+    const after = useDocumentStore.getState().getDocument(tabId);
+    if (!after) break;
+    if (resolution === "discarded") break; // the user chose to drop it
+    if (!needsResolution(after)) break; // still clean — safe to close
+    // An edit landed during cleanup — go around again.
   }
+
+  const final = useDocumentStore.getState().getDocument(tabId);
+  if (final && needsResolution(final) && resolution !== "discarded") {
+    // Could not bring the document to rest — refuse rather than drop content.
+    return false;
+  }
+
+  const removed = useTabStore.getState().closeTab(windowLabel, tabId);
+  if (removed) cleanupTabState(tabId);
+  return removed;
 }
 
 /**

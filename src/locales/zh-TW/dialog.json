@@ -232,5 +232,7 @@
   "orphanCleanup.partialMessage_one": "已刪除 {{deleted}} 張圖片，{{count}} 張無法刪除：",
   "orphanCleanup.partialMessage_other": "已刪除 {{deleted}} 張圖片，{{count}} 張無法刪除：",
   "orphanCleanup.scanFailedTitle": "清理失敗",
-  "orphanCleanup.scanFailedMessage": "無法檢查資產資料夾。詳情請查看日誌。"
+  "orphanCleanup.scanFailedMessage": "無法檢查資產資料夾。詳情請查看日誌。",
+  "divergentChanges.title": "檔案已在磁碟上被修改",
+  "divergentChanges.single": "「{{title}}」已在磁碟上被修改，而你選擇了保留本機版本。現在儲存你的版本，還是直接關閉並保留磁碟上的檔案？"
 }
