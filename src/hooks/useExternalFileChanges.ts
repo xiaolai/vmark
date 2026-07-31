@@ -43,7 +43,6 @@ import {
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { saveToPath } from "@/services/persistence/saveToPath";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
@@ -305,7 +304,7 @@ export function useExternalFileChanges(): void {
           queueDirtyChange(tabId, changedPath);
           return;
         }
-        useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
+        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
         useDocumentStore.getState().clearMissing(tabId);
         toast.info(i18n.t("dialog:toast.restored", { filename: getFileName(changedPath) }));
         return;
@@ -327,7 +326,7 @@ export function useExternalFileChanges(): void {
       // Divergent doc: disk now matches editor — auto-clear divergent state so auto-save resumes.
       // This happens when e.g. git checkout restores the same content that's in the editor.
       if (doc.isDivergent && softContentEquals(diskContent, doc.content)) {
-        useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
+        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
         return;
       }
 
@@ -339,7 +338,7 @@ export function useExternalFileChanges(): void {
 
       switch (action) {
         case "auto_reload":
-          useDocumentStore.getState().loadContent(tabId, diskContent, changedPath, detectLinebreaks(diskContent));
+          useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
           useDocumentStore.getState().clearMissing(tabId);
           toast.info(i18n.t("dialog:toast.reloaded", { filename: getFileName(changedPath) }));
           break;

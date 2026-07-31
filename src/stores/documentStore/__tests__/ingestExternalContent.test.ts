@@ -88,11 +88,13 @@ describe("ingestExternalContent — canonicalisation", () => {
     expect(doc()?.savedContent).toBe("a\nb");
   });
 
-  it("is a no-op for a missing tab, like every other keyed update", () => {
-    expect(() =>
-      useDocumentStore.getState().ingestExternalContent("no-such-tab", "x", "disk-open"),
-    ).not.toThrow();
+  it("a missing tab: baseline origins CREATE, edit origins no-op", () => {
+    // The keyed-update no-op rule holds for edits; a baseline ingest IS the
+    // document, so it creates (see the routing-options suite).
+    useDocumentStore.getState().ingestExternalContent("no-such-tab", "x", "mcp-write");
     expect(doc("no-such-tab")).toBeUndefined();
+    useDocumentStore.getState().ingestExternalContent("no-such-tab", "x", "disk-open");
+    expect(doc("no-such-tab")?.content).toBe("x");
   });
 });
 
@@ -113,18 +115,18 @@ describe("ingestExternalContent — metadata precedence (WI-1.3)", () => {
   it("hot-exit-restore keeps persisted crlf even though the restored body is LF", () => {
     useDocumentStore
       .getState()
-      .ingestExternalContent(TAB, "a\nb", "hot-exit-restore", { lineEnding: "crlf" });
+      .ingestExternalContent(TAB, "a\nb", "hot-exit-restore", { persisted: { lineEnding: "crlf" } });
     expect(doc()?.lineEnding).toBe("crlf");
   });
 
   it("hot-exit-restore derives when the persisted value is unknown", () => {
     useDocumentStore
       .getState()
-      .ingestExternalContent(TAB, "a\r\nb", "hot-exit-restore", { lineEnding: "unknown" });
+      .ingestExternalContent(TAB, "a\r\nb", "hot-exit-restore", { persisted: { lineEnding: "unknown" } });
     expect(doc()?.lineEnding).toBe("crlf");
   });
 
-  it.each(["mcp-write", "paste"] as const)(
+  it.each(["mcp-write"] as const)(
     "%s does not redefine the document's disk convention",
     (origin) => {
       const store = useDocumentStore.getState();
@@ -168,7 +170,7 @@ describe("ingestExternalContent — metadata precedence (WI-1.3)", () => {
  * closes the tab with no save prompt and loses it.
  */
 describe("ingestExternalContent — snapshot policy", () => {
-  it.each(["mcp-write", "paste"] as const)("%s leaves the document DIRTY", (origin) => {
+  it.each(["mcp-write"] as const)("%s leaves the document DIRTY", (origin) => {
     const store = useDocumentStore.getState();
     store.ingestExternalContent(TAB, "original", "disk-open");
     expect(doc()?.isDirty).toBe(false);
@@ -178,7 +180,7 @@ describe("ingestExternalContent — snapshot policy", () => {
     expect(doc()?.isDirty).toBe(true);
   });
 
-  it.each(["mcp-write", "paste"] as const)(
+  it.each(["mcp-write"] as const)(
     "%s does not move savedContent — the file on disk has not changed",
     (origin) => {
       const store = useDocumentStore.getState();
@@ -188,7 +190,7 @@ describe("ingestExternalContent — snapshot policy", () => {
     },
   );
 
-  it.each(["mcp-write", "paste"] as const)(
+  it.each(["mcp-write"] as const)(
     "%s does not move lastDiskContent — external-change detection must keep comparing to disk",
     (origin) => {
       const store = useDocumentStore.getState();
@@ -279,5 +281,67 @@ describe("ingestExternalContent — cross-tab isolation", () => {
 
     expect(doc("tab-a")?.lineEnding).toBe("crlf");
     expect(doc("tab-b")?.lineEnding).toBe("lf");
+  });
+});
+
+/**
+ * The routing options (P0-D): the door must be able to CREATE a document and
+ * carry a filePath, or eleven initDocument ingresses cannot route through it.
+ * `deriveFrom` exists for hot-exit: the CONTENT loaded is the canonical saved
+ * body, but the file's convention, BOM and disk snapshot live in the raw
+ * `last_disk_content` — deriving from the body answers "lf" for every file.
+ */
+describe("ingestExternalContent — routing options", () => {
+  it("a baseline origin CREATES the document when the tab has none", () => {
+    useDocumentStore.getState().ingestExternalContent("fresh-tab", "a\r\nb", "disk-open", {
+      filePath: "/f.md",
+    });
+    const d = doc("fresh-tab");
+    expect(d?.content).toBe("a\nb");
+    expect(d?.filePath).toBe("/f.md");
+    expect(d?.lineEnding).toBe("crlf");
+    expect(d?.isDirty).toBe(false);
+  });
+
+  it("an EDIT origin does not create — there is nothing to edit", () => {
+    useDocumentStore.getState().ingestExternalContent("ghost-tab", "x", "mcp-write");
+    expect(doc("ghost-tab")).toBeUndefined();
+  });
+
+  it("filePath moves with a baseline ingest into an existing tab", () => {
+    // replaceTabWithFile opens a DIFFERENT file into the same tab; losing the
+    // path move meant a later save wrote the new file's content over the old.
+    useDocumentStore.getState().initDocument(TAB, "old", "/old.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "new", "disk-open", {
+      filePath: "/new.md",
+    });
+    expect(doc()?.filePath).toBe("/new.md");
+  });
+
+  it("omitting filePath keeps the existing one", () => {
+    useDocumentStore.getState().initDocument(TAB, "old", "/keep.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "new", "disk-open");
+    expect(doc()?.filePath).toBe("/keep.md");
+  });
+
+  it("deriveFrom supplies the metadata, BOM and disk snapshot; the text supplies the content", () => {
+    const raw = `${BOM}a\r\nb`; // what is on disk
+    const savedBody = "a\nb"; // what the snapshot persisted (canonical)
+    useDocumentStore.getState().ingestExternalContent(TAB, savedBody, "hot-exit-restore", {
+      persisted: { lineEnding: "unknown" },
+      deriveFrom: raw,
+    });
+    expect(doc()?.content).toBe("a\nb");
+    expect(doc()?.lineEnding).toBe("crlf"); // derived from the RAW bytes
+    expect(doc()?.hasBom).toBe(true);
+    expect(doc()?.lastDiskContent).toBe(raw);
+  });
+
+  it("persisted metadata still outranks deriveFrom where it is decided", () => {
+    useDocumentStore.getState().ingestExternalContent(TAB, "a\nb", "hot-exit-restore", {
+      persisted: { lineEnding: "crlf" },
+      deriveFrom: "a\nb",
+    });
+    expect(doc()?.lineEnding).toBe("crlf");
   });
 });

@@ -187,12 +187,9 @@ function restoreSnapshot(
     useTabStore.getState().updateTabPath(tabId, snapshot.filePath);
   }
 
-  // Initialize document with recovered content, marked dirty
-  // savedContent = "" ensures isDirty = true (content !== savedContent)
-  useDocumentStore.getState().initDocument(
-    tabId,
-    snapshot.content,
-    snapshot.filePath,
-    "" // savedContent — makes it dirty
-  );
+  // Create empty-clean, then apply the recovered content as a crash-recovery
+  // EDIT: dirty against the empty baseline (recovered work IS unsaved), with
+  // the snapshot's line convention derived — this path never set metadata.
+  useDocumentStore.getState().initDocument(tabId, "", snapshot.filePath, "");
+  useDocumentStore.getState().ingestExternalContent(tabId, snapshot.content, "crash-recovery");
 }

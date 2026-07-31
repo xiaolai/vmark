@@ -15,7 +15,6 @@ import { resolveOpenAction } from "@/utils/openPolicy";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
@@ -107,13 +106,13 @@ export async function openFileInNewTabCore(
     // registry, so they bypass the markdown WYSIWYG path entirely.
 
     perfStart("initDocument");
-    useDocumentStore.getState().initDocument(tabId, content, path);
+    // The disk-open ingest canonicalises, derives line metadata and records
+    // the BOM in ONE door — the separate detect/set pair is gone with it.
+    useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
+      filePath: path,
+    });
     applyFileOwnershipAfterOpen(tabId, path);
     perfEnd("initDocument");
-    perfStart("detectLinebreaks");
-    const lineMeta = detectLinebreaks(content);
-    useDocumentStore.getState().setLineMetadata(tabId, lineMeta);
-    perfEnd("detectLinebreaks");
 
     useRecentFilesStore.getState().addFile(path);
 

@@ -38,10 +38,6 @@ vi.mock("@/utils/perfLog", () => ({
   perfMark: vi.fn(),
 }));
 
-vi.mock("@/utils/linebreakDetection", () => ({
-  detectLinebreaks: () => ({ kind: "lf" }),
-}));
-
 vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: vi.fn(
     async (_wl: string, _key: string, fn: () => Promise<void>) => fn()
@@ -99,13 +95,17 @@ describe("openFileInNewTabCore", () => {
 
   it("creates a tab, reads file, and initializes document", async () => {
     mockReadTextFile.mockResolvedValue("# Hello");
-    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
     const addFileSpy = vi.spyOn(useRecentFilesStore.getState(), "addFile");
 
     await openFileInNewTabCore(WINDOW, "/docs/hello.md");
 
     expect(mockReadTextFile).toHaveBeenCalledWith("/docs/hello.md");
-    expect(initDocSpy).toHaveBeenCalled();
+    // The disk-open ingest creates the document as a clean saved baseline.
+    const tabId = useTabStore.getState().getTabsByWindow(WINDOW).at(-1)!.id;
+    const doc = useDocumentStore.getState().getDocument(tabId);
+    expect(doc?.content).toBe("# Hello");
+    expect(doc?.filePath).toBe("/docs/hello.md");
+    expect(doc?.isDirty).toBe(false);
     expect(addFileSpy).toHaveBeenCalledWith("/docs/hello.md");
   });
 
@@ -204,7 +204,6 @@ describe("replaceTabWithFile", () => {
   it("replaces the tab's content on success", async () => {
     mockReadTextFile.mockResolvedValue("# Loaded");
     const tabId = useTabStore.getState().createTab(WINDOW, null);
-    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
 
     const result = await replaceTabWithFile({
       windowLabel: WINDOW,
@@ -214,7 +213,11 @@ describe("replaceTabWithFile", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(loadSpy).toHaveBeenCalled();
+    // The disk-open ingest replaced the document as a clean saved baseline.
+    const doc = useDocumentStore.getState().getDocument(tabId);
+    expect(doc?.content).toBe("# Loaded");
+    expect(doc?.filePath).toBe("/docs/a.md");
+    expect(doc?.isDirty).toBe(false);
   });
 
   // F1 — the Cmd+O clean-tab REPLACE path must short-circuit media the same
@@ -255,7 +258,7 @@ describe("replaceTabWithFile", () => {
       })
     );
     const tabId = useTabStore.getState().createTab(WINDOW, null);
-    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+    const ingestSpy = vi.spyOn(useDocumentStore.getState(), "ingestExternalContent");
     const updatePathSpy = vi.spyOn(useTabStore.getState(), "updateTabPath");
     const addFileSpy = vi.spyOn(useRecentFilesStore.getState(), "addFile");
 
@@ -272,7 +275,8 @@ describe("replaceTabWithFile", () => {
     const result = await promise;
 
     // Stale write must be skipped — no content/path mutation, no recents entry.
-    expect(loadSpy).not.toHaveBeenCalled();
+    expect(ingestSpy).not.toHaveBeenCalled();
+    expect(useDocumentStore.getState().getDocument(tabId)).toBeUndefined();
     expect(updatePathSpy).not.toHaveBeenCalled();
     expect(addFileSpy).not.toHaveBeenCalled();
     expect(result.ok).toBe(false);
@@ -392,11 +396,16 @@ describe("openFileInNewTabCore — edge cases", () => {
 
   it("detects and stores linebreak metadata", async () => {
     mockReadTextFile.mockResolvedValue("line1\r\nline2\r\n");
-    const setLineSpy = vi.spyOn(useDocumentStore.getState(), "setLineMetadata");
 
     await openFileInNewTabCore(WINDOW, "/docs/crlf.md");
 
-    expect(setLineSpy).toHaveBeenCalled();
+    // The disk-open ingest derives the convention from the raw disk text:
+    // canonical LF in the editor, CRLF recorded for the save round-trip.
+    const tabId = useTabStore.getState().getTabsByWindow(WINDOW).at(-1)!.id;
+    const doc = useDocumentStore.getState().getDocument(tabId);
+    expect(doc?.content).toBe("line1\nline2\n");
+    expect(doc?.lineEnding).toBe("crlf");
+    expect(doc?.lastDiskContent).toBe("line1\r\nline2\r\n");
   });
 });
 
@@ -710,12 +719,11 @@ describe("openFileInNewTabCore — size-tier routing", () => {
       if (cmd === "get_file_size_bytes") return Promise.resolve(60 * 1024 * 1024);
       return Promise.resolve();
     });
-    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
 
     await openFileInNewTabCore(WINDOW, "/docs/huge.md");
 
     expect(mockReadTextFile).not.toHaveBeenCalled();
-    expect(initDocSpy).not.toHaveBeenCalled();
+    expect(Object.keys(useDocumentStore.getState().documents)).toHaveLength(0);
   });
 
   it("large files (≥ 1 MB) still read and open in force-source mode", async () => {
@@ -724,12 +732,12 @@ describe("openFileInNewTabCore — size-tier routing", () => {
       return Promise.resolve();
     });
     mockReadTextFile.mockResolvedValue("# large");
-    const initDocSpy = vi.spyOn(useDocumentStore.getState(), "initDocument");
 
     await openFileInNewTabCore(WINDOW, "/docs/large.md");
 
     expect(mockReadTextFile).toHaveBeenCalled();
-    expect(initDocSpy).toHaveBeenCalled();
+    const tabId = useTabStore.getState().getTabsByWindow(WINDOW).at(-1)!.id;
+    expect(useDocumentStore.getState().getDocument(tabId)?.content).toBe("# large");
     // Force-source is asserted via the session store being non-empty.
     const { useLargeFileSessionStore } = await import(
       "@/stores/documentStore"

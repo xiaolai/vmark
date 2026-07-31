@@ -81,14 +81,13 @@ vi.mock("@/i18n", () => ({
   default: { t: (key: string, vars?: Record<string, unknown>) => `${key}:${JSON.stringify(vars ?? {})}` },
 }));
 
-const mockInitDocument = vi.fn();
 const mockLoadContent = vi.fn();
 const mockSetLineMetadata = vi.fn();
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      initDocument: mockInitDocument,
-      loadContent: mockLoadContent,
+      // One door now: the disk-open ingest creates or replaces.
+      ingestExternalContent: mockLoadContent,
       setLineMetadata: mockSetLineMetadata,
     }),
   },
@@ -257,7 +256,7 @@ describe("useFinderFileOpen", () => {
     });
 
     expect(mockCreateTab).toHaveBeenCalledWith("main", "/docs/new.md");
-    expect(mockInitDocument).toHaveBeenCalled();
+    expect(mockLoadContent).toHaveBeenCalled();
   });
 
   it("processes pending files from cold start", async () => {
@@ -300,7 +299,7 @@ describe("useFinderFileOpen", () => {
     // Tab is created, then detached after read fails — no empty-content
     // document is left behind, and the user sees a toast with the cause.
     expect(mockCreateTab).toHaveBeenCalled();
-    expect(mockInitDocument).not.toHaveBeenCalled();
+    expect(mockLoadContent).not.toHaveBeenCalled();
     expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab-id");
     expect(mockToastError).toHaveBeenCalledWith(
       expect.stringContaining("forbidden path"),

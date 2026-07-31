@@ -92,8 +92,12 @@ interface NormalizedSaveContent {
  * Resolve the on-save line-ending and hard-break styles from the document's
  * detected state plus user settings, and apply them to produce the bytes that
  * will be written to disk.
+ *
+ * @public — exported for the Phase 1 all-ingress matrix (WI-1.9), which proves
+ * round-trip fidelity against the REAL save pipeline rather than a re-implementation
+ * that could drift from it.
  */
-function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
+export function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
   const doc = useDocumentStore.getState().getDocument(tabId);
   const settings = useSettingsStore.getState();
   const targetLineEnding = resolveLineEndingOnSave(

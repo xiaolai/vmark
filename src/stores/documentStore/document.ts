@@ -6,12 +6,11 @@
  * Re-exported through `../documentStore.ts` so existing consumers keep
  * `import { useDocumentStore } from "@/stores/documentStore"`.
  *
- * Two doors in — `setEditorContent` (editor domain, asserts its input is
- * already canonical; every production caller migrated, `setContent` survives
- * only as a deprecated test-facing alias gated by externalWriterGate.test) and
- * the external door: `initDocument`/`loadContent`/`ingestExternalContent`, all
- * canonicalising via `ingestExternalText`. The field contract they write
- * against lives with the shape, in `documentState.ts`.
+ * Two doors in — `setEditorContent` (editor domain, asserts canonical input;
+ * `setContent` survives only as a deprecated test alias, gated by
+ * externalWriterGate.test) and the external door
+ * (`initDocument`/`loadContent`/`ingestExternalContent`), all canonicalising
+ * via `ingestExternalText`. The field contract lives in `documentState.ts`.
  *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
@@ -23,17 +22,21 @@
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
 import { canonicalizeLineEndings, ingestExternalText } from "@/utils/editorText";
-import type { IngestOrigin, LineMetadata } from "@/utils/ingestOrigin";
+import { INGEST_ORIGIN_SNAPSHOT, type IngestOrigin } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
 import type { DocumentState, SaveSnapshots } from "./documentState";
 import {
   assertCanonicalEditorText,
-  buildIngestState,
-  buildLoadState,
   buildPostSaveState,
   createInitialDocument,
   updateDoc,
 } from "./documentState";
+import {
+  adoptDiskConvention,
+  buildIngestState,
+  buildLoadState,
+  type IngestOptions,
+} from "./ingestState";
 import { useRevisionStore } from "./revision";
 
 // Re-export for backwards compatibility
@@ -52,15 +55,15 @@ interface DocumentStore {
    */
   setEditorContent: (tabId: string, canonicalEditorText: string) => void;
   /**
-   * EXTERNAL-domain write: canonicalises `rawDiskText` and decides the
-   * document's line metadata from the `origin`'s precedence rule (WI-1.3).
-   * `persisted` carries a snapshot's own metadata where the origin has one.
+   * EXTERNAL-domain write: canonicalises and applies the `origin`'s precedence
+   * rule (WI-1.3). A BASELINE origin creates the document when the tab has
+   * none; an EDIT origin on a missing tab is a no-op.
    */
   ingestExternalContent: (
     tabId: string,
     rawDiskText: string,
     origin: IngestOrigin,
-    persisted?: Partial<LineMetadata>
+    opts?: IngestOptions
   ) => void;
   /** @deprecated Use `setEditorContent` (editor domain) or `loadContent` (external). */
   setContent: (tabId: string, content: string) => void;
@@ -88,10 +91,10 @@ interface DocumentStore {
   /** `markSaved` plus the auto-save timestamp — an auto-save IS a save. */
   markAutoSaved: (tabId: string, snapshots: SaveSnapshots) => void;
   /**
-   * Silently refresh the stored disk snapshot without touching content, dirty
-   * state, or any UI flags. Used when a cloud sync engine rewrote the file with
-   * a benign change (line endings/BOM/trailing newline) so that subsequent
-   * byte-for-byte comparisons match.
+   * Adopt a benign external rewrite: refresh the disk snapshot AND re-derive
+   * the file's convention from it, touching nothing else (WI-1.6). Refreshing
+   * the snapshot alone left the convention stale, so the next `preserve` save
+   * wrote the OLD one back and editor and sync engine kept flipping the file.
    */
   updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
@@ -134,19 +137,12 @@ export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): v
 /**
  * WI-1: invalidate the MCP revision whenever a tab's content actually changes.
  *
- * This is the single choke point every content writer passes through. Wiring
- * the bump into the Tiptap transaction listener alone left CodeMirror source
- * mode, the split-pane source editor, the workflow side panel, external-file
- * reloads and history restore able to change content while an already-read
- * revision stayed valid — so an AI write carrying it passed the STALE check
- * and clobbered the user's edits.
- *
- * Both `setContent` and `loadContent` route through here: they replace content
- * for different reasons (edit vs. reload) but have identical revision
- * semantics, and keeping one primitive is what stops them drifting apart
- * again. Guarded on a real change so a no-op write — the RAF-debounced Tiptap
- * flush re-serializes and re-sets identical content on every update — cannot
- * manufacture a false STALE.
+ * The single choke point every content writer passes through — wiring the bump
+ * into the Tiptap listener alone left source mode, split panes, workflows,
+ * external reloads and history restore able to change content while an
+ * already-read revision stayed valid, so an AI write passed the STALE check
+ * and clobbered the user's edits. Guarded on a real change so the RAF-debounced
+ * flush re-setting identical content cannot manufacture a false STALE.
  */
 function bumpRevisionIfContentChanged(
   tabId: string,
@@ -195,12 +191,17 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     bumpRevisionIfContentChanged(tabId, previous, canonicalEditorText);
   },
 
-  ingestExternalContent: (tabId, rawDiskText, origin, persisted) => {
+  ingestExternalContent: (tabId, rawDiskText, origin, opts) => {
+    // A baseline origin IS the document — create it if the tab has none
+    // (initDocument keeps the tab-existence guard); edits have nothing to edit.
+    if (!get().documents[tabId] && INGEST_ORIGIN_SNAPSHOT[origin] === "baseline") {
+      get().initDocument(tabId, "", opts?.filePath ?? null);
+    }
     const previous = get().documents[tabId]?.content;
     let next: string | undefined;
     set((state) =>
       updateDoc(state, tabId, (doc) => {
-        const patch = buildIngestState(doc, rawDiskText, origin, persisted);
+        const patch = buildIngestState(doc, rawDiskText, origin, opts);
         next = patch.content;
         return patch;
       })
@@ -209,8 +210,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
   },
 
-  // Delegates INTO the guard: the alias's only caller class is tests
-  // (externalWriterGate.test enforces that), and they get the assert too.
+  // Delegates INTO the guard; only tests may call it (externalWriterGate.test).
   setContent: (tabId, content) => {
     get().setEditorContent(tabId, content);
   },
@@ -260,7 +260,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     ),
 
   updateLastDiskContent: (tabId, diskContent) =>
-    set((state) => updateDoc(state, tabId, () => ({ lastDiskContent: diskContent }))),
+    set((state) => updateDoc(state, tabId, () => adoptDiskConvention(diskContent))),
 
   setCursorInfo: (tabId, info) =>
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),

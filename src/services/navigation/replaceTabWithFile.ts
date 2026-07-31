@@ -13,7 +13,6 @@ import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
@@ -80,12 +79,9 @@ export async function replaceTabWithFile(params: {
     }
 
     useTabStore.getState().updateTabPath(tabId, targetPath);
-    useDocumentStore.getState().loadContent(
-      tabId,
-      content,
-      targetPath,
-      detectLinebreaks(content),
-    );
+    useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
+      filePath: targetPath,
+    });
     if (workspaceRoot) {
       await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
     }

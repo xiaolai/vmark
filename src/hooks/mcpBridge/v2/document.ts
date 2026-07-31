@@ -42,7 +42,6 @@ import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { captureMcpWrite, recordMcpRead } from "@/services/coherence/captureFunnel";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
-import { canonicalizeLineEndings } from "@/utils/editorText";
 import { useEditorStore } from "@/stores/editorStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
@@ -161,7 +160,8 @@ function writeContent(
 ): { revision: string } | V2Error {
   const docState = useDocumentStore.getState();
   const revisionStore = useRevisionStore.getState();
-  docState.setEditorContent(tabId, canonicalizeLineEndings(content));
+  // mcp-write: an EDIT that keeps the document's disk convention (WI-1.3).
+  docState.ingestExternalContent(tabId, content, "mcp-write");
 
   // For a Markdown tab that is the ACTIVE WYSIWYG editor, also re-render the
   // Tiptap doc so the editor stays in sync; its transaction bumps THIS tab's

@@ -156,7 +156,7 @@ export async function handleWorkspaceOpen(
       // unchanged and the editor may never remount on the new content.
       // `loadContent` mutates in place, increments `documentId`, and bumps
       // the revision itself when the content actually moved.
-      docStore.loadContent(tabId, content, filePath);
+      docStore.ingestExternalContent(tabId, content, "disk-open", { filePath });
       // `loadContent` deliberately does NOT clear `isMissing` — hot-exit
       // restore replays saved content for a file that may genuinely be gone.
       // Here the read above just succeeded, so the file demonstrably exists:
@@ -167,7 +167,7 @@ export async function handleWorkspaceOpen(
       // WI-2.6 — registry handles YAML routing; the force-source
       // bandaid is retired. .yaml/.yml files now route to the YAML
       // adapter (kind: split-pane), bypassing the markdown surface.
-      docStore.initDocument(tabId, content, filePath);
+      docStore.ingestExternalContent(tabId, content, "disk-open", { filePath });
     }
     await respond({
       id,
