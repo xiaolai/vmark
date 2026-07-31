@@ -23,12 +23,18 @@ export function useLiveDocsResponder(): void {
   useEffect(() => {
     let disposed = false;
     const unlisteners: UnlistenFn[] = [];
+    const webview = getCurrentWebviewWindow();
 
-    getCurrentWebviewWindow()
+    webview
       .listen<string>("live-docs:request", async (event) => {
         try {
+          // The label identifies WHICH window answered: Rust counts answers
+          // by distinct expected label, so a duplicate listener (Strict Mode)
+          // or a stray echo can never stand in for a window that stayed
+          // silent — completeness would otherwise lie.
           await invoke("live_docs_response", {
             requestId: event.payload,
+            label: webview.label,
             refs: localLiveRefKeys(),
           });
         } catch (error) {

@@ -9,6 +9,8 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withoutWorkspaceReferenced } from "./workspaceReferenceCheck";
 
 const img = (n: string) => ({ filename: n, fullPath: `/ws/notes/assets/images/${n}` });
+const hits = (...paths: string[]) => ({ results: paths.map((p) => ({ path: p })), complete: true });
+const clean = () => hits();
 
 describe("withoutWorkspaceReferenced", () => {
   beforeEach(() => {
@@ -17,21 +19,38 @@ describe("withoutWorkspaceReferenced", () => {
   });
 
   it("clears a candidate no document mentions", async () => {
-    vi.mocked(invoke).mockResolvedValue([]);
+    vi.mocked(invoke).mockResolvedValue(clean());
     expect(await withoutWorkspaceReferenced([img("orphan.png")])).toEqual([img("orphan.png")]);
   });
 
   it("keeps a candidate some document mentions — wherever it is", async () => {
     // A doc in a SIBLING DIRECTORY references it by absolute path; the
     // same-directory scan never read that doc.
-    vi.mocked(invoke).mockResolvedValue([{ path: "/ws/journal/2026.md" }]);
+    vi.mocked(invoke).mockResolvedValue(hits("/ws/journal/2026.md"));
     expect(await withoutWorkspaceReferenced([img("used.png")])).toEqual([]);
   });
 
+  it("keeps a candidate when the scan was INCOMPLETE, even with zero hits", async () => {
+    // The search skips >1 MB files, unreadable files, and bails on its
+    // 5 s deadline — silently, for the UI. Zero hits from such a partial
+    // scan must NOT read as "verified clean" (review finding): the one
+    // document mentioning this image may be exactly the one skipped.
+    vi.mocked(invoke).mockResolvedValue({ results: [], complete: false });
+    expect(await withoutWorkspaceReferenced([img("maybe.png")])).toEqual([]);
+  });
+
+  it.each([undefined, null, {}, { results: [] }, { complete: true }, [] ])(
+    "keeps a candidate on a malformed reply (%j)",
+    async (wire) => {
+      vi.mocked(invoke).mockResolvedValue(wire as never);
+      expect(await withoutWorkspaceReferenced([img("maybe.png")])).toEqual([]);
+    },
+  );
+
   it("searches for the filename with the markdown extension set", async () => {
-    vi.mocked(invoke).mockResolvedValue([]);
+    vi.mocked(invoke).mockResolvedValue(clean());
     await withoutWorkspaceReferenced([img("shot-1.png")]);
-    expect(invoke).toHaveBeenCalledWith("search_workspace_content", expect.objectContaining({
+    expect(invoke).toHaveBeenCalledWith("search_workspace_content_checked", expect.objectContaining({
       rootPath: "/ws",
       query: "shot-1.png",
       markdownOnly: true,
@@ -60,8 +79,8 @@ describe("withoutWorkspaceReferenced", () => {
 
   it("judges each candidate independently", async () => {
     vi.mocked(invoke)
-      .mockResolvedValueOnce([{ path: "/ws/doc.md" }]) // a.png is mentioned
-      .mockResolvedValueOnce([]); // b.png is not
+      .mockResolvedValueOnce(hits("/ws/doc.md")) // a.png is mentioned
+      .mockResolvedValueOnce(clean()); // b.png is not
     const result = await withoutWorkspaceReferenced([img("a.png"), img("b.png")]);
     expect(result).toEqual([img("b.png")]);
   });

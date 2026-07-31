@@ -16,13 +16,18 @@
  *     prose mention of a hand-named file is a false positive that PROTECTS —
  *     the safe direction. A missed reference deletes a rendered image; a
  *     stray mention costs a stray file.
- *   - Fail CLOSED: a search error, or a filename too short to search, keeps
- *     the file. Only a clean "no document mentions this" clears deletion.
+ *   - Fail CLOSED: a search error, an INCOMPLETE scan, or a filename too
+ *     short to search keeps the file. Only "every eligible document was
+ *     scanned and none mentions this" clears deletion. The search command's
+ *     UI variant silently returns partial results on timeout / caps /
+ *     unreadable files — fine for Find in Files, fatal here, where zero hits
+ *     from a partial scan reads as verified clean. This module therefore
+ *     calls `search_workspace_content_checked`, which reports completeness.
  *   - Outside workspace mode there is no index to consult; the caller's
  *     same-directory scan is then the whole story (documented limitation).
  *
  * @coordinates-with orphanAssetCleanup.ts — candidates come from its scan
- * @coordinates-with src-tauri/src/content_search.rs — the search command
+ * @coordinates-with src-tauri/src/content_search.rs — the checked search command
  * @module services/media/workspaceReferenceCheck
  */
 
@@ -32,9 +37,10 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { orphanCleanupError } from "@/utils/debug";
 import type { OrphanedImage } from "@/services/media/orphanAssetCleanup";
 
-/** Mirror of the Rust FileSearchResult — only `path` matters here. */
-interface FileSearchResult {
-  path: string;
+/** Mirror of the Rust SearchOutcome — only hit-count and honesty matter here. */
+interface SearchOutcome {
+  results: { path: string }[];
+  complete: boolean;
 }
 
 /** The Rust command rejects queries under 3 characters. */
@@ -78,7 +84,7 @@ export async function withoutWorkspaceReferenced(
       continue; // unverifiable — keep the file (fail closed)
     }
     try {
-      const hits = await invoke<FileSearchResult[]>("search_workspace_content", {
+      const outcome = await invoke<SearchOutcome>("search_workspace_content_checked", {
         rootPath,
         query: candidate.filename,
         caseSensitive: false,
@@ -88,7 +94,11 @@ export async function withoutWorkspaceReferenced(
         extensions: searchableExtensions(),
         excludeFolders: [],
       });
-      if (hits.length === 0) cleared.push(candidate);
+      // Zero hits clears the candidate ONLY when the scan actually covered
+      // every eligible document — a malformed reply fails closed too.
+      if (outcome?.complete === true && Array.isArray(outcome.results) && outcome.results.length === 0) {
+        cleared.push(candidate);
+      }
       // Any hit — even prose — protects. See the header for why.
     } catch (error) {
       orphanCleanupError(` Workspace reference check failed for ${candidate.filename}:`, error);

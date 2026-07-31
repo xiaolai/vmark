@@ -434,7 +434,7 @@ describe("findOrphanedImages — knownContents", () => {
     expect(result.scanComplete).toBe(true); // a buffer covered the unreadable file
   });
 
-  it("ignores a buffered document from another directory", async () => {
+  it("folds a buffered document from another directory into the evidence", async () => {
     const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readDir).mockImplementation(mockDirs(["orphan.png"], ["test.md"]) as never);
@@ -445,9 +445,13 @@ describe("findOrphanedImages — knownContents", () => {
       knownContents: new Map([["/elsewhere/other.md", "![](./assets/images/orphan.png)"]]),
     });
 
-    // A different directory has a different assets folder — that reference is
-    // not to this file.
-    expect(result.orphanedImages.map((i) => i.filename)).toEqual(["orphan.png"]);
+    // An UNSAVED cross-directory buffer can reference this assets folder by
+    // absolute or ../ path — content the workspace search (disk-only) can
+    // never see, so dropping it deleted a referenced image (review finding).
+    // The fold is deliberately blunt, mirroring the filename-probe search:
+    // a same-named reference that resolves elsewhere over-protects, and a
+    // stray kept file is the cheap side of that trade.
+    expect(result.orphanedImages).toEqual([]);
   });
 
   it("reads siblings from disk when no buffer is supplied for them", async () => {
