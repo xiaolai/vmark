@@ -85,10 +85,13 @@ describe("selectionBlockSpan", () => {
   });
 
   it("differs from the naive reading, proving the off-by-one is what is tested", () => {
-    // The naive version resolved the last line from `to` rather than `to - 1`.
+    // The naive version resolved the last line from `to` rather than `to - 1`,
+    // landing on the blank separator. It used to swallow `beta` outright; the
+    // per-endpoint blank rule now stops that, but the naive span still drags
+    // the separator line in — which is what the `to - 1` rule exists to avoid.
     const naive = sourceBlockSpan(lines, lineNumberAt(0) - 1, lineNumberAt(6) - 1);
     expect(naive).not.toEqual(selectionBlockSpan(lines, 0, 6, lineNumberAt));
-    expect(naive).toEqual({ start: 0, end: 2 }); // swallowed `beta`
+    expect(naive).toEqual({ start: 0, end: 1 }); // includes the separator
   });
 
   it("treats a caret as a single point, not a range", () => {
@@ -125,5 +128,32 @@ describe("sourceBlockSpan treats a fence as a hard boundary", () => {
   it("does not let a tilde run close a backtick fence", () => {
     const l = lines("```\n~~~\ncode\n```\nafter");
     expect(sourceBlockSpan(l, 4, 4)).toEqual({ start: 4, end: 4 });
+  });
+});
+
+describe("sourceBlockSpan resolves each ENDPOINT independently", () => {
+  // Blank endpoints were honoured only for collapsed selections; a range with
+  // one blank end expanded straight through it into a block the user never
+  // touched.
+  it("a blank START endpoint stays on the blank line", () => {
+    // Selecting the separator and "b" must not swallow "a".
+    expect(sourceBlockSpan(["a", "", "b"], 1, 2)).toEqual({ start: 1, end: 2 });
+  });
+
+  it("a blank END endpoint stays on the blank line", () => {
+    // Selecting "a" and the separator must not swallow "b".
+    expect(sourceBlockSpan(["a", "", "b"], 0, 1)).toEqual({ start: 0, end: 1 });
+  });
+
+  it("a mixed fence/paragraph selection widens the paragraph END too", () => {
+    // The fence branch returned early with only the fence side expanded,
+    // leaving the paragraph endpoint mid-block — a partial replacement.
+    const l = ["```", "x", "```", "para one", "para two"];
+    expect(sourceBlockSpan(l, 1, 3)).toEqual({ start: 0, end: 4 });
+  });
+
+  it("a mixed paragraph/fence selection widens the paragraph START too", () => {
+    const l = ["para one", "para two", "```", "x", "```"];
+    expect(sourceBlockSpan(l, 1, 3)).toEqual({ start: 0, end: 4 });
   });
 });

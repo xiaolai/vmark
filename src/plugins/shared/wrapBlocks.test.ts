@@ -141,3 +141,34 @@ describe("wrapSpannedBlocks respects ProseMirror's EXCLUSIVE `to`", () => {
     expect(tr!.doc.firstChild?.childCount).toBe(2);
   });
 });
+
+describe("depth-0 selections wrap their actual content", () => {
+  // An AllSelection (Cmd+A) and a NodeSelection on a top-level block have
+  // depth-0 endpoints. Rejecting them made the caller fall back to inserting
+  // an EMPTY block — ignoring a non-empty selection the user explicitly made.
+  it("wraps the whole document for an AllSelection", async () => {
+    const { AllSelection } = await import("@tiptap/pm/state");
+    const doc = docOf("alpha", "beta");
+    const state = EditorState.create({ doc });
+    const st = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
+    const tr = wrapSpannedBlocks(st, wrap);
+    expect(tr).not.toBeNull();
+    expect(tr!.doc.childCount).toBe(1);
+    expect(tr!.doc.firstChild?.type.name).toBe("wrapper");
+    expect(tr!.doc.firstChild?.childCount).toBe(2);
+    expect(tr!.doc.textContent).toBe("alphabeta");
+  });
+
+  it("wraps exactly the selected node for a top-level NodeSelection", async () => {
+    const { NodeSelection } = await import("@tiptap/pm/state");
+    const doc = docOf("alpha", "beta");
+    const state = EditorState.create({ doc });
+    const st = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, 0)));
+    const tr = wrapSpannedBlocks(st, wrap);
+    expect(tr).not.toBeNull();
+    expect(tr!.doc.childCount).toBe(2);
+    expect(tr!.doc.firstChild?.type.name).toBe("wrapper");
+    expect(tr!.doc.firstChild?.textContent).toBe("alpha");
+    expect(tr!.doc.lastChild?.textContent).toBe("beta");
+  });
+});

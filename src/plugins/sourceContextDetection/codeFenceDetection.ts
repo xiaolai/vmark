@@ -22,6 +22,11 @@
  *     (so `c++`, `c#`, `objective-c` are captured whole).
  *
  * Known limitations:
+ *   - `plugins/shared/lineContent.ts` (`fenceRanges`) is the AUTHORITY on the
+ *     fence grammar; this module keeps its own traversal because its consumers
+ *     need positional info (language token bounds) and different opener-line
+ *     inclusion semantics. Delimiter-grammar disagreements are bugs HERE.
+ *     Full consolidation is tracked in the source-structure design doc.
  *   - Fence indentation is permissive (any leading whitespace), deviating
  *     from CommonMark's 3-space cap: fences nested in list items carry 4+
  *     raw spaces of indent, and a line-based detector cannot see list
@@ -89,7 +94,10 @@ function parseFenceOpener(text: string): FenceOpener | null {
  * least as long as the opener's run, with nothing else but whitespace.
  */
 function isFenceCloser(text: string, opener: FenceOpener): boolean {
-  const trimmed = text.trim();
+  // Spaces and tabs only — `.trim()` also removed NBSP and other Unicode
+  // spaces, accepting closers CommonMark rejects. The shared scanner in
+  // plugins/shared/lineContent.ts already enforces this; the two must agree.
+  const trimmed = text.replace(/^[ \t]+|[ \t]+$/g, "");
   if (trimmed.length < opener.runLength) return false;
   for (let i = 0; i < trimmed.length; i++) {
     if (trimmed[i] !== opener.char) return false;

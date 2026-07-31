@@ -59,6 +59,15 @@ export interface LineContent {
   content: string;
 }
 
+/**
+ * Whether `indent` reaches the indented-code threshold: four COLUMNS, a tab
+ * counting as one whole stop. Past it the line is literal code and nothing on
+ * it is markup.
+ */
+function isCodeIndent(indent: string): boolean {
+  return indent.includes("\t") || indent.length >= 4;
+}
+
 /** Split a markdown line into its quote wrapper, indentation, and text. */
 export function stripBlockMarkup(line: string): LineContent {
   let rest = line;
@@ -70,9 +79,18 @@ export function stripBlockMarkup(line: string): LineContent {
   const quote = quoteMatch ? `${quoteMatch[0].trim()} ` : "";
   if (quoteMatch) rest = rest.slice(quoteMatch[0].length);
 
-  // `^\s*` matches every string, so this never returns null.
-  const indent = /^\s*/.exec(rest)![0];
+  // Spaces and tabs ONLY: CommonMark whitespace. `^\s*` also swallowed NBSP
+  // and friends, and then stripped the "marker" after them — but a no-break
+  // space is content, and a line it starts is a paragraph.
+  const indent = /^[ \t]*/.exec(rest)![0];
   rest = rest.slice(indent.length);
+
+  // Four columns of indentation is INDENTED CODE, where a `#` or a `-` is
+  // literal text. Stripping "markers" there destroyed characters CommonMark
+  // never considered markup.
+  if (isCodeIndent(indent)) {
+    return { quote, indent, content: rest };
+  }
 
   // A run of three or more `-`/`*`/`_` is a thematic break; treating its first
   // character as a bullet would turn `---` into a line reading `-`.
@@ -124,11 +142,25 @@ function isBlankInfo(info: string): boolean {
   return /^[ \t]*$/.test(info);
 }
 
+/**
+ * A list-item marker a fence may open on (`- ``` `), or the content indent of
+ * such an item on later lines. Missing these meant a list-item fence was never
+ * seen at its opener, while its indented CLOSER was misread as a new opener —
+ * flipping inside and outside for the rest of the document.
+ */
+const LIST_ITEM_PREFIX_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+/;
+
 /** Parse a line as a fence delimiter, or null. Whitespace is spaces/tabs only. */
 function parseFenceDelimiter(line: string): FenceDelimiter | null {
-  const prefix = CONTAINER_PREFIX_RE.exec(line)?.[0] ?? "";
-  const rest = line.slice(prefix.length);
-  const match = /^[ \t]{0,3}([`~])(\1*)([^\n]*)$/.exec(rest);
+  const quotePrefix = CONTAINER_PREFIX_RE.exec(line)?.[0] ?? "";
+  let rest = line.slice(quotePrefix.length);
+  const listPrefix = LIST_ITEM_PREFIX_RE.exec(rest)?.[0] ?? "";
+  rest = rest.slice(listPrefix.length);
+
+  // SPACES only, and at most three: a tab expands to four COLUMNS, which is
+  // indented code, not a fence. `[ \t]{0,3}` let a single tab through and a
+  // "fence" toggle then deleted literal lines from an indented code block.
+  const match = /^ {0,3}([`~])(\1*)([^\n]*)$/.exec(rest);
   if (!match) return null;
 
   const marker = match[1] as "`" | "~";
@@ -141,7 +173,7 @@ function parseFenceDelimiter(line: string): FenceDelimiter | null {
   // ordinary prose and let the toggle "unfence" it destructively.
   if (marker === "`" && info.includes("`")) return null;
 
-  return { marker, run, info, prefix };
+  return { marker, run, info, prefix: quotePrefix };
 }
 
 /** A fenced code block's line range. */
@@ -159,11 +191,16 @@ export function enclosingFence(lines: readonly string[], lineIndex: number): Enc
   return fenceRanges(lines).find((f) => lineIndex >= f.open && lineIndex <= f.close) ?? null;
 }
 
-/** Whether `lineIndex` is a fence DELIMITER line rather than fenced content. */
-export function isFenceDelimiter(lines: readonly string[], lineIndex: number): boolean {
-  const fence = enclosingFence(lines, lineIndex);
-  if (!fence) return false;
-  return lineIndex === fence.open || (fence.closed && lineIndex === fence.close);
+/**
+ * Whether `lineIndex` is a fence DELIMITER line within precomputed `ranges`.
+ *
+ * Takes the ranges rather than the lines: every caller already holds a
+ * `fenceRanges` result, and the old lines-taking variant re-scanned the whole
+ * document per call — so callers had each inlined this predicate instead,
+ * three copies that could drift.
+ */
+export function isDelimiterLine(ranges: readonly EnclosingFence[], lineIndex: number): boolean {
+  return ranges.some((f) => lineIndex === f.open || (f.closed && lineIndex === f.close));
 }
 
 /**
@@ -173,12 +210,11 @@ export function isFenceDelimiter(lines: readonly string[], lineIndex: number): b
  * cannot be answered locally, because delimiters pair in document order and a
  * run of backticks above the cursor may itself be a closer.
  *
- * It is NOT yet the only fence parser in the codebase —
- * `sourceContextDetection/codeFenceDetection.ts` and
- * `toolbarActions/multiSelectionContext.ts` each carry their own, and they
- * disagree with this one about run lengths, tildes, info strings and container
- * prefixes. Consolidating them is tracked in the source-block-model plan; until
- * then, treat a disagreement between them as a bug in the other two.
+ * This is the AUTHORITY on the fence grammar. `multiSelectionContext` now
+ * resolves through it directly; `codeFenceDetection` keeps its own traversal
+ * (its consumers need positional info) but its delimiter grammar must agree
+ * with this one — a disagreement is a bug THERE. The remaining traversal
+ * consolidation is tracked in the source-structure design doc.
  */
 export function fenceRanges(lines: readonly string[]): EnclosingFence[] {
   const ranges: EnclosingFence[] = [];

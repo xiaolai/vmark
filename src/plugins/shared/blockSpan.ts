@@ -60,32 +60,44 @@ export function sourceBlockSpan(lines: readonly string[], fromLine: number, toLi
   let end = Math.min(Math.max(toLine, 0), last);
   if (start > end) [start, end] = [end, start];
 
-  // A selection anchored on a blank line has no block to widen to.
-  if (start === end && isBlank(lines[start])) return { start, end };
-
   // A FENCE is a hard boundary in both directions. Blank lines alone do not
   // bound a code block — markdown does not require one after a closing fence —
   // so a caret in the paragraph directly below ``` used to widen straight up
   // through the fence and hand the whole code block to whatever ran next.
   // Wrapping, converting or CJK-formatting that "block" rewrote the user's code.
+  //
+  // Membership is precomputed per line: `fences.find` on every widening step
+  // made a long paragraph after many fences quadratic.
   const fences = fenceRanges(lines);
-  const fenceOf = (i: number) => fences.find((f) => i >= f.open && i <= f.close);
+  const fenceIndexOf = new Int32Array(lines.length).fill(-1);
+  fences.forEach((f, fi) => {
+    for (let i = f.open; i <= f.close; i += 1) fenceIndexOf[i] = fi;
+  });
+  const fenceOf = (i: number) =>
+    i >= 0 && i < lines.length && fenceIndexOf[i] !== -1 ? fences[fenceIndexOf[i]] : undefined;
 
-  // Inside a fence the whole fence IS the block, blank lines included. Each
-  // endpoint resolves its OWN fence: taking only the first left the second
-  // fence's closing delimiter outside the span, so a replacement could leave a
-  // half-open fence behind and expose the rest of the file as code.
+  // Each ENDPOINT resolves independently to its own bound — fence span, blank
+  // line (stays put: there is no block to widen to), or paragraph widened to
+  // its blank/fence boundary. Coupling them failed twice: a blank endpoint on
+  // a RANGE expanded through the separator into an untouched block, and the
+  // fence branch returned early with the non-fence endpoint left mid-block,
+  // handing a partial paragraph to a destructive replacement. Inside a fence
+  // the whole fence IS the block; each endpoint resolves its OWN fence, so a
+  // span across two fences keeps both delimiter pairs intact.
   const startFence = fenceOf(start);
-  const endFence = fenceOf(end);
-  if (startFence || endFence) {
-    return {
-      start: Math.min(start, startFence?.open ?? start),
-      end: Math.max(end, endFence?.close ?? end),
-    };
+  if (startFence) {
+    start = Math.min(start, startFence.open);
+  } else if (!isBlank(lines[start])) {
+    while (start > 0 && !isBlank(lines[start - 1]) && !fenceOf(start - 1)) start -= 1;
   }
 
-  while (start > 0 && !isBlank(lines[start - 1]) && !fenceOf(start - 1)) start -= 1;
-  while (end < last && !isBlank(lines[end + 1]) && !fenceOf(end + 1)) end += 1;
+  const endFence = fenceOf(end);
+  if (endFence) {
+    end = Math.max(end, endFence.close);
+  } else if (!isBlank(lines[end])) {
+    while (end < last && !isBlank(lines[end + 1]) && !fenceOf(end + 1)) end += 1;
+  }
+
   return { start, end };
 }
 

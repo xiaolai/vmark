@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripBlockMarkup, fenceRanges, enclosingFence, isFenceDelimiter } from "./lineContent";
+import { stripBlockMarkup, fenceRanges, enclosingFence, isDelimiterLine } from "./lineContent";
 
 describe("stripBlockMarkup", () => {
   it.each([
@@ -174,11 +174,11 @@ describe("fenceRanges — CommonMark pairing", () => {
     ]);
   });
 
-  it("identifies delimiter lines", () => {
-    const lines = ["```", "code", "```"];
-    expect(isFenceDelimiter(lines, 0)).toBe(true);
-    expect(isFenceDelimiter(lines, 1)).toBe(false);
-    expect(isFenceDelimiter(lines, 2)).toBe(true);
+  it("identifies delimiter lines from precomputed ranges", () => {
+    const ranges = fenceRanges(["```", "code", "```"]);
+    expect(isDelimiterLine(ranges, 0)).toBe(true);
+    expect(isDelimiterLine(ranges, 1)).toBe(false);
+    expect(isDelimiterLine(ranges, 2)).toBe(true);
   });
 });
 
@@ -208,5 +208,73 @@ describe("fenceRanges — container scope and delimiter whitespace", () => {
 
   it("still accepts spaces and tabs after a closer", () => {
     expect(fenceRanges(["```", "x", "``` \t"])).toEqual([{ open: 0, close: 2, closed: true }]);
+  });
+});
+
+describe("stripBlockMarkup — indented code and Unicode whitespace", () => {
+  // Four spaces of indentation is INDENTED CODE: the markers inside it are
+  // literal text, and stripping them destroyed content that CommonMark says is
+  // not markup at all.
+  it.each([
+    { line: "    # literal", indent: "    ", content: "# literal" },
+    { line: "    - literal", indent: "    ", content: "- literal" },
+    { line: "\tcode - here", indent: "\t", content: "code - here" },
+  ])("keeps markers inside indented code: $line", ({ line, indent, content }) => {
+    expect(stripBlockMarkup(line)).toEqual({ quote: "", indent, content });
+  });
+
+  it("keeps markers inside indented code WITHIN a quote", () => {
+    expect(stripBlockMarkup(">     - deep")).toEqual({
+      quote: "> ",
+      indent: "    ",
+      content: "- deep",
+    });
+  });
+
+  it("treats a no-break space as CONTENT, not indentation", () => {
+    // `^\s*` swallowed NBSP as structural whitespace and then stripped the
+    // marker after it; CommonMark whitespace is spaces and tabs only.
+    expect(stripBlockMarkup(" - literal")).toEqual({
+      quote: "",
+      indent: "",
+      content: " - literal",
+    });
+  });
+
+  it("still strips a marker at one to three spaces of indent", () => {
+    expect(stripBlockMarkup("   - x")).toEqual({ quote: "", indent: "   ", content: "x" });
+  });
+});
+
+describe("fenceRanges — indentation is measured in COLUMNS", () => {
+  it("rejects a tab-indented opener — CommonMark expands the tab to four columns", () => {
+    expect(fenceRanges(["\t```", "x", "\t```"])).toEqual([]);
+  });
+
+  it("rejects a four-space opener (already indented code)", () => {
+    expect(fenceRanges(["    ```", "x"])).toEqual([]);
+  });
+});
+
+describe("fenceRanges — fences inside list items", () => {
+  it("recognises a fence opened on a bullet list marker line", () => {
+    // `- ``` / content / closer` is a valid fence inside the item. Missing the
+    // opener while classifying the indented closer as a NEW opener flipped
+    // inside and outside for the rest of the document.
+    expect(fenceRanges(["- ```", "  x", "  ```", "after"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("recognises a fence opened on an ordered list marker line", () => {
+    expect(fenceRanges(["1. ```js", "  code", "  ```"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("recognises a QUOTED list-item fence", () => {
+    expect(fenceRanges(["> - ```", "> x", "> ```"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
   });
 });
