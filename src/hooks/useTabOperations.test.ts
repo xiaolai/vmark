@@ -357,8 +357,9 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
       "/tmp/test.md",
       "hello",
       // The other OPEN tab's live buffer travels with the scan, so its
-      // just-pasted-but-unsaved image cannot be deleted by this close.
-      { knownContents: expect.any(Map) },
+      // just-pasted-but-unsaved image cannot be deleted by this close. So do
+      // other WINDOWS' buffers (WI-9).
+      { knownContents: expect.any(Map), externalRefKeys: expect.anything() },
     );
     const passed = vi.mocked(findOrphanedImages).mock.calls[0][2]!.knownContents!;
     expect(passed.get("/tmp/other.md")).toBe("other");

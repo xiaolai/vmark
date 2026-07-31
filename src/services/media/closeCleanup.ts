@@ -44,6 +44,8 @@ import {
 import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
 import { canonicalPathKey } from "@/utils/paths/pathComparison";
 import { withoutWorkspaceReferenced } from "@/services/media/workspaceReferenceCheck";
+import { collectRemoteLiveRefs } from "@/services/media/crossWindowRefs";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 
 /** A closing document and the content it will leave behind on disk. */
 interface ClosingDocument {
@@ -101,6 +103,10 @@ export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<vo
     }
   }
 
+  // WI-9: another window's unsaved buffer can be the sole reference to an
+  // image in these folders. Incomplete evidence protects everything.
+  const externalRefKeys = await collectRemoteLiveRefs(getCurrentWindowLabel());
+
   const scannedDirs = new Set<string>();
   for (const subject of subjects) {
     try {
@@ -110,6 +116,7 @@ export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<vo
 
       const first = await findOrphanedImages(subject.filePath, subject.content, {
         knownContents,
+        externalRefKeys,
       });
       if (first.orphanedImages.length === 0) continue;
 
@@ -122,6 +129,7 @@ export async function cleanupOrphansForClosingTabs(tabIds: string[]): Promise<vo
       for (const s of subjects) fresh.set(canonicalPathKey(s.filePath), s.content);
       const second = await findOrphanedImages(subject.filePath, subject.content, {
         knownContents: fresh,
+        externalRefKeys: await collectRemoteLiveRefs(getCurrentWindowLabel()),
       });
       const stillOrphaned = new Set(second.orphanedImages.map((img) => img.fullPath));
       const confirmed = first.orphanedImages.filter((img) => stillOrphaned.has(img.fullPath));

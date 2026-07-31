@@ -572,3 +572,40 @@ describe("findOrphanedImages — reference matching", () => {
     expect(result.orphanedImages).toHaveLength(1);
   });
 });
+
+// WI-9 — evidence from other windows' live buffers.
+describe("findOrphanedImages — externalRefKeys", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("protects an image only another WINDOW references", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["x.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no refs here", {
+      externalRefKeys: { complete: true, keys: new Set(["assets/images/x.png"]) },
+    });
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.sharedCount).toBe(1);
+  });
+
+  it("treats an unheard window as an incomplete scan — protect everything", async () => {
+    const { exists, readDir, readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(exists).mockResolvedValue(true);
+    vi.mocked(readDir).mockImplementation(mockDirs(["x.png"], ["test.md"]) as never);
+    vi.mocked(readTextFile).mockResolvedValue("");
+
+    const { findOrphanedImages } = await import("./orphanAssetCleanup");
+    const result = await findOrphanedImages("/doc/test.md", "no refs", {
+      externalRefKeys: { complete: false, keys: new Set() },
+    });
+
+    expect(result.orphanedImages).toEqual([]);
+    expect(result.scanComplete).toBe(false);
+  });
+});
