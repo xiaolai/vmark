@@ -34,7 +34,7 @@
  * @module plugins/toolbarActions/sourceBlockMove
  */
 
-import { enclosingFence } from "@/plugins/shared/lineContent";
+import { enclosingFence, fenceRanges } from "@/plugins/shared/lineContent";
 
 const isBlank = (line: string): boolean => line.trim() === "";
 
@@ -75,6 +75,12 @@ export function moveBlockAware(
   const neighbourIndex = up ? selection.start - 1 : selection.end + 1;
   if (neighbourIndex < 0 || neighbourIndex >= lines.length) return null;
 
+  // A fence delimiter must not move, and content must not move ACROSS one.
+  // Hoisting the first line of ["```","code","```"] gave ["code","```","```"] —
+  // the fence destroyed and the rest of the file exposed as code. This action is
+  // on the code-block allow-list, so the check has to live here.
+  if (crossesFenceBoundary(lines, selection, neighbourIndex)) return null;
+
   // A nested list item must not swap with a SHALLOWER one: hoisting `  - inner`
   // past `- outer` puts the child above its parent and the nesting is gone.
   // WYSIWYG declines the move for the same reason.
@@ -97,6 +103,12 @@ export function moveBlockAware(
   if (gap < 0 || gap >= lines.length) return null; // nothing but blanks beyond
 
   const other = blockAround(lines, gap, gap);
+  // The expansion itself can swallow delimiters: inside ["```","a","","b","```"]
+  // the blank line put this on the whole-block path, `blockAround` absorbed both
+  // delimiters, and the move returned ["b","```","","```","a"] — the fence gone.
+  // The immediate-neighbour guard above cannot see that, so re-check the spans.
+  if (spanTouchesFence(lines, block) || spanTouchesFence(lines, other)) return null;
+
   const first = up ? other : block;
   const second = up ? block : other;
   const between = lines.slice(first.end + 1, second.start);
@@ -108,6 +120,38 @@ export function moveBlockAware(
     ...lines.slice(first.start, first.end + 1),
     ...lines.slice(second.end + 1),
   ];
+}
+
+/** Whether any line of `span` is a fence delimiter. */
+function spanTouchesFence(lines: readonly string[], span: Span): boolean {
+  const fences = fenceRanges(lines);
+  for (let i = span.start; i <= span.end; i += 1) {
+    if (fences.some((f) => i === f.open || (f.closed && i === f.close))) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a move would disturb a fence: either endpoint is a delimiter, or the
+ * move would carry a line across one.
+ */
+function crossesFenceBoundary(
+  lines: readonly string[],
+  selection: Span,
+  neighbourIndex: number,
+): boolean {
+  // Scanned ONCE. Calling `isFenceDelimiter` per line re-parsed the whole
+  // document each time, making a large selection quadratic.
+  const fences = fenceRanges(lines);
+  const isDelimiter = (i: number) => fences.some((f) => i === f.open || (f.closed && i === f.close));
+  const fenceOf = (i: number) => fences.find((f) => i >= f.open && i <= f.close);
+
+  for (let i = selection.start; i <= selection.end; i += 1) {
+    if (isDelimiter(i)) return true;
+  }
+  if (isDelimiter(neighbourIndex)) return true;
+  // Content may reorder WITHIN one fence, but not step outside it.
+  return fenceOf(selection.start)?.open !== fenceOf(neighbourIndex)?.open;
 }
 
 /**

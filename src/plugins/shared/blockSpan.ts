@@ -51,7 +51,11 @@ const isBlank = (line: string): boolean => line.trim() === "";
  * that line, since there is no block to widen to.
  */
 export function sourceBlockSpan(lines: readonly string[], fromLine: number, toLine: number): BlockSpan {
-  const last = Math.max(0, lines.length - 1);
+  // Clamping alone produced a valid-LOOKING index into an empty array, and the
+  // blank check then called `.trim()` on undefined.
+  if (lines.length === 0) return { start: 0, end: 0 };
+
+  const last = lines.length - 1;
   let start = Math.min(Math.max(fromLine, 0), last);
   let end = Math.min(Math.max(toLine, 0), last);
   if (start > end) [start, end] = [end, start];
@@ -67,9 +71,18 @@ export function sourceBlockSpan(lines: readonly string[], fromLine: number, toLi
   const fences = fenceRanges(lines);
   const fenceOf = (i: number) => fences.find((f) => i >= f.open && i <= f.close);
 
-  // Inside a fence the whole fence IS the block, blank lines included.
-  const own = fenceOf(start) ?? fenceOf(end);
-  if (own) return { start: Math.min(start, own.open), end: Math.max(end, own.close) };
+  // Inside a fence the whole fence IS the block, blank lines included. Each
+  // endpoint resolves its OWN fence: taking only the first left the second
+  // fence's closing delimiter outside the span, so a replacement could leave a
+  // half-open fence behind and expose the rest of the file as code.
+  const startFence = fenceOf(start);
+  const endFence = fenceOf(end);
+  if (startFence || endFence) {
+    return {
+      start: Math.min(start, startFence?.open ?? start),
+      end: Math.max(end, endFence?.close ?? end),
+    };
+  }
 
   while (start > 0 && !isBlank(lines[start - 1]) && !fenceOf(start - 1)) start -= 1;
   while (end < last && !isBlank(lines[end + 1]) && !fenceOf(end + 1)) end += 1;

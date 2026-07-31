@@ -22,6 +22,7 @@ import {
   sortLinesDescending,
 } from "@/utils/textTransformations";
 import { moveBlockAware, joinWouldFuseBlocks, duplicateNeedsHardBreak } from "./sourceBlockMove";
+import { fenceRanges } from "@/plugins/shared/lineContent";
 
 // --- Line operations ---
 
@@ -66,11 +67,36 @@ export function handleMoveLineDown(view: EditorView): boolean {
   return moveLines(view, "down");
 }
 
+/**
+ * Whether the selection touches a fence DELIMITER line.
+ *
+ * The line operations are on the code-block allow-list because they manipulate
+ * literal text — which is true of fence CONTENT and false of the delimiters that
+ * make it a fence.
+ */
+function touchesFenceDelimiter(view: EditorView): boolean {
+  const { doc, selection } = view.state;
+  const lines = doc.toString().split("\n");
+  const first = doc.lineAt(selection.main.from).number - 1;
+  const lastOffset = selection.main.to > selection.main.from ? selection.main.to - 1 : selection.main.to;
+  const last = doc.lineAt(lastOffset).number - 1;
+  // Scanned once, not once per selected line.
+  const fences = fenceRanges(lines);
+  for (let i = first; i <= last; i += 1) {
+    if (fences.some((f) => i === f.open || (f.closed && i === f.close))) return true;
+  }
+  return false;
+}
+
 /** Duplicates the current line (or selected lines) below the original in source mode. */
 export function handleDuplicateLine(view: EditorView): boolean {
   const { state } = view;
   const { from, to } = state.selection.main;
   const text = state.doc.toString();
+  // Refuse a fence DELIMITER. Suppressing the hard-break marker was not enough:
+  // duplicating an opener immediately closes the block, and duplicating a closer
+  // opens a new one that swallows the rest of the file as code.
+  if (touchesFenceDelimiter(view)) return false;
   const result = duplicateLines(text, from, to);
 
   // A plain paragraph line needs an explicit hard break between the copies, or
@@ -95,6 +121,9 @@ export function handleDuplicateLine(view: EditorView): boolean {
 /** Deletes the current line (or selected lines) in source mode. */
 export function handleDeleteLine(view: EditorView): boolean {
   const { from, to } = view.state.selection.main;
+  // Deleting one delimiter leaves the other unbalanced, so the fence either
+  // never closes or never opens.
+  if (touchesFenceDelimiter(view)) return false;
   const text = view.state.doc.toString();
   const result = deleteLines(text, from, to);
 

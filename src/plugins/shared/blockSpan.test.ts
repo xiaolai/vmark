@@ -60,8 +60,14 @@ describe("sourceBlockSpan", () => {
     expect(sourceBlockSpan(l, 3, 2)).toEqual({ start: 2, end: 3 });
   });
 
-  it("handles an empty document", () => {
+  it("handles a document of one blank line", () => {
     expect(sourceBlockSpan([""], 0, 0)).toEqual({ start: 0, end: 0 });
+  });
+
+  it("handles a genuinely EMPTY array", () => {
+    // The case above passes `[""]` — one empty string, not an empty array — so
+    // it went on passing against the implementation that threw here.
+    expect(sourceBlockSpan([], 0, 0)).toEqual({ start: 0, end: 0 });
   });
 });
 

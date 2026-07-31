@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripBlockMarkup } from "./lineContent";
+import { stripBlockMarkup, fenceRanges, enclosingFence, isFenceDelimiter } from "./lineContent";
 
 describe("stripBlockMarkup", () => {
   it.each([
@@ -111,5 +111,102 @@ describe("stripBlockMarkup — CommonMark limits", () => {
 
   it("still treats up to three spaces before `>` as a quote", () => {
     expect(stripBlockMarkup("   > quoted").quote).toBe("> ");
+  });
+});
+
+describe("fenceRanges — CommonMark pairing", () => {
+  it("does NOT close a longer opener with a shorter run", () => {
+    // ```` opened, ``` cannot close it. Treating it as closed classified the
+    // real code below as ordinary markdown and dropped its protection.
+    const lines = ["````", "code", "```", "still code"];
+    expect(fenceRanges(lines)).toEqual([{ open: 0, close: 3, closed: false }]);
+    expect(enclosingFence(lines, 3)).not.toBeNull();
+  });
+
+  it("closes with a run at least as long as the opener", () => {
+    expect(fenceRanges(["```", "code", "````", "after"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("does not let a tilde close a backtick fence", () => {
+    expect(fenceRanges(["```", "x", "~~~", "y"])).toEqual([{ open: 0, close: 3, closed: false }]);
+  });
+
+  it("rejects a backtick fence whose info string contains a backtick", () => {
+    // CommonMark: that is not a fence at all. Accepting it invented a fence out
+    // of prose, and the toggle would then "unfence" ordinary text.
+    expect(fenceRanges(["``` foo`bar", "text"])).toEqual([]);
+  });
+
+  it("allows a backtick in a TILDE fence's info string", () => {
+    expect(fenceRanges(["~~~ foo`bar", "text", "~~~"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("recognises a fence inside a blockquote", () => {
+    // `insertCodeBlock` GENERATES this shape when converting inside a quote, so
+    // failing to recognise it meant the toggle could not undo its own output.
+    expect(fenceRanges(["> ```plaintext", "> code", "> ```", "after"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("recognises a fence in a nested blockquote", () => {
+    expect(fenceRanges(["> > ```", "> > x", "> > ```"])).toEqual([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("refuses a closer indented four spaces", () => {
+    expect(fenceRanges(["```", "x", "    ```"])).toEqual([{ open: 0, close: 2, closed: false }]);
+  });
+
+  it("treats an unclosed fence as running to the end", () => {
+    expect(fenceRanges(["```", "a", "b"])).toEqual([{ open: 0, close: 2, closed: false }]);
+  });
+
+  it("finds several fences", () => {
+    expect(fenceRanges(["```", "a", "```", "mid", "~~~", "b", "~~~"])).toEqual([
+      { open: 0, close: 2, closed: true },
+      { open: 4, close: 6, closed: true },
+    ]);
+  });
+
+  it("identifies delimiter lines", () => {
+    const lines = ["```", "code", "```"];
+    expect(isFenceDelimiter(lines, 0)).toBe(true);
+    expect(isFenceDelimiter(lines, 1)).toBe(false);
+    expect(isFenceDelimiter(lines, 2)).toBe(true);
+  });
+});
+
+describe("fenceRanges — container scope and delimiter whitespace", () => {
+  it("does not close a QUOTED fence with an unquoted delimiter", () => {
+    // Pairing across container scopes left the real fenced code below
+    // classified as ordinary markdown, with no protection.
+    const lines = ["> ```", "> x", "```", "real code"];
+    expect(fenceRanges(lines)).toEqual([{ open: 0, close: 3, closed: false }]);
+    expect(enclosingFence(lines, 3)).not.toBeNull();
+  });
+
+  it("does not close an unquoted fence with a quoted delimiter", () => {
+    expect(fenceRanges(["```", "x", "> ```"])).toEqual([{ open: 0, close: 2, closed: false }]);
+  });
+
+  it("does not close a nested quote's fence at the outer depth", () => {
+    expect(fenceRanges(["> > ```", "> > x", "> ```"])).toEqual([
+      { open: 0, close: 2, closed: false },
+    ]);
+  });
+
+  it("rejects a non-breaking space after a closing fence", () => {
+    // CommonMark allows only spaces and tabs there; `.trim()` accepted NBSP.
+    expect(fenceRanges(["```", "x", "``` "])).toEqual([{ open: 0, close: 2, closed: false }]);
+  });
+
+  it("still accepts spaces and tabs after a closer", () => {
+    expect(fenceRanges(["```", "x", "``` \t"])).toEqual([{ open: 0, close: 2, closed: true }]);
   });
 });
