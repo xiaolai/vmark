@@ -213,7 +213,9 @@ describe("getCurrentHeadingLevel", () => {
  * testable at all.
  */
 function createHeadingEditor(headingLevel: number | null) {
-  const run = vi.fn();
+  // `run()` reports whether ProseMirror applied the conversion, and the
+  // handlers now return it directly — so the mock must answer, not just record.
+  const run = vi.fn(() => true);
   const setHeading = vi.fn(() => ({ run }));
   const setParagraph = vi.fn(() => ({ run }));
   const chain = vi.fn(() => ({ focus: vi.fn(() => ({ setHeading, setParagraph })) }));
@@ -295,6 +297,7 @@ describe("toggleBlockquote", () => {
   });
 
   it("removes blockquote when already active", () => {
+    vi.mocked(handleRemoveBlockquote).mockReturnValue(true);
     const editor = {
       isActive: vi.fn(() => true),
       view: { state: {}, dispatch: vi.fn(), focus: vi.fn() },
@@ -302,6 +305,16 @@ describe("toggleBlockquote", () => {
 
     expect(toggleBlockquote(editor)).toBe(true);
     expect(handleRemoveBlockquote).toHaveBeenCalled();
+  });
+
+  it("propagates the unwrap helper's failure instead of claiming success", () => {
+    vi.mocked(handleRemoveBlockquote).mockReturnValue(false);
+    const editor = {
+      isActive: vi.fn(() => true),
+      view: { state: {}, dispatch: vi.fn(), focus: vi.fn() },
+    } as unknown as TiptapEditor;
+
+    expect(toggleBlockquote(editor)).toBe(false);
   });
 
   it("returns false when blockquote node type does not exist", () => {

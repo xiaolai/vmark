@@ -11,10 +11,14 @@
  *   - Blockquote wraps the OUTERMOST enclosing list, not the sub-list the cursor
  *     is in: quoting one nested item left its siblings outside and split the
  *     structure into list / quoted list / list.
+ *   - Case transforms replace each selected TEXT-NODE slice individually:
+ *     replacing the whole selection with one concatenated text node destroyed
+ *     block boundaries, collapsed mixed marks and discarded inline atoms.
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates formatting actions here
  * @coordinates-with enableRules.ts — decides which formatting actions are enabled
  * @coordinates-with wysiwygHeadingLevel.ts — the heading pair split out of here
+ * @coordinates-with wysiwygTextPositionMap.ts — text-offset/doc-position mapping
  * @module plugins/toolbarActions/wysiwygAdapterFormatting
  */
 import type { Editor as TiptapEditor } from "@tiptap/core";
@@ -25,6 +29,7 @@ import { MultiSelection } from "@/plugins/multiCursor";
 import { toUpperCase, toLowerCase, toTitleCase, toggleCase } from "@/utils/textTransformations";
 import { computeQuoteToggle } from "@/lib/cjkFormatter/quoteToggle";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { buildTextPositionMap, parentOffsetToTextOffset } from "./wysiwygTextPositionMap";
 import type { WysiwygToolbarContext } from "./types";
 
 /**
@@ -71,9 +76,9 @@ export function clearFormattingInView(view: EditorView): boolean {
 export function toggleBlockquote(editor: TiptapEditor): boolean {
   if (editor.isActive("blockquote")) {
     // Use handleRemoveBlockquote to properly unwrap the entire blockquote,
-    // not just the current selection's block range
-    handleRemoveBlockquote(editor.view);
-    return true;
+    // not just the current selection's block range — and report ITS outcome,
+    // not an unconditional success.
+    return handleRemoveBlockquote(editor.view);
   }
 
   const { state, dispatch } = editor.view;
@@ -116,10 +121,57 @@ export function toggleBlockquote(editor: TiptapEditor): boolean {
   return false;
 }
 
+/** The selected slice of one text node, in doc coordinates. */
+interface SelectedSlice {
+  from: number;
+  to: number;
+  text: string;
+}
+
+/** Word-character class mirroring toTitleCase's boundary detection. */
+const TITLE_WORD_CHAR = /[\p{L}\p{N}'’]/u;
+
+/**
+ * Transform each slice's case, deciding anything that needs more than one
+ * slice's context over the WHOLE selection:
+ *   - toggleCase picks its direction by case majority across all slices, as
+ *     it did when the selection was transformed as one string;
+ *   - titleCase must not capitalize a slice that continues the previous
+ *     slice's word (adjacent text nodes split only by a mark boundary). A
+ *     digit prepended as sentinel reproduces that left context — it is
+ *     word-internal to the boundary class, caseless, and length-stable, so it
+ *     only suppresses the leading word start and is sliced back off.
+ */
+function transformSliceCase(
+  slices: SelectedSlice[],
+  caseType: "uppercase" | "lowercase" | "titleCase" | "toggleCase"
+): string[] {
+  switch (caseType) {
+    case "uppercase":
+      return slices.map((s) => toUpperCase(s.text));
+    case "lowercase":
+      return slices.map((s) => toLowerCase(s.text));
+    case "toggleCase": {
+      const whole = slices.map((s) => s.text).join("");
+      const toLower = toggleCase(whole) === toLowerCase(whole);
+      return slices.map((s) => (toLower ? toLowerCase(s.text) : toUpperCase(s.text)));
+    }
+    case "titleCase":
+      return slices.map((s, i) => {
+        const prev = i > 0 && slices[i - 1].to === s.from ? slices[i - 1].text : null;
+        const continuesWord = prev !== null && TITLE_WORD_CHAR.test(prev.charAt(prev.length - 1));
+        return continuesWord ? toTitleCase(`0${s.text}`).slice(1) : toTitleCase(s.text);
+      });
+  }
+}
+
 /**
  * Transform case of selected text in WYSIWYG mode.
  *
- * @edge-case Preserves inline marks when replacing text via insertText
+ * Each selected TEXT-NODE slice is replaced individually, in reverse document
+ * order: replacing the whole selection with one concatenated text node
+ * destroyed block boundaries, collapsed mixed marks and silently discarded
+ * inline atoms (hard breaks, images).
  */
 export function handleWysiwygTransformCase(
   context: WysiwygToolbarContext,
@@ -133,48 +185,39 @@ export function handleWysiwygTransformCase(
 
   if (empty) return false; // No selection
 
-  // Get selected text
-  let selectedText = "";
+  const slices: SelectedSlice[] = [];
   state.doc.nodesBetween(from, to, (node, pos) => {
-    /* v8 ignore next -- @preserve false branch fires for inline non-text nodes (images, hardBreaks) which are not present in test docs */
     if (node.isText && node.text) {
       const start = Math.max(0, from - pos);
       const end = Math.min(node.text.length, to - pos);
-      /* v8 ignore next -- @preserve false branch fires only when node boundaries don't overlap with selection */
       if (start < end) {
-        selectedText += node.text.slice(start, end);
+        slices.push({ from: pos + start, to: pos + end, text: node.text.slice(start, end) });
       }
     }
+    return true;
   });
 
-  if (!selectedText) return false;
+  if (slices.length === 0) return false;
 
-  // Apply transformation
-  let transformed: string;
-  switch (caseType) {
-    case "uppercase":
-      transformed = toUpperCase(selectedText);
-      break;
-    case "lowercase":
-      transformed = toLowerCase(selectedText);
-      break;
-    case "titleCase":
-      transformed = toTitleCase(selectedText);
-      break;
-    case "toggleCase":
-      transformed = toggleCase(selectedText);
-      break;
+  const transformed = transformSliceCase(slices, caseType);
+
+  // Reverse document order keeps earlier slice positions valid even when a
+  // transform changes a slice's length (ß → SS).
+  let tr = state.tr;
+  let changed = false;
+  for (let i = slices.length - 1; i >= 0; i--) {
+    if (transformed[i] === slices[i].text) continue;
+    tr = tr.insertText(transformed[i], slices[i].from, slices[i].to);
+    changed = true;
   }
 
-  if (transformed === selectedText) return true;
+  if (!changed) return true; // Already in the requested case
 
-  // Replace text while preserving marks
-  const tr = state.tr;
-  tr.insertText(transformed, from, to);
   dispatch(tr);
 
-  // Restore selection
-  editor.commands.setTextSelection({ from, to: from + transformed.length });
+  // Re-select the transformed range, accounting for any length change.
+  const delta = transformed.reduce((sum, t, i) => sum + t.length - slices[i].text.length, 0);
+  editor.commands.setTextSelection({ from, to: to + delta });
   editor.commands.focus();
   return true;
 }
@@ -196,56 +239,25 @@ export function toggleQuoteStyleAtCursor(editor: TiptapEditor): boolean {
 
   if (!parent.isTextblock) return false;
 
-  // Build textContent and a mapping from text offset -> doc-absolute position.
-  // This handles inline atoms (hardBreak, etc.) that occupy space in parentOffset
-  // but contribute nothing to textContent.
-  const blockStart = $from.start();
-  const textOffsetToDocPos: number[] = [];
-  let blockText = "";
-  parent.forEach((child, offset) => {
-    /* v8 ignore next -- @preserve false branch fires for inline non-text nodes (hardBreak, image) not present in test paragraphs */
-    if (child.isText && child.text) {
-      for (let i = 0; i < child.text.length; i++) {
-        textOffsetToDocPos.push(blockStart + offset + i);
-        blockText += child.text[i];
-      }
-    }
-  });
-
+  const { text: blockText, positions } = buildTextPositionMap(parent, $from.start());
   if (!blockText) return false;
 
-  // Convert parentOffset to textContent offset
-  let cursorTextOffset = 0;
-  let parentOff = 0;
-  for (let ci = 0; ci < parent.childCount; ci++) {
-    const child = parent.child(ci);
-    const childEnd = parentOff + child.nodeSize;
-    if ($from.parentOffset < childEnd) {
-      /* v8 ignore next -- @preserve false branch fires when cursor lands inside a non-text inline node (hardBreak, image) */
-      if (child.isText) {
-        cursorTextOffset += $from.parentOffset - parentOff;
-      }
-      break;
-    }
-    if (child.isText && child.text) {
-      cursorTextOffset += child.text.length;
-    }
-    parentOff = childEnd;
-  }
+  const cursorTextOffset = parentOffsetToTextOffset(parent, $from.parentOffset);
 
-  // Read settings
   const cjkSettings = useSettingsStore.getState().cjkFormatting;
-  const mode = cjkSettings.quoteToggleMode;
-  const preferredStyle = cjkSettings.quoteStyle;
-
-  const result = computeQuoteToggle(blockText, cursorTextOffset, mode, preferredStyle);
+  const result = computeQuoteToggle(
+    blockText,
+    cursorTextOffset,
+    cjkSettings.quoteToggleMode,
+    cjkSettings.quoteStyle
+  );
   if (!result) return false;
 
   // Build transaction — apply replacements in reverse order to preserve positions
   let tr = state.tr;
   const sorted = [...result.replacements].sort((a, b) => b.offset - a.offset);
   for (const rep of sorted) {
-    const docPos = textOffsetToDocPos[rep.offset];
+    const docPos = positions[rep.offset];
     tr = tr.insertText(rep.newChar, docPos, docPos + rep.oldChar.length);
   }
 
