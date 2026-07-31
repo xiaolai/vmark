@@ -6,6 +6,20 @@
  * Re-exported through `../documentStore.ts` so existing consumers keep
  * `import { useDocumentStore } from "@/stores/documentStore"`.
  *
+ * Two doors are INTENDED — `setEditorContent` (editor domain, asserts its input
+ * is already canonical) and `ingestExternalContent` (external domain,
+ * canonicalises and records the source's metadata per its origin). The field
+ * contract they write against lives with the shape, in `documentState.ts`.
+ *
+ * They are not yet the only two, and saying otherwise would be false: the
+ * deprecated `setContent` is still exported and still has seven production
+ * callers (MCP document/selection/workflow, history restore, hot exit), and
+ * `initDocument`/`loadContent` also write content — they canonicalise line
+ * endings but do not take an origin. Conversely `ingestExternalContent` has no
+ * production caller yet, so its origin policies are dormant. WI-1.5 routes the
+ * callers; until it lands this is a boundary under construction, not a closed
+ * one.
+ *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
  * @coordinates-with useFileWatcher.ts — calls markMissing/markDivergent on external changes
@@ -15,9 +29,14 @@
 
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
+import { canonicalizeLineEndings } from "@/utils/editorText";
+import type { IngestOrigin, LineMetadata } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
 import type { DocumentState } from "./documentState";
 import {
+  assertCanonicalEditorText,
+  buildIngestState,
+  buildLoadState,
   buildPostSaveState,
   createInitialDocument,
   updateDoc,
@@ -39,6 +58,17 @@ interface DocumentStore {
    * Asserts that in development; performs no scan in production.
    */
   setEditorContent: (tabId: string, canonicalEditorText: string) => void;
+  /**
+   * EXTERNAL-domain write: canonicalises `rawDiskText` and decides the
+   * document's line metadata from the `origin`'s precedence rule (WI-1.3).
+   * `persisted` carries a snapshot's own metadata where the origin has one.
+   */
+  ingestExternalContent: (
+    tabId: string,
+    rawDiskText: string,
+    origin: IngestOrigin,
+    persisted?: Partial<LineMetadata>
+  ) => void;
   /** @deprecated Use `setEditorContent` (editor domain) or `loadContent` (external). */
   setContent: (tabId: string, content: string) => void;
   loadContent: (
@@ -129,30 +159,6 @@ function bumpRevisionIfContentChanged(
   }
 }
 
-/**
- * Fail loudly, in DEVELOPMENT ONLY, when a writer hands the store non-canonical
- * text.
- *
- * `content` is `canonicalEditorText`: LF-only, BOM-free. A literal `\r` reaching
- * it does not announce itself — it surfaces later as a stray control character
- * in word count, search, lint or CJK formatting, far from the writer that
- * introduced it. Throwing here names that writer.
- *
- * Production performs NO scan. The keystroke path runs through this on every
- * flush, and paying an O(n) scan per keypress to re-check an invariant the
- * editor already maintains would be the wrong trade.
- */
-function assertCanonicalEditorText(text: string, action: string): void {
-  if (!import.meta.env.DEV) return;
-  const index = text.indexOf("\r");
-  if (index === -1) return;
-  throw new Error(
-    `${action}() was given non-canonical text: a carriage return at offset ${index}. ` +
-      `Editor text is LF-only — canonicalise external text with ingestExternalText() ` +
-      `from utils/editorText before it reaches the store.`,
-  );
-}
-
 /** Manages per-tab document content, dirty tracking, and external-change detection. Use selectors, not destructuring. */
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
@@ -166,9 +172,12 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }
     const doc = createInitialDocument(content, filePath);
     if (savedContent !== undefined) {
-      doc.savedContent = savedContent;
+      // Both sides canonical before comparing — a raw `savedContent` reported
+      // every CRLF document dirty the instant it opened.
+      const canonicalSaved = canonicalizeLineEndings(savedContent);
+      doc.savedContent = canonicalSaved;
       doc.lastDiskContent = savedContent;
-      doc.isDirty = savedContent !== content;
+      doc.isDirty = canonicalSaved !== doc.content;
     }
     set((state) => ({
       documents: { ...state.documents, [tabId]: doc },
@@ -178,6 +187,20 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   setEditorContent: (tabId, canonicalEditorText) => {
     assertCanonicalEditorText(canonicalEditorText, "setEditorContent");
     get().setContent(tabId, canonicalEditorText);
+  },
+
+  ingestExternalContent: (tabId, rawDiskText, origin, persisted) => {
+    const previous = get().documents[tabId]?.content;
+    let next: string | undefined;
+    set((state) =>
+      updateDoc(state, tabId, (doc) => {
+        const patch = buildIngestState(doc, rawDiskText, origin, persisted);
+        next = patch.content;
+        return patch;
+      })
+    );
+    // `next` stays undefined for a missing tab, so it cannot bump a revision.
+    if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
   },
 
   setContent: (tabId, content) => {
@@ -194,20 +217,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   loadContent: (tabId, content, filePath, meta) => {
     const previous = get().documents[tabId]?.content;
     set((state) =>
-      updateDoc(state, tabId, (doc) => ({
-        content,
-        savedContent: content,
-        lastDiskContent: content,
-        filePath: filePath === undefined ? doc.filePath : filePath,
-        isDirty: false,
-        isDivergent: false, // Reload from disk clears divergent state
-        documentId: doc.documentId + 1,
-        selectedText: "",
-        lineEnding: meta?.lineEnding ?? doc.lineEnding,
-        hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
-      }))
+      updateDoc(state, tabId, (doc) => buildLoadState(doc, content, filePath, meta))
     );
-    bumpRevisionIfContentChanged(tabId, previous, content);
+    bumpRevisionIfContentChanged(tabId, previous, canonicalizeLineEndings(content));
   },
 
   setFilePath: (tabId, path) =>
