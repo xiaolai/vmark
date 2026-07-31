@@ -2,6 +2,7 @@
 // (incl. UNC), byte-exact macOS/Linux, separator + trailing normalization.
 import { describe, expect, it } from "vitest";
 import {
+  canonicalPathKey,
   isWithinRootForCompare,
   normalizePathForCompare,
   pathsEqualForCompare,
@@ -89,5 +90,25 @@ describe("isWithinRootForCompare", () => {
   it("empty root or target never contains", () => {
     expect(isWithinRootForCompare("", "/a/b", "macos")).toBe(false);
     expect(isWithinRootForCompare("/a", "", "macos")).toBe(false);
+  });
+});
+
+describe("canonicalPathKey (WI-8c)", () => {
+  it.each([
+    ["/a/b/x.md", "/a/b/x.md"],
+    ["/a/./b/x.md", "/a/b/x.md"],
+    ["/a/b/../b/x.md", "/a/b/x.md"],
+    ["/a//b///x.md", "/a/b/x.md"],
+    ["C:\\notes\\..\\notes\\x.md", "c:/notes/x.md"],
+    ["/a/b/../../x.md", "/x.md"],
+    ["/../x.md", "/x.md"],
+    ["rel/../x.md", "x.md"],
+    ["../x.md", "../x.md"],
+  ])("%s → %s", (input, expected) => {
+    expect(canonicalPathKey(input)).toBe(expected);
+  });
+
+  it("keeps case — folding would corrupt keys on case-sensitive filesystems", () => {
+    expect(canonicalPathKey("/Notes/X.md")).toBe("/Notes/X.md");
   });
 });

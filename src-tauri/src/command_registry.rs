@@ -69,6 +69,7 @@ macro_rules! all_commands {
             watcher::stop_watching,
             file_tree::list_directory_entries,
             file_ops::get_file_size_bytes,
+            file_ops::move_paths_to_trash,
             workspace::read_workspace_config,
             workspace::write_workspace_config,
             workspace_validation::validate_workspace_dir,

@@ -592,3 +592,22 @@ describe("references a renderer resolves but the scanner missed", () => {
     for (const f of ["a", "b", "c"]) expect(keys.has(`assets/images/${f}.png`)).toBe(true);
   });
 });
+
+// The last two "accepted" parser gaps, now closed: escaped `>` inside angle
+// destinations. Both previously fell apart into wrong or missing references.
+describe("escaped > in angle-bracket destinations", () => {
+  it("keeps an inline destination containing an escaped >", () => {
+    const refs = extractImageReferences("![a](<assets/images/a\\>b.png>)");
+    expect(refs.has("assets/images/a>b.png")).toBe(true);
+  });
+
+  it("keeps a definition destination containing an escaped >", () => {
+    const refs = extractImageReferences("[id]: <assets/images/a\\>b.png>\n\n![x][id]");
+    expect(refs.has("assets/images/a>b.png")).toBe(true);
+  });
+
+  it("still ends an angle span at a real >", () => {
+    const refs = extractImageReferences("![a](<assets/images/plain.png>)");
+    expect(refs.has("assets/images/plain.png")).toBe(true);
+  });
+});

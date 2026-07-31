@@ -53,7 +53,7 @@ const SRCSET_ATTR_RE =
  * that happens to sit in the assets folder is worth protecting anyway.
  */
 const REF_DEFINITION_RE =
-  /^[ ]{0,3}\[(?:\\.|[^\]\n])+\]:[ \t]*(?:\r?\n[ \t]*)?(?:<([^>\n]+)>|(\S+))[ \t]*(?:["'(].*)?$/gm;
+  /^[ ]{0,3}\[(?:\\.|[^\]\n])+\]:[ \t]*(?:\r?\n[ \t]*)?(?:<((?:\\.|[^>\n])+)>|(\S+))[ \t]*(?:["'(].*)?$/gm;
 
 /**
  * Index of the delimiter closing the one opened at `open`, honouring nesting
@@ -140,8 +140,8 @@ function matchDestination(text: string, open: number, limit: number): number {
       continue;
     }
     if (ch === "<") {
-      const close = text.indexOf(">", i + 1);
-      if (close !== -1 && close < limit) {
+      const close = indexOfUnescaped(text, ">", i + 1, limit);
+      if (close !== -1) {
         i = close;
         continue;
       }
@@ -167,11 +167,25 @@ function matchDestination(text: string, open: number, limit: number): number {
 function destinationOf(inner: string): string {
   const trimmed = inner.trim();
   if (trimmed.startsWith("<")) {
-    const end = trimmed.indexOf(">");
+    // The span ends at the first UNESCAPED `>` — `<a\>b.png>` is one
+    // destination whose filename contains `>` once unescaped.
+    const end = indexOfUnescaped(trimmed, ">", 1, trimmed.length);
     return end === -1 ? trimmed.slice(1) : trimmed.slice(1, end);
   }
   const ws = trimmed.search(/\s/);
   return ws === -1 ? trimmed : trimmed.slice(0, ws);
+}
+
+/** Index of the first unescaped `ch` in [from, limit), honouring backslashes. */
+function indexOfUnescaped(text: string, ch: string, from: number, limit: number): number {
+  for (let i = from; i < limit; i++) {
+    if (text[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (text[i] === ch) return i;
+  }
+  return -1;
 }
 
 /**

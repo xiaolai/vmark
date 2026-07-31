@@ -40,6 +40,32 @@ export function normalizePathForCompare(
   return platform === "windows" ? normalized.toLowerCase() : normalized;
 }
 
+/**
+ * Canonical MAP-KEY form of an absolute document path (WI-8c): forward slashes,
+ * dot segments collapsed. Two spellings of one file (`/a/b/../b/x.md`,
+ * `/a/./b/x.md`) otherwise occupy two keys, and a live-buffer lookup misses —
+ * which, in orphan cleanup, is the difference between protecting a document's
+ * image and deleting it. Case is left alone: folding would corrupt keys on
+ * case-sensitive filesystems, and the cleanup compares KEYS from one source
+ * (the document store) where spelling is already consistent per file.
+ */
+export function canonicalPathKey(path: string): string {
+  const normalized = normalizePath(path);
+  const isAbsolute = normalized.startsWith("/");
+  const out: string[] = [];
+  for (const seg of normalized.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (out.length > 0 && out[out.length - 1] !== "..") out.pop();
+      else if (!isAbsolute) out.push("..");
+      // ".." above an absolute root is discarded — "/" has no parent.
+      continue;
+    }
+    out.push(seg);
+  }
+  return (isAbsolute ? "/" : "") + out.join("/");
+}
+
 /** True when the two paths are the same entry under comparison normalization. */
 export function pathsEqualForCompare(
   a: string,

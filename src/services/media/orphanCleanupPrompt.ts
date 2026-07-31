@@ -29,6 +29,7 @@
 import { confirm, message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { orphanCleanupError } from "@/utils/debug";
+import { withoutWorkspaceReferenced } from "@/services/media/workspaceReferenceCheck";
 import {
   deleteOrphanedImages,
   findOrphanedImages,
@@ -216,7 +217,10 @@ export async function runOrphanCleanup(
     return { status: "failed" };
   }
 
-  const { deleted, failed } = await deleteOrphanedImages(stillOrphaned);
+  // WI-11: cross-directory references live in documents the sibling scan
+  // never reads — the workspace content search is the wider net.
+  const clearedForDeletion = await withoutWorkspaceReferenced(stillOrphaned);
+  const { deleted, failed } = await deleteOrphanedImages(clearedForDeletion);
   await reportDeletion(deleted, failed);
 
   return { status: "completed", deleted, failed: failed.length };

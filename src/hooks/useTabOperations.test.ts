@@ -726,3 +726,69 @@ describe("closeTabWithDirtyCheck — browser tabs", () => {
     expect(save).not.toHaveBeenCalled();
   });
 });
+
+// WI-8b — deletion is decided by two scans and their intersection: a reference
+// created while the FIRST scan's file IO ran must survive.
+describe("cleanupOrphansForClosingTabs — re-scan before delete", () => {
+  beforeEach(async () => {
+    resetStores();
+    vi.clearAllMocks();
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
+  });
+
+  it("keeps a file the second scan no longer reports as orphaned", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    const base = { referencedCount: 0, sharedCount: 0, totalInFolder: 1, scanComplete: true };
+    vi.mocked(findOrphanedImages)
+      .mockResolvedValueOnce({
+        ...base,
+        orphanedImages: [{ filename: "x.png", fullPath: "/tmp/assets/images/x.png" }],
+      })
+      // A sibling gained the reference while scan 1 ran.
+      .mockResolvedValueOnce({ ...base, orphanedImages: [] });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).toHaveBeenCalledTimes(2);
+    expect(deleteOrphanedImages).not.toHaveBeenCalled();
+  });
+
+  it("removes only the intersection of the two scans", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    const img = (n: string) => ({ filename: n, fullPath: `/tmp/assets/images/${n}` });
+    const base = { referencedCount: 0, sharedCount: 0, totalInFolder: 2, scanComplete: true };
+    vi.mocked(findOrphanedImages)
+      .mockResolvedValueOnce({ ...base, orphanedImages: [img("a.png"), img("b.png")] })
+      .mockResolvedValueOnce({ ...base, orphanedImages: [img("a.png")] });
+    vi.mocked(deleteOrphanedImages).mockResolvedValue({ deleted: 1, failed: [] });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(deleteOrphanedImages).toHaveBeenCalledWith([img("a.png")]);
+  });
+
+  it("skips the second scan entirely when the first finds nothing", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    vi.mocked(findOrphanedImages).mockResolvedValue({
+      orphanedImages: [], referencedCount: 1, sharedCount: 0, totalInFolder: 1, scanComplete: true,
+    });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).toHaveBeenCalledTimes(1);
+  });
+});

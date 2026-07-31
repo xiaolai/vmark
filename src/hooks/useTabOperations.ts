@@ -43,6 +43,7 @@ import { cleanupTabState } from "@/hooks/tabCleanup";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
+import { flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import type { DocumentState } from "@/stores/documentStore";
 
 /** A document needs resolving before close when it is dirty OR divergent (WI-2). */
@@ -71,6 +72,8 @@ async function resolveDirtyState(
   fallbackTitle: string
 ): Promise<Resolution> {
   for (let attempt = 0; attempt < MAX_RESOLUTION_ATTEMPTS; attempt++) {
+    // WI-10: an edit still in the editor's debounce window must count.
+    flushAllWysiwygNow();
     const doc = useDocumentStore.getState().getDocument(tabId);
     if (!doc || !needsResolution(doc)) return "clean";
 
