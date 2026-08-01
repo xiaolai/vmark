@@ -10,6 +10,7 @@
  *   - Fit-to-width toggle visibility based on global setting
  */
 
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock table actions
@@ -49,13 +50,10 @@ vi.mock("@/plugins/sourcePopup", () => ({
 }));
 
 let mockTableFitToWidth = false;
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({
-      markdown: { tableFitToWidth: mockTableFitToWidth },
-    }),
-  },
-}));
+// The setting arrives through the plugins' host seam now (ADR-015). Bound to
+// the SAME mutable flag the removed store mock read, so the cases that flip it
+// keep working unchanged.
+bindHostSettings({ tableFitToWidth: () => mockTableFitToWidth });
 
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
 import { TiptapTableContextMenu } from "./TiptapTableContextMenu";

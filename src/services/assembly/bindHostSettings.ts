@@ -28,6 +28,7 @@ import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 export function bindPluginHostSettings(): void {
   bindHostSettings({
     tabSize: () => useSettingsStore.getState().general.tabSize,
+    tableFitToWidth: () => useSettingsStore.getState().markdown.tableFitToWidth ?? false,
   });
 
   bindHostDocument({
