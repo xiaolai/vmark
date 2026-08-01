@@ -50,8 +50,7 @@ import { search } from "@codemirror/search";
 import {
   sourceEditorTheme,
   codeHighlightStyle,
-  createBrHidingPlugin,
-  createShowInvisiblesPlugin,
+  createBrHidingPlugin, createShowInvisiblesPlugin,
   showInvisiblesTheme,
   createListBlankLinePlugin,
   createMarkdownAutoPairPlugin,
@@ -83,6 +82,7 @@ import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorCon
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
 import { createSourceLinkCreatePopupPlugin } from "@/plugins/sourceLinkCreatePopup";
+import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
 import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
 import { createSourceLintExtension } from "@/plugins/codemirror/sourceLint";
@@ -255,7 +255,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Link popup editor (click to edit, Cmd+Click to open)
     { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin() },
     // Link create popup (Cmd+K when no link, no clipboard URL)
-    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin() },
+    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin(useLinkCreatePopupStore) },
     // Wiki link popup editor
     { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
     // Footnote popup editor

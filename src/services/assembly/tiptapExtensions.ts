@@ -50,6 +50,7 @@ import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
 import { useMathPopupStore } from "@/stores/mathPopupStore";
+import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import {
   currentPasteSettings,
   copyHostOptions,
@@ -209,7 +210,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     codePasteExtension.configure({ getPasteSettings: currentPasteSettings }),
     markdownCopyExtension.configure(copyHostOptions),
     linkPopupExtension,
-    linkCreatePopupExtension,
+    linkCreatePopupExtension.configure({ store: useLinkCreatePopupStore }),
     searchExtension,
     autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
     focusModeExtension.configure(focusModeHostOptions),

@@ -33,8 +33,9 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkCreatePopupStore", () => ({
-  useLinkCreatePopupStore: {
+// The popup's state PORT, satisfied directly — no store mock needed, because
+// the view receives a `StoreApi<LinkCreatePopupState>` now (ADR-015).
+const testStore = {
     getState: () => storeState,
     subscribe: (fn: (state: typeof storeState) => void) => {
       subscribers.push(fn);
@@ -43,8 +44,7 @@ vi.mock("@/stores/linkCreatePopupStore", () => ({
         if (idx >= 0) subscribers.splice(idx, 1);
       };
     },
-  },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
@@ -140,7 +140,7 @@ describe("LinkCreatePopupView", () => {
     vi.clearAllMocks();
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new LinkCreatePopupView(view as unknown as ConstructorParameters<typeof LinkCreatePopupView>[0]);
+    popup = new LinkCreatePopupView(view as never, testStore as never);
   });
 
   afterEach(() => {
@@ -566,7 +566,7 @@ describe("LinkCreatePopupView", () => {
 
       popup.destroy();
       vi.clearAllMocks();
-      popup = new LinkCreatePopupView(view as unknown as ConstructorParameters<typeof LinkCreatePopupView>[0]);
+      popup = new LinkCreatePopupView(view as never, testStore as never);
 
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
       await new Promise((r) => requestAnimationFrame(r));
@@ -584,7 +584,7 @@ describe("LinkCreatePopupView", () => {
 
       popup.destroy();
       vi.clearAllMocks();
-      popup = new LinkCreatePopupView(view as unknown as ConstructorParameters<typeof LinkCreatePopupView>[0]);
+      popup = new LinkCreatePopupView(view as never, testStore as never);
 
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
       await new Promise((r) => requestAnimationFrame(r));
@@ -604,7 +604,7 @@ describe("LinkCreatePopupView", () => {
 
       popup.destroy();
       vi.clearAllMocks();
-      popup = new LinkCreatePopupView(view as unknown as ConstructorParameters<typeof LinkCreatePopupView>[0]);
+      popup = new LinkCreatePopupView(view as never, testStore as never);
 
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
       await new Promise((r) => requestAnimationFrame(r));
