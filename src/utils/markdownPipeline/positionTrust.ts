@@ -37,6 +37,8 @@
  *     descendants' text, so `slice(range) !== value` there. Edits at those
  *     offsets are correct; reconstruction from them is not. See
  *     PREFIX_STRIPPING_CONTAINERS — found by the conformance gate, not assumed.
+ *     `footnoteDefinition` belongs there too, and was missing until a fixture
+ *     exercised it: the set is only as measured as the corpus behind it.
  *   - UNTRUSTED IS INHERITED. A node whose ancestor is untrusted is untrusted,
  *     even when it has a `position` of its own, because that position belongs
  *     to a different string. Checking the node alone is the trap.
@@ -85,6 +87,12 @@ export const UNTRUSTED_POSITION_TYPES: ReadonlySet<string> = new Set([
 export const PREFIX_STRIPPING_CONTAINERS: ReadonlySet<string> = new Set([
   "blockquote",
   "listItem",
+  // MEASURED, like the other two, not reasoned by analogy: a continuation line
+  // in `[^a]: first\n    second` has its four-space indent removed, so the text
+  // node's value is `first\nsecond` while its slice keeps the indent. It was
+  // missing because no fixture exercised it — "measured, not assumed" is only
+  // as strong as the corpus, which is why `conf-footnote-continuation` exists.
+  "footnoteDefinition",
 ]);
 
 /**

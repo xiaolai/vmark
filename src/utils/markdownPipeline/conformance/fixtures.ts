@@ -18,6 +18,9 @@
  *     WI-1.9, which exercises it through the real ingress; putting it here
  *     would only measure harness skew (decision D3).
  *
+ * Every member of `PREFIX_STRIPPING_CONTAINERS` has a fixture here, so the
+ * set's "measured, not assumed" claim is backed rather than asserted.
+ *
  * @coordinates-with parserConformance.test.ts — derives every matrix from this
  * @coordinates-with semanticProjection.ts — how trees are compared
  * @module utils/markdownPipeline/conformance/fixtures
@@ -83,6 +86,13 @@ export const FIXTURES: readonly ConformanceFixture[] = [
     "Fenced code — content must not be parsed as markdown."),
   f("cm-blockquote", "commonmark", "> quoted\n> more\n", "all-canonical",
     "Blockquote, a container whose children carry their own ranges."),
+  f("conf-footnote-continuation", "gfm", "[^a]: first line\n    second line\n\nBody.\n",
+    "all-canonical",
+    "A footnote definition strips the four-space continuation indent from its " +
+    "descendants exactly as a blockquote strips `> `, so it belongs in " +
+    "PREFIX_STRIPPING_CONTAINERS. Nothing exercised it, so the set claimed to " +
+    "be 'measured, not assumed' while being incomplete — a consumer honouring " +
+    "the documented set would still have corrupted a footnote body."),
 
   // --- GFM ---
   f("gfm-table", "gfm", "| a | b |\n| - | - |\n| 1 | 2 |\n", "all-canonical",
