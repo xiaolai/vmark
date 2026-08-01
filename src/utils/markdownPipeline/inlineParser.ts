@@ -14,6 +14,9 @@
  *
  * @coordinates-with plugins/detailsBlock.ts — parses <summary> text with inline formatting
  * @coordinates-with mdastToProseMirror.ts — consumers convert resulting MDAST to PM nodes
+ * The processor comes from the shared `inline-summary` dialect (WI-3.1), so
+ * this parser cannot drift from the others on what `~x~` or `==x==` mean.
+ *
  * @module utils/markdownPipeline/inlineParser
  */
 
