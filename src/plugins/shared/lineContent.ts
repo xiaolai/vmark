@@ -1,6 +1,10 @@
 /**
  * The CONTENT of a markdown line, separated from its block markup.
  *
+ * The fence scanner moved to `fenceScanner.ts` when this file crossed 300
+ * lines — stripping block markup and pairing fence delimiters answer unrelated
+ * questions.
+ *
  * Purpose: converting a block to a code block asks "what is the text here?", and
  * the answer excludes the markup that made it a heading or a list item. WYSIWYG
  * gets this for free — it holds a node tree, so `### Title` is a heading node
