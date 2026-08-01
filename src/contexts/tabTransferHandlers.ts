@@ -12,6 +12,9 @@
  *   Rust emits {phase: "commit"} → handleTabRemovalRequest removes the tab.
  *
  * Key decisions:
+ *   - `initDocument` receives an explicit DocumentRestoreState, not a bare
+ *     savedContent string: the transfer's line convention and raw disk
+ *     snapshot travel with it (see utils/transferLineMetadata.ts).
  *   - `prepare` is side-effect free. The source's pre-transfer snapshot is stale
  *     the moment the user edits here, so undo must restore what this window
  *     actually holds — and it can only do that if nothing is destroyed first.

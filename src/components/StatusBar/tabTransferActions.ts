@@ -5,6 +5,9 @@
  * content) to an existing window or detaches it into a new window via Tauri IPC.
  *
  * Key decisions:
+ *   - The payload carries the file's line convention via
+ *     `buildTransferDocumentFields`; canonical content cannot express it, so a
+ *     CRLF+BOM file used to arrive LF-only and be rewritten on first save.
  *   - transferTabFromDragOut first asks Rust to find a drop target window
  *     at the pointer's screen coordinates; if none, it creates a new window.
  *   - Both paths show an undo toast that calls restoreTransferredTab to
