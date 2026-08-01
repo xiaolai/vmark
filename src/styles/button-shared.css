@@ -6,9 +6,14 @@
  * "a bordered secondary button" from the token catalogue by hand — and they
  * disagreed. Four independent implementations of the same control used four
  * different paddings, three radii, two font sizes, and three different ways to
- * spell a 1px border (`--border-thin`, a literal `1px`, and `--space-px`, which
- * is a SPACING token misused as a border width). The result is visible drift
- * between panels that are supposed to look identical.
+ * spell a 1px border. The result is visible drift between panels that are
+ * supposed to look identical.
+ *
+ * One of those three spellings is now gone: `--space-px`, a SPACING token, was
+ * used as a border width in eleven declarations across nine files and is
+ * `--border-thin` everywhere it means a border. Same 1px either way, which is
+ * exactly why it survived — the token gate matches on VALUE, so it never
+ * objected. Property-to-token is the rule; value-to-token is the trap.
  *
  * `.vm-btn` is the canonical text button. Reach for it before writing a new
  * `__btn` class; `scripts/check-bespoke-buttons.mjs` ratchets the bespoke count
