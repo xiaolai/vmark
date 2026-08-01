@@ -436,13 +436,18 @@ describe("a list marker's padding is bounded — 5+ spaces is indented code", ()
 });
 
 describe("a SIBLING item at shallower marker column is still a boundary", () => {
-  it("treats ` - x` as a sibling of `- `, not a nested item", () => {
-    // The boundary compared the whole consumed PREFIX (3) against the opener's
-    // markerOffset (2) and called it nested. remark-parse reads a marker
-    // indented 0-3 columns as continuing the same list, so this is a SIBLING
-    // and it ends the first item's fence. The marker's COLUMN is what decides.
+  it("does NOT end the item at a marker deeper than the opener's own", () => {
+    // Three readings, in order. The boundary first compared the whole consumed
+    // PREFIX (3) against the opener's markerOffset (2) and called ` - x`
+    // nested. Comparing marker COLUMN against content column (1 < 2) then made
+    // it a sibling and ended the item — but remark keeps that line INSIDE the
+    // unclosed fence, so the scanner dropped protection from real code. The
+    // comparison is against the OPENER'S OWN MARKER column (0): 1 > 0, so the
+    // range continues. Over-inclusive versus remark, which is the only
+    // tolerable direction for a guard, and pinned in
+    // `remarkFenceAgreement.test.ts` with its direction MEASURED.
     const ranges = fenceRanges(["- ```", " - x", "code"], "commonmark");
-    expect(ranges).toMatchObject([{ open: 0, close: 0, closed: false }]);
+    expect(ranges).toMatchObject([{ open: 0, close: 2, closed: false }]);
   });
 
   it("still treats `  - x` at the content column as NESTED", () => {
