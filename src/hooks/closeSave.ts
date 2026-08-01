@@ -12,7 +12,13 @@
  *   - Single-doc prompt returns per-file result; multi-doc prompt returns aggregate
  *   - Save As for untitled docs uses getDefaultSaveFolderWithFallback()
  *   - Never calls store mutations directly — returns result for caller to handle
+ *   - Save-dialog filters come from the format registry via `resolveSaveFilters`
+ *     (localized names); the pre-bootstrap fallback is the SHARED
+ *     `markdownSaveFilters()`, not a local copy. The local copy used to list
+ *     only `.md`, so a `.mdx` file was invisible here but selectable in the
+ *     open dialog.
  *
+ * @coordinates-with lib/formats/saveFilters.ts — filter resolution
  * @coordinates-with useWindowClose.ts — calls promptSaveForMultipleDocuments
  * @coordinates-with useTabOperations.ts — calls promptSaveForDirtyDocument
  * @module hooks/closeSave
