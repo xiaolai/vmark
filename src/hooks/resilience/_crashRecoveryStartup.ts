@@ -147,13 +147,26 @@ async function runCrashRecovery(windowLabel: string): Promise<void> {
 }
 
 /**
- * Deduplicate snapshots by filePath, keeping the newest for each path.
- * Untitled documents (filePath === null) are never deduplicated.
+ * Collapse only GENUINELY redundant snapshots — same path AND same content.
+ *
+ * Snapshots are written per TAB, so two tabs open on one file are two
+ * snapshots with one path. Deduplicating by path alone kept the newest and
+ * deleted the rest outright, discarding unsaved edits that differed — the
+ * exact data this feature exists to protect, lost by the feature itself.
+ *
+ * Identical content is different: nothing is recoverable from the second copy
+ * that the first does not already have, and restoring both would multiply tabs
+ * across repeated crashes. Newest wins there, so the surviving snapshot is the
+ * one whose timestamp the user would recognise.
+ *
+ * Untitled documents are never collapsed. They have no shared identity to
+ * compare on, and two scratch buffers with the same text are still two buffers
+ * the user had open.
  */
 function deduplicateSnapshots(
   snapshots: RecoverySnapshot[]
 ): RecoverySnapshot[] {
-  const byPath = new Map<string, RecoverySnapshot>();
+  const byPathAndContent = new Map<string, RecoverySnapshot>();
   const untitled: RecoverySnapshot[] = [];
 
   for (const snap of snapshots) {
@@ -161,13 +174,16 @@ function deduplicateSnapshots(
       untitled.push(snap);
       continue;
     }
-    const existing = byPath.get(snap.filePath);
+    // NUL cannot appear in a path, so it cannot forge a collision between a
+    // path ending in content and a shorter path with longer content.
+    const key = `${snap.filePath}\0${snap.content}`;
+    const existing = byPathAndContent.get(key);
     if (!existing || snap.timestamp > existing.timestamp) {
-      byPath.set(snap.filePath, snap);
+      byPathAndContent.set(key, snap);
     }
   }
 
-  return [...untitled, ...byPath.values()];
+  return [...untitled, ...byPathAndContent.values()];
 }
 
 /**
@@ -182,9 +198,16 @@ function restoreSnapshot(
   // Always create as untitled to bypass filePath dedup, then set filePath in doc
   const tabId = useTabStore.getState().createTab(windowLabel, null);
 
-  // Update tab title to match the original
   if (snapshot.filePath) {
+    // File-backed: the PATH is the title's source of truth. `updateTabPath`
+    // derives it, which also stays correct if the file was renamed on disk
+    // while the app was down — the snapshot's title would be stale.
     useTabStore.getState().updateTabPath(tabId, snapshot.filePath);
+  } else if (snapshot.title.trim()) {
+    // Untitled: nothing derives the title, so the snapshot is the only record
+    // of it. Without this the buffer came back renumbered by `createTab`'s
+    // counter and the user could not tell which scratch document it was.
+    useTabStore.getState().updateTabTitle(tabId, snapshot.title);
   }
 
   // Create empty-clean, then apply the recovered content as a crash-recovery
