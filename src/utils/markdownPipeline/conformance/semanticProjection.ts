@@ -143,7 +143,7 @@ export function project(node: RawNode): ProjectedNode {
  * on a cycle. Keys are sorted recursively here and cycles are reported as
  * unequal rather than crashing the comparison.
  */
-function sameValue(a: unknown, b: unknown, seen = new Set<unknown>()): boolean {
+export function sameValue(a: unknown, b: unknown, seen = new Set<unknown>()): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
     return false;
@@ -154,7 +154,26 @@ function sameValue(a: unknown, b: unknown, seen = new Set<unknown>()): boolean {
 
   if (Array.isArray(a) || Array.isArray(b)) {
     if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-    return a.every((item, i) => sameValue(item, b[i], seen));
+    // Index loop, not `every`: `every` SKIPS holes, so [ , 1] and [0, 1]
+    // compared equal.
+    for (let i = 0; i < a.length; i += 1) {
+      if (!sameValue(a[i], b[i], seen)) return false;
+    }
+    return true;
+  }
+
+  // Built-ins carry their value OUTSIDE enumerable keys, so a key-by-key walk
+  // finds nothing to compare and calls two different Dates — or RegExps, Maps,
+  // Sets — equal. mdast attributes are plain data today; this refuses to
+  // silently bless the day one is not.
+  const tag = (v: object) => Object.prototype.toString.call(v);
+  if (tag(a) !== tag(b)) return false;
+  if (tag(a) !== "[object Object]") {
+    if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+    if (a instanceof RegExp && b instanceof RegExp) return String(a) === String(b);
+    // Any other exotic type: not provably equal, so report a difference rather
+    // than assert one that has not been checked.
+    return false;
   }
 
   const aKeys = Object.keys(a as object).sort();

@@ -60,6 +60,18 @@ const NON_MUTATING = new Map<string, string>([
  * so Mod-/ in Source mode does not behave identically to the same action
  * invoked elsewhere — and there is nowhere else to invoke it from.
  */
+/**
+ * Keys bound by a direct `bindings.push`, outside `bindIfKey`.
+ *
+ * They are not shortcut-store driven, so `bindIfKey`'s enumeration never saw
+ * them — an independent verification pointed out the gate was measuring 62 of
+ * 64 bindings and calling that complete.
+ */
+const DIRECT_PUSH_NON_MUTATING = new Map<string, string>([
+  ["Mod-a", "select-all expansion — selection only, no document change"],
+  ["Mod-z", "restores the previous selection after a smart select-all"],
+]);
+
 const DECIDED_MUTATION_EXCEPTIONS = new Map<string, string>([
   [
     "toggleComment",
@@ -126,8 +138,17 @@ describe("EVERY binding is accounted for", () => {
     ].map((m) => ({ id: m[1], handler: m[2].trim() }));
   }
 
-  it("finds the bindings at all — a regex that matches nothing proves nothing", () => {
-    expect(bindings().length).toBeGreaterThan(30);
+  it("captures EVERY bindIfKey call — a regex that misses one proves nothing", () => {
+    // `> 30` would pass while silently skipping a binding written in a shape
+    // the pattern does not match, which is the same failure this gate exists
+    // to catch. Counting call sites independently makes the gate check itself:
+    // the only non-call occurrence of the identifier is its own definition.
+    // Tolerates `bindIfKey (` with a space, which both the capture regex and a
+    // naive `split("bindIfKey(")` would have missed in the same direction —
+    // agreeing with each other while missing a binding.
+    const occurrences = (source.match(/\bbindIfKey\s*\(/g) ?? []).length;
+    const definition = 1;
+    expect(bindings().length).toBe(occurrences - definition);
   });
 
   it("routes every binding through runCommand, or names it as non-mutating", () => {
@@ -143,6 +164,19 @@ describe("EVERY binding is accounted for", () => {
     );
 
     expect(unaccounted.map((b) => `${b.id}: ${b.handler.slice(0, 40)}`)).toEqual([]);
+  });
+
+  it("accounts for DIRECT bindings.push sites too — they bypassed the gate", () => {
+    // Two key bindings (`Mod-a`, `Mod-z`) are pushed directly rather than via
+    // bindIfKey, so enumerating bindIfKey alone left them outside the boundary
+    // entirely. Both are selection-only; the gate now says so and fails if a
+    // third appears without a decision.
+    const pushes = [
+      ...source.matchAll(/bindings\.push\(\s*guardCodeMirrorKeyBinding\(\{\s*key: "([^"]+)"/g),
+    ].map((m) => m[1]);
+
+    expect(pushes.sort()).toEqual(["Mod-a", "Mod-z"]);
+    for (const key of pushes) expect(DIRECT_PUSH_NON_MUTATING.has(key)).toBe(true);
   });
 
   it("every exemption is still bound — a stale one describes nothing", () => {

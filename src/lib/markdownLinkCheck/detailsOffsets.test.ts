@@ -10,11 +10,12 @@
  * Two findings came out of wiring them together, and the second corrected me:
  *
  *   1. The `?? 0` was real, and is gone.
- *   2. The claim that a `<details>` body carries offsets local to an extracted
- *      substring is FALSE. Measured node by node, every descendant carries a
- *      correct ABSOLUTE offset. Links inside details are therefore authorised,
- *      and these tests pin that — an earlier version of this file asserted the
- *      opposite from an inherited assumption and had to be rewritten.
+ *   2. Whether a `<details>` body re-bases its offsets depends on the FORM,
+ *      which took three measurements to establish. The COMPACT single-node
+ *      form re-parses an extracted substring and restarts at 0; the MULTILINE
+ *      form keeps already-positioned siblings. A node does not carry which
+ *      form produced it, so both are refused. This file asserted each of the
+ *      two wrong generalisations in turn before measuring both.
  *
  * @coordinates-with utils/markdownPipeline/positionTrust.ts — createRangeAuthorizer
  * @coordinates-with lib/markdownLinkCheck/check.ts — extractLocalRefs
@@ -59,28 +60,52 @@ function authorisedLinks(md: string): { url: string; slice: string }[] {
   return out;
 }
 
+const COMPACT = "padding\n\n<details><summary>S</summary>[c](./c.md)</details>\n";
+
 describe("a link inside a details body", () => {
-  it("IS authorised — its offsets are absolute and correct", () => {
-    expect(authorisedLinks(WITH_DETAILS).map((l) => l.url)).toEqual([
-      "./real.md",
-      "./inner.md",
-    ]);
+  it("is NOT authorised — the compact form re-bases its offsets", () => {
+    // MEASURED, after two wrong claims. For the compact single-html-node form
+    // the link's range is 0..N into the EXTRACTED BODY, so slicing the
+    // document at it returns unrelated text. A node cannot reveal which form
+    // produced it, so both are refused.
+    expect(authorisedLinks(COMPACT).map((l) => l.url)).toEqual([]);
   });
 
-  it("slices to the link itself, wherever the block sits in the document", () => {
-    // Two documents put the block at different offsets. If the body were
-    // re-based, one of these would slice the wrong text.
-    const padded = WITH_DETAILS.replace(
-      "# Title",
-      "# Title\n\nA much longer padding paragraph placed before the block."
+  it("the compact link's raw range really does slice the wrong text", () => {
+    // The concrete harm, asserted rather than asserted-about.
+    const tree = parse(COMPACT);
+    let inner: PositionedNode | null = null;
+    visit(tree as never, "link", (node: PositionedNode & { url?: string }) => {
+      if (node.url === "./c.md") inner = node;
+    });
+    expect(inner).not.toBeNull();
+
+    const raw = (inner as unknown as PositionedNode).position;
+    const start = raw?.start?.offset;
+    const end = raw?.end?.offset;
+    expect(typeof start).toBe("number");
+    expect(COMPACT.slice(start as number, end as number)).not.toContain("./c.md");
+  });
+
+  it("the multiline form's offsets ARE absolute — but are refused too", () => {
+    // The type is distrusted, not the form, because the node does not carry
+    // which form it came from. The cost is stated: diagnostics inside a
+    // multiline details body are skipped even though their ranges are good.
+    // Fixing the CAUSE (shifting the re-parsed subtree by the body's absolute
+    // start) removes both the cost and the entry — see positionTrust.ts.
+    const tree = parse(WITH_DETAILS);
+    let inner: PositionedNode | null = null;
+    visit(tree as never, "link", (node: PositionedNode & { url?: string }) => {
+      if (node.url === "./inner.md") inner = node;
+    });
+    const raw = (inner as unknown as PositionedNode).position;
+    expect(WITH_DETAILS.slice(raw!.start!.offset!, raw!.end!.offset!)).toBe(
+      "[inner](./inner.md)"
     );
-    for (const md of [WITH_DETAILS, padded]) {
-      const inner = authorisedLinks(md).find((l) => l.url === "./inner.md");
-      expect(inner?.slice).toBe("[inner](./inner.md)");
-    }
+    expect(authorisedLinks(WITH_DETAILS).map((l) => l.url)).toEqual(["./real.md"]);
   });
 
-  it("the details NODE itself still cannot authorise a range", () => {
+  it("the details NODE itself cannot authorise a range", () => {
     const tree = parse(WITH_DETAILS);
     const authorizer = createRangeAuthorizer(tree);
     let details: PositionedNode | null = null;

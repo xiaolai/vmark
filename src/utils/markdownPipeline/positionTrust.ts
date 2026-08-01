@@ -90,17 +90,33 @@ export const PREFIX_STRIPPING_CONTAINERS: ReadonlySet<string> = new Set([
 /**
  * Types whose DESCENDANTS carry offsets into some other string.
  *
- * Deliberately EMPTY. The mechanism exists because a construct rebuilt by
- * re-parsing an extracted substring would produce exactly that hazard —
- * well-formed offsets addressing the wrong text, invisible to a per-node
- * check. No construct in this parser does it today: `<details>` was the
- * suspected case and measurement cleared it.
+ * `details` is here, and the measurement took three attempts to get right —
+ * recorded so nobody repeats them. For
+ * `padding\n\n<details><summary>S</summary>[inner](./i.md)</details>`:
  *
- * Adding a type here is a claim backed by measurement, not suspicion. The cost
- * of a wrong entry is real: every descendant stops being able to authorise an
- * edit, which is how the link checker lost its diagnostics inside details.
+ *   | form      | link range | slices                  |
+ *   |-----------|-----------|-------------------------|
+ *   | COMPACT   | 0..19     | `padding\n\n<details><`  ← WRONG |
+ *   | MULTILINE | 40..59    | `[inner](./i.md)`        ← right |
+ *
+ * A compact `<details>` is one html node; its body is extracted as a substring
+ * and re-parsed standalone, so offsets restart at 0. A multiline one keeps its
+ * body as sibling nodes the outer parse already positioned. The FORM decides,
+ * and a node cannot tell you which form produced it — so the type is listed and
+ * both are distrusted.
+ *
+ * THE REAL FIX is at the cause, not here: `parseDetailsBody` knows `bodyStart`
+ * within the html value, and the html node carries an absolute position, so
+ * the re-parsed subtree could be shifted by their sum and both forms would
+ * yield absolute offsets. Then this entry comes out and the link checker
+ * regains its diagnostics inside details bodies. That is a contained change
+ * with its own tests, not a line to append to an audit round.
+ *
+ * Adding a type here is a claim backed by measurement of EVERY form the
+ * construct takes — measuring one and generalising is what produced two wrong
+ * claims before this table.
  */
-export const REBASED_SUBTREE_TYPES: ReadonlySet<string> = new Set<string>();
+export const REBASED_SUBTREE_TYPES: ReadonlySet<string> = new Set<string>(["details"]);
 
 /** Minimal node shape — mdast-compatible without importing the union. */
 export interface PositionedNode {
