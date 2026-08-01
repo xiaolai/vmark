@@ -1,8 +1,8 @@
 /**
  * Tiptap Extensions Configuration
  *
- * Purpose: Assembles the Tiptap extension stack for VMark's WYSIWYG editor —
- * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
+ * Purpose: Assembles the Tiptap extension stack — StarterKit overrides, marks,
+ * nodes, media, plugins. Settings reach a plugin as an injected getter (ADR-015).
  *
  * Key decisions:
  *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
@@ -46,6 +46,7 @@ import { linkCreatePopupExtension } from "@/plugins/linkCreatePopup";
 import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
+import { currentAutoPairConfig } from "./autoPairConfig";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
@@ -218,7 +219,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     linkPopupExtension,
     linkCreatePopupExtension,
     searchExtension,
-    autoPairExtension,
+    autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
     focusModeExtension,
     typewriterModeExtension,
     blankLinesGuardExtension,
