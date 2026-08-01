@@ -10,6 +10,10 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkStringify from "remark-stringify";
+// Importing the dialect wires the injected `details-body` parser, which is
+// what production does via processorFactory. Without it the plugin throws a
+// named error rather than silently parsing bodies with the wrong dialect.
+import "../dialect";
 import { remarkDetailsBlock } from "./detailsBlock";
 import type { Root } from "mdast";
 import type { Details } from "../types";

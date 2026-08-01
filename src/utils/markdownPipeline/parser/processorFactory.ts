@@ -9,26 +9,9 @@
  * @module utils/markdownPipeline/parser/processorFactory
  */
 
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkBreaks from "remark-breaks";
-import {
-  remarkCustomInline,
-  remarkDetailsBlock,
-  remarkResolveReferences,
-  remarkTocBlock,
-  remarkWikiLinks,
-} from "../plugins";
+import { buildProcessorForMode } from "../dialect";
 import type { MarkdownPipelineOptions } from "../types";
-import {
-  analyzeContent,
-  remarkDisableSetextHeadings,
-  remarkValidateMath,
-  type ContentAnalysis,
-} from "./remarkPlugins";
+import { analyzeContent, type ContentAnalysis } from "./remarkPlugins";
 
 /**
  * Build a unified processor configured for VMark markdown parsing.
@@ -45,56 +28,10 @@ import {
  * is handled via remarkCustomInline plugin (always loaded, lightweight).
  */
 function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) {
-  // Setext parsing is disabled ONLY for documents carrying the line it would
-  // misread — an indented lone list marker. Disabling it everywhere destroyed
-  // every authored setext heading to protect against that one shape.
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkGfm, {
-      // Disable single tilde strikethrough to avoid conflict with subscript
-      // GFM strikethrough uses ~~double tilde~~
-      singleTilde: false,
-    });
-
-  if (analysis.hasAmbiguousListUnderline) {
-    processor.use(remarkDisableSetextHeadings);
-  }
-
-  // Conditionally add math support
-  if (analysis.hasMath) {
-    processor.use(remarkMath);
-    processor.use(remarkValidateMath);
-  }
-
-  // Conditionally add frontmatter support
-  if (analysis.hasFrontmatter) {
-    processor.use(remarkFrontmatter, ["yaml"]);
-  }
-
-  // Conditionally add wiki links support
-  if (analysis.hasWikiLinks) {
-    processor.use(remarkWikiLinks);
-  }
-
-  // Conditionally add details block support
-  if (analysis.hasDetails) {
-    processor.use(remarkDetailsBlock);
-  }
-
-  // Always load TOC block detection (lightweight, checks single-text paragraphs)
-  processor.use(remarkTocBlock);
-
-  // Always load custom inline (lightweight, common syntax)
-  processor.use(remarkCustomInline);
-
-  // Always load reference resolver (needed for GFM references)
-  processor.use(remarkResolveReferences);
-
-  if (preserveLineBreaks) {
-    processor.use(remarkBreaks);
-  }
-
-  return processor;
+  // The plugin set — and every delta between modes — lives in `dialect.ts`.
+  // Building here from a second hand-written chain is what let the editor and
+  // lint stacks diverge silently (WI-3.1).
+  return buildProcessorForMode("document", { ...analysis, preserveLineBreaks });
 }
 
 /**
@@ -155,17 +92,7 @@ export function createProcessor(markdown: string, options: MarkdownPipelineOptio
  * accurate position data, then `.runSync(tree)` for transforms.
  */
 export function createMarkdownProcessor() {
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkGfm, { singleTilde: false })
-    .use(remarkMath)
-    .use(remarkValidateMath)
-    .use(remarkFrontmatter, ["yaml"])
-    .use(remarkWikiLinks)
-    .use(remarkDetailsBlock)
-    .use(remarkTocBlock)
-    .use(remarkCustomInline)
-    .use(remarkResolveReferences);
-
-  return processor;
+  // `source-position` loads every plugin unconditionally: offsets must not
+  // depend on what the document happens to contain.
+  return buildProcessorForMode("source-position");
 }

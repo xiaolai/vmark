@@ -10,8 +10,12 @@
  *   - Handles both single-block HTML (all in one html node) and multi-block
  *     (opening/closing tags as separate html nodes with content in between)
  *   - Supports nested `<details>` blocks via depth tracking
- *   - Inner content is re-parsed with a full remark pipeline (innerProcessor)
- *     to support markdown inside `<details>` bodies
+ *   - Inner content is re-parsed with the `details-body` dialect, INJECTED by
+ *     `dialect.ts` rather than constructed here. This plugin is registered BY
+ *     the document chain, so importing that chain's builder would close a
+ *     cycle. The body dialect deliberately EXCLUDES this plugin — that is what
+ *     stops a body parser needing a body parser; nested `<details>` are handled
+ *     by the outer pass's depth tracking (WI-3.1)
  *   - Summary text defaults to "Details" when no `<summary>` tag is present
  *   - Serialization escapes HTML in summary text to prevent injection
  *
@@ -22,16 +26,10 @@
  */
 
 import type { Content, Root } from "mdast";
-import { unified, type Plugin } from "unified";
+import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import remarkFrontmatter from "remark-frontmatter";
 import type { Details } from "../types";
-import { remarkCustomInline } from "./customInline";
-import { remarkResolveReferences } from "./resolveReferences";
-import { remarkWikiLinks } from "./wikiLinks";
+import { getDetailsBodyParser } from "./detailsBodyParser";
 
 interface ToMarkdownExtension {
   handlers?: Record<string, DetailsHandler>;
@@ -67,18 +65,6 @@ interface NodeWithChildren {
 function hasChildren(node: unknown): node is NodeWithChildren {
   return typeof node === "object" && node !== null && "children" in node;
 }
-
-const innerProcessor = unified()
-  .use(remarkParse)
-  .use(remarkGfm, {
-    // Keep in sync with the main markdown parser.
-    singleTilde: false,
-  })
-  .use(remarkMath)
-  .use(remarkFrontmatter, ["yaml"])
-  .use(remarkWikiLinks)
-  .use(remarkCustomInline)
-  .use(remarkResolveReferences);
 
 export const remarkDetailsBlock: Plugin<[], Root> = function () {
   const data = this.data() as { toMarkdownExtensions?: ToMarkdownExtension[] };
@@ -246,8 +232,9 @@ function parseDetailsBody(markdown: string): Content[] {
     return [];
   }
 
-  const parsed = innerProcessor.parse(markdown);
-  const transformed = innerProcessor.runSync(parsed) as Root;
+  const processor = getDetailsBodyParser();
+  const parsed = processor.parse(markdown);
+  const transformed = processor.runSync(parsed) as Root;
   return transformDetailsBlocks(transformed.children as Content[]);
 }
 

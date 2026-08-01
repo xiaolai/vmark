@@ -18,10 +18,7 @@
  */
 
 import type { Content, Paragraph } from "mdast";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import { remarkCustomInline } from "./plugins/customInline";
+import { buildProcessorForMode } from "./dialect";
 import { mdPipelineWarn } from "@/utils/debug";
 
 /**
@@ -45,10 +42,10 @@ export function parseInlineMarkdown(text: string): Content[] {
   }
 
   try {
-    const processor = unified()
-      .use(remarkParse)
-      .use(remarkGfm, { singleTilde: false })
-      .use(remarkCustomInline);
+    // The `inline-summary` dialect — the smallest that still has inline marks.
+    // Built from the shared descriptors so it cannot drift from the others on
+    // what `~x~` or `==x==` mean (WI-3.1).
+    const processor = buildProcessorForMode("inline-summary");
 
     const tree = processor.parse(text);
     const transformed = processor.runSync(tree);

@@ -19,9 +19,9 @@
  *   - `createTab` DEDUPLICATES by path. When it hands back a tab that already
  *     existed — because a concurrent open created it — loading into it would
  *     overwrite that tab's content, which may be dirty. The create branch
- *     detects the dedup by tab count and activates instead of loading. The
- *     error path matters just as much: detaching on failure would have
- *     detached a tab this call never created.
+ *     pre-checks with `findTabByPath`, which applies createTab's own rule, and
+ *     activates instead of loading. The error path matters just as much:
+ *     detaching on failure would have detached a tab this call never created.
  *   - `cancelled` is re-checked after every await. The hook can unmount
  *     mid-flow.
  *
@@ -30,7 +30,7 @@
  * @module services/navigation/finderOpenBranches
  */
 import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import {
   isBinaryMediaPath,
@@ -195,7 +195,3 @@ export async function withSizeGateAndIndicator(
   }
 }
 
-/** Whether the replace branch actually got content into its tab. */
-export function replaceTabReceivedContent(tabId: string): boolean {
-  return Boolean(useDocumentStore.getState().documents[tabId]?.filePath);
-}
