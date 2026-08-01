@@ -76,7 +76,7 @@ Tipografia, display, comportamento di modifica e impostazioni degli spazi bianch
 | Impostazione | Descrizione | Predefinito | Opzioni |
 |-------------|-------------|-------------|---------|
 | Fine riga al salvataggio | Controlla come vengono gestite le terminazioni di riga quando si salvano i file | Preserva esistente | Preserva esistente, LF (`\n`), CRLF (`\r\n`) |
-| Preserva interruzioni di riga consecutive | Mantieni più righe vuote così come sono invece di comprimerle | Off | Attivo / Off |
+| Preserva interruzioni di riga consecutive | Mantieni più righe vuote così come sono invece di comprimerle | Attivo | Attivo / Off |
 | Stile interruzione rigida al salvataggio | Come vengono rappresentate le interruzioni di riga rigide nel file Markdown salvato | Preserva esistente | Due spazi (Consigliato), Preserva esistente, Barra rovesciata (`\`) |
 | Mostra tag `<br>` | Visualizza i tag di interruzione di riga HTML visibilmente nell'editor | Off | Attivo / Off |
 
@@ -300,7 +300,7 @@ La sezione Lingua contiene oltre 20 toggle di formattazione granulari. Per una s
 | Limita punteggiatura consecutiva | Limita i segni di punteggiatura ripetuti come `!!!` | Off | Off, Singolo (`!!` diventa `!`), Doppio (`!!!` diventa `!!`) |
 | Rimuovi spazi finali | Rimuovi gli spazi alla fine delle righe | Attivo | Attivo / Off |
 | Normalizza puntini di sospensione | Converti i punti spaziati (`. . .`) in puntini di sospensione corretti (`...`) | Attivo | Attivo / Off |
-| Comprimi newline | Riduci tre o più newline consecutive a due | Attivo | Attivo / Off |
+| Comprimi newline | Riduci tre o più newline consecutive a due | Off | Attivo / Off |
 
 ## Scorciatoie
 

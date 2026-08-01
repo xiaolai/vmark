@@ -76,7 +76,7 @@ Tipografia, exibição, comportamento de edição e configurações de espaço e
 | Configuração | Descrição | Padrão | Opções |
 |-------------|-----------|--------|--------|
 | Fim de linha ao salvar | Controlar como os fins de linha são tratados ao salvar arquivos | Preservar existente | Preservar existente, LF (`\n`), CRLF (`\r\n`) |
-| Preservar quebras de linha consecutivas | Manter múltiplas linhas em branco como estão em vez de colapsá-las | Desligado | Ligado / Desligado |
+| Preservar quebras de linha consecutivas | Manter múltiplas linhas em branco como estão em vez de colapsá-las | Ligado | Ligado / Desligado |
 | Estilo de quebra rígida ao salvar | Como as quebras de linha rígidas são representadas no arquivo Markdown salvo | Preservar existente | Dois espaços (Recomendado), Preservar existente, Barra invertida (`\`) |
 | Mostrar tags `<br>` | Exibir tags de quebra de linha HTML visivelmente no editor | Desligado | Ligado / Desligado |
 
@@ -300,7 +300,7 @@ A seção Idioma contém mais de 20 alternâncias de formatação refinadas. Par
 | Limitar pontuação consecutiva | Limitar marcas de pontuação repetidas como `!!!` | Desligado | Desligado, Único (`!!` para `!`), Duplo (`!!!` para `!!`) |
 | Remover espaços no final | Remover espaços no final das linhas | Ligado | Ligado / Desligado |
 | Normalizar reticências | Converter pontos espaçados (`. . .`) em reticências adequadas (`...`) | Ligado | Ligado / Desligado |
-| Colapsar novas linhas | Reduzir três ou mais novas linhas consecutivas para duas | Ligado | Ligado / Desligado |
+| Colapsar novas linhas | Reduzir três ou mais novas linhas consecutivas para duas | Desligado | Ligado / Desligado |
 
 ## Atalhos
 

@@ -76,7 +76,7 @@ Typographie, affichage, comportement d'édition et paramètres d'espacement.
 | Paramètre | Description | Par défaut | Options |
 |-----------|-------------|------------|---------|
 | Fins de ligne à l'enregistrement | Contrôler comment les fins de ligne sont gérées lors de l'enregistrement des fichiers | Conserver l'existant | Conserver l'existant, LF (`\n`), CRLF (`\r\n`) |
-| Conserver les sauts de ligne consécutifs | Garder plusieurs lignes vides telles quelles au lieu de les réduire | Désactivé | Activé / Désactivé |
+| Conserver les sauts de ligne consécutifs | Garder plusieurs lignes vides telles quelles au lieu de les réduire | Activé | Activé / Désactivé |
 | Style de saut de ligne dur à l'enregistrement | Comment les sauts de ligne durs sont représentés dans le fichier Markdown enregistré | Conserver l'existant | Deux espaces (Recommandé), Conserver l'existant, Barre oblique inverse (`\`) |
 | Afficher les balises `<br>` | Afficher les balises de saut de ligne HTML visiblement dans l'éditeur | Désactivé | Activé / Désactivé |
 
@@ -300,7 +300,7 @@ La section Langue contient plus de 20 contrôles de mise en forme précis. Pour 
 | Limiter la ponctuation consécutive | Limiter les signes de ponctuation répétés comme `!!!` | Désactivé | Désactivé, Simple (`!!` → `!`), Double (`!!!` → `!!`) |
 | Supprimer les espaces de fin de ligne | Supprimer les espaces à la fin des lignes | Activé | Activé / Désactivé |
 | Normaliser les points de suspension | Convertir les points espacés (`. . .`) en points de suspension appropriés (`...`) | Activé | Activé / Désactivé |
-| Réduire les sauts de ligne | Réduire trois sauts de ligne consécutifs ou plus à deux | Activé | Activé / Désactivé |
+| Réduire les sauts de ligne | Réduire trois sauts de ligne consécutifs ou plus à deux | Désactivé | Activé / Désactivé |
 
 ## Raccourcis
 
