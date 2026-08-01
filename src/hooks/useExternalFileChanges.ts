@@ -3,6 +3,8 @@
  *
  * Purpose: Detects and responds to filesystem changes on open documents —
  *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
+ *   Owns the per-tab REACTION POLICY only; the batching state machine and the
+ *   single-file resolution dialog are separate, directly testable modules.
  *
  * Key decisions:
  *   - Clean docs auto-reload silently; dirty docs batch into one dialog
@@ -17,12 +19,17 @@
  *   - After "Keep my changes", lastDiskContent is refreshed to current disk so
  *     identical follow-up cloud-sync rewrites (OneDrive/iCloud/Dropbox) are
  *     silently no-op'd by the soft-equals guard, not re-prompted (issue 904)
+ *   - A rejected batch is NOT lost. The queue puts it back, so a dialog that
+ *     fails still leaves the conflicts pending rather than silently resolving
+ *     them in the filesystem's favour
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
  * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
  * @coordinates-with fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
  * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
+ * @coordinates-with externalChangeBatchQueue.ts — the debounce/requeue/single-timer rules
+ * @coordinates-with services/persistence/resolveDirtyFileChange.ts — the 3-option dialog
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";
