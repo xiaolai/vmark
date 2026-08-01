@@ -11,11 +11,22 @@
  */
 
 import { bindHostSettings } from "@/plugins/shared/hostSettings";
+import { bindHostDocument } from "@/plugins/shared/hostDocument";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
 
 /** Point the plugin seam at the live settings store. */
 export function bindPluginHostSettings(): void {
   bindHostSettings({
     tabSize: () => useSettingsStore.getState().general.tabSize,
+  });
+
+  bindHostDocument({
+    activeFilePath: (windowLabel) => {
+      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+      if (!tabId) return null;
+      return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    },
   });
 }

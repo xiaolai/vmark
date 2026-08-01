@@ -8,10 +8,9 @@
  * @module plugins/imagePreview/resolveSrc
  */
 
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
 import { imagePreviewError } from "@/utils/debug";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -32,10 +31,10 @@ export type MediaType = "image" | "video" | "audio";
 
 function getActiveFilePath(): string | null {
   try {
-    const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (!tabId) return null;
-    return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    // Through the host seam, not the app's stores: this is ambient editor
+    // context read by a leaf resolver, well below any extension option that
+    // could carry it. See plugins/shared/hostDocument.ts.
+    return hostDocument.activeFilePath(getWindowLabel());
   } catch {
     return null;
   }
