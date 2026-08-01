@@ -126,7 +126,7 @@ export const testSchema = new Schema({
     italic: {},
     strike: {},
     code: {},
-    link: { attrs: { href: {} } },
+    link: { attrs: { href: {}, title: { default: null }, referenceId: { default: null }, referenceType: { default: null } } },
     subscript: {},
     superscript: {},
     highlight: {},

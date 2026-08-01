@@ -68,13 +68,6 @@ export const FIDELITY_LEDGER: Record<string, LedgerEntry[]> = {
         "GitHub alerts are emitted with a bare `>` continuation line between the marker and the body, which is the canonical spelling and re-parses identically.",
     },
   ],
-  "06-links-images.md": [
-    {
-      rule: "referenceLinkInlined",
-      reason:
-        "Reference-style links are re-emitted inline. The target and text are preserved (fingerprint confirms), but the authored reference STYLE is lost and its `[ref]:` definition is left behind unused. Accepted because the editor has no reference-link model; revisit if authors report it.",
-    },
-  ],
   "10-details.md": [
     { rule: "blankLineCollapse", reason: "Blank lines inside <details> collapse; preservation is opt-in." },
   ],
