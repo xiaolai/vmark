@@ -613,3 +613,58 @@ describe("nested details keep their own summary and content", () => {
     expect(nodes[0]?.open).toBe(open);
   });
 });
+
+/** The first details node, or null. */
+function detailsOf(md: string): Details | null {
+  let found: Details | null = null;
+  visit(parseWithDetails(md) as never, "details", (node: Details) => {
+    found ??= node;
+  });
+  return found;
+}
+
+describe("attribute parsing survives a `>` inside a quoted value", () => {
+  // The tag matcher was `<details\b[^>]*>`, which stops at the FIRST `>` — so a
+  // quoted value containing one truncated the tag mid-attribute and the `open`
+  // that followed was never seen. Found by verification, not by review.
+  it.each([
+    { label: "double-quoted", md: '<details title="a > b" open>\n<summary>S</summary>\n\nbody\n\n</details>\n' },
+    { label: "single-quoted", md: "<details title='a > b' open>\n<summary>S</summary>\n\nbody\n\n</details>\n" },
+    { label: "compact, quoted", md: '<details title="a > b" open><summary>S</summary>body</details>\n' },
+  ])("$label — reports open", ({ md }) => {
+    expect(detailsOf(md)?.open).toBe(true);
+  });
+
+  it("still refuses a value that merely CONTAINS the word open", () => {
+    const md = '<details data-open="false" title="x > y">\n<summary>S</summary>\n\nb\n\n</details>\n';
+    expect(detailsOf(md)?.open).toBe(false);
+  });
+
+  it("applies the same attribute rule on the COMPACT path", () => {
+    // That branch kept a bare /\bopen\b/i test, so an attribute NAME containing
+    // the substring opened the block on one form and not the other.
+    const md = '<details data-open="false"><summary>S</summary>body</details>\n';
+    expect(detailsOf(md)?.open).toBe(false);
+  });
+});
+
+describe("a comment may precede the summary", () => {
+  it("does not discard a summary behind a leading HTML comment", () => {
+    // `^\s*<summary>` treated a comment as content and dropped the summary,
+    // which is a regression the strictness introduced.
+    const md = "<details>\n<!-- a note -->\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    expect(detailsOf(md)?.summary).toBe("Real");
+  });
+
+  it("keeps content that PRECEDES the summary instead of dropping it", () => {
+    // Per the HTML spec the first <summary> child is the disclosure label
+    // wherever it sits, so "Real" is the right summary here — the defect is
+    // that everything before it used to vanish with the html child.
+    const md = "<details>\nprose\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    const details = detailsOf(md);
+    expect(details?.summary).toBe("Real");
+    const text = JSON.stringify(details?.children ?? []);
+    expect(text).toContain("prose");
+    expect(text).toContain("body");
+  });
+});

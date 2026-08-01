@@ -364,3 +364,28 @@ describe("fence pairing — container identity and indent compatibility", () => 
     expect(fenceRanges(lines)).toMatchObject([{ open: 0, close: 2, closed: true }]);
   });
 });
+
+describe("the closing-fence indent rule is ABSOLUTE, not relative to the opener", () => {
+  // `Math.abs(closer - opener) <= 3` accepted a closer 3 columns deeper than an
+  // indented opener, which CommonMark reads as indented code — closing the
+  // fence early and stripping every guard from the rest of the block.
+  it("leaves the fence OPEN when the closer is indented 4+", () => {
+    const ranges = fenceRanges([" ```", "code", "    ```", "still code"], "commonmark");
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].closed).toBe(false);
+  });
+
+  it("closes at 0-3 columns, wherever the opener sat", () => {
+    for (const closer of ["```", " ```", "  ```", "   ```"]) {
+      const ranges = fenceRanges([" ```", "code", closer], "commonmark");
+      expect(ranges[0].closed).toBe(true);
+    }
+  });
+
+  it("deep-indent keeps the RELATIVE window — it stands in for a container", () => {
+    // That policy scans text whose container prefixes were already stripped, so
+    // absolute columns carry no information there.
+    const ranges = fenceRanges(["    ```", "code", "    ```"], "deep-indent");
+    expect(ranges[0].closed).toBe(true);
+  });
+});
