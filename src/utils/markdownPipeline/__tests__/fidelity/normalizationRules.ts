@@ -30,7 +30,6 @@ export type RuleName =
   | "tableFormatting"
   | "alertQuoteContinuation"
   | "providerEmbedRewrite"
-  | "referenceLinkInlined"
   | "redundantEscapeDropped"
   | "markerReEscaped"
   | "codeSpanPaddingNormalized"
@@ -94,12 +93,6 @@ export const RULES: Record<RuleName, (hunk: Hunk) => boolean> = {
     h.before.every((l) => /<iframe/.test(l)) &&
     h.after.every((l) => /<iframe/.test(l)) &&
     h.after.some((l) => /youtube-nocookie\.com|width=|height=/.test(l)),
-
-  /** `[text][ref]` is re-emitted inline as `[text](url)`. */
-  referenceLinkInlined: (h) =>
-    h.before.length === h.after.length &&
-    h.before.some((l) => /\[[^\]]*\]\[[^\]]*\]/.test(l)) &&
-    h.after.some((l) => /\[[^\]]*\]\([^)]*\)/.test(l)),
 
   /** A backslash escape the output no longer needs is REMOVED. */
   redundantEscapeDropped: (h) =>

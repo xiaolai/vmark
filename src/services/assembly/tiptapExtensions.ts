@@ -14,6 +14,8 @@
  *     plus media popup/handler extensions; tocExtension for [TOC] navigation
  *   - Composition order is pinned via WYSIWYG_COMPOSITION_ORDER (WI-3.4)
  *
+ * The Link mark lives in `linkExtension.ts` with its round-trip attributes.
+ *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
@@ -22,7 +24,7 @@
 
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
+import { vmarkLinkExtension } from "./linkExtension";
 import {
   HeadingWithSourceLine,
   ParagraphWithSourceLine,
@@ -146,25 +148,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
         newGroupDelay: 500,
       },
     }),
-    // Custom Link extension with excludes to prevent nested links and code inside links
-    Link.extend({
-      excludes: "link code",
-      // Markdown link titles (`[text](url "title")`) must survive a WYSIWYG
-      // round trip — the base Link mark has no title attribute, so add one.
-      addAttributes() {
-        return {
-          ...this.parent?.(),
-          title: { default: null },
-        };
-      },
-    }).configure({
-      openOnClick: false,
-      // Don't add target="_blank" - it bypasses our click handling
-      HTMLAttributes: {
-        target: null,
-        rel: null,
-      },
-    }),
+    vmarkLinkExtension,
     // CJK-aware bold/italic (replaces StarterKit defaults)
     CJKBold,
     CJKItalic,

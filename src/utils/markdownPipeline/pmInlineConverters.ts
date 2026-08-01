@@ -20,6 +20,9 @@
  *   - URLs are passed through unchanged; the serializer's custom handlers
  *     add angle brackets for URLs with spaces
  *
+ * A link mark carrying `referenceId` is emitted as a `linkReference`, not an
+ * inline link — see resolveReferences.ts.
+ *
  * @coordinates-with mdastInlineConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmBlockConverters.ts — handles block-level nodes
  * @coordinates-with serializer.ts — custom handlers for URL formatting
@@ -170,7 +173,24 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
         .join("");
       return [{ type: "inlineCode", value: textContent } as InlineCode];
     }
-    case "link":
+    case "link": {
+      // A link that came from `[text][id]` goes back as `[text][id]`. Emitting
+      // the inline form rewrote the author's reference-style file on the first
+      // debounced edit, then lint W03 warned "Unused link definition" about
+      // VMark's own output. The definition nodes are preserved separately, so
+      // the pair stays consistent.
+      const referenceId = mark.attrs.referenceId as string | null;
+      if (referenceId) {
+        return [
+          {
+            type: "linkReference",
+            identifier: referenceId,
+            label: referenceId,
+            referenceType: (mark.attrs.referenceType as string | null) ?? "shortcut",
+            children: content,
+          } as unknown as Link,
+        ];
+      }
       return [
         {
           type: "link",
@@ -179,6 +199,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
           children: content,
         } as Link,
       ];
+    }
 
     // Custom inline marks
     case "subscript":
