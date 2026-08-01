@@ -179,7 +179,8 @@ Full-featured table editing:
 - Insert tables via menu or shortcut
 - Add/delete rows and columns
 - Cell alignment (left, center, right)
-- Resize columns by dragging
+- Columns auto-size to content; wide tables scroll horizontally
+- Fit to width — pin a table to the editor width with content-proportional columns (Settings → Markdown, or per-table via right-click)
 - Context toolbar for quick actions
 - Keyboard navigation (Tab, arrows, Enter)
 
