@@ -279,3 +279,88 @@ describe("fenceRanges — fences inside list items", () => {
     ]);
   });
 });
+
+describe("fence pairing — container identity and indent compatibility", () => {
+  // Three High-severity findings from an audit of the safety boundary. Each
+  // let a fence pair with a delimiter that does not belong to it, and the
+  // consequence is always the same: real fenced code is classified as prose
+  // and every cursor-context guard stops protecting it.
+
+  it("a LIST MARKER line cannot close the previous item's fence", () => {
+    // Two consecutive list items, each opening a fence, paired with EACH
+    // OTHER — so the second item's code was outside any fence.
+    const ranges = fenceRanges(["- ```", "first", "- ```", "second"]);
+    expect(ranges).toMatchObject([{ open: 0, close: 3, closed: false }]);
+    // The point: line 3 is INSIDE. It used to be outside.
+    expect(enclosingFence(["- ```", "first", "- ```", "second"], 3)).not.toBeNull();
+  });
+
+  it("an ordered-list marker cannot close one either", () => {
+    const ranges = fenceRanges(["1. ```", "first", "2. ```", "second"]);
+    expect(ranges).toMatchObject([{ closed: false }]);
+  });
+
+  it("containers nest in ANY order — list outside blockquote", () => {
+    // `- > ` was unparseable: the scanner stripped one quote run then one list
+    // marker, in that order only, so this was no fence at all.
+    expect(fenceRanges(["- > ```", "  > code", "  > ```"])).toMatchObject([
+      { open: 0, close: 2, closed: true },
+    ]);
+  });
+
+  it("alternating containers parse, and a repeated marker still starts a new item", () => {
+    // Verified against remark-parse rather than reasoned about: this input is
+    // THREE list items each holding an empty code block, not one fence closed
+    // by its own prefix. So the fence opens (markerOffset spans `> - > `) and
+    // does not close — which is what the scanner now reports.
+    expect(fenceRanges(["> - > ```", "> - > code", "> - > ```"])).toMatchObject([
+      { open: 0, close: 2, closed: false, markerOffset: 6 },
+    ]);
+  });
+
+  it("matches CommonMark on the three inputs the audit raised", () => {
+    // Cross-checked with remark-parse:
+    //   `- ``` / first / - ``` / second`  → two list items, NOT one fence
+    //   "``` / code / ␣␣␣␣``` / after"    → one code block running to the end
+    // Both are what these ranges say now; neither was before.
+    expect(fenceRanges(["- ```", "first", "- ```", "second"])).toMatchObject([
+      { open: 0, closed: false },
+    ]);
+    expect(fenceRanges(["```", "code", "    ```", "after"], "deep-indent")).toMatchObject([
+      { open: 0, closed: false },
+    ]);
+  });
+
+  it("under deep-indent, a 4-space line does NOT close an unindented fence", () => {
+    // It is indented code, not a closer. Pairing them ended the fence early and
+    // left everything after it unprotected — the deviation was documented as
+    // "only over-includes", which was wrong.
+    expect(fenceRanges(["```", "code", "    ```", "after"], "deep-indent")).toMatchObject([
+      { open: 0, close: 3, closed: false },
+    ]);
+  });
+
+  it("under deep-indent, matching indentation still closes (the list-nested case)", () => {
+    expect(
+      fenceRanges(["    ```", "code", "    ```", "after"], "deep-indent")
+    ).toMatchObject([{ open: 0, close: 2, closed: true }]);
+  });
+
+  it("indent may differ by up to 3 — CommonMark's own tolerance", () => {
+    expect(fenceRanges(["    ```", "code", "       ```"], "deep-indent")).toMatchObject([
+      { closed: true },
+    ]);
+    expect(fenceRanges(["    ```", "code", "        ```"], "deep-indent")).toMatchObject([
+      { closed: false },
+    ]);
+  });
+
+  it.each([
+    { label: "plain", lines: ["```", "code", "```"] },
+    { label: "list item", lines: ["- ```", "  code", "  ```"] },
+    { label: "blockquote", lines: ["> ```", "> code", "> ```"] },
+    { label: "nested blockquote", lines: [">> ```", ">> code", ">> ```"] },
+  ])("$label fences still pair — no regression", ({ lines }) => {
+    expect(fenceRanges(lines)).toMatchObject([{ open: 0, close: 2, closed: true }]);
+  });
+});
