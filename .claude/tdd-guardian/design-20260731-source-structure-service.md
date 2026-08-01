@@ -70,11 +70,27 @@ scheduling question; all are design questions.
    them is right only if the index genuinely subsumes them. That is an
    assertion about a component that does not exist.
 
-5. **What does Phase 1 change underneath all this?**
-   Phase 1 is rewriting the store's content API (`setEditorContent`,
-   `ingestExternalContent`, the dual-snapshot save contract). Phases 4–9 assume
-   the pre-Phase-1 shape. Re-planning them before Phase 1 lands is work that
-   gets thrown away.
+5. **What does Phase 1 change underneath all this?** — **ANSWERED 2026-08-01.**
+   Phases 0–3 are complete. The store's content API settled: `setEditorContent`
+   (editor domain, asserted canonical), `ingestExternalContent` (external, one
+   origin-governed door — `loadContent` is gone), and the dual-snapshot save
+   contract. Three results this material now inherits rather than assumes:
+
+   - The parse input domain is **named**: `canonicalEditorText`, LF and
+     BOM-free. Decision D3 reserves `rawDiskText` for ingestion, so "raw" is no
+     longer two readings.
+   - `utils/markdownPipeline/dialectDescriptors.ts` owns the plugin set for all
+     FOUR parse modes, and `dialect.ts` is the single construction site. An
+     index builder does not get to invent a fifth chain.
+   - **`positionTrust.ts` is a hard constraint on the index**, not a
+     convenience. Six node types carry no canonical range, and every descendant
+     of a re-parsed `<details>` body carries offsets addressing the extracted
+     substring — well-formed, and wrong. An index that stores a range per block
+     must either exclude those or mark them, or WI-4.2's "index offsets are
+     verified against canonicalEditorText" is unachievable for exactly the
+     nodes whose mis-ranging is most destructive. `PREFIX_STRIPPING_CONTAINERS`
+     is the companion hazard: a range can be canonical while `slice(range)`
+     is not the node's value.
 
 ## What a design spike must produce
 
@@ -119,50 +135,61 @@ What remains is a POSITIONAL-INFO ADAPTER over `fenceRanges` so
       are invisible to `codeFenceDetection`, so cursor-context guards do not
       engage inside them. The gate's divergence pins flip when this lands.
 
-## Carried in from the audit (2026-08-01): tab transfer drops line metadata
+## SHIPPED 2026-08-01: tab transfer carries line metadata (was: drops it)
+
+**Status: DONE** — commit `642f0df1`, with the Rust follow-up in `424d5c27`.
+Kept here rather than deleted because the reasoning is what the next transfer
+path will need, and because one prediction below turned out to matter.
 
 Phase 1 routed fifteen ingresses through one origin-governed door. The tab and
-workspace TRANSFER paths are the ones it could not finish, and the audit's
-`document.ts:161-175` finding names why: they do not go through a door at all,
-they call `initDocument` — and `TabTransferPayload` (`src/types/tabTransfer.ts`)
-carries `content`, `savedContent` and `isDirty` but **no line metadata**.
+workspace TRANSFER paths were the ones it could not finish: they did not go
+through a door at all, they called `initDocument`, and `TabTransferPayload`
+carried `content`, `savedContent` and `isDirty` but no line metadata.
 
-Verified, not assumed:
+Measured before the fix, and the asymmetry is the interesting part:
 
-| Field | Survives a window-to-window move? | Why |
+| Field | Survived a move? | Why |
 |---|---|---|
-| `hardBreakStyle` | **Yes**, since 2026-08-01 | `detectHardBreakStyle` normalises EOLs at `linebreakDetection.ts:49` before scanning, so deriving from canonical text gives the same answer as deriving from raw bytes |
-| `lineEnding` | **No** — becomes `unknown` | the payload is canonical LF text; the source file's CRLF is unrecoverable from it |
-| `hasBom` | **No** — becomes `false` | derived from canonical content, which never has one |
-| `lastDiskContent` | **No** — set to the canonical text | so the next external-change compare is against the wrong domain |
+| `hardBreakStyle` | **Yes** | `detectHardBreakStyle` normalises EOLs (`linebreakDetection.ts:49`) before scanning, so deriving from canonical text gives the same answer as from raw bytes |
+| `lineEnding` | **No** — became `unknown` | the payload is canonical LF text; the file's CRLF is unrecoverable from it |
+| `hasBom` | **No** — became `false` | derived from canonical content, which never has one |
+| `lastDiskContent` | **No** — set to canonical text | so the next external-change compare ran against the wrong domain |
 
-Consequence: move a CRLF+BOM file to another window, save it, and the file
-is rewritten LF and BOM-less under `preserve`. `resolveHardBreakStyle` used to
-compound this by turning `unknown` into `twoSpaces` (`utils/linebreaks.ts:41`);
-that half is closed.
+Consequence: a CRLF+BOM file moved between windows was rewritten LF and
+BOM-less on its first save under `preserve` — the setting whose whole promise
+is that it does not do that.
 
-The fix is NOT a store-local change, which is why it is here and not a tail on
-the audit round:
+What shipped:
 
-- [ ] add `lineEnding` / `hardBreakStyle` / `hasBom` / `lastDiskContent` to
-      `TabTransferPayload` **and** to its serde mirrors in
-      `src-tauri/src/tab_transfer.rs` and `src-tauri/src/workspace_transfer.rs`;
-- [ ] populate at both send sites (`useTabContextMenuActions.ts:126`,
-      `tabTransferActions.ts:172`);
-- [ ] apply at all three receive sites (`tabTransferHandlers.ts:72`,
-      `tabTransferActions.ts:113`, `workspaceWindowActions.ts:111`) — which
-      means replacing `initDocument`'s fourth `savedContent?: string` parameter
-      with an explicit structure, since the same overload is what let the raw
-      and canonical domains blur here in the first place;
-- [ ] round-trip test: a CRLF+BOM document moved between windows and saved
-      under `preserve` is byte-identical to what it was — the same assertion
-      `ingestMatrix.test.ts` already makes for every other origin.
+- [x] `lineEnding` / `hardBreakStyle` / `hasBom` / `lastDiskContent` added to
+      `TabTransferPayload` and to both serde mirrors
+      (`tab_transfer.rs`, `workspace_transfer.rs`). All optional: a payload from
+      an older build has none and the receiver falls back to detection, exactly
+      as before.
+- [x] populated at both send sites, through ONE shared
+      `buildTransferDocumentFields` — they had built the payload by hand and
+      were free to diverge, which is how the metadata came to be missing from
+      both at once.
+- [x] applied at all three receive sites, with `initDocument`'s fourth
+      parameter replaced by an explicit `DocumentRestoreState`. **This
+      prediction held**: the bare `savedContent?: string` was exactly what let
+      the canonical and raw domains blur, and it had nowhere to put metadata —
+      the overload is why the bug had no home to be fixed in.
+- [x] byte round-trip test. Proved RED: LF survives either way, but CRLF,
+      CRLF+BOM, LF+BOM and the raw disk snapshot all fail without the fix.
 
-Until it lands, `initDocument` deliberately reports `lineEnding: "unknown"`
-rather than deriving `"lf"` from the canonical payload: unknown lets the
-save-time resolver apply the user's setting, whereas `"lf"` would assert a
-convention the file never had. That asymmetry is a stopgap with a comment, not
-the design.
+**Two things the plan did not predict**, both worth carrying forward:
+
+1. `initDocument` failed DEEP rather than loudly when handed the old string
+   shape — an opaque "cannot read .includes of undefined" from inside
+   `ingestExternalText`. TypeScript covers real callers but not mocks, `as
+   never` casts or JS. `assertRestoreState` now names the migration at the
+   boundary. Any future narrowing of a public signature should assume the same.
+2. Adding fields to a Rust struct broke a test that builds it by LITERAL, and
+   the local toolchain could not compile at the time (`libsqlite3-sys` needed a
+   newer rustc than 1.92.0). Updating to 1.97.1 made the whole crate verifiable
+   and immediately exposed the break. Deferring verification to CI would have
+   shipped a red build.
 
 ## Prior art in this repo
 
