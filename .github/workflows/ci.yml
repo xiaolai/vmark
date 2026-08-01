@@ -61,18 +61,53 @@ jobs:
 
       - run: pnpm check:all
 
+  # Real-WebKit tier. `pnpm check:all` is jsdom-only, and the difference is not
+  # cosmetic: real WebKit drains a microtask BETWEEN capture listeners and jsdom
+  # does not, which is the premise the whole CJK IME composition gate rests on
+  # (issues #1176 / #1179, fixed twice in one week with no automated gate
+  # watching). Separate job because it must NOT inherit src/test/setup.ts.
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # --with-deps pulls the system libraries WebKit needs on a bare runner.
+      # The local `test:browser:install` script omits them: macOS has them and
+      # asking for sudo on a dev machine is worse than a clear error.
+      - name: Install WebKit
+        run: pnpm exec playwright install --with-deps webkit
+
+      - run: pnpm exec vitest run --config vitest.browser.config.ts
+
   # Gate job: required by branch protection (exact name "frontend")
   frontend:
     if: always()
-    needs: [frontend-run]
+    needs: [frontend-run, webkit]
     runs-on: ubuntu-latest
     steps:
       - name: Check result
         env:
           RESULT: ${{ needs.frontend-run.result }}
+          WEBKIT: ${{ needs.webkit.result }}
         run: |
           if [ "$RESULT" != "success" ]; then
             echo "frontend-run: $RESULT"
+            exit 1
+          fi
+          if [ "$WEBKIT" != "success" ]; then
+            echo "webkit: $WEBKIT"
             exit 1
           fi
 
