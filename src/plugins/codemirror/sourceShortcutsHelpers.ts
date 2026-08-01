@@ -19,39 +19,9 @@
 
 import type { EditorView } from "@codemirror/view";
 import { useUIStore } from "@/stores/uiStore";
-import { useEditorStore } from "@/stores/editorStore";
-import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
-import { getSourceMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
 import { exportError } from "@/utils/debug";
 
-/** Internal: shared by the surviving helpers, not a public API. */
-function buildSourceContext(view: EditorView) {
-  const cursorContext = useEditorStore.getState().source.context;
-  const multiSelection = getSourceMultiSelectionContext(view, cursorContext);
-  return {
-    surface: "source" as const,
-    view,
-    context: cursorContext,
-    multiSelection,
-  };
-}
 
-/**
- * A CodeMirror command running a toolbar action directly on the source adapter.
- *
- * DELIBERATELY UNUSED by production. It bypasses the executor's format and
- * capability gates, unified cross-mode undo, and IME-safe dispatch, so a
- * keystroke bound through here would not match the same action invoked from
- * the menu. `unlink` was the last such binding, until `editor.unlink` existed
- * (WI-2.1). Kept as the named adapter entry point, and gated so a new caller
- * has to argue for itself.
- */
-export function runSourceAction(action: string) {
-  return (view: EditorView) => {
-    performSourceToolbarAction(action, buildSourceContext(view));
-    return true;
-  };
-}
 
 // --- Navigation helpers (no document mutation) ---
 

@@ -46,9 +46,19 @@ export interface CodeFenceInfo {
   startLine: number;
   /**
    * Line number of the closing fence (1-indexed), or the last document line
-   * if the fence is unterminated.
+   * if the fence is unterminated. Read WITH `closed` — the two meanings are
+   * different lines and consumers that assumed the first lost content.
    */
   endLine: number;
+  /**
+   * Whether a closing fence was found.
+   *
+   * `endLine` alone conflated "the closer" with "the end of the document", so
+   * a consumer computing content as `startLine+1 .. endLine-1` dropped the
+   * final line of every unterminated fence, and returned nothing at all for a
+   * one-line one.
+   */
+  closed: boolean;
   /** Document position of the opening fence characters */
   fenceStartPos: number;
   /** Document position where the language token starts */
@@ -110,7 +120,8 @@ function buildInfo(
   opener: FenceOpener,
   startLine: number,
   openerLineFrom: number,
-  endLine: number
+  endLine: number,
+  closed: boolean
 ): CodeFenceInfo {
   const infoMatch = opener.info.match(INFO_LANGUAGE_PATTERN);
   /* v8 ignore next 2 -- @preserve reason: pattern has no mandatory chars, always matches */
@@ -124,6 +135,7 @@ function buildInfo(
     language,
     startLine,
     endLine,
+    closed,
     fenceStartPos,
     languageStartPos,
     languageEndPos: languageStartPos + language.length,
@@ -159,7 +171,7 @@ export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceIn
       if (isFenceCloser(line.text, opener)) {
         if (lineNum === cursorLineNum) {
           // Cursor sits on the closing fence line — counts as inside.
-          return buildInfo(opener, openerLineNum, openerLineFrom, lineNum);
+          return buildInfo(opener, openerLineNum, openerLineFrom, lineNum, true);
         }
         opener = null;
       }
@@ -181,7 +193,7 @@ export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceIn
   // (Lines between the opener and the cursor were already ruled out above.)
   for (let lineNum = cursorLineNum + 1; lineNum <= doc.lines; lineNum++) {
     if (isFenceCloser(doc.line(lineNum).text, opener)) {
-      return buildInfo(opener, openerLineNum, openerLineFrom, lineNum);
+      return buildInfo(opener, openerLineNum, openerLineFrom, lineNum, true);
     }
   }
 
@@ -191,5 +203,5 @@ export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceIn
   if (cursorLineNum === openerLineNum) {
     return null;
   }
-  return buildInfo(opener, openerLineNum, openerLineFrom, doc.lines);
+  return buildInfo(opener, openerLineNum, openerLineFrom, doc.lines, false);
 }
