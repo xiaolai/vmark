@@ -152,13 +152,13 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     case "insertAlertCaution":
       return handleInsertAlert(view, action);
     case "insertMath":
-      return handleBuildInsert(view, buildMathBlock);
+      return handleBuildInsert(view, buildMathBlock, true);
     case "insertDiagram":
-      return handleBuildInsert(view, buildDiagramBlock);
+      return handleBuildInsert(view, buildDiagramBlock, true);
     case "insertGraphvizDiagram":
-      return handleBuildInsert(view, buildGraphvizBlock);
+      return handleBuildInsert(view, buildGraphvizBlock, true);
     case "insertMarkmap":
-      return handleBuildInsert(view, buildMarkmapBlock);
+      return handleBuildInsert(view, buildMarkmapBlock, true);
     case "insertInlineMath":
       return insertInlineMath(view);
 

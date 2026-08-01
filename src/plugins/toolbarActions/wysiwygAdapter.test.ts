@@ -72,11 +72,11 @@ vi.mock("./wysiwygAdapterInsert", () => ({
   handleInsertImage: vi.fn(() => true),
   handleInsertVideo: vi.fn(() => true),
   handleInsertAudio: vi.fn(() => true),
-  insertMathBlock: vi.fn(() => true),
-  insertDiagramBlock: vi.fn(() => true),
-  insertGraphvizBlock: vi.fn(() => true),
-  insertMarkmapBlock: vi.fn(() => true),
   insertInlineMath: vi.fn(() => true),
+}));
+vi.mock("./wysiwygAdapterBlockInsert", () => ({  // own module since the parity fixes
+  insertMathBlock: vi.fn(() => true), insertDiagramBlock: vi.fn(() => true),
+  insertGraphvizBlock: vi.fn(() => true), insertMarkmapBlock: vi.fn(() => true),
 }));
 vi.mock("./wysiwygAdapterCodeBlock", () => ({
   handleInsertCodeBlock: vi.fn(() => true),
@@ -245,7 +245,7 @@ describe("performWysiwygToolbarAction", () => {
   });
 
   it("delegates insertGraphvizDiagram to insertGraphvizBlock", async () => {
-    const { insertGraphvizBlock } = await import("./wysiwygAdapterInsert");
+    const { insertGraphvizBlock } = await import("./wysiwygAdapterBlockInsert");
     const context = { ...baseContext, editor: createMockEditor() };
     const result = performWysiwygToolbarAction("insertGraphvizDiagram", context);
     expect(result).toBe(true);
