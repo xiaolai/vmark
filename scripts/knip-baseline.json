@@ -1,0 +1,9 @@
+{
+  "//": "Warn-tier knip findings, frozen. These six families run at `warn` in knip.json, so knip exits 0 and 78 findings were printing inside a green check:all with nothing stopping a 79th. Ratchets DOWN only \u2014 see scripts/check-knip-baseline.mjs. Delete dead code and lower the number; never raise it.",
+  "exports": 17,
+  "nsExports": 0,
+  "types": 61,
+  "nsTypes": 0,
+  "duplicates": 0,
+  "enumMembers": 0
+}
