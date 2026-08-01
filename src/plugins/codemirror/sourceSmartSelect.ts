@@ -20,6 +20,10 @@
  *     identical for a selection dragged either way, so restoring from it put
  *     the caret at the wrong end.
  *
+ * Expansion is judged against the WHOLE selection, not its main range: with a
+ * cursor outside the enclosing block, selecting that block would shrink the
+ * selection rather than grow it, so expansion goes straight to the document.
+ *
  * @coordinates-with plugins/codemirror/sourceShortcuts.ts — installs these
  * @coordinates-with sourceContextDetection/* — the block detectors
  * @module plugins/codemirror/sourceSmartSelect
@@ -146,7 +150,18 @@ export function addSmartSelectBindings(bindings: KeyBinding[]): void {
         // block but runs past it was previously pulled back to the block —
         // expansion running backwards, the same defect as the third press but
         // reachable on the first.
-        const blockWouldShrink = from < blockBounds.from || to > blockBounds.to;
+        // Across the WHOLE selection, not just its main range: with a second
+        // cursor outside the block, selecting the block collapsed everything
+        // to it — shrinking the selection while claiming to expand it.
+        const selectionSpan = view.state.selection.ranges.reduce(
+          (span, range) => ({
+            from: Math.min(span.from, range.from),
+            to: Math.max(span.to, range.to),
+          }),
+          { from: Infinity, to: -Infinity }
+        );
+        const blockWouldShrink =
+          selectionSpan.from < blockBounds.from || selectionSpan.to > blockBounds.to;
         if ((from === blockBounds.from && to === blockBounds.to) || blockWouldShrink) {
           sourceSelectUndoState.delete(view);
           view.dispatch({ selection: { anchor: 0, head: docLen } });

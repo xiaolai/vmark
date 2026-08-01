@@ -216,9 +216,12 @@ describe("expansion never shrinks, and undo never outlives its document", () => 
         extensions: [EditorState.allowMultipleSelections.of(true)],
       }),
     });
+    // BOTH cursors inside the fence, or the selection SPAN extends past the
+    // block and expansion correctly goes straight to the whole document
+    // instead of storing an undo record.
     view.dispatch({
       selection: EditorSelection.create(
-        [EditorSelection.range(8, 10), EditorSelection.range(30, 33)],
+        [EditorSelection.range(7, 9), EditorSelection.range(12, 15)],
         0
       ),
     });
@@ -227,7 +230,32 @@ describe("expansion never shrinks, and undo never outlives its document", () => 
 
     const restored = view.state.selection;
     expect(restored.ranges).toHaveLength(2);
-    expect([restored.ranges[0].from, restored.ranges[0].to]).toEqual([8, 10]);
-    expect([restored.ranges[1].from, restored.ranges[1].to]).toEqual([30, 33]);
+    expect([restored.ranges[0].from, restored.ranges[0].to]).toEqual([7, 9]);
+    expect([restored.ranges[1].from, restored.ranges[1].to]).toEqual([12, 15]);
+  });
+});
+
+describe("expansion considers EVERY cursor, not just the main range", () => {
+  it("a secondary cursor outside the block prevents collapsing onto it", () => {
+    // The containment check read `selection.main` alone, so a second cursor in
+    // the trailing prose was swallowed when the main range sat in the fence —
+    // shrinking the overall selection while claiming to expand it.
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+      }),
+    });
+    view.dispatch({
+      selection: EditorSelection.create(
+        [EditorSelection.range(8, 10), EditorSelection.range(30, 33)],
+        0
+      ),
+    });
+
+    runFor("Mod-a")(view);
+
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(view.state.doc.length);
   });
 });

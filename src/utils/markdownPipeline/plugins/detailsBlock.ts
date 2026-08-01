@@ -19,6 +19,10 @@
  *   - Summary text defaults to "Details" when no `<summary>` tag is present
  *   - Serialization escapes HTML in summary text to prevent injection
  *
+ * The `<details>` TAG grammar — matching tags, reading attributes — lives in
+ * `detailsTags.ts`. This file deals in mdast nodes.
+ *
+ * @coordinates-with utils/markdownPipeline/plugins/detailsTags.ts — the tag grammar
  * @coordinates-with mdastBlockConverters.ts — convertDetails creates PM nodes from Details MDAST
  * @coordinates-with pmBlockConverters.ts — convertDetailsBlock creates Details MDAST from PM
  * @coordinates-with inlineParser.ts — parses inline markdown within summary text
@@ -30,6 +34,15 @@ import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import type { Details } from "../types";
 import { getDetailsBodyParser } from "./detailsBodyParser";
+import {
+  DETAILS_OPEN_RE,
+  DETAILS_CLOSE_RE,
+  SUMMARY_RE,
+  isDetailsOpen,
+  isDetailsClose,
+  hasOpenAttribute,
+  parseDetailsOpen,
+} from "./detailsTags";
 import { originWithin, rebasePositions, type RebaseOrigin } from "./rebasePositions";
 import { detailsHandler, type DetailsHandlerState } from "./detailsSerializer";
 
@@ -44,10 +57,6 @@ type DetailsHandler = (
   info: { before: string; after: string }
 ) => string;
 
-
-const DETAILS_OPEN_RE = /<details\b[^>]*>/i;
-const DETAILS_CLOSE_RE = /<\/details>/i;
-const SUMMARY_RE = /<summary>([\s\S]*?)<\/summary>/i;
 
 /**
  * Type guard to check if a node has children property.
@@ -141,7 +150,12 @@ function transformDetailsBlocks(children: Content[]): Content[] {
     }
 
     const { summary, children: bodyChildren } = extractSummaryFromChildren(inner);
-    const nestedChildren = transformDetailsBlocks(bodyChildren);
+    // Content the opening html node swallowed leads the body — it appeared
+    // BEFORE everything in `inner`, so it must stay first.
+    const nestedChildren = [
+      ...(openInfo.residue ? parseDetailsBody(openInfo.residue) : []),
+      ...transformDetailsBlocks(bodyChildren),
+    ];
     result.push({
       type: "details",
       open: openInfo.open,
@@ -151,37 +165,6 @@ function transformDetailsBlocks(children: Content[]): Content[] {
   }
 
   return result;
-}
-
-function isDetailsOpen(value: string): boolean {
-  return DETAILS_OPEN_RE.test(value);
-}
-
-function isDetailsClose(value: string): boolean {
-  return DETAILS_CLOSE_RE.test(value.trim());
-}
-
-/**
- * Whether the opening tag carries a real `open` ATTRIBUTE.
- *
- * `/\bopen\b/i` over the whole value matched `data-open="false"` and
- * `data-state="open"` — an attribute NAME and a VALUE, neither of which opens
- * anything — so a collapsed block rendered expanded. The attribute list is
- * isolated first, then matched on attribute boundaries.
- */
-function hasOpenAttribute(value: string): boolean {
-  const tag = /<details\b([^>]*)>/i.exec(value);
-  if (!tag) return false;
-  // Drop quoted values, so `data-state="open"` cannot contribute a match.
-  const attributes = tag[1].replace(/=\s*("[^"]*"|'[^']*')/g, "=");
-  return /(?:^|\s)open(?:\s|=|$)/i.test(attributes);
-}
-
-function parseDetailsOpen(value: string): { open: boolean; summary: string } {
-  const open = hasOpenAttribute(value);
-  const summaryMatch = value.match(SUMMARY_RE);
-  const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
-  return { open, summary };
 }
 
 function parseDetailsHtmlBlock(
@@ -208,7 +191,9 @@ function parseDetailsHtmlBlock(
   }
 
   const openTag = openTagMatch[0];
-  const open = /\bopen\b/i.test(openTag);
+  // The SAME attribute parser as the multi-node path. This branch kept the old
+  // broad match, so `data-open="false"` still opened a compact block.
+  const open = hasOpenAttribute(openTag);
   const summaryMatch = value.match(SUMMARY_RE);
   // v8 ignore next -- @preserve reason: summaryMatch?.[1] is a string when the regex matches; the ?? "Details" right-hand branch triggers only when summaryMatch is null (no <summary> tag in single-block HTML), a rare path
   const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
@@ -256,7 +241,9 @@ function extractSummaryFromChildren(
   // summary, the nested block and its content were DISCARDED. Measured: an
   // outer block titled "Outer" came back titled "Inner" with no children.
   const value = first.value ?? "";
-  if (!/^\s*<summary>/i.test(value)) {
+  // Whitespace and HTML COMMENTS may precede the summary — a comment is not
+  // content, and rejecting it discarded a legitimate summary.
+  if (!/^(?:\s|<!--[\s\S]*?-->)*<summary>/i.test(value)) {
     return { children };
   }
 

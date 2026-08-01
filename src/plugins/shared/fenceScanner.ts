@@ -19,6 +19,10 @@
  * PARAMETERS now: `FenceIndentPolicy`, and the opener `info`/`markerOffset`
  * carried on each range.
  *
+ * The closing-fence indent rule is ABSOLUTE under `commonmark` (0-3 columns
+ * from the container's content column) and RELATIVE under `deep-indent`, whose
+ * input already has container prefixes stripped.
+ *
  * @coordinates-with sourceContextDetection/codeFenceDetection.ts — positions
  * @coordinates-with sourceContextDetection/__tests__/fenceGrammarAgreement.test.ts
  * @module plugins/shared/fenceScanner
@@ -235,13 +239,22 @@ export function fenceRanges(
       // opening a fence paired with EACH OTHER, so the second item's code was
       // classified as prose and lost every guard.
       !delimiter.startsListItem &&
-      // Indent must be COMPATIBLE. Under `deep-indent` the extra indentation
-      // stands in for a container the line-based parser cannot see, so it has
-      // to constrain pairing the way `quoteDepth` does — otherwise an
-      // unindented opener was closed by a four-space line that is really
-      // indented code, ending the fence early and leaving the rest of the
-      // block unprotected. CommonMark's own 0-3 tolerance is the window.
-      Math.abs(delimiter.indent - opener.indent) <= 3 &&
+      // Indent must be COMPATIBLE, and the rule is ABSOLUTE, not relative.
+      //
+      // `Math.abs(delimiter.indent - opener.indent) <= 3` looked like
+      // CommonMark's 0-3 tolerance but measured the wrong thing: an opener at
+      // indent 1 with a closer at indent 4 differs by 3 and closed here, while
+      // CommonMark reads that closer as indented code and leaves the fence
+      // OPEN. Closing early is the dangerous direction — the rest of the code
+      // block loses every guard. CommonMark §119: a closing fence "may be
+      // indented up to three spaces", measured from the container's content
+      // column, which is what `indent` already is once the prefix is consumed.
+      //
+      // Under `deep-indent` the extra indentation stands in for a container the
+      // line-based scanner cannot see, so it keeps the relative window.
+      (indentPolicy === "commonmark"
+        ? delimiter.indent <= 3
+        : Math.abs(delimiter.indent - opener.indent) <= 3) &&
       // Same CONTAINER: a fence opened inside a blockquote is not closed by a
       // delimiter outside it. Capturing the prefix and then ignoring it paired
       // `> \`\`\`` with a bare \`\`\`, so the real fenced code after it was
