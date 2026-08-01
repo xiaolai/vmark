@@ -1,3 +1,4 @@
+// WI-12.4 — visible reorder translation tests
 import { describe, expect, it } from "vitest";
 import type { Tab } from "@/stores/tabStore";
 import {
@@ -5,6 +6,7 @@ import {
   normalizeInsertionIndex,
   planDocumentReorder,
   planReorder,
+  translateVisibleIndexToFlat,
 } from "./tabDragRules";
 
 function createTab(id: string, isPinned = false): Tab {
@@ -133,5 +135,27 @@ describe("planDocumentReorder (document-space drop → flat store index)", () =>
     const plan = planDocumentReorder(flat, "d1", 0);
     expect(plan.allowed).toBe(false);
     expect(plan.blockedReason).toBe("pinned-zone");
+  });
+});
+
+// WI-12.4 — visible→flat translation preserves hidden tabs' positions.
+describe("translateVisibleIndexToFlat", () => {
+  const doc = (id: string): Tab =>
+    ({ id, kind: "document", filePath: `/${id}.md`, title: id, isPinned: false }) as Tab;
+
+  it("maps visible indices to flat positions across interleaved hidden tabs", () => {
+    const hidden1 = doc("hidden-1");
+    const a = doc("a");
+    const hidden2 = doc("hidden-2");
+    const b = doc("b");
+    const raw = [hidden1, a, hidden2, b];
+    const visible = [a, b];
+
+    expect(translateVisibleIndexToFlat(raw, visible, 0)).toBe(1);
+    expect(translateVisibleIndexToFlat(raw, visible, 1)).toBe(3);
+  });
+
+  it("returns -1 for an out-of-range visible index", () => {
+    expect(translateVisibleIndexToFlat([doc("a")], [doc("a")], 5)).toBe(-1);
   });
 });

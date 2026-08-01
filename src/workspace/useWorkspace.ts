@@ -19,6 +19,7 @@
 
 import { useContext } from "react";
 import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useVisibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { useRecentFilesStore, type RecentFile } from "@/stores/workspaceStore";
 import { useRecentWorkspacesStore, type RecentWorkspace } from "@/stores/workspaceStore";
@@ -51,8 +52,6 @@ export interface WorkspaceView {
  *
  * Mutations: call the store actions or the command bus directly.
  */
-const EMPTY_TABS: Tab[] = [];
-
 export function useWorkspace(): WorkspaceView {
   // Tolerate missing WindowProvider — tests that render isolated UI
   // surfaces shouldn't be forced to wrap in WindowProvider. Defaults
@@ -64,8 +63,10 @@ export function useWorkspace(): WorkspaceView {
   const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
   const config = useWorkspaceStore((s) => s.config);
 
-  // Stable empty-array reference avoids infinite re-render when tabs are absent.
-  const openTabs = useTabStore((s) => s.tabs[windowLabel] ?? EMPTY_TABS);
+  // WI-12.1: `openTabs` is a VIEW API — the visible projection (active
+  // instance + browser tabs). Operational consumers that must see every tab
+  // use `allWindowTabs` (hooks/useVisibleWindowTabs) instead.
+  const openTabs = useVisibleWindowTabs(windowLabel);
   const activeTabId = useTabStore((s) => s.activeTabId[windowLabel] ?? null);
   const activeTab = openTabs.find((t: Tab) => t.id === activeTabId) ?? null;
 

@@ -68,6 +68,9 @@ fn make_window(label: &str, tab_ids: &[&str], active: Option<&str>) -> WindowSta
         workspace_instance_ids: Vec::new(),
         active_workspace_instance_id: None,
         workspace_instances: Vec::new(),
+        ui_state_by_instance: None,
+        closed_tab_scopes: None,
+        browser_session: None,
     }
 }
 

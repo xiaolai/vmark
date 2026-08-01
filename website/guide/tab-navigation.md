@@ -2,6 +2,8 @@
 
 VMark's Tab and Shift+Tab keys are context-aware — they help you navigate efficiently through formatted text, brackets, and links without reaching for arrow keys.
 
+> With the experimental [workspace rail](/guide/workspace-rail), tab cycling and the tab strip cover only the active workspace's tabs.
+
 ## Quick Overview
 
 | Context | Tab Action | Shift+Tab Action |

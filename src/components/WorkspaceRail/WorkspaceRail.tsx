@@ -9,6 +9,7 @@ import {
 } from "@/services/workspaces/workspaceWindowActions";
 import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
+import { switchWorkspaceInstance } from "@/services/workspaces/switchWorkspaceInstance";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import { closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
@@ -145,9 +146,9 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                   void handleMoveWorkspace(windowLabel, instanceId, t);
                 }}
                 onClick={() =>
-                  useWorkspaceInstancesStore
-                    .getState()
-                    .activateWorkspaceInstance(windowLabel, instanceId)
+                  // WI-3R: the FULL context switch (stash outgoing, restore
+                  // incoming tabs/panes, sidebar re-root) — not a raw flip.
+                  switchWorkspaceInstance(windowLabel, instanceId)
                 }
                 onContextMenu={(event) => {
                   event.preventDefault();

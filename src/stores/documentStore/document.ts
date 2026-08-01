@@ -29,6 +29,7 @@ import { applyTransferLineMetadata } from "@/utils/transferLineMetadata";
 import type { DocumentRestoreState, DocumentState, SaveSnapshots } from "./documentState";
 import {
   assertCanonicalEditorText,
+  assertRestoreState,
   buildPostSaveState,
   createInitialDocument,
   updateDoc,
@@ -162,6 +163,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }
     const doc = createInitialDocument(content, filePath);
     if (restore) {
+      assertRestoreState(restore);
       // Both sides through the same boundary before comparing — a raw
       // `savedContent` reported every CRLF or BOM'd document dirty on open.
       const canonicalSaved = ingestExternalText(restore.savedContent).canonicalEditorText;

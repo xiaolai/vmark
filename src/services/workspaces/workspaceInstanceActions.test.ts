@@ -4,7 +4,11 @@ import {
   selectWindowWorkspaceState,
   useWorkspaceInstancesStore,
 } from "@/stores/workspaceInstancesStore";
-import { openOrActivateWorkspaceInstance } from "./workspaceInstanceActions";
+import {
+  openOrActivateWorkspaceInstance,
+  resolveStableRootPath,
+} from "./workspaceInstanceActions";
+import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 
 function setRailMode(enabled: boolean): void {
   useSettingsStore.setState({
@@ -93,5 +97,51 @@ describe("openOrActivateWorkspaceInstance", () => {
 
     expect(openOrActivateWorkspaceInstance("", { windowLabel: "main" })).toBeNull();
     expect(selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")).toBeNull();
+  });
+});
+
+// WI-17.2 — per-instance config I/O must address the instance's STORED root
+// spelling, never a user-supplied variant (workspace.rs hashes the exact
+// string, so c:\repo and C:\Repo would address different config files).
+describe("resolveStableRootPath", () => {
+  function addInstance(rootPath: string, platform: "macos" | "windows" | "linux"): void {
+    const root = createWorkspaceRootIdentity(rootPath, { platform });
+    if (!root.ok) throw new Error("test root should be valid");
+    useWorkspaceInstancesStore.getState().addWorkspaceInstance(
+      createWorkspaceInstance({
+        workspaceInstanceId: `wsi-${rootPath}`,
+        root: root.root,
+        ownerWindowLabel: "main",
+        createdFrom: "open",
+      }),
+    );
+  }
+
+  it("windows: returns the stored spelling for a same-identity variant", () => {
+    setRailMode(true);
+    addInstance("C:\\Repo", "windows");
+
+    expect(resolveStableRootPath("main", "c:/repo", "windows")).toBe("C:\\Repo");
+  });
+
+  it("returns the input unchanged when no window instance matches", () => {
+    setRailMode(true);
+    addInstance("C:\\Repo", "windows");
+
+    expect(resolveStableRootPath("main", "D:\\Other", "windows")).toBe("D:\\Other");
+  });
+
+  it("macos: alternate casing is a different identity — input unchanged", () => {
+    setRailMode(true);
+    addInstance("/Users/me/Repo", "macos");
+
+    expect(resolveStableRootPath("main", "/users/me/repo", "macos")).toBe("/users/me/repo");
+  });
+
+  it("returns the input unchanged for an unknown window", () => {
+    setRailMode(true);
+    addInstance("C:\\Repo", "windows");
+
+    expect(resolveStableRootPath("ghost", "c:/repo", "windows")).toBe("c:/repo");
   });
 });

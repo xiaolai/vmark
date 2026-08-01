@@ -18,8 +18,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { useTabStore } from "@/stores/tabStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { activateTabWithWorkspaceContext } from "@/services/workspaces/activateTabWithWorkspaceContext";
 import { replaceTabWithFile } from "@/services/navigation/replaceTabWithFile";
 import { fileOpsError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -59,7 +59,10 @@ export async function executeOpenDecision(
 ): Promise<void> {
   switch (decision.action) {
     case "activate_tab":
-      useTabStore.getState().setActiveTab(windowLabel, decision.tabId);
+      // WI-12.2 (from main): ownership-aware — the visible workspace follows
+      // the tab's owner. A plain setActiveTab leaves the sidebar on the
+      // previous workspace while the editor shows a file from another one.
+      activateTabWithWorkspaceContext(windowLabel, decision.tabId);
       perfMark("handleOpen:activatedTab");
       break;
     case "create_tab":

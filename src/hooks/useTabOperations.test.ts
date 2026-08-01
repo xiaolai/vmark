@@ -6,15 +6,38 @@ import { message, save } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { invoke } from "@tauri-apps/api/core";
 import { saveToPath } from "@/services/persistence/saveToPath";
+import type { OrphanCleanupResult, OrphanedImage } from "@/services/media/orphanAssetCleanup";
 
 vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 
 vi.mock("@/services/media/orphanAssetCleanup", () => ({
-  findOrphanedImages: vi.fn().mockResolvedValue({ orphanedImages: [], referencedImages: [] }),
-  deleteOrphanedImages: vi.fn().mockResolvedValue(undefined),
+  findOrphanedImages: vi.fn(),
+  deleteOrphanedImages: vi.fn(),
 }));
+
+/**
+ * Build a real OrphanCleanupResult. The old inline mocks returned a
+ * `referencedImages` field that does not exist and plain strings where
+ * OrphanedImage objects belong, so the destructive boundary was asserted
+ * against a contract production could never produce.
+ */
+function scanResult(over: Partial<OrphanCleanupResult> = {}): OrphanCleanupResult {
+  return {
+    orphanedImages: [],
+    referencedCount: 0,
+    sharedCount: 0,
+    totalInFolder: 0,
+    scanComplete: true,
+    ...over,
+  };
+}
+
+const orphan = (filename: string): OrphanedImage => ({
+  filename,
+  fullPath: `/tmp/assets/images/${filename}`,
+});
 
 const WINDOW_LABEL = "main";
 
@@ -27,6 +50,9 @@ function resetStores() {
     docState.removeDocument(id);
   });
 }
+
+/** WI-1.4 dual snapshot: one string let the store assume disk held LF text. */
+const saveSnapshots = (c: string) => ({ editorSnapshot: c, diskSnapshot: c });
 
 describe("closeTabWithDirtyCheck", () => {
   beforeEach(() => {
@@ -112,9 +138,14 @@ describe("closeTabWithDirtyCheck", () => {
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
-    // message() returns 'Yes' when user clicks "Save"
+    // message() returns 'Yes' when user clicks "Save". The mock must mirror
+    // the real saveToPath (markSaved), or the revalidation loop correctly
+    // treats the still-dirty doc as an unresolved save and re-prompts.
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockResolvedValueOnce(true);
+    vi.mocked(saveToPath).mockImplementationOnce(async (id, _p, content) => {
+      useDocumentStore.getState().markSaved(id, saveSnapshots(content));
+      return true;
+    });
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
@@ -138,7 +169,7 @@ describe("closeTabWithDirtyCheck", () => {
     expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
   });
 
-  it("deduplicates concurrent close calls for the same tab (re-entry guard)", async () => {
+  it("concurrent closes share ONE prompt and ONE outcome (WI-7)", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
@@ -153,15 +184,16 @@ describe("closeTabWithDirtyCheck", () => {
     const call1 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
     const call2 = closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
-    // Second call returns immediately (re-entry guard)
-    expect(await call2).toBe(true);
+    // The user cancels — BOTH callers must learn the truth. The old boolean
+    // guard answered `true` to the second caller while the first was still
+    // undecided, so callers acted on a success that never happened.
+    resolveDialog("Cancel");
+    expect(await call1).toBe(false);
+    expect(await call2).toBe(false);
 
-    // message() only called once (not twice)
+    // One prompt, not two
     expect(message).toHaveBeenCalledTimes(1);
-
-    // Resolve the dialog so call1 completes
-    resolveDialog("No");
-    expect(await call1).toBe(true);
+    expect(useTabStore.getState().tabs[WINDOW_LABEL]?.length ?? 0).toBe(1);
   });
 
   it("returns true when tab doesn't exist (already closed)", async () => {
@@ -300,8 +332,11 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     vi.clearAllMocks();
 
     // Reset orphan mock defaults
-    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
-    vi.mocked(findOrphanedImages).mockResolvedValue({ orphanedImages: [], referencedImages: [] });
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    vi.mocked(findOrphanedImages).mockResolvedValue(scanResult());
+    vi.mocked(deleteOrphanedImages).mockResolvedValue({ deleted: 0, failed: [] });
   });
 
   it("runs orphan cleanup for clean tab with cleanupOrphansOnClose enabled", async () => {
@@ -309,10 +344,9 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
     const { findOrphanedImages, deleteOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
-    vi.mocked(findOrphanedImages).mockResolvedValue({
-      orphanedImages: ["/tmp/assets/orphan.png"],
-      referencedImages: [],
-    });
+    vi.mocked(findOrphanedImages).mockResolvedValue(
+      scanResult({ orphanedImages: [orphan("orphan.png")], totalInFolder: 1 }),
+    );
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/test.md");
     useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/other.md");
@@ -322,8 +356,17 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
 
     await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
-    expect(findOrphanedImages).toHaveBeenCalledWith("/tmp/test.md", "hello");
-    expect(deleteOrphanedImages).toHaveBeenCalledWith(["/tmp/assets/orphan.png"]);
+    expect(findOrphanedImages).toHaveBeenCalledWith(
+      "/tmp/test.md",
+      "hello",
+      // The other OPEN tab's live buffer travels with the scan, so its
+      // just-pasted-but-unsaved image cannot be deleted by this close. So do
+      // other WINDOWS' buffers (WI-9).
+      { knownContents: expect.any(Map), externalRefKeys: expect.anything() },
+    );
+    const passed = vi.mocked(findOrphanedImages).mock.calls[0][2]!.knownContents!;
+    expect(passed.get("/tmp/other.md")).toBe("other");
+    expect(deleteOrphanedImages).toHaveBeenCalledWith([orphan("orphan.png")]);
   });
 
   it("silently handles orphan cleanup errors", async () => {
@@ -382,21 +425,23 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
 
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
-    vi.mocked(findOrphanedImages).mockResolvedValue({
-      orphanedImages: [],
-      referencedImages: [],
-    });
+    vi.mocked(findOrphanedImages).mockResolvedValue(scanResult());
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
     useDocumentStore.getState().setContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockResolvedValueOnce(true);
+    // The real saveToPath calls markSaved — mirror it, or the doc stays dirty
+    // and the scan would read the file instead of the freshly saved content.
+    vi.mocked(saveToPath).mockImplementationOnce(async (id, _path, content) => {
+      useDocumentStore.getState().markSaved(id, saveSnapshots(content));
+      return true;
+    });
 
     await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
-    expect(findOrphanedImages).toHaveBeenCalled();
+    expect(findOrphanedImages).toHaveBeenCalledWith("/tmp/dirty.md", "changed", expect.anything());
   });
 
   it("handles savedDoc being null after save (line 134 false branch)", async () => {
@@ -422,9 +467,14 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     expect(findOrphanedImages).not.toHaveBeenCalled();
   });
 
-  it("does NOT run orphan cleanup when dirty tab is discarded", async () => {
+  // Discarding does not make the pasted-then-deleted image any less orphaned —
+  // the file on disk is what survives the close, so it is what we scan (#1179).
+  it("runs orphan cleanup against the ON-DISK content when changes are discarded", async () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
+
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(readTextFile).mockResolvedValue("hello");
 
     const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
 
@@ -435,6 +485,218 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     vi.mocked(message).mockResolvedValueOnce("No");
 
     await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    // "changed" is thrown away — scanning it would delete images the saved file
+    // still references.
+    expect(findOrphanedImages).toHaveBeenCalledWith("/tmp/dirty.md", "hello", expect.anything());
+  });
+
+  it("skips cleanup when the discarded document cannot be re-read from disk", async () => {
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
+
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(readTextFile).mockRejectedValue(new Error("ENOENT"));
+
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
+    useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
+    useDocumentStore.getState().setContent(tabId, "changed");
+
+    vi.mocked(message).mockResolvedValueOnce("No");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
+
+    expect(result).toBe(true);
+    expect(findOrphanedImages).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+});
+
+describe("cleanupOrphansForClosingTabs", () => {
+  beforeEach(async () => {
+    resetStores();
+    vi.clearAllMocks();
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    vi.mocked(findOrphanedImages).mockResolvedValue(scanResult());
+    vi.mocked(deleteOrphanedImages).mockResolvedValue({ deleted: 0, failed: [] });
+  });
+
+  it("cleans every closing tab that has a file", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    const b = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/b.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    useDocumentStore.getState().initDocument(b, "B", "/tmp/b.md");
+
+    await cleanupOrphansForClosingTabs([a, b]);
+
+    // Both live in /tmp, which shares ONE assets folder — so one scan covers
+    // them, carrying both documents' post-close content.
+    expect(findOrphanedImages).toHaveBeenCalledTimes(1);
+    const [, , opts] = vi.mocked(findOrphanedImages).mock.calls[0];
+    expect(opts!.knownContents!.get("/tmp/a.md")).toBe("A");
+    expect(opts!.knownContents!.get("/tmp/b.md")).toBe("B");
+  });
+
+  it("deletes what it finds", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    vi.mocked(findOrphanedImages).mockResolvedValue(
+      scanResult({ orphanedImages: [orphan("orphan.png")], totalInFolder: 1 }),
+    );
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(deleteOrphanedImages).toHaveBeenCalledWith([orphan("orphan.png")]);
+  });
+
+  it("ignores tabs with no document and unsaved tabs", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    const untitled = useTabStore.getState().createTab(WINDOW_LABEL, null);
+    useDocumentStore.getState().initDocument(untitled, "draft", null);
+
+    await cleanupOrphansForClosingTabs([untitled, "no-such-tab"]);
+
+    expect(findOrphanedImages).not.toHaveBeenCalled();
+  });
+
+  it("does not reject when one tab's cleanup fails", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    vi.mocked(findOrphanedImages).mockRejectedValue(new Error("fs error"));
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(cleanupOrphansForClosingTabs([a])).resolves.toBeUndefined();
+    errorSpy.mockRestore();
+  });
+
+  it("scans once per assets DIRECTORY, not once per tab", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    // Three docs, two directories → two scans. Per-tab scanning would re-list
+    // the shared folder and re-read every neighbour once per tab.
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    const b = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/b.md");
+    const c = useTabStore.getState().createTab(WINDOW_LABEL, "/other/c.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    useDocumentStore.getState().initDocument(b, "B", "/tmp/b.md");
+    useDocumentStore.getState().initDocument(c, "C", "/other/c.md");
+
+    await cleanupOrphansForClosingTabs([a, b, c]);
+
+    expect(findOrphanedImages).toHaveBeenCalledTimes(2);
+    const dirs = vi.mocked(findOrphanedImages).mock.calls.map((call) => call[0]);
+    expect(dirs).toEqual(["/tmp/a.md", "/other/c.md"]);
+  });
+
+  // The scan protects siblings by reading them from DISK. A tab that just
+  // pasted an image references it only in its unsaved buffer, so closing a
+  // neighbour would have deleted a picture still on screen.
+  it("carries the live buffer of every tab that is NOT closing", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    const closing = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/closing.md");
+    const staying = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/staying.md");
+    useDocumentStore.getState().initDocument(closing, "bye", "/tmp/closing.md");
+    useDocumentStore.getState().initDocument(staying, "saved", "/tmp/staying.md");
+    useDocumentStore.getState().setContent(staying, "![](./assets/images/just-pasted.png)");
+
+    await cleanupOrphansForClosingTabs([closing]);
+
+    const known = vi.mocked(findOrphanedImages).mock.calls[0][2]!.knownContents!;
+    expect(known.get("/tmp/staying.md")).toBe("![](./assets/images/just-pasted.png)");
+  });
+
+  it("does not treat a closing tab's own buffer as a live sibling", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(readTextFile).mockResolvedValue("on disk");
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "saved", "/tmp/a.md");
+    useDocumentStore.getState().setContent(a, "unsaved edit");
+
+    await cleanupOrphansForClosingTabs([a]);
+
+    // Discarded: the DISK content is what survives and what the scan must use.
+    expect(findOrphanedImages).toHaveBeenCalledWith("/tmp/a.md", "on disk", expect.anything());
+    const known = vi.mocked(findOrphanedImages).mock.calls[0][2]!.knownContents!;
+    expect(known.get("/tmp/a.md")).toBe("on disk");
+  });
+
+  // "Keep my changes" after an external edit leaves the buffer diverged from a
+  // disk file that survives the close — scanning the buffer judges the wrong
+  // set of references even though isDirty is false.
+  it("reads from disk for a divergent document even when it is not dirty", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(readTextFile).mockResolvedValue("![](./assets/images/external.png)");
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "local", "/tmp/a.md");
+    useDocumentStore.getState().markDivergent(a);
+    expect(useDocumentStore.getState().getDocument(a)!.isDirty).toBe(false);
+
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).toHaveBeenCalledWith(
+      "/tmp/a.md",
+      "![](./assets/images/external.png)",
+      expect.anything(),
+    );
+  });
+
+  it("skips a directory whose only closing document could not be re-read", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    vi.mocked(readTextFile).mockRejectedValue(new Error("ENOENT"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "saved", "/tmp/a.md");
+    useDocumentStore.getState().setContent(a, "unsaved");
+
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("does nothing when the setting is off", async () => {
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.setState({ image: { cleanupOrphansOnClose: false } } as never);
+
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+
+    await cleanupOrphansForClosingTabs([a]);
 
     expect(findOrphanedImages).not.toHaveBeenCalled();
   });
@@ -466,5 +728,71 @@ describe("closeTabWithDirtyCheck — browser tabs", () => {
     // There is nothing to save; a save dialog here would be nonsense.
     expect(message).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+// WI-8b — deletion is decided by two scans and their intersection: a reference
+// created while the FIRST scan's file IO ran must survive.
+describe("cleanupOrphansForClosingTabs — re-scan before delete", () => {
+  beforeEach(async () => {
+    resetStores();
+    vi.clearAllMocks();
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.setState({ image: { cleanupOrphansOnClose: true } } as never);
+  });
+
+  it("keeps a file the second scan no longer reports as orphaned", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    const base = { referencedCount: 0, sharedCount: 0, totalInFolder: 1, scanComplete: true };
+    vi.mocked(findOrphanedImages)
+      .mockResolvedValueOnce({
+        ...base,
+        orphanedImages: [{ filename: "x.png", fullPath: "/tmp/assets/images/x.png" }],
+      })
+      // A sibling gained the reference while scan 1 ran.
+      .mockResolvedValueOnce({ ...base, orphanedImages: [] });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).toHaveBeenCalledTimes(2);
+    expect(deleteOrphanedImages).not.toHaveBeenCalled();
+  });
+
+  it("removes only the intersection of the two scans", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages, deleteOrphanedImages } = await import(
+      "@/services/media/orphanAssetCleanup"
+    );
+    const img = (n: string) => ({ filename: n, fullPath: `/tmp/assets/images/${n}` });
+    const base = { referencedCount: 0, sharedCount: 0, totalInFolder: 2, scanComplete: true };
+    vi.mocked(findOrphanedImages)
+      .mockResolvedValueOnce({ ...base, orphanedImages: [img("a.png"), img("b.png")] })
+      .mockResolvedValueOnce({ ...base, orphanedImages: [img("a.png")] });
+    vi.mocked(deleteOrphanedImages).mockResolvedValue({ deleted: 1, failed: [] });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(deleteOrphanedImages).toHaveBeenCalledWith([img("a.png")]);
+  });
+
+  it("skips the second scan entirely when the first finds nothing", async () => {
+    const { cleanupOrphansForClosingTabs } = await import("@/services/media/closeCleanup");
+    const { findOrphanedImages } = await import("@/services/media/orphanAssetCleanup");
+    vi.mocked(findOrphanedImages).mockResolvedValue({
+      orphanedImages: [], referencedCount: 1, sharedCount: 0, totalInFolder: 1, scanComplete: true,
+    });
+
+    const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "A", "/tmp/a.md");
+    await cleanupOrphansForClosingTabs([a]);
+
+    expect(findOrphanedImages).toHaveBeenCalledTimes(1);
   });
 });

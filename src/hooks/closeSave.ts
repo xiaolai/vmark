@@ -12,120 +12,39 @@
  *   - Single-doc prompt returns per-file result; multi-doc prompt returns aggregate
  *   - Save As for untitled docs uses getDefaultSaveFolderWithFallback()
  *   - Never calls store mutations directly — returns result for caller to handle
- *   - Filters come from the registry via `resolveSaveFilters` (localized); the
- *     pre-bootstrap fallback is the SHARED `markdownSaveFilters()`. The local
- *     copy it replaced listed only `.md`, hiding `.mdx` files here alone.
  *
- * @coordinates-with lib/formats/saveFilters.ts — filter resolution
  * @coordinates-with useWindowClose.ts — calls promptSaveForMultipleDocuments
  * @coordinates-with useTabOperations.ts — calls promptSaveForDirtyDocument
  * @module hooks/closeSave
  */
 
-import { message, save, open } from "@tauri-apps/plugin-dialog";
+import { message, save } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import { joinPath, getDirectory } from "@/utils/pathUtils";
-
-/** Context describing a dirty document that may need saving before close. */
-export interface CloseSaveContext {
-  windowLabel: string;
-  tabId: string;
-  title: string;
-  filePath: string | null;
-  content: string;
-}
-
-/** Result of a single-document save prompt: saved (with path), discarded, or cancelled. */
-export type CloseSaveResult =
-  | { action: "saved"; path: string }
-  | { action: "discarded" }
-  | { action: "cancelled" };
-
-/** Result of a multi-document save prompt: all saved, all discarded, or cancelled. */
-export type MultiSaveResult =
-  | { action: "saved-all" }
-  | { action: "discarded-all" }
-  | { action: "cancelled" };
-
-/** Options for multi-document save operations. */
-export interface MultiSaveOptions {
-  /** Called before saving each document, 1-indexed */
-  onProgress?: (current: number, total: number, title: string) => void;
-}
-
-const CLOSE_SAVE_BUTTONS = {
-  save: "Save",
-  dontSave: "Don't Save",
-  cancel: "Cancel",
-} as const;
-
-const MULTI_SAVE_BUTTONS = {
-  saveAll: "Save All",
-  dontSave: "Don't Save",
-  cancel: "Cancel",
-} as const;
-
-// WI-1B.8 — Save dialog filters come per-tab from the format registry.
-// Untitled tabs default to markdown (the canonical "Save As" flow).
-import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
-import { resolveSaveFilters, markdownSaveFilters } from "@/lib/formats/saveFilters";
-
-function saveFiltersForFilePath(
-  filePath: string | null,
-): { name: string; extensions: string[] }[] {
-  try {
-    const cfg = filePath
-      ? dispatchEditor(filePath)
-      : (getFormatById("markdown") ?? dispatchEditor(null));
-    return resolveSaveFilters(cfg);
-  } catch {
-    /* registry not bootstrapped (test edge) — one shared markdown fallback */
-    return markdownSaveFilters();
-  }
-}
-
-function untitledExtensionForFilePath(filePath: string | null): string {
-  try {
-    const cfg = filePath
-      ? dispatchEditor(filePath)
-      : (getFormatById("markdown") ?? dispatchEditor(null));
-    return cfg.adapters.untitledExtension;
-  } catch {
-    /* registry not bootstrapped — preserve prior `.md` default */
-    return "md";
-  }
-}
+import { persistDocumentBatch } from "@/hooks/closeSaveBatch";
 
 
-/**
- * Sanitize a title for use as a filename.
- * Removes/replaces characters that are invalid in filenames.
- */
-function toSafeFilename(title: string): string {
-  // Replace characters invalid on Windows/macOS/Linux
-  // Invalid: / \ : * ? " < > |
-  return title
-    .replace(/[/\\:*?"<>|]/g, "-")
-    .replace(/\s+/g, " ")
-    .trim() || "Untitled";
-}
-
-/**
- * Ensure filename ends with the default extension for `filePath`'s format.
- * Untitled tabs default to markdown (.md). WI-1B.8 + WI-1B.9 — was
- * hardcoded ".md".
- */
-function ensureFormatExtension(
-  filename: string,
-  filePath: string | null,
-): string {
-  const ext = untitledExtensionForFilePath(filePath);
-  const dotted = `.${ext}`;
-  return filename.endsWith(dotted) ? filename : `${filename}${dotted}`;
-}
-
+// The shared types stay importable from here — this module is the public face
+// of the close-save flow; the leaf exists only to break the batch cycle.
+export type {
+  CloseSaveContext,
+  CloseSaveResult,
+  MultiSaveResult,
+  MultiSaveOptions,
+} from "@/hooks/closeSaveShared";
+import {
+  saveFiltersForFilePath,
+  toSafeFilename,
+  ensureFormatExtension,
+  CLOSE_SAVE_BUTTONS,
+  MULTI_SAVE_BUTTONS,
+  type CloseSaveContext,
+  type CloseSaveResult,
+  type MultiSaveResult,
+  type MultiSaveOptions,
+} from "@/hooks/closeSaveShared";
 
 /**
  * Prompt user to save a dirty document before closing.
@@ -134,15 +53,15 @@ function ensureFormatExtension(
 export async function promptSaveForDirtyDocument(
   context: CloseSaveContext
 ): Promise<CloseSaveResult> {
-  const { windowLabel, tabId, title, filePath, content } = context;
+  const { windowLabel, tabId, title, filePath, content, divergent } = context;
 
   // Use message() with 3-button dialog for proper cancel handling.
   // ask() only returns boolean, so dismiss/escape = "Don't Save" which loses work.
   // message() with yes/no/cancel buttons returns distinct values for each action.
   const result = await message(
-    i18n.t("dialog:unsavedChanges.single", { title }),
+    i18n.t(divergent ? "dialog:divergentChanges.single" : "dialog:unsavedChanges.single", { title }),
     {
-      title: i18n.t("dialog:unsavedChanges.title"),
+      title: i18n.t(divergent ? "dialog:divergentChanges.title" : "dialog:unsavedChanges.title"),
       kind: "warning",
       buttons: {
         yes: CLOSE_SAVE_BUTTONS.save,
@@ -268,125 +187,6 @@ export async function promptSaveForMultipleDocuments(
   }
 
   // Save All: existing-path docs, then untitled docs.
-  const cancelled = await persistDocumentBatch(savedDocs, untitledDocs, contexts.length, onProgress);
-  if (cancelled) return cancelled;
-
-  return { action: "saved-all" };
-}
-
-/**
- * Persist a batch of documents: save every doc that already has a path, then
- * handle untitled docs — a single Save-As dialog for one, or one folder picker
- * for several. Returns a cancellation result to bubble up, or `null` on success.
- *
- * Shared by `promptSaveForMultipleDocuments` and `saveAllDocuments`, which held
- * a verbatim ~80-line copy of this each (jscpd `pnpm dup`).
- */
-async function persistDocumentBatch(
-  savedDocs: CloseSaveContext[],
-  untitledDocs: CloseSaveContext[],
-  total: number,
-  onProgress: MultiSaveOptions["onProgress"],
-): Promise<MultiSaveResult | null> {
-  let current = 0;
-
-  for (const context of savedDocs) {
-    current++;
-    onProgress?.(current, total, context.title);
-
-    const saved = await saveToPath(
-      context.tabId,
-      context.filePath!,
-      context.content,
-      "manual"
-    );
-    if (!saved) {
-      return { action: "cancelled" };
-    }
-  }
-
-  // Untitled docs: choose the folder once.
-  if (untitledDocs.length > 0) {
-    const defaultFolder = await getDefaultSaveFolderWithFallback(
-      untitledDocs[0].windowLabel
-    );
-
-    if (untitledDocs.length === 1) {
-      // Single untitled: standard Save As dialog
-      const doc = untitledDocs[0];
-      current++;
-      onProgress?.(current, total, doc.title);
-
-      const filename = ensureFormatExtension(
-        toSafeFilename(doc.title),
-        doc.filePath ?? null,
-      );
-      const defaultPath = joinPath(defaultFolder, filename);
-      const newPath = await save({
-        defaultPath,
-        filters: saveFiltersForFilePath(doc.filePath ?? null),
-      });
-      if (!newPath) {
-        return { action: "cancelled" };
-      }
-
-      const saved = await saveToPath(doc.tabId, newPath, doc.content, "manual");
-      if (!saved) {
-        return { action: "cancelled" };
-      }
-    } else {
-      // Multiple untitled: batch folder picker
-      const folderPath = await open({
-        directory: true,
-        multiple: false,
-        defaultPath: defaultFolder,
-        title: i18n.t("dialog:chooseFolderForDocs", { count: untitledDocs.length }),
-      });
-
-      if (!folderPath || typeof folderPath !== "string") {
-        return { action: "cancelled" };
-      }
-
-      for (const doc of untitledDocs) {
-        current++;
-        onProgress?.(current, total, doc.title);
-
-        const filename = ensureFormatExtension(
-          toSafeFilename(doc.title),
-          doc.filePath ?? null,
-        );
-        const path = joinPath(folderPath, filename);
-
-        const saved = await saveToPath(doc.tabId, path, doc.content, "manual");
-        if (!saved) {
-          return { action: "cancelled" };
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Save all documents without prompting.
- * Used by "Save All and Quit" to skip the confirmation dialog.
- *
- * For untitled files with multiple docs, prompts for folder once.
- */
-export async function saveAllDocuments(
-  contexts: CloseSaveContext[],
-  options: MultiSaveOptions = {}
-): Promise<MultiSaveResult> {
-  if (contexts.length === 0) {
-    return { action: "saved-all" };
-  }
-
-  const { onProgress } = options;
-
-  const savedDocs = contexts.filter((c) => c.filePath);
-  const untitledDocs = contexts.filter((c) => !c.filePath);
-
   const cancelled = await persistDocumentBatch(savedDocs, untitledDocs, contexts.length, onProgress);
   if (cancelled) return cancelled;
 

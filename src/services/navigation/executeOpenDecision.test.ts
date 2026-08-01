@@ -37,8 +37,8 @@ vi.mock("@/services/ime/imeToast", () => ({
   imeToast: { warning: mockToastWarning, error: mockToastError, info: vi.fn() },
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: () => ({ setActiveTab: mockSetActiveTab }) },
+vi.mock("@/services/workspaces/activateTabWithWorkspaceContext", () => ({
+  activateTabWithWorkspaceContext: (...a: unknown[]) => mockSetActiveTab(...a),
 }));
 vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
@@ -115,7 +115,7 @@ describe("create_tab with an external workspace", () => {
 });
 
 describe("the other branches still behave", () => {
-  it("activate_tab activates and touches nothing else", async () => {
+  it("activate_tab activates ownership-aware (WI-12.2), touching nothing else", async () => {
     await executeOpenDecision(
       "main",
       PATH,

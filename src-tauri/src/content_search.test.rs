@@ -2,6 +2,7 @@
 //! to keep the production file within the size gate).
 
 use super::*;
+use regex::RegexBuilder;
 use std::fs;
 use tempfile::TempDir;
 
@@ -436,7 +437,12 @@ fn test_deadline_already_elapsed_returns_partial_results() {
     // Walker is allowed to return fewer matches than the non-timeout case.
     let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
     let full_matches: usize = full.iter().map(|r| r.matches.len()).sum();
-    let partial_matches: usize = result.unwrap().iter().map(|r| r.matches.len()).sum();
+    let outcome = result.unwrap();
+    assert!(
+        !outcome.complete,
+        "an elapsed deadline is an incomplete scan"
+    );
+    let partial_matches: usize = outcome.results.iter().map(|r| r.matches.len()).sum();
     assert!(
         partial_matches <= full_matches,
         "partial should never exceed full ({} > {})",
@@ -474,9 +480,80 @@ fn test_deadline_mid_walk_stops_early() {
     let full = search_sync(root, "World", false, false, false, false, vec![], vec![]).unwrap();
     let full_files = full.len();
     assert!(
-        result.len() <= full_files,
+        result.results.len() <= full_files,
         "timed-out file count must not exceed untimed run"
     );
+    assert!(!result.complete, "a timed-out walk is an incomplete scan");
+}
+
+// The `complete` flag exists for the orphan-image verifier: zero hits from a
+// PARTIAL scan must not read as "no document references this file". These
+// tests pin the honesty bit in both directions.
+
+fn checked(root: &str, query: &str) -> SearchOutcome {
+    search_sync_with_deadline(
+        root,
+        query,
+        false,
+        false,
+        false,
+        false,
+        vec![],
+        vec![],
+        Instant::now() + Duration::from_secs(5),
+    )
+    .unwrap()
+}
+
+#[test]
+fn test_full_scan_reports_complete_even_with_zero_hits() {
+    let dir = setup_test_workspace();
+    let root = dir.path().to_str().unwrap();
+    let outcome = checked(root, "no-document-mentions-this");
+    assert!(outcome.results.is_empty());
+    assert!(
+        outcome.complete,
+        "a finished scan with no skips is complete"
+    );
+}
+
+#[test]
+fn test_oversized_file_voids_completeness() {
+    // A >1 MB markdown file is skipped for memory pressure — fine for the UI,
+    // but its content was never scanned, so the scan must say so.
+    let dir = setup_test_workspace();
+    let big = "filler line without the probe\n".repeat(40_000); // > 1 MB
+    fs::write(dir.path().join("huge.md"), big).unwrap();
+    let outcome = checked(dir.path().to_str().unwrap(), "no-document-mentions-this");
+    assert!(outcome.results.is_empty());
+    assert!(
+        !outcome.complete,
+        "an unscanned eligible file must void completeness"
+    );
+}
+
+#[test]
+fn test_match_cap_truncation_voids_completeness() {
+    let dir = tempfile::tempdir().unwrap();
+    let many = "the probe word\n".repeat(1_100); // > MAX_MATCHES lines
+    fs::write(dir.path().join("many.md"), many).unwrap();
+    let outcome = checked(dir.path().to_str().unwrap(), "probe");
+    assert!(
+        !outcome.complete,
+        "hitting MAX_MATCHES leaves lines unscanned"
+    );
+}
+
+#[test]
+fn test_by_design_exclusions_do_not_void_completeness() {
+    // Hidden files and binaries are the search's CONTRACT, not missing
+    // evidence — a scan that only skipped those is still complete.
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("normal.md"), "plain text").unwrap();
+    fs::write(dir.path().join(".hidden.md"), "hidden text").unwrap();
+    fs::write(dir.path().join("blob.bin"), [0u8, 159, 146, 150]).unwrap();
+    let outcome = checked(dir.path().to_str().unwrap(), "no-document-mentions-this");
+    assert!(outcome.complete);
 }
 
 #[test]

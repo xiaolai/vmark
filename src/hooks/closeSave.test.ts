@@ -4,8 +4,8 @@ import { saveToPath } from "@/services/persistence/saveToPath";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
-  saveAllDocuments,
 } from "@/hooks/closeSave";
+import { saveAllDocuments } from "@/hooks/closeSaveBatch";
 
 vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),

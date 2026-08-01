@@ -10,6 +10,10 @@
  * could silently overwrite any sibling of any open file (audit 20260728 §1.5).
  */
 
+import {
+  reassignTabOwnershipForPath,
+  windowLabelForTab,
+} from "@/services/workspaces/reassignTabOwnershipForPath";
 import { exists, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
@@ -127,6 +131,14 @@ export async function handleWorkspaceSaveAs(
       clearPendingSave(filePath, saveToken);
     }
     tabState.updateTabPath(tabId, filePath);
+    // WI-13.4/D10: AI-driven Save As reclassifies ownership but never yanks
+    // the human's visible workspace.
+    {
+      const ownerWindow = windowLabelForTab(tabId);
+      if (ownerWindow) {
+        reassignTabOwnershipForPath(ownerWindow, tabId, filePath, { allowVisibleSwitch: false });
+      }
+    }
     tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
     docState.setFilePath(tabId, filePath);
     // Verbatim write: both snapshots are the same string here.

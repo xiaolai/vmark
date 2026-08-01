@@ -114,6 +114,7 @@ export function createTerminalKeyHandler(
     // and-DEL is the gate design's one remaining hazard. The character still
     // reaches the PTY via the gate's container `input`/composition path (T1);
     // returning false does not preventDefault, so the DOM input event still fires.
+    //
     if (isImeKeyEvent(event)) return false;
     if (callbacks.isComposing()) return true;
 

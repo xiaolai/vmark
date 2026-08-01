@@ -89,6 +89,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   // Debounced search scheduling (min-length gate + fresh exclusions).
   useContentSearchScheduler({
     isOpen,
+    windowLabel,
     query,
     rootPath,
     excludeFolders,
