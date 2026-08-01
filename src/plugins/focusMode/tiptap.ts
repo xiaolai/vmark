@@ -20,15 +20,38 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import "./focus-mode.css";
 
 const focusPluginKey = new PluginKey("focusMode");
 
-function createFocusDecoration(state: EditorState): DecorationSet | null {
-  const focusEnabled = useUIStore.getState().focusModeEnabled;
-  if (!focusEnabled) return null;
+/** Options for the focus-mode extension. */
+export interface FocusModeOptions {
+  /**
+   * Whether focus mode is on, asked fresh each time.
+   *
+   * INJECTED. A plugin that reaches the app's Zustand singletons cannot ship
+   * as a standalone extension (ADR-015). A predicate, not a boolean: the
+   * plugin re-asks per transaction so the toggle takes effect immediately.
+   */
+  isEnabled: () => boolean;
+  /**
+   * Subscribe to changes in that answer; returns an unsubscribe.
+   *
+   * The plugin needs to REDRAW when the toggle flips, not merely to read the
+   * new value next time it happens to run. Injected for the same reason as
+   * `isEnabled` — a store subscription is a store dependency.
+   *
+   * @default a no-op — a host with no toggle never changes the answer
+   */
+  onChange: (listener: () => void) => () => void;
+}
+
+function createFocusDecoration(
+  state: EditorState,
+  isEnabled: () => boolean,
+): DecorationSet | null {
+  if (!isEnabled()) return null;
 
   const { selection } = state;
   const { $from } = selection;
@@ -50,22 +73,28 @@ function createFocusDecoration(state: EditorState): DecorationSet | null {
 }
 
 /** Tiptap extension that dims non-focused paragraphs in focus mode. */
-export const focusModeExtension = Extension.create({
+export const focusModeExtension = Extension.create<FocusModeOptions>({
   name: "focusMode",
+  // Off by default: dimming text is a deliberate choice, so a host that says
+  // nothing gets the plain editor rather than a surprise.
+  addOptions() {
+    return { isEnabled: () => false, onChange: () => () => {} };
+  },
   addProseMirrorPlugins() {
-    let lastFocusMode = useUIStore.getState().focusModeEnabled;
+    const { isEnabled, onChange } = this.options;
+    let lastFocusMode = isEnabled();
 
     return [
       new Plugin({
         key: focusPluginKey,
         view: (view) => {
-          const unsubscribe = useUIStore.subscribe((state) => {
-            if (state.focusModeEnabled !== lastFocusMode) {
-              lastFocusMode = state.focusModeEnabled;
-              runOrQueueProseMirrorAction(view, () =>
-                view.dispatch(view.state.tr.setMeta(focusPluginKey, "toggle"))
-              );
-            }
+          const unsubscribe = onChange(() => {
+            const now = isEnabled();
+            if (now === lastFocusMode) return;
+            lastFocusMode = now;
+            runOrQueueProseMirrorAction(view, () =>
+              view.dispatch(view.state.tr.setMeta(focusPluginKey, "toggle"))
+            );
           });
 
           return {
@@ -76,11 +105,11 @@ export const focusModeExtension = Extension.create({
         },
         state: {
           init(_, editorState) {
-            return createFocusDecoration(editorState);
+            return createFocusDecoration(editorState, isEnabled);
           },
           apply(tr, oldDecos, _oldState, newState) {
             if (tr.selectionSet || tr.getMeta(focusPluginKey)) {
-              return createFocusDecoration(newState);
+              return createFocusDecoration(newState, isEnabled);
             }
             if (tr.docChanged && oldDecos) {
               return oldDecos.map(tr.mapping, tr.doc);

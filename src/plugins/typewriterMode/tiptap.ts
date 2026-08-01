@@ -17,7 +17,6 @@
  */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { useUIStore } from "@/stores/uiStore";
 import "./typewriter-mode.css";
 
 const typewriterPluginKey = new PluginKey("typewriterMode");
@@ -26,9 +25,25 @@ const SCROLL_THRESHOLD = 30;
 const SKIP_INITIAL_UPDATES = 3;
 
 /** Tiptap extension that keeps the cursor line vertically centered in the viewport. */
-export const typewriterModeExtension = Extension.create({
+/** Options for the typewriter-mode extension. */
+export interface TypewriterModeOptions {
+  /**
+   * Whether typewriter scrolling is on, asked fresh each time.
+   *
+   * INJECTED — a plugin reaching the app's stores cannot ship standalone
+   * (ADR-015).
+   */
+  isEnabled: () => boolean;
+}
+
+export const typewriterModeExtension = Extension.create<TypewriterModeOptions>({
   name: "typewriterMode",
+  // Off by default: scroll-locking without being asked would be hostile.
+  addOptions() {
+    return { isEnabled: () => false };
+  },
   addProseMirrorPlugins() {
+    const { isEnabled } = this.options;
     let updateCount = 0;
     let rafId: number | null = null;
 
@@ -37,7 +52,7 @@ export const typewriterModeExtension = Extension.create({
         key: typewriterPluginKey,
         view: () => ({
           update: (view, prevState) => {
-            const typewriterEnabled = useUIStore.getState().typewriterModeEnabled;
+            const typewriterEnabled = isEnabled();
             if (!typewriterEnabled) return;
 
             if (view.state.selection.eq(prevState.selection)) return;

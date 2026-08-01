@@ -53,6 +53,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
+import { focusModeHostOptions, typewriterModeHostOptions } from "./uiToggleOptions";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
@@ -205,8 +206,8 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     linkCreatePopupExtension,
     searchExtension,
     autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
-    focusModeExtension,
-    typewriterModeExtension,
+    focusModeExtension.configure(focusModeHostOptions),
+    typewriterModeExtension.configure(typewriterModeHostOptions),
     blankLinesGuardExtension,
     imageHandlerExtension,
     mediaHandlerExtension,

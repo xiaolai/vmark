@@ -7,13 +7,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mock CSS import
 vi.mock("./typewriter-mode.css", () => ({}));
 
-// Mock editorStore
+/**
+ * Stands in for the HOST's answer.
+ *
+ * This used to mock the app's UI store and rely on the plugin reading it —
+ * the coupling that stopped it shipping standalone (ADR-015). The plugin takes
+ * an `isEnabled` predicate now; these cases flip this instead.
+ */
 const mockEditorStoreState = { typewriterModeEnabled: false };
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => mockEditorStoreState,
-  },
-}));
 
 import { typewriterModeExtension } from "./tiptap";
 
@@ -21,7 +22,7 @@ import { typewriterModeExtension } from "./tiptap";
 function getPlugin() {
   const plugins = typewriterModeExtension.config.addProseMirrorPlugins!.call({
     name: "typewriterMode",
-    options: {},
+    options: { isEnabled: () => mockEditorStoreState.typewriterModeEnabled },
     storage: {},
     parent: null as never,
     editor: {} as never,
