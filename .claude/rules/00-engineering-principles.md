@@ -25,10 +25,30 @@ Key points:
      `src/services/assembly/`. A getter, not a value: config re-read per
      keystroke means a settings change takes effect without rebuilding the
      editor. Prefer this — an explicit parameter beats an ambient lookup.
-  2. **`plugins/shared/hostSettings.ts`** — only when an option cannot reach:
-     a value read by a leaf utility several calls below the plugin boundary,
-     where threading a parameter through every signature obscures more than it
-     reveals. The app binds it once in `main.tsx`.
+  2. **A seam under `plugins/shared/`** — when an option cannot reach: a value
+     read by a leaf utility several calls below the plugin boundary, or a node
+     view ProseMirror constructs rather than the host. Interface + working
+     defaults + `bindX()` called once in `main.tsx`. Three exist:
+     `hostSettings` (values), `hostDocument` (active file path),
+     `hostPopups` (chrome the plugin asks the host to show).
+  3. **A PORT, for a plugin that drives its own popup state.** The plugin
+     declares the state shape it needs (`StoreApi<MathPopupState>`, where
+     `MathPopupState` lives plugin-side) and receives a store satisfying it.
+     `WysiwygPopupView` is already generic over `StoreApi<TState>`, so usually
+     only the `super(view, useXStore)` line and the extension option change.
+
+     **Do not pass the app's store TYPE.** `UseBoundStore<StoreApi<AppSlice>>`
+     from `@/stores` satisfies the grep and not the architecture — the port
+     type must be plugin-side. The boundary is not "no shape dependency": a
+     math popup intrinsically needs a latex string and a way to set it, and
+     hiding that would be fake decoupling. It is "the plugin declares the shape
+     it needs, and the host adapts to it". (Decided with Codex, thread
+     `019fbf7b`, after rejecting both moving the stores into `plugins/shared/`
+     — which inverts the dependency so the app imports plugin-land — and
+     declaring the class as a baseline exception.)
+
+     A port has **no default**, unlike a setting: there is no sensible stand-in
+     for "the state this popup drives". Throw a named error at wiring time.
 
   Three rules learned the hard way:
 
