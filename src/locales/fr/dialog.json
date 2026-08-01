@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "Impossible d'annuler le déplacement de l'onglet",
   "toast.fileOpenFailed": "Échec de l'ouverture du fichier : {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "Impossible d'ouvrir l'espace de travail dans une nouvelle fenêtre",
+  "toast.openWorkspaceForFileFailed": "Le fichier a été ouvert, mais son dossier d'espace de travail n'a pas pu être ouvert. La barre latérale affiche toujours l'espace de travail précédent.",
   "toast.revealInFinderFailed": "Impossible d'afficher dans le Finder",
   "toast.historyDeleted": "Historique supprimé",
   "toast.historyClearedAll": "Tout l'historique a été effacé",

@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "탭 이동을 실행 취소할 수 없습니다",
   "toast.fileOpenFailed": "파일을 열 수 없습니다: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "새 창에서 작업 공간을 열 수 없습니다",
+  "toast.openWorkspaceForFileFailed": "파일은 열렸지만 해당 작업 공간 폴더를 열 수 없습니다. 사이드바에는 이전 작업 공간이 계속 표시됩니다.",
   "toast.revealInFinderFailed": "Finder에서 표시할 수 없습니다",
   "toast.historyDeleted": "기록이 삭제되었습니다",
   "toast.historyClearedAll": "모든 기록이 지워졌습니다",

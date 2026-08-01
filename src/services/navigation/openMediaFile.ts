@@ -58,7 +58,7 @@ export function tryOpenMediaFile(
  */
 export function replaceTabWithMediaFile(tabId: string, path: string): void {
   useTabStore.getState().updateTabPath(tabId, path);
-  useDocumentStore.getState().loadContent(tabId, "", path);
+  useDocumentStore.getState().ingestExternalContent(tabId, "", "disk-open", { filePath: path });
   applyFileOwnershipAfterOpen(tabId, path);
   useRecentFilesStore.getState().addFile(path);
 }

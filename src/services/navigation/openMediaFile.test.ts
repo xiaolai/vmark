@@ -109,7 +109,7 @@ describe("replaceTabWithMediaFile", () => {
   it("replaces the tab with EMPTY content + the media path and formatId", () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "# scratch", null);
-    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+    const loadSpy = vi.spyOn(useDocumentStore.getState(), "ingestExternalContent");
     const addFileSpy = vi.spyOn(useRecentFilesStore.getState(), "addFile");
 
     replaceTabWithMediaFile(tabId, "/pics/photo.png");
@@ -117,7 +117,9 @@ describe("replaceTabWithMediaFile", () => {
     const tab = useTabStore.getState().findTabById(tabId);
     expect(tab?.filePath).toBe("/pics/photo.png");
     expect(tab?.formatId).toBe("media");
-    expect(loadSpy).toHaveBeenCalledWith(tabId, "", "/pics/photo.png");
+    expect(loadSpy).toHaveBeenCalledWith(tabId, "", "disk-open", {
+      filePath: "/pics/photo.png",
+    });
     expect(useDocumentStore.getState().documents[tabId]?.content).toBe("");
     expect(addFileSpy).toHaveBeenCalledWith("/pics/photo.png");
   });

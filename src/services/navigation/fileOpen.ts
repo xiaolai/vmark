@@ -1,6 +1,5 @@
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { fileOpsError } from "@/utils/debug";
@@ -12,7 +11,8 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
-import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { markdownExtensions } from "@/lib/formats/saveFilters";
+import { executeOpenDecision } from "./executeOpenDecision";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { getFileName } from "@/utils/pathUtils";
@@ -25,7 +25,6 @@ import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
 // Shared replace flow (also used by "Open Recent File"); re-exported so existing
 // `from "@/services/navigation/fileOpen"` import sites stay stable.
-import { replaceTabWithFile } from "./replaceTabWithFile";
 export { replaceTabWithFile, type ReplaceTabResult } from "./replaceTabWithFile";
 
 /**
@@ -183,7 +182,9 @@ export async function handleOpen(windowLabel: string): Promise<void> {
         },
         {
           name: i18n.t("dialog:openFilter.markdown"),
-          extensions: ["md", "markdown", "mdown", "mkd", "mdx"],
+          // From the registry, not retyped — this copy could drift from the
+          // markdown adapter's own extension list without anything noticing.
+          extensions: markdownExtensions(),
         },
       ],
     });
@@ -215,73 +216,8 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
     perfMark("handleOpen:resolvedAction", { action: decision.action });
 
-    switch (decision.action) {
-      case "activate_tab":
-        useTabStore.getState().setActiveTab(windowLabel, decision.tabId);
-        perfMark("handleOpen:activatedTab");
-        break;
-      case "create_tab":
-        // fix(#946) — an external file opened in a new tab carries its own
-        // resolved root; open that workspace first so it's claimed by its own
-        // context, not the current one.
-        await openWorkspaceForNewTab(windowLabel, decision.workspaceRoot);
-        await openFileInNewTab(windowLabel, path);
-        perfMark("handleOpen:createdTab");
-        break;
-      case "replace_tab": {
-        // Replace the clean untitled tab with the file content via the shared
-        // helper (also used by "Open Recent File").
-        const replaceResult = await replaceTabWithFile({
-          windowLabel,
-          tabId: decision.tabId,
-          targetPath: decision.filePath,
-          sourcePath: path,
-          workspaceRoot: decision.workspaceRoot,
-        });
-        if (replaceResult.ok) {
-          perfMark("handleOpen:replacedTab");
-        } else if (replaceResult.cancelled) {
-          perfMark("handleOpen:replaceTabRefusedOrCancelled");
-        } else {
-          fileOpsError("Failed to replace tab with file:", replaceResult.error);
-          const msg = errorMessage(replaceResult.error);
-          // Pin: system error includes paths and codes the user may want
-          // to copy to investigate (permission denied, missing file, etc.)
-          toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {
-            pin: true,
-          });
-        }
-        break;
-      }
-      case "open_workspace_in_new_window":
-        try {
-          await invoke("open_workspace_in_new_window", {
-            workspaceRoot: decision.workspaceRoot,
-            filePath: decision.filePath,
-          });
-        } catch (error) {
-          fileOpsError("Failed to open workspace in new window:", error);
-          toast.error(i18n.t("dialog:toast.openWorkspaceInNewWindowFailed"));
-        }
-        break;
-      case "no_op":
-        // Nothing to do
-        break;
-    }
+    await executeOpenDecision(windowLabel, path, decision, openFileInNewTab);
   });
-}
-
-/** Open an external file's resolved workspace before creating its tab (#946). */
-async function openWorkspaceForNewTab(
-  windowLabel: string,
-  workspaceRoot: string | null | undefined,
-): Promise<void> {
-  if (!workspaceRoot) return;
-  try {
-    await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
-  } catch (error) {
-    fileOpsError("Failed to open workspace for new tab:", error);
-  }
 }
 
 /**

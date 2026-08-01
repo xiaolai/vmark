@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "タブの移動を元に戻せませんでした",
   "toast.fileOpenFailed": "ファイルを開けませんでした: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "新しいウィンドウでワークスペースを開けませんでした",
+  "toast.openWorkspaceForFileFailed": "ファイルは開きましたが、そのワークスペースフォルダーを開けませんでした。サイドバーには引き続き以前のワークスペースが表示されます。",
   "toast.revealInFinderFailed": "Finderで表示できませんでした",
   "toast.historyDeleted": "履歴を削除しました",
   "toast.historyClearedAll": "すべての履歴を消去しました",
