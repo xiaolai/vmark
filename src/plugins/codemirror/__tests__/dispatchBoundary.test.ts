@@ -24,8 +24,10 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SHORTCUTS = join(__dirname, "../sourceShortcuts.ts");
-const source = readFileSync(SHORTCUTS, "utf8");
+const source = readFileSync(join(__dirname, "../sourceShortcuts.ts"), "utf8");
+// The smart select-all bindings live in their own module; the boundary covers
+// BOTH files, or moving a binding between them would silently exempt it.
+const smartSelect = readFileSync(join(__dirname, "../sourceSmartSelect.ts"), "utf8");
 
 /**
  * Shortcut IDs whose handlers are NOT document mutations, with the reason.
@@ -36,7 +38,6 @@ const source = readFileSync(SHORTCUTS, "utf8");
  * looked for `runSourceAction(` and the helper import list.
  */
 const NON_MUTATING = new Map<string, string>([
-  ["toggleSidebar", "UI panel visibility — touches no document"],
   ["sourceMode", "returns true to mark handled; useViewShortcuts does the toggle"],
   ["selectLine", "selection only"],
   ["findReplace", "opens the search panel"],
@@ -72,6 +73,9 @@ const DIRECT_PUSH_NON_MUTATING = new Map<string, string>([
   ["Mod-z", "restores the previous selection after a smart select-all"],
 ]);
 
+/** Files that install Source-mode key bindings. The gate covers all of them. */
+const BINDING_SOURCES = ["sourceShortcuts.ts", "sourceSmartSelect.ts"];
+
 const DECIDED_MUTATION_EXCEPTIONS = new Map<string, string>([
   [
     "toggleComment",
@@ -106,16 +110,16 @@ function importedHelpers(): string[] {
 
 describe("no document mutation bypasses the executor", () => {
   it("makes no direct adapter call for a document action", () => {
-    // `runSourceAction` reaches the source adapter without the executor's
-    // format/capability gates, unified undo, or IME safety. `unlink` was the
-    // last one; it now has an `editor.unlink` action like every sibling.
+    // `runSourceAction` reached the source adapter without the executor's
+    // format/capability gates, unified undo, or IME safety. `unlink` was its
+    // last caller; once that moved to `editor.unlink` the helper itself was
+    // deleted rather than kept as a documented footgun.
     expect(directAdapterCalls()).toEqual([]);
+    expect(source).not.toContain("runSourceAction");
   });
 
   it("imports only permitted non-mutating helpers", () => {
-    const unexplained = importedHelpers().filter(
-      (name) => name !== "runSourceAction" && !PERMITTED_DIRECT.has(name)
-    );
+    const unexplained = importedHelpers().filter((name) => !PERMITTED_DIRECT.has(name));
     expect(unexplained).toEqual([]);
   });
 
@@ -156,14 +160,25 @@ describe("EVERY binding is accounted for", () => {
     // imports, so a direct mutation reached through a DIFFERENT import walked
     // straight past it — `toggleBlockComment` did exactly that. Enumerating
     // the bindings closes the class, not the instance.
+    // `runCommand` takes a TYPED ActionId now, and `runHeading` a level — both
+    // route through the executor. The cast that used to sit behind
+    // `runCommand("editor.foo")` is gone, so a typo no longer compiles.
+    const routed = (handler: string) =>
+      handler.startsWith("runCommand(") || handler.startsWith("runHeading(");
+
     const unaccounted = bindings().filter(
       ({ id, handler }) =>
-        !handler.startsWith("runCommand(") &&
-        !NON_MUTATING.has(id) &&
-        !DECIDED_MUTATION_EXCEPTIONS.has(id)
+        !routed(handler) && !NON_MUTATING.has(id) && !DECIDED_MUTATION_EXCEPTIONS.has(id)
     );
 
     expect(unaccounted.map((b) => `${b.id}: ${b.handler.slice(0, 40)}`)).toEqual([]);
+  });
+
+  it("covers every file that installs bindings", () => {
+    // Splitting sourceShortcuts.ts moved two bindings into a new module. A gate
+    // reading one file would have reported them gone rather than relocated.
+    expect(BINDING_SOURCES).toContain("sourceSmartSelect.ts");
+    expect(smartSelect).toContain("guardCodeMirrorKeyBinding");
   });
 
   it("accounts for DIRECT bindings.push sites too — they bypassed the gate", () => {
@@ -172,7 +187,9 @@ describe("EVERY binding is accounted for", () => {
     // entirely. Both are selection-only; the gate now says so and fails if a
     // third appears without a decision.
     const pushes = [
-      ...source.matchAll(/bindings\.push\(\s*guardCodeMirrorKeyBinding\(\{\s*key: "([^"]+)"/g),
+      ...`${source}\n${smartSelect}`.matchAll(
+        /bindings\.push\(\s*guardCodeMirrorKeyBinding\(\{\s*key: "([^"]+)"/g
+      ),
     ].map((m) => m[1]);
 
     expect(pushes.sort()).toEqual(["Mod-a", "Mod-z"]);
@@ -194,6 +211,24 @@ describe("EVERY binding is accounted for", () => {
   });
 });
 
+describe("global-scope shortcuts stay at window level", () => {
+  it("does NOT bind toggleSidebar — the WYSIWYG keymap already does not", () => {
+    // `shortcutDefinitions.ts` states the rule: scope "global", "handled in
+    // useViewShortcuts only, never the TipTap keymap, to avoid double-toggle",
+    // and `editorPlugins.tiptap.test.ts` asserts it for WYSIWYG. Source was the
+    // one surface that bound it anyway, so both handlers fired and the sidebar
+    // toggled twice — which looks exactly like the shortcut being broken.
+    expect(source).not.toContain('getShortcut("toggleSidebar")');
+  });
+
+  it("keeps sourceMode's binding, which only marks the key handled", () => {
+    // The counter-example: sourceMode IS bound here, but its handler returns
+    // true without acting, so the window handler still performs the toggle.
+    // Removing it would let the keypress fall through to CodeMirror's default.
+    expect(source).toContain('getShortcut("sourceMode")');
+  });
+});
+
 describe("the executor is reached the same way for every mutation", () => {
   it("routes formatting through runEditorAction, not executeCommand", () => {
     // executeCommand's stricter palette gate drops keyboard formatting (WI-4.2).
@@ -202,6 +237,13 @@ describe("the executor is reached the same way for every mutation", () => {
   });
 
   it("binds unlink through the action system like its siblings", () => {
-    expect(source).toContain('runCommand("editor.unlink")');
+    expect(source).toContain('runCommand("unlink")');
+  });
+
+  it("passes heading levels as a typed parameter, not a parsed string", () => {
+    // `runCommand("editor.setHeading.3")` parsed the level back out of the id
+    // with a regex. The level is a number; it travels as one.
+    expect(source).toContain("runHeading(3)");
+    expect(source).not.toMatch(/setHeading\.[1-6]/);
   });
 });

@@ -9,8 +9,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
-// --- Mocks ---
-
 const mockSearchSlice = {
   isOpen: false,
   matchCount: 0,
@@ -161,7 +159,6 @@ vi.mock("@/export", () => ({
 }));
 
 import {
-  runSourceAction,
   openFindBar,
   findNextMatch,
   findPreviousMatch,
@@ -201,15 +198,6 @@ afterEach(() => {
   viewInstances.length = 0;
 });
 
-describe("runSourceAction", () => {
-  it("calls performSourceToolbarAction and returns true", () => {
-    const view = createView("test");
-    const handler = runSourceAction("bold");
-    const result = handler(view);
-    expect(result).toBe(true);
-    expect(mockPerformSourceToolbarAction).toHaveBeenCalledWith("bold", expect.objectContaining({ surface: "source" }));
-  });
-});
 
 describe("openFindBar", () => {
   it("opens search and returns true", () => {
