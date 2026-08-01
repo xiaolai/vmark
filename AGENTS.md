@@ -66,6 +66,17 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     command. Bypassing (`git push --no-verify`) requires explicit
     authorization — see `.claude/rules/60-ai-governance.md` §9.
 
+  - **Real-WebKit tier (`pnpm test:browser`).** `pnpm check:all` is jsdom-only.
+    The `*.webkit.test.ts` files run in real WebKit via Playwright and guard the
+    CJK IME composition gate, whose premise jsdom cannot reproduce: real WebKit
+    drains a microtask **between** capture listeners. `test:browser` installs
+    the browser itself (`playwright install webkit`) — it used to fail on a
+    fresh clone with "Executable doesn't exist", so the documented escape hatch
+    was unusable. CI runs it as the `webkit` job, and the required `frontend`
+    check fails if it does. On Linux the install needs `--with-deps`; the local
+    script omits that because macOS has the libraries and asking for sudo on a
+    dev machine is worse than a clear error.
+
   - **E2E testing:** see `dev-docs/e2e-testing.md` for the full guide (the two MCP
     bridges, the dev-mode reconfigure procedure, and the gotchas). Key rules:
 
