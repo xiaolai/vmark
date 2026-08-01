@@ -40,8 +40,6 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { createSnapshot } from "@/services/history/historyOperations";
-import { buildHistorySettings } from "@/utils/historyTypes";
 import {
   resolveWritableFileOwnership,
   showFileOwnershipConflictToast,
@@ -53,23 +51,12 @@ import {
   normalizeLineEndings,
 } from "@/utils/linebreaks";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { normalizePath } from "@/utils/paths";
+import { serializeByPath } from "./serializeByPath";
+import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
 import { captureWrite } from "@/services/coherence/captureFunnel";
-import { historyWarn, saveError } from "@/utils/debug";
+import { saveError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
-
-// Tracks whether we've already warned the user about snapshot failures
-// in this session — without this, every save during a broken history backend
-// would spam toasts.
-let snapshotWarningShown = false;
-
-/**
- * Test-only: reset module-level session flags.
- * @public — accessed dynamically via `("__resetSessionFlags" in mod)` in tests,
- * which static analysis (knip) cannot trace; tag prevents a false unused-export report.
- */
-export function __resetSessionFlags(): void {
-  snapshotWarningShown = false;
-}
 
 /**
  * Sentinel prefix returned by the Rust `atomic_write_file` command when the
@@ -85,7 +72,6 @@ function parseParentMissingError(error: unknown): string | null {
   return message.slice(PARENT_MISSING_PREFIX.length);
 }
 
-type SaveType = "manual" | "auto";
 
 /** Normalized save payload plus the line-ending/hard-break styles applied. */
 interface NormalizedSaveContent {
@@ -216,36 +202,18 @@ function applyPostSaveState(
 }
 
 /**
- * Record a version-history snapshot if enabled. Failures never block the save —
- * but the first per session warns the user so silent breakage is visible.
+ * Serialized per path by `saveToPath`. Everything here — the write, the store
+ * update, and the history snapshot — belongs to one save and must not
+ * interleave with another save to the same file.
  */
-async function recordHistorySnapshot(
-  path: string,
-  output: string,
-  saveType: SaveType
-): Promise<void> {
-  const { general } = useSettingsStore.getState();
-  if (!general.historyEnabled) return;
-  try {
-    await createSnapshot(path, output, saveType, buildHistorySettings(general));
-  } catch (historyError) {
-    historyWarn("Failed to create snapshot:", historyError);
-    // Don't fail the save operation if history fails — but warn the user
-    // once per session so silent breakage is visible (e.g., history dir
-    // permissions changed). Subsequent failures stay silent to avoid spam.
-    if (!snapshotWarningShown) {
-      snapshotWarningShown = true;
-      toast.warning(i18n.t("dialog:toast.historySnapshotFailed"), { pin: true });
-    }
-  }
-}
-
-export async function saveToPath(
+async function performSave(
   tabId: string,
   path: string,
   content: string,
-  saveType: SaveType = "manual"
+  saveType: SaveType
 ): Promise<boolean> {
+  // Normalized at RUN time, not submission time: a queued save must use the
+  // document's convention as of its turn, not as of when it was requested.
   const normalized = normalizeSaveContent(tabId, content);
 
   const ownership = resolveWritableFileOwnership(tabId, path);
@@ -287,4 +255,25 @@ export async function saveToPath(
   }
 
   return true;
+}
+
+/**
+ * Write `content` to `path`, serialized against every other save to that path.
+ *
+ * Concurrent saves to one file used to race. A debounced auto-save and a
+ * manual save can be in flight together, and nothing ordered their
+ * `atomic_write_file` calls — so the OLDER content could land second and win
+ * on disk, after which `applyPostSaveState` recorded it as the saved snapshot
+ * and the document showed clean against bytes the user never wrote. The
+ * pending-save token protected cleanup bookkeeping; it never ordered writes.
+ */
+export function saveToPath(
+  tabId: string,
+  path: string,
+  content: string,
+  saveType: SaveType = "manual"
+): Promise<boolean> {
+  return serializeByPath(normalizePath(path), () =>
+    performSave(tabId, path, content, saveType)
+  );
 }
