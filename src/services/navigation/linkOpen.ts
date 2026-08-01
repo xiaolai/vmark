@@ -14,6 +14,9 @@
  * Fragment navigation in the *target* file (e.g. land at `#bar` after opening
  * `foo.md`) is not yet implemented; the file opens at its top.
  *
+ * A `#fragment` is split from the path but PRESERVED — it rides on the
+ * open-file payload so the receiver can land on the heading.
+ *
  * @coordinates-with src/lib/markdownLinkCheck/check.ts — reuses
  *   `resolveMarkdownUrl` for path resolution semantics
  * @coordinates-with src/hooks/useFileShortcuts.ts — handler for `open-file`
@@ -63,9 +66,11 @@ export async function openFilepathLink(
 ): Promise<boolean> {
   if (!href) return false;
 
-  // Strip fragment up front; the open-file event takes a plain path.
+  // Split the fragment off the path — the open-file event takes a plain path,
+  // but it CARRIES the fragment so the receiver can land on the heading.
   const hashIdx = href.indexOf("#");
   const pathPart = hashIdx >= 0 ? href.slice(0, hashIdx) : href;
+  const fragment = hashIdx >= 0 ? decodeURIComponent(href.slice(hashIdx + 1)) : "";
   if (!pathPart) return false;
 
   let absolutePath: string;
@@ -86,7 +91,7 @@ export async function openFilepathLink(
   if (!absolutePath) return false;
 
   try {
-    await emitOpenFileInCurrentWindow(absolutePath);
+    await emitOpenFileInCurrentWindow(absolutePath, fragment || undefined);
     return true;
   } catch (error) {
     linkPopupError("Failed to emit open-file:", error);
