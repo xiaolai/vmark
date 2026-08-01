@@ -161,20 +161,24 @@ const DECLARED_DIVERGENCES: {
     md: "-\t```\nx\n-\t```\n",
     direction: "over-includes",
     reason:
-      "A tab puts the content column at 4 rather than 2, which the scanner " +
-      "measures in characters. It errs by including more, and the case is " +
-      "recorded so a future column-aware rewrite has its expectation written " +
-      "down rather than rediscovered.",
+      "Structurally identical to `one space of padding` — remark yields the " +
+      "same tree shape for both and the scanner the same ranges. The tab is " +
+      "NOT the operative cause: the boundary compares marker columns, both 0 " +
+      "here, so tab expansion never enters the comparison. Kept as a separate " +
+      "case because `listItemStart` does return a character index rather than " +
+      "a tab-expanded column, so a column-vs-character bug is real in " +
+      "principle — this input simply does not exercise it, and none does yet.",
   },
   {
     label: "a sibling marker indented 1 of 2 columns",
     md: "- ```\n - x\ncode\n",
     direction: "over-includes",
     reason:
-      "remark keeps ` - x` inside the unclosed fence and ends the block at " +
-      "`code`; the scanner ends the range at the sibling marker and reopens " +
-      "there, so the union covers strictly more. Recorded rather than guessed " +
-      "at — resolving it needs container-block state a line scanner lacks.",
+      "remark ends the code block at `code`, giving lines {0,1}; the scanner " +
+      "emits ONE range running unclosed to EOF, {0,1,2,3}. The marker at " +
+      "column 1 is DEEPER than the opener's own (column 0), so the boundary " +
+      "does not fire and the item never ends. Resolving it needs the " +
+      "container-block state a line scanner lacks.",
   },
 ];
 
@@ -183,6 +187,13 @@ describe("the scanner agrees with remark-parse, line for line", () => {
     expect([...scannerCodeLines(md)].sort((a, b) => a - b)).toEqual(
       [...remarkCodeLines(md)].sort((a, b) => a - b)
     );
+  });
+
+  it("does not let the divergence list GROW", () => {
+    // A ceiling, not a count: without one the list absorbs new disagreements
+    // silently, which is the failure mode the whole file exists to prevent.
+    // Lower it when one converges; raising it needs a reason in the commit.
+    expect(DECLARED_DIVERGENCES.length).toBeLessThanOrEqual(7);
   });
 
   it("gives every declared divergence a direction and a real reason", () => {
