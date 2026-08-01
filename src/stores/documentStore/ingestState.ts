@@ -10,7 +10,16 @@
  * in `documentState.ts`:
  *   - `adoptDiskConvention` — the file changed shape, not content (WI-1.6)
  *   - `buildIngestState`    — an origin-governed ingest (WI-1.2/1.3)
- *   - `buildLoadState`      — a disk load with an explicit path and metadata
+ *
+ * There used to be a third, `buildLoadState`, backing a separate `loadContent`
+ * action. It duplicated the baseline branch above and had already drifted from
+ * it: where this derives the file's convention, that one RETAINED the
+ * document's existing metadata whenever no explicit `meta` was passed — which
+ * was every production caller. A reload of a file whose line endings had
+ * changed on disk therefore kept the stale convention and wrote it back on the
+ * next `preserve` save: the WI-1.6 defect again, at a different door. Both
+ * callers now use `ingestExternalContent(..., "disk-open")` and the duplicate
+ * is gone rather than resynchronised.
  *
  * @coordinates-with documentState.ts — the shape and the save contract
  * @coordinates-with utils/ingestOrigin.ts — the two policy tables
@@ -109,40 +118,5 @@ export function buildIngestState(
     selectedText: "",
     hasBom,
     ...metadata,
-  };
-}
-
-/**
- * Compute the state change for a disk LOAD or reload.
- *
- * Same domain split as `buildIngestState` — canonical for the editor, raw for
- * the disk snapshot — but keeps `loadContent`'s explicit `filePath` and `meta`
- * arguments, which the origin-driven ingest path does not carry.
- *
- * All three constructors (`createInitialDocument`, this, `buildIngestState`)
- * now converge on `ingestExternalText`: LF canonicalisation AND the BOM strip.
- * The strip was deliberately withheld until `saveToPath` re-emitted the mark
- * (decision D1) — before that, converging would have made every BOM'd file
- * lose its BOM on first save.
- */
-export function buildLoadState(
-  doc: DocumentState,
-  content: string,
-  filePath: string | null | undefined,
-  meta: Partial<LineMetadata> | undefined
-): Partial<DocumentState> {
-  const { canonicalEditorText, hasBom } = ingestExternalText(content);
-  return {
-    content: canonicalEditorText,
-    savedContent: canonicalEditorText,
-    lastDiskContent: content,
-    filePath: filePath === undefined ? doc.filePath : filePath,
-    isDirty: false,
-    isDivergent: false, // Reload from disk clears divergent state
-    documentId: doc.documentId + 1,
-    selectedText: "",
-    hasBom,
-    lineEnding: meta?.lineEnding ?? doc.lineEnding,
-    hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
   };
 }

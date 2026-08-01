@@ -9,8 +9,9 @@
  * Two doors in — `setEditorContent` (editor domain, asserts canonical input;
  * `setContent` survives only as a deprecated test alias, gated by
  * externalWriterGate.test) and the external door
- * (`initDocument`/`loadContent`/`ingestExternalContent`), all canonicalising
- * via `ingestExternalText`. The field contract lives in `documentState.ts`.
+ * (`initDocument`/`ingestExternalContent`), both canonicalising via
+ * `ingestExternalText`. `loadContent` is GONE: it duplicated the ingest
+ * baseline branch and had drifted from it (see ingestState.ts). The field contract lives in `documentState.ts`.
  *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
@@ -34,7 +35,6 @@ import {
 import {
   adoptDiskConvention,
   buildIngestState,
-  buildLoadState,
   type IngestOptions,
 } from "./ingestState";
 import { useRevisionStore } from "./revision";
@@ -67,12 +67,6 @@ interface DocumentStore {
   ) => void;
   /** @deprecated Use `setEditorContent` (editor domain) or `loadContent` (external). */
   setContent: (tabId: string, content: string) => void;
-  loadContent: (
-    tabId: string,
-    content: string,
-    filePath?: string | null,
-    meta?: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
   setFilePath: (tabId: string, path: string | null) => void;
   markMissing: (tabId: string) => void;
   clearMissing: (tabId: string) => void;
@@ -207,17 +201,6 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   // Delegates INTO the guard; only tests may call it (externalWriterGate.test).
   setContent: (tabId, content) => {
     get().setEditorContent(tabId, content);
-  },
-
-  loadContent: (tabId, content, filePath, meta) => {
-    const previous = get().documents[tabId]?.content;
-    set((state) =>
-      updateDoc(state, tabId, (doc) => buildLoadState(doc, content, filePath, meta))
-    );
-    // The SAME canonicalisation buildLoadState stores: a line-endings-only
-    // compare disagreed for any BOM'd file, bumping the revision on an
-    // identical reload and failing in-flight MCP writes as STALE.
-    bumpRevisionIfContentChanged(tabId, previous, ingestExternalText(content).canonicalEditorText);
   },
 
   setFilePath: (tabId, path) =>

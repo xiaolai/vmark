@@ -151,7 +151,14 @@ export function useDocumentActions(ownTabId?: string | null) {
     (content: string, filePath?: string | null) => {
       const tabId = getActiveTabId();
       if (tabId) {
-        useDocumentStore.getState().loadContent(tabId, content, filePath);
+        // disk-open: a load IS a new saved baseline, and the file's convention
+        // is re-derived rather than retained. `loadContent` used to keep the
+        // OLD lineEnding when no metadata was passed — which is every caller —
+        // so a reload after the endings changed on disk wrote the stale one
+        // back on the next `preserve` save.
+        useDocumentStore
+          .getState()
+          .ingestExternalContent(tabId, content, "disk-open", { filePath });
       }
     },
     [getActiveTabId]
