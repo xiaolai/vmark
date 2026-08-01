@@ -50,10 +50,11 @@
     "mutation:ts": "stryker run",
     "test:sidecar": "pnpm --dir server/mcp lint && pnpm --dir server/mcp build && pnpm --dir server/mcp test:coverage",
     "test:content-server": "pnpm --dir server/content build && pnpm --dir server/content smoke && pnpm --dir server/content test:coverage",
-    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:extension-budget && pnpm lint:store-coupling && pnpm lint:deleted-names && pnpm lint:tauri-versions && pnpm lint:i18n && pnpm lint:themes && pnpm lint:keybinding-manifest && pnpm lint:file-size && pnpm lint:barrels && pnpm lint:shell-slots && pnpm lint:bespoke-buttons && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size",
+    "check:all": "pnpm lint && pnpm lint:console && pnpm lint:selection-styles && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:deps && pnpm lint:extension-budget && pnpm lint:store-coupling && pnpm lint:deleted-names && pnpm lint:tauri-versions && pnpm lint:i18n && pnpm lint:themes && pnpm lint:keybinding-manifest && pnpm lint:merge-drops && pnpm lint:file-size && pnpm lint:barrels && pnpm lint:shell-slots && pnpm lint:bespoke-buttons && pnpm knip && pnpm test:coverage && pnpm test:sidecar && pnpm test:content-server && pnpm build && pnpm lint:eager && pnpm size",
     "lint:extension-budget": "node scripts/check-extension-budget.mjs",
     "lint:store-coupling": "node scripts/check-plugin-store-coupling.mjs",
-    "lint:deleted-names": "node scripts/check-deleted-names.mjs"
+    "lint:deleted-names": "node scripts/check-deleted-names.mjs",
+    "lint:merge-drops": "node scripts/check-merge-drops.mjs"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.60",
