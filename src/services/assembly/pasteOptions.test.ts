@@ -14,7 +14,11 @@ vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: { getState: () => getState() },
 }));
 
-import { currentPasteSettings } from "./pasteOptions";
+import {
+  currentPasteSettings,
+  currentMarkdownPasteMode,
+  currentPreserveLineBreaks,
+} from "./pasteOptions";
 
 describe("currentPasteSettings", () => {
   it("passes the user's choices through", () => {
@@ -32,5 +36,23 @@ describe("currentPasteSettings", () => {
     // not have it silently turned back on by the default.
     getState.mockReturnValue({ markdown: { pasteMode: "rich", preserveLineBreaks: false } });
     expect(currentPasteSettings().preserveLineBreaks).toBe(false);
+  });
+});
+
+describe("markdown-paste settings", () => {
+  it("passes the user's choices through", () => {
+    getState.mockReturnValue({
+      markdown: { pasteMarkdownInWysiwyg: "off", preserveLineBreaks: true },
+    });
+    expect(currentMarkdownPasteMode()).toBe("off");
+    expect(currentPreserveLineBreaks()).toBe(true);
+  });
+
+  it("defaults to auto, breaks not preserved, when both are unset", () => {
+    // The plugin has no store to fall back to — this mapping is the only place
+    // the absent-setting case can be answered.
+    getState.mockReturnValue({ markdown: {} });
+    expect(currentMarkdownPasteMode()).toBe("auto");
+    expect(currentPreserveLineBreaks()).toBe(false);
   });
 });

@@ -14,6 +14,7 @@
  */
 
 import type { PasteSettings } from "@/plugins/shared/pasteSettings";
+import type { MarkdownPasteMode } from "@/plugins/markdownPaste/tiptap";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 /** The live paste settings, translated for the plugins. */
@@ -23,4 +24,14 @@ export function currentPasteSettings(): PasteSettings {
     pasteMode: markdown.pasteMode ?? "smart",
     preserveLineBreaks: markdown.preserveLineBreaks ?? false,
   };
+}
+
+/** How pasted markdown should be interpreted in WYSIWYG. */
+export function currentMarkdownPasteMode(): MarkdownPasteMode {
+  return useSettingsStore.getState().markdown.pasteMarkdownInWysiwyg ?? "auto";
+}
+
+/** Whether soft breaks survive a paste. */
+export function currentPreserveLineBreaks(): boolean {
+  return useSettingsStore.getState().markdown.preserveLineBreaks ?? false;
 }

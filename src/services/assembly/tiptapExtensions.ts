@@ -49,7 +49,11 @@ import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
-import { currentPasteSettings } from "./pasteOptions";
+import {
+  currentPasteSettings,
+  currentMarkdownPasteMode,
+  currentPreserveLineBreaks,
+} from "./pasteOptions";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
@@ -199,7 +203,10 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     inlineNodeEditingExtension,
     footnotePopupExtension,
     smartPasteExtension,
-    markdownPasteExtension,
+    markdownPasteExtension.configure({
+      getMode: currentMarkdownPasteMode,
+      getPreserveLineBreaks: currentPreserveLineBreaks,
+    }),
     htmlPasteExtension.configure({ getPasteSettings: currentPasteSettings }),
     codePasteExtension.configure({ getPasteSettings: currentPasteSettings }),
     markdownCopyExtension,
