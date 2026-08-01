@@ -21,6 +21,10 @@
  *   - It is a TOGGLE: inside a fence it UNFENCES. It is the only action the
  *     executor still permits in a code block, so it has to be the way out.
  *
+ * `handleBuildInsert` takes a `literalContent` flag: a fence, `$$` block or
+ * diagram holds LITERAL text so block markup is stripped, while an alert or
+ * `<details>` is a CONTAINER whose markdown stays markdown.
+ *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
  * @coordinates-with sourceBlockPlacement.ts — the placement helpers
  * @coordinates-with sourceInsertions.ts — pure block builders (selection-preserving)
@@ -83,6 +87,33 @@ export function insertFootnote(view: EditorView): boolean {
  * `lowlight.highlightAuto()` mis-detecting, so omitting it here would leave the
  * two surfaces producing different documents for the same action.
  */
+/**
+ * The lines of a block reduced to the CONTENT a wrapper should contain.
+ *
+ * A wrapping block holds the block's TEXT, not the markup that made it a
+ * heading or a list item — `### Title` becomes `Title`, which is what WYSIWYG
+ * produces because it wraps the node's content. Indentation survives, since
+ * with the markers gone it is all that shows the nesting.
+ *
+ * The wrapper's quote is the COMMON enclosing depth; whatever depth a line
+ * carries beyond it is that line's own content and is re-emitted in front of
+ * it. Keeping only the first line's quote silently normalised every line to
+ * that depth: `> outer` + `> > inner` lost the inner `>` entirely.
+ *
+ * Shared by the code-block path and `handleBuildInsert` (math, diagram,
+ * graphviz, markmap). Only the former had it, so wrapping a heading in `$$`
+ * produced `$$\n### Title\n$$` on Source and `$$\nTitle\n$$` on WYSIWYG.
+ */
+function blockBodyForWrapping(lines: string[]): { quote: string; body: string } {
+  const parts = lines.map(stripBlockMarkup);
+  const commonDepth = Math.min(...parts.map((p) => quoteDepth(p.quote)));
+  const quote = "> ".repeat(commonDepth);
+  const body = parts
+    .map((p) => `${"> ".repeat(quoteDepth(p.quote) - commonDepth)}${p.indent}${p.content}`)
+    .join(`\n${quote}`);
+  return { quote, body };
+}
+
 export function insertCodeBlock(view: EditorView): boolean {
   const { all, span, blockFrom, blockTo } = resolveBlockRange(view);
 
@@ -96,17 +127,7 @@ export function insertCodeBlock(view: EditorView): boolean {
   // or a list item — `### Title` becomes a fence containing `Title`, which is
   // what WYSIWYG produces because it fences the node's content. Indentation
   // survives, since with the markers gone it is all that shows the nesting.
-  const parts = all.slice(span.start, span.end + 1).map(stripBlockMarkup);
-
-  // The fence's wrapper is the COMMON enclosing quote depth; whatever depth a
-  // line carries beyond it is that line's own content and is re-emitted in
-  // front of it. Keeping only the first line's quote silently normalized every
-  // line to that depth: `> outer` + `> > inner` lost the inner `>` entirely.
-  const commonDepth = Math.min(...parts.map((p) => quoteDepth(p.quote)));
-  const quote = "> ".repeat(commonDepth);
-  const body = parts
-    .map((p) => `${"> ".repeat(quoteDepth(p.quote) - commonDepth)}${p.indent}${p.content}`)
-    .join(`\n${quote}`);
+  const { quote, body } = blockBodyForWrapping(all.slice(span.start, span.end + 1));
 
   // The fence must be LONGER than any backtick run it contains, or content
   // holding a ``` line closes the block early and spills the rest outside it.
@@ -160,9 +181,19 @@ export function insertListMarker(view: EditorView, marker: string, pos?: number)
  * `The quick brown fox` and inserting a note left `> [!NOTE]\n> brown` and
  * nothing else.
  */
+/**
+ * @param literalContent - Whether the built block holds PLAIN TEXT rather than
+ *   markdown. A code fence, `$$` math block, mermaid/graphviz/markmap diagram
+ *   holds literal source, so `### Title` must enter it as `Title` — the markup
+ *   is not content there. An alert or `<details>` is a CONTAINER: the markdown
+ *   inside it stays markdown, and stripping it would flatten a heading into a
+ *   paragraph. Getting this backwards is why three green alert actions turned
+ *   red when the strip was applied to every caller.
+ */
 export function handleBuildInsert(
   view: EditorView,
   build: (selection: string) => InsertionResult,
+  literalContent = false,
 ): boolean {
   const { doc, selection } = view.state;
   const { from, to } = selection.main;
@@ -177,7 +208,32 @@ export function handleBuildInsert(
   // shatters it into list / wrapped-item / list. `blockSpan` is the one place
   // that decides this, shared with the WYSIWYG side.
   const { blockFrom, blockTo } = resolveBlockRange(view);
-  const { text, cursorOffset } = build(doc.sliceString(blockFrom, blockTo));
+  // Strip block markup, exactly as the code-block path does. Passing the raw
+  // slice put `### ` and `- ` INSIDE the math/diagram block.
+  const raw = doc.sliceString(blockFrom, blockTo);
+  const wrapped = literalContent
+    ? blockBodyForWrapping(raw.split("\n"))
+    : { quote: "", body: raw };
+  const built = build(wrapped.body);
+  const quote = wrapped.quote;
+
+  // The quote wrapper stays OUTSIDE the built block — a block converted inside
+  // a blockquote is still inside it, which is what the code-block path already
+  // does and what WYSIWYG produces. Dropping it lifted the block out of the
+  // quote entirely.
+  const { text, cursorOffset } = quote
+    ? {
+        text: built.text
+          .split("\n")
+          .map((line) => `${quote}${line}`)
+          .join("\n"),
+        // Each line before the caret gained `quote`, and so did its own line.
+        cursorOffset:
+          built.cursorOffset +
+          quote.length * built.text.slice(0, built.cursorOffset).split("\n").length,
+      }
+    : built;
+
   replaceLinesWithBlock(view, text, cursorOffset, { from: blockFrom, to: blockTo });
   return true;
 }

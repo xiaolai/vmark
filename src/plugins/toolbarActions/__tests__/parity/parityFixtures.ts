@@ -106,6 +106,13 @@ export const COVERED_ACTIONS: string[] = [
   // whole-document cleanup
   "removeTrailingSpaces", "collapseBlankLines", "removeBlankLines",
   "lineEndingsLF", "lineEndingsCRLF",
+  // block inserts that were excused as "opens a popup" — they are SYNCHRONOUS
+  // (`handleBuildInsert(view, buildX)` / `insertXBlock(context)`), and the
+  // popup is a separate follow-up the action does not await.
+  "insertMath", "insertInlineMath", "insertDiagram", "insertGraphvizDiagram",
+  "insertMarkmap",
+  // link actions that likewise mutate synchronously
+  "link:wiki", "unlink",
 ];
 
 /**
@@ -133,17 +140,10 @@ export const UNCOVERED_ACTIONS: Record<string, string> = {
   //     document edit. Covering them means driving the popup stores.
   link: "Opens the link popup; completion is async through the popup store.",
   "link:bookmark": "Reads the clipboard and opens a popup.",
-  "link:wiki": "Opens the wiki-link popup.",
-  unlink: "Paired with the link popup flow; needs a linked-document fixture plus store setup.",
   insertImage: "Opens the media popup / file dialog.",
   insertVideo: "Opens the media popup / file dialog.",
   insertAudio: "Opens the media popup / file dialog.",
   insertFootnote: "Inserts then opens the footnote popup to await the definition.",
-  insertMath: "Opens the math popup for the expression.",
-  insertInlineMath: "Opens the inline-math popup for the expression.",
-  insertDiagram: "Opens the diagram editor.",
-  insertGraphvizDiagram: "Opens the diagram editor.",
-  insertMarkmap: "Opens the diagram editor.",
 
 };
 
@@ -155,7 +155,7 @@ export const UNCOVERED_ACTIONS: Record<string, string> = {
  * this number. Never raise it — a new uncompared action means the harness fell
  * behind the adapters, which the contract test exists to catch.
  */
-export const MAX_UNCOVERED_ACTIONS = 19;
+export const MAX_UNCOVERED_ACTIONS = 12;
 
 /**
  * Actions only one surface routes, so parity is undefined for them by

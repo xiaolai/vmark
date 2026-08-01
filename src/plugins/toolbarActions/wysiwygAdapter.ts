@@ -23,6 +23,8 @@
  *     - wysiwygLineUnit.ts — resolves which node is "the line" for those
  *     - wysiwygAdapterUtils.ts — shared helpers (view checks, file paths, transforms)
  *
+ * Fenced-block inserts dispatch to `wysiwygAdapterBlockInsert.ts`.
+ *
  * @coordinates-with sourceAdapter.ts — parallel implementation for Source mode
  * @coordinates-with enableRules.ts — decides which actions are enabled
  * @coordinates-with UniversalToolbar.tsx — calls runToolbarAction on button click
@@ -39,7 +41,8 @@ import { applyMultiSelectionBlockquoteAction, applyMultiSelectionHeading, applyM
 import { insertWikiLink, insertBookmarkLink, removeLinkAtCursor } from "./wysiwygAdapterLinks";
 import { clearFormattingInView, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
 import { increaseHeadingLevel, decreaseHeadingLevel } from "./wysiwygHeadingLevel";
-import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock, insertInlineMath } from "./wysiwygAdapterInsert";
+import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertInlineMath } from "./wysiwygAdapterInsert";
+import { insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock } from "./wysiwygAdapterBlockInsert";
 import { handleInsertCodeBlock } from "./wysiwygAdapterCodeBlock";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
