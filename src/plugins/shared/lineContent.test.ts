@@ -434,3 +434,20 @@ describe("a list marker's padding is bounded — 5+ spaces is indented code", ()
     }
   });
 });
+
+describe("a SIBLING item at shallower marker column is still a boundary", () => {
+  it("treats ` - x` as a sibling of `- `, not a nested item", () => {
+    // The boundary compared the whole consumed PREFIX (3) against the opener's
+    // markerOffset (2) and called it nested. remark-parse reads a marker
+    // indented 0-3 columns as continuing the same list, so this is a SIBLING
+    // and it ends the first item's fence. The marker's COLUMN is what decides.
+    const ranges = fenceRanges(["- ```", " - x", "code"], "commonmark");
+    expect(ranges).toMatchObject([{ open: 0, close: 0, closed: false }]);
+  });
+
+  it("still treats `  - x` at the content column as NESTED", () => {
+    const ranges = fenceRanges(["- ```", "  - x", "code", "- ```"], "commonmark");
+    expect(ranges[0].open).toBe(0);
+    expect(ranges[0].close).toBeGreaterThan(1);
+  });
+});

@@ -22,6 +22,11 @@
  * The `<details>` TAG grammar — matching tags, reading attributes — lives in
  * `detailsTags.ts`. This file deals in mdast nodes.
  *
+ * Summary extraction lives in `detailsSummary.ts`; the tag grammar in
+ * `detailsTags.ts`. Content either half declines to consume is parsed back as
+ * body, REBASED into host coordinates — never renumbered from zero.
+ *
+ * @coordinates-with utils/markdownPipeline/plugins/detailsSummary.ts — the summary half
  * @coordinates-with utils/markdownPipeline/plugins/detailsTags.ts — the tag grammar
  * @coordinates-with mdastBlockConverters.ts — convertDetails creates PM nodes from Details MDAST
  * @coordinates-with pmBlockConverters.ts — convertDetailsBlock creates Details MDAST from PM
@@ -34,6 +39,7 @@ import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import type { Details } from "../types";
 import { getDetailsBodyParser } from "./detailsBodyParser";
+import { extractSummaryFromChildren } from "./detailsSummary";
 import {
   DETAILS_OPEN_RE,
   DETAILS_CLOSE_RE,
@@ -116,6 +122,7 @@ function transformDetailsBlocks(children: Content[]): Content[] {
 
     // v8 ignore next -- @preserve reason: remark always sets html node.value; the ?? "" fallback is a defensive guard that is structurally unreachable
     const openInfo = parseDetailsOpen(node.value ?? "");
+    const openOrigin = hostOriginOf(node);
     const inner: Content[] = [];
     let closed = false;
     let depth = 1; // Track nesting depth for nested <details> blocks
@@ -153,7 +160,16 @@ function transformDetailsBlocks(children: Content[]): Content[] {
     // Content the opening html node swallowed leads the body — it appeared
     // BEFORE everything in `inner`, so it must stay first.
     const nestedChildren = [
-      ...(openInfo.residue ? parseDetailsBody(openInfo.residue) : []),
+      ...openInfo.residue.flatMap((piece) =>
+        parseDetailsBody(
+          piece.text,
+          // The opening html node is a REAL host node, so its own start is the
+          // origin. Without this the re-parse numbered the residue from 0 and
+          // handed the link-check authorizer coordinates pointing at unrelated
+          // text — well-formed, and wrong.
+          openOrigin && originWithin(node.value ?? "", piece.start, openOrigin)
+        )
+      ),
       ...transformDetailsBlocks(bodyChildren),
     ];
     result.push({
@@ -220,41 +236,6 @@ function parseDetailsHtmlBlock(
     summary,
     children,
   } as Details;
-}
-
-function extractSummaryFromChildren(
-  children: Content[]
-): { summary?: string; children: Content[] } {
-  if (children.length === 0) {
-    return { children };
-  }
-
-  const [first, ...rest] = children;
-  if (first?.type !== "html") {
-    return { children };
-  }
-
-  // The summary must be THIS block's, which means the html child has to BEGIN
-  // with it. Searching anywhere in the child let a nested compact
-  // `<details><summary>Inner</summary>…</details>` donate its summary to the
-  // outer block — and because the whole child was then consumed as the
-  // summary, the nested block and its content were DISCARDED. Measured: an
-  // outer block titled "Outer" came back titled "Inner" with no children.
-  const value = first.value ?? "";
-  // Whitespace and HTML COMMENTS may precede the summary — a comment is not
-  // content, and rejecting it discarded a legitimate summary.
-  if (!/^(?:\s|<!--[\s\S]*?-->)*<summary>/i.test(value)) {
-    return { children };
-  }
-
-  const summaryMatch = value.match(SUMMARY_RE);
-  if (!summaryMatch) {
-    return { children };
-  }
-
-  // v8 ignore next -- @preserve reason: summaryMatch[1] is always a string when the regex matches (capturing group always present); the ?? "Details" branch is unreachable
-  const summary = (summaryMatch[1] ?? "Details").trim() || "Details";
-  return { summary, children: rest };
 }
 
 function parseDetailsBody(markdown: string, origin?: RebaseOrigin): Content[] {

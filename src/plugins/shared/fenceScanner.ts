@@ -27,20 +27,15 @@
  * into ranges. A list item boundary ends the previous item's fence, so two
  * consecutive item-opened fences yield a range each rather than one run-on.
  *
+ * The boundary rule compares a marker's column against the opener's content
+ * column: strictly shallower ends the item, equal or deeper is nested.
+ *
  * @coordinates-with plugins/shared/fenceDelimiter.ts — the parsing half
  * @coordinates-with sourceContextDetection/codeFenceDetection.ts — positions
  * @coordinates-with sourceContextDetection/__tests__/fenceGrammarAgreement.test.ts
  * @module plugins/shared/fenceScanner
  */
 
-/**
- * A fence delimiter, with the details CommonMark needs to pair it.
- *
- * `run` matters: a closer must be at LEAST as long as its opener. Comparing only
- * the marker character treated ```` ```` ```` + ``` ``` ``` as a closed block, so
- * everything after it was classified as ordinary markdown and lost its
- * protection — a real bypass of the safety boundary.
- */
 import {
   type FenceDelimiter,
   type FenceIndentPolicy,
@@ -51,6 +46,8 @@ import {
 } from "./fenceDelimiter";
 
 export type { FenceIndentPolicy };
+
+/** A fenced code block's line range. */
 export interface EnclosingFence {
   /** 0-based line index of the opening delimiter. */
   open: number;
@@ -105,13 +102,6 @@ export function isDelimiterLine(ranges: readonly EnclosingFence[], lineIndex: nu
  * `markerOffset` for the positions its consumers report. Two parsers is how
  * the grammars drifted; there is one now.
  */
-/**
- * The indent of a line that STARTS a new list item, or null.
- *
- * A list item boundary ends the previous item's block whether or not the line
- * happens to carry a fence, so this runs the same prefix walk as
- * `parseFenceDelimiter` without requiring a fence marker to follow.
- */
 export function fenceRanges(
   lines: readonly string[],
   indentPolicy: FenceIndentPolicy = "commonmark"
@@ -129,14 +119,16 @@ export function fenceRanges(
       }
       continue;
     }
-    // A new LIST ITEM at the opener's level or shallower ends the previous
-    // item's block, fence and all. `!startsListItem` (below) correctly stops
+    // A new LIST ITEM shallower than the opener's content column ends the
+    // previous item's block, fence and all. `!startsListItem` (below) stops
     // the second item's ``` from CLOSING the first — it opens its own — but
     // nothing then ENDED the first, so a single unclosed range swallowed both
     // items and every line after them. A NESTED item (deeper indent) is inside
     // the fence and ends nothing.
     const itemStart = opener?.startsListItem ? listItemStart(lines[i] ?? "") : null;
-    if (opener && itemStart !== null && itemStart <= opener.markerOffset) {
+    // STRICTLY shallower than the opener's content column. A marker AT that
+    // column is nested inside the item and ends nothing.
+    if (opener && itemStart !== null && itemStart < opener.markerOffset) {
       ranges.push({
         open,
         close: i - 1,
