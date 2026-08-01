@@ -142,3 +142,23 @@ describe("the refusal path", () => {
     expect(() => authorizer.require(synthesised, "linkCheck")).toThrow(/linkCheck/);
   });
 });
+
+describe("content the OPENING tag swallowed keeps host coordinates", () => {
+  it("slices to the link itself, not to unrelated text", () => {
+    // remark keeps consecutive HTML lines in one node, so a link between
+    // `<details>` and `<summary>` arrives inside the opening node. Parsing that
+    // residue back as body content restarted its offsets at 0 — well-formed
+    // coordinates pointing somewhere else entirely, which is precisely what
+    // this file exists to catch. It is rebased from the opening node's own
+    // start now.
+    const md = "pad\n\npad2\n\n<details>\n[r](./r.md)\n<summary>S</summary>\n\nbody\n\n</details>\n";
+    const found = authorisedLinks(md).find((l) => l.url === "./r.md");
+    expect(found?.slice).toBe("[r](./r.md)");
+  });
+
+  it("does the same for content AFTER the summary in that node", () => {
+    const md = "pad\n\n<details>\n<summary>S</summary>\n[q](./q.md)\n\nbody\n\n</details>\n";
+    const found = authorisedLinks(md).find((l) => l.url === "./q.md");
+    expect(found?.slice).toBe("[q](./q.md)");
+  });
+});

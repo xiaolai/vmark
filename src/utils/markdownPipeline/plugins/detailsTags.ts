@@ -7,6 +7,9 @@
  * that was already there: three regexes and four small functions that never
  * touch a node.
  *
+ * `parseDetailsOpen` also returns the RESIDUE the opening node swallowed,
+ * each piece with its offset, so the caller can rebase rather than guess.
+ *
  * @coordinates-with utils/markdownPipeline/plugins/detailsBlock.ts — the consumer
  * @module utils/markdownPipeline/plugins/detailsTags
  */
@@ -59,14 +62,40 @@ export function hasOpenAttribute(value: string): boolean {
 export function parseDetailsOpen(value: string): {
   open: boolean;
   summary: string;
-  residue: string;
+  /**
+   * Content the opening node swallowed, each piece with its OFFSET into the
+   * host value — a piece before the summary, a piece after it, or neither.
+   *
+   * The offset is not decoration. Re-parsing a bare string restarts its
+   * positions at 0, producing well-formed coordinates that point at unrelated
+   * text — the exact failure `positionTrust` exists to refuse. Carrying the
+   * offset lets the caller rebase into host coordinates instead.
+   */
+  residue: { text: string; start: number }[];
 } {
   const open = hasOpenAttribute(value);
   const summaryMatch = value.match(SUMMARY_RE);
   const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
-  const residue = value
-    .replace(DETAILS_OPEN_RE, "")
-    .replace(SUMMARY_RE, "")
-    .trim();
+  // Two contiguous pieces at most: between the open tag and the summary, and
+  // after the summary. Each keeps its own offset, so neither is re-parsed as if
+  // it began the document.
+  const openTag = value.match(DETAILS_OPEN_RE);
+  const afterOpen = (openTag?.index ?? 0) + (openTag?.[0].length ?? 0);
+  const summaryStart = summaryMatch?.index ?? value.length;
+  const afterSummary = summaryMatch
+    ? summaryStart + summaryMatch[0].length
+    : value.length;
+
+  const residue = [
+    { raw: value.slice(afterOpen, summaryStart), at: afterOpen },
+    { raw: value.slice(afterSummary), at: afterSummary },
+  ]
+    .map(({ raw, at }) => {
+      // Trim, but keep the offset honest by counting what the trim removed.
+      const lead = raw.length - raw.trimStart().length;
+      return { text: raw.trim(), start: at + lead };
+    })
+    .filter((piece) => piece.text.length > 0);
+
   return { open, summary, residue };
 }

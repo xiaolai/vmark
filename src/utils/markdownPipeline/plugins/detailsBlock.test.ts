@@ -668,3 +668,21 @@ describe("a comment may precede the summary", () => {
     expect(text).toContain("body");
   });
 });
+
+describe("the INNER html child's residue survives too", () => {
+  it("keeps text that follows </summary> in the same node", () => {
+    // `extractSummaryFromChildren` returned `{ summary, children: rest }`,
+    // dropping the whole first child. With a blank line after `<details>`,
+    // remark emits `<summary>S</summary>\nprose` as ONE inner html node, so
+    // `prose` went with it.
+    const md = "<details>\n\n<summary>S</summary>\nprose\n\nbody\n\n</details>\n";
+    const details = detailsOf(md);
+    expect(details?.summary).toBe("S");
+    expect(JSON.stringify(details?.children ?? [])).toContain("prose");
+  });
+
+  it("skips a comment in its OWN node before the summary node", () => {
+    const md = "<details>\n\n<!-- note -->\n\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    expect(detailsOf(md)?.summary).toBe("Real");
+  });
+});

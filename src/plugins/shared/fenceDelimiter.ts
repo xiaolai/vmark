@@ -6,6 +6,9 @@
  * `fenceScanner.ts`'s job; splitting them apart is what kept that file under
  * the size limit when the list-boundary rule landed.
  *
+ * `listItemStart` reports a marker's COLUMN, not its prefix length — the
+ * distinction that separates a sibling item from a nested one.
+ *
  * @coordinates-with plugins/shared/fenceScanner.ts — the pairing half
  * @module plugins/shared/fenceDelimiter
  */
@@ -51,15 +54,14 @@ export function isBlankInfo(info: string): boolean {
 }
 
 /**
- * A list-item marker a fence may open on (`- ``` `), or the content indent of
- * such an item on later lines. Missing these meant a list-item fence was never
- * seen at its opener, while its indented CLOSER was misread as a new opener —
- * flipping inside and outside for the rest of the document.
- */
-/**
- * A list marker plus its padding — and the padding is BOUNDED at 4.
+ * A list-item marker a fence may open on (`- ``` `), plus its padding — and the
+ * padding is BOUNDED at 4.
  *
- * `[ \t]+` consumed unlimited whitespace, so `- -     ``` ` looked like a
+ * Missing the marker entirely meant a list-item fence was never seen at its
+ * opener, while its indented CLOSER was misread as a new opener, flipping
+ * inside and outside for the rest of the document. — and the padding is BOUNDED at 4.
+ *
+ * Then `[ \t]+` consumed unlimited whitespace, so `- -     ``` ` looked like a
  * marker, a marker and a fence. CommonMark reads 5+ spaces after a marker as
  * "content starts one space in, the rest is INDENTED CODE" — there is no fence
  * there at all, and inventing one turned ordinary text into a phantom range.
@@ -136,19 +138,34 @@ export function parseFenceDelimiter(
   };
 }
 
-/** A fenced code block's line range. */
+/**
+ * The COLUMN of the last list marker on a line that starts an item, or null.
+ *
+ * A list item boundary ends the previous item's block whether or not the line
+ * happens to carry a fence, so this runs the same prefix walk as
+ * `parseFenceDelimiter` without requiring a fence marker to follow.
+ *
+ * The marker's COLUMN, not the consumed prefix length. Comparing lengths made
+ * ` - x` (prefix 3) look nested inside `- ` (content column 2), where
+ * remark-parse reads a marker indented 0-3 columns as continuing the same list
+ * — a sibling. Getting this wrong leaves the previous item's fence open across
+ * text that is not in it.
+ */
 export function listItemStart(line: string): number | null {
   let rest = line;
   let consumed = 0;
-  let found = false;
+  let markerColumn: number | null = null;
   for (;;) {
     const quote = CONTAINER_PREFIX_RE.exec(rest)?.[0] ?? "";
     const list = LIST_ITEM_PREFIX_RE.exec(rest.slice(quote.length))?.[0] ?? "";
     if (!quote && !list) break;
-    if (list) found = true;
+    if (list) {
+      // The regex leads with ` {0,3}` — the indent BEFORE the marker.
+      markerColumn = consumed + quote.length + (list.length - list.trimStart().length);
+    }
     consumed += quote.length + list.length;
     rest = rest.slice(quote.length + list.length);
   }
-  return found ? consumed : null;
+  return markerColumn;
 }
 
