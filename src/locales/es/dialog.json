@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "No se pudo deshacer el movimiento de la pestaña",
   "toast.fileOpenFailed": "No se pudo abrir el archivo: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "No se pudo abrir el espacio de trabajo en una nueva ventana",
+  "toast.openWorkspaceForFileFailed": "Se abrió el archivo, pero no se pudo abrir su carpeta de espacio de trabajo. La barra lateral sigue mostrando el espacio de trabajo anterior.",
   "toast.revealInFinderFailed": "No se pudo mostrar en el Finder",
   "toast.historyDeleted": "Historial eliminado",
   "toast.historyClearedAll": "Todo el historial borrado",

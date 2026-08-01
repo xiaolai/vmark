@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "Impossibile annullare lo spostamento della scheda",
   "toast.fileOpenFailed": "Apertura del file non riuscita: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "Impossibile aprire lo spazio di lavoro in una nuova finestra",
+  "toast.openWorkspaceForFileFailed": "Il file è stato aperto, ma non è stato possibile aprire la cartella dell'area di lavoro. La barra laterale mostra ancora l'area di lavoro precedente.",
   "toast.revealInFinderFailed": "Impossibile mostrare nel Finder",
   "toast.historyDeleted": "Cronologia eliminata",
   "toast.historyClearedAll": "Tutta la cronologia è stata cancellata",

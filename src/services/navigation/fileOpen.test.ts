@@ -226,7 +226,7 @@ describe("replaceTabWithFile", () => {
     rebootstrapFormats();
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "# scratch", null);
-    const loadSpy = vi.spyOn(useDocumentStore.getState(), "loadContent");
+    const loadSpy = vi.spyOn(useDocumentStore.getState(), "ingestExternalContent");
 
     const result = await replaceTabWithFile({
       windowLabel: WINDOW,
@@ -243,7 +243,9 @@ describe("replaceTabWithFile", () => {
       expect.anything(),
     );
     // Empty content written; the media surface streams via asset://.
-    expect(loadSpy).toHaveBeenCalledWith(tabId, "", "/pics/photo.png");
+    expect(loadSpy).toHaveBeenCalledWith(tabId, "", "disk-open", {
+      filePath: "/pics/photo.png",
+    });
     const tab = useTabStore.getState().findTabById(tabId);
     expect(tab?.formatId).toBe("media");
   });

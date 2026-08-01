@@ -168,6 +168,7 @@
   "toast.tabUndoFailed": "Failed to undo tab move",
   "toast.fileOpenFailed": "Failed to open file: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "Failed to open workspace in new window",
+  "toast.openWorkspaceForFileFailed": "Opened the file, but its workspace folder could not be opened. The sidebar still shows the previous workspace.",
   "toast.revealInFinderFailed": "Failed to reveal in Finder",
   "toast.historyDeleted": "History deleted",
   "toast.historyClearedAll": "All history cleared",
