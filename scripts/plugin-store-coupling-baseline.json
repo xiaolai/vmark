@@ -1,6 +1,6 @@
 {
   "//": "Frozen plugin->store coupling, per unit. A plugin importing @/stores cannot ship as a standalone extension - see scripts/check-plugin-store-coupling.mjs and dev-docs/deep-researches/20260725-extension-goal-progress-audit.md. Ratchets DOWN only: never raise a number, and lower it when you decouple a file.",
-  "//total": "95 coupled files across 43 units (cjkLetterSpacing, autoPair, tabIndent decoupled 2026-08-02 \u2014 each takes an injected getter, the host supplies it).",
+  "//total": "93 coupled files across 41 units (cjkLetterSpacing, autoPair, tabIndent, focusMode, typewriterMode decoupled 2026-08-02 \u2014 each takes injected getters, the host supplies them).",
   "units": {
     "aiSuggestion": 1,
     "blockAudio": 1,
@@ -12,7 +12,6 @@
     "editorContextMenu": 2,
     "editorPlugins": 2,
     "editorPlugins.tiptap.ts": 1,
-    "focusMode": 1,
     "footnotePopup": 3,
     "ghaWorkflowPreview": 1,
     "htmlPaste": 1,
@@ -42,7 +41,6 @@
     "sourceWikiLinkPopup": 3,
     "tableUI": 1,
     "toolbarActions": 9,
-    "typewriterMode": 1,
     "wikiLinkPopup": 2,
     "workflowPreview": 2
   }
