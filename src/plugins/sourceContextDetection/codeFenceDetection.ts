@@ -92,11 +92,11 @@ function buildInfo(doc: Text, fence: EnclosingFence): CodeFenceInfo {
   const language = infoMatch ? infoMatch[2] : "";
 
   const fenceStartPos = openerLine.from + fence.markerOffset;
-  // The run's length is not carried on the range; it is the distance from the
-  // marker to the info string on the opener line.
-  const runLength = openerLine.text.slice(fence.markerOffset).search(/[^`~]/);
-  const languageStartPos =
-    fenceStartPos + (runLength === -1 ? 0 : runLength) + leadingWhitespace.length;
+  // The run comes FROM the scanner. Re-deriving it here with
+  // `search(/[^`~]/)` returned -1 when the opener had no info string — the
+  // whole slice is markers — and the language position collapsed onto the
+  // first backtick.
+  const languageStartPos = fenceStartPos + fence.run + leadingWhitespace.length;
 
   return {
     language,

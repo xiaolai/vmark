@@ -379,3 +379,45 @@ describe("getCodeFenceInfoAt", () => {
     expect(info?.language).toBe("js");
   });
 });
+
+describe("language token positions — the no-info-string case", () => {
+  // Re-deriving the delimiter run with `search(/[^`~]/)` returned -1 when the
+  // opener carried NO info string (the whole slice is markers), and
+  // `languageStartPos` collapsed onto the first backtick. Setting a language
+  // would have written "js```" instead of "```js". The run comes from the
+  // scanner now, which already knows it.
+  const infoFor = (doc: string) =>
+    getCodeFenceInfoAt(EditorState.create({ doc }), doc.indexOf("code"));
+
+  it.each([
+    { label: "backtick, no info", doc: "```\ncode\n```", start: 3 },
+    { label: "tilde, no info", doc: "~~~\ncode\n~~~", start: 3 },
+    { label: "longer run, no info", doc: "`````\ncode\n`````", start: 5 },
+    { label: "indented, no info", doc: "  ```\ncode\n  ```", start: 5 },
+  ])("$label — languageStartPos sits AFTER the run", ({ doc, start }) => {
+    const info = infoFor(doc);
+    expect(info?.language).toBe("");
+    expect(info?.languageStartPos).toBe(start);
+    expect(info?.languageEndPos).toBe(start);
+  });
+
+  it.each([
+    { label: "backtick with lang", doc: "```js\ncode\n```", start: 3, lang: "js" },
+    { label: "run of five with lang", doc: "`````ts\ncode\n`````", start: 5, lang: "ts" },
+    { label: "space before lang", doc: "```  js\ncode\n```", start: 5, lang: "js" },
+  ])("$label — unchanged", ({ doc, start, lang }) => {
+    const info = infoFor(doc);
+    expect(info?.language).toBe(lang);
+    expect(info?.languageStartPos).toBe(start);
+    expect(info?.languageEndPos).toBe(start + lang.length);
+  });
+
+  it("a language can be inserted at languageStartPos to make a valid fence", () => {
+    // The end-to-end claim the positions exist for.
+    const doc = "```\ncode\n```";
+    const info = infoFor(doc)!;
+    const withLang =
+      doc.slice(0, info.languageStartPos) + "js" + doc.slice(info.languageEndPos);
+    expect(withLang).toBe("```js\ncode\n```");
+  });
+});

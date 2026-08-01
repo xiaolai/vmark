@@ -38,6 +38,10 @@ interface FenceDelimiter {
   info: string;
   /** Blockquote prefix the delimiter sits behind, e.g. `> `. */
   prefix: string;
+  /** Spaces between the container prefixes and the marker run. */
+  indent: number;
+  /** Whether a LIST MARKER introduces this line (`- `, `1. `). */
+  startsListItem: boolean;
   /**
    * Characters before the first marker on the line — container prefixes plus
    * the delimiter's own indent.
@@ -100,10 +104,22 @@ function parseFenceDelimiter(
   line: string,
   indentPolicy: FenceIndentPolicy = "commonmark"
 ): FenceDelimiter | null {
-  const quotePrefix = CONTAINER_PREFIX_RE.exec(line)?.[0] ?? "";
-  let rest = line.slice(quotePrefix.length);
-  const listPrefix = LIST_ITEM_PREFIX_RE.exec(rest)?.[0] ?? "";
-  rest = rest.slice(listPrefix.length);
+  // Containers nest in ANY order: `- > ```` is a fence inside a blockquote
+  // inside a list item. Stripping one quote run and then one list marker read
+  // that as no fence at all, so every cursor guard stayed off inside it.
+  let rest = line;
+  let quotePrefix = "";
+  let consumed = 0;
+  let startsListItem = false;
+  for (;;) {
+    const quote = CONTAINER_PREFIX_RE.exec(rest)?.[0] ?? "";
+    const list = LIST_ITEM_PREFIX_RE.exec(rest.slice(quote.length))?.[0] ?? "";
+    if (!quote && !list) break;
+    quotePrefix += quote;
+    if (list) startsListItem = true;
+    consumed += quote.length + list.length;
+    rest = rest.slice(quote.length + list.length);
+  }
 
   // SPACES only, and at most three under CommonMark: a tab expands to four
   // COLUMNS, which is indented code, not a fence. `[ \t]{0,3}` let a single tab
@@ -128,7 +144,9 @@ function parseFenceDelimiter(
     run,
     info,
     prefix: quotePrefix,
-    markerOffset: quotePrefix.length + listPrefix.length + match[1].length,
+    indent: match[1].length,
+    startsListItem,
+    markerOffset: consumed + match[1].length,
   };
 }
 
@@ -144,11 +162,16 @@ export interface EnclosingFence {
    * The opener's info string, and where its run begins in the opener line.
    *
    * Carried so a consumer that needs POSITIONS — the language token's bounds,
-   * for a rename — does not have to re-parse the opener with a second grammar.
-   * That re-parsing is exactly how the fence grammar came to exist twice.
+   * for a rename — does not have to re-derive them. Re-deriving the run with
+   * `search(/[^\`~]/)` returned -1 for an opener with no info string, and the
+   * language position then pointed at the FIRST BACKTICK instead of after the
+   * run: setting a language would have written `js\`\`\`` rather than
+   * `\`\`\`js`. The scanner already knows the run; it says so.
    */
   info: string;
   markerOffset: number;
+  /** Length of the opener's delimiter run (3+). */
+  run: number;
 }
 
 /** The fence enclosing `lineIndex`, or null when that line is not inside one. */
@@ -207,6 +230,18 @@ export function fenceRanges(
       opener &&
       delimiter.marker === opener.marker &&
       delimiter.run >= opener.run &&
+      // A line carrying a LIST MARKER starts a new item; it cannot close the
+      // previous item's fence. Without this, two consecutive list items each
+      // opening a fence paired with EACH OTHER, so the second item's code was
+      // classified as prose and lost every guard.
+      !delimiter.startsListItem &&
+      // Indent must be COMPATIBLE. Under `deep-indent` the extra indentation
+      // stands in for a container the line-based parser cannot see, so it has
+      // to constrain pairing the way `quoteDepth` does — otherwise an
+      // unindented opener was closed by a four-space line that is really
+      // indented code, ending the fence early and leaving the rest of the
+      // block unprotected. CommonMark's own 0-3 tolerance is the window.
+      Math.abs(delimiter.indent - opener.indent) <= 3 &&
       // Same CONTAINER: a fence opened inside a blockquote is not closed by a
       // delimiter outside it. Capturing the prefix and then ignoring it paired
       // `> \`\`\`` with a bare \`\`\`, so the real fenced code after it was
@@ -220,6 +255,7 @@ export function fenceRanges(
         closed: true,
         info: opener.info,
         markerOffset: opener.markerOffset,
+        run: opener.run,
       });
       open = -1;
       opener = null;
@@ -234,6 +270,7 @@ export function fenceRanges(
       closed: false,
       info: opener.info,
       markerOffset: opener.markerOffset,
+      run: opener.run,
     });
   }
   return ranges;
