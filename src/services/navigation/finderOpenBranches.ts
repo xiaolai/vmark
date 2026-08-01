@@ -24,6 +24,8 @@
  *     detaching on failure would have detached a tab this call never created.
  *   - `cancelled` is re-checked after every await. The hook can unmount
  *     mid-flow.
+ *   - The size gate and the progress indicator live together: a branch that
+ *     lands nothing clears the indicator, or a spinner outlives its operation.
  *
  * @coordinates-with hooks/useFinderFileOpen.ts — the only caller
  * @coordinates-with services/navigation/openMediaFile.ts — the media branch
