@@ -82,3 +82,39 @@ Found 18 issues: 14 High and 4 Medium. The most serious risks are recovery-data 
 **[OPEN — pre-existing]** src/services/navigation/fileOpen.ts:37 | Refactoring Debt | High | The 308-line file exceeds the project guideline; `openFileInNewTabCore` and `handleOpen` are both roughly 100-line, high-branching workflows. | Extract dialog/filter construction and open-decision execution into focused services.
 
 No unused imports, unreachable branches, or commented-out dead code were found in the five files. This was a static review; I inspected the direct tests but did not execute them.
+
+---
+
+## Round 3 — independent verification (2026-08-01)
+
+Fresh `read-only` Codex call (`gpt-5.6-sol`, effort `high`), not a resume of the
+audit session, checking the five claimed fixes against the working tree.
+`threadId: 019fbaf1-b3be-7d20-b10a-e9e352bbaac8` · `jobId: verify-ms9p2ppa-nqphgy`
+
+| # | Finding | Verdict |
+|---|---|---|
+| 1 | `createInitialDocument` discards derived line metadata | **FIXED** |
+| 2 | `assertCanonicalEditorText` ignores a leading BOM | **FIXED** |
+| 3 | `loadContent` revision compare disagrees with what it stores | **FIXED** |
+| 4 | Finder-open ingests without re-checking the tab | **PARTIAL** |
+| 5 | `saveToPath` header misdescribes the awaited history snapshot | **FIXED** |
+
+Finding 1 was fixed **against the audit's own prescription**, so the verifier
+was asked to check the reasoning rather than the diff, and it independently
+confirmed both halves: `detectHardBreakStyle` normalises EOLs at
+`linebreakDetection.ts:49` before scanning (so deriving from canonical text is
+sound), and no `initDocument` caller passes raw disk text.
+
+**The PARTIAL was acted on, not filed.** Two things remained:
+
+- *No test took the guard's false branch.* Correct, and the sharpest finding of
+  the round — the Finder suites' tabStore mocks return a tab for every ID, so
+  the regression would have passed there unnoticed.
+  `useFinderFileOpen.closeDuringRead.test.ts` now pins it, including the
+  ordering (the close happens DURING the read, so a pre-await check would not
+  catch it). Verified RED: with the guard removed, 3 of its 5 cases fail.
+- *The `createTab` dedup race is still open.* Confirmed still present. It is
+  part of the Finder-open/navigation-service consolidation recorded above, not
+  something to bolt on here.
+
+"No new code defect was introduced by these five edits."
