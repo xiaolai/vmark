@@ -119,6 +119,51 @@ What remains is a POSITIONAL-INFO ADAPTER over `fenceRanges` so
       are invisible to `codeFenceDetection`, so cursor-context guards do not
       engage inside them. The gate's divergence pins flip when this lands.
 
+## Carried in from the audit (2026-08-01): tab transfer drops line metadata
+
+Phase 1 routed fifteen ingresses through one origin-governed door. The tab and
+workspace TRANSFER paths are the ones it could not finish, and the audit's
+`document.ts:161-175` finding names why: they do not go through a door at all,
+they call `initDocument` — and `TabTransferPayload` (`src/types/tabTransfer.ts`)
+carries `content`, `savedContent` and `isDirty` but **no line metadata**.
+
+Verified, not assumed:
+
+| Field | Survives a window-to-window move? | Why |
+|---|---|---|
+| `hardBreakStyle` | **Yes**, since 2026-08-01 | `detectHardBreakStyle` normalises EOLs at `linebreakDetection.ts:49` before scanning, so deriving from canonical text gives the same answer as deriving from raw bytes |
+| `lineEnding` | **No** — becomes `unknown` | the payload is canonical LF text; the source file's CRLF is unrecoverable from it |
+| `hasBom` | **No** — becomes `false` | derived from canonical content, which never has one |
+| `lastDiskContent` | **No** — set to the canonical text | so the next external-change compare is against the wrong domain |
+
+Consequence: move a CRLF+BOM file to another window, save it, and the file
+is rewritten LF and BOM-less under `preserve`. `resolveHardBreakStyle` used to
+compound this by turning `unknown` into `twoSpaces` (`utils/linebreaks.ts:41`);
+that half is closed.
+
+The fix is NOT a store-local change, which is why it is here and not a tail on
+the audit round:
+
+- [ ] add `lineEnding` / `hardBreakStyle` / `hasBom` / `lastDiskContent` to
+      `TabTransferPayload` **and** to its serde mirrors in
+      `src-tauri/src/tab_transfer.rs` and `src-tauri/src/workspace_transfer.rs`;
+- [ ] populate at both send sites (`useTabContextMenuActions.ts:126`,
+      `tabTransferActions.ts:172`);
+- [ ] apply at all three receive sites (`tabTransferHandlers.ts:72`,
+      `tabTransferActions.ts:113`, `workspaceWindowActions.ts:111`) — which
+      means replacing `initDocument`'s fourth `savedContent?: string` parameter
+      with an explicit structure, since the same overload is what let the raw
+      and canonical domains blur here in the first place;
+- [ ] round-trip test: a CRLF+BOM document moved between windows and saved
+      under `preserve` is byte-identical to what it was — the same assertion
+      `ingestMatrix.test.ts` already makes for every other origin.
+
+Until it lands, `initDocument` deliberately reports `lineEnding: "unknown"`
+rather than deriving `"lf"` from the canonical payload: unknown lets the
+save-time resolver apply the user's setting, whereas `"lf"` would assert a
+convention the file never had. That asymmetry is a stopgap with a comment, not
+the design.
+
 ## Prior art in this repo
 
 - `.claude/tdd-guardian/plan-20260731-113906.md` — Phase 0's WI-0.1 holds the
