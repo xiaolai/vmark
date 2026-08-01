@@ -30,6 +30,7 @@ import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import type { Details } from "../types";
 import { getDetailsBodyParser } from "./detailsBodyParser";
+import { originWithin, rebasePositions, type RebaseOrigin } from "./rebasePositions";
 
 interface ToMarkdownExtension {
   handlers?: Record<string, DetailsHandler>;
@@ -80,13 +81,26 @@ export const remarkDetailsBlock: Plugin<[], Root> = function () {
   };
 };
 
+/** A node's own start, when it carries a complete one. */
+function hostOriginOf(node: Content): RebaseOrigin | undefined {
+  const start = node.position?.start;
+  if (
+    typeof start?.offset !== "number" ||
+    typeof start.line !== "number" ||
+    typeof start.column !== "number"
+  ) {
+    return undefined;
+  }
+  return { offset: start.offset, line: start.line, column: start.column };
+}
+
 function transformDetailsBlocks(children: Content[]): Content[] {
   const result: Content[] = [];
 
   for (let index = 0; index < children.length; index += 1) {
     const node = children[index];
     if (node?.type === "html") {
-      const parsed = parseDetailsHtmlBlock(node.value ?? "");
+      const parsed = parseDetailsHtmlBlock(node.value ?? "", hostOriginOf(node));
       if (parsed) {
         result.push(parsed);
         continue;
@@ -161,7 +175,10 @@ function parseDetailsOpen(value: string): { open: boolean; summary: string } {
   return { open, summary };
 }
 
-function parseDetailsHtmlBlock(value: string): Details | null {
+function parseDetailsHtmlBlock(
+  value: string,
+  hostStart?: RebaseOrigin,
+): Details | null {
   const openTagMatch = value.match(DETAILS_OPEN_RE);
   const closeTagMatch = value.match(DETAILS_CLOSE_RE);
   if (!openTagMatch || !closeTagMatch) return null;
@@ -195,7 +212,13 @@ function parseDetailsHtmlBlock(value: string): Details | null {
   }
 
   const body = value.slice(bodyStart, closeTagStart);
-  const children = parseDetailsBody(body);
+  // The body's absolute start: where this html node begins, plus how far into
+  // its value the body does. Without it the re-parse below numbers from 0 and
+  // every offset inside a COMPACT `<details>` addresses the wrong text.
+  const children = parseDetailsBody(
+    body,
+    hostStart ? originWithin(value, bodyStart, hostStart) : undefined,
+  );
 
   return {
     type: "details",
@@ -227,7 +250,7 @@ function extractSummaryFromChildren(
   return { summary, children: rest };
 }
 
-function parseDetailsBody(markdown: string): Content[] {
+function parseDetailsBody(markdown: string, origin?: RebaseOrigin): Content[] {
   if (!markdown.trim()) {
     return [];
   }
@@ -235,7 +258,11 @@ function parseDetailsBody(markdown: string): Content[] {
   const processor = getDetailsBodyParser();
   const parsed = processor.parse(markdown);
   const transformed = processor.runSync(parsed) as Root;
-  return transformDetailsBlocks(transformed.children as Content[]);
+  const children = transformDetailsBlocks(transformed.children as Content[]);
+  // Rebase INTO the host document. The re-parse numbered these from 0; without
+  // this they are well-formed offsets pointing at unrelated text.
+  if (origin) rebasePositions(children, origin);
+  return children;
 }
 
 function detailsHandler(

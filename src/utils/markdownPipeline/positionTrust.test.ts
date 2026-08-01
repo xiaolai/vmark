@@ -142,12 +142,11 @@ describe("canonicalRangeOf refuses rather than guesses", () => {
 });
 
 describe("inheritance applies only where measured", () => {
-  it("distrusts a details descendant — the COMPACT form re-bases offsets", () => {
-    // Measured three times before it was right. A compact
-    // `<details><summary>S</summary>body</details>` is ONE html node whose
-    // body is re-parsed standalone, so offsets restart at 0; a multiline one
-    // keeps its body as already-positioned siblings. A node cannot tell you
-    // which form produced it, so the type is distrusted and both are covered.
+  it("no longer distrusts a details descendant — the offsets are rebased", () => {
+    // Took three measurements: unmeasured claim, then multiline-only, then the
+    // form-dependent truth. The right response to the third was to fix the
+    // offsets (parseDetailsBody rebases into host coordinates), not to refuse
+    // them — refusing cost every diagnostic inside a details body.
     const child: PositionedNode = {
       type: "paragraph",
       position: { start: { offset: 10 }, end: { offset: 14 } },
@@ -158,7 +157,9 @@ describe("inheritance applies only where measured", () => {
       children: [{ type: "details", children: [child] }],
     };
 
-    expect(collectUntrusted(tree).has(child)).toBe(true);
+    const untrusted = collectUntrusted(tree);
+    expect(untrusted.has(child)).toBe(false);
+    expect(untrusted.size).toBe(1); // the positionless details node itself
   });
 
   it("still distrusts a descendant that lacks its OWN canonical range", () => {
@@ -191,7 +192,7 @@ describe("inheritance applies only where measured", () => {
       ],
     };
 
-    expect(REBASED_SUBTREE_TYPES.has("details")).toBe(true);
+    expect(REBASED_SUBTREE_TYPES.size).toBe(0);
     expect(collectUntrusted(tree).has(child)).toBe(false);
   });
 
