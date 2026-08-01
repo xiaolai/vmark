@@ -12,14 +12,14 @@
  *     exceed 500ms under heavy I/O: Rust debounce + emit + JS event loop + readFile)
  *   - Line ending and hard break normalization applied on save (not in-memory)
  *     to preserve the original editing experience while writing clean files
- *   - History snapshot FAILURES don't block save success (the first per session
- *     warns the user so silent breakage is visible), but the call is AWAITED:
- *     `saveToPath` does not resolve until the snapshot settles. That is
- *     deliberate for close flows, which need best-effort completion before the
- *     window goes — but it means a hung history backend holds the save promise
- *     open after the file and stores are already updated. A bounded timeout is
- *     the fix if that ever bites; "fire-and-forget" described the ERROR policy,
- *     not the scheduling, and the two read alike
+ *   - SERIALIZED PER PATH. Saves to one file run in submission order; saves to
+ *     different files stay concurrent. Without this an older write could land
+ *     second and be recorded as the saved snapshot — see serializeByPath.ts
+ *   - History snapshots live in saveHistorySnapshot.ts. Failures don't block
+ *     save success, but the call is AWAITED: `saveToPath` does not resolve
+ *     until it settles, which close flows need. A hung history backend
+ *     therefore holds the save promise open after the file and stores are
+ *     already updated; a bounded timeout is the fix if that ever bites
  *   - Auto-save skips recent files list AND skips error toasts to avoid spam on
  *     a flaky disk; the user didn't initiate the action and the next manual save
  *     will surface the error
@@ -27,7 +27,8 @@
  * @coordinates-with pendingSaves.ts — content-based save tracking for watcher coordination
  * @coordinates-with linebreaks.ts — line ending and hard break normalization
  * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
- * @coordinates-with useHistoryOperations.ts — creates version history snapshots
+ * @coordinates-with serializeByPath.ts — the per-path save queue
+ * @coordinates-with saveHistorySnapshot.ts — version history snapshots
  * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture
  *     (WI-1.6), gated on `general.coherenceCaptureOnSave` (default OFF): capture
  *     rewrites the file to insert a `vmark:` identity block, so it is opt-in
