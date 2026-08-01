@@ -28,6 +28,9 @@ const {
   mockReplaceTabWithMediaFile,
   mockRouteOpenBySize,
   mockOpenWorkspaceWithConfig,
+  mockStartLoad,
+  mockEndLoad,
+  mockMarkLargeSource,
 } = vi.hoisted(() => ({
   mockCreateTab: vi.fn(() => "new-tab"),
   mockFindTabByPath: vi.fn(() => null as { id: string } | null),
@@ -38,6 +41,9 @@ const {
   mockReplaceTabWithMediaFile: vi.fn(),
   mockRouteOpenBySize: vi.fn(),
   mockOpenWorkspaceWithConfig: vi.fn(),
+  mockStartLoad: vi.fn(() => 1),
+  mockEndLoad: vi.fn(),
+  mockMarkLargeSource: vi.fn(),
 }));
 
 vi.mock("@/stores/tabStore", () => ({
@@ -55,7 +61,7 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ documents: {} }) },
   useFileLoadStore: {
-    getState: () => ({ startLoad: vi.fn(() => 1), endLoad: vi.fn() }),
+    getState: () => ({ startLoad: mockStartLoad, endLoad: mockEndLoad }),
   },
 }));
 vi.mock("@/services/navigation/openMediaFile", async () => {
@@ -76,7 +82,7 @@ vi.mock("@/services/navigation/largeFileRouting", () => ({
   routeOpenBySize: (...a: unknown[]) => mockRouteOpenBySize(...a),
 }));
 vi.mock("@/lib/formats/markdownLargeFile", () => ({
-  maybeMarkLargeMarkdownAsSource: vi.fn(),
+  maybeMarkLargeMarkdownAsSource: (...a: unknown[]) => mockMarkLargeSource(...a),
 }));
 vi.mock("@/utils/debug", () => ({ finderFileOpenError: vi.fn() }));
 
@@ -217,5 +223,58 @@ describe("cancellation", () => {
     expect(mockOpenWorkspaceWithConfig).toHaveBeenCalled();
     expect(mockLoadFileIntoTab).not.toHaveBeenCalled();
     expect(result).toBeNull();
+  });
+});
+
+describe("the progress indicator is never left spinning", () => {
+  const BIG = { proceed: true, sizeBytes: 50_000_000, forceSourceMode: false };
+
+  it("clears the indicator when the branch lands nothing", async () => {
+    // A read failure, a detached orphan, or a dedup all return null. Without
+    // this the spinner outlives the operation that started it.
+    mockRouteOpenBySize.mockResolvedValue(BIG);
+
+    await withSizeGateAndIndicator(ctx, MD, async () => null);
+
+    expect(mockStartLoad).toHaveBeenCalled();
+    expect(mockEndLoad).toHaveBeenCalledWith(1);
+  });
+
+  it("does not clear it when content landed — the loader owns its own end", async () => {
+    mockRouteOpenBySize.mockResolvedValue(BIG);
+
+    await withSizeGateAndIndicator(ctx, MD, async () => "tab-1");
+
+    expect(mockEndLoad).not.toHaveBeenCalled();
+    expect(mockMarkLargeSource).toHaveBeenCalledWith("tab-1", MD, false);
+  });
+
+  it("shows no indicator for a small file, and clears nothing", async () => {
+    mockRouteOpenBySize.mockResolvedValue({ proceed: true, sizeBytes: 10, forceSourceMode: false });
+
+    await withSizeGateAndIndicator(ctx, MD, async () => null);
+
+    expect(mockStartLoad).not.toHaveBeenCalled();
+    expect(mockEndLoad).not.toHaveBeenCalled();
+  });
+
+  it("shows no indicator when the route forces Source mode", async () => {
+    // Forced-source means the file is huge; the Source surface renders it
+    // without the load the indicator would be reporting on.
+    mockRouteOpenBySize.mockResolvedValue({ ...BIG, forceSourceMode: true });
+
+    await withSizeGateAndIndicator(ctx, MD, async () => "tab-1");
+
+    expect(mockStartLoad).not.toHaveBeenCalled();
+    expect(mockMarkLargeSource).toHaveBeenCalledWith("tab-1", MD, true);
+  });
+
+  it("stops after the size route when the hook unmounted mid-check", async () => {
+    mockRouteOpenBySize.mockResolvedValue(BIG);
+    const run = vi.fn(async () => "t");
+
+    await withSizeGateAndIndicator({ ...ctx, isCancelled: () => true }, MD, run);
+
+    expect(run).not.toHaveBeenCalled();
   });
 });
