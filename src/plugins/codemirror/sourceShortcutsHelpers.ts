@@ -1,8 +1,9 @@
 /**
  * Source Mode Shortcut Helpers
  *
- * Purpose: the handlers `buildSourceShortcutKeymap()` binds directly, because
- * they are NOT document mutations — find/search navigation and copy-as-HTML.
+ * Purpose: the four handlers `buildSourceShortcutKeymap()` binds directly,
+ * because none of them mutates the document — find/search navigation and
+ * copy-as-HTML.
  * Everything that changes the document goes through `runEditorAction`, and
  * `__tests__/dispatchBoundary.test.ts` gates that.
  *
