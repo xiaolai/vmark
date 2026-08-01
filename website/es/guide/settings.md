@@ -76,7 +76,7 @@ Tipografía, visualización, comportamiento de edición y configuración de espa
 | Configuración | Descripción | Predeterminado | Opciones |
 |---------------|-------------|----------------|---------|
 | Fin de línea al guardar | Controla cómo se gestionan los finales de línea al guardar archivos | Conservar existente | Conservar existente, LF (`\n`), CRLF (`\r\n`) |
-| Conservar saltos de línea consecutivos | Mantener múltiples líneas en blanco tal como están en lugar de colapsarlas | Desactivado | Activado / Desactivado |
+| Conservar saltos de línea consecutivos | Mantener múltiples líneas en blanco tal como están en lugar de colapsarlas | Activado | Activado / Desactivado |
 | Estilo de salto de línea forzado al guardar | Cómo se representan los saltos de línea forzados en el archivo Markdown guardado | Conservar existente | Dos espacios (Recomendado), Conservar existente, Barra invertida (`\`) |
 | Mostrar etiquetas `<br>` | Muestra visiblemente las etiquetas de salto de línea HTML en el editor | Desactivado | Activado / Desactivado |
 
@@ -300,7 +300,7 @@ La sección Idioma contiene más de 20 alternadores de formato detallados. Para 
 | Limitar puntuación consecutiva | Limita los signos de puntuación repetidos como `!!!` | Desactivado | Desactivado, Simple (`!!` a `!`), Doble (`!!!` a `!!`) |
 | Eliminar espacios al final | Elimina los espacios al final de las líneas | Activado | Activado / Desactivado |
 | Normalizar puntos suspensivos | Convierte los puntos espaciados (`. . .`) en puntos suspensivos correctos (`...`) | Activado | Activado / Desactivado |
-| Colapsar saltos de línea | Reduce tres o más saltos de línea consecutivos a dos | Activado | Activado / Desactivado |
+| Colapsar saltos de línea | Reduce tres o más saltos de línea consecutivos a dos | Desactivado | Activado / Desactivado |
 
 ## Atajos
 

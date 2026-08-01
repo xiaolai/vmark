@@ -93,7 +93,7 @@ Typography, display, editing behavior, and whitespace settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Line endings on save | Control how line endings are handled when saving files | Preserve existing | Preserve existing, LF (`\n`), CRLF (`\r\n`) |
-| Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | Off | On / Off |
+| Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | On | On / Off |
 | Hard break style on save | How hard line breaks are represented in the saved Markdown file | Preserve existing | Two spaces (Recommended), Preserve existing, Backslash (`\`) |
 | Show `<br>` tags | Display HTML line break tags visibly in the editor | Off | On / Off |
 | Show invisibles | Visualize whitespace: spaces as `·`, tabs as `→` (Source only), soft line breaks as `↓` (Source only), hard line breaks as `⏎`. Hidden when printing. Toggle: `F3` or View → Show Invisibles. | Off | On / Off |
@@ -347,7 +347,7 @@ The Language section contains 20+ fine-grained formatting toggles. For a full ex
 | Limit consecutive punctuation | Limit repeated punctuation marks like `!!!` | Off | Off, Single (`!!` to `!`), Double (`!!!` to `!!`) |
 | Remove trailing spaces | Remove spaces at the end of lines | On | On / Off |
 | Normalize ellipsis | Convert spaced dots (`. . .`) to proper ellipsis (`...`) | On | On / Off |
-| Collapse newlines | Reduce three or more consecutive newlines to two | On | On / Off |
+| Collapse newlines | Reduce three or more consecutive newlines to two | Off | On / Off |
 
 ## Shortcuts
 
