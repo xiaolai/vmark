@@ -74,6 +74,16 @@ export interface SurfaceResult {
   markdown: string;
   /** Set when the surface threw rather than returning. */
   error?: string;
+  /**
+   * The TEXT the selection covers afterwards.
+   *
+   * A document-outcome gate cannot tell agreement from two mutual no-ops, so
+   * selection-only actions were excused entirely. Text is the one projection
+   * both surfaces can express: WYSIWYG holds ProseMirror positions and Source
+   * holds character offsets, and neither coordinate space means anything to
+   * the other.
+   */
+  selectedText?: string;
 }
 
 /** Locate a substring inside a ProseMirror doc, in document coordinates. */
@@ -146,7 +156,12 @@ export function runOnWysiwyg(markdown: string, target: Target, action: string): 
     const accepted = level === null
       ? performWysiwygToolbarAction(action, context)
       : setWysiwygHeadingLevel(context, level);
-    return { accepted, markdown: serializeMarkdown(editor.schema, editor.state.doc) };
+    const sel = editor.state.selection;
+    return {
+      accepted,
+      markdown: serializeMarkdown(editor.schema, editor.state.doc),
+      selectedText: editor.state.doc.textBetween(sel.from, sel.to, "\n"),
+    };
   } catch (e) {
     return { accepted: false, markdown, error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) };
   }
@@ -179,7 +194,12 @@ export function runOnSource(markdown: string, target: Target, action: string): S
     const accepted = level === null
       ? performSourceToolbarAction(action, context)
       : setSourceHeadingLevel(context, level);
-    return { accepted, markdown: view.state.doc.toString() };
+    const sel = view.state.selection.main;
+    return {
+      accepted,
+      markdown: view.state.doc.toString(),
+      selectedText: view.state.doc.sliceString(sel.from, sel.to),
+    };
   } catch (e) {
     return { accepted: false, markdown, error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) };
   } finally {
