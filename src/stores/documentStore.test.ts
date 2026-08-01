@@ -107,32 +107,39 @@ describe("documentStore", () => {
     });
   });
 
-  describe("loadContent", () => {
+  // `loadContent` was DELETED — it duplicated the disk-open baseline branch
+  // and had drifted from it, retaining stale line metadata whenever no explicit
+  // `meta` was passed (which was every production caller). These cover the
+  // same behaviour through the door that replaced it.
+  describe("disk-open ingest (formerly loadContent)", () => {
     it("loads content and resets dirty state", () => {
-      const { initDocument, setContent, loadContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, setContent, ingestExternalContent, getDocument } =
+        useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Initial");
       setContent(WINDOW_LABEL, "Dirty content");
       expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(true);
 
-      loadContent(WINDOW_LABEL, "Loaded content", "/new/path.md");
+      ingestExternalContent(WINDOW_LABEL, "Loaded content", "disk-open", {
+        filePath: "/new/path.md",
+      });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.content).toBe("Loaded content");
       expect(doc?.savedContent).toBe("Loaded content");
       expect(doc?.filePath).toBe("/new/path.md");
       expect(doc?.isDirty).toBe(false);
-      expect(doc?.lineEnding).toBe("unknown");
-      expect(doc?.hardBreakStyle).toBe("unknown");
     });
 
-    it("applies line metadata when provided", () => {
-      const { initDocument, loadContent, getDocument } = useDocumentStore.getState();
+    it("DERIVES line metadata from the loaded bytes — it no longer retains stale values", () => {
+      // This is the drift `loadContent` carried: it kept the document's
+      // existing convention when no `meta` was passed, so a reload of a file
+      // whose endings had changed on disk wrote the OLD one back on save.
+      const { initDocument, ingestExternalContent, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Initial");
-      loadContent(WINDOW_LABEL, "Loaded content", "/new/path.md", {
-        lineEnding: "crlf",
-        hardBreakStyle: "twoSpaces",
+      ingestExternalContent(WINDOW_LABEL, "one\r\ntwo  \r\nthree\r\n", "disk-open", {
+        filePath: "/new/path.md",
       });
 
       const doc = getDocument(WINDOW_LABEL);
@@ -140,16 +147,27 @@ describe("documentStore", () => {
       expect(doc?.hardBreakStyle).toBe("twoSpaces");
     });
 
+    it("re-derives on every load, so a convention change on disk is picked up", () => {
+      const { initDocument, ingestExternalContent, getDocument } = useDocumentStore.getState();
+
+      initDocument(WINDOW_LABEL, "Initial");
+      ingestExternalContent(WINDOW_LABEL, "a\r\nb\r\n", "disk-open", { filePath: "/f.md" });
+      expect(getDocument(WINDOW_LABEL)?.lineEnding).toBe("crlf");
+
+      ingestExternalContent(WINDOW_LABEL, "a\nb\n", "disk-open", { filePath: "/f.md" });
+      expect(getDocument(WINDOW_LABEL)?.lineEnding).toBe("lf");
+    });
+
     it("increments documentId on load", () => {
-      const { initDocument, loadContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, ingestExternalContent, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL);
       expect(getDocument(WINDOW_LABEL)?.documentId).toBe(0);
 
-      loadContent(WINDOW_LABEL, "New content");
+      ingestExternalContent(WINDOW_LABEL, "New content", "disk-open");
       expect(getDocument(WINDOW_LABEL)?.documentId).toBe(1);
 
-      loadContent(WINDOW_LABEL, "Another content");
+      ingestExternalContent(WINDOW_LABEL, "Another content", "disk-open");
       expect(getDocument(WINDOW_LABEL)?.documentId).toBe(2);
     });
   });
@@ -332,12 +350,12 @@ describe("documentStore", () => {
     });
   });
 
-  describe("loadContent filePath handling", () => {
+  describe("disk-open ingest: filePath handling", () => {
     it("preserves existing filePath when filePath arg is undefined", () => {
-      const { initDocument, loadContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, ingestExternalContent, getDocument } = useDocumentStore.getState();
       initDocument(WINDOW_LABEL, "Initial", "/original/path.md");
 
-      loadContent(WINDOW_LABEL, "New content");
+      ingestExternalContent(WINDOW_LABEL, "New content", "disk-open");
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.filePath).toBe("/original/path.md");
@@ -345,10 +363,10 @@ describe("documentStore", () => {
     });
 
     it("clears filePath when explicitly passed null", () => {
-      const { initDocument, loadContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, ingestExternalContent, getDocument } = useDocumentStore.getState();
       initDocument(WINDOW_LABEL, "Initial", "/original/path.md");
 
-      loadContent(WINDOW_LABEL, "New content", null);
+      ingestExternalContent(WINDOW_LABEL, "New content", "disk-open", { filePath: null });
 
       expect(getDocument(WINDOW_LABEL)?.filePath).toBeNull();
     });
@@ -434,12 +452,12 @@ describe("documentStore", () => {
       expect(docAfter).toBe(docBefore);
     });
 
-    it("loadContent clears selectedText", () => {
-      const { initDocument, setSelectedText, loadContent, getDocument } =
+    it("a disk-open ingest clears selectedText", () => {
+      const { initDocument, setSelectedText, ingestExternalContent, getDocument } =
         useDocumentStore.getState();
       initDocument(WINDOW_LABEL);
       setSelectedText(WINDOW_LABEL, "previous");
-      loadContent(WINDOW_LABEL, "new content");
+      ingestExternalContent(WINDOW_LABEL, "new content", "disk-open");
       expect(getDocument(WINDOW_LABEL)?.selectedText).toBe("");
     });
   });

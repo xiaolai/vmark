@@ -78,23 +78,23 @@ describe("loadContent canonicalises", () => {
   });
 
   it("strips carriage returns from content", () => {
-    useDocumentStore.getState().loadContent(TAB, "a\r\nb", "/f.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "a\r\nb", "disk-open", { filePath: "/f.md" });
     expect(doc()?.content).toBe("a\nb");
   });
 
   it("keeps the raw bytes as the disk snapshot", () => {
-    useDocumentStore.getState().loadContent(TAB, "a\r\nb", "/f.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "a\r\nb", "disk-open", { filePath: "/f.md" });
     expect(doc()?.lastDiskContent).toBe("a\r\nb");
   });
 
   it("leaves the reloaded document clean", () => {
-    useDocumentStore.getState().loadContent(TAB, "a\r\nb", "/f.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "a\r\nb", "disk-open", { filePath: "/f.md" });
     expect(doc()?.isDirty).toBe(false);
     expect(doc()?.savedContent).toBe("a\nb");
   });
 
   it("still applies the filePath argument", () => {
-    useDocumentStore.getState().loadContent(TAB, "a\r\nb", "/new.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "a\r\nb", "disk-open", { filePath: "/new.md" });
     expect(doc()?.filePath).toBe("/new.md");
   });
 });
@@ -117,7 +117,7 @@ describe("BOM convergence (decision D1): every door strips, the flag remembers",
 
   it("loadContent strips a leading BOM into hasBom", () => {
     useDocumentStore.getState().initDocument(TAB, "", null);
-    useDocumentStore.getState().loadContent(TAB, `${BOM}a\r\nb`, "/f.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, `${BOM}a\r\nb`, "disk-open", { filePath: "/f.md" });
     expect(doc()?.content).toBe("a\nb");
     expect(doc()?.hasBom).toBe(true);
     expect(doc()?.lastDiskContent).toBe(`${BOM}a\r\nb`);
@@ -125,7 +125,7 @@ describe("BOM convergence (decision D1): every door strips, the flag remembers",
 
   it("loadContent clears a stale hasBom when the new text has none", () => {
     useDocumentStore.getState().initDocument(TAB, `${BOM}a`, "/f.md");
-    useDocumentStore.getState().loadContent(TAB, "a", "/f.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "a", "disk-open", { filePath: "/f.md" });
     expect(doc()?.hasBom).toBe(false);
   });
 
@@ -161,20 +161,20 @@ describe("audit round: BOM and metadata leaks at the remaining doors", () => {
     // — and an in-flight MCP write carrying the old revision was rejected STALE.
     const store = useDocumentStore.getState();
     store.initDocument(TAB, "", null);
-    store.loadContent(TAB, `${BOM}same\n`, "/f.md");
+    store.ingestExternalContent(TAB, `${BOM}same\n`, "disk-open", { filePath: "/f.md" });
     const first = useRevisionStore.getState().getRevision(TAB);
 
-    store.loadContent(TAB, `${BOM}same\n`, "/f.md");
+    store.ingestExternalContent(TAB, `${BOM}same\n`, "disk-open", { filePath: "/f.md" });
     expect(useRevisionStore.getState().getRevision(TAB)).toBe(first);
   });
 
   it("a genuine reload still bumps", () => {
     const store = useDocumentStore.getState();
     store.initDocument(TAB, "", null);
-    store.loadContent(TAB, `${BOM}first\n`, "/f.md");
+    store.ingestExternalContent(TAB, `${BOM}first\n`, "disk-open", { filePath: "/f.md" });
     const first = useRevisionStore.getState().getRevision(TAB);
 
-    store.loadContent(TAB, `${BOM}second\n`, "/f.md");
+    store.ingestExternalContent(TAB, `${BOM}second\n`, "disk-open", { filePath: "/f.md" });
     expect(useRevisionStore.getState().getRevision(TAB)).not.toBe(first);
   });
 

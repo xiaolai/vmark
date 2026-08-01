@@ -10,8 +10,9 @@
  * Two separate rules:
  *   1. `setContent` is dead as a production API — every editor-domain writer
  *      calls `setEditorContent` (asserted canonical in dev), every external
- *      writer goes through `initDocument` / `loadContent` /
- *      `ingestExternalContent` (canonicalising).
+ *      writer goes through `initDocument` / `ingestExternalContent`
+ *      (canonicalising). `loadContent` was deleted as a duplicate that had
+ *      drifted; the gate below would flag any attempt to reintroduce it.
  *   2. The external doors have an allow-list of calling modules.
  *
  * @coordinates-with stores/documentStore/document.ts — the doors
@@ -81,6 +82,7 @@ describe("external text enters only through listed modules", () => {
     "contexts/startupFileOpen.ts",
     // Snapshot and history restoration.
     "services/persistence/hotExit/restoreHelpers.ts",
+    "services/persistence/hotExit/restoreDocumentState.ts",
     "hooks/resilience/_crashRecoveryStartup.ts",
     "services/history/unifiedHistory.ts",
     "components/Sidebar/HistoryView.tsx",
@@ -99,9 +101,9 @@ describe("external text enters only through listed modules", () => {
     "hooks/tabCommands.ts",
   ]);
 
-  it("every initDocument/loadContent/ingestExternalContent caller is listed", () => {
+  it("every initDocument/ingestExternalContent caller is listed", () => {
     const callers = productionCallers(
-      String.raw`\.(initDocument|loadContent|ingestExternalContent)\(`,
+      String.raw`\.(initDocument|ingestExternalContent)\(`,
     );
     const unlisted = callers.filter((c) => !ALLOWED.has(c));
     expect(unlisted).toEqual([]);
