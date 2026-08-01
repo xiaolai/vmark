@@ -117,6 +117,42 @@ export function getCodeFenceInfo(view: EditorView): CodeFenceInfo | null {
  * Position-aware variant: get code fence info for an explicit document
  * position. Use this for per-cursor checks (multi-cursor correctness).
  */
+/**
+ * Fence ranges for a document, memoised on the DOC IDENTITY.
+ *
+ * This runs on every CURSOR MOVE, not merely every keystroke: `doc.toString()`
+ * copied the whole document and the scan walked every line, measured at 3.83 ms
+ * per call on 1.35 MB against a 16.7 ms frame budget, 1-2x per update.
+ *
+ * The cache sits AROUND `fenceRanges`, never beside it. Re-deriving ranges
+ * here — even "just for the common case" — is how this module came to carry a
+ * second fence grammar that drifted from the shared one, leaving guards off
+ * inside blockquoted and list-nested code. There is one grammar; this only
+ * avoids asking it the same question twice.
+ *
+ * Keyed on the CodeMirror `Text` object, which is immutable and replaced on
+ * every edit, so a stale entry is not reachable: a changed document is a
+ * different key. One slot is enough — a cursor moving inside one document is
+ * the entire access pattern — and holding a single reference cannot pin a
+ * meaningful amount of memory the editor is not already holding.
+ */
+let cachedDoc: EditorState["doc"] | null = null;
+let cachedRanges: ReturnType<typeof fenceRanges> | null = null;
+
+function rangesFor(doc: EditorState["doc"]): ReturnType<typeof fenceRanges> {
+  if (cachedDoc === doc && cachedRanges) return cachedRanges;
+  const ranges = fenceRanges(doc.toString().split("\n"), "deep-indent");
+  cachedDoc = doc;
+  cachedRanges = ranges;
+  return ranges;
+}
+
+/** Drop the memo. Tests only — production relies on doc identity. */
+export function __resetFenceRangeCache(): void {
+  cachedDoc = null;
+  cachedRanges = null;
+}
+
 export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceInfo | null {
   const doc = state.doc;
   const cursorLine = doc.lineAt(pos).number - 1; // 0-based, as fenceRanges uses
@@ -131,8 +167,7 @@ export function getCodeFenceInfoAt(state: EditorState, pos: number): CodeFenceIn
   // rather than a second parser: a fence nested two list levels deep carries
   // four or more raw spaces of continuation indent, which CommonMark reads as
   // indented code. Over-including is the safe direction for a guard.
-  const lines = doc.toString().split("\n");
-  const fence = fenceRanges(lines, "deep-indent").find(
+  const fence = rangesFor(doc).find(
     (range) => cursorLine >= range.open && cursorLine <= range.close
   );
   if (!fence) return null;

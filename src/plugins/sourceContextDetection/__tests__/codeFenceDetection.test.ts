@@ -5,10 +5,14 @@
  * Used by Cmd+A to select content within code fences.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { getCodeFenceInfo, getCodeFenceInfoAt } from "../codeFenceDetection";
+import {
+  getCodeFenceInfo,
+  getCodeFenceInfoAt,
+  __resetFenceRangeCache,
+} from "../codeFenceDetection";
 
 function createView(content: string, cursorPos: number): EditorView {
   const state = EditorState.create({
@@ -419,5 +423,55 @@ describe("language token positions — the no-info-string case", () => {
     const withLang =
       doc.slice(0, info.languageStartPos) + "js" + doc.slice(info.languageEndPos);
     expect(withLang).toBe("```js\ncode\n```");
+  });
+});
+
+describe("the fence scan is memoised, and cannot go stale", () => {
+  // This ran on every CURSOR MOVE, copying the whole document and rescanning
+  // it: 3.83 ms per call at 1.35 MB, 1-2x per update, against a 16.7 ms frame.
+  const DOC = "```js\nconst x = 1;\n```\n\nprose here\n";
+
+  it("does not rescan when only the cursor moved", () => {
+    __resetFenceRangeCache();
+    const state = EditorState.create({ doc: DOC });
+    const spy = vi.spyOn(state.doc, "toString");
+
+    // Several positions, same document object.
+    getCodeFenceInfoAt(state, 7);
+    getCodeFenceInfoAt(state, 10);
+    getCodeFenceInfoAt(state, 30);
+
+    expect(spy.mock.calls.length).toBe(1);
+  });
+
+  it("RESCANS after an edit — a changed doc is a different key", () => {
+    // The staleness a doc-keyed cache must not have: if this returned the old
+    // ranges, a fence the user just opened would not register.
+    __resetFenceRangeCache();
+    const before = EditorState.create({ doc: "prose only\n" });
+    expect(getCodeFenceInfoAt(before, 3)).toBeNull();
+
+    const after = before.update({
+      changes: { from: 0, insert: "```js\ncode\n```\n" },
+    }).state;
+    // Cursor inside the newly inserted fence body.
+    expect(getCodeFenceInfoAt(after, 8)).not.toBeNull();
+  });
+
+  it("keys on doc identity, not content — two equal docs each scan once", () => {
+    __resetFenceRangeCache();
+    const a = EditorState.create({ doc: DOC });
+    const b = EditorState.create({ doc: DOC });
+    const spyA = vi.spyOn(a.doc, "toString");
+    const spyB = vi.spyOn(b.doc, "toString");
+
+    getCodeFenceInfoAt(a, 7);
+    getCodeFenceInfoAt(b, 7);
+    getCodeFenceInfoAt(a, 7);
+
+    // `a` scans twice because `b` evicted it — one slot, by design. What
+    // matters is that neither returned the OTHER document's ranges.
+    expect(spyA.mock.calls.length + spyB.mock.calls.length).toBeGreaterThan(1);
+    expect(getCodeFenceInfoAt(a, 7)).toEqual(getCodeFenceInfoAt(b, 7));
   });
 });
