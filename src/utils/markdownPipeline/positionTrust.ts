@@ -90,33 +90,26 @@ export const PREFIX_STRIPPING_CONTAINERS: ReadonlySet<string> = new Set([
 /**
  * Types whose DESCENDANTS carry offsets into some other string.
  *
- * `details` is here, and the measurement took three attempts to get right —
- * recorded so nobody repeats them. For
- * `padding\n\n<details><summary>S</summary>[inner](./i.md)</details>`:
+ * EMPTY — because the cause was fixed rather than guarded. `details` was the
+ * one entry, and the measurement took three attempts to get right:
  *
- *   | form      | link range | slices                  |
- *   |-----------|-----------|-------------------------|
- *   | COMPACT   | 0..19     | `padding\n\n<details><`  ← WRONG |
- *   | MULTILINE | 40..59    | `[inner](./i.md)`        ← right |
+ *   attempt 1: "the body is offset-local"      — from a plan review, unmeasured
+ *   attempt 2: "the body is absolute"          — measured on MULTILINE only
+ *   attempt 3: "it depends on the form"        — COMPACT re-parses a substring
  *
- * A compact `<details>` is one html node; its body is extracted as a substring
- * and re-parsed standalone, so offsets restart at 0. A multiline one keeps its
- * body as sibling nodes the outer parse already positioned. The FORM decides,
- * and a node cannot tell you which form produced it — so the type is listed and
- * both are distrusted.
+ * The third was true, and guarding on it cost every diagnostic inside a
+ * details body. `parseDetailsBody` now rebases the re-parsed subtree into host
+ * coordinates from the html node's own position and value — offsets AND
+ * line/column, verified across compact, multiline, deep and multiline-value
+ * forms — so no details descendant is re-based any more and the entry is gone.
  *
- * THE REAL FIX is at the cause, not here: `parseDetailsBody` knows `bodyStart`
- * within the html value, and the html node carries an absolute position, so
- * the re-parsed subtree could be shifted by their sum and both forms would
- * yield absolute offsets. Then this entry comes out and the link checker
- * regains its diagnostics inside details bodies. That is a contained change
- * with its own tests, not a line to append to an audit round.
- *
- * Adding a type here is a claim backed by measurement of EVERY form the
- * construct takes — measuring one and generalising is what produced two wrong
- * claims before this table.
+ * The mechanism stays for the next construct that re-parses without rebasing.
+ * Adding a type is a claim backed by measurement of EVERY form the construct
+ * takes — measuring one form and generalising produced two wrong claims here,
+ * and the right response to the third was to fix the offsets, not distrust
+ * them.
  */
-export const REBASED_SUBTREE_TYPES: ReadonlySet<string> = new Set<string>(["details"]);
+export const REBASED_SUBTREE_TYPES: ReadonlySet<string> = new Set<string>();
 
 /** Minimal node shape — mdast-compatible without importing the union. */
 export interface PositionedNode {

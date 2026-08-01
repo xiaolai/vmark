@@ -10,12 +10,12 @@
  * Two findings came out of wiring them together, and the second corrected me:
  *
  *   1. The `?? 0` was real, and is gone.
- *   2. Whether a `<details>` body re-bases its offsets depends on the FORM,
- *      which took three measurements to establish. The COMPACT single-node
- *      form re-parses an extracted substring and restarts at 0; the MULTILINE
- *      form keeps already-positioned siblings. A node does not carry which
- *      form produced it, so both are refused. This file asserted each of the
- *      two wrong generalisations in turn before measuring both.
+ *   2. The COMPACT `<details>` form re-parsed an extracted substring and
+ *      restarted its offsets at 0 — established after two wrong
+ *      generalisations, each of which this file asserted in turn. Rather than
+ *      distrust the subtree (which cost every diagnostic inside a details
+ *      body), `parseDetailsBody` now rebases into host coordinates. Both forms
+ *      are correct and both are authorised.
  *
  * @coordinates-with utils/markdownPipeline/positionTrust.ts — createRangeAuthorizer
  * @coordinates-with lib/markdownLinkCheck/check.ts — extractLocalRefs
@@ -62,50 +62,37 @@ function authorisedLinks(md: string): { url: string; slice: string }[] {
 
 const COMPACT = "padding\n\n<details><summary>S</summary>[c](./c.md)</details>\n";
 
+const NESTED_DEEP = "a\n\nb\n\nc\n\n<details><summary>S</summary>[d](./d.md)</details>\n";
+
 describe("a link inside a details body", () => {
-  it("is NOT authorised — the compact form re-bases its offsets", () => {
-    // MEASURED, after two wrong claims. For the compact single-html-node form
-    // the link's range is 0..N into the EXTRACTED BODY, so slicing the
-    // document at it returns unrelated text. A node cannot reveal which form
-    // produced it, so both are refused.
-    expect(authorisedLinks(COMPACT).map((l) => l.url)).toEqual([]);
+  it.each([
+    { form: "multiline", md: WITH_DETAILS, url: "./inner.md", text: "[inner](./inner.md)" },
+    { form: "compact", md: COMPACT, url: "./c.md", text: "[c](./c.md)" },
+    { form: "compact, deeper in the document", md: NESTED_DEEP, url: "./d.md", text: "[d](./d.md)" },
+  ])("$form — authorised, and slices to the link itself", ({ md, url, text }) => {
+    // The COMPACT form re-parses an extracted substring, so its offsets used to
+    // restart at 0 and slice unrelated text. `parseDetailsBody` now rebases the
+    // subtree into host coordinates, so both forms are correct and both are
+    // authorised — the conservative distrust that cost these diagnostics is
+    // gone because the cause is fixed, not because the check was relaxed.
+    const found = authorisedLinks(md).find((l) => l.url === url);
+    expect(found?.slice).toBe(text);
   });
 
-  it("the compact link's raw range really does slice the wrong text", () => {
-    // The concrete harm, asserted rather than asserted-about.
-    const tree = parse(COMPACT);
-    let inner: PositionedNode | null = null;
+  it("reports the HOST line number, not a body-local one", () => {
+    // Offsets alone came out right from the base while line and column stayed
+    // body-local — plausible, wrong numbers printed straight into a diagnostic.
+    const tree = parse(NESTED_DEEP);
     visit(tree as never, "link", (node: PositionedNode & { url?: string }) => {
-      if (node.url === "./c.md") inner = node;
+      if (node.url !== "./d.md") return;
+      const start = node.position?.start as { line?: number; column?: number } | undefined;
+      expect(start?.line).toBe(7);
+      expect(NESTED_DEEP.split("\n")[6]).toContain("[d](./d.md)");
     });
-    expect(inner).not.toBeNull();
-
-    const raw = (inner as unknown as PositionedNode).position;
-    const start = raw?.start?.offset;
-    const end = raw?.end?.offset;
-    expect(typeof start).toBe("number");
-    expect(COMPACT.slice(start as number, end as number)).not.toContain("./c.md");
   });
 
-  it("the multiline form's offsets ARE absolute — but are refused too", () => {
-    // The type is distrusted, not the form, because the node does not carry
-    // which form it came from. The cost is stated: diagnostics inside a
-    // multiline details body are skipped even though their ranges are good.
-    // Fixing the CAUSE (shifting the re-parsed subtree by the body's absolute
-    // start) removes both the cost and the entry — see positionTrust.ts.
-    const tree = parse(WITH_DETAILS);
-    let inner: PositionedNode | null = null;
-    visit(tree as never, "link", (node: PositionedNode & { url?: string }) => {
-      if (node.url === "./inner.md") inner = node;
-    });
-    const raw = (inner as unknown as PositionedNode).position;
-    expect(WITH_DETAILS.slice(raw!.start!.offset!, raw!.end!.offset!)).toBe(
-      "[inner](./inner.md)"
-    );
-    expect(authorisedLinks(WITH_DETAILS).map((l) => l.url)).toEqual(["./real.md"]);
-  });
-
-  it("the details NODE itself cannot authorise a range", () => {
+  it("the details NODE itself still cannot authorise a range", () => {
+    // It is synthesised from html nodes and has no position of its own.
     const tree = parse(WITH_DETAILS);
     const authorizer = createRangeAuthorizer(tree);
     let details: PositionedNode | null = null;
