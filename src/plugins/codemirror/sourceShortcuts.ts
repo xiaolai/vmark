@@ -8,6 +8,8 @@
  *
  * Key decisions:
  *   - Shortcuts are resolved lazily from the store so user customizations take effect immediately
+ *   - Smart select-all lives in `sourceSmartSelect.ts` — the one binding
+ *     with state and logic; this file is a flat key-to-action table
  *   - EVERY document mutation routes through the shared executor
  *     (runEditorAction, the menu's path — NOT executeCommand; WI-4.2). The last
  *     exception, `unlink`, had no `editor.*` action though both adapters
