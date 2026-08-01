@@ -27,10 +27,14 @@
  * into ranges. A list item boundary ends the previous item's fence, so two
  * consecutive item-opened fences yield a range each rather than one run-on.
  *
- * The boundary rule compares a marker's column against the opener's content
- * column: strictly shallower ends the item, equal or deeper is nested.
+ * The boundary rule compares a marker's column against the OPENER'S OWN MARKER
+ * column, which keeps every list-item divergence over-inclusive. Against the
+ * content column it under-included, stripping guards from a line remark calls
+ * code. `__tests__/remarkFenceAgreement.test.ts` measures each divergence's
+ * direction against the reference parser and fails on any under-inclusion.
  *
  * @coordinates-with plugins/shared/fenceDelimiter.ts — the parsing half
+ * @coordinates-with plugins/shared/__tests__/remarkFenceAgreement.test.ts — the gate
  * @coordinates-with sourceContextDetection/codeFenceDetection.ts — positions
  * @coordinates-with sourceContextDetection/__tests__/fenceGrammarAgreement.test.ts
  * @module plugins/shared/fenceScanner
@@ -125,10 +129,19 @@ export function fenceRanges(
     // nothing then ENDED the first, so a single unclosed range swallowed both
     // items and every line after them. A NESTED item (deeper indent) is inside
     // the fence and ends nothing.
-    const itemStart = opener?.startsListItem ? listItemStart(lines[i] ?? "") : null;
-    // STRICTLY shallower than the opener's content column. A marker AT that
-    // column is nested inside the item and ends nothing.
-    if (opener && itemStart !== null && itemStart < opener.markerOffset) {
+    // Compared against the OPENER'S OWN MARKER column, not its content column.
+    // Against the content column, ` - x` (marker at 1, content column 2) ended
+    // the item — but remark keeps that line INSIDE the unclosed fence, so the
+    // scanner dropped protection from a line the reference parser calls code.
+    // Measured, not reasoned: `remarkFenceAgreement.test.ts` labels each
+    // divergence's direction and then checks the label against actual output,
+    // which is what caught this one. At the marker column the rule stays
+    // strictly over-inclusive, the only tolerable direction for a guard.
+    const openerMarker = opener?.startsListItem
+      ? listItemStart(lines[open] ?? "")
+      : null;
+    const itemStart = openerMarker === null ? null : listItemStart(lines[i] ?? "");
+    if (opener && itemStart !== null && openerMarker !== null && itemStart <= openerMarker) {
       ranges.push({
         open,
         close: i - 1,

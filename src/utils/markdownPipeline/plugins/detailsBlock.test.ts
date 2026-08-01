@@ -686,3 +686,27 @@ describe("the INNER html child's residue survives too", () => {
     expect(detailsOf(md)?.summary).toBe("Real");
   });
 });
+
+describe("the comment-skip recursion cannot reach a NESTED block's summary", () => {
+  it("does not let a nested compact details donate its title past a comment", () => {
+    // Skipping a comment-only node walks one node further along. If that node
+    // is a nested compact `<details><summary>Inner</summary>`, the outer block
+    // must NOT adopt "Inner" — which is the donation bug the anchored guard
+    // exists to stop, reachable again through the new recursion.
+    const md =
+      "<details>\n\n<!-- c -->\n\n<details><summary>Inner</summary>i</details>\n\n</details>\n";
+    const outer = detailsOf(md);
+    expect(outer?.summary).not.toBe("Inner");
+    // And the nested block survives intact rather than being consumed.
+    expect(JSON.stringify(outer?.children ?? [])).toContain("Inner");
+  });
+
+  it("does not double-count content kept by BOTH the residue and inner paths", () => {
+    // The residue comes from the OPENING node; the inner path from the first
+    // child. They must never describe the same text.
+    const md = "<details>\nlead\n<summary>S</summary>\ntail\n\nbody\n\n</details>\n";
+    const text = JSON.stringify(detailsOf(md)?.children ?? []);
+    expect(text.match(/"lead"/g) ?? []).toHaveLength(1);
+    expect(text.match(/"tail"/g) ?? []).toHaveLength(1);
+  });
+});
