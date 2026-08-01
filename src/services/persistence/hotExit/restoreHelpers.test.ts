@@ -11,13 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type {
-  WindowState,
-  TabState,
-  DocumentState,
-  CursorInfo,
-  UiState,
-} from './types';
+import type { WindowState, TabState, DocumentState, UiState } from './types';
 
 // ---------------------------------------------------------------------------
 // Mocks — must appear before imports of the module under test
@@ -65,7 +59,11 @@ const uiStoreState = {
   toggleTypewriterMode: mockToggleTypewriterMode,
 };
 
-vi.mock('@/stores/uiStore', () => ({
+// Only the STORE is mocked; the width bounds come through real. Mirroring
+// them here would reintroduce the exact defect this change fixes — two copies
+// of one range, free to drift.
+vi.mock('@/stores/uiStore', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/stores/uiStore')>()),
   useUIStore: { getState: () => uiStoreState },
   // restoreUiState clamps restored terminal height to this ratio of the
   // viewport; mirror the real constant value (0.5) for the layout-max policy.
@@ -190,11 +188,16 @@ import {
   restoreWindowState,
   restoreUiState,
   restoreTabs,
-  restoreDocumentState,
-  restoreUnifiedHistory,
   isValidWindowState,
 } from './restoreHelpers';
+// Document restoration split into restoreDocumentState.ts when this module hit
+// 397 lines; its tests moved with it, to restoreDocumentState.test.ts.
 import { useUnifiedHistoryStore } from '@/stores/documentStore';
+import {
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH,
+} from '@/stores/uiStore';
 
 // ---------------------------------------------------------------------------
 // Test Helpers
@@ -261,33 +264,7 @@ function makeWindowState(overrides: Partial<WindowState> = {}): WindowState {
   };
 }
 
-/**
- * restoreDocumentState takes the store as a parameter; this builds the
- * minimal mocked surface it touches. Pass extras (e.g. setMode) per test.
- */
-function makeDocStore(extra: Record<string, unknown> = {}) {
-  return {
-    ingestExternalContent: mockIngest,
-    setEditorContent: mockSetContent,
-    markMissing: mockMarkMissing,
-    markDivergent: mockMarkDivergent,
-    setCursorInfo: mockSetCursorInfo,
-    ...extra,
-  } as unknown as ReturnType<typeof import('@/stores/documentStore').useDocumentStore.getState>;
-}
 
-function makeCursorInfo(overrides: Partial<CursorInfo> = {}): CursorInfo {
-  return {
-    source_line: 5,
-    word_at_cursor: 'hello',
-    offset_in_word: 2,
-    node_type: 'paragraph',
-    percent_in_line: 0.5,
-    context_before: 'say ',
-    context_after: ' world',
-    ...overrides,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -466,12 +443,18 @@ describe('restoreHelpers', () => {
       expect(mockSetSidebarWidth).toHaveBeenCalledWith(300);
     });
 
+    // Bounds are uiStore's (180-480) — the same range setSidebarWidth clamps
+    // to. 150 and 500 were this file's own copy, and both are now REJECTED:
+    // accepting a width the store would silently clamp is what the mismatch
+    // did wrong.
     it.each([
-      { width: 100, expected: 260, desc: 'below minimum (150)' },
-      { width: 600, expected: 260, desc: 'above maximum (500)' },
-      { width: NaN, expected: 260, desc: 'NaN' },
-      { width: Infinity, expected: 260, desc: 'Infinity' },
-      { width: -Infinity, expected: 260, desc: '-Infinity' },
+      { width: 100, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'below minimum' },
+      { width: 150, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'the old validator floor' },
+      { width: 600, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'above maximum' },
+      { width: 500, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'the old validator ceiling' },
+      { width: NaN, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'NaN' },
+      { width: Infinity, expected: SIDEBAR_DEFAULT_WIDTH, desc: 'Infinity' },
+      { width: -Infinity, expected: SIDEBAR_DEFAULT_WIDTH, desc: '-Infinity' },
     ])('should use default sidebar width when $desc', ({ width, expected }) => {
       const ws = makeWindowState({
         ui_state: makeUiState({ sidebar_width: width }),
@@ -482,7 +465,8 @@ describe('restoreHelpers', () => {
       expect(mockSetSidebarWidth).toHaveBeenCalledWith(expected);
     });
 
-    it.each([150, 260, 500])('should accept valid sidebar width %d', (width) => {
+    it.each([SIDEBAR_MIN_WIDTH, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MAX_WIDTH])(
+      'should accept valid sidebar width %d', (width) => {
       const ws = makeWindowState({
         ui_state: makeUiState({ sidebar_width: width }),
       });
@@ -666,592 +650,6 @@ describe('restoreHelpers', () => {
 
   // =========================================================================
   // restoreDocumentState
-  // =========================================================================
-
-  describe('restoreDocumentState', () => {
-    it('should ingest saved content once with path and persisted line ending', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        file_path: '/docs/readme.md',
-        document: makeDocState({
-          saved_content: 'saved text',
-          content: 'saved text',
-          line_ending: '\n',
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      // Exact opts match: no last_disk_content persisted, so no deriveFrom
-      // key may leak in (detection would otherwise run on the wrong text).
-      expect(mockIngest).toHaveBeenCalledTimes(1);
-      expect(mockIngest).toHaveBeenCalledWith('tab-1', 'saved text', 'hot-exit-restore', {
-        filePath: '/docs/readme.md',
-        persisted: { lineEnding: 'lf' },
-      });
-    });
-
-    it('should apply dirty content when is_dirty is true', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({
-          saved_content: 'saved',
-          content: 'modified',
-          is_dirty: true,
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetContent).toHaveBeenCalledWith('tab-1', 'modified');
-    });
-
-    it('should NOT call setEditorContent when not dirty', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ is_dirty: false }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetContent).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      { lineEnding: '\n' as const, expected: 'lf' },
-      { lineEnding: '\r\n' as const, expected: 'crlf' },
-      { lineEnding: 'unknown' as const, expected: 'unknown' },
-    ])('should convert line ending "$lineEnding" to "$expected"', async ({ lineEnding, expected }) => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ line_ending: lineEnding }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockIngest).toHaveBeenCalledWith(
-        'tab-1',
-        expect.any(String),
-        'hot-exit-restore',
-        expect.objectContaining({ persisted: { lineEnding: expected } }),
-      );
-    });
-
-    it('should default to "unknown" for invalid line ending', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({
-          // Force an invalid value for testing
-          line_ending: 'garbage' as unknown as '\n',
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockIngest).toHaveBeenCalledWith(
-        'tab-1',
-        expect.any(String),
-        'hot-exit-restore',
-        expect.objectContaining({ persisted: { lineEnding: 'unknown' } }),
-      );
-    });
-
-    it('should mark document as missing when is_missing is true', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ is_missing: true }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockMarkMissing).toHaveBeenCalledWith('tab-1');
-    });
-
-    it('should mark document as divergent when is_divergent is true', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ is_divergent: true }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockMarkDivergent).toHaveBeenCalledWith('tab-1');
-    });
-
-    it('should NOT mark missing or divergent when flags are false', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ is_missing: false, is_divergent: false }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockMarkMissing).not.toHaveBeenCalled();
-      expect(mockMarkDivergent).not.toHaveBeenCalled();
-    });
-
-    it('should restore valid cursor info', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo();
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', {
-        sourceLine: 5,
-        wordAtCursor: 'hello',
-        offsetInWord: 2,
-        nodeType: 'paragraph',
-        percentInLine: 0.5,
-        contextBefore: 'say ',
-        contextAfter: ' world',
-        blockAnchor: undefined,
-      });
-    });
-
-    it('should NOT set cursor info when cursor_info is null', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: null }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with NaN source_line', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ source_line: NaN });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with Infinity offset_in_word', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ offset_in_word: Infinity });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with NaN percent_in_line', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ percent_in_line: NaN });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with negative source_line', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ source_line: -3 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with zero source_line (1-indexed)', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ source_line: 0 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with fractional source_line', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ source_line: 5.5 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with negative offset_in_word', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ offset_in_word: -1 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with percent_in_line below 0', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ percent_in_line: -0.1 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should skip cursor info with percent_in_line above 1', async () => {
-      const docStore = makeDocStore();
-
-      const cursor = makeCursorInfo({ percent_in_line: 1.5 });
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).not.toHaveBeenCalled();
-    });
-
-    it('should restore cursor info at percent_in_line boundaries (0 and 1)', async () => {
-      const docStore = makeDocStore();
-
-      const tabZero = makeTabState({
-        document: makeDocState({ cursor_info: makeCursorInfo({ percent_in_line: 0, offset_in_word: 0 }) }),
-      });
-      await restoreDocumentState('tab-1', tabZero, docStore);
-      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', expect.objectContaining({ percentInLine: 0 }));
-
-      mockSetCursorInfo.mockClear();
-      const tabOne = makeTabState({
-        document: makeDocState({ cursor_info: makeCursorInfo({ percent_in_line: 1 }) }),
-      });
-      await restoreDocumentState('tab-1', tabOne, docStore);
-      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', expect.objectContaining({ percentInLine: 1 }));
-    });
-
-    it('should use defaults for missing optional cursor fields', async () => {
-      const docStore = makeDocStore();
-
-      // Cursor with null/undefined optional fields
-      const cursor: CursorInfo = {
-        source_line: 1,
-        word_at_cursor: undefined as unknown as string,
-        offset_in_word: 0,
-        node_type: undefined as unknown as string,
-        percent_in_line: 0,
-        context_before: undefined as unknown as string,
-        context_after: undefined as unknown as string,
-      };
-      const tab = makeTabState({
-        document: makeDocState({ cursor_info: cursor }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetCursorInfo).toHaveBeenCalledWith('tab-1', expect.objectContaining({
-        wordAtCursor: '',
-        nodeType: 'paragraph',
-        contextBefore: '',
-        contextAfter: '',
-      }));
-    });
-
-    it('should handle document with empty content', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        file_path: null,
-        document: makeDocState({
-          content: '',
-          saved_content: '',
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockIngest).toHaveBeenCalledWith(
-        'tab-1',
-        '',
-        'hot-exit-restore',
-        expect.objectContaining({ filePath: null }),
-      );
-    });
-
-    // ------------------------------------------------------------------------
-    // Regression tests for audit-fix patches (2026-05-25)
-    // ------------------------------------------------------------------------
-
-    it('restores per-tab mode when persisted (ADR-009)', async () => {
-      const mockSetMode = vi.fn();
-      const docStore = makeDocStore({ setMode: mockSetMode });
-
-      const tab = makeTabState({
-        document: makeDocState({ mode: 'source' }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetMode).toHaveBeenCalledWith('tab-1', 'source');
-    });
-
-    it('does not call setMode when mode field is absent (pre-mode sessions)', async () => {
-      const mockSetMode = vi.fn();
-      const docStore = makeDocStore({ setMode: mockSetMode });
-
-      const tab = makeTabState({
-        document: makeDocState({}),  // no mode field
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetMode).not.toHaveBeenCalled();
-    });
-
-    it('does not call setMode for an invalid mode value (e.g. "split-pane")', async () => {
-      const mockSetMode = vi.fn();
-      const docStore = makeDocStore({ setMode: mockSetMode });
-
-      const tab = makeTabState({
-        // @ts-expect-error — exercising untyped persisted payload defense
-        document: makeDocState({ mode: 'split-pane' }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockSetMode).not.toHaveBeenCalled();
-    });
-
-    it('restores hardBreakStyle via ingest persisted meta when persisted', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({
-          saved_content: 'x',
-          hard_break_style: 'twoSpaces',
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockIngest).toHaveBeenCalledWith(
-        'tab-1',
-        'x',
-        'hot-exit-restore',
-        expect.objectContaining({
-          persisted: expect.objectContaining({ hardBreakStyle: 'twoSpaces' }),
-        }),
-      );
-    });
-
-    it('passes persisted lastDiskContent as deriveFrom (raw disk bytes drive detection)', async () => {
-      const docStore = makeDocStore();
-
-      const tab = makeTabState({
-        document: makeDocState({
-          saved_content: 'saved',
-          last_disk_content: 'on-disk-normalized',
-        }),
-      });
-
-      await restoreDocumentState('tab-1', tab, docStore);
-
-      expect(mockIngest).toHaveBeenCalledWith(
-        'tab-1',
-        'saved',
-        'hot-exit-restore',
-        expect.objectContaining({ deriveFrom: 'on-disk-normalized' }),
-      );
-    });
-  });
-
-  // =========================================================================
-  // restoreUnifiedHistory
-  // =========================================================================
-
-  describe('restoreUnifiedHistory', () => {
-    it('should skip restore when both undo and redo are empty', () => {
-      const docState = makeDocState({
-        undo_history: [],
-        redo_history: [],
-      });
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => Record<string, unknown> })._getInternalState();
-      expect(state.documents).toEqual({});
-    });
-
-    it('should restore undo history checkpoints', () => {
-      const docState = makeDocState({
-        undo_history: [
-          {
-            markdown: '# Heading',
-            mode: 'wysiwyg',
-            cursor_info: null,
-            timestamp: 1000,
-          },
-          {
-            markdown: '# Updated',
-            mode: 'source',
-            cursor_info: null,
-            timestamp: 2000,
-          },
-        ],
-        redo_history: [],
-      });
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => { documents: Record<string, { undoStack: unknown[]; redoStack: unknown[] }> } })._getInternalState();
-      expect(state.documents['tab-1']).toBeDefined();
-      expect(state.documents['tab-1'].undoStack).toHaveLength(2);
-      expect(state.documents['tab-1'].undoStack[0]).toEqual({
-        markdown: '# Heading',
-        mode: 'wysiwyg',
-        cursorInfo: null,
-        timestamp: 1000,
-      });
-      expect(state.documents['tab-1'].undoStack[1]).toEqual({
-        markdown: '# Updated',
-        mode: 'source',
-        cursorInfo: null,
-        timestamp: 2000,
-      });
-    });
-
-    it('should restore redo history checkpoints', () => {
-      const docState = makeDocState({
-        undo_history: [],
-        redo_history: [
-          {
-            markdown: 'redo content',
-            mode: 'wysiwyg',
-            cursor_info: null,
-            timestamp: 3000,
-          },
-        ],
-      });
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => { documents: Record<string, { undoStack: unknown[]; redoStack: unknown[] }> } })._getInternalState();
-      expect(state.documents['tab-1'].redoStack).toHaveLength(1);
-      expect(state.documents['tab-1'].redoStack[0]).toEqual({
-        markdown: 'redo content',
-        mode: 'wysiwyg',
-        cursorInfo: null,
-        timestamp: 3000,
-      });
-    });
-
-    it('should convert checkpoint cursor_info to store format', () => {
-      const docState = makeDocState({
-        undo_history: [
-          {
-            markdown: 'text',
-            mode: 'source',
-            cursor_info: makeCursorInfo({
-              source_line: 10,
-              word_at_cursor: 'test',
-              offset_in_word: 1,
-              node_type: 'heading',
-              percent_in_line: 0.3,
-              context_before: 'ab',
-              context_after: 'cd',
-            }),
-            timestamp: 5000,
-          },
-        ],
-        redo_history: [],
-      });
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => { documents: Record<string, { undoStack: Array<{ cursorInfo: unknown }> }> } })._getInternalState();
-      expect(state.documents['tab-1'].undoStack[0].cursorInfo).toEqual({
-        sourceLine: 10,
-        wordAtCursor: 'test',
-        offsetInWord: 1,
-        nodeType: 'heading',
-        percentInLine: 0.3,
-        contextBefore: 'ab',
-        contextAfter: 'cd',
-        blockAnchor: undefined,
-      });
-    });
-
-    it('should default invalid checkpoint mode to "wysiwyg"', () => {
-      const docState = makeDocState({
-        undo_history: [
-          {
-            markdown: 'text',
-            mode: 'bogus' as 'wysiwyg',
-            cursor_info: null,
-            timestamp: 1000,
-          },
-        ],
-        redo_history: [],
-      });
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => { documents: Record<string, { undoStack: Array<{ mode: string }> }> } })._getInternalState();
-      expect(state.documents['tab-1'].undoStack[0].mode).toBe('wysiwyg');
-    });
-
-    it('should handle undefined undo_history and redo_history gracefully', () => {
-      const docState = makeDocState();
-      // Simulate missing fields (possible in corrupt data)
-      (docState as Record<string, unknown>).undo_history = undefined;
-      (docState as Record<string, unknown>).redo_history = undefined;
-
-      restoreUnifiedHistory('tab-1', docState);
-
-      // Should not throw, and should not set any state
-      const state = (useUnifiedHistoryStore as unknown as { _getInternalState: () => Record<string, unknown> })._getInternalState();
-      expect(state.documents).toEqual({});
-    });
-  });
-
-  // =========================================================================
-  // restoreTabs
   // =========================================================================
 
   describe('restoreTabs', () => {
