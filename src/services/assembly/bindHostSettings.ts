@@ -1,5 +1,6 @@
 /**
- * Purpose: bind the app's settings store to the plugins' host-settings seam.
+ * Purpose: bind the app's stores to the plugins' host seams — settings,
+ * document identity, and editor chrome.
  *
  * Called once at startup. Plugins depend on `plugins/shared/hostSettings`,
  * which has working defaults and no store import, so they still run when
@@ -12,9 +13,16 @@
 
 import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { bindHostDocument } from "@/plugins/shared/hostDocument";
+import {
+  bindHostPopups,
+  type MediaPopupRequest,
+  type ImageMenuRequest,
+} from "@/plugins/shared/hostPopups";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 
 /** Point the plugin seam at the live settings store. */
 export function bindPluginHostSettings(): void {
@@ -28,5 +36,15 @@ export function bindPluginHostSettings(): void {
       if (!tabId) return null;
       return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
     },
+  });
+
+  // Typed explicitly rather than inferred: this is the boundary where the
+  // plugins' request shape meets the app's store, and a silent mismatch here
+  // is exactly what the seam exists to prevent.
+  bindHostPopups({
+    openMediaPopup: (request: MediaPopupRequest) =>
+      useMediaPopupStore.getState().openPopup(request as never),
+    openImageMenu: (request: ImageMenuRequest) =>
+      useImageContextMenuStore.getState().openMenu(request),
   });
 }
