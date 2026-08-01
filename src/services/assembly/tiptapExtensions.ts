@@ -49,6 +49,7 @@ import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
+import { useMathPopupStore } from "@/stores/mathPopupStore";
 import {
   currentPasteSettings,
   copyHostOptions,
@@ -173,7 +174,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     superscriptExtension,
     underlineExtension,
     mathInlineExtension,
-    mathPopupExtension,
+    mathPopupExtension.configure({ store: useMathPopupStore }),
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
