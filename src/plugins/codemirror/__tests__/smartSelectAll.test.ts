@@ -15,7 +15,7 @@
  * @module plugins/codemirror/__tests__/smartSelectAll.test
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { EditorState } from "@codemirror/state";
+import { EditorState, EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { buildSourceShortcutKeymap } from "../sourceShortcuts";
@@ -155,5 +155,79 @@ describe("an UNTERMINATED fence selects all of its content", () => {
     view.dispatch({ selection: { anchor: 7, head: 7 } });
     runFor("Mod-a")(view);
     expect(view.state.selection.main.to).toBe(view.state.doc.length);
+  });
+});
+
+describe("expansion never shrinks, and undo never outlives its document", () => {
+  it("a selection spanning BEYOND a block expands to the document, not back to the block", () => {
+    // The equality check only recognised an exact block selection, so a range
+    // starting inside a fence and running past it was pulled BACK to the
+    // fence. Expansion running backwards, reachable on the first press.
+    const view = makeView();
+    const beyond = DOC.indexOf("Trailing") + 5;
+    view.dispatch({ selection: { anchor: 8, head: beyond } });
+
+    runFor("Mod-a")(view);
+
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(view.state.doc.length);
+  });
+
+  it("a selection starting BEFORE a block does not shrink either", () => {
+    const view = makeView();
+    view.dispatch({ selection: { anchor: 0, head: 8 } });
+
+    runFor("Mod-a")(view);
+
+    expect(view.state.selection.main.to).toBe(view.state.doc.length);
+  });
+
+  it("a caret inside a block still expands to the block first", () => {
+    const view = makeView();
+    view.dispatch({ selection: { anchor: 8, head: 8 } });
+
+    runFor("Mod-a")(view);
+
+    expect(view.state.selection.main.to).toBeLessThan(view.state.doc.length);
+  });
+
+  it("undo DECLINES after the document changed — it used to throw", () => {
+    // The record outlived its document: stored endpoints could exceed the new
+    // length, and dispatch threw. Equal-length edits were worse — a silent
+    // restore over different content.
+    const view = makeView();
+    view.dispatch({ selection: { anchor: 8, head: 8 } });
+    runFor("Mod-a")(view);
+
+    // Delete the tail, so the stored offsets no longer fit.
+    view.dispatch({ changes: { from: 20, to: view.state.doc.length, insert: "" } });
+
+    expect(() => runFor("Mod-z")(view)).not.toThrow();
+    expect(runFor("Mod-z")(view)).toBe(false);
+  });
+
+  it("undo restores EVERY cursor, not just the main one", () => {
+    // Source mode is multi-cursor; storing `selection.main` discarded the rest.
+    // The state needs `allowMultipleSelections` or CodeMirror collapses the
+    // selection to one range and the test proves nothing.
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: DOC,
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+      }),
+    });
+    view.dispatch({
+      selection: EditorSelection.create(
+        [EditorSelection.range(8, 10), EditorSelection.range(30, 33)],
+        0
+      ),
+    });
+    runFor("Mod-a")(view);
+    runFor("Mod-z")(view);
+
+    const restored = view.state.selection;
+    expect(restored.ranges).toHaveLength(2);
+    expect([restored.ranges[0].from, restored.ranges[0].to]).toEqual([8, 10]);
+    expect([restored.ranges[1].from, restored.ranges[1].to]).toEqual([30, 33]);
   });
 });

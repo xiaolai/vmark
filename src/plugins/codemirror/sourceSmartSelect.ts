@@ -25,6 +25,7 @@
  * @module plugins/codemirror/sourceSmartSelect
  */
 import type { EditorView, KeyBinding } from "@codemirror/view";
+import type { EditorSelection, Text } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
@@ -35,12 +36,22 @@ import { getListBlockBounds } from "@/plugins/sourceContextDetection/listDetecti
 
 interface SourceSelectUndo {
   /**
+   * The document the record was taken against.
+   *
+   * Without it the record outlived its document: select a range, expand, delete
+   * text elsewhere, then undo — the stored endpoints could exceed the new
+   * length and `dispatch` THREW. Equal-length edits were worse, restoring a
+   * range over different content with no error at all.
+   */
+  doc: Text;
+  /** The FULL selection, not just its main range — Source mode is multi-cursor. */
+  prevSelection: EditorSelection;
+  /**
    * ANCHOR and HEAD, not from/to. `from`/`to` are normalised — a selection
    * dragged right-to-left has the same pair as one dragged left-to-right — so
    * restoring from them put the caret at the opposite end of the user's
    * selection and the next arrow key moved the wrong way.
    */
-  prev: { anchor: number; head: number };
   expanded: { from: number; to: number };
 }
 
@@ -130,19 +141,23 @@ export function addSmartSelectBindings(bindings: KeyBinding[]): void {
           return true;
         }
 
-        // Already selecting the entire block: progress to whole-document.
-        // We dispatch the document-wide selection ourselves instead of
-        // returning false (which would invoke the browser's spreading
-        // select-all).
-        if (from === blockBounds.from && to === blockBounds.to) {
+        // Expansion must never SHRINK. Selecting the block is right only when
+        // the block would grow the selection; a range that starts inside a
+        // block but runs past it was previously pulled back to the block —
+        // expansion running backwards, the same defect as the third press but
+        // reachable on the first.
+        const blockWouldShrink = from < blockBounds.from || to > blockBounds.to;
+        if ((from === blockBounds.from && to === blockBounds.to) || blockWouldShrink) {
           sourceSelectUndoState.delete(view);
           view.dispatch({ selection: { anchor: 0, head: docLen } });
           return true;
         }
 
-        // Save the selection with its DIRECTION, then select the block.
+        // Save the WHOLE selection — every cursor, with direction — against the
+        // document it was taken from.
         sourceSelectUndoState.set(view, {
-          prev: { anchor: main.anchor, head: main.head },
+          doc: view.state.doc,
+          prevSelection: view.state.selection,
           expanded: { from: blockBounds.from, to: blockBounds.to },
         });
         view.dispatch({
@@ -163,6 +178,14 @@ export function addSmartSelectBindings(bindings: KeyBinding[]): void {
         const undoInfo = sourceSelectUndoState.get(view);
         if (!undoInfo) return false;
 
+        // The document must be the one the record was taken against. An edit
+        // between the expansion and the undo makes the stored offsets address
+        // different text — or no text at all, which threw.
+        if (undoInfo.doc !== view.state.doc) {
+          sourceSelectUndoState.delete(view);
+          return false;
+        }
+
         const { from, to } = view.state.selection.main;
         // Only restore if current selection matches the expansion
         if (from !== undoInfo.expanded.from || to !== undoInfo.expanded.to) {
@@ -171,9 +194,7 @@ export function addSmartSelectBindings(bindings: KeyBinding[]): void {
         }
 
         sourceSelectUndoState.delete(view);
-        view.dispatch({
-          selection: { anchor: undoInfo.prev.anchor, head: undoInfo.prev.head },
-        });
+        view.dispatch({ selection: undoInfo.prevSelection });
         return true;
       },
       preventDefault: true,

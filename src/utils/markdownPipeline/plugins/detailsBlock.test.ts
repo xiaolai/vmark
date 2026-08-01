@@ -14,6 +14,7 @@ import remarkStringify from "remark-stringify";
 // what production does via processorFactory. Without it the plugin throws a
 // named error rather than silently parsing bodies with the wrong dialect.
 import "../dialect";
+import { visit } from "unist-util-visit";
 import { remarkDetailsBlock } from "./detailsBlock";
 import type { Root } from "mdast";
 import type { Details } from "../types";
@@ -567,5 +568,48 @@ No summary tag here.
       expect(details.type).toBe("details");
       expect(details.summary).toBe("Details");
     });
+  });
+});
+
+describe("nested details keep their own summary and content", () => {
+  const parseDoc = (md: string) => {
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkGfm, { singleTilde: false })
+      .use(remarkDetailsBlock);
+    return processor.runSync(processor.parse(md)) as never;
+  };
+
+  const detailsNodes = (md: string) => {
+    const out: { summary?: string; open?: boolean; children?: unknown[] }[] = [];
+    visit(parseDoc(md), "details", (n) => out.push(n as never));
+    return out;
+  };
+
+  it("an inner compact block does not donate its summary to the outer one", () => {
+    // `extractSummaryFromChildren` searched ANYWHERE in the first html child.
+    // A nested compact `<details><summary>Inner</summary>…</details>` matched,
+    // so the outer block took "Inner" as its title AND consumed the whole
+    // child as the summary — discarding the nested block and its content.
+    const nodes = detailsNodes(
+      "<details><summary>Outer</summary>\n\n<details><summary>Inner</summary>x</details>\n\n</details>\n"
+    );
+
+    expect(nodes[0]?.summary).toBe("Outer");
+    expect(nodes[0]?.children?.length).toBeGreaterThan(0);
+    expect(nodes[1]?.summary).toBe("Inner");
+  });
+
+  it.each([
+    { label: "data-open=\"false\"", html: '<details data-open="false">', open: false },
+    { label: "data-state=\"open\"", html: '<details data-state="open">', open: false },
+    { label: "bare open", html: "<details open>", open: true },
+    { label: 'open="open"', html: '<details open="open">', open: true },
+    { label: "no attributes", html: "<details>", open: false },
+  ])("$label → open: $open", ({ html, open }) => {
+    // `/\bopen\b/i` over the whole tag matched an attribute NAME and a VALUE,
+    // neither of which opens anything, so collapsed blocks rendered expanded.
+    const nodes = detailsNodes(`${html}<summary>S</summary>\n\nbody\n\n</details>\n`);
+    expect(nodes[0]?.open).toBe(open);
   });
 });
