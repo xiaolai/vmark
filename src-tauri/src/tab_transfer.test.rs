@@ -31,6 +31,11 @@ fn live_data(content: &str) -> TabTransferData {
         saved_content: "# Original".to_string(),
         is_dirty: true,
         workspace_root: None,
+        // The file's convention, which canonical content cannot carry.
+        line_ending: None,
+        hard_break_style: None,
+        has_bom: None,
+        last_disk_content: None,
     }
 }
 
