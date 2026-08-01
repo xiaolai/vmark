@@ -151,7 +151,7 @@ describe("restoreTransferredTab", () => {
       "restored-tab-id",
       "# Hello\n\nEdited in the destination window",
       "/path/to/file.md",
-      "# Hello",
+      expect.objectContaining({ savedContent: "# Hello" }),
     );
     // The snapshot's content must never reach the restored document.
     expect(mockInitDocument).not.toHaveBeenCalledWith(
@@ -236,7 +236,7 @@ describe("restoreTransferredTab", () => {
       "restored-tab-id",
       "# Hello\n\nEdited in the destination window",
       "/path/to/file.md",
-      "# Hello",
+      expect.objectContaining({ savedContent: "# Hello" }),
     );
     const { tabContextError } = await import("@/utils/debug");
     expect(tabContextError).toHaveBeenCalledWith(
@@ -281,7 +281,7 @@ describe("restoreTransferredTab", () => {
       "restored-tab-id",
       "# Hello\n\nEdited in the destination window",
       null,
-      "# Hello",
+      expect.objectContaining({ savedContent: "# Hello" }),
     );
   });
 
@@ -498,7 +498,7 @@ describe("transferTabFromDragOut", () => {
         "restored-tab-id",
         "# Hello\n\nEdited in the destination window",
         "/path/to/file.md",
-        "# Hello",
+        expect.objectContaining({ savedContent: "# Hello" }),
       );
     });
   });

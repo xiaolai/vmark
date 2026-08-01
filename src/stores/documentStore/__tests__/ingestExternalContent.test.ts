@@ -228,7 +228,7 @@ describe("ingestExternalContent — snapshot policy", () => {
   // work it exists to rescue.
   it("crash-recovery leaves the recovered document DIRTY", () => {
     const store = useDocumentStore.getState();
-    store.initDocument(TAB, "", null, ""); // savedContent "" — the real shape
+    store.initDocument(TAB, "", null, { savedContent: "" }); // savedContent "" — the real shape
     store.ingestExternalContent(TAB, "recovered work", "crash-recovery");
     expect(doc()?.content).toBe("recovered work");
     expect(doc()?.isDirty).toBe(true);
@@ -236,7 +236,7 @@ describe("ingestExternalContent — snapshot policy", () => {
 
   it("crash-recovery does not claim the recovered text was ever on disk", () => {
     const store = useDocumentStore.getState();
-    store.initDocument(TAB, "", null, "");
+    store.initDocument(TAB, "", null, { savedContent: "" });
     store.ingestExternalContent(TAB, "recovered work", "crash-recovery");
     expect(doc()?.savedContent).toBe("");
     expect(doc()?.lastDiskContent).toBe("");
@@ -246,7 +246,7 @@ describe("ingestExternalContent — snapshot policy", () => {
     // The two axes are independent: derive the convention, but do not pretend
     // the buffer is saved.
     const store = useDocumentStore.getState();
-    store.initDocument(TAB, "", null, "");
+    store.initDocument(TAB, "", null, { savedContent: "" });
     store.ingestExternalContent(TAB, "a\r\nb", "crash-recovery");
     expect(doc()?.lineEnding).toBe("crlf");
     expect(doc()?.isDirty).toBe(true);

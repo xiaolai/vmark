@@ -44,7 +44,7 @@
     "src/components/Sidebar/FileExplorer/useExplorerOperations.ts": 315,
     "src/components/StatusBar/StatusBar.tsx": 313,
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
-    "src/components/Tabs/useTabContextMenuActions.ts": 350,
+    "src/components/Tabs/useTabContextMenuActions.ts": 349,
     "src/contexts/WindowContext.tsx": 356,
     "src/export/PdfSettingsSidebar.tsx": 345,
     "src/export/htmlExport.ts": 331,

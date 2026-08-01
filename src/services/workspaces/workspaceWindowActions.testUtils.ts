@@ -84,7 +84,7 @@ export function addTab(
   options: { dirty?: boolean; readOnly?: boolean; missing?: boolean } = {},
 ): string {
   const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-  useDocumentStore.getState().initDocument(tabId, content, filePath, content);
+  useDocumentStore.getState().initDocument(tabId, content, filePath, { savedContent: content });
   if (options.dirty) useDocumentStore.getState().setContent(tabId, `${content}\nchanged`);
   if (options.readOnly) useDocumentStore.getState().setReadOnly(tabId, true);
   if (options.missing) useDocumentStore.getState().markMissing(tabId);

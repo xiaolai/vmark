@@ -56,7 +56,7 @@ describe("documentStore", () => {
     it("sets lastDiskContent to savedContent when savedContent is provided", () => {
       const { initDocument, getDocument } = useDocumentStore.getState();
 
-      initDocument(WINDOW_LABEL, "Current edits", "/path.md", "Disk baseline");
+      initDocument(WINDOW_LABEL, "Current edits", "/path.md", { savedContent: "Disk baseline" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.content).toBe("Current edits");
@@ -68,7 +68,7 @@ describe("documentStore", () => {
     it("marks clean when savedContent matches content", () => {
       const { initDocument, getDocument } = useDocumentStore.getState();
 
-      initDocument(WINDOW_LABEL, "Same", "/path.md", "Same");
+      initDocument(WINDOW_LABEL, "Same", "/path.md", { savedContent: "Same" });
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(false);
