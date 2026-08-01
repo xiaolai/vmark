@@ -1,5 +1,12 @@
 {
-  "//": "Ceiling for .dependency-cruiser-known-violations.json (plugin-isolation, severity error). Ratchets DOWN only — see scripts/check-extension-budget.mjs and dev-docs/plans/20260722-extension-architecture.md WI-1.7/1.8.",
-  "//rule-level-exemptions": "22 pathNot entries in .dependency-cruiser.cjs mask a further ~194 violations. Measure with: strip the plugin-isolation pathNot list, run `pnpm exec depcruise src --config .dependency-cruiser.cjs --no-ignore-known`. Burning those down is the Phase 3 target.",
-  "maxKnownViolations": 7
+  "//": "Ceiling for .dependency-cruiser-known-violations.json (plugin-isolation, severity error). Ratchets DOWN only \u2014 see scripts/check-extension-budget.mjs and dev-docs/plans/20260722-extension-architecture.md WI-1.7/1.8.",
+  "//rule-level-exemptions": "MEASURED 2026-08-02, and now GATED by maxRuleExemptions below. A pathNot entry removes paths from a rule's scope, so its violations never reach the known-violations list \u2014 the headline 7 sat alongside 24 plugin-isolation exemptions masking roughly 198 more. The previous note here said '22 \u2026 ~194'; both numbers were already wrong when written, because nothing counted them. Measure with: strip the plugin-isolation pathNot list, run `pnpm exec depcruise src --config .dependency-cruiser.cjs --no-ignore-known`.",
+  "maxKnownViolations": 7,
+  "maxRuleExemptions": {
+    "leaf-modules-stay-pure": 5,
+    "utils-no-platform": 1,
+    "services-no-upward": 3,
+    "node-safe-markdown-seam": 1,
+    "plugin-isolation": 28
+  }
 }
