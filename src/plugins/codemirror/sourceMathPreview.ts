@@ -29,7 +29,10 @@ class SourceMathPreviewPlugin {
 
   constructor(view: EditorView) {
     this.view = view;
-    this.popupView = new SourceMathPopupView(view);
+    // The popup declares its own state PORT and receives a store satisfying
+    // it (ADR-015). This file already holds the store, so supplying it here
+    // removes the popup plugin's own import without adding one anywhere.
+    this.popupView = new SourceMathPopupView(view, useSourceMathPopupStore);
     this.scheduleCheck();
   }
 
