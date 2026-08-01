@@ -8,9 +8,12 @@
  *
  * Key decisions:
  *   - Shortcuts are resolved lazily from the store so user customizations take effect immediately
- *   - Formatting/editing shortcuts route through the shared executor
- *     (runEditorAction, the menu's path — NOT executeCommand; WI-4.2)
- *   - View-only actions and executor gaps (unlink, copyAsHTML) keep direct handlers
+ *   - EVERY document mutation routes through the shared executor
+ *     (runEditorAction, the menu's path — NOT executeCommand; WI-4.2). The last
+ *     exception, `unlink`, had no `editor.*` action though both adapters
+ *     implemented it; adding the ActionId closed the gap (WI-2.1). Direct
+ *     handlers remain only for non-mutations — find/search, copy-as-HTML —
+ *     gated by `__tests__/dispatchBoundary.test.ts`
  *   - Helper functions are extracted to sourceShortcutsHelpers.ts to keep this file focused
  *
  * Known limitations:
@@ -18,7 +21,7 @@
  *
  * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
  * @coordinates-with services/editor/runEditorAction.ts — executor for editor.* actions
- * @coordinates-with toolbarActions/sourceAdapter.ts — unlink (gap) action execution
+ * @coordinates-with plugins/actions/types.ts — the ActionId union the bindings use
  * @coordinates-with plugins/codemirror/sourceShortcutsHelpers.ts — helper functions
  * @module plugins/codemirror/sourceShortcuts
  */
@@ -37,7 +40,6 @@ import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetect
 import { getBlockquoteInfo } from "@/plugins/sourceContextDetection/blockquoteDetection";
 import { getListBlockBounds } from "@/plugins/sourceContextDetection/listDetection";
 import {
-  runSourceAction,
   openFindBar,
   findNextMatch,
   findPreviousMatch,
@@ -141,8 +143,7 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("strikethrough"), runCommand("editor.strikethrough"));
   bindIfKey(bindings, shortcuts.getShortcut("underline"), runCommand("editor.underline"));
   bindIfKey(bindings, shortcuts.getShortcut("link"), runCommand("editor.link"));
-  // unlink has no editor.* command (executor gap) — keep the source adapter call.
-  bindIfKey(bindings, shortcuts.getShortcut("unlink"), runSourceAction("unlink"));
+  bindIfKey(bindings, shortcuts.getShortcut("unlink"), runCommand("editor.unlink"));
   bindIfKey(bindings, shortcuts.getShortcut("wikiLink"), runCommand("editor.wikiLink"));
   bindIfKey(bindings, shortcuts.getShortcut("bookmarkLink"), runCommand("editor.bookmark"));
   bindIfKey(bindings, shortcuts.getShortcut("highlight"), runCommand("editor.highlight"));

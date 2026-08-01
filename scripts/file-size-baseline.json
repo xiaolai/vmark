@@ -68,7 +68,6 @@
     "src/plugins/aiSuggestion/tiptap.ts": 487,
     "src/plugins/codemirror/smartPasteImage.ts": 440,
     "src/plugins/codemirror/sourceSelectOccurrence.ts": 339,
-    "src/plugins/codemirror/sourceShortcutsHelpers.ts": 367,
     "src/plugins/codemirror/sourceTableContextMenu.ts": 321,
     "src/plugins/codemirror/structuralCharProtection.ts": 315,
     "src/plugins/codemirror/tableTabNav.ts": 385,

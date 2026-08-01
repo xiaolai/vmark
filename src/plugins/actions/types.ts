@@ -39,6 +39,7 @@ const _ACTION_IDS = [
 
   // === Links ===
   "link",
+  "unlink",
   "wikiLink",
   "bookmark",
 
