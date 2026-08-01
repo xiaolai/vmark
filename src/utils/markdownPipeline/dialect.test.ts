@@ -20,7 +20,7 @@
  * @coordinates-with utils/markdownPipeline/parser/processorFactory.ts
  * @module utils/markdownPipeline/dialect.test
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   DIALECT,
   PARSE_MODES,
@@ -234,13 +234,21 @@ describe("the details-body DEFAULT matches the declared table", () => {
     // detailsBodyParser.ts builds its own chain from leaf imports so the plugin
     // works without importing dialect.ts — the fix for a production break. That
     // second construction site is only safe while it agrees with the table.
+    //
+    // resetModules FIRST, and import the parser WITHOUT ../dialect: this file
+    // imports the dialect at module load, which wires and memoizes the
+    // DESCRIPTOR-built processor. Comparing that to the descriptors compares
+    // the table with itself — the drift gate passed while testing nothing,
+    // which an independent verification caught.
+    vi.resetModules();
     const { getDetailsBodyParser } = await import("./plugins/detailsBodyParser");
     const processor = getDetailsBodyParser() as unknown as {
       attachers: [{ name?: string }][];
     };
+    const { pluginsForMode: freshPluginsForMode } = await import("./dialectQueries");
 
     expect(processor.attachers.map(([fn]) => fn.name)).toEqual(
-      pluginsForMode("details-body").map((d) => d.name)
+      freshPluginsForMode("details-body").map((d) => d.name)
     );
   });
 });

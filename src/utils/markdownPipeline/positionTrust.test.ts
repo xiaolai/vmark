@@ -142,12 +142,12 @@ describe("canonicalRangeOf refuses rather than guesses", () => {
 });
 
 describe("inheritance applies only where measured", () => {
-  it("does NOT distrust a details descendant — its offsets are correct", () => {
-    // CORRECTED: an earlier version claimed a re-parsed details body numbered
-    // its children from the extracted substring. Measured node by node, every
-    // descendant carries a correct ABSOLUTE offset. Acting on the false claim
-    // refused good ranges and cost the link checker its diagnostics inside
-    // details bodies.
+  it("distrusts a details descendant — the COMPACT form re-bases offsets", () => {
+    // Measured three times before it was right. A compact
+    // `<details><summary>S</summary>body</details>` is ONE html node whose
+    // body is re-parsed standalone, so offsets restart at 0; a multiline one
+    // keeps its body as already-positioned siblings. A node cannot tell you
+    // which form produced it, so the type is distrusted and both are covered.
     const child: PositionedNode = {
       type: "paragraph",
       position: { start: { offset: 10 }, end: { offset: 14 } },
@@ -158,10 +158,7 @@ describe("inheritance applies only where measured", () => {
       children: [{ type: "details", children: [child] }],
     };
 
-    const untrusted = collectUntrusted(tree);
-    expect(untrusted.has(child)).toBe(false);
-    // The details node ITSELF still cannot authorise anything.
-    expect(untrusted.size).toBe(1);
+    expect(collectUntrusted(tree).has(child)).toBe(true);
   });
 
   it("still distrusts a descendant that lacks its OWN canonical range", () => {
@@ -175,22 +172,26 @@ describe("inheritance applies only where measured", () => {
     expect(collectUntrusted(tree).has(child)).toBe(true);
   });
 
-  it("inherits from a REBASED type, the mechanism kept for a measured case", () => {
-    // The set is empty today. This proves the mechanism still works, so adding
-    // a measured entry needs no new machinery.
+  it("does NOT distrust a non-rebasing container's positioned children", () => {
+    // Inheritance is narrow: only the listed types re-base. A blockquote's
+    // children keep their own canonical ranges.
     const child: PositionedNode = {
       type: "paragraph",
-      position: { start: { offset: 0 }, end: { offset: 4 } },
+      position: { start: { offset: 2 }, end: { offset: 8 } },
     };
     const tree: PositionedNode = {
       type: "root",
       position: { start: { offset: 0 }, end: { offset: 50 } },
-      children: [{ type: "details", children: [child] }],
+      children: [
+        {
+          type: "blockquote",
+          position: { start: { offset: 0 }, end: { offset: 20 } },
+          children: [child],
+        },
+      ],
     };
 
-    // With `details` treated as rebasing, the child would be distrusted —
-    // asserted through the real predicate rather than a stubbed set.
-    expect(REBASED_SUBTREE_TYPES.size).toBe(0);
+    expect(REBASED_SUBTREE_TYPES.has("details")).toBe(true);
     expect(collectUntrusted(tree).has(child)).toBe(false);
   });
 

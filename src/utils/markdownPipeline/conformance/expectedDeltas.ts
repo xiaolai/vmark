@@ -24,7 +24,7 @@
  * @coordinates-with parserConformance.test.ts — the gate that consumes this
  * @module utils/markdownPipeline/conformance/expectedDeltas
  */
-import type { Divergence } from "./semanticProjection";
+import { sameValue, type Divergence } from "./semanticProjection";
 
 export interface ExpectedDelta {
   /** Stable fixture ID from `fixtures.ts`. */
@@ -97,12 +97,13 @@ export function matches(
   if (delta.path !== divergence.path) return false;
   if (delta.kind !== divergence.kind) return false;
   if (delta.detail !== divergence.detail) return false;
-  // VALUES too. Matching on path and kind alone accepted any change there —
-  // the declaration said "these two modes differ here", and then tolerated
-  // them differing in a completely new way.
+  // VALUES too, structurally. Matching on path and kind alone accepted any
+  // change there — the declaration said "these two modes differ here", then
+  // tolerated them differing in a completely new way. `JSON.stringify` was the
+  // first attempt and equates NaN with null and `[undefined]` with `[null]`,
+  // so a declaration could still over-match; it also throws on a cycle.
   return (
-    JSON.stringify(delta.documentValue) === JSON.stringify(divergence.documentValue) &&
-    JSON.stringify(delta.sourcePositionValue) ===
-      JSON.stringify(divergence.sourcePositionValue)
+    sameValue(delta.documentValue, divergence.documentValue) &&
+    sameValue(delta.sourcePositionValue, divergence.sourcePositionValue)
   );
 }

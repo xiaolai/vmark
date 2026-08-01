@@ -175,3 +175,61 @@ describe("the allow-list does not silently drop a real field", () => {
     expect([...DELIBERATELY_DROPPED.keys()].filter((t) => !listed.has(t))).toEqual([]);
   });
 });
+
+describe("sameValue refuses to bless what it has not compared", () => {
+  const a = (v: unknown) => project(node({ type: "table", align: v }));
+
+  it("compares arrays element by element", () => {
+    expect(diff(a(["left"]), a(["left"]))).toEqual([]);
+    expect(diff(a(["left"]), a(["right"]))).toHaveLength(1);
+    expect(diff(a(["left"]), a(["left", "right"]))).toHaveLength(1);
+  });
+
+  it("does NOT treat a hole as equal to a value", () => {
+    // `Array.every` skips holes, so [ , 1] read as equal to [0, 1].
+    const sparse: unknown[] = [];
+    sparse[1] = "x";
+    expect(diff(a(sparse), a([undefined, "x"]))).toEqual([]);
+    expect(diff(a(sparse), a(["y", "x"]))).toHaveLength(1);
+  });
+
+  it("compares nested objects by value, whatever the key order", () => {
+    expect(diff(a({ x: 1, y: 2 }), a({ y: 2, x: 1 }))).toEqual([]);
+    expect(diff(a({ x: 1 }), a({ x: 2 }))).toHaveLength(1);
+    expect(diff(a({ x: 1 }), a({ x: 1, y: 2 }))).toHaveLength(1);
+  });
+
+  it("distinguishes two different Dates", () => {
+    // A key-by-key walk finds no enumerable keys on a Date and called them
+    // equal — silently blessing a difference it never looked at.
+    expect(diff(a(new Date(0)), a(new Date(1)))).toHaveLength(1);
+    expect(diff(a(new Date(5)), a(new Date(5)))).toEqual([]);
+  });
+
+  it("distinguishes two different RegExps", () => {
+    expect(diff(a(/x/g), a(/y/g))).toHaveLength(1);
+    expect(diff(a(/x/g), a(/x/g))).toEqual([]);
+  });
+
+  it("reports an exotic type as different rather than assuming equality", () => {
+    // Map and Set carry their contents outside enumerable keys. Unverifiable
+    // means "different", not "fine".
+    expect(diff(a(new Map([["k", 1]])), a(new Map([["k", 1]])))).toHaveLength(1);
+  });
+
+  it("mismatched shapes are different, not compared field-by-field", () => {
+    expect(diff(a(["x"]), a({ 0: "x" }))).toHaveLength(1);
+    expect(diff(a(new Date(0)), a({}))).toHaveLength(1);
+  });
+
+  it("a cycle is reported as unequal rather than throwing", () => {
+    const cyc: Record<string, unknown> = { name: "c" };
+    cyc.self = cyc;
+    expect(() => diff(a(cyc), a(cyc))).not.toThrow();
+  });
+
+  it("null and undefined are not each other, nor equal to an object", () => {
+    expect(diff(a(null), a(undefined))).toHaveLength(1);
+    expect(diff(a(null), a({}))).toHaveLength(1);
+  });
+});
