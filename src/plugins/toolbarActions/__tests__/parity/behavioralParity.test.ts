@@ -32,6 +32,7 @@
  */
 import { describe, it, expect, afterAll } from "vitest";
 import { parseMarkdown } from "@/utils/markdownPipeline";
+import { stripBlockMarkup } from "@/plugins/shared/lineContent";
 import { getProductionSchema } from "@/test/productionSchema";
 import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docFingerprint";
 import { runOnWysiwyg, runOnSource, disposeSurfaces, type Target } from "./surfaces";
@@ -91,6 +92,15 @@ interface Comparison {
  * removes both problems rather than trading one for the other: no hook, no
  * import cost, and each case stays far inside the default per-test timeout.
  */
+/**
+ * Actions judged by their SELECTION rather than by the document.
+ *
+ * Kept explicit rather than inferred from "the document did not change": a
+ * mutating action that silently no-ops on both surfaces would otherwise be
+ * re-judged by a rule it was never meant to pass, and would look green.
+ */
+const SELECTION_COMPARED = new Set(["selectWord"]);
+
 const RESULTS = new Map<string, Comparison>();
 const key = (action: string, docLabel: string, shape: string): string => `${action}|${docLabel}|${shape}`;
 
@@ -104,10 +114,23 @@ function compare(action: string, doc: (typeof DOCS)[number], shape: (typeof SHAP
   const s = runOnSource(doc.markdown, target, action);
   const wm = meaning(w.markdown);
   const sm = meaning(s.markdown);
+  // Selection-only actions leave the document alone, so a document
+  // fingerprint cannot tell agreement from two mutual no-ops. Their selected
+  // TEXT is compared instead, with block markup stripped: WYSIWYG cannot
+  // select a `### ` because it is not text there, while in Source it is. The
+  // content under the selection is the surface-neutral part.
+  //
+  // ONLY for those actions. A document-mutating action legitimately leaves
+  // different selections behind — WYSIWYG keeps the word selected where Source
+  // collapses — and comparing those turned every action in the suite red.
+  const selectionsAgree =
+    !SELECTION_COMPARED.has(action) ||
+    stripBlockMarkup(w.selectedText ?? "").content ===
+      stripBlockMarkup(s.selectedText ?? "").content;
   const result: Comparison = {
-    agree: wm.ok && sm.ok && wm.fingerprint === sm.fingerprint,
-    wysiwyg: w.markdown,
-    source: s.markdown,
+    agree: wm.ok && sm.ok && wm.fingerprint === sm.fingerprint && selectionsAgree,
+    wysiwyg: selectionsAgree ? w.markdown : `${w.markdown} [selected ${JSON.stringify(w.selectedText)}]`,
+    source: selectionsAgree ? s.markdown : `${s.markdown} [selected ${JSON.stringify(s.selectedText)}]`,
     wysiwygError: w.error,
     sourceError: s.error,
     unparseable: [
