@@ -26,3 +26,17 @@ describe("a host that configures nothing still gets sane paste behaviour", () =>
     expect(options.getPasteSettings()).toEqual(DEFAULT_PASTE_SETTINGS);
   });
 });
+
+describe("markdownPaste also works with no host", () => {
+  it("defaults to auto with breaks not preserved", async () => {
+    // Same standalone guarantee as its siblings: lifted out of this repo with
+    // nothing configured, it must still interpret pasted markdown.
+    const { markdownPasteExtension } = await import("@/plugins/markdownPaste/tiptap");
+    const options = markdownPasteExtension.config.addOptions!.call({} as never) as {
+      getMode: () => string;
+      getPreserveLineBreaks: () => boolean;
+    };
+    expect(options.getMode()).toBe("auto");
+    expect(options.getPreserveLineBreaks()).toBe(false);
+  });
+});

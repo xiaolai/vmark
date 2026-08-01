@@ -8,6 +8,7 @@ import { getSchema } from "@tiptap/core";
 import { EditorState, TextSelection, SelectionRange, type Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Slice } from "@tiptap/pm/model";
 import { MultiSelection } from "@/plugins/multiCursor/MultiSelection";
@@ -325,7 +326,16 @@ describe("handlePaste via plugin", () => {
     const plugins = markdownPasteExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "markdownPaste",
-      options: {},
+      // Configured as the HOST does — the plugin no longer reads the settings
+      // store itself (ADR-015), so the mocked store reaches it through here.
+      options: {
+        getMode: () =>
+          (useSettingsStore.getState().markdown.pasteMarkdownInWysiwyg ?? "auto") as
+            | "auto"
+            | "off",
+        getPreserveLineBreaks: () =>
+          useSettingsStore.getState().markdown.preserveLineBreaks ?? false,
+      },
       storage: {},
       type: undefined,
       parent: undefined,
@@ -611,7 +621,16 @@ describe("handlePaste — uncovered branches (lines 134, 135, 145)", () => {
     const plugins = markdownPasteExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "markdownPaste",
-      options: {},
+      // Configured as the HOST does — the plugin no longer reads the settings
+      // store itself (ADR-015), so the mocked store reaches it through here.
+      options: {
+        getMode: () =>
+          (useSettingsStore.getState().markdown.pasteMarkdownInWysiwyg ?? "auto") as
+            | "auto"
+            | "off",
+        getPreserveLineBreaks: () =>
+          useSettingsStore.getState().markdown.preserveLineBreaks ?? false,
+      },
       storage: {},
       type: undefined,
       parent: undefined,
@@ -627,7 +646,6 @@ describe("handlePaste — uncovered branches (lines 134, 135, 145)", () => {
     const view = { state, dispatch: vi.fn() };
 
     // Settings without pasteMarkdownInWysiwyg — undefined triggers the ?? "auto" branch
-    const { useSettingsStore } = await import("@/stores/settingsStore");
     vi.spyOn(useSettingsStore, "getState").mockReturnValueOnce({
       markdown: { pasteMarkdownInWysiwyg: undefined, preserveLineBreaks: false },
     } as never);
