@@ -24,6 +24,13 @@
 //!     only then sends `commit`, which removes the destination's copy. A
 //!     destination that is unreachable or refuses leaves its tab intact and the
 //!     undo fails — losing an undo beats losing the user's edits.
+//!   - The payload carries the FILE's line convention (`line_ending`,
+//!     `hard_break_style`, `has_bom`, `last_disk_content`) alongside its
+//!     content. `content`/`saved_content` are canonical editor text — LF and
+//!     BOM-free — so without these a CRLF+BOM file was rewritten LF and
+//!     BOM-less on its first save in the destination window. All four are
+//!     optional: a payload from an older build has none and the receiver falls
+//!     back to detection, as it did for every payload before.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
