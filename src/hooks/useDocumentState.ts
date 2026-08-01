@@ -9,6 +9,10 @@
  *   - Each hook returns a single value (content, filePath, isDirty, etc.)
  *   - All hooks derive from useActiveTabId() for consistent window scoping
  *   - Safe defaults (empty string, null, false) when tab or document is missing
+ *   - `loadContent` routes to `ingestExternalContent(..., "disk-open")`. The
+ *     store's `loadContent` action is gone: it duplicated the ingest baseline
+ *     branch and retained stale line metadata when no `meta` was passed, which
+ *     was every caller. The hook keeps the name; the door changed
  *   - Pane-aware (#1081): inside a split pane, useActiveTabId resolves THAT
  *     pane's tab; outside any pane it resolves the window's focused pane. With
  *     no split open this is just `tabStore.activeTabId[windowLabel]` — single
