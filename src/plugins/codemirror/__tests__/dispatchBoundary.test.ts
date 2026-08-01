@@ -28,10 +28,46 @@ const SHORTCUTS = join(__dirname, "../sourceShortcuts.ts");
 const source = readFileSync(SHORTCUTS, "utf8");
 
 /**
- * Direct (non-executor) handlers this module may keep, each with the reason it
- * is not a document mutation. Adding an entry is a claim about the shortcut's
- * nature, not a way to silence the gate.
+ * Shortcut IDs whose handlers are NOT document mutations, with the reason.
+ *
+ * Enumerated by shortcut ID rather than by helper name, because a handler can
+ * reach a mutation through any import — which is exactly how
+ * `toggleBlockComment` walked past the first version of this gate, which only
+ * looked for `runSourceAction(` and the helper import list.
  */
+const NON_MUTATING = new Map<string, string>([
+  ["toggleSidebar", "UI panel visibility — touches no document"],
+  ["sourceMode", "returns true to mark handled; useViewShortcuts does the toggle"],
+  ["selectLine", "selection only"],
+  ["findReplace", "opens the search panel"],
+  ["findNext", "search navigation — moves the selection only"],
+  ["findPrevious", "search navigation — moves the selection only"],
+  ["copyAsHTML", "clipboard export — reads the document, never writes"],
+]);
+
+/**
+ * Document mutations that are DECIDED exceptions, not oversights.
+ *
+ * WI-2.1 requires a bypass to reach the action system, or the executor gap to
+ * be closed, or the binding to be recorded here with its reason. `unlink` took
+ * the second route — both adapters already implemented it and only the
+ * `ActionId` was missing. `toggleComment` cannot: NO adapter implements a
+ * comment toggle on either surface, so closing it means designing the action
+ * and implementing it twice, which is feature work rather than an audit fix.
+ *
+ * The cost of leaving it is real and stated: the shortcut skips the executor's
+ * format and capability gates, unified cross-mode undo, and IME-safe dispatch,
+ * so Mod-/ in Source mode does not behave identically to the same action
+ * invoked elsewhere — and there is nowhere else to invoke it from.
+ */
+const DECIDED_MUTATION_EXCEPTIONS = new Map<string, string>([
+  [
+    "toggleComment",
+    "no comment action exists on either adapter; closing the gap is feature " +
+      "work, not a fix. Skips executor gates, unified undo and IME safety.",
+  ],
+]);
+
 const PERMITTED_DIRECT = new Map<string, string>([
   ["openFindBar", "search UI — opens a panel, mutates no document"],
   ["findNextMatch", "search navigation — moves the selection only"],
@@ -77,6 +113,50 @@ describe("no document mutation bypasses the executor", () => {
     const imported = new Set(importedHelpers());
     const dead = [...PERMITTED_DIRECT.keys()].filter((name) => !imported.has(name));
     expect(dead).toEqual([]);
+  });
+});
+
+describe("EVERY binding is accounted for", () => {
+  /** Each `bindIfKey(...)` shortcut id paired with its handler expression. */
+  function bindings(): { id: string; handler: string }[] {
+    return [
+      ...source.matchAll(
+        /bindIfKey\(\s*bindings,\s*shortcuts\.getShortcut\("([^"]+)"\),\s*([\s\S]*?)\);\n/g
+      ),
+    ].map((m) => ({ id: m[1], handler: m[2].trim() }));
+  }
+
+  it("finds the bindings at all — a regex that matches nothing proves nothing", () => {
+    expect(bindings().length).toBeGreaterThan(30);
+  });
+
+  it("routes every binding through runCommand, or names it as non-mutating", () => {
+    // The earlier gate looked only for `runSourceAction(` and the helper
+    // imports, so a direct mutation reached through a DIFFERENT import walked
+    // straight past it — `toggleBlockComment` did exactly that. Enumerating
+    // the bindings closes the class, not the instance.
+    const unaccounted = bindings().filter(
+      ({ id, handler }) =>
+        !handler.startsWith("runCommand(") &&
+        !NON_MUTATING.has(id) &&
+        !DECIDED_MUTATION_EXCEPTIONS.has(id)
+    );
+
+    expect(unaccounted.map((b) => `${b.id}: ${b.handler.slice(0, 40)}`)).toEqual([]);
+  });
+
+  it("every exemption is still bound — a stale one describes nothing", () => {
+    const bound = new Set(bindings().map((b) => b.id));
+    const stale = [...NON_MUTATING.keys(), ...DECIDED_MUTATION_EXCEPTIONS.keys()].filter(
+      (id) => !bound.has(id)
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it("keeps the decided-exception list SHORT — one, and it is named", () => {
+    // Not a budget for convenience: each entry is a shortcut that behaves
+    // differently from every other invocation of the same operation.
+    expect([...DECIDED_MUTATION_EXCEPTIONS.keys()]).toEqual(["toggleComment"]);
   });
 });
 

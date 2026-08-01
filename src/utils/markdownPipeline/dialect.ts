@@ -24,7 +24,12 @@ export type {
   AnalysisFlag,
 } from "./dialectDescriptors";
 export { PARSE_MODES, DIALECT } from "./dialectDescriptors";
-export { pluginsForMode, unconditionalNames, conditionalFlags } from "./dialectQueries";
+export {
+  pluginsForMode,
+  unconditionalNames,
+  conditionalFlags,
+  cacheKeyForMode,
+} from "./dialectQueries";
 
 /**
  * Wire the `<details>` body parser at module init.

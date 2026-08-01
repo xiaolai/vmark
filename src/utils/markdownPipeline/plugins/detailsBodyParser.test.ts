@@ -26,15 +26,24 @@ beforeEach(() => {
   vi.resetModules();
 });
 
-describe("unwired", () => {
-  it("throws a message naming the module that wires it", async () => {
+describe("unwired — the default carries it", () => {
+  it("parses WITHOUT anyone importing dialect.ts", async () => {
+    // The regression this replaces: the seam threw "not wired" unless
+    // dialect.ts had been imported for its side effect. Two registrants never
+    // import it — the Node content server and serializer.ts — so a compact
+    // <details><summary>S</summary>body</details> threw in production.
     const mod = await freshModule();
-    expect(() => mod.getDetailsBodyParser()).toThrow(/dialect/);
+    expect(() => mod.getDetailsBodyParser()).not.toThrow();
   });
 
-  it("says the parser is not wired, not something incidental", async () => {
+  it("the default excludes remarkDetailsBlock — the recursion guard holds", async () => {
     const mod = await freshModule();
-    expect(() => mod.getDetailsBodyParser()).toThrow(/not wired/);
+    const processor = mod.getDetailsBodyParser() as unknown as {
+      attachers: [{ name?: string }][];
+    };
+    const names = processor.attachers.map(([fn]) => fn.name);
+    expect(names).not.toContain("remarkDetailsBlock");
+    expect(names).toContain("remarkParse");
   });
 });
 

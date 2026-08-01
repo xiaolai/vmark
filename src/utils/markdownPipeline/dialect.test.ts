@@ -24,9 +24,11 @@ import { describe, it, expect } from "vitest";
 import {
   DIALECT,
   PARSE_MODES,
+  cacheKeyForMode,
   conditionalFlags,
   pluginsForMode,
   unconditionalNames,
+  type DialectContext,
   type ParseMode,
 } from "./dialect";
 import { createProcessor, createMarkdownProcessor } from "./parser/processorFactory";
@@ -178,17 +180,67 @@ describe("the processor cache keys on every flag that changes the stack", () => 
     );
   });
 
-  it("every conditional flag is one the cache key actually encodes", () => {
-    // The key is six characters, one per flag. If a descriptor starts
-    // conditioning on a seventh, this fails before the cache can serve a stale
-    // processor for it.
-    expect(conditionalFlags()).toEqual([
-      "hasAmbiguousListUnderline",
-      "hasDetails",
-      "hasFrontmatter",
-      "hasMath",
-      "hasWikiLinks",
-      "preserveLineBreaks",
-    ]);
+  it("gives a DIFFERENT key for every conditional flag, one at a time", () => {
+    // Tests the key itself, not a list mirroring the helper. Comparing
+    // `conditionalFlags()` to a hardcoded array proved only that two lists I
+    // wrote agreed — production still enumerated by hand, so the guarantee was
+    // false. Flipping each flag must move the key, or the cache can serve a
+    // processor built for a different plugin stack.
+    const base: DialectContext = {
+      hasMath: false,
+      hasFrontmatter: false,
+      hasWikiLinks: false,
+      hasDetails: false,
+      hasAmbiguousListUnderline: false,
+      preserveLineBreaks: false,
+    };
+    const baseKey = cacheKeyForMode("document", base);
+
+    for (const flag of conditionalFlags()) {
+      expect(cacheKeyForMode("document", { ...base, [flag]: true })).not.toBe(baseKey);
+    }
+  });
+
+  it("gives every flag combination a DISTINCT key", () => {
+    const flags = conditionalFlags();
+    const keys = new Set<string>();
+    for (let mask = 0; mask < 1 << flags.length; mask += 1) {
+      const context = Object.fromEntries(
+        flags.map((f, i) => [f, Boolean(mask & (1 << i))])
+      ) as unknown as DialectContext;
+      keys.add(cacheKeyForMode("document", context));
+    }
+    // A collision means two different plugin stacks share one cached processor.
+    expect(keys.size).toBe(1 << flags.length);
+  });
+
+  it("keys different MODES apart", () => {
+    const context = {
+      hasMath: true,
+      hasFrontmatter: true,
+      hasWikiLinks: true,
+      hasDetails: true,
+      hasAmbiguousListUnderline: true,
+      preserveLineBreaks: true,
+    } as DialectContext;
+    expect(cacheKeyForMode("document", context)).not.toBe(
+      cacheKeyForMode("source-position", context)
+    );
+  });
+});
+
+describe("the details-body DEFAULT matches the declared table", () => {
+  it("builds exactly the plugins the table declares, in order", async () => {
+    // detailsBodyParser.ts builds its own chain from leaf imports so the plugin
+    // works without importing dialect.ts — the fix for a production break. That
+    // second construction site is only safe while it agrees with the table.
+    const { getDetailsBodyParser } = await import("./plugins/detailsBodyParser");
+    const processor = getDetailsBodyParser() as unknown as {
+      attachers: [{ name?: string }][];
+    };
+
+    expect(processor.attachers.map(([fn]) => fn.name)).toEqual(
+      pluginsForMode("details-body").map((d) => d.name)
+    );
   });
 });

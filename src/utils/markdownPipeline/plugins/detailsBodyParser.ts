@@ -1,19 +1,39 @@
 /**
- * Purpose: the injection seam for the `<details>` body parser.
- *
- * `remarkDetailsBlock` is registered BY the document chain, so importing that
- * chain's builder from the plugin would close a cycle. `dialect.ts` — the
- * module that owns the plugin lists — wires the factory here instead, and the
- * plugin only ever asks for it.
+ * Purpose: the `<details>` body parser — a SELF-CONTAINED default, plus an
+ * injection seam.
  *
  * The body dialect deliberately EXCLUDES `remarkDetailsBlock`: that is what
  * stops a body parser needing a body parser. Nested `<details>` are handled by
- * the outer pass's depth tracking (WI-3.1).
+ * the outer pass's depth tracking (WI-3.1). Because it excludes that plugin,
+ * the chain can be built here from leaf imports without touching the document
+ * chain — so there is no cycle, and no need for anyone to import `dialect.ts`
+ * to make the plugin work.
  *
- * @coordinates-with dialect.ts — calls setDetailsBodyParser at module init
- * @coordinates-with detailsBlock.ts — the only consumer
+ * THE DEFAULT IS NOT OPTIONAL, and that is the correction. An earlier version
+ * had only the seam and threw "not wired" unless `dialect.ts` had been
+ * imported for its side effect. Two registrants do not import it — the Node
+ * content server (`server/content/src/render/renderMarkdown.ts`) and
+ * `serializer.ts` — so a compact `<details><summary>S</summary>body</details>`
+ * threw in production. A plugin that only works when an unrelated module
+ * happens to be loaded is not wired, it is booby-trapped.
+ *
+ * The list below is checked against `dialectDescriptors`' `details-body`
+ * membership by `dialect.test.ts`, so the default cannot drift from the table
+ * that documents it.
+ *
+ * @coordinates-with dialectDescriptors.ts — the declared details-body membership
+ * @coordinates-with dialect.test.ts — the drift gate between the two
+ * @coordinates-with detailsBlock.ts — the consumer
  * @module utils/markdownPipeline/plugins/detailsBodyParser
  */
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkFrontmatter from "remark-frontmatter";
+import { remarkCustomInline } from "./customInline";
+import { remarkResolveReferences } from "./resolveReferences";
+import { remarkWikiLinks } from "./wikiLinks";
 
 /** Processor shape the plugin needs — parse then run, nothing more. */
 export interface DetailsBodyProcessor {
@@ -31,6 +51,23 @@ export function setDetailsBodyParser(factory: () => DetailsBodyProcessor): void 
 }
 
 /**
+ * Build the details-body chain from leaf plugins.
+ *
+ * NOT `remarkDetailsBlock` — the recursion guard. Kept in descriptor ORDER so
+ * the drift gate can compare it to the table position by position.
+ */
+function buildDefaultBodyProcessor(): DetailsBodyProcessor {
+  return unified()
+    .use(remarkParse)
+    .use(remarkGfm, { singleTilde: false })
+    .use(remarkMath)
+    .use(remarkFrontmatter, ["yaml"])
+    .use(remarkWikiLinks)
+    .use(remarkCustomInline)
+    .use(remarkResolveReferences) as unknown as DetailsBodyProcessor;
+}
+
+/**
  * The wired body parser, built once.
  *
  * LAZY THEN MEMOIZED. Lazy because `dialect.ts` wires at module init, before
@@ -41,17 +78,11 @@ export function setDetailsBodyParser(factory: () => DetailsBodyProcessor): void 
  * processor is safe to reuse once its plugin set is fixed; `processorFactory`
  * caches on exactly that basis.
  *
- * Throws by NAME when unwired rather than falling back to a default dialect:
- * a body silently parsed with the wrong plugin set is a correctness bug that
- * looks like working software.
+ * Falls back to the built-in chain when nothing wired one. The fallback is
+ * the SAME dialect the table declares — gated — so it is not a silent
+ * second-guess, it is the one definition reached by another route.
  */
 export function getDetailsBodyParser(): DetailsBodyProcessor {
-  if (!detailsBodyParser) {
-    throw new Error(
-      "details body parser not wired — import `utils/markdownPipeline/dialect` " +
-        "before parsing, so `setDetailsBodyParser` has run.",
-    );
-  }
-  memoized ??= detailsBodyParser();
+  memoized ??= (detailsBodyParser ?? buildDefaultBodyProcessor)();
   return memoized;
 }
