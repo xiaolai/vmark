@@ -18,6 +18,7 @@ import {
   currentPasteSettings,
   currentMarkdownPasteMode,
   currentPreserveLineBreaks,
+  copyHostOptions,
 } from "./pasteOptions";
 
 describe("currentPasteSettings", () => {
@@ -54,5 +55,21 @@ describe("markdown-paste settings", () => {
     getState.mockReturnValue({ markdown: {} });
     expect(currentMarkdownPasteMode()).toBe("auto");
     expect(currentPreserveLineBreaks()).toBe(false);
+  });
+});
+
+describe("copy settings", () => {
+  it("passes the user's choices through", () => {
+    getState.mockReturnValue({ markdown: { copyFormat: "markdown", copyOnSelect: true } });
+    expect(copyHostOptions.getCopyFormat()).toBe("markdown");
+    expect(copyHostOptions.getCopyOnSelect()).toBe(true);
+  });
+
+  it("defaults to the app's own defaults when unset", () => {
+    // "default" (plain text) and copy-on-select off — matching
+    // settingsStore/defaults.ts, so an unbound plugin behaves like the app.
+    getState.mockReturnValue({ markdown: {} });
+    expect(copyHostOptions.getCopyFormat()).toBe("default");
+    expect(copyHostOptions.getCopyOnSelect()).toBe(false);
   });
 });
