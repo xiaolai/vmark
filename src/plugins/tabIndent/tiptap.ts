@@ -29,7 +29,6 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { goToNextCell, addRowAfter } from "@tiptap/pm/tables";
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { isInTable, getTableInfo } from "@/plugins/tableUI/tableActions.tiptap";
 import { canTabEscape, type TabEscapeResult } from "./tabEscape";
 import { canShiftTabEscape, type ShiftTabEscapeResult } from "./shiftTabEscape";
@@ -97,12 +96,21 @@ function applyEscapeResult(
   dispatch(tr);
 }
 
-/**
- * Get the configured tab size (number of spaces).
- */
-function getTabSize(): number {
-  return useSettingsStore.getState().general.tabSize;
+/** Options for the tab-indent extension. */
+export interface TabIndentOptions {
+  /**
+   * Spaces per indent level, asked fresh each time.
+   *
+   * INJECTED. A plugin that reaches the app's Zustand singletons cannot ship
+   * as a standalone extension (ADR-015), so the host — which owns the settings
+   * — answers. A getter, not a number: the setting is re-read per keypress so
+   * a change takes effect without rebuilding the editor.
+   */
+  getTabSize: () => number;
 }
+
+/** CommonMark's own indent unit, and a sane default with no settings layer. */
+const DEFAULT_TAB_SIZE = 4;
 
 /**
  * Check if the cursor is inside a list item.
@@ -157,7 +165,11 @@ function handleListTab(state: EditorState, dispatch: (tr: Transaction) => void, 
 /**
  * Handle Shift+Tab outdent: remove up to tabSize leading spaces.
  */
-function handleShiftTabOutdent(state: EditorState, dispatch: (tr: Transaction) => void): boolean {
+function handleShiftTabOutdent(
+  state: EditorState,
+  dispatch: (tr: Transaction) => void,
+  getTabSize: () => number,
+): boolean {
   const { from } = state.selection;
   const $from = state.doc.resolve(from);
   const lineStart = $from.start();
@@ -176,7 +188,11 @@ function handleShiftTabOutdent(state: EditorState, dispatch: (tr: Transaction) =
 /**
  * Handle Tab: insert spaces (or replace selection with spaces).
  */
-function handleTabInsertSpaces(state: EditorState, dispatch: (tr: Transaction) => void): boolean {
+function handleTabInsertSpaces(
+  state: EditorState,
+  dispatch: (tr: Transaction) => void,
+  getTabSize: () => number,
+): boolean {
   const spaces = " ".repeat(getTabSize());
 
   if (!state.selection.empty) {
@@ -188,8 +204,11 @@ function handleTabInsertSpaces(state: EditorState, dispatch: (tr: Transaction) =
 }
 
 /** Tiptap extension for Tab/Shift+Tab indent, list navigation, and mark escape. */
-export const tabIndentExtension = Extension.create({
+export const tabIndentExtension = Extension.create<TabIndentOptions>({
   name: "tabIndent",
+  addOptions() {
+    return { getTabSize: () => DEFAULT_TAB_SIZE };
+  },
   // Low priority — runs AFTER autoPairExtension's Tab/Shift+Tab handlers.
   // Priority chain for Tab key:
   //   1. autoPair (default priority ~100): bracket jump over closing chars
@@ -199,6 +218,7 @@ export const tabIndentExtension = Extension.create({
   priority: 50,
 
   addProseMirrorPlugins() {
+    const { getTabSize } = this.options;
     return [
       new Plugin({
         key: tabIndentPluginKey,
@@ -247,12 +267,12 @@ export const tabIndentExtension = Extension.create({
               // 4. Shift+Tab outdent (remove leading spaces)
               if (event.shiftKey) {
                 event.preventDefault();
-                return handleShiftTabOutdent(state, dispatch);
+                return handleShiftTabOutdent(state, dispatch, getTabSize);
               }
 
               // 5. Tab: insert spaces
               event.preventDefault();
-              return handleTabInsertSpaces(state, dispatch);
+              return handleTabInsertSpaces(state, dispatch, getTabSize);
             },
           },
         },

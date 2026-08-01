@@ -49,6 +49,7 @@ import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
@@ -217,7 +218,9 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     listClickFixExtension,
     // Note: ListKeymap (backspace, arrow keys in list items) is included via StarterKit
     editorKeymapExtension,
-    tabIndentExtension,
+    tabIndentExtension.configure({
+      getTabSize: () => useSettingsStore.getState().general.tabSize,
+    }),
     multiCursorExtension,
     aiSuggestionExtension,
     CJKLetterSpacing,
