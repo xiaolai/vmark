@@ -22,14 +22,24 @@ export interface DetailsBodyProcessor {
 }
 
 let detailsBodyParser: (() => DetailsBodyProcessor) | null = null;
+let memoized: DetailsBodyProcessor | null = null;
 
 /** Wire the body parser. Called once by `dialect.ts` at module init. */
 export function setDetailsBodyParser(factory: () => DetailsBodyProcessor): void {
   detailsBodyParser = factory;
+  memoized = null; // a new wiring invalidates the old processor
 }
 
 /**
- * The wired body parser.
+ * The wired body parser, built once.
+ *
+ * LAZY THEN MEMOIZED. Lazy because `dialect.ts` wires at module init, before
+ * every descriptor is necessarily evaluated — building eagerly there would
+ * capture a half-built chain. Memoized because the previous implementation was
+ * a module-level singleton, and calling the factory per request rebuilt a
+ * seven-plugin chain for EVERY details block in the document. A unified
+ * processor is safe to reuse once its plugin set is fixed; `processorFactory`
+ * caches on exactly that basis.
  *
  * Throws by NAME when unwired rather than falling back to a default dialect:
  * a body silently parsed with the wrong plugin set is a correctness bug that
@@ -42,5 +52,6 @@ export function getDetailsBodyParser(): DetailsBodyProcessor {
         "before parsing, so `setDetailsBodyParser` has run.",
     );
   }
-  return detailsBodyParser();
+  memoized ??= detailsBodyParser();
+  return memoized;
 }

@@ -47,18 +47,41 @@ describe("wired", () => {
     expect(mod.getDetailsBodyParser()).toBe(processor);
   });
 
-  it("calls the factory PER REQUEST, not once at wiring time", async () => {
-    // Lazy by design: `dialect.ts` wires at module init, before every
-    // descriptor is necessarily evaluated. Building eagerly there would
-    // capture a half-built chain.
+  it("builds LAZILY — not at wiring time", async () => {
+    // `dialect.ts` wires at module init, before every descriptor is
+    // necessarily evaluated. Building eagerly there captures a half-built chain.
     const mod = await freshModule();
     const factory = vi.fn(() => ({ parse: () => ({}), runSync: () => ({}) }));
     mod.setDetailsBodyParser(factory);
 
     expect(factory).not.toHaveBeenCalled();
     mod.getDetailsBodyParser();
-    mod.getDetailsBodyParser();
-    expect(factory).toHaveBeenCalledTimes(2);
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it("builds ONCE — a document with many details blocks reuses one chain", async () => {
+    // The version this replaced was a module-level singleton. Calling the
+    // factory per request rebuilt a seven-plugin chain for every details block.
+    const mod = await freshModule();
+    const factory = vi.fn(() => ({ parse: () => ({}), runSync: () => ({}) }));
+    mod.setDetailsBodyParser(factory);
+
+    const first = mod.getDetailsBodyParser();
+    for (let i = 0; i < 20; i += 1) mod.getDetailsBodyParser();
+
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(mod.getDetailsBodyParser()).toBe(first);
+  });
+
+  it("re-wiring invalidates the memo, so a test override takes effect", async () => {
+    const mod = await freshModule();
+    const first = { parse: () => ({}), runSync: () => ({}) };
+    const second = { parse: () => ({}), runSync: () => ({}) };
+    mod.setDetailsBodyParser(() => first);
+    expect(mod.getDetailsBodyParser()).toBe(first);
+
+    mod.setDetailsBodyParser(() => second);
+    expect(mod.getDetailsBodyParser()).toBe(second);
   });
 
   it("the last wiring wins, so a test can override production's", async () => {

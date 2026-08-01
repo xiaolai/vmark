@@ -182,6 +182,22 @@ describe("untrusted is INHERITED", () => {
     expect(collectUntrusted(tree).has(grandchild)).toBe(true);
   });
 
+  it("marks descendants of a node that merely LACKS a position", () => {
+    // The unsafe direction: an unregistered synthesised node marked itself but
+    // not its children, whose offsets are just as likely to be re-based.
+    const child: PositionedNode = {
+      type: "text",
+      position: { start: { offset: 0 }, end: { offset: 3 } },
+    };
+    const tree: PositionedNode = {
+      type: "root",
+      position: { start: { offset: 0 }, end: { offset: 40 } },
+      children: [{ type: "someFutureExtension", children: [child] }],
+    };
+
+    expect(collectUntrusted(tree).has(child)).toBe(true);
+  });
+
   it("leaves a positioned node under a TRUSTED parent alone", () => {
     const child: PositionedNode = {
       type: "text",

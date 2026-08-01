@@ -130,10 +130,16 @@ export function collectUntrusted(tree: PositionedNode): Set<PositionedNode> {
   const out = new Set<PositionedNode>();
 
   const walk = (node: PositionedNode, inherited: boolean): void => {
+    // A node with no position of its own is untrusted, AND so are its
+    // descendants. An earlier version propagated only the registered TYPES,
+    // which failed in the unsafe direction: a synthesised node this module has
+    // not heard of marked itself and then blessed its children, whose offsets
+    // are just as likely to be re-based. A false positive blocks one edit; a
+    // false negative edits the wrong text.
     const untrusted = inherited || isUntrustedType(node.type) || !node.position;
     if (untrusted) out.add(node);
     for (const child of node.children ?? []) {
-      walk(child, inherited || isUntrustedType(node.type));
+      walk(child, untrusted);
     }
   };
 
