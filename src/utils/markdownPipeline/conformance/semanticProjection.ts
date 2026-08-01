@@ -9,22 +9,11 @@
  * structure index has moved to the design doc. A vacuous gate does not merely
  * fail to help; it manufactures confidence.
  *
- * So what survives and what is dropped are both enumerated.
- *
- * SURVIVES — a difference here is a real divergence:
- *   - node `type`
- *   - children, IN ORDER (never sorted, never flattened)
- *   - semantic VALUES: text/code/math content, heading depth, list ordered and
- *     start, listItem checked, link and image url/title/alt, code lang and
- *     meta, table alignment, wikiLink target
- *   - extension ATTRIBUTES: the details summary, alert kind, toc marker
- *
- * DROPPED — these are not dialect, and comparing them measures the harness:
- *   - `position` (compared separately, per domain, and only where trusted)
- *   - `data` (renderer hints and mdast-util plumbing)
- *   - the raw `value` of an mdast `html` node when it is the delimiter of a
- *     construct one mode parses and the other does not; the CONSTRUCT is
- *     compared instead
+ * So both halves are enumerated IN CODE, not prose: `SEMANTIC_KEYS` says what
+ * survives per node type, `NEVER_SEMANTIC` what never does. Node `type` and
+ * child ORDER always survive. A listed type that silently drops a field the
+ * parser emits fails `semanticProjection.test.ts` — `math.meta` did exactly
+ * that until the check found it.
  *
  * @coordinates-with parserConformance.test.ts — the gate
  * @coordinates-with positionTrust.ts — which nodes may carry offsets at all
@@ -59,8 +48,8 @@ const SEMANTIC_KEYS: Record<string, readonly string[]> = {
   text: ["value"],
   inlineCode: ["value"],
   code: ["value", "lang", "meta"],
-  math: ["value"],
-  inlineMath: ["value"],
+  math: ["value", "meta"],
+  inlineMath: ["value", "meta"],
   yaml: ["value"],
   html: ["value"],
   heading: ["depth"],
@@ -84,8 +73,34 @@ const SEMANTIC_KEYS: Record<string, readonly string[]> = {
   underline: [],
 };
 
-/** Fields that are never semantic, whatever the node type. */
-const NEVER_SEMANTIC = new Set(["type", "children", "position", "data"]);
+/**
+ * Fields that are never semantic, whatever the node type.
+ *
+ * `data` is mdast-util plumbing and renderer hints; `position` is compared
+ * separately, per domain, and only where `positionTrust` allows.
+ */
+export const NEVER_SEMANTIC: ReadonlySet<string> = new Set([
+  "type",
+  "children",
+  "position",
+  "data",
+]);
+
+/**
+ * Fields a LISTED type deliberately drops.
+ *
+ * Empty, and the gate keeps it that way: `semanticProjection.test.ts` fails if
+ * the parser emits a field on a listed type that the allow-list omits. `math`'s
+ * `meta` — the text after the opening `$$` — was dropped exactly that way until
+ * the check found it, which would have made two documents differing only in a
+ * math label compare equal.
+ */
+export const DELIBERATELY_DROPPED: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+
+/** Types whose semantic keys are enumerated above. */
+export function listedTypes(): string[] {
+  return Object.keys(SEMANTIC_KEYS);
+}
 
 /** The semantic attributes of one node, with undefined values omitted. */
 function attributesOf(node: RawNode): Record<string, unknown> {

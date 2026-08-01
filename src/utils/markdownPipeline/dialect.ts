@@ -13,7 +13,8 @@
  */
 import { unified, type Processor } from "unified";
 import { setDetailsBodyParser } from "./plugins/detailsBodyParser";
-import { pluginsForMode, type DialectContext, type ParseMode } from "./dialectDescriptors";
+import type { DialectContext, ParseMode } from "./dialectDescriptors";
+import { pluginsForMode } from "./dialectQueries";
 
 export type {
   ParseMode,
@@ -22,7 +23,8 @@ export type {
   PluginDescriptor,
   AnalysisFlag,
 } from "./dialectDescriptors";
-export { PARSE_MODES, DIALECT, pluginsForMode, unconditionalNames } from "./dialectDescriptors";
+export { PARSE_MODES, DIALECT } from "./dialectDescriptors";
+export { pluginsForMode, unconditionalNames, conditionalFlags } from "./dialectQueries";
 
 /**
  * Wire the `<details>` body parser at module init.

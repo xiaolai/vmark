@@ -15,16 +15,13 @@
  *     review miss. That is the strongest form of the "fails a gate" criterion:
  *     the gate is the type system, with `dialect.test.ts` checking that the
  *     BUILT processors match what is declared here.
- *   - DESCRIPTORS ARE NOT CONSTRUCTION. This module lists plugins; the
- *     processor factory assembles them. Separating the two is what lets the
- *     `<details>` body parser be INJECTED — `detailsBlock` no longer imports
- *     and constructs its own chain, which is where a cycle would form (the
- *     main chain registers `remarkDetailsBlock`, which would import the chain).
- *   - THE NESTED DIALECT IS DELIBERATELY REDUCED, and always was. A details
- *     body has never supported nested details, TOC blocks, math validation,
- *     setext suppression or hard-break preservation. That was an accident of
- *     which imports the file happened to have; it is now a stated policy with
- *     a reason per plugin, and the recursion it prevents is the point.
+ *   - DESCRIPTORS ARE NOT CONSTRUCTION. `dialect.ts` assembles them. That split
+ *     is what lets the `<details>` body parser be INJECTED instead of importing
+ *     the chain that registers it — where a cycle would form.
+ *   - THE NESTED DIALECT IS DELIBERATELY REDUCED, and always was — an accident
+ *     of which imports the file happened to have, now a stated policy with a
+ *     reason per plugin. Excluding `remarkDetailsBlock` from it is the
+ *     recursion guard, and is the point.
  *   - SERIALIZATION IS OUT OF SCOPE, explicitly. `serializer.ts` builds a
  *     mdast→markdown processor; it shares no attachers with these and answers
  *     a different question. "No processor outside this module" applies to
@@ -277,23 +274,3 @@ export const DIALECT: readonly PluginDescriptor[] = [
       "break nodes the source does not contain.",
   },
 ] as const;
-
-/** Descriptors that apply to `mode`, given the content analysis. */
-export function pluginsForMode(
-  mode: ParseMode,
-  context?: DialectContext
-): PluginDescriptor[] {
-  return DIALECT.filter((d) => {
-    const m = d.modes[mode];
-    if (m === "never") return false;
-    if (m === "always") return true;
-    // Conditional: absent analysis means "load it" — the unconditional modes
-    // pass none, and a missing flag must never silently DROP a plugin.
-    return context ? Boolean(context[m.when]) : true;
-  });
-}
-
-/** The plugin names a mode runs unconditionally — used by the drift gate. */
-export function unconditionalNames(mode: ParseMode): string[] {
-  return DIALECT.filter((d) => d.modes[mode] === "always").map((d) => d.name);
-}

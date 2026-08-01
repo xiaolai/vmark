@@ -10,7 +10,18 @@
  * @module utils/markdownPipeline/conformance/semanticProjection.test
  */
 import { describe, it, expect } from "vitest";
-import { project, diff, type RawNode } from "./semanticProjection";
+import { visit } from "unist-util-visit";
+import "../dialect";
+import { createMarkdownProcessor } from "../parser/processorFactory";
+import { FIXTURES } from "./fixtures";
+import {
+  project,
+  diff,
+  listedTypes,
+  NEVER_SEMANTIC,
+  DELIBERATELY_DROPPED,
+  type RawNode,
+} from "./semanticProjection";
 
 const node = (n: RawNode) => n;
 
@@ -102,5 +113,39 @@ describe("diff reports every way two trees differ", () => {
       project(node({ type: "root", children: [{ type: "text", value: "a" }, { type: "text", value: "B" }] })),
     );
     expect(d[0].path).toBe("root.children[1]");
+  });
+});
+
+describe("the allow-list does not silently drop a real field", () => {
+  it("keeps every field the parser emits on a LISTED type", () => {
+    // For an UNLISTED type the projection keeps everything, so a drop can only
+    // happen on a type someone enumerated — and then it is invisible: two
+    // genuinely different trees compare equal and the conformance gate passes
+    // having proved nothing. `math.meta` was dropped exactly this way.
+    const listed = new Set(listedTypes());
+    const dropped = new Map<string, Set<string>>();
+
+    for (const fixture of FIXTURES) {
+      const processor = createMarkdownProcessor();
+      const tree = processor.runSync(processor.parse(fixture.markdown)) as unknown as RawNode;
+      visit(tree as never, (node: RawNode) => {
+        if (!listed.has(node.type)) return;
+        const projected = project(node);
+        for (const key of Object.keys(node)) {
+          if (NEVER_SEMANTIC.has(key) || node[key] === undefined) continue;
+          if (key in projected.attributes) continue;
+          if (DELIBERATELY_DROPPED.get(node.type)?.has(key)) continue;
+          if (!dropped.has(node.type)) dropped.set(node.type, new Set());
+          dropped.get(node.type)!.add(key);
+        }
+      });
+    }
+
+    expect([...dropped].map(([t, keys]) => `${t}: ${[...keys].join(",")}`)).toEqual([]);
+  });
+
+  it("every deliberate drop names a type the allow-list actually lists", () => {
+    const listed = new Set(listedTypes());
+    expect([...DELIBERATELY_DROPPED.keys()].filter((t) => !listed.has(t))).toEqual([]);
   });
 });

@@ -24,6 +24,7 @@ import { describe, it, expect } from "vitest";
 import {
   DIALECT,
   PARSE_MODES,
+  conditionalFlags,
   pluginsForMode,
   unconditionalNames,
   type ParseMode,
@@ -147,5 +148,47 @@ describe("the deltas between modes are the declared ones", () => {
       expect(gfm?.options).toEqual({ singleTilde: false });
       expect(namesFor(mode)).toContain("remarkCustomInline");
     }
+  });
+});
+
+describe("the processor cache keys on every flag that changes the stack", () => {
+  it("distinguishes documents that need different plugin sets", () => {
+    // processorFactory's own header records the bug: a flag added to the stack
+    // but not to the cache key meant a processor built for a document needing
+    // setext suppressed was reused for one that did not. Derived from the
+    // descriptors so adding a conditional plugin cannot leave the key behind.
+    const distinct = new Set(
+      [
+        "plain",
+        "$x$",
+        "---\na: 1\n---\n\nb",
+        "[[w]]",
+        "<details><summary>s</summary>\n\nb\n\n</details>",
+        "text\n  -\n",
+      ].map((md) => attacherNames(createProcessor(md)).join("|"))
+    );
+
+    // Six inputs, six different stacks — no two collide on one cached entry.
+    expect(distinct.size).toBe(6);
+  });
+
+  it("preserveLineBreaks changes the stack, so it must be part of the key", () => {
+    expect(attacherNames(createProcessor("a", { preserveLineBreaks: true }))).not.toEqual(
+      attacherNames(createProcessor("a"))
+    );
+  });
+
+  it("every conditional flag is one the cache key actually encodes", () => {
+    // The key is six characters, one per flag. If a descriptor starts
+    // conditioning on a seventh, this fails before the cache can serve a stale
+    // processor for it.
+    expect(conditionalFlags()).toEqual([
+      "hasAmbiguousListUnderline",
+      "hasDetails",
+      "hasFrontmatter",
+      "hasMath",
+      "hasWikiLinks",
+      "preserveLineBreaks",
+    ]);
   });
 });
