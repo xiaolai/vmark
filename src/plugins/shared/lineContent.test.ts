@@ -286,18 +286,27 @@ describe("fence pairing — container identity and indent compatibility", () => 
   // consequence is always the same: real fenced code is classified as prose
   // and every cursor-context guard stops protecting it.
 
-  it("a LIST MARKER line cannot close the previous item's fence", () => {
-    // Two consecutive list items, each opening a fence, paired with EACH
-    // OTHER — so the second item's code was outside any fence.
+  it("a LIST MARKER line cannot close the previous item's fence — it ENDS it", () => {
+    // Two consecutive list items, each opening a fence. Three readings of this
+    // input, in order: they paired with EACH OTHER (so item 2's code was
+    // unprotected); then the marker was barred from closing, which was right
+    // but left ONE unclosed range swallowing both items; now the item boundary
+    // ends the first and opens the second, which is what remark-parse yields —
+    // two list items, each holding its own code block.
     const ranges = fenceRanges(["- ```", "first", "- ```", "second"]);
-    expect(ranges).toMatchObject([{ open: 0, close: 3, closed: false }]);
-    // The point: line 3 is INSIDE. It used to be outside.
+    expect(ranges).toMatchObject([
+      { open: 0, close: 1, closed: false },
+      { open: 2, close: 3, closed: false },
+    ]);
+    // Line 3 is still INSIDE — in the SECOND range, not the first.
     expect(enclosingFence(["- ```", "first", "- ```", "second"], 3)).not.toBeNull();
   });
 
-  it("an ordered-list marker cannot close one either", () => {
-    const ranges = fenceRanges(["1. ```", "first", "2. ```", "second"]);
-    expect(ranges).toMatchObject([{ closed: false }]);
+  it("an ordered-list marker behaves the same way", () => {
+    expect(fenceRanges(["1. ```", "first", "2. ```", "second"])).toMatchObject([
+      { open: 0, close: 1, closed: false },
+      { open: 2, close: 3, closed: false },
+    ]);
   });
 
   it("containers nest in ANY order — list outside blockquote", () => {
@@ -311,10 +320,13 @@ describe("fence pairing — container identity and indent compatibility", () => 
   it("alternating containers parse, and a repeated marker still starts a new item", () => {
     // Verified against remark-parse rather than reasoned about: this input is
     // THREE list items each holding an empty code block, not one fence closed
-    // by its own prefix. So the fence opens (markerOffset spans `> - > `) and
-    // does not close — which is what the scanner now reports.
+    // by its own prefix. The assertion used to say ONE range while its own
+    // comment said three items — the comment was right. Each item boundary now
+    // ends the previous item, so the two fence-bearing items get a range each
+    // and the middle item (ordinary text) gets none.
     expect(fenceRanges(["> - > ```", "> - > code", "> - > ```"])).toMatchObject([
-      { open: 0, close: 2, closed: false, markerOffset: 6 },
+      { open: 0, close: 0, closed: false, markerOffset: 6 },
+      { open: 2, close: 2, closed: false, markerOffset: 6 },
     ]);
   });
 
@@ -322,9 +334,11 @@ describe("fence pairing — container identity and indent compatibility", () => 
     // Cross-checked with remark-parse:
     //   `- ``` / first / - ``` / second`  → two list items, NOT one fence
     //   "``` / code / ␣␣␣␣``` / after"    → one code block running to the end
-    // Both are what these ranges say now; neither was before.
+    // The first assertion said ONE range while the comment beside it said two
+    // items. It says two now.
     expect(fenceRanges(["- ```", "first", "- ```", "second"])).toMatchObject([
-      { open: 0, closed: false },
+      { open: 0, close: 1, closed: false },
+      { open: 2, close: 3, closed: false },
     ]);
     expect(fenceRanges(["```", "code", "    ```", "after"], "deep-indent")).toMatchObject([
       { open: 0, closed: false },
@@ -387,5 +401,36 @@ describe("the closing-fence indent rule is ABSOLUTE, not relative to the opener"
     // absolute columns carry no information there.
     const ranges = fenceRanges(["    ```", "code", "    ```"], "deep-indent");
     expect(ranges[0].closed).toBe(true);
+  });
+});
+
+describe("a list item boundary ends the previous item's fence", () => {
+  it("gives each item its own range instead of one run-on", () => {
+    // `!startsListItem` stopped the second item's ``` from CLOSING the first —
+    // correct, it opens its own — but nothing then ENDED the first, so one
+    // unclosed range swallowed both items and everything after them.
+    const ranges = fenceRanges(["- ```", "first", "- ```", "second"], "commonmark");
+    expect(ranges).toHaveLength(2);
+    expect(ranges[0].open).toBe(0);
+    expect(ranges[1].open).toBe(2);
+  });
+
+  it("a NESTED item does not end an outer item's fence", () => {
+    const ranges = fenceRanges(["- ```", "  - x", "code", "- ```"], "commonmark");
+    expect(ranges[0].open).toBe(0);
+  });
+});
+
+describe("a list marker's padding is bounded — 5+ spaces is indented code", () => {
+  it("does not invent a fence from an over-padded nested marker", () => {
+    // CommonMark: with 5+ spaces after a marker, content starts one space in
+    // and the rest is INDENTED CODE, so there is no fence to find here.
+    expect(fenceRanges(["- -     ```", "x"], "commonmark")).toHaveLength(0);
+  });
+
+  it("still reads a fence at 1-4 spaces of padding", () => {
+    for (const pad of [" ", "  ", "   ", "    "]) {
+      expect(fenceRanges([`-${pad}\`\`\``, "x"], "commonmark")).toHaveLength(1);
+    }
   });
 });
