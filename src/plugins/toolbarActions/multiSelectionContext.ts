@@ -13,7 +13,7 @@ import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import type { EditorView as CodeMirrorView } from "@codemirror/view";
 import type { ResolvedPos } from "@tiptap/pm/model";
 import { MultiSelection } from "@/plugins/multiCursor";
-import { enclosingFence } from "@/plugins/shared/lineContent";
+import { enclosingFence } from "@/plugins/shared/fenceScanner";
 import type { CursorContext as WysiwygContext } from "@/plugins/toolbarContext/types";
 import type { CursorContext as SourceContext } from "@/types/cursorContext";
 import type { MultiSelectionContext } from "./types";

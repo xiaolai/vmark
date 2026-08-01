@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { stripBlockMarkup, fenceRanges, enclosingFence, isDelimiterLine } from "./lineContent";
+import { stripBlockMarkup } from "./lineContent";
+import { fenceRanges, enclosingFence, isDelimiterLine } from "./fenceScanner";
 
 describe("stripBlockMarkup", () => {
   it.each([
@@ -119,28 +120,28 @@ describe("fenceRanges — CommonMark pairing", () => {
     // ```` opened, ``` cannot close it. Treating it as closed classified the
     // real code below as ordinary markdown and dropped its protection.
     const lines = ["````", "code", "```", "still code"];
-    expect(fenceRanges(lines)).toEqual([{ open: 0, close: 3, closed: false }]);
+    expect(fenceRanges(lines)).toMatchObject([{ open: 0, close: 3, closed: false }]);
     expect(enclosingFence(lines, 3)).not.toBeNull();
   });
 
   it("closes with a run at least as long as the opener", () => {
-    expect(fenceRanges(["```", "code", "````", "after"])).toEqual([
+    expect(fenceRanges(["```", "code", "````", "after"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
 
   it("does not let a tilde close a backtick fence", () => {
-    expect(fenceRanges(["```", "x", "~~~", "y"])).toEqual([{ open: 0, close: 3, closed: false }]);
+    expect(fenceRanges(["```", "x", "~~~", "y"])).toMatchObject([{ open: 0, close: 3, closed: false }]);
   });
 
   it("rejects a backtick fence whose info string contains a backtick", () => {
     // CommonMark: that is not a fence at all. Accepting it invented a fence out
     // of prose, and the toggle would then "unfence" ordinary text.
-    expect(fenceRanges(["``` foo`bar", "text"])).toEqual([]);
+    expect(fenceRanges(["``` foo`bar", "text"])).toMatchObject([]);
   });
 
   it("allows a backtick in a TILDE fence's info string", () => {
-    expect(fenceRanges(["~~~ foo`bar", "text", "~~~"])).toEqual([
+    expect(fenceRanges(["~~~ foo`bar", "text", "~~~"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
@@ -148,27 +149,27 @@ describe("fenceRanges — CommonMark pairing", () => {
   it("recognises a fence inside a blockquote", () => {
     // `insertCodeBlock` GENERATES this shape when converting inside a quote, so
     // failing to recognise it meant the toggle could not undo its own output.
-    expect(fenceRanges(["> ```plaintext", "> code", "> ```", "after"])).toEqual([
+    expect(fenceRanges(["> ```plaintext", "> code", "> ```", "after"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
 
   it("recognises a fence in a nested blockquote", () => {
-    expect(fenceRanges(["> > ```", "> > x", "> > ```"])).toEqual([
+    expect(fenceRanges(["> > ```", "> > x", "> > ```"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
 
   it("refuses a closer indented four spaces", () => {
-    expect(fenceRanges(["```", "x", "    ```"])).toEqual([{ open: 0, close: 2, closed: false }]);
+    expect(fenceRanges(["```", "x", "    ```"])).toMatchObject([{ open: 0, close: 2, closed: false }]);
   });
 
   it("treats an unclosed fence as running to the end", () => {
-    expect(fenceRanges(["```", "a", "b"])).toEqual([{ open: 0, close: 2, closed: false }]);
+    expect(fenceRanges(["```", "a", "b"])).toMatchObject([{ open: 0, close: 2, closed: false }]);
   });
 
   it("finds several fences", () => {
-    expect(fenceRanges(["```", "a", "```", "mid", "~~~", "b", "~~~"])).toEqual([
+    expect(fenceRanges(["```", "a", "```", "mid", "~~~", "b", "~~~"])).toMatchObject([
       { open: 0, close: 2, closed: true },
       { open: 4, close: 6, closed: true },
     ]);
@@ -187,27 +188,27 @@ describe("fenceRanges — container scope and delimiter whitespace", () => {
     // Pairing across container scopes left the real fenced code below
     // classified as ordinary markdown, with no protection.
     const lines = ["> ```", "> x", "```", "real code"];
-    expect(fenceRanges(lines)).toEqual([{ open: 0, close: 3, closed: false }]);
+    expect(fenceRanges(lines)).toMatchObject([{ open: 0, close: 3, closed: false }]);
     expect(enclosingFence(lines, 3)).not.toBeNull();
   });
 
   it("does not close an unquoted fence with a quoted delimiter", () => {
-    expect(fenceRanges(["```", "x", "> ```"])).toEqual([{ open: 0, close: 2, closed: false }]);
+    expect(fenceRanges(["```", "x", "> ```"])).toMatchObject([{ open: 0, close: 2, closed: false }]);
   });
 
   it("does not close a nested quote's fence at the outer depth", () => {
-    expect(fenceRanges(["> > ```", "> > x", "> ```"])).toEqual([
+    expect(fenceRanges(["> > ```", "> > x", "> ```"])).toMatchObject([
       { open: 0, close: 2, closed: false },
     ]);
   });
 
   it("rejects a non-breaking space after a closing fence", () => {
     // CommonMark allows only spaces and tabs there; `.trim()` accepted NBSP.
-    expect(fenceRanges(["```", "x", "``` "])).toEqual([{ open: 0, close: 2, closed: false }]);
+    expect(fenceRanges(["```", "x", "``` "])).toMatchObject([{ open: 0, close: 2, closed: false }]);
   });
 
   it("still accepts spaces and tabs after a closer", () => {
-    expect(fenceRanges(["```", "x", "``` \t"])).toEqual([{ open: 0, close: 2, closed: true }]);
+    expect(fenceRanges(["```", "x", "``` \t"])).toMatchObject([{ open: 0, close: 2, closed: true }]);
   });
 });
 
@@ -248,11 +249,11 @@ describe("stripBlockMarkup — indented code and Unicode whitespace", () => {
 
 describe("fenceRanges — indentation is measured in COLUMNS", () => {
   it("rejects a tab-indented opener — CommonMark expands the tab to four columns", () => {
-    expect(fenceRanges(["\t```", "x", "\t```"])).toEqual([]);
+    expect(fenceRanges(["\t```", "x", "\t```"])).toMatchObject([]);
   });
 
   it("rejects a four-space opener (already indented code)", () => {
-    expect(fenceRanges(["    ```", "x"])).toEqual([]);
+    expect(fenceRanges(["    ```", "x"])).toMatchObject([]);
   });
 });
 
@@ -261,19 +262,19 @@ describe("fenceRanges — fences inside list items", () => {
     // `- ``` / content / closer` is a valid fence inside the item. Missing the
     // opener while classifying the indented closer as a NEW opener flipped
     // inside and outside for the rest of the document.
-    expect(fenceRanges(["- ```", "  x", "  ```", "after"])).toEqual([
+    expect(fenceRanges(["- ```", "  x", "  ```", "after"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
 
   it("recognises a fence opened on an ordered list marker line", () => {
-    expect(fenceRanges(["1. ```js", "  code", "  ```"])).toEqual([
+    expect(fenceRanges(["1. ```js", "  code", "  ```"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });
 
   it("recognises a QUOTED list-item fence", () => {
-    expect(fenceRanges(["> - ```", "> x", "> ```"])).toEqual([
+    expect(fenceRanges(["> - ```", "> x", "> ```"])).toMatchObject([
       { open: 0, close: 2, closed: true },
     ]);
   });

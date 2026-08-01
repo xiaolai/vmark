@@ -23,7 +23,7 @@ import {
 } from "@/utils/textTransformations";
 import { moveBlockAware } from "./sourceBlockMove";
 import { joinWouldFuseBlocks, duplicateNeedsHardBreak } from "./sourceLineClassifier";
-import { fenceRanges, isDelimiterLine } from "@/plugins/shared/lineContent";
+import { fenceRanges, isDelimiterLine } from "@/plugins/shared/fenceScanner";
 
 // --- Line operations ---
 

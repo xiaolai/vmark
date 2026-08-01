@@ -36,7 +36,7 @@
  * @module plugins/toolbarActions/sourceBlockMove
  */
 
-import { fenceRanges, isDelimiterLine } from "@/plugins/shared/lineContent";
+import { fenceRanges, isDelimiterLine } from "@/plugins/shared/fenceScanner";
 import { isBlank, listIndent } from "./sourceLineClassifier";
 
 type FenceRange = ReturnType<typeof fenceRanges>[number];

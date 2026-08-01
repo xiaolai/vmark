@@ -110,30 +110,39 @@ for the worker; this needs its own, under `dev-docs/grills/source-structure/`:
 
 Only after those does this material become work items again.
 
-## Carried in from the audit (2026-08-01): the fence-parser remainder
+## SHIPPED 2026-08-01: the fence-parser remainder (was: two grammars)
 
-The audit's one PARTIAL finding (`lineContent.ts:176`) lands here. Three fence
-parsers became two: `multiSelectionContext` now resolves through the shared
-scanner, and `codeFenceDetection`'s delimiter grammar is aligned and pinned by
-a DRIFT GATE (`sourceContextDetection/__tests__/fenceGrammarAgreement.test.ts`)
-that asserts agreement where the grammars must agree and pins both sides of
-every deliberate divergence.
+**Status: DONE.** Three fence parsers became two, then one.
 
-What remains is a POSITIONAL-INFO ADAPTER over `fenceRanges` so
-`codeFenceDetection` can drop its own traversal:
+`codeFenceDetection` kept its own traversal because "its consumers need
+positional info" — which turned out to be the wrong reason to keep a second
+grammar. Detection's patterns carried no CONTAINER prefixes, so a fence inside
+a blockquote or a list item was invisible to it and the cursor-context guards
+(smartPaste, structural-char protection, autoPair, pair-backspace, list
+continuation) did not engage inside real fenced code. That was the REAL gap the
+drift gate documented.
 
-- [ ] expose language token + `fenceStartPos`/`languageStartPos`/`languageEndPos`
-      from the shared scanner's opener line;
-- [ ] reproduce the opener-inclusion semantics detection's consumers rely on
-      (closed fence: opener and closer inside; UNCLOSED fence: opener outside,
-      so autoPair is not suppressed while the fence is being typed);
-- [ ] decide the deep-indent question: detection accepts 4+-space openers so
-      list-nested fences keep their guard, the shared scanner rejects them as
-      indented code — the structure index makes the list context visible and
-      dissolves the ambiguity;
-- [ ] close the REAL gap the drift gate documents: quoted and list-item fences
-      are invisible to `codeFenceDetection`, so cursor-context guards do not
-      engage inside them. The gate's divergence pins flip when this lands.
+- [x] positional info comes from the shared scanner: `EnclosingFence` carries
+      the opener's `info` and `markerOffset`, so nothing is re-parsed;
+- [x] opener-inclusion semantics preserved — a CLOSED fence counts opener and
+      closer as inside, an UNCLOSED one leaves the opener outside so autoPair
+      is not suppressed by the fence being typed. Still pinned as a deliberate
+      divergence;
+- [x] the deep-indent question DECIDED rather than deferred to the structure
+      index: it is a named parameter, `indentPolicy: "commonmark" |
+      "deep-indent"`. The safety boundary keeps CommonMark's 3-space cap;
+      detection opts into the permissive reading, because a fence nested two
+      list levels deep carries 4+ raw spaces of continuation indent and
+      under-including is the unsafe direction for a guard. The gate pins the
+      DEFAULT too, so "detection needs it" cannot quietly become "everyone
+      gets it";
+- [x] the quoted and list-item gaps are CLOSED — both pins flipped from
+      divergence to agreement, and the gate gained nested-blockquote,
+      ordered-list and container-pairing cases.
+
+The lesson worth carrying: the divergence persisted because the two parsers had
+different RESPONSIBILITIES, and the fix was not to sync them but to give the
+one parser the two parameters the second existed to express.
 
 ## SHIPPED 2026-08-01: tab transfer carries line metadata (was: drops it)
 

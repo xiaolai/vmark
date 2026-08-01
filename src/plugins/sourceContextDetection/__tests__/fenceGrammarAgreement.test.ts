@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { enclosingFence, fenceRanges } from "@/plugins/shared/lineContent";
+import { enclosingFence, fenceRanges } from "@/plugins/shared/fenceScanner";
 import { getCodeFenceInfoAt } from "../codeFenceDetection";
 
 /** Whether the SHARED scanner puts `lineIndex` inside a fence. */
@@ -103,20 +103,47 @@ describe("enumerated divergences — BOTH sides pinned so drift is visible", () 
     expect(detectionInside(lines, 1)).toBe(true);
   });
 
-  it("a QUOTED fence: shared recognises the container, detection does not", () => {
-    // The remaining REAL gap in detection's grammar: its patterns carry no
-    // container prefixes, so a fence inside a blockquote is invisible to
-    // cursor-context guards. Closing this is part of the positional-adapter
-    // consolidation in the structure-service design doc — when that lands,
-    // this pin flips and the test will say so.
+  it("a 4-space CLOSER is still rejected by the shared default", () => {
+    // The policy is a parameter, so the safety boundary keeps CommonMark's cap
+    // while detection opts into the permissive reading. Pinning the DEFAULT
+    // stops "detection needs it" from quietly becoming "everyone gets it".
+    expect(fenceRanges(["```", "x", "    ```"])).toMatchObject([{ closed: false }]);
+  });
+});
+
+describe("CLOSED gaps — these diverged until the grammars were unified", () => {
+  it("a QUOTED fence is inside for BOTH", () => {
+    // Detection's old patterns carried no container prefixes, so a fence in a
+    // blockquote was invisible and the cursor-context guards did not engage
+    // inside real code. It resolves through `fenceRanges` now, so the
+    // container handling comes for free.
     const lines = ["> ```", "> code", "> ```"];
     expect(sharedInside(lines, 1)).toBe(true);
-    expect(detectionInside(lines, 1)).toBe(false);
+    expect(detectionInside(lines, 1)).toBe(true);
   });
 
-  it("a LIST-ITEM fence: shared recognises the marker prefix, detection does not", () => {
+  it("a LIST-ITEM fence is inside for BOTH", () => {
     const lines = ["- ```", "  code", "  ```"];
     expect(sharedInside(lines, 1)).toBe(true);
-    expect(detectionInside(lines, 1)).toBe(false);
+    expect(detectionInside(lines, 1)).toBe(true);
+  });
+
+  it("a fence in a NESTED blockquote is inside for both", () => {
+    const lines = [">> ```", ">> code", ">> ```"];
+    expect(sharedInside(lines, 1)).toBe(true);
+    expect(detectionInside(lines, 1)).toBe(true);
+  });
+
+  it("an ORDERED list item's fence is inside for both", () => {
+    const lines = ["1. ```", "   code", "   ```"];
+    expect(sharedInside(lines, 1)).toBe(true);
+    expect(detectionInside(lines, 1)).toBe(true);
+  });
+
+  it("a quoted fence is not closed by an UNQUOTED delimiter, for both", () => {
+    // Container-aware pairing, which detection could not do at all before.
+    const lines = ["> ```", "> code", "```", "after"];
+    expect(sharedInside(lines, 3)).toBe(true);
+    expect(detectionInside(lines, 3)).toBe(true);
   });
 });
