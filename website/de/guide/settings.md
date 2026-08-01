@@ -76,7 +76,7 @@ Typografie, Anzeige, Bearbeitungsverhalten und Leerzeichen-Einstellungen.
 | Einstellung | Beschreibung | Standard | Optionen |
 |-------------|-------------|---------|---------|
 | Zeilenenden beim Speichern | Steuert, wie Zeilenenden beim Speichern von Dateien behandelt werden | Bestehende erhalten | Bestehende erhalten, LF (`\n`), CRLF (`\r\n`) |
-| Aufeinanderfolgende Zeilenumbrüche erhalten | Mehrere Leerzeilen so lassen, anstatt sie zu reduzieren | Aus | Ein / Aus |
+| Aufeinanderfolgende Zeilenumbrüche erhalten | Mehrere Leerzeilen so lassen, anstatt sie zu reduzieren | Ein | Ein / Aus |
 | Harter Zeilenumbruch-Stil beim Speichern | Wie harte Zeilenumbrüche in der gespeicherten Markdown-Datei dargestellt werden | Bestehende erhalten | Zwei Leerzeichen (Empfohlen), Bestehende erhalten, Backslash (`\`) |
 | `<br>`-Tags anzeigen | HTML-Zeilenumbruch-Tags sichtbar im Editor anzeigen | Aus | Ein / Aus |
 
@@ -300,7 +300,7 @@ Der Sprach-Abschnitt enthält 20+ feinkörnige Formatierungs-Umschalter. Eine vo
 | Aufeinanderfolgende Interpunktion begrenzen | Wiederholte Satzzeichen wie `!!!` begrenzen | Aus | Aus, Einfach (`!!` zu `!`), Doppelt (`!!!` zu `!!`) |
 | Abschließende Leerzeichen entfernen | Leerzeichen am Zeilenende entfernen | Ein | Ein / Aus |
 | Auslassungspunkte normalisieren | Punkte mit Abstand (`. . .`) in korrekte Auslassungspunkte (`...`) konvertieren | Ein | Ein / Aus |
-| Neue Zeilen reduzieren | Drei oder mehr aufeinanderfolgende neue Zeilen auf zwei reduzieren | Ein | Ein / Aus |
+| Neue Zeilen reduzieren | Drei oder mehr aufeinanderfolgende neue Zeilen auf zwei reduzieren | Aus | Ein / Aus |
 
 ## Tastaturkürzel
 
