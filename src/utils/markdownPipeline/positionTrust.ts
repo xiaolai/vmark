@@ -58,6 +58,25 @@ export const UNTRUSTED_POSITION_TYPES: ReadonlySet<string> = new Set([
   "details",
 ]);
 
+/**
+ * Containers that STRIP a line prefix from their descendants' text values.
+ *
+ * A separate hazard from an absent position, and subtler. Inside `> quoted\n>
+ * more`, the text node's range correctly spans `quoted\n> more` while its
+ * `value` is `quoted\nmore` — remark removes the continuation markers. The
+ * range is canonical: it addresses the right span, and an edit at those offsets
+ * hits the right text. But `source.slice(start, end) !== node.value`, so code
+ * that reconstructs content FROM a range gets the markers back.
+ *
+ * Measured, not assumed — the conformance gate found it on `> quoted\n> more`.
+ * Consumers that replace a range are fine; consumers that compare a slice to a
+ * value must account for it.
+ */
+export const PREFIX_STRIPPING_CONTAINERS: ReadonlySet<string> = new Set([
+  "blockquote",
+  "listItem",
+]);
+
 /** Minimal node shape — mdast-compatible without importing the union. */
 export interface PositionedNode {
   type: string;
