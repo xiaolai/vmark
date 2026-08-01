@@ -192,7 +192,11 @@ describe("useCrashRecoveryStartup", () => {
     expect(useTabStore.getState().getTabsByWindow("main")).toHaveLength(0);
   });
 
-  it("deduplicates snapshots by filePath, keeping newest", async () => {
+  it("restores BOTH snapshots when two tabs on one path hold different edits", async () => {
+    // Snapshots are written per TAB. Two tabs open on the same file, each with
+    // its own unsaved edits, are two distinct pieces of work. Deduplicating by
+    // filePath alone deleted the older one outright — permanent loss of the
+    // exact data this feature exists to protect.
     const olderSnapshot = makeSnapshot({
       tabId: "t-old",
       filePath: "/path/same.md",
@@ -221,20 +225,76 @@ describe("useCrashRecoveryStartup", () => {
     renderHook(() => useCrashRecoveryStartup());
 
     await vi.waitFor(() => {
-      expect(mockToastInfo).toHaveBeenCalledWith(
-        expect.stringContaining("2")
-      );
+      expect(mockToastInfo).toHaveBeenCalledWith(expect.stringContaining("3"));
     });
 
-    // Should restore 2 tabs: the newer filePath snapshot + the untitled one
     const tabs = useTabStore.getState().getTabsByWindow("main");
-    expect(tabs.length).toBe(2);
+    expect(tabs.length).toBe(3);
 
-    // The older duplicate should be deleted without restoring
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-old");
-    // The kept ones should also be deleted after restore
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-new");
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-untitled");
+    // Every restored tab's content survived — neither edit was discarded.
+    const contents = tabs.map(
+      (t) => useDocumentStore.getState().documents[t.id]?.content
+    );
+    expect(contents).toContain("# Older version");
+    expect(contents).toContain("# Newer version");
+    expect(contents).toContain("# Untitled doc");
+
+    // All three files are cleaned up after a successful restore.
+    for (const id of ["t-old", "t-new", "t-untitled"]) {
+      expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith(id);
+    }
+  });
+
+  it("still collapses snapshots whose path AND content are identical", async () => {
+    // Genuine redundancy — the same file, the same recoverable bytes. Nothing
+    // is lost by keeping one, and restoring both would multiply tabs across
+    // repeated crashes.
+    mockReadRecoverySnapshots.mockResolvedValue([
+      makeSnapshot({ tabId: "t-a", filePath: "/dup.md", content: "same", timestamp: 1000 }),
+      makeSnapshot({ tabId: "t-b", filePath: "/dup.md", content: "same", timestamp: 2000 }),
+    ]);
+
+    renderHook(() => useCrashRecoveryStartup());
+
+    await vi.waitFor(() => {
+      expect(mockToastInfo).toHaveBeenCalledWith(expect.stringContaining("1"));
+    });
+
+    expect(useTabStore.getState().getTabsByWindow("main")).toHaveLength(1);
+    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-a");
+    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-b");
+  });
+
+  it("restores an untitled snapshot's original title, not a fresh counter value", async () => {
+    // The code commented "Update tab title to match the original" but only
+    // called updateTabPath — which does nothing for a null path. Untitled
+    // recovery tabs came back renumbered, so the user could not tell which
+    // scratch buffer they were looking at.
+    mockReadRecoverySnapshots.mockResolvedValue([
+      makeSnapshot({ tabId: "t-u", filePath: null, title: "Untitled-7" }),
+    ]);
+
+    renderHook(() => useCrashRecoveryStartup());
+
+    await vi.waitFor(() => {
+      expect(useTabStore.getState().getTabsByWindow("main")).toHaveLength(1);
+    });
+
+    expect(useTabStore.getState().getTabsByWindow("main")[0].title).toBe("Untitled-7");
+  });
+
+  it("falls back to the created title when the snapshot's is blank", async () => {
+    mockReadRecoverySnapshots.mockResolvedValue([
+      makeSnapshot({ tabId: "t-blank", filePath: null, title: "   " }),
+    ]);
+
+    renderHook(() => useCrashRecoveryStartup());
+
+    await vi.waitFor(() => {
+      expect(useTabStore.getState().getTabsByWindow("main")).toHaveLength(1);
+    });
+
+    expect(useTabStore.getState().getTabsByWindow("main")[0].title.trim()).not.toBe("");
   });
 
   it("does not throw on errors during restore", async () => {
@@ -368,66 +428,37 @@ describe("useCrashRecoveryStartup", () => {
     expect(mockToastInfo).not.toHaveBeenCalled();
   });
 
-  it("deduplicates keeping newer when older snapshot appears first", async () => {
-    const older = makeSnapshot({
-      tabId: "t-older",
-      filePath: "/dup.md",
-      content: "old",
-      timestamp: 100,
-    });
-    const newer = makeSnapshot({
-      tabId: "t-newer",
-      filePath: "/dup.md",
-      content: "new",
-      timestamp: 200,
-    });
-    // Order: older first, newer second
-    mockReadRecoverySnapshots.mockResolvedValue([older, newer]);
+  // Read order is filesystem order, so it is not something the recovery path
+  // may depend on. Both directions must preserve both sets of edits.
+  it.each([
+    { label: "older first", order: ["old", "new"] },
+    { label: "newer first", order: ["new", "old"] },
+  ])(
+    "preserves both divergent edits regardless of read order ($label)",
+    async ({ order }) => {
+      const byContent = {
+        old: makeSnapshot({ tabId: "t-older", filePath: "/dup.md", content: "old", timestamp: 100 }),
+        new: makeSnapshot({ tabId: "t-newer", filePath: "/dup.md", content: "new", timestamp: 200 }),
+      } as const;
+      mockReadRecoverySnapshots.mockResolvedValue(
+        order.map((k) => byContent[k as "old" | "new"])
+      );
 
-    renderHook(() => useCrashRecoveryStartup());
+      renderHook(() => useCrashRecoveryStartup());
 
-    await vi.waitFor(() => {
-      expect(mockToastInfo).toHaveBeenCalledWith(expect.stringContaining("1"));
-    });
+      await vi.waitFor(() => {
+        expect(mockToastInfo).toHaveBeenCalledWith(expect.stringContaining("2"));
+      });
 
-    // The older duplicate should have been cleaned up
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-older");
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-newer");
+      const tabs = useTabStore.getState().getTabsByWindow("main");
+      expect(tabs.length).toBe(2);
+      const contents = tabs.map(
+        (t) => useDocumentStore.getState().getDocument(t.id)!.content
+      );
+      expect(contents.sort()).toEqual(["new", "old"]);
 
-    const tabs = useTabStore.getState().getTabsByWindow("main");
-    expect(tabs.length).toBe(1);
-    const doc = useDocumentStore.getState().getDocument(tabs[0].id);
-    expect(doc!.content).toBe("new");
-  });
-
-  it("deduplicates keeping existing when newer snapshot appears first", async () => {
-    const newer = makeSnapshot({
-      tabId: "t-newer",
-      filePath: "/dup.md",
-      content: "new",
-      timestamp: 200,
-    });
-    const older = makeSnapshot({
-      tabId: "t-older",
-      filePath: "/dup.md",
-      content: "old",
-      timestamp: 100,
-    });
-    // Order: newer first, older second — the map already has newer, older is skipped
-    mockReadRecoverySnapshots.mockResolvedValue([newer, older]);
-
-    renderHook(() => useCrashRecoveryStartup());
-
-    await vi.waitFor(() => {
-      expect(mockToastInfo).toHaveBeenCalledWith(expect.stringContaining("1"));
-    });
-
-    const tabs = useTabStore.getState().getTabsByWindow("main");
-    expect(tabs.length).toBe(1);
-    const doc = useDocumentStore.getState().getDocument(tabs[0].id);
-    expect(doc!.content).toBe("new");
-
-    // Older duplicate cleaned up
-    expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-older");
-  });
+      expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-older");
+      expect(mockDeleteRecoverySnapshot).toHaveBeenCalledWith("t-newer");
+    }
+  );
 });
