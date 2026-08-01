@@ -47,6 +47,17 @@ pub struct WindowState {
     /// Workspace instances owned by this document window. Added in v4.
     #[serde(default)]
     pub workspace_instances: Vec<WorkspaceInstanceState>,
+    /// WI-9.4 (workspace rail): per-instance UI state, opaque to Rust —
+    /// captured and interpreted by the frontend only. Optional + defaulted so
+    /// pre-rail payloads round-trip unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ui_state_by_instance: Option<serde_json::Value>,
+    /// WI-9.4: scoped closed-tab history (reopen metadata), opaque to Rust.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closed_tab_scopes: Option<serde_json::Value>,
+    /// WI-9.4/8.2: window-global human browser records, opaque to Rust.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_session: Option<serde_json::Value>,
 }
 
 /// Workspace rail instance metadata. Field casing mirrors the frontend model.
@@ -254,50 +265,5 @@ impl SessionData {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const TEST_VERSION: &str = "0.3.18";
-
-    #[test]
-    fn test_session_serialization() {
-        let session = SessionData::new(TEST_VERSION.to_string());
-        let json = serde_json::to_string(&session).unwrap();
-        let deserialized: SessionData = serde_json::from_str(&json).unwrap();
-        assert_eq!(session.version, deserialized.version);
-        assert_eq!(session.vmark_version, deserialized.vmark_version);
-    }
-
-    #[test]
-    fn test_session_compatibility() {
-        let session = SessionData::new(TEST_VERSION.to_string());
-        assert_eq!(session.version, SCHEMA_VERSION);
-
-        let mut old_session = SessionData::new(TEST_VERSION.to_string());
-        old_session.version = 0;
-        assert_ne!(old_session.version, SCHEMA_VERSION);
-    }
-
-    #[test]
-    fn test_stale_session() {
-        let mut session = SessionData::new(TEST_VERSION.to_string());
-        let now = chrono::Utc::now().timestamp();
-
-        // 8 days old - should be stale
-        session.timestamp = now - (8 * SECONDS_PER_DAY);
-        assert!(session.is_stale(MAX_SESSION_AGE_DAYS));
-
-        // 6 days old - should not be stale
-        session.timestamp = now - (6 * SECONDS_PER_DAY);
-        assert!(!session.is_stale(MAX_SESSION_AGE_DAYS));
-
-        // Future timestamp - should be stale (clock skew)
-        session.timestamp = now + SECONDS_PER_DAY;
-        assert!(session.is_stale(MAX_SESSION_AGE_DAYS));
-
-        // Invalid max_age_days - should be stale
-        session.timestamp = now - SECONDS_PER_DAY;
-        assert!(session.is_stale(0));
-        assert!(session.is_stale(-1));
-    }
-}
+#[path = "session.test.rs"]
+mod tests;

@@ -12,6 +12,7 @@ type Args = Parameters<typeof useContentSearchScheduler>[0];
 function baseArgs(overrides: Partial<Args> = {}): Args {
   return {
     isOpen: true,
+    windowLabel: "main",
     query: "hello",
     rootPath: "/root",
     excludeFolders: ["node_modules"],
@@ -49,7 +50,7 @@ describe("useContentSearchScheduler", () => {
     expect(runSpy).not.toHaveBeenCalled();
     vi.advanceTimersByTime(DEBOUNCE_MS);
 
-    expect(runSpy).toHaveBeenCalledExactlyOnceWith("/root", ["node_modules"]);
+    expect(runSpy).toHaveBeenCalledExactlyOnceWith("/root", ["node_modules"], "main");
   });
 
   it("does not run until the full debounce window elapses", () => {
@@ -107,6 +108,6 @@ describe("useContentSearchScheduler", () => {
     rerender(baseArgs({ excludeFolders: ["dist", "build"] }));
 
     vi.advanceTimersByTime(DEBOUNCE_MS);
-    expect(runSpy).toHaveBeenCalledExactlyOnceWith("/root", ["dist", "build"]);
+    expect(runSpy).toHaveBeenCalledExactlyOnceWith("/root", ["dist", "build"], "main");
   });
 });

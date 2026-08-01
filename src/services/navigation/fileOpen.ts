@@ -11,15 +11,16 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
-import { markdownExtensions } from "@/lib/formats/saveFilters";
-import { executeOpenDecision } from "./executeOpenDecision";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
+import { markdownExtensions } from "@/lib/formats/saveFilters";
+import { executeOpenDecision } from "./executeOpenDecision";
 import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
+import { activateTabWithWorkspaceContext } from "@/services/workspaces/activateTabWithWorkspaceContext";
 import { tryOpenMediaFile } from "./openMediaFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
@@ -152,7 +153,8 @@ export async function openFileInNewTab(
   // Check for existing tab first
   const existingTabId = findExistingTabForPath(windowLabel, path);
   if (existingTabId) {
-    useTabStore.getState().setActiveTab(windowLabel, existingTabId);
+    // WI-12.2: ownership-aware — the visible workspace follows the owner.
+    activateTabWithWorkspaceContext(windowLabel, existingTabId);
     perfMark("openFileInNewTab:activatedExisting");
     return;
   }
@@ -227,13 +229,9 @@ export async function handleOpenFile(
   windowLabel: string,
   path: string
 ): Promise<void> {
-  // Check for existing tab and activate, otherwise create new
-  const existingTabId = findExistingTabForPath(windowLabel, path);
-  if (existingTabId) {
-    useTabStore.getState().setActiveTab(windowLabel, existingTabId);
-  } else {
-    await openFileInNewTab(windowLabel, path);
-  }
+  // Identical semantics to openFileInNewTab (existing → ownership-aware
+  // activate, else create) — delegate rather than duplicate (WI-12.2).
+  await openFileInNewTab(windowLabel, path);
 }
 
 /**

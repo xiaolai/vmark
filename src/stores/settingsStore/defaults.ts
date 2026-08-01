@@ -55,7 +55,7 @@ export const initialState: SettingsState = {
   cjkFormatting: {
     // Group 1: Universal
     ellipsisNormalization: true,
-    newlineCollapsing: true,
+    newlineCollapsing: false, // OFF by default — whitespace shape is the user's; opt-in to collapse
     // Group 2: Fullwidth Normalization
     fullwidthAlphanumeric: true,
     fullwidthPunctuation: true,
@@ -86,7 +86,9 @@ export const initialState: SettingsState = {
   },
   markdown: {
     preserveLineBreaks: false,
-    preserveBlankLines: false,
+    // ON by default: a plain Cmd+S must not collapse blank lines the file
+    // already had — a fresh install never rewrites untouched content.
+    preserveBlankLines: true,
     showBrTags: false,
     showInvisibles: false,
     codeBlockLineNumbers: false,

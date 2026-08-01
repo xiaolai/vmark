@@ -31,10 +31,11 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { statusBarWarn } from "@/utils/debug";
+import { visibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useTabDragOut, type DragOutPoint } from "@/hooks/useTabDragOut";
 import { handleTabKeyboard } from "./tabKeyboard";
-import { planReorder, planDocumentReorder } from "./tabDragRules";
+import { planReorder, planVisibleReorderToFlat } from "./tabDragRules";
 import { transferTabFromDragOut } from "./tabTransferActions";
 import type { TabDropPreviewEvent } from "@/types/tabTransfer";
 import { errorMessage } from "@/utils/errorMessage";
@@ -116,10 +117,9 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
 
   const handleReorder = useCallback(
     (tabId: string, dropIdx: number) => {
-      const windowTabs = useTabStore.getState().tabs[windowLabel] ?? [];
-      // dropIdx is in document (strip) space — translate to flat store indices.
-      const plan = planDocumentReorder(windowTabs, tabId, dropIdx);
-      const tab = windowTabs[plan.fromFlat];
+      const rawTabs = useTabStore.getState().tabs[windowLabel] ?? []; // WI-12.4
+      const { plan, tab, fromFlat, toFlat } =
+        planVisibleReorderToFlat(rawTabs, visibleWindowTabs(windowLabel), tabId, dropIdx);
       if (!tab) return;
 
       if (!plan.allowed) {
@@ -129,8 +129,8 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
         }
         return;
       }
-
-      useTabStore.getState().reorderTabs(windowLabel, plan.fromFlat, plan.toFlat);
+      if (fromFlat === -1 || toFlat === -1) return;
+      useTabStore.getState().reorderTabs(windowLabel, fromFlat, toFlat);
       toast.message(i18n.t("dialog:toast.tabReordered", { title: tab.title }), {
         action: {
           label: i18n.t("dialog:common.undo"),

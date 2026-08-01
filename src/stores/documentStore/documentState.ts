@@ -166,6 +166,25 @@ export function updateDoc(
  * flush, and paying an O(n) scan per keypress to re-check an invariant the
  * editor already maintains would be the wrong trade.
  */
+/**
+ * Reject the PRE-MIGRATION shape of `initDocument`'s fourth argument.
+ *
+ * It was a bare `savedContent: string` before line metadata had to travel with
+ * a transfer. TypeScript catches the old form, but a JS caller or an
+ * `as never` cast would otherwise fail deep inside `ingestExternalText` with
+ * an opaque "cannot read .includes of undefined" — main's workspace-switch
+ * tests did exactly that during the merge. Name the migration at the boundary.
+ */
+export function assertRestoreState(restore: DocumentRestoreState): void {
+  if (!import.meta.env.DEV) return;
+  if (typeof restore.savedContent !== "string") {
+    throw new TypeError(
+      "initDocument's 4th argument is a DocumentRestoreState " +
+        "({ savedContent, ...lineMetadata }), not a bare savedContent string.",
+    );
+  }
+}
+
 export function assertCanonicalEditorText(text: string, action: string): void {
   if (!import.meta.env.DEV) return;
   // The contract is LF-only AND BOM-free. Checking only `\r` let a leading

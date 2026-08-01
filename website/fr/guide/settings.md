@@ -76,7 +76,7 @@ Typographie, affichage, comportement d'édition et paramètres d'espacement.
 | Paramètre | Description | Par défaut | Options |
 |-----------|-------------|------------|---------|
 | Fins de ligne à l'enregistrement | Contrôler comment les fins de ligne sont gérées lors de l'enregistrement des fichiers | Conserver l'existant | Conserver l'existant, LF (`\n`), CRLF (`\r\n`) |
-| Conserver les sauts de ligne consécutifs | Garder plusieurs lignes vides telles quelles au lieu de les réduire | Désactivé | Activé / Désactivé |
+| Conserver les sauts de ligne consécutifs | Garder plusieurs lignes vides telles quelles au lieu de les réduire | Activé | Activé / Désactivé |
 | Style de saut de ligne dur à l'enregistrement | Comment les sauts de ligne durs sont représentés dans le fichier Markdown enregistré | Conserver l'existant | Deux espaces (Recommandé), Conserver l'existant, Barre oblique inverse (`\`) |
 | Afficher les balises `<br>` | Afficher les balises de saut de ligne HTML visiblement dans l'éditeur | Désactivé | Activé / Désactivé |
 
@@ -160,7 +160,7 @@ Ces paramètres s'appliquent uniquement lorsqu'un espace de travail (dossier) es
 |-----------|-------------|------------|---------|
 | Redimensionner automatiquement au collage | Redimensionner automatiquement les grandes images avant de les enregistrer dans le dossier assets. La valeur est la dimension maximale en pixels | Désactivé | Désactivé, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copier dans le dossier assets | Copier les images collées ou déposées dans le dossier assets du document au lieu de les incorporer | Activé | Activé / Désactivé |
-| Nettoyer les images inutilisées à la fermeture | Supprimer automatiquement les images du dossier assets qui ne sont plus référencées dans le document à sa fermeture | Désactivé | Activé / Désactivé |
+| Nettoyer les images inutilisées à la fermeture | Supprimer automatiquement les images du dossier assets que le document ne référence plus. S'exécute à la fermeture du document, de la fenêtre ou de l'application. Les images encore référencées par un autre document du même dossier sont conservées, et les images supprimées vont dans la corbeille du système | Désactivé | Activé / Désactivé |
 | Seuil d'image en ligne | Taille maximale (Mo) pour intégrer les images comme URL de données base64 dans l'export HTML/PDF. Les fichiers plus volumineux sont liés à la place | 1,0 Mo | 0,1 – 10 Mo |
 
 ### Fichiers volumineux
@@ -300,7 +300,7 @@ La section Langue contient plus de 20 contrôles de mise en forme précis. Pour 
 | Limiter la ponctuation consécutive | Limiter les signes de ponctuation répétés comme `!!!` | Désactivé | Désactivé, Simple (`!!` → `!`), Double (`!!!` → `!!`) |
 | Supprimer les espaces de fin de ligne | Supprimer les espaces à la fin des lignes | Activé | Activé / Désactivé |
 | Normaliser les points de suspension | Convertir les points espacés (`. . .`) en points de suspension appropriés (`...`) | Activé | Activé / Désactivé |
-| Réduire les sauts de ligne | Réduire trois sauts de ligne consécutifs ou plus à deux | Activé | Activé / Désactivé |
+| Réduire les sauts de ligne | Réduire trois sauts de ligne consécutifs ou plus à deux | Désactivé | Activé / Désactivé |
 
 ## Raccourcis
 

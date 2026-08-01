@@ -46,7 +46,8 @@ import { useRecentWorkspacesStore } from "../stores/workspaceStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
-import { loadStartupFileIntoTab, createBlankStartupTab } from "./startupFileOpen";
+import { restoreWindowBrowserSession } from "@/services/persistence/windowBrowserSession";
+import { loadStartupFileIntoTab, createBlankStartupTab, parseStartupFilesParam } from "./startupFileOpen";
 import {
   applyTabTransferData,
   handleTabTransfer,
@@ -156,18 +157,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
             const urlParams = new URLSearchParams(globalThis.location?.search || "");
             const filePath = urlParams.get("file");
             const workspaceRootParam = urlParams.get("workspaceRoot");
-            const filesParam = urlParams.get("files");
-            let filePaths: string[] | null = null;
-            if (filesParam) {
-              try {
-                const parsed = JSON.parse(filesParam);
-                if (Array.isArray(parsed)) {
-                  filePaths = parsed.filter((value) => typeof value === "string");
-                }
-              } catch (error) {
-                windowContextError("Failed to parse files param:", error);
-              }
-            }
+            const filePaths = parseStartupFilesParam(urlParams.get("files"));
 
             // If workspace root is provided, open it, reveal the file explorer,
             // and remember it — mirroring the same-window Open Workspace flow so a
@@ -237,6 +227,8 @@ export function WindowProvider({ children }: WindowProviderProps) {
               // useWorkspaceBootstrap.
               createBlankStartupTab(label);
             }
+            // WI-8.2: restore the window's human browser pages (background).
+            restoreWindowBrowserSession(label);
           }
         }
 

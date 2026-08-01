@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { createWorkspaceInstance, generateUUID } from "@/utils/workspaceIdentity";
+import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
+import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore";
 import {
   emptyWindowState,
   removeFromWindow,
@@ -151,9 +153,16 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
     }),
 
   ensureLooseInstance: (windowLabel, instanceId) => {
+    // WI-13.1 (plan D6): STRUCTURAL — never yanks the visible context. A
+    // valid activation is preserved; loose becomes active only as a fallback.
     let result: WorkspaceInstanceRecord | null = null;
+    let rekeyedFrom: string | null = null;
     set((state) => {
       const windowState = state.windows[windowLabel] ?? emptyWindowState(windowLabel);
+      const preserveActive = (validIds: string[], fallback: string): string => {
+        const current = windowState.activeWorkspaceInstanceId;
+        return current && validIds.includes(current) ? current : fallback;
+      };
       const existingId = windowState.workspaceInstanceIds.find(
         (id) => state.instances[id]?.kind === "loose",
       );
@@ -161,7 +170,8 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
         // A loose instance already exists. If the caller requested a specific id
         // (transfer restore acks payload.workspaceInstanceId) and it differs,
         // re-key the existing instance to the requested id so the ack and tab
-        // ownership reference the same instance.
+        // ownership reference the same instance. Identity follows the rename:
+        // if the OLD id was active, the NEW id is; otherwise activation stays.
         if (instanceId && instanceId !== existingId) {
           const renamed: WorkspaceInstanceRecord = {
             ...state.instances[existingId],
@@ -169,16 +179,21 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
           };
           const { [existingId]: _old, ...rest } = state.instances;
           result = renamed;
+          rekeyedFrom = existingId;
+          const ids = windowState.workspaceInstanceIds.map((id) =>
+            id === existingId ? instanceId : id,
+          );
           return {
             instances: { ...rest, [instanceId]: renamed },
             windows: {
               ...state.windows,
               [windowLabel]: {
                 ...windowState,
-                workspaceInstanceIds: windowState.workspaceInstanceIds.map((id) =>
-                  id === existingId ? instanceId : id,
-                ),
-                activeWorkspaceInstanceId: instanceId,
+                workspaceInstanceIds: ids,
+                activeWorkspaceInstanceId:
+                  windowState.activeWorkspaceInstanceId === existingId
+                    ? instanceId
+                    : preserveActive(ids, instanceId),
               },
             },
           };
@@ -189,7 +204,10 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
             ...state.windows,
             [windowLabel]: {
               ...windowState,
-              activeWorkspaceInstanceId: existingId,
+              activeWorkspaceInstanceId: preserveActive(
+                windowState.workspaceInstanceIds,
+                existingId,
+              ),
             },
           },
         };
@@ -223,7 +241,7 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
           [windowLabel]: {
             ...windowState,
             workspaceInstanceIds: ids,
-            activeWorkspaceInstanceId: looseId,
+            activeWorkspaceInstanceId: preserveActive(ids, looseId),
           },
         },
       };
@@ -231,6 +249,12 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
 
     if (!result) {
       throw new Error(`Failed to create loose workspace instance for window '${windowLabel}'`);
+    }
+    // Parallel per-instance stores follow the identity re-key so no UI/pane
+    // state is orphaned (WI-9.1/10.2 lifecycle contract).
+    if (rekeyedFrom && instanceId) {
+      useWorkspaceInstanceUiStore.getState().rekeyInstanceUiState(rekeyedFrom, instanceId);
+      useWorkspacePaneLayoutsStore.getState().rekeyPaneLayout(rekeyedFrom, instanceId);
     }
     return result;
   },

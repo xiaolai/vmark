@@ -150,11 +150,11 @@ vi.mock("../utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ type: "lf" })),
 }));
 
-// startupFileOpen delegates to openFileInNewTabCore; the file-loading mechanics
-// (read, init, recents, blank-tab fallback) are covered by startupFileOpen's
-// own tests. Here we mock it to drive the same shared store mocks so the
-// orchestration assertions (which path opens which file) stay meaningful.
+// startupFileOpen delegates to openFileInNewTabCore; its mechanics are covered
+// by its own tests. Mocked here (parse behavior real) so the orchestration
+// assertions (which path opens which file) stay meaningful.
 vi.mock("./startupFileOpen", () => ({
+  parseStartupFilesParam: (raw: string | null) => { try { const p = raw ? JSON.parse(raw) : null; return Array.isArray(p) ? p.filter((v: unknown): v is string => typeof v === "string") : null; } catch { return null; } },
   loadStartupFileIntoTab: vi.fn(async (label: string, path: string) => {
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     const tabId = mockCreateTab(label, path);

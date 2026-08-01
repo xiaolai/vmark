@@ -41,4 +41,24 @@ describe("useWorkspace", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     expect(result.current.recentFiles).toEqual([sample]);
   });
+
+  it("falls back to the 'main' window label without a WindowProvider", () => {
+    const tabId = useTabStore.getState().createTab("main", "/tmp/no-provider.md");
+
+    const { result } = renderHook(() => useWorkspace()); // no wrapper
+
+    expect(result.current.openTabs.map((t) => t.id)).toContain(tabId);
+  });
+
+  it("resolves activeTab from the visible tabs", () => {
+    const tabId = useTabStore.getState().createTab("main", "/tmp/active.md");
+    act(() => {
+      useTabStore.getState().setActiveTab("main", tabId);
+    });
+
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    expect(result.current.activeTabId).toBe(tabId);
+    expect(result.current.activeTab?.id).toBe(tabId);
+  });
 });

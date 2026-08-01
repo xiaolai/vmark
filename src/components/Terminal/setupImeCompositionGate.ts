@@ -18,7 +18,26 @@
  *     then (T3) clears textarea.value synchronously so xterm's setTimeout(0)
  *     finalizer reads "" and emits nothing.
  *   - The plain-insertText path (WeChat Shift punctuation: no composition cycle)
- *     is the same container `input` listener — resolveCommit handles it.
+ *     is the same container `input` listener. It classifies inline rather than
+ *     calling resolveCommit: that helper answers "what did this COMPOSITION
+ *     commit?", where e.data can lie and the textarea diff is the tiebreak.
+ *     Outside a composition there is no diff to weigh — the question is only
+ *     "did anyone else already write this?", which resolveCommit cannot see.
+ *   - Insert OWNERSHIP is WRITE-derived, never keydown-derived (WI-13). The
+ *     session wiring reports every onData it ACTUALLY forwarded to the PTY
+ *     via `noteExternalWrite`; an insert arriving while such a write is
+ *     unclaimed is xterm's echo of that write and is dropped, anything else
+ *     is the gate's to commit. Keydown shape cannot answer this: macOS
+ *     Chinese IMEs stamp keyCode 229 on keys they merely CLAIM with no
+ *     composition running (`/`, numpad digits under Shuangpin, #1176), IME
+ *     inserts arrive ~2 ms BEFORE their own keydown, and a palette click or
+ *     dictation has no keydown at all — three measured ways a keydown
+ *     listener judged the WRONG keystroke, which is why the old T4 listener
+ *     was deleted. The write claim expires on the next macrotask (via
+ *     `expireExternalWrite`): a keystroke's paired input arrives inside that
+ *     window, but a single-character term.paste() has NO paired input — its
+ *     native insert is preventDefaulted — and a lingering claim would swallow
+ *     the next gate-owned insert.
  *
  * Commits are delivered via onCompositionCommit, which the wiring writes DIRECTLY
  * to the PTY (bypassing xterm's onData), so the single-writer guarantee holds end
@@ -29,8 +48,7 @@
  * @module components/Terminal/setupImeCompositionGate
  */
 import { terminalLog } from "@/utils/debug";
-import { NON_ASCII_RE } from "./imeCharClass";
-import { resolveCommit } from "./resolveCommit";
+import { createImeGateMachine, type GateAction } from "./imeGateMachine";
 
 /**
  * Public surface of the terminal IME handle (gate is the sole implementation
@@ -42,6 +60,13 @@ export interface ImeCompositionHandle {
   /** Caller-supplied callback invoked with the clean committed text; the caller
    *  writes it straight to the PTY (single writer). */
   onCompositionCommit: ((text: string) => void) | null;
+  /**
+   * The wiring reports every byte-run it ACTUALLY forwarded from xterm's
+   * onData to the PTY (WI-13). Ownership of the next insert derives from a
+   * write that happened, never from the keydown's shape — a suppressed onData
+   * (mid-composition) therefore no longer masquerades as "xterm wrote it".
+   */
+  noteExternalWrite: (data: string) => void;
   /** Tear down listeners. Idempotent. */
   cleanup: () => void;
 }
@@ -62,95 +87,55 @@ export function createNoopImeHandle(): ImeCompositionHandle {
     get composing() { return false; },
     get onCompositionCommit() { return null; },
     set onCompositionCommit(_cb: ((text: string) => void) | null) { /* no IME */ },
+    noteExternalWrite: () => {},
     cleanup: () => {},
   };
 }
 
 export function setupImeCompositionGate({ container, textarea }: GateOptions): ImeCompositionHandle {
-  let composing = false;
+  const machine = createImeGateMachine();
   let onCompositionCommit: ((text: string) => void) | null = null;
-  let textareaStartLen = 0;
-  /** True between a real compositionstart and its compositionend. Guards against
-   *  an orphan compositionend (fcitx5/rime #659/#948) trusting a stale textarea
-   *  snapshot: with no start, textareaStartLen is meaningless, so we ignore the
-   *  diff and accept only trustworthy non-ASCII e.data. */
-  let started = false;
-  /** Post-commit echo token: the text just committed, cleared on the next
-   *  macrotask. A trailing insertText (or a re-fired compositionend) that
-   *  restates it within the same task is the IME echoing the commit, not a fresh
-   *  keystroke, so it is dropped. Same proven shape as the legacy cb954392 fix.
-   *  NOTE: this catches only SAME-TASK echoes; a cross-task IME echo would need a
-   *  recorded real trace to characterise (gate mode still needs human-IME
-   *  verification before its default flip — see the plan). */
-  let echoText: string | null = null;
 
-  const isEcho = (text: string) => text === echoText;
-
-  const commit = (text: string) => {
-    echoText = text;
-    setTimeout(() => {
-      echoText = null;
-    }, 0);
-    try {
-      onCompositionCommit?.(text);
-    } catch {
-      // best-effort: PTY may already be closing
+  /** Apply a machine decision to the world: textarea, event, PTY, echo timer. */
+  const apply = (action: GateAction, e?: Event) => {
+    if (action.stopEvent && e) e.stopPropagation();
+    if (action.clearTextarea) textarea.value = "";
+    if (action.scheduleEchoClear) setTimeout(() => machine.clearEcho(), 0);
+    if (action.commit) {
+      try {
+        onCompositionCommit?.(action.commit);
+      } catch (error) {
+        // Best-effort: the PTY may already be closing. Log it — a delivery
+        // failure here IS silent character loss, and swallowing it without a
+        // trace is how that gets misreported as an IME bug.
+        terminalLog("gate commit delivery failed", error);
+      }
     }
   };
 
   const onCompositionStart = () => {
-    composing = true;
-    started = true;
-    textareaStartLen = textarea.value.length;
+    machine.compositionStart(textarea.value.length);
     terminalLog("gate compositionstart");
   };
 
   const onCompositionEnd = (e: CompositionEvent) => {
-    composing = false;
-    // Only trust the textarea diff when a real compositionstart set the snapshot
-    // (F2). Orphan compositionend → diff "", so resolveCommit uses only e.data.
-    const wasStarted = started;
-    const textareaDiff = wasStarted ? textarea.value.slice(textareaStartLen) : "";
-    started = false;
-    let text = resolveCommit({ eventData: e.data, textareaDiff });
-    // A REAL composition result must be committed even if it is ASCII: T2
-    // (keyCode-229) blocked xterm's keydown path during composition, so nothing
-    // else delivers it. resolveCommit returns null for ASCII (correct for the
-    // no-composition onInput path — xterm keydown owns that), so fall back to the
-    // composition's own text here (audit D3.1). Orphan ends are NOT eligible.
-    if (!text && wasStarted) text = e.data || textareaDiff || null;
-    terminalLog("gate compositionend", e.data, "->", text);
-    // T3: clear the textarea synchronously so xterm's setTimeout(0)
-    // _finalizeComposition reads "" and emits nothing.
-    textarea.value = "";
-    if (text && !isEcho(text)) commit(text); // drop a re-fired duplicate (F2)
+    const action = machine.compositionEnd(e.data, textarea.value);
+    terminalLog("gate compositionend", e.data, "->", action.commit);
+    apply(action, e);
   };
 
-  // T1: container capture listener. For a plain `insertText` outside composition
-  // it forwards an IME-origin non-ASCII insert and stops the event so xterm's
-  // `_inputEvent` never fires. NOTE: it does NOT stop every input — composition-
-  // phase inserts (insertCompositionText, isComposing, or while `composing`) and
-  // non-insertText inputs (deletes, paste) are left for xterm/the composition
-  // cycle. Whether xterm can still originate a write from those during a real IME
-  // cycle is exactly what the human matrix must confirm before Phase 4 (audit D1.4/D3.2).
+  // T1: container capture listener — capture descends container → textarea, so
+  // this fires before xterm's own `input` listener and stopEvent severs
+  // xterm's `_inputEvent` for the inserts the gate owns.
   const onInput = (e: Event) => {
     const ie = e as InputEvent;
-    if (ie.inputType !== "insertText" || ie.isComposing || composing) {
-      return;
-    }
-    // Sever xterm's _inputEvent for this insert.
-    e.stopPropagation();
-    const data = ie.data;
-    if (!data || !NON_ASCII_RE.test(data)) {
-      // Plain ASCII already went to the PTY via xterm's keydown path; just drop
-      // the redundant (now-stopped) input event and clear the textarea.
-      textarea.value = "";
-      return;
-    }
-    // Non-ASCII insert. Either a no-composition WeChat commit (forward it) or the
-    // post-commit echo of a composition that just ended (drop it — F1).
-    textarea.value = "";
-    if (!isEcho(data)) commit(data);
+    apply(
+      machine.input(
+        { data: ie.data, inputType: ie.inputType, isComposing: ie.isComposing },
+        textarea.value
+      ),
+      e
+    );
   };
 
   container.addEventListener("compositionstart", onCompositionStart, true);
@@ -164,9 +149,16 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
   };
 
   return {
-    get composing() { return composing; },
+    get composing() { return machine.composing; },
     get onCompositionCommit() { return onCompositionCommit; },
     set onCompositionCommit(cb: ((text: string) => void) | null) { onCompositionCommit = cb; },
+    noteExternalWrite: (data: string) => {
+      // The claim lives one macrotask, like the echo token: a keystroke's
+      // paired input event beats the timer, a paste's never-arriving input
+      // must not leave the claim armed to swallow the NEXT insert.
+      const gen = machine.externalWrite(data);
+      setTimeout(() => machine.expireExternalWrite(gen), 0);
+    },
     cleanup,
   };
 }

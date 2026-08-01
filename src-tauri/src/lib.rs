@@ -32,6 +32,7 @@ mod file_write;
 pub mod genies;
 mod gha_workflow;
 mod hot_exit;
+mod live_docs;
 mod mcp_bridge;
 mod mcp_bridge_path_guard;
 mod mcp_config;

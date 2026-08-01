@@ -12,6 +12,11 @@
  *   - Clean exit (code 0) closes the tab — and hides the panel when it was
  *     the last session (#1103). Non-zero exits keep the buffer open with a
  *     "press any key to restart" prompt so the failure stays readable.
+ *   - EVERY exit is logged at warn level, which reaches the Tauri log in
+ *     production. A clean exit tears the whole panel down with nothing left on
+ *     screen to explain it, so without this line "the terminal closed by
+ *     itself" is indistinguishable from a crash — and the log had nothing to
+ *     say about it when that was reported.
  *   - A new terminal inherits a live sibling's cwd (OSC 7), else falls back
  *     to workspace-or-file resolution.
  *   - Spawn failures mark the session dead and prompt "press any key".
@@ -30,6 +35,7 @@
 import { useCallback } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { errorMessage } from "@/utils/errorMessage";
+import { terminalWarn } from "@/utils/debug";
 import {
   spawnPty,
   resolveTerminalCwd,
@@ -145,6 +151,12 @@ export function useTerminalShellLifecycle(
             // Ignore a stale exit from a PTY superseded by a restart.
             if (!e || e.disposed || e.spawnGen !== gen) return;
             detachExitedPty(e);
+            // A clean exit tears the panel down with nothing on screen to
+            // explain it, so this line is the only evidence that the terminal
+            // "closed by itself" was a shell exit and not a crash. Warn level
+            // because createWarnLogger forwards to the Tauri log in production,
+            // where the user is actually looking.
+            terminalWarn(`session ${sessionId} exited`, { sessionId, exitCode });
             if (exitCode === 0) {
               closeSessionOnCleanExit(sessionId);
             } else {

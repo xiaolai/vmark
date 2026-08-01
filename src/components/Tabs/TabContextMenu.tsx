@@ -42,7 +42,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
-import { useTabStore, tabFilePath, type Tab } from "@/stores/tabStore";
+import { useVisibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
+import { tabFilePath, type Tab } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
@@ -89,7 +90,9 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
   /* v8 ignore next -- @preserve reason: ?? [] fallback for missing windowLabel key; windowLabel always valid in tests */
-  const tabs = useTabStore((state) => state.tabs[windowLabel] ?? []);
+  // WI-12.4: bulk actions (Close Others/Right/All) target the VISIBLE set —
+  // hidden instances' tabs are never closed by a visible-context sweep.
+  const tabs = useVisibleWindowTabs(windowLabel);
   const doc = useDocumentStore((state) => state.documents[tab.id]);
   const workspaceRoot = useWorkspaceStore((state) => state.rootPath);
   const closeShortcut = useShortcutsStore((state) => state.getShortcut("closeFile"));
