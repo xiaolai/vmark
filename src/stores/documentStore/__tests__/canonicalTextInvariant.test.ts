@@ -75,7 +75,7 @@ describe("setEditorContent rejects non-canonical text in development", () => {
   it("still updates dirty state like the action it replaces", () => {
     vi.stubEnv("DEV", true);
     const store = useDocumentStore.getState();
-    store.initDocument(TAB, "original", null, "original");
+    store.initDocument(TAB, "original", null, { savedContent: "original" });
     expect(useDocumentStore.getState().documents[TAB]?.isDirty).toBe(false);
     store.setEditorContent(TAB, "changed");
     expect(useDocumentStore.getState().documents[TAB]?.isDirty).toBe(true);

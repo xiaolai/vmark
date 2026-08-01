@@ -27,6 +27,7 @@
  * @module stores/documentStore/documentState
  */
 
+import type { TransferLineMetadata } from "@/utils/transferLineMetadata";
 import type { CursorInfo } from "@/types/cursorSync";
 import { ingestExternalText } from "@/utils/editorText";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
@@ -87,6 +88,19 @@ export interface DocumentState {
  * external-change detection and `lineEndingsOnSave: "preserve"` need what is
  * actually in the file rather than what the editor shows.
  */
+/**
+ * A transferred document's saved state plus the file convention it carries.
+ *
+ * `initDocument`'s fourth parameter used to be a bare `savedContent?: string`,
+ * which blurred two domains — the canonical saved text and the raw disk
+ * snapshot were both taken from it — and had no room for `lineEnding` or
+ * `hasBom` at all. Canonical content cannot express them, so a CRLF+BOM file
+ * moved between windows came back LF and BOM-less on its first save.
+ */
+export interface DocumentRestoreState extends TransferLineMetadata {
+  savedContent: string;
+}
+
 export const createInitialDocument = (
   content = "",
   filePath: string | null = null

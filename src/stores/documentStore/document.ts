@@ -25,7 +25,8 @@ import type { CursorInfo } from "@/types/cursorSync";
 import { ingestExternalText } from "@/utils/editorText";
 import { INGEST_ORIGIN_SNAPSHOT, type IngestOrigin } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
-import type { DocumentState, SaveSnapshots } from "./documentState";
+import { applyTransferLineMetadata } from "@/utils/transferLineMetadata";
+import type { DocumentRestoreState, DocumentState, SaveSnapshots } from "./documentState";
 import {
   assertCanonicalEditorText,
   buildPostSaveState,
@@ -41,14 +42,20 @@ import { useRevisionStore } from "./revision";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
-export type { DocumentState } from "./documentState";
+export type { DocumentRestoreState, DocumentState } from "./documentState";
 
 interface DocumentStore {
   // Documents keyed by tab ID (changed from window label)
   documents: Record<string, DocumentState>;
 
   // Actions - now take tabId instead of windowLabel
-  initDocument: (tabId: string, content?: string, filePath?: string | null, savedContent?: string) => void;
+  /** Create (or reset) a document; `restore` carries a TRANSFER's state. */
+  initDocument: (
+    tabId: string,
+    content?: string,
+    filePath?: string | null,
+    restore?: DocumentRestoreState
+  ) => void;
   /**
    * EDITOR-domain write: the caller guarantees canonical text (LF, no BOM).
    * Asserts that in development; performs no scan in production.
@@ -147,20 +154,26 @@ function bumpRevisionIfContentChanged(
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
 
-  initDocument: (tabId, content = "", filePath = null, savedContent?) => {
+  initDocument: (tabId, content = "", filePath = null, restore?) => {
     // Defense-in-depth (C1): don't resurrect an orphan entry for a tab closed
     // mid-read. No-op when the guard reports it gone; permissive when unwired.
     if (tabExistsGuard && !tabExistsGuard(tabId)) {
       return;
     }
     const doc = createInitialDocument(content, filePath);
-    if (savedContent !== undefined) {
+    if (restore) {
       // Both sides through the same boundary before comparing — a raw
       // `savedContent` reported every CRLF or BOM'd document dirty on open.
-      const canonicalSaved = ingestExternalText(savedContent).canonicalEditorText;
+      const canonicalSaved = ingestExternalText(restore.savedContent).canonicalEditorText;
       doc.savedContent = canonicalSaved;
-      doc.lastDiskContent = savedContent;
+      // The DISK snapshot, when the sender has one. Falling back to the
+      // canonical text is the old behaviour and the best available guess.
+      doc.lastDiskContent = restore.lastDiskContent ?? restore.savedContent;
       doc.isDirty = canonicalSaved !== doc.content;
+      // The file's convention, which canonical text erased. `createInitialDocument`
+      // derives hardBreakStyle (it survives canonicalisation) but cannot know
+      // lineEnding or hasBom — only the sender does.
+      Object.assign(doc, applyTransferLineMetadata(restore));
     }
     set((state) => ({
       documents: { ...state.documents, [tabId]: doc },

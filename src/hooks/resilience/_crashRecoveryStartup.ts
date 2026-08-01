@@ -213,6 +213,6 @@ function restoreSnapshot(
   // Create empty-clean, then apply the recovered content as a crash-recovery
   // EDIT: dirty against the empty baseline (recovered work IS unsaved), with
   // the snapshot's line convention derived — this path never set metadata.
-  useDocumentStore.getState().initDocument(tabId, "", snapshot.filePath, "");
+  useDocumentStore.getState().initDocument(tabId, "", snapshot.filePath, { savedContent: "" });
   useDocumentStore.getState().ingestExternalContent(tabId, snapshot.content, "crash-recovery");
 }

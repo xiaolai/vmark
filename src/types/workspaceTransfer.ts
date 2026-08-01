@@ -1,6 +1,16 @@
+import type { TransferLineMetadata } from "@/utils/transferLineMetadata";
+
 export type WorkspaceWindowOperation = "move" | "duplicate";
 
-export interface WorkspaceTransferTabPayload {
+/**
+ * A tab moving between workspace windows.
+ *
+ * Extends `TransferLineMetadata` for the same reason `TabTransferPayload`
+ * does: `content` and `savedContent` are canonical editor text and cannot
+ * carry the file's line ending or BOM, so a CRLF+BOM file moved here was
+ * rewritten LF and BOM-less on its first save under `preserve`.
+ */
+export interface WorkspaceTransferTabPayload extends TransferLineMetadata {
   tabId: string;
   title: string;
   filePath: string | null;

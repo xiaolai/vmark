@@ -88,7 +88,7 @@ const ROWS: Record<
     // An EDIT: recovered work stays dirty against the empty baseline the
     // recovery path creates first.
     setup: (raw) => {
-      useDocumentStore.getState().initDocument(TAB, "", "/m.md", "");
+      useDocumentStore.getState().initDocument(TAB, "", "/m.md", { savedContent: "" });
       useDocumentStore.getState().ingestExternalContent(TAB, raw, "crash-recovery");
     },
     baseline: false,

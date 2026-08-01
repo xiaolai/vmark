@@ -24,6 +24,7 @@ import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { getRelativePath, isWithinRoot } from "@/utils/paths";
 import { restoreTransferredTab } from "@/components/StatusBar/tabTransferActions";
 import type { TabTransferPayload } from "@/types/tabTransfer";
+import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import i18n from "@/i18n";
@@ -127,10 +128,8 @@ export function useTabContextMenuActions({
       tabId: tab.id,
       title: tab.title,
       filePath,
-      content: doc.content,
-      savedContent: doc.savedContent,
-      isDirty: doc.isDirty,
       workspaceRoot: workspaceRoot ?? null,
+      ...buildTransferDocumentFields(doc),
     };
 
     try {

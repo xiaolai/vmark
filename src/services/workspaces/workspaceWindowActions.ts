@@ -108,12 +108,13 @@ export async function applyClaimedWorkspaceTransfer(
       editingEnabled: tab.editingEnabled,
       activeSchemaId: tab.activeSchemaId,
     });
-    useDocumentStore.getState().initDocument(
-      tabId,
-      tab.content,
-      tab.filePath,
-      tab.savedContent,
-    );
+    useDocumentStore.getState().initDocument(tabId, tab.content, tab.filePath, {
+      savedContent: tab.savedContent,
+      lineEnding: tab.lineEnding,
+      hardBreakStyle: tab.hardBreakStyle,
+      hasBom: tab.hasBom,
+      lastDiskContent: tab.lastDiskContent,
+    });
     useDocumentStore.getState().setReadOnly(tabId, tab.readOnly);
   }
 

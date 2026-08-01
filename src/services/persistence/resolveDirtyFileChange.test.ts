@@ -57,7 +57,7 @@ const doc = () => useDocumentStore.getState().documents[TAB];
 beforeEach(() => {
   vi.clearAllMocks();
   useDocumentStore.setState({ documents: {} });
-  useDocumentStore.getState().initDocument(TAB, "on disk\n", PATH, "on disk\n");
+  useDocumentStore.getState().initDocument(TAB, "on disk\n", PATH, { savedContent: "on disk\n" });
   mockReadTextFile.mockResolvedValue("on disk\n");
   mockSaveToPath.mockResolvedValue(true);
   mockReloadTabFromDisk.mockResolvedValue(undefined);

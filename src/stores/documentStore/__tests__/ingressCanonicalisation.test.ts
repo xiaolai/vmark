@@ -50,13 +50,13 @@ describe("initDocument canonicalises", () => {
     // A CRLF file restored with its own text as savedContent must come back
     // CLEAN. Comparing canonical content against raw savedContent made every
     // CRLF document dirty the moment it opened.
-    useDocumentStore.getState().initDocument(TAB, "a\r\nb", "/f.md", "a\r\nb");
+    useDocumentStore.getState().initDocument(TAB, "a\r\nb", "/f.md", { savedContent: "a\r\nb" });
     expect(doc()?.savedContent).toBe("a\nb");
     expect(doc()?.isDirty).toBe(false);
   });
 
   it("still reports dirty when saved and current genuinely differ", () => {
-    useDocumentStore.getState().initDocument(TAB, "a\r\nb", "/f.md", "different");
+    useDocumentStore.getState().initDocument(TAB, "a\r\nb", "/f.md", { savedContent: "different" });
     expect(doc()?.isDirty).toBe(true);
   });
 
@@ -110,7 +110,7 @@ describe("BOM convergence (decision D1): every door strips, the flag remembers",
   });
 
   it("initDocument canonicalises an explicit savedContent's BOM the same way", () => {
-    useDocumentStore.getState().initDocument(TAB, `${BOM}a`, "/f.md", `${BOM}a`);
+    useDocumentStore.getState().initDocument(TAB, `${BOM}a`, "/f.md", { savedContent: `${BOM}a` });
     expect(doc()?.savedContent).toBe("a");
     expect(doc()?.isDirty).toBe(false);
   });

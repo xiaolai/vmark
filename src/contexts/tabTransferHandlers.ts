@@ -69,7 +69,15 @@ export async function applyTabTransferData(
     isPinned: false,
   });
   useTabStore.getState().updateTabTitle(tabId, data.title);
-  useDocumentStore.getState().initDocument(tabId, data.content, data.filePath, data.savedContent);
+  useDocumentStore.getState().initDocument(tabId, data.content, data.filePath, {
+    savedContent: data.savedContent,
+    // The file's convention travels with the payload; canonical content
+    // cannot carry it, so without this a CRLF+BOM file arrived LF-only.
+    lineEnding: data.lineEnding,
+    hardBreakStyle: data.hardBreakStyle,
+    hasBom: data.hasBom,
+    lastDiskContent: data.lastDiskContent,
+  });
   if (data.filePath) {
     useRecentFilesStore.getState().addFile(data.filePath);
   }
