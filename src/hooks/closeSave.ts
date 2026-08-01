@@ -70,10 +70,7 @@ import {
   dispatchEditor,
   getFormatById,
 } from "@/lib/formats/registry";
-
-const MARKDOWN_FALLBACK_FILTERS = [
-  { name: "Markdown", extensions: ["md"] },
-];
+import { resolveSaveFilters, markdownSaveFilters } from "@/lib/formats/saveFilters";
 
 function saveFiltersForFilePath(
   filePath: string | null,
@@ -82,16 +79,10 @@ function saveFiltersForFilePath(
     const cfg = filePath
       ? dispatchEditor(filePath)
       : (getFormatById("markdown") ?? dispatchEditor(null));
-    return cfg.adapters.saveDialogFilters.map((f) => ({
-      name: f.name,
-      extensions: [...f.extensions],
-    }));
+    return resolveSaveFilters(cfg);
   } catch {
-    /* registry not bootstrapped (test edge) — preserve prior behavior */
-    return MARKDOWN_FALLBACK_FILTERS.map((f) => ({
-      ...f,
-      extensions: [...f.extensions],
-    }));
+    /* registry not bootstrapped (test edge) — one shared markdown fallback */
+    return markdownSaveFilters();
   }
 }
 

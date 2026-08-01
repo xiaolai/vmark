@@ -142,7 +142,7 @@ export const markdownFormat: FormatConfig = {
   wysiwygComponent: MarkdownEditorSurface,
   adapters: {
     saveDialogFilters: [
-      { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
+      { nameI18nKey: "format.markdown", extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
     ],
     untitledExtension: "md",
     exportEnabled: true,

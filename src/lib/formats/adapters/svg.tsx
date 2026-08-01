@@ -115,7 +115,7 @@ export const svgFormat: FormatConfig = {
   validator: svgValidator,
   genericPreview: SvgPreview,
   adapters: {
-    saveDialogFilters: [{ name: "SVG", extensions: ["svg"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.svg", extensions: ["svg"] }],
     untitledExtension: "svg",
     exportEnabled: false,
     findEnabled: true,

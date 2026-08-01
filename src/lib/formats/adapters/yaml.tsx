@@ -199,7 +199,7 @@ export const yamlFormat: FormatConfig = {
     "gha-workflow": GhaWorkflowSchemaRenderer,
   },
   adapters: {
-    saveDialogFilters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.yaml", extensions: ["yaml", "yml"] }],
     untitledExtension: "yaml",
     exportEnabled: false,
     findEnabled: true,
