@@ -65,6 +65,8 @@ vi.mock("@/stores/tabStore", () => ({
       tabs: { main: [] },
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
+      // loadFileIntoTab re-checks the tab after its await (close-during-read).
+      findTabById: vi.fn((id: string) => ({ id })),
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
       getActiveTab: mockGetActiveTab,
