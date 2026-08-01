@@ -14,14 +14,18 @@
  * @coordinates-with listDetection.ts — getListItemInfo produces ListItemInfo
  * @module plugins/sourceContextDetection/listMutations
  */
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { EditorView } from "@codemirror/view";
-import { useSettingsStore } from "@/stores/settingsStore";
 import type { ListItemInfo } from "./listMarkerParsing";
 import { parseListMarker } from "./listMarkerParsing";
 
 /** Get the tab size from settings. */
 export function getTabSize(): number {
-  return useSettingsStore.getState().general.tabSize;
+  // Read through the host seam, not the app's store. Three call sites across
+  // two modules sit well below this plugin's entry point, so an extension
+  // option cannot reach them without threading a parameter through every
+  // intermediate signature — see plugins/shared/hostSettings.ts.
+  return hostSettings.tabSize();
 }
 
 /**

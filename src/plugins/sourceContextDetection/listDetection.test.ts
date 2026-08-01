@@ -3,16 +3,15 @@
  * in source mode.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { EditorState, EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
-// Mock settingsStore
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({ general: { tabSize: 2 } }),
-  },
-}));
+// The tab size arrives through the plugins' host-settings seam, not the app's
+// store — these plugins no longer import it (ADR-015). Binding here is what the
+// app does at its composition root.
+bindHostSettings({ tabSize: () => 2 });
 
 import {
   getListItemInfo,

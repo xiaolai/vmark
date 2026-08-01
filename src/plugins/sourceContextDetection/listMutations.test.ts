@@ -7,15 +7,15 @@
  *
  * @module plugins/sourceContextDetection/listMutations.test
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { EditorState, EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({ general: { tabSize: 2 } }),
-  },
-}));
+// Tab size arrives through the plugins' host-settings seam, not the app's
+// store — this plugin no longer imports it (ADR-015). Binding here is what the
+// app does at its composition root.
+bindHostSettings({ tabSize: () => 2 });
 
 import { getListItemInfo } from "./listDetection";
 import {
