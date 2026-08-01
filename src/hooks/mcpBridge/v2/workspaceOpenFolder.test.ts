@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 // open_workspace handler — fail-now -> approve -> AI-retry (plan WI-1.5).
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
@@ -132,5 +134,40 @@ describe("handleWorkspaceOpenWorkspace", () => {
 
     expect(responses[0].success).toBe(false);
     expect(String(responses[0].error)).toContain("RESOURCE_EXHAUSTED");
+  });
+});
+
+describe("windowLabel is ignored, and that is a security property", () => {
+  // Honouring a client-supplied label would let a caller raise the approval
+  // dialog in the window the user is looking at while opening the folder in a
+  // different one — consent for one thing, effect on another. Rust does not
+  // route by windowLabel, so nothing downstream re-checks it.
+  //
+  // Asserted at SOURCE level rather than by spying: a behavioural spy passes
+  // vacuously when the spied function is simply never called, which is the
+  // failure mode this repo keeps finding in its own gates. Reading the code is
+  // the only check that stays true when the handler is rewritten.
+  const handler = readFileSync(join(__dirname, "workspaceOpenFolder.ts"), "utf8");
+
+  it("never reads args.windowLabel", () => {
+    expect(handler).not.toMatch(/args\.windowLabel/);
+  });
+
+  it("binds to the delivering window explicitly", () => {
+    expect(handler).toContain("getCurrentWindowLabel()");
+  });
+
+  it("the sidecar does not forward it either", () => {
+    // Sending a field the handler ignores advertised a parameter that silently
+    // did nothing — the defect was the ADVERTISEMENT, not the routing.
+    const tool = readFileSync(
+      join(__dirname, "../../../../server/mcp/src/tools/workspace.ts"),
+      "utf8"
+    );
+    const openWorkspaceCall = tool.slice(
+      tool.indexOf("vmark.workspace.open_workspace"),
+      tool.indexOf("vmark.workspace.open_workspace") + 300
+    );
+    expect(openWorkspaceCall).not.toMatch(/^\s*windowLabel,$/m);
   });
 });
