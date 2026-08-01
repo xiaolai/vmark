@@ -131,6 +131,27 @@ What remains is a POSITIONAL-INFO ADAPTER over `fenceRanges` so
   tree equality) and D5 (Source-only; no Markdown↔ProseMirror position map)
   from the plan apply to this work and are not re-litigated here.
 
+## Carried in from the R11 re-review (2026-08-01): the two orphaned Phase 2 items
+
+WI-2.2 and WI-2.3 moved here from the plan's Phase 2. Both existed to feed
+consumers that live in THIS document — WI-2.2 drives the Phase 5 deferral gate
+and the large-file sweep; WI-2.3's migration manifest scopes WI-7.1 and WI-8.1 —
+so building them in Phase 2 would produce dormant manifests that drift before
+the structure service returns.
+
+Two corrections the re-review supplied, to apply when they are revived:
+
+- **WI-2.2's key space is wrong.** Its exhaustiveness test equates the manifest
+  with `COVERED_ACTIONS`, which excludes the 19 uncovered actions, the
+  surface-exclusive ones, and the dynamic heading levels — so it cannot prove
+  its own "every action" criterion, nor drive an all-action refusal gate. Use
+  the dispatcher's real vocabulary: `ADAPTER_ACTION_IDS` plus `heading:0-6`.
+- **Its binary is wrong post-Phase-1.** "Structure-dependent or textual" does
+  not describe line-ending actions, which WI-1.7 made METADATA-ONLY, nor
+  selection-only, history or popup-driven actions. Prefer an operational field
+  (`structureRequirement: "required" | "independent"`) plus a separate
+  action-kind, rather than forcing one axis to carry both.
+
 ---
 
 # The work items as drafted
@@ -330,3 +351,63 @@ reversed.
 
 ---
 
+---
+
+## Moved from Phase 2 (rev 4) — verbatim
+
+### WI-2.2: Classify every action as structure-dependent or textual
+- **Description**: A typed, exhaustive manifest. Drives the Phase 5 deferral gate and the large-file sweep.
+- **Acceptance criteria**:
+  - [ ] Every action has exactly one classification; no default, no fallthrough.
+  - [ ] A gate fails when an action is added unclassified.
+  - [ ] The manifest is the single source consumed by the dispatcher.
+- **Required tests**:
+  - **[RED]** exhaustiveness: manifest keys equal `COVERED_ACTIONS` both directions — Level 1
+  - A synthetic unclassified action fails the gate — Level 1
+
+### WI-2.3: Enumerate the migration set
+- **Description**: Review D2-5 — "destructive block actions" and "remaining semantic queries" were never enumerated, so per-action tests could not be written and an implementer could declare a partial subset complete.
+- **Acceptance criteria**:
+  - [ ] A checked manifest maps **every** action and semantic query to: migration phase, resolver, selection unit, fallback policy, and test fixture.
+  - [ ] WI-7.1 and WI-8.1 derive their scope from this manifest, not from prose.
+- **Required tests**:
+  - **[RED]** every entry in the action manifest appears in the migration manifest — Level 1
+
+---
+
+---
+
+## Moved from Phase 3 (rev 4): WI-3.3's action × surface sweep
+
+WI-3.3 was SPLIT by the R11 re-review. Its parser-flavour fixtures fold into
+WI-3.2's conformance corpus and stay in the plan; the action × surface
+characterisation sweep moves here, with WI-7.2 — which owns the zero-parity DoD
+that was its closing condition.
+
+Three corrections to apply when it is revived:
+
+- **The ratchet was incompatible.** Rev 3 allowed raising the divergence ceiling
+  only when `MAX_UNCOVERED_ACTIONS` drops. But adding content fixtures expands
+  FIXTURE coverage, not ACTION coverage, so a newly exposed divergence could not
+  legally be recorded at all. A separate fixture-coverage ratchet is needed, or
+  the sweep waits for WI-7.2 where zero divergence is the condition again.
+- **The CRLF fixture is DROPPED, not deferred.** CodeMirror canonicalises CRLF
+  on state construction while the WYSIWYG harness parses the raw string, so the
+  fixture measures HARNESS SKEW, not action behaviour — it would paint every
+  action divergent. Origin × line-ending parity is already owned by WI-1.9,
+  which exercises it through the real ingress boundary.
+- **The harness targets text substrings.** Frontmatter and TOC are atom nodes,
+  so a needle placed in body text never exercises actions AT those constructs —
+  a large green matrix proving nothing. Semantic targets are needed ("inside
+  node", "before atom", "select node", "cross boundary"), independently resolved
+  per surface, with an assertion that the intended construct was actually hit.
+
+### WI-3.3: Add flavour fixtures as characterisation
+- **Description**: Review D5-2 — rev 1 demanded parity stay at zero the moment these fixtures landed, which would force premature action rewrites before the index and deferral gate exist. The fixtures land here as **characterisation**; zero parity on them becomes the **Phase 7 DoD**.
+- **Acceptance criteria**:
+  - [ ] Fixtures for frontmatter, details, block math, alerts, TOC, CRLF.
+  - [ ] Divergences they expose are **recorded**, with the ceiling raised only in the same commit that lowers `MAX_UNCOVERED_ACTIONS` — the existing ratchet rule.
+  - [ ] WI-7.1's DoD requires those entries back to zero.
+- **Required tests**:
+  - **[CHAR]** full action × new-fixture × selection-shape sweep, recording current behaviour
+  - **[RED]** coverage contract: the partition covers every declared content class — Level 1
