@@ -7,8 +7,7 @@
  *   - Hot exit restore waiting
  *   - Pending file queue from Rust (cold start path)
  *   - Hot open: app:open-file event when app is already running (warm path)
- *   - Workspace adoption, different workspace (new window)
- *   - Error handling in loadFileIntoTab
+ *   - Workspace adoption, different workspace (new window), loadFileIntoTab errors
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -60,6 +59,7 @@ vi.mock("@/stores/tabStore", () => ({
     getState: () => ({
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
+      findTabById: vi.fn((id: string) => ({ id })), // close-during-read re-check
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
       getActiveTab: mockGetActiveTab,

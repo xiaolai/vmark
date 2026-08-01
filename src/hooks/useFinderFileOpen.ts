@@ -42,15 +42,15 @@ interface PendingFileOpen {
  * Load file content into a tab (new or existing).
  * Throws on read failure so callers can handle cleanup.
  */
-export async function loadFileIntoTab(
-  tabId: string,
-  path: string,
-  ): Promise<void> {
+export async function loadFileIntoTab(tabId: string, path: string): Promise<void> {
   const content = await readTextFile(path);
-  // WI-1B.6 / WI-2.6 — registry-driven mode dispatch. .yaml / .yml
-  // route to the YAML adapter (kind: "split-pane"), so no
-  // force-source is needed. The disk-open ingest creates the document when
-  // the tab is new and replaces it otherwise — one door for both branches.
+  // Close-during-open guard, mirroring fileOpen.ts (WI-0.2, C1) — writing now
+  // would resurrect an orphan document for a tab closed mid-read.
+  if (!useTabStore.getState().findTabById(tabId)) return;
+
+  // WI-1B.6 / WI-2.6 — registry-driven mode dispatch: .yaml/.yml route to the
+  // YAML adapter (split-pane), so no force-source is needed. The disk-open
+  // ingest creates the document when new and replaces it otherwise.
   useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
     filePath: path,
   });
