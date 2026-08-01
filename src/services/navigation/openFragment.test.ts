@@ -114,3 +114,17 @@ describe("refuses work it should not do", () => {
     expect(navigateToHeadingById.mock.calls.length).toBe(1);
   });
 });
+
+describe("a window teardown cancels pending navigation", () => {
+  it("stops retrying once the owner is disposed", async () => {
+    // A queued callback must not run against a torn-down window's store.
+    const { getEditorActionOwner } = await import("@/services/editor/editorActionOwner");
+    navigateToFragmentWhenReady("doomed-window", "h");
+
+    getEditorActionOwner("doomed-window").dispose();
+    setActiveEditor(mountedEditor);
+    vi.advanceTimersByTime(60_000);
+
+    expect(navigateToHeadingById).not.toHaveBeenCalled();
+  });
+});

@@ -371,3 +371,14 @@ describe("link and image targets are PARSED, not left empty", () => {
     expect(at(doc, "[two]").inLink?.href).toBe("./b.md");
   });
 });
+
+describe("a link with no destination yields an empty target", () => {
+  it("returns \"\" when the line holds no matching link at all", () => {
+    // The `?? ""` fallback: an inline element detected as a link whose text
+    // the canonical parser does not match must not report a stale url.
+    const view = createView("[unclosed](\n", 2);
+    const ctx = computeSourceCursorContext(view);
+    view.destroy();
+    expect(ctx.inLink?.href ?? "").toBe("");
+  });
+});

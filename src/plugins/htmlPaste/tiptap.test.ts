@@ -49,7 +49,25 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 function createEditor(content = "<p></p>") {
   return new Editor({
-    extensions: [StarterKit, htmlPasteExtension],
+    // Configured as the HOST does. The plugin no longer reads the settings
+    // store itself — that coupling is what stopped it shipping standalone
+    // (ADR-015) — so the mocked store below reaches it through this getter,
+    // exactly as the real app's mapping does.
+    extensions: [
+      StarterKit,
+      htmlPasteExtension.configure({
+        getPasteSettings: () => {
+          const markdown = useSettingsStore.getState().markdown as {
+            pasteMode?: "smart" | "plain" | "rich";
+            preserveLineBreaks?: boolean;
+          };
+          return {
+            pasteMode: markdown.pasteMode ?? "smart",
+            preserveLineBreaks: markdown.preserveLineBreaks ?? false,
+          };
+        },
+      }),
+    ],
     content,
   });
 }
