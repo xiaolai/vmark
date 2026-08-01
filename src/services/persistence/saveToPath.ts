@@ -12,8 +12,14 @@
  *     exceed 500ms under heavy I/O: Rust debounce + emit + JS event loop + readFile)
  *   - Line ending and hard break normalization applied on save (not in-memory)
  *     to preserve the original editing experience while writing clean files
- *   - History snapshots are fire-and-forget — failures don't block save success,
- *     but the first failure per session warns the user so silent breakage is visible
+ *   - History snapshot FAILURES don't block save success (the first per session
+ *     warns the user so silent breakage is visible), but the call is AWAITED:
+ *     `saveToPath` does not resolve until the snapshot settles. That is
+ *     deliberate for close flows, which need best-effort completion before the
+ *     window goes — but it means a hung history backend holds the save promise
+ *     open after the file and stores are already updated. A bounded timeout is
+ *     the fix if that ever bites; "fire-and-forget" described the ERROR policy,
+ *     not the scheduling, and the two read alike
  *   - Auto-save skips recent files list AND skips error toasts to avoid spam on
  *     a flaky disk; the user didn't initiate the action and the next manual save
  *     will surface the error
