@@ -125,9 +125,12 @@ describe("saveToPath", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     nextMockToken = 1;
-    // Reset module-level snapshot-failure flag between tests
-    const mod = await import("./saveToPath");
-    if ("__resetSessionFlags" in mod) (mod as { __resetSessionFlags: () => void }).__resetSessionFlags();
+    // Reset module-level snapshot-failure flag between tests (moved to
+    // saveHistorySnapshot.ts when saveToPath was split for the save queue).
+    const mod = await import("./saveHistorySnapshot");
+    if ("__resetSnapshotFlags" in mod) (mod as { __resetSnapshotFlags: () => void }).__resetSnapshotFlags();
+    const serializer = await import("./serializeByPath");
+    serializer.__resetSerializer();
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,

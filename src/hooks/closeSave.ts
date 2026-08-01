@@ -12,11 +12,9 @@
  *   - Single-doc prompt returns per-file result; multi-doc prompt returns aggregate
  *   - Save As for untitled docs uses getDefaultSaveFolderWithFallback()
  *   - Never calls store mutations directly — returns result for caller to handle
- *   - Save-dialog filters come from the format registry via `resolveSaveFilters`
- *     (localized names); the pre-bootstrap fallback is the SHARED
- *     `markdownSaveFilters()`, not a local copy. The local copy used to list
- *     only `.md`, so a `.mdx` file was invisible here but selectable in the
- *     open dialog.
+ *   - Filters come from the registry via `resolveSaveFilters` (localized); the
+ *     pre-bootstrap fallback is the SHARED `markdownSaveFilters()`. The local
+ *     copy it replaced listed only `.md`, hiding `.mdx` files here alone.
  *
  * @coordinates-with lib/formats/saveFilters.ts — filter resolution
  * @coordinates-with useWindowClose.ts — calls promptSaveForMultipleDocuments
@@ -69,13 +67,9 @@ const MULTI_SAVE_BUTTONS = {
   cancel: "Cancel",
 } as const;
 
-// WI-1B.8 — derive Save dialog filters per-tab from the format
-// registry. Untitled tabs default to markdown (the canonical "Save As"
-// flow); existing tabs use their format's adapter filters.
-import {
-  dispatchEditor,
-  getFormatById,
-} from "@/lib/formats/registry";
+// WI-1B.8 — Save dialog filters come per-tab from the format registry.
+// Untitled tabs default to markdown (the canonical "Save As" flow).
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import { resolveSaveFilters, markdownSaveFilters } from "@/lib/formats/saveFilters";
 
 function saveFiltersForFilePath(
