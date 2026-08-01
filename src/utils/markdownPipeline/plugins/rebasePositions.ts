@@ -65,6 +65,18 @@ export function originWithin(
   bodyStart: number,
   hostStart: RebaseOrigin,
 ): RebaseOrigin {
+  // Reject rather than fabricate. A bodyStart past the host produced an offset
+  // that far forward and a column to match, both describing a place the
+  // document does not have — coordinates that look valid and address nothing.
+  // An earlier test here asserted only that it "does not throw", which blessed
+  // exactly that.
+  if (!Number.isInteger(bodyStart) || bodyStart < 0 || bodyStart > hostValue.length) {
+    throw new RangeError(
+      `originWithin: bodyStart ${bodyStart} is outside the host value ` +
+        `(length ${hostValue.length}) — the caller's offsets disagree.`,
+    );
+  }
+
   let line = hostStart.line;
   let lastBreak = -1;
   for (let i = 0; i < bodyStart && i < hostValue.length; i += 1) {

@@ -31,6 +31,7 @@ import { visit } from "unist-util-visit";
 import type { Details } from "../types";
 import { getDetailsBodyParser } from "./detailsBodyParser";
 import { originWithin, rebasePositions, type RebaseOrigin } from "./rebasePositions";
+import { detailsHandler, type DetailsHandlerState } from "./detailsSerializer";
 
 interface ToMarkdownExtension {
   handlers?: Record<string, DetailsHandler>;
@@ -43,14 +44,6 @@ type DetailsHandler = (
   info: { before: string; after: string }
 ) => string;
 
-interface DetailsHandlerState {
-  enter: (constructName: string) => () => void;
-  containerFlow: (node: { children: Content[] }, info: { before: string; after: string }) => string;
-  createTracker: (info: { before: string; after: string }) => {
-    move: (value: string) => string;
-    current: () => { before: string; after: string };
-  };
-}
 
 const DETAILS_OPEN_RE = /<details\b[^>]*>/i;
 const DETAILS_CLOSE_RE = /<\/details>/i;
@@ -168,8 +161,24 @@ function isDetailsClose(value: string): boolean {
   return DETAILS_CLOSE_RE.test(value.trim());
 }
 
+/**
+ * Whether the opening tag carries a real `open` ATTRIBUTE.
+ *
+ * `/\bopen\b/i` over the whole value matched `data-open="false"` and
+ * `data-state="open"` — an attribute NAME and a VALUE, neither of which opens
+ * anything — so a collapsed block rendered expanded. The attribute list is
+ * isolated first, then matched on attribute boundaries.
+ */
+function hasOpenAttribute(value: string): boolean {
+  const tag = /<details\b([^>]*)>/i.exec(value);
+  if (!tag) return false;
+  // Drop quoted values, so `data-state="open"` cannot contribute a match.
+  const attributes = tag[1].replace(/=\s*("[^"]*"|'[^']*')/g, "=");
+  return /(?:^|\s)open(?:\s|=|$)/i.test(attributes);
+}
+
 function parseDetailsOpen(value: string): { open: boolean; summary: string } {
-  const open = /\bopen\b/i.test(value);
+  const open = hasOpenAttribute(value);
   const summaryMatch = value.match(SUMMARY_RE);
   const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
   return { open, summary };
@@ -240,7 +249,18 @@ function extractSummaryFromChildren(
     return { children };
   }
 
-  const summaryMatch = first.value?.match(SUMMARY_RE);
+  // The summary must be THIS block's, which means the html child has to BEGIN
+  // with it. Searching anywhere in the child let a nested compact
+  // `<details><summary>Inner</summary>…</details>` donate its summary to the
+  // outer block — and because the whole child was then consumed as the
+  // summary, the nested block and its content were DISCARDED. Measured: an
+  // outer block titled "Outer" came back titled "Inner" with no children.
+  const value = first.value ?? "";
+  if (!/^\s*<summary>/i.test(value)) {
+    return { children };
+  }
+
+  const summaryMatch = value.match(SUMMARY_RE);
   if (!summaryMatch) {
     return { children };
   }
@@ -263,36 +283,4 @@ function parseDetailsBody(markdown: string, origin?: RebaseOrigin): Content[] {
   // this they are well-formed offsets pointing at unrelated text.
   if (origin) rebasePositions(children, origin);
   return children;
-}
-
-function detailsHandler(
-  node: Details,
-  _parent: unknown,
-  state: DetailsHandlerState,
-  info: { before: string; after: string }
-): string {
-  const exit = state.enter("details");
-  const tracker = state.createTracker(info);
-  const openAttr = node.open ? " open" : "";
-
-  let value = tracker.move(`<details${openAttr}>`);
-  value += tracker.move("\n");
-  value += tracker.move(`<summary>${escapeHtml(node.summary ?? "Details")}</summary>`);
-  value += tracker.move("\n\n");
-
-  const content = state.containerFlow(node, tracker.current()).trimEnd();
-  value += tracker.move(content);
-  value += tracker.move("\n");
-  value += tracker.move("</details>");
-
-  exit();
-  return value;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

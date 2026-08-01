@@ -56,10 +56,20 @@ describe("originWithin", () => {
     expect(originWithin("body", 0, HOST)).toEqual({ offset: 10, line: 3, column: 1 });
   });
 
-  it("does not read past the host value when bodyStart exceeds it", () => {
-    // Defensive: a caller computing bodyStart from a regex on a different
-    // string would otherwise loop over undefined char codes.
-    expect(() => originWithin("short", 999, HOST)).not.toThrow();
+  it.each([
+    { label: "past the end", bodyStart: 999 },
+    { label: "negative", bodyStart: -1 },
+    { label: "non-integer", bodyStart: 1.5 },
+  ])("REJECTS a bodyStart that is $label", ({ bodyStart }) => {
+    // Not "does not throw" — that was the earlier assertion, and it blessed
+    // fabricated coordinates: 999 past a 5-character host returned an offset
+    // 999 forward and a column to match, describing a place the document does
+    // not have.
+    expect(() => originWithin("short", bodyStart, HOST)).toThrow(RangeError);
+  });
+
+  it("accepts a bodyStart exactly AT the end — an empty body is legitimate", () => {
+    expect(originWithin("short", 5, HOST)).toEqual({ offset: 15, line: 3, column: 6 });
   });
 });
 
