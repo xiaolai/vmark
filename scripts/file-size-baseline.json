@@ -150,7 +150,7 @@
     "src/plugins/linkCreatePopup/__tests__/LinkCreatePopupView.test.ts": 1071,
     "src/plugins/linkPopup/tiptap.test.ts": 849,
     "src/plugins/lint/tiptap.test.ts": 1020,
-    "src/plugins/markdownCopy/tiptap.test.ts": 1178,
+    "src/plugins/markdownCopy/tiptap.test.ts": 1153,
     "src/plugins/mediaHandler/__tests__/mediaHandler.test.ts": 966,
     "src/plugins/mediaPopup/MediaPopupView.test.ts": 1462,
     "src/plugins/mediaPopup/__tests__/MediaPopupView.test.ts": 1507,
