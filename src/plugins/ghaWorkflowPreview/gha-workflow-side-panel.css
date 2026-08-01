@@ -8,7 +8,7 @@
   right: 0;
   bottom: 0;
   background: var(--bg-color);
-  border-left: var(--space-px) solid var(--border-color);
+  border-left: var(--border-thin) solid var(--border-color);
   display: flex;
   flex-direction: row;
   overflow: hidden;

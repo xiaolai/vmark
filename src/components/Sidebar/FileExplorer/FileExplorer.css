@@ -142,7 +142,7 @@
   right: var(--space-half);
   height: var(--space-half);
   background: var(--primary-color);
-  border-radius: var(--space-px);
+  border-radius: 1px;
 }
 
 .file-node-icon {
