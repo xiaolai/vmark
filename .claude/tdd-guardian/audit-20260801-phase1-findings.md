@@ -118,3 +118,44 @@ sound), and no `initDocument` caller passes raw disk text.
   something to bolt on here.
 
 "No new code defect was introduced by these five edits."
+
+
+---
+
+## All findings closed (2026-08-01)
+
+The `[OPEN — pre-existing]` tags above are stale. Every one was fixed; the
+"pre-existing, not a regression" framing was a way of narrowing scope, and it
+did not survive review. What shipped, by finding:
+
+| Finding | Fix |
+|---|---|
+| `_crashRecoveryStartup.ts:72` — dedup by filePath discards a second dirty tab's edits | Collapse only on path AND content; divergent edits all restored |
+| `_crashRecoveryStartup.ts:185` — `snapshot.title` never applied | Untitled tabs restore their original title; file-backed still derive from path |
+| `_crashRecoveryStartup.ts:54` — 94-line coordinator | Split into `restoreAll` + `reportRecovery` + a sequence |
+| `useExternalFileChanges.ts:107` — stale doc captured before two dialogs | Re-read after every await, in `resolveDirtyFileChange` |
+| `useExternalFileChanges.ts:209` — rejected batch loses the conflicts | `createBatchQueue` puts it back, one bounded retry |
+| `useExternalFileChanges.ts:253` — two schedulers, leaked timer | One `schedule()` that always clears; verified by timer count |
+| `useExternalFileChanges.ts:130` — hardcoded "Markdown" | `saveDialogFilters` carries an i18n key; 9 adapters converted |
+| `useExternalFileChanges.ts:71` — 391 lines | 256, off the size baseline |
+| `useFinderFileOpen.ts:45` — media read as UTF-8 | Media short-circuits before any read, and skips the size gate |
+| `useFinderFileOpen.ts:115` — duplicated flows, `createTab` dedup race | Branch execution moved to `finderOpenBranches.ts`; dedup pre-checked with `findTabByPath` |
+| `useFinderFileOpen.ts:378` — `pendingFetchedRef` set before the invoke | Flipped after success |
+| `fileOpen.ts:184` — hardcoded extension list | `markdownExtensions()` from the registry |
+| `fileOpen.ts:227` — swallowed workspace-open failure | Returns a result; localized warning in all 10 locales |
+| `fileOpen.ts:37` — 308 lines | 244, decision executor split out |
+| `restoreHelpers.ts:28` — sidebar bounds 150–500 vs the store's 180–480 | One definition in `uiStore`, pinned by a contract test |
+| `restoreHelpers.ts:269` — destructive rebuild, no rollback | Per-tab isolation; a failed tab is detached and reported |
+| `restoreHelpers.ts:194` — 397 lines | 218 + 209, document restoration split out |
+| `saveToPath.ts:251` — concurrent saves unordered | `serializeByPath`, per normalized path |
+| `ingestState.ts:99` — `buildLoadState` duplicates the baseline branch | Deleted, along with the `loadContent` action; both callers routed |
+| `document.ts:161` — `initDocument`'s overloaded `savedContent` | Explicit `DocumentRestoreState`; transfer payload carries line metadata on both sides |
+
+Every behavioural fix was proved RED — the defect reintroduced, the new tests
+failing — except the two pure refactors, which run the existing suites unchanged.
+
+**One thing is NOT verified:** the Rust serde mirrors in `tab_transfer.rs` and
+`workspace_transfer.rs` are `cargo fmt` clean but were never compiled. `cargo
+check` fails on this machine inside `libsqlite3-sys 0.38.1`, which needs a newer
+rustc than the installed 1.92.0. Confirmed pre-existing by stashing the change
+and re-running. CI compiles it.
