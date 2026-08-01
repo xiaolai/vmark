@@ -38,7 +38,8 @@ import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
-import { enclosingFence, stripBlockMarkup, type EnclosingFence } from "@/plugins/shared/lineContent";
+import { stripBlockMarkup } from "@/plugins/shared/lineContent";
+import { enclosingFence, type EnclosingFence } from "@/plugins/shared/fenceScanner";
 
 /** Caret lands inside the first header cell: `| ` is two characters. */
 const FIRST_CELL_OFFSET = 2;

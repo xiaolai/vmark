@@ -34,7 +34,7 @@
  * @module plugins/shared/blockSpan
  */
 
-import { fenceRanges } from "./lineContent";
+import { fenceRanges } from "./fenceScanner";
 
 /** Inclusive line range, 0-based. */
 export interface BlockSpan {

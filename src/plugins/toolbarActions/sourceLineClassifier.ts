@@ -23,7 +23,7 @@
  * @module plugins/toolbarActions/sourceLineClassifier
  */
 
-import { enclosingFence } from "@/plugins/shared/lineContent";
+import { enclosingFence } from "@/plugins/shared/fenceScanner";
 
 export const isBlank = (line: string): boolean => line.trim() === "";
 
