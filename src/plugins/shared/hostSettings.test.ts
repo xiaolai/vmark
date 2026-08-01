@@ -22,6 +22,10 @@ describe("an unbound host still gets working values", () => {
     // seam said 4 and VMark's default was 2.
     expect(hostSettings.tabSize()).toBe(2);
   });
+
+  it("defaults tableFitToWidth to off, matching the app", () => {
+    expect(hostSettings.tableFitToWidth()).toBe(false);
+  });
 });
 
 describe("binding replaces the defaults", () => {
@@ -63,5 +67,6 @@ describe("the defaults MATCH the app's, so an unbound path is not a fork", () =>
     // this fails and the seam has to follow.
     const { initialState } = await import("@/stores/settingsStore/defaults");
     expect(hostSettings.tabSize()).toBe(initialState.general.tabSize);
+    expect(hostSettings.tableFitToWidth()).toBe(initialState.markdown.tableFitToWidth);
   });
 });

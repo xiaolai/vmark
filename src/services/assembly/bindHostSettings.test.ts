@@ -4,7 +4,7 @@
  * @coordinates-with services/assembly/bindHostSettings.ts
  * @module services/assembly/bindHostSettings.test
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { bindPluginHostSettings } from "./bindHostSettings";
 import { hostSettings, resetHostSettings } from "@/plugins/shared/hostSettings";
 import { hostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
@@ -71,5 +71,27 @@ describe("the table-width setting", () => {
   it("falls back to false when unset", () => {
     bindPluginHostSettings();
     expect(hostSettings.tableFitToWidth()).toBe(false);
+  });
+});
+
+describe("the bindings tolerate a settings object missing a key", () => {
+  it("falls back rather than reporting undefined", async () => {
+    // A persisted settings blob written before a field existed has no value
+    // for it. The plugin has no store to fall back to, so this mapping is the
+    // only place that can answer — and `undefined` would reach the plugin as a
+    // truthy-looking absence.
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const real = useSettingsStore.getState();
+    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
+      ...real,
+      general: { ...real.general, tabSize: undefined },
+      markdown: { ...real.markdown, tableFitToWidth: undefined },
+    } as never);
+
+    bindPluginHostSettings();
+    expect(hostSettings.tableFitToWidth()).toBe(false);
+    expect(hostSettings.tabSize()).toBeUndefined();
+
+    vi.restoreAllMocks();
   });
 });
