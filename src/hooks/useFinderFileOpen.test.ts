@@ -4,8 +4,7 @@
  * Covers:
  *   - Event listener registration
  *   - File routing: existing tab, replaceable tab, new tab, new window
- *   - Hot exit restore waiting
- *   - Pending file queue from Rust (cold start path)
+ *   - Hot exit restore waiting; pending file queue from Rust (cold start path)
  *   - Hot open: app:open-file event when app is already running (warm path)
  *   - Workspace adoption, different workspace (new window), loadFileIntoTab errors
  */
@@ -60,6 +59,7 @@ vi.mock("@/stores/tabStore", () => ({
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
       findTabById: vi.fn((id: string) => ({ id })), // close-during-read re-check
+      findTabByPath: vi.fn(() => null), // createTab dedup pre-check
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
       getActiveTab: mockGetActiveTab,

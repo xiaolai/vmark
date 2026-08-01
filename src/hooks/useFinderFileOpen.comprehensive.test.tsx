@@ -67,6 +67,8 @@ vi.mock("@/stores/tabStore", () => ({
       createTab: mockCreateTab,
       // loadFileIntoTab re-checks the tab after its await (close-during-read).
       findTabById: vi.fn((id: string) => ({ id })),
+      // createNewTabForFile pre-checks whether createTab would deduplicate.
+      findTabByPath: vi.fn(() => null),
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
       getActiveTab: mockGetActiveTab,

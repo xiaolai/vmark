@@ -56,7 +56,6 @@
     "src/hooks/mcpBridge/v2/selection.ts": 470,
     "src/hooks/mcpBridge/v2/workflow.ts": 317,
     "src/hooks/useFileSave.ts": 312,
-    "src/hooks/useFinderFileOpen.ts": 397,
     "src/hooks/useTabDragOut.ts": 356,
     "src/hooks/useUpdateChecker.ts": 407,
     "src/lib/cjkFormatter/markdownParser.ts": 321,
