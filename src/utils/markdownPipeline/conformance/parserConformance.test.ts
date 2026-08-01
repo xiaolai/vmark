@@ -203,6 +203,19 @@ describe("offsets, where they can be trusted", () => {
     }
   );
 
+  it.each(FIXTURES.filter((f) => f.positions === "all-canonical"))(
+    "$id — all-canonical means ZERO untrusted nodes, not merely 'checked ones pass'",
+    (fixture) => {
+      // The classification promised every node has a canonical range, but the
+      // offset checks only SKIPPED untrusted nodes — so a position regression
+      // could turn a whole fixture untrusted and every check would still pass
+      // by looking at nothing. `gfm-strikethrough` was misclassified exactly
+      // this way: `~single~` is a positionless subscript node.
+      const tree = parseAs("source-position", fixture.markdown) as unknown as PositionedNode;
+      expect([...collectUntrusted(tree)].map((n) => n.type)).toEqual([]);
+    }
+  );
+
   it("fixtures declaring synthesised nodes really contain some", () => {
     // Otherwise `partial-synthesised` is a way to opt out of the offset checks.
     for (const fixture of FIXTURES.filter((f) => f.positions === "partial-synthesised")) {

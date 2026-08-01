@@ -62,14 +62,21 @@ describe("diff reports every way two trees differ", () => {
     expect(diff(t(), t())).toEqual([]);
   });
 
-  it("reports a type mismatch and STOPS descending", () => {
-    // Comparing the attributes and children of unrelated shapes buries the one
-    // difference that matters under noise.
+  it("reports a type mismatch and KEEPS descending", () => {
+    // Stopping here buried every descendant difference beneath a node whose
+    // type diverged — and a type divergence can be DECLARED, so a subtree
+    // delta suppressed real changes underneath it. On the one fixture that
+    // exercises this, a text-value difference was hidden exactly that way.
     const a = project(node({ type: "heading", depth: 1, children: [{ type: "text", value: "x" }] }));
     const b = project(node({ type: "paragraph", children: [{ type: "text", value: "y" }] }));
     const d = diff(a, b);
-    expect(d).toHaveLength(1);
-    expect(d[0].kind).toBe("type");
+    expect(d.map((x) => x.kind)).toEqual(["type", "attribute"]);
+  });
+
+  it("skips ATTRIBUTES on a type mismatch — unrelated shapes have unrelated fields", () => {
+    const a = project(node({ type: "heading", depth: 1 }));
+    const b = project(node({ type: "code", value: "x", lang: "js" }));
+    expect(diff(a, b).map((x) => x.kind)).toEqual(["type"]);
   });
 
   it("reports an attribute difference with both values", () => {
@@ -90,12 +97,31 @@ describe("diff reports every way two trees differ", () => {
     expect(d).toEqual([expect.objectContaining({ kind: "attribute", detail: "checked" })]);
   });
 
-  it("reports a child-count difference AND still compares the shared children", () => {
+  it("reports a child-count difference AND describes the extra children", () => {
+    // Walking only the shorter side reported a count and nothing about WHAT
+    // the extra nodes were.
     const d = diff(
       project(node({ type: "root", children: [{ type: "text", value: "a" }, { type: "text", value: "b" }] })),
       project(node({ type: "root", children: [{ type: "text", value: "z" }] })),
     );
-    expect(d.map((x) => x.kind)).toEqual(["child-count", "attribute"]);
+    expect(d.map((x) => x.kind)).toEqual(["child-count", "attribute", "missing"]);
+  });
+
+  it("both sides absent is not a difference", () => {
+    expect(diff(undefined, undefined)).toEqual([]);
+  });
+
+  it("compares object attributes by VALUE, not key insertion order", () => {
+    // JSON.stringify made two equivalent objects read as divergent — a false
+    // positive in a gate whose credibility rests on its findings being real.
+    const a = project(node({ type: "table", align: ["left", "right"] }));
+    const b = project(node({ type: "table", align: ["left", "right"] }));
+    expect(diff(a, b)).toEqual([]);
+  });
+
+  it("survives a node type that collides with an Object prototype member", () => {
+    expect(() => project(node({ type: "constructor", value: "x" }))).not.toThrow();
+    expect(() => project(node({ type: "__proto__", value: "x" }))).not.toThrow();
   });
 
   it("reports a missing side rather than throwing", () => {

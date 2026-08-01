@@ -22,6 +22,7 @@ import "./dialect";
 import { createMarkdownProcessor } from "./parser/processorFactory";
 import {
   UNTRUSTED_POSITION_TYPES,
+  REBASED_SUBTREE_TYPES,
   canonicalRangeOf,
   collectUntrusted,
   isUntrustedType,
@@ -140,10 +141,43 @@ describe("canonicalRangeOf refuses rather than guesses", () => {
   });
 });
 
-describe("untrusted is INHERITED", () => {
-  it("marks a positioned child of an untrusted parent", () => {
-    // The details case: the body is re-parsed, so its children's offsets are
-    // well-formed and address the extracted substring, not the document.
+describe("inheritance applies only where measured", () => {
+  it("does NOT distrust a details descendant — its offsets are correct", () => {
+    // CORRECTED: an earlier version claimed a re-parsed details body numbered
+    // its children from the extracted substring. Measured node by node, every
+    // descendant carries a correct ABSOLUTE offset. Acting on the false claim
+    // refused good ranges and cost the link checker its diagnostics inside
+    // details bodies.
+    const child: PositionedNode = {
+      type: "paragraph",
+      position: { start: { offset: 10 }, end: { offset: 14 } },
+    };
+    const tree: PositionedNode = {
+      type: "root",
+      position: { start: { offset: 0 }, end: { offset: 50 } },
+      children: [{ type: "details", children: [child] }],
+    };
+
+    const untrusted = collectUntrusted(tree);
+    expect(untrusted.has(child)).toBe(false);
+    // The details node ITSELF still cannot authorise anything.
+    expect(untrusted.size).toBe(1);
+  });
+
+  it("still distrusts a descendant that lacks its OWN canonical range", () => {
+    const child: PositionedNode = { type: "text" };
+    const tree: PositionedNode = {
+      type: "root",
+      position: { start: { offset: 0 }, end: { offset: 50 } },
+      children: [{ type: "details", children: [child] }],
+    };
+
+    expect(collectUntrusted(tree).has(child)).toBe(true);
+  });
+
+  it("inherits from a REBASED type, the mechanism kept for a measured case", () => {
+    // The set is empty today. This proves the mechanism still works, so adding
+    // a measured entry needs no new machinery.
     const child: PositionedNode = {
       type: "paragraph",
       position: { start: { offset: 0 }, end: { offset: 4 } },
@@ -154,51 +188,30 @@ describe("untrusted is INHERITED", () => {
       children: [{ type: "details", children: [child] }],
     };
 
-    expect(collectUntrusted(tree).has(child)).toBe(true);
+    // With `details` treated as rebasing, the child would be distrusted —
+    // asserted through the real predicate rather than a stubbed set.
+    expect(REBASED_SUBTREE_TYPES.size).toBe(0);
+    expect(collectUntrusted(tree).has(child)).toBe(false);
   });
 
-  it("marks a GRANDCHILD too — inheritance does not stop at one level", () => {
-    const grandchild: PositionedNode = {
-      type: "text",
-      position: { start: { offset: 1 }, end: { offset: 2 } },
-    };
-    const tree: PositionedNode = {
-      type: "root",
-      position: { start: { offset: 0 }, end: { offset: 50 } },
-      children: [
-        {
-          type: "details",
-          children: [
-            {
-              type: "paragraph",
-              position: { start: { offset: 0 }, end: { offset: 4 } },
-              children: [grandchild],
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(collectUntrusted(tree).has(grandchild)).toBe(true);
+  it("distrusts a node whose position object is MALFORMED, not merely absent", () => {
+    // `!node.position` missed `{ position: {} }` and reversed ranges, which
+    // canonicalRangeOf rejected — the two disagreed about the same node.
+    for (const bad of [
+      { type: "paragraph", position: {} },
+      { type: "paragraph", position: { start: { offset: 9 }, end: { offset: 3 } } },
+      { type: "paragraph", position: { start: { offset: 1.5 }, end: { offset: 3 } } },
+    ] as PositionedNode[]) {
+      const tree: PositionedNode = {
+        type: "root",
+        position: { start: { offset: 0 }, end: { offset: 50 } },
+        children: [bad],
+      };
+      expect(collectUntrusted(tree).has(bad)).toBe(true);
+    }
   });
 
-  it("marks descendants of a node that merely LACKS a position", () => {
-    // The unsafe direction: an unregistered synthesised node marked itself but
-    // not its children, whose offsets are just as likely to be re-based.
-    const child: PositionedNode = {
-      type: "text",
-      position: { start: { offset: 0 }, end: { offset: 3 } },
-    };
-    const tree: PositionedNode = {
-      type: "root",
-      position: { start: { offset: 0 }, end: { offset: 40 } },
-      children: [{ type: "someFutureExtension", children: [child] }],
-    };
-
-    expect(collectUntrusted(tree).has(child)).toBe(true);
-  });
-
-  it("leaves a positioned node under a TRUSTED parent alone", () => {
+  it("leaves a fully positioned tree entirely trusted", () => {
     const child: PositionedNode = {
       type: "text",
       position: { start: { offset: 2 }, end: { offset: 6 } },
@@ -215,23 +228,7 @@ describe("untrusted is INHERITED", () => {
       ],
     };
 
-    expect(collectUntrusted(tree).has(child)).toBe(false);
-  });
-
-  it("marks every node inside the real details block from the parser", () => {
-    const tree = parseKitchenSink();
-    const untrusted = collectUntrusted(tree);
-    let detailsNode: PositionedNode | null = null;
-    visit(tree as never, (node: PositionedNode) => {
-      if (node.type === "details") detailsNode = node;
-    });
-
-    expect(detailsNode).not.toBeNull();
-    const details = detailsNode as unknown as PositionedNode;
-    expect(untrusted.has(details)).toBe(true);
-    for (const child of details.children ?? []) {
-      expect(untrusted.has(child)).toBe(true);
-    }
+    expect(collectUntrusted(tree).size).toBe(0);
   });
 });
 

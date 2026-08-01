@@ -104,7 +104,13 @@ export function listedTypes(): string[] {
 
 /** The semantic attributes of one node, with undefined values omitted. */
 function attributesOf(node: RawNode): Record<string, unknown> {
-  const allowed = SEMANTIC_KEYS[node.type];
+  // `Object.hasOwn`, not a bare index: a node typed "constructor" or
+  // "__proto__" would otherwise resolve to a prototype member and throw when
+  // spread. mdast types are parser-controlled today, but this list is the
+  // gate's foundation and must not depend on that staying true.
+  const allowed = Object.hasOwn(SEMANTIC_KEYS, node.type)
+    ? SEMANTIC_KEYS[node.type]
+    : undefined;
   const keys =
     allowed ??
     // An UNKNOWN node type keeps every non-plumbing field. A new extension
@@ -128,6 +134,38 @@ export function project(node: RawNode): ProjectedNode {
   };
 }
 
+/**
+ * Order-independent structural equality for attribute values.
+ *
+ * `JSON.stringify` compares key INSERTION ORDER, so two equivalent objects
+ * differing only in construction order read as divergent — a false positive in
+ * a gate whose credibility depends on its findings being real. It also throws
+ * on a cycle. Keys are sorted recursively here and cycles are reported as
+ * unequal rather than crashing the comparison.
+ */
+function sameValue(a: unknown, b: unknown, seen = new Set<unknown>()): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
+    return false;
+  }
+  if (seen.has(a) || seen.has(b)) return false; // cyclic: not provably equal
+  seen.add(a);
+  seen.add(b);
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => sameValue(item, b[i], seen));
+  }
+
+  const aKeys = Object.keys(a as object).sort();
+  const bKeys = Object.keys(b as object).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  if (aKeys.some((k, i) => k !== bKeys[i])) return false;
+  return aKeys.every((k) =>
+    sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], seen)
+  );
+}
+
 /** A single point of difference between two projections. */
 export interface Divergence {
   /** Dotted child path from the root, e.g. `root.children[0].children[1]`. */
@@ -144,6 +182,9 @@ export function diff(
   sourceTree: ProjectedNode | undefined,
   path = "root"
 ): Divergence[] {
+  // Both absent is not a difference — "empty means identical" is the contract.
+  if (!documentTree && !sourceTree) return [];
+
   if (!documentTree || !sourceTree) {
     return [
       {
@@ -166,9 +207,13 @@ export function diff(
       documentValue: documentTree.type,
       sourcePositionValue: sourceTree.type,
     });
-    // Types differ: comparing their attributes and children compares unrelated
-    // shapes and buries the one difference that matters under noise.
-    return out;
+    // Do NOT stop here. Stopping buried every descendant difference beneath a
+    // node whose type diverged — and a type divergence can be DECLARED, so a
+    // subtree delta would have suppressed real changes underneath it without
+    // anyone seeing them. That is the vacuous-gate failure this module exists
+    // to avoid. Attributes are skipped (unrelated shapes have unrelated
+    // fields), but children are still compared by index.
+    return [...out, ...diffChildren(documentTree, sourceTree, path)];
   }
 
   const keys = new Set([
@@ -178,7 +223,7 @@ export function diff(
   for (const key of [...keys].sort()) {
     const a = documentTree.attributes[key];
     const b = sourceTree.attributes[key];
-    if (JSON.stringify(a) !== JSON.stringify(b)) {
+    if (!sameValue(a, b)) {
       out.push({
         path,
         kind: "attribute",
@@ -199,12 +244,24 @@ export function diff(
     });
   }
 
-  const shared = Math.min(documentTree.children.length, sourceTree.children.length);
-  for (let i = 0; i < shared; i += 1) {
+  return [...out, ...diffChildren(documentTree, sourceTree, path)];
+}
+
+/** Compare children by index. Extra children on either side are reported. */
+function diffChildren(
+  documentTree: ProjectedNode,
+  sourceTree: ProjectedNode,
+  path: string
+): Divergence[] {
+  const out: Divergence[] = [];
+  // Walk the LONGER side: children beyond the shorter one were previously
+  // invisible, so a tree with extra nodes reported only a count difference and
+  // nothing about what those nodes were.
+  const longest = Math.max(documentTree.children.length, sourceTree.children.length);
+  for (let i = 0; i < longest; i += 1) {
     out.push(
       ...diff(documentTree.children[i], sourceTree.children[i], `${path}.children[${i}]`)
     );
   }
-
   return out;
 }

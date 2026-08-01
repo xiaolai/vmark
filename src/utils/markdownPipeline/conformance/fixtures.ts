@@ -89,9 +89,12 @@ export const FIXTURES: readonly ConformanceFixture[] = [
     "Tables, with alignment metadata that the projection must not discard."),
   f("gfm-task-list", "gfm", "- [ ] todo\n- [x] done\n", "all-canonical",
     "Task list items carry a `checked` attribute — a semantic value, not style."),
-  f("gfm-strikethrough", "gfm", "~~struck~~ but not ~single~\n", "all-canonical",
+  f("gfm-strikethrough", "gfm", "~~struck~~ but not ~single~\n", "partial-synthesised",
     "THE tilde case. `singleTilde: false` in every mode, so `~x~` is subscript " +
-    "and `~~x~~` is deletion — the two must never swap between dialects."),
+    "and `~~x~~` is deletion — the two must never swap between dialects. " +
+    "MEASURED: `~single~` becomes a positionless `subscript` node, so this is " +
+    "NOT all-canonical; classifying it so was an assumption until the " +
+    "zero-untrusted assertion below caught it."),
   f("gfm-autolink", "gfm", "Visit https://example.com now.\n", "all-canonical",
     "Bare autolink, synthesised by GFM from a text scan."),
 
@@ -106,8 +109,10 @@ export const FIXTURES: readonly ConformanceFixture[] = [
   f("details-simple", "details",
     "<details><summary>S</summary>\n\nBody **bold**.\n\n</details>\n",
     "partial-synthesised",
-    "The details node is synthesised and its body RE-PARSED, so descendants " +
-    "carry offsets local to the extracted substring."),
+    "The details node is synthesised and carries no position. CORRECTED: its " +
+    "descendants DO carry correct absolute offsets — the claim that a " +
+    "re-parsed body is offset-local was inherited from a plan review and " +
+    "measured false (see positionTrust.ts)."),
   f("toc-block", "toc", "# H\n\n[toc]\n", "all-canonical",
     "TOC is synthesised but — measured, not assumed — DOES carry a position."),
   f("wiki-link", "wiki-links", "See [[Another Note]] please.\n", "partial-synthesised",
@@ -161,7 +166,3 @@ export function fixturesOfClass(contentClass: ContentClass): ConformanceFixture[
   return FIXTURES.filter((fixture) => fixture.contentClass === contentClass);
 }
 
-/** Look a fixture up by its stable ID. */
-export function fixtureById(id: string): ConformanceFixture | undefined {
-  return FIXTURES.find((fixture) => fixture.id === id);
-}

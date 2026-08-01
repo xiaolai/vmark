@@ -9,7 +9,7 @@
  * @module utils/markdownPipeline/parser/processorFactory
  */
 
-import { buildProcessorForMode } from "../dialect";
+import { buildProcessorForMode, cacheKeyForMode } from "../dialect";
 import type { MarkdownPipelineOptions } from "../types";
 import { analyzeContent, type ContentAnalysis } from "./remarkPlugins";
 
@@ -35,29 +35,26 @@ function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) 
 }
 
 /**
- * Stable cache key combining every analysis flag with the line-break option.
+ * Stable cache key, DERIVED from the dialect's conditional flags.
  *
- * EVERY flag that changes the plugin stack must appear here. Adding
- * `hasAmbiguousListUnderline` to the stack without adding it to the key meant a
- * processor built for a document that needed setext disabled was reused for one
- * that did not, and the reverse — the flag looked ignored at random.
+ * This enumerated the flags by hand, and the comment it replaces recorded the
+ * bug that follows from missing one: a processor built for a document that
+ * needed setext suppressed was reused for one that did not, so the flag looked
+ * ignored at random. Deriving means a descriptor that starts conditioning on a
+ * new flag changes the key automatically. Adding a `conditionalFlags()` helper
+ * was NOT enough on its own — production still enumerated by hand, so the
+ * guarantee was false until the derived key became the key in use.
  */
 function processorCacheKey(analysis: ContentAnalysis, preserveLineBreaks: boolean): string {
-  return (
-    (analysis.hasMath ? "M" : "-") +
-    (analysis.hasFrontmatter ? "F" : "-") +
-    (analysis.hasWikiLinks ? "W" : "-") +
-    (analysis.hasDetails ? "D" : "-") +
-    (analysis.hasAmbiguousListUnderline ? "S" : "-") +
-    (preserveLineBreaks ? "B" : "-")
-  );
+  return cacheKeyForMode("document", { ...analysis, preserveLineBreaks });
 }
 
 /**
  * Cache of built processors keyed by content-analysis flags. A unified
  * processor is safe to reuse across `.parse()`/`.runSync()` calls once its
  * plugin set is fixed, so caching avoids rebuilding the ~10-plugin pipeline on
- * every parse. Bounded to 2^5 = 32 entries by the flag-combination key space.
+ * every parse. Bounded by the conditional-flag combination space — six flags
+ * today, so 2^6 = 64 entries, and it tracks the descriptors automatically.
  */
 const processorCache = new Map<string, ReturnType<typeof buildProcessor>>();
 
@@ -92,7 +89,9 @@ export function createProcessor(markdown: string, options: MarkdownPipelineOptio
  * accurate position data, then `.runSync(tree)` for transforms.
  */
 export function createMarkdownProcessor() {
-  // `source-position` loads every plugin unconditionally: offsets must not
-  // depend on what the document happens to contain.
+  // `source-position` loads every SYNTAX-RECOGNITION plugin unconditionally, so
+  // offsets never depend on what the document happens to contain. It excludes
+  // the two that would change them — the setext repair and remark-breaks —
+  // because its contract is the text as written (see dialectDescriptors.ts).
   return buildProcessorForMode("source-position");
 }

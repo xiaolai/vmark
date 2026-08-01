@@ -52,6 +52,26 @@ export function conditionalFlags(): AnalysisFlag[] {
   return [...flags].sort();
 }
 
+/**
+ * The cache key for one mode + context — DERIVED, not enumerated.
+ *
+ * `processorFactory` hand-listed the flags, and its own header records the bug
+ * that follows from missing one: a processor built for a document needing
+ * setext suppressed was reused for one that did not. Adding
+ * `conditionalFlags()` alone did not fix that — the helper existed and
+ * production still enumerated by hand, so the "a new condition cannot leave
+ * the key behind" guarantee was false until this became the key itself.
+ */
+export function cacheKeyForMode(mode: ParseMode, context: DialectContext): string {
+  return (
+    mode +
+    ":" +
+    conditionalFlags()
+      .map((flag) => (context[flag] ? flag[3] ?? flag[0] : "-"))
+      .join("")
+  );
+}
+
 /** The plugin names a mode runs unconditionally — used by the drift gate. */
 export function unconditionalNames(mode: ParseMode): string[] {
   return DIALECT.filter((d) => d.modes[mode] === "always").map((d) => d.name);
