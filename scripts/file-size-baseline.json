@@ -82,7 +82,6 @@
     "src/plugins/mermaidPreview/MermaidPreviewView.ts": 402,
     "src/plugins/multiCursor/inputHandling.ts": 354,
     "src/plugins/search/tiptap.ts": 337,
-    "src/plugins/sourceContextDetection/cursorContext.ts": 310,
     "src/plugins/sourceContextDetection/footnoteActions.ts": 436,
     "src/plugins/sourcePopup/SourcePopupView.ts": 358,
     "src/plugins/sourcePopup/createSourcePopupPlugin.ts": 344,

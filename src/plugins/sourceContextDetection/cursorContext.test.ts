@@ -329,3 +329,45 @@ describe("computeSourceCursorContext", () => {
     });
   });
 });
+
+describe("link and image targets are PARSED, not left empty", () => {
+  // `href: ""` carried the comment "Would need to parse from content". The
+  // information was always there — Source holds the raw `[text](url)` — so
+  // every consumer that needed the target had to re-derive it, and a separate
+  // module grew to do exactly that.
+  const at = (doc: string, needle: string) => {
+    const view = createView(doc, doc.indexOf(needle) + 1);
+    const ctx = computeSourceCursorContext(view);
+    view.destroy();
+    return ctx;
+  };
+
+  it.each([
+    { label: "plain", doc: "See [docs](./guide.md) here\n", want: "./guide.md" },
+    { label: "angled destination", doc: "See [docs](<./my guide.md>) here\n", want: "./my guide.md" },
+    { label: "with a title", doc: 'See [docs](./guide.md "Title") here\n', want: "./guide.md" },
+    { label: "absolute url", doc: "See [docs](https://example.com/a) here\n", want: "https://example.com/a" },
+  ])("$label — href is the destination", ({ doc, want }) => {
+    expect(at(doc, "[docs]").inLink?.href).toBe(want);
+  });
+
+  it("reads an IMAGE's src, which the link scan skips by default", () => {
+    // `findMarkdownLinksInLine` skips `!`-prefixed matches unless asked, so a
+    // naive reuse would have left images empty while fixing links.
+    expect(at("An ![alt](./pic.png) inline\n", "![alt]").inImage?.src).toBe("./pic.png");
+  });
+
+  it("does not mistake an image for a link", () => {
+    const ctx = at("An ![alt](./pic.png) inline\n", "![alt]");
+    expect(ctx.inLink).toBeNull();
+  });
+
+  it("returns \"\" rather than guessing when the cursor is not in a link", () => {
+    expect(at("Just prose here\n", "prose").inLink).toBeNull();
+  });
+
+  it("picks the link the cursor is IN when a line has several", () => {
+    const doc = "[one](./a.md) and [two](./b.md)\n";
+    expect(at(doc, "[two]").inLink?.href).toBe("./b.md");
+  });
+});
