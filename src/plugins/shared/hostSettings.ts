@@ -28,6 +28,8 @@
 export interface HostSettings {
   /** Spaces per indent level. */
   tabSize: () => number;
+  /** Whether tables are fitted to the editor width by default. */
+  tableFitToWidth: () => boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export interface HostSettings {
  */
 const DEFAULTS: HostSettings = {
   tabSize: () => 2,
+  tableFitToWidth: () => false,
 };
 
 let bound: HostSettings = DEFAULTS;
@@ -73,4 +76,5 @@ export function resetHostSettings(): void {
  */
 export const hostSettings: HostSettings = {
   tabSize: () => bound.tabSize(),
+  tableFitToWidth: () => bound.tableFitToWidth(),
 };

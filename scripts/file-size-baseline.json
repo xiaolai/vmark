@@ -151,7 +151,7 @@
     "src/plugins/linkPopup/tiptap.test.ts": 849,
     "src/plugins/lint/tiptap.test.ts": 1020,
     "src/plugins/markdownCopy/tiptap.test.ts": 1153,
-    "src/plugins/mediaHandler/__tests__/mediaHandler.test.ts": 966,
+    "src/plugins/mediaHandler/__tests__/mediaHandler.test.ts": 949,
     "src/plugins/mediaPopup/MediaPopupView.test.ts": 1462,
     "src/plugins/mediaPopup/__tests__/MediaPopupView.test.ts": 1507,
     "src/plugins/mermaidPreview/__tests__/MermaidPreviewView.test.ts": 1035,

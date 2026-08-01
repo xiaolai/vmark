@@ -59,3 +59,17 @@ describe("a real tab resolves to its document path", () => {
     expect(hostDocument.activeFilePath("main")).toBe("/tmp/doc.md");
   });
 });
+
+describe("the table-width setting", () => {
+  it("reads the user's choice", () => {
+    useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", true);
+    bindPluginHostSettings();
+    expect(hostSettings.tableFitToWidth()).toBe(true);
+    useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", false);
+  });
+
+  it("falls back to false when unset", () => {
+    bindPluginHostSettings();
+    expect(hostSettings.tableFitToWidth()).toBe(false);
+  });
+});
