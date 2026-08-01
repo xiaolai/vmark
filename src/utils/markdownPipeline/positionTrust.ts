@@ -27,6 +27,11 @@
  * text nodes with no position at all, all of them inside these constructs.
  *
  * Key decisions:
+ *   - A SEPARATE HAZARD: a range can be canonical while the node's `value` is
+ *     not its slice. Blockquotes and list items strip continuation markers from
+ *     descendants' text, so `slice(range) !== value` there. Edits at those
+ *     offsets are correct; reconstruction from them is not. See
+ *     PREFIX_STRIPPING_CONTAINERS — found by the conformance gate, not assumed.
  *   - UNTRUSTED IS INHERITED. A node whose ancestor is untrusted is untrusted,
  *     even when it has a `position` of its own, because that position belongs
  *     to a different string. Checking the node alone is the trap.
