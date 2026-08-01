@@ -21,7 +21,7 @@
 
 import { create } from "zustand";
 import type { CursorInfo } from "@/types/cursorSync";
-import { canonicalizeLineEndings, ingestExternalText } from "@/utils/editorText";
+import { ingestExternalText } from "@/utils/editorText";
 import { INGEST_ORIGIN_SNAPSHOT, type IngestOrigin } from "@/utils/ingestOrigin";
 import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
 import type { DocumentState, SaveSnapshots } from "./documentState";
@@ -83,9 +83,9 @@ interface DocumentStore {
   isReadOnly: (tabId: string) => boolean;
 
   /**
-   * Record a successful write. REQUIRED dual snapshot (WI-1.4): the optional
-   * single-string form let an un-migrated caller type-check clean while the
-   * store fell back to assuming disk held the LF editor text.
+   * Record a successful write. REQUIRED dual snapshot (WI-1.4): an optional
+   * single string let un-migrated callers type-check clean while the store
+   * assumed disk held the LF editor text.
    */
   markSaved: (tabId: string, snapshots: SaveSnapshots) => void;
   /** `markSaved` plus the auto-save timestamp — an auto-save IS a save. */
@@ -93,8 +93,8 @@ interface DocumentStore {
   /**
    * Adopt a benign external rewrite: refresh the disk snapshot AND re-derive
    * the file's convention from it, touching nothing else (WI-1.6). Refreshing
-   * the snapshot alone left the convention stale, so the next `preserve` save
-   * wrote the OLD one back and editor and sync engine kept flipping the file.
+   * only the snapshot left the convention stale, so the next `preserve` save
+   * wrote the OLD one back and the sync engine kept flipping the file.
    */
   updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
@@ -115,16 +115,11 @@ interface DocumentStore {
 /**
  * Tab-existence guard for `initDocument` (C1, defense-in-depth).
  *
- * documentStore stays decoupled from tabStore: the app wires a predicate at
- * the composition root (`main.tsx`) via `setTabExistenceGuard`, rather than
- * documentStore importing tabStore. The default is permissive (`null`), so
- * pure store unit tests — and any context without tab tracking — behave
- * exactly as before.
- *
- * When wired, `initDocument` no-ops if the tab was closed while its file read
- * was in flight (the orphan-resurrection race), mirroring the `updateDoc`
- * missing-key guard the sibling mutators already use. This is defense in depth
- * behind the primary caller-side re-check in `useFileOpen`.
+ * documentStore stays decoupled from tabStore: the app wires a predicate at the
+ * composition root (`main.tsx`) rather than importing tabStore here. The
+ * default is permissive (`null`), so pure store tests behave as before. When
+ * wired, `initDocument` no-ops for a tab closed mid-read (the
+ * orphan-resurrection race), behind the caller-side re-check in `useFileOpen`.
  */
 let tabExistsGuard: ((tabId: string) => boolean) | null = null;
 
@@ -159,9 +154,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
 
   initDocument: (tabId, content = "", filePath = null, savedContent?) => {
-    // Defense-in-depth (C1): if the tab was closed while its file read was in
-    // flight, don't resurrect an orphan document entry. No-op when the guard
-    // is wired and reports the tab gone; permissive (proceed) when unwired.
+    // Defense-in-depth (C1): don't resurrect an orphan entry for a tab closed
+    // mid-read. No-op when the guard reports it gone; permissive when unwired.
     if (tabExistsGuard && !tabExistsGuard(tabId)) {
       return;
     }
@@ -220,7 +214,10 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     set((state) =>
       updateDoc(state, tabId, (doc) => buildLoadState(doc, content, filePath, meta))
     );
-    bumpRevisionIfContentChanged(tabId, previous, canonicalizeLineEndings(content));
+    // The SAME canonicalisation buildLoadState stores: a line-endings-only
+    // compare disagreed for any BOM'd file, bumping the revision on an
+    // identical reload and failing in-flight MCP writes as STALE.
+    bumpRevisionIfContentChanged(tabId, previous, ingestExternalText(content).canonicalEditorText);
   },
 
   setFilePath: (tabId, path) =>

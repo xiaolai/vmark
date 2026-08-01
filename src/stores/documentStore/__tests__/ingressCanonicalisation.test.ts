@@ -25,8 +25,8 @@
  * @coordinates-with services/navigation/fileOpen.ts — the ingress that exposed this
  * @module stores/documentStore/__tests__/ingressCanonicalisation.test
  */
-import { describe, it, expect, beforeEach } from "vitest";
-import { useDocumentStore } from "@/stores/documentStore";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
 
 const TAB = "tab-ingress";
 const doc = (tabId = TAB) => useDocumentStore.getState().documents[tabId];
@@ -148,5 +148,80 @@ describe("the regression these doors caused", () => {
     expect(content).not.toContain("\r");
     // Round-tripping what the store now holds is what the flush does.
     expect(() => store.setEditorContent(TAB, content)).not.toThrow();
+  });
+});
+
+describe("audit round: BOM and metadata leaks at the remaining doors", () => {
+  const BOM = "\u{FEFF}";
+
+  it("reloading identical BOM'd content does not manufacture a revision bump", () => {
+    // `buildLoadState` stores BOM-STRIPPED text while the revision compare used
+    // `canonicalizeLineEndings`, which strips line endings only. The two
+    // disagreed for any BOM'd file, so an identical reload looked like a change
+    // — and an in-flight MCP write carrying the old revision was rejected STALE.
+    const store = useDocumentStore.getState();
+    store.initDocument(TAB, "", null);
+    store.loadContent(TAB, `${BOM}same\n`, "/f.md");
+    const first = useRevisionStore.getState().getRevision(TAB);
+
+    store.loadContent(TAB, `${BOM}same\n`, "/f.md");
+    expect(useRevisionStore.getState().getRevision(TAB)).toBe(first);
+  });
+
+  it("a genuine reload still bumps", () => {
+    const store = useDocumentStore.getState();
+    store.initDocument(TAB, "", null);
+    store.loadContent(TAB, `${BOM}first\n`, "/f.md");
+    const first = useRevisionStore.getState().getRevision(TAB);
+
+    store.loadContent(TAB, `${BOM}second\n`, "/f.md");
+    expect(useRevisionStore.getState().getRevision(TAB)).not.toBe(first);
+  });
+
+  it("initDocument derives hardBreakStyle — it SURVIVES canonicalisation", () => {
+    // The transfer paths (tab move, workspace move) are initDocument's only
+    // remaining non-empty callers, and their payloads carry no line metadata.
+    // A backslash-break document arriving there reported "unknown", which
+    // `resolveHardBreakStyle` turns into "twoSpaces" on save — rewriting every
+    // hard break in the file.
+    useDocumentStore.getState().initDocument(TAB, "one\\\ntwo\n", "/f.md");
+    expect(doc()?.hardBreakStyle).toBe("backslash");
+  });
+
+  it("initDocument leaves lineEnding UNKNOWN — canonicalisation erased it", () => {
+    // Deriving here would assert "lf" for a transferred CRLF document, which is
+    // worse than unknown: unknown lets the save-time resolver apply the user's
+    // setting, "lf" asserts a convention the file never had.
+    useDocumentStore.getState().initDocument(TAB, "one\ntwo\n", "/f.md");
+    expect(doc()?.lineEnding).toBe("unknown");
+  });
+
+  it("an empty document reports unknown for both", () => {
+    useDocumentStore.getState().initDocument(TAB, "", null);
+    expect(doc()?.hardBreakStyle).toBe("unknown");
+    expect(doc()?.lineEnding).toBe("unknown");
+  });
+});
+
+describe("audit round: the canonical assertion covers the WHOLE invariant", () => {
+  it("rejects a leading BOM in development, not just a carriage return", () => {
+    // The contract is "LF-only, BOM-free"; the guard checked only \r, so a BOM
+    // could be placed straight into the editor buffer — the exact character
+    // whose presence at offset 0 breaks block detection.
+    vi.stubEnv("DEV", true);
+    useDocumentStore.getState().initDocument(TAB, "", null);
+    expect(() =>
+      useDocumentStore.getState().setEditorContent(TAB, "\u{FEFF}text"),
+    ).toThrow(/BOM|byte-order/i);
+    vi.unstubAllEnvs();
+  });
+
+  it("a BOM elsewhere in the text is content and stays accepted", () => {
+    vi.stubEnv("DEV", true);
+    useDocumentStore.getState().initDocument(TAB, "", null);
+    expect(() =>
+      useDocumentStore.getState().setEditorContent(TAB, "a\u{FEFF}b"),
+    ).not.toThrow();
+    vi.unstubAllEnvs();
   });
 });

@@ -91,7 +91,7 @@ export const createInitialDocument = (
   content = "",
   filePath: string | null = null
 ): DocumentState => {
-  const { canonicalEditorText, hasBom } = ingestExternalText(content);
+  const { canonicalEditorText, hasBom, hardBreakStyle } = ingestExternalText(content);
   return {
     content: canonicalEditorText,
     savedContent: canonicalEditorText,
@@ -105,8 +105,16 @@ export const createInitialDocument = (
     isMissing: false,
     isDivergent: false,
     readOnly: false,
+    // ASYMMETRIC, and deliberately. `lineEnding` stays unknown: this door's only
+    // non-empty callers are the tab/workspace TRANSFER paths, whose payloads
+    // carry canonical in-memory text, so deriving would assert "lf" for a
+    // document that was CRLF — worse than unknown, which lets the save-time
+    // resolver apply the user's setting. `hardBreakStyle` SURVIVES
+    // canonicalisation (detectHardBreakStyle normalises EOLs before scanning),
+    // so deriving it is strictly better: reporting "unknown" for a transferred
+    // backslash-break document resolved to "twoSpaces" and rewrote every break.
     lineEnding: "unknown",
-    hardBreakStyle: "unknown",
+    hardBreakStyle,
     hasBom,
     mode: "wysiwyg",
   };
@@ -146,6 +154,16 @@ export function updateDoc(
  */
 export function assertCanonicalEditorText(text: string, action: string): void {
   if (!import.meta.env.DEV) return;
+  // The contract is LF-only AND BOM-free. Checking only `\r` let a leading
+  // U+FEFF into the buffer — the one character whose presence at offset 0
+  // breaks offset-0 block detection, which is why it is stripped at all.
+  if (text.startsWith("\u{FEFF}")) {
+    throw new Error(
+      `${action}() was given non-canonical text: a leading BOM (U+FEFF). ` +
+        `Editor text is BOM-free — the mark is carried by the document's ` +
+        `\`hasBom\` flag and re-emitted on save, not held in the buffer.`,
+    );
+  }
   const index = text.indexOf("\r");
   if (index === -1) return;
   throw new Error(
