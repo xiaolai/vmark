@@ -2,7 +2,7 @@
  * Popup-store shared types — combined store shape, action-group
  * interfaces, and action-creator helpers.
  *
- * Purpose: composes the 16 slice shapes from `./slices` with the three
+ * Purpose: composes the 15 slice shapes from `./slices` with the three
  * action-group interfaces (declared here) into the `PopupStore` type,
  * and defines the `PopupSet`/`PopupGet` aliases the action-creator files
  * use so every action closes over the same store factory `set`/`get`.

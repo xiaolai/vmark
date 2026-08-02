@@ -19,6 +19,7 @@
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
+ * @coordinates-with inlineMathEditingRegistry.ts — the one shared math registry
  * @module utils/tiptapExtensions
  */
 

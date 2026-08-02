@@ -1,6 +1,6 @@
 /**
  * Popup-store editing/toast action group — blockMathEditing, dropZone,
- * editorContextMenu, imageContextMenu, imagePasteToast, and
+ * editorContextMenu, imageContextMenu, and imagePasteToast.
  *
  * Purpose: action implementations for the transient editing-state and
  * image-toast slices of the popup store. Extracted verbatim from
