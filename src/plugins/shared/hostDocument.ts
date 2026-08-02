@@ -68,6 +68,23 @@ export interface HostDocument {
    * restrictions" — the permissive answer, matching the menu dispatcher.
    */
   activeFormatId: (windowLabel: string) => string | null;
+  /** Full markdown of the active document, or "" when there is none. */
+  activeContent: (windowLabel: string) => string;
+  /**
+   * The hard-break spelling detected in the active document.
+   *
+   * "unknown" is the honest default: a fresh buffer has no evidence either
+   * way, and the resolver already treats it as "fall back to the setting".
+   */
+  activeHardBreakStyle: (windowLabel: string) => string;
+  /**
+   * Record an undo checkpoint for the active document.
+   *
+   * A WRITE, like `reportCursorInfo`, and shaped the same way: the plugin
+   * knows it is about to make a change worth undoing as one step; the host
+   * decides what a checkpoint means.
+   */
+  checkpoint: (windowLabel: string, snapshot: { markdown: string; mode: string }) => void;
 }
 
 /** No document — the honest answer when no host has bound anything. */
@@ -77,6 +94,9 @@ const DEFAULTS: HostDocument = {
   isTabDirty: () => false,
   workspaceRoot: () => null,
   activeFormatId: () => null,
+  activeContent: () => "",
+  activeHardBreakStyle: () => "unknown",
+  checkpoint: () => {},
 };
 
 let bound: HostDocument = DEFAULTS;
@@ -98,4 +118,7 @@ export const hostDocument: HostDocument = {
   isTabDirty: (tabId) => bound.isTabDirty(tabId),
   workspaceRoot: () => bound.workspaceRoot(),
   activeFormatId: (windowLabel) => bound.activeFormatId(windowLabel),
+  activeContent: (windowLabel) => bound.activeContent(windowLabel),
+  activeHardBreakStyle: (windowLabel) => bound.activeHardBreakStyle(windowLabel),
+  checkpoint: (windowLabel, snapshot) => bound.checkpoint(windowLabel, snapshot),
 };

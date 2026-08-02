@@ -8,7 +8,7 @@
  * @coordinates-with plugins/shared/hostPopups.ts
  * @module plugins/shared/hostPopups.test
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hostPopups, bindHostPopups, resetHostPopups } from "./hostPopups";
 
 const request = {
@@ -66,5 +66,55 @@ describe("binding routes the request to the host", () => {
     captured.openMediaPopup(request);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the unbound defaults are no-ops, and every member routes when bound", () => {
+  beforeEach(resetHostPopups);
+
+  it("offers no chrome rather than throwing", () => {
+    const rect = { top: 0, left: 0, bottom: 0, right: 0 };
+    expect(() => hostPopups.openLinkPopup({ href: "", linkFrom: 0, linkTo: 0, anchorRect: rect })).not.toThrow();
+    expect(() =>
+      hostPopups.openLinkCreatePopup({ text: "", rangeFrom: 0, rangeTo: 0, anchorRect: rect, showTextInput: false })
+    ).not.toThrow();
+    expect(() => hostPopups.openWikiLinkPopup({ anchorRect: rect, target: "", nodePos: 0 })).not.toThrow();
+    expect(() => hostPopups.openHeadingPicker({ headings: [], onSelect: () => {} })).not.toThrow();
+    expect(() => hostPopups.openEditorContextMenu({ position: { x: 0, y: 0 }, snapshot: {} })).not.toThrow();
+  });
+
+  it("reports no link surface open and no toolbar to dismiss", () => {
+    // Both must be FALSE, not true: a standalone editor has no chrome, so an
+    // Escape or a link shortcut must fall through rather than be swallowed.
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(false);
+    expect(hostPopups.dismissUniversalToolbar()).toBe(false);
+  });
+
+  it("forwards each call to the binding", () => {
+    const calls = {
+      openLinkPopup: vi.fn(),
+      openLinkCreatePopup: vi.fn(),
+      openWikiLinkPopup: vi.fn(),
+      openHeadingPicker: vi.fn(),
+      openEditorContextMenu: vi.fn(),
+      anyLinkSurfaceOpen: vi.fn(() => true),
+      dismissUniversalToolbar: vi.fn(() => true),
+    };
+    bindHostPopups(calls);
+    const rect = { top: 1, left: 2, bottom: 3, right: 4 };
+    hostPopups.openLinkPopup({ href: "a", linkFrom: 1, linkTo: 2, anchorRect: rect });
+    hostPopups.openLinkCreatePopup({ text: "t", rangeFrom: 1, rangeTo: 2, anchorRect: rect, showTextInput: true });
+    hostPopups.openWikiLinkPopup({ anchorRect: rect, target: "t", nodePos: 3 });
+    hostPopups.openHeadingPicker({ headings: [], onSelect: () => {} });
+    hostPopups.openEditorContextMenu({ position: { x: 5, y: 6 }, snapshot: null });
+    expect(calls.openLinkPopup).toHaveBeenCalledWith(expect.objectContaining({ href: "a" }));
+    expect(calls.openLinkCreatePopup).toHaveBeenCalledWith(expect.objectContaining({ text: "t" }));
+    expect(calls.openWikiLinkPopup).toHaveBeenCalledWith(expect.objectContaining({ nodePos: 3 }));
+    expect(calls.openHeadingPicker).toHaveBeenCalled();
+    expect(calls.openEditorContextMenu).toHaveBeenCalledWith(
+      expect.objectContaining({ position: { x: 5, y: 6 } })
+    );
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(true);
+    expect(hostPopups.dismissUniversalToolbar()).toBe(true);
   });
 });

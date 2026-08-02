@@ -23,16 +23,18 @@ const mockStoreState = {
   setMarkdown: vi.fn(),
 };
 const mockSetState = vi.fn();
-vi.mock("@/stores/sourcePeekStore", () => ({
-  useSourcePeekStore: {
-    getState: () => mockStoreState,
-    setState: (...args: unknown[]) => mockSetState(...args),
-  },
-}));
+// The peek state is a PORT with a binder — bound below, not module-mocked.
+const mockPeekStore = {
+  getState: () => mockStoreState,
+  setState: (...args: unknown[]) => mockSetState(...args),
+} as never;
 
 // Mock dependencies
 const mockApplySourcePeekMarkdown = vi.fn();
 const mockGetExpandedSourcePeekRange = vi.fn(() => ({ from: 0, to: 10 }));
+import { bindSourcePeekStore } from "./peekStore";
+bindSourcePeekStore(mockPeekStore);
+
 vi.mock("@/services/editor/sourcePeek", () => ({
   applySourcePeekMarkdown: (...args: unknown[]) => mockApplySourcePeekMarkdown(...args),
   getExpandedSourcePeekRange: (...args: unknown[]) => mockGetExpandedSourcePeekRange(...args),

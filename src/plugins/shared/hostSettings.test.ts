@@ -9,7 +9,7 @@
  * @coordinates-with plugins/shared/hostSettings.ts
  * @module plugins/shared/hostSettings.test
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hostSettings, bindHostSettings, resetHostSettings } from "./hostSettings";
 
 afterEach(resetHostSettings);
@@ -101,5 +101,30 @@ describe("HTML rendering defaults are the SAFE ones", () => {
 
   it("defaults onChange to a no-op that still unsubscribes cleanly", () => {
     expect(() => hostSettings.onChange(() => {})()).not.toThrow();
+  });
+});
+
+describe("the markdown serialization defaults", () => {
+  beforeEach(resetHostSettings);
+
+  it("agrees with the app's own defaults", async () => {
+    // Same invariant as tabSize: a seam default that disagrees with the app
+    // makes the seam a second source of truth.
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.preserveLineBreaks()).toBe(
+      initialState.markdown.preserveLineBreaks ?? false
+    );
+    expect(hostSettings.hardBreakStyleOnSave()).toBe(
+      initialState.markdown.hardBreakStyleOnSave ?? "preserve"
+    );
+  });
+
+  it("routes both through the binding", () => {
+    bindHostSettings({
+      preserveLineBreaks: () => true,
+      hardBreakStyleOnSave: () => "twoSpaces",
+    });
+    expect(hostSettings.preserveLineBreaks()).toBe(true);
+    expect(hostSettings.hardBreakStyleOnSave()).toBe("twoSpaces");
   });
 });

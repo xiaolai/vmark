@@ -25,7 +25,15 @@ import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useSourcePeekStore } from "@/stores/sourcePeekStore";
+import { bindSourcePeekStore } from "@/plugins/sourcePeekInline/peekStore";
+import { useDocumentStore, useUnifiedHistoryStore } from "@/stores/documentStore";
+
+/** The document behind `windowLabel`'s active tab, or undefined. */
+function activeDoc(windowLabel: string) {
+  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+  return tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
+}
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
@@ -42,6 +50,9 @@ export function bindPluginHostSettings(): void {
     onChange: (listener) => useSettingsStore.subscribe(listener),
     tableFitToWidth: () => useSettingsStore.getState().markdown.tableFitToWidth ?? false,
     lintEnabled: () => useSettingsStore.getState().markdown.lintEnabled,
+    preserveLineBreaks: () => useSettingsStore.getState().markdown.preserveLineBreaks ?? false,
+    hardBreakStyleOnSave: () =>
+      useSettingsStore.getState().markdown.hardBreakStyleOnSave ?? "preserve",
     htmlRendering: () => {
       const m = useSettingsStore.getState().markdown;
       return {
@@ -51,6 +62,8 @@ export function bindPluginHostSettings(): void {
       };
     },
   });
+
+  bindSourcePeekStore(useSourcePeekStore as never);
 
   bindHostDocument({
     activeFilePath: (windowLabel) => {
@@ -64,6 +77,17 @@ export function bindPluginHostSettings(): void {
     },
     isTabDirty: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false,
     workspaceRoot: () => useWorkspaceStore.getState().rootPath ?? null,
+    activeContent: (windowLabel) => activeDoc(windowLabel)?.content ?? "",
+    activeHardBreakStyle: (windowLabel) => activeDoc(windowLabel)?.hardBreakStyle ?? "unknown",
+    checkpoint: (windowLabel, snapshot) => {
+      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+      if (!tabId) return;
+      useUnifiedHistoryStore.getState().createCheckpoint(tabId, {
+        markdown: snapshot.markdown,
+        mode: snapshot.mode as never,
+        cursorInfo: null,
+      });
+    },
     activeFormatId: (windowLabel) => {
       const tabs = useTabStore.getState();
       const tabId = tabs.activeTabId[windowLabel] ?? null;
