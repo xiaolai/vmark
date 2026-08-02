@@ -8,7 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import type { LinkPopupState } from "@/plugins/linkPopup/types";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { copyLinkHref, openLink, removeLink, saveLinkChanges } from "./sourceLinkActions";
 

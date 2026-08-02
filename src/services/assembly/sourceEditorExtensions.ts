@@ -259,7 +259,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Wiki link popup editor
     { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
     // Footnote popup editor
-    { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin() },
+    { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin(pluginStores.footnote) },
     // Table context menu
     { id: "source.tableContextMenuExtensions", ext: sourceTableContextMenuExtensions },
     // Generic editor context menu — after the table menu, which owns tables (ADR-5)
