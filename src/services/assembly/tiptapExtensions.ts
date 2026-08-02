@@ -20,6 +20,7 @@
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
  * @coordinates-with inlineMathEditingRegistry.ts — the one shared math registry
+ * @coordinates-with lintDiagnosticsSource.ts — feeds the lint plugin its results
  * @module utils/tiptapExtensions
  */
 
