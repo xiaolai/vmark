@@ -21,7 +21,7 @@
  */
 
 import type { StoreApi } from "@/plugins/shared/types";
-import type { FootnotePopupState } from "./types";
+import type { FootnotePopupState } from "@/plugins/shared/popupPorts";
 import { footnotePopupWarn, footnotePopupError } from "@/utils/debug";
 import type { AnchorRect } from "@/utils/popupPosition";
 import { parseMarkdown } from "@/utils/markdownPipeline";

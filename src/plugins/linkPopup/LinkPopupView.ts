@@ -23,7 +23,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import type { StoreApi } from "zustand";
-import type { LinkPopupState } from "./types";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { hostDocument } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";

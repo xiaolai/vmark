@@ -18,7 +18,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { linkPopupError } from "@/utils/debug";
 import type { StoreApi } from "zustand";
 import type { PopupStoreBase } from "@/plugins/shared";
-import type { LinkPopupState } from "./types";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { hostDocument } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { classifyLinkAction, openLink } from "./operations";

@@ -13,7 +13,7 @@
  * @coordinates-with WikiLinkPopupView.ts — DOM and interaction logic for the popup
  * @coordinates-with wikiLinkPopupStore.ts — open/close/target state
  * @coordinates-with markdownArtifacts/wikiLink.ts — the wiki link node definition
- * @coordinates-with wikiLinkPopup/types.ts — the popup state PORT the host supplies
+ * @coordinates-with plugins/shared/popupPorts.ts — the state PORT the host supplies
  * @module plugins/wikiLinkPopup/tiptap
  */
 import { Extension } from "@tiptap/core";
@@ -21,7 +21,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import type { StoreApi } from "zustand";
 import { WikiLinkPopupView } from "./WikiLinkPopupView";
-import type { WikiLinkPopupState } from "./types";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
 import { wikiLinkPopupWarn } from "@/utils/debug";
 import "./wiki-link-popup.css";
 

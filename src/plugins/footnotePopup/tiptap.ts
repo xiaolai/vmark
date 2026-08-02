@@ -29,7 +29,7 @@ import { Plugin, PluginKey, type Transaction, type EditorState, NodeSelection } 
 import type { Node as PMNode, NodeType, Slice } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import type { StoreApi } from "@/plugins/shared/types";
-import type { FootnotePopupState } from "./types";
+import type { FootnotePopupState } from "@/plugins/shared/popupPorts";
 import {
   HOVER_OPEN_DELAY_MS,
   HOVER_CLOSE_DELAY_MS,

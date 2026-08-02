@@ -257,7 +257,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Link create popup (Cmd+K when no link, no clipboard URL)
     { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin(pluginStores.linkCreate) },
     // Wiki link popup editor
-    { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
+    { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin(pluginStores.wikiLink) },
     // Footnote popup editor
     { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin(pluginStores.footnote) },
     // Table context menu
