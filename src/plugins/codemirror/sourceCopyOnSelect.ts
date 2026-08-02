@@ -10,13 +10,13 @@
  *   - Cleans text before copying (trailing whitespace, etc.)
  *   - Gated by the copyOnSelect setting from settingsStore
  *
- * @coordinates-with stores/settingsStore.ts — reads general.copyOnSelect setting
+ * @coordinates-with plugins/shared/hostSettings.ts — reads copyOnSelect
  * @module plugins/codemirror/sourceCopyOnSelect
  */
 
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { cleanTextForClipboard } from "@/plugins/markdownCopy/tiptap";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -34,7 +34,7 @@ export function createSourceCopyOnSelectPlugin(): Extension {
       }
 
       handleMouseUp = () => {
-        if (!useSettingsStore.getState().markdown.copyOnSelect) return;
+        if (!hostSettings.copyOnSelect()) return;
 
         const view = this.view;
         requestAnimationFrame(() => {

@@ -20,17 +20,16 @@ vi.mock("@/plugins/sourcePopup", () => ({
 const mockOpenPopup = vi.fn();
 const mockClosePopup = vi.fn();
 
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: () => ({
-      isOpen: false,
-      anchorRect: null,
-      openPopup: mockOpenPopup,
-      closePopup: mockClosePopup,
-    }),
-    subscribe: vi.fn(() => () => {}),
-  },
-}));
+// The popup state is passed to the factory now, not imported by it.
+const mockStore = {
+  getState: () => ({
+    isOpen: false,
+    anchorRect: null,
+    openPopup: mockOpenPopup,
+    closePopup: mockClosePopup,
+  }),
+  subscribe: vi.fn(() => () => {}),
+} as never;
 
 vi.mock("./SourceWikiLinkPopupView", () => ({
   SourceWikiLinkPopupView: vi.fn().mockImplementation(() => ({
@@ -58,7 +57,7 @@ describe("createSourceWikiLinkPopupPlugin", () => {
   });
 
   it("calls createSourcePopupPlugin with correct config", () => {
-    createSourceWikiLinkPopupPlugin();
+    createSourceWikiLinkPopupPlugin(mockStore);
 
     expect(createSourcePopupPlugin).toHaveBeenCalledTimes(1);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
@@ -74,7 +73,7 @@ describe("createSourceWikiLinkPopupPlugin", () => {
   });
 
   it("openPopup calls store openPopup with correct args", () => {
-    createSourceWikiLinkPopupPlugin();
+    createSourceWikiLinkPopupPlugin(mockStore);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     const anchorRect = { top: 100, left: 50, bottom: 120, right: 200 };
@@ -94,7 +93,7 @@ describe("detectWikiLinkTrigger (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceWikiLinkPopupPlugin();
+    createSourceWikiLinkPopupPlugin(mockStore);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     detectTrigger = config.detectTrigger;
   });
@@ -182,7 +181,7 @@ describe("detectTriggerAtPos (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceWikiLinkPopupPlugin();
+    createSourceWikiLinkPopupPlugin(mockStore);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     detectTriggerAtPos = config.detectTriggerAtPos;
   });
@@ -210,7 +209,7 @@ describe("extractWikiLinkData (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceWikiLinkPopupPlugin();
+    createSourceWikiLinkPopupPlugin(mockStore);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     extractData = config.extractData;
   });

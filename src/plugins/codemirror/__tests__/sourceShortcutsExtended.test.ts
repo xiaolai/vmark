@@ -11,11 +11,14 @@ import { EditorView } from "@codemirror/view";
 
 // --- Mocks ---
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => ({
-      toggleSidebar: vi.fn(),
-    }),
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => ({ isOpen: false, matchCount: 0 }),
+    open: vi.fn(),
+    findNext: vi.fn(),
+    findPrevious: vi.fn(),
   },
 }));
 
@@ -71,6 +74,7 @@ vi.mock("../sourceShortcutsHelpers", () => ({
 }));
 
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "../sourceShortcuts";
 
 const viewInstances: EditorView[] = [];
@@ -93,6 +97,7 @@ beforeEach(() => {
   mockGetSourceTableInfo.mockReset();
   mockGetBlockquoteInfo.mockReset();
   mockGetListBlockBounds.mockReset();
+  bindPluginHostSettings();
   useShortcutsStore.setState({ customBindings: {} });
 });
 
@@ -171,13 +176,33 @@ describe("getSourceBlockBounds", () => {
     const content = "```\ncode line 1\ncode line 2\n```";
     const view = createView(content, 5);
 
+    // `closed: true` — endLine 4 is the CLOSING fence, so content ends at 3.
+    // The field is required now: without it the fence reads as unterminated
+    // and endLine is taken as the last content line.
     mockGetCodeFenceInfo.mockReturnValueOnce({
       startLine: 1,
       endLine: 4,
+      closed: true,
     });
 
     const result = getSourceBlockBounds(view);
     expect(result).not.toBeNull();
+    expect(result!.from).toBe(view.state.doc.line(2).from);
+    expect(result!.to).toBe(view.state.doc.line(3).to);
+  });
+
+  it("returns content bounds through the LAST line of an unterminated fence", () => {
+    const content = "```\ncode line 1\ncode line 2";
+    const view = createView(content, 5);
+
+    // No closer: endLine 3 IS content, not a delimiter.
+    mockGetCodeFenceInfo.mockReturnValueOnce({
+      startLine: 1,
+      endLine: 3,
+      closed: false,
+    });
+
+    const result = getSourceBlockBounds(view);
     expect(result!.from).toBe(view.state.doc.line(2).from);
     expect(result!.to).toBe(view.state.doc.line(3).to);
   });
@@ -189,6 +214,7 @@ describe("getSourceBlockBounds", () => {
     mockGetCodeFenceInfo.mockReturnValueOnce({
       startLine: 1,
       endLine: 2,
+      closed: true,
     });
 
     const result = getSourceBlockBounds(view);

@@ -96,9 +96,13 @@ export async function handleWorkspaceSave(
     const saveToken = registerPendingSave(resolved.filePath, resolved.content);
     try {
       await writeTextFile(resolved.filePath, resolved.content);
+      // Verbatim write: both snapshots are the same string here.
       useDocumentStore
         .getState()
-        .markSaved(resolved.tabId, resolved.content);
+        .markSaved(resolved.tabId, {
+          editorSnapshot: resolved.content,
+          diskSnapshot: resolved.content,
+        });
       // Coherence (WI-1.6): inferred capture, session-read inputs.
       void captureMcpWrite({
         absolutePath: resolved.filePath,

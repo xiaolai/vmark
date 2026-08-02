@@ -35,19 +35,7 @@ import type { LayoutDirection } from "@/lib/ghaWorkflow/render/layout";
 
 /* ──────────────────────────── re-exported types ───────────────────────── */
 
-type StepStatus =
-  | "pending"
-  | "running"
-  | "success"
-  | "error"
-  | "skipped";
-
-export interface StepStatusEntry {
-  status: StepStatus;
-  output?: string;
-  error?: string;
-  duration?: number;
-}
+import type { StepStatusEntry } from "@/lib/workflow/types";
 
 export interface ApprovalRequestPayload {
   executionId: string;

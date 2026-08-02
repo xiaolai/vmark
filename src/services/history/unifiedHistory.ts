@@ -21,13 +21,12 @@
  */
 
 import { undo, redo, undoDepth, redoDepth } from "@codemirror/commands";
-import { useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/documentStore";
+import { useDocumentStore, useLargeFileSessionStore, useUnifiedHistoryStore, type HistoryCheckpoint } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { selectSourceEditing } from "@/stores/selectSourceEditing";
-import { useDocumentStore } from "@/stores/documentStore";
+import { canonicalizeLineEndings } from "@/utils/editorText";
 import { useTabStore } from "@/stores/tabStore";
 import { useEditorStore } from "@/stores/editorStore";
-import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
 import { imeToast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
@@ -200,7 +199,7 @@ function restoreFromCheckpoint(
 
   historyStore.setRestoring(true);
   try {
-    documentStore.setContent(tabId, checkpoint.markdown);
+    documentStore.setEditorContent(tabId, canonicalizeLineEndings(checkpoint.markdown));
     documentStore.setCursorInfo(tabId, checkpoint.cursorInfo);
     // Mode is NOT restored — undo/redo only affects content, never view preference.
     // The user's current mode is their explicit choice; undo should not override it.

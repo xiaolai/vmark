@@ -17,14 +17,14 @@
  *     $pos belongs to a different doc instance.
  *
  * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
- * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)
+ * @coordinates-with codePreview/editingRegistry.ts — editing state (original content, position)
  * @module plugins/codePreview/blockMathKeymap
  */
 
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { blockMathEditing } from "./editingRegistry";
 import { EDITING_STATE_CHANGED } from "./tiptap";
 
 const blockMathKeymapKey = new PluginKey("blockMathKeymap");
@@ -53,7 +53,7 @@ function isCursorInCodeBlock(view: EditorView, codeBlockPos: number): boolean {
  * Exit editing mode and move cursor after the code block
  */
 function exitEditing(view: EditorView, revert: boolean): boolean {
-  const store = useBlockMathEditingStore.getState();
+  const store = blockMathEditing().getState();
   const { editingPos, originalContent } = store;
 
   /* v8 ignore next -- @preserve early return: editingPos is always non-null when exitEditing is called */
@@ -122,7 +122,7 @@ export const blockMathKeymapExtension = Extension.create({
 
         props: {
           handleKeyDown(view, event) {
-            const { editingPos } = useBlockMathEditingStore.getState();
+            const { editingPos } = blockMathEditing().getState();
             if (editingPos === null) return false;
 
             // ESC: Revert and exit (works from anywhere when editing)
@@ -144,7 +144,7 @@ export const blockMathKeymapExtension = Extension.create({
           },
 
           handleClick(view, _pos, event) {
-            const store = useBlockMathEditingStore.getState();
+            const store = blockMathEditing().getState();
             const { editingPos } = store;
 
             if (editingPos === null) return false;

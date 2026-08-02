@@ -29,7 +29,6 @@ import type { MarkdownPipelineOptions } from "@/utils/markdownPipeline/types";
 import { isMarkdownPasteCandidate } from "@/utils/markdownPasteDetection";
 import { isSubstantialHtml } from "@/utils/htmlToMarkdown";
 import { pasteError } from "@/utils/debug";
-import { useSettingsStore, type MarkdownPasteMode } from "@/stores/settingsStore";
 import { isMultiSelection, isSelectionInCode } from "@/utils/pasteUtils";
 
 const markdownPastePluginKey = new PluginKey("markdownPaste");
@@ -183,12 +182,43 @@ async function readClipboardPlainText(): Promise<string> {
   return "";
 }
 
-function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
+/** Options for the markdown-paste extension. */
+export interface MarkdownPasteOptions {
+  /**
+   * Whether pasted markdown should be interpreted, asked fresh per paste.
+   *
+   * INJECTED — a plugin reaching the app's stores cannot ship as a standalone
+   * extension (ADR-015).
+   */
+  getMode: () => MarkdownPasteMode;
+  /** Whether soft breaks survive the paste. */
+  getPreserveLineBreaks: () => boolean;
+}
+
+/**
+ * How a markdown paste is interpreted in WYSIWYG.
+ *
+ * The plugin's OWN vocabulary, matching the app's setting today. Declared here
+ * so the plugin does not depend on the app's type module — a type-only import
+ * still pins it to this repo, which is what the coupling gate measures.
+ *
+ * Writing this by hand caught a real mistake: the first draft guessed
+ * `"auto" | "always" | "never"` and the compiler rejected it against the real
+ * `"auto" | "off"`. Copying an assumed shape is how a boundary goes wrong
+ * quietly; the compiler makes it loud.
+ */
+export type MarkdownPasteMode = "auto" | "off";
+
+function handlePaste(
+  view: EditorView,
+  event: ClipboardEvent,
+  getMode: () => MarkdownPasteMode,
+  getPreserveLineBreaks: () => boolean,
+): boolean {
   const text = event.clipboardData?.getData("text/plain");
   if (!text) return false;
 
-  const settings = useSettingsStore.getState();
-  const pasteMode = settings.markdown.pasteMarkdownInWysiwyg ?? "auto";
+  const pasteMode = getMode();
   const html = event.clipboardData?.getData("text/html") ?? "";
 
   if (!shouldHandleMarkdownPaste(view.state, text, { pasteMode, html })) {
@@ -196,7 +226,7 @@ function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
   }
 
   const tr = createMarkdownPasteTransaction(view.state, text, {
-    preserveLineBreaks: settings.markdown.preserveLineBreaks,
+    preserveLineBreaks: getPreserveLineBreaks(),
   });
 
   if (!tr) return false;
@@ -223,14 +253,20 @@ export async function triggerPastePlainText(view: EditorView): Promise<void> {
 }
 
 /** Tiptap extension that intercepts paste events and parses markdown-formatted plain text. */
-export const markdownPasteExtension = Extension.create({
+export const markdownPasteExtension = Extension.create<MarkdownPasteOptions>({
   name: "markdownPaste",
+  // "auto" with breaks not preserved — what a host with no settings wants.
+  addOptions() {
+    return { getMode: () => "auto" as MarkdownPasteMode, getPreserveLineBreaks: () => false };
+  },
   addProseMirrorPlugins() {
+    const { getMode, getPreserveLineBreaks } = this.options;
     return [
       new Plugin({
         key: markdownPastePluginKey,
         props: {
-          handlePaste,
+          handlePaste: (view, event) =>
+            handlePaste(view, event, getMode, getPreserveLineBreaks),
         },
       }),
     ];

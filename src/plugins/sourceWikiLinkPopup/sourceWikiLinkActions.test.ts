@@ -21,19 +21,16 @@ let wikiLinkStoreState = {
   updateTarget: mockUpdateTarget,
 };
 
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: () => wikiLinkStoreState,
-    setState: (s: Partial<typeof wikiLinkStoreState>) => {
-      wikiLinkStoreState = { ...wikiLinkStoreState, ...s };
-    },
+// The popup state is passed to the actions now, not imported by them.
+const store = {
+  getState: () => wikiLinkStoreState,
+  setState: (s: Partial<typeof wikiLinkStoreState>) => {
+    wikiLinkStoreState = { ...wikiLinkStoreState, ...s };
   },
-}));
+} as never;
 
-vi.mock("@/stores/workspaceStore", () => ({
-  useWorkspaceStore: {
-    getState: () => ({ rootPath: "/workspace" }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { workspaceRoot: () => "/workspace" },
 }));
 
 const mockWriteText = vi.fn(() => Promise.resolve());
@@ -91,7 +88,7 @@ describe("saveWikiLinkChanges", () => {
     wikiLinkStoreState.target = "NewTarget";
     wikiLinkStoreState.nodePos = 2; // Inside [[OldTarget]]
 
-    saveWikiLinkChanges(view);
+    saveWikiLinkChanges(view, store);
 
     expect(view.state.doc.toString()).toBe("[[NewTarget]]");
     view.destroy();
@@ -102,7 +99,7 @@ describe("saveWikiLinkChanges", () => {
     wikiLinkStoreState.target = "NewTarget";
     wikiLinkStoreState.nodePos = 5;
 
-    saveWikiLinkChanges(view);
+    saveWikiLinkChanges(view, store);
 
     // When alias equals the old alias (not matching new target), alias is preserved
     expect(view.state.doc.toString()).toBe("[[NewTarget|Display Text]]");
@@ -114,7 +111,7 @@ describe("saveWikiLinkChanges", () => {
     const view = createView(doc);
     wikiLinkStoreState.nodePos = null;
 
-    saveWikiLinkChanges(view);
+    saveWikiLinkChanges(view, store);
 
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
@@ -125,7 +122,7 @@ describe("saveWikiLinkChanges", () => {
     const view = createView(doc);
     wikiLinkStoreState.nodePos = 5;
 
-    saveWikiLinkChanges(view);
+    saveWikiLinkChanges(view, store);
 
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
@@ -136,7 +133,7 @@ describe("saveWikiLinkChanges", () => {
     wikiLinkStoreState.target = "Page";
     wikiLinkStoreState.nodePos = 3;
 
-    saveWikiLinkChanges(view);
+    saveWikiLinkChanges(view, store);
 
     // When alias equals target, it should simplify to [[target]]
     expect(view.state.doc.toString()).toBe("[[Page]]");
@@ -160,7 +157,7 @@ describe("openWikiLink", () => {
   it("emits open-file event with resolved path", async () => {
     wikiLinkStoreState.target = "MyPage";
 
-    await openWikiLink();
+    await openWikiLink(store);
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/MyPage.md",
@@ -172,7 +169,7 @@ describe("openWikiLink", () => {
   it("resolves paths with .md extension", async () => {
     wikiLinkStoreState.target = "docs/readme.md";
 
-    await openWikiLink();
+    await openWikiLink(store);
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/docs/readme.md",
@@ -183,7 +180,7 @@ describe("openWikiLink", () => {
   it("appends .md to targets without extension", async () => {
     wikiLinkStoreState.target = "docs/readme";
 
-    await openWikiLink();
+    await openWikiLink(store);
 
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/workspace/docs/readme.md",
@@ -194,7 +191,7 @@ describe("openWikiLink", () => {
   it("does nothing when target is empty", async () => {
     wikiLinkStoreState.target = "";
 
-    await openWikiLink();
+    await openWikiLink(store);
 
     expect(mockEmit).not.toHaveBeenCalled();
   });
@@ -204,7 +201,7 @@ describe("openWikiLink", () => {
     
     wikiLinkStoreState.target = "Page";
 
-    await openWikiLink();
+    await openWikiLink(store);
 
     expect(sourceActionError).toHaveBeenCalled();
   });
@@ -218,7 +215,7 @@ describe("copyWikiLinkTarget", () => {
   it("copies target to clipboard", async () => {
     wikiLinkStoreState.target = "MyPage";
 
-    await copyWikiLinkTarget();
+    await copyWikiLinkTarget(store);
 
     expect(mockWriteText).toHaveBeenCalledWith("MyPage");
   });
@@ -226,7 +223,7 @@ describe("copyWikiLinkTarget", () => {
   it("does nothing when target is empty", async () => {
     wikiLinkStoreState.target = "";
 
-    await copyWikiLinkTarget();
+    await copyWikiLinkTarget(store);
 
     expect(mockWriteText).not.toHaveBeenCalled();
   });
@@ -236,7 +233,7 @@ describe("copyWikiLinkTarget", () => {
     
     wikiLinkStoreState.target = "Page";
 
-    await copyWikiLinkTarget();
+    await copyWikiLinkTarget(store);
 
     expect(sourceActionError).toHaveBeenCalled();
   });
@@ -259,7 +256,7 @@ describe("removeWikiLink", () => {
     const view = createView("See [[Target]] here");
     wikiLinkStoreState.nodePos = 6; // Inside [[Target]]
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe("See Target here");
     view.destroy();
@@ -269,7 +266,7 @@ describe("removeWikiLink", () => {
     const view = createView("See [[Target|Display]] here");
     wikiLinkStoreState.nodePos = 6;
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe("See Display here");
     view.destroy();
@@ -280,7 +277,7 @@ describe("removeWikiLink", () => {
     const view = createView(doc);
     wikiLinkStoreState.nodePos = null;
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
@@ -291,7 +288,7 @@ describe("removeWikiLink", () => {
     const view = createView(doc);
     wikiLinkStoreState.nodePos = 5;
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe(doc);
     view.destroy();
@@ -301,7 +298,7 @@ describe("removeWikiLink", () => {
     const view = createView("[[Start]] end");
     wikiLinkStoreState.nodePos = 3;
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe("Start end");
     view.destroy();
@@ -311,7 +308,7 @@ describe("removeWikiLink", () => {
     const view = createView("Start [[End]]");
     wikiLinkStoreState.nodePos = 9;
 
-    removeWikiLink(view);
+    removeWikiLink(view, store);
 
     expect(view.state.doc.toString()).toBe("Start End");
     view.destroy();

@@ -1,3 +1,4 @@
+import { bindHostSearch } from "@/plugins/shared/hostSearch";
 /**
  * Search Plugin (WYSIWYG) Tests
  *
@@ -56,18 +57,16 @@ const mockSearchSubscribers: Array<
   (state: MockRoot, prev?: MockRoot) => void
 > = [];
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => mockRoot(),
-    subscribe: (fn: (state: MockRoot, prev: MockRoot) => void) => {
-      mockSearchSubscribers.push(fn);
-      return () => {
-        const idx = mockSearchSubscribers.indexOf(fn);
-        if (idx >= 0) mockSearchSubscribers.splice(idx, 1);
-      };
-    },
+// The find bar arrives via the host seam (ADR-015); listeners carry no payload.
+bindHostSearch({
+  current: () => mockRoot().search as never,
+  reportMatches: (c, i) => mockRoot().searchSetMatches?.(c, i),
+  findNext: () => mockRoot().searchFindNext?.(),
+  onChange: (fn) => {
+    mockSearchSubscribers.push(fn);
+    return () => mockSearchSubscribers.splice(mockSearchSubscribers.indexOf(fn), 1);
   },
-}));
+});
 
 import {
   searchExtension,

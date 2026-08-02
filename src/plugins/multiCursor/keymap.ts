@@ -18,10 +18,10 @@
  * @coordinates-with shortcutsStore.ts (reads current shortcut bindings)
  * @coordinates-with utils/keybinding/proseMirrorKey.ts (toProseMirrorKey helper)
  */
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
 import { keydownHandler } from "@tiptap/pm/keymap";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Transaction, EditorState } from "@tiptap/pm/state";
-import { useShortcutsStore } from "@/stores/settingsStore";
 import { toProseMirrorKey } from "@/utils/keybinding/proseMirrorKey";
 import {
   selectNextOccurrence,
@@ -84,7 +84,6 @@ const multiCursorKeymapPluginKey = new PluginKey("multiCursorKeymap");
  * hardcoded.
  */
 export function buildMultiCursorKeymapBindings(): Record<string, Command> {
-  const shortcuts = useShortcutsStore.getState();
   const bindings: Record<string, Command> = {};
 
   const bindIfKey = (key: string, command: Command) => {
@@ -110,10 +109,10 @@ export function buildMultiCursorKeymapBindings(): Record<string, Command> {
   // Rebindable chords: resolved live from the shortcuts store so Settings
   // rebinds take effect. The literal ids here are what the reverse-closure gate
   // (shortcutConsumerClosure.test.ts) scans for to prove these rows are consumed.
-  bindIfKey(shortcuts.getShortcut("skipOccurrence"), wrapCommand(skipOccurrence));
-  bindIfKey(shortcuts.getShortcut("softUndoCursor"), wrapCommand(softUndoCursor));
-  bindIfKey(shortcuts.getShortcut("addCursorAbove"), wrapViewCommand(addCursorAbove));
-  bindIfKey(shortcuts.getShortcut("addCursorBelow"), wrapViewCommand(addCursorBelow));
+  bindIfKey(hostShortcuts.getShortcut("skipOccurrence"), wrapCommand(skipOccurrence));
+  bindIfKey(hostShortcuts.getShortcut("softUndoCursor"), wrapCommand(softUndoCursor));
+  bindIfKey(hostShortcuts.getShortcut("addCursorAbove"), wrapViewCommand(addCursorAbove));
+  bindIfKey(hostShortcuts.getShortcut("addCursorBelow"), wrapViewCommand(addCursorBelow));
 
   return bindings;
 }
@@ -142,7 +141,7 @@ export function multiCursorKeymap(): Plugin {
       // it must not open a store subscription it can never close; and each mounted
       // view owns its own unsubscribe, so destroying one view can't tear down
       // another's live subscription (audit-fix #2).
-      const unsubscribe = useShortcutsStore.subscribe(() => {
+      const unsubscribe = hostShortcuts.onChange(() => {
         handler = keydownHandler(buildMultiCursorKeymapBindings());
       });
       return {

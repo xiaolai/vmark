@@ -70,7 +70,13 @@ export interface PreviewRendererProps {
 export type PreviewRenderer = ComponentType<PreviewRendererProps>;
 
 interface FormatAdapters {
-  saveDialogFilters: { name: string; extensions: string[] }[];
+  /**
+   * Save-dialog filters. `nameI18nKey` is a `common:`-namespaced key resolved
+   * at DIALOG time by `resolveSaveFilters` — a literal name here would be
+   * frozen in English at module-load time, which is how "Markdown" reached
+   * three call sites untranslated.
+   */
+  saveDialogFilters: { nameI18nKey: string; extensions: string[] }[];
   untitledExtension: string;
   exportEnabled?: boolean;
   findEnabled?: boolean;

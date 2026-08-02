@@ -2,6 +2,7 @@
  * Tests for mediaHandler — media type detection, handleDrop, handlePaste, and extension structure.
  */
 
+import { bindHostDocument } from "@/plugins/shared/hostDocument";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { hasVideoExtension, hasAudioExtension, getMediaType } from "@/utils/mediaPathDetection";
 import { mediaHandlerError } from "@/utils/debug";
@@ -34,21 +35,12 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: vi.fn(() => ({
-      getDocument: vi.fn(() => ({ filePath: "/test/doc.md" })),
-    })),
-  },
-}));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: vi.fn(() => ({
-      activeTabId: { main: "tab-1" },
-    })),
-  },
-}));
+// The document path arrives through the host seam now (ADR-015). Rebound
+// before EVERY case, so a test that overrides it cannot leak into the next.
+beforeEach(() => {
+  bindHostDocument({ activeFilePath: () => "/test/doc.md" });
+});
 
 describe("mediaHandlerExtension", () => {
   it("has the correct name", () => {
@@ -406,11 +398,8 @@ describe("mediaHandler paste — no document path", () => {
   });
 
   it("returns false when document has no filePath and path is pasted", async () => {
+    bindHostDocument({ activeFilePath: () => null });
     // Override documentStore mock to return no filePath
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    (useDocumentStore.getState as ReturnType<typeof vi.fn>).mockReturnValueOnce({
-      getDocument: vi.fn(() => ({ filePath: null })),
-    });
 
     const plugins = mediaHandlerExtension.config.addProseMirrorPlugins!.call({
       name: "mediaHandler",
@@ -614,11 +603,8 @@ describe("handleDroppedMediaFile async flow", () => {
   });
 
   it("shows save required message when no document path", async () => {
+    bindHostDocument({ activeFilePath: () => null });
     // Override to return no filePath
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    (useDocumentStore.getState as ReturnType<typeof vi.fn>).mockReturnValueOnce({
-      getDocument: vi.fn(() => ({ filePath: null })),
-    });
 
     const file = new File(["v"], "clip.mp4", { type: "video/mp4" });
     (file as unknown as Record<string, unknown>).arrayBuffer = vi.fn(() =>
@@ -798,10 +784,7 @@ describe("mediaHandler — getDocumentPath no tabId branch (line 47)", () => {
   });
 
   it("returns false for paste when activeTabId has no entry for window label (tabId is undefined)", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    (useTabStore.getState as ReturnType<typeof vi.fn>).mockReturnValueOnce({
-      activeTabId: {},  // No entry for "main" → tabId is undefined
-    });
+    bindHostDocument({ activeFilePath: () => null });
 
     const plugins = getPlugins();
     const handlePaste = plugins[0].props.handlePaste!;

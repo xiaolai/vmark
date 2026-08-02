@@ -13,6 +13,7 @@
  * items). Unresolved formats stay permissive — matching the unified
  * menu dispatcher's behavior.
  *
+ * @coordinates-with plugins/shared/hostDocument.ts — the active format id
  * @coordinates-with tiptap.ts — WYSIWYG trigger consumes buildWysiwygSnapshot
  * @coordinates-with plugins/codemirror/editorContextMenu.ts — source trigger
  * @module plugins/editorContextMenu/snapshot
@@ -31,7 +32,7 @@ import { getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiS
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import type { ToolbarContext } from "@/plugins/toolbarActions/types";
 import { getFormatById } from "@/lib/formats/registry";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import type {
   EditorContextMenuSnapshot,
   EditorMenuFormatPolicy,
@@ -48,11 +49,8 @@ const TOOLBAR_ITEM_BY_ACTION: ReadonlyMap<string, ToolbarActionItem> = new Map(
  *  format cannot be resolved (matches the unified menu dispatcher). */
 export function getActiveFormatMenuPolicy(): EditorMenuFormatPolicy {
   try {
-    const windowLabel = getCurrentWebviewWindow().label;
-    const tabStore = useTabStore.getState();
-    const activeTabId = tabStore.activeTabId[windowLabel] ?? null;
-    const tab = activeTabId ? tabStore.findTabById(activeTabId) : null;
-    const format = tab && tab.kind === "document" ? getFormatById(tab.formatId) : undefined;
+    const formatId = hostDocument.activeFormatId(getCurrentWebviewWindow().label);
+    const format = formatId ? getFormatById(formatId) : undefined;
     if (!format) return { paragraphFormatting: true, insertBlockActions: true };
     return {
       paragraphFormatting: format.adapters.menuPolicy.paragraphFormatting,

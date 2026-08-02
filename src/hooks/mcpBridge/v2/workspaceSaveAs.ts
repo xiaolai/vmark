@@ -141,7 +141,8 @@ export async function handleWorkspaceSaveAs(
     }
     tabState.updateTabTitle(tabId, getFileName(filePath) || "Untitled");
     docState.setFilePath(tabId, filePath);
-    docState.markSaved(tabId, doc.content);
+    // Verbatim write: both snapshots are the same string here.
+    docState.markSaved(tabId, { editorSnapshot: doc.content, diskSnapshot: doc.content });
     const revision = useRevisionStore.getState().getRevision(tabId);
     await respond({ id, success: true, data: { revision } });
   });

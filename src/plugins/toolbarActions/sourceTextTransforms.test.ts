@@ -153,11 +153,25 @@ describe("handleMoveLineDown", () => {
 });
 
 describe("handleDuplicateLine", () => {
-  it("duplicates current line", () => {
+  // A plain paragraph line gets an explicit hard break between the copies: a
+  // bare newline is a SOFT break and renders as one continued line, so the
+  // duplicate would be invisible.
+  it("duplicates a paragraph line with a hard break", () => {
     const view = createView("first\nsecond", 2);
     const result = handleDuplicateLine(view);
     expect(result).toBe(true);
-    expect(view.state.doc.toString()).toBe("first\nfirst\nsecond");
+    expect(view.state.doc.toString()).toBe("first\\\nfirst\nsecond");
+    view.destroy();
+  });
+
+  it.each([
+    { name: "list item", doc: "- item\n- other", at: 2, expected: "- item\n- item\n- other" },
+    { name: "heading", doc: "# Title\ntext", at: 3, expected: "# Title\n# Title\ntext" },
+    { name: "table row", doc: "| a |\n| b |", at: 2, expected: "| a |\n| a |\n| b |" },
+  ])("duplicates a $name as a sibling, with no break marker", ({ doc, at, expected }) => {
+    const view = createView(doc, at);
+    handleDuplicateLine(view);
+    expect(view.state.doc.toString()).toBe(expected);
     view.destroy();
   });
 
@@ -165,7 +179,7 @@ describe("handleDuplicateLine", () => {
     const view = createView("hello", 2);
     const result = handleDuplicateLine(view);
     expect(result).toBe(true);
-    expect(view.state.doc.toString()).toBe("hello\nhello");
+    expect(view.state.doc.toString()).toBe("hello\\\nhello");
     view.destroy();
   });
 
@@ -173,7 +187,7 @@ describe("handleDuplicateLine", () => {
     const view = createView("first\nlast", 8);
     const result = handleDuplicateLine(view);
     expect(result).toBe(true);
-    expect(view.state.doc.toString()).toBe("first\nlast\nlast");
+    expect(view.state.doc.toString()).toBe("first\nlast\\\nlast");
     view.destroy();
   });
 });

@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "無法復原分頁移動",
   "toast.fileOpenFailed": "無法開啟檔案:{{error}}",
   "toast.openWorkspaceInNewWindowFailed": "無法在新視窗中開啟工作區",
+  "toast.openWorkspaceForFileFailed": "檔案已開啟，但無法開啟其工作區資料夾。側邊欄仍顯示先前的工作區。",
   "toast.revealInFinderFailed": "無法在 Finder 中顯示",
   "toast.historyDeleted": "歷史記錄已刪除",
   "toast.historyClearedAll": "已清除所有歷史記錄",

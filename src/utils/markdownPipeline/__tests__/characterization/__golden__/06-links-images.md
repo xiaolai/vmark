@@ -1,6 +1,6 @@
 An inline [link](https://example.com/path) and an autolink <https://example.com>.
 
-A reference-style [link](https://example.com/reference) pointing to a definition.
+A reference-style [link][ref] pointing to a definition.
 
 An inline image: ![alt text](https://example.com/image.png "a title").
 

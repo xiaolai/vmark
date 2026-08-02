@@ -7,7 +7,8 @@
 
 import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
 import { SourceWikiLinkPopupView } from "./SourceWikiLinkPopupView";
 
 /**
@@ -96,9 +97,9 @@ function extractWikiLinkData(
 /**
  * Create the Source wiki link popup plugin.
  */
-export function createSourceWikiLinkPopupPlugin() {
+export function createSourceWikiLinkPopupPlugin(store: StoreApi<WikiLinkPopupState>) {
   return createSourcePopupPlugin({
-    store: useWikiLinkPopupStore,
+    store,
     /* v8 ignore start -- @preserve createView callback only runs inside live CodeMirror; not exercised in unit tests */
     createView: (view, store) => new SourceWikiLinkPopupView(view, store),
     /* v8 ignore stop */
@@ -110,7 +111,7 @@ export function createSourceWikiLinkPopupPlugin() {
     },
     extractData: extractWikiLinkData,
     openPopup: ({ anchorRect, data }) => {
-      useWikiLinkPopupStore.getState().openPopup(anchorRect, data.target, data.nodePos);
+      store.getState().openPopup(anchorRect, data.target, data.nodePos);
     },
     triggerOnClick: true,
     triggerOnHover: true,

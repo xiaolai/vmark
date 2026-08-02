@@ -7,8 +7,12 @@
  * Key decisions:
  *   - alertType attribute is validated/normalized on both parse and render to prevent
  *     invalid values from persisting (e.g., from manual HTML edits or corrupted paste)
- *   - Insertion always creates a new block after the current position with an empty paragraph
+ *   - A SELECTION is wrapped: the whole top-level blocks it spans become the
+ *     alert's content. Only an empty selection inserts a blank alert after the
+ *     current position. Ignoring the selection made this button mean one thing
+ *     in WYSIWYG and another in Source mode.
  *
+ * @coordinates-with shared/wrapBlocks.ts — how far the wrap reaches
  * @coordinates-with codemirror/sourceAlertDecoration.ts — Source mode alert rendering
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
  * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
@@ -19,6 +23,7 @@ import { Node } from "@tiptap/core";
 import type { EditorState } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
 import { blockInsertPos } from "../shared/blockInsertPos";
+import { wrapSpannedBlocks } from "../shared/wrapBlocks";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import "./alert-block.css";
 
@@ -99,6 +104,20 @@ export const alertBlockExtension = Node.create({
       insertAlertBlock:
         (alertType = DEFAULT_ALERT_TYPE) =>
         ({ state, dispatch }) => {
+          const nodeType = state.schema.nodes.alertBlock;
+          if (!nodeType) return false;
+
+          // A selection is WRAPPED, not ignored. This used to drop an empty
+          // alert after the selection and leave the text alone, while Source
+          // mode folded the text in — the same button, two outcomes.
+          const wrapping = wrapSpannedBlocks(state, (content) =>
+            nodeType.create({ alertType }, content),
+          );
+          if (wrapping) {
+            if (dispatch) dispatch(wrapping);
+            return true;
+          }
+
           const alertNode = createAlertBlockNode(state, alertType);
           if (!alertNode) return false;
 

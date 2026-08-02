@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "Tab-Verschiebung konnte nicht rückgängig gemacht werden",
   "toast.fileOpenFailed": "Datei konnte nicht geöffnet werden: {{error}}",
   "toast.openWorkspaceInNewWindowFailed": "Workspace konnte in neuem Fenster nicht geöffnet werden",
+  "toast.openWorkspaceForFileFailed": "Die Datei wurde geöffnet, aber ihr Arbeitsbereichsordner konnte nicht geöffnet werden. Die Seitenleiste zeigt weiterhin den vorherigen Arbeitsbereich.",
   "toast.revealInFinderFailed": "Im Finder konnte nicht angezeigt werden",
   "toast.historyDeleted": "Verlauf gelöscht",
   "toast.historyClearedAll": "Gesamter Verlauf gelöscht",

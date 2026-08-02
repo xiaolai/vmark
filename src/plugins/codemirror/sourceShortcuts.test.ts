@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "./sourceShortcuts";
 
 // Shared mock state — must be hoisted so the vi.mock factory can close over it
@@ -18,8 +19,15 @@ vi.mock("@/services/editor/runEditorAction", () => ({
 }));
 
 // Mock heavy dependencies so callbacks can be invoked without real CodeMirror state
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: { getState: vi.fn(() => uiStoreState) },
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => uiStoreState.search,
+    open: () => uiStoreState.searchOpen(),
+    findNext: () => uiStoreState.searchFindNext(),
+    findPrevious: () => uiStoreState.searchFindPrevious(),
+  },
 }));
 
 vi.mock("./sourceShortcutsHelpers", () => ({
@@ -71,6 +79,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 function resetShortcuts() {
+  bindPluginHostSettings();
   useShortcutsStore.setState({ customBindings: {} });
 }
 
@@ -94,19 +103,17 @@ describe("buildSourceShortcutKeymap", () => {
     expect(keys).not.toContain("Mod-i");
   });
 
-  it("toggleSidebar binding invokes uiStore.toggleSidebar and returns true (lines 125-126)", async () => {
-    const { useUIStore } = await import("@/stores/uiStore");
-    const toggleSidebarMock = vi.fn();
-    vi.mocked(useUIStore.getState).mockReturnValue({ toggleSidebar: toggleSidebarMock } as never);
-
-    // toggleSidebar is not a registered shortcut id — inject it via customBindings
+  it("does NOT bind toggleSidebar — it is handled at window level", () => {
+    // This test previously asserted the OPPOSITE, pinning a double-toggle:
+    // toggleSidebar is scope:"global", the window view-keybindings own it, and
+    // `shortcutDefinitions.ts` says so outright ("never the TipTap keymap, to
+    // avoid double-toggle"). WYSIWYG obeyed that; Source bound it anyway, so
+    // both handlers fired and the sidebar toggled twice — indistinguishable
+    // from the shortcut not working.
     useShortcutsStore.setState({ customBindings: { toggleSidebar: "Alt-Mod-s" } } as never);
     const bindings = buildSourceShortcutKeymap();
-    const binding = bindings.find((b) => b.key === "Alt-Mod-s");
-    expect(binding).toBeDefined();
-    const result = binding!.run!(mockView);
-    expect(toggleSidebarMock).toHaveBeenCalled();
-    expect(result).toBe(true);
+
+    expect(bindings.find((b) => b.key === "Alt-Mod-s")).toBeUndefined();
   });
 
   it("sourceMode binding returns true without action (line 133)", () => {

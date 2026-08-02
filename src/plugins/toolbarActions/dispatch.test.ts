@@ -40,6 +40,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
 
 import { dispatchEditorAction, buildSourceContext, buildWysiwygContext } from "./dispatch";
 import { useEditorStore } from "@/stores/editorStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -95,7 +96,11 @@ describe("dispatchEditorAction (guarded delegation)", () => {
 });
 
 describe("context builders (snapshot providers)", () => {
-  it("buildSourceContext reads the live editorStore state", () => {
+  // The builders read through the `hostEditors` seam; bind the real store to
+  // it so these exercise the wiring the app ships.
+  beforeEach(bindPluginHostSettings);
+
+  it("buildSourceContext reads the live editor state through the seam", () => {
     const fakeView = { state: { selection: { ranges: [] } } };
     const fakeContext = { hasSelection: true };
     useEditorStore.setState((s) => ({
@@ -107,7 +112,7 @@ describe("context builders (snapshot providers)", () => {
     expect(ctx.context).toBe(fakeContext);
   });
 
-  it("buildWysiwygContext reads the live editorStore state", () => {
+  it("buildWysiwygContext reads the live editor state through the seam", () => {
     const fakeEditor = { fake: true };
     useEditorStore.setState((s) => ({
       tiptap: { ...s.tiptap, editor: fakeEditor as never },

@@ -5,6 +5,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
+import { stripBlockMarkup } from "@/plugins/shared/lineContent";
 import { parseReferences, renumberFootnotes } from "./footnoteActions";
 import { FORMAT_MARKERS, type FormatType, type WrapFormatType } from "./formatTypes";
 import { getOppositeFormat, isWrapped, unwrap, wrap } from "./formatUtils";
@@ -135,11 +136,38 @@ function applyImage(
  * - For links: places cursor in url position
  * - For footnotes: inserts reference + definition with smart numbering
  */
+/**
+ * Move `from` past any BLOCK MARKUP the selection starts on.
+ *
+ * `### Title` selected whole and bolded produced `**### Title**` — the heading
+ * marker inside the emphasis, which is not a heading and not bold. Same for
+ * `- item` and `> quote`, and a selected table came back wrapped entirely in
+ * `**`. WYSIWYG cannot reproduce any of it: the marker is not text there, so
+ * there is nothing to select.
+ *
+ * The fix belongs HERE rather than in `selectBlock`. Narrowing the selection
+ * instead would have changed what Delete and replace do in a TEXT surface,
+ * where the marker legitimately IS text — and it would have missed the case
+ * this actually starts from, a user dragging across the line by hand.
+ */
+function contentStart(view: EditorView, from: number): number {
+  const line = view.state.doc.lineAt(from);
+  if (from !== line.from) return from; // mid-line: the user meant those chars
+  const { content } = stripBlockMarkup(line.text);
+  // Nothing stripped means nothing to skip — a plain paragraph, or an
+  // indented-code line, where `stripBlockMarkup` returns the line whole
+  // because past four columns nothing on it is markup.
+  const prefixLength = line.text.length - content.length;
+  if (prefixLength <= 0) return from;
+  return Math.min(line.from + prefixLength, line.to);
+}
+
 export function applyFormat(view: EditorView, format: FormatType): void {
-  const { from, to } = view.state.selection.main;
+  const { to } = view.state.selection.main;
+  const from = contentStart(view, view.state.selection.main.from);
 
   // Must have a selection
-  if (from === to) return;
+  if (from >= to) return;
 
   const selectedText = view.state.doc.sliceString(from, to);
   const updatedSelection = unwrapOppositeFormat(view, format, from, to, selectedText);

@@ -193,7 +193,7 @@ export const jsonFormat: FormatConfig = {
     "package-json": PackageJsonSchemaRenderer,
   },
   adapters: {
-    saveDialogFilters: [{ name: "JSON", extensions: ["json", "jsonl"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.json", extensions: ["json", "jsonl"] }],
     untitledExtension: "json",
     exportEnabled: false,
     findEnabled: true,

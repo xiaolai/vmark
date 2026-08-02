@@ -40,7 +40,7 @@ function createView(content: string, cursorPos: number): EditorView {
   const state = EditorState.create({
     doc: content,
     selection: { anchor: cursorPos },
-    extensions: [createSourceMathPreviewPlugin()],
+    extensions: [createSourceMathPreviewPlugin(useSourceMathPopupStore)],
   });
   return new EditorView({ state, parent: document.createElement("div") });
 }
@@ -152,7 +152,7 @@ describe("sourceMathPreview", () => {
       const state = EditorState.create({
         doc: "$x$",
         selection: { anchor: 0, head: 3 },
-        extensions: [createSourceMathPreviewPlugin()],
+        extensions: [createSourceMathPreviewPlugin(useSourceMathPopupStore)],
       });
       const view = new EditorView({ state, parent: document.createElement("div") });
       createdViews.push(view);
@@ -203,7 +203,7 @@ describe("sourceMathPreview", () => {
 
   describe("plugin extensions", () => {
     it("returns an array of extensions", () => {
-      const extensions = createSourceMathPreviewPlugin();
+      const extensions = createSourceMathPreviewPlugin(useSourceMathPopupStore);
       expect(Array.isArray(extensions)).toBe(true);
       expect(extensions.length).toBeGreaterThan(0);
     });

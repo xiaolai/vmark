@@ -23,7 +23,7 @@
 
 .gha-workflow-canvas .react-flow__controls,
 .gha-workflow-side-panel__canvas .react-flow__controls {
-  border: var(--space-px) solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   background: var(--bg-color);
   box-shadow: var(--shadow-sm);
 }
@@ -32,7 +32,7 @@
 .gha-workflow-side-panel__canvas .react-flow__controls-button {
   background: var(--bg-color);
   color: var(--text-color);
-  border-bottom: var(--space-px) solid var(--border-color);
+  border-bottom: var(--border-thin) solid var(--border-color);
   /* xyflow's default uses a hardcoded fill on the inner SVG; force
      currentColor so the icons follow the theme's text color. */
   fill: currentColor;

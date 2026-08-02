@@ -10,7 +10,7 @@
  *     (viewportScanWindow, margin 0 — <br /> lines stand alone) so cost is
  *     O(viewport), not O(document)
  *
- * @coordinates-with stores/settingsStore.ts — reads linebreak visibility setting
+ * @coordinates-with plugins/shared/ — the seams that answer this
  * @coordinates-with viewportScan.ts — bounds the scan to the visible line window
  * @module plugins/codemirror/brHidingPlugin
  */

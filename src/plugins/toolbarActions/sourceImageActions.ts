@@ -13,11 +13,10 @@ import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
+import { hostPopups } from "@/plugins/shared/hostPopups";
+import type { MediaNodeType } from "@/plugins/shared/popupPorts";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
-import { useTabStore } from "@/stores/tabStore";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { sourceActionError } from "@/utils/debug";
 import { insertText } from "./sourceAdapterHelpers";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";
@@ -35,11 +34,7 @@ import {
  */
 function getActiveFilePath(): string | null {
   try {
-    const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (!tabId) return null;
-    /* v8 ignore next -- @preserve reason: document without filePath is an untested edge case */
-    return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }
@@ -121,7 +116,7 @@ function showImagePopupForExistingImage(view: EditorView): boolean {
   else if (hasAudioExtension(image.src)) mediaNodeType = "block_audio";
 
   // Open the media popup
-  useMediaPopupStore.getState().openPopup({
+  hostPopups.openMediaPopup({
     mediaSrc: image.src,
     mediaAlt: image.alt,
     mediaNodePos: image.from,

@@ -26,6 +26,21 @@ pub struct WorkspaceTransferTabData {
     pub format_id: String,
     pub editing_enabled: Option<bool>,
     pub active_schema_id: Option<String>,
+    /// Line convention the FILE has on disk. Canonical LF content cannot carry
+    /// it, so a transfer that omitted these rewrote a CRLF+BOM file to LF and
+    /// BOM-less on its first save in the destination window. `Option` because
+    /// payloads written by older builds have none — the receiver then falls
+    /// back to detection, which is what it did for every payload before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_ending: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hard_break_style: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_bom: Option<bool>,
+    /// RAW disk bytes, so external-change detection in the destination compares
+    /// against what is actually on disk rather than the canonical editor text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_disk_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

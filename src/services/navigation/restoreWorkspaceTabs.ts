@@ -19,7 +19,6 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
 import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { workspaceWarn } from "@/utils/debug";
 
 /**
@@ -41,8 +40,8 @@ export async function restoreWorkspaceTabs(
     try {
       const content = await readTextFile(filePath);
       const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-      useDocumentStore.getState().initDocument(tabId, content, filePath);
-      useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
+      // The disk-open door canonicalises AND derives line metadata.
+      useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
       created += 1;
     } catch {
       // File may have been moved/deleted — skip it.

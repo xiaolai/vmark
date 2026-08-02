@@ -51,6 +51,9 @@ function resetStores() {
   });
 }
 
+/** WI-1.4 dual snapshot: one string let the store assume disk held LF text. */
+const saveSnapshots = (c: string) => ({ editorSnapshot: c, diskSnapshot: c });
+
 describe("closeTabWithDirtyCheck", () => {
   beforeEach(() => {
     resetStores();
@@ -140,7 +143,7 @@ describe("closeTabWithDirtyCheck", () => {
     // treats the still-dirty doc as an unresolved save and re-prompts.
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(saveToPath).mockImplementationOnce(async (id, _p, content) => {
-      useDocumentStore.getState().markSaved(id, content);
+      useDocumentStore.getState().markSaved(id, saveSnapshots(content));
       return true;
     });
 
@@ -432,7 +435,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     // The real saveToPath calls markSaved — mirror it, or the doc stays dirty
     // and the scan would read the file instead of the freshly saved content.
     vi.mocked(saveToPath).mockImplementationOnce(async (id, _path, content) => {
-      useDocumentStore.getState().markSaved(id, content);
+      useDocumentStore.getState().markSaved(id, saveSnapshots(content));
       return true;
     });
 

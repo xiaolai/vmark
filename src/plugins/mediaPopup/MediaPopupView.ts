@@ -7,7 +7,7 @@
  * copying path, and removing.
  *
  * Key decisions:
- *   - Store-driven: subscribes to mediaPopupStore for visibility and position updates
+ *   - Store-driven: subscribes to the injected state PORT for visibility/position
  *   - Conditional rows: alt row for images, title row for video/audio, poster row for video
  *   - Toggle button only visible for image types (inline ↔ block)
  *   - Copy resolves relative paths to absolute via document directory for external tool compatibility
@@ -18,7 +18,7 @@
  *
  * @coordinates-with mediaPopupDom.ts — DOM element construction
  * @coordinates-with mediaPopupActions.ts — browse and replace media logic
- * @coordinates-with stores/mediaPopupStore.ts — popup state
+ * @coordinates-with plugins/shared/popupPorts.ts — the state PORT the host satisfies
  * @module plugins/mediaPopup/MediaPopupView
  */
 
@@ -26,9 +26,9 @@ import "./media-popup.css";
 import type { EditorView } from "@tiptap/pm/view";
 import { dirname, join } from "@tauri-apps/api/path";
 import { mediaPopupWarn, mediaPopupError } from "@/utils/debug";
-import { useMediaPopupStore, type MediaNodeType } from "@/stores/mediaPopupStore";
-import { useDocumentStore } from "@/stores/documentStore";
-import { getActiveTabIdForCurrentWindow } from "@/services/media/resolveMediaSrc";
+import type { MediaNodeType, MediaPopupState } from "@/plugins/shared/popupPorts";
+import type { StoreApi } from "zustand";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -88,7 +88,7 @@ export class MediaPopupView {
   private pendingCloseRaf: number | null = null;
   private host: HTMLElement | null = null;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorView, private store: StoreApi<MediaPopupState>) {
     this.editorView = view;
 
     const dom = createMediaPopupDom({
@@ -116,7 +116,7 @@ export class MediaPopupView {
     this.posterInput.addEventListener("input", this.handlePosterChange);
 
     // Subscribe to store changes — show() on open transition or data change
-    this.unsubscribe = useMediaPopupStore.subscribe((state, prevState) => {
+    this.unsubscribe = this.store.subscribe((state, prevState) => {
       if (state.isOpen && state.anchorRect) {
         // Cancel any pending close — popup is being (re)opened
         if (this.pendingCloseRaf !== null) {
@@ -232,7 +232,7 @@ export class MediaPopupView {
     this.removeKeyboardNavigation = installMediaPopupKeyboardNavigation(
       this.container,
       () => {
-        useMediaPopupStore.getState().closePopup();
+        this.store.getState().closePopup();
         this.editorView.focus();
       }
     );
@@ -261,14 +261,14 @@ export class MediaPopupView {
       this.handleSave();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      useMediaPopupStore.getState().closePopup();
+      this.store.getState().closePopup();
       this.editorView.focus();
     }
     /* v8 ignore stop */
   };
 
   private handleSave = () => {
-    const state = useMediaPopupStore.getState();
+    const state = this.store.getState();
     const { mediaNodePos, mediaNodeType } = state;
     const newSrc = this.srcInput.value.trim();
 
@@ -301,7 +301,7 @@ export class MediaPopupView {
   };
 
   private handleToggle = () => {
-    const state = useMediaPopupStore.getState();
+    const state = this.store.getState();
     const { mediaNodePos, mediaNodeType } = state;
 
     if (!isImageType(mediaNodeType)) return;
@@ -325,7 +325,7 @@ export class MediaPopupView {
       const tr = editorState.tr.replaceWith(mediaNodePos, mediaNodePos + node.nodeSize, newNode);
       dispatch(tr);
 
-      useMediaPopupStore.getState().closePopup();
+      this.store.getState().closePopup();
     } catch (error) {
       mediaPopupError("Toggle failed:", error);
     }
@@ -333,34 +333,35 @@ export class MediaPopupView {
 
   private handleSrcChange = () => {
     const value = this.srcInput.value;
-    useMediaPopupStore.getState().setSrc(value);
+    this.store.getState().setSrc(value);
     this.updateNodeAttr("src", value);
   };
 
   private handleAltChange = () => {
     const value = this.altInput.value;
-    useMediaPopupStore.getState().setAlt(value);
+    this.store.getState().setAlt(value);
     this.updateNodeAttr("alt", value);
   };
 
   private handleTitleChange = () => {
     const value = this.titleInput.value;
-    useMediaPopupStore.getState().setTitle(value);
+    this.store.getState().setTitle(value);
     this.updateNodeAttr("title", value);
   };
 
   private handlePosterChange = () => {
     const value = this.posterInput.value;
-    useMediaPopupStore.getState().setPoster(value);
+    this.store.getState().setPoster(value);
     this.updateNodeAttr("poster", value);
   };
 
   private handleBrowse = async () => {
-    const state = useMediaPopupStore.getState();
+    const state = this.store.getState();
     const updated = await browseAndReplaceMedia(
       this.editorView,
       state.mediaNodePos,
-      state.mediaNodeType
+      state.mediaNodeType,
+      this.store
     );
     if (updated) {
       state.closePopup();
@@ -369,14 +370,12 @@ export class MediaPopupView {
   };
 
   private handleCopy = async () => {
-    const { mediaSrc } = useMediaPopupStore.getState();
+    const { mediaSrc } = this.store.getState();
     if (mediaSrc) {
       // Resolve relative paths to absolute
       let pathToCopy = mediaSrc;
       if (!mediaSrc.startsWith("/") && !mediaSrc.startsWith("http")) {
-        const tabId = getActiveTabIdForCurrentWindow();
-        const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-        const filePath = doc?.filePath;
+        const filePath = activeFilePathForCurrentWindow();
         if (filePath) {
           try {
             const docDir = await dirname(filePath);
@@ -393,12 +392,12 @@ export class MediaPopupView {
         mediaPopupError("Failed to copy media path:", err);
       }
     }
-    useMediaPopupStore.getState().closePopup();
+    this.store.getState().closePopup();
     this.editorView.focus();
   };
 
   private handleRemove = () => {
-    const state = useMediaPopupStore.getState();
+    const state = this.store.getState();
     const { mediaNodePos, mediaNodeType } = state;
 
     try {
@@ -419,8 +418,8 @@ export class MediaPopupView {
   };
 
   private handleScroll = () => {
-    if (useMediaPopupStore.getState().isOpen) {
-      useMediaPopupStore.getState().closePopup();
+    if (this.store.getState().isOpen) {
+      this.store.getState().closePopup();
     }
   };
 
@@ -428,7 +427,7 @@ export class MediaPopupView {
     // Guard against race condition where same click opens and closes popup
     if (this.justOpened) return;
 
-    const { isOpen } = useMediaPopupStore.getState();
+    const { isOpen } = this.store.getState();
     if (!isOpen) return;
 
     const target = e.target as Node;
@@ -439,9 +438,9 @@ export class MediaPopupView {
         this.pendingCloseRaf = requestAnimationFrame(() => {
           this.pendingCloseRaf = null;
           // Re-check if popup should still close (might have been reopened)
-          const currentState = useMediaPopupStore.getState();
+          const currentState = this.store.getState();
           if (currentState.isOpen && !this.container.contains(document.activeElement)) {
-            useMediaPopupStore.getState().closePopup();
+            this.store.getState().closePopup();
           }
         });
       }
@@ -449,7 +448,7 @@ export class MediaPopupView {
   };
 
   private updateNodeAttr(attr: string, value: string): void {
-    const { mediaNodePos, mediaNodeType } = useMediaPopupStore.getState();
+    const { mediaNodePos, mediaNodeType } = this.store.getState();
     if (mediaNodePos < 0) return;
 
     try {

@@ -6,17 +6,44 @@
 import { describe, it, expect } from "vitest";
 import {
   ACTION_APPLICABILITY,
+  CODE_BLOCK_SAFE_ACTIONS,
+  TABLE_CELL_BLOCKED_ACTIONS,
   enabledInFor,
   paletteRequirementFor,
 } from "./actionApplicability";
 import { isAdapterAction } from "./adapterActions";
 import { TOOLBAR_GROUPS, isSeparator } from "@/components/Editor/UniversalToolbar/toolbarGroups";
+// Statically imported: nothing here mocks this module, and resolving it INSIDE
+// the test made a 5s-default assertion depend on how loaded the worker was.
+import { adapterActionMutates } from "@/services/commands/actionAvailability";
 
 describe("table integrity", () => {
   it("every key is a real adapter action", () => {
     for (const key of Object.keys(ACTION_APPLICABILITY)) {
       expect(isAdapterAction(key), `unknown action in table: ${key}`).toBe(true);
     }
+  });
+
+  // The two data-safety sets fail in OPPOSITE directions on a bad entry: a
+  // typo in the table block-list fails OPEN (the action runs in a cell and the
+  // serializer silently drops the block it created), a typo in the code-block
+  // allow-list fails CLOSED (the action is refused wherever a fence is). The
+  // arrays are compile-time typed now; this pins it at runtime too, so a
+  // future `as` cast or widened type cannot quietly reopen the hole.
+  it.each([
+    { name: "TABLE_CELL_BLOCKED_ACTIONS", set: TABLE_CELL_BLOCKED_ACTIONS },
+    { name: "CODE_BLOCK_SAFE_ACTIONS", set: CODE_BLOCK_SAFE_ACTIONS },
+  ])("every member of $name is a real adapter action", ({ set }) => {
+    for (const action of set) {
+      expect(isAdapterAction(action), `unknown action in policy set: ${action}`).toBe(true);
+    }
+  });
+
+  it("the policy sets cover every heading level exactly once", () => {
+    for (let level = 0; level <= 6; level++) {
+      expect(TABLE_CELL_BLOCKED_ACTIONS.has(`heading:${level}`)).toBe(true);
+    }
+    expect(TABLE_CELL_BLOCKED_ACTIONS.has("heading:7")).toBe(false);
   });
 
   it("every toolbar item's contexts come from the table", () => {
@@ -71,8 +98,7 @@ describe("enabledInFor fallback", () => {
 });
 
 describe("adapterActionMutates (shared read-only gate vocabulary)", () => {
-  it("classifies mutating vs selection-only actions", async () => {
-    const { adapterActionMutates } = await import("@/services/commands/actionAvailability");
+  it("classifies mutating vs selection-only actions", () => {
     expect(adapterActionMutates("bold")).toBe(true);
     expect(adapterActionMutates("heading:2")).toBe(true);
     expect(adapterActionMutates("selectWord")).toBe(false);

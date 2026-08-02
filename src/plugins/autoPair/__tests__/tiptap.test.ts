@@ -45,7 +45,6 @@ vi.mock("../keyHandler", () => ({
 }));
 
 import { autoPairExtension } from "../tiptap";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -74,7 +73,7 @@ describe("autoPairExtension addProseMirrorPlugins", () => {
     const plugins = autoPairExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "autoPair",
-      options: {},
+      options: { getConfig: () => ({ enabled: true, includeCJK: false, includeCurlyQuotes: false, normalizeRightDoubleQuote: false }) },
       storage: {},
       type: undefined,
       parent: undefined,
@@ -86,7 +85,7 @@ describe("autoPairExtension addProseMirrorPlugins", () => {
     autoPairExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "autoPair",
-      options: {},
+      options: { getConfig: () => ({ enabled: true, includeCJK: false, includeCurlyQuotes: false, normalizeRightDoubleQuote: false }) },
       storage: {},
       type: undefined,
       parent: undefined,
@@ -100,101 +99,55 @@ describe("autoPairExtension addProseMirrorPlugins", () => {
 // Config reading from settings store
 // ---------------------------------------------------------------------------
 
-describe("autoPair config reading", () => {
-  it("reads config from settingsStore with defaults", () => {
-    // Call the plugin factory to get the config getter invoked
+describe("autoPair config is INJECTED, not read from a store", () => {
+  // These used to write the settings store and assert the plugin noticed —
+  // they were testing the coupling that stopped it shipping standalone
+  // (ADR-015). The host supplies `getConfig` now, so what matters here is that
+  // the plugin ASKS, asks the injected getter, and asks it again per keystroke.
+  const CONFIG = {
+    enabled: true,
+    includeCJK: false,
+    includeCurlyQuotes: false,
+    normalizeRightDoubleQuote: false,
+  };
+
+  function build(getConfig: () => unknown) {
     autoPairExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "autoPair",
-      options: {},
+      options: { getConfig },
       storage: {},
       type: undefined,
       parent: undefined,
     } as never);
+    return mockCreateKeyHandler.mock.calls[0][0] as () => unknown;
+  }
 
-    // The config getter is passed to createKeyHandler — call it to verify
-    const configGetter = mockCreateKeyHandler.mock.calls[0][0] as () => unknown;
-    const config = configGetter();
-    expect(config).toEqual({
-      enabled: true,
-      includeCJK: false,
-      includeCurlyQuotes: false,
-      normalizeRightDoubleQuote: false,
-    });
+  it("passes the INJECTED getter through to the key handler", () => {
+    expect(build(() => CONFIG)()).toEqual(CONFIG);
   });
 
-  it("reads CJK enabled when autoPairCJKStyle is not 'off'", () => {
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {
-        autoPairEnabled: true,
-        autoPairCJKStyle: "chinese",
-        autoPairCurlyQuotes: true,
-        autoPairRightDoubleQuote: true,
-      },
-    } as never);
-
-    autoPairExtension.config.addProseMirrorPlugins!.call({
-      editor: {},
-      name: "autoPair",
-      options: {},
-      storage: {},
-      type: undefined,
-      parent: undefined,
-    } as never);
-
-    const configGetter = mockCreateKeyHandler.mock.calls[0][0] as () => unknown;
-    const config = configGetter();
-    expect(config).toEqual({
-      enabled: true,
-      includeCJK: true,
-      includeCurlyQuotes: true,
-      normalizeRightDoubleQuote: true,
-    });
+  it("re-asks — a value captured at construction would freeze the answer", () => {
+    let enabled = false;
+    const getter = build(() => ({ ...CONFIG, enabled }));
+    expect((getter() as { enabled: boolean }).enabled).toBe(false);
+    enabled = true;
+    expect((getter() as { enabled: boolean }).enabled).toBe(true);
   });
 
-  it("normalizeRightDoubleQuote is false when CJK is off even if other flags are true", () => {
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {
-        autoPairEnabled: true,
-        autoPairCJKStyle: "off",
-        autoPairCurlyQuotes: true,
-        autoPairRightDoubleQuote: true,
-      },
-    } as never);
-
+  it("falls back to a working default when the host supplies nothing", () => {
+    // A standalone consumer with no settings layer must get a live plugin,
+    // not a dead one.
     autoPairExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "autoPair",
-      options: {},
+      options: autoPairExtension.config.addOptions!.call({} as never),
       storage: {},
       type: undefined,
       parent: undefined,
     } as never);
-
-    const configGetter = mockCreateKeyHandler.mock.calls[0][0] as () => unknown;
-    const config = configGetter();
-    expect(config).toEqual(
-      expect.objectContaining({ normalizeRightDoubleQuote: false }),
-    );
-  });
-
-  it("enabled defaults to true when setting is undefined", () => {
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {},
-    } as never);
-
-    autoPairExtension.config.addProseMirrorPlugins!.call({
-      editor: {},
-      name: "autoPair",
-      options: {},
-      storage: {},
-      type: undefined,
-      parent: undefined,
-    } as never);
-
-    const configGetter = mockCreateKeyHandler.mock.calls[0][0] as () => unknown;
-    const config = configGetter() as { enabled: boolean };
-    expect(config.enabled).toBe(true);
+    const getter = mockCreateKeyHandler.mock.calls[0][0] as () => { enabled: boolean };
+    expect(getter().enabled).toBe(true);
   });
 });
 
@@ -207,7 +160,7 @@ describe("autoPair IME composition guard", () => {
     const plugins = autoPairExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "autoPair",
-      options: {},
+      options: { getConfig: () => ({ enabled: true, includeCJK: false, includeCurlyQuotes: false, normalizeRightDoubleQuote: false }) },
       storage: {},
       type: undefined,
       parent: undefined,

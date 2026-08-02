@@ -144,6 +144,7 @@
   "toast.tabUndoFailed": "无法撤销标签页移动",
   "toast.fileOpenFailed": "无法打开文件:{{error}}",
   "toast.openWorkspaceInNewWindowFailed": "无法在新窗口中打开工作区",
+  "toast.openWorkspaceForFileFailed": "文件已打开，但无法打开其工作区文件夹。侧边栏仍显示先前的工作区。",
   "toast.revealInFinderFailed": "无法在 Finder 中显示",
   "toast.historyDeleted": "历史记录已删除",
   "toast.historyClearedAll": "已清除所有历史记录",

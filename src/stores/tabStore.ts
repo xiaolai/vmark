@@ -60,7 +60,7 @@ import {
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
 
 // Re-exported so existing `import { Tab } from "@/stores/tabStore"` keeps working (shapes live in tabStoreTypes.ts, which breaks the store↔helpers cycle).
-export type { Tab, DocumentTab, BrowserTab } from "@/stores/tabStoreTypes";
+export type { Tab, DocumentTab } from "@/stores/tabStoreTypes";
 export { tabFilePath } from "@/stores/tabStoreTypes";
 
 interface TabState {

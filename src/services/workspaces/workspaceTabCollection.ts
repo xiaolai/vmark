@@ -11,6 +11,7 @@
 
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore, type DocumentTab } from "@/stores/tabStore";
+import { collectTransferLineMetadata } from "@/utils/transferLineMetadata";
 import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
@@ -66,6 +67,7 @@ export function serializeTransferTab(tab: DocumentTab, doc: TabDocument): Worksp
     formatId: tab.formatId,
     editingEnabled: tab.editingEnabled,
     activeSchemaId: tab.activeSchemaId,
+    ...collectTransferLineMetadata(doc),
   };
 }
 

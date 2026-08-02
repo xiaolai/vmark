@@ -31,8 +31,8 @@ vi.mock("@/services/navigation/windowFocus", () => ({
 }));
 
 const mockSettingsGetState = vi.fn();
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => mockSettingsGetState() },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { copyImagesToAssets: () => mockSettingsGetState().image.copyToAssets },
 }));
 
 vi.mock("@/utils/debug", () => ({

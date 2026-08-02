@@ -49,6 +49,7 @@ vi.mock("./sourceFootnoteActions", () => ({
 }));
 
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
+import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { createSourceFootnotePopupPlugin } from "./sourceFootnotePopupPlugin";
 import {
   findFootnoteDefinition,
@@ -73,7 +74,7 @@ describe("createSourceFootnotePopupPlugin", () => {
   });
 
   it("calls createSourcePopupPlugin with correct config", () => {
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
 
     expect(createSourcePopupPlugin).toHaveBeenCalledTimes(1);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
@@ -95,7 +96,7 @@ describe("detectFootnoteTrigger (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     detectTrigger = config.detectTrigger;
   });
@@ -202,7 +203,7 @@ describe("detectTriggerAtPos (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     detectTriggerAtPos = config.detectTriggerAtPos;
   });
@@ -229,7 +230,7 @@ describe("detectTriggerAtPos (via plugin config)", () => {
 describe("createView callback (via plugin config)", () => {
   it("instantiates SourceFootnotePopupView", () => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     const view = createView("test", 0);
     const store = { getState: () => ({}) };
@@ -243,7 +244,7 @@ describe("createView callback (via plugin config)", () => {
 describe("onOpen callback (via plugin config)", () => {
   it("calls setOpenedOnReference on SourceFootnotePopupView", async () => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     const { SourceFootnotePopupView: _SourceFootnotePopupView } = await import("./SourceFootnotePopupView");
@@ -259,7 +260,7 @@ describe("onOpen callback (via plugin config)", () => {
 
   it("does nothing when popupView is not SourceFootnotePopupView instance", () => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     const fakePopupView = { setOpenedOnReference: vi.fn() };
@@ -271,9 +272,9 @@ describe("onOpen callback (via plugin config)", () => {
 });
 
 describe("openPopup callback (via plugin config)", () => {
-  it("calls useFootnotePopupStore.getState().openPopup with correct args", async () => {
+  it("calls openPopup on the injected store with correct args", () => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
 
     const mockAnchorRect = { top: 10, left: 20, width: 100, height: 20 };
@@ -286,7 +287,6 @@ describe("openPopup callback (via plugin config)", () => {
 
     config.openPopup({ anchorRect: mockAnchorRect, data });
 
-    const { useFootnotePopupStore } = await import("@/stores/footnotePopupStore");
     const openPopup = useFootnotePopupStore.getState().openPopup;
     expect(openPopup).toHaveBeenCalledWith("1", "test content", mockAnchorRect, 5, 0);
   });
@@ -306,7 +306,7 @@ describe("extractFootnoteData (via plugin config)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createSourceFootnotePopupPlugin();
+    createSourceFootnotePopupPlugin(useFootnotePopupStore as never);
     const config = (createSourcePopupPlugin as ReturnType<typeof vi.fn>).mock.calls[0][0];
     extractData = config.extractData;
   });

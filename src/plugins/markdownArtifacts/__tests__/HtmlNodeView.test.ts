@@ -1,3 +1,5 @@
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
+import { bindHostDocument } from "@/plugins/shared/hostDocument";
 /**
  * HtmlNodeView Tests
  *
@@ -21,60 +23,36 @@ const mockSetCursorInfo = vi.fn();
 let mockHtmlRenderingMode = "sanitized";
 let mockAllowlistLevel = "strict";
 let mockCustomTags = "";
-type MarkdownState = {
-  markdown: {
-    htmlRenderingMode: string;
-    htmlAllowlistLevel: string;
-    htmlAllowlistCustomTags: string;
-  };
-};
-let storeSubscriber: ((state: MarkdownState) => void) | null = null;
+let storeSubscriber: (() => void) | null = null;
 const mockUnsubscribe = vi.fn();
 
 /** Build a subscriber payload, defaulting allow-list fields to the mock values. */
-function markdownState(htmlRenderingMode: string, overrides: Partial<MarkdownState["markdown"]> = {}): MarkdownState {
-  return {
-    markdown: {
-      htmlRenderingMode,
-      htmlAllowlistLevel: mockAllowlistLevel,
-      htmlAllowlistCustomTags: mockCustomTags,
-      ...overrides,
-    },
-  };
+/**
+ * Apply a settings change and notify, the way the seam works: the listener
+ * carries no payload, so the plugin re-reads `hostSettings.htmlRendering()`.
+ */
+function changeSettings(mode: string, overrides: { htmlAllowlistLevel?: string } = {}) {
+  mockHtmlRenderingMode = mode;
+  if (overrides.htmlAllowlistLevel !== undefined) mockAllowlistLevel = overrides.htmlAllowlistLevel;
+  storeSubscriber?.();
 }
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({
-      markdown: {
-        htmlRenderingMode: mockHtmlRenderingMode,
-        htmlAllowlistLevel: mockAllowlistLevel,
-        htmlAllowlistCustomTags: mockCustomTags,
-      },
-    }),
-    subscribe: (cb: (state: MarkdownState) => void) => {
-      storeSubscriber = cb;
-      return mockUnsubscribe;
-    },
+// Settings and cursor sync arrive through the plugins' host seams now
+// (ADR-015). Binding them is what the app does at its composition root.
+bindHostSettings({
+  htmlRendering: () => ({
+    mode: mockHtmlRenderingMode as "hidden" | "sanitized" | "sanitizedWithStyles",
+    allowlistLevel: mockAllowlistLevel as never,
+    customTags: mockCustomTags,
+  }),
+  onChange: (cb) => {
+    storeSubscriber = cb;
+    return mockUnsubscribe;
   },
-}));
+});
+bindHostDocument({ reportCursorInfo: (_label, info) => mockSetCursorInfo("tab-1", info) });
 
-// Per ADR-009: cursorInfo lives in documentStore (per-tab), not uiStore.
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      setCursorInfo: mockSetCursorInfo,
-    }),
-  },
-}));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: { main: "tab-1" },
-    }),
-  },
-}));
 
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
@@ -225,7 +203,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>x</b>" });
       vi.clearAllMocks();
 
-      storeSubscriber?.(markdownState("sanitized", { htmlAllowlistLevel: "extended" }));
+      changeSettings("sanitized", { htmlAllowlistLevel: "extended" });
       expect(mockSanitizeHtmlPreview).toHaveBeenCalledWith(
         "<b>x</b>",
         expect.objectContaining({ allowlistLevel: "extended" }),
@@ -239,7 +217,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>test</b>" });
       vi.clearAllMocks();
 
-      storeSubscriber?.(markdownState("hidden"));
+      changeSettings("hidden");
       expect(nodeView.dom.style.display).toBe("none");
     });
 
@@ -248,7 +226,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>test</b>" });
       vi.clearAllMocks();
 
-      storeSubscriber?.(markdownState("sanitized"));
+      changeSettings("sanitized");
       expect(mockSanitizeHtmlPreview).not.toHaveBeenCalled();
     });
 
@@ -257,7 +235,7 @@ describe("HtmlNodeView (inline)", () => {
       createInlineView({ value: "<b>test</b>" });
       expect(nodeView.dom.style.display).toBe("none");
 
-      storeSubscriber?.(markdownState("sanitized"));
+      changeSettings("sanitized");
       expect(nodeView.dom.style.display).toBe("inline");
     });
   });

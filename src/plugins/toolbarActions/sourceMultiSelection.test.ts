@@ -42,7 +42,6 @@ vi.mock("@/plugins/sourceContextDetection/blockquoteDetection", () => ({
 
 import {
   applyMultiSelectionHeading,
-  applyMultiSelectionListAction,
   applyMultiSelectionBlockquoteAction,
 } from "./sourceMultiSelection";
 
@@ -112,114 +111,6 @@ describe("applyMultiSelectionHeading", () => {
 
     expect(mockConvertToHeading).not.toHaveBeenCalled();
     expect(mockSetHeadingLevel).not.toHaveBeenCalled();
-    view.destroy();
-  });
-});
-
-describe("applyMultiSelectionListAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns false for single selection", () => {
-    const view = createView("- item", [{ from: 2, to: 2 }]);
-    const result = applyMultiSelectionListAction(view, "bulletList");
-    expect(result).toBe(false);
-    view.destroy();
-  });
-
-  it("returns false when no ranges have list info", () => {
-    const view = createView("one\ntwo", [
-      { from: 0, to: 0 },
-      { from: 4, to: 4 },
-    ]);
-    mockGetListItemInfo.mockReturnValue(null);
-    const result = applyMultiSelectionListAction(view, "bulletList");
-    expect(result).toBe(false);
-    view.destroy();
-  });
-
-  it("converts to bullet list for each range", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "bulletList");
-    expect(mockToBulletList).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("converts to ordered list for each range", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "orderedList");
-    expect(mockToOrderedList).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("converts to task list for each range", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "taskList");
-    expect(mockToTaskList).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("indents list items for each range", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "indent");
-    expect(mockIndentListItem).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("outdents list items for each range", () => {
-    const view = createView("  - one\n  - two", [
-      { from: 4, to: 4 },
-      { from: 12, to: 12 },
-    ]);
-    const info = { type: "bullet", indent: 2 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "outdent");
-    expect(mockOutdentListItem).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("removes list for each range", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    applyMultiSelectionListAction(view, "removeList");
-    expect(mockRemoveList).toHaveBeenCalledTimes(2);
-    view.destroy();
-  });
-
-  it("returns false for unknown action", () => {
-    const view = createView("- one\n- two", [
-      { from: 2, to: 2 },
-      { from: 8, to: 8 },
-    ]);
-    const info = { type: "bullet", indent: 0 };
-    mockGetListItemInfo.mockReturnValue(info);
-    const result = applyMultiSelectionListAction(view, "unknownAction");
-    expect(result).toBe(false);
     view.destroy();
   });
 });

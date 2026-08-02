@@ -59,6 +59,15 @@ vi.mock("@codemirror/commands", () => ({
 
 vi.mock("@codemirror/lang-markdown", () => ({
   markdown: vi.fn(() => ({})),
+  markdownLanguage: {},
+}));
+
+// The peek editor lazy-imports the shared language factory alongside the
+// CodeMirror modules, so it needs a mock like the rest. What that factory
+// CONFIGURES (the GFM base) is covered by its own contract test; this file is
+// about the editor's create/destroy lifecycle.
+vi.mock("@/lib/formats/markdownLanguageSupport", () => ({
+  markdownLanguageSupport: vi.fn(() => ({})),
 }));
 
 vi.mock("@codemirror/language-data", () => ({
@@ -79,6 +88,7 @@ import { EditorState as CMState } from "@codemirror/state";
 import { EditorView as CMView } from "@codemirror/view";
 import { history } from "@codemirror/commands";
 import { markdown as markdownLang } from "@codemirror/lang-markdown";
+import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { syntaxHighlighting } from "@codemirror/language";
 
 /** Wait until the async initCMEditor chain has constructed the CM view. */
@@ -183,7 +193,11 @@ describe("createCodeMirrorEditor", () => {
     const noop = () => {};
     createCodeMirrorEditor("test", noop, noop, noop);
     await flushCMInit();
-    expect(markdownLang).toHaveBeenCalled();
+    // Via the SHARED factory, not `markdown()` directly: calling it bare would
+    // silently use the CommonMark base and stop matching the document parser,
+    // which is what this editor previously did.
+    expect(markdownLanguageSupport).toHaveBeenCalled();
+    expect(markdownLang).not.toHaveBeenCalled();
   });
 
   it("configures syntax highlighting", async () => {

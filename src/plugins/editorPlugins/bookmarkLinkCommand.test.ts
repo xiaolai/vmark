@@ -4,11 +4,13 @@ import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { EditorView } from "@tiptap/pm/view";
 
 // Mock stores and utils before importing
+// The picker is opened through the `hostPopups` seam now.
 const mockOpenPicker = vi.fn();
-const mockGetState = vi.fn();
-vi.mock("@/stores/headingPickerStore", () => ({
-  useHeadingPickerStore: {
-    getState: () => mockGetState(),
+let mockAnySurfaceOpen = false;
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    openHeadingPicker: (...a: unknown[]) => mockOpenPicker(...a),
+    anyLinkSurfaceOpen: () => mockAnySurfaceOpen,
   },
 }));
 
@@ -73,10 +75,7 @@ function createView(text: string, from: number, to?: number): EditorView {
 describe("handleBookmarkLinkShortcut", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetState.mockReturnValue({
-      isOpen: false,
-      openPicker: mockOpenPicker,
-    });
+    mockAnySurfaceOpen = false;
     mockExtractHeadingsWithIds.mockReturnValue([
       { id: "heading-1", text: "First Heading", level: 1 },
       { id: "heading-2", text: "Second Heading", level: 2 },
@@ -84,7 +83,7 @@ describe("handleBookmarkLinkShortcut", () => {
   });
 
   it("returns true when heading picker is already open (blocks re-entry)", () => {
-    mockGetState.mockReturnValue({ isOpen: true, openPicker: mockOpenPicker });
+    mockAnySurfaceOpen = true;
 
     const view = createView("hello", 2);
     const result = handleBookmarkLinkShortcut(view);
@@ -107,17 +106,15 @@ describe("handleBookmarkLinkShortcut", () => {
     const view = createView("hello", 2);
     const result = handleBookmarkLinkShortcut(view);
     expect(result).toBe(true);
-    expect(mockOpenPicker).toHaveBeenCalledWith(
-      [
+    expect(mockOpenPicker).toHaveBeenCalledWith({
+      headings: [
         { id: "heading-1", text: "First Heading", level: 1 },
         { id: "heading-2", text: "Second Heading", level: 2 },
       ],
-      expect.any(Function),
-      expect.objectContaining({
-        anchorRect: expect.any(Object),
-        containerBounds: expect.any(Object),
-      })
-    );
+      onSelect: expect.any(Function),
+      anchorRect: expect.any(Object),
+      containerBounds: expect.any(Object),
+    });
     view.destroy();
   });
 
@@ -126,7 +123,7 @@ describe("handleBookmarkLinkShortcut", () => {
     handleBookmarkLinkShortcut(view);
 
     // Get the callback passed to openPicker
-    const callback = mockOpenPicker.mock.calls[0][1] as (
+    const callback = (mockOpenPicker.mock.calls[0][0] as { onSelect: unknown }).onSelect as (
       id: string,
       text: string
     ) => void;
@@ -145,7 +142,7 @@ describe("handleBookmarkLinkShortcut", () => {
     const view = createView("hello world", 6, 6); // collapsed cursor
     handleBookmarkLinkShortcut(view);
 
-    const callback = mockOpenPicker.mock.calls[0][1] as (
+    const callback = (mockOpenPicker.mock.calls[0][0] as { onSelect: unknown }).onSelect as (
       id: string,
       text: string
     ) => void;
@@ -188,7 +185,7 @@ describe("handleBookmarkLinkShortcut", () => {
 
     handleBookmarkLinkShortcut(view);
 
-    const callback = mockOpenPicker.mock.calls[0][1] as (
+    const callback = (mockOpenPicker.mock.calls[0][0] as { onSelect: unknown }).onSelect as (
       id: string,
       text: string
     ) => void;
@@ -210,9 +207,7 @@ describe("handleBookmarkLinkShortcut", () => {
     handleBookmarkLinkShortcut(view);
 
     expect(mockOpenPicker).toHaveBeenCalledWith(
-      headings,
-      expect.any(Function),
-      expect.any(Object)
+      expect.objectContaining({ headings, onSelect: expect.any(Function) })
     );
     view.destroy();
   });

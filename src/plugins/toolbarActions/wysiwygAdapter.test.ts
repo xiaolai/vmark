@@ -63,21 +63,20 @@ vi.mock("./wysiwygAdapterLinks", () => ({
 }));
 vi.mock("./wysiwygAdapterFormatting", () => ({
   clearFormattingInView: vi.fn(() => true),
-  increaseHeadingLevel: vi.fn(() => true),
-  decreaseHeadingLevel: vi.fn(() => true),
   toggleBlockquote: vi.fn(() => true),
   handleWysiwygTransformCase: vi.fn(() => true),
   toggleQuoteStyleAtCursor: vi.fn(() => true),
 }));
+vi.mock("./wysiwygHeadingLevel", () => ({ increaseHeadingLevel: vi.fn(() => true), decreaseHeadingLevel: vi.fn(() => true) }));
 vi.mock("./wysiwygAdapterInsert", () => ({
   handleInsertImage: vi.fn(() => true),
   handleInsertVideo: vi.fn(() => true),
   handleInsertAudio: vi.fn(() => true),
-  insertMathBlock: vi.fn(() => true),
-  insertDiagramBlock: vi.fn(() => true),
-  insertGraphvizBlock: vi.fn(() => true),
-  insertMarkmapBlock: vi.fn(() => true),
   insertInlineMath: vi.fn(() => true),
+}));
+vi.mock("./wysiwygAdapterBlockInsert", () => ({  // own module since the parity fixes
+  insertMathBlock: vi.fn(() => true), insertDiagramBlock: vi.fn(() => true),
+  insertGraphvizBlock: vi.fn(() => true), insertMarkmapBlock: vi.fn(() => true),
 }));
 vi.mock("./wysiwygAdapterCodeBlock", () => ({
   handleInsertCodeBlock: vi.fn(() => true),
@@ -112,6 +111,9 @@ const baseContext: WysiwygToolbarContext = {
   context: null,
 };
 
+/** A chainable editor-command stub. */
+const link = () => vi.fn().mockReturnThis();
+
 function createMockEditor(overrides?: Record<string, unknown>) {
   return {
     commands: {
@@ -120,13 +122,10 @@ function createMockEditor(overrides?: Record<string, unknown>) {
       insertAlertBlock: vi.fn(() => true),
       insertDetailsBlock: vi.fn(() => true),
     },
-    chain: vi.fn().mockReturnThis(),
-    focus: vi.fn().mockReturnThis(),
-    setParagraph: vi.fn().mockReturnThis(),
-    setHeading: vi.fn().mockReturnThis(),
-    setCodeBlock: vi.fn().mockReturnThis(),
-    setHorizontalRule: vi.fn().mockReturnThis(),
-    insertTable: vi.fn().mockReturnThis(),
+    chain: link(), focus: link(), setParagraph: link(), setHeading: link(), setCodeBlock: link(),
+    setHorizontalRule: link(), insertTable: link(), insertContentAt: link(), setTextSelection: link(),
+    // Divider/table read the selection to place the block AFTER the current one.
+    state: { selection: { $from: { depth: 0 }, $to: { pos: 0 } } },
     run: vi.fn(() => true),
     ...overrides,
   } as unknown as TiptapEditor;
@@ -246,7 +245,7 @@ describe("performWysiwygToolbarAction", () => {
   });
 
   it("delegates insertGraphvizDiagram to insertGraphvizBlock", async () => {
-    const { insertGraphvizBlock } = await import("./wysiwygAdapterInsert");
+    const { insertGraphvizBlock } = await import("./wysiwygAdapterBlockInsert");
     const context = { ...baseContext, editor: createMockEditor() };
     const result = performWysiwygToolbarAction("insertGraphvizDiagram", context);
     expect(result).toBe(true);

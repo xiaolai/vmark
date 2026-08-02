@@ -8,21 +8,29 @@
  *   - Two node types: detailsBlock (wrapper) and detailsSummary (clickable header)
  *   - Input rule triggers on `<details>` or `:::details` at line start
  *   - Click on summary toggles the open/closed state via node attribute
+ *   - A SELECTION is wrapped: the whole top-level blocks it spans become the
+ *     body. Only an empty selection inserts a blank details block; a non-empty
+ *     selection that cannot be wrapped (AllSelection, a top-level
+ *     NodeSelection) declines rather than inserting an unrelated blank block.
  *   - Default summary text for new blocks comes from the
- *     "editor:plugin.detailsDefaultSummary" locale key ("Click to expand" in English)
+ *     shared `blockTemplates` module, so both surfaces insert the same block
  *
  * @coordinates-with codemirror/sourceDetailsDecoration.ts — Source mode visual markers
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
  * @coordinates-with shared/blockInsertPos.ts — depth-aware insert position
+ * @coordinates-with shared/blockTemplates.ts — summary text and open state
+ * @coordinates-with shared/wrapBlocks.ts — how far the wrap reaches
  * @module plugins/detailsBlock/tiptap
  */
 
 import { InputRule, Node } from "@tiptap/core";
+import type { Node as PMNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
-import i18n from "@/i18n";
+import { newDetailsSummary, NEW_DETAILS_OPEN } from "@/plugins/shared/blockTemplates";
 import { blockInsertPos } from "../shared/blockInsertPos";
+import { wrapSpannedBlocks } from "../shared/wrapBlocks";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import "./details-block.css";
 
@@ -37,6 +45,19 @@ declare module "@tiptap/core" {
   }
 }
 
+/**
+ * Offset from a details node's start to the first position inside its BODY.
+ *
+ * One definition for all three paths — wrapping, plain insertion, and the input
+ * rule. It was spelled out separately in each, and the wrapping path simply
+ * omitted it, so wrapping a selection left the caret in the summary where typing
+ * renamed the disclosure instead of editing the content.
+ */
+export function detailsBodyCaretOffset(details: PMNode): number {
+  /* v8 ignore next -- @preserve null-coalesce: a details node always has a summary firstChild */
+  return 1 + (details.firstChild?.nodeSize ?? 0) + 1;
+}
+
 function createDetailsBlockNode(state: EditorState, open: boolean) {
   const detailsType = state.schema.nodes.detailsBlock;
   const summaryType = state.schema.nodes.detailsSummary;
@@ -45,7 +66,7 @@ function createDetailsBlockNode(state: EditorState, open: boolean) {
 
   const summaryNode = summaryType.create(
     null,
-    state.schema.text(i18n.t("editor:plugin.detailsDefaultSummary")),
+    state.schema.text(newDetailsSummary()),
   );
   const contentNode = paragraphType.create();
   return detailsType.create({ open }, [summaryNode, contentNode]);
@@ -104,7 +125,33 @@ export const detailsBlockExtension = Node.create({
       insertDetailsBlock:
         () =>
         ({ state, dispatch }) => {
-          const detailsNode = createDetailsBlockNode(state, true);
+          // A selection is WRAPPED, not ignored — see alertBlock for the same
+          // rule and `shared/blockSpan` for why it is whole blocks.
+          const detailsType = state.schema.nodes.detailsBlock;
+          const summaryType = state.schema.nodes.detailsSummary;
+          const wrapping =
+            detailsType && summaryType
+              ? wrapSpannedBlocks(
+                  state,
+                  (content) =>
+                    detailsType.create({ open: NEW_DETAILS_OPEN }, [
+                      summaryType.create(null, state.schema.text(newDetailsSummary())),
+                      ...content.content,
+                    ]),
+                  detailsBodyCaretOffset,
+                )
+              : null;
+          if (wrapping) {
+            if (dispatch) dispatch(wrapping);
+            return true;
+          }
+
+          // A non-empty selection that cannot be wrapped (AllSelection, a
+          // top-level NodeSelection) declines: falling through would insert an
+          // unrelated blank block instead of the wrap promised above.
+          if (!state.selection.empty) return false;
+
+          const detailsNode = createDetailsBlockNode(state, NEW_DETAILS_OPEN);
           if (!detailsNode) return false;
 
           const insertPos = blockInsertPos(state.selection);
@@ -112,9 +159,9 @@ export const detailsBlockExtension = Node.create({
           if (!dispatch) return true;
 
           const tr = state.tr.insert(insertPos, detailsNode);
-          /* v8 ignore next -- @preserve null-coalesce: detailsNode always has a firstChild (summaryNode), nullish branch unreachable */
-          const summarySize = detailsNode.firstChild?.nodeSize ?? 0;
-          tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1 + summarySize + 1)));
+          tr.setSelection(
+            TextSelection.near(tr.doc.resolve(insertPos + detailsBodyCaretOffset(detailsNode))),
+          );
           dispatch(tr.scrollIntoView());
           return true;
         },
@@ -126,7 +173,7 @@ export const detailsBlockExtension = Node.create({
       new InputRule({
         find: DETAILS_INPUT_PATTERN,
         handler: ({ state, range, commands }) => {
-          const detailsNode = createDetailsBlockNode(state, true);
+          const detailsNode = createDetailsBlockNode(state, NEW_DETAILS_OPEN);
           if (!detailsNode) return null;
 
           const $start = state.doc.resolve(range.from);
@@ -134,10 +181,10 @@ export const detailsBlockExtension = Node.create({
           const paragraphEnd = $start.after($start.depth);
 
           commands.insertContentAt({ from: paragraphStart, to: paragraphEnd }, detailsNode);
-          /* v8 ignore next -- @preserve null-coalesce: detailsNode always has a firstChild (summaryNode), nullish branch unreachable */
-          const summarySize = detailsNode.firstChild?.nodeSize ?? 0;
-          commands.setTextSelection(paragraphStart + 1 + summarySize + 1);
-          return null;
+          commands.setTextSelection(paragraphStart + detailsBodyCaretOffset(detailsNode));
+          // No return on success: Tiptap's runner treats a null return as
+          // CANCELLATION and skips dispatching, so returning null here meant
+          // the rule never fired. Null stays reserved for the guard above.
         },
       }),
     ];

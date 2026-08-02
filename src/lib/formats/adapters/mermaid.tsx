@@ -199,7 +199,7 @@ export const mermaidFormat: FormatConfig = {
   validator: mermaidValidator,
   genericPreview: MermaidPreview,
   adapters: {
-    saveDialogFilters: [{ name: "Mermaid", extensions: ["mmd"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.mermaid", extensions: ["mmd"] }],
     untitledExtension: "mmd",
     exportEnabled: false,
     findEnabled: true,

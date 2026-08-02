@@ -17,11 +17,11 @@
  * @coordinates-with utils/htmlAllowlists.ts — parseCustomTags for the custom field
  * @module plugins/markdownArtifacts/HtmlNodeView
  */
+import { hostSettings, type HtmlRendering } from "@/plugins/shared/hostSettings";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
-import { useSettingsStore, type HtmlRenderingMode, type HtmlAllowlistLevel } from "@/stores/settingsStore";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
+import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
@@ -39,7 +39,7 @@ class BaseHtmlNodeView implements NodeView {
 
   private node: PMNode;
   private value: string;
-  private renderMode: HtmlRenderingMode;
+  private renderMode: HtmlRendering["mode"];
   private allowlistLevel: HtmlAllowlistLevel;
   private customTags: string;
   private unsubscribe: (() => void) | null = null;
@@ -51,10 +51,10 @@ class BaseHtmlNodeView implements NodeView {
     /* v8 ignore start -- @preserve value attr is always set on HTML nodes */
     this.value = String(node.attrs.value ?? "");
     /* v8 ignore stop */
-    const markdown = useSettingsStore.getState().markdown;
-    this.renderMode = markdown.htmlRenderingMode;
-    this.allowlistLevel = markdown.htmlAllowlistLevel;
-    this.customTags = markdown.htmlAllowlistCustomTags;
+    const html = hostSettings.htmlRendering();
+    this.renderMode = html.mode;
+    this.allowlistLevel = html.allowlistLevel;
+    this.customTags = html.customTags;
 
     this.dom = document.createElement(options.inline ? "span" : "div");
     this.dom.setAttribute("data-type", options.dataType);
@@ -67,18 +67,18 @@ class BaseHtmlNodeView implements NodeView {
 
     this.render();
 
-    this.unsubscribe = useSettingsStore.subscribe((state) => {
-      const { htmlRenderingMode, htmlAllowlistLevel, htmlAllowlistCustomTags } = state.markdown;
+    this.unsubscribe = hostSettings.onChange(() => {
+      const next = hostSettings.htmlRendering();
       if (
-        htmlRenderingMode === this.renderMode &&
-        htmlAllowlistLevel === this.allowlistLevel &&
-        htmlAllowlistCustomTags === this.customTags
+        next.mode === this.renderMode &&
+        next.allowlistLevel === this.allowlistLevel &&
+        next.customTags === this.customTags
       ) {
         return;
       }
-      this.renderMode = htmlRenderingMode;
-      this.allowlistLevel = htmlAllowlistLevel;
-      this.customTags = htmlAllowlistCustomTags;
+      this.renderMode = next.mode;
+      this.allowlistLevel = next.allowlistLevel;
+      this.customTags = next.customTags;
       this.render();
     });
   }
@@ -102,11 +102,7 @@ class BaseHtmlNodeView implements NodeView {
       // Per ADR-009: cursorInfo lives per-document; setCursorInfo takes tabId.
       // Resolve the actual window label so cursor sync also works in
       // doc-* windows, not only the main one.
-      const windowLabel = getCurrentWindowLabel();
-      const activeTabId = useTabStore.getState().activeTabId[windowLabel];
-      if (activeTabId) {
-        useDocumentStore.getState().setCursorInfo(activeTabId, cursorInfo);
-      }
+      hostDocument.reportCursorInfo(getCurrentWindowLabel(), cursorInfo);
     }
 
     // Switch to source mode via the checkpoint-aware path so undo history

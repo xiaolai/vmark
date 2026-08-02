@@ -10,11 +10,24 @@
  *   - Handles both single-block HTML (all in one html node) and multi-block
  *     (opening/closing tags as separate html nodes with content in between)
  *   - Supports nested `<details>` blocks via depth tracking
- *   - Inner content is re-parsed with a full remark pipeline (innerProcessor)
- *     to support markdown inside `<details>` bodies
+ *   - Inner content is re-parsed with the `details-body` dialect, INJECTED by
+ *     `dialect.ts` rather than constructed here. This plugin is registered BY
+ *     the document chain, so importing that chain's builder would close a
+ *     cycle. The body dialect deliberately EXCLUDES this plugin — that is what
+ *     stops a body parser needing a body parser; nested `<details>` are handled
+ *     by the outer pass's depth tracking (WI-3.1)
  *   - Summary text defaults to "Details" when no `<summary>` tag is present
  *   - Serialization escapes HTML in summary text to prevent injection
  *
+ * The `<details>` TAG grammar — matching tags, reading attributes — lives in
+ * `detailsTags.ts`. This file deals in mdast nodes.
+ *
+ * Summary extraction lives in `detailsSummary.ts`; the tag grammar in
+ * `detailsTags.ts`. Content either half declines to consume is parsed back as
+ * body, REBASED into host coordinates — never renumbered from zero.
+ *
+ * @coordinates-with utils/markdownPipeline/plugins/detailsSummary.ts — the summary half
+ * @coordinates-with utils/markdownPipeline/plugins/detailsTags.ts — the tag grammar
  * @coordinates-with mdastBlockConverters.ts — convertDetails creates PM nodes from Details MDAST
  * @coordinates-with pmBlockConverters.ts — convertDetailsBlock creates Details MDAST from PM
  * @coordinates-with inlineParser.ts — parses inline markdown within summary text
@@ -22,16 +35,22 @@
  */
 
 import type { Content, Root } from "mdast";
-import { unified, type Plugin } from "unified";
+import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import remarkFrontmatter from "remark-frontmatter";
 import type { Details } from "../types";
-import { remarkCustomInline } from "./customInline";
-import { remarkResolveReferences } from "./resolveReferences";
-import { remarkWikiLinks } from "./wikiLinks";
+import { getDetailsBodyParser } from "./detailsBodyParser";
+import { extractSummaryFromChildren } from "./detailsSummary";
+import {
+  DETAILS_OPEN_RE,
+  DETAILS_CLOSE_RE,
+  SUMMARY_RE,
+  isDetailsOpen,
+  isDetailsClose,
+  hasOpenAttribute,
+  parseDetailsOpen,
+} from "./detailsTags";
+import { originWithin, rebasePositions, type RebaseOrigin } from "./rebasePositions";
+import { detailsHandler, type DetailsHandlerState } from "./detailsSerializer";
 
 interface ToMarkdownExtension {
   handlers?: Record<string, DetailsHandler>;
@@ -44,18 +63,6 @@ type DetailsHandler = (
   info: { before: string; after: string }
 ) => string;
 
-interface DetailsHandlerState {
-  enter: (constructName: string) => () => void;
-  containerFlow: (node: { children: Content[] }, info: { before: string; after: string }) => string;
-  createTracker: (info: { before: string; after: string }) => {
-    move: (value: string) => string;
-    current: () => { before: string; after: string };
-  };
-}
-
-const DETAILS_OPEN_RE = /<details\b[^>]*>/i;
-const DETAILS_CLOSE_RE = /<\/details>/i;
-const SUMMARY_RE = /<summary>([\s\S]*?)<\/summary>/i;
 
 /**
  * Type guard to check if a node has children property.
@@ -67,18 +74,6 @@ interface NodeWithChildren {
 function hasChildren(node: unknown): node is NodeWithChildren {
   return typeof node === "object" && node !== null && "children" in node;
 }
-
-const innerProcessor = unified()
-  .use(remarkParse)
-  .use(remarkGfm, {
-    // Keep in sync with the main markdown parser.
-    singleTilde: false,
-  })
-  .use(remarkMath)
-  .use(remarkFrontmatter, ["yaml"])
-  .use(remarkWikiLinks)
-  .use(remarkCustomInline)
-  .use(remarkResolveReferences);
 
 export const remarkDetailsBlock: Plugin<[], Root> = function () {
   const data = this.data() as { toMarkdownExtensions?: ToMarkdownExtension[] };
@@ -94,13 +89,26 @@ export const remarkDetailsBlock: Plugin<[], Root> = function () {
   };
 };
 
+/** A node's own start, when it carries a complete one. */
+function hostOriginOf(node: Content): RebaseOrigin | undefined {
+  const start = node.position?.start;
+  if (
+    typeof start?.offset !== "number" ||
+    typeof start.line !== "number" ||
+    typeof start.column !== "number"
+  ) {
+    return undefined;
+  }
+  return { offset: start.offset, line: start.line, column: start.column };
+}
+
 function transformDetailsBlocks(children: Content[]): Content[] {
   const result: Content[] = [];
 
   for (let index = 0; index < children.length; index += 1) {
     const node = children[index];
     if (node?.type === "html") {
-      const parsed = parseDetailsHtmlBlock(node.value ?? "");
+      const parsed = parseDetailsHtmlBlock(node.value ?? "", hostOriginOf(node));
       if (parsed) {
         result.push(parsed);
         continue;
@@ -114,6 +122,7 @@ function transformDetailsBlocks(children: Content[]): Content[] {
 
     // v8 ignore next -- @preserve reason: remark always sets html node.value; the ?? "" fallback is a defensive guard that is structurally unreachable
     const openInfo = parseDetailsOpen(node.value ?? "");
+    const openOrigin = hostOriginOf(node);
     const inner: Content[] = [];
     let closed = false;
     let depth = 1; // Track nesting depth for nested <details> blocks
@@ -148,7 +157,21 @@ function transformDetailsBlocks(children: Content[]): Content[] {
     }
 
     const { summary, children: bodyChildren } = extractSummaryFromChildren(inner);
-    const nestedChildren = transformDetailsBlocks(bodyChildren);
+    // Content the opening html node swallowed leads the body — it appeared
+    // BEFORE everything in `inner`, so it must stay first.
+    const nestedChildren = [
+      ...openInfo.residue.flatMap((piece) =>
+        parseDetailsBody(
+          piece.text,
+          // The opening html node is a REAL host node, so its own start is the
+          // origin. Without this the re-parse numbered the residue from 0 and
+          // handed the link-check authorizer coordinates pointing at unrelated
+          // text — well-formed, and wrong.
+          openOrigin && originWithin(node.value ?? "", piece.start, openOrigin)
+        )
+      ),
+      ...transformDetailsBlocks(bodyChildren),
+    ];
     result.push({
       type: "details",
       open: openInfo.open,
@@ -160,22 +183,10 @@ function transformDetailsBlocks(children: Content[]): Content[] {
   return result;
 }
 
-function isDetailsOpen(value: string): boolean {
-  return DETAILS_OPEN_RE.test(value);
-}
-
-function isDetailsClose(value: string): boolean {
-  return DETAILS_CLOSE_RE.test(value.trim());
-}
-
-function parseDetailsOpen(value: string): { open: boolean; summary: string } {
-  const open = /\bopen\b/i.test(value);
-  const summaryMatch = value.match(SUMMARY_RE);
-  const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
-  return { open, summary };
-}
-
-function parseDetailsHtmlBlock(value: string): Details | null {
+function parseDetailsHtmlBlock(
+  value: string,
+  hostStart?: RebaseOrigin,
+): Details | null {
   const openTagMatch = value.match(DETAILS_OPEN_RE);
   const closeTagMatch = value.match(DETAILS_CLOSE_RE);
   if (!openTagMatch || !closeTagMatch) return null;
@@ -196,7 +207,9 @@ function parseDetailsHtmlBlock(value: string): Details | null {
   }
 
   const openTag = openTagMatch[0];
-  const open = /\bopen\b/i.test(openTag);
+  // The SAME attribute parser as the multi-node path. This branch kept the old
+  // broad match, so `data-open="false"` still opened a compact block.
+  const open = hasOpenAttribute(openTag);
   const summaryMatch = value.match(SUMMARY_RE);
   // v8 ignore next -- @preserve reason: summaryMatch?.[1] is a string when the regex matches; the ?? "Details" right-hand branch triggers only when summaryMatch is null (no <summary> tag in single-block HTML), a rare path
   const summary = (summaryMatch?.[1] ?? "Details").trim() || "Details";
@@ -209,7 +222,13 @@ function parseDetailsHtmlBlock(value: string): Details | null {
   }
 
   const body = value.slice(bodyStart, closeTagStart);
-  const children = parseDetailsBody(body);
+  // The body's absolute start: where this html node begins, plus how far into
+  // its value the body does. Without it the re-parse below numbers from 0 and
+  // every offset inside a COMPACT `<details>` addresses the wrong text.
+  const children = parseDetailsBody(
+    body,
+    hostStart ? originWithin(value, bodyStart, hostStart) : undefined,
+  );
 
   return {
     type: "details",
@@ -219,66 +238,17 @@ function parseDetailsHtmlBlock(value: string): Details | null {
   } as Details;
 }
 
-function extractSummaryFromChildren(
-  children: Content[]
-): { summary?: string; children: Content[] } {
-  if (children.length === 0) {
-    return { children };
-  }
-
-  const [first, ...rest] = children;
-  if (first?.type !== "html") {
-    return { children };
-  }
-
-  const summaryMatch = first.value?.match(SUMMARY_RE);
-  if (!summaryMatch) {
-    return { children };
-  }
-
-  // v8 ignore next -- @preserve reason: summaryMatch[1] is always a string when the regex matches (capturing group always present); the ?? "Details" branch is unreachable
-  const summary = (summaryMatch[1] ?? "Details").trim() || "Details";
-  return { summary, children: rest };
-}
-
-function parseDetailsBody(markdown: string): Content[] {
+function parseDetailsBody(markdown: string, origin?: RebaseOrigin): Content[] {
   if (!markdown.trim()) {
     return [];
   }
 
-  const parsed = innerProcessor.parse(markdown);
-  const transformed = innerProcessor.runSync(parsed) as Root;
-  return transformDetailsBlocks(transformed.children as Content[]);
-}
-
-function detailsHandler(
-  node: Details,
-  _parent: unknown,
-  state: DetailsHandlerState,
-  info: { before: string; after: string }
-): string {
-  const exit = state.enter("details");
-  const tracker = state.createTracker(info);
-  const openAttr = node.open ? " open" : "";
-
-  let value = tracker.move(`<details${openAttr}>`);
-  value += tracker.move("\n");
-  value += tracker.move(`<summary>${escapeHtml(node.summary ?? "Details")}</summary>`);
-  value += tracker.move("\n\n");
-
-  const content = state.containerFlow(node, tracker.current()).trimEnd();
-  value += tracker.move(content);
-  value += tracker.move("\n");
-  value += tracker.move("</details>");
-
-  exit();
-  return value;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  const processor = getDetailsBodyParser();
+  const parsed = processor.parse(markdown);
+  const transformed = processor.runSync(parsed) as Root;
+  const children = transformDetailsBlocks(transformed.children as Content[]);
+  // Rebase INTO the host document. The re-parse numbered these from 0; without
+  // this they are well-formed offsets pointing at unrelated text.
+  if (origin) rebasePositions(children, origin);
+  return children;
 }

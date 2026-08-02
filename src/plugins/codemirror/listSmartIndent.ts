@@ -18,11 +18,11 @@
 import { type KeyBinding, type EditorView } from "@codemirror/view";
 import { type ChangeSpec } from "@codemirror/state";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { LIST_ITEM_PATTERN, TASK_ITEM_PATTERN } from "./structuralCharProtection";
 
 function getTabSize(): number {
-  return useSettingsStore.getState().general.tabSize;
+  return hostSettings.tabSize();
 }
 
 /**

@@ -24,7 +24,11 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { shouldPasteAsCodeBlock } from "@/utils/codeDetection";
 import { isMarkdownPasteCandidate } from "@/utils/markdownPasteDetection";
-import { useSettingsStore, type PasteMode } from "@/stores/settingsStore";
+import {
+  DEFAULT_PASTE_SETTINGS,
+  type PasteMode,
+  type PasteSettings,
+} from "@/plugins/shared/pasteSettings";
 import { isViewSelectionInCodeBlock, isViewMultiSelection } from "@/utils/pasteUtils";
 import { pasteWarn } from "@/utils/debug";
 
@@ -41,10 +45,14 @@ const MIN_LINES_FOR_CODE_BLOCK = 2;
  */
 const MAX_CODE_SIZE = 50_000;
 
-function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
+function handlePaste(
+  view: EditorView,
+  event: ClipboardEvent,
+  getPasteSettings: () => PasteSettings,
+): boolean {
   // Get paste mode setting
-  const settings = useSettingsStore.getState();
-  const pasteMode: PasteMode = settings.markdown.pasteMode ?? "smart";
+  const settings = getPasteSettings();
+  const pasteMode: PasteMode = settings.pasteMode;
 
   // Only apply in "smart" mode
   if (pasteMode !== "smart") {
@@ -123,14 +131,30 @@ function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
 }
 
 /** Tiptap extension that handles paste events inside code blocks to insert plain text. */
-export const codePasteExtension = Extension.create({
+/** Options for the codePaste extension. */
+export interface CodePasteOptions {
+  /**
+   * The user's paste behaviour, asked fresh on every paste.
+   *
+   * INJECTED — a plugin reaching the app's stores cannot ship as a standalone
+   * extension (ADR-015). A getter, not a value, so changing the setting takes
+   * effect without rebuilding the editor.
+   */
+  getPasteSettings: () => PasteSettings;
+}
+
+export const codePasteExtension = Extension.create<CodePasteOptions>({
   name: "codePaste",
+  addOptions() {
+    return { getPasteSettings: () => DEFAULT_PASTE_SETTINGS };
+  },
   addProseMirrorPlugins() {
+    const { getPasteSettings } = this.options;
     return [
       new Plugin({
         key: codePastePluginKey,
         props: {
-          handlePaste,
+          handlePaste: (view, event) => handlePaste(view, event, getPasteSettings),
         },
       }),
     ];

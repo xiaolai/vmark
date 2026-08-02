@@ -118,27 +118,31 @@ export async function handleWorkspaceOpen(
       return;
     }
 
+    // ONE door for both branches. This used to be `loadContent` for an
+    // existing tab and `initDocument` for a new one, with a comment explaining
+    // why they could not be swapped: `initDocument` builds a FRESH entry,
+    // resetting `readOnly` (silently disabling write protection), the per-doc
+    // editor mode, and `documentId` — and a first-open document sits at
+    // `documentId === 0`, so rebuilding it there leaves the counter unchanged
+    // and the editor may never remount on the new content.
+    //
+    // The `disk-open` ingest satisfies both: it mutates in place (touching
+    // neither `readOnly` nor `mode`), increments `documentId`, bumps the
+    // revision when the content actually moved, and CREATES the document when
+    // the tab has none — so the branch that existed to pick a door is gone.
+    // `loadContent` itself is gone: it duplicated this door's baseline branch
+    // and had drifted, retaining stale line metadata.
+    //
+    // WI-2.6 — registry handles YAML routing; the force-source bandaid is
+    // retired. .yaml/.yml route to the YAML adapter (kind: split-pane).
+    docStore.ingestExternalContent(tabId, content, "disk-open", { filePath });
     if (existing) {
-      // Reload a clean already-open tab through `loadContent`, not
-      // `initDocument`. `initDocument` builds a fresh entry, which resets
-      // `readOnly` (silently disabling write protection), the per-document
-      // editor mode, and `documentId` — and a first-open document sits at
-      // `documentId === 0`, so rebuilding it there leaves the counter
-      // unchanged and the editor may never remount on the new content.
-      // `loadContent` mutates in place, increments `documentId`, and bumps
-      // the revision itself when the content actually moved.
-      docStore.loadContent(tabId, content, filePath);
-      // `loadContent` deliberately does NOT clear `isMissing` — hot-exit
-      // restore replays saved content for a file that may genuinely be gone.
-      // Here the read above just succeeded, so the file demonstrably exists:
-      // pair the two exactly as `services/persistence/reloadFromDisk.ts` does,
-      // or a deleted-then-recreated file stays flagged as missing forever.
+      // The ingest deliberately does NOT clear `isMissing` — hot-exit restore
+      // replays saved content for a file that may genuinely be gone. Here the
+      // read above just succeeded, so the file demonstrably exists: pair the
+      // two exactly as `services/persistence/reloadFromDisk.ts` does, or a
+      // deleted-then-recreated file stays flagged missing forever.
       docStore.clearMissing(tabId);
-    } else {
-      // WI-2.6 — registry handles YAML routing; the force-source
-      // bandaid is retired. .yaml/.yml files now route to the YAML
-      // adapter (kind: split-pane), bypassing the markdown surface.
-      docStore.initDocument(tabId, content, filePath);
     }
     await respond({
       id,

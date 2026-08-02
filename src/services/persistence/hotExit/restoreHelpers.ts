@@ -3,7 +3,7 @@ import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { useTabStore } from '@/stores/tabStore';
 import { useDocumentStore } from '@/stores/documentStore';
 import { useUIStore, TERMINAL_MAX_RATIO } from '@/stores/uiStore';
-import { useUnifiedHistoryStore } from '@/stores/documentStore';
+import { restoreDocumentState } from './restoreDocumentState';
 import {
   clearExistingWindowTabs,
   deduplicateTabsByPath,
@@ -11,10 +11,7 @@ import {
   restoreActiveTab,
   restoreTabMetadata,
 } from './restoreTabsHelpers';
-import type { WindowState, HistoryCheckpoint, CursorInfo, TabState, DocumentState } from './types';
-import type { LineEnding } from '@/utils/linebreakDetection';
-import type { HistoryCheckpoint as StoreHistoryCheckpoint } from '@/stores/documentStore';
-import type { CursorInfo as StoreCursorInfo } from '@/types/cursorSync';
+import type { WindowState } from './types';
 
 /**
  * Maximum retries when pulling state (handles timing issues). Exported so the
@@ -24,12 +21,14 @@ import type { CursorInfo as StoreCursorInfo } from '@/types/cursorSync';
 export const MAX_STATE_RETRIES = 5;
 /** Delay between retries in milliseconds */
 const RETRY_DELAY_MS = 100;
-/** Minimum valid sidebar width */
-const MIN_SIDEBAR_WIDTH = 150;
-/** Maximum valid sidebar width */
-const MAX_SIDEBAR_WIDTH = 500;
-/** Default sidebar width if invalid */
-const DEFAULT_SIDEBAR_WIDTH = 260;
+// Sidebar bounds come from uiStore — the store that actually clamps them.
+// This file used to carry a 150-500 copy, so a persisted 500 passed validation
+// and was then silently clamped to 480 by setSidebarWidth.
+import {
+  SIDEBAR_MIN_WIDTH as MIN_SIDEBAR_WIDTH,
+  SIDEBAR_MAX_WIDTH as MAX_SIDEBAR_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH as DEFAULT_SIDEBAR_WIDTH,
+} from "@/stores/uiStore";
 
 /** Simple sleep helper */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -66,75 +65,6 @@ export function isValidWindowState(raw: unknown): raw is WindowState {
     (w.active_tab_id === null || typeof w.active_tab_id === 'string')
   );
 }
-
-/**
- * Convert hot exit line ending format back to store format
- */
-function fromHotExitLineEnding(lineEnding: '\n' | '\r\n' | 'unknown'): LineEnding {
-  switch (lineEnding) {
-    case '\n':
-      return 'lf';
-    case '\r\n':
-      return 'crlf';
-    case 'unknown':
-      return 'unknown';
-  }
-}
-
-/**
- * Convert hot exit cursor info to store format with validation.
- * Returns null if input is null/undefined or has invalid data.
- */
-function toStoreCursorInfo(cursorInfo: CursorInfo | null | undefined): StoreCursorInfo | null {
-  if (!cursorInfo) return null;
-
-  // Validate required numeric fields against their domains, not just
-  // finiteness. source_line is 1-indexed (remark), so it must be a positive
-  // integer; offset_in_word is a character offset (non-negative); and
-  // percent_in_line is a fraction in [0, 1]. Corrupt persisted state outside
-  // these ranges would otherwise be restored into editor cursor sync.
-  if (
-    !Number.isInteger(cursorInfo.source_line) ||
-    cursorInfo.source_line < 1 ||
-    !Number.isFinite(cursorInfo.offset_in_word) ||
-    cursorInfo.offset_in_word < 0 ||
-    !Number.isFinite(cursorInfo.percent_in_line) ||
-    cursorInfo.percent_in_line < 0 ||
-    cursorInfo.percent_in_line > 1
-  ) {
-    hotExitWarn('Invalid cursor info, skipping restore');
-    return null;
-  }
-
-  return {
-    sourceLine: cursorInfo.source_line,
-    wordAtCursor: cursorInfo.word_at_cursor ?? '',
-    offsetInWord: cursorInfo.offset_in_word,
-    nodeType: (cursorInfo.node_type ?? 'paragraph') as StoreCursorInfo['nodeType'],
-    percentInLine: cursorInfo.percent_in_line,
-    contextBefore: cursorInfo.context_before ?? '',
-    contextAfter: cursorInfo.context_after ?? '',
-    blockAnchor: cursorInfo.block_anchor as StoreCursorInfo['blockAnchor'],
-  };
-}
-
-/**
- * Convert hot exit checkpoint back to store format
- */
-function fromHotExitCheckpoint(checkpoint: HistoryCheckpoint): StoreHistoryCheckpoint {
-  return {
-    markdown: checkpoint.markdown,
-    mode: checkpoint.mode === 'source' || checkpoint.mode === 'wysiwyg'
-      ? checkpoint.mode
-      : 'wysiwyg', // Default to wysiwyg if invalid
-    cursorInfo: toStoreCursorInfo(checkpoint.cursor_info),
-    timestamp: checkpoint.timestamp,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Public helpers
-// ---------------------------------------------------------------------------
 
 /**
  * Pull window state from Rust coordinator with retry logic.
@@ -274,128 +204,35 @@ export async function restoreTabs(
   const tabIdMap = new Map<string, string>();
   const tabStore = useTabStore.getState();
 
+  // Per-tab isolation. `clearExistingWindowTabs` above has ALREADY destroyed
+  // whatever the window had, so a throw here used to abandon the restore with
+  // the fallback gone and only some tabs rebuilt — the worst of both states.
+  // One bad tab now costs that tab, not the session.
+  let failed = 0;
   for (const tabState of kept) {
     // createTab auto-activates; we set the active tab explicitly afterward.
     const newTabId = tabStore.createTab(windowLabel, tabState.file_path);
-    tabIdMap.set(tabState.id, newTabId);
-    restoreTabMetadata(windowLabel, newTabId, tabState);
-    await restoreDocumentState(newTabId, tabState, documentStore);
+    try {
+      restoreTabMetadata(windowLabel, newTabId, tabState);
+      await restoreDocumentState(newTabId, tabState, documentStore);
+      tabIdMap.set(tabState.id, newTabId);
+    } catch (error) {
+      failed += 1;
+      hotExitWarn(
+        `Failed to restore tab '${tabState.id}' (${tabState.file_path ?? 'untitled'}):`,
+        error,
+      );
+      // Drop the half-built tab rather than presenting an empty document as a
+      // restored one — an empty tab claiming a file path invites the user to
+      // save over the real file.
+      tabStore.detachTab(windowLabel, newTabId);
+    }
+  }
+  if (failed > 0) {
+    hotExitWarn(`Restored ${tabIdMap.size}/${kept.length} tabs for '${windowLabel}'`);
   }
 
   restoreActiveTab(windowLabel, windowState, tabIdMap, duplicateToRetained);
 
   return tabIdMap;
-}
-
-/**
- * Restore document state for a tab
- */
-export async function restoreDocumentState(
-  tabId: string,
-  tabState: TabState,
-  documentStore: ReturnType<typeof useDocumentStore.getState>
-): Promise<void> {
-  const { document: docState, file_path } = tabState;
-
-  // Convert line ending format (validate and narrow type)
-  const lineEnding = (
-    docState.line_ending === '\n' ||
-    docState.line_ending === '\r\n' ||
-    docState.line_ending === 'unknown'
-  )
-    ? fromHotExitLineEnding(docState.line_ending)
-    : ('unknown' as LineEnding);
-
-  // Validate persisted hardBreakStyle against the documentStore's union.
-  // Pre-existing sessions write this as undefined and fall back to detection.
-  const hardBreakStyle =
-    docState.hard_break_style === 'backslash' ||
-    docState.hard_break_style === 'twoSpaces' ||
-    docState.hard_break_style === 'mixed' ||
-    docState.hard_break_style === 'unknown'
-      ? docState.hard_break_style
-      : undefined;
-
-  // Initialize document with saved content first
-  documentStore.initDocument(tabId, docState.saved_content, file_path);
-
-  // Load saved content with metadata
-  documentStore.loadContent(tabId, docState.saved_content, file_path, {
-    lineEnding,
-    ...(hardBreakStyle ? { hardBreakStyle } : {}),
-  });
-
-  // Restore the actual on-disk snapshot when present. Falling back to
-  // `saved_content` (loadContent's default) is workable but can fool the
-  // external-change detector when the saver normalized line endings or
-  // hard-break style differently from the in-memory saved content.
-  if (typeof docState.last_disk_content === 'string') {
-    documentStore.updateLastDiskContent(tabId, docState.last_disk_content);
-  }
-
-  // If dirty, apply current content (different from saved)
-  if (docState.is_dirty) {
-    documentStore.setContent(tabId, docState.content);
-  }
-
-  // Restore flags
-  if (docState.is_missing) {
-    documentStore.markMissing(tabId);
-  }
-  if (docState.is_divergent) {
-    documentStore.markDivergent(tabId);
-  }
-  if (docState.is_read_only) {
-    documentStore.setReadOnly(tabId, true);
-  }
-
-  // Restore per-doc mode (ADR-009). Pre-mode-persistence sessions leave
-  // this undefined; the documentStore default ("wysiwyg") then applies.
-  if (docState.mode === 'wysiwyg' || docState.mode === 'source') {
-    documentStore.setMode(tabId, docState.mode);
-  }
-
-  // Restore cursor info (using shared validation helper)
-  const cursorInfo = toStoreCursorInfo(docState.cursor_info);
-  if (cursorInfo) {
-    documentStore.setCursorInfo(tabId, cursorInfo);
-  }
-
-  // Restore unified history (cross-mode undo/redo checkpoints)
-  restoreUnifiedHistory(tabId, docState);
-}
-
-/**
- * Restore unified history checkpoints for a tab
- */
-export function restoreUnifiedHistory(
-  tabId: string,
-  docState: DocumentState
-): void {
-  const undoHistory = docState.undo_history || [];
-  const redoHistory = docState.redo_history || [];
-
-  // Skip if no history to restore
-  if (undoHistory.length === 0 && redoHistory.length === 0) {
-    return;
-  }
-
-  // Convert checkpoints from hot exit format to store format
-  const undoStack = undoHistory.map(fromHotExitCheckpoint);
-  const redoStack = redoHistory.map(fromHotExitCheckpoint);
-
-  // Directly set the history state for this document
-  useUnifiedHistoryStore.setState((state) => ({
-    documents: {
-      ...state.documents,
-      [tabId]: {
-        undoStack,
-        redoStack,
-      },
-    },
-  }));
-
-  hotExitLog(
-    `Restored unified history for tab '${tabId}': ${undoStack.length} undo, ${redoStack.length} redo checkpoints`
-  );
 }

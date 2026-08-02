@@ -16,7 +16,6 @@ const mockEncodeMarkdownUrl = vi.fn((url: string) => url.replace(/ /g, "%20"));
 const mockMessage = vi.fn(() => Promise.resolve());
 const mockGenerateClipboardImageFilename = vi.fn(() => "img-123.png");
 const mockGetWindowLabel = vi.fn(() => "main");
-const mockGetDocument = vi.fn(() => ({ filePath: "/docs/test.md" }));
 const mockIsViewConnected = vi.fn(() => true);
 
 vi.mock("@/hooks/useImageOperations", () => ({
@@ -43,16 +42,11 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => mockGetWindowLabel(),
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({ activeTabId: { main: "tab-1" } }),
-  },
-}));
-
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({ getDocument: mockGetDocument }),
-  },
+let mockActiveFilePath: string | null = "/docs/test.md";
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 vi.mock("@/i18n", () => ({
@@ -115,7 +109,7 @@ describe("handleClipboardImagePaste", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsViewConnected.mockReturnValue(true);
-    mockGetDocument.mockReturnValue({ filePath: "/docs/test.md" });
+    mockActiveFilePath = "/docs/test.md";
     mockSaveImageToAssets.mockResolvedValue("assets/image.png");
   });
 
@@ -178,7 +172,7 @@ describe("handleClipboardImagePaste", () => {
   });
 
   it("shows warning dialog and skips insert when no active document file path", async () => {
-    mockGetDocument.mockReturnValue({ filePath: undefined } as unknown as { filePath: string });
+    mockActiveFilePath = null;
     const view = createFakeView();
     const event = createClipboardEvent([createImageFile()]);
 

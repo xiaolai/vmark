@@ -116,7 +116,13 @@ path scope above.
 | Parameter | Type | Required |
 |-----------|------|----------|
 | `folderPath` | string | Yes |
-| `windowLabel` | string | No |
+
+`windowLabel` is **not** accepted here, unlike `new` and `open`. The folder
+always opens in the window the request arrives on. This is deliberate: the
+approval dialog and the open must land in the same window, and a
+client-supplied label could put the prompt in front of one window while
+mutating another — approving one thing and getting another. Multi-window
+targeting needs request routing that does not exist yet.
 
 **Approval flow.** The first call returns `{needsApproval: true}` and raises a
 consent dialog naming the *canonical* folder path (symlinks resolved). The

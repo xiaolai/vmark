@@ -18,6 +18,9 @@
  * it would shatter or consume unselected content), "notApplicable" (let the
  * fallback handle it).
  *
+ * `handleInsertCodeBlock` takes an optional LANGUAGE, so the math and diagram
+ * inserts reuse this conversion instead of reimplementing it.
+ *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insertCodeBlock here
  * @coordinates-with codeBlockSerialize.ts — node → text-line projection
  * @coordinates-with wysiwygAdapterFormatting.ts — toggleBlockquote shares the whole-list convention
@@ -45,13 +48,15 @@ function applyCodeBlockReplacement(
   tr: Transaction,
   from: number,
   to: number,
-  text: string
+  text: string,
+  language?: string
 ): CodeBlockOutcome {
   const codeBlockType = view.state.schema.nodes.codeBlock;
   /* v8 ignore next -- @preserve defensive: VMark's schema always has codeBlock */
   if (!codeBlockType) return "notApplicable";
   try {
-    const codeBlock = codeBlockType.create(null, text ? view.state.schema.text(text) : null);
+    const attrs = language ? { language } : null;
+    const codeBlock = codeBlockType.create(attrs, text ? view.state.schema.text(text) : null);
     tr.replaceWith(from, to, codeBlock);
     tr.setSelection(TextSelection.create(tr.doc, from + 1 + codeBlock.content.size));
     view.dispatch(tr);
@@ -69,7 +74,7 @@ function applyCodeBlockReplacement(
  * Convert the outermost list containing the selection into ONE code block.
  * "notApplicable" when the selection is not inside a list or extends beyond it.
  */
-function convertListToCodeBlock(view: EditorView): CodeBlockOutcome {
+function convertListToCodeBlock(view: EditorView, language?: string): CodeBlockOutcome {
   const { state } = view;
   const { $from, $to } = state.selection;
 
@@ -91,7 +96,7 @@ function convertListToCodeBlock(view: EditorView): CodeBlockOutcome {
 
   const lines: string[] = [];
   collectListLines(listNode, 0, lines);
-  return applyCodeBlockReplacement(view, state.tr, listStart, listEnd, lines.join("\n"));
+  return applyCodeBlockReplacement(view, state.tr, listStart, listEnd, lines.join("\n"), language);
 }
 
 /**
@@ -165,7 +170,7 @@ function splitPartialWrappers(
  * list or setCodeBlock path); "refused" for partially selected unsplittable
  * wrappers (details, tables).
  */
-function convertSelectionToCodeBlock(view: EditorView): CodeBlockOutcome {
+function convertSelectionToCodeBlock(view: EditorView, language?: string): CodeBlockOutcome {
   const { state } = view;
   const { $from, $to, empty } = state.selection;
   if (empty) return "notApplicable";
@@ -196,7 +201,7 @@ function convertSelectionToCodeBlock(view: EditorView): CodeBlockOutcome {
     collectBlockLines(newRange.parent.child(i), 0, lines);
   }
   // Same transaction as the splits — the whole conversion is ONE undo step.
-  return applyCodeBlockReplacement(view, tr, newRange.start, newRange.end, lines.join("\n"));
+  return applyCodeBlockReplacement(view, tr, newRange.start, newRange.end, lines.join("\n"), language);
 }
 
 /**
@@ -207,18 +212,21 @@ function convertSelectionToCodeBlock(view: EditorView): CodeBlockOutcome {
  * false without invoking the fallback — the doc is unchanged, and the
  * fallback would consume or shatter what the refusal protected.
  */
-export function handleInsertCodeBlock(context: WysiwygToolbarContext): boolean {
+export function handleInsertCodeBlock(
+  context: WysiwygToolbarContext,
+  language?: string
+): boolean {
   const { view, editor } = context;
   if (!editor) return false;
 
   if (view) {
-    const listOutcome = convertListToCodeBlock(view);
+    const listOutcome = convertListToCodeBlock(view, language);
     if (listOutcome !== "notApplicable") return listOutcome === "converted";
-    const selectionOutcome = convertSelectionToCodeBlock(view);
+    const selectionOutcome = convertSelectionToCodeBlock(view, language);
     if (selectionOutcome !== "notApplicable") return selectionOutcome === "converted";
   }
 
   // Propagate the command result: an unsupported selection (e.g. a selected
   // horizontal rule) leaves the doc unchanged and must not report success.
-  return editor.chain().focus().setCodeBlock().run();
+  return editor.chain().focus().setCodeBlock(language ? { language } : undefined).run();
 }

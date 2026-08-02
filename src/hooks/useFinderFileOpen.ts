@@ -14,19 +14,18 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
-import type { ReplaceableTabInfo } from "@/utils/openPolicy";
-import { getFileName } from "@/utils/pathUtils";
 import { resolveFinderOpenBranch } from "@/hooks/finderOpenBranch";
+import {
+  activateExistingTab,
+  createNewTabForFile,
+  replaceTabWithFile,
+  withSizeGateAndIndicator,
+  type FinderBranchContext,
+} from "@/services/navigation/finderOpenBranches";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { useFileLoadStore } from "@/stores/documentStore";
-import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
-import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
-import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
 
 interface OpenFilePayload {
   path: string;
@@ -43,22 +42,18 @@ interface PendingFileOpen {
  * Load file content into a tab (new or existing).
  * Throws on read failure so callers can handle cleanup.
  */
-export async function loadFileIntoTab(
-  tabId: string,
-  path: string,
-  isNewTab: boolean,
-): Promise<void> {
+export async function loadFileIntoTab(tabId: string, path: string): Promise<void> {
   const content = await readTextFile(path);
-  const meta = detectLinebreaks(content);
-  // WI-1B.6 / WI-2.6 — registry-driven mode dispatch. .yaml / .yml
-  // route to the YAML adapter (kind: "split-pane"), so no
-  // force-source is needed.
-  if (isNewTab) {
-    useDocumentStore.getState().initDocument(tabId, content, path);
-  } else {
-    useDocumentStore.getState().loadContent(tabId, content, path, meta);
-  }
-  useDocumentStore.getState().setLineMetadata(tabId, meta);
+  // Close-during-open guard, mirroring fileOpen.ts (WI-0.2, C1) — writing now
+  // would resurrect an orphan document for a tab closed mid-read.
+  if (!useTabStore.getState().findTabById(tabId)) return;
+
+  // WI-1B.6 / WI-2.6 — registry-driven mode dispatch: .yaml/.yml route to the
+  // YAML adapter (split-pane), so no force-source is needed. The disk-open
+  // ingest creates the document when new and replaces it otherwise.
+  useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
+    filePath: path,
+  });
   useRecentFilesStore.getState().addFile(path);
 }
 
@@ -105,81 +100,17 @@ export function useFinderFileOpen(): void {
       });
     };
 
-    /**
-     * Branch 1 — file already has a tab. Activate it and stop.
-     */
-    const activateExistingTab = (tabId: string) => {
-      useTabStore.getState().setActiveTab(windowLabel, tabId);
-    };
-
-    /**
-     * Branch 2 — single clean untitled tab exists. Load into it; on read
-     * failure, surface the error and leave the tab untouched (the user
-     * gets their blank untitled tab back).
-     */
-    const replaceTabWithFile = async (
-      tab: ReplaceableTabInfo,
-      path: string,
-      workspaceRoot: string | null,
-    ) => {
-      if (workspaceRoot) {
-        await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
-      }
-      try {
-        await loadFileIntoTab(tab.tabId, path, false);
-        if (cancelled) return;
-        useTabStore.getState().updateTabPath(tab.tabId, path);
-        applyFileOwnershipAfterOpen(tab.tabId, path);
-      } catch (error) {
-        finderFileOpenError("Failed to load file:", path, error);
-        toastOpenFailure(error);
-        return;
-      }
-      if (cancelled) return;
-      // Explicitly activate — the replaceable tab is likely already active
-      // (it's the only tab), but concurrent crash-recovery tabs could have
-      // stolen focus during the async loadFileIntoTab above.
-      useTabStore.getState().setActiveTab(windowLabel, tab.tabId);
-    };
-
-    /**
-     * Branch 3 — same workspace (or no workspace), so open as a new tab
-     * in the current window. On read failure, detach the orphan tab so
-     * the user isn't left staring at an empty document with no filePath.
-     * `adoptWorkspace` is true when the current window has no workspace
-     * and the incoming file brings one we should adopt.
-     */
-    const createNewTabForFile = async (
-      path: string,
-      workspaceRoot: string | null,
-      adoptWorkspace: boolean,
-    ) => {
-      if (adoptWorkspace && workspaceRoot) {
-        await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
-      }
-      if (cancelled) return;
-      const tabId = useTabStore.getState().createTab(windowLabel, path);
-      try {
-        await loadFileIntoTab(tabId, path, true);
-        applyFileOwnershipAfterOpen(tabId, path);
-      } catch (error) {
-        finderFileOpenError("Failed to load file:", path, error);
-        // Use detachTab (not closeTab) to keep the "reopen closed tab"
-        // history reserved for user-closed tabs only.
-        useTabStore.getState().detachTab(windowLabel, tabId);
-        toastOpenFailure(error);
-        return;
-      }
-      if (cancelled) return;
-      // Re-assert activation after async load — concurrent crash-recovery
-      // tabs may have auto-activated during the await above.
-      useTabStore.getState().setActiveTab(windowLabel, tabId);
+    const branchCtx: FinderBranchContext = {
+      windowLabel,
+      isCancelled: () => cancelled,
+      onOpenFailure: toastOpenFailure,
+      loadFileIntoTab,
     };
 
     /**
      * Branch 4 — different workspace, so open in a new window. The Rust
-     * command is responsible for validating the path and extending the
-     * fs scope for the spawned window.
+     * command validates the path and extends the fs scope for the spawned
+     * window; it stays here because it touches no tab in THIS window.
      */
     const openFileInNewWindow = async (
       path: string,
@@ -187,10 +118,7 @@ export function useFinderFileOpen(): void {
     ) => {
       try {
         if (workspaceRoot) {
-          await invoke("open_workspace_in_new_window", {
-            workspaceRoot,
-            filePath: path,
-          });
+          await invoke("open_workspace_in_new_window", { workspaceRoot, filePath: path });
         } else {
           await invoke("open_file_in_new_window", { path });
         }
@@ -198,48 +126,6 @@ export function useFinderFileOpen(): void {
         finderFileOpenError("Failed to open in new window:", path, error);
         toastOpenFailure(error);
       }
-    };
-
-    /**
-     * Run a create/replace branch through the shared indicator lifecycle:
-     * start the indicator, run the branch, then mark forced-source on the
-     * resulting tab — or clear the indicator if the branch produced no new/
-     * loaded tab (read failure). The `run` callback returns the tab id that
-     * received content, or null on failure.
-     */
-    const withIndicator = async (
-      route: Awaited<ReturnType<typeof routeOpenBySize>>,
-      path: string,
-      run: () => Promise<string | null>,
-    ) => {
-      const shouldShowIndicator =
-        !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-      let indicatorLoadId: number | null = null;
-      if (shouldShowIndicator) {
-        indicatorLoadId = useFileLoadStore
-          .getState()
-          .startLoad(getFileName(path) || path, route.sizeBytes);
-      }
-      const loadedTabId = await run();
-      if (loadedTabId) {
-        maybeMarkLargeMarkdownAsSource(loadedTabId, path, route.forceSourceMode);
-      } else if (indicatorLoadId !== null) {
-        // No content landed (read failure / detached orphan) — clear the
-        // indicator so no stuck spinner lingers.
-        useFileLoadStore.getState().endLoad(indicatorLoadId);
-      }
-    };
-
-    /** Run a create-tab branch; return the new tab id or null if it failed. */
-    const runCreateBranch = async (
-      path: string,
-      workspaceRoot: string | null,
-      adoptWorkspace: boolean,
-    ): Promise<string | null> => {
-      const tabIdBefore = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-      await createNewTabForFile(path, workspaceRoot, adoptWorkspace);
-      const tabIdAfter = useTabStore.getState().getActiveTab(windowLabel)?.id ?? null;
-      return tabIdAfter && tabIdAfter !== tabIdBefore ? tabIdAfter : null;
     };
 
     /**
@@ -262,44 +148,39 @@ export function useFinderFileOpen(): void {
       });
 
       if (branch.kind === "activate") {
-        activateExistingTab(branch.tabId);
+        activateExistingTab(branchCtx, branch.tabId);
         return;
       }
 
-      const route = await routeOpenBySize(path);
-      if (!route.proceed) return;
-
       switch (branch.kind) {
         case "replace": {
-          const replaceableTab = getReplaceableTab(windowLabel);
-          // Re-check: the replaceable tab could have been claimed during the
-          // awaited size route. Fall back to a new tab if it's gone.
-          if (!replaceableTab) {
-            await withIndicator(route, path, () =>
-              runCreateBranch(path, workspaceRoot, !useWorkspaceStore.getState().rootPath),
-            );
-            return;
-          }
-          await withIndicator(route, path, async () => {
-            await replaceTabWithFile(replaceableTab, path, workspaceRoot);
-            // replaceTabWithFile handles its own toast on failure; a missing
-            // filePath afterwards means the read failed.
-            return useDocumentStore.getState().documents[replaceableTab.tabId]?.filePath
-              ? replaceableTab.tabId
-              : null;
+          await withSizeGateAndIndicator(branchCtx, path, async () => {
+            // Re-check: the replaceable tab could have been claimed during the
+            // awaited size route. Fall back to a new tab if it is gone.
+            const tab = getReplaceableTab(windowLabel);
+            if (!tab) {
+              return createNewTabForFile(
+                branchCtx,
+                path,
+                workspaceRoot,
+                !useWorkspaceStore.getState().rootPath,
+              );
+            }
+            return replaceTabWithFile(branchCtx, tab, path, workspaceRoot);
           });
           return;
         }
         case "create": {
-          await withIndicator(route, path, () =>
-            runCreateBranch(path, workspaceRoot, branch.adoptWorkspace),
+          await withSizeGateAndIndicator(branchCtx, path, () =>
+            createNewTabForFile(branchCtx, path, workspaceRoot, branch.adoptWorkspace),
           );
           return;
         }
         case "newWindow": {
-          // The remote window runs its own routeOpenBySize when the cold-start
-          // queue drains, so we do NOT mark a tab here (none exists in this
-          // window). The refusal / warning dialog above already applied.
+          // The remote window runs its own size route when its cold-start queue
+          // drains, so no tab is marked here — none exists in this window.
+          const route = await routeOpenBySize(path);
+          if (!route.proceed || cancelled) return;
           await openFileInNewWindow(path, workspaceRoot);
           return;
         }
@@ -381,8 +262,12 @@ export function useFinderFileOpen(): void {
         // This handles the race condition where Finder opens a file before React mounts.
         /* v8 ignore start -- pendingFetchedRef already-fetched guard not exercised in tests */
         if (!pendingFetchedRef.current) {
-          pendingFetchedRef.current = true;
+          // Flip only AFTER the invoke resolves. Setting it first meant a
+          // rejected fetch left the flag true, so the cold-start queue was
+          // never retried for the life of this mount and files opened from
+          // Finder before React mounted simply never appeared.
           const pending = await invoke<PendingFileOpen[]>("get_pending_file_opens");
+          pendingFetchedRef.current = true;
           for (const file of pending) {
             if (cancelled) return;
             enqueueFileOpen(file.path, file.workspace_root);

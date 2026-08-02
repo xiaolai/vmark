@@ -4,6 +4,7 @@
  * Provides block insertion helpers for details, alerts, and math blocks.
  */
 
+import { newDetailsMarkdown, newDetailsCursorOffset } from "@/plugins/shared/blockTemplates";
 import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
 import { DEFAULT_GRAPHVIZ_DIAGRAM } from "@/plugins/graphviz/constants";
 import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";
@@ -19,19 +20,21 @@ export interface InsertionResult {
 
 /**
  * Build an HTML details block.
+ *
+ * The summary text and open state come from `blockTemplates`, the one place
+ * that decides what a new block contains. This file used to spell them out
+ * itself — `<details>` and the hardcoded English word "Details" — while WYSIWYG
+ * inserted `<details open>` with a TRANSLATED summary, so the same toolbar
+ * button produced two different blocks and the source one ignored the locale.
+ *
  * @param selection - Selected text to wrap (empty for blank block)
  * @returns Block text and cursor offset
  */
 export function buildDetailsBlock(selection: string): InsertionResult {
-  if (selection) {
-    const text = `<details>\n<summary>Details</summary>\n\n${selection}\n</details>`;
-    const cursorOffset = "<details>\n<summary>Details</summary>\n\n".length;
-    return { text, cursorOffset };
-  }
-
-  const text = "<details>\n<summary>Details</summary>\n\n</details>";
-  const cursorOffset = "<details>\n<summary>Details</summary>\n".length;
-  return { text, cursorOffset };
+  return {
+    text: newDetailsMarkdown(selection),
+    cursorOffset: newDetailsCursorOffset(),
+  };
 }
 
 /**

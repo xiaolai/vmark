@@ -1,0 +1,158 @@
+/**
+ * The host-settings seam.
+ *
+ * The point of this module is that a plugin reading through it still works
+ * when nothing binds it — that is what makes the dependency inverted rather
+ * than merely moved. These cases pin that, and the live-read behaviour that
+ * stops a plugin capturing a stale value at import time.
+ *
+ * @coordinates-with plugins/shared/hostSettings.ts
+ * @module plugins/shared/hostSettings.test
+ */
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { hostSettings, bindHostSettings, resetHostSettings } from "./hostSettings";
+
+afterEach(resetHostSettings);
+
+describe("an unbound host still gets working values", () => {
+  it("defaults tabSize to the app's own default, not merely a sane one", () => {
+    // A plugin lifted out of this repo has no store, so it needs a default —
+    // but the default must MATCH the app, or an unbound path behaves subtly
+    // differently from the shipping one. The parity suite caught this when the
+    // seam said 4 and VMark's default was 2.
+    expect(hostSettings.tabSize()).toBe(2);
+  });
+
+  it("defaults tableFitToWidth to off, matching the app", () => {
+    expect(hostSettings.tableFitToWidth()).toBe(false);
+  });
+});
+
+describe("binding replaces the defaults", () => {
+  it("uses the host's answer once bound", () => {
+    bindHostSettings({ tabSize: () => 2 });
+    expect(hostSettings.tabSize()).toBe(2);
+  });
+
+  it("reads LIVE, so a captured reference cannot go stale", () => {
+    // `hostSettings` is imported at module load, long before the app binds.
+    // Capturing the value rather than the accessor would freeze the default
+    // for every plugin that imported early.
+    const captured = hostSettings;
+    let size = 8;
+    bindHostSettings({ tabSize: () => size });
+    expect(captured.tabSize()).toBe(8);
+    size = 3;
+    expect(captured.tabSize()).toBe(3);
+  });
+
+  it("accepts a PARTIAL binding, leaving the rest at their defaults", () => {
+    // So adding an entry to the interface cannot break a host that already
+    // binds the others.
+    bindHostSettings({});
+    expect(hostSettings.tabSize()).toBe(2);
+  });
+
+  it("rebinding replaces rather than merges the previous binding", () => {
+    bindHostSettings({ tabSize: () => 9 });
+    bindHostSettings({});
+    expect(hostSettings.tabSize()).toBe(2);
+  });
+});
+
+describe("the defaults MATCH the app's, so an unbound path is not a fork", () => {
+  it("tabSize agrees with settingsStore's default", async () => {
+    // Not a style preference — this is the invariant that stops the seam from
+    // quietly becoming a second source of truth. If the app's default changes,
+    // this fails and the seam has to follow.
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.tabSize()).toBe(initialState.general.tabSize);
+    expect(hostSettings.tableFitToWidth()).toBe(initialState.markdown.tableFitToWidth);
+    expect(hostSettings.lintEnabled()).toBe(initialState.markdown.lintEnabled);
+  });
+});
+
+describe("HTML rendering defaults are the SAFE ones", () => {
+  it("defaults to sanitized/strict when nothing is bound", () => {
+    // Not merely "the app's defaults" — these are the safe ones. A standalone
+    // consumer that binds nothing must not get permissive HTML by accident.
+    expect(hostSettings.htmlRendering()).toEqual({
+      mode: "sanitized",
+      allowlistLevel: "strict",
+      customTags: "",
+    });
+  });
+
+  it("matches the app's own defaults", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    const d = hostSettings.htmlRendering();
+    expect(d.mode).toBe(initialState.markdown.htmlRenderingMode);
+    expect(d.allowlistLevel).toBe(initialState.markdown.htmlAllowlistLevel);
+  });
+
+  it("notifies on change so a node view can re-render", () => {
+    const listeners: Array<() => void> = [];
+    bindHostSettings({ onChange: (fn) => (listeners.push(fn), () => {}) });
+    let fired = 0;
+    hostSettings.onChange(() => (fired += 1));
+    listeners.forEach((fn) => fn());
+    expect(fired).toBe(1);
+  });
+
+  it("defaults onChange to a no-op that still unsubscribes cleanly", () => {
+    expect(() => hostSettings.onChange(() => {})()).not.toThrow();
+  });
+});
+
+describe("the markdown serialization defaults", () => {
+  beforeEach(resetHostSettings);
+
+  it("agrees with the app's own defaults", async () => {
+    // Same invariant as tabSize: a seam default that disagrees with the app
+    // makes the seam a second source of truth.
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.preserveLineBreaks()).toBe(
+      initialState.markdown.preserveLineBreaks ?? false
+    );
+    expect(hostSettings.hardBreakStyleOnSave()).toBe(
+      initialState.markdown.hardBreakStyleOnSave ?? "preserve"
+    );
+  });
+
+  it("defaults copy-to-assets ON, matching the app", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.copyImagesToAssets()).toBe(initialState.image.copyToAssets);
+  });
+
+  it("defaults the CJK toggles to the formatter's own literal", async () => {
+    // One literal, not two: a seam defaulting differently from the app would
+    // format text two ways depending on whether a host was bound.
+    const { DEFAULT_CJK_FORMATTING } = await import("@/lib/cjkFormatter/types");
+    expect(hostSettings.cjkFormatting()).toEqual(DEFAULT_CJK_FORMATTING);
+  });
+
+  it("routes both through the binding", () => {
+    bindHostSettings({
+      preserveLineBreaks: () => true,
+      hardBreakStyleOnSave: () => "twoSpaces",
+    });
+    expect(hostSettings.preserveLineBreaks()).toBe(true);
+    expect(hostSettings.hardBreakStyleOnSave()).toBe("twoSpaces");
+  });
+});
+
+describe("the paste and selection settings", () => {
+  beforeEach(resetHostSettings);
+
+  it("default to the app's values", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.copyOnSelect()).toBe(initialState.markdown.copyOnSelect ?? false);
+    expect(hostSettings.pasteMode()).toBe(initialState.markdown.pasteMode ?? "smart");
+  });
+
+  it("routes both through the binding", () => {
+    bindHostSettings({ copyOnSelect: () => true, pasteMode: () => "plain" });
+    expect(hostSettings.copyOnSelect()).toBe(true);
+    expect(hostSettings.pasteMode()).toBe("plain");
+  });
+});

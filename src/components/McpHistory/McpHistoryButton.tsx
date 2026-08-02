@@ -30,6 +30,7 @@ import { useMcpStore } from "@/stores/mcpStore";
 import type { MCPCheckpoint } from "@/stores/mcpStore";
 import { clearCheckpointsOnDisk } from "@/stores/mcpCheckpointPersistence";
 import { useDocumentStore } from "@/stores/documentStore";
+import { canonicalizeLineEndings } from "@/utils/editorText";
 import { useRevisionStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -63,7 +64,7 @@ function applyRestore({ tabId, cp }: RestoreContext): boolean {
   const doc = docStore.documents[tabId];
   if (!doc) return false;
   if (doc.content === cp.contentBefore) return false;
-  docStore.setContent(tabId, cp.contentBefore);
+  docStore.setEditorContent(tabId, canonicalizeLineEndings(cp.contentBefore));
   useRevisionStore.getState().updateRevision(tabId);
   return true;
 }

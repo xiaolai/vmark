@@ -6,6 +6,7 @@
 
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { AnchorRect } from "@/utils/popupPosition";
+import { bindHostDocument } from "@/plugins/shared/hostDocument";
 
 // Mock Tauri APIs before importing the module
 vi.mock("@tauri-apps/api/core", () => ({
@@ -17,21 +18,10 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: () => ({ filePath: "/test/doc.md" }),
-    }),
-  },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: { main: "tab1" },
-    }),
-  },
-}));
+// The active document arrives through the host seam now — this plugin no
+// longer reaches into the app's tab and document stores (ADR-015). Binding is
+// what the app does at its composition root.
+bindHostDocument({ activeFilePath: () => "/test/doc.md" });
 
 vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => "main",

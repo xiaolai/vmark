@@ -17,6 +17,9 @@
  *     them as literal bracket text, which is the correct CommonMark behavior)
  *   - Definition nodes are intentionally NOT removed — they serialize back to
  *     markdown as `[id]: url` lines for round-trip fidelity
+ *   - The resolved link REMEMBERS its reference identity (`data.referenceId`),
+ *     so the serializer re-emits `[text][id]` rather than rewriting the
+ *     author's file inline. Resolution is for EDITING, not for storage.
  *
  * @coordinates-with mdastBlockConverters.ts — convertDefinition handles definition nodes
  * @coordinates-with pmBlockConverters.ts — convertDefinition serializes back to MDAST
@@ -93,7 +96,10 @@ function resolveLinkReference(
     title: def.title,
     children: node.children,
     position: node.position,
-  };
+    // Remember what this was, so the serializer can put it back. Resolving is
+    // for EDITING — the reference form is what the author wrote.
+    data: { referenceId: node.identifier || node.label || "", referenceType: node.referenceType },
+  } as Link;
 }
 
 /**

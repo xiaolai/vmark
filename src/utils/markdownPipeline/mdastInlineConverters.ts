@@ -13,6 +13,9 @@
  *   - Missing mark types in schema are gracefully handled by falling through
  *     to convertChildren without adding the mark (schema flexibility)
  *
+ * A resolved reference link carries its identity onto the mark, so the
+ * serializer can restore `[text][id]`.
+ *
  * @coordinates-with mdastBlockConverters.ts — handles block-level nodes
  * @coordinates-with pmInlineConverters.ts — reverse direction (PM → MDAST)
  * @coordinates-with urlValidation.ts — URL safety checks for links and images
@@ -139,7 +142,13 @@ export function convertLink(
   }
   // Validate URL scheme to prevent XSS
   const href = isSafeUrl(node.url) ? node.url : "about:blank";
-  const linkMark = markType.create({ href, title: node.title ?? null });
+  const ref = (node as { data?: { referenceId?: string; referenceType?: string } }).data;
+  const linkMark = markType.create({
+    href,
+    title: node.title ?? null,
+    referenceId: ref?.referenceId ?? null,
+    referenceType: ref?.referenceType ?? null,
+  });
   // Unlike identical emphasis (where the duplicate is simply dropped), a
   // nested link carries data — and the inner link binds in CommonMark — so
   // replace an active link mark instead of keeping the outer href.

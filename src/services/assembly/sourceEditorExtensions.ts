@@ -21,7 +21,7 @@
  *
  * @coordinates-with SourceEditor.tsx — creates EditorView with these extensions
  * @coordinates-with codemirror/theme.ts — visual theme for the source editor
- * @coordinates-with codemirror/ — individual plugin modules for source features
+ * @coordinates-with codemirror/, hostAdapters.ts — source plugins and their stores
  * @module utils/sourceEditorExtensions
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
@@ -29,7 +29,8 @@ import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@cod
 import { history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { isYamlFileName } from "@/utils/dropPaths";
 import { dispatchEditor } from "@/lib/formats/registry";
@@ -49,8 +50,7 @@ import { search } from "@codemirror/search";
 import {
   sourceEditorTheme,
   codeHighlightStyle,
-  createBrHidingPlugin,
-  createShowInvisiblesPlugin,
+  createBrHidingPlugin, createShowInvisiblesPlugin,
   showInvisiblesTheme,
   createListBlankLinePlugin,
   createMarkdownAutoPairPlugin,
@@ -81,6 +81,7 @@ import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts"
 import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
+import { pluginStores, lintDiagnosticsSource } from "./hostAdapters";
 import { createSourceLinkCreatePopupPlugin } from "@/plugins/sourceLinkCreatePopup";
 import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
 import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
@@ -97,9 +98,7 @@ export const showInvisiblesCompartment = new Compartment();
 
 // Custom brackets config for markdown (^, standard brackets)
 const markdownCloseBrackets = markdownLanguage.data.of({
-  closeBrackets: {
-    brackets: ["(", "[", "{", '"', "'", "^"],
-  },
+  closeBrackets: { brackets: ["(", "[", "{", '"', "'", "^"] },
 });
 
 interface ExtensionConfig {
@@ -134,7 +133,7 @@ interface ExtensionConfig {
  * highlighting is recoverable; one that throws on construction is not.
  */
 function resolveLanguage(filePath: string | null | undefined): Extension {
-  const fallback = () => markdown({ codeLanguages: languages });
+  const fallback = () => markdownLanguageSupport(languages);
   try {
     return dispatchEditor(filePath ?? null).language?.() ?? fallback();
   } catch {
@@ -248,19 +247,19 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Source cursor context for toolbar actions
     { id: "source.sourceCursorContextPlugin", ext: createSourceCursorContextPlugin() },
     // Inline math preview
-    { id: "source.sourceMathPreviewPlugin", ext: createSourceMathPreviewPlugin() },
+    { id: "source.sourceMathPreviewPlugin", ext: createSourceMathPreviewPlugin(pluginStores.sourceMath) },
     // Inline image preview
-    { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin() },
+    { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin(pluginStores.media) },
     // Image popup editor
-    { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin() },
+    { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin(pluginStores.media) },
     // Link popup editor (click to edit, Cmd+Click to open)
-    { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin() },
+    { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin(pluginStores.link) },
     // Link create popup (Cmd+K when no link, no clipboard URL)
-    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin() },
+    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin(pluginStores.linkCreate) },
     // Wiki link popup editor
-    { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
+    { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin(pluginStores.wikiLink) },
     // Footnote popup editor
-    { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin() },
+    { id: "source.sourceFootnotePopupPlugin", ext: createSourceFootnotePopupPlugin(pluginStores.footnote) },
     // Table context menu
     { id: "source.tableContextMenuExtensions", ext: sourceTableContextMenuExtensions },
     // Generic editor context menu — after the table menu, which owns tables (ADR-5)
@@ -279,7 +278,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     {
       id: "source.lint",
       /* v8 ignore next -- @preserve reason: extension config branch; depends on runtime settings and tab state */
-      ext: lintEnabled && tabId ? createSourceLintExtension(tabId) : [],
+      ext: lintEnabled && tabId ? createSourceLintExtension(tabId, lintDiagnosticsSource) : [],
     },
   ];
 

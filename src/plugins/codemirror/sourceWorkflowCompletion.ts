@@ -13,7 +13,7 @@
  *   this file owns only the CodeMirror plumbing (CompletionContext →
  *   CompletionResult) and the IR lookup.
  *
- * @coordinates-with src/stores/ghaWorkflowPanelStore.ts — IR source
+ * @coordinates-with codemirror/workflowPort.ts — the parsed IR, injected
  * @coordinates-with src/lib/ghaWorkflow/completion/expressionCompletion.ts — logic
  * @module plugins/codemirror/sourceWorkflowCompletion
  */
@@ -28,7 +28,7 @@ import {
   completeAtPosition,
   type CompletionItem,
 } from "@/lib/ghaWorkflow/completion/expressionCompletion";
-import { useWorkflowStore } from "@/stores/workflowStore";
+import { workflowPort } from "./workflowPort";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 
 /**
@@ -92,7 +92,7 @@ function toCmCompletion(item: CompletionItem): Completion {
 export function workflowCompletionSource(
   context: CompletionContext,
 ): CompletionResult | null {
-  const { workflow } = useWorkflowStore.getState().gha;
+  const { workflow } = workflowPort().getState().gha;
   if (!workflow) return null;
 
   const text = context.state.doc.toString();

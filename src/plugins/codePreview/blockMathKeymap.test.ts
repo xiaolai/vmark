@@ -1,21 +1,18 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
-// Mock the store before importing
-vi.mock("@/stores/blockMathEditingStore", () => {
-  const state = {
-    editingPos: null as number | null,
-    originalContent: null as string | null,
-    exitEditing: vi.fn(),
-    startEditing: vi.fn(),
-    isEditingAt: vi.fn(),
-  };
-  return {
-    useBlockMathEditingStore: {
-      getState: () => state,
-      setState: (partial: Partial<typeof state>) => Object.assign(state, partial),
-    },
-  };
-});
+// The editing registry is the plugin's own now, bound here rather than
+// intercepted at the store module.
+const registryState = {
+  editingPos: null as number | null,
+  originalContent: null as string | null,
+  exitEditing: vi.fn(),
+  startEditing: vi.fn(),
+  isEditingAt: vi.fn(),
+};
+const testRegistry = {
+  getState: () => registryState,
+  setState: (partial: Partial<typeof registryState>) => Object.assign(registryState, partial),
+};
 
 vi.mock("./tiptap", () => ({
   EDITING_STATE_CHANGED: "codePreviewEditingChanged",
@@ -24,7 +21,9 @@ vi.mock("./tiptap", () => ({
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { bindBlockMathEditingStore, blockMathEditing } from "./editingRegistry";
+
+bindBlockMathEditingStore(testRegistry as never);
 import { blockMathKeymapExtension } from "./blockMathKeymap";
 
 // We can't easily instantiate the Extension, so we test the exported logic indirectly.
@@ -95,7 +94,7 @@ describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
   }
 
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
@@ -108,13 +107,13 @@ describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
     const result = plugin.props.handleKeyDown!(view, new KeyboardEvent("keydown", { key: "Escape" }));
     expect(result).toBe(false);
     expect(view.dispatch).not.toHaveBeenCalled();
-    expect(useBlockMathEditingStore.getState().exitEditing).not.toHaveBeenCalled();
+    expect(blockMathEditing().getState().exitEditing).not.toHaveBeenCalled();
   });
 
   it("Escape reverts edited content back to originalContent", () => {
     const state = createEditorState("modified", "latex");
     const view = createMockView(state);
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "original";
 
@@ -134,7 +133,7 @@ describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
   it("Escape with unchanged content clears state without rewriting the doc", () => {
     const state = createEditorState("same", "latex");
     const view = createMockView(state);
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "same";
 
@@ -162,7 +161,7 @@ describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
     const cursorInPara = doc.firstChild!.nodeSize + 1;
     const state = createEditorState("body", "latex", cursorInPara);
     const view = createMockView(state);
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "body";
 
@@ -179,7 +178,7 @@ describe("blockMathKeymap — handleKeyDown drives the plugin", () => {
   it("Cmd+Enter inside the editing codeBlock commits (does not revert)", () => {
     const state = createEditorState("edited", "latex", 1); // cursor inside block
     const view = createMockView(state);
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "orig";
 
@@ -246,14 +245,14 @@ describe("blockMathKeymap — cursor detection", () => {
 
 describe("blockMathKeymap — empty code block", () => {
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
   });
 
   it("handles empty code block content", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "";
 
@@ -298,7 +297,7 @@ describe("blockMathKeymap — stale editingPos guard (P4)", () => {
   }
 
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
@@ -312,7 +311,7 @@ describe("blockMathKeymap — stale editingPos guard (P4)", () => {
     const paragraphPos = state.doc.firstChild!.nodeSize;
     expect(state.doc.nodeAt(paragraphPos)?.type.name).toBe("paragraph");
 
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = paragraphPos;
     store.originalContent = "orig";
 
@@ -339,7 +338,7 @@ describe("blockMathKeymap — stale editingPos guard (P4)", () => {
 
   it("does not throw when editingPos is past the end of the doc", () => {
     const state = createEditorState("orig", "latex");
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = state.doc.content.size + 100;
     store.originalContent = "orig";
 
@@ -366,14 +365,14 @@ describe("blockMathKeymap — extension structure", () => {
 
 describe("blockMathKeymap — store integration", () => {
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
   });
 
   it("store tracks editing position and original content", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 5;
     store.originalContent = "\\frac{1}{2}";
 
@@ -382,7 +381,7 @@ describe("blockMathKeymap — store integration", () => {
   });
 
   it("exitEditing is callable", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 5;
     store.exitEditing();
     expect(store.exitEditing).toHaveBeenCalledTimes(1);
@@ -410,7 +409,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   }
 
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
@@ -428,7 +427,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("handleKeyDown Escape exits editing when content matches (no revert needed)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "same";
 
@@ -448,7 +447,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("handleKeyDown Cmd+Enter commits (no revert) when cursor is in code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "content";
 
@@ -470,7 +469,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("handleKeyDown Ctrl+Enter commits when cursor is in code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "content";
 
@@ -488,7 +487,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("handleKeyDown Enter (without meta) returns false when cursor is in code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "original";
 
@@ -503,7 +502,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("handleKeyDown non-Escape key returns false when cursor is outside code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "original";
 
@@ -522,7 +521,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("exitEditing handles null originalContent (no revert path)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = null;
 
@@ -540,7 +539,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("exitEditing returns false when node at editingPos is null (lines 58-60)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.originalContent = "hello";
 
     const plugin = getPlugin();
@@ -574,7 +573,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("exitEditing reverts content when revert=true and content differs (lines 70-72)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "original";
 
@@ -610,7 +609,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
   });
 
   it("exitEditing handles same content (no replaceWith needed)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "same";
 
@@ -628,7 +627,7 @@ describe("blockMathKeymap — plugin handleKeyDown", () => {
 
   it("exitEditing uses empty fragment when originalContent is empty string (line 72 [] branch)", () => {
     // When originalContent is "" (falsy), the ternary uses [] instead of schema.text("")
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "";
 
@@ -677,7 +676,7 @@ describe("blockMathKeymap — plugin handleClick", () => {
   }
 
   beforeEach(() => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = null;
     store.originalContent = null;
     vi.mocked(store.exitEditing).mockClear();
@@ -695,7 +694,7 @@ describe("blockMathKeymap — plugin handleClick", () => {
   });
 
   it("handleClick reverts when clicking outside the code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     // Use same content so replaceWith is skipped (avoids position mismatch)
     store.originalContent = "content";
@@ -719,7 +718,7 @@ describe("blockMathKeymap — plugin handleClick", () => {
   });
 
   it("handleClick does nothing when clicking inside the code block", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "content";
 
@@ -737,7 +736,7 @@ describe("blockMathKeymap — plugin handleClick", () => {
   });
 
   it("handleClick exits editing when node at editingPos is null (lines 130-131)", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "hello";
 
@@ -766,7 +765,7 @@ describe("blockMathKeymap — plugin handleClick", () => {
   });
 
   it("handleClick returns false when posAtCoords returns null", () => {
-    const store = useBlockMathEditingStore.getState();
+    const store = blockMathEditing().getState();
     store.editingPos = 0;
     store.originalContent = "content";
 

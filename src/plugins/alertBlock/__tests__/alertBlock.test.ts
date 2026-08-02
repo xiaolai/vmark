@@ -292,7 +292,9 @@ describe("insertAlertBlock with depth-0 selections (PL-2)", () => {
     expect(result.doc.textContent).toContain("Hello");
   });
 
-  it("NodeSelection on a top-level hr: does not throw and inserts after the hr", () => {
+  it("NodeSelection on a top-level hr: wraps the selected node", () => {
+    // Depth-0 selections are wrappable now — an explicitly selected node is
+    // folded INTO the alert rather than left behind with a blank appended.
     const schema = createSchema();
     const paragraph = schema.nodes.paragraph.create(null, [schema.text("Hello")]);
     const hr = schema.nodes.horizontalRule.create();
@@ -303,10 +305,9 @@ describe("insertAlertBlock with depth-0 selections (PL-2)", () => {
     const { returned, result } = runInsert(state);
 
     expect(returned).toBe(true);
-    expect(result.doc.childCount).toBe(3);
+    expect(result.doc.childCount).toBe(2);
     expect(result.doc.child(0).type.name).toBe("paragraph");
-    expect(result.doc.child(1).type.name).toBe("horizontalRule");
-    expect(result.doc.child(2).type.name).toBe("alertBlock");
+    expect(result.doc.child(1).type.name).toBe("alertBlock");
   });
 
   it("TextSelection behavior unchanged: inserts after the current block", () => {

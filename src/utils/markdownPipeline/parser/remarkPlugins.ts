@@ -64,11 +64,15 @@ function visitAndFixMath(node: Root | Parent): void {
  * parsing prevents a common misparse: an empty nested list item (`  -`) being
  * interpreted as a setext heading underline for the preceding paragraph.
  *
- * This is an intentional compatibility trade-off for VMark:
- * - VMark's serializer never produces setext headings (always ATX `#`)
- * - Setext input (`Heading\n---`) is rare in practice and can always be
- *   written as `## Heading` instead
- * - The misparse of `  -` as heading underline causes data corruption
+ * Applied ONLY to documents that contain the ambiguous line — see
+ * `hasAmbiguousListUnderline`. Disabling it unconditionally traded one
+ * corruption for another: an authored setext heading became a paragraph whose
+ * underline was escaped to `\=====`, or a paragraph plus a thematic break, and
+ * `useTiptapFlush` wrote that back to the file on the next keystroke. Only the
+ * first corruption had been measured.
+ *
+ * VMark still SERIALIZES headings as ATX, so a setext document is normalised on
+ * write — but it is read as headings first, rather than destroyed.
  */
 export const remarkDisableSetextHeadings: Plugin<[], Root> = function () {
   const data = this.data();
@@ -85,6 +89,70 @@ export interface ContentAnalysis {
   hasFrontmatter: boolean;
   hasWikiLinks: boolean;
   hasDetails: boolean;
+  /** An INDENTED lone list marker, the line that misparses as a setext underline. */
+  hasAmbiguousListUnderline: boolean;
+}
+
+/**
+ * A line that is nothing but an indented list marker — `  -`, `\t*`, `   +`.
+ *
+ * This is the exact shape `remarkDisableSetextHeadings` exists to protect: an
+ * empty nested list item directly under a paragraph, which CommonMark reads as
+ * a setext underline for that paragraph. Detecting it lets the protection apply
+ * only to documents that need it, instead of costing every document its setext
+ * headings.
+ */
+const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/;
+
+/**
+ * A fence line by CommonMark's rules: at most 3 spaces of indent, then a run
+ * of 3+ backticks or tildes. Four or more spaces make the line indented CODE,
+ * so it can neither open nor close a fence — the old scanner accepted
+ * unlimited indentation and a four-space-indented backtick run swallowed the
+ * rest of the document, hiding genuine ambiguity after it.
+ */
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
+
+/** Indented-code line: 4+ spaces or a tab. Its content is literal text. */
+const INDENTED_CODE_LINE = /^(?: {4}|\t)/;
+
+/**
+ * Whether the document contains the ambiguous shape, OUTSIDE code regions.
+ *
+ * The bare regex matches a lone indented marker anywhere — including inside a
+ * fenced block or an indented code block, where `  -` is just a character in a
+ * code sample. One such line used to disable setext headings for the WHOLE
+ * document, so a real `Title` / `-----` heading elsewhere in the same file
+ * silently parsed as a paragraph and could be rewritten on save.
+ *
+ * The scanner walks lines, tracking one open fence at a time. A closer must
+ * repeat the OPENER'S character at least the opener's length (CommonMark keeps
+ * a 5-backtick block open across a 3-backtick line) and carry nothing but
+ * trailing whitespace. Indented-code lines are skipped too: `    -` is never a
+ * setext underline — indented code cannot interrupt a paragraph, and a setext
+ * underline allows at most 3 spaces of indent.
+ */
+function hasAmbiguousListUnderline(markdown: string): boolean {
+  let fence: { char: string; size: number } | null = null;
+  for (const line of markdown.split("\n")) {
+    const fenceRun = FENCE_LINE.exec(line);
+    if (fence) {
+      const closes =
+        fenceRun !== null &&
+        fenceRun[1][0] === fence.char &&
+        fenceRun[1].length >= fence.size &&
+        /^[ \t]*$/.test(line.slice(fenceRun[0].length));
+      if (closes) fence = null;
+      continue;
+    }
+    if (fenceRun) {
+      fence = { char: fenceRun[1][0], size: fenceRun[1].length };
+      continue;
+    }
+    if (INDENTED_CODE_LINE.test(line)) continue;
+    if (AMBIGUOUS_LIST_UNDERLINE.test(line)) return true;
+  }
+  return false;
 }
 
 /**
@@ -100,6 +168,9 @@ export function analyzeContent(markdown: string): ContentAnalysis {
     // Wiki links: look for [[
     hasWikiLinks: markdown.includes("[["),
     // Details block: look for <details pattern
-    hasDetails: markdown.includes("<details"),
+    // Case-insensitive: the details plugin accepts `<DETAILS>` and `<Details>`,
+    // so a case-sensitive probe left those parsing as raw HTML instead.
+    hasDetails: /<details(?:[\s>]|$)/i.test(markdown),
+    hasAmbiguousListUnderline: hasAmbiguousListUnderline(markdown),
   };
 }
