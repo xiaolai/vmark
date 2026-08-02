@@ -16,7 +16,7 @@
  *     never re-show the shared preview singleton
  *
  * @coordinates-with mermaidPreview/MermaidPreviewView.ts — shared diagram preview rendering
- * @coordinates-with stores/editorStore.ts — reads editor mode state
+ * @coordinates-with plugins/shared/hostViewModes.ts — reads diagramPreview
  * @module plugins/codemirror/sourceMermaidPreview
  */
 

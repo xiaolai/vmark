@@ -12,7 +12,7 @@
  *   - Click-outside the popup auto-saves; Escape cancels
  *
  * @coordinates-with sourceMathPopup/SourceMathPopupView.ts — the editable popup
- * @coordinates-with stores/sourceMathPopupStore.ts — popup state
+ * @coordinates-with sourceMathPopup/SourceMathPopupView.ts — the state PORT
  * @coordinates-with toolbarActions/sourceMathActions.ts — findInlineMathAtCursor, findBlockMathAtCursor
  * @module plugins/codemirror/sourceMathPreview
  */

@@ -13,7 +13,7 @@
  *   this file owns only the CodeMirror plumbing (CompletionContext →
  *   CompletionResult) and the IR lookup.
  *
- * @coordinates-with src/stores/ghaWorkflowPanelStore.ts — IR source
+ * @coordinates-with codemirror/workflowPort.ts — the parsed IR, injected
  * @coordinates-with src/lib/ghaWorkflow/completion/expressionCompletion.ts — logic
  * @module plugins/codemirror/sourceWorkflowCompletion
  */

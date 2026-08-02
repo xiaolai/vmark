@@ -10,7 +10,7 @@
  *   - Cleans text before copying (trailing whitespace, etc.)
  *   - Gated by the copyOnSelect setting from settingsStore
  *
- * @coordinates-with stores/settingsStore.ts — reads general.copyOnSelect setting
+ * @coordinates-with plugins/shared/hostSettings.ts — reads copyOnSelect
  * @module plugins/codemirror/sourceCopyOnSelect
  */
 

@@ -10,7 +10,7 @@
  *   - IME-guarded to avoid interfering with CJK composition
  *
  * @coordinates-with focusMode/tiptap.ts — WYSIWYG counterpart
- * @coordinates-with stores/editorStore.ts — reads focusMode state
+ * @coordinates-with plugins/shared/hostViewModes.ts — reads focusMode
  * @module plugins/codemirror/focusModePlugin
  */
 

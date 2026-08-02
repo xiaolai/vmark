@@ -8,7 +8,7 @@
  *
  * @coordinates-with smartPaste.ts — plugin factory
  * @coordinates-with smartPasteUtils.ts — shared utilities
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI for image paste confirmation
+ * @coordinates-with plugins/shared/hostPopups.ts — toast for image paste confirmation
  * @module plugins/codemirror/smartPasteImage
  */
 
