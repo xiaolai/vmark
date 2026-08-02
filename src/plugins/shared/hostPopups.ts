@@ -48,16 +48,37 @@ export interface ImageMenuRequest {
   imageNodePos: number;
 }
 
+/** What the footnote popup needs to edit a footnote. */
+export interface FootnotePopupRequest {
+  label: string;
+  content: string;
+  anchorRect: { top: number; left: number; right: number; bottom: number };
+  definitionPos: number | null;
+  referencePos: number | null;
+  autoFocus?: boolean;
+}
+
 /** Editor chrome a plugin can ask the host to present. */
 export interface HostPopups {
   openMediaPopup: (request: MediaPopupRequest) => void;
   openImageMenu: (request: ImageMenuRequest) => void;
+  /**
+   * Open the footnote editor.
+   *
+   * Here rather than as a `footnotePopup` extension option because the ASKER
+   * is a different plugin: the toolbar's "insert footnote" action lives in
+   * `toolbarActions` and must open a surface `footnotePopup` owns. Routing it
+   * through an option would mean `toolbarActions` importing the store, moving
+   * the coupling rather than removing it.
+   */
+  openFootnotePopup: (request: FootnotePopupRequest) => void;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */
 const DEFAULTS: HostPopups = {
   openMediaPopup: () => {},
   openImageMenu: () => {},
+  openFootnotePopup: () => {},
 };
 
 let bound: HostPopups = DEFAULTS;
@@ -76,4 +97,5 @@ export function resetHostPopups(): void {
 export const hostPopups: HostPopups = {
   openMediaPopup: (request) => bound.openMediaPopup(request),
   openImageMenu: (request) => bound.openImageMenu(request),
+  openFootnotePopup: (request) => bound.openFootnotePopup(request),
 };

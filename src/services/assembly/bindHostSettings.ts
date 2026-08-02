@@ -18,10 +18,12 @@ import {
   bindHostPopups,
   type MediaPopupRequest,
   type ImageMenuRequest,
+  type FootnotePopupRequest,
 } from "@/plugins/shared/hostPopups";
 import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 
@@ -53,5 +55,9 @@ export function bindPluginHostSettings(): void {
       useMediaPopupStore.getState().openPopup(request as never),
     openImageMenu: (request: ImageMenuRequest) =>
       useImageContextMenuStore.getState().openMenu(request),
+    openFootnotePopup: (r: FootnotePopupRequest) =>
+      useFootnotePopupStore
+        .getState()
+        .openPopup(r.label, r.content, r.anchorRect as never, r.definitionPos, r.referencePos, r.autoFocus),
   });
 }
