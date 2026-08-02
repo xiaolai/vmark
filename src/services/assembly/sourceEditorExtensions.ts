@@ -21,7 +21,7 @@
  *
  * @coordinates-with SourceEditor.tsx — creates EditorView with these extensions
  * @coordinates-with codemirror/theme.ts — visual theme for the source editor
- * @coordinates-with codemirror/ — individual plugin modules for source features
+ * @coordinates-with codemirror/, hostAdapters.ts — source plugins and their stores
  * @module utils/sourceEditorExtensions
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";

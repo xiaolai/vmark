@@ -15,7 +15,7 @@
  *     (bold, italic, links, etc.) instead of creating plain text nodes
  *
  * @coordinates-with tiptap.ts — creates and destroys this view based on hover/click events
- * @coordinates-with stores/footnotePopupStore.ts — popup visibility and position state
+ * @coordinates-with plugins/shared/popupPorts.ts — the state PORT the host satisfies
  * @coordinates-with footnotePopupDom.ts — DOM construction and layout constants
  * @module plugins/footnotePopup/FootnotePopupView
  */
