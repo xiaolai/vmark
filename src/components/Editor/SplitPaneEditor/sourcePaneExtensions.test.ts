@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Compartment, EditorState } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorView, ViewPlugin } from "@codemirror/view";
 
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
@@ -157,6 +157,38 @@ describe("buildSourcePaneExtensions", () => {
     });
     // The validator variant adds exactly one more extension (the linter).
     expect(withValidator.length).toBe(without.length + 1);
+  });
+
+  it("reserves an empty, reconfigurable slot when an extras compartment is provided", () => {
+    const extrasCompartment = new Compartment();
+    const baseArgs = {
+      tabId: "t1",
+      readOnly: false,
+      validator: undefined,
+      lineNumberCompartment: new Compartment(),
+      languageCompartment: new Compartment(),
+      lineWrapCompartment: new Compartment(),
+      persistOnUpdate: [],
+      onDiagnostics: vi.fn(),
+    };
+    const withExtras = buildSourcePaneExtensions({ ...baseArgs, extrasCompartment });
+    const without = buildSourcePaneExtensions(baseArgs);
+    expect(withExtras.length).toBe(without.length + 1);
+
+    // The slot starts empty and accepts a late reconfigure — the async
+    // loadExtraExtensions path swaps real extensions in after mount.
+    let mounted = false;
+    const marker = ViewPlugin.define(() => {
+      mounted = true;
+      return {};
+    });
+    const view = new EditorView({
+      state: EditorState.create({ doc: "x", extensions: withExtras }),
+    });
+    expect(mounted).toBe(false);
+    view.dispatch({ effects: extrasCompartment.reconfigure([marker]) });
+    expect(mounted).toBe(true);
+    view.destroy();
   });
 });
 

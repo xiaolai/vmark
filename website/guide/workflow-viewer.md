@@ -9,13 +9,15 @@ The feature works in two surfaces:
 
 ## Standalone workflow files
 
-Open any `.github/workflows/*.yml` file in VMark. The right-hand side panel opens automatically and shows:
+Open any `.github/workflows/*.yml` file in VMark. The file opens in a split view — YAML source on the left, the workflow workbench on the right (the Source / Split / Preview toggle switches layouts). The workbench shows:
 
 - The full workflow as an interactive React Flow canvas (jobs as nodes, `needs:` dependencies as edges).
 - A structured editor panel below the canvas.
 - Save / Discard controls in the editor header.
 
 Click a job in the canvas to edit it. Click a step inside the job to edit that step.
+
+While you edit the source, VMark keeps the two panes in sync: moving the cursor into a job's lines highlights its node on the canvas, `${{ }}` expressions autocomplete against the parsed workflow's contexts, and Cmd-clicking a local `uses:` reference opens the target file.
 
 ### Job editing
 

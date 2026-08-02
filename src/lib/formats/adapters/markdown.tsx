@@ -19,7 +19,6 @@ import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
 import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
-import { GhaWorkflowSidePanel } from "@/components/Editor/WorkflowPanel/GhaWorkflowSidePanel";
 import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { lintMarkdown } from "@/lib/lintEngine";
@@ -121,7 +120,6 @@ export function MarkdownEditorSurface({ tabId }: { tabId: string }) {
           <WorkflowSidePanel />
         </Suspense>
       )}
-      <GhaWorkflowSidePanel />
       <HeadingPicker />
       <DropZoneIndicator />
     </div>

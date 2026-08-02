@@ -20,7 +20,7 @@ describe("workflowPort", () => {
     // binding into a broken editor rather than a missing panel.
     expect(() => workflowPort()).not.toThrow();
     const s = workflowPort().getState();
-    expect(s.gha.workflow).toBeNull();
+    expect(s.gha.byTab).toEqual({});
     expect(s.preview.panelOpen).toBe(false);
     expect(s.view.selectedJobId).toBeNull();
   });

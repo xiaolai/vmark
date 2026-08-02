@@ -36,9 +36,9 @@ import { isYamlFileName } from "@/utils/dropPaths";
 import { dispatchEditor } from "@/lib/formats/registry";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 // WI-2.4 — sourceGhaWorkflowPreview retired. Standalone workflow YAML
-// files now route through the YAML adapter's schemaRenderer
-// (registry-driven). The markdown source mode no longer needs to
-// detect workflow-shaped content.
+// routes through the yaml adapter: its schemaRenderer mounts the
+// workbench and its loadExtraExtensions supplies sourceGhaIrSync (the
+// gha-slice writer) + the completion/cursor-sync/goto extensions below.
 import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
 import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
 import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
@@ -218,9 +218,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // breaks via the CodeMirror gutter.
     { id: "source.yamlLint", ext: (isYaml ? [yamlLintExtension()] : []) },
     // Workflow expression autocomplete inside ${{ }} (WI-A.1).
-    { id: "source.workflowCompletion", ext: (workflowFeatures ? [workflowCompletionExtension()] : []) },
+    { id: "source.workflowCompletion", ext: (workflowFeatures && tabId ? [workflowCompletionExtension(tabId)] : []) },
     // Source cursor → canvas job selection (WI-B.3).
-    { id: "source.workflowCursorSync", ext: (workflowFeatures ? [workflowCursorSyncExtension()] : []) },
+    { id: "source.workflowCursorSync", ext: (workflowFeatures && tabId ? [workflowCursorSyncExtension(tabId)] : []) },
     // Cmd/Ctrl-Click on `uses:` opens local target (WI-B.2).
     {
       id: "source.gotoExtension",
