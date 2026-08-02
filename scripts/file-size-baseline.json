@@ -159,7 +159,7 @@
     "src/plugins/multiCursor/__tests__/feature-complete.test.ts": 2132,
     "src/plugins/multiCursor/__tests__/inputHandling.test.ts": 1613,
     "src/plugins/multiCursor/__tests__/multiCursorPlugin.test.ts": 895,
-    "src/plugins/search/tiptap.test.ts": 1753,
+    "src/plugins/search/tiptap.test.ts": 1752,
     "src/plugins/sourceLinkCreatePopup/SourceLinkCreatePopupView.test.ts": 1247,
     "src/plugins/sourcePopup/createSourcePopupPlugin.test.ts": 1441,
     "src/plugins/tabIndent/tiptap.test.ts": 1004,
