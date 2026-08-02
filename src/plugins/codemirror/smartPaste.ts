@@ -20,7 +20,7 @@
  * @coordinates-with smartPasteUtils.ts — shared utilities
  * @coordinates-with smartPasteImage.ts — image paste handling
  * @coordinates-with utils/imagePathDetection.ts — image URL/path detection
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI for image paste confirmation
+ * @coordinates-with plugins/shared/hostPopups.ts — toast for image paste confirmation
  * @module plugins/codemirror/smartPaste
  */
 

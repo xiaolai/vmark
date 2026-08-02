@@ -21,7 +21,7 @@
  * Known limitations:
  *   - Some shortcuts overlap with system keybindings on different platforms
  *
- * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
+ * @coordinates-with plugins/shared/hostShortcuts.ts — the chords, hostSearch — the find bar
  * @coordinates-with services/editor/runEditorAction.ts — executor for editor.* actions
  * @coordinates-with plugins/actions/types.ts — the ActionId union the bindings use
  * @coordinates-with plugins/codemirror/sourceShortcutsHelpers.ts — helper functions

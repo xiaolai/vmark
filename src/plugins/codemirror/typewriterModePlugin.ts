@@ -11,7 +11,7 @@
  *   - Smooth scrolling for a polished feel
  *
  * @coordinates-with typewriterMode/tiptap.ts — WYSIWYG counterpart
- * @coordinates-with stores/editorStore.ts — reads typewriterMode state
+ * @coordinates-with plugins/shared/hostViewModes.ts — reads typewriterMode
  * @module plugins/codemirror/typewriterModePlugin
  */
 

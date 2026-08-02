@@ -16,8 +16,7 @@
  *       existing selection — the user might be tweaking permissions
  *       and still want to see the last job they were in
  *
- * @coordinates-with src/stores/ghaWorkflowPanelStore.ts — IR source
- * @coordinates-with src/stores/workflowViewStore.ts — selectJob target
+ * @coordinates-with codemirror/workflowPort.ts — the IR and the selection
  * @module plugins/codemirror/sourceWorkflowCursorSync
  */
 

@@ -10,7 +10,7 @@
  *     must be explicitly cleared so the badge doesn't mislead.
  *   - offset/endOffset from LintDiagnostic are 0-based char offsets already.
  *
- * @coordinates-with lintStore.ts — reads diagnostics, clears on edit
+ * @coordinates-with plugins/lint/tiptap.ts — the LintDiagnosticsSource contract
  * @coordinates-with sourceEditorExtensions.ts — added when lintEnabled
  * @module plugins/codemirror/sourceLint
  */

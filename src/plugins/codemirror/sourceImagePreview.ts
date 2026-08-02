@@ -13,7 +13,7 @@
  *   - Debounces cursor position checks to avoid excessive preview updates
  *
  * @coordinates-with imagePreview/ImagePreviewView.ts — shared preview rendering singleton
- * @coordinates-with stores/mediaPopupStore.ts — checks popup visibility to avoid overlap
+ * @coordinates-with plugins/shared/popupPorts.ts — the media state, injected
  * @coordinates-with utils/mediaPathDetection.ts — media type detection
  * @module plugins/codemirror/sourceImagePreview
  */
