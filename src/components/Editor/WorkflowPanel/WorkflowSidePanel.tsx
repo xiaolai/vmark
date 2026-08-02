@@ -9,7 +9,7 @@
  * @coordinates-with WorkflowPreview.tsx — renders the React Flow canvas
  * @coordinates-with useWorkflowExecution.ts — start / cancel
  * @coordinates-with Editor.tsx — mounted alongside editor-content
- * @module plugins/workflowPreview/WorkflowSidePanel
+ * @module components/Editor/WorkflowPanel/WorkflowSidePanel
  */
 
 import { useCallback, useRef, useState, useEffect } from "react";
@@ -21,7 +21,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { genieError } from "@/utils/debug";
-import { WorkflowPreview } from "./WorkflowPreview";
+import { WorkflowPreview } from "@/plugins/workflowPreview/WorkflowPreview";
 import "./workflow-side-panel.css";
 
 const MIN_PANEL_WIDTH = 200;

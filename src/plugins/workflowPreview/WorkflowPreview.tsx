@@ -26,7 +26,7 @@ import "./workflow-preview.css";
 
 const nodeTypes = { workflow: WorkflowNode };
 
-import type { StepStatusEntry } from "@/stores/workflowStore";
+import type { StepStatusEntry } from "@/lib/workflow/types";
 
 interface WorkflowPreviewProps {
   graph: WorkflowGraph;
