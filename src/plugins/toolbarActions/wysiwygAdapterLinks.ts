@@ -6,7 +6,7 @@
  */
 
 import type { Mark, MarkType, ResolvedPos } from "@tiptap/pm/model";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 import type { WysiwygToolbarContext } from "./types";
@@ -143,7 +143,7 @@ export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
     : getViewportBounds();
   /* v8 ignore stop */
 
-  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+  const onSelect = (id: string, text: string) => {
     // Re-read current state to get fresh positions (doc may have changed)
     const currentState = view.state;
     const linkMark = currentState.schema.marks.link;
@@ -168,7 +168,9 @@ export function insertBookmarkLink(context: WysiwygToolbarContext): boolean {
 
     view.dispatch(tr);
     view.focus();
-  }, { anchorRect, containerBounds });
+  };
+
+  hostPopups.openHeadingPicker({ headings, onSelect, anchorRect, containerBounds });
 
   return true;
 }

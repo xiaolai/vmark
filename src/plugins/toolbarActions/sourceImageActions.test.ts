@@ -18,21 +18,13 @@ vi.mock("@/utils/markdownUrl", () => ({
   encodeMarkdownUrl: vi.fn((url: string) => url.replace(/ /g, "%20")),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: () => ({ filePath: "/path/to/doc.md" }),
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => "/path/to/doc.md" },
 }));
 
 const mockOpenPopup = vi.fn();
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: vi.fn(() => ({
-      openPopup: mockOpenPopup,
-    })),
-  },
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: { openMediaPopup: (...a: unknown[]) => mockOpenPopup(...a) },
 }));
 
 vi.mock("@/utils/mediaPathDetection", () => ({
@@ -40,13 +32,7 @@ vi.mock("@/utils/mediaPathDetection", () => ({
   hasAudioExtension: vi.fn(() => false),
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: { main: "tab1" },
-    }),
-  },
-}));
+
 
 vi.mock("@/utils/debug", () => ({
   sourceActionError: vi.fn(),

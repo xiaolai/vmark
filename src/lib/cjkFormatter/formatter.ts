@@ -21,7 +21,7 @@
  * @module lib/cjkFormatter/formatter
  */
 
-import type { CJKFormattingSettings } from "@/stores/settingsStore";
+import type { CJKFormattingSettings } from "./types";
 import { findProtectedRegions } from "./markdownParser";
 import {
   extractFormattableSegments,

@@ -87,7 +87,7 @@
     "src/plugins/tableUI/tableActions.tiptap.ts": 343,
     "src/plugins/toolbarActions/enableRules.ts": 319,
     "src/plugins/toolbarActions/sourceAdapterLinks.ts": 370,
-    "src/plugins/toolbarActions/sourceImageActions.ts": 333,
+    "src/plugins/toolbarActions/sourceImageActions.ts": 329,
     "src/services/assembly/sourceEditorExtensions.ts": 325,
     "src/services/history/historyOperations.ts": 369,
     "src/services/history/unifiedHistory.ts": 304,

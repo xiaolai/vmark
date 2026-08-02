@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/stores/headingPickerStore", () => ({
-  useHeadingPickerStore: {
-    getState: vi.fn(() => ({
-      openPicker: vi.fn(),
-    })),
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    openLinkPopup: vi.fn(),
+    openLinkCreatePopup: vi.fn(),
+    openWikiLinkPopup: vi.fn(),
+    openHeadingPicker: vi.fn(),
+    openMediaPopup: vi.fn(),
+    anyLinkSurfaceOpen: vi.fn(() => false),
   },
 }));
 
@@ -18,7 +21,7 @@ vi.mock("@/utils/popupPosition", () => ({
 }));
 
 import { insertWikiLink, insertBookmarkLink } from "./wysiwygAdapterLinks";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import type { WysiwygToolbarContext } from "./types";
 
@@ -138,17 +141,19 @@ describe("insertBookmarkLink", () => {
       { id: "intro", text: "Introduction", level: 1 },
     ] as never);
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const ctx = createContext();
     const result = insertBookmarkLink(ctx);
 
     expect(result).toBe(true);
     expect(openPicker).toHaveBeenCalledWith(
-      [{ id: "intro", text: "Introduction", level: 1 }],
-      expect.any(Function),
-      expect.objectContaining({ anchorRect: expect.any(Object) })
+      expect.objectContaining({
+        headings: [{ id: "intro", text: "Introduction", level: 1 }],
+        onSelect: expect.any(Function),
+        anchorRect: expect.any(Object),
+      })
     );
   });
 
@@ -157,14 +162,17 @@ describe("insertBookmarkLink", () => {
       { id: "intro", text: "Introduction", level: 1 },
     ] as never);
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const ctx = createContext({ selectionFrom: 10, selectionTo: 10 });
     insertBookmarkLink(ctx);
 
     // Get the callback passed to openPicker
-    const callback = openPicker.mock.calls[0][1] as (id: string, text: string) => void;
+    const callback = (openPicker.mock.calls[0][0] as { onSelect: unknown }).onSelect as (
+      id: string,
+      text: string
+    ) => void;
 
     // Set up fresh view state for callback execution
     const view = ctx.view!;
@@ -181,13 +189,16 @@ describe("insertBookmarkLink", () => {
       { id: "intro", text: "Introduction", level: 1 },
     ] as never);
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const ctx = createContext({ selectionFrom: 5, selectionTo: 15 });
     insertBookmarkLink(ctx);
 
-    const callback = openPicker.mock.calls[0][1] as (id: string, text: string) => void;
+    const callback = (openPicker.mock.calls[0][0] as { onSelect: unknown }).onSelect as (
+      id: string,
+      text: string
+    ) => void;
 
     // View state with selection
     const view = ctx.view!;
@@ -204,16 +215,14 @@ describe("insertBookmarkLink", () => {
       { id: "h1", text: "Title", level: 1 },
     ] as never);
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const ctx = createContext();
     // dom.closest returns null (no container)
     insertBookmarkLink(ctx);
 
     expect(openPicker).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(Function),
       expect.objectContaining({ containerBounds: expect.any(Object) })
     );
   });
