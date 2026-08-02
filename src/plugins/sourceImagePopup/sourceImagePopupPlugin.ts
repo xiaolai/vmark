@@ -7,7 +7,8 @@
 
 import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 import { hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
 import { SourceImagePopupView } from "./SourceImagePopupView";
 
@@ -151,9 +152,9 @@ function extractImageData(
 /**
  * Create the Source image popup plugin.
  */
-export function createSourceImagePopupPlugin() {
+export function createSourceImagePopupPlugin(store: StoreApi<MediaPopupState>) {
   return createSourcePopupPlugin({
-    store: useMediaPopupStore,
+    store,
     /* v8 ignore start -- @preserve createView callback only runs inside live CodeMirror; not exercised in unit tests */
     createView: (view, store) => new SourceImagePopupView(view, store),
     /* v8 ignore stop */

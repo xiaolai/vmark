@@ -47,18 +47,17 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState, prevState: typeof storeState) => void> = [];
 
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState, prevState: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockMediaStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState, prevState: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 let mockIsImeKeyEvent = false;
 vi.mock("@/utils/imeGuard", () => ({
@@ -79,19 +78,12 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: () => ({
-        filePath: "/docs/test.md",
-        content: "",
-      }),
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => "/docs/test.md" },
 }));
 
-vi.mock("@/services/media/resolveMediaSrc", () => ({
-  getActiveTabIdForCurrentWindow: () => "tab-1",
+vi.mock("@/services/navigation/windowFocus", () => ({
+  getWindowLabel: () => "main",
 }));
 
 // Mock the DOM module — returns all fields the unified view expects
@@ -316,7 +308,7 @@ describe("MediaPopupView", () => {
     vi.clearAllMocks();
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new MediaPopupView(view as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+    popup = new MediaPopupView(view as never, mockMediaStore as never);
   });
 
   afterEach(() => {
@@ -907,7 +899,7 @@ describe("MediaPopupView", () => {
       popup.destroy();
       resetState();
       subscribers.length = 0;
-      popup = new MediaPopupView(imgView as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+      popup = new MediaPopupView(imgView as never, mockMediaStore as never);
 
       emitStateChange({
         isOpen: true,
@@ -937,7 +929,7 @@ describe("MediaPopupView", () => {
       popup.destroy();
       resetState();
       subscribers.length = 0;
-      popup = new MediaPopupView(imgView as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+      popup = new MediaPopupView(imgView as never, mockMediaStore as never);
 
       emitStateChange({
         isOpen: true,
@@ -1095,7 +1087,7 @@ describe("MediaPopupView", () => {
       imgView.state.doc.nodeAt = vi.fn(() => null);
       popup.destroy();
       resetState();
-      popup = new MediaPopupView(imgView as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+      popup = new MediaPopupView(imgView as never, mockMediaStore as never);
 
       emitStateChange({
         isOpen: true,
@@ -1118,7 +1110,7 @@ describe("MediaPopupView", () => {
       imgView.state.tr.replaceWith = vi.fn(() => { throw new Error("toggle error"); });
       popup.destroy();
       resetState();
-      popup = new MediaPopupView(imgView as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+      popup = new MediaPopupView(imgView as never, mockMediaStore as never);
 
       emitStateChange({
         isOpen: true,
@@ -1454,7 +1446,7 @@ describe("MediaPopupView", () => {
       popup.destroy();
       vi.clearAllMocks();
       view = createMockView(dom.editorDom);
-      popup = new MediaPopupView(view as unknown as ConstructorParameters<typeof MediaPopupView>[0]);
+      popup = new MediaPopupView(view as never, mockMediaStore as never);
 
       emitStateChange({
         isOpen: true,

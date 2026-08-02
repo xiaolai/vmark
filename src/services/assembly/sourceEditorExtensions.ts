@@ -251,7 +251,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Inline image preview
     { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin() },
     // Image popup editor
-    { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin() },
+    { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin(pluginStores.media) },
     // Link popup editor (click to edit, Cmd+Click to open)
     { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin(pluginStores.link) },
     // Link create popup (Cmd+K when no link, no clipboard URL)

@@ -19,6 +19,7 @@ import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useAiSuggestionStore } from "@/stores/aiStore";
+import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import type { LintDiagnosticsSource } from "@/plugins/lint/tiptap";
 import { createInlineMathEditingRegistry } from "@/plugins/latex/inlineMathEditingRegistry";
 
@@ -80,6 +81,7 @@ export const pluginStores = {
   footnote: useFootnotePopupStore,
   wikiLink: useWikiLinkPopupStore,
   aiSuggestion: useAiSuggestionStore,
+  media: useMediaPopupStore,
 };
 
 /**

@@ -16,10 +16,12 @@
  * @coordinates-with plugins/linkPopup, plugins/sourceLinkPopup
  * @coordinates-with plugins/footnotePopup, plugins/sourceFootnotePopup
  * @coordinates-with plugins/wikiLinkPopup, plugins/sourceWikiLinkPopup
+ * @coordinates-with plugins/mediaPopup, plugins/sourceImagePopup
  * @module plugins/shared/popupPorts
  */
 
 import type { PopupStoreBase } from "./types";
+import type { ImageDimensions } from "@/types/image";
 
 /** Anchoring a popup REQUIRES a rect, though the resting state may have none. */
 type Anchor = NonNullable<PopupStoreBase["anchorRect"]>;
@@ -63,4 +65,40 @@ export interface WikiLinkPopupState extends PopupStoreBase {
   nodePos: number | null;
   updateTarget: (target: string) => void;
   openPopup: (rect: Anchor, target: string, pos: number) => void;
+}
+
+/** Which kind of media node the popup is editing. */
+export type MediaNodeType = "image" | "block_image" | "block_video" | "block_audio";
+
+/**
+ * The media popup's state, driven from both surfaces.
+ *
+ * One popup for four node types: the WYSIWYG side edits all of them, the
+ * Source side only images. The port carries all four because the STATE is
+ * shared — narrowing it per surface would need two stores for one popup.
+ */
+export interface MediaPopupState extends PopupStoreBase {
+  mediaSrc: string;
+  mediaAlt: string;
+  mediaTitle: string;
+  mediaNodePos: number;
+  mediaNodeType: MediaNodeType;
+  mediaDimensions: ImageDimensions | null;
+  mediaPoster: string;
+  setSrc: (src: string) => void;
+  setAlt: (alt: string) => void;
+  setTitle: (title: string) => void;
+  setNodeType: (type: MediaNodeType) => void;
+  setDimensions: (dims: ImageDimensions | null) => void;
+  setPoster: (poster: string) => void;
+  openPopup: (data: {
+    mediaSrc: string;
+    mediaNodePos: number;
+    mediaNodeType: MediaNodeType;
+    anchorRect: Anchor;
+    mediaAlt?: string;
+    mediaTitle?: string;
+    mediaDimensions?: ImageDimensions | null;
+    mediaPoster?: string;
+  }) => void;
 }

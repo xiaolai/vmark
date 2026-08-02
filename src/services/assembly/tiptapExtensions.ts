@@ -223,7 +223,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     blankLinesGuardExtension,
     imageHandlerExtension,
     mediaHandlerExtension,
-    mediaPopupExtension,
+    mediaPopupExtension.configure({ store: pluginStores.media }),
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,
