@@ -12,10 +12,7 @@
  */
 
 import type { EditorView } from "@tiptap/pm/view";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
@@ -60,7 +57,7 @@ function openLinkPopup(
   try {
     const start = view.coordsAtPos(markRange.from);
     const end = view.coordsAtPos(markRange.to);
-    useLinkPopupStore.getState().openPopup({
+    hostPopups.openLinkPopup({
       href,
       linkFrom: markRange.from,
       linkTo: markRange.to,
@@ -92,7 +89,7 @@ function openLinkCreatePopup(
   try {
     const start = view.coordsAtPos(rangeFrom);
     const end = view.coordsAtPos(rangeTo);
-    useLinkCreatePopupStore.getState().openPopup({
+    hostPopups.openLinkCreatePopup({
       text,
       rangeFrom,
       rangeTo,
@@ -122,12 +119,7 @@ function openLinkCreatePopup(
  */
 export function handleSmartLinkShortcut(view: EditorView): boolean {
   // Block if any popup or picker is already open
-  if (useLinkPopupStore.getState().isOpen ||
-      useLinkCreatePopupStore.getState().isOpen ||
-      useWikiLinkPopupStore.getState().isOpen ||
-      useHeadingPickerStore.getState().isOpen) {
-    return true;
-  }
+  if (hostPopups.anyLinkSurfaceOpen()) return true;
 
   const { from, to } = view.state.selection;
   const $from = view.state.selection.$from;
@@ -141,16 +133,16 @@ export function handleSmartLinkShortcut(view: EditorView): boolean {
         const coords = view.coordsAtPos(nodePos);
         const endCoords = view.coordsAtPos(nodePos + node.nodeSize);
 
-        useWikiLinkPopupStore.getState().openPopup(
-          {
+        hostPopups.openWikiLinkPopup({
+            anchorRect: {
             top: coords.top,
             left: coords.left,
             bottom: coords.bottom,
             right: endCoords.right,
-          },
-          String(node.attrs.value ?? ""),
-          nodePos
-        );
+            },
+            target: String(node.attrs.value ?? ""),
+            nodePos,
+          });
         return true;
       } catch {
         // Fall back to normal behavior if coords fail
@@ -277,16 +269,16 @@ export function handleWikiLinkShortcut(view: EditorView): boolean {
           const nodePos = $pos.before(d);
           const coords = view.coordsAtPos(nodePos);
           const endCoords = view.coordsAtPos(nodePos + node.nodeSize);
-          useWikiLinkPopupStore.getState().openPopup(
-            {
+          hostPopups.openWikiLinkPopup({
+              anchorRect: {
               top: coords.top,
               left: coords.left,
               bottom: coords.bottom,
               right: endCoords.right,
-            },
-            String(node.attrs.value ?? ""),
-            nodePos
-          );
+              },
+              target: String(node.attrs.value ?? ""),
+              nodePos,
+            });
         } catch (err) {
           // coords fail when view is not attached or node position is invalid
           wikiLinkPopupWarn("Failed to open popup:", err);
