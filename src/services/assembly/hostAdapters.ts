@@ -19,6 +19,7 @@ import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { useAiSuggestionStore } from "@/stores/aiStore";
+import { useSourceMathPopupStore } from "@/stores/sourceMathPopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import type { LintDiagnosticsSource } from "@/plugins/lint/tiptap";
 import { createInlineMathEditingRegistry } from "@/plugins/latex/inlineMathEditingRegistry";
@@ -51,6 +52,7 @@ export const appInlineMathEditingRegistry = createInlineMathEditingRegistry();
  */
 export const lintDiagnosticsSource: LintDiagnosticsSource = {
   get: (tabId) => useLintStore.getState().diagnosticsByTab[tabId] ?? [],
+  clear: (tabId) => useLintStore.getState().clearDiagnostics(tabId),
   subscribe: (listener) => {
     let prev = useLintStore.getState().diagnosticsByTab;
     return useLintStore.subscribe((state) => {
@@ -82,6 +84,7 @@ export const pluginStores = {
   wikiLink: useWikiLinkPopupStore,
   aiSuggestion: useAiSuggestionStore,
   media: useMediaPopupStore,
+  sourceMath: useSourceMathPopupStore,
 };
 
 /**

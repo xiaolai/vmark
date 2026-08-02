@@ -36,23 +36,23 @@ vi.mock("@codemirror/view", () => ({
 
 // ── Mock lintStore ───────────────────────────────────────────────────────────
 const mockClearDiagnostics = vi.fn();
-vi.mock("@/stores/documentStore", () => ({
-  useLintStore: {
-    getState: vi.fn(() => ({
-      diagnosticsByTab: {},
-      clearDiagnostics: mockClearDiagnostics,
-    })),
-    subscribe: vi.fn(() => () => {}),
-  },
-}));
+// Diagnostics arrive as a source now, not a store import.
+// Diagnostics arrive as a source now, not a store import. Mutable so a test
+// can restate what a tab holds without reaching for vi.mocked().
+let diagnosticsByTab: Record<string, unknown[]> = {};
+const mockDiagnostics = {
+  get: (tabId: string) => diagnosticsByTab[tabId] ?? [],
+  subscribe: () => () => {},
+  clear: (...a: unknown[]) => mockClearDiagnostics(...a),
+} as never;
 
 // ── Mock activeEditorStore ───────────────────────────────────────────────────
 const mockActiveEditorGetState = vi.fn(() => ({
   active: { activeSourceView: null },
 }));
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
-    getState: (...args: unknown[]) => mockActiveEditorGetState(...args),
+vi.mock("@/plugins/shared/hostEditors", () => ({
+  hostEditors: {
+    activeSourceView: () => mockActiveEditorGetState().active.activeSourceView,
   },
 }));
 
@@ -61,7 +61,6 @@ import {
   createSourceLintExtension,
   triggerLintRefresh,
 } from "../sourceLint";
-import { useLintStore } from "@/stores/documentStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 
 function makeDiag(overrides: Partial<LintDiagnostic> = {}): LintDiagnostic {
@@ -155,17 +154,14 @@ describe("diagnosticToCM", () => {
 
 describe("createSourceLintExtension", () => {
   it("returns an array of two extensions", () => {
-    const extensions = createSourceLintExtension("tab-1");
+    const extensions = createSourceLintExtension("tab-1", mockDiagnostics);
     expect(extensions).toHaveLength(2);
   });
 
   it("linter source returns empty array when no diagnostics for the tab", () => {
-    vi.mocked(useLintStore.getState).mockReturnValue({
-      diagnosticsByTab: {},
-      clearDiagnostics: mockClearDiagnostics,
-    } as unknown as ReturnType<typeof useLintStore.getState>);
+    diagnosticsByTab = {};
 
-    createSourceLintExtension("tab-1");
+    createSourceLintExtension("tab-1", mockDiagnostics);
     expect(capturedLintSource).toBeTruthy();
 
     const mockView = { state: { doc: { length: 100 } } } as unknown as Parameters<LintSource>[0];
@@ -174,12 +170,9 @@ describe("createSourceLintExtension", () => {
   });
 
   it("linter source returns empty array when diagnostics array is empty", () => {
-    vi.mocked(useLintStore.getState).mockReturnValue({
-      diagnosticsByTab: { "tab-1": [] },
-      clearDiagnostics: mockClearDiagnostics,
-    } as unknown as ReturnType<typeof useLintStore.getState>);
+    diagnosticsByTab = { "tab-1": [] };
 
-    createSourceLintExtension("tab-1");
+    createSourceLintExtension("tab-1", mockDiagnostics);
     expect(capturedLintSource).toBeTruthy();
 
     const mockView = { state: { doc: { length: 100 } } } as unknown as Parameters<LintSource>[0];
@@ -192,12 +185,9 @@ describe("createSourceLintExtension", () => {
       makeDiag({ offset: 5, endOffset: 10, severity: "error" }),
       makeDiag({ id: "W03-2-1", ruleId: "W03", offset: 20, endOffset: 30, severity: "warning" }),
     ];
-    vi.mocked(useLintStore.getState).mockReturnValue({
-      diagnosticsByTab: { "tab-2": diags },
-      clearDiagnostics: mockClearDiagnostics,
-    } as unknown as ReturnType<typeof useLintStore.getState>);
+    diagnosticsByTab = { "tab-2": diags };
 
-    createSourceLintExtension("tab-2");
+    createSourceLintExtension("tab-2", mockDiagnostics);
     expect(capturedLintSource).toBeTruthy();
 
     const mockView = { state: { doc: { length: 50 } } } as unknown as Parameters<LintSource>[0];
@@ -215,12 +205,9 @@ describe("createSourceLintExtension", () => {
     const diags: LintDiagnostic[] = [
       makeDiag({ offset: 200, endOffset: 210 }),
     ];
-    vi.mocked(useLintStore.getState).mockReturnValue({
-      diagnosticsByTab: { "tab-3": diags },
-      clearDiagnostics: mockClearDiagnostics,
-    } as unknown as ReturnType<typeof useLintStore.getState>);
+    diagnosticsByTab = { "tab-3": diags };
 
-    createSourceLintExtension("tab-3");
+    createSourceLintExtension("tab-3", mockDiagnostics);
     const mockView = { state: { doc: { length: 50 } } } as unknown as Parameters<LintSource>[0];
     const result = capturedLintSource!(mockView) as Array<{ from: number; to: number }>;
     expect(result).toHaveLength(1);
@@ -234,12 +221,9 @@ describe("createSourceLintExtension", () => {
       makeDiag({ offset: 10, endOffset: 20 }),
       makeDiag({ offset: 30, endOffset: 40 }),
     ];
-    vi.mocked(useLintStore.getState).mockReturnValue({
-      diagnosticsByTab: { "tab-a": diagsA, "tab-b": diagsB },
-      clearDiagnostics: mockClearDiagnostics,
-    } as unknown as ReturnType<typeof useLintStore.getState>);
+    diagnosticsByTab = { "tab-a": diagsA, "tab-b": diagsB };
 
-    createSourceLintExtension("tab-a");
+    createSourceLintExtension("tab-a", mockDiagnostics);
     const mockView = { state: { doc: { length: 100 } } } as unknown as Parameters<LintSource>[0];
     const result = capturedLintSource!(mockView) as Array<{ from: number }>;
     // Should only return tab-a's single diagnostic, not tab-b's two
@@ -248,7 +232,7 @@ describe("createSourceLintExtension", () => {
   });
 
   it("clearOnEdit calls clearDiagnostics when document changes", () => {
-    createSourceLintExtension("tab-clear");
+    createSourceLintExtension("tab-clear", mockDiagnostics);
     expect(capturedUpdateCallback).toBeTruthy();
 
     capturedUpdateCallback!({ docChanged: true } as unknown as ViewUpdate);
@@ -256,7 +240,7 @@ describe("createSourceLintExtension", () => {
   });
 
   it("clearOnEdit does not call clearDiagnostics when document has not changed", () => {
-    createSourceLintExtension("tab-no-change");
+    createSourceLintExtension("tab-no-change", mockDiagnostics);
     expect(capturedUpdateCallback).toBeTruthy();
 
     capturedUpdateCallback!({ docChanged: false } as unknown as ViewUpdate);

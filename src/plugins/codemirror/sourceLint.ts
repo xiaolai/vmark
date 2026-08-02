@@ -17,10 +17,10 @@
 
 import { linter, forceLinting, type Diagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
-import { useLintStore } from "@/stores/documentStore";
+import type { LintDiagnosticsSource } from "@/plugins/lint/tiptap";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import i18n from "@/i18n";
-import { useEditorStore } from "@/stores/editorStore";
+import { hostEditors } from "@/plugins/shared/hostEditors";
 
 /**
  * Convert a LintDiagnostic (0-based offset) to a CodeMirror Diagnostic.
@@ -45,20 +45,20 @@ export function diagnosticToCM(docLength: number, d: LintDiagnostic): Diagnostic
  * Create a CodeMirror linter + clear-on-edit listener for the given tab.
  * Does NOT re-run lint — diagnostics must already be in the lintStore.
  */
-export function createSourceLintExtension(tabId: string) {
+export function createSourceLintExtension(tabId: string, diagnostics: LintDiagnosticsSource) {
   // Lint source: pull pre-computed diagnostics from the store
   const lintSource = linter((view) => {
-    const diagnostics = useLintStore.getState().diagnosticsByTab[tabId];
-    if (!diagnostics || diagnostics.length === 0) return [];
+    const found = diagnostics.get(tabId);
+    if (found.length === 0) return [];
 
     const docLength = view.state.doc.length;
-    return diagnostics.map((d) => diagnosticToCM(docLength, d));
+    return found.map((d) => diagnosticToCM(docLength, d));
   });
 
   // Clear stale diagnostics whenever the document is edited
   const clearOnEdit = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
-      useLintStore.getState().clearDiagnostics(tabId);
+      diagnostics.clear(tabId);
     }
   });
 
@@ -72,7 +72,7 @@ export function createSourceLintExtension(tabId: string) {
  * Guards against calling forceLinting on a destroyed view (dom not connected).
  */
 export function triggerLintRefresh(): void {
-  const view = useEditorStore.getState().active.activeSourceView;
+  const view = hostEditors.activeSourceView() as EditorView | null;
   if (view && view.dom?.isConnected) {
     forceLinting(view);
   }

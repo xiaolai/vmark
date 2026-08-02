@@ -50,6 +50,14 @@ export interface SourceMathPopupState extends PopupStoreBase {
   isBlock: boolean;
   originalLatex: string;
   updateLatex: (latex: string) => void;
+  /** Opening is part of the port: the source preview plugin opens it. */
+  openPopup: (
+    rect: NonNullable<PopupStoreBase["anchorRect"]>,
+    latex: string,
+    mathFrom: number,
+    mathTo: number,
+    isBlock: boolean
+  ) => void;
 }
 
 export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {

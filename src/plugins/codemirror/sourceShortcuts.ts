@@ -31,7 +31,7 @@
 import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { toggleBlockComment, selectLine } from "@codemirror/commands";
-import { useShortcutsStore } from "@/stores/settingsStore";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { addSmartSelectBindings, getSourceBlockBounds } from "./sourceSmartSelect";
 
@@ -88,7 +88,7 @@ function bindIfKey(bindings: KeyBinding[], key: string, run: (view: EditorView) 
 }
 
 export function buildSourceShortcutKeymap(): KeyBinding[] {
-  const shortcuts = useShortcutsStore.getState();
+  const shortcuts = hostShortcuts;
   const bindings: KeyBinding[] = [];
 
   // --- View shortcuts ---

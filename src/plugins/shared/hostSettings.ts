@@ -1,6 +1,7 @@
 import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
 import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
+import type { PasteMode } from "./pasteSettings";
 
 /**
  * Purpose: the editor settings plugins need, bound once by the host.
@@ -59,6 +60,10 @@ export interface HostSettings {
   preserveBlankLines: () => boolean;
   /** The fine-grained CJK formatter toggles. */
   cjkFormatting: () => CJKFormattingSettings;
+  /** Whether selecting text also copies it. */
+  copyOnSelect: () => boolean;
+  /** How a paste is interpreted: smart conversion, plain text, or rich. */
+  pasteMode: () => PasteMode;
   /** How raw HTML in the document is rendered. */
   htmlRendering: () => HtmlRendering;
   /** Notify when any setting changes; returns an unsubscribe. */
@@ -88,6 +93,8 @@ const DEFAULTS: HostSettings = {
   copyImagesToAssets: () => true,
   preserveBlankLines: () => true,
   cjkFormatting: () => DEFAULT_CJK_FORMATTING,
+  copyOnSelect: () => false,
+  pasteMode: () => "smart",
   // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
   // consumer that binds nothing must not get permissive HTML by accident.
   htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
@@ -126,6 +133,8 @@ export const hostSettings: HostSettings = {
   copyImagesToAssets: () => bound.copyImagesToAssets(),
   preserveBlankLines: () => bound.preserveBlankLines(),
   cjkFormatting: () => bound.cjkFormatting(),
+  copyOnSelect: () => bound.copyOnSelect(),
+  pasteMode: () => bound.pasteMode(),
   htmlRendering: () => bound.htmlRendering(),
   onChange: (listener) => bound.onChange(listener),
 };

@@ -93,6 +93,8 @@ export interface LintDiagnosticsSource {
   get: (tabId: string) => LintDiagnostic[];
   /** Subscribe to changes; returns an unsubscribe. */
   subscribe: (listener: (tabId: string, next: LintDiagnostic[]) => void) => () => void;
+  /** Drop `tabId`'s diagnostics — the Source surface clears on every edit. */
+  clear: (tabId: string) => void;
 }
 
 export interface LintExtensionOptions {
@@ -108,7 +110,7 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
   addOptions() {
     return {
       tabId: "",
-      diagnostics: { get: () => [], subscribe: () => () => {} },
+      diagnostics: { get: () => [], subscribe: () => () => {}, clear: () => {} },
     };
   },
 

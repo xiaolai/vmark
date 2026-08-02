@@ -28,6 +28,8 @@ export interface SearchQuery {
   currentIndex: number;
   /** The replacement string — replace actions read it. */
   replaceText: string;
+  /** How many matches the surface reported. */
+  matchCount: number;
 }
 
 /** The find/replace state a plugin reads and reports into. */
@@ -38,6 +40,10 @@ export interface HostSearch {
   reportMatches: (count: number, index: number) => void;
   /** Advance to the next match — replace-and-find-next needs it. */
   findNext: () => void;
+  /** Step back to the previous match. */
+  findPrevious: () => void;
+  /** Open the find bar. The source keymap's Cmd+F lands here. */
+  open: () => void;
   /**
    * Subscribe to query changes; returns an unsubscribe.
    *
@@ -57,9 +63,12 @@ const DEFAULTS: HostSearch = {
     useRegex: false,
     currentIndex: 0,
     replaceText: "",
+    matchCount: 0,
   }),
   reportMatches: () => {},
   findNext: () => {},
+  findPrevious: () => {},
+  open: () => {},
   onChange: () => () => {},
 };
 
@@ -80,5 +89,7 @@ export const hostSearch: HostSearch = {
   current: () => bound.current(),
   reportMatches: (count, index) => bound.reportMatches(count, index),
   findNext: () => bound.findNext(),
+  findPrevious: () => bound.findPrevious(),
+  open: () => bound.open(),
   onChange: (listener) => bound.onChange(listener),
 };

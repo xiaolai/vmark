@@ -20,8 +20,15 @@ const mockUIStore = {
   searchFindPrevious: vi.fn(),
 };
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: { getState: () => mockUIStore },
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => mockUIStore.search,
+    open: () => mockUIStore.searchOpen(),
+    findNext: () => mockUIStore.searchFindNext(),
+    findPrevious: () => mockUIStore.searchFindPrevious(),
+  },
 }));
 
 vi.mock("@/stores/settingsStore", () => ({

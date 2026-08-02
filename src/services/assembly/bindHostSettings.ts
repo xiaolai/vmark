@@ -27,9 +27,12 @@ import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { bindHostEditors } from "@/plugins/shared/hostEditors";
+import { bindHostViewModes } from "@/plugins/shared/hostViewModes";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { bindSourcePeekStore } from "@/plugins/sourcePeekInline/peekStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
+import { bindWorkflowPort } from "@/plugins/codemirror/workflowPort";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
 import { bindBlockMathEditingStore } from "@/plugins/codePreview/editingRegistry";
 import { useDocumentStore, useUnifiedHistoryStore } from "@/stores/documentStore";
@@ -61,6 +64,8 @@ export function bindPluginHostSettings(): void {
     copyImagesToAssets: () => useSettingsStore.getState().image.copyToAssets,
     preserveBlankLines: () => useSettingsStore.getState().markdown.preserveBlankLines ?? true,
     cjkFormatting: () => useSettingsStore.getState().cjkFormatting,
+    copyOnSelect: () => useSettingsStore.getState().markdown.copyOnSelect ?? false,
+    pasteMode: () => useSettingsStore.getState().markdown.pasteMode ?? "smart",
     htmlRendering: () => {
       const m = useSettingsStore.getState().markdown;
       return {
@@ -74,8 +79,12 @@ export function bindPluginHostSettings(): void {
   bindHostEditors({
     source: () => useEditorStore.getState().source,
     wysiwyg: () => useEditorStore.getState().tiptap,
+    activeSourceView: () => useEditorStore.getState().active.activeSourceView,
+    reportSourceContext: (context, view) =>
+      useEditorStore.getState().setSourceContext(context as never, view as never),
   });
 
+  bindWorkflowPort(useWorkflowStore as never);
   bindSourcePeekStore(useSourcePeekStore as never);
   bindBlockMathEditingStore(useBlockMathEditingStore as never);
 
@@ -119,6 +128,15 @@ export function bindPluginHostSettings(): void {
     current: (): SearchQuery => useUIStore.getState().search,
     reportMatches: (count, index) => useUIStore.getState().searchSetMatches(count, index),
     findNext: () => useUIStore.getState().searchFindNext(),
+    findPrevious: () => useUIStore.getState().searchFindPrevious(),
+    open: () => useUIStore.getState().searchOpen(),
+    onChange: (listener) => useUIStore.subscribe(listener),
+  });
+
+  bindHostViewModes({
+    focusMode: () => useUIStore.getState().focusModeEnabled,
+    typewriterMode: () => useUIStore.getState().typewriterModeEnabled,
+    diagramPreview: () => useUIStore.getState().diagramPreviewEnabled,
     onChange: (listener) => useUIStore.subscribe(listener),
   });
 

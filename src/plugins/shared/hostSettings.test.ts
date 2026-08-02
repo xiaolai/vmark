@@ -140,3 +140,19 @@ describe("the markdown serialization defaults", () => {
     expect(hostSettings.hardBreakStyleOnSave()).toBe("twoSpaces");
   });
 });
+
+describe("the paste and selection settings", () => {
+  beforeEach(resetHostSettings);
+
+  it("default to the app's values", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.copyOnSelect()).toBe(initialState.markdown.copyOnSelect ?? false);
+    expect(hostSettings.pasteMode()).toBe(initialState.markdown.pasteMode ?? "smart");
+  });
+
+  it("routes both through the binding", () => {
+    bindHostSettings({ copyOnSelect: () => true, pasteMode: () => "plain" });
+    expect(hostSettings.copyOnSelect()).toBe(true);
+    expect(hostSettings.pasteMode()).toBe("plain");
+  });
+});

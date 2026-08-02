@@ -11,7 +11,7 @@
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { useWorkflowStore } from "@/stores/workflowStore";
+import { workflowPort } from "./workflowPort";
 import { parseWorkflow, isWorkflowYaml, WorkflowParseError, WorkflowValidationError } from "@/lib/workflow/parser";
 import { workflowLog, workflowWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -43,26 +43,26 @@ class SourceWorkflowPreviewPlugin {
 
   private parseAndUpdate(content: string) {
     if (!isWorkflowYaml(content)) {
-      useWorkflowStore.getState().setGraph(null);
-      useWorkflowStore.getState().previewClosePanel();
+      workflowPort().getState().setGraph(null);
+      workflowPort().getState().previewClosePanel();
       return;
     }
 
     try {
       const graph = parseWorkflow(content);
       workflowLog("Parsed workflow:", graph.name, `(${graph.steps.length} steps)`);
-      useWorkflowStore.getState().setGraph(graph);
+      workflowPort().getState().setGraph(graph);
       // Auto-open the panel if a valid workflow is detected
-      if (!useWorkflowStore.getState().preview.panelOpen) {
-        useWorkflowStore.getState().previewOpenPanel();
+      if (!workflowPort().getState().preview.panelOpen) {
+        workflowPort().getState().previewOpenPanel();
       }
     } catch (e) {
       if (e instanceof WorkflowParseError || e instanceof WorkflowValidationError) {
         workflowWarn("Workflow parse error:", e.message);
-        useWorkflowStore.getState().setGraph(null, e.message);
+        workflowPort().getState().setGraph(null, e.message);
       } else {
         workflowWarn("Unexpected parse error:", errorMessage(e));
-        useWorkflowStore.getState().setGraph(
+        workflowPort().getState().setGraph(
           null,
           errorMessage(e),
         );
@@ -73,7 +73,7 @@ class SourceWorkflowPreviewPlugin {
   destroy() {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     // Reset store when leaving the workflow file
-    useWorkflowStore.getState().resetPreview();
+    workflowPort().getState().resetPreview();
   }
 }
 

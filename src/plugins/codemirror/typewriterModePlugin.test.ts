@@ -14,10 +14,8 @@ const mockEditorStore = {
   typewriterModeEnabled: false,
 };
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => mockEditorStore,
-  },
+vi.mock("@/plugins/shared/hostViewModes", () => ({
+  hostViewModes: { typewriterMode: () => mockEditorStore.typewriterModeEnabled },
 }));
 
 // Mock isCodeMirrorComposing so we can force the composing branch

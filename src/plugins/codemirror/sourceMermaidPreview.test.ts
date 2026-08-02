@@ -30,12 +30,14 @@ vi.mock("@/plugins/mermaidPreview", () => ({
 }));
 
 let mockDiagramPreviewEnabled = true;
-const editorStoreSubscribers = new Set<(state: { diagramPreviewEnabled: boolean }) => void>();
+const editorStoreSubscribers = new Set<() => void>();
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => ({ diagramPreviewEnabled: mockDiagramPreviewEnabled }),
-    subscribe: (cb: (state: { diagramPreviewEnabled: boolean }) => void) => {
+vi.mock("@/plugins/shared/hostViewModes", () => ({
+  hostViewModes: {
+    diagramPreview: () => mockDiagramPreviewEnabled,
+    // The seam reports "something changed" without saying which toggle, so
+    // subscribers take no argument.
+    onChange: (cb: () => void) => {
       editorStoreSubscribers.add(cb);
       return () => editorStoreSubscribers.delete(cb);
     },
@@ -252,7 +254,7 @@ describe("sourceMermaidPreview", () => {
       // Now disable
       mockDiagramPreviewEnabled = false;
       for (const cb of editorStoreSubscribers) {
-        cb({ diagramPreviewEnabled: false });
+        cb();
       }
       await flushRaf();
 
