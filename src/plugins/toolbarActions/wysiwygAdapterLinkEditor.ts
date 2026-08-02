@@ -16,8 +16,7 @@ import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editor
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { findMarkRange, findWordAtCursor } from "@/plugins/syntaxReveal/marks";
 import type { LinkInfo } from "@/plugins/toolbarContext/types";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected } from "./wysiwygAdapterUtils";
@@ -157,16 +156,16 @@ export function openLinkEditor(context: WysiwygToolbarContext): boolean {
       const nodeSize = wikiLink.node.nodeSize;
       const endCoords = view.coordsAtPos(wikiLink.pos + nodeSize);
 
-      useWikiLinkPopupStore.getState().openPopup(
-        {
+      hostPopups.openWikiLinkPopup({
+        anchorRect: {
           top: coords.top,
           left: coords.left,
           bottom: coords.bottom,
           right: endCoords.right,
         },
-        String(wikiLink.node.attrs.value ?? ""),
-        wikiLink.pos
-      );
+        target: String(wikiLink.node.attrs.value ?? ""),
+        nodePos: wikiLink.pos,
+      });
       view.focus();
     } catch (error) {
       wysiwygAdapterError("Failed to open wiki link popup:", error);
@@ -205,7 +204,7 @@ export function openLinkEditor(context: WysiwygToolbarContext): boolean {
       const start = view.coordsAtPos(payload.linkFrom);
       const end = view.coordsAtPos(payload.linkTo);
 
-      useLinkPopupStore.getState().openPopup({
+      hostPopups.openLinkPopup({
         href: payload.href,
         linkFrom: payload.linkFrom,
         linkTo: payload.linkTo,

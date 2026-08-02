@@ -25,6 +25,8 @@ import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
+import { useEditorStore } from "@/stores/editorStore";
+import { bindHostEditors } from "@/plugins/shared/hostEditors";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { bindSourcePeekStore } from "@/plugins/sourcePeekInline/peekStore";
@@ -57,6 +59,8 @@ export function bindPluginHostSettings(): void {
     hardBreakStyleOnSave: () =>
       useSettingsStore.getState().markdown.hardBreakStyleOnSave ?? "preserve",
     copyImagesToAssets: () => useSettingsStore.getState().image.copyToAssets,
+    preserveBlankLines: () => useSettingsStore.getState().markdown.preserveBlankLines ?? true,
+    cjkFormatting: () => useSettingsStore.getState().cjkFormatting,
     htmlRendering: () => {
       const m = useSettingsStore.getState().markdown;
       return {
@@ -65,6 +69,11 @@ export function bindPluginHostSettings(): void {
         customTags: m.htmlAllowlistCustomTags ?? "",
       };
     },
+  });
+
+  bindHostEditors({
+    source: () => useEditorStore.getState().source,
+    wysiwyg: () => useEditorStore.getState().tiptap,
   });
 
   bindSourcePeekStore(useSourcePeekStore as never);

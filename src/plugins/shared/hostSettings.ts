@@ -1,4 +1,6 @@
 import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
+import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 
 /**
  * Purpose: the editor settings plugins need, bound once by the host.
@@ -53,6 +55,10 @@ export interface HostSettings {
   hardBreakStyleOnSave: () => string;
   /** Whether a pasted image is copied into the document's assets folder. */
   copyImagesToAssets: () => boolean;
+  /** Keep runs of blank lines rather than collapsing them. */
+  preserveBlankLines: () => boolean;
+  /** The fine-grained CJK formatter toggles. */
+  cjkFormatting: () => CJKFormattingSettings;
   /** How raw HTML in the document is rendered. */
   htmlRendering: () => HtmlRendering;
   /** Notify when any setting changes; returns an unsubscribe. */
@@ -80,6 +86,8 @@ const DEFAULTS: HostSettings = {
   preserveLineBreaks: () => false,
   hardBreakStyleOnSave: () => "preserve",
   copyImagesToAssets: () => true,
+  preserveBlankLines: () => true,
+  cjkFormatting: () => DEFAULT_CJK_FORMATTING,
   // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
   // consumer that binds nothing must not get permissive HTML by accident.
   htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
@@ -116,6 +124,8 @@ export const hostSettings: HostSettings = {
   preserveLineBreaks: () => bound.preserveLineBreaks(),
   hardBreakStyleOnSave: () => bound.hardBreakStyleOnSave(),
   copyImagesToAssets: () => bound.copyImagesToAssets(),
+  preserveBlankLines: () => bound.preserveBlankLines(),
+  cjkFormatting: () => bound.cjkFormatting(),
   htmlRendering: () => bound.htmlRendering(),
   onChange: (listener) => bound.onChange(listener),
 };

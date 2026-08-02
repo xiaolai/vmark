@@ -5,30 +5,18 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: vi.fn(() => ({
-      getDocument: vi.fn(() => null),
-    })),
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: {
+    activeFilePath: vi.fn(() => null),
+    activeHardBreakStyle: vi.fn(() => "unknown"),
   },
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: vi.fn(() => ({
-      markdown: {
-        preserveLineBreaks: false,
-        hardBreakStyleOnSave: "twoSpaces",
-      },
-    })),
-  },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: vi.fn(() => ({
-      activeTabId: { main: "tab-1" },
-    })),
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: {
+    preserveLineBreaks: vi.fn(() => false),
+    preserveBlankLines: vi.fn(() => true),
+    hardBreakStyleOnSave: vi.fn(() => "twoSpaces"),
   },
 }));
 
@@ -48,9 +36,8 @@ import {
   shouldPreserveTwoSpaceBreaks,
   applyFullDocumentTransform,
 } from "./wysiwygAdapterUtils";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 import type { WysiwygToolbarContext } from "./types";
@@ -87,46 +74,23 @@ describe("getActiveFilePath", () => {
   });
 
   it("returns file path when document exists", () => {
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ filePath: "/test/file.md" })),
-    } as never);
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
+    vi.mocked(hostDocument.activeFilePath).mockReturnValue("/test/file.md");
 
     expect(getActiveFilePath()).toBe("/test/file.md");
   });
 
-  it("returns null when no active tab", () => {
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: {},
-    } as never);
+  it("returns null when there is no document to resolve against", () => {
+    // The host collapses "no tab", "no document" and "no path yet" into one
+    // null — three cases that used to be mocked separately here and were
+    // always the same answer from this side.
+    vi.mocked(hostDocument.activeFilePath).mockReturnValue(null);
 
     expect(getActiveFilePath()).toBeNull();
   });
 
-  it("returns null when document has no filePath", () => {
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ filePath: null })),
-    } as never);
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
-
-    expect(getActiveFilePath()).toBeNull();
-  });
-
-  it("returns null when getDocument returns null", () => {
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => null),
-    } as never);
-
-    expect(getActiveFilePath()).toBeNull();
-  });
-
-  it("returns null when store throws", () => {
-    vi.mocked(useTabStore.getState).mockImplementation(() => {
-      throw new Error("store error");
+  it("returns null when the lookup throws", () => {
+    vi.mocked(hostDocument.activeFilePath).mockImplementation(() => {
+      throw new Error("no window");
     });
 
     expect(getActiveFilePath()).toBeNull();
@@ -136,18 +100,9 @@ describe("getActiveFilePath", () => {
 describe("getSerializeOptions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
-    } as never);
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {
-        preserveLineBreaks: true,
-        hardBreakStyleOnSave: "backslash",
-      },
-    } as never);
+    vi.mocked(hostDocument.activeHardBreakStyle).mockReturnValue("unknown");
+    vi.mocked(hostSettings.preserveLineBreaks).mockReturnValue(true);
+    vi.mocked(hostSettings.hardBreakStyleOnSave).mockReturnValue("backslash");
     vi.mocked(resolveHardBreakStyle).mockReturnValue("backslash");
   });
 
@@ -162,10 +117,8 @@ describe("getSerializeOptions", () => {
     expect(resolveHardBreakStyle).toHaveBeenCalledWith("unknown", "backslash");
   });
 
-  it("handles missing document gracefully", () => {
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => null),
-    } as never);
+  it("handles a document with no detected style gracefully", () => {
+    vi.mocked(hostDocument.activeHardBreakStyle).mockReturnValue("unknown");
 
     const opts = getSerializeOptions();
     expect(resolveHardBreakStyle).toHaveBeenCalledWith("unknown", "backslash");
@@ -177,18 +130,9 @@ describe("getSerializeOptions", () => {
 describe("shouldPreserveTwoSpaceBreaks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
-    } as never);
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {
-        preserveLineBreaks: false,
-        hardBreakStyleOnSave: "twoSpaces",
-      },
-    } as never);
+    vi.mocked(hostDocument.activeHardBreakStyle).mockReturnValue("unknown");
+    vi.mocked(hostSettings.preserveLineBreaks).mockReturnValue(true);
+    vi.mocked(hostSettings.hardBreakStyleOnSave).mockReturnValue("backslash");
   });
 
   it("returns true when hardBreakStyle is twoSpaces", () => {
@@ -233,18 +177,9 @@ describe("applyFullDocumentTransform", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
-    } as never);
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: {
-        preserveLineBreaks: false,
-        hardBreakStyleOnSave: "twoSpaces",
-      },
-    } as never);
+    vi.mocked(hostDocument.activeHardBreakStyle).mockReturnValue("unknown");
+    vi.mocked(hostSettings.preserveLineBreaks).mockReturnValue(true);
+    vi.mocked(hostSettings.hardBreakStyleOnSave).mockReturnValue("backslash");
     vi.mocked(resolveHardBreakStyle).mockReturnValue("twoSpaces");
   });
 

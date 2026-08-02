@@ -9,9 +9,9 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import { hostSettings } from "@/plugins/shared/hostSettings";
+import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
@@ -24,10 +24,12 @@ import { getSourceBlockRange } from "@/utils/sourceSelection";
 function shouldPreserveTwoSpaceBreaks(): boolean {
   try {
     const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : null;
-    const hardBreakStyleOnSave = useSettingsStore.getState().markdown.hardBreakStyleOnSave;
-    return resolveHardBreakStyle(doc?.hardBreakStyle ?? "unknown", hardBreakStyleOnSave) === "twoSpaces";
+    return (
+      resolveHardBreakStyle(
+        hostDocument.activeHardBreakStyle(windowLabel) as never,
+        hostSettings.hardBreakStyleOnSave() as never
+      ) === "twoSpaces"
+    );
   } catch {
     /* v8 ignore next -- @preserve catch only fires if Tauri/store APIs throw; mocked in tests */
     return false;
@@ -36,7 +38,7 @@ function shouldPreserveTwoSpaceBreaks(): boolean {
 
 /** Formats CJK spacing in the selection, or the current block if nothing is selected. */
 export function handleFormatCJK(view: EditorView): boolean {
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const { from, to } = view.state.selection.main;
 
@@ -89,7 +91,7 @@ export function formatCJKCurrentBlock(
 
 /** Formats CJK spacing across the entire document, preserving cursor position. */
 export function handleFormatCJKFile(view: EditorView): boolean {
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const content = view.state.doc.toString();
   const formatted = formatMarkdown(content, config, { preserveTwoSpaceHardBreaks });

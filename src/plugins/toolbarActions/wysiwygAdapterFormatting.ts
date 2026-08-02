@@ -28,7 +28,7 @@ import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tipt
 import { MultiSelection } from "@/plugins/multiCursor";
 import { toUpperCase, toLowerCase, toTitleCase, toggleCase } from "@/utils/textTransformations";
 import { computeQuoteToggle } from "@/lib/cjkFormatter/quoteToggle";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { buildTextPositionMap, parentOffsetToTextOffset } from "./wysiwygTextPositionMap";
 import type { WysiwygToolbarContext } from "./types";
 
@@ -244,7 +244,7 @@ export function toggleQuoteStyleAtCursor(editor: TiptapEditor): boolean {
 
   const cursorTextOffset = parentOffsetToTextOffset(parent, $from.parentOffset);
 
-  const cjkSettings = useSettingsStore.getState().cjkFormatting;
+  const cjkSettings = hostSettings.cjkFormatting();
   const result = computeQuoteToggle(
     blockText,
     cursorTextOffset,

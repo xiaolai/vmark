@@ -119,6 +119,18 @@ describe("the markdown serialization defaults", () => {
     );
   });
 
+  it("defaults copy-to-assets ON, matching the app", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    expect(hostSettings.copyImagesToAssets()).toBe(initialState.image.copyToAssets);
+  });
+
+  it("defaults the CJK toggles to the formatter's own literal", async () => {
+    // One literal, not two: a seam defaulting differently from the app would
+    // format text two ways depending on whether a host was bound.
+    const { DEFAULT_CJK_FORMATTING } = await import("@/lib/cjkFormatter/types");
+    expect(hostSettings.cjkFormatting()).toEqual(DEFAULT_CJK_FORMATTING);
+  });
+
   it("routes both through the binding", () => {
     bindHostSettings({
       preserveLineBreaks: () => true,

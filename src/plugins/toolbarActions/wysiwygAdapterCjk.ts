@@ -18,7 +18,7 @@
  * @module plugins/toolbarActions/wysiwygAdapterCjk
  */
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { collapseNewlines, formatMarkdown, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
 import { wysiwygAdapterError } from "@/utils/debug";
@@ -61,7 +61,7 @@ function handleFormatCJKBlock(context: WysiwygToolbarContext): boolean {
   // there is no top-level block to span; the whole-document path handles it.
   if ($from.depth < 1 || $to.depth < 1) return handleFormatCJKFile(context);
 
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const serializeOpts = getSerializeOptions();
 
@@ -104,7 +104,7 @@ function handleFormatCJKBlock(context: WysiwygToolbarContext): boolean {
  * Format CJK text in the entire document.
  */
 export function handleFormatCJKFile(context: WysiwygToolbarContext): boolean {
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
 
   return applyFullDocumentTransform(context, (markdown) =>
