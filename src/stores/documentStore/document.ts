@@ -28,13 +28,27 @@ import { useRevisionStore } from "./revision";
 export type { CursorInfo } from "@/types/cursorSync";
 export type { DocumentState } from "./documentState";
 
+/** Options for {@link DocumentStore.setContent}. */
+export interface SetContentOptions {
+  /**
+   * Whether this write carries a change the USER made. Default true.
+   *
+   * The WYSIWYG flush passes `false` when it is only re-serializing a document
+   * nobody edited. That distinction is load-bearing: the serializer's canonical
+   * output is not byte-identical to arbitrary on-disk markdown, so treating
+   * such a flush as an edit made auto-save (which flushes BEFORE testing
+   * `isDirty`) rewrite files the user had merely opened.
+   */
+  fromUserEdit?: boolean;
+}
+
 interface DocumentStore {
   // Documents keyed by tab ID (changed from window label)
   documents: Record<string, DocumentState>;
 
   // Actions - now take tabId instead of windowLabel
   initDocument: (tabId: string, content?: string, filePath?: string | null, savedContent?: string) => void;
-  setContent: (tabId: string, content: string) => void;
+  setContent: (tabId: string, content: string, options?: SetContentOptions) => void;
   loadContent: (
     tabId: string,
     content: string,
@@ -145,15 +159,21 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }));
   },
 
-  setContent: (tabId, content) => {
+  setContent: (tabId, content, options) => {
+    const fromUserEdit = options?.fromUserEdit ?? true;
     const previous = get().documents[tabId]?.content;
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
         content,
-        isDirty: doc.savedContent !== content,
+        // A serialization sync is not a change: it may neither create dirt on a
+        // document nobody edited nor clear dirt on one that was edited (an
+        // auto-save flush can land before the debounced edit-flush).
+        isDirty: fromUserEdit ? doc.savedContent !== content : doc.isDirty,
       }))
     );
-    bumpRevisionIfContentChanged(tabId, previous, content);
+    // Same reasoning for the revision token: a re-serialization is not an edit,
+    // so it must not make an MCP client's held revision look STALE.
+    if (fromUserEdit) bumpRevisionIfContentChanged(tabId, previous, content);
   },
 
   loadContent: (tabId, content, filePath, meta) => {
