@@ -12,6 +12,10 @@
  * file it is written in. That is ambient editor context, not something an
  * extension option can carry to a leaf resolver.
  *
+ * `activeFilePathForCurrentWindow()` at the foot of this file is the guarded
+ * convenience all eight use; see its comment for why the guard lives in one
+ * place rather than at each call site.
+ *
  * A plugin importing this depends on an interface with a working default
  * (`null` — no document, so nothing to resolve against), not on the app's
  * Zustand singletons, so it still runs when lifted out of this repo.
