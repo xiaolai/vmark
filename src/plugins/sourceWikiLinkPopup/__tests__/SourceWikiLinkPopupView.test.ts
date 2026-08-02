@@ -564,8 +564,10 @@ describe("SourceWikiLinkPopupView", () => {
     });
 
     it("handles workspaceRoot ending with slash — relative does not start with / (line 31 false branch)", async () => {
-      const { useWorkspaceStore } = await import("@/stores/workspaceStore");
-      vi.spyOn(useWorkspaceStore, "getState").mockReturnValue({ rootPath: "/workspace/" } as ReturnType<typeof useWorkspaceStore.getState>);
+      // Production reads the root through `hostDocument.workspaceRoot()`, so
+      // spying on the workspace store left the root unchanged and the test
+      // passed without exercising the trailing-slash branch at all.
+      mockWorkspaceRoot = "/workspace/";
 
       const { open: dialogOpen } = await import("@tauri-apps/plugin-dialog");
       // After slicing "/workspace/" from "/workspace/page.md" → "page.md" (no leading /)
@@ -582,7 +584,7 @@ describe("SourceWikiLinkPopupView", () => {
       // relative = "page.md", doesn't start with "/" → false branch → .md stripped → "page"
       expect(mockUpdateTarget).toHaveBeenCalledWith("page");
 
-      vi.mocked(useWorkspaceStore.getState).mockRestore?.();
+      mockWorkspaceRoot = "/workspace";
     });
 
     it("does not strip .md when path does not end with .md (line 37 else branch)", async () => {
