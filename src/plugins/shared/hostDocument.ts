@@ -1,6 +1,6 @@
 /**
- * Purpose: the active document's identity, for plugins that must resolve
- * relative paths.
+ * Purpose: the active document's identity and save state, for plugins that
+ * must resolve relative paths or know whether a buffer is already dirty.
  *
  * A separate seam from `hostSettings.ts` deliberately. That one answers "what
  * did the user configure"; this answers "what document am I in". Two small,

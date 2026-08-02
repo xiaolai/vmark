@@ -1,11 +1,12 @@
 /**
  * AI Suggestion Types
  *
- * Purpose: Shared type definitions and event name constants for the AI suggestion
- * approval system — used by the store, tiptap plugin, and MCP bridge.
+ * Purpose: Shared type definitions, event name constants, and the plugin's
+ * state PORT for the AI suggestion approval system — used by the store, the
+ * tiptap plugin, and the MCP bridge.
  *
  * @coordinates-with tiptap.ts — consumes AiSuggestion for decoration rendering
- * @coordinates-with stores/aiSuggestionStore.ts — stores AiSuggestion instances
+ * @coordinates-with stores/aiStore/suggestion.ts — the app's implementation of the PORT
  * @module plugins/aiSuggestion/types
  */
 
