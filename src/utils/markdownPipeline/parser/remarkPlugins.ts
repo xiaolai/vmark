@@ -7,6 +7,7 @@
 import type { Plugin } from "unified";
 import type { Root, Parent } from "mdast";
 import type { InlineMath } from "mdast-util-math";
+import { createCodeFenceTracker } from "./opaqueRegions";
 
 /**
  * Plugin to validate inline math and convert invalid ones back to text.
@@ -104,15 +105,6 @@ export interface ContentAnalysis {
  */
 const AMBIGUOUS_LIST_UNDERLINE = /^[ \t]+[-*+][ \t]*$/;
 
-/**
- * A fence line by CommonMark's rules: at most 3 spaces of indent, then a run
- * of 3+ backticks or tildes. Four or more spaces make the line indented CODE,
- * so it can neither open nor close a fence — the old scanner accepted
- * unlimited indentation and a four-space-indented backtick run swallowed the
- * rest of the document, hiding genuine ambiguity after it.
- */
-const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
-
 /** Indented-code line: 4+ spaces or a tab. Its content is literal text. */
 const INDENTED_CODE_LINE = /^(?: {4}|\t)/;
 
@@ -125,30 +117,16 @@ const INDENTED_CODE_LINE = /^(?: {4}|\t)/;
  * document, so a real `Title` / `-----` heading elsewhere in the same file
  * silently parsed as a paragraph and could be rewritten on save.
  *
- * The scanner walks lines, tracking one open fence at a time. A closer must
- * repeat the OPENER'S character at least the opener's length (CommonMark keeps
- * a 5-backtick block open across a 3-backtick line) and carry nothing but
- * trailing whitespace. Indented-code lines are skipped too: `    -` is never a
- * setext underline — indented code cannot interrupt a paragraph, and a setext
- * underline allows at most 3 spaces of indent.
+ * Fence state comes from the shared tracker (opaqueRegions.ts), the
+ * one CommonMark fence-line scanner, so its closer/CRLF rules are
+ * tested in one place. Indented-code lines are skipped too: `    -` is
+ * never a setext underline — indented code cannot interrupt a
+ * paragraph, and a setext underline allows at most 3 spaces of indent.
  */
 function hasAmbiguousListUnderline(markdown: string): boolean {
-  let fence: { char: string; size: number } | null = null;
+  const tracker = createCodeFenceTracker();
   for (const line of markdown.split("\n")) {
-    const fenceRun = FENCE_LINE.exec(line);
-    if (fence) {
-      const closes =
-        fenceRun !== null &&
-        fenceRun[1][0] === fence.char &&
-        fenceRun[1].length >= fence.size &&
-        /^[ \t]*$/.test(line.slice(fenceRun[0].length));
-      if (closes) fence = null;
-      continue;
-    }
-    if (fenceRun) {
-      fence = { char: fenceRun[1][0], size: fenceRun[1].length };
-      continue;
-    }
+    if (tracker.feed(line)) continue;
     if (INDENTED_CODE_LINE.test(line)) continue;
     if (AMBIGUOUS_LIST_UNDERLINE.test(line)) return true;
   }
