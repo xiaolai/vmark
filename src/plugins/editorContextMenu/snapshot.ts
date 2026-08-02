@@ -13,6 +13,7 @@
  * items). Unresolved formats stay permissive — matching the unified
  * menu dispatcher's behavior.
  *
+ * @coordinates-with plugins/shared/hostDocument.ts — the active format id
  * @coordinates-with tiptap.ts — WYSIWYG trigger consumes buildWysiwygSnapshot
  * @coordinates-with plugins/codemirror/editorContextMenu.ts — source trigger
  * @module plugins/editorContextMenu/snapshot
