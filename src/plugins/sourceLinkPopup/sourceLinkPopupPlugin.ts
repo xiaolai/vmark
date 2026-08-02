@@ -10,7 +10,7 @@ import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { sourceLinkError } from "@/utils/debug";
 import type { StoreApi } from "@/plugins/sourcePopup";
-import type { LinkPopupState } from "@/plugins/linkPopup/types";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { extractMarkdownHeadings } from "@/plugins/toolbarActions/sourceAdapterLinks";
