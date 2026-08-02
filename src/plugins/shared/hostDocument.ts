@@ -143,9 +143,14 @@ export const hostDocument: HostDocument = {
  * exactly this guard — losing it is what the audit caught, twice.
  */
 export function activeFilePathForCurrentWindow(): string | null {
+  let windowLabel: string;
   try {
-    return hostDocument.activeFilePath(getWindowLabel());
+    windowLabel = getWindowLabel();
   } catch {
+    // Only the LABEL lookup is guarded. A wider try would also swallow a
+    // failure inside the host's binding, which several callers wrap in their
+    // own try/catch precisely so they can log it.
     return null;
   }
+  return hostDocument.activeFilePath(windowLabel);
 }

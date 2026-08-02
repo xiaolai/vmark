@@ -15,12 +15,13 @@ vi.mock("@/services/navigation/windowFocus", () => ({
 }));
 
 let mockActiveFilePath: string | null = null;
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => mockActiveFilePath },
-  // The guarded convenience over activeFilePath; same answer here.
-  activeFilePathForCurrentWindow: () => mockActiveFilePath,
+  // A `vi.fn()`, not a plain arrow: the throw case below has to make THIS
+  // seam throw. Driving `getWindowLabel` no longer reaches the production
+  // path, so a test that did so passed on the null default instead.
+  activeFilePathForCurrentWindow: vi.fn(() => mockActiveFilePath),
 }));
 
 vi.mock("@/utils/imagePathDetection", () => ({
@@ -138,13 +139,18 @@ describe("getActiveFilePathForCurrentWindow", () => {
     mockActiveFilePath = null;
   });
 
-  it("returns null and logs a warning when the lookup throws", () => {
-    // `getWindowLabel` throws outside a Tauri context; the guard is what
-    // keeps a paste from failing there rather than resolving to no path.
-    vi.mocked(getWindowLabel).mockImplementationOnce(() => {
+  it("returns null and logs a warning when the lookup throws", async () => {
+    // The seam itself throwing is what this guard exists for. Asserting the
+    // warning too, so the test cannot pass on a null that never threw.
+    const { activeFilePathForCurrentWindow } = await import("@/plugins/shared/hostDocument");
+    const { imageHandlerWarn } = await import("@/utils/debug");
+    vi.mocked(activeFilePathForCurrentWindow).mockImplementationOnce(() => {
       throw new Error("no window");
     });
+    vi.mocked(imageHandlerWarn).mockClear();
+
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
+    expect(imageHandlerWarn).toHaveBeenCalled();
   });
 
   it("returns null when the active document has no path yet", () => {
