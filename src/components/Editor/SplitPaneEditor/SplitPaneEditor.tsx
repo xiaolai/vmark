@@ -280,6 +280,7 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
               content={content}
               path={filePath}
               diagnostics={previewDiagnostics}
+              tabId={tabId}
             />
           </div>
         )}
