@@ -32,6 +32,7 @@ import {
   useDocumentStore,
   type CursorInfo,
   type DocumentState,
+  type SetContentOptions,
 } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 
@@ -142,10 +143,10 @@ export function useDocumentActions(ownTabId?: string | null) {
   }, [getActiveTabId]);
 
   const setContent = useCallback(
-    (content: string) => {
+    (content: string, options?: SetContentOptions) => {
       const tabId = getActiveTabId();
       if (tabId) {
-        useDocumentStore.getState().setEditorContent(tabId, content);
+        useDocumentStore.getState().setEditorContent(tabId, content, options);
       }
     },
     [getActiveTabId]

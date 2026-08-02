@@ -10,16 +10,18 @@
  *     calls setCurrentWindowLabel() then rehydrate() at mount time.
  *   - Workspace identity (UUID + trust) enables future features like
  *     workspace-scoped AI settings and security gating.
- *   - Default excluded folders (.git, node_modules) are merged on open
- *     to ensure new defaults propagate to existing workspaces. openWorkspace
- *     and bootstrapConfig share ONE normalizer (defaults, identity, array
- *     copies), so a disk config lands in the same shape as a caller's.
+ *   - The config shape, its defaults and the normalizer live in
+ *     workspaceConfigDefaults.ts. openWorkspace and bootstrapConfig share that
+ *     ONE normalizer (defaults, identity, array copies, and the #1187 repair
+ *     of app-created empty excludes), so a disk config lands in the same
+ *     shape as a caller's.
  *
  * Known limitations:
  *   - Config is stored in localStorage (via windowScopedStorage), not on
  *     disk — workspace settings don't transfer between machines.
  *   - No workspace indexing or search — only folder exclusion.
  *
+ * @coordinates-with workspaceConfigDefaults.ts — config shape, defaults, normalizer
  * @coordinates-with tabStore.ts — lastOpenTabs drives session restore
  * @coordinates-with useWorkspaceBootstrap.ts — loads config from Tauri on startup
  * @coordinates-with recentsStore.ts — recent files/workspaces (re-exported here)
@@ -34,25 +36,15 @@ import {
   grantTrust,
   revokeTrust,
   isTrusted,
-  type WorkspaceIdentity,
 } from "@/utils/workspaceIdentity";
 import { windowScopedStorage } from "@/services/persistence/workspaceStorage";
-import type { SessionTabsV1 } from "@/services/persistence/sessionTabs";
+import {
+  DEFAULT_EXCLUDED_FOLDERS,
+  normalizeWorkspaceConfig,
+  type WorkspaceConfig,
+} from "./workspaceConfigDefaults";
 
-/** Workspace configuration — excluded folders, session restore tabs, file visibility, and trust identity. */
-export interface WorkspaceConfig {
-  version: 1;
-  excludeFolders: string[];
-  lastOpenTabs: string[]; // Doc paths for session restore (legacy; kept for older builds)
-  /** WI-1.1 — full ordered tab list (documents + browser tabs). Written by
-   *  workspaceSession.ts, read back by sessionTabs.ts; the Rust side keeps it
-   *  as an opaque JSON value, so the schema lives on this side. */
-  sessionTabs?: SessionTabsV1;
-  showHiddenFiles: boolean;
-  showAllFiles: boolean; // Show non-markdown files in the file explorer
-  ai?: Record<string, unknown>; // Future AI settings
-  identity?: WorkspaceIdentity; // Workspace identity and trust info
-}
+export type { WorkspaceConfig };
 
 // Runtime workspace state
 interface WorkspaceState {
@@ -83,31 +75,6 @@ interface WorkspaceActions {
   isPathExcluded: (path: string) => boolean;
   isWorkspaceTrusted: () => boolean;
   getWorkspaceId: () => string | null;
-}
-
-const DEFAULT_EXCLUDED_FOLDERS = [".git", "node_modules"];
-
-/**
- * Bring any config (from disk, from a caller, or none at all) to the shape the
- * store guarantees: defaults filled in, an identity present (trust gating reads
- * it), and no array shared with the module defaults or the caller — live state
- * that aliases `DEFAULT_EXCLUDED_FOLDERS` would let one in-place mutation
- * corrupt every future workspace.
- *
- * Both entry points (openWorkspace, bootstrapConfig) run this, so a bootstrapped
- * workspace can't end up without the identity an opened one always gets.
- */
-function normalizeWorkspaceConfig(config?: WorkspaceConfig | null): WorkspaceConfig {
-  const source: Partial<WorkspaceConfig> = config ?? {};
-  return {
-    version: 1,
-    showHiddenFiles: false,
-    showAllFiles: false,
-    ...source,
-    excludeFolders: [...(source.excludeFolders ?? DEFAULT_EXCLUDED_FOLDERS)],
-    lastOpenTabs: [...(source.lastOpenTabs ?? [])],
-    identity: source.identity ?? createWorkspaceIdentity(),
-  };
 }
 
 /** Manages workspace folder state — open/close, config, excluded folders, and trust. Use selectors, not destructuring. */

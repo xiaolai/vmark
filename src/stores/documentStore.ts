@@ -36,6 +36,7 @@ export {
   setTabExistenceGuard,
   type DocumentState,
   type CursorInfo,
+  type SetContentOptions,
 } from "./documentStore/document";
 export { useFileLoadStore } from "./documentStore/fileLoad";
 export { useLargeFileSessionStore } from "./documentStore/largeFileSession";

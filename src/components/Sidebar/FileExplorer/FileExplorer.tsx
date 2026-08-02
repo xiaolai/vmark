@@ -8,7 +8,8 @@
  * User-visible strings are translated via the "sidebar" i18n namespace.
  *
  * User interactions:
- *   - Double-click or Enter to open a file in a tab
+ *   - Single click opens a file in a tab (react-arborist activates on click;
+ *     Enter starts inline rename instead, since onRename is wired)
  *   - Right-click for context menu (file/folder/empty area variants)
  *   - Drag-and-drop to move files between folders
  *   - Inline rename on F2 or via context menu
@@ -27,6 +28,7 @@
  *     snapshots uiStore at mount and mirrors toggles back.
  *   - Root element is a `navigation` ARIA landmark (labelled `aria.fileExplorer`).
  *
+ * @coordinates-with useTreeWiring.tsx — identity-stable Tree children/ref + measured height
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
  * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
  * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
@@ -42,14 +44,13 @@ import { useFileTree } from "./useFileTree";
 import { useExplorerOperations } from "./useExplorerOperations";
 import { useFileExplorerOpenState, useExplorerWorkspaceInstance } from "./useFileExplorerOpenState";
 import { FileExplorerEmptyState, FileExplorerWorkspaceHeader } from "./FileExplorerEmptyState";
-import { FileNode } from "./FileNode";
 import {
   ContextMenu,
   type ContextMenuType,
   type ContextMenuPosition,
   type ContextMenuActionId,
 } from "./ContextMenu";
-import { useObservedHeight } from "./useObservedHeight";
+import { useTreeWiring } from "./useTreeWiring";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
@@ -112,7 +113,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     targetIsFolder: false,
   });
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
-  const [treeContainerRef, treeHeight] = useObservedHeight<HTMLDivElement>();
   const handleQuickLookKeyDown = useQuickLookHotkey(treeRef);
 
   // Workspace-only: no inferred root from file path
@@ -121,6 +121,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // WI-9.2: with the rail on, folder/scroll state is per workspace instance.
   const workspaceInstanceId = useExplorerWorkspaceInstance(windowLabel);
   const treeElRef = useRef<HTMLDivElement | null>(null);
+  // Identity-stable Tree wiring — see useTreeWiring's header (#1187).
+  const { setTreeContainer, renderNode, treeHeight } = useTreeWiring(currentFilePath, treeElRef);
 
   // Persisted folder open state — preserved across sidebar view-mode switches
   // (react-arborist unmounts on viewMode change, losing internal state otherwise).
@@ -376,7 +378,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
       <FileExplorerWorkspaceHeader name={isWorkspaceMode ? workspaceName : null} />
       <div
         className="file-explorer-tree"
-        ref={(el) => { treeContainerRef(el); treeElRef.current = el; }}
+        ref={setTreeContainer}
         onContextMenu={handleContextMenu}
         onKeyDown={handleQuickLookKeyDown}
         onScrollCapture={(e) => handleTreeScroll((e.target as HTMLElement).scrollTop)}
@@ -400,9 +402,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           disableDrop={false}
           disableEdit={false}
         >
-          {(props) => (
-            <FileNode {...props} currentFilePath={currentFilePath} />
-          )}
+          {renderNode}
         </Tree>
       </div>
 

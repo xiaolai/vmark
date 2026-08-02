@@ -64,10 +64,10 @@ export function WorkspaceApprovalDialog() {
         <p className="workspace-approval-body">{t("openWorkspace.approval.body")}</p>
         <code className="workspace-approval-path">{pending.canonicalPath}</code>
         <div className="workspace-approval-actions">
-          <button ref={denyRef} type="button" className="workspace-approval-deny" onClick={deny}>
+          <button ref={denyRef} type="button" className="vm-btn" onClick={deny}>
             {t("openWorkspace.approval.deny")}
           </button>
-          <button type="button" className="workspace-approval-approve" onClick={approve}>
+          <button type="button" className="vm-btn vm-btn--primary" onClick={approve}>
             {t("openWorkspace.approval.approve")}
           </button>
         </div>
