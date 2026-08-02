@@ -37,7 +37,8 @@ vi.mock("@/plugins/markdownCopy/tiptap", () => ({
   cleanMarkdownForClipboard: vi.fn((text) => text),
 }));
 
-// Mock aiSuggestionStore
+// The suggestion registry is the plugin's PORT — passed as an option, not
+// mocked at the module boundary.
 const mockAiState = {
   suggestions: new Map(),
   focusedSuggestionId: null as string | null,
@@ -50,22 +51,13 @@ const mockAiState = {
   removeSuggestion: vi.fn(),
   focusSuggestion: vi.fn(),
   getSuggestion: vi.fn(),
+  updateSuggestionRanges: vi.fn(),
 };
 
-vi.mock("@/stores/aiStore", () => ({
-  useAiSuggestionStore: {
-    getState: () => mockAiState,
-    subscribe: vi.fn(() => vi.fn()),
-  },
-}));
-
-// Mock tiptapEditorStore
-const mockEditorStoreState = { editorView: null as unknown };
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
-    getState: () => ({ tiptap: mockEditorStoreState }),
-  },
-}));
+const mockStore = {
+  getState: () => mockAiState,
+  subscribe: vi.fn(() => vi.fn()),
+};
 
 import {
   isValidPosition,
@@ -639,7 +631,7 @@ describe("aiSuggestion plugin integration", () => {
 
     const extensionContext = {
       name: aiSuggestionExtension.name,
-      options: aiSuggestionExtension.options,
+      options: { store: mockStore },
       storage: aiSuggestionExtension.storage,
       editor: {} as import("@tiptap/core").Editor,
       type: null,
@@ -653,7 +645,7 @@ describe("aiSuggestion plugin integration", () => {
     function getShortcutHandlers() {
       const extensionContext = {
         name: aiSuggestionExtension.name,
-        options: aiSuggestionExtension.options,
+        options: { store: mockStore },
         storage: aiSuggestionExtension.storage,
         editor: {} as import("@tiptap/core").Editor,
         type: null,
@@ -1353,7 +1345,6 @@ describe("aiSuggestion plugin integration", () => {
         state: createState("hello world"),
         dispatch: mockDispatch,
       };
-      mockEditorStoreState.editorView = mockEditorView;
 
       const suggestion = makeSuggestion({
         id: "s1",
@@ -1370,10 +1361,13 @@ describe("aiSuggestion plugin integration", () => {
 
       // Get the widget with buttons (for focused delete, it's the second decoration)
       const widget = found[1];
-      const widgetType = (widget as { type?: { toDOM?: () => HTMLElement } }).type;
+      const widgetType = (widget as {
+        type?: { toDOM?: (view: unknown) => HTMLElement };
+      }).type;
       expect(widgetType?.toDOM).toBeDefined();
 
-      const dom = widgetType!.toDOM!();
+      // ProseMirror hands the widget its view; the button acts on THAT one.
+      const dom = widgetType!.toDOM!(mockEditorView);
       const acceptBtn = dom.querySelector(".ai-suggestion-btn-accept") as HTMLButtonElement;
       expect(acceptBtn).toBeTruthy();
 
@@ -1387,38 +1381,37 @@ describe("aiSuggestion plugin integration", () => {
       expect(mouseEvent.stopPropagation).toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalled();
       expect(mockAiState.removeSuggestion).toHaveBeenCalledWith("s1");
-
-      // Restore
-      mockEditorStoreState.editorView = null;
     });
 
-    it("accept button mousedown does nothing when no editor view", () => {
-      const suggestion = makeSuggestion({
-        id: "s1",
-        type: "insert",
-        from: 1,
-        to: 1,
-        newContent: "text",
-      });
+    it("applies to the view ProseMirror handed the widget, not a global one", () => {
+      // Replaces an older test that asserted "does nothing when there is no
+      // editor view". That state was only reachable because the button read
+      // the view out of a store, where it could be null or stale — and a
+      // silently-dead accept button is worse than the case it guarded. The
+      // widget now receives its own view, so the failure mode is gone and
+      // what matters is that the RIGHT view is edited.
+      const dispatchA = vi.fn();
+      const dispatchB = vi.fn();
+      const viewB = { state: createState("hello world"), dispatch: dispatchB };
+
+      const suggestion = makeSuggestion({ id: "s1", type: "delete", from: 1, to: 6 });
       mockAiState.suggestions.set("s1", suggestion);
       mockAiState.focusedSuggestionId = "s1";
 
-      const state = createState("hello world");
-      const decorations = plugin.props.decorations?.(state);
-      const found = decorations!.find();
+      const found = plugin.props.decorations?.(createState("hello world"))!.find();
+      const widgetType = (found![1] as {
+        type?: { toDOM?: (view: unknown) => HTMLElement };
+      }).type;
 
-      const widget = found[0];
-      const widgetType = (widget as { type?: { toDOM?: () => HTMLElement } }).type;
-      const dom = widgetType!.toDOM!();
+      const dom = widgetType!.toDOM!(viewB);
       const acceptBtn = dom.querySelector(".ai-suggestion-btn-accept") as HTMLButtonElement;
-
       const mouseEvent = new MouseEvent("mousedown", { bubbles: true });
       Object.defineProperty(mouseEvent, "preventDefault", { value: vi.fn() });
       Object.defineProperty(mouseEvent, "stopPropagation", { value: vi.fn() });
       acceptBtn.onmousedown!(mouseEvent);
 
-      // No removeSuggestion should be called since view is null
-      expect(mockAiState.removeSuggestion).not.toHaveBeenCalled();
+      expect(dispatchB).toHaveBeenCalled();
+      expect(dispatchA).not.toHaveBeenCalled();
     });
 
     it("reject button mousedown calls removeSuggestion only", () => {

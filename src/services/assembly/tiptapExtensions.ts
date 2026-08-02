@@ -19,8 +19,7 @@
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
- * @coordinates-with inlineMathEditingRegistry.ts — the one shared math registry
- * @coordinates-with lintDiagnosticsSource.ts — feeds the lint plugin its results
+ * @coordinates-with hostAdapters.ts — the app-side values plugins are configured with
  * @module utils/tiptapExtensions
  */
 
@@ -89,8 +88,8 @@ import { alertBlockExtension } from "@/plugins/alertBlock/tiptap";
 import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detailsBlock/tiptap";
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
-import { appInlineMathEditingRegistry } from "./inlineMathEditingRegistry";
-import { lintDiagnosticsSource } from "./lintDiagnosticsSource";
+import { appInlineMathEditingRegistry, lintDiagnosticsSource } from "./hostAdapters";
+import { useAiSuggestionStore } from "@/stores/aiStore";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -235,7 +234,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
       getTabSize: () => useSettingsStore.getState().general.tabSize,
     }),
     multiCursorExtension,
-    aiSuggestionExtension,
+    aiSuggestionExtension.configure({ store: useAiSuggestionStore }),
     CJKLetterSpacing,
     sourcePeekInlineExtension,
     smartSelectAllExtension,

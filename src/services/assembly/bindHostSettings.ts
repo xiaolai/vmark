@@ -56,6 +56,7 @@ export function bindPluginHostSettings(): void {
       const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
       if (tabId) useDocumentStore.getState().setCursorInfo(tabId, info as never);
     },
+    isTabDirty: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false,
   });
 
   // Typed explicitly rather than inferred: this is the boundary where the
