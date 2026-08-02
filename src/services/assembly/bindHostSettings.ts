@@ -24,6 +24,7 @@ import {
 import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
+import { usePopupStore } from "@/stores/popupStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
@@ -63,6 +64,12 @@ export function bindPluginHostSettings(): void {
     },
     isTabDirty: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false,
     workspaceRoot: () => useWorkspaceStore.getState().rootPath ?? null,
+    activeFormatId: (windowLabel) => {
+      const tabs = useTabStore.getState();
+      const tabId = tabs.activeTabId[windowLabel] ?? null;
+      const tab = tabId ? tabs.findTabById(tabId) : null;
+      return tab && tab.kind === "document" ? tab.formatId : null;
+    },
   });
 
   // Typed explicitly rather than inferred: this is the boundary where the
@@ -107,6 +114,8 @@ export function bindPluginHostSettings(): void {
       useLinkCreatePopupStore.getState().isOpen ||
       useWikiLinkPopupStore.getState().isOpen ||
       useHeadingPickerStore.getState().isOpen,
+    openEditorContextMenu: (r) =>
+      usePopupStore.getState().editorContextOpenMenu(r as never),
     dismissUniversalToolbar: () => {
       const ui = useUIStore.getState();
       if (!ui.universalToolbarVisible) return false;
