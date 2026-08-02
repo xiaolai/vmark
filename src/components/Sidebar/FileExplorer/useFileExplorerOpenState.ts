@@ -26,6 +26,9 @@
  *   - Scroll capture is DOM-based (container capture phase), not arborist-API
  *     based, so it survives arborist internals changing; writes are trailing-
  *     throttled to one per SCROLL_THROTTLE_MS.
+ *   - Restoring that offset needs the ONE element that actually scrolls, which
+ *     arborist ships with no class and no role. We give it one via
+ *     FILE_TREE_SCROLLER_CLASS rather than guessing at its DOM position.
  *
  * @coordinates-with FileExplorer.tsx — owns the treeRef and passes handlers to Tree
  * @coordinates-with uiStore.ts — window-global fileExplorerOpenState (rail off)
@@ -42,7 +45,7 @@ import {
   selectActiveWorkspaceInstance,
   useWorkspaceInstancesStore,
 } from "@/stores/workspaceInstancesStore";
-import type { FileNode as FileNodeType } from "./types";
+import { FILE_TREE_SCROLLER_CLASS, type FileNode as FileNodeType } from "./types";
 
 /**
  * The workspace instance whose file-tree state the explorer should show:
@@ -189,8 +192,11 @@ export function useFileExplorerOpenState(
         .getState()
         .getInstanceUiState(workspaceInstanceId).fileTreeScrollOffset;
       if (offset === null || !Number.isFinite(offset)) return;
-      // Arborist marks its virtualized scroller with role="tree".
-      const scroller = container.querySelector<HTMLElement>('[role="tree"]');
+      // NOT `[role="tree"]` — that is react-arborist's outer wrapper, and it has
+      // `overflow: visible`, so writing scrollTop to it reads back 0 and the
+      // restore silently does nothing. The scroller is react-window's outer
+      // element nested inside it, tagged by the className we pass to <Tree>.
+      const scroller = container.querySelector<HTMLElement>(`.${FILE_TREE_SCROLLER_CLASS}`);
       if (!scroller) return;
       scroller.scrollTop = offset;
     },
