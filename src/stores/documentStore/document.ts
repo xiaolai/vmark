@@ -21,12 +21,9 @@
  */
 
 import { create } from "zustand";
-import type { CursorInfo } from "@/types/cursorSync";
 import { ingestExternalText } from "@/utils/editorText";
-import { INGEST_ORIGIN_SNAPSHOT, type IngestOrigin } from "@/utils/ingestOrigin";
-import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
+import { INGEST_ORIGIN_SNAPSHOT } from "@/utils/ingestOrigin";
 import { applyTransferLineMetadata } from "@/utils/transferLineMetadata";
-import type { DocumentRestoreState, DocumentState, SaveSnapshots } from "./documentState";
 import {
   assertCanonicalEditorText,
   assertRestoreState,
@@ -34,91 +31,16 @@ import {
   createInitialDocument,
   updateDoc,
 } from "./documentState";
-import {
-  adoptDiskConvention,
-  buildIngestState,
-  type IngestOptions,
-} from "./ingestState";
+import { adoptDiskConvention, buildIngestState } from "./ingestState";
 import { useRevisionStore } from "./revision";
+import type { DocumentStore } from "./storeContract";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
 export type { DocumentRestoreState, DocumentState } from "./documentState";
+export type { SetContentOptions } from "./storeContract";
 
-interface DocumentStore {
-  // Documents keyed by tab ID (changed from window label)
-  documents: Record<string, DocumentState>;
-
-  // Actions - now take tabId instead of windowLabel
-  /** Create (or reset) a document; `restore` carries a TRANSFER's state. */
-  initDocument: (
-    tabId: string,
-    content?: string,
-    filePath?: string | null,
-    restore?: DocumentRestoreState
-  ) => void;
-  /**
-   * EDITOR-domain write: the caller guarantees canonical text (LF, no BOM).
-   * Asserts that in development; performs no scan in production.
-   */
-  setEditorContent: (tabId: string, canonicalEditorText: string) => void;
-  /**
-   * EXTERNAL-domain write: canonicalises and applies the `origin`'s precedence
-   * rule (WI-1.3). A BASELINE origin creates the document when the tab has
-   * none; an EDIT origin on a missing tab is a no-op.
-   */
-  ingestExternalContent: (
-    tabId: string,
-    rawDiskText: string,
-    origin: IngestOrigin,
-    opts?: IngestOptions
-  ) => void;
-  /**
-   * @deprecated Use `setEditorContent` (editor domain) or `ingestExternalContent`
-   * (external). This pointed at `loadContent`, which the header of this same
-   * file records as GONE — a deleted API recommended twelve lines below the
-   * note recording its deletion.
-   */
-  setContent: (tabId: string, content: string) => void;
-  setFilePath: (tabId: string, path: string | null) => void;
-  markMissing: (tabId: string) => void;
-  clearMissing: (tabId: string) => void;
-  markDivergent: (tabId: string) => void;
-
-  setReadOnly: (tabId: string, readOnly: boolean) => void;
-  toggleReadOnly: (tabId: string) => void;
-  isReadOnly: (tabId: string) => boolean;
-
-  /**
-   * Record a successful write. REQUIRED dual snapshot (WI-1.4): an optional
-   * single string let un-migrated callers type-check clean while the store
-   * assumed disk held the LF editor text.
-   */
-  markSaved: (tabId: string, snapshots: SaveSnapshots) => void;
-  /** `markSaved` plus the auto-save timestamp — an auto-save IS a save. */
-  markAutoSaved: (tabId: string, snapshots: SaveSnapshots) => void;
-  /**
-   * Adopt a benign external rewrite: refresh the disk snapshot AND re-derive
-   * the file's convention from it, touching nothing else (WI-1.6). Refreshing
-   * only the snapshot left the convention stale, so the next `preserve` save
-   * wrote the OLD one back and the sync engine kept flipping the file.
-   */
-  updateLastDiskContent: (tabId: string, diskContent: string) => void;
-  setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
-  /** Per-doc editor mode (ADR-009). */
-  setMode: (tabId: string, mode: "wysiwyg" | "source") => void;
-  setSelectedText: (tabId: string, text: string) => void;
-  setLineMetadata: (
-    tabId: string,
-    meta: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
-  removeDocument: (tabId: string) => void;
-
-  // Selectors
-  getDocument: (tabId: string) => DocumentState | undefined;
-  getAllDirtyDocuments: () => string[]; // Returns tabIds
-}
-
+/** Options for {@link DocumentStore.setContent}. */
 /**
  * Tab-existence guard for `initDocument` (C1, defense-in-depth).
  *
@@ -132,6 +54,7 @@ let tabExistsGuard: ((tabId: string) => boolean) | null = null;
 
 /** Wire (or clear with `null`) the tab-existence predicate consulted by
  *  `initDocument`. Called once at app startup; reset to `null` in tests. */
+
 export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): void {
   tabExistsGuard = fn;
 }
@@ -187,16 +110,22 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }));
   },
 
-  setEditorContent: (tabId, canonicalEditorText) => {
+  setEditorContent: (tabId, canonicalEditorText, options) => {
     assertCanonicalEditorText(canonicalEditorText, "setEditorContent");
+    const fromUserEdit = options?.fromUserEdit ?? true;
     const previous = get().documents[tabId]?.content;
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
         content: canonicalEditorText,
-        isDirty: doc.savedContent !== canonicalEditorText,
+        // A serialization sync is not a change: it may neither create dirt on a
+        // document nobody edited nor clear dirt on one that was edited (an
+        // auto-save flush can land before the debounced edit-flush).
+        isDirty: fromUserEdit ? doc.savedContent !== canonicalEditorText : doc.isDirty,
       }))
     );
-    bumpRevisionIfContentChanged(tabId, previous, canonicalEditorText);
+    // Same reasoning for the revision token: a re-serialization is not an edit,
+    // so it must not make an MCP client's held revision look STALE.
+    if (fromUserEdit) bumpRevisionIfContentChanged(tabId, previous, canonicalEditorText);
   },
 
   ingestExternalContent: (tabId, rawDiskText, origin, opts) => {
@@ -219,8 +148,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   },
 
   // Delegates INTO the guard; only tests may call it (externalWriterGate.test).
-  setContent: (tabId, content) => {
-    get().setEditorContent(tabId, content);
+  setContent: (tabId, content, options) => {
+    get().setEditorContent(tabId, content, options);
   },
 
   setFilePath: (tabId, path) =>
