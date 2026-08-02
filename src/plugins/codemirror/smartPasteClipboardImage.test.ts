@@ -45,6 +45,8 @@ vi.mock("@/services/navigation/windowFocus", () => ({
 let mockActiveFilePath: string | null = "/docs/test.md";
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 vi.mock("@/i18n", () => ({

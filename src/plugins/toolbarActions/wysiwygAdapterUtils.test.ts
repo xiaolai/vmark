@@ -5,11 +5,14 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
+let mockActiveFilePath: string | null = null;
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: {
     activeFilePath: vi.fn(() => null),
     activeHardBreakStyle: vi.fn(() => "unknown"),
   },
+  // The guarded convenience the production code calls; same answer.
+  activeFilePathForCurrentWindow: vi.fn(() => mockActiveFilePath),
 }));
 
 vi.mock("@/plugins/shared/hostSettings", () => ({
@@ -36,7 +39,7 @@ import {
   shouldPreserveTwoSpaceBreaks,
   applyFullDocumentTransform,
 } from "./wysiwygAdapterUtils";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { hostDocument, activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hostSettings } from "@/plugins/shared/hostSettings";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
@@ -74,7 +77,7 @@ describe("getActiveFilePath", () => {
   });
 
   it("returns file path when document exists", () => {
-    vi.mocked(hostDocument.activeFilePath).mockReturnValue("/test/file.md");
+    mockActiveFilePath = "/test/file.md";
 
     expect(getActiveFilePath()).toBe("/test/file.md");
   });
@@ -83,13 +86,13 @@ describe("getActiveFilePath", () => {
     // The host collapses "no tab", "no document" and "no path yet" into one
     // null — three cases that used to be mocked separately here and were
     // always the same answer from this side.
-    vi.mocked(hostDocument.activeFilePath).mockReturnValue(null);
+    mockActiveFilePath = null;
 
     expect(getActiveFilePath()).toBeNull();
   });
 
   it("returns null when the lookup throws", () => {
-    vi.mocked(hostDocument.activeFilePath).mockImplementation(() => {
+    vi.mocked(activeFilePathForCurrentWindow).mockImplementationOnce(() => {
       throw new Error("no window");
     });
 

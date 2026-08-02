@@ -12,7 +12,7 @@
  */
 import type { EditorView } from "@tiptap/pm/view";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { hostDocument, activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hostSettings } from "@/plugins/shared/hostSettings";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { wysiwygAdapterError } from "@/utils/debug";
@@ -35,7 +35,7 @@ export function isViewConnected(view: EditorView): boolean {
  */
 export function getActiveFilePath(): string | null {
   try {
-    return hostDocument.activeFilePath(getWindowLabel());
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }

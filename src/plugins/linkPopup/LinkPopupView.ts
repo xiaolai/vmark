@@ -19,12 +19,11 @@
  *     link range, so the input can never keep the previous link's URL.
  */
 
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
 import type { StoreApi } from "zustand";
 import type { LinkPopupState } from "@/plugins/shared/popupPorts";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { classifyHref, openExternalLink, openFilepathLink } from "@/services/navigation/linkOpen";
@@ -234,7 +233,7 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     // Filepath — resolve relative to the active doc and open in a tab.
     // openFilepathLink is a pure leaf util; the source doc path comes from
     // the hostDocument seam and is passed in.
-    const sourcePath = hostDocument.activeFilePath(getCurrentWebviewWindow().label);
+    const sourcePath = activeFilePathForCurrentWindow();
     const { linkFrom, linkTo } = this.store.getState();
     openFilepathLink(href, sourcePath).then((opened) => {
       if (!opened) return;

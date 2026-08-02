@@ -20,6 +20,8 @@ vi.mock("@/utils/markdownUrl", () => ({
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => "/path/to/doc.md" },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => "/path/to/doc.md",
 }));
 
 const mockOpenPopup = vi.fn();

@@ -90,7 +90,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
-  hostDocument: { activeFilePath: () => mockActiveFilePath() },
+  activeFilePathForCurrentWindow: () => mockActiveFilePath(),
 }));
 
 vi.mock("@/services/navigation/windowFocus", () => ({

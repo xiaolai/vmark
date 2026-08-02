@@ -55,6 +55,8 @@ vi.mock("@/utils/imeGuard", () => ({
 let mockActiveFilePath: string | null = "/docs/test.md";
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 // The popup state is passed to the actions now, not imported by them.

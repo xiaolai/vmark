@@ -22,6 +22,10 @@
  */
 
 import type { MediaNodeType } from "./popupPorts";
+import type { HeadingWithId } from "@/utils/headingSlug";
+import type { BoundaryRects } from "@/utils/popupPosition";
+import type { ImagePathResult } from "@/utils/imagePathDetection";
+import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 
 /**
  * What the media popup needs to edit a media node.
@@ -84,13 +88,37 @@ interface WikiLinkPopupRequest {
   nodePos: number;
 }
 
-/** What the heading picker needs. `heading` is opaque to the plugin. */
-interface HeadingPickerRequest<THeading = unknown> {
-  headings: THeading[];
+/** What the heading picker needs. */
+interface HeadingPickerRequest {
+  headings: HeadingWithId[];
   onSelect: (id: string, text: string) => void;
   anchorRect?: { top: number; left: number; right: number; bottom: number };
-  containerBounds?: unknown;
+  containerBounds?: BoundaryRects;
 }
+
+/** Shared by both toast shapes. */
+interface ImagePasteToastBase {
+  anchorRect: { top: number; left: number; right: number; bottom: number };
+  editorDom: HTMLElement;
+  onConfirm: () => void;
+  onDismiss?: () => void;
+}
+
+/** One pasted image: the path and how to read it are both required. */
+interface SingleImagePasteToast extends ImagePasteToastBase {
+  imagePath: string;
+  imageType: "url" | "localPath";
+  imageResults?: never;
+}
+
+/** A batch: the results are required, and the single-image fields are not. */
+interface MultiImagePasteToast extends ImagePasteToastBase {
+  imageResults: ImagePathResult[];
+  imagePath?: never;
+  imageType?: never;
+}
+
+type ImagePasteToastRequest = SingleImagePasteToast | MultiImagePasteToast;
 
 /** Editor chrome a plugin can ask the host to present. */
 export interface HostPopups {
@@ -130,30 +158,24 @@ export interface HostPopups {
   /**
    * Open the editor's right-click menu.
    *
-   * `snapshot` is opaque here on purpose: the plugin builds it, the menu
-   * renders it, and the seam only carries it across. Typing it would drag the
-   * whole toolbar-action vocabulary into this module.
+   * `snapshot` is typed from `@/types/editorContextMenu` — a types module, not
+   * a sibling plugin — so the boundary is compiler-checked without dragging
+   * plugin-land into this one.
    */
   openEditorContextMenu: (request: {
     position: { x: number; y: number };
-    snapshot: unknown;
+    snapshot: EditorContextMenuSnapshot;
   }) => void;
   /**
    * Offer the user a pasted image, singly or in a batch.
    *
-   * One member with an optional `imageResults` rather than two, because the
-   * two toasts differ only in how many images they describe — and the plugin
-   * already decides which shape it has.
+   * One member rather than two, because the two toasts differ only in how
+   * many images they describe — but a DISCRIMINATED UNION rather than one
+   * shape with optional fields. Optionals let a caller omit `imagePath` on a
+   * single-image toast, which the host store requires; the compiler caught
+   * exactly that when the binding's cast was removed.
    */
-  showImagePasteToast: (request: {
-    anchorRect: unknown;
-    editorDom: HTMLElement;
-    onConfirm: () => void;
-    onDismiss?: () => void;
-    imagePath?: string;
-    imageType?: "url" | "localPath";
-    imageResults?: unknown[];
-  }) => void;
+  showImagePasteToast: (request: ImagePasteToastRequest) => void;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */

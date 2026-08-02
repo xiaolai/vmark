@@ -8,11 +8,10 @@
  * @module plugins/imagePreview/resolveSrc
  */
 
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import { imagePreviewError } from "@/utils/debug";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
 import {
@@ -34,7 +33,7 @@ function getActiveFilePath(): string | null {
     // Through the host seam, not the app's stores: this is ambient editor
     // context read by a leaf resolver, well below any extension option that
     // could carry it. See plugins/shared/hostDocument.ts.
-    return hostDocument.activeFilePath(getWindowLabel());
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }

@@ -28,8 +28,7 @@ import {
 } from "../shared/mediaSecurity";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { imageViewWarn, imagePreviewError } from "@/utils/debug";
 
 /**
@@ -61,10 +60,7 @@ export async function resolveImageSrc(src: string): Promise<string> {
     }
 
     try {
-      // Inside the try, not before it: `getWindowLabel()` reads the Tauri
-      // window and throws outside a Tauri context. The pre-seam code guarded
-      // it and returned the src unchanged; keep that.
-      const filePath = hostDocument.activeFilePath(getWindowLabel());
+      const filePath = activeFilePathForCurrentWindow();
       if (!filePath) {
         return src; // No document path, can't resolve
       }

@@ -14,8 +14,7 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hasImageExtension } from "@/utils/imagePathDetection";
 import { imageHandlerWarn } from "@/utils/debug";
 
@@ -66,7 +65,7 @@ export function isViewConnected(view: EditorView): boolean {
 /** Returns the file path of the active document in the current window, or null. */
 export function getActiveFilePathForCurrentWindow(): string | null {
   try {
-    return hostDocument.activeFilePath(getWindowLabel());
+    return activeFilePathForCurrentWindow();
   } catch (error) {
     imageHandlerWarn("Failed to get active file path:", error);
     return null;
