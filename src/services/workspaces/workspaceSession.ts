@@ -16,6 +16,12 @@
  * Split layouts (WI-10.3): the ACTIVE instance persists its live split; a
  * HIDDEN instance persists its stashed snapshot — each keyed by its own root.
  *
+ * Exclude defaults (#1187): this is the only config writer that does NOT go
+ * through the store's normalizer, so the config it mints for a root with none
+ * on disk — and the on-disk one it rewrites — run through
+ * repairAutoCreatedExcludeFolders here, or nothing ever restores them.
+ *
+ * @coordinates-with stores/workspaceConfigDefaults.ts — the exclude-defaults repair
  * @coordinates-with workspaceStore.ts — reads rootPath and config (rail off)
  * @coordinates-with useWindowClose.ts — calls persistWorkspaceSession before close
  * @coordinates-with services/persistence/splitLayoutPersistence.ts — saves split layout
@@ -25,6 +31,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { workspaceError } from "@/utils/debug";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
+import { repairAutoCreatedExcludeFolders } from "@/stores/workspaceConfigDefaults";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { tabFilePath } from "@/stores/tabStoreTypes";
 import { usePaneStore, type WindowSplit } from "@/stores/paneStore";
@@ -114,13 +121,19 @@ async function persistRailWorkspaceSessions(windowLabel: string): Promise<void> 
         workspaceError("Malformed on-disk config; skipping session write for", rootPath);
         continue;
       }
-      const base: WorkspaceConfig = disk ?? {
-        version: 1,
-        excludeFolders: [],
-        lastOpenTabs: [],
-        showHiddenFiles: false,
-        showAllFiles: false,
-      };
+      // This is the one config writer that does NOT go through the store's
+      // normalizer, so both the minted shape and the on-disk one it rewrites
+      // need the exclude defaults applied here or nothing ever restores them
+      // (#1187).
+      const base: WorkspaceConfig = repairAutoCreatedExcludeFolders(
+        disk ?? {
+          version: 1,
+          excludeFolders: [],
+          lastOpenTabs: [],
+          showHiddenFiles: false,
+          showAllFiles: false,
+        },
+      );
       await invoke("write_workspace_config", {
         rootPath,
         config: {

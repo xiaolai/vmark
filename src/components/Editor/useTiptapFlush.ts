@@ -16,6 +16,11 @@
  *     hasn't run yet (#755).
  *   - scheduleFlush uses RAF for small docs (≤100ms tier) and a debounced
  *     timeout for large docs — see getAdaptiveDebounceDelay.
+ *   - Every flush reports whether a USER edit is behind it (userEditPending,
+ *     set by scheduleFlush). Auto-save and Save All flush before reading
+ *     isDirty, so a flush that claimed to be an edit would dirty a document
+ *     nobody touched and rewrite the file — see documentStore's
+ *     SetContentOptions.
  *
  * @coordinates-with components/Editor/TiptapEditor.tsx — sole consumer
  * @coordinates-with hooks/useTiptapUnmountFlush.ts — consumes the pending-timer refs
@@ -36,7 +41,7 @@ interface TiptapFlushOptions {
   /** Tab this editor is pinned to (#1081) — store writes target this tab. */
   activeTabId: string | undefined;
   windowLabel: string;
-  setContent: (markdown: string) => void;
+  setContent: (markdown: string, options?: { fromUserEdit?: boolean }) => void;
   preserveLineBreaksRef: MutableRefObject<boolean>;
   hardBreakStyleOnSaveRef: MutableRefObject<HardBreakStyleOnSave>;
 }
@@ -67,6 +72,17 @@ export function useTiptapFlush(options: TiptapFlushOptions): TiptapFlushHandle {
   const pendingDebounceTimeout = useRef<number | null>(null);
   const internalChangeRaf = useRef<number | null>(null);
   const flushToStoreRef = useRef<((editor: TiptapEditor) => void) | null>(null);
+  /**
+   * A genuine user edit is waiting to be written to the store.
+   *
+   * `scheduleFlush` is called from exactly one place — the editor's `onUpdate`,
+   * which already drops programmatic transactions (`preventUpdate`) — so this
+   * is set only by real edits. The pending RAF/timeout refs cannot serve as
+   * this signal: they are cleared inside their own callbacks BEFORE the flush
+   * runs, and a flush requested by auto-save or Save All has no pending timer
+   * at all.
+   */
+  const userEditPending = useRef(false);
 
   const flushToStore = useCallback(
     (editor: TiptapEditor) => {
@@ -92,7 +108,12 @@ export function useTiptapFlush(options: TiptapFlushOptions): TiptapFlushHandle {
 
       isInternalChange.current = true;
       lastExternalContent.current = markdown;
-      setContent(markdown);
+      // Consume the edit signal: a flush with no user edit behind it is pure
+      // re-serialization and must not dirty the document (auto-save flushes
+      // every tick before it reads isDirty).
+      const fromUserEdit = userEditPending.current;
+      userEditPending.current = false;
+      setContent(markdown, { fromUserEdit });
 
       // Cancel previous RAF if pending, then schedule reset
       if (internalChangeRaf.current) {
@@ -108,6 +129,10 @@ export function useTiptapFlush(options: TiptapFlushOptions): TiptapFlushHandle {
 
   const scheduleFlush = useCallback(
     (editor: TiptapEditor) => {
+      // Only onUpdate schedules a flush, and it has already filtered out
+      // programmatic transactions — so reaching here means the user edited.
+      userEditPending.current = true;
+
       // Cancel any pending flush
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
