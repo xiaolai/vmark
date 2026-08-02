@@ -14,6 +14,7 @@
 import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { bindHostDocument } from "@/plugins/shared/hostDocument";
 import { bindHostShortcuts } from "@/plugins/shared/hostShortcuts";
+import { bindHostSearch, type SearchQuery } from "@/plugins/shared/hostSearch";
 import {
   bindHostPopups,
   type MediaPopupRequest,
@@ -22,6 +23,7 @@ import {
 } from "@/plugins/shared/hostPopups";
 import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
@@ -58,6 +60,15 @@ export function bindPluginHostSettings(): void {
   // Typed explicitly rather than inferred: this is the boundary where the
   // plugins' request shape meets the app's store, and a silent mismatch here
   // is exactly what the seam exists to prevent.
+  bindHostSearch({
+    // Typed at the boundary rather than inferred: this is where the app's
+    // search slice meets the shape the plugins declare.
+    current: (): SearchQuery => useUIStore.getState().search,
+    reportMatches: (count, index) => useUIStore.getState().searchSetMatches(count, index),
+    findNext: () => useUIStore.getState().searchFindNext(),
+    onChange: (listener) => useUIStore.subscribe(listener),
+  });
+
   bindHostShortcuts({
     getShortcut: (id) => useShortcutsStore.getState().getShortcut(id),
     onChange: (listener) => useShortcutsStore.subscribe(listener),
