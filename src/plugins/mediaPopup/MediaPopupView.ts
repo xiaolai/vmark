@@ -7,7 +7,7 @@
  * copying path, and removing.
  *
  * Key decisions:
- *   - Store-driven: subscribes to mediaPopupStore for visibility and position updates
+ *   - Store-driven: subscribes to the injected state PORT for visibility/position
  *   - Conditional rows: alt row for images, title row for video/audio, poster row for video
  *   - Toggle button only visible for image types (inline ↔ block)
  *   - Copy resolves relative paths to absolute via document directory for external tool compatibility
@@ -18,7 +18,7 @@
  *
  * @coordinates-with mediaPopupDom.ts — DOM element construction
  * @coordinates-with mediaPopupActions.ts — browse and replace media logic
- * @coordinates-with stores/mediaPopupStore.ts — popup state
+ * @coordinates-with plugins/shared/popupPorts.ts — the state PORT the host satisfies
  * @module plugins/mediaPopup/MediaPopupView
  */
 
