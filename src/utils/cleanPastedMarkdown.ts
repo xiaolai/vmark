@@ -12,6 +12,7 @@
  */
 
 import { buildCodeMask } from "./markdownCodeMask";
+import { findMathDelimiterSpans } from "./markdownPipeline/parser/mathDelimiterSpans";
 
 /** Characters that are safe to unescape when they appear mid-line. */
 const SAFE_MID_LINE = "#\\-*_`|[\\]()>+.!";
@@ -92,9 +93,22 @@ function lineHasUnescapedPipe(
 function stripUnnecessaryEscapes(markdown: string): string {
   const mask = buildCodeMask(markdown);
 
+  // Backslash offsets that form a recognized `\( … \)` / `\[ … \]`
+  // math pair (#1180). Stripping those would destroy ChatGPT math
+  // before the parser's delimiter normalization ever sees it — the
+  // exact paste flow the issue reports. Lone/non-math escapes on the
+  // same characters still strip as before.
+  const mathDelimiters = new Set<number>();
+  for (const span of findMathDelimiterSpans(markdown)) {
+    mathDelimiters.add(span.start);
+    mathDelimiters.add(span.end - 2);
+  }
+
   return markdown.replace(ESCAPE_RE, (match, char: string, offset: number) => {
     // Never strip escapes inside code
     if (mask[offset]) return match;
+
+    if (mathDelimiters.has(offset)) return match;
 
     if (isBlockTriggerEscape(markdown, offset, char)) return match;
 

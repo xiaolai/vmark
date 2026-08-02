@@ -34,6 +34,10 @@ import {
   normalizeBareListMarkers,
   fixNormalizationSpread,
 } from "./parser/listNormalization";
+import {
+  escapeUnclosedMathFences,
+  normalizeMathDelimiters,
+} from "./parser/mathSourceGuards";
 import { createProcessor } from "./parser/processorFactory";
 
 // Re-exports for backward compatibility with callers that import directly
@@ -57,8 +61,15 @@ export function parseMarkdownToMdast(
   markdown: string,
   options: MarkdownPipelineOptions = {}
 ): Root {
+  // Math source guards (#1180/#1181): rewrite `\[ \]`/`\( \)` to
+  // `$`-delimiters and defuse unclosed `$$` fences (pandoc's blank-line
+  // rule) before remark sees the text. Document parse only — the
+  // source-position dialect must see the text as written.
+  const mathGuarded = escapeUnclosedMathFences(
+    normalizeMathDelimiters(markdown),
+  );
   // Normalize bare list markers (e.g., "  -\n") to ensure trailing space
-  const { text: normalized, modified: wasNormalized } = normalizeBareListMarkers(markdown);
+  const { text: normalized, modified: wasNormalized } = normalizeBareListMarkers(mathGuarded);
   // Pre-process escaped custom markers before remark parsing
   const preprocessed = preprocessEscapedMarkers(normalized);
 
