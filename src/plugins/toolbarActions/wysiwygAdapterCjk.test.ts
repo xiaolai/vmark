@@ -103,6 +103,10 @@ function createMockContext(opts?: {
     before: vi.fn(() => 5),
     after: vi.fn(() => 25),
   };
+  // Formatting spans the top-level blocks from $from to $to, so both ends of
+  // the selection resolve, and the doc can be walked to collect them.
+  const $to = $from;
+  const walkTopLevel = vi.fn((cb: (node: unknown, offset: number) => void) => cb(blockNode, 5));
 
   return {
     surface: "wysiwyg",
@@ -110,6 +114,7 @@ function createMockContext(opts?: {
       state: {
         selection: {
           $from,
+          $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
           empty: selectionEmpty,
@@ -118,6 +123,7 @@ function createMockContext(opts?: {
           textBetween: vi.fn(() => selectedText),
           content: { size: 100 },
           nodesBetween: vi.fn(),
+          forEach: walkTopLevel,
         },
         tr,
         schema,
@@ -130,11 +136,12 @@ function createMockContext(opts?: {
       state: {
         selection: {
           $from,
+          $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
           empty: selectionEmpty,
         },
-        doc: { content: { size: 100 } },
+        doc: { content: { size: 100 }, forEach: walkTopLevel },
       },
       commands: { focus },
     } as never,
@@ -198,9 +205,14 @@ describe("handleFormatCJK", () => {
     expect(result).toBe(true);
   });
 
-  it("returns false for block formatting when depth < 1", () => {
+  it("falls back to whole-document formatting at depth 0 (select-all)", () => {
+    // Depth 0 means an AllSelection or a NodeSelection on the doc: there is no
+    // top-level block to span, and "format everything" is what the user asked
+    // for anyway.
     const ctx = createMockContext({ selectionEmpty: true, depth: 0 });
-    expect(handleFormatCJK(ctx)).toBe(false);
+    vi.mocked(serializeMarkdown).mockReturnValue("doc content");
+    vi.mocked(parseMarkdown).mockReturnValue({ content: "parsed" } as never);
+    expect(handleFormatCJK(ctx)).toBe(true);
   });
 
   it("returns false and logs error when block serialization throws", async () => {
@@ -308,12 +320,18 @@ describe("handleCollapseBlankLines", () => {
   });
 });
 
-describe("handleLineEndings", () => {
+describe("handleLineEndings is METADATA-ONLY (WI-1.7)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("normalizes to LF and updates store metadata", () => {
+  // The old implementation round-tripped the whole document through
+  // normalizeLineEndings. On WYSIWYG that put literal `\r` characters INTO the
+  // ProseMirror text nodes — remark preserves `\r\n` inside a paragraph — which
+  // is the LF-invariant violation shipped as a feature. Line endings are
+  // METADATA; the convention is applied at save time by `saveToPath`.
+
+  it("never touches the editor: no serialize, no parse, no dispatch", () => {
     const setLineMetadata = vi.fn();
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
@@ -321,31 +339,27 @@ describe("handleLineEndings", () => {
     } as never);
 
     const ctx = createMockContext();
-    vi.mocked(serializeMarkdown).mockReturnValue("hello\r\nworld");
-    vi.mocked(parseMarkdown).mockReturnValue({ content: "new" } as never);
-
-    const result = handleLineEndings(ctx, "lf");
-    expect(result).toBe(true);
-    expect(setLineMetadata).toHaveBeenCalledWith("tab-1", { lineEnding: "lf" });
-  });
-
-  it("normalizes to CRLF and updates store metadata", () => {
-    const setLineMetadata = vi.fn();
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
-      setLineMetadata,
-    } as never);
-
-    const ctx = createMockContext();
-    vi.mocked(serializeMarkdown).mockReturnValue("hello\nworld");
-    vi.mocked(parseMarkdown).mockReturnValue({ content: "new" } as never);
-
     const result = handleLineEndings(ctx, "crlf");
+
     expect(result).toBe(true);
-    expect(setLineMetadata).toHaveBeenCalledWith("tab-1", { lineEnding: "crlf" });
+    expect(serializeMarkdown).not.toHaveBeenCalled();
+    expect(parseMarkdown).not.toHaveBeenCalled();
+    expect(ctx.view?.dispatch).not.toHaveBeenCalled();
   });
 
-  it("returns true even when no active tab (metadata update skipped)", () => {
+  it.each(["lf", "crlf"] as const)("records %s in store metadata", (target) => {
+    const setLineMetadata = vi.fn();
+    vi.mocked(useDocumentStore.getState).mockReturnValue({
+      getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
+      setLineMetadata,
+    } as never);
+
+    const ctx = createMockContext();
+    expect(handleLineEndings(ctx, target)).toBe(true);
+    expect(setLineMetadata).toHaveBeenCalledWith("tab-1", { lineEnding: target });
+  });
+
+  it("returns false when no active tab — nothing happened, so say so", () => {
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       getDocument: vi.fn(() => ({ hardBreakStyle: "unknown" })),
       setLineMetadata: vi.fn(),
@@ -357,9 +371,6 @@ describe("handleLineEndings", () => {
     } as never);
 
     const ctx = createMockContext();
-    vi.mocked(serializeMarkdown).mockReturnValue("content");
-
-    const result = handleLineEndings(ctx, "lf");
-    expect(result).toBe(true);
+    expect(handleLineEndings(ctx, "lf")).toBe(false);
   });
 });

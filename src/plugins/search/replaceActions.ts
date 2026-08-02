@@ -19,13 +19,13 @@
  * @module plugins/search/replaceActions
  */
 
+import { hostSearch } from "@/plugins/shared/hostSearch";
 import type { EditorView } from "@tiptap/pm/view";
-import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { findMatchesInDoc, type Match } from "./findMatches";
 
 function scanCurrentDoc(view: EditorView): Match[] {
-  const { query, caseSensitive, wholeWord, useRegex } = useUIStore.getState().search;
+  const { query, caseSensitive, wholeWord, useRegex } = hostSearch.current();
   return findMatchesInDoc(view.state.doc, query, caseSensitive, wholeWord, useRegex);
 }
 
@@ -40,12 +40,12 @@ export function createReplaceHandlers(
 ) {
   const replaceCurrent = () => {
     if (editorView.editable === false) return;
-    const { isOpen, currentIndex } = useUIStore.getState().search;
+    const { isOpen, currentIndex } = hostSearch.current();
     if (!isOpen || currentIndex < 0) return;
 
     runOrQueueProseMirrorAction(editorView, () => {
       if (editorView.isDestroyed) return;
-      const search = useUIStore.getState().search;
+      const search = hostSearch.current();
       if (!search.isOpen || search.currentIndex < 0) return;
 
       const match = getMatches()?.[search.currentIndex];
@@ -65,19 +65,19 @@ export function createReplaceHandlers(
       editorView.dispatch(tr);
 
       requestAnimationFrame(() => {
-        useUIStore.getState().searchFindNext();
+        hostSearch.findNext();
       });
     });
   };
 
   const replaceAll = () => {
     if (editorView.editable === false) return;
-    const { isOpen, query } = useUIStore.getState().search;
+    const { isOpen, query } = hostSearch.current();
     if (!isOpen || !query) return;
 
     runOrQueueProseMirrorAction(editorView, () => {
       if (editorView.isDestroyed) return;
-      const search = useUIStore.getState().search;
+      const search = hostSearch.current();
       if (!search.isOpen || !search.query) return;
 
       // Fresh scan at execution time — the plugin's mapped list can be stale

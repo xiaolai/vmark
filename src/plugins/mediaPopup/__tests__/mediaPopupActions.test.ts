@@ -52,32 +52,16 @@ let storeState = {
   setPoster: vi.fn(),
 };
 
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: () => storeState,
-    subscribe: () => () => {},
-  },
-}));
+// The popup state is passed to the actions now, not imported by them.
+const store = { getState: () => storeState, subscribe: () => () => {} } as never;
 
-// Mutable state for document/tab store to allow per-test overrides
-let mockActiveTabId: Record<string, string | null> = { main: "tab-1" };
-let mockGetDocument: (id: string) => { filePath: string } | undefined = (id) =>
-  id === "tab-1" ? { filePath: "/docs/my-doc.md" } : undefined;
+// Mutable so a test can say "this window has no saved document".
+let mockActiveFilePath: string | null = "/docs/my-doc.md";
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: (id: string) => mockGetDocument(id),
-    }),
-  },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: mockActiveTabId,
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 import { browseAndReplaceMedia } from "../mediaPopupActions";
@@ -108,9 +92,7 @@ describe("browseAndReplaceMedia", () => {
       mediaNodeType: "block_video",
       mediaNodePos: 10,
     };
-    mockActiveTabId = { main: "tab-1" };
-    mockGetDocument = (id) =>
-      id === "tab-1" ? { filePath: "/docs/my-doc.md" } : undefined;
+    mockActiveFilePath = "/docs/my-doc.md";
   });
 
   it("opens dialog with video filters for block_video", async () => {
@@ -118,7 +100,7 @@ describe("browseAndReplaceMedia", () => {
     mockCopyMediaToAssets.mockResolvedValue("assets/new-video.mp4");
 
     const view = createMockView();
-    await browseAndReplaceMedia(view, 10, "block_video");
+    await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(mockOpen).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -138,7 +120,7 @@ describe("browseAndReplaceMedia", () => {
 
     storeState.mediaNodeType = "block_audio" as "block_video";
     const view = createMockView("block_audio");
-    await browseAndReplaceMedia(view, 10, "block_audio");
+    await browseAndReplaceMedia(view, 10, "block_audio", store);
 
     expect(mockOpen).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -157,7 +139,7 @@ describe("browseAndReplaceMedia", () => {
     mockCopyMediaToAssets.mockResolvedValue("assets/new-video.mp4");
 
     const view = createMockView();
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(true);
     expect(view.dispatch).toHaveBeenCalled();
@@ -168,20 +150,19 @@ describe("browseAndReplaceMedia", () => {
     mockOpen.mockResolvedValue(null);
 
     const view = createMockView();
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(false);
     expect(view.dispatch).not.toHaveBeenCalled();
   });
 
   it("returns false when document is unsaved and shows warning", async () => {
-    mockActiveTabId = { main: null };
-    mockGetDocument = () => undefined;
+    mockActiveFilePath = null;
 
     mockOpen.mockResolvedValue("/new-video.mp4");
 
     const view = createMockView();
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(false);
     expect(mockMessage).toHaveBeenCalledWith(
@@ -196,7 +177,7 @@ describe("browseAndReplaceMedia", () => {
     mockCopyMediaToAssets.mockResolvedValue("assets/new-video.mp4");
 
     const view = createMockView();
-    await browseAndReplaceMedia(view, 10, "block_video");
+    await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(view.state.tr.setNodeMarkup).toHaveBeenCalledWith(
       10,
@@ -213,7 +194,7 @@ describe("browseAndReplaceMedia", () => {
 
     storeState = { ...storeState, mediaNodeType: "image" as "block_video", mediaNodePos: 5 };
     const view = createMockView("image");
-    await browseAndReplaceMedia(view, 5, "image");
+    await browseAndReplaceMedia(view, 5, "image", store);
 
     expect(mockOpen).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -233,7 +214,7 @@ describe("browseAndReplaceMedia", () => {
 
     storeState = { ...storeState, mediaNodeType: "image" as "block_video", mediaNodePos: 5 };
     const view = createMockView("image");
-    const result = await browseAndReplaceMedia(view, 5, "image");
+    const result = await browseAndReplaceMedia(view, 5, "image", store);
 
     expect(result).toBe(true);
     expect(mockCopyImageToAssets).toHaveBeenCalledWith("/photo.png", "/docs/my-doc.md");
@@ -245,7 +226,7 @@ describe("browseAndReplaceMedia", () => {
     mockCopyMediaToAssets.mockResolvedValue("media/clip.mp4");
 
     const view = createMockView();
-    await browseAndReplaceMedia(view, 10, "block_video");
+    await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(mockCopyMediaToAssets).toHaveBeenCalledWith("/clip.mp4", "/docs/my-doc.md");
     expect(mockCopyImageToAssets).not.toHaveBeenCalled();
@@ -257,7 +238,7 @@ describe("browseAndReplaceMedia", () => {
 
     storeState = { ...storeState, mediaNodeType: "block_image" as "block_video", mediaNodePos: 5 };
     const view = createMockView("block_image");
-    await browseAndReplaceMedia(view, 5, "block_image");
+    await browseAndReplaceMedia(view, 5, "block_image", store);
 
     expect(mockOpen).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -274,7 +255,7 @@ describe("browseAndReplaceMedia", () => {
     const view = createMockView("block_audio"); // node is audio, but we browse as video
     storeState = { ...storeState, mediaNodeType: "block_video", mediaNodePos: 10 };
 
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(false);
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -285,7 +266,7 @@ describe("browseAndReplaceMedia", () => {
     mockCopyMediaToAssets.mockRejectedValue(new Error("Copy failed"));
 
     const view = createMockView();
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(false);
     expect(mockMessage).toHaveBeenCalledWith(
@@ -296,10 +277,10 @@ describe("browseAndReplaceMedia", () => {
 
   it("returns false when document has no filePath", async () => {
     mockOpen.mockResolvedValue("/new-video.mp4");
-    mockGetDocument = () => ({ filePath: "" } as { filePath: string });
+    mockActiveFilePath = "";
 
     const view = createMockView();
-    const result = await browseAndReplaceMedia(view, 10, "block_video");
+    const result = await browseAndReplaceMedia(view, 10, "block_video", store);
 
     expect(result).toBe(false);
   });

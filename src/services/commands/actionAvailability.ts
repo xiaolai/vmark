@@ -19,6 +19,15 @@
  *
  * @coordinates-with commandContext.ts — the resolved context this reads
  * @coordinates-with editor/editorActionGates.ts — per-format category policy
+ * The table-cell exclusion is enforced HERE rather than only in the palette:
+ * a cell drops block children on serialize, so letting a native accelerator run
+ * a block action there would lose the user's text.
+ *
+ * Two correctness boundaries are enforced here rather than in the toolbar,
+ * because the native menu path never consults a button's enabled state: table
+ * cells (which drop block children) and CODE FENCES (which hold literal text,
+ * so any markdown written into one corrupts source code).
+ *
  * @module services/commands/actionAvailability
  */
 
@@ -29,6 +38,8 @@ import { LINK_DISABLED_ACTIONS } from "@/plugins/toolbarActions/enableRules";
 import { canRunActionInMultiSelection } from "@/plugins/toolbarActions/multiSelectionPolicy";
 import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 import {
+  isBlockedInCodeBlock,
+  isBlockedInTableCell,
   paletteRequirementFor,
   type NodeAxis,
 } from "@/plugins/toolbarActions/actionApplicability";
@@ -128,6 +139,16 @@ export function isActionExecutable(id: ActionId, ctx: CommandContextResolved): b
   if (!def) return false;
   if (ctx.mode === "source" ? !def.supports.source : !def.supports.wysiwyg) return false;
   if (ctx.readOnly && mutatesDocument(id)) return false;
+  // Table cells hold inline content only, and the cell serializer DROPS any
+  // block child it is given. That makes this a correctness gate rather than a
+  // discoverability one, so it belongs here and not only in the palette:
+  // disabling the toolbar button alone would still leave the native
+  // accelerator able to run the action and lose the user's text.
+  if (ctx.inTable && isBlockedInTableCell(adapterKeyFor(id))) return false;
+  // A code fence holds LITERAL TEXT. Any action that writes markdown syntax into
+  // it corrupts source code, and the same reasoning as the table gate applies:
+  // the native accelerator does not consult the toolbar, so this has to be here.
+  if (ctx.inCodeBlock && isBlockedInCodeBlock(adapterKeyFor(id))) return false;
   return isCategoryAllowedByFormat(def.category, ctx.formatId);
 }
 

@@ -13,6 +13,7 @@
 
 import { resolveInitialLanguage } from "@/utils/localeDetect";
 import type { SettingsState } from "../settingsTypes";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 
 export const initialState: SettingsState = {
   general: {
@@ -52,38 +53,7 @@ export const initialState: SettingsState = {
     autoHideStatusBar: false,
     focusModeDim: "standard", // color-only dimming by default (current behavior)
   },
-  cjkFormatting: {
-    // Group 1: Universal
-    ellipsisNormalization: true,
-    newlineCollapsing: false, // OFF by default — whitespace shape is the user's; opt-in to collapse
-    // Group 2: Fullwidth Normalization
-    fullwidthAlphanumeric: true,
-    fullwidthPunctuation: true,
-    fullwidthParentheses: true,
-    fullwidthBrackets: false, // OFF by default
-    // Group 3: Spacing
-    cjkEnglishSpacing: true,
-    cjkParenthesisSpacing: true,
-    currencySpacing: true,
-    slashSpacing: true,
-    spaceCollapsing: true,
-    // Group 4: Dash & Quote
-    dashConversion: true,
-    emdashSpacing: true,
-    smartQuoteConversion: true, // ON by default - convert " to ""
-    quoteStyle: "curly", // curly quotes for Simplified Chinese
-    contextualQuotes: true, // ON by default - curly for CJK, straight for pure Latin
-    quoteSpacing: true,
-    singleQuoteSpacing: true,
-    cjkCornerQuotes: false, // OFF by default (Traditional Chinese/Japanese only)
-    cjkNestedQuotes: false, // OFF by default
-    quoteToggleMode: "simple", // 2-state: straight <-> preferred style
-    // Group 5: Cleanup
-    consecutivePunctuationLimit: 0, // 0=off
-    trailingSpaceRemoval: true,
-    // Group 6: Section Handling
-    skipReferenceSections: false, // OFF by default — opt-in for academic documents
-  },
+  cjkFormatting: { ...DEFAULT_CJK_FORMATTING },
   markdown: {
     preserveLineBreaks: false,
     // ON by default: a plain Cmd+S must not collapse blank lines the file

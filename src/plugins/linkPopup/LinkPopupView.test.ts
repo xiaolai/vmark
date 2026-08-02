@@ -157,15 +157,14 @@ let storeState = {
 
 let storeListener: ((state: typeof storeState) => void) | null = null;
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (cb: (state: typeof storeState) => void) => {
-      storeListener = cb;
-      return () => { storeListener = null; };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockStore = {
+  getState: () => storeState,
+  subscribe: (cb: (state: typeof storeState) => void) => {
+    storeListener = cb;
+    return () => { storeListener = null; };
   },
-}));
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,7 +240,7 @@ describe("LinkPopupView", () => {
   // ---------------------------------------------------------------------------
 
   it("handleInputKeydown ignores IME key events (Process key)", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
 
     // Open the popup
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
@@ -260,7 +259,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleInputKeydown Enter key calls handleSave", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     const input = popup["input"] as HTMLInputElement;
@@ -276,7 +275,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleInputKeydown Escape key calls closePopup and focusEditor", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     const input = popup["input"] as HTMLInputElement;
@@ -302,7 +301,7 @@ describe("LinkPopupView", () => {
     });
     const viewNoLinkMark = createMockEditorView({ state: stateWithoutLinkMark });
 
-    const popup = new LinkPopupView(viewNoLinkMark as never);
+    const popup = new LinkPopupView(viewNoLinkMark as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     (popup["saveBtn"] as HTMLElement).click();
@@ -318,7 +317,7 @@ describe("LinkPopupView", () => {
     const viewWithError = createMockEditorView();
     viewWithError.dispatch = vi.fn(() => { throw new Error("dispatch failed"); });
 
-    const popup = new LinkPopupView(viewWithError as never);
+    const popup = new LinkPopupView(viewWithError as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     (popup["saveBtn"] as HTMLElement).click();
@@ -333,7 +332,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleSave writes the edited URL onto the captured range", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     const input = popup["input"] as HTMLInputElement;
@@ -349,7 +348,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleSave trims surrounding whitespace from the URL", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     const input = popup["input"] as HTMLInputElement;
@@ -362,7 +361,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleSave removes the link when the input holds only whitespace", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     (popup["input"] as HTMLInputElement).value = "   ";
@@ -380,7 +379,7 @@ describe("LinkPopupView", () => {
   // ---------------------------------------------------------------------------
 
   it("refreshes the input when the popup is retargeted at another link while open", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF, linkFrom: 1, linkTo: 5 });
 
     const input = popup["input"] as HTMLInputElement;
@@ -410,7 +409,7 @@ describe("LinkPopupView", () => {
   // ---------------------------------------------------------------------------
 
   it("does not mutate the document when the captured range no longer holds the link", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     // A concurrent edit (MCP write, external reload) replaced the document; the
@@ -430,7 +429,7 @@ describe("LinkPopupView", () => {
   });
 
   it("does not remove a link through a stale range", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     view.state = plainState();
@@ -449,7 +448,7 @@ describe("LinkPopupView", () => {
     const { navigateToHeadingById } = await import("@/utils/headingSlug");
     vi.mocked(navigateToHeadingById).mockReturnValueOnce(false);
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#missing" });
     mockClosePopup.mockClear();
 
@@ -465,7 +464,7 @@ describe("LinkPopupView", () => {
   it("handleOpen opens external link in browser", async () => {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     (popup["openBtn"] as HTMLElement).click();
@@ -480,7 +479,7 @@ describe("LinkPopupView", () => {
   it("handleOpen acts on the URL shown in the input, not a stale store value", async () => {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     // Simulate a paste that lands in the DOM without an `input` event: the
@@ -496,7 +495,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleOpen routes a relative filepath link through openFilepathLink and closes the popup on success", async () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({
       isOpen: true,
       anchorRect: ANCHOR,
@@ -526,7 +525,7 @@ describe("LinkPopupView", () => {
   it("handleOpen leaves the popup open when openFilepathLink resolves false (unresolvable)", async () => {
     mockOpenFilepathLink.mockResolvedValueOnce(false);
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({
       isOpen: true,
       anchorRect: ANCHOR,
@@ -550,7 +549,7 @@ describe("LinkPopupView", () => {
       new Promise<boolean>((resolve) => { resolveOpen = resolve; })
     );
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "../a.md", linkFrom: 1, linkTo: 5 });
 
     (popup["openBtn"] as HTMLElement).click();
@@ -569,7 +568,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleOpen does nothing when the input is empty", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "" });
 
     (popup["openBtn"] as HTMLElement).click();
@@ -591,7 +590,7 @@ describe("LinkPopupView", () => {
       configurable: true,
     });
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
     (popup["input"] as HTMLInputElement).value = "  https://pasted.example  ";
 
@@ -615,7 +614,7 @@ describe("LinkPopupView", () => {
       configurable: true,
     });
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     (popup["copyBtn"] as HTMLElement).click();
@@ -644,7 +643,7 @@ describe("LinkPopupView", () => {
       configurable: true,
     });
 
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "" });
 
     (popup["copyBtn"] as HTMLElement).click();
@@ -659,7 +658,7 @@ describe("LinkPopupView", () => {
 
   it("handleRemove returns early when editorState is missing", () => {
     const viewNoState = createMockEditorView({ state: null });
-    const popup = new LinkPopupView(viewNoState as never);
+    const popup = new LinkPopupView(viewNoState as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     (popup["deleteBtn"] as HTMLElement).click();
@@ -671,7 +670,7 @@ describe("LinkPopupView", () => {
   });
 
   it("handleRemove strips the link mark and sets preventAutolink meta (#584)", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     (popup["deleteBtn"] as HTMLElement).click();
@@ -689,7 +688,7 @@ describe("LinkPopupView", () => {
     const viewWithError = createMockEditorView();
     viewWithError.dispatch = vi.fn(() => { throw new Error("remove dispatch failed"); });
 
-    const popup = new LinkPopupView(viewWithError as never);
+    const popup = new LinkPopupView(viewWithError as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     (popup["deleteBtn"] as HTMLElement).click();
@@ -707,7 +706,7 @@ describe("LinkPopupView", () => {
   // ---------------------------------------------------------------------------
 
   it("does not focus the input when the popup closed before the focus frame ran", async () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF });
 
     const input = popup["input"] as HTMLInputElement;
@@ -730,7 +729,7 @@ describe("LinkPopupView", () => {
   // ---------------------------------------------------------------------------
 
   it("openBtn aria-label matches title for bookmark links", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#some-heading" });
 
     const openBtn = popup["openBtn"] as HTMLElement;
@@ -742,7 +741,7 @@ describe("LinkPopupView", () => {
   });
 
   it("openBtn aria-label flips back to 'Open link' when popup re-opens on a regular URL", () => {
-    const popup = new LinkPopupView(view as never);
+    const popup = new LinkPopupView(view as never, mockStore as never);
 
     // First open on a bookmark to set the aria-label to "Go to heading".
     triggerStore({ isOpen: true, anchorRect: ANCHOR, href: "#first-heading" });

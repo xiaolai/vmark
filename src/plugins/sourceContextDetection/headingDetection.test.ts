@@ -159,3 +159,202 @@ describe("convertToHeading", () => {
     view.destroy();
   });
 });
+
+// ---------- block markers already on the line ----------
+
+/**
+ * Converting a line to a heading has to reckon with what is already at its
+ * start. The helpers used to strip only an existing `#` run, so a list item
+ * became `# - text` — a heading whose text begins with a bullet — and a
+ * blockquote became `# > text`, a heading CONTAINING a literal `>`, destroying
+ * the quote. WYSIWYG replaces the list marker and keeps the quote wrapper;
+ * these cases pin that contract for Source.
+ */
+describe("heading conversion over existing block markers", () => {
+  function convert(doc: string, cursor: number, level: number): string {
+    const view = createView(doc, cursor);
+    convertToHeading(view, level);
+    const out = view.state.doc.toString();
+    view.destroy();
+    return out;
+  }
+
+  it.each([
+    { name: "bullet item", doc: "- The quick brown fox", expected: "# The quick brown fox" },
+    { name: "star bullet", doc: "* The quick brown fox", expected: "# The quick brown fox" },
+    { name: "ordered item", doc: "1. The quick brown fox", expected: "# The quick brown fox" },
+    { name: "ordered paren", doc: "1) The quick brown fox", expected: "# The quick brown fox" },
+    { name: "task item", doc: "- [ ] The quick brown fox", expected: "# The quick brown fox" },
+    { name: "checked task", doc: "- [x] The quick brown fox", expected: "# The quick brown fox" },
+    { name: "indented item", doc: "  - The quick brown fox", expected: "# The quick brown fox" },
+  ])("replaces a $name marker rather than heading it", ({ doc, expected }) => {
+    expect(convert(doc, doc.length - 1, 1)).toBe(expected);
+  });
+
+  it.each([
+    { name: "blockquote", doc: "> The quick brown fox", expected: "> # The quick brown fox" },
+    { name: "nested blockquote", doc: "> > The quick brown fox", expected: "> > # The quick brown fox" },
+    { name: "quoted list item", doc: "> - The quick brown fox", expected: "> # The quick brown fox" },
+  ])("keeps the $name wrapper and puts the heading inside", ({ doc, expected }) => {
+    expect(convert(doc, doc.length - 1, 1)).toBe(expected);
+  });
+
+  it("still replaces an existing heading run", () => {
+    expect(convert("### The quick brown fox", 8, 1)).toBe("# The quick brown fox");
+  });
+
+  it("detects a heading nested inside a blockquote", () => {
+    const view = createView("> ## Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.level).toBe(2);
+    view.destroy();
+  });
+
+  it("steps a quoted heading without losing the quote", () => {
+    const view = createView("> ## Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    setHeadingLevel(view, info!, 3);
+    expect(view.state.doc.toString()).toBe("> ### Quoted heading");
+    view.destroy();
+  });
+
+  it("returns a quoted heading to a paragraph inside its quote", () => {
+    const view = createView("> # Quoted heading", 10);
+    const info = getHeadingInfo(view);
+    setHeadingLevel(view, info!, 0);
+    expect(view.state.doc.toString()).toBe("> Quoted heading");
+    view.destroy();
+  });
+});
+
+// ---------- CommonMark block-prefix indentation (0-3 spaces) ----------
+
+describe("leading-space handling (CommonMark: 0-3 allowed, 4+ is indented code)", () => {
+  it.each([
+    { doc: " # one space", level: 1 },
+    { doc: "  ## two spaces", level: 2 },
+    { doc: "   ### three spaces", level: 3 },
+  ])("detects $doc", ({ doc, level }) => {
+    const view = createView(doc, doc.length - 1);
+    const info = getHeadingInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.level).toBe(level);
+    view.destroy();
+  });
+
+  it("returns null for a four-space-indented hash run (indented code)", () => {
+    const view = createView("    # not a heading", 8);
+    expect(getHeadingInfo(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("detects a heading indented inside a quote", () => {
+    const view = createView(">   ## indented in quote", 10);
+    const info = getHeadingInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.level).toBe(2);
+    view.destroy();
+  });
+
+  it("returns null when the quote marker itself is code-indented", () => {
+    const view = createView("    > # not a quote", 10);
+    expect(getHeadingInfo(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("returns null for 4+ spaces after the quote marker (code inside quote)", () => {
+    const view = createView(">     # code in quote", 10);
+    expect(getHeadingInfo(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("drops the consumed indent when converting an indented heading", () => {
+    const view = createView("   ## indented", 6);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 1);
+    expect(view.state.doc.toString()).toBe("# indented");
+    view.destroy();
+  });
+});
+
+// ---------- ATX closing sequences ----------
+
+/**
+ * CommonMark: a trailing run of #s closes an ATX heading when preceded by a
+ * space and followed by nothing but spaces. Stripping only the OPENING run
+ * turned "## title ##" into "title ##".
+ */
+describe("ATX closing sequences", () => {
+  it("strips the closing run when removing a heading", () => {
+    const view = createView("## title ##", 4);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("title");
+    view.destroy();
+  });
+
+  it("strips the closing run when changing level", () => {
+    const view = createView("## title ##", 4);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 3);
+    expect(view.state.doc.toString()).toBe("### title");
+    view.destroy();
+  });
+
+  it("strips a closing run of a different length than the opening", () => {
+    const view = createView("# title ######", 3);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("title");
+    view.destroy();
+  });
+
+  it("strips a closing run trailed by spaces", () => {
+    const view = createView("## title ##  ", 4);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("title");
+    view.destroy();
+  });
+
+  it("empties a heading that is only an opening and closing run", () => {
+    const view = createView("### ###", 2);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("");
+    view.destroy();
+  });
+
+  it("keeps an ESCAPED trailing hash run (\\## is content, not a closer)", () => {
+    const view = createView("## title \\##", 4);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("title \\##");
+    view.destroy();
+  });
+
+  it("keeps a hash run not followed by only spaces", () => {
+    const view = createView("## title ##x", 4);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("title ##x");
+    view.destroy();
+  });
+
+  it("keeps an interior hash run without trailing spaces (#hash content)", () => {
+    const view = createView("# tag #hash", 3);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 0);
+    expect(view.state.doc.toString()).toBe("tag #hash");
+    view.destroy();
+  });
+
+  it("keeps the quote wrapper while stripping a closing run", () => {
+    const view = createView("> ## quoted ##", 6);
+    const info = getHeadingInfo(view)!;
+    setHeadingLevel(view, info, 1);
+    expect(view.state.doc.toString()).toBe("> # quoted");
+    view.destroy();
+  });
+});

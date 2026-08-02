@@ -7,9 +7,13 @@
 
 import type { EditorView } from "@codemirror/view";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
+
+/** The popup state these actions read — injected, never imported (ADR-015). */
+type Store = StoreApi<WikiLinkPopupState>;
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { sourcePopupWarn, sourceActionError } from "@/utils/debug";
 import { resolveWikiLinkPath } from "@/plugins/wikiLinkPopup/wikiLinkPaths";
@@ -53,8 +57,8 @@ function findWikiLinkAtPos(
   return null;
 }
 
-function getWikiLinkRange(view: EditorView) {
-  const { nodePos } = useWikiLinkPopupStore.getState();
+function getWikiLinkRange(view: EditorView, store: Store) {
+  const { nodePos } = store.getState();
   if (nodePos === null) return null;
   return findWikiLinkAtPos(view, nodePos);
 }
@@ -63,10 +67,10 @@ function getWikiLinkRange(view: EditorView) {
  * Save wiki link changes to the document.
  * Replaces the current wiki link markdown with updated values.
  */
-export function saveWikiLinkChanges(view: EditorView): void {
-  const state = useWikiLinkPopupStore.getState();
+export function saveWikiLinkChanges(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { target } = state;
-  const range = getWikiLinkRange(view);
+  const range = getWikiLinkRange(view, store);
   if (!range) {
     return;
   }
@@ -87,11 +91,11 @@ export function saveWikiLinkChanges(view: EditorView): void {
 /**
  * Open the linked file in the editor.
  */
-export async function openWikiLink(): Promise<void> {
-  const { target } = useWikiLinkPopupStore.getState();
+export async function openWikiLink(store: Store): Promise<void> {
+  const { target } = store.getState();
   if (!target) return;
 
-  const { rootPath } = useWorkspaceStore.getState();
+  const rootPath = hostDocument.workspaceRoot();
   const filePath = resolveWikiLinkPath(target, rootPath);
 
   /* v8 ignore next -- @preserve reason: unresolvable wiki link path not tested */
@@ -102,7 +106,7 @@ export async function openWikiLink(): Promise<void> {
 
   try {
     await emitOpenFileInCurrentWindow(filePath);
-    useWikiLinkPopupStore.getState().closePopup();
+    store.getState().closePopup();
   } catch (error) {
     sourceActionError("Failed to open file:", error);
   }
@@ -111,8 +115,8 @@ export async function openWikiLink(): Promise<void> {
 /**
  * Copy wiki link target to clipboard.
  */
-export async function copyWikiLinkTarget(): Promise<void> {
-  const { target } = useWikiLinkPopupStore.getState();
+export async function copyWikiLinkTarget(store: Store): Promise<void> {
+  const { target } = store.getState();
 
   if (!target) {
     return;
@@ -129,8 +133,8 @@ export async function copyWikiLinkTarget(): Promise<void> {
  * Remove wiki link from the document.
  * Removes the wiki link syntax but keeps the display text (alias or target).
  */
-export function removeWikiLink(view: EditorView): void {
-  const range = getWikiLinkRange(view);
+export function removeWikiLink(view: EditorView, store: Store): void {
+  const range = getWikiLinkRange(view, store);
   if (!range) {
     return;
   }

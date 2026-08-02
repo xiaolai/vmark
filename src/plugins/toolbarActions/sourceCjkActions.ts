@@ -9,12 +9,14 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore, type CJKFormattingSettings } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import { hostSettings } from "@/plugins/shared/hostSettings";
+import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
-import { normalizeLineEndings, resolveHardBreakStyle } from "@/utils/linebreaks";
+import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
+import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
+import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { getSourceBlockRange } from "@/utils/sourceSelection";
 
 // --- CJK formatting helpers ---
@@ -22,10 +24,12 @@ import { getSourceBlockRange } from "@/utils/sourceSelection";
 function shouldPreserveTwoSpaceBreaks(): boolean {
   try {
     const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : null;
-    const hardBreakStyleOnSave = useSettingsStore.getState().markdown.hardBreakStyleOnSave;
-    return resolveHardBreakStyle(doc?.hardBreakStyle ?? "unknown", hardBreakStyleOnSave) === "twoSpaces";
+    return (
+      resolveHardBreakStyle(
+        hostDocument.activeHardBreakStyle(windowLabel),
+        hostSettings.hardBreakStyleOnSave()
+      ) === "twoSpaces"
+    );
   } catch {
     /* v8 ignore next -- @preserve catch only fires if Tauri/store APIs throw; mocked in tests */
     return false;
@@ -34,18 +38,29 @@ function shouldPreserveTwoSpaceBreaks(): boolean {
 
 /** Formats CJK spacing in the selection, or the current block if nothing is selected. */
 export function handleFormatCJK(view: EditorView): boolean {
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const { from, to } = view.state.selection.main;
 
   if (from !== to) {
-    // Format selection
-    const selectedText = view.state.doc.sliceString(from, to);
+    // The BLOCKS the selection spans, not the selected characters. CJK spacing
+    // is a property of the boundary BETWEEN two adjacent characters, and a
+    // sub-word selection cannot express one — selecting the Latin word in
+    // `中文段落brown混排English文本` contains no boundary at all, so source did
+    // nothing while WYSIWYG spaced the whole line. Widening makes the selection
+    // name a region to fix rather than the exact text to rewrite.
+    const doc = view.state.doc;
+    const all = Array.from({ length: doc.lines }, (_, i) => doc.line(i + 1).text);
+    const span = selectionBlockSpan(all, from, to, (offset) => doc.lineAt(offset).number);
+    const blockFrom = doc.line(span.start + 1).from;
+    const blockTo = doc.line(span.end + 1).to;
+
+    const selectedText = doc.sliceString(blockFrom, blockTo);
     const formatted = formatSelection(selectedText, config, { preserveTwoSpaceHardBreaks });
     if (formatted !== selectedText) {
       view.dispatch({
-        changes: { from, to, insert: formatted },
-        selection: { anchor: from, head: from + formatted.length },
+        changes: { from: blockFrom, to: blockTo, insert: formatted },
+        selection: { anchor: blockFrom, head: blockFrom + formatted.length },
       });
     }
     return true;
@@ -76,7 +91,7 @@ export function formatCJKCurrentBlock(
 
 /** Formats CJK spacing across the entire document, preserving cursor position. */
 export function handleFormatCJKFile(view: EditorView): boolean {
-  const config = useSettingsStore.getState().cjkFormatting;
+  const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   const content = view.state.doc.toString();
   const formatted = formatMarkdown(content, config, { preserveTwoSpaceHardBreaks });
@@ -135,18 +150,12 @@ export function handleCollapseBlankLines(view: EditorView): boolean {
   return applyFullDocumentTransform(view, collapseNewlines);
 }
 
-/** Normalizes all line endings to the specified style and updates document metadata. */
-export function handleLineEndings(view: EditorView, target: "lf" | "crlf"): boolean {
-  const windowLabel = getWindowLabel();
-  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-
-  // Apply the transformation via proper transaction
-  applyFullDocumentTransform(view, (content) => normalizeLineEndings(content, target));
-
-  // Update metadata in store (this doesn't affect editor state)
-  if (tabId) {
-    useDocumentStore.getState().setLineMetadata(tabId, { lineEnding: target });
-  }
-
-  return true;
+/**
+ * Record the document's line-ending convention. METADATA-ONLY (WI-1.7): the
+ * buffer is LF-canonical — CodeMirror normalises CRLF on insert anyway, so the
+ * old whole-document round-trip changed nothing while adding a useless undo
+ * entry and collapsing the selection.
+ */
+export function handleLineEndings(_view: EditorView, target: "lf" | "crlf"): boolean {
+  return setDocumentLineEnding(target);
 }

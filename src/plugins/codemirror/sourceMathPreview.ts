@@ -12,14 +12,15 @@
  *   - Click-outside the popup auto-saves; Escape cancels
  *
  * @coordinates-with sourceMathPopup/SourceMathPopupView.ts — the editable popup
- * @coordinates-with stores/sourceMathPopupStore.ts — popup state
+ * @coordinates-with sourceMathPopup/SourceMathPopupView.ts — the state PORT
  * @coordinates-with toolbarActions/sourceMathActions.ts — findInlineMathAtCursor, findBlockMathAtCursor
  * @module plugins/codemirror/sourceMathPreview
  */
 
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { findInlineMathAtCursor, findBlockMathAtCursor } from "@/plugins/toolbarActions/sourceMathActions";
-import { useSourceMathPopupStore } from "@/stores/sourceMathPopupStore";
+import type { StoreApi } from "@/plugins/shared/types";
+import type { SourceMathPopupState } from "@/plugins/sourceMathPopup/SourceMathPopupView";
 import { SourceMathPopupView } from "@/plugins/sourceMathPopup/SourceMathPopupView";
 
 class SourceMathPreviewPlugin {
@@ -27,15 +28,18 @@ class SourceMathPreviewPlugin {
   private pendingUpdate = false;
   private popupView: SourceMathPopupView;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorView, private store: StoreApi<SourceMathPopupState>) {
     this.view = view;
-    this.popupView = new SourceMathPopupView(view);
+    // The popup declares its own state PORT and receives a store satisfying
+    // it (ADR-015). This file already holds the store, so supplying it here
+    // removes the popup plugin's own import without adding one anywhere.
+    this.popupView = new SourceMathPopupView(view, store);
     this.scheduleCheck();
   }
 
   update(update: ViewUpdate) {
     // Don't recheck while popup is open (user is editing math content)
-    if (useSourceMathPopupStore.getState().isOpen) return;
+    if (this.store.getState().isOpen) return;
 
     if (update.selectionSet || update.docChanged) {
       this.scheduleCheck();
@@ -58,7 +62,7 @@ class SourceMathPreviewPlugin {
     if (from !== to) return;
 
     // Don't open if already open
-    if (useSourceMathPopupStore.getState().isOpen) return;
+    if (this.store.getState().isOpen) return;
 
     // Check for block math first ($$...$$ or ```latex...```)
     const blockMathRange = findBlockMathAtCursor(this.view, from);
@@ -98,7 +102,7 @@ class SourceMathPreviewPlugin {
       };
     }
 
-    useSourceMathPopupStore.getState().openPopup(anchorRect, content, mathFrom, mathTo, isBlock);
+    this.store.getState().openPopup(anchorRect, content, mathFrom, mathTo, isBlock);
   }
 
   destroy() {
@@ -106,6 +110,6 @@ class SourceMathPreviewPlugin {
   }
 }
 
-export function createSourceMathPreviewPlugin() {
-  return [ViewPlugin.fromClass(SourceMathPreviewPlugin)];
+export function createSourceMathPreviewPlugin(store: StoreApi<SourceMathPopupState>) {
+  return [ViewPlugin.define((view) => new SourceMathPreviewPlugin(view, store))];
 }

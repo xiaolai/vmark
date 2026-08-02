@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockReadTextFile = vi.fn();
 const mockFindExistingTabForPath = vi.fn();
 const mockCreateTab = vi.fn();
-const mockInitDocument = vi.fn();
+const mockIngestExternalContent = vi.fn();
 const mockSetLineMetadata = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({ readTextFile: (...a: unknown[]) => mockReadTextFile(...a) }));
@@ -15,14 +15,17 @@ vi.mock("@/stores/tabStore", () => ({
 }));
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
-    getState: () => ({ initDocument: mockInitDocument, setLineMetadata: mockSetLineMetadata }),
+    getState: () => ({
+      ingestExternalContent: mockIngestExternalContent,
+      setLineMetadata: mockSetLineMetadata,
+    }),
   },
 }));
 
 import { restoreWorkspaceTabs } from "./restoreWorkspaceTabs";
 
 beforeEach(() => {
-  [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockInitDocument, mockSetLineMetadata]
+  [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockIngestExternalContent, mockSetLineMetadata]
     .forEach((m) => m.mockReset());
   mockFindExistingTabForPath.mockReturnValue(null);
   mockReadTextFile.mockResolvedValue("content");
@@ -42,8 +45,13 @@ describe("restoreWorkspaceTabs", () => {
     const created = await restoreWorkspaceTabs("main", ["/a.md", "/b.md"]);
     expect(created).toBe(2);
     expect(mockCreateTab).toHaveBeenCalledTimes(2);
-    expect(mockInitDocument).toHaveBeenCalledWith("tab-/a.md", "content", "/a.md");
-    expect(mockSetLineMetadata).toHaveBeenCalledTimes(2);
+    // Content enters through the disk-open door, which derives line metadata.
+    expect(mockIngestExternalContent).toHaveBeenCalledWith(
+      "tab-/a.md", "content", "disk-open", { filePath: "/a.md" },
+    );
+    expect(mockIngestExternalContent).toHaveBeenCalledTimes(2);
+    // Line metadata derives inside the disk-open door now — no separate call.
+    expect(mockSetLineMetadata).not.toHaveBeenCalled();
   });
 
   it("skips paths that already have an open tab (dedup guard)", async () => {

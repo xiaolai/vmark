@@ -12,19 +12,10 @@ vi.mock("@/plugins/syntaxReveal/marks", () => ({
   findWordAtCursor: vi.fn(),
 }));
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: vi.fn(() => ({
-      openPopup: vi.fn(),
-    })),
-  },
-}));
-
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: vi.fn(() => ({
-      openPopup: vi.fn(),
-    })),
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    openLinkPopup: vi.fn(),
+    openWikiLinkPopup: vi.fn(),
   },
 }));
 
@@ -42,11 +33,10 @@ vi.mock("./wysiwygAdapterUtils", () => ({
 }));
 
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
 import { resolveLinkPopupPayload } from "@/plugins/formatToolbar/linkPopupUtils";
 import { expandedToggleMark as expandedToggleMarkTiptap } from "@/plugins/editorPlugins/expandedToggleMark";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import { isViewConnected } from "./wysiwygAdapterUtils";
 import type { WysiwygToolbarContext } from "./types";
 
@@ -128,26 +118,25 @@ describe("openLinkEditor", () => {
   });
 
   it("opens wiki link popup when cursor is inside a wikiLink", () => {
-    const openPopup = vi.fn();
-    vi.mocked(useWikiLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openWikiLinkPopup);
+    openPopup.mockClear();
 
     const ctx = createContext({ inWikiLink: true });
     const result = openLinkEditor(ctx);
 
     expect(result).toBe(true);
-    expect(openPopup).toHaveBeenCalledWith(
-      expect.objectContaining({ top: 100, left: 200 }),
-      "test-page",
-      5
-    );
+    expect(openPopup).toHaveBeenCalledWith({
+      anchorRect: expect.objectContaining({ top: 100, left: 200 }),
+      target: "test-page",
+      nodePos: 5,
+    });
     expect(ctx.view!.focus).toHaveBeenCalled();
   });
 
   it("handles error when opening wiki link popup", async () => {
-    const openPopup = vi.fn(() => {
+    vi.mocked(hostPopups.openWikiLinkPopup).mockImplementationOnce(() => {
       throw new Error("popup error");
     });
-    vi.mocked(useWikiLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
     const debug = await import("@/utils/debug");
 
     const ctx = createContext({ inWikiLink: true });
@@ -186,8 +175,8 @@ describe("openLinkEditor", () => {
       linkTo: 15,
     } as never);
 
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
+    openPopup.mockClear();
 
     const ctx = createContext();
     openLinkEditor(ctx);
@@ -265,8 +254,8 @@ describe("openLinkEditor", () => {
       linkTo: 15,
     } as never);
 
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
+    openPopup.mockClear();
 
     const ctx = createContext();
     ctx.context = { inLink: { href: "https://existing.com" } } as never;
@@ -312,8 +301,8 @@ describe("openLinkEditor", () => {
   });
 
   it("handles wiki link with null value attr", () => {
-    const openPopup = vi.fn();
-    vi.mocked(useWikiLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openWikiLinkPopup);
+    openPopup.mockClear();
 
     // Create a view where the wikiLink node has value: null
     const ctx = createContext({ inWikiLink: true });
@@ -330,9 +319,7 @@ describe("openLinkEditor", () => {
     openLinkEditor(ctx);
 
     expect(openPopup).toHaveBeenCalledWith(
-      expect.any(Object),
-      "", // null coerced to empty string
-      5
+      expect.objectContaining({ target: "", nodePos: 5 }) // null coerced to ""
     );
   });
 });

@@ -18,21 +18,26 @@ vi.mock("@/utils/markdownUrl", () => ({
   encodeMarkdownUrl: vi.fn((url: string) => url.replace(/ /g, "%20")),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: () => ({ filePath: "/path/to/doc.md" }),
-    }),
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => "/path/to/doc.md" },
+  // Mirrors the real helper: guards the LABEL lookup, and answers null for a
+  // window with no active document. Tests below drive `getWindowLabel` to
+  // reach both branches, so this must actually consult it rather than always
+  // returning a path.
+  activeFilePathForCurrentWindow: () => {
+    let label: string;
+    try {
+      label = mockWindowLabel();
+    } catch {
+      return null;
+    }
+    return label === "main" ? "/path/to/doc.md" : null;
   },
 }));
 
 const mockOpenPopup = vi.fn();
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: vi.fn(() => ({
-      openPopup: mockOpenPopup,
-    })),
-  },
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: { openMediaPopup: (...a: unknown[]) => mockOpenPopup(...a) },
 }));
 
 vi.mock("@/utils/mediaPathDetection", () => ({
@@ -40,20 +45,15 @@ vi.mock("@/utils/mediaPathDetection", () => ({
   hasAudioExtension: vi.fn(() => false),
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: { main: "tab1" },
-    }),
-  },
-}));
+
 
 vi.mock("@/utils/debug", () => ({
   sourceActionError: vi.fn(),
 }));
 
+const mockWindowLabel = vi.fn(() => "main");
 vi.mock("@/services/navigation/windowFocus", () => ({
-  getWindowLabel: vi.fn(() => "main"),
+  getWindowLabel: () => mockWindowLabel(),
 }));
 
 vi.mock("@/utils/markdownLinkPatterns", () => ({
@@ -86,7 +86,6 @@ import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 function createView(doc: string, ranges: Array<{ from: number; to: number }>): EditorView {
   const parent = document.createElement("div");
@@ -453,7 +452,7 @@ describe("insertImage (async paths)", () => {
 
   it("falls back to template when needsCopy=true but getActiveFilePath returns null (line 247)", async () => {
     // getWindowLabel returns a label with no active tab → tabId is null → getActiveFilePath returns null
-    vi.mocked(getWindowLabel).mockReturnValue("window-with-no-tab");
+    mockWindowLabel.mockReturnValue("window-with-no-tab");
 
     const view = createView("", [{ from: 0, to: 0 }]);
     vi.mocked(readClipboardImagePath).mockResolvedValue({
@@ -470,10 +469,15 @@ describe("insertImage (async paths)", () => {
       // Template inserted since getActiveFilePath returned null
       expect(view.state.doc.toString()).toBe("![](url)");
     });
+    // The document text alone does NOT separate the branches — the copy path
+    // can also end up inserting the template. What distinguishes them is that
+    // with no document path there is nowhere to copy TO, so the copy is never
+    // attempted.
+    expect(copyImageToAssets).not.toHaveBeenCalled();
     view.destroy();
 
     // Restore
-    vi.mocked(getWindowLabel).mockReturnValue("main");
+    mockWindowLabel.mockReturnValue("main");
   });
 
   it("logs error when insertImageAsync throws (line 310)", async () => {
@@ -498,7 +502,7 @@ describe("insertImage (async paths)", () => {
 describe("getActiveFilePath — error path (line 42)", () => {
   it("returns null when getWindowLabel throws", async () => {
     // getWindowLabel throws → catch block returns null → getActiveFilePath returns null
-    vi.mocked(getWindowLabel).mockImplementation(() => {
+    mockWindowLabel.mockImplementation(() => {
       throw new Error("focus error");
     });
 
@@ -517,9 +521,10 @@ describe("getActiveFilePath — error path (line 42)", () => {
     await vi.waitFor(() => {
       expect(view.state.doc.toString()).toBe("![](url)");
     });
+    expect(copyImageToAssets).not.toHaveBeenCalled();
     view.destroy();
 
     // Restore
-    vi.mocked(getWindowLabel).mockReturnValue("main");
+    mockWindowLabel.mockReturnValue("main");
   });
 });

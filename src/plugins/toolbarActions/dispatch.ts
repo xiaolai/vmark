@@ -25,7 +25,7 @@
  * @module plugins/toolbarActions/dispatch
  */
 
-import { useEditorStore } from "@/stores/editorStore";
+import { hostEditors } from "@/plugins/shared/hostEditors";
 import {
   captureOrigin,
   dispatchAdapterToSource,
@@ -47,7 +47,10 @@ export type EditorDispatchSurface = "wysiwyg" | "source";
  *  Exported for the context-menu snapshot provider (context READING only —
  *  dispatch goes through the guarded mechanics below). */
 export function buildSourceContext(): SourceToolbarContext {
-  const state = useEditorStore.getState().source;
+  const state = hostEditors.source() as ReturnType<typeof hostEditors.source> & {
+    editorView: SourceToolbarContext["view"];
+    context: SourceToolbarContext["context"];
+  };
   return {
     surface: "source",
     view: state.editorView,
@@ -58,7 +61,11 @@ export function buildSourceContext(): SourceToolbarContext {
 
 /** Build a WYSIWYG ToolbarContext from the live editorStore state. */
 export function buildWysiwygContext(): WysiwygToolbarContext {
-  const state = useEditorStore.getState().tiptap;
+  const state = hostEditors.wysiwyg() as ReturnType<typeof hostEditors.wysiwyg> & {
+    editorView: WysiwygToolbarContext["view"];
+    editor: WysiwygToolbarContext["editor"];
+    context: WysiwygToolbarContext["context"];
+  };
   return {
     surface: "wysiwyg",
     view: state.editorView,

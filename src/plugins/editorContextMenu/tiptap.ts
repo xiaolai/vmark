@@ -20,7 +20,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { usePopupStore } from "@/stores/popupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { buildWysiwygSnapshot } from "./snapshot";
 
 /** True when `pos` sits anywhere inside a table node. */
@@ -58,7 +58,7 @@ export function handleEditorContextMenu(view: EditorView, event: MouseEvent): bo
   /* v8 ignore next -- @preserve reason: cursor context is always registered once the editor renders; guard for teardown races */
   if (!snapshot) return true;
 
-  usePopupStore.getState().editorContextOpenMenu({
+  hostPopups.openEditorContextMenu({
     position: { x: event.clientX, y: event.clientY },
     snapshot,
   });

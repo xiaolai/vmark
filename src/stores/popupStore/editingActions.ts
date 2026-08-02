@@ -1,7 +1,6 @@
 /**
  * Popup-store editing/toast action group — blockMathEditing, dropZone,
- * editorContextMenu, imageContextMenu, imagePasteToast, and
- * inlineMathEditing.
+ * editorContextMenu, imageContextMenu, and imagePasteToast.
  *
  * Purpose: action implementations for the transient editing-state and
  * image-toast slices of the popup store. Extracted verbatim from
@@ -19,7 +18,6 @@ import {
   initialEditorContextMenu,
   initialImageContextMenu,
   initialImagePasteToast,
-  initialInlineMathEditing,
 } from "./slices";
 import type { EditingPopupActions, PopupGet, PopupSet } from "./types";
 
@@ -27,17 +25,6 @@ export function createEditingPopupActions(
   set: PopupSet,
   get: PopupGet,
 ): EditingPopupActions {
-  /**
-   * Clear inline-math editing state, guarded by position so a stale call
-   * (e.g. from an unmounting editor) cannot clobber a newer session.
-   * Shared by inlineMathStopEditing and inlineMathClear (identical semantics).
-   */
-  const inlineMathClearAt = (pos: number) => {
-    if (get().inlineMathEditing.editingNodePos === pos) {
-      set({ inlineMathEditing: initialInlineMathEditing });
-    }
-  };
-
   return {
     /* blockMathEditing */
     blockMathStartEditing: (pos, content) =>
@@ -122,18 +109,5 @@ export function createEditingPopupActions(
       if (onDismiss) onDismiss();
     },
 
-    /* inlineMathEditing */
-    inlineMathStartEditing: (pos, callbacks) => {
-      const { editingNodePos, activeCallbacks } = get().inlineMathEditing;
-      if (editingNodePos !== null && editingNodePos !== pos && activeCallbacks) {
-        activeCallbacks.forceExit();
-      }
-      set({
-        inlineMathEditing: { editingNodePos: pos, activeCallbacks: callbacks },
-      });
-    },
-    inlineMathStopEditing: inlineMathClearAt,
-    inlineMathIsEditingAt: (pos) => get().inlineMathEditing.editingNodePos === pos,
-    inlineMathClear: inlineMathClearAt,
   };
 }

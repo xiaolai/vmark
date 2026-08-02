@@ -69,6 +69,59 @@ if (actual < limit) {
   process.exit(1);
 }
 
+/**
+ * RULE-LEVEL EXEMPTIONS, counted.
+ *
+ * The known-violations list was never the whole ceiling. A `pathNot` entry in
+ * `.dependency-cruiser.cjs` removes a path from a rule's SCOPE, so its
+ * violations never reach the known list at all — the headline said 7 while 24
+ * exemptions masked roughly 198 more. Exemptions are rule config, so no
+ * ratchet read them and four new ones landed unnoticed; the budget file's own
+ * note said "22 pathNot entries … ~194 violations" and both numbers were
+ * already wrong when written.
+ *
+ * Counting them here does not fix the coupling. It makes ADDING an exemption a
+ * visible bump in a committed number rather than one more line in a config
+ * diff, which is the difference between debt and drift.
+ */
+const exemptionBudget = budget.maxRuleExemptions;
+if (exemptionBudget && typeof exemptionBudget === "object") {
+  const { forbidden } = await import(join(root, ".dependency-cruiser.cjs"))
+    .then((m) => m.default ?? m);
+  const counted = {};
+  for (const rule of forbidden ?? []) {
+    const list = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+    const n = list(rule.from?.pathNot).length + list(rule.to?.pathNot).length;
+    if (n > 0) counted[rule.name] = n;
+  }
+
+  const problems = [];
+  for (const [name, allowed] of Object.entries(exemptionBudget)) {
+    const found = counted[name] ?? 0;
+    if (found > allowed) {
+      problems.push(`   ${name}: ${found} exemptions, budget ${allowed} — an exemption was ADDED.`);
+    } else if (found < allowed) {
+      problems.push(`   ${name}: only ${found} exemptions but budget says ${allowed} — lower it to lock the win in.`);
+    }
+  }
+  for (const name of Object.keys(counted)) {
+    if (!(name in exemptionBudget)) {
+      problems.push(`   ${name}: ${counted[name]} exemptions and NO budget entry — add one.`);
+    }
+  }
+
+  if (problems.length) {
+    console.error("\n❌ Rule-exemption budget:\n" + problems.join("\n") + "\n");
+    console.error(
+      "   A pathNot entry removes paths from a rule's SCOPE, so its violations\n" +
+        "   never reach the known-violations list. Ratchets DOWN only.\n",
+    );
+    process.exit(1);
+  }
+  const total = Object.values(counted).reduce((a, b) => a + b, 0);
+  console.log(`✅ Rule-exemption budget held (${total} pathNot entries across ${Object.keys(counted).length} rules).`);
+}
+
 console.log(
   `✅ Extension-boundary budget held (${actual}/${limit} known violations).`,
 );

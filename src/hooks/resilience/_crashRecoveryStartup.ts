@@ -51,109 +51,130 @@ export function useCrashRecoveryStartup(): void {
   }, [windowLabel]);
 }
 
+/**
+ * Restore each snapshot, keeping recovery tabs out of the user's way.
+ *
+ * `createTab` auto-activates, so the active tab is captured BEFORE the loop and
+ * put back after — otherwise a recovery tab steals focus from whatever the user
+ * meant to see, such as a Finder-opened file loading concurrently.
+ */
+function restoreAll(
+  windowLabel: string,
+  snapshots: RecoverySnapshot[],
+): { restored: number; failed: number; toDelete: string[] } {
+  const prevActiveTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+  const toDelete: string[] = [];
+  let restored = 0;
+  let failed = 0;
+
+  for (const snapshot of snapshots) {
+    try {
+      restoreSnapshot(windowLabel, snapshot);
+      restored += 1;
+      toDelete.push(snapshot.tabId);
+    } catch (error) {
+      failed += 1;
+      crashRecoveryLog("Failed to restore snapshot:", snapshot.tabId, errorMessage(error));
+    }
+  }
+
+  if (restored > 0 && prevActiveTabId) {
+    const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
+    if (tabs.some((t) => t.id === prevActiveTabId)) {
+      useTabStore.getState().setActiveTab(windowLabel, prevActiveTabId);
+    }
+  }
+
+  return { restored, failed, toDelete };
+}
+
+/**
+ * Tell the user what was recovered.
+ *
+ * Escalation tracks impact: full success is informational, a partial recovery
+ * pins a warning with counts so they can see what did NOT come back, and total
+ * failure is an error — unsaved work was lost and silence would hide it.
+ */
+function reportRecovery(restored: number, failed: number, attempted: number): void {
+  if (failed > 0 && restored > 0) {
+    toast.warning(
+      i18n.t("dialog:toast.crashRecoveredPartial", {
+        recovered: restored,
+        total: attempted,
+        failed,
+      }),
+      { pin: true },
+    );
+    crashRecoveryLog(`Partial recovery: ${restored}/${attempted} (${failed} failed)`);
+    return;
+  }
+  if (failed > 0) {
+    toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
+    crashRecoveryLog(`Recovery failed: 0/${attempted} restored`);
+    return;
+  }
+  if (restored > 0) {
+    toast.info(i18n.t("dialog:toast.crashRecoveredAll", { count: restored }));
+    crashRecoveryLog(`Restored ${restored} document(s)`);
+  }
+}
+
 async function runCrashRecovery(windowLabel: string): Promise<void> {
   try {
-    // Wait for hot exit to finish first
+    // Hot exit restore has to finish first — otherwise it clears the tabs
+    // recovery just created.
     const completed = await waitForRestoreComplete();
     if (!completed) {
       crashRecoveryLog("Hot exit restore timed out — proceeding with recovery anyway");
     }
 
-    // Clean up old snapshots
     await deleteStaleRecoveryFiles(7);
 
-    // Read remaining snapshots
     const snapshots = await readRecoverySnapshots();
     if (snapshots.length === 0) {
       crashRecoveryLog("No recovery snapshots found");
       return;
     }
 
-    // Deduplicate by filePath — keep the newest snapshot for each path
     const deduped = deduplicateSnapshots(snapshots);
     crashRecoveryLog(`Found ${deduped.length} recovery snapshot(s)`);
 
-    // Snapshot the current active tab BEFORE creating recovery tabs.
-    // createTab() auto-activates, which would steal focus from whatever
-    // the user intended to see (e.g., a Finder-opened file that
-    // useFinderFileOpen is loading concurrently).
-    const prevActiveTabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+    const { restored, failed, toDelete } = restoreAll(windowLabel, deduped);
 
-    let restoredCount = 0;
-    let failedCount = 0;
-
-    for (const snapshot of deduped) {
-      try {
-        restoreSnapshot(windowLabel, snapshot);
-        restoredCount++;
-
-        // Delete the recovery file after successful restore
-        await deleteRecoverySnapshot(snapshot.tabId);
-      } catch (error) {
-        failedCount++;
-        crashRecoveryLog(
-          "Failed to restore snapshot:",
-          snapshot.tabId,
-          errorMessage(error)
-        );
-      }
+    // Delete the files for everything restored, plus the collapsed duplicates.
+    const collapsed = snapshots.filter((s) => !deduped.includes(s)).map((s) => s.tabId);
+    for (const tabId of [...toDelete, ...collapsed]) {
+      await deleteRecoverySnapshot(tabId);
     }
 
-    // Restore the previously active tab — recovery tabs belong in the
-    // background, never stealing focus from hot-exit or Finder-opened files.
-    if (restoredCount > 0 && prevActiveTabId) {
-      const tabs = useTabStore.getState().getTabsByWindow(windowLabel);
-      if (tabs.some((t) => t.id === prevActiveTabId)) {
-        useTabStore.getState().setActiveTab(windowLabel, prevActiveTabId);
-      }
-    }
-
-    // Delete any snapshots that were dropped as duplicates
-    for (const snapshot of snapshots) {
-      if (!deduped.includes(snapshot)) {
-        await deleteRecoverySnapshot(snapshot.tabId);
-      }
-    }
-
-    const totalAttempted = deduped.length;
-    if (failedCount > 0 && restoredCount > 0) {
-      // Partial recovery — pin so the user can read the count breakdown
-      // before deciding what to do about the unrecovered docs.
-      toast.warning(
-        i18n.t("dialog:toast.crashRecoveredPartial", {
-          recovered: restoredCount,
-          total: totalAttempted,
-          failed: failedCount,
-        }),
-        { pin: true },
-      );
-      crashRecoveryLog(`Partial recovery: ${restoredCount}/${totalAttempted} (${failedCount} failed)`);
-    } else if (failedCount > 0 && restoredCount === 0) {
-      toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
-      crashRecoveryLog(`Recovery failed: 0/${totalAttempted} restored`);
-    } else if (restoredCount > 0) {
-      toast.info(
-        i18n.t("dialog:toast.crashRecoveredAll", { count: restoredCount })
-      );
-      crashRecoveryLog(`Restored ${restoredCount} document(s)`);
-    }
+    reportRecovery(restored, failed, deduped.length);
   } catch (error) {
-    crashRecoveryLog(
-      "Crash recovery failed:",
-      errorMessage(error)
-    );
+    crashRecoveryLog("Crash recovery failed:", errorMessage(error));
     toast.error(i18n.t("dialog:toast.crashRecoveryFailed"), { pin: true });
   }
 }
 
 /**
- * Deduplicate snapshots by filePath, keeping the newest for each path.
- * Untitled documents (filePath === null) are never deduplicated.
+ * Collapse only GENUINELY redundant snapshots — same path AND same content.
+ *
+ * Snapshots are written per TAB, so two tabs open on one file are two
+ * snapshots with one path. Deduplicating by path alone kept the newest and
+ * deleted the rest outright, discarding unsaved edits that differed — the
+ * exact data this feature exists to protect, lost by the feature itself.
+ *
+ * Identical content is different: nothing is recoverable from the second copy
+ * that the first does not already have, and restoring both would multiply tabs
+ * across repeated crashes. Newest wins there, so the surviving snapshot is the
+ * one whose timestamp the user would recognise.
+ *
+ * Untitled documents are never collapsed. They have no shared identity to
+ * compare on, and two scratch buffers with the same text are still two buffers
+ * the user had open.
  */
 function deduplicateSnapshots(
   snapshots: RecoverySnapshot[]
 ): RecoverySnapshot[] {
-  const byPath = new Map<string, RecoverySnapshot>();
+  const byPathAndContent = new Map<string, RecoverySnapshot>();
   const untitled: RecoverySnapshot[] = [];
 
   for (const snap of snapshots) {
@@ -161,13 +182,16 @@ function deduplicateSnapshots(
       untitled.push(snap);
       continue;
     }
-    const existing = byPath.get(snap.filePath);
+    // NUL cannot appear in a path, so it cannot forge a collision between a
+    // path ending in content and a shorter path with longer content.
+    const key = `${snap.filePath}\0${snap.content}`;
+    const existing = byPathAndContent.get(key);
     if (!existing || snap.timestamp > existing.timestamp) {
-      byPath.set(snap.filePath, snap);
+      byPathAndContent.set(key, snap);
     }
   }
 
-  return [...untitled, ...byPath.values()];
+  return [...untitled, ...byPathAndContent.values()];
 }
 
 /**
@@ -182,17 +206,21 @@ function restoreSnapshot(
   // Always create as untitled to bypass filePath dedup, then set filePath in doc
   const tabId = useTabStore.getState().createTab(windowLabel, null);
 
-  // Update tab title to match the original
   if (snapshot.filePath) {
+    // File-backed: the PATH is the title's source of truth. `updateTabPath`
+    // derives it, which also stays correct if the file was renamed on disk
+    // while the app was down — the snapshot's title would be stale.
     useTabStore.getState().updateTabPath(tabId, snapshot.filePath);
+  } else if (snapshot.title.trim()) {
+    // Untitled: nothing derives the title, so the snapshot is the only record
+    // of it. Without this the buffer came back renumbered by `createTab`'s
+    // counter and the user could not tell which scratch document it was.
+    useTabStore.getState().updateTabTitle(tabId, snapshot.title);
   }
 
-  // Initialize document with recovered content, marked dirty
-  // savedContent = "" ensures isDirty = true (content !== savedContent)
-  useDocumentStore.getState().initDocument(
-    tabId,
-    snapshot.content,
-    snapshot.filePath,
-    "" // savedContent — makes it dirty
-  );
+  // Create empty-clean, then apply the recovered content as a crash-recovery
+  // EDIT: dirty against the empty baseline (recovered work IS unsaved), with
+  // the snapshot's line convention derived — this path never set metadata.
+  useDocumentStore.getState().initDocument(tabId, "", snapshot.filePath, { savedContent: "" });
+  useDocumentStore.getState().ingestExternalContent(tabId, snapshot.content, "crash-recovery");
 }

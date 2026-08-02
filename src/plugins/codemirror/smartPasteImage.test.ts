@@ -46,12 +46,11 @@ vi.mock("@/utils/imagePathDetection", () => ({
   detectMultipleImagePaths: (...args: unknown[]) => mockDetectMultipleImagePaths(...args),
 }));
 
-vi.mock("@/stores/imagePasteToastStore", () => ({
-  useImagePasteToastStore: {
-    getState: () => ({
-      showToast: (...args: unknown[]) => mockShowToast(...args),
-      showMultiToast: (...args: unknown[]) => mockShowMultiToast(...args),
-    }),
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    // One seam member for both toasts; `imageResults` is what tells them apart.
+    showImagePasteToast: (r: { imageResults?: unknown[] }) =>
+      r.imageResults ? mockShowMultiToast(r) : mockShowToast(r),
   },
 }));
 

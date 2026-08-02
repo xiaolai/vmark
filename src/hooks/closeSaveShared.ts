@@ -53,17 +53,15 @@ export const MULTI_SAVE_BUTTONS = {
   cancel: "Cancel",
 } as const;
 
-// WI-1B.8 — derive Save dialog filters per-tab from the format
-// registry. Untitled tabs default to markdown (the canonical "Save As"
-// flow); existing tabs use their format's adapter filters.
-import {
-  dispatchEditor,
-  getFormatById,
-} from "@/lib/formats/registry";
-
-const MARKDOWN_FALLBACK_FILTERS = [
-  { name: "Markdown", extensions: ["md"] },
-];
+// WI-1B.8 — derive Save dialog filters per-tab from the format registry.
+// Untitled tabs default to markdown (the canonical "Save As" flow). Filter
+// NAMES resolve through i18n at dialog time: the adapter carries a key, not a
+// literal, so the name is not frozen in English at module-load time. The
+// pre-bootstrap fallback is the SHARED markdownSaveFilters() — the local copy
+// it replaces listed only `.md`, hiding `.mdx` files here but not in the open
+// dialog.
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
+import { resolveSaveFilters, markdownSaveFilters } from "@/lib/formats/saveFilters";
 
 export function saveFiltersForFilePath(
   filePath: string | null,
@@ -72,16 +70,10 @@ export function saveFiltersForFilePath(
     const cfg = filePath
       ? dispatchEditor(filePath)
       : (getFormatById("markdown") ?? dispatchEditor(null));
-    return cfg.adapters.saveDialogFilters.map((f) => ({
-      name: f.name,
-      extensions: [...f.extensions],
-    }));
+    return resolveSaveFilters(cfg);
   } catch {
-    /* registry not bootstrapped (test edge) — preserve prior behavior */
-    return MARKDOWN_FALLBACK_FILTERS.map((f) => ({
-      ...f,
-      extensions: [...f.extensions],
-    }));
+    /* registry not bootstrapped (test edge) — one shared markdown fallback */
+    return markdownSaveFilters();
   }
 }
 

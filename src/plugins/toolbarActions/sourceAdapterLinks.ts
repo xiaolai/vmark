@@ -10,9 +10,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { generateSlug, makeUniqueSlug, type HeadingWithId } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
@@ -113,7 +111,7 @@ function showLinkPopupForExistingLink(view: EditorView): boolean {
   }
 
   // Open the link popup
-  useLinkPopupStore.getState().openPopup({
+  hostPopups.openLinkPopup({
     href: link.href,
     linkFrom: link.from,
     linkTo: link.to,
@@ -181,7 +179,7 @@ function openLinkCreatePopup(
   const anchorRect = getAnchorRectFromRange(view, rangeFrom, rangeTo);
   if (!anchorRect) return;
 
-  useLinkCreatePopupStore.getState().openPopup({
+  hostPopups.openLinkCreatePopup({
     text,
     rangeFrom,
     rangeTo,
@@ -216,7 +214,7 @@ export async function insertLink(view: EditorView): Promise<boolean> {
   }
 
   // Block if create popup is already open
-  if (useLinkCreatePopupStore.getState().isOpen) {
+  if (hostPopups.anyLinkSurfaceOpen()) {
     return true;
   }
 
@@ -352,7 +350,7 @@ export function insertSourceBookmarkLink(view: EditorView): boolean {
     ? getBoundaryRects(view.dom as HTMLElement, containerEl)
     : getViewportBounds();
 
-  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+  const onSelect = (id: string, text: string) => {
     // Re-read current state to get fresh positions (doc may have changed)
     const { from: currentFrom, to: currentTo } = view.state.selection.main;
     const linkText = capturedSelectedText || text;
@@ -363,7 +361,9 @@ export function insertSourceBookmarkLink(view: EditorView): boolean {
       selection: { anchor: currentFrom + markdown.length },
     });
     view.focus();
-  }, { anchorRect, containerBounds });
+  };
+
+  hostPopups.openHeadingPicker({ headings, onSelect, anchorRect, containerBounds });
 
   return true;
 }

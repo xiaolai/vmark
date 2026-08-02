@@ -38,9 +38,17 @@ import {
 export type { SidebarViewMode, BrowserSidebarView, EffectiveTerminalPosition, UIStore, LineMatch, FileSearchResult } from "./uiStore/types";
 export { MAX_TERMINAL_SESSIONS } from "./uiStore/terminalSlice";
 
-const SIDEBAR_MIN_WIDTH = 180;
-const SIDEBAR_MAX_WIDTH = 480;
-const SIDEBAR_DEFAULT_WIDTH = 260;
+/**
+ * Sidebar width bounds — the ONE definition.
+ *
+ * Exported because hot-exit restore validates a persisted width before handing
+ * it to `setSidebarWidth`. It used to carry its own 150–500 copy, so a
+ * persisted 500 passed validation and was then clamped to 480: restore
+ * "succeeded" with a width it had just declared valid and did not apply.
+ */
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 480;
+export const SIDEBAR_DEFAULT_WIDTH = 260;
 
 export const TERMINAL_MIN_HEIGHT = 100;
 const TERMINAL_DEFAULT_HEIGHT = 250;

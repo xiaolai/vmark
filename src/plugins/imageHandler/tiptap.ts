@@ -16,7 +16,7 @@
  *
  * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets, saveImageToAssets
  * @coordinates-with utils/imagePathDetection.ts — image format and path detection
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI for paste confirmation
+ * @coordinates-with plugins/shared/hostPopups.ts — toast for paste confirmation
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
  * @coordinates-with plugins/imageHandler/imageHandlerInsert.ts — image insertion
  * @coordinates-with plugins/imageHandler/imageHandlerToast.ts — toast UI
@@ -30,7 +30,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { saveImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { detectMultipleImagePaths } from "@/utils/imagePathDetection";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
 import { withReentryGuard } from "@/utils/reentryGuard";
@@ -158,7 +158,7 @@ function handleDrop(view: EditorView, event: DragEvent, _slice: unknown, moved: 
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return false;
 
-  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+  const copyToAssets = hostSettings.copyImagesToAssets();
 
   // Check for dropped files
   const files = Array.from(dataTransfer.files);

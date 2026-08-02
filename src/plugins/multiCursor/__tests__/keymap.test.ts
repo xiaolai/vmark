@@ -6,7 +6,7 @@
  * 2. wrapViewCommand: converts (state, view => Transaction|null) to ProseMirror Command
  * 3. multiCursorKeymap plugin creation and Escape binding
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection, SelectionRange } from "@tiptap/pm/state";
 import type { Transaction } from "@tiptap/pm/state";
@@ -21,8 +21,20 @@ import { MultiSelection } from "../MultiSelection";
 import { multiCursorPlugin } from "../multiCursorPlugin";
 import { collapseMultiSelection } from "../commands";
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindHostShortcuts, resetHostShortcuts } from "@/plugins/shared/hostShortcuts";
+
+// The keymap reads the host seam now, not the store directly (ADR-015).
+// Binding it to the real store is exactly what the app does at startup, so
+// these cases keep driving the store and keep meaning the same thing.
+beforeEach(() => {
+  bindHostShortcuts({
+    getShortcut: (id) => useShortcutsStore.getState().getShortcut(id),
+    onChange: (listener) => useShortcutsStore.subscribe(listener),
+  });
+});
 
 afterEach(() => {
+  resetHostShortcuts();
   useShortcutsStore.setState({ customBindings: {} });
   vi.restoreAllMocks();
 });

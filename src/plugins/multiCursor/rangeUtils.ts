@@ -203,11 +203,23 @@ export function normalizeRangesWithPrimary(
   const primary = ranges[Math.min(Math.max(primaryIndex, 0), ranges.length - 1)];
   const normalized = normalizeRanges(ranges, doc, merge);
 
+  // Prefer the range that IS the primary — same start and end — before falling
+  // back to one that merely contains its start. Containment alone is ambiguous
+  // whenever ranges overlap, which the constructor permits since it does not
+  // merge: a collapsed cursor at 2 is contained by both [1,2] and [2,2], so
+  // `findIndex` picked the earlier one and rebuilding a selection from its own
+  // ranges silently moved the primary. The primary supplies $anchor/$head, which
+  // drive stored marks and toolbar state, so the user's active cursor changed
+  // with no edit.
   const primaryPos = primary.$from.pos;
-  const primaryMatch = normalized.findIndex(
-    (range) =>
-      range.$from.pos <= primaryPos && primaryPos <= range.$to.pos
+  const exact = normalized.findIndex(
+    (range) => range.$from.pos === primary.$from.pos && range.$to.pos === primary.$to.pos
   );
+  const primaryMatch = exact >= 0
+    ? exact
+    : normalized.findIndex(
+        (range) => range.$from.pos <= primaryPos && primaryPos <= range.$to.pos
+      );
 
   return {
     ranges: normalized,

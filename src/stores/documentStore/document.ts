@@ -6,6 +6,13 @@
  * Re-exported through `../documentStore.ts` so existing consumers keep
  * `import { useDocumentStore } from "@/stores/documentStore"`.
  *
+ * Two doors in — `setEditorContent` (editor domain, asserts canonical input;
+ * `setContent` survives only as a deprecated test alias, gated by
+ * externalWriterGate.test) and the external door
+ * (`initDocument`/`ingestExternalContent`), both canonicalising via
+ * `ingestExternalText`. `loadContent` is GONE: it duplicated the ingest
+ * baseline branch and had drifted from it (see ingestState.ts). The field contract lives in `documentState.ts`.
+ *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
  * @coordinates-with useFileWatcher.ts — calls markMissing/markDivergent on external changes
@@ -14,98 +21,40 @@
  */
 
 import { create } from "zustand";
-import type { CursorInfo } from "@/types/cursorSync";
-import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
-import type { DocumentState } from "./documentState";
+import { ingestExternalText } from "@/utils/editorText";
+import { INGEST_ORIGIN_SNAPSHOT } from "@/utils/ingestOrigin";
+import { applyTransferLineMetadata } from "@/utils/transferLineMetadata";
 import {
+  assertCanonicalEditorText,
+  assertRestoreState,
   buildPostSaveState,
   createInitialDocument,
   updateDoc,
 } from "./documentState";
+import { adoptDiskConvention, buildIngestState } from "./ingestState";
 import { useRevisionStore } from "./revision";
+import type { DocumentStore } from "./storeContract";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
-export type { DocumentState } from "./documentState";
+export type { DocumentRestoreState, DocumentState } from "./documentState";
+export type { SetContentOptions } from "./storeContract";
 
 /** Options for {@link DocumentStore.setContent}. */
-export interface SetContentOptions {
-  /**
-   * Whether this write carries a change the USER made. Default true.
-   *
-   * The WYSIWYG flush passes `false` when it is only re-serializing a document
-   * nobody edited. That distinction is load-bearing: the serializer's canonical
-   * output is not byte-identical to arbitrary on-disk markdown, so treating
-   * such a flush as an edit made auto-save (which flushes BEFORE testing
-   * `isDirty`) rewrite files the user had merely opened.
-   */
-  fromUserEdit?: boolean;
-}
-
-interface DocumentStore {
-  // Documents keyed by tab ID (changed from window label)
-  documents: Record<string, DocumentState>;
-
-  // Actions - now take tabId instead of windowLabel
-  initDocument: (tabId: string, content?: string, filePath?: string | null, savedContent?: string) => void;
-  setContent: (tabId: string, content: string, options?: SetContentOptions) => void;
-  loadContent: (
-    tabId: string,
-    content: string,
-    filePath?: string | null,
-    meta?: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
-  setFilePath: (tabId: string, path: string | null) => void;
-  markMissing: (tabId: string) => void;
-  clearMissing: (tabId: string) => void;
-  markDivergent: (tabId: string) => void;
-
-  setReadOnly: (tabId: string, readOnly: boolean) => void;
-  toggleReadOnly: (tabId: string) => void;
-  isReadOnly: (tabId: string) => boolean;
-
-  markSaved: (tabId: string, lastDiskContent?: string) => void;
-  markAutoSaved: (tabId: string, lastDiskContent?: string) => void;
-  /**
-   * Silently refresh the stored disk snapshot without touching content, dirty
-   * state, or any UI flags. Used when a cloud sync engine rewrote the file with
-   * a benign change (line endings/BOM/trailing newline) so that subsequent
-   * byte-for-byte comparisons match.
-   */
-  updateLastDiskContent: (tabId: string, diskContent: string) => void;
-  setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
-  /** Per-doc editor mode (ADR-009). */
-  setMode: (tabId: string, mode: "wysiwyg" | "source") => void;
-  setSelectedText: (tabId: string, text: string) => void;
-  setLineMetadata: (
-    tabId: string,
-    meta: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
-  removeDocument: (tabId: string) => void;
-
-  // Selectors
-  getDocument: (tabId: string) => DocumentState | undefined;
-  getAllDirtyDocuments: () => string[]; // Returns tabIds
-}
-
 /**
  * Tab-existence guard for `initDocument` (C1, defense-in-depth).
  *
- * documentStore stays decoupled from tabStore: the app wires a predicate at
- * the composition root (`main.tsx`) via `setTabExistenceGuard`, rather than
- * documentStore importing tabStore. The default is permissive (`null`), so
- * pure store unit tests — and any context without tab tracking — behave
- * exactly as before.
- *
- * When wired, `initDocument` no-ops if the tab was closed while its file read
- * was in flight (the orphan-resurrection race), mirroring the `updateDoc`
- * missing-key guard the sibling mutators already use. This is defense in depth
- * behind the primary caller-side re-check in `useFileOpen`.
+ * documentStore stays decoupled from tabStore: the app wires a predicate at the
+ * composition root (`main.tsx`) rather than importing tabStore here. The
+ * default is permissive (`null`), so pure store tests behave as before. When
+ * wired, `initDocument` no-ops for a tab closed mid-read (the
+ * orphan-resurrection race), behind the caller-side re-check in `useFileOpen`.
  */
 let tabExistsGuard: ((tabId: string) => boolean) | null = null;
 
 /** Wire (or clear with `null`) the tab-existence predicate consulted by
  *  `initDocument`. Called once at app startup; reset to `null` in tests. */
+
 export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): void {
   tabExistsGuard = fn;
 }
@@ -113,19 +62,12 @@ export function setTabExistenceGuard(fn: ((tabId: string) => boolean) | null): v
 /**
  * WI-1: invalidate the MCP revision whenever a tab's content actually changes.
  *
- * This is the single choke point every content writer passes through. Wiring
- * the bump into the Tiptap transaction listener alone left CodeMirror source
- * mode, the split-pane source editor, the workflow side panel, external-file
- * reloads and history restore able to change content while an already-read
- * revision stayed valid — so an AI write carrying it passed the STALE check
- * and clobbered the user's edits.
- *
- * Both `setContent` and `loadContent` route through here: they replace content
- * for different reasons (edit vs. reload) but have identical revision
- * semantics, and keeping one primitive is what stops them drifting apart
- * again. Guarded on a real change so a no-op write — the RAF-debounced Tiptap
- * flush re-serializes and re-sets identical content on every update — cannot
- * manufacture a false STALE.
+ * The single choke point every content writer passes through — wiring the bump
+ * into the Tiptap listener alone left source mode, split panes, workflows,
+ * external reloads and history restore able to change content while an
+ * already-read revision stayed valid, so an AI write passed the STALE check
+ * and clobbered the user's edits. Guarded on a real change so the RAF-debounced
+ * flush re-setting identical content cannot manufacture a false STALE.
  */
 function bumpRevisionIfContentChanged(
   tabId: string,
@@ -141,58 +83,73 @@ function bumpRevisionIfContentChanged(
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
   documents: {},
 
-  initDocument: (tabId, content = "", filePath = null, savedContent?) => {
-    // Defense-in-depth (C1): if the tab was closed while its file read was in
-    // flight, don't resurrect an orphan document entry. No-op when the guard
-    // is wired and reports the tab gone; permissive (proceed) when unwired.
+  initDocument: (tabId, content = "", filePath = null, restore?) => {
+    // Defense-in-depth (C1): don't resurrect an orphan entry for a tab closed
+    // mid-read. No-op when the guard reports it gone; permissive when unwired.
     if (tabExistsGuard && !tabExistsGuard(tabId)) {
       return;
     }
     const doc = createInitialDocument(content, filePath);
-    if (savedContent !== undefined) {
-      doc.savedContent = savedContent;
-      doc.lastDiskContent = savedContent;
-      doc.isDirty = savedContent !== content;
+    if (restore) {
+      assertRestoreState(restore);
+      // Both sides through the same boundary before comparing — a raw
+      // `savedContent` reported every CRLF or BOM'd document dirty on open.
+      const canonicalSaved = ingestExternalText(restore.savedContent).canonicalEditorText;
+      doc.savedContent = canonicalSaved;
+      // The DISK snapshot, when the sender has one. Falling back to the
+      // canonical text is the old behaviour and the best available guess.
+      doc.lastDiskContent = restore.lastDiskContent ?? restore.savedContent;
+      doc.isDirty = canonicalSaved !== doc.content;
+      // The file's convention, which canonical text erased. `createInitialDocument`
+      // derives hardBreakStyle (it survives canonicalisation) but cannot know
+      // lineEnding or hasBom — only the sender does.
+      Object.assign(doc, applyTransferLineMetadata(restore));
     }
     set((state) => ({
       documents: { ...state.documents, [tabId]: doc },
     }));
   },
 
-  setContent: (tabId, content, options) => {
+  setEditorContent: (tabId, canonicalEditorText, options) => {
+    assertCanonicalEditorText(canonicalEditorText, "setEditorContent");
     const fromUserEdit = options?.fromUserEdit ?? true;
     const previous = get().documents[tabId]?.content;
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
-        content,
+        content: canonicalEditorText,
         // A serialization sync is not a change: it may neither create dirt on a
         // document nobody edited nor clear dirt on one that was edited (an
         // auto-save flush can land before the debounced edit-flush).
-        isDirty: fromUserEdit ? doc.savedContent !== content : doc.isDirty,
+        isDirty: fromUserEdit ? doc.savedContent !== canonicalEditorText : doc.isDirty,
       }))
     );
     // Same reasoning for the revision token: a re-serialization is not an edit,
     // so it must not make an MCP client's held revision look STALE.
-    if (fromUserEdit) bumpRevisionIfContentChanged(tabId, previous, content);
+    if (fromUserEdit) bumpRevisionIfContentChanged(tabId, previous, canonicalEditorText);
   },
 
-  loadContent: (tabId, content, filePath, meta) => {
+  ingestExternalContent: (tabId, rawDiskText, origin, opts) => {
+    // A baseline origin IS the document — create it if the tab has none
+    // (initDocument keeps the tab-existence guard); edits have nothing to edit.
+    if (!get().documents[tabId] && INGEST_ORIGIN_SNAPSHOT[origin] === "baseline") {
+      get().initDocument(tabId, "", opts?.filePath ?? null);
+    }
     const previous = get().documents[tabId]?.content;
+    let next: string | undefined;
     set((state) =>
-      updateDoc(state, tabId, (doc) => ({
-        content,
-        savedContent: content,
-        lastDiskContent: content,
-        filePath: filePath === undefined ? doc.filePath : filePath,
-        isDirty: false,
-        isDivergent: false, // Reload from disk clears divergent state
-        documentId: doc.documentId + 1,
-        selectedText: "",
-        lineEnding: meta?.lineEnding ?? doc.lineEnding,
-        hardBreakStyle: meta?.hardBreakStyle ?? doc.hardBreakStyle,
-      }))
+      updateDoc(state, tabId, (doc) => {
+        const patch = buildIngestState(doc, rawDiskText, origin, opts);
+        next = patch.content;
+        return patch;
+      })
     );
-    bumpRevisionIfContentChanged(tabId, previous, content);
+    // `next` stays undefined for a missing tab, so it cannot bump a revision.
+    if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
+  },
+
+  // Delegates INTO the guard; only tests may call it (externalWriterGate.test).
+  setContent: (tabId, content, options) => {
+    get().setEditorContent(tabId, content, options);
   },
 
   setFilePath: (tabId, path) =>
@@ -218,21 +175,21 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     return doc?.readOnly ?? false;
   },
 
-  markSaved: (tabId, lastDiskContent) =>
+  markSaved: (tabId, snapshots) =>
     set((state) =>
-      updateDoc(state, tabId, (doc) => buildPostSaveState(doc, lastDiskContent))
+      updateDoc(state, tabId, (doc) => buildPostSaveState(doc, snapshots))
     ),
 
-  markAutoSaved: (tabId, lastDiskContent) =>
+  markAutoSaved: (tabId, snapshots) =>
     set((state) =>
       updateDoc(state, tabId, (doc) => ({
-        ...buildPostSaveState(doc, lastDiskContent),
+        ...buildPostSaveState(doc, snapshots),
         lastAutoSave: Date.now(),
       }))
     ),
 
   updateLastDiskContent: (tabId, diskContent) =>
-    set((state) => updateDoc(state, tabId, () => ({ lastDiskContent: diskContent }))),
+    set((state) => updateDoc(state, tabId, () => adoptDiskConvention(diskContent))),
 
   setCursorInfo: (tabId, info) =>
     set((state) => updateDoc(state, tabId, () => ({ cursorInfo: info }))),

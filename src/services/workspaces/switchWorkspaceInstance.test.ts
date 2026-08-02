@@ -50,7 +50,7 @@ function addWorkspace(id: string, rootPath: string): void {
 /** Open a document tab with content so dirty-survival is observable. */
 function openDoc(filePath: string, content = "content"): string {
   const id = useTabStore.getState().createTab(W, filePath);
-  useDocumentStore.getState().initDocument(id, content, filePath, content);
+  useDocumentStore.getState().initDocument(id, content, filePath, { savedContent: content });
   return id;
 }
 

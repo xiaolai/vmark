@@ -80,3 +80,20 @@ export interface WorkflowLimits {
 // ============================================================================
 
 export type StepType = "genie" | "action" | "webhook";
+
+/** How far a single workflow step has got. */
+type StepStatus = "pending" | "running" | "success" | "error" | "skipped";
+
+/**
+ * A step's live execution state.
+ *
+ * Here rather than in the store because it is plain data that the preview
+ * RENDERS: a plugin may not import `@/stores`, and the shape has nothing to
+ * do with where it happens to be held (ADR-015).
+ */
+export interface StepStatusEntry {
+  status: StepStatus;
+  output?: string;
+  error?: string;
+  duration?: number;
+}

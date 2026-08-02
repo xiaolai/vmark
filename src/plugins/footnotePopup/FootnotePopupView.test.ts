@@ -72,15 +72,15 @@ let storeState = {
 
 let storeListener: ((state: typeof storeState) => void) | null = null;
 
-vi.mock("@/stores/footnotePopupStore", () => ({
-  useFootnotePopupStore: {
+// The popup's state PORT, satisfied directly — the view receives a
+// `StoreApi<FootnotePopupState>` now (ADR-015), so no store mock is needed.
+const testStore = {
     getState: () => storeState,
     subscribe: (cb: (state: typeof storeState) => void) => {
       storeListener = cb;
       return () => { storeListener = null; };
     },
-  },
-}));
+};
 
 // ---------------------------------------------------------------------------
 // Imports
@@ -186,7 +186,7 @@ describe("FootnotePopupView", () => {
   it("autoFocus setTimeout calls textarea.focus/select when popup is still open", async () => {
     vi.useFakeTimers();
 
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
 
     // Show with autoFocus = true
     triggerStore({ isOpen: true, anchorRect: ANCHOR, autoFocus: true });
@@ -208,7 +208,7 @@ describe("FootnotePopupView", () => {
   it("autoFocus setTimeout skips focus/select when popup closed before timer fires", async () => {
     vi.useFakeTimers();
 
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
 
     // Show with autoFocus = true
     triggerStore({ isOpen: true, anchorRect: ANCHOR, autoFocus: true });
@@ -231,7 +231,7 @@ describe("FootnotePopupView", () => {
   // -------------------------------------------------------------------------
 
   it("keyboard navigation handler ignores IME key events (Process key)", () => {
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     // Dispatch a Process key (IME key) — handler should return early before handlePopupTabNavigation
@@ -261,7 +261,7 @@ describe("FootnotePopupView", () => {
       _editorContainer: null,
     };
 
-    const popup = new FootnotePopupView(mockView as never);
+    const popup = new FootnotePopupView(mockView as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     // Container style should have been set (top/left)
@@ -277,7 +277,7 @@ describe("FootnotePopupView", () => {
   // -------------------------------------------------------------------------
 
   it("handleInputKeydown ignores IME key events (Process key)", () => {
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     const textarea = popup["textarea"] as HTMLTextAreaElement;
@@ -293,7 +293,7 @@ describe("FootnotePopupView", () => {
   });
 
   it("handleInputKeydown Enter saves and closes", () => {
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     const textarea = popup["textarea"] as HTMLTextAreaElement;
@@ -310,7 +310,7 @@ describe("FootnotePopupView", () => {
   });
 
   it("handleInputKeydown Escape closes popup and focuses editor", () => {
-    const popup = new FootnotePopupView(view as never);
+    const popup = new FootnotePopupView(view as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR });
 
     const textarea = popup["textarea"] as HTMLTextAreaElement;
@@ -333,7 +333,7 @@ describe("FootnotePopupView", () => {
       dispatch: vi.fn(() => { throw new Error("save dispatch failed"); }),
     });
 
-    const popup = new FootnotePopupView(viewWithError as never);
+    const popup = new FootnotePopupView(viewWithError as never, testStore as never);
     triggerStore({ isOpen: true, anchorRect: ANCHOR, definitionPos: 10, label: "1" });
 
     // Trigger via Enter key on textarea (which calls handleSave)

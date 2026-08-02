@@ -6,6 +6,10 @@ import { EditorView } from "@codemirror/view";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { workflowCursorSyncExtension } from "./sourceWorkflowCursorSync";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
+import { bindWorkflowPort } from "./workflowPort";
+
+// The plugins take their state through a port; bind the app store to it.
+bindWorkflowPort(useWorkflowStore as never);
 
 function makeIR(): WorkflowIR {
   return {

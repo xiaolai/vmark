@@ -16,15 +16,16 @@ import { EditorState, Plugin, TextSelection, NodeSelection } from "@tiptap/pm/st
 
 const mockOpenPopup = vi.fn();
 const mockClosePopup = vi.fn();
-vi.mock("@/stores/footnotePopupStore", () => ({
-  useFootnotePopupStore: {
-    getState: () => ({
+// The popup's state PORT, satisfied directly — the extension receives a
+// `StoreApi<FootnotePopupState>` now (ADR-015), so no store mock is needed.
+const testStore = {
+  getState: () => ({
       isOpen: false,
       openPopup: mockOpenPopup,
       closePopup: mockClosePopup,
-    }),
-  },
-}));
+  }),
+  subscribe: () => () => {},
+};
 
 vi.mock("./FootnotePopupView", () => ({
   FootnotePopupView: class MockFootnotePopupView {
@@ -475,7 +476,7 @@ describe("footnotePopup plugin handler integration", () => {
 
     const extensionContext = {
       name: footnotePopupExtension.name,
-      options: footnotePopupExtension.options,
+      options: { store: testStore },
       storage: footnotePopupExtension.storage,
       editor: {} as import("@tiptap/core").Editor,
       type: null,
@@ -1271,10 +1272,9 @@ describe("footnotePopup plugin handler integration", () => {
 
   describe("handleKeyDown with open popup", () => {
     it("closes popup and returns true when Escape is pressed and popup is open and not editing", async () => {
-      // Override the mock to return isOpen: true
-      const { useFootnotePopupStore } = await import("@/stores/footnotePopupStore");
-      const origGetState = useFootnotePopupStore.getState;
-      (useFootnotePopupStore as unknown as Record<string, unknown>).getState = () => ({
+      // The port answers `isOpen` now, not a mocked store (ADR-015).
+      const origGetState = testStore.getState;
+      (testStore as unknown as Record<string, unknown>).getState = () => ({
         isOpen: true,
         openPopup: mockOpenPopup,
         closePopup: mockClosePopup,
@@ -1291,7 +1291,7 @@ describe("footnotePopup plugin handler integration", () => {
       expect(mockClosePopup).toHaveBeenCalled();
 
       document.body.removeChild(popup);
-      (useFootnotePopupStore as unknown as Record<string, unknown>).getState = origGetState;
+      (testStore as unknown as Record<string, unknown>).getState = origGetState;
     });
 
     it("does not close popup when Escape is pressed and popup is editing", async () => {
@@ -1314,7 +1314,7 @@ describe("footnotePopup plugin handler integration", () => {
       expect(mockClosePopup).not.toHaveBeenCalled();
 
       document.body.removeChild(popup);
-      (useFootnotePopupStore as unknown as Record<string, unknown>).getState = origGetState;
+      (testStore as unknown as Record<string, unknown>).getState = origGetState;
     });
 
     it("does not close popup when Escape pressed but no popup element found", async () => {
@@ -1332,7 +1332,7 @@ describe("footnotePopup plugin handler integration", () => {
       const result = handler({} as never, event);
       expect(result).toBe(false);
 
-      (useFootnotePopupStore as unknown as Record<string, unknown>).getState = origGetState;
+      (testStore as unknown as Record<string, unknown>).getState = origGetState;
     });
   });
 
@@ -1863,7 +1863,7 @@ describe("footnotePopup plugin handler integration", () => {
       // Create a plugin from the extension
       const extensionContext = {
         name: footnotePopupExtension.name,
-        options: footnotePopupExtension.options,
+        options: { store: testStore },
         storage: footnotePopupExtension.storage,
         editor: {} as import("@tiptap/core").Editor,
         type: null,

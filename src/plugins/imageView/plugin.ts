@@ -1,86 +1,32 @@
 /**
  * Image View Plugin
  *
- * Purpose: Custom NodeView for inline images that resolves relative/absolute file paths
- * to Tauri asset:// URLs for rendering, while preserving the original relative paths in
- * the document for portability.
+ * Purpose: Custom NodeView for inline images. Renders a resolved asset:// URL
+ * while preserving the original relative path in the document for portability.
  *
  * Key decisions:
- *   - Async path resolution because relative paths need the document's directory from Tauri API
- *   - Security: relative paths are validated against directory traversal attacks
+ *   - Path resolution lives in `resolveSrc.ts`, not here: it is the only part
+ *     with branching logic, and it was untestable inside a NodeView
  *   - Click selects the image node, double-click opens the image editing popup
- *   - Context menu triggers the image context menu store
+ *   - Right-click and click ask the HOST to open chrome, through `hostPopups`,
+ *     rather than reaching the app's popup stores (ADR-015)
  *
- * @coordinates-with shared/mediaSecurity.ts — path validation and URL classification
+ * @coordinates-with imageView/resolveSrc.ts — src → asset URL, and its tests
+ * @coordinates-with plugins/shared/hostPopups.ts — the chrome seam
+ * @coordinates-with shared/mediaSecurity.ts — URL classification
  * @coordinates-with tiptap.ts — registers this NodeView for the image node type
  * @coordinates-with blockImage/BlockImageNodeView.ts — similar logic for block-level images
- * @coordinates-with utils/resolveMediaSrc.ts — shared path normalization and active tab helpers
  * @module plugins/imageView
  */
 
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
 import type { Editor } from "@tiptap/core";
 import type { Node } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { normalizePathForAsset, getActiveTabIdForCurrentWindow } from "@/services/media/resolveMediaSrc";
-import { isRelativePath, isAbsolutePath, isExternalUrl, validateImagePath } from "../shared/mediaSecurity";
-import { decodeMarkdownUrl } from "@/utils/markdownUrl";
-import { imageViewWarn, imagePreviewError } from "@/utils/debug";
-
-/**
- * Convert image path to asset URL for webview rendering.
- * Handles: relative paths, absolute paths, and external URLs.
- * Decodes URL-encoded paths (e.g., %20 -> space) for file system access.
- */
-async function resolveImageSrc(src: string): Promise<string> {
-  // External URLs (http/https/data) - use directly
-  if (isExternalUrl(src)) {
-    return src;
-  }
-
-  // Decode URL-encoded paths for file system access
-  // Markdown may contain %20 for spaces, but filesystem needs actual spaces
-  const decodedSrc = decodeMarkdownUrl(src);
-
-  // Absolute local paths - convert to asset:// URL
-  if (isAbsolutePath(decodedSrc)) {
-    return convertFileSrc(normalizePathForAsset(decodedSrc));
-  }
-
-  // Relative paths - resolve against document directory
-  if (isRelativePath(decodedSrc)) {
-    // Validate path to prevent traversal attacks
-    if (!validateImagePath(decodedSrc)) {
-      imageViewWarn("Rejected invalid image path:", decodedSrc);
-      return "";
-    }
-
-    const tabId = getActiveTabIdForCurrentWindow();
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-    const filePath = doc?.filePath;
-    if (!filePath) {
-      return src; // No document path, can't resolve
-    }
-
-    try {
-      const docDir = await dirname(filePath);
-      const cleanPath = decodedSrc.replace(/^\.\//, "");
-      const absolutePath = await join(docDir, cleanPath);
-      return convertFileSrc(normalizePathForAsset(absolutePath));
-    } catch (error) {
-      imagePreviewError("Failed to resolve image path:", error);
-      return src;
-    }
-  }
-
-  // Unknown format - return as-is
-  return src;
-}
+import { hostPopups } from "@/plugins/shared/hostPopups";
+import { isExternalUrl } from "../shared/mediaSecurity";
+import { imageViewWarn } from "@/utils/debug";
+import { resolveImageSrc } from "./resolveSrc";
 
 /**
  * Custom NodeView for image nodes.
@@ -124,7 +70,7 @@ export class ImageNodeView implements NodeView {
     const pos = this.getPos();
     if (pos === undefined) return;
 
-    useImageContextMenuStore.getState().openMenu({
+    hostPopups.openImageMenu({
       position: { x: e.clientX, y: e.clientY },
       imageSrc: this.originalSrc,
       imageNodePos: pos,
@@ -151,7 +97,7 @@ export class ImageNodeView implements NodeView {
       : null;
 
     const rect = this.dom.getBoundingClientRect();
-    useMediaPopupStore.getState().openPopup({
+    hostPopups.openMediaPopup({
       mediaSrc: this.originalSrc,
       mediaAlt: this.dom.alt ?? "",
       mediaNodePos: pos,

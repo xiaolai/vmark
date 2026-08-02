@@ -32,10 +32,16 @@ function createMockResolved(opts: {
 
   const parent = {
     childCount: opts.parentChildCount,
+    // The container above the line unit. `doc` is deliberately NOT one of the
+    // wrappers `lineUnitDepth` climbs through, so the resolved line unit stays
+    // at `opts.depth` and these tests keep exercising the same code path.
+    type: { name: "doc" },
+    isTextblock: false,
     child: vi.fn((i: number) => {
       const c = children[i] ?? children[0];
       return {
         nodeSize: c.nodeSize,
+        type: { name: "paragraph" },
         textContent: c.textContent ?? "",
         isBlock: c.isBlock ?? false,
         isTextblock: c.isTextblock ?? true,
@@ -45,14 +51,22 @@ function createMockResolved(opts: {
     }),
   };
 
+  // The line unit itself — `lineUnitDepth` walks up from `$from.depth` looking
+  // for the innermost textblock, so the node AT that depth must report as one.
+  const lineUnit = { type: { name: "paragraph" }, isTextblock: true, childCount: 1 };
+
   return {
     depth: opts.depth,
     pos: 15,
     index: vi.fn(() => opts.blockIndex),
-    node: vi.fn(() => parent),
+    node: vi.fn((d: number) => (d === opts.depth ? lineUnit : parent)),
     before: vi.fn(() => 10),
     after: vi.fn(() => 22),
     start: vi.fn(() => 11),
+    // `textblockLineAt` inspects the cursor's parent for hardBreak children;
+    // a non-textblock parent makes it bow out so these mocks keep exercising
+    // the block-level paths.
+    parent: { isTextblock: false },
   };
 }
 
@@ -71,6 +85,10 @@ function createMockTr() {
   };
 }
 
+/** Schema stub with no `hardBreak`, so duplication takes the structural-unit
+ *  path; the textblock/hard-break path is covered by the parity harness. */
+const MOCK_SCHEMA = { nodes: {} };
+
 function createContext(overrides?: Partial<WysiwygToolbarContext>): WysiwygToolbarContext {
   const tr = createMockTr();
   const $from = createMockResolved({ depth: 1, blockIndex: 1, parentChildCount: 3 });
@@ -83,6 +101,7 @@ function createContext(overrides?: Partial<WysiwygToolbarContext>): WysiwygToolb
       state: {
         selection: { $from, from: 10, to: 22, empty: false },
         tr,
+        schema: MOCK_SCHEMA,
         doc: {
           nodesBetween: vi.fn(),
           content: { size: 50 },
@@ -309,26 +328,9 @@ describe("handleWysiwygRemoveBlankLines", () => {
     expect(handleWysiwygRemoveBlankLines(ctx)).toBe(true);
   });
 
-  it("deletes blank textblocks within selection range", () => {
-    const ctx = createContext();
-    (ctx.view!.state.selection as { from: number; to: number }).from = 5;
-    (ctx.view!.state.selection as { from: number; to: number }).to = 30;
-
-    const tr = createMockTr();
-    (ctx.view!.state as { tr: typeof tr }).tr = tr;
-
-    const nodesBetween = vi.fn((_from: number, _to: number, cb: (node: Record<string, unknown>, pos: number) => boolean) => {
-      // An empty textblock fully within selection
-      cb({ isBlock: false, isTextblock: true, textContent: "  ", nodeSize: 4 }, 8);
-    });
-    (ctx.view!.state.doc as { nodesBetween: typeof nodesBetween }).nodesBetween = nodesBetween;
-
-    const result = handleWysiwygRemoveBlankLines(ctx);
-    expect(result).toBe(true);
-    expect(tr.delete).toHaveBeenCalled();
-    expect(ctx.view!.dispatch).toHaveBeenCalled();
-    expect(ctx.editor!.commands.focus).toHaveBeenCalled();
-  });
+  // The deletion path itself is covered against a real document in
+  // `wysiwygAdapterBlockOps.realdoc.test.ts` — a transaction mock cannot see
+  // whether the replace-fitter undoes the delete, which is the whole defect.
 
   it("skips blank textblocks outside selection range", () => {
     const ctx = createContext();

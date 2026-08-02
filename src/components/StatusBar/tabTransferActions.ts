@@ -5,6 +5,9 @@
  * content) to an existing window or detaches it into a new window via Tauri IPC.
  *
  * Key decisions:
+ *   - The payload carries the file's line convention via
+ *     `buildTransferDocumentFields`; canonical content cannot express it, so a
+ *     CRLF+BOM file used to arrive LF-only and be rewritten on first save.
  *   - transferTabFromDragOut first asks Rust to find a drop target window
  *     at the pointer's screen coordinates; if none, it creates a new window.
  *   - Both paths show an undo toast that calls restoreTransferredTab to
@@ -32,6 +35,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { DragOutPoint } from "@/hooks/useTabDragOut";
 import type { TabRemovalAck, TabTransferPayload } from "@/types/tabTransfer";
+import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
 import { cleanupTabState } from "@/hooks/tabCleanup";
 import i18n from "@/i18n";
@@ -110,12 +114,13 @@ export async function restoreTransferredTab(
     title: live.title,
     isPinned: false,
   });
-  useDocumentStore.getState().initDocument(
-    restoredTabId,
-    live.content,
-    live.filePath,
-    live.savedContent
-  );
+  useDocumentStore.getState().initDocument(restoredTabId, live.content, live.filePath, {
+    savedContent: live.savedContent,
+    lineEnding: live.lineEnding,
+    hardBreakStyle: live.hardBreakStyle,
+    hasBom: live.hasBom,
+    lastDiskContent: live.lastDiskContent,
+  });
 
   // Phase 3 — now that the tab is safe here, let the destination drop it. If
   // this leg fails the tab exists in both windows: a visible duplicate the user
@@ -173,10 +178,8 @@ export async function transferTabFromDragOut({
     tabId: tab.id,
     title: tab.title,
     filePath: tab.filePath ?? null,
-    content: doc.content,
-    savedContent: doc.savedContent,
-    isDirty: doc.isDirty,
     workspaceRoot: useWorkspaceStore.getState().rootPath ?? null,
+    ...buildTransferDocumentFields(doc),
   };
 
   try {

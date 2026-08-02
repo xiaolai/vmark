@@ -64,7 +64,7 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: vi.fn(() => ({
-      initDocument: mockInitDocument,
+      ingestExternalContent: mockInitDocument,
       setLineMetadata: mockSetLineMetadata,
     })),
   },
@@ -271,7 +271,9 @@ describe("openFileInNewTabCore", () => {
 
     expect(mockCreateTab).toHaveBeenCalledWith("main", "/path/to/file.md");
     expect(mockReadTextFile).toHaveBeenCalledWith("/path/to/file.md");
-    expect(mockInitDocument).toHaveBeenCalledWith("new-tab-id", "# Hello World", "/path/to/file.md");
+    expect(mockInitDocument).toHaveBeenCalledWith("new-tab-id", "# Hello World", "disk-open", {
+      filePath: "/path/to/file.md",
+    });
     expect(mockAddFile).toHaveBeenCalledWith("/path/to/file.md");
   });
 

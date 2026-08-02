@@ -153,7 +153,7 @@ export const htmlFormat: FormatConfig = {
   validator: htmlValidator,
   genericPreview: HtmlSandboxPreview,
   adapters: {
-    saveDialogFilters: [{ name: "HTML", extensions: ["html", "htm"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.html", extensions: ["html", "htm"] }],
     untitledExtension: "html",
     exportEnabled: false,
     findEnabled: true,

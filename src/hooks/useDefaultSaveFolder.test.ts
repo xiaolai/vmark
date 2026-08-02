@@ -109,7 +109,7 @@ describe("getDefaultSaveFolderWithFallback", () => {
 
   it("returns saved tab folder when not in workspace mode with saved tabs", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/projects/notes/file.md");
-    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", "content");
+    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", { savedContent: "content" });
 
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     expect(result).toBe("/projects/notes");
@@ -137,7 +137,7 @@ describe("getDefaultSaveFolderWithFallback", () => {
     mockHomeDir.mockRejectedValue(new Error("no home dir"));
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/projects/notes/file.md");
-    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", "content");
+    useDocumentStore.getState().initDocument(tabId, "content", "/projects/notes/file.md", { savedContent: "content" });
 
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     expect(result).toBe("/projects/notes");
@@ -150,7 +150,7 @@ describe("getDefaultSaveFolderWithFallback", () => {
     });
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/projects/docs/file.md");
-    useDocumentStore.getState().initDocument(tabId, "content", "/projects/docs/file.md", "content");
+    useDocumentStore.getState().initDocument(tabId, "content", "/projects/docs/file.md", { savedContent: "content" });
 
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     // In workspace mode with no root but saved file paths, should return the file's directory
@@ -170,7 +170,7 @@ describe("getDefaultSaveFolderWithFallback", () => {
 
     // Create tab with no filePath
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, null);
-    useDocumentStore.getState().initDocument(tabId, "content", null, "content");
+    useDocumentStore.getState().initDocument(tabId, "content", null, { savedContent: "content" });
 
     const result = await getDefaultSaveFolderWithFallback(WINDOW_LABEL);
     // Falls through to fallback directory

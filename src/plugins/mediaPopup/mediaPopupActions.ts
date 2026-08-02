@@ -18,9 +18,8 @@
 import type { EditorView } from "@tiptap/pm/view";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { copyMediaToAssets } from "@/hooks/useMediaOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
@@ -32,7 +31,8 @@ import {
   AUDIO_EXTENSIONS,
 } from "@/utils/mediaExtensions";
 
-import type { MediaNodeType } from "@/stores/mediaPopupStore";
+import type { MediaNodeType, MediaPopupState } from "@/plugins/shared/popupPorts";
+import type { StoreApi } from "zustand";
 
 /** Check if a media type is an image type. */
 function isImageType(type: MediaNodeType): boolean {
@@ -42,7 +42,8 @@ function isImageType(type: MediaNodeType): boolean {
 export async function browseAndReplaceMedia(
   view: EditorView,
   _mediaNodePos: number,
-  mediaNodeType: MediaNodeType
+  mediaNodeType: MediaNodeType,
+  store: StoreApi<MediaPopupState>
 ): Promise<boolean> {
   const windowLabel = getWindowLabel();
 
@@ -63,9 +64,7 @@ export async function browseAndReplaceMedia(
         return false;
       }
 
-      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-      const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-      const filePath = doc?.filePath;
+      const filePath = hostDocument.activeFilePath(windowLabel);
 
       if (!filePath) {
         await message(i18n.t("dialog:unsavedDocument.messageLocalMedia"), {
@@ -83,7 +82,7 @@ export async function browseAndReplaceMedia(
 
       // Re-read position from store — it may have been updated if the popup
       // was reopened on a different node during the async file operation
-      const currentPos = useMediaPopupStore.getState().mediaNodePos;
+      const currentPos = store.getState().mediaNodePos;
       const node = view.state.doc.nodeAt(currentPos);
       if (!node || node.type.name !== mediaNodeType) {
         return false;
@@ -95,7 +94,7 @@ export async function browseAndReplaceMedia(
       });
 
       view.dispatch(tr);
-      useMediaPopupStore.getState().setSrc(relativePath);
+      store.getState().setSrc(relativePath);
       return true;
     } catch (error) {
       mediaPopupError("Browse failed:", error);

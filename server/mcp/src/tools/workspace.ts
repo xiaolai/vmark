@@ -54,7 +54,7 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
         'Actions:\n' +
         '- new: Create a new untitled tab. Args: {kind?, windowLabel?}. Returns {tabId}.\n' +
         '- open: Open a FILE from disk into a BACKGROUND tab — the user\'s visible tab and workspace do not change. Args: {filePath, windowLabel?}. Returns {tabId, workspaceInstanceId, activationChanged, workspaceSwitched}. Chain the returned tabId into document/selection calls; use switch_tab only when the user should SEE the tab.\n' +
-        '- open_workspace: Open a FOLDER as the active workspace (grants access to its file tree). Args: {folderPath, windowLabel?}. REQUIRES USER APPROVAL: the first call returns {needsApproval: true}; ask the user, then retry the SAME call to proceed. A denied request keeps failing until re-approved.\n' +
+        '- open_workspace: Open a FOLDER as the active workspace (grants access to its file tree). Args: {folderPath}. NOTE: windowLabel is ignored here — the folder opens in the window the request arrives on, so the approval prompt and the open cannot land in different windows. REQUIRES USER APPROVAL: the first call returns {needsApproval: true}; ask the user, then retry the SAME call to proceed. A denied request keeps failing until re-approved.\n' +
         '- save: Save a tab to its existing path. Args: {tabId?}. Returns {filePath, revision}.\n' +
         '- save_as: Save a tab to a new path. Args: {tabId?, filePath}. Returns {revision}.\n' +
         '- close: Close a tab. Args: {tabId, force?}. Refuses to close a dirty tab unless `force: true`; returns {closed: false, reason: "DIRTY"} in that case.\n' +
@@ -130,10 +130,14 @@ export function registerWorkspaceTool(server: VMarkMcpServer): void {
           const folder = readRequiredPath(args.folderPath, 'folderPath');
           if (!folder.ok) return VMarkMcpServer.errorResult(folder.error);
           try {
+            // windowLabel is deliberately NOT forwarded: the handler binds to
+            // the window the request arrives on, because a client-supplied
+            // label could show the approval prompt in one window while
+            // mutating another. Sending it anyway advertised a parameter that
+            // silently did nothing.
             const data = await server.sendBridgeRequest({
               type: 'vmark.workspace.open_workspace',
               folderPath: folder.value,
-              windowLabel,
             });
             return VMarkMcpServer.successJsonResult(data);
           } catch (error) {

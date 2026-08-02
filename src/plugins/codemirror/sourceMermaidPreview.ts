@@ -16,14 +16,14 @@
  *     never re-show the shared preview singleton
  *
  * @coordinates-with mermaidPreview/MermaidPreviewView.ts — shared diagram preview rendering
- * @coordinates-with stores/editorStore.ts — reads editor mode state
+ * @coordinates-with plugins/shared/hostViewModes.ts — reads diagramPreview
  * @module plugins/codemirror/sourceMermaidPreview
  */
 
 import type { Text } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getMermaidPreviewView } from "@/plugins/mermaidPreview";
-import { useUIStore } from "@/stores/uiStore";
+import { hostViewModes } from "@/plugins/shared/hostViewModes";
 
 const DIAGRAM_LANGUAGES = new Set(["mermaid", "markmap", "svg", "dot", "graphviz"]);
 
@@ -158,11 +158,12 @@ class SourceDiagramPreviewPlugin {
 
   constructor(view: EditorView) {
     this.view = view;
-    this.lastPreviewEnabled = useUIStore.getState().diagramPreviewEnabled;
+    this.lastPreviewEnabled = hostViewModes.diagramPreview();
     // Subscribe to store changes to react when diagramPreviewEnabled toggles
-    this.unsubscribe = useUIStore.subscribe((state) => {
-      if (state.diagramPreviewEnabled !== this.lastPreviewEnabled) {
-        this.lastPreviewEnabled = state.diagramPreviewEnabled;
+    this.unsubscribe = hostViewModes.onChange(() => {
+      const enabled = hostViewModes.diagramPreview();
+      if (enabled !== this.lastPreviewEnabled) {
+        this.lastPreviewEnabled = enabled;
         this.scheduleCheck();
       }
     });
@@ -190,7 +191,7 @@ class SourceDiagramPreviewPlugin {
     if (this.destroyed) return;
 
     // Check if diagram preview is enabled
-    if (!useUIStore.getState().diagramPreviewEnabled) {
+    if (!hostViewModes.diagramPreview()) {
       this.hidePreview();
       return;
     }

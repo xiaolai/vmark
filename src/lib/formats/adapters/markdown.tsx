@@ -19,8 +19,8 @@ import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
 import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
-import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
-import { markdown } from "@codemirror/lang-markdown";
+import { GhaWorkflowSidePanel } from "@/components/Editor/WorkflowPanel/GhaWorkflowSidePanel";
+import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { lintMarkdown } from "@/lib/lintEngine";
 import { extractHeadings } from "@/components/Sidebar/outlineUtils";
@@ -36,7 +36,7 @@ const SourceEditor = lazy(() =>
 );
 /* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
 const WorkflowSidePanel = lazy(() =>
-  import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({
+  import("@/components/Editor/WorkflowPanel/WorkflowSidePanel").then((m) => ({
     default: m.WorkflowSidePanel,
   })),
 );
@@ -138,11 +138,11 @@ export const markdownFormat: FormatConfig = {
   toPlainText: (content: string) => stripMarkdown(content),
   // Bundled regardless — the WYSIWYG surface imports it — so expose it
   // synchronously and keep the primary format's source mode flash-free.
-  language: () => markdown({ codeLanguages: languages }),
+  language: () => markdownLanguageSupport(languages),
   wysiwygComponent: MarkdownEditorSurface,
   adapters: {
     saveDialogFilters: [
-      { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
+      { nameI18nKey: "format.markdown", extensions: ["md", "markdown", "mdown", "mkd", "mdx"] },
     ],
     untitledExtension: "md",
     exportEnabled: true,

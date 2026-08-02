@@ -8,7 +8,7 @@
  *
  * @coordinates-with smartPaste.ts — plugin factory
  * @coordinates-with smartPasteUtils.ts — shared utilities
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI for image paste confirmation
+ * @coordinates-with plugins/shared/hostPopups.ts — toast for image paste confirmation
  * @module plugins/codemirror/smartPasteImage
  */
 
@@ -16,7 +16,7 @@ import { EditorView } from "@codemirror/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
-import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { smartPasteWarn, smartPasteError } from "@/utils/debug";
 import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePathDetection";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -122,7 +122,7 @@ function showImagePasteToast(
   const anchorRect = getToastAnchorRect(view, capturedFrom);
   const imageType = detection.type === "url" || detection.type === "dataUrl" ? "url" : "localPath";
 
-  useImagePasteToastStore.getState().showToast({
+  hostPopups.showImagePasteToast({
     imagePath: detection.path,
     imageType,
     anchorRect,
@@ -263,7 +263,7 @@ function showMultiImagePasteToast(
 ): void {
   const anchorRect = getToastAnchorRect(view, capturedFrom);
 
-  useImagePasteToastStore.getState().showMultiToast({
+  hostPopups.showImagePasteToast({
     imageResults: results,
     anchorRect,
     editorDom: view.dom,

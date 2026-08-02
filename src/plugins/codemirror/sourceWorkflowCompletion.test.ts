@@ -7,6 +7,10 @@ import { EditorState } from "@codemirror/state";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { workflowCompletionSource } from "./sourceWorkflowCompletion";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
+import { bindWorkflowPort } from "./workflowPort";
+
+// The plugins take their state through a port; bind the app store to it.
+bindWorkflowPort(useWorkflowStore as never);
 
 function makeIR(): WorkflowIR {
   return {

@@ -11,15 +11,19 @@ import { codeHighlightStyle } from "@/plugins/codemirror";
 let cmModules: Awaited<ReturnType<typeof loadCMModules>> | null = null;
 
 async function loadCMModules() {
-  const [state, view, commands, lang, langData, language] = await Promise.all([
+  // `markdownLanguageSupport` is imported LAZILY with the rest: it pulls in
+  // @codemirror/lang-markdown, and a static import here would drag CodeMirror
+  // into the main bundle, which is exactly what this lazy block avoids.
+  const [state, view, commands, lang, langData, language, mdSupport] = await Promise.all([
     import("@codemirror/state"),
     import("@codemirror/view"),
     import("@codemirror/commands"),
     import("@codemirror/lang-markdown"),
     import("@codemirror/language-data"),
     import("@codemirror/language"),
+    import("@/lib/formats/markdownLanguageSupport"),
   ]);
-  return { state, view, commands, lang, langData, language };
+  return { state, view, commands, lang, langData, language, mdSupport };
 }
 
 /** Track CodeMirror view for cleanup */
@@ -55,7 +59,7 @@ async function initCMEditor(
 ): Promise<void> {
   if (!cmModules) cmModules = await loadCMModules();
 
-  const { state, view, commands, lang, langData, language } = cmModules;
+  const { state, view, commands, langData, language, mdSupport } = cmModules;
   const CMState = state.EditorState;
   const CMView = view.EditorView;
   const cmKeymap = view.keymap;
@@ -107,7 +111,7 @@ async function initCMEditor(
           onUpdate(update.state.doc.toString());
         }
       }),
-      lang.markdown({ codeLanguages: langData.languages }),
+      mdSupport.markdownLanguageSupport(langData.languages),
       language.syntaxHighlighting(codeHighlightStyle, { fallback: true }),
       theme,
     ],

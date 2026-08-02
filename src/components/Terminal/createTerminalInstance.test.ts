@@ -129,7 +129,7 @@ vi.mock("@/stores/tabStore", () => ({
 }));
 
 vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: { getState: () => ({ initDocument: mockInitDocument }) },
+  useDocumentStore: { getState: () => ({ ingestExternalContent: mockInitDocument }) },
 }));
 
 vi.mock("@/services/persistence/workspaceStorage", () => ({
@@ -935,7 +935,7 @@ describe("createTerminalInstance — file link callback", () => {
     await vi.waitFor(() => {
       expect(mockReadTextFile).toHaveBeenCalledWith("/path/to/file.md");
       expect(mockCreateTab).toHaveBeenCalledWith("main", "/path/to/file.md");
-      expect(mockInitDocument).toHaveBeenCalledWith("tab-new", "# Hello", "/path/to/file.md");
+      expect(mockInitDocument).toHaveBeenCalledWith("tab-new", "# Hello", "disk-open", { filePath: "/path/to/file.md" });
     });
   });
 

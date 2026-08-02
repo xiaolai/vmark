@@ -16,7 +16,6 @@
  *   - headingPickerStore        → state.headingPicker
  *   - imageContextMenuStore     → state.imageContextMenu
  *   - imagePasteToastStore      → state.imagePasteToast
- *   - inlineMathEditingStore    → state.inlineMathEditing
  *   - linkCreatePopupStore      → state.linkCreatePopup
  *   - linkPopupStore            → state.linkPopup
  *   - mathPopupStore            → state.mathPopup
@@ -48,7 +47,6 @@ import {
   initialHeadingPicker,
   initialImageContextMenu,
   initialImagePasteToast,
-  initialInlineMathEditing,
   initialLinkCreatePopup,
   initialLinkPopup,
   initialMathPopup,
@@ -65,7 +63,6 @@ import { createLinkMediaPopupActions } from "./popupStore/linkMediaActions";
 // Re-export shared types so consumers can keep importing from
 // "@/stores/popupStore" without changes.
 export type {
-  InlineMathEditingCallbacks,
   MediaNodeType,
   PickerMode,
   SourcePeekRange,
@@ -81,7 +78,6 @@ export const usePopupStore = create<PopupStore>((set, get) => ({
   headingPicker: initialHeadingPicker,
   imageContextMenu: initialImageContextMenu,
   imagePasteToast: initialImagePasteToast,
-  inlineMathEditing: initialInlineMathEditing,
   linkCreatePopup: initialLinkCreatePopup,
   linkPopup: initialLinkPopup,
   mathPopup: initialMathPopup,

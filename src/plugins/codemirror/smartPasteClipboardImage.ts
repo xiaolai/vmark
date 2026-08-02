@@ -13,8 +13,7 @@
 import type { EditorView } from "@codemirror/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { saveImageToAssets } from "@/hooks/useImageOperations";
 import { generateClipboardImageFilename } from "@/plugins/imageHandler/imageHandlerUtils";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -55,9 +54,7 @@ export function handleClipboardImagePaste(view: EditorView, event: Event): boole
 
 async function saveAndInsertImages(view: EditorView, files: File[], capturedFrom: number, capturedTo: number): Promise<void> {
   const windowLabel = getWindowLabel();
-  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-  const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-  const filePath = doc?.filePath;
+  const filePath = hostDocument.activeFilePath(windowLabel);
 
   if (!filePath) {
     await message(

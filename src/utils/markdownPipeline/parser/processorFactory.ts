@@ -9,26 +9,9 @@
  * @module utils/markdownPipeline/parser/processorFactory
  */
 
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkBreaks from "remark-breaks";
-import {
-  remarkCustomInline,
-  remarkDetailsBlock,
-  remarkResolveReferences,
-  remarkTocBlock,
-  remarkWikiLinks,
-} from "../plugins";
+import { buildProcessorForMode, cacheKeyForMode } from "../dialect";
 import type { MarkdownPipelineOptions } from "../types";
-import {
-  analyzeContent,
-  remarkDisableSetextHeadings,
-  remarkValidateMath,
-  type ContentAnalysis,
-} from "./remarkPlugins";
+import { analyzeContent, type ContentAnalysis } from "./remarkPlugins";
 
 /**
  * Build a unified processor configured for VMark markdown parsing.
@@ -45,68 +28,33 @@ import {
  * is handled via remarkCustomInline plugin (always loaded, lightweight).
  */
 function buildProcessor(analysis: ContentAnalysis, preserveLineBreaks: boolean) {
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkDisableSetextHeadings)
-    .use(remarkGfm, {
-      // Disable single tilde strikethrough to avoid conflict with subscript
-      // GFM strikethrough uses ~~double tilde~~
-      singleTilde: false,
-    });
-
-  // Conditionally add math support
-  if (analysis.hasMath) {
-    processor.use(remarkMath);
-    processor.use(remarkValidateMath);
-  }
-
-  // Conditionally add frontmatter support
-  if (analysis.hasFrontmatter) {
-    processor.use(remarkFrontmatter, ["yaml"]);
-  }
-
-  // Conditionally add wiki links support
-  if (analysis.hasWikiLinks) {
-    processor.use(remarkWikiLinks);
-  }
-
-  // Conditionally add details block support
-  if (analysis.hasDetails) {
-    processor.use(remarkDetailsBlock);
-  }
-
-  // Always load TOC block detection (lightweight, checks single-text paragraphs)
-  processor.use(remarkTocBlock);
-
-  // Always load custom inline (lightweight, common syntax)
-  processor.use(remarkCustomInline);
-
-  // Always load reference resolver (needed for GFM references)
-  processor.use(remarkResolveReferences);
-
-  if (preserveLineBreaks) {
-    processor.use(remarkBreaks);
-  }
-
-  return processor;
+  // The plugin set — and every delta between modes — lives in `dialect.ts`.
+  // Building here from a second hand-written chain is what let the editor and
+  // lint stacks diverge silently (WI-3.1).
+  return buildProcessorForMode("document", { ...analysis, preserveLineBreaks });
 }
 
-/** Stable cache key combining the four analysis flags with the line-break option. */
+/**
+ * Stable cache key, DERIVED from the dialect's conditional flags.
+ *
+ * This enumerated the flags by hand, and the comment it replaces recorded the
+ * bug that follows from missing one: a processor built for a document that
+ * needed setext suppressed was reused for one that did not, so the flag looked
+ * ignored at random. Deriving means a descriptor that starts conditioning on a
+ * new flag changes the key automatically. Adding a `conditionalFlags()` helper
+ * was NOT enough on its own — production still enumerated by hand, so the
+ * guarantee was false until the derived key became the key in use.
+ */
 function processorCacheKey(analysis: ContentAnalysis, preserveLineBreaks: boolean): string {
-  return (
-    (analysis.hasMath ? "M" : "-") +
-    (analysis.hasFrontmatter ? "F" : "-") +
-    (analysis.hasWikiLinks ? "W" : "-") +
-    (analysis.hasDetails ? "D" : "-") +
-    (preserveLineBreaks ? "B" : "-")
-  );
+  return cacheKeyForMode("document", { ...analysis, preserveLineBreaks });
 }
 
 /**
  * Cache of built processors keyed by content-analysis flags. A unified
  * processor is safe to reuse across `.parse()`/`.runSync()` calls once its
  * plugin set is fixed, so caching avoids rebuilding the ~10-plugin pipeline on
- * every parse. Bounded to 2^5 = 32 entries by the flag-combination key space.
+ * every parse. Bounded by the conditional-flag combination space — six flags
+ * today, so 2^6 = 64 entries, and it tracks the descriptors automatically.
  */
 const processorCache = new Map<string, ReturnType<typeof buildProcessor>>();
 
@@ -141,18 +89,9 @@ export function createProcessor(markdown: string, options: MarkdownPipelineOptio
  * accurate position data, then `.runSync(tree)` for transforms.
  */
 export function createMarkdownProcessor() {
-  const processor = unified()
-    .use(remarkParse)
-    .use(remarkDisableSetextHeadings)
-    .use(remarkGfm, { singleTilde: false })
-    .use(remarkMath)
-    .use(remarkValidateMath)
-    .use(remarkFrontmatter, ["yaml"])
-    .use(remarkWikiLinks)
-    .use(remarkDetailsBlock)
-    .use(remarkTocBlock)
-    .use(remarkCustomInline)
-    .use(remarkResolveReferences);
-
-  return processor;
+  // `source-position` loads every SYNTAX-RECOGNITION plugin unconditionally, so
+  // offsets never depend on what the document happens to contain. It excludes
+  // the two that would change them — the setext repair and remark-breaks —
+  // because its contract is the text as written (see dialectDescriptors.ts).
+  return buildProcessorForMode("source-position");
 }

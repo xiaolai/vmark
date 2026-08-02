@@ -50,7 +50,7 @@ function addWorkspace(id: string, rootPath: string): void {
 
 function openDoc(filePath: string): string {
   const id = useTabStore.getState().createTab(W, filePath);
-  useDocumentStore.getState().initDocument(id, "content", filePath, "content");
+  useDocumentStore.getState().initDocument(id, "content", filePath, { savedContent: "content" });
   return id;
 }
 

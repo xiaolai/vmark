@@ -33,15 +33,14 @@ vi.mock("@/plugins/imagePreview/ImagePreviewView", () => ({
 let mockIsOpen = false;
 const subscribers = new Set<(state: { isOpen: boolean }) => void>();
 
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: () => ({ isOpen: mockIsOpen }),
-    subscribe: (cb: (state: { isOpen: boolean }) => void) => {
-      subscribers.add(cb);
-      return () => subscribers.delete(cb);
-    },
+// The media popup state is passed to the factory now, not imported by it.
+const mockMediaPopup = {
+  getState: () => ({ isOpen: mockIsOpen }),
+  subscribe: (cb: (state: { isOpen: boolean }) => void) => {
+    subscribers.add(cb);
+    return () => subscribers.delete(cb);
   },
-}));
+} as never;
 
 const mockGetMediaType = vi.fn<(path: string) => "image" | "video" | "audio" | null>(() => "image");
 vi.mock("@/utils/mediaPathDetection", () => ({
@@ -59,7 +58,7 @@ function createView(content: string, cursorPos: number): EditorView {
   const state = EditorState.create({
     doc: content,
     selection: { anchor: cursorPos },
-    extensions: [createSourceImagePreviewPlugin()],
+    extensions: [createSourceImagePreviewPlugin(mockMediaPopup)],
   });
   return new EditorView({
     state,
@@ -377,7 +376,7 @@ describe("sourceImagePreview findMediaAtCursor edge cases", () => {
     const state = EditorState.create({
       doc: content,
       selection: { anchor: 2, head: 10 },
-      extensions: [createSourceImagePreviewPlugin()],
+      extensions: [createSourceImagePreviewPlugin(mockMediaPopup)],
     });
     activeView = new EditorView({ state, parent: document.createElement("div") });
 

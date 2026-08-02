@@ -9,7 +9,8 @@ import { type Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { sourceLinkError } from "@/utils/debug";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { extractMarkdownHeadings } from "@/plugins/toolbarActions/sourceAdapterLinks";
@@ -153,14 +154,14 @@ function createCmdClickPlugin(): Extension {
  *
  * Click on a link opens the edit popup. Cmd+Click opens in browser.
  */
-export function createSourceLinkPopupPlugin(): Extension {
+export function createSourceLinkPopupPlugin(store: StoreApi<LinkPopupState>): Extension {
   return [
     // Cmd+Click handler (capture phase, runs first)
     createCmdClickPlugin(),
     // Popup plugin: opens edit popup on regular click
     /* v8 ignore next -- @preserve reason: createSourcePopupPlugin factory not invoked in unit tests */
     createSourcePopupPlugin({
-      store: useLinkPopupStore,
+      store,
       createView: (view, store) => new SourceLinkPopupView(view, store),
       detectTrigger: detectLinkTrigger,
       detectTriggerAtPos: (view, pos) => {

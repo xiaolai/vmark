@@ -8,7 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { copyLinkHref, openLink, removeLink, saveLinkChanges } from "./sourceLinkActions";
 
@@ -21,15 +21,13 @@ function buildSourceLinkBtn(iconSvg: string, title: string, onClick: () => void)
  * Source link popup view.
  * Extends the base SourcePopupView for common functionality.
  */
-type LinkPopupStoreState = ReturnType<typeof useLinkPopupStore.getState>;
-
-export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
+export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
   // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
   private declare hrefInput: HTMLInputElement;
   private declare openBtn: HTMLElement;
   private isBookmark = false;
 
-  constructor(view: EditorView, store: StoreApi<LinkPopupStoreState>) {
+  constructor(view: EditorView, store: StoreApi<LinkPopupState>) {
     super(view, store);
   }
 
@@ -78,7 +76,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
     };
   }
 
-  protected onShow(state: LinkPopupStoreState): void {
+  protected onShow(state: LinkPopupState): void {
     this.isBookmark = state.href.startsWith("#");
 
     // Set input values from store
@@ -130,7 +128,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
   }
 
   private handleHrefInput(): void {
-    useLinkPopupStore.getState().setHref(this.hrefInput.value);
+    this.store.getState().setHref(this.hrefInput.value);
   }
 
   private handleSave(): void {
@@ -145,22 +143,22 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupStoreState> {
 
     // Sync the freshly read value back into the store so saveLinkChanges
     // (which reads `href` from the store) sees what the user actually typed.
-    useLinkPopupStore.getState().setHref(href);
-    saveLinkChanges(this.editorView);
+    this.store.getState().setHref(href);
+    saveLinkChanges(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }
 
   private handleOpen(): void {
-    openLink(this.editorView);
+    openLink(this.editorView, this.store);
   }
 
   private handleCopy(): void {
-    copyLinkHref();
+    copyLinkHref(this.store);
   }
 
   private handleRemove(): void {
-    removeLink(this.editorView);
+    removeLink(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }

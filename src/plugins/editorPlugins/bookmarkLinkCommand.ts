@@ -6,13 +6,13 @@
  * - handleBookmarkLinkShortcut
  *
  * @coordinates-with editorPlugins.tiptap.ts (keymap builder binds this)
- * @coordinates-with headingPickerStore.ts (heading picker popup state)
+ * @coordinates-with plugins/shared/hostPopups.ts — opens the heading picker
  * @coordinates-with utils/headingSlug.ts (heading extraction)
  * @coordinates-with utils/popupPosition.ts (popup positioning)
  */
 
 import type { EditorView } from "@tiptap/pm/view";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { extractHeadingsWithIds } from "@/utils/headingSlug";
 import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
 
@@ -21,7 +21,7 @@ import { getBoundaryRects, getViewportBounds } from "@/utils/popupPosition";
  */
 export function handleBookmarkLinkShortcut(view: EditorView): boolean {
   // Block if heading picker is already open
-  if (useHeadingPickerStore.getState().isOpen) {
+  if (hostPopups.anyLinkSurfaceOpen()) {
     return true;
   }
 
@@ -53,7 +53,7 @@ export function handleBookmarkLinkShortcut(view: EditorView): boolean {
     ? getBoundaryRects(view.dom as HTMLElement, containerEl)
     : getViewportBounds();
 
-  useHeadingPickerStore.getState().openPicker(headings, (id, text) => {
+  const onSelect = (id: string, text: string) => {
     const currentState = view.state;
     const linkMark = currentState.schema.marks.link;
     if (!linkMark) return;
@@ -73,7 +73,9 @@ export function handleBookmarkLinkShortcut(view: EditorView): boolean {
 
     view.dispatch(tr);
     view.focus();
-  }, { anchorRect, containerBounds });
+  };
+
+  hostPopups.openHeadingPicker({ headings, onSelect, anchorRect, containerBounds });
 
   return true;
 }

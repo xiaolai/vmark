@@ -10,7 +10,6 @@ import {
   deleteRow,
   deleteColumn,
   deleteTable,
-  getColumnAlignment,
   setColumnAlignment,
   setAllColumnsAlignment,
   formatTable,
@@ -58,26 +57,6 @@ const simpleTable = [
 
 const simpleTableText = simpleTable.join("\n");
 
-describe("getColumnAlignment", () => {
-  it.each([
-    { separator: "| --- | --- |", col: 0, expected: "left" as const },
-    { separator: "| :-- | --- |", col: 0, expected: "left" as const },
-    { separator: "| --: | --- |", col: 0, expected: "right" as const },
-    { separator: "| :-: | --- |", col: 0, expected: "center" as const },
-    { separator: "| --- | :-: |", col: 1, expected: "center" as const },
-  ])("returns '$expected' for col $col with separator '$separator'", ({ separator, col, expected }) => {
-    const lines = ["| A | B |", separator, "| a | b |"];
-    const info = makeTableInfo({ lines, colCount: 2, rowIndex: 0, colIndex: col });
-    expect(getColumnAlignment(info)).toBe(expected);
-  });
-
-  it("returns 'left' when colIndex is out of range", () => {
-    const lines = ["| A |", "| - |", "| a |"];
-    const info = makeTableInfo({ lines, colCount: 1, rowIndex: 0, colIndex: 5 });
-    expect(getColumnAlignment(info)).toBe("left");
-  });
-});
-
 describe("insertRowBelow", () => {
   it("inserts a new row below the current row", () => {
     const view = createView(simpleTableText, 30);
@@ -96,6 +75,54 @@ describe("insertRowBelow", () => {
     expect(lines.length).toBe(5);
     // New row should be after row index 2 (line 3 in 1-indexed)
     expect(lines[3]).toMatch(/^\|.*\|$/);
+    view.destroy();
+  });
+});
+
+describe("structural row insertion (header/separator context)", () => {
+  // A data row must never land between header and separator — that breaks
+  // table detection. From either structural row, both directions insert
+  // immediately after the separator.
+  it.each([
+    { name: "insertRowBelow", fn: insertRowBelow, rowIndex: 0 },
+    { name: "insertRowBelow", fn: insertRowBelow, rowIndex: 1 },
+    { name: "insertRowAbove", fn: insertRowAbove, rowIndex: 0 },
+    { name: "insertRowAbove", fn: insertRowAbove, rowIndex: 1 },
+  ])("$name from rowIndex $rowIndex lands the new row after the separator", ({ fn, rowIndex }) => {
+    const view = createView(simpleTableText, 5);
+    const info = makeTableInfo({
+      lines: simpleTable,
+      colCount: 2,
+      rowIndex,
+      colIndex: 0,
+    });
+
+    fn(view, info);
+    const lines = view.state.doc.toString().split("\n");
+    expect(lines.length).toBe(5);
+    expect(lines[0]).toBe("| A   | B   |");
+    expect(lines[1]).toBe("| --- | --- |");
+    expect(lines[2]).toMatch(/^\|[\s|]+\|$/);
+    expect(lines[3]).toBe("| a1  | b1  |");
+    view.destroy();
+  });
+});
+
+describe("insertRowBelow — generated row width", () => {
+  it("emits a new empty row exactly as wide as the header row", () => {
+    const view = createView(simpleTableText, 30);
+    const info = makeTableInfo({
+      lines: simpleTable,
+      colCount: 2,
+      rowIndex: 2,
+      colIndex: 0,
+    });
+
+    insertRowBelow(view, info);
+    const lines = view.state.doc.toString().split("\n");
+    // "| A   | B   |" is 13 chars; the empty row must match, not gain
+    // an extra wrapper space per cell side.
+    expect(lines[3].length).toBe(simpleTable[0].length);
     view.destroy();
   });
 });
@@ -459,6 +486,46 @@ describe("setColumnAlignment", () => {
   });
 });
 
+describe("alignment preserves separator width", () => {
+  const wideTable = [
+    "| Long header  | B   |",
+    "| ------------ | --- |",
+    "| a            | b   |",
+  ];
+
+  it("setColumnAlignment keeps a wide separator cell at its width", () => {
+    const view = createView(wideTable.join("\n"), 5);
+    const info = makeTableInfo({
+      lines: wideTable,
+      colCount: 2,
+      rowIndex: 0,
+      colIndex: 0,
+    });
+
+    setColumnAlignment(view, info, "center");
+    const sepCells = view.state.doc.toString().split("\n")[1].split("|");
+    // 12 dashes wide before, so :----------: (still 12) after — not :---:.
+    expect(sepCells[1].trim()).toBe(":----------:");
+    view.destroy();
+  });
+
+  it("setAllColumnsAlignment keeps each separator cell at its own width", () => {
+    const view = createView(wideTable.join("\n"), 5);
+    const info = makeTableInfo({
+      lines: wideTable,
+      colCount: 2,
+      rowIndex: 0,
+      colIndex: 0,
+    });
+
+    setAllColumnsAlignment(view, info, "right");
+    const sepCells = view.state.doc.toString().split("\n")[1].split("|");
+    expect(sepCells[1].trim()).toBe("-----------:");
+    expect(sepCells[2].trim()).toBe("---:");
+    view.destroy();
+  });
+});
+
 describe("setAllColumnsAlignment", () => {
   it("sets all columns to center", () => {
     const view = createView(simpleTableText, 5);
@@ -605,6 +672,34 @@ describe("formatTable", () => {
     expect(sepLine).toMatch(/-+:/);
     // Center alignment preserved
     expect(sepLine).toMatch(/:-+:/);
+    view.destroy();
+  });
+
+  it("preserves body-row cells beyond the header column count", () => {
+    const lines = [
+      "| A | B |",
+      "| --- | --- |",
+      "| a | b | extra |",
+    ];
+    const text = lines.join("\n");
+    const view = createView(text, 5);
+    const info = makeTableInfo({
+      lines,
+      colCount: 2,
+      rowIndex: 0,
+      colIndex: 0,
+    });
+
+    const changed = formatTable(view, info);
+    expect(changed).toBe(true);
+
+    const result = view.state.doc.toString();
+    // The extra cell is data — formatting must never drop it.
+    expect(result).toContain("extra");
+    // Every row is padded out to the widest row's cell count.
+    for (const line of result.split("\n")) {
+      expect(line.split("|").length - 1).toBe(4);
+    }
     view.destroy();
   });
 

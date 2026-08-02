@@ -87,13 +87,13 @@ describe("loadContent ⇒ revision invalidation", () => {
 
   it("invalidates a revision read before an external reload", () => {
     const readRevision = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().loadContent(TAB, "changed on disk", "/tmp/a.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "changed on disk", "disk-open", { filePath: "/tmp/a.md" });
     expect(useRevisionStore.getState().isCurrentRevision(TAB, readRevision)).toBe(false);
   });
 
   it("does NOT bump when the reload brings identical content", () => {
     const before = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().loadContent(TAB, "hello", "/tmp/a.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "hello", "disk-open", { filePath: "/tmp/a.md" });
     expect(useRevisionStore.getState().getRevision(TAB)).toBe(before);
   });
 
@@ -101,7 +101,7 @@ describe("loadContent ⇒ revision invalidation", () => {
     useDocumentStore.getState().setContent(TAB, "local edit");
     const idBefore = useDocumentStore.getState().documents[TAB].documentId;
 
-    useDocumentStore.getState().loadContent(TAB, "from disk", "/tmp/a.md");
+    useDocumentStore.getState().ingestExternalContent(TAB, "from disk", "disk-open", { filePath: "/tmp/a.md" });
 
     const doc = useDocumentStore.getState().documents[TAB];
     expect(doc.isDirty).toBe(false);

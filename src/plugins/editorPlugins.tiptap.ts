@@ -8,7 +8,7 @@
  * - editorKeymapExtension: Tiptap Extension wrapping the keymap plugin
  * - expandedToggleMarkTiptap: Re-export for external consumers
  *
- * @coordinates-with shortcutsStore.ts (reads current shortcut bindings)
+ * @coordinates-with plugins/shared/ — hostShortcuts (chords), hostPopups (Escape)
  * @coordinates-with editorPlugins/keymapUtils.ts (binding helpers)
  * @coordinates-with services/editor/runEditorAction.ts (executor for editor.* actions)
  * @coordinates-with editorPlugins/linkCommands.ts (unlink shortcut — no editor.* command)
@@ -17,10 +17,13 @@
 import { Extension } from "@tiptap/core";
 import { keydownHandler } from "@tiptap/pm/keymap";
 import { Plugin, PluginKey, type Command, type EditorState } from "@tiptap/pm/state";
-import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/settingsStore";
-import { useSourcePeekStore } from "@/stores/sourcePeekStore";
-import { openSourcePeekInline, revertAndCloseSourcePeek } from "@/plugins/sourcePeekInline";
+import { hostPopups } from "@/plugins/shared/hostPopups";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
+import {
+  openSourcePeekInline,
+  revertAndCloseSourcePeek,
+  isSourcePeekOpen,
+} from "@/plugins/sourcePeekInline";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
@@ -42,7 +45,6 @@ import { handleUnlinkShortcut } from "./editorPlugins/linkCommands";
 const editorKeymapPluginKey = new PluginKey("editorKeymaps");
 
 export function buildEditorKeymapBindings(): Record<string, Command> {
-  const shortcuts = useShortcutsStore.getState();
   const bindings: Record<string, Command> = {};
 
   // Note: toggleSidebar and sourceMode toggles are handled by the useViewShortcuts
@@ -58,7 +60,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // stricter and would drop keyboard formatting the executor accepts (WI-4.2).
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("bold"),
+    hostShortcuts.getShortcut("bold"),
     wrapWithMultiSelectionGuard("bold", () => {
       runEditorAction("bold", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -66,7 +68,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("italic"),
+    hostShortcuts.getShortcut("italic"),
     wrapWithMultiSelectionGuard("italic", () => {
       runEditorAction("italic", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -74,7 +76,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("code"),
+    hostShortcuts.getShortcut("code"),
     wrapWithMultiSelectionGuard("code", () => {
       runEditorAction("code", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -82,7 +84,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("strikethrough"),
+    hostShortcuts.getShortcut("strikethrough"),
     wrapWithMultiSelectionGuard("strikethrough", () => {
       runEditorAction("strikethrough", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -90,7 +92,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("underline"),
+    hostShortcuts.getShortcut("underline"),
     wrapWithMultiSelectionGuard("underline", () => {
       runEditorAction("underline", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -98,7 +100,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("highlight"),
+    hostShortcuts.getShortcut("highlight"),
     wrapWithMultiSelectionGuard("highlight", () => {
       runEditorAction("highlight", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -106,7 +108,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("subscript"),
+    hostShortcuts.getShortcut("subscript"),
     wrapWithMultiSelectionGuard("subscript", () => {
       runEditorAction("subscript", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -114,7 +116,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("superscript"),
+    hostShortcuts.getShortcut("superscript"),
     wrapWithMultiSelectionGuard("superscript", () => {
       runEditorAction("superscript", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -124,7 +126,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // --- Link shortcuts ---
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("link"),
+    hostShortcuts.getShortcut("link"),
     wrapWithMultiSelectionGuard("link", () => {
       runEditorAction("link", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -133,7 +135,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // unlink has no editor.* command (executor gap) — keep the direct handler.
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("unlink"),
+    hostShortcuts.getShortcut("unlink"),
     wrapWithMultiSelectionGuard("unlink", (_state, _dispatch, view) => {
       /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
       if (!view) return false;
@@ -142,7 +144,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("wikiLink"),
+    hostShortcuts.getShortcut("wikiLink"),
     wrapWithMultiSelectionGuard("wikiLink", () => {
       runEditorAction("wikiLink", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -150,7 +152,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("bookmarkLink"),
+    hostShortcuts.getShortcut("bookmarkLink"),
     wrapWithMultiSelectionGuard("bookmarkLink", () => {
       runEditorAction("bookmark", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -160,7 +162,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // --- Inline math ---
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("inlineMath"),
+    hostShortcuts.getShortcut("inlineMath"),
     wrapWithMultiSelectionGuard("inlineMath", () => {
       runEditorAction("insertInlineMath", { windowLabel: getCurrentWindowLabel() });
       return true;
@@ -168,7 +170,7 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
 
   // --- Paste / Insert ---
-  bindIfKey(bindings, shortcuts.getShortcut("pastePlainText"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("pastePlainText"), (_state, _dispatch, view) => {
     if (!view) return false;
     void triggerPastePlainText(view);
     return true;
@@ -176,24 +178,23 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
 
   // Insert image — route through the executor. `editor.insertImage` runs the
   // same runEditorAction("insertImage") path the menu:image event maps to.
-  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), () => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("insertImage"), () => {
     runEditorAction("insertImage", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
 
   // Blockquote toggle — route through the executor. The wysiwyg adapter's
   // toggleBlockquote handles the list-wrapping / full-unwrap logic identically.
-  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("blockquote"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("blockquote", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
 
   // --- Source peek ---
-  bindIfKey(bindings, shortcuts.getShortcut("sourcePeek"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("sourcePeek"), (_state, _dispatch, view) => {
     if (!view) return false;
-    const sourcePeek = useSourcePeekStore.getState();
-    if (sourcePeek.isOpen) {
+    if (isSourcePeekOpen()) {
       // Close inline Source Peek with revert
       revertAndCloseSourcePeek(view);
       return true;
@@ -205,17 +206,12 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // --- Escape key ---
   bindings.Escape = guardProseMirrorCommand((_state: EditorState, _dispatch, view) => {
     if (!view) return false;
-    const sourcePeek = useSourcePeekStore.getState();
-    if (sourcePeek.isOpen) {
+    if (isSourcePeekOpen()) {
       // Close inline Source Peek with revert
       revertAndCloseSourcePeek(view);
       return true;
     }
-    const uiStore = useUIStore.getState();
-    if (uiStore.universalToolbarVisible) {
-      uiStore.setUniversalToolbarVisible(false);
-      return true;
-    }
+    if (hostPopups.dismissUniversalToolbar()) return true;
     // Collapse a non-empty range (e.g. whole-doc after Cmd+A) to a cursor
     // so users can dismiss a selection without typing or clicking.
     // Skipped for multi-cursor selections — the multi-cursor keymap's own
@@ -225,27 +221,27 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   });
 
   // --- Line operations ---
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("moveLineUp"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("moveLineUp", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("moveLineDown"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("moveLineDown", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("duplicateLine"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("duplicateLine", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("deleteLine"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("deleteLine", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("joinLines"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("joinLines", { windowLabel: getCurrentWindowLabel() });
     return true;
@@ -253,22 +249,22 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // Note: Sort lines are not implemented for WYSIWYG as they work on plain text lines
 
   // --- Text transformations ---
-  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformUppercase"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("transformUppercase", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformLowercase"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("transformLowercase", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformTitleCase"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("transformTitleCase", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformToggleCase"), (_state, _dispatch, view) => {
     if (!view) return false;
     runEditorAction("transformToggleCase", { windowLabel: getCurrentWindowLabel() });
     return true;
@@ -295,7 +291,7 @@ export const editorKeymapExtension = Extension.create({
   priority: 1000,
   addProseMirrorPlugins() {
     let handler = keydownHandler(buildEditorKeymapBindings());
-    const unsubscribe = useShortcutsStore.subscribe(() => {
+    const unsubscribe = hostShortcuts.onChange(() => {
       handler = keydownHandler(buildEditorKeymapBindings());
     });
 

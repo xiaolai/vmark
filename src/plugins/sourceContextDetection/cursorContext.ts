@@ -13,10 +13,6 @@ import type {
   ListContext,
   BlockquoteContext,
   HeadingContext,
-  LinkContext,
-  ImageContext,
-  InlineMathContext,
-  FootnoteContext,
   FormattedRangeContext,
 } from "@/types/cursorContext";
 import type { FormatType } from "./formatTypes";
@@ -31,6 +27,7 @@ import { getFormattedRangeAtCursor } from "./formatRangeDetection";
 import { getWordAtCursor } from "./wordSelection";
 import { isAtParagraphLineStart } from "./paragraphDetection";
 import { getContextModeSource } from "./positionUtils";
+import { inlineContextsFor } from "./linkTarget";
 
 /**
  * Check if cursor is at a blank line (empty or whitespace only).
@@ -218,59 +215,10 @@ export function computeSourceCursorContext(view: EditorView): CursorContext {
   const nearPunctuation = isNearPunctuation(view);
 
   // Build inline context based on type
-  let inLink: LinkContext | null = null;
-  let inImage: ImageContext | null = null;
-  let inInlineMath: InlineMathContext | null = null;
-  let inFootnote: FootnoteContext | null = null;
-
-  if (inlineElement) {
-    switch (inlineElement.type) {
-      case "link":
-        inLink = {
-          href: "", // Would need to parse from content
-          text: view.state.doc.sliceString(
-            inlineElement.contentFrom,
-            inlineElement.contentTo
-          ),
-          from: inlineElement.from,
-          to: inlineElement.to,
-          contentFrom: inlineElement.contentFrom,
-          contentTo: inlineElement.contentTo,
-        };
-        break;
-      case "image":
-        inImage = {
-          src: "", // Would need to parse from content
-          alt: view.state.doc.sliceString(
-            inlineElement.contentFrom,
-            inlineElement.contentTo
-          ),
-          from: inlineElement.from,
-          to: inlineElement.to,
-        };
-        break;
-      case "math":
-        inInlineMath = {
-          from: inlineElement.from,
-          to: inlineElement.to,
-          contentFrom: inlineElement.contentFrom,
-          contentTo: inlineElement.contentTo,
-        };
-        break;
-      case "footnote":
-        inFootnote = {
-          label: view.state.doc.sliceString(
-            inlineElement.contentFrom,
-            inlineElement.contentTo
-          ),
-          from: inlineElement.from,
-          to: inlineElement.to,
-          contentFrom: inlineElement.contentFrom,
-          contentTo: inlineElement.contentTo,
-        };
-        break;
-    }
-  }
+  const { inLink, inImage, inInlineMath, inFootnote } = inlineContextsFor(
+    view,
+    inlineElement,
+  );
 
   return {
     // Block contexts

@@ -123,7 +123,7 @@ export const tomlFormat: FormatConfig = {
     "pyproject-toml": PyprojectTomlSchemaRenderer,
   },
   adapters: {
-    saveDialogFilters: [{ name: "TOML", extensions: ["toml"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.toml", extensions: ["toml"] }],
     untitledExtension: "toml",
     exportEnabled: false,
     findEnabled: true,

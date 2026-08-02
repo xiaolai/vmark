@@ -16,7 +16,6 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { Fragment, Slice, type Schema, type Node as PMNode, type NodeType } from "@tiptap/pm/model";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { clipboardWarn, markdownCopyWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -113,12 +112,35 @@ function serializeSliceAsMarkdown(schema: Schema, slice: Slice): string | null {
 /**
  * Get text for the current selection, respecting copyFormat setting.
  */
-function getSelectionText(view: EditorView): string {
+/**
+ * How copied content should be placed on the clipboard.
+ *
+ * The plugin's OWN vocabulary, matching the app's setting. Written by hand
+ * rather than imported, because a type-only import still pins the plugin to
+ * this repo — and writing it caught the mistake: the first draft guessed
+ * `"markdown" | "text"` against the real `"default" | "markdown"`.
+ */
+export type CopyFormat = "default" | "markdown";
+
+/** Options for the markdown-copy extension. */
+export interface MarkdownCopyOptions {
+  /**
+   * Copy format and copy-on-select, asked fresh on every copy.
+   *
+   * INJECTED — a plugin reaching the app's stores cannot ship as a standalone
+   * extension (ADR-015). Getters, so a settings change takes effect without
+   * rebuilding the editor.
+   */
+  getCopyFormat: () => CopyFormat;
+  getCopyOnSelect: () => boolean;
+}
+
+function getSelectionText(view: EditorView, getCopyFormat: () => CopyFormat): string {
   const { state } = view;
   const { from, to } = state.selection;
   if (from === to) return "";
 
-  const { copyFormat } = useSettingsStore.getState().markdown;
+  const copyFormat = getCopyFormat();
 
   if (copyFormat === "markdown") {
     const slice = state.doc.slice(from, to);
@@ -130,28 +152,32 @@ function getSelectionText(view: EditorView): string {
 }
 
 /** Tiptap extension that serializes copied content as clean markdown on the clipboard. */
-export const markdownCopyExtension = Extension.create({
+export const markdownCopyExtension = Extension.create<MarkdownCopyOptions>({
   name: "markdownCopy",
+  // VMark's own defaults ("default" format, copy-on-select off), so an unbound
+  // host behaves like the app rather than subtly differently.
+  addOptions() {
+    return { getCopyFormat: () => "default" as CopyFormat, getCopyOnSelect: () => false };
+  },
   addProseMirrorPlugins() {
+    const { getCopyFormat, getCopyOnSelect } = this.options;
     return [
       new Plugin({
         key: markdownCopyPluginKey,
         props: {
           clipboardTextSerializer(slice: Slice, view: EditorView) {
-            const { copyFormat } = useSettingsStore.getState().markdown;
-            if (copyFormat !== "markdown") return "";
+            if (getCopyFormat() !== "markdown") return "";
 
             return serializeSliceAsMarkdown(view.state.schema, slice) ?? "";
           },
           handleDOMEvents: {
             mouseup(view: EditorView) {
-              const { copyOnSelect } = useSettingsStore.getState().markdown;
-              if (!copyOnSelect) return false;
+              if (!getCopyOnSelect()) return false;
 
               requestAnimationFrame(() => {
                 if (view.isDestroyed) return;
 
-                const text = getSelectionText(view);
+                const text = getSelectionText(view, getCopyFormat);
                 if (text) {
                   navigator.clipboard.writeText(text).catch((error: unknown) => {
                     clipboardWarn("Clipboard write failed:", errorMessage(error));

@@ -1,8 +1,8 @@
 /**
  * Tiptap Extensions Configuration
  *
- * Purpose: Assembles the Tiptap extension stack for VMark's WYSIWYG editor —
- * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
+ * Purpose: Assembles the Tiptap extension stack — StarterKit overrides, marks,
+ * nodes, media, plugins. Settings reach a plugin as an injected getter (ADR-015).
  *
  * Key decisions:
  *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
@@ -14,15 +14,18 @@
  *     plus media popup/handler extensions; tocExtension for [TOC] navigation
  *   - Composition order is pinned via WYSIWYG_COMPOSITION_ORDER (WI-3.4)
  *
+ * The Link mark lives in `linkExtension.ts` with its round-trip attributes.
+ *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
+ * @coordinates-with hostAdapters.ts — the app-side values plugins are configured with
  * @module utils/tiptapExtensions
  */
 
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
+import { vmarkLinkExtension } from "./linkExtension";
 import {
   HeadingWithSourceLine,
   ParagraphWithSourceLine,
@@ -46,9 +49,17 @@ import { linkCreatePopupExtension } from "@/plugins/linkCreatePopup";
 import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
+import { currentAutoPairConfig } from "./autoPairConfig";
+import {
+  currentPasteSettings,
+  copyHostOptions,
+  markdownPasteHostOptions,
+} from "./pasteOptions";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
 import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
+import { focusModeHostOptions, typewriterModeHostOptions } from "./uiToggleOptions";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
@@ -74,6 +85,12 @@ import { alertBlockExtension } from "@/plugins/alertBlock/tiptap";
 import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detailsBlock/tiptap";
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
+import {
+  appInlineMathEditingRegistry,
+  lintDiagnosticsSource,
+  pluginStores,
+  linkPopupStores,
+} from "./hostAdapters";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -145,25 +162,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
         newGroupDelay: 500,
       },
     }),
-    // Custom Link extension with excludes to prevent nested links and code inside links
-    Link.extend({
-      excludes: "link code",
-      // Markdown link titles (`[text](url "title")`) must survive a WYSIWYG
-      // round trip — the base Link mark has no title attribute, so add one.
-      addAttributes() {
-        return {
-          ...this.parent?.(),
-          title: { default: null },
-        };
-      },
-    }).configure({
-      openOnClick: false,
-      // Don't add target="_blank" - it bypasses our click handling
-      HTMLAttributes: {
-        target: null,
-        rel: null,
-      },
-    }),
+    vmarkLinkExtension,
     // CJK-aware bold/italic (replaces StarterKit defaults)
     CJKBold,
     CJKItalic,
@@ -180,8 +179,8 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     subscriptExtension,
     superscriptExtension,
     underlineExtension,
-    mathInlineExtension,
-    mathPopupExtension,
+    mathInlineExtension.configure({ editingRegistry: appInlineMathEditingRegistry }),
+    mathPopupExtension.configure({ store: pluginStores.math }),
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
@@ -191,7 +190,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     frontmatterExtension,
     htmlInlineExtension,
     htmlBlockExtension,
-    wikiLinkPopupExtension,
+    wikiLinkPopupExtension.configure({ store: pluginStores.wikiLink }),
     footnoteReferenceExtension,
     footnoteDefinitionExtension,
     TableWithScrollWrapper.configure({ resizable: false }),
@@ -209,22 +208,22 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
-    footnotePopupExtension,
+    footnotePopupExtension.configure({ store: pluginStores.footnote }),
     smartPasteExtension,
-    markdownPasteExtension,
-    htmlPasteExtension,
-    codePasteExtension,
-    markdownCopyExtension,
-    linkPopupExtension,
-    linkCreatePopupExtension,
+    markdownPasteExtension.configure(markdownPasteHostOptions),
+    htmlPasteExtension.configure({ getPasteSettings: currentPasteSettings }),
+    codePasteExtension.configure({ getPasteSettings: currentPasteSettings }),
+    markdownCopyExtension.configure(copyHostOptions),
+    linkPopupExtension.configure(linkPopupStores),
+    linkCreatePopupExtension.configure({ store: pluginStores.linkCreate }),
     searchExtension,
-    autoPairExtension,
-    focusModeExtension,
-    typewriterModeExtension,
+    autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
+    focusModeExtension.configure(focusModeHostOptions),
+    typewriterModeExtension.configure(typewriterModeHostOptions),
     blankLinesGuardExtension,
     imageHandlerExtension,
     mediaHandlerExtension,
-    mediaPopupExtension,
+    mediaPopupExtension.configure({ store: pluginStores.media }),
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,
@@ -232,9 +231,11 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     listClickFixExtension,
     // Note: ListKeymap (backspace, arrow keys in list items) is included via StarterKit
     editorKeymapExtension,
-    tabIndentExtension,
+    tabIndentExtension.configure({
+      getTabSize: () => useSettingsStore.getState().general.tabSize,
+    }),
     multiCursorExtension,
-    aiSuggestionExtension,
+    aiSuggestionExtension.configure({ store: pluginStores.aiSuggestion }),
     CJKLetterSpacing,
     sourcePeekInlineExtension,
     smartSelectAllExtension,
@@ -247,7 +248,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     // tab is known — the plugin gates decoration building on the LIVE
     // markdown.lintEnabled setting, so toggling lint takes effect without an
     // editor remount (mount-time gating left WYSIWYG stale until remount).
-    ...(tabId ? [LintExtension.configure({ tabId })] : []),
+    ...(tabId ? [LintExtension.configure({ tabId, diagnostics: lintDiagnosticsSource })] : []),
   ];
 }
 

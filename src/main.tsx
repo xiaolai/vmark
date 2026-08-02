@@ -7,6 +7,7 @@ import { initSecureStorage } from "@/services/secrets/secureStorage";
 import { bootstrapFormats } from "./lib/formats";
 import { useSettingsStore } from "./stores/settingsStore";
 import { setTabExistenceGuard } from "./stores/documentStore";
+import { bindPluginHostSettings } from "./services/assembly/bindHostSettings";
 import { useTabStore } from "./stores/tabStore";
 import "./styles/index.css";
 // Canonical `.vm-btn` text button. Global so any surface can use it instead of
@@ -33,6 +34,13 @@ async function bootstrap() {
   // composition root so documentStore stays decoupled from tabStore and pure
   // store unit tests remain permissive.
   setTabExistenceGuard((tabId) => useTabStore.getState().findTabById(tabId) !== null);
+
+  // ADR-015: point the plugins' host-settings seam at the real store. Plugins
+  // depend on that seam, not on `@/stores`, so they still run when lifted out
+  // of this repo — this is what makes them read the USER's preferences here.
+  // Bound at the composition root, not at editor creation: the Source-mode
+  // plugins that read it are not built by the Tiptap factory.
+  bindPluginHostSettings();
 
   // ADR-011: register every plugin's manifest with the central registry
   // so palette / debug / dependency tooling sees the full plugin set.

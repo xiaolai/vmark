@@ -173,6 +173,16 @@ describe("BreakdownPanel — grouped list", () => {
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("0198-obj");
   });
 
+  // The only way to prove the cap holds is to exceed it, so this renders
+  // RESULT_CAP + 5 = 205 rows through jsdom — by far the heaviest render in the
+  // suite. It measures ~4-6s, which straddles vitest's 5s default: it passes
+  // alone and intermittently times out under `--coverage` with a full worker
+  // pool. The generous timeout is for the LOAD, not for the assertions, which
+  // are synchronous and either hold immediately or not at all; a real hang here
+  // would still fail, just later.
+  //
+  // Shrinking the fixture is not an option — a cap test that renders fewer rows
+  // than the cap tests nothing.
   it("caps the listed rows and reports the shown/total count", () => {
     const many = Array.from({ length: RESULT_CAP + 5 }, (_, i) =>
       row({ txf: `t${i}`, downstream_path: `d/${i}.md` }),
@@ -183,7 +193,7 @@ describe("BreakdownPanel — grouped list", () => {
     expect(
       screen.getByText(`Showing ${RESULT_CAP} of ${RESULT_CAP + 5} edges`),
     ).toBeInTheDocument();
-  });
+  }, 20000);
 });
 
 describe("BreakdownPanel — actions", () => {
