@@ -8,7 +8,8 @@
  * - editorKeymapExtension: Tiptap Extension wrapping the keymap plugin
  * - expandedToggleMarkTiptap: Re-export for external consumers
  *
- * @coordinates-with shortcutsStore.ts (reads current shortcut bindings)
+ * @coordinates-with plugins/shared/hostShortcuts.ts (current chords + rebinds)
+ * @coordinates-with plugins/shared/hostPopups.ts (Escape dismisses the toolbar)
  * @coordinates-with editorPlugins/keymapUtils.ts (binding helpers)
  * @coordinates-with services/editor/runEditorAction.ts (executor for editor.* actions)
  * @coordinates-with editorPlugins/linkCommands.ts (unlink shortcut — no editor.* command)

@@ -1,5 +1,5 @@
 /**
- * Purpose: the editor CHROME a plugin asks the host to show.
+ * Purpose: the editor CHROME a plugin asks the host to show — or dismiss.
  *
  * The third seam, and the first for ACTIONS rather than values.
  * `hostSettings` answers "what did the user configure" and `hostDocument`
