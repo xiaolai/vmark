@@ -124,12 +124,29 @@ function sharedEditor(): Editor {
   return shared.editor;
 }
 
-/** Tear the shared editor down; call from an `afterAll`. */
-export function disposeSurfaces(): void {
+/**
+ * Tear the shared editor down; call from an `afterAll`.
+ *
+ * ASYNC, and the await is the point. The production composition boots 77
+ * extensions, several of which do deferred work — lazy KaTeX/Mermaid loads,
+ * debounced lint parses — that logs on completion. Destroying synchronously in
+ * `afterAll` let one of those land AFTER the worker closed its RPC, surfacing
+ * as `EnvironmentTeardownError: Closing rpc while "onUserConsoleLog" was
+ * pending`. Every test still passed, so it read as a flake; it reproduced on
+ * Linux, which is what made it worth chasing.
+ *
+ * Yielding a macrotask after `destroy()` lets those callbacks run while the
+ * RPC is still open. `destroy()` first, so anything they touch is already torn
+ * down and they take their early-return path rather than doing real work.
+ */
+export async function disposeSurfaces(): Promise<void> {
   if (!shared) return;
   shared.editor.destroy();
   shared.element.remove();
   shared = null;
+  // A macrotask, not `Promise.resolve()` — a microtask drains before timers,
+  // and the deferred work here is timer-based.
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 /** Run an action against a real Tiptap editor and return the resulting markdown. */
