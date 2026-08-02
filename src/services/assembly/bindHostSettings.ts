@@ -35,6 +35,7 @@ export function bindPluginHostSettings(): void {
     tabSize: () => useSettingsStore.getState().general.tabSize,
     onChange: (listener) => useSettingsStore.subscribe(listener),
     tableFitToWidth: () => useSettingsStore.getState().markdown.tableFitToWidth ?? false,
+    lintEnabled: () => useSettingsStore.getState().markdown.lintEnabled,
     htmlRendering: () => {
       const m = useSettingsStore.getState().markdown;
       return {

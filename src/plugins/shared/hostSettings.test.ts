@@ -68,6 +68,7 @@ describe("the defaults MATCH the app's, so an unbound path is not a fork", () =>
     const { initialState } = await import("@/stores/settingsStore/defaults");
     expect(hostSettings.tabSize()).toBe(initialState.general.tabSize);
     expect(hostSettings.tableFitToWidth()).toBe(initialState.markdown.tableFitToWidth);
+    expect(hostSettings.lintEnabled()).toBe(initialState.markdown.lintEnabled);
   });
 });
 
