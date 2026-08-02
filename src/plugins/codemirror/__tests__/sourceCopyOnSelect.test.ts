@@ -10,15 +10,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 // Mock settingsStore before importing the plugin
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: vi.fn(() => ({
-      markdown: { copyOnSelect: true },
-    })),
-  },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { copyOnSelect: vi.fn(() => true) },
 }));
 
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { createSourceCopyOnSelectPlugin } from "../sourceCopyOnSelect";
 
 function createView(content: string, from: number, to: number): EditorView {
@@ -44,9 +40,7 @@ describe("sourceCopyOnSelect", () => {
       configurable: true,
     });
 
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: { copyOnSelect: true },
-    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(hostSettings.copyOnSelect).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -79,9 +73,7 @@ describe("sourceCopyOnSelect", () => {
   });
 
   it("does not copy when copyOnSelect is disabled", async () => {
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      markdown: { copyOnSelect: false },
-    } as ReturnType<typeof useSettingsStore.getState>);
+    vi.mocked(hostSettings.copyOnSelect).mockReturnValue(false);
 
     const content = "Hello, world!";
     const view = createView(content, 0, 5);

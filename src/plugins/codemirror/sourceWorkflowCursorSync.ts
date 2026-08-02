@@ -23,7 +23,7 @@
 
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
-import { useWorkflowStore } from "@/stores/workflowStore";
+import { workflowPort } from "./workflowPort";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 
 function findJobAtLine(workflow: WorkflowIR, line: number): string | null {
@@ -51,7 +51,7 @@ const cursorSyncPlugin = ViewPlugin.fromClass(
       this.maybeSync(update.view);
     }
     private maybeSync(view: EditorView) {
-      const { workflow } = useWorkflowStore.getState().gha;
+      const { workflow } = workflowPort().getState().gha;
       if (!workflow) return;
       const head = view.state.selection.main.head;
       const line = view.state.doc.lineAt(head).number;
@@ -59,9 +59,9 @@ const cursorSyncPlugin = ViewPlugin.fromClass(
       this.lastLine = line;
       const jobId = findJobAtLine(workflow, line);
       if (!jobId) return; // workflow-level — keep prior selection
-      const current = useWorkflowStore.getState().view.selectedJobId;
+      const current = workflowPort().getState().view.selectedJobId;
       if (current === jobId) return;
-      useWorkflowStore.getState().selectJob(jobId);
+      workflowPort().getState().selectJob(jobId);
     }
   },
 );

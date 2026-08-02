@@ -18,16 +18,8 @@ import { EditorView } from "@codemirror/view";
 
 const mockCopyOnSelect = { value: true };
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({
-      markdown: {
-        get copyOnSelect() {
-          return mockCopyOnSelect.value;
-        },
-      },
-    }),
-  },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { copyOnSelect: () => mockCopyOnSelect.value },
 }));
 
 vi.mock("@/plugins/markdownCopy/tiptap", () => ({

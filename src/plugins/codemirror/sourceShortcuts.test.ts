@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "./sourceShortcuts";
 
 // Shared mock state — must be hoisted so the vi.mock factory can close over it
@@ -18,8 +19,15 @@ vi.mock("@/services/editor/runEditorAction", () => ({
 }));
 
 // Mock heavy dependencies so callbacks can be invoked without real CodeMirror state
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: { getState: vi.fn(() => uiStoreState) },
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => uiStoreState.search,
+    open: () => uiStoreState.searchOpen(),
+    findNext: () => uiStoreState.searchFindNext(),
+    findPrevious: () => uiStoreState.searchFindPrevious(),
+  },
 }));
 
 vi.mock("./sourceShortcutsHelpers", () => ({
@@ -71,6 +79,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 function resetShortcuts() {
+  bindPluginHostSettings();
   useShortcutsStore.setState({ customBindings: {} });
 }
 

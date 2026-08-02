@@ -16,7 +16,7 @@
 
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin, type EditorView } from "@codemirror/view";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { cleanTextForClipboard } from "@/plugins/markdownCopy/tiptap";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -34,7 +34,7 @@ export function createSourceCopyOnSelectPlugin(): Extension {
       }
 
       handleMouseUp = () => {
-        if (!useSettingsStore.getState().markdown.copyOnSelect) return;
+        if (!hostSettings.copyOnSelect()) return;
 
         const view = this.view;
         requestAnimationFrame(() => {

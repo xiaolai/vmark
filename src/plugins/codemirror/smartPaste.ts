@@ -27,7 +27,8 @@
 import { EditorView } from "@codemirror/view";
 import { cleanPastedMarkdown } from "@/utils/cleanPastedMarkdown";
 import { htmlToMarkdown, isSubstantialHtml } from "@/utils/htmlToMarkdown";
-import { useSettingsStore, type PasteMode } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
+import type { PasteMode } from "@/plugins/shared/pasteSettings";
 import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
 import { isValidUrl } from "./smartPasteUtils";
 import { tryImagePaste } from "./smartPasteImage";
@@ -56,7 +57,7 @@ export function createSmartPastePlugin() {
       const trimmedText = pastedText.trim();
 
       // HTML paste: convert HTML to markdown (skip inside code fences)
-      const pasteMode: PasteMode = useSettingsStore.getState().markdown.pasteMode ?? "smart";
+      const pasteMode: PasteMode = hostSettings.pasteMode();
       if (pasteMode === "smart") {
         const html = event.clipboardData?.getData("text/html");
         if (html && html.length <= 100_000 && isSubstantialHtml(html)) {

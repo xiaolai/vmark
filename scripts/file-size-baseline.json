@@ -134,7 +134,7 @@
     "src/plugins/autoPair/__tests__/handlersExtra.test.ts": 868,
     "src/plugins/codeBlockLineNumbers/__tests__/CodeBlockNodeView.test.ts": 953,
     "src/plugins/codeBlockLineNumbers/tiptap.test.ts": 1616,
-    "src/plugins/codemirror/smartPasteImage.test.ts": 1261,
+    "src/plugins/codemirror/smartPasteImage.test.ts": 1260,
     "src/plugins/codemirror/structuralCharProtection.test.ts": 1082,
     "src/plugins/editorPlugins/linkCommands.test.ts": 1068,
     "src/plugins/footnotePopup/__tests__/FootnotePopupView.test.ts": 1124,

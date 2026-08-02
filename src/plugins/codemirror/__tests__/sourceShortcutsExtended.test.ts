@@ -11,11 +11,14 @@ import { EditorView } from "@codemirror/view";
 
 // --- Mocks ---
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => ({
-      toggleSidebar: vi.fn(),
-    }),
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => ({ isOpen: false, matchCount: 0 }),
+    open: vi.fn(),
+    findNext: vi.fn(),
+    findPrevious: vi.fn(),
   },
 }));
 
@@ -71,6 +74,7 @@ vi.mock("../sourceShortcutsHelpers", () => ({
 }));
 
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "../sourceShortcuts";
 
 const viewInstances: EditorView[] = [];
@@ -93,6 +97,7 @@ beforeEach(() => {
   mockGetSourceTableInfo.mockReset();
   mockGetBlockquoteInfo.mockReset();
   mockGetListBlockBounds.mockReset();
+  bindPluginHostSettings();
   useShortcutsStore.setState({ customBindings: {} });
 });
 

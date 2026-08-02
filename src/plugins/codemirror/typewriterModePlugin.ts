@@ -16,7 +16,7 @@
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { useUIStore } from "@/stores/uiStore";
+import { hostViewModes } from "@/plugins/shared/hostViewModes";
 import { isCodeMirrorComposing } from "@/utils/imeGuard";
 
 // Threshold for scrolling (pixels from target position)
@@ -37,7 +37,7 @@ export function createSourceTypewriterPlugin() {
 
       update(update: ViewUpdate) {
         // Check if typewriter mode is enabled
-        if (!useUIStore.getState().typewriterModeEnabled) return;
+        if (!hostViewModes.typewriterMode()) return;
 
         // Only scroll if selection changed
         if (!update.selectionSet) return;

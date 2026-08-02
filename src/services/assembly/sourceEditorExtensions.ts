@@ -81,7 +81,7 @@ import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts"
 import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
-import { pluginStores } from "./hostAdapters";
+import { pluginStores, lintDiagnosticsSource } from "./hostAdapters";
 import { createSourceLinkCreatePopupPlugin } from "@/plugins/sourceLinkCreatePopup";
 import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
 import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
@@ -247,9 +247,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Source cursor context for toolbar actions
     { id: "source.sourceCursorContextPlugin", ext: createSourceCursorContextPlugin() },
     // Inline math preview
-    { id: "source.sourceMathPreviewPlugin", ext: createSourceMathPreviewPlugin() },
+    { id: "source.sourceMathPreviewPlugin", ext: createSourceMathPreviewPlugin(pluginStores.sourceMath) },
     // Inline image preview
-    { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin() },
+    { id: "source.sourceImagePreviewPlugin", ext: createSourceImagePreviewPlugin(pluginStores.media) },
     // Image popup editor
     { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin(pluginStores.media) },
     // Link popup editor (click to edit, Cmd+Click to open)
@@ -278,7 +278,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     {
       id: "source.lint",
       /* v8 ignore next -- @preserve reason: extension config branch; depends on runtime settings and tab state */
-      ext: lintEnabled && tabId ? createSourceLintExtension(tabId) : [],
+      ext: lintEnabled && tabId ? createSourceLintExtension(tabId, lintDiagnosticsSource) : [],
     },
   ];
 

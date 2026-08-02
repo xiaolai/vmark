@@ -8,7 +8,7 @@
  * @coordinates-with plugins/shared/hostSearch.ts
  * @module plugins/shared/hostSearch.test
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hostSearch, bindHostSearch, resetHostSearch } from "./hostSearch";
 
 afterEach(resetHostSearch);
@@ -60,5 +60,28 @@ describe("binding wires the real bar", () => {
     hostSearch.onChange(redraw);
     listeners.forEach((fn) => fn());
     expect(redraw).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the navigation members", () => {
+  beforeEach(resetHostSearch);
+
+  it("defaults to no-ops and a zero match count", () => {
+    expect(() => hostSearch.findPrevious()).not.toThrow();
+    expect(() => hostSearch.open()).not.toThrow();
+    expect(hostSearch.current().matchCount).toBe(0);
+  });
+
+  it("routes open, findNext and findPrevious to the binding", () => {
+    const open = vi.fn();
+    const findNext = vi.fn();
+    const findPrevious = vi.fn();
+    bindHostSearch({ open, findNext, findPrevious });
+    hostSearch.open();
+    hostSearch.findNext();
+    hostSearch.findPrevious();
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(findNext).toHaveBeenCalledTimes(1);
+    expect(findPrevious).toHaveBeenCalledTimes(1);
   });
 });

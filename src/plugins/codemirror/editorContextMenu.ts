@@ -23,7 +23,7 @@
 
 import { EditorView, ViewPlugin } from "@codemirror/view";
 import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
-import { usePopupStore } from "@/stores/popupStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { buildSourceSnapshot } from "@/plugins/editorContextMenu/snapshot";
 import {
   clearContextMenuSourceView,
@@ -84,7 +84,7 @@ export function handleSourceContextMenu(
   /* v8 ignore next -- @preserve reason: source cursor context is registered while the editor is mounted; guard for teardown races */
   if (!snapshot) return true;
 
-  usePopupStore.getState().editorContextOpenMenu({
+  hostPopups.openEditorContextMenu({
     position: { x: event.clientX, y: event.clientY },
     snapshot,
   });

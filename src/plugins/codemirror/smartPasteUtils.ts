@@ -12,8 +12,7 @@ import { EditorView } from "@codemirror/view";
 import { exists } from "@tauri-apps/plugin-fs";
 import { homeDir, join } from "@tauri-apps/api/path";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 
 /**
  * Check if a CodeMirror view is still connected and valid.
@@ -42,9 +41,7 @@ export function isValidUrl(str: string): boolean {
 export function getActiveFilePath(): string | null {
   try {
     const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (!tabId) return null;
-    return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    return hostDocument.activeFilePath(windowLabel);
   } catch {
     return null;
   }

@@ -21,13 +21,13 @@
 import { type ChangeSpec, EditorSelection } from "@codemirror/state";
 import { KeyBinding } from "@codemirror/view";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 
 /**
  * Get the configured tab size (number of spaces).
  */
 function getTabSize(): number {
-  return useSettingsStore.getState().general.tabSize;
+  return hostSettings.tabSize();
 }
 
 /**

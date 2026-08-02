@@ -22,7 +22,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { useUIStore } from "@/stores/uiStore";
+import { hostViewModes } from "@/plugins/shared/hostViewModes";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 
 // Decoration to mark blurred (non-focused) lines
@@ -68,12 +68,16 @@ export function createSourceFocusModePlugin() {
         this.decorations = this.buildDecorations(view);
 
         // Subscribe to store changes to rebuild decorations
-        this.unsubscribe = useUIStore.subscribe((state, prevState) => {
-          if (state.focusModeEnabled !== prevState.focusModeEnabled) {
-            this.decorations = this.buildDecorations(view);
-            // Force view update by dispatching empty transaction (guard IME)
-            runOrQueueCodeMirrorAction(view, () => view.dispatch({}));
-          }
+        // Track the previous value ourselves: the seam reports "something
+        // changed", deliberately not which toggle, so this filters.
+        let wasEnabled = hostViewModes.focusMode();
+        this.unsubscribe = hostViewModes.onChange(() => {
+          const enabled = hostViewModes.focusMode();
+          if (enabled === wasEnabled) return;
+          wasEnabled = enabled;
+          this.decorations = this.buildDecorations(view);
+          // Force view update by dispatching empty transaction (guard IME)
+          runOrQueueCodeMirrorAction(view, () => view.dispatch({}));
         });
       }
 
@@ -95,7 +99,7 @@ export function createSourceFocusModePlugin() {
         const builder = new RangeSetBuilder<Decoration>();
 
         // Check if focus mode is enabled
-        if (!useUIStore.getState().focusModeEnabled) {
+        if (!hostViewModes.focusMode()) {
           return builder.finish();
         }
 

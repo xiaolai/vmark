@@ -19,7 +19,7 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { useUIStore } from "@/stores/uiStore";
+import { hostSearch } from "@/plugins/shared/hostSearch";
 import { exportError } from "@/utils/debug";
 
 
@@ -28,23 +28,23 @@ import { exportError } from "@/utils/debug";
 
 /** Opens the find/replace bar via the search store. */
 export function openFindBar(): boolean {
-  useUIStore.getState().searchOpen();
+  hostSearch.open();
   return true;
 }
 
 /** Navigates to the next search match if the find bar is open. */
 export function findNextMatch(_view: EditorView): boolean {
-  const root = useUIStore.getState();
-  if (!root.search.isOpen || root.search.matchCount === 0) return false;
-  root.searchFindNext();
+  const search = hostSearch.current();
+  if (!search.isOpen || search.matchCount === 0) return false;
+  hostSearch.findNext();
   return true;
 }
 
 /** Navigates to the previous search match if the find bar is open. */
 export function findPreviousMatch(_view: EditorView): boolean {
-  const root = useUIStore.getState();
-  if (!root.search.isOpen || root.search.matchCount === 0) return false;
-  root.searchFindPrevious();
+  const search = hostSearch.current();
+  if (!search.isOpen || search.matchCount === 0) return false;
+  hostSearch.findPrevious();
   return true;
 }
 

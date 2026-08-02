@@ -30,6 +30,21 @@ interface HostEditorSurface {
 export interface HostEditors {
   source: () => HostEditorSurface;
   wysiwyg: () => HostEditorSurface;
+  /**
+   * The source view that currently has focus, across split panes.
+   *
+   * Distinct from `source().editorView`: a split layout has more than one
+   * CodeMirror view, and lint decorations must target the focused one.
+   */
+  activeSourceView: () => unknown;
+  /**
+   * Report the cursor context for a source view.
+   *
+   * A WRITE, shaped as "report" for the same reason as
+   * `hostDocument.reportCursorInfo`: the plugin computes the context, the
+   * host decides what to do with it.
+   */
+  reportSourceContext: (context: unknown, view: unknown) => void;
 }
 
 const EMPTY: HostEditorSurface = { editorView: null, editor: null, context: null };
@@ -38,6 +53,8 @@ const EMPTY: HostEditorSurface = { editorView: null, editor: null, context: null
 const DEFAULTS: HostEditors = {
   source: () => EMPTY,
   wysiwyg: () => EMPTY,
+  activeSourceView: () => null,
+  reportSourceContext: () => {},
 };
 
 let bound: HostEditors = DEFAULTS;
@@ -56,4 +73,6 @@ export function resetHostEditors(): void {
 export const hostEditors: HostEditors = {
   source: () => bound.source(),
   wysiwyg: () => bound.wysiwyg(),
+  activeSourceView: () => bound.activeSourceView(),
+  reportSourceContext: (context, view) => bound.reportSourceContext(context, view),
 };

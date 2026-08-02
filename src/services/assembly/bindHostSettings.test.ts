@@ -9,6 +9,7 @@ import { bindPluginHostSettings } from "./bindHostSettings";
 import { hostSettings, resetHostSettings } from "@/plugins/shared/hostSettings";
 import { hostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
 import { hostPopups } from "@/plugins/shared/hostPopups";
+import { lintDiagnosticsSource } from "./hostAdapters";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 afterEach(() => {
@@ -301,5 +302,156 @@ describe("the image bindings", () => {
     expect(state.isMultiple).toBe(true);
     expect(state.imageCount).toBe(2);
     state.hideToast();
+  });
+});
+
+describe("the view-mode and editor bindings", () => {
+  beforeEach(bindPluginHostSettings);
+
+  it("reads the three view toggles from the UI store", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    const { hostViewModes } = await import("@/plugins/shared/hostViewModes");
+    useUIStore.setState({
+      focusModeEnabled: true,
+      typewriterModeEnabled: true,
+      diagramPreviewEnabled: true,
+    } as never);
+    expect(hostViewModes.focusMode()).toBe(true);
+    expect(hostViewModes.typewriterMode()).toBe(true);
+    expect(hostViewModes.diagramPreview()).toBe(true);
+
+    useUIStore.setState({
+      focusModeEnabled: false,
+      typewriterModeEnabled: false,
+      diagramPreviewEnabled: false,
+    } as never);
+    expect(hostViewModes.focusMode()).toBe(false);
+  });
+
+  it("notifies view-mode subscribers on any UI-store change", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    const { hostViewModes } = await import("@/plugins/shared/hostViewModes");
+    const listener = vi.fn();
+    const unsubscribe = hostViewModes.onChange(listener);
+    useUIStore.setState({ focusModeEnabled: true } as never);
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("exposes both editor surfaces and the focused source view", async () => {
+    const { useEditorStore } = await import("@/stores/editorStore");
+    const { hostEditors } = await import("@/plugins/shared/hostEditors");
+    const view = { cm: true };
+    useEditorStore.setState((s) => ({ active: { ...s.active, activeSourceView: view } }) as never);
+    expect(hostEditors.activeSourceView()).toBe(view);
+    expect(hostEditors.source()).toBe(useEditorStore.getState().source);
+    expect(hostEditors.wysiwyg()).toBe(useEditorStore.getState().tiptap);
+  });
+
+  it("routes a source-context report into the editor store", async () => {
+    const { useEditorStore } = await import("@/stores/editorStore");
+    const { hostEditors } = await import("@/plugins/shared/hostEditors");
+    const spy = vi.spyOn(useEditorStore.getState(), "setSourceContext");
+    const view = { cm: true };
+    hostEditors.reportSourceContext({ line: 4 }, view);
+    expect(spy).toHaveBeenCalledWith({ line: 4 }, view);
+    spy.mockRestore();
+  });
+
+  it("binds the source-peek and workflow ports to their stores", async () => {
+    const { peekStore } = await import("@/plugins/sourcePeekInline/peekStore");
+    const { workflowPort } = await import("@/plugins/codemirror/workflowPort");
+    const { useSourcePeekStore } = await import("@/stores/sourcePeekStore");
+    const { useWorkflowStore } = await import("@/stores/workflowStore");
+    expect(peekStore()).toBe(useSourcePeekStore);
+    expect(workflowPort()).toBe(useWorkflowStore);
+  });
+
+  it("reads the paste and selection settings from the store", async () => {
+    const { hostSettings } = await import("@/plugins/shared/hostSettings");
+    useSettingsStore.setState((s) => ({
+      markdown: { ...s.markdown, copyOnSelect: true, pasteMode: "plain" },
+    }));
+    expect(hostSettings.copyOnSelect()).toBe(true);
+    expect(hostSettings.pasteMode()).toBe("plain");
+  });
+});
+
+describe("the search and media bindings", () => {
+  beforeEach(bindPluginHostSettings);
+
+  it("routes the find-bar members to the UI store", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    const { hostSearch } = await import("@/plugins/shared/hostSearch");
+    hostSearch.open();
+    expect(hostSearch.current().isOpen).toBe(true);
+
+    hostSearch.reportMatches(3, 1);
+    expect(hostSearch.current().matchCount).toBe(3);
+    expect(hostSearch.current().currentIndex).toBe(1);
+
+    hostSearch.findNext();
+    expect(hostSearch.current().currentIndex).toBe(2);
+    hostSearch.findPrevious();
+    expect(hostSearch.current().currentIndex).toBe(1);
+
+    const listener = vi.fn();
+    const unsubscribe = hostSearch.onChange(listener);
+    useUIStore.getState().searchClose();
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it("opens the media popup and the image context menu", async () => {
+    const { useMediaPopupStore } = await import("@/stores/mediaPopupStore");
+    const { useImageContextMenuStore } = await import("@/stores/imageContextMenuStore");
+    const rect = { top: 1, left: 2, bottom: 3, right: 4 };
+    hostPopups.openMediaPopup({
+      mediaSrc: "a.png",
+      mediaNodePos: 3,
+      mediaNodeType: "image",
+      anchorRect: rect,
+    });
+    expect(useMediaPopupStore.getState().isOpen).toBe(true);
+    expect(useMediaPopupStore.getState().mediaSrc).toBe("a.png");
+    useMediaPopupStore.getState().closePopup();
+
+    hostPopups.openImageMenu({ position: { x: 5, y: 6 }, imageSrc: "b.png", imageNodePos: 7 });
+    expect(useImageContextMenuStore.getState().isOpen).toBe(true);
+    useImageContextMenuStore.getState().closeMenu();
+  });
+
+  it("opens the footnote popup with its label, content and positions", async () => {
+    const { useFootnotePopupStore } = await import("@/stores/footnotePopupStore");
+    hostPopups.openFootnotePopup({
+      label: "1",
+      content: "note",
+      anchorRect: { top: 1, left: 2, bottom: 3, right: 4 },
+      definitionPos: 10,
+      referencePos: 2,
+    });
+    const state = useFootnotePopupStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.label).toBe("1");
+    expect(state.content).toBe("note");
+    state.closePopup();
+  });
+
+  it("reads, clears and reports lint diagnostics per tab", async () => {
+    const { useLintStore } = await import("@/stores/documentStore");
+    const diag = [{ id: "E01-1-1", ruleId: "E01" }] as never;
+    useLintStore.setState({ diagnosticsByTab: {} } as never);
+    expect(lintDiagnosticsSource.get("tab-x")).toEqual([]);
+
+    const listener = vi.fn();
+    const unsubscribe = lintDiagnosticsSource.subscribe(listener);
+    useLintStore.setState({ diagnosticsByTab: { "tab-x": diag } } as never);
+    expect(lintDiagnosticsSource.get("tab-x")).toBe(diag);
+    // Reports WHICH tab changed, so a plugin can filter on its own id.
+    expect(listener).toHaveBeenCalledWith("tab-x", diag);
+
+    lintDiagnosticsSource.clear("tab-x");
+    expect(lintDiagnosticsSource.get("tab-x")).toEqual([]);
+    unsubscribe();
   });
 });

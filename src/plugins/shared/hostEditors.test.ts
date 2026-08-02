@@ -4,7 +4,7 @@
  * @coordinates-with plugins/shared/hostEditors.ts
  * @module plugins/shared/hostEditors.test
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { hostEditors, bindHostEditors, resetHostEditors } from "./hostEditors";
 
 afterEach(resetHostEditors);
@@ -42,5 +42,21 @@ describe("binding", () => {
     expect(hostEditors.wysiwyg().editorView).toBeNull();
     bindHostEditors({});
     expect(hostEditors.source().editorView).toBeNull();
+  });
+});
+
+describe("the active-source-view and report members", () => {
+  it("default to no view and a swallowed report", () => {
+    expect(hostEditors.activeSourceView()).toBeNull();
+    expect(() => hostEditors.reportSourceContext({}, {})).not.toThrow();
+  });
+
+  it("routes both to the binding", () => {
+    const view = { cm: true };
+    const reportSourceContext = vi.fn();
+    bindHostEditors({ activeSourceView: () => view, reportSourceContext });
+    expect(hostEditors.activeSourceView()).toBe(view);
+    hostEditors.reportSourceContext({ line: 3 }, view);
+    expect(reportSourceContext).toHaveBeenCalledWith({ line: 3 }, view);
   });
 });
