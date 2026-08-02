@@ -24,11 +24,6 @@ export type MediaNodeType = "image" | "block_image" | "block_video" | "block_aud
 
 export type PickerMode = "search" | "freeform" | "processing" | "preview" | "error";
 
-export interface InlineMathEditingCallbacks {
-  forceExit: () => void;
-  getNodePos: () => number | undefined;
-}
-
 export interface SourcePeekRange {
   from: number;
   to: number;
@@ -154,15 +149,6 @@ export const initialImagePasteToast: ImagePasteToastSlice = {
   editorDom: null,
   onConfirm: null,
   onDismiss: null,
-};
-
-export interface InlineMathEditingSlice {
-  editingNodePos: number | null;
-  activeCallbacks: InlineMathEditingCallbacks | null;
-}
-export const initialInlineMathEditing: InlineMathEditingSlice = {
-  editingNodePos: null,
-  activeCallbacks: null,
 };
 
 export interface LinkCreatePopupSlice {
