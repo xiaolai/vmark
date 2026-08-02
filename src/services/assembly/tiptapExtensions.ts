@@ -51,6 +51,7 @@ import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
 import { useMathPopupStore } from "@/stores/mathPopupStore";
 import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
+import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import {
   currentPasteSettings,
   copyHostOptions,
@@ -203,7 +204,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
-    footnotePopupExtension,
+    footnotePopupExtension.configure({ store: useFootnotePopupStore }),
     smartPasteExtension,
     markdownPasteExtension.configure(markdownPasteHostOptions),
     htmlPasteExtension.configure({ getPasteSettings: currentPasteSettings }),

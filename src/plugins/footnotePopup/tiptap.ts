@@ -28,58 +28,22 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type Transaction, type EditorState, NodeSelection } from "@tiptap/pm/state";
 import type { Node as PMNode, NodeType, Slice } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import type { StoreApi } from "@/plugins/shared/types";
+import type { FootnotePopupState } from "./types";
+import {
+  HOVER_OPEN_DELAY_MS,
+  HOVER_CLOSE_DELAY_MS,
+  getHoverState,
+  clearHoverTimeout,
+  clearCloseTimeout,
+  resetHoverState,
+} from "./hoverState";
 import { FootnotePopupView } from "./FootnotePopupView";
 import { collectFootnoteNodes, createCleanupAndRenumberTransaction, createRenumberTransaction, hasRefCountDropped } from "./tiptapCleanup";
 import { findFootnoteDefinition, findFootnoteReference, getFootnoteDefFromTarget, getFootnoteRefFromTarget, scrollToPosition } from "./tiptapDomUtils";
 import "./footnote-popup.css";
 
 export const footnotePopupPluginKey = new PluginKey("footnotePopup");
-
-const HOVER_OPEN_DELAY_MS = 150;
-const HOVER_CLOSE_DELAY_MS = 100;
-
-type HoverState = {
-  hoverTimeout: ReturnType<typeof setTimeout> | null;
-  closeTimeout: ReturnType<typeof setTimeout> | null;
-  currentRefElement: HTMLElement | null;
-};
-
-// Per-view hover state so multiple editor instances (e.g. main window and
-// tear-off windows, or side-by-side editors) do not interfere with each
-// other's hover timers. Previously these were module-scoped.
-const hoverStates = new WeakMap<EditorView, HoverState>();
-
-function getHoverState(view: EditorView): HoverState {
-  let state = hoverStates.get(view);
-  if (!state) {
-    state = { hoverTimeout: null, closeTimeout: null, currentRefElement: null };
-    hoverStates.set(view, state);
-  }
-  return state;
-}
-
-function clearHoverTimeout(state: HoverState) {
-  if (state.hoverTimeout) {
-    clearTimeout(state.hoverTimeout);
-    state.hoverTimeout = null;
-  }
-}
-
-function clearCloseTimeout(state: HoverState) {
-  if (state.closeTimeout) {
-    clearTimeout(state.closeTimeout);
-    state.closeTimeout = null;
-  }
-}
-
-function resetHoverState(view: EditorView) {
-  const state = getHoverState(view);
-  clearHoverTimeout(state);
-  clearCloseTimeout(state);
-  state.currentRefElement = null;
-}
-
 /**
  * Fast path: scan a transaction's inserted slices for a node of `refType`
  * or `defType`. Used to short-circuit when the cached doc state says there
@@ -127,7 +91,7 @@ function docContainsFootnotes(doc: PMNode): boolean {
   return hasFootnotes;
 }
 
-function handleMouseOver(view: EditorView, event: MouseEvent): boolean {
+function handleMouseOver(store: StoreApi<FootnotePopupState>, view: EditorView, event: MouseEvent): boolean {
   const refElement = getFootnoteRefFromTarget(event.target);
   if (!refElement) return false;
   const state = getHoverState(view);
@@ -148,7 +112,7 @@ function handleMouseOver(view: EditorView, event: MouseEvent): boolean {
     const refPos = findFootnoteReference(view, label);
 
     const domRect = refElement.getBoundingClientRect();
-    useFootnotePopupStore.getState().openPopup(
+    store.getState().openPopup(
       label, content,
       { top: domRect.top, left: domRect.left, bottom: domRect.bottom, right: domRect.right },
       defPos, refPos
@@ -158,7 +122,7 @@ function handleMouseOver(view: EditorView, event: MouseEvent): boolean {
   return false;
 }
 
-function handleMouseOut(view: EditorView, event: MouseEvent): boolean {
+function handleMouseOut(store: StoreApi<FootnotePopupState>, view: EditorView, event: MouseEvent): boolean {
   const relatedTarget = event.relatedTarget as HTMLElement | null;
 
   if (relatedTarget?.closest(".footnote-popup")) return false;
@@ -172,7 +136,7 @@ function handleMouseOut(view: EditorView, event: MouseEvent): boolean {
   state.closeTimeout = setTimeout(() => {
     const popup = document.querySelector(".footnote-popup");
     if (!popup?.matches(":hover")) {
-      useFootnotePopupStore.getState().closePopup();
+      store.getState().closePopup();
     }
   }, HOVER_CLOSE_DELAY_MS);
 
@@ -184,14 +148,14 @@ function handleMouseDown(_view: EditorView, event: MouseEvent): boolean {
   return Boolean(refElement);
 }
 
-function handleKeyDown(_view: EditorView, event: KeyboardEvent): boolean {
+function handleKeyDown(store: StoreApi<FootnotePopupState>, _view: EditorView, event: KeyboardEvent): boolean {
   if (event.key === "Escape") {
-    const { isOpen } = useFootnotePopupStore.getState();
+    const { isOpen } = store.getState();
     if (isOpen) {
       // Only close if not in editing mode (textarea focused)
       const popup = document.querySelector(".footnote-popup");
       if (popup && !popup.classList.contains("editing")) {
-        useFootnotePopupStore.getState().closePopup();
+        store.getState().closePopup();
         return true;
       }
     }
@@ -199,7 +163,7 @@ function handleKeyDown(_view: EditorView, event: KeyboardEvent): boolean {
   return false;
 }
 
-function handleClick(view: EditorView, _pos: number, event: MouseEvent): boolean {
+function handleClick(_store: StoreApi<FootnotePopupState>, view: EditorView, _pos: number, event: MouseEvent): boolean {
   const refElement = getFootnoteRefFromTarget(event.target);
   if (refElement) {
     const label = refElement.getAttribute("data-label");
@@ -232,9 +196,9 @@ class FootnotePopupPluginView {
   private view: EditorView;
   private lastSelectedRefPos: number | null = null;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorView, private store: StoreApi<FootnotePopupState>) {
     this.view = view;
-    this.popupView = new FootnotePopupView(view);
+    this.popupView = new FootnotePopupView(view, store);
   }
 
   update() {
@@ -265,7 +229,7 @@ class FootnotePopupPluginView {
         const dom = this.view.nodeDOM(pos) as HTMLElement | null;
         if (dom) {
           const domRect = dom.getBoundingClientRect();
-          useFootnotePopupStore.getState().openPopup(
+          this.store.getState().openPopup(
             label, content,
             { top: domRect.top, left: domRect.left, bottom: domRect.bottom, right: domRect.right },
             defPos, pos
@@ -281,7 +245,7 @@ class FootnotePopupPluginView {
       // Only close if popup is open and not in editing mode
       const popup = document.querySelector(".footnote-popup");
       if (popup && !popup.classList.contains("editing")) {
-        useFootnotePopupStore.getState().closePopup();
+        this.store.getState().closePopup();
       }
     }
   }
@@ -292,26 +256,39 @@ class FootnotePopupPluginView {
   }
 }
 
-export const footnotePopupExtension = Extension.create({
+/** Options for the footnote-popup extension. */
+export interface FootnotePopupOptions {
+  /** The popup state this plugin drives — a PORT, not the app's store. */
+  store: StoreApi<FootnotePopupState>;
+}
+
+export const footnotePopupExtension = Extension.create<FootnotePopupOptions>({
   name: "footnotePopup",
+  addOptions() {
+    return { store: undefined as unknown as StoreApi<FootnotePopupState> };
+  },
   addProseMirrorPlugins() {
+    const { store } = this.options;
+    if (!store) throw new Error("footnotePopupExtension requires a `store` option");
     return [
       new Plugin({
         key: footnotePopupPluginKey,
         view(editorView) {
-          const popup = new FootnotePopupPluginView(editorView);
+          const popup = new FootnotePopupPluginView(editorView, store);
           return {
             update: () => popup.update(),
             destroy: () => popup.destroy(),
           };
         },
         props: {
-          handleClick,
-          handleKeyDown,
+          // ProseMirror fixes these signatures, so the store rides as a
+          // leading parameter and is bound here.
+          handleClick: (v, pos, e) => handleClick(store, v, pos, e),
+          handleKeyDown: (v, e) => handleKeyDown(store, v, e),
           handleDOMEvents: {
             mousedown: handleMouseDown,
-            mouseover: handleMouseOver,
-            mouseout: handleMouseOut,
+            mouseover: (v, e) => handleMouseOver(store, v, e),
+            mouseout: (v, e) => handleMouseOut(store, v, e),
           },
         },
         appendTransaction: (() => {

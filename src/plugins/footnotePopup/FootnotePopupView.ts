@@ -20,7 +20,8 @@
  * @module plugins/footnotePopup/FootnotePopupView
  */
 
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import type { StoreApi } from "@/plugins/shared/types";
+import type { FootnotePopupState } from "./types";
 import { footnotePopupWarn, footnotePopupError } from "@/utils/debug";
 import type { AnchorRect } from "@/utils/popupPosition";
 import { parseMarkdown } from "@/utils/markdownPipeline";
@@ -32,7 +33,7 @@ import {
   collectVerifiedFootnoteDeletions,
   normalizeToSingleParagraph,
 } from "./footnoteEditOps";
-import { WysiwygPopupView, type PopupStoreBase } from "@/plugins/shared";
+import { WysiwygPopupView } from "@/plugins/shared";
 import {
   AUTOFOCUS_DELAY_MS,
   BLUR_CHECK_DELAY_MS,
@@ -44,22 +45,14 @@ import {
 } from "./footnotePopupDom";
 
 /** Footnote popup store state (extends base with footnote-specific fields) */
-interface FootnotePopupState extends PopupStoreBase {
-  content: string;
-  label: string;
-  definitionPos: number | null;
-  referencePos: number | null;
-  autoFocus: boolean;
-  setContent: (content: string) => void;
-}
 
 export class FootnotePopupView extends WysiwygPopupView<FootnotePopupState> {
   private view: EditorView;
   private focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private blurTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(view: EditorView) {
-    super(view, useFootnotePopupStore);
+  constructor(view: EditorView, store: StoreApi<FootnotePopupState>) {
+    super(view, store);
     this.view = view;
 
     // Handle mouse leave from popup (only when not editing)

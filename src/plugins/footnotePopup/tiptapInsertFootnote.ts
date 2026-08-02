@@ -9,9 +9,9 @@
  * @module plugins/footnotePopup/tiptapInsertFootnote
  */
 
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { createRenumberTransaction, getDefinitionInfo } from "./tiptapCleanup";
 
 function findNearestReference(doc: PMNode, insertPos: number): { label: string; pos: number } | null {
@@ -61,7 +61,14 @@ export function insertFootnoteAndOpenPopup(editor: TiptapEditor): boolean {
     ) as HTMLElement | null;
     if (!refEl) return;
 
-    useFootnotePopupStore.getState().openPopup(ref.label, "", refEl.getBoundingClientRect(), defPos, ref.pos, true);
+    hostPopups.openFootnotePopup({
+      label: ref.label,
+      content: "",
+      anchorRect: refEl.getBoundingClientRect(),
+      definitionPos: defPos,
+      referencePos: ref.pos,
+      autoFocus: true,
+    });
   });
   return true;
 }
