@@ -20,10 +20,17 @@ import {
   looksLikeWorkflowPath,
 } from "@/lib/ghaWorkflow/detection";
 import { parse as parseWorkflow } from "@/lib/ghaWorkflow/parser";
-import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
+import { GhaWorkflowWorkbench } from "@/components/Editor/WorkflowPanel/GhaWorkflowWorkbench";
 import { getFileName } from "@/utils/pathUtils";
 import { yaml } from "@codemirror/lang-yaml";
 import { lintYaml } from "@/lib/lintEngine/yaml";
+import { ghaIrSyncExtension } from "@/plugins/codemirror/sourceGhaIrSync";
+import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflowCompletion";
+import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
+import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
+import { workflowWarn } from "@/utils/debug";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -93,13 +100,15 @@ export const yamlSchemaDetector: SchemaDetector = (path, content) => {
  * WI-2.4 — GitHub Actions workflow schemaRenderer.
  *
  * Parses YAML via the existing @/lib/ghaWorkflow/parser and mounts the
- * @xyflow/react canvas. When parsing fails we fall back to the YAML
- * tree preview so the user still sees something useful.
+ * workflow workbench (@xyflow/react canvas + structured forms editor +
+ * save pipeline). When parsing fails we fall back to the YAML tree
+ * preview so the user still sees something useful.
  */
 function GhaWorkflowSchemaRenderer({
   content,
   path,
   diagnostics,
+  tabId,
 }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
   const parseResult = useMemo(() => {
@@ -139,7 +148,7 @@ function GhaWorkflowSchemaRenderer({
 
   return (
     <div className="yaml-workflow-preview" data-schema="gha-workflow">
-      <WorkflowCanvas workflow={parseResult.ir} />
+      <GhaWorkflowWorkbench workflow={parseResult.ir} tabId={tabId ?? null} />
     </div>
   );
 }
@@ -191,6 +200,39 @@ export const yamlFormat: FormatConfig = {
   loadLanguage: async (): Promise<Extension> => {
     const { yaml } = await import("@codemirror/lang-yaml");
     return yaml();
+  },
+  // GHA workflow editor behavior for the source pane. The IR-sync
+  // extension is the sole production writer of the workflowStore `gha`
+  // slice; completion and cursor sync read it (both no-op until it
+  // holds a workflow, so plain YAML tabs pay nothing). Store access is
+  // bound here — the plugin itself must stay store-free
+  // (lint:store-coupling). Goto-def needs a real file path to resolve
+  // local `uses:` refs against.
+  loadExtraExtensions: ({ tabId, filePath, windowLabel }) => {
+    const extensions: Extension[] = [
+      ghaIrSyncExtension({
+        getFilePath: () =>
+          useDocumentStore.getState().documents?.[tabId]?.filePath ?? null,
+        publish: (workflow) =>
+          useWorkflowStore.getState().setGhaWorkflow(tabId, workflow),
+      }),
+      workflowCompletionExtension(tabId),
+      workflowCursorSyncExtension(tabId),
+    ];
+    if (filePath) {
+      extensions.push(
+        gotoExtension({
+          filePath,
+          windowLabel,
+          onOpenFailure: (reason) => {
+            workflowWarn(
+              `[gha goto-def] could not open local target (${reason})`,
+            );
+          },
+        }),
+      );
+    }
+    return Promise.resolve(extensions);
   },
   validator: yamlValidator,
   genericPreview: YamlTreePreview,

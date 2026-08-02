@@ -20,27 +20,53 @@ beforeEach(() => {
 /* ──────────────────────────── gha slice ───────────────────────────────── */
 
 describe("gha slice", () => {
-  it("starts closed with empty workflow", () => {
-    const s = useWorkflowStore.getState().gha;
-    expect(s.panelOpen).toBe(false);
-    expect(s.workflow).toBeNull();
-    expect(s.parseError).toBeNull();
+  const sampleIr = (name: string) =>
+    ({
+      name,
+      triggers: [],
+      permissions: {},
+      env: {},
+      jobs: [],
+      positions: {},
+      diagnostics: [],
+    }) as never;
+
+  it("starts with no per-tab workflows", () => {
+    expect(useWorkflowStore.getState().gha.byTab).toEqual({});
   });
 
-  it("open/close/toggle panel", () => {
-    useWorkflowStore.getState().ghaOpenPanel();
-    expect(useWorkflowStore.getState().gha.panelOpen).toBe(true);
-    useWorkflowStore.getState().ghaClosePanel();
-    expect(useWorkflowStore.getState().gha.panelOpen).toBe(false);
-    useWorkflowStore.getState().ghaTogglePanel();
-    expect(useWorkflowStore.getState().gha.panelOpen).toBe(true);
+  it("setGhaWorkflow keys the IR by tab", () => {
+    useWorkflowStore.getState().setGhaWorkflow("t1", sampleIr("ci"));
+    expect(useWorkflowStore.getState().gha.byTab["t1"]).toMatchObject({
+      name: "ci",
+    });
   });
 
-  it("setGhaWorkflow stores workflow and optional error", () => {
-    useWorkflowStore.getState().setGhaWorkflow(null, "bad yaml");
-    expect(useWorkflowStore.getState().gha.parseError).toBe("bad yaml");
-    useWorkflowStore.getState().setGhaWorkflow(null);
-    expect(useWorkflowStore.getState().gha.parseError).toBeNull();
+  it("two tabs publish independently — no cross-tab clobbering (document split)", () => {
+    useWorkflowStore.getState().setGhaWorkflow("t1", sampleIr("ci"));
+    // A second pane holding plain YAML publishes null for ITS tab…
+    useWorkflowStore.getState().setGhaWorkflow("t2", null);
+    // …and the workflow pane's IR survives.
+    expect(useWorkflowStore.getState().gha.byTab["t1"]).toMatchObject({
+      name: "ci",
+    });
+    expect(useWorkflowStore.getState().gha.byTab["t2"]).toBeUndefined();
+  });
+
+  it("publishing null removes only that tab's entry", () => {
+    useWorkflowStore.getState().setGhaWorkflow("t1", sampleIr("ci"));
+    useWorkflowStore.getState().setGhaWorkflow("t2", sampleIr("release"));
+    useWorkflowStore.getState().setGhaWorkflow("t1", null);
+    expect(useWorkflowStore.getState().gha.byTab["t1"]).toBeUndefined();
+    expect(useWorkflowStore.getState().gha.byTab["t2"]).toMatchObject({
+      name: "release",
+    });
+  });
+
+  it("resetGha clears everything", () => {
+    useWorkflowStore.getState().setGhaWorkflow("t1", sampleIr("ci"));
+    useWorkflowStore.getState().resetGha();
+    expect(useWorkflowStore.getState().gha.byTab).toEqual({});
   });
 });
 
@@ -54,10 +80,10 @@ describe("preview slice", () => {
     expect(s.stepStatuses).toEqual({});
   });
 
-  it("previewOpen/Close/Toggle panel are independent from gha", () => {
+  it("previewOpen/Close/Toggle panel leave the gha slice untouched", () => {
     useWorkflowStore.getState().previewOpenPanel();
     expect(useWorkflowStore.getState().preview.panelOpen).toBe(true);
-    expect(useWorkflowStore.getState().gha.panelOpen).toBe(false);
+    expect(useWorkflowStore.getState().gha.byTab).toEqual({});
   });
 
   it("setGraph clears active step and statuses", () => {

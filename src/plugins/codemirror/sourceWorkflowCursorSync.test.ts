@@ -63,7 +63,7 @@ function mountView(doc: string) {
     parent,
     state: EditorState.create({
       doc,
-      extensions: [workflowCursorSyncExtension()],
+      extensions: [workflowCursorSyncExtension("t1")],
     }),
   });
   return view;
@@ -76,7 +76,7 @@ beforeEach(() => {
 
 describe("workflowCursorSync", () => {
   it("selects the job whose source range contains the cursor line", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const doc = "line1\nline2\nline3\nlint:\n  steps:\n    - checkout\n      uses\nline8\ntest:\n  steps:\n    - run\n      pytest\n";
     const view = mountView(doc);
     // Move cursor to line 5 (inside lint job, lines 4-6).
@@ -89,7 +89,7 @@ describe("workflowCursorSync", () => {
   });
 
   it("switches selection when cursor moves into a different job", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const doc = "line1\nline2\nline3\nlint:\n  steps:\n    - checkout\n      uses\nline8\ntest:\n  steps:\n    - run\n      pytest\n";
     const view = mountView(doc);
     // Cursor at line 5 → lint
@@ -102,7 +102,7 @@ describe("workflowCursorSync", () => {
   });
 
   it("does NOT change selection when cursor is outside any job (workflow-level)", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     useWorkflowStore.getState().selectJob("lint");
     const doc = "line1\nline2\nline3\nlint:\n  steps:\n    - checkout\n      uses\nline8\ntest:\n  steps:\n    - run\n      pytest\n";
     const view = mountView(doc);
@@ -117,6 +117,17 @@ describe("workflowCursorSync", () => {
     const doc = "name: ci\n";
     const view = mountView(doc);
     view.dispatch({ selection: EditorSelection.cursor(0) });
+    expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
+    view.destroy();
+  });
+
+  it("ignores another tab's IR (document split isolation)", () => {
+    // The IR belongs to a different tab — this pane's extension must
+    // not drive selection from another document's workflow.
+    useWorkflowStore.getState().setGhaWorkflow("other-tab", makeIR());
+    const doc = "line1\nline2\nline3\nlint:\n  steps:\n    - checkout\n      uses\n";
+    const view = mountView(doc);
+    view.dispatch({ selection: EditorSelection.cursor(view.state.doc.line(5).from) });
     expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
     view.destroy();
   });

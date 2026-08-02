@@ -1,0 +1,40 @@
+/* GHA workflow workbench — canvas + forms editor stacked inside the
+   split-pane preview. The split pane owns the surface chrome (border,
+   resize handle); this file only lays out the column. */
+
+.gha-workflow-workbench {
+  /* Component-internal one-off dimensions per
+     .claude/rules/31-design-tokens.md ("define a local CSS var on
+     the component class instead of adding a global token"). */
+  --gha-canvas-baseline: 360px;
+  --gha-canvas-min-height: 240px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-color);
+  /* Required so the flex-column children can shrink and scroll
+     internally rather than push past the parent. Without this the
+     canvas + WorkflowEditorPanel grow to natural content height and
+     the form area is clipped unreachably (reported live: a 7-job
+     workflow's TRIGGERS section sat below the visible viewport with
+     no way to scroll to it). */
+  min-height: 0;
+}
+
+.gha-workflow-workbench__canvas {
+  /* Canvas claims a baseline portion of the pane. The min-height
+     keeps small workflows readable; the max-height cap leaves room
+     for the form area below and prevents a tall canvas from pushing
+     the editor forms out of reach. position: relative anchors the
+     export-control overlay inside WorkflowCanvas. React Flow's inner
+     chrome theming for this wrapper lives in workflow-canvas.css
+     (it styles the canvas's internals, not this box). */
+  flex: 1 1 var(--gha-canvas-baseline);
+  min-height: var(--gha-canvas-min-height);
+  max-height: 60%;
+  width: 100%;
+  position: relative;
+  background: var(--bg-color);
+  overflow: hidden;
+}

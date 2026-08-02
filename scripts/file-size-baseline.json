@@ -95,7 +95,7 @@
     "src/stores/aiStore/suggestion.ts": 336,
     "src/stores/mcpStore.ts": 324,
     "src/stores/tabStore.ts": 466,
-    "src/stores/workflowStore.ts": 386,
+    "src/stores/workflowStore.ts": 377,
     "src/utils/cursorSync/codemirror.ts": 306,
     "src/utils/exportNaming.ts": 327,
     "src/utils/markdownPipeline/serializer.ts": 354,

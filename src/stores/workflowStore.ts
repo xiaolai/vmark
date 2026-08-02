@@ -6,7 +6,7 @@
  * each domain's verbs distinct.
  *
  * Slice mapping (was → is):
- *   - ghaWorkflowPanelStore      → state.gha    + gha* actions
+ *   - ghaWorkflowPanelStore      → state.gha (per-tab IR via sourceGhaIrSync; panel actions retired)
  *   - workflowPreviewStore       → state.preview + preview* actions
  *   - workflowViewStore          → state.view    + selectJob/.../resetView
  *   - workflowEditStore          → state.edit    + queuePatch/.../applyAndSerialize
@@ -48,9 +48,8 @@ export interface ApprovalRequestPayload {
 /* ───────────────────────────── slice shapes ───────────────────────────── */
 
 interface GhaSlice {
-  panelOpen: boolean;
-  workflow: WorkflowIR | null;
-  parseError: string | null;
+  /** Live IR per tab — split panes (#1081) must not clobber each other. */
+  byTab: Record<string, WorkflowIR>;
 }
 
 interface PreviewSlice {
@@ -91,11 +90,8 @@ interface WorkflowStoreState {
 /* ─────────────────────────────── actions ──────────────────────────────── */
 
 interface WorkflowStoreActions {
-  // gha slice (standalone .yml panel)
-  ghaOpenPanel: () => void;
-  ghaClosePanel: () => void;
-  ghaTogglePanel: () => void;
-  setGhaWorkflow: (workflow: WorkflowIR | null, error?: string) => void;
+  // gha slice (standalone .yml workflow IR, written by sourceGhaIrSync)
+  setGhaWorkflow: (tabId: string, workflow: WorkflowIR | null) => void;
   resetGha: () => void;
 
   // preview slice (Genie/embedded workflow)
@@ -137,9 +133,7 @@ export type WorkflowStore = WorkflowStoreState & WorkflowStoreActions;
 /* ────────────────────────────── initial state ─────────────────────────── */
 
 const initialGha: GhaSlice = {
-  panelOpen: false,
-  workflow: null,
-  parseError: null,
+  byTab: {},
 };
 
 const initialPreview: PreviewSlice = {
@@ -242,16 +236,13 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   approval: initialApproval,
 
   /* gha slice */
-  ghaOpenPanel: () =>
-    set((s) => ({ gha: { ...s.gha, panelOpen: true } })),
-  ghaClosePanel: () =>
-    set((s) => ({ gha: { ...s.gha, panelOpen: false } })),
-  ghaTogglePanel: () =>
-    set((s) => ({ gha: { ...s.gha, panelOpen: !s.gha.panelOpen } })),
-  setGhaWorkflow: (workflow, error) =>
-    set((s) => ({
-      gha: { ...s.gha, workflow, parseError: error ?? null },
-    })),
+  setGhaWorkflow: (tabId, workflow) =>
+    set((s) => {
+      const byTab = { ...s.gha.byTab };
+      if (workflow) byTab[tabId] = workflow;
+      else delete byTab[tabId];
+      return { gha: { byTab } };
+    }),
   resetGha: () => set({ gha: initialGha }),
 
   /* preview slice */
