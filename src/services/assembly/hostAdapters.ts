@@ -1,11 +1,12 @@
 /**
- * Purpose: the host-side adapters this assembly hands to plugins.
+ * Purpose: the host-side adapters and stores this assembly hands to plugins.
  *
  * Plugins declare what they need — a port, an option, a source — with a
  * default that works standalone (ADR-015). The app overrides those defaults
  * with the real thing, and "the real thing" is what lives here. One module
  * rather than one file per adapter, so the set of app→plugin injections is
- * readable in a single place.
+ * readable in a single place — including `pluginStores`, the map from each
+ * plugin PORT to the app store that satisfies it.
  *
  * @coordinates-with services/assembly/tiptapExtensions.ts — the only consumer
  * @module services/assembly/hostAdapters
