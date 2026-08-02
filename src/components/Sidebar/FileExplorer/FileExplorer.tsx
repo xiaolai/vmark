@@ -19,8 +19,9 @@
  *     collapseAll / expandAll to the Sidebar header buttons.
  *   - File tree is workspace-only — no inferred root from file path (single-file mode
  *     has no explorer).
- *   - Tree height is measured dynamically via ResizeObserver because react-arborist
- *     (react-window) requires an explicit numeric pixel height.
+ *   - Tree height is measured dynamically via ResizeObserver (react-window needs an
+ *     explicit pixel height) and is the CONTENT box; react-window's outer div
+ *     (`scrollerClassName`) is the ONE scroller. See useObservedHeight.ts.
  *   - After create operations, a small timeout allows the tree to refresh before
  *     auto-entering edit mode on the new node.
  *   - Folders default to collapsed (openByDefault=false). Open/closed state is persisted
@@ -28,7 +29,7 @@
  *     snapshots uiStore at mount and mirrors toggles back.
  *   - Root element is a `navigation` ARIA landmark (labelled `aria.fileExplorer`).
  *
- * @coordinates-with useTreeWiring.tsx — identity-stable Tree children/ref + measured height
+ * @coordinates-with useTreeWiring.tsx — identity-stable Tree children/ref, measured height, scroller class
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
  * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
  * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
@@ -120,9 +121,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
 
   // WI-9.2: with the rail on, folder/scroll state is per workspace instance.
   const workspaceInstanceId = useExplorerWorkspaceInstance(windowLabel);
-  const treeElRef = useRef<HTMLDivElement | null>(null);
   // Identity-stable Tree wiring — see useTreeWiring's header (#1187).
-  const { setTreeContainer, renderNode, treeHeight } = useTreeWiring(currentFilePath, treeElRef);
+  const { setTreeContainer, renderNode, treeHeight, scrollerClassName, treeElRef } = useTreeWiring(currentFilePath);
 
   // Persisted folder open state — preserved across sidebar view-mode switches
   // (react-arborist unmounts on viewMode change, losing internal state otherwise).
@@ -351,7 +351,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     [moveItem, rootPath]
   );
 
-
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     createNewFile: () => handleNewFile(),
@@ -386,6 +385,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
         <Tree<FileNodeType>
           key={workspaceInstanceId ?? "window"}
           ref={treeRef}
+          className={scrollerClassName}
           data={tree}
           openByDefault={false}
           initialOpenState={initialOpenState}
