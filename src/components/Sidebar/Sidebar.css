@@ -100,19 +100,22 @@
   flex-shrink: 0;
 }
 
-/* Thin scrollbar - 2px, theme-aware color */
-.sidebar-content::-webkit-scrollbar,
-.sidebar [role="tree"]::-webkit-scrollbar {
+/* Thin scrollbar - 2px, theme-aware color.
+ *
+ * `.sidebar [role="tree"]` used to be listed here too and styled nothing: in
+ * BOTH sidebar trees that element has `overflow: visible` and never scrolls.
+ * The file tree's real scroller is react-window's outer div
+ * (`.file-explorer-scroller`); the outline's is `.sidebar-content` itself.
+ * Left as-is, the file tree fell through to the global 10px scrollbar. */
+.sidebar-content::-webkit-scrollbar {
   width: 2px;
 }
 
-.sidebar-content::-webkit-scrollbar-track,
-.sidebar [role="tree"]::-webkit-scrollbar-track {
+.sidebar-content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.sidebar-content::-webkit-scrollbar-thumb,
-.sidebar [role="tree"]::-webkit-scrollbar-thumb {
+.sidebar-content::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 1px;
 }

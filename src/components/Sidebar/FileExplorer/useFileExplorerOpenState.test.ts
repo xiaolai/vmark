@@ -6,7 +6,7 @@ import type { TreeApi } from "react-arborist";
 import { useFileExplorerOpenState, __ARBORIST_ROOT_ID } from "./useFileExplorerOpenState";
 import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
-import type { FileNode as FileNodeType } from "./types";
+import { FILE_TREE_SCROLLER_CLASS, type FileNode as FileNodeType } from "./types";
 
 /** Minimal TreeApi stand-in — only the surface the hook actually calls. */
 interface TreeStub {
@@ -320,7 +320,29 @@ describe("useFileExplorerOpenState per-instance (WI-9.2)", () => {
     }
   });
 
-  it("restoreScroll sets scrollTop on the tree's scroller element", () => {
+  /**
+   * The DOM react-arborist actually renders. `role="tree"` is a plain wrapper
+   * with `overflow: visible`; the scroller is react-window's outer element
+   * NESTED INSIDE it, which carries the `className` passed to <Tree>.
+   *
+   * Measured in the running app: writing scrollTop to the `role="tree"` wrapper
+   * reads back 0, so restoring an instance's file-tree scroll silently did
+   * nothing. The previous version of this test built a fake DOM in which
+   * `role="tree"` WAS the scroller, so it passed against broken production code.
+   */
+  function makeArboristDom(): { container: HTMLElement; wrapper: HTMLElement; scroller: HTMLElement } {
+    const container = document.createElement("div");
+    container.className = "file-explorer-tree";
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("role", "tree");
+    const scroller = document.createElement("div");
+    scroller.className = FILE_TREE_SCROLLER_CLASS;
+    wrapper.appendChild(scroller);
+    container.appendChild(wrapper);
+    return { container, wrapper, scroller };
+  }
+
+  it("restoreScroll sets scrollTop on react-window's scroller, not the role=tree wrapper", () => {
     useWorkspaceInstanceUiStore.getState().updateInstanceUiState("wsi-a", {
       fileTreeScrollOffset: 77,
     });
@@ -328,14 +350,12 @@ describe("useFileExplorerOpenState per-instance (WI-9.2)", () => {
       useFileExplorerOpenState(makeRef(makeTreeStub()), "wsi-a"),
     );
 
-    const container = document.createElement("div");
-    const scroller = document.createElement("div");
-    scroller.setAttribute("role", "tree");
-    container.appendChild(scroller);
+    const { container, wrapper, scroller } = makeArboristDom();
 
     act(() => result.current.restoreScroll(container));
 
     expect(scroller.scrollTop).toBe(77);
+    expect(wrapper.scrollTop).toBe(0);
   });
 
   it("restoreScroll is a no-op with no offset or no scroller", () => {

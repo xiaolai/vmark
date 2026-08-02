@@ -65,9 +65,15 @@
   border-radius: 1px;
 }
 
+/* Sizing frame only — react-window (`.file-explorer-scroller`, inside) is the
+ * one scroll container. This element must NOT scroll: it used to say
+ * `overflow-y: auto`, and since the measured height handed to <Tree> was the
+ * border box while the tree is laid out in the content box, it overflowed
+ * itself by exactly its own vertical padding and rendered a second, redundant
+ * scrollbar. `hidden` keeps that class of mismatch from ever being visible. */
 .file-explorer-tree {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: var(--space-1) var(--space-2) var(--space-1) 0;
 }
 
