@@ -81,8 +81,8 @@ import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts"
 import { sourceEditorContextMenuExtension } from "@/plugins/codemirror/editorContextMenu";
 import { createSourceImagePopupPlugin } from "@/plugins/sourceImagePopup";
 import { createSourceLinkPopupPlugin } from "@/plugins/sourceLinkPopup";
+import { pluginStores } from "./hostAdapters";
 import { createSourceLinkCreatePopupPlugin } from "@/plugins/sourceLinkCreatePopup";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { createSourceWikiLinkPopupPlugin } from "@/plugins/sourceWikiLinkPopup";
 import { createSourceFootnotePopupPlugin } from "@/plugins/sourceFootnotePopup";
 import { createSourceLintExtension } from "@/plugins/codemirror/sourceLint";
@@ -253,9 +253,9 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     // Image popup editor
     { id: "source.sourceImagePopupPlugin", ext: createSourceImagePopupPlugin() },
     // Link popup editor (click to edit, Cmd+Click to open)
-    { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin() },
+    { id: "source.sourceLinkPopupPlugin", ext: createSourceLinkPopupPlugin(pluginStores.link) },
     // Link create popup (Cmd+K when no link, no clipboard URL)
-    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin(useLinkCreatePopupStore) },
+    { id: "source.sourceLinkCreatePopupPlugin", ext: createSourceLinkCreatePopupPlugin(pluginStores.linkCreate) },
     // Wiki link popup editor
     { id: "source.sourceWikiLinkPopupPlugin", ext: createSourceWikiLinkPopupPlugin() },
     // Footnote popup editor

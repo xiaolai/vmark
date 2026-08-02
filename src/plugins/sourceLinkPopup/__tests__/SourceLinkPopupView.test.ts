@@ -30,18 +30,17 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockLinkStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
@@ -137,10 +136,7 @@ describe("SourceLinkPopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceLinkPopupView(
-      view,
-      { getState: () => storeState, subscribe: (fn) => { subscribers.push(fn); return () => { const idx = subscribers.indexOf(fn); if (idx >= 0) subscribers.splice(idx, 1); }; } }
-    );
+    popup = new SourceLinkPopupView(view, mockLinkStore);
   });
 
   afterEach(() => {
@@ -341,7 +337,7 @@ describe("SourceLinkPopupView", () => {
       input.dispatchEvent(event);
 
       expect(mockSetHref).toHaveBeenCalledWith("https://pasted-url.example/new");
-      expect(saveLinkChanges).toHaveBeenCalledWith(view);
+      expect(saveLinkChanges).toHaveBeenCalledWith(view, mockLinkStore);
       expect(mockClosePopup).toHaveBeenCalled();
 
       // Lock in the call order: setHref must precede saveLinkChanges,
@@ -376,7 +372,7 @@ describe("SourceLinkPopupView", () => {
       const openBtn = document.querySelector(".source-link-popup-btn-open") as HTMLElement;
       openBtn.click();
 
-      expect(openLink).toHaveBeenCalledWith(view);
+      expect(openLink).toHaveBeenCalledWith(view, mockLinkStore);
     });
 
     it("copy button calls copyLinkHref", () => {
@@ -390,7 +386,7 @@ describe("SourceLinkPopupView", () => {
       const deleteBtn = document.querySelector(".source-link-popup-btn-delete") as HTMLElement;
       deleteBtn.click();
 
-      expect(removeLink).toHaveBeenCalledWith(view);
+      expect(removeLink).toHaveBeenCalledWith(view, mockLinkStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
   });
@@ -410,7 +406,7 @@ describe("SourceLinkPopupView", () => {
       const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
       input.dispatchEvent(event);
 
-      expect(removeLink).toHaveBeenCalledWith(view);
+      expect(removeLink).toHaveBeenCalledWith(view, mockLinkStore);
     });
   });
 

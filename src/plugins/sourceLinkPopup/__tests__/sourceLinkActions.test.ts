@@ -3,6 +3,10 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useLinkPopupStore } from "@/stores/linkPopupStore";
 
+// The actions take the popup state as a parameter now. These tests drive the
+// REAL store, so they pass it — the wiring the app ships.
+const store = useLinkPopupStore as never;
+
 // Mock external dependencies
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(() => Promise.resolve()),
@@ -51,7 +55,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      saveLinkChanges(view);
+      saveLinkChanges(view, store);
 
       expect(view.state.doc.toString()).toBe(
         'See [text](<https://example.com> "Title") here.'
@@ -75,7 +79,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      saveLinkChanges(view);
+      saveLinkChanges(view, store);
 
       expect(view.state.doc.toString()).toBe(
         "Visit [click](https://new.com) now."
@@ -96,7 +100,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      saveLinkChanges(view);
+      saveLinkChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("Some text");
       view.destroy();
@@ -114,7 +118,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      saveLinkChanges(view);
+      saveLinkChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("Some text");
       view.destroy();
@@ -132,7 +136,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      saveLinkChanges(view);
+      saveLinkChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("[link](<path with spaces>)");
       view.destroy();
@@ -150,7 +154,7 @@ describe("source link actions", () => {
       });
 
       const view = createView("test");
-      await openLink(view);
+      await openLink(view, store);
 
       const { openUrl } = await import("@tauri-apps/plugin-opener");
       expect(openUrl).not.toHaveBeenCalled();
@@ -169,7 +173,7 @@ describe("source link actions", () => {
       });
 
       const view = createView("Some text with heading");
-      await openLink(view);
+      await openLink(view, store);
 
       expect(findHeadingByIdCM).toHaveBeenCalledWith(
         expect.anything(),
@@ -188,7 +192,7 @@ describe("source link actions", () => {
       });
 
       const view = createView("test");
-      await openLink(view);
+      await openLink(view, store);
 
       const { openUrl } = await import("@tauri-apps/plugin-opener");
       expect(openUrl).toHaveBeenCalledWith("https://example.com");
@@ -207,7 +211,7 @@ describe("source link actions", () => {
       });
 
       const view = createView("test");
-      await openLink(view);
+      await openLink(view, store);
 
       // Should not throw, just do nothing
       view.destroy();
@@ -224,7 +228,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      await copyLinkHref();
+      await copyLinkHref(store);
 
       expect(writeText).toHaveBeenCalledWith("https://example.com");
     });
@@ -238,7 +242,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      await copyLinkHref();
+      await copyLinkHref(store);
 
       expect(writeText).not.toHaveBeenCalled();
     });
@@ -254,7 +258,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      await expect(copyLinkHref()).resolves.toBeUndefined();
+      await expect(copyLinkHref(store)).resolves.toBeUndefined();
     });
   });
 
@@ -274,7 +278,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      removeLink(view);
+      removeLink(view, store);
 
       expect(view.state.doc.toString()).toBe("Visit click me now.");
       view.destroy();
@@ -292,7 +296,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      removeLink(view);
+      removeLink(view, store);
 
       expect(view.state.doc.toString()).toBe("Some text");
       view.destroy();
@@ -310,7 +314,7 @@ describe("source link actions", () => {
         anchorRect: null,
       });
 
-      removeLink(view);
+      removeLink(view, store);
 
       expect(view.state.doc.toString()).toBe("text");
       view.destroy();
