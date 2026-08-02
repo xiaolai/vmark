@@ -27,8 +27,13 @@ describe("cleanPastedMarkdown — escape stripping", () => {
     expect(cleanPastedMarkdown("see \\[note\\]")).toBe("see [note]");
   });
 
-  it("strips escaped parens mid-line", () => {
-    expect(cleanPastedMarkdown("item \\(a\\)")).toBe("item (a)");
+  it("keeps a PAIRED \\(...\\) — since #1180 it reads as inline math", () => {
+    // Behavior change with math-delimiter support: a paired `\(…\)` is
+    // ChatGPT-style inline math and must survive the paste so the
+    // parser can normalize it to `$…$`. Only unpaired escaped parens
+    // (the Gemini prose artifact) still strip — see the lone-\( test in
+    // the math-delimiter block below.
+    expect(cleanPastedMarkdown("item \\(a\\)")).toBe("item \\(a\\)");
   });
 
   it("strips escaped exclamation mid-line", () => {
@@ -241,5 +246,33 @@ describe("cleanPastedMarkdown — ordered list trigger preservation", () => {
 
   it("strips 1\\) mid-line", () => {
     expect(cleanPastedMarkdown("item 1\\) done")).toBe("item 1) done");
+  });
+});
+
+describe("cleanPastedMarkdown — math delimiter preservation (#1180)", () => {
+  it("preserves an inline \\( ... \\) pair", () => {
+    expect(cleanPastedMarkdown("Given \\( x^2 \\) here.")).toBe(
+      "Given \\( x^2 \\) here.",
+    );
+  });
+
+  it("preserves a standalone display \\[ ... \\] pair", () => {
+    expect(cleanPastedMarkdown("\\[ \\alpha=0 \\]")).toBe("\\[ \\alpha=0 \\]");
+  });
+
+  it("still strips a lone \\( with no closer", () => {
+    expect(cleanPastedMarkdown("A lone \\( paren")).toBe("A lone ( paren");
+  });
+
+  it("still strips mid-sentence escaped brackets (not math)", () => {
+    // A non-standalone \[...\] is escaped-bracket prose, not display
+    // math — the normalizer skips it, so the cleaner may strip it.
+    expect(cleanPastedMarkdown("and \\[not a link\\].")).toBe(
+      "and [not a link].",
+    );
+  });
+
+  it("still strips escaped parens inside a link destination", () => {
+    expect(cleanPastedMarkdown("[x](foo\\(bar\\))")).toBe("[x](foo(bar))");
   });
 });

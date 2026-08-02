@@ -243,6 +243,13 @@ KaTeX-powered LaTeX rendering:
 
 - Inline math: `$E = mc^2$`
 - Display math: `$$...$$` blocks
+- ChatGPT-style delimiters are recognized on open/paste and normalized to
+  `$`-form: `\( ... \)` becomes inline math, and a standalone `\[ ... \]`
+  becomes a display block
+- A `$$` block must close before a blank line (pandoc's rule) — an unclosed
+  `$$` renders as literal text instead of swallowing the paragraphs after it.
+  Trailing blank lines directly before the closer are fine (an empty
+  `$$` … `$$` block stays a math block)
 - Full LaTeX syntax support
 - Helpful error messages with syntax hints
 
