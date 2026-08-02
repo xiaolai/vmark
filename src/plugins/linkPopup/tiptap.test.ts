@@ -24,27 +24,19 @@ vi.mock("./LinkPopupView", () => ({
   },
 }));
 
-// Mock stores
+// Both popup states are PORTs — handed to the extension, so no module mocks.
 const mockLinkPopupState = {
   isOpen: false,
   openPopup: vi.fn(),
   closePopup: vi.fn(),
 };
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => mockLinkPopupState,
-  },
-}));
+const mockLinkPopupStore = { getState: () => mockLinkPopupState };
 
 const mockLinkCreatePopupState = {
   isOpen: false,
   closePopup: vi.fn(),
 };
-vi.mock("@/stores/linkCreatePopupStore", () => ({
-  useLinkCreatePopupStore: {
-    getState: () => mockLinkCreatePopupState,
-  },
-}));
+const mockLinkCreateStore = { getState: () => mockLinkCreatePopupState };
 
 // Mock headingSlug
 vi.mock("@/utils/headingSlug", () => ({
@@ -291,6 +283,7 @@ describe("linkPopupExtension", () => {
     function getHandleClick() {
       const plugins = linkPopupExtension.config.addProseMirrorPlugins!.call({
         editor: { view: {} },
+        options: { store: mockLinkPopupStore, createStore: mockLinkCreateStore },
       } as unknown as Parameters<typeof linkPopupExtension.config.addProseMirrorPlugins>[0]);
       return plugins[0].props.handleClick! as (
         view: EditorView,
@@ -562,6 +555,7 @@ describe("linkPopupExtension", () => {
     function getHandleClick() {
       const plugins = linkPopupExtension.config.addProseMirrorPlugins!.call({
         editor: { view: {} },
+        options: { store: mockLinkPopupStore, createStore: mockLinkCreateStore },
       } as unknown as Parameters<typeof linkPopupExtension.config.addProseMirrorPlugins>[0]);
       return plugins[0].props.handleClick! as (
         view: EditorView,
@@ -611,6 +605,7 @@ describe("linkPopupExtension", () => {
     function getHandleClick() {
       const plugins = linkPopupExtension.config.addProseMirrorPlugins!.call({
         editor: { view: {} },
+        options: { store: mockLinkPopupStore, createStore: mockLinkCreateStore },
       } as unknown as Parameters<typeof linkPopupExtension.config.addProseMirrorPlugins>[0]);
       return plugins[0].props.handleClick! as (
         view: EditorView,
@@ -651,6 +646,7 @@ describe("linkPopupExtension", () => {
     it("plugin creates a view with destroy method", () => {
       const plugins = linkPopupExtension.config.addProseMirrorPlugins!.call({
         editor: { view: {} },
+        options: { store: mockLinkPopupStore, createStore: mockLinkCreateStore },
       } as unknown as Parameters<typeof linkPopupExtension.config.addProseMirrorPlugins>[0]);
 
       const plugin = plugins[0];
@@ -820,7 +816,7 @@ describe("linkPopupExtension", () => {
     it("creates and destroys the plugin view", () => {
       const plugins = linkPopupExtension.config.addProseMirrorPlugins!.call({
         name: "linkPopup",
-        options: {},
+        options: { store: mockLinkPopupStore, createStore: mockLinkCreateStore },
         storage: {},
         parent: null as never,
         editor: {} as never,

@@ -146,7 +146,7 @@
     "src/plugins/imagePreview/__tests__/ImagePreviewView.test.ts": 1402,
     "src/plugins/latex/__tests__/MathInlineNodeView.test.ts": 1198,
     "src/plugins/linkCreatePopup/__tests__/LinkCreatePopupView.test.ts": 1071,
-    "src/plugins/linkPopup/tiptap.test.ts": 849,
+    "src/plugins/linkPopup/tiptap.test.ts": 845,
     "src/plugins/markdownCopy/tiptap.test.ts": 1153,
     "src/plugins/mediaHandler/__tests__/mediaHandler.test.ts": 949,
     "src/plugins/mediaPopup/MediaPopupView.test.ts": 1462,

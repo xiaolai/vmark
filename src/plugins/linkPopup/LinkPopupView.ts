@@ -22,23 +22,17 @@
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useTabStore, tabFilePath } from "@/stores/tabStore";
+import type { StoreApi } from "zustand";
+import type { LinkPopupState } from "./types";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { classifyHref, openExternalLink, openFilepathLink } from "@/services/navigation/linkOpen";
-import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import { WysiwygPopupView, type EditorViewLike } from "@/plugins/shared";
 import { buildLinkPopupContainer } from "./linkPopupDom";
 import { linkRangeIsIntact } from "./linkRange";
 
 /** Link popup store state (extends base with link-specific fields) */
-interface LinkPopupState extends PopupStoreBase {
-  href: string;
-  linkFrom: number;
-  linkTo: number;
-  setHref: (href: string) => void;
-}
-
 /**
  * Link popup view - manages the floating popup UI.
  */
@@ -49,8 +43,8 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
   /** Pending focus frame, cancelled if the popup closes before it runs. */
   private focusFrame: number | null = null;
 
-  constructor(view: EditorViewLike) {
-    super(view, useLinkPopupStore);
+  constructor(view: EditorViewLike, store: StoreApi<LinkPopupState>) {
+    super(view, store);
     // Attach event listeners after super() (arrow functions are now initialized)
     this.attachEventListeners();
   }
@@ -238,12 +232,9 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     }
 
     // Filepath — resolve relative to the active doc and open in a tab.
-    // openFilepathLink is a pure leaf util; we read the source doc path
-    // from the tab store here and pass it in.
-    const activeTab = useTabStore
-      .getState()
-      .getActiveTab(getCurrentWebviewWindow().label);
-    const sourcePath = activeTab ? tabFilePath(activeTab) : null;
+    // openFilepathLink is a pure leaf util; the source doc path comes from
+    // the hostDocument seam and is passed in.
+    const sourcePath = hostDocument.activeFilePath(getCurrentWebviewWindow().label);
     const { linkFrom, linkTo } = this.store.getState();
     openFilepathLink(href, sourcePath).then((opened) => {
       if (!opened) return;
