@@ -81,6 +81,10 @@ export interface BuildExtensionsArgs {
   lineWrapCompartment: Compartment;
   /** Compartment owning the lazily-loaded language pack. */
   languageCompartment: Compartment;
+  /** Compartment owning the lazily-loaded per-format extras
+   *  (FormatConfig.loadExtraExtensions). Optional: panes for formats
+   *  without extras skip the slot entirely. */
+  extrasCompartment?: Compartment;
   /** Persist-on-change listener (writes documentStore.setContent). */
   persistOnUpdate: Extension;
   /** Hoists lint diagnostics to the preview pane. */
@@ -96,6 +100,7 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     lineNumberCompartment,
     lineWrapCompartment,
     languageCompartment,
+    extrasCompartment,
     persistOnUpdate,
     onDiagnostics,
   } = args;
@@ -122,6 +127,10 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     sourceEditorTheme,
     // Empty initial language — the loadLanguage promise reconfigures this.
     languageCompartment.of([]),
+    // Empty initial extras slot — the loadExtraExtensions promise
+    // reconfigures this (per-format editor behavior, e.g. yaml's GHA
+    // workflow extensions).
+    ...(extrasCompartment ? [extrasCompartment.of([])] : []),
     persistOnUpdate,
     // Right-click menu, reduced to clipboard + Select All — split panes
     // have no markdown context detection (plan WI-3.3).
