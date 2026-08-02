@@ -72,6 +72,14 @@ export interface HostPopups {
    * the coupling rather than removing it.
    */
   openFootnotePopup: (request: FootnotePopupRequest) => void;
+  /**
+   * Close the universal toolbar if it is open; report whether it was.
+   *
+   * The one CLOSE in a seam otherwise about opening, and it returns a boolean
+   * because the caller is an Escape handler: it must know whether it consumed
+   * the key or should fall through to collapsing the selection.
+   */
+  dismissUniversalToolbar: () => boolean;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */
@@ -79,6 +87,9 @@ const DEFAULTS: HostPopups = {
   openMediaPopup: () => {},
   openImageMenu: () => {},
   openFootnotePopup: () => {},
+  // No toolbar to close, so Escape was NOT consumed — falling through is the
+  // correct standalone behaviour, and `true` here would swallow the key.
+  dismissUniversalToolbar: () => false,
 };
 
 let bound: HostPopups = DEFAULTS;
@@ -98,4 +109,5 @@ export const hostPopups: HostPopups = {
   openMediaPopup: (request) => bound.openMediaPopup(request),
   openImageMenu: (request) => bound.openImageMenu(request),
   openFootnotePopup: (request) => bound.openFootnotePopup(request),
+  dismissUniversalToolbar: () => bound.dismissUniversalToolbar(),
 };
