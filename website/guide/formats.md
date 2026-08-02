@@ -84,7 +84,7 @@ When the path or content matches a known schema, VMark substitutes the right vie
 
 ### GitHub Actions workflow (`.github/workflows/*.yml`)
 
-Opens with the workflow visualization (job DAG, triggers, permissions).
+Opens with the workflow workbench: the interactive job-DAG canvas plus a structured forms editor with Save / Discard (see the [Workflow Viewer guide](/guide/workflow-viewer)). The source pane is workflow-aware too — `${{ }}` expression completion, cursor-to-canvas job highlighting, and Cmd-click on local `uses:` references.
 
 - Path detection: a `.yml` / `.yaml` file under `.github/workflows/` routes to the workflow renderer — even with malformed YAML, so you see the degraded view with diagnostics rather than a blank tree. (The file must reach the YAML adapter first; that requires the `.yml`/`.yaml` extension.)
 - Content detection: top-level `on:` and `jobs:` keys.
