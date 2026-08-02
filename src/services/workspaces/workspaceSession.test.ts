@@ -399,4 +399,78 @@ describe("persistWorkspaceSession — rail mode (WI-6R)", () => {
       "/repo-a/two.md", // the second instance's tab is not lost
     ]);
   });
+
+  // #1187 — this writer is the ONLY one that mints a config without going
+  // through the store's normalizer, so it is the only place an
+  // excludeFolders-less config could ever reach disk.
+  describe("exclude-folder defaults for a root with no config on disk", () => {
+    function diskReturns(value: WorkspaceConfig | null): void {
+      invokeMock.mockImplementation(async (cmd: string) => {
+        if (cmd === "read_workspace_config") return value;
+        return undefined;
+      });
+    }
+
+    beforeEach(() => {
+      useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+      addWorkspace("wsi-new", "/fresh-repo");
+      useWorkspaceInstancesStore.getState().activateWorkspaceInstance(WINDOW_LABEL, "wsi-new");
+      useTabStore.getState().createTab(WINDOW_LABEL, "/fresh-repo/one.md");
+    });
+
+    it("mints the default excludes — never an empty list", async () => {
+      diskReturns(null);
+
+      await persistWorkspaceSession(WINDOW_LABEL);
+
+      const write = writesOf().find((w) => w.rootPath === "/fresh-repo")!;
+      expect(write.config.excludeFolders).toEqual([".git", "node_modules"]);
+    });
+
+    it("repairs a config a previous build auto-created with empty excludes", async () => {
+      diskReturns({
+        version: 1,
+        excludeFolders: [],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+      } as WorkspaceConfig);
+
+      await persistWorkspaceSession(WINDOW_LABEL);
+
+      const write = writesOf().find((w) => w.rootPath === "/fresh-repo")!;
+      expect(write.config.excludeFolders).toEqual([".git", "node_modules"]);
+    });
+
+    it("keeps an empty list the user cleared deliberately (identity present)", async () => {
+      diskReturns({
+        version: 1,
+        excludeFolders: [],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+        identity: { id: "disk-id", createdAt: 1, trustLevel: "untrusted", trustedAt: null },
+      } as WorkspaceConfig);
+
+      await persistWorkspaceSession(WINDOW_LABEL);
+
+      const write = writesOf().find((w) => w.rootPath === "/fresh-repo")!;
+      expect(write.config.excludeFolders).toEqual([]);
+    });
+
+    it("leaves a configured exclude list alone", async () => {
+      diskReturns({
+        version: 1,
+        excludeFolders: ["dist"],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+      } as WorkspaceConfig);
+
+      await persistWorkspaceSession(WINDOW_LABEL);
+
+      const write = writesOf().find((w) => w.rootPath === "/fresh-repo")!;
+      expect(write.config.excludeFolders).toEqual(["dist"]);
+    });
+  });
 });
