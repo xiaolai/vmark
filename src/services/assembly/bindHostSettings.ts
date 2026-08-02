@@ -29,6 +29,10 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
+import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
+import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 
 /** Point the plugin seam at the live settings store. */
 export function bindPluginHostSettings(): void {
@@ -87,6 +91,22 @@ export function bindPluginHostSettings(): void {
       useFootnotePopupStore
         .getState()
         .openPopup(r.label, r.content, r.anchorRect as never, r.definitionPos, r.referencePos, r.autoFocus),
+    openLinkPopup: (r) => useLinkPopupStore.getState().openPopup(r as never),
+    openLinkCreatePopup: (r) => useLinkCreatePopupStore.getState().openPopup(r as never),
+    openWikiLinkPopup: (r) =>
+      useWikiLinkPopupStore.getState().openPopup(r.anchorRect as never, r.target, r.nodePos),
+    openHeadingPicker: (r) =>
+      useHeadingPickerStore
+        .getState()
+        .openPicker(r.headings as never, r.onSelect, {
+          anchorRect: r.anchorRect as never,
+          containerBounds: r.containerBounds as never,
+        }),
+    anyLinkSurfaceOpen: () =>
+      useLinkPopupStore.getState().isOpen ||
+      useLinkCreatePopupStore.getState().isOpen ||
+      useWikiLinkPopupStore.getState().isOpen ||
+      useHeadingPickerStore.getState().isOpen,
     dismissUniversalToolbar: () => {
       const ui = useUIStore.getState();
       if (!ui.universalToolbarVisible) return false;

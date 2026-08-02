@@ -58,6 +58,38 @@ export interface FootnotePopupRequest {
   autoFocus?: boolean;
 }
 
+/** What the link EDIT popup needs. */
+interface LinkPopupRequest {
+  href: string;
+  linkFrom: number;
+  linkTo: number;
+  anchorRect: { top: number; left: number; right: number; bottom: number };
+}
+
+/** What the link CREATE popup needs. */
+interface LinkCreateRequest {
+  text: string;
+  rangeFrom: number;
+  rangeTo: number;
+  anchorRect: { top: number; left: number; right: number; bottom: number };
+  showTextInput: boolean;
+}
+
+/** What the wiki-link popup needs. */
+interface WikiLinkPopupRequest {
+  anchorRect: { top: number; left: number; right: number; bottom: number };
+  target: string;
+  nodePos: number;
+}
+
+/** What the heading picker needs. `heading` is opaque to the plugin. */
+interface HeadingPickerRequest<THeading = unknown> {
+  headings: THeading[];
+  onSelect: (id: string, text: string) => void;
+  anchorRect?: { top: number; left: number; right: number; bottom: number };
+  containerBounds?: unknown;
+}
+
 /** Editor chrome a plugin can ask the host to present. */
 export interface HostPopups {
   openMediaPopup: (request: MediaPopupRequest) => void;
@@ -80,6 +112,19 @@ export interface HostPopups {
    * the key or should fall through to collapsing the selection.
    */
   dismissUniversalToolbar: () => boolean;
+  openLinkPopup: (request: LinkPopupRequest) => void;
+  openLinkCreatePopup: (request: LinkCreateRequest) => void;
+  openWikiLinkPopup: (request: WikiLinkPopupRequest) => void;
+  openHeadingPicker: (request: HeadingPickerRequest) => void;
+  /**
+   * Whether any link-editing surface is already open.
+   *
+   * A QUERY, unlike the rest, and it exists because the smart-link shortcut
+   * must not stack a second popup on top of one the user is already using.
+   * Asking the host "is anything open?" keeps the plugin from having to know
+   * which four surfaces those are.
+   */
+  anyLinkSurfaceOpen: () => boolean;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */
@@ -90,6 +135,12 @@ const DEFAULTS: HostPopups = {
   // No toolbar to close, so Escape was NOT consumed — falling through is the
   // correct standalone behaviour, and `true` here would swallow the key.
   dismissUniversalToolbar: () => false,
+  openLinkPopup: () => {},
+  openLinkCreatePopup: () => {},
+  openWikiLinkPopup: () => {},
+  openHeadingPicker: () => {},
+  // Nothing is open when there is no chrome, so the shortcut proceeds.
+  anyLinkSurfaceOpen: () => false,
 };
 
 let bound: HostPopups = DEFAULTS;
@@ -110,4 +161,9 @@ export const hostPopups: HostPopups = {
   openImageMenu: (request) => bound.openImageMenu(request),
   openFootnotePopup: (request) => bound.openFootnotePopup(request),
   dismissUniversalToolbar: () => bound.dismissUniversalToolbar(),
+  openLinkPopup: (request) => bound.openLinkPopup(request),
+  openLinkCreatePopup: (request) => bound.openLinkCreatePopup(request),
+  openWikiLinkPopup: (request) => bound.openWikiLinkPopup(request),
+  openHeadingPicker: (request) => bound.openHeadingPicker(request),
+  anyLinkSurfaceOpen: () => bound.anyLinkSurfaceOpen(),
 };

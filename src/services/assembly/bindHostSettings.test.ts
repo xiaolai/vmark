@@ -4,10 +4,11 @@
  * @coordinates-with services/assembly/bindHostSettings.ts
  * @module services/assembly/bindHostSettings.test
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { bindPluginHostSettings } from "./bindHostSettings";
 import { hostSettings, resetHostSettings } from "@/plugins/shared/hostSettings";
 import { hostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 afterEach(() => {
@@ -132,5 +133,85 @@ describe("HTML rendering and cursor bindings", () => {
     expect(useDocumentStore.getState().getDocument(tabId)?.cursorInfo).toMatchObject({
       sourceLine: 7,
     });
+  });
+});
+
+describe("the link-surface bindings map requests onto the real stores", () => {
+  const rect = { top: 1, left: 2, bottom: 3, right: 4 };
+
+  beforeEach(() => {
+    bindPluginHostSettings();
+  });
+
+  it("reports nothing open before anything opens", async () => {
+    const { usePopupStore } = await import("@/stores/popupStore");
+    usePopupStore.setState(usePopupStore.getInitialState());
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(false);
+  });
+
+  it("opens the link EDIT popup with the range it was given", async () => {
+    const { useLinkPopupStore } = await import("@/stores/linkPopupStore");
+    hostPopups.openLinkPopup({ href: "a.md", linkFrom: 3, linkTo: 9, anchorRect: rect });
+    const state = useLinkPopupStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.href).toBe("a.md");
+    expect(state.linkFrom).toBe(3);
+    expect(state.linkTo).toBe(9);
+    // Any of the four counts as "a link surface is open" — that is the whole
+    // point of the query, which guards against stacking a second popup.
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(true);
+    state.closePopup();
+  });
+
+  it("opens the link CREATE popup with its own range and text-input flag", async () => {
+    const { useLinkCreatePopupStore } = await import("@/stores/linkCreatePopupStore");
+    hostPopups.openLinkCreatePopup({
+      text: "label",
+      rangeFrom: 1,
+      rangeTo: 6,
+      anchorRect: rect,
+      showTextInput: true,
+    });
+    const state = useLinkCreatePopupStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.text).toBe("label");
+    expect(state.showTextInput).toBe(true);
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(true);
+    state.closePopup();
+  });
+
+  it("flattens the wiki-link request into the store's positional call", async () => {
+    // The store takes (rect, target, pos); the seam takes one object. This is
+    // the shape mismatch the request types exist to absorb.
+    const { useWikiLinkPopupStore } = await import("@/stores/wikiLinkPopupStore");
+    hostPopups.openWikiLinkPopup({ anchorRect: rect, target: "notes/todo", nodePos: 12 });
+    const state = useWikiLinkPopupStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.target).toBe("notes/todo");
+    expect(state.nodePos).toBe(12);
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(true);
+    state.closePopup();
+  });
+
+  it("opens the heading picker and keeps the plugin's callback callable", async () => {
+    const { useHeadingPickerStore } = await import("@/stores/headingPickerStore");
+    const onSelect = vi.fn();
+    const headings = [{ id: "h1", text: "First", level: 1 }];
+    hostPopups.openHeadingPicker({ headings, onSelect, anchorRect: rect });
+    expect(useHeadingPickerStore.getState().isOpen).toBe(true);
+    expect(hostPopups.anyLinkSurfaceOpen()).toBe(true);
+    useHeadingPickerStore.getState().selectHeading(headings[0]);
+    expect(onSelect).toHaveBeenCalledWith("h1", "First");
+  });
+
+  it("closes the universal toolbar only when it is open", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    useUIStore.getState().setUniversalToolbarVisible(false);
+    // False means "Escape was NOT consumed", so the caller falls through.
+    expect(hostPopups.dismissUniversalToolbar()).toBe(false);
+
+    useUIStore.getState().setUniversalToolbarVisible(true);
+    expect(hostPopups.dismissUniversalToolbar()).toBe(true);
+    expect(useUIStore.getState().universalToolbarVisible).toBe(false);
   });
 });
