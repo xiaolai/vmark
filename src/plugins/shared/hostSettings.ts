@@ -45,6 +45,8 @@ export interface HostSettings {
   tabSize: () => number;
   /** Whether tables are fitted to the editor width by default. */
   tableFitToWidth: () => boolean;
+  /** Whether markdown lint decorations are painted at all. */
+  lintEnabled: () => boolean;
   /** How raw HTML in the document is rendered. */
   htmlRendering: () => HtmlRendering;
   /** Notify when any setting changes; returns an unsubscribe. */
@@ -68,6 +70,7 @@ export interface HostSettings {
 const DEFAULTS: HostSettings = {
   tabSize: () => 2,
   tableFitToWidth: () => false,
+  lintEnabled: () => true,
   // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
   // consumer that binds nothing must not get permissive HTML by accident.
   htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
@@ -100,6 +103,7 @@ export function resetHostSettings(): void {
 export const hostSettings: HostSettings = {
   tabSize: () => bound.tabSize(),
   tableFitToWidth: () => bound.tableFitToWidth(),
+  lintEnabled: () => bound.lintEnabled(),
   htmlRendering: () => bound.htmlRendering(),
   onChange: (listener) => bound.onChange(listener),
 };

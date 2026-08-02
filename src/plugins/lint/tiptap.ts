@@ -31,8 +31,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useLintStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { bumpLintDocEpoch, isLintRunCurrent } from "./docEpoch";
@@ -43,7 +42,7 @@ const lintPluginKey = new PluginKey("markdownLintWysiwyg");
 
 /** Live lint setting — read at decoration-build time so toggles apply without a remount. */
 function isLintEnabled(): boolean {
-  return useSettingsStore.getState().markdown.lintEnabled;
+  return hostSettings.lintEnabled();
 }
 
 /** Build decorations from diagnostics. Skips "sourceOnly" entries.
@@ -79,9 +78,25 @@ function buildDecorations(doc: PMNode, diagnostics: LintDiagnostic[]): Decoratio
   return DecorationSet.create(doc, decos);
 }
 
+/**
+ * Where diagnostics come from.
+ *
+ * An option rather than a store import: the lint ENGINE is the host's, but
+ * painting its results is this plugin's job, and the two need not be the same
+ * module (ADR-015). The default reports none — a plugin lifted out of this
+ * repo decorates nothing rather than crashing.
+ */
+export interface LintDiagnosticsSource {
+  /** Diagnostics currently known for `tabId`, freshest read. */
+  get: (tabId: string) => LintDiagnostic[];
+  /** Subscribe to changes; returns an unsubscribe. */
+  subscribe: (listener: (tabId: string, next: LintDiagnostic[]) => void) => () => void;
+}
+
 export interface LintExtensionOptions {
   /** Tab ID to scope diagnostics to. Empty string = disabled. */
   tabId: string;
+  diagnostics: LintDiagnosticsSource;
 }
 
 /** Tiptap extension that decorates WYSIWYG blocks with lint diagnostic markers. */
@@ -89,11 +104,14 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
   name: "markdownLint",
 
   addOptions() {
-    return { tabId: "" };
+    return {
+      tabId: "",
+      diagnostics: { get: () => [], subscribe: () => () => {} },
+    };
   },
 
   addProseMirrorPlugins() {
-    const { tabId } = this.options;
+    const { tabId, diagnostics: source } = this.options;
     if (!tabId) return [];
 
     return [
@@ -113,10 +131,9 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
 
           // Only react when diagnostics are ADDED (runLint), not cleared.
           // Clears are handled by apply() returning DecorationSet.empty on docChanged.
-          let prevDiagnostics = useLintStore.getState().diagnosticsByTab[tabId];
-          const unsubscribe = useLintStore.subscribe((state) => {
-            if (destroyed) return;
-            const nextDiagnostics = state.diagnosticsByTab[tabId];
+          let prevDiagnostics = source.get(tabId);
+          const unsubscribe = source.subscribe((changedTabId, nextDiagnostics) => {
+            if (destroyed || changedTabId !== tabId) return;
             // Skip if diagnostics were removed (cleared) — only react to new results
             if (!nextDiagnostics || nextDiagnostics.length === 0) {
               prevDiagnostics = nextDiagnostics;
@@ -133,9 +150,9 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
           // from whatever diagnostics the store currently holds. Plain
           // subscribe with manual prev tracking (project convention).
           let prevEnabled = isLintEnabled();
-          const unsubscribeSettings = useSettingsStore.subscribe((state) => {
+          const unsubscribeSettings = hostSettings.onChange(() => {
             if (destroyed) return;
-            const enabled = state.markdown.lintEnabled;
+            const enabled = isLintEnabled();
             if (enabled === prevEnabled) return;
             prevEnabled = enabled;
             dispatchRebuild();
@@ -157,9 +174,7 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
             // store still holds from BEFORE the last doc change — same stale
             // guard the diagnosticsChanged path applies.
             if (!isLintRunCurrent(tabId)) return DecorationSet.empty;
-            const diagnostics =
-              useLintStore.getState().diagnosticsByTab[tabId] ?? [];
-            return buildDecorations(doc, diagnostics);
+            return buildDecorations(doc, source.get(tabId));
           },
 
           apply(tr, oldDecorations) {
@@ -182,9 +197,7 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
               // before the latest doc change must not be mapped onto the
               // edited doc.
               if (!isLintRunCurrent(tabId)) return DecorationSet.empty;
-              const diagnostics =
-                useLintStore.getState().diagnosticsByTab[tabId] ?? [];
-              return buildDecorations(tr.doc, diagnostics);
+              return buildDecorations(tr.doc, source.get(tabId));
             }
 
             // Remap existing decorations through non-doc-changing transactions

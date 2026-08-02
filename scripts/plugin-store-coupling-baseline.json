@@ -1,6 +1,6 @@
 {
   "//": "Frozen plugin->store coupling, per unit. A plugin importing @/stores cannot ship as a standalone extension - see scripts/check-plugin-store-coupling.mjs and dev-docs/deep-researches/20260725-extension-goal-progress-audit.md. Ratchets DOWN only: never raise a number, and lower it when you decouple a file.",
-  "//total": "68 coupled files across 19 units (27 plugins decoupled 2026-08-02).",
+  "//total": "67 coupled files across 18 units (28 plugins decoupled 2026-08-02).",
   "units": {
     "aiSuggestion": 1,
     "codemirror": 20,
@@ -11,7 +11,6 @@
     "ghaWorkflowPreview": 1,
     "imageHandler": 4,
     "linkPopup": 2,
-    "lint": 1,
     "mediaPopup": 3,
     "sourceFootnotePopup": 3,
     "sourceImagePopup": 3,

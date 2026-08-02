@@ -89,6 +89,7 @@ import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detail
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
 import { appInlineMathEditingRegistry } from "./inlineMathEditingRegistry";
+import { lintDiagnosticsSource } from "./lintDiagnosticsSource";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -246,7 +247,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     // tab is known — the plugin gates decoration building on the LIVE
     // markdown.lintEnabled setting, so toggling lint takes effect without an
     // editor remount (mount-time gating left WYSIWYG stale until remount).
-    ...(tabId ? [LintExtension.configure({ tabId })] : []),
+    ...(tabId ? [LintExtension.configure({ tabId, diagnostics: lintDiagnosticsSource })] : []),
   ];
 }
 
