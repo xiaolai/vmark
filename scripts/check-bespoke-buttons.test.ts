@@ -6,7 +6,7 @@
  * the canonical classes, and does not fire on incidental mentions.
  */
 import { describe, it, expect } from "vitest";
-import { collectBespokeButtons } from "./check-bespoke-buttons.mjs";
+import { collectBespokeButtons, collectStyledButtonClasses } from "./check-bespoke-buttons.mjs";
 
 /** Run the collector over in-memory CSS instead of the filesystem. */
 function collect(sources: Record<string, string>) {
@@ -63,5 +63,90 @@ describe("collectBespokeButtons", () => {
     const after = collect({ "a.css": ".vm-btn { color: red; }\n.brand-new-btn { color: red; }" });
     expect(after.size).toBeGreaterThan(before.size);
     expect([...after.keys()]).toContain(".brand-new-btn");
+  });
+});
+
+/**
+ * The name-based collector above can only see classes whose NAME contains
+ * "btn" or "button". `.workspace-approval-approve` styled a real button and was
+ * invisible to it — the budget read 88/88 while the drift it exists to catch
+ * was happening. This second collector keys on USAGE instead: a class applied
+ * to a <button> element whose CSS re-derives a button surface (padding plus a
+ * border or background). Naming cannot evade it.
+ */
+function collectStyled(tsx: Record<string, string>, css: Record<string, string>) {
+  const all = { ...tsx, ...css };
+  return collectStyledButtonClasses(Object.keys(tsx), Object.keys(css), (p) => all[p]);
+}
+
+describe("collectStyledButtonClasses", () => {
+  const BUTTONISH = "{ padding: 4px 8px; border: 1px solid red; }";
+
+  it("catches a button class that the name regex cannot see", () => {
+    const found = collectStyled(
+      { "a.tsx": '<button className="workspace-approval-approve">ok</button>' },
+      { "a.css": `.workspace-approval-approve ${BUTTONISH}` },
+    );
+    expect([...found.keys()]).toEqual(["workspace-approval-approve"]);
+  });
+
+  it("skips the canonical primitives", () => {
+    const found = collectStyled(
+      { "a.tsx": '<button className="vm-btn vm-btn--primary">ok</button>' },
+      { "a.css": `.vm-btn ${BUTTONISH}\n.vm-btn--primary ${BUTTONISH}` },
+    );
+    expect([...found.keys()]).toEqual([]);
+  });
+
+  it("ignores classes that do not style a button surface", () => {
+    // Layout-only and state classes are not re-derived buttons.
+    const found = collectStyled(
+      { "a.tsx": '<button className="is-active toolbar-slot">ok</button>' },
+      { "a.css": ".is-active { color: red; }\n.toolbar-slot { display: flex; }" },
+    );
+    expect([...found.keys()]).toEqual([]);
+  });
+
+  it("ignores a styled class that is never applied to a button", () => {
+    const found = collectStyled(
+      { "a.tsx": '<div className="card-surface">x</div>' },
+      { "a.css": `.card-surface ${BUTTONISH}` },
+    );
+    expect([...found.keys()]).toEqual([]);
+  });
+
+  it("reads classes out of a template literal className", () => {
+    const found = collectStyled(
+      { "a.tsx": '<button className={`genie-chip ${active ? "on" : ""}`}>x</button>' },
+      { "a.css": `.genie-chip ${BUTTONISH}` },
+    );
+    expect([...found.keys()]).toEqual(["genie-chip"]);
+  });
+
+  it("counts a class once however many buttons use it", () => {
+    const found = collectStyled(
+      {
+        "a.tsx": '<button className="row-action">a</button>',
+        "b.tsx": '<button className="row-action">b</button>',
+      },
+      { "a.css": `.row-action ${BUTTONISH}` },
+    );
+    expect([...found.keys()]).toEqual(["row-action"]);
+  });
+
+  it("records where the class is used, for actionable output", () => {
+    const found = collectStyled(
+      { "x/y.tsx": '<button className="zed-action">x</button>' },
+      { "a.css": `.zed-action ${BUTTONISH}` },
+    );
+    expect(found.get("zed-action")).toBe("x/y.tsx");
+  });
+
+  it("counts a background-only surface too (no border)", () => {
+    const found = collectStyled(
+      { "a.tsx": '<button className="pill-thing">x</button>' },
+      { "a.css": ".pill-thing { padding: 2px 6px; background: blue; }" },
+    );
+    expect([...found.keys()]).toEqual(["pill-thing"]);
   });
 });

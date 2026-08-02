@@ -1,4 +1,7 @@
 {
-  "//": "Hand-rolled button classes in src/**/*.css, excluding the canonical .vm-btn / .popup-icon-btn / .universal-toolbar-btn. RATCHETS DOWN ONLY — never raise this number. To lower it, migrate a component to `.vm-btn` (src/styles/button-shared.css) and delete its bespoke class. Enforced by scripts/check-bespoke-buttons.mjs (pnpm lint:bespoke-buttons, in check:all).",
-  "maxBespokeButtonClasses": 88
+  "//": "Two budgets, both RATCHET DOWN ONLY — never raise either. To lower one, migrate a component to `.vm-btn` (src/styles/button-shared.css) and delete its bespoke class. Enforced by scripts/check-bespoke-buttons.mjs (pnpm lint:bespoke-buttons, in check:all).",
+  "//maxBespokeButtonClasses": "By NAME: classes defined in src/**/*.css whose name contains btn/button, excluding the canonical .vm-btn / .popup-icon-btn / .universal-toolbar-btn.",
+  "maxBespokeButtonClasses": 88,
+  "//maxStyledButtonClasses": "By USAGE: classes applied to a <button> in src/**/*.tsx whose CSS re-derives a button surface (padding plus a border or background). Added because the name check was evadable by naming — `.workspace-approval-approve` styled a real button with its own padding, radius and border and was never counted, so the budget read 88/88 while the drift the gate exists to catch was happening. 61 of these 80 are invisible to the name check. This is a NEW measurement of a previously unmeasured surface, NOT a raised budget.",
+  "maxStyledButtonClasses": 80
 }
