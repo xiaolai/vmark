@@ -9,18 +9,15 @@
  *   - Positioned relative to the cursor using the popup positioning system
  *   - DOM-based (not React) for consistency with other editor popups
  *   - Escape key dismisses the toast
+ *   - Reads state through a PORT it declares, never the app's store (ADR-015)
  *
- * @coordinates-with stores/imagePasteToastStore.ts — toast visibility and action state
+ * @coordinates-with imagePasteToast/types.ts — the state PORT the host satisfies
  * @coordinates-with imageHandler/tiptap.ts — triggers the toast on ambiguous image pastes
  * @module plugins/imagePasteToast/ImagePasteToastView
  */
 
 import type { ImagePasteToastStore } from "./types";
 import i18n from "@/i18n";
-
-/**
- */
-
 import {
   calculatePopupPosition,
   getBoundaryRects,

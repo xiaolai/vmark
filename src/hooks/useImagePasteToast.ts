@@ -4,8 +4,10 @@
  * Purpose: Initializes the image paste toast UI at app startup — the toast
  *   shows a preview when pasting an image from clipboard into the editor.
  *
- * @coordinates-with imagePasteToast plugin — provides init/destroy lifecycle
- * @coordinates-with imagePasteToastStore.ts — state for the toast UI
+ * @coordinates-with imagePasteToast plugin — provides init/destroy lifecycle and
+ *   takes the toast store as its state PORT
+ * @coordinates-with imagePasteToastStore.ts — the store this hook supplies to
+ *   the plugin's state PORT; the plugin itself does not import it
  * @module hooks/useImagePasteToast
  */
 
