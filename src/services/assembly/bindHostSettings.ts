@@ -13,12 +13,13 @@
 
 import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { bindHostDocument } from "@/plugins/shared/hostDocument";
+import { bindHostShortcuts } from "@/plugins/shared/hostShortcuts";
 import {
   bindHostPopups,
   type MediaPopupRequest,
   type ImageMenuRequest,
 } from "@/plugins/shared/hostPopups";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
@@ -42,6 +43,11 @@ export function bindPluginHostSettings(): void {
   // Typed explicitly rather than inferred: this is the boundary where the
   // plugins' request shape meets the app's store, and a silent mismatch here
   // is exactly what the seam exists to prevent.
+  bindHostShortcuts({
+    getShortcut: (id) => useShortcutsStore.getState().getShortcut(id),
+    onChange: (listener) => useShortcutsStore.subscribe(listener),
+  });
+
   bindHostPopups({
     openMediaPopup: (request: MediaPopupRequest) =>
       useMediaPopupStore.getState().openPopup(request as never),
