@@ -2,6 +2,7 @@ import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
 import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 import type { PasteMode } from "./pasteSettings";
+import type { HardBreakStyleOnSave } from "@/utils/linebreakDetection";
 
 /**
  * Purpose: the editor settings plugins need, bound once by the host.
@@ -53,7 +54,7 @@ export interface HostSettings {
   /** Keep single newlines as hard breaks when serializing. */
   preserveLineBreaks: () => boolean;
   /** Which hard-break spelling to write on save. */
-  hardBreakStyleOnSave: () => string;
+  hardBreakStyleOnSave: () => HardBreakStyleOnSave;
   /** Whether a pasted image is copied into the document's assets folder. */
   copyImagesToAssets: () => boolean;
   /** Keep runs of blank lines rather than collapsing them. */

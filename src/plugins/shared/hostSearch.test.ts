@@ -85,3 +85,26 @@ describe("the navigation members", () => {
     expect(findPrevious).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the closed-bar default MATCHES the app's search slice", () => {
+  it("agrees field by field, so the seam is not a second source of truth", async () => {
+    // Same invariant as hostSettings' tabSize: a default that disagrees with
+    // the app makes the seam a second source of truth. `currentIndex` had
+    // drifted to 0 — which claims the first match is selected — against the
+    // app's -1, which means none is.
+    resetHostSearch();
+    const { initialSearch } = await import("@/stores/uiStore/searchSlice");
+    expect(hostSearch.current()).toEqual(
+      expect.objectContaining({
+        isOpen: initialSearch.isOpen,
+        query: initialSearch.query,
+        caseSensitive: initialSearch.caseSensitive,
+        wholeWord: initialSearch.wholeWord,
+        useRegex: initialSearch.useRegex,
+        currentIndex: initialSearch.currentIndex,
+        replaceText: initialSearch.replaceText,
+        matchCount: initialSearch.matchCount,
+      })
+    );
+  });
+});

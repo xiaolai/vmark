@@ -21,6 +21,8 @@
  * @module plugins/shared/hostPopups
  */
 
+import type { MediaNodeType } from "./popupPorts";
+
 /**
  * What the media popup needs to edit a media node.
  *
@@ -32,7 +34,7 @@
 export interface MediaPopupRequest {
   mediaSrc: string;
   mediaNodePos: number;
-  mediaNodeType: string;
+  mediaNodeType: MediaNodeType;
   /** Where to anchor the popup, in viewport coordinates. */
   anchorRect: { top: number; left: number; right: number; bottom: number };
   mediaAlt?: string;

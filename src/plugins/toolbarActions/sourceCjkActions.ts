@@ -26,8 +26,8 @@ function shouldPreserveTwoSpaceBreaks(): boolean {
     const windowLabel = getWindowLabel();
     return (
       resolveHardBreakStyle(
-        hostDocument.activeHardBreakStyle(windowLabel) as never,
-        hostSettings.hardBreakStyleOnSave() as never
+        hostDocument.activeHardBreakStyle(windowLabel),
+        hostSettings.hardBreakStyleOnSave()
       ) === "twoSpaces"
     );
   } catch {

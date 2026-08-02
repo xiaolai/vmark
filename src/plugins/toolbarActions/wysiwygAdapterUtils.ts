@@ -52,8 +52,8 @@ export function getSerializeOptions(): {
 } {
   const windowLabel = getWindowLabel();
   const hardBreakStyle = resolveHardBreakStyle(
-    hostDocument.activeHardBreakStyle(windowLabel) as never,
-    hostSettings.hardBreakStyleOnSave() as never
+    hostDocument.activeHardBreakStyle(windowLabel),
+    hostSettings.hardBreakStyleOnSave()
   );
   return {
     preserveLineBreaks: hostSettings.preserveLineBreaks(),

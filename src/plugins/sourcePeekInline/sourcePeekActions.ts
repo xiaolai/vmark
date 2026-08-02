@@ -48,8 +48,8 @@ export function getMarkdownOptions() {
   return {
     preserveLineBreaks: hostSettings.preserveLineBreaks(),
     hardBreakStyle: resolveHardBreakStyle(
-      hostDocument.activeHardBreakStyle(windowLabel) as never,
-      hostSettings.hardBreakStyleOnSave() as never
+      hostDocument.activeHardBreakStyle(windowLabel),
+      hostSettings.hardBreakStyleOnSave()
     ),
   };
 }

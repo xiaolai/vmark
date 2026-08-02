@@ -21,6 +21,9 @@
  * @module plugins/shared/hostDocument
  */
 
+import type { HardBreakStyle } from "@/utils/linebreakDetection";
+import type { CursorInfo } from "@/types/cursorSync";
+
 /** What a plugin needs to know about the document it is editing. */
 export interface HostDocument {
   /**
@@ -37,7 +40,7 @@ export interface HostDocument {
    * "report" rather than "set a store field": the plugin knows where the
    * cursor is, the host decides what to do with that.
    */
-  reportCursorInfo: (windowLabel: string, info: unknown) => void;
+  reportCursorInfo: (windowLabel: string, info: CursorInfo) => void;
   /**
    * Whether the buffer for `tabId` has unsaved changes.
    *
@@ -76,7 +79,7 @@ export interface HostDocument {
    * "unknown" is the honest default: a fresh buffer has no evidence either
    * way, and the resolver already treats it as "fall back to the setting".
    */
-  activeHardBreakStyle: (windowLabel: string) => string;
+  activeHardBreakStyle: (windowLabel: string) => HardBreakStyle;
   /**
    * Record an undo checkpoint for the active document.
    *
@@ -84,7 +87,10 @@ export interface HostDocument {
    * knows it is about to make a change worth undoing as one step; the host
    * decides what a checkpoint means.
    */
-  checkpoint: (windowLabel: string, snapshot: { markdown: string; mode: string }) => void;
+  checkpoint: (
+    windowLabel: string,
+    snapshot: { markdown: string; mode: "source" | "wysiwyg" }
+  ) => void;
 }
 
 /** No document — the honest answer when no host has bound anything. */
