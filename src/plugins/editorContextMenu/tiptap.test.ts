@@ -14,6 +14,7 @@ import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { handleEditorContextMenu, isPosInTable } from "./tiptap";
 import { usePopupStore } from "@/stores/popupStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { initialEditorContextMenu } from "@/stores/popupStore/slices";
 
 const schema = new Schema({
@@ -72,6 +73,8 @@ function contextMenuEvent(overrides: Partial<MouseEvent> = {}): MouseEvent {
 }
 
 beforeEach(() => {
+  // These read/write the REAL stores through the seams, so bind them.
+  bindPluginHostSettings();
   vi.clearAllMocks();
   usePopupStore.setState({ editorContextMenu: initialEditorContextMenu });
 });

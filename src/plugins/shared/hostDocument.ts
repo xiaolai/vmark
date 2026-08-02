@@ -59,6 +59,15 @@ export interface HostDocument {
    * treats that as "cannot resolve".
    */
   workspaceRoot: () => string | null;
+  /**
+   * The format id of the active tab in `windowLabel`, or null.
+   *
+   * A plugin that adapts its UI per file type needs to know WHICH type; what
+   * that type permits it looks up itself, in `lib/formats`. Null means "no
+   * document, or not a document tab", and callers read it as "no
+   * restrictions" — the permissive answer, matching the menu dispatcher.
+   */
+  activeFormatId: (windowLabel: string) => string | null;
 }
 
 /** No document — the honest answer when no host has bound anything. */
@@ -67,6 +76,7 @@ const DEFAULTS: HostDocument = {
   reportCursorInfo: () => {},
   isTabDirty: () => false,
   workspaceRoot: () => null,
+  activeFormatId: () => null,
 };
 
 let bound: HostDocument = DEFAULTS;
@@ -87,4 +97,5 @@ export const hostDocument: HostDocument = {
   reportCursorInfo: (windowLabel, info) => bound.reportCursorInfo(windowLabel, info),
   isTabDirty: (tabId) => bound.isTabDirty(tabId),
   workspaceRoot: () => bound.workspaceRoot(),
+  activeFormatId: (windowLabel) => bound.activeFormatId(windowLabel),
 };

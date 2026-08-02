@@ -125,6 +125,17 @@ export interface HostPopups {
    * which four surfaces those are.
    */
   anyLinkSurfaceOpen: () => boolean;
+  /**
+   * Open the editor's right-click menu.
+   *
+   * `snapshot` is opaque here on purpose: the plugin builds it, the menu
+   * renders it, and the seam only carries it across. Typing it would drag the
+   * whole toolbar-action vocabulary into this module.
+   */
+  openEditorContextMenu: (request: {
+    position: { x: number; y: number };
+    snapshot: unknown;
+  }) => void;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */
@@ -141,6 +152,7 @@ const DEFAULTS: HostPopups = {
   openHeadingPicker: () => {},
   // Nothing is open when there is no chrome, so the shortcut proceeds.
   anyLinkSurfaceOpen: () => false,
+  openEditorContextMenu: () => {},
 };
 
 let bound: HostPopups = DEFAULTS;
@@ -166,4 +178,5 @@ export const hostPopups: HostPopups = {
   openWikiLinkPopup: (request) => bound.openWikiLinkPopup(request),
   openHeadingPicker: (request) => bound.openHeadingPicker(request),
   anyLinkSurfaceOpen: () => bound.anyLinkSurfaceOpen(),
+  openEditorContextMenu: (request) => bound.openEditorContextMenu(request),
 };

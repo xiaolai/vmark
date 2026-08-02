@@ -27,6 +27,7 @@ vi.mock("@/lib/formats/registry", () => ({
 import { buildSourceSnapshot, buildWysiwygSnapshot, getActiveFormatMenuPolicy } from "./snapshot";
 import { useEditorStore } from "@/stores/editorStore";
 import { useTabStore } from "@/stores/tabStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 
 // ---------------------------------------------------------------------------
 // WYSIWYG: real ProseMirror states — the snapshot derives its context from the
@@ -108,6 +109,8 @@ function sourceContext(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  // These read/write the REAL stores through the seams, so bind them.
+  bindPluginHostSettings();
   vi.clearAllMocks();
   mocks.getCurrentWebviewWindow.mockReturnValue({ label: "main" });
   mocks.getFormatById.mockReturnValue(undefined);
