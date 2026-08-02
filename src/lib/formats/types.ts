@@ -61,10 +61,28 @@ export interface OutlineHeading {
 
 export type SchemaDetector = (path: string, content: string) => string | null;
 
+/**
+ * Context handed to `FormatConfig.loadExtraExtensions`. Everything a
+ * per-format CodeMirror extension needs to bind itself to the editor it
+ * mounts in: the tab (for store reads scoped to this document), the file
+ * path at mount time, and the window label (multi-window sessions must
+ * not resolve against another window's tabs).
+ */
+interface SourceExtrasContext {
+  tabId: string;
+  filePath: string | null;
+  windowLabel: string;
+}
+
 export interface PreviewRendererProps {
   content: string;
   path: string | null;
   diagnostics: ValidationDiagnostic[];
+  /** The hosting tab. Set by SplitPaneEditor so renderers that write
+   *  per-document state (the gha workbench's patch-queue binding, save
+   *  target) address THEIR pane's tab — never the focused-pane alias,
+   *  which diverges under document split. */
+  tabId?: string;
   onJumpToPosition?: (line: number, column: number) => void;
 }
 export type PreviewRenderer = ComponentType<PreviewRendererProps>;
@@ -126,7 +144,15 @@ export interface FormatConfig {
    */
   language?: () => Extension;
   loadLanguage?: () => Promise<Extension>;
-  loadExtraExtensions?: () => Promise<Extension[]>;
+  /**
+   * Per-format CodeMirror extensions for the split-pane SourcePane,
+   * loaded async after mount and swapped in via a compartment (same
+   * lifecycle as `loadLanguage`). This is how a format contributes
+   * editor behavior beyond highlighting — e.g. yaml supplies the GHA
+   * workflow extensions (IR sync into the workflowStore `gha` slice,
+   * `${{ }}` expression completion, cursor→canvas sync, goto-def).
+   */
+  loadExtraExtensions?: (ctx: SourceExtrasContext) => Promise<Extension[]>;
   /**
    * The format's linter, contributed rather than hard-coded.
    *

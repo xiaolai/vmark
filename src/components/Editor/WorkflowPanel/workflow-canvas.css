@@ -1,15 +1,19 @@
 /* WI-2.4 — canvas chrome. Inherits xyflow's bundled style.css.
  *
- * Selectors match BOTH the standalone canvas wrapper (`.gha-workflow-canvas`,
- * used by GhaWorkflowPanel.tsx) and the side-panel canvas wrapper
- * (`.gha-workflow-side-panel__canvas`, used by GhaWorkflowSidePanel.tsx).
- * Without the side-panel selector the React Flow controls render on a
- * default white square in dark theme — the bug Phase 9 dark-theme QA
- * found.
+ * The react-flow DESCENDANT theming below scopes to BOTH consumer
+ * wrappers (`.gha-workflow-canvas` from GhaWorkflowPanel.tsx and
+ * `.gha-workflow-workbench__canvas` from GhaWorkflowWorkbench.tsx) —
+ * it themes WorkflowCanvas's INTERNALS, so it lives here with the
+ * canvas. Without the consumer-wrapper scope the React Flow controls
+ * render on a default white square in dark theme — the bug Phase 9
+ * dark-theme QA found.
+ *
+ * The wrappers' OWN box styles live with their owners (rule 32 single
+ * source): `.gha-workflow-canvas` here, `.gha-workflow-workbench__*`
+ * in gha-workflow-workbench.css.
  */
 
-.gha-workflow-canvas,
-.gha-workflow-side-panel__canvas {
+.gha-workflow-canvas {
   width: 100%;
   height: 100%;
   background: var(--bg-color);
@@ -17,19 +21,19 @@
 }
 
 .gha-workflow-canvas .react-flow__background,
-.gha-workflow-side-panel__canvas .react-flow__background {
+.gha-workflow-workbench__canvas .react-flow__background {
   background: var(--bg-color);
 }
 
 .gha-workflow-canvas .react-flow__controls,
-.gha-workflow-side-panel__canvas .react-flow__controls {
+.gha-workflow-workbench__canvas .react-flow__controls {
   border: var(--border-thin) solid var(--border-color);
   background: var(--bg-color);
   box-shadow: var(--shadow-sm);
 }
 
 .gha-workflow-canvas .react-flow__controls-button,
-.gha-workflow-side-panel__canvas .react-flow__controls-button {
+.gha-workflow-workbench__canvas .react-flow__controls-button {
   background: var(--bg-color);
   color: var(--text-color);
   border-bottom: var(--border-thin) solid var(--border-color);
@@ -39,17 +43,17 @@
 }
 
 .gha-workflow-canvas .react-flow__controls-button:hover,
-.gha-workflow-side-panel__canvas .react-flow__controls-button:hover {
+.gha-workflow-workbench__canvas .react-flow__controls-button:hover {
   background: var(--bg-tertiary);
 }
 
 .gha-workflow-canvas .react-flow__edge-path,
-.gha-workflow-side-panel__canvas .react-flow__edge-path {
+.gha-workflow-workbench__canvas .react-flow__edge-path {
   stroke: var(--border-color);
   stroke-width: 2;
 }
 
 .gha-workflow-canvas .react-flow__edge:hover .react-flow__edge-path,
-.gha-workflow-side-panel__canvas .react-flow__edge:hover .react-flow__edge-path {
+.gha-workflow-workbench__canvas .react-flow__edge:hover .react-flow__edge-path {
   stroke: var(--accent-primary);
 }
