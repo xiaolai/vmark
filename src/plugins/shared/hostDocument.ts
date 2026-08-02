@@ -1,6 +1,6 @@
 /**
- * Purpose: the active document's identity and save state, for plugins that
- * must resolve relative paths or know whether a buffer is already dirty.
+ * Purpose: the document context a plugin edits in — which file, which vault
+ * root, and whether the buffer has unsaved changes.
  *
  * A separate seam from `hostSettings.ts` deliberately. That one answers "what
  * did the user configure"; this answers "what document am I in". Two small,
