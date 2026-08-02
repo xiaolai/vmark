@@ -24,12 +24,12 @@ vi.mock("./imageHandlerInsert", () => ({
 
 const mockShowToast = vi.fn();
 const mockShowMultiToast = vi.fn();
-vi.mock("@/stores/imagePasteToastStore", () => ({
-  useImagePasteToastStore: {
-    getState: () => ({
-      showToast: mockShowToast,
-      showMultiToast: mockShowMultiToast,
-    }),
+// One seam member now, dispatching on whether a batch was passed — mirror
+// that split here so the two toasts stay separately assertable.
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    showImagePasteToast: (r: { imageResults?: unknown[] }) =>
+      r.imageResults ? mockShowMultiToast(r) : mockShowToast(r),
   },
 }));
 

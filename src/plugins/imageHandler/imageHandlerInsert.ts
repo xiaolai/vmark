@@ -17,7 +17,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
 import { imageHandlerWarn, imageHandlerError } from "@/utils/debug";
 import {
@@ -93,7 +93,7 @@ export async function insertImageFromPath(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
-  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+  const copyToAssets = hostSettings.copyImagesToAssets();
 
   const imagePath = await resolveImagePath(detection, filePath, copyToAssets);
   if (imagePath === null) return;
@@ -139,7 +139,7 @@ export async function insertMultipleImages(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
-  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+  const copyToAssets = hostSettings.copyImagesToAssets();
 
   // Process all images and collect final paths
   const imagePaths: string[] = [];

@@ -51,6 +51,8 @@ export interface HostSettings {
   preserveLineBreaks: () => boolean;
   /** Which hard-break spelling to write on save. */
   hardBreakStyleOnSave: () => string;
+  /** Whether a pasted image is copied into the document's assets folder. */
+  copyImagesToAssets: () => boolean;
   /** How raw HTML in the document is rendered. */
   htmlRendering: () => HtmlRendering;
   /** Notify when any setting changes; returns an unsubscribe. */
@@ -77,6 +79,7 @@ const DEFAULTS: HostSettings = {
   lintEnabled: () => true,
   preserveLineBreaks: () => false,
   hardBreakStyleOnSave: () => "preserve",
+  copyImagesToAssets: () => true,
   // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
   // consumer that binds nothing must not get permissive HTML by accident.
   htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
@@ -112,6 +115,7 @@ export const hostSettings: HostSettings = {
   lintEnabled: () => bound.lintEnabled(),
   preserveLineBreaks: () => bound.preserveLineBreaks(),
   hardBreakStyleOnSave: () => bound.hardBreakStyleOnSave(),
+  copyImagesToAssets: () => bound.copyImagesToAssets(),
   htmlRendering: () => bound.htmlRendering(),
   onChange: (listener) => bound.onChange(listener),
 };

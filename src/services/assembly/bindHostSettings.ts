@@ -25,6 +25,7 @@ import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { bindSourcePeekStore } from "@/plugins/sourcePeekInline/peekStore";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
@@ -55,6 +56,7 @@ export function bindPluginHostSettings(): void {
     preserveLineBreaks: () => useSettingsStore.getState().markdown.preserveLineBreaks ?? false,
     hardBreakStyleOnSave: () =>
       useSettingsStore.getState().markdown.hardBreakStyleOnSave ?? "preserve",
+    copyImagesToAssets: () => useSettingsStore.getState().image.copyToAssets,
     htmlRendering: () => {
       const m = useSettingsStore.getState().markdown;
       return {
@@ -141,6 +143,11 @@ export function bindPluginHostSettings(): void {
       useLinkCreatePopupStore.getState().isOpen ||
       useWikiLinkPopupStore.getState().isOpen ||
       useHeadingPickerStore.getState().isOpen,
+    showImagePasteToast: (r) => {
+      const toast = useImagePasteToastStore.getState();
+      if (r.imageResults) toast.showMultiToast(r as never);
+      else toast.showToast(r as never);
+    },
     openEditorContextMenu: (r) =>
       usePopupStore.getState().editorContextOpenMenu(r as never),
     dismissUniversalToolbar: () => {
