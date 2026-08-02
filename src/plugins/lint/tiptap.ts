@@ -2,14 +2,16 @@
  * Lint Tiptap Extension (WYSIWYG)
  *
  * Purpose: Wraps the ProseMirror lint plugin as a Tiptap extension with
- * reactive re-decoration when lintStore diagnostics change.
+ * reactive re-decoration when the host's diagnostics change.
  *
  * Key decisions:
  *   - Uses configurable tabId to scope diagnostics per tab.
- *   - Subscribes to lintStore to re-dispatch when results arrive.
- *   - Subscribes to settingsStore so toggling markdown.lintEnabled takes
- *     effect live: the extension is always registered and decorations are
- *     gated on the CURRENT setting, not the mount-time value.
+ *   - Diagnostics arrive through the `diagnostics` OPTION, not a store
+ *     import, so the plugin can ship standalone (ADR-015). Its default
+ *     reports none; the app supplies a lint-store adapter.
+ *   - Subscribes to `hostSettings` so toggling lintEnabled takes effect
+ *     live: the extension is always registered and decorations are gated on
+ *     the CURRENT setting, not the mount-time value.
  *   - On docChanged: clears decorations (stale results dismissed) and bumps
  *     the tab's doc epoch so in-flight async lint completions are dropped.
  *   - diagnosticsChanged rebuilds are gated on docEpoch.ts: a link-check
@@ -22,8 +24,8 @@
  *
  * @coordinates-with lineMap.ts — source-line → top-level-block mapping
  * @coordinates-with docEpoch.ts — doc-revision guard against stale async completions
- * @coordinates-with stores/lintStore.ts — listens for diagnostic changes
- * @coordinates-with stores/settingsStore — markdown.lintEnabled gates decorations
+ * @coordinates-with services/assembly/lintDiagnosticsSource.ts — the app's adapter
+ * @coordinates-with plugins/shared/hostSettings.ts — lintEnabled gates decorations
  * @module plugins/lint/tiptap
  */
 
