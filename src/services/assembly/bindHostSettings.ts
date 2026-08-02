@@ -84,5 +84,11 @@ export function bindPluginHostSettings(): void {
       useFootnotePopupStore
         .getState()
         .openPopup(r.label, r.content, r.anchorRect as never, r.definitionPos, r.referencePos, r.autoFocus),
+    dismissUniversalToolbar: () => {
+      const ui = useUIStore.getState();
+      if (!ui.universalToolbarVisible) return false;
+      ui.setUniversalToolbarVisible(false);
+      return true;
+    },
   });
 }

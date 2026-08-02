@@ -72,6 +72,17 @@ export function canUseSourcePeek(typeName: string): boolean {
  * Creates a checkpoint in unified history for revert.
  * Returns false if the block type is excluded from Source Peek.
  */
+/**
+ * Whether an inline Source Peek is currently open.
+ *
+ * Exported so the editor keymap can ask without importing the store itself —
+ * Escape and the sourcePeek chord both need "is it open?" to decide between
+ * closing this and falling through (ADR-015).
+ */
+export function isSourcePeekOpen(): boolean {
+  return useSourcePeekStore.getState().isOpen;
+}
+
 export function openSourcePeekInline(view: EditorView): boolean {
   const range = getExpandedSourcePeekRange(view.state);
 

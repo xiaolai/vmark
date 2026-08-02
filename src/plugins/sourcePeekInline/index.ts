@@ -5,3 +5,4 @@
  */
 
 export { sourcePeekInlineExtension, openSourcePeekInline, revertAndCloseSourcePeek } from "./tiptap";
+export { isSourcePeekOpen } from "./sourcePeekActions";
