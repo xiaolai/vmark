@@ -284,3 +284,5 @@ vi.mock("@tauri-apps/api/path", () => ({
   dirname: vi.fn((path: string) => Promise.resolve(path.split("/").slice(0, -1).join("/") || "/")),
   basename: vi.fn((path: string) => Promise.resolve(path.split("/").pop() || "")),
 }));
+
+import "./bindPluginRegistries";

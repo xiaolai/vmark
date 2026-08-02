@@ -27,6 +27,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
 import { useSourcePeekStore } from "@/stores/sourcePeekStore";
 import { bindSourcePeekStore } from "@/plugins/sourcePeekInline/peekStore";
+import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { bindBlockMathEditingStore } from "@/plugins/codePreview/editingRegistry";
 import { useDocumentStore, useUnifiedHistoryStore } from "@/stores/documentStore";
 
 /** The document behind `windowLabel`'s active tab, or undefined. */
@@ -64,6 +66,7 @@ export function bindPluginHostSettings(): void {
   });
 
   bindSourcePeekStore(useSourcePeekStore as never);
+  bindBlockMathEditingStore(useBlockMathEditingStore as never);
 
   bindHostDocument({
     activeFilePath: (windowLabel) => {

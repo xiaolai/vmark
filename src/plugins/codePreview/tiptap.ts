@@ -33,7 +33,7 @@ import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
 import { sweepDetached } from "@/plugins/shared/diagramCleanup";
-import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { blockMathEditing } from "./editingRegistry";
 import {
   codePreviewPluginKey,
   EDITING_STATE_CHANGED,
@@ -74,7 +74,7 @@ export const codePreviewExtension = Extension.create({
             return { decorations: DecorationSet.empty, editingPos: null, codeBlockRanges: [] };
           },
           apply(tr, state, _oldState, newState): CodePreviewState {
-            const storeEditingPos = useBlockMathEditingStore.getState().editingPos;
+            const storeEditingPos = blockMathEditing().getState().editingPos;
             const editingChanged = tr.getMeta(EDITING_STATE_CHANGED) || state.editingPos !== storeEditingPos;
             const settingsChanged = tr.getMeta(SETTINGS_CHANGED);
 

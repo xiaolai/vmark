@@ -24,7 +24,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { Decoration } from "@tiptap/pm/view";
-import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { blockMathEditing } from "./editingRegistry";
 import i18n from "@/i18n";
 import {
   createPreviewElement,
@@ -178,7 +178,7 @@ export function buildCodePreviewDecorations(
       const target = resolveBlockForEdit(view, rangeIndex, nodeStart);
       if (!target) return;
       // Update store FIRST (before dispatch, so decorations see the new state)
-      useBlockMathEditingStore.getState().startEditing(target.pos, target.node.textContent);
+      blockMathEditing().getState().startEditing(target.pos, target.node.textContent);
       // Then dispatch transaction to trigger decoration rebuild
       const $pos = view.state.doc.resolve(target.pos + 1);
       const tr = view.state.tr.setSelection(TextSelection.near($pos));
