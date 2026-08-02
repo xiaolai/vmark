@@ -16,7 +16,7 @@
  *
  * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets, saveImageToAssets
  * @coordinates-with utils/imagePathDetection.ts — image format and path detection
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI for paste confirmation
+ * @coordinates-with plugins/shared/hostPopups.ts — toast for paste confirmation
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
  * @coordinates-with plugins/imageHandler/imageHandlerInsert.ts — image insertion
  * @coordinates-with plugins/imageHandler/imageHandlerToast.ts — toast UI
