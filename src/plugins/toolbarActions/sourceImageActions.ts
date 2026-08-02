@@ -13,11 +13,10 @@ import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hostPopups } from "@/plugins/shared/hostPopups";
 import type { MediaNodeType } from "@/plugins/shared/popupPorts";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { sourceActionError } from "@/utils/debug";
 import { insertText } from "./sourceAdapterHelpers";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";
@@ -35,7 +34,7 @@ import {
  */
 function getActiveFilePath(): string | null {
   try {
-    return hostDocument.activeFilePath(getWindowLabel());
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }

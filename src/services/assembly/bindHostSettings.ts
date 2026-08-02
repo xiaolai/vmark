@@ -148,23 +148,23 @@ export function bindPluginHostSettings(): void {
 
   bindHostPopups({
     openMediaPopup: (request: MediaPopupRequest) =>
-      useMediaPopupStore.getState().openPopup(request as never),
+      useMediaPopupStore.getState().openPopup(request),
     openImageMenu: (request: ImageMenuRequest) =>
       useImageContextMenuStore.getState().openMenu(request),
     openFootnotePopup: (r: FootnotePopupRequest) =>
       useFootnotePopupStore
         .getState()
-        .openPopup(r.label, r.content, r.anchorRect as never, r.definitionPos, r.referencePos, r.autoFocus),
-    openLinkPopup: (r) => useLinkPopupStore.getState().openPopup(r as never),
-    openLinkCreatePopup: (r) => useLinkCreatePopupStore.getState().openPopup(r as never),
+        .openPopup(r.label, r.content, r.anchorRect, r.definitionPos, r.referencePos, r.autoFocus),
+    openLinkPopup: (r) => useLinkPopupStore.getState().openPopup(r),
+    openLinkCreatePopup: (r) => useLinkCreatePopupStore.getState().openPopup(r),
     openWikiLinkPopup: (r) =>
-      useWikiLinkPopupStore.getState().openPopup(r.anchorRect as never, r.target, r.nodePos),
+      useWikiLinkPopupStore.getState().openPopup(r.anchorRect, r.target, r.nodePos),
     openHeadingPicker: (r) =>
       useHeadingPickerStore
         .getState()
-        .openPicker(r.headings as never, r.onSelect, {
-          anchorRect: r.anchorRect as never,
-          containerBounds: r.containerBounds as never,
+        .openPicker(r.headings, r.onSelect, {
+          anchorRect: r.anchorRect,
+          containerBounds: r.containerBounds,
         }),
     anyLinkSurfaceOpen: () =>
       useLinkPopupStore.getState().isOpen ||
@@ -173,11 +173,15 @@ export function bindPluginHostSettings(): void {
       useHeadingPickerStore.getState().isOpen,
     showImagePasteToast: (r) => {
       const toast = useImagePasteToastStore.getState();
-      if (r.imageResults) toast.showMultiToast(r as never);
-      else toast.showToast(r as never);
+      // `onDismiss` is optional at the seam and required by the store: a
+      // plugin that does not care what happens on dismiss should not have to
+      // say so.
+      const onDismiss = r.onDismiss ?? (() => {});
+      if (r.imageResults) toast.showMultiToast({ ...r, imageResults: r.imageResults, onDismiss });
+      else toast.showToast({ ...r, imagePath: r.imagePath, imageType: r.imageType, onDismiss });
     },
     openEditorContextMenu: (r) =>
-      usePopupStore.getState().editorContextOpenMenu(r as never),
+      usePopupStore.getState().editorContextOpenMenu(r),
     dismissUniversalToolbar: () => {
       const ui = useUIStore.getState();
       if (!ui.universalToolbarVisible) return false;

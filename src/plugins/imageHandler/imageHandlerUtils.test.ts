@@ -19,6 +19,8 @@ import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 vi.mock("@/utils/imagePathDetection", () => ({

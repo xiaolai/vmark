@@ -88,6 +88,19 @@ describe("the standalone peek state", () => {
     peekStore().getState().close();
   });
 
+  it("resets live preview on reopen, not inheriting the last session", () => {
+    // The app spreads `initialSourcePeek` on open; the standalone default
+    // must too, or a peek reopens with the previous session's preview mode.
+    peekStore().getState().open({ markdown: "a", range });
+    peekStore().getState().toggleLivePreview();
+    expect(peekStore().getState().livePreview).toBe(true);
+    peekStore().getState().close();
+
+    peekStore().getState().open({ markdown: "b", range });
+    expect(peekStore().getState().livePreview).toBe(false);
+    peekStore().getState().close();
+  });
+
   it("toggles live preview", () => {
     expect(peekStore().getState().livePreview).toBe(false);
     peekStore().getState().toggleLivePreview();

@@ -24,6 +24,8 @@ vi.mock("@tauri-apps/api/path", () => ({
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => "/test/doc.md" },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => "/test/doc.md",
 }));
 
 vi.mock("@/services/navigation/windowFocus", () => ({

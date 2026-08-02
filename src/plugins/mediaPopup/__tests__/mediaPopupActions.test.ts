@@ -60,6 +60,8 @@ let mockActiveFilePath: string | null = "/docs/my-doc.md";
 
 vi.mock("@/plugins/shared/hostDocument", () => ({
   hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
 import { browseAndReplaceMedia } from "../mediaPopupActions";

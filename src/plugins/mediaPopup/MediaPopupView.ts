@@ -28,8 +28,7 @@ import { dirname, join } from "@tauri-apps/api/path";
 import { mediaPopupWarn, mediaPopupError } from "@/utils/debug";
 import type { MediaNodeType, MediaPopupState } from "@/plugins/shared/popupPorts";
 import type { StoreApi } from "zustand";
-import { hostDocument } from "@/plugins/shared/hostDocument";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -376,7 +375,7 @@ export class MediaPopupView {
       // Resolve relative paths to absolute
       let pathToCopy = mediaSrc;
       if (!mediaSrc.startsWith("/") && !mediaSrc.startsWith("http")) {
-        const filePath = hostDocument.activeFilePath(getWindowLabel());
+        const filePath = activeFilePathForCurrentWindow();
         if (filePath) {
           try {
             const docDir = await dirname(filePath);

@@ -23,6 +23,7 @@
 
 import type { HardBreakStyle } from "@/utils/linebreakDetection";
 import type { CursorInfo } from "@/types/cursorSync";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 /** What a plugin needs to know about the document it is editing. */
 export interface HostDocument {
@@ -128,3 +129,23 @@ export const hostDocument: HostDocument = {
   activeHardBreakStyle: (windowLabel) => bound.activeHardBreakStyle(windowLabel),
   checkpoint: (windowLabel, snapshot) => bound.checkpoint(windowLabel, snapshot),
 };
+
+/**
+ * The active document's path for the CURRENT window, or null.
+ *
+ * A guarded convenience over `activeFilePath`, not a seam member: it calls
+ * `getWindowLabel()`, which reads the Tauri window and THROWS outside a Tauri
+ * context. Eight plugin files need this; six had each hand-rolled the same
+ * try/catch and two had not, so a copy-resolution handler could reject
+ * instead of falling back. One guard here makes that unrepeatable.
+ *
+ * The pre-seam helper this replaces (`getActiveTabIdForCurrentWindow`) had
+ * exactly this guard — losing it is what the audit caught, twice.
+ */
+export function activeFilePathForCurrentWindow(): string | null {
+  try {
+    return hostDocument.activeFilePath(getWindowLabel());
+  } catch {
+    return null;
+  }
+}

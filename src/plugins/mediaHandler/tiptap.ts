@@ -14,14 +14,13 @@
  * @module plugins/mediaHandler/tiptap
  */
 
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { mediaHandlerError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -44,8 +43,7 @@ function isMediaFile(file: File): boolean {
 
 function getDocumentPath(): string | null {
   try {
-    // The same four lines eight plugin files repeated; see hostDocument.ts.
-    return hostDocument.activeFilePath(getWindowLabel());
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }

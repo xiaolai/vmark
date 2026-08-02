@@ -90,6 +90,9 @@ function createStandalonePeekStore(): SourcePeekStore {
     // against both, so they must be indistinguishable.
     open: ({ markdown, range, blockTypeName }) =>
       set({
+        // Spread CLOSED first, mirroring the app's `...initialSourcePeek`: a
+        // reopen must not inherit the previous session's live-preview mode.
+        ...CLOSED,
         isOpen: true,
         markdown,
         range,
