@@ -50,9 +50,6 @@ import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
 import { currentAutoPairConfig } from "./autoPairConfig";
-import { useMathPopupStore } from "@/stores/mathPopupStore";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import {
   currentPasteSettings,
   copyHostOptions,
@@ -88,8 +85,12 @@ import { alertBlockExtension } from "@/plugins/alertBlock/tiptap";
 import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detailsBlock/tiptap";
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
-import { appInlineMathEditingRegistry, lintDiagnosticsSource } from "./hostAdapters";
-import { useAiSuggestionStore } from "@/stores/aiStore";
+import {
+  appInlineMathEditingRegistry,
+  lintDiagnosticsSource,
+  pluginStores,
+  linkPopupStores,
+} from "./hostAdapters";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -105,7 +106,6 @@ import {
   wikiLinkExtension,
 } from "@/plugins/markdownArtifacts";
 import { wikiLinkPopupExtension } from "@/plugins/wikiLinkPopup";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
 import { sourcePeekInlineExtension } from "@/plugins/sourcePeekInline";
 import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
@@ -180,7 +180,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     superscriptExtension,
     underlineExtension,
     mathInlineExtension.configure({ editingRegistry: appInlineMathEditingRegistry }),
-    mathPopupExtension.configure({ store: useMathPopupStore }),
+    mathPopupExtension.configure({ store: pluginStores.math }),
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
@@ -190,7 +190,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     frontmatterExtension,
     htmlInlineExtension,
     htmlBlockExtension,
-    wikiLinkPopupExtension.configure({ store: useWikiLinkPopupStore }),
+    wikiLinkPopupExtension.configure({ store: pluginStores.wikiLink }),
     footnoteReferenceExtension,
     footnoteDefinitionExtension,
     TableWithScrollWrapper.configure({ resizable: false }),
@@ -208,14 +208,14 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
-    footnotePopupExtension.configure({ store: useFootnotePopupStore }),
+    footnotePopupExtension.configure({ store: pluginStores.footnote }),
     smartPasteExtension,
     markdownPasteExtension.configure(markdownPasteHostOptions),
     htmlPasteExtension.configure({ getPasteSettings: currentPasteSettings }),
     codePasteExtension.configure({ getPasteSettings: currentPasteSettings }),
     markdownCopyExtension.configure(copyHostOptions),
-    linkPopupExtension,
-    linkCreatePopupExtension.configure({ store: useLinkCreatePopupStore }),
+    linkPopupExtension.configure(linkPopupStores),
+    linkCreatePopupExtension.configure({ store: pluginStores.linkCreate }),
     searchExtension,
     autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
     focusModeExtension.configure(focusModeHostOptions),
@@ -235,7 +235,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
       getTabSize: () => useSettingsStore.getState().general.tabSize,
     }),
     multiCursorExtension,
-    aiSuggestionExtension.configure({ store: useAiSuggestionStore }),
+    aiSuggestionExtension.configure({ store: pluginStores.aiSuggestion }),
     CJKLetterSpacing,
     sourcePeekInlineExtension,
     smartSelectAllExtension,

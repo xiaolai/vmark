@@ -28,18 +28,17 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
@@ -176,7 +175,7 @@ describe("LinkPopupView", () => {
     vi.clearAllMocks();
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new LinkPopupView(view as unknown as ConstructorParameters<typeof LinkPopupView>[0]);
+    popup = new LinkPopupView(view as never, mockStore as never);
   });
 
   afterEach(() => {

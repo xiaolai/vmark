@@ -12,6 +12,12 @@
  */
 
 import { useLintStore } from "@/stores/documentStore";
+import { useMathPopupStore } from "@/stores/mathPopupStore";
+import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
+import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import { useAiSuggestionStore } from "@/stores/aiStore";
 import type { LintDiagnosticsSource } from "@/plugins/lint/tiptap";
 import { createInlineMathEditingRegistry } from "@/plugins/latex/inlineMathEditingRegistry";
 
@@ -57,4 +63,29 @@ export const lintDiagnosticsSource: LintDiagnosticsSource = {
       }
     });
   },
+};
+
+/**
+ * Which app store satisfies which plugin PORT.
+ *
+ * Gathered here rather than imported one-by-one at the assembly site: the
+ * mapping IS the wiring, and reading it in one place answers "what does the
+ * app inject into this plugin" without scanning a 250-line extension list.
+ */
+export const pluginStores = {
+  math: useMathPopupStore,
+  link: useLinkPopupStore,
+  linkCreate: useLinkCreatePopupStore,
+  footnote: useFootnotePopupStore,
+  wikiLink: useWikiLinkPopupStore,
+  aiSuggestion: useAiSuggestionStore,
+};
+
+/**
+ * The link popup drives its own surface and dismisses the create popup, so
+ * it takes two — named here to keep the extension list one line per plugin.
+ */
+export const linkPopupStores = {
+  store: useLinkPopupStore,
+  createStore: useLinkCreatePopupStore,
 };
