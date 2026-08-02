@@ -30,11 +30,20 @@ export interface HostDocument {
    * a relative link inside one has nothing to resolve against.
    */
   activeFilePath: (windowLabel: string) => string | null;
+  /**
+   * Report the cursor position for the active document in `windowLabel`.
+   *
+   * A WRITE, unlike everything else here, and deliberately shaped as
+   * "report" rather than "set a store field": the plugin knows where the
+   * cursor is, the host decides what to do with that.
+   */
+  reportCursorInfo: (windowLabel: string, info: unknown) => void;
 }
 
 /** No document — the honest answer when no host has bound anything. */
 const DEFAULTS: HostDocument = {
   activeFilePath: () => null,
+  reportCursorInfo: () => {},
 };
 
 let bound: HostDocument = DEFAULTS;
@@ -52,4 +61,5 @@ export function resetHostDocument(): void {
 /** The bound lookup, read through an accessor so it is never captured stale. */
 export const hostDocument: HostDocument = {
   activeFilePath: (windowLabel) => bound.activeFilePath(windowLabel),
+  reportCursorInfo: (windowLabel, info) => bound.reportCursorInfo(windowLabel, info),
 };

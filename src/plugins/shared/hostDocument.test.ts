@@ -37,3 +37,18 @@ describe("binding supplies the real lookup", () => {
     expect(hostDocument.activeFilePath("main")).toBeNull();
   });
 });
+
+describe("cursor reporting", () => {
+  it("does nothing when unbound, rather than throwing", () => {
+    // A plugin lifted out of this repo still tracks the cursor; it simply has
+    // nobody to tell.
+    expect(() => hostDocument.reportCursorInfo("main", { sourceLine: 1 })).not.toThrow();
+  });
+
+  it("passes the window label and the info through", () => {
+    const reported: unknown[] = [];
+    bindHostDocument({ reportCursorInfo: (label, info) => reported.push([label, info]) });
+    hostDocument.reportCursorInfo("doc-2", { sourceLine: 42 });
+    expect(reported).toEqual([["doc-2", { sourceLine: 42 }]]);
+  });
+});

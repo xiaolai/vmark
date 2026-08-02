@@ -1,3 +1,5 @@
+import type { HtmlAllowlistLevel } from "@/utils/htmlAllowlists";
+
 /**
  * Purpose: the editor settings plugins need, bound once by the host.
  *
@@ -24,12 +26,29 @@
  * @module plugins/shared/hostSettings
  */
 
+/**
+ * How raw HTML is rendered, as the PLUGINS declare it.
+ *
+ * `mode` is spelled out here rather than imported from the app's settings
+ * types; `HtmlAllowlistLevel` is imported because it lives in `utils/`, which
+ * is a leaf a plugin may depend on.
+ */
+export interface HtmlRendering {
+  mode: "hidden" | "sanitized" | "sanitizedWithStyles";
+  allowlistLevel: HtmlAllowlistLevel;
+  customTags: string;
+}
+
 /** Editor settings a plugin may need without an option to carry them. */
 export interface HostSettings {
   /** Spaces per indent level. */
   tabSize: () => number;
   /** Whether tables are fitted to the editor width by default. */
   tableFitToWidth: () => boolean;
+  /** How raw HTML in the document is rendered. */
+  htmlRendering: () => HtmlRendering;
+  /** Notify when any setting changes; returns an unsubscribe. */
+  onChange: (listener: () => void) => () => void;
 }
 
 /**
@@ -49,6 +68,10 @@ export interface HostSettings {
 const DEFAULTS: HostSettings = {
   tabSize: () => 2,
   tableFitToWidth: () => false,
+  // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
+  // consumer that binds nothing must not get permissive HTML by accident.
+  htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
+  onChange: () => () => {},
 };
 
 let bound: HostSettings = DEFAULTS;
@@ -77,4 +100,6 @@ export function resetHostSettings(): void {
 export const hostSettings: HostSettings = {
   tabSize: () => bound.tabSize(),
   tableFitToWidth: () => bound.tableFitToWidth(),
+  htmlRendering: () => bound.htmlRendering(),
+  onChange: (listener) => bound.onChange(listener),
 };

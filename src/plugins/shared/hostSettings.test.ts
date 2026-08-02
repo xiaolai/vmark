@@ -70,3 +70,35 @@ describe("the defaults MATCH the app's, so an unbound path is not a fork", () =>
     expect(hostSettings.tableFitToWidth()).toBe(initialState.markdown.tableFitToWidth);
   });
 });
+
+describe("HTML rendering defaults are the SAFE ones", () => {
+  it("defaults to sanitized/strict when nothing is bound", () => {
+    // Not merely "the app's defaults" — these are the safe ones. A standalone
+    // consumer that binds nothing must not get permissive HTML by accident.
+    expect(hostSettings.htmlRendering()).toEqual({
+      mode: "sanitized",
+      allowlistLevel: "strict",
+      customTags: "",
+    });
+  });
+
+  it("matches the app's own defaults", async () => {
+    const { initialState } = await import("@/stores/settingsStore/defaults");
+    const d = hostSettings.htmlRendering();
+    expect(d.mode).toBe(initialState.markdown.htmlRenderingMode);
+    expect(d.allowlistLevel).toBe(initialState.markdown.htmlAllowlistLevel);
+  });
+
+  it("notifies on change so a node view can re-render", () => {
+    const listeners: Array<() => void> = [];
+    bindHostSettings({ onChange: (fn) => (listeners.push(fn), () => {}) });
+    let fired = 0;
+    hostSettings.onChange(() => (fired += 1));
+    listeners.forEach((fn) => fn());
+    expect(fired).toBe(1);
+  });
+
+  it("defaults onChange to a no-op that still unsubscribes cleanly", () => {
+    expect(() => hostSettings.onChange(() => {})()).not.toThrow();
+  });
+});

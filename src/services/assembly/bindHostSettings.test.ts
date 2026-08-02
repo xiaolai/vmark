@@ -95,3 +95,42 @@ describe("the bindings tolerate a settings object missing a key", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("HTML rendering and cursor bindings", () => {
+  it("maps the user's HTML settings onto the seam", () => {
+    useSettingsStore.getState().updateMarkdownSetting("htmlRenderingMode", "hidden");
+    bindPluginHostSettings();
+    expect(hostSettings.htmlRendering().mode).toBe("hidden");
+    useSettingsStore.getState().updateMarkdownSetting("htmlRenderingMode", "sanitized");
+  });
+
+  it("falls back to the SAFE values when the settings blob lacks them", () => {
+    // A blob written before a field existed must not yield permissive HTML.
+    const real = useSettingsStore.getState();
+    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
+      ...real,
+      markdown: { ...real.markdown, htmlRenderingMode: undefined, htmlAllowlistLevel: undefined },
+    } as never);
+    bindPluginHostSettings();
+    const html = hostSettings.htmlRendering();
+    expect(html.mode).toBe("sanitized");
+    expect(html.allowlistLevel).toBe("strict");
+    vi.restoreAllMocks();
+  });
+
+  it("routes a cursor report to the active tab, and drops it when there is none", async () => {
+    const { useTabStore } = await import("@/stores/tabStore");
+    const { useDocumentStore } = await import("@/stores/documentStore");
+    bindPluginHostSettings();
+
+    // No tab for this window — the report is dropped rather than throwing.
+    expect(() => hostDocument.reportCursorInfo("nowhere", { sourceLine: 1 })).not.toThrow();
+
+    const tabId = useTabStore.getState().createTab("main", null);
+    useDocumentStore.getState().initDocument(tabId, "body", "/tmp/c.md");
+    hostDocument.reportCursorInfo("main", { sourceLine: 7 });
+    expect(useDocumentStore.getState().getDocument(tabId)?.cursorInfo).toMatchObject({
+      sourceLine: 7,
+    });
+  });
+});
