@@ -50,6 +50,15 @@ export interface HostDocument {
    * existing dirty flag.
    */
   isTabDirty: (tabId: string) => boolean;
+  /**
+   * Absolute path of the open workspace root, or null when none is open.
+   *
+   * Wiki links resolve against it: `[[notes/todo]]` means nothing without
+   * knowing where the vault starts. Null is a real answer — a single file
+   * opened outside any workspace has no root, and the resolver already
+   * treats that as "cannot resolve".
+   */
+  workspaceRoot: () => string | null;
 }
 
 /** No document — the honest answer when no host has bound anything. */
@@ -57,6 +66,7 @@ const DEFAULTS: HostDocument = {
   activeFilePath: () => null,
   reportCursorInfo: () => {},
   isTabDirty: () => false,
+  workspaceRoot: () => null,
 };
 
 let bound: HostDocument = DEFAULTS;
@@ -76,4 +86,5 @@ export const hostDocument: HostDocument = {
   activeFilePath: (windowLabel) => bound.activeFilePath(windowLabel),
   reportCursorInfo: (windowLabel, info) => bound.reportCursorInfo(windowLabel, info),
   isTabDirty: (tabId) => bound.isTabDirty(tabId),
+  workspaceRoot: () => bound.workspaceRoot(),
 };

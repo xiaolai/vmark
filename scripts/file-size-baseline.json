@@ -167,7 +167,7 @@
     "src/plugins/toolbarActions/tiptapSelectionActions.test.ts": 895,
     "src/plugins/toolbarActions/wysiwygAdapter.test.ts": 927,
     "src/plugins/toolbarActions/wysiwygAdapterInsert.test.ts": 1490,
-    "src/plugins/wikiLinkPopup/__tests__/WikiLinkPopupView.test.ts": 1371,
+    "src/plugins/wikiLinkPopup/__tests__/WikiLinkPopupView.test.ts": 1369,
     "src/services/commands/menuListener.editorActions.test.tsx": 1336,
     "src/services/history/__tests__/historyOperations.test.ts": 820,
     "src/services/persistence/hotExit/restoreHelpers.test.ts": 1297,

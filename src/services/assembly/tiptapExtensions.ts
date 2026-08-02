@@ -105,6 +105,7 @@ import {
   wikiLinkExtension,
 } from "@/plugins/markdownArtifacts";
 import { wikiLinkPopupExtension } from "@/plugins/wikiLinkPopup";
+import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
 import { sourcePeekInlineExtension } from "@/plugins/sourcePeekInline";
 import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
@@ -189,7 +190,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     frontmatterExtension,
     htmlInlineExtension,
     htmlBlockExtension,
-    wikiLinkPopupExtension,
+    wikiLinkPopupExtension.configure({ store: useWikiLinkPopupStore }),
     footnoteReferenceExtension,
     footnoteDefinitionExtension,
     TableWithScrollWrapper.configure({ resizable: false }),

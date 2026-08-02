@@ -88,6 +88,7 @@ vi.mock("../WikiLinkPopupView", () => {
 });
 
 import { wikiLinkPopupExtension } from "../tiptap";
+import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
 
 // Helper to create a minimal mock EditorView for plugin view
 function createMockPMView() {
@@ -155,6 +156,8 @@ describe("wikiLinkPopupExtension", () => {
       const mockView = createMockPMView();
       const plugins = wikiLinkPopupExtension.config.addProseMirrorPlugins!.call({
         editor: { view: mockView },
+        // The popup state is a PORT now — passed in, not imported.
+        options: { store: useWikiLinkPopupStore },
       } as unknown as Parameters<typeof wikiLinkPopupExtension.config.addProseMirrorPlugins>[0]);
 
       const plugin = plugins[0];

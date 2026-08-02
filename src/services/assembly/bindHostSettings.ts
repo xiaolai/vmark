@@ -25,6 +25,7 @@ import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
@@ -57,6 +58,7 @@ export function bindPluginHostSettings(): void {
       if (tabId) useDocumentStore.getState().setCursorInfo(tabId, info as never);
     },
     isTabDirty: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false,
+    workspaceRoot: () => useWorkspaceStore.getState().rootPath ?? null,
   });
 
   // Typed explicitly rather than inferred: this is the boundary where the
