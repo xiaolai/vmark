@@ -14,20 +14,11 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: vi.fn(() => null),
-    }),
-  },
-}));
+let mockActiveFilePath: string | null = null;
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: {},
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => mockActiveFilePath },
 }));
 
 vi.mock("@/utils/imagePathDetection", () => ({
@@ -139,55 +130,26 @@ describe("getActiveFilePathForCurrentWindow", () => {
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
   });
 
-  it("returns filePath when tab and document exist", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    const origTab = useTabStore.getState;
-    const origDoc = useDocumentStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => ({
-      activeTabId: { main: "tab-1" },
-    });
-    (useDocumentStore as unknown as { getState: () => unknown }).getState = () => ({
-      getDocument: (id: string) => id === "tab-1" ? { filePath: "/docs/test.md" } : null,
-    });
-
+  it("returns the active document's path", () => {
+    mockActiveFilePath = "/docs/test.md";
     expect(getActiveFilePathForCurrentWindow()).toBe("/docs/test.md");
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
-    (useDocumentStore as unknown as { getState: typeof origDoc }).getState = origDoc;
+    mockActiveFilePath = null;
   });
 
-  it("returns null and logs warning when store access throws", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const origTab = useTabStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => {
-      throw new Error("store error");
-    };
-
+  it("returns null and logs a warning when the lookup throws", () => {
+    // `getWindowLabel` throws outside a Tauri context; the guard is what
+    // keeps a paste from failing there rather than resolving to no path.
+    vi.mocked(getWindowLabel).mockImplementationOnce(() => {
+      throw new Error("no window");
+    });
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
   });
 
-  it("returns null when document exists but filePath is null (line 68 ?? branch)", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    const origTab = useTabStore.getState;
-    const origDoc = useDocumentStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => ({
-      activeTabId: { main: "tab-1" },
-    });
-    (useDocumentStore as unknown as { getState: () => unknown }).getState = () => ({
-      getDocument: (id: string) => id === "tab-1" ? { filePath: null } : null,
-    });
-
+  it("returns null when the active document has no path yet", () => {
+    // An untitled buffer. Distinct from "no tab" only in the host; from here
+    // both are the same null.
+    mockActiveFilePath = null;
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
-    (useDocumentStore as unknown as { getState: typeof origDoc }).getState = origDoc;
   });
 });
 

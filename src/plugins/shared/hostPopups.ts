@@ -136,6 +136,22 @@ export interface HostPopups {
     position: { x: number; y: number };
     snapshot: unknown;
   }) => void;
+  /**
+   * Offer the user a pasted image, singly or in a batch.
+   *
+   * One member with an optional `imageResults` rather than two, because the
+   * two toasts differ only in how many images they describe — and the plugin
+   * already decides which shape it has.
+   */
+  showImagePasteToast: (request: {
+    anchorRect: unknown;
+    editorDom: HTMLElement;
+    onConfirm: () => void;
+    onDismiss?: () => void;
+    imagePath?: string;
+    imageType?: "url" | "localPath";
+    imageResults?: unknown[];
+  }) => void;
 }
 
 /** No chrome — a standalone plugin still renders, it just cannot offer edits. */
@@ -153,6 +169,7 @@ const DEFAULTS: HostPopups = {
   // Nothing is open when there is no chrome, so the shortcut proceeds.
   anyLinkSurfaceOpen: () => false,
   openEditorContextMenu: () => {},
+  showImagePasteToast: () => {},
 };
 
 let bound: HostPopups = DEFAULTS;
@@ -179,4 +196,5 @@ export const hostPopups: HostPopups = {
   openHeadingPicker: (request) => bound.openHeadingPicker(request),
   anyLinkSurfaceOpen: () => bound.anyLinkSurfaceOpen(),
   openEditorContextMenu: (request) => bound.openEditorContextMenu(request),
+  showImagePasteToast: (request) => bound.showImagePasteToast(request),
 };

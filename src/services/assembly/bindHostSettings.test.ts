@@ -257,3 +257,49 @@ describe("the checkpoint binding", () => {
     expect(hostDocument.activeContent("main")).toBe("line one");
   });
 });
+
+describe("the image bindings", () => {
+  it("reads the copy-to-assets setting", () => {
+    bindPluginHostSettings();
+    useSettingsStore.setState((prev) => ({ image: { ...prev.image, copyToAssets: false } }));
+    expect(hostSettings.copyImagesToAssets()).toBe(false);
+    useSettingsStore.setState((prev) => ({ image: { ...prev.image, copyToAssets: true } }));
+    expect(hostSettings.copyImagesToAssets()).toBe(true);
+  });
+
+  it("routes a single-image toast to showToast", async () => {
+    const { useImagePasteToastStore } = await import("@/stores/imagePasteToastStore");
+    bindPluginHostSettings();
+    const dom = document.createElement("div");
+    hostPopups.showImagePasteToast({
+      anchorRect: { top: 1, left: 2, bottom: 3, right: 4 },
+      editorDom: dom,
+      onConfirm: () => {},
+      imagePath: "/a.png",
+      imageType: "localPath",
+    });
+    const state = useImagePasteToastStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.isMultiple).toBe(false);
+    expect(state.imagePath).toBe("/a.png");
+    state.hideToast();
+  });
+
+  it("routes a batch to showMultiToast, dispatching on imageResults", async () => {
+    // The one member serves both toasts; `imageResults` is what tells them
+    // apart, so this is the branch worth pinning.
+    const { useImagePasteToastStore } = await import("@/stores/imagePasteToastStore");
+    bindPluginHostSettings();
+    hostPopups.showImagePasteToast({
+      anchorRect: { top: 1, left: 2, bottom: 3, right: 4 },
+      editorDom: document.createElement("div"),
+      onConfirm: () => {},
+      imageResults: [{ path: "/a.png" }, { path: "/b.png" }],
+    });
+    const state = useImagePasteToastStore.getState();
+    expect(state.isOpen).toBe(true);
+    expect(state.isMultiple).toBe(true);
+    expect(state.imageCount).toBe(2);
+    state.hideToast();
+  });
+});
