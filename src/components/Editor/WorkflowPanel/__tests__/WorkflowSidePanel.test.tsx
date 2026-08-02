@@ -36,7 +36,7 @@ vi.mock("@/hooks/useWorkflowExecution", () => ({
 }));
 
 // Stub the React Flow canvas — we only verify the panel wiring around it.
-vi.mock("../WorkflowPreview", () => ({
+vi.mock("@/plugins/workflowPreview/WorkflowPreview", () => ({
   WorkflowPreview: () => <div data-testid="workflow-preview-stub" />,
 }));
 

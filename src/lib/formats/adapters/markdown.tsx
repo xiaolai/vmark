@@ -36,7 +36,7 @@ const SourceEditor = lazy(() =>
 );
 /* v8 ignore next 3 -- @preserve React.lazy wrapper; no logic to test */
 const WorkflowSidePanel = lazy(() =>
-  import("@/plugins/workflowPreview/WorkflowSidePanel").then((m) => ({
+  import("@/components/Editor/WorkflowPanel/WorkflowSidePanel").then((m) => ({
     default: m.WorkflowSidePanel,
   })),
 );
