@@ -33,7 +33,18 @@ interface SourcePeekState {
   isOpen: boolean;
   range: SourcePeekRange | null;
   markdown: string;
+  /** The content captured at open — the REVERT target, never rebaselined. */
   originalMarkdown: string | null;
+  /**
+   * The last-saved content — the DIRTY-CHECK baseline.
+   *
+   * Distinct from `originalMarkdown` on purpose: `markSaved` moves this one
+   * so the unsaved-changes flag re-baselines, while the revert target stays
+   * where the peek opened. Conflating the two makes `hasUnsavedChanges` wrong
+   * after the first save.
+   */
+  savedMarkdown: string | null;
+  parseError: string | null;
   livePreview: boolean;
   hasUnsavedChanges: boolean;
   blockTypeName: string | null;
@@ -53,6 +64,8 @@ const CLOSED = {
   range: null,
   markdown: "",
   originalMarkdown: null,
+  savedMarkdown: null,
+  parseError: null,
   livePreview: false,
   hasUnsavedChanges: false,
   blockTypeName: null,
@@ -72,6 +85,9 @@ function createStandalonePeekStore(): SourcePeekStore {
   };
   state = {
     ...CLOSED,
+    // Each action mirrors its counterpart in `popupStore/linkMediaActions.ts`
+    // field for field. Any divergence here is a bug: the same plugin code runs
+    // against both, so they must be indistinguishable.
     open: ({ markdown, range, blockTypeName }) =>
       set({
         isOpen: true,
@@ -79,14 +95,22 @@ function createStandalonePeekStore(): SourcePeekStore {
         range,
         blockTypeName: blockTypeName ?? null,
         originalMarkdown: markdown,
+        savedMarkdown: markdown,
+        parseError: null,
         hasUnsavedChanges: false,
       }),
     close: () => set({ ...CLOSED }),
     setMarkdown: (markdown) =>
-      set({ markdown, hasUnsavedChanges: markdown !== state.originalMarkdown }),
-    setParseError: () => {},
+      set({
+        markdown,
+        // Against the SAVED baseline, not the revert target.
+        hasUnsavedChanges: markdown !== state.savedMarkdown,
+        parseError: null,
+      }),
+    setParseError: (parseError) => set({ parseError }),
     toggleLivePreview: () => set({ livePreview: !state.livePreview }),
-    markSaved: () => set({ hasUnsavedChanges: false }),
+    // Rebaselines the dirty check; `originalMarkdown` deliberately untouched.
+    markSaved: () => set({ savedMarkdown: state.markdown, hasUnsavedChanges: false }),
   };
   return {
     getState: () => state,

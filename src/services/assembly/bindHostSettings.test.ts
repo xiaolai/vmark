@@ -87,12 +87,18 @@ describe("the bindings tolerate a settings object missing a key", () => {
     vi.spyOn(useSettingsStore, "getState").mockReturnValue({
       ...real,
       general: { ...real.general, tabSize: undefined },
-      markdown: { ...real.markdown, tableFitToWidth: undefined },
+      markdown: { ...real.markdown, tableFitToWidth: undefined, lintEnabled: undefined },
+      image: { ...real.image, copyToAssets: undefined },
     } as never);
 
     bindPluginHostSettings();
     expect(hostSettings.tableFitToWidth()).toBe(false);
-    expect(hostSettings.tabSize()).toBeUndefined();
+    // Was asserting `undefined` — i.e. the bug. A missing key must fall back
+    // to the APP's default (2), not hand the plugin an absence it will read
+    // as a number.
+    expect(hostSettings.tabSize()).toBe(2);
+    expect(hostSettings.lintEnabled()).toBe(true);
+    expect(hostSettings.copyImagesToAssets()).toBe(true);
 
     vi.restoreAllMocks();
   });

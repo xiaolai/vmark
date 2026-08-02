@@ -22,6 +22,7 @@ import {
   type FootnotePopupRequest,
 } from "@/plugins/shared/hostPopups";
 import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
 import { usePopupStore } from "@/stores/popupStore";
@@ -54,16 +55,16 @@ import { useHeadingPickerStore } from "@/stores/headingPickerStore";
 /** Point the plugin seam at the live settings store. */
 export function bindPluginHostSettings(): void {
   bindHostSettings({
-    tabSize: () => useSettingsStore.getState().general.tabSize,
+    tabSize: () => useSettingsStore.getState().general.tabSize ?? 2,
     onChange: (listener) => useSettingsStore.subscribe(listener),
     tableFitToWidth: () => useSettingsStore.getState().markdown.tableFitToWidth ?? false,
-    lintEnabled: () => useSettingsStore.getState().markdown.lintEnabled,
+    lintEnabled: () => useSettingsStore.getState().markdown.lintEnabled ?? true,
     preserveLineBreaks: () => useSettingsStore.getState().markdown.preserveLineBreaks ?? false,
     hardBreakStyleOnSave: () =>
       useSettingsStore.getState().markdown.hardBreakStyleOnSave ?? "preserve",
-    copyImagesToAssets: () => useSettingsStore.getState().image.copyToAssets,
+    copyImagesToAssets: () => useSettingsStore.getState().image.copyToAssets ?? true,
     preserveBlankLines: () => useSettingsStore.getState().markdown.preserveBlankLines ?? true,
-    cjkFormatting: () => useSettingsStore.getState().cjkFormatting,
+    cjkFormatting: () => useSettingsStore.getState().cjkFormatting ?? DEFAULT_CJK_FORMATTING,
     copyOnSelect: () => useSettingsStore.getState().markdown.copyOnSelect ?? false,
     pasteMode: () => useSettingsStore.getState().markdown.pasteMode ?? "smart",
     htmlRendering: () => {
@@ -96,7 +97,7 @@ export function bindPluginHostSettings(): void {
     },
     reportCursorInfo: (windowLabel, info) => {
       const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-      if (tabId) useDocumentStore.getState().setCursorInfo(tabId, info as never);
+      if (tabId) useDocumentStore.getState().setCursorInfo(tabId, info);
     },
     isTabDirty: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false,
     workspaceRoot: () => useWorkspaceStore.getState().rootPath ?? null,
@@ -107,7 +108,7 @@ export function bindPluginHostSettings(): void {
       if (!tabId) return;
       useUnifiedHistoryStore.getState().createCheckpoint(tabId, {
         markdown: snapshot.markdown,
-        mode: snapshot.mode as never,
+        mode: snapshot.mode,
         cursorInfo: null,
       });
     },

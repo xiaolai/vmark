@@ -23,7 +23,9 @@ import { useSettingsStore } from "@/stores/settingsStore";
 export function currentAutoPairConfig(): AutoPairConfig {
   const settings = useSettingsStore.getState().markdown;
   const includeCJK = settings.autoPairCJKStyle !== "off";
-  const includeCurlyQuotes = settings.autoPairCurlyQuotes ?? false;
+  // `?? true`, matching the app's default. A settings blob persisted before
+  // this key existed must not silently disable curly-quote pairing.
+  const includeCurlyQuotes = settings.autoPairCurlyQuotes ?? true;
   return {
     enabled: settings.autoPairEnabled ?? true,
     includeCJK,

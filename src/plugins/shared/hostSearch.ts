@@ -61,7 +61,9 @@ const DEFAULTS: HostSearch = {
     caseSensitive: false,
     wholeWord: false,
     useRegex: false,
-    currentIndex: 0,
+    // -1, not 0: the app means "no match selected", and 0 would claim the
+    // first match is current before the surface has reported any.
+    currentIndex: -1,
     replaceText: "",
     matchCount: 0,
   }),

@@ -1,13 +1,22 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { bindSourcePeekStore, peekStore } from "./peekStore";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * The unbound path is the plugin standing alone, so these drive the default
- * implementation rather than a stub. `bindSourcePeekStore` is module-level
- * state, so each test that binds must restore the default afterwards.
+ * These drive the STANDALONE default — the plugin with no host.
+ *
+ * `src/test/bindPluginRegistries.ts` binds the app store into the shared
+ * module instance during setup, which runs BEFORE this module loads. An
+ * earlier version captured `peekStore()` at import and so tested Zustand
+ * rather than the implementation here — which is how a four-way semantic
+ * divergence from the app store went unnoticed. Hence `resetModules` plus a
+ * dynamic import per test.
  */
-const DEFAULT = peekStore();
-afterEach(() => bindSourcePeekStore(DEFAULT));
+let bindSourcePeekStore: typeof import("./peekStore").bindSourcePeekStore;
+let peekStore: typeof import("./peekStore").peekStore;
+
+beforeEach(async () => {
+  vi.resetModules();
+  ({ bindSourcePeekStore, peekStore } = await import("./peekStore"));
+});
 
 const range = { from: 2, to: 8 };
 
@@ -40,23 +49,42 @@ describe("the standalone peek state", () => {
     peekStore().getState().close();
   });
 
-  it("tracks unsaved changes against the revert target, not the last keystroke", () => {
+  it("tracks unsaved changes against the SAVED baseline", () => {
     peekStore().getState().open({ markdown: "a", range });
     expect(peekStore().getState().hasUnsavedChanges).toBe(false);
     peekStore().getState().setMarkdown("ab");
     expect(peekStore().getState().hasUnsavedChanges).toBe(true);
-    // Typing back to the original is NOT a pending change.
+    // Typing back to the baseline is NOT a pending change.
     peekStore().getState().setMarkdown("a");
     expect(peekStore().getState().hasUnsavedChanges).toBe(false);
     peekStore().getState().close();
   });
 
-  it("clears the dirty flag on markSaved without moving the revert target", () => {
+  it("markSaved rebaselines the dirty check but not the revert target", () => {
+    // The case an earlier version of this test got wrong, and the reason the
+    // two baselines are separate fields: after a save, the dirty check must
+    // compare against the SAVED content, while revert still goes back to what
+    // the peek opened with.
     peekStore().getState().open({ markdown: "a", range });
     peekStore().getState().setMarkdown("ab");
     peekStore().getState().markSaved();
     expect(peekStore().getState().hasUnsavedChanges).toBe(false);
+    expect(peekStore().getState().savedMarkdown).toBe("ab");
     expect(peekStore().getState().originalMarkdown).toBe("a");
+
+    // Typing back to the ORIGINAL is now a pending change, because "ab" is
+    // what is on disk. The old code reported it clean.
+    peekStore().getState().setMarkdown("a");
+    expect(peekStore().getState().hasUnsavedChanges).toBe(true);
+    peekStore().getState().close();
+  });
+
+  it("stores a parse error and clears it on the next edit", () => {
+    peekStore().getState().open({ markdown: "a", range });
+    peekStore().getState().setParseError("bad yaml");
+    expect(peekStore().getState().parseError).toBe("bad yaml");
+    peekStore().getState().setMarkdown("ab");
+    expect(peekStore().getState().parseError).toBeNull();
     peekStore().getState().close();
   });
 
@@ -78,13 +106,11 @@ describe("the standalone peek state", () => {
       range: null,
       markdown: "",
       originalMarkdown: null,
+      savedMarkdown: null,
+      parseError: null,
       hasUnsavedChanges: false,
       blockTypeName: null,
     });
-  });
-
-  it("accepts a parse error without breaking (the standalone store has no UI for it)", () => {
-    expect(() => peekStore().getState().setParseError("bad yaml")).not.toThrow();
   });
 
   it("supports the setState the range-remap uses, in both object and updater form", () => {
