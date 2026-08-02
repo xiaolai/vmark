@@ -7,7 +7,7 @@
  * @coordinates-with plugins/imageHandler/tiptap.ts — extension entry point
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
  * @coordinates-with plugins/imageHandler/imageHandlerInsert.ts — image insertion
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI state
+ * @coordinates-with plugins/shared/hostPopups.ts — the host presents the toast
  * @module plugins/imageHandler/imageHandlerToast
  */
 
