@@ -47,6 +47,10 @@ export interface HostSettings {
   tableFitToWidth: () => boolean;
   /** Whether markdown lint decorations are painted at all. */
   lintEnabled: () => boolean;
+  /** Keep single newlines as hard breaks when serializing. */
+  preserveLineBreaks: () => boolean;
+  /** Which hard-break spelling to write on save. */
+  hardBreakStyleOnSave: () => string;
   /** How raw HTML in the document is rendered. */
   htmlRendering: () => HtmlRendering;
   /** Notify when any setting changes; returns an unsubscribe. */
@@ -71,6 +75,8 @@ const DEFAULTS: HostSettings = {
   tabSize: () => 2,
   tableFitToWidth: () => false,
   lintEnabled: () => true,
+  preserveLineBreaks: () => false,
+  hardBreakStyleOnSave: () => "preserve",
   // Sanitized/strict — the app's defaults, and the SAFE ones. A standalone
   // consumer that binds nothing must not get permissive HTML by accident.
   htmlRendering: () => ({ mode: "sanitized", allowlistLevel: "strict", customTags: "" }),
@@ -104,6 +110,8 @@ export const hostSettings: HostSettings = {
   tabSize: () => bound.tabSize(),
   tableFitToWidth: () => bound.tableFitToWidth(),
   lintEnabled: () => bound.lintEnabled(),
+  preserveLineBreaks: () => bound.preserveLineBreaks(),
+  hardBreakStyleOnSave: () => bound.hardBreakStyleOnSave(),
   htmlRendering: () => bound.htmlRendering(),
   onChange: (listener) => bound.onChange(listener),
 };

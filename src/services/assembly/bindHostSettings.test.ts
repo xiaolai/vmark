@@ -215,3 +215,45 @@ describe("the link-surface bindings map requests onto the real stores", () => {
     expect(useUIStore.getState().universalToolbarVisible).toBe(false);
   });
 });
+
+describe("the checkpoint binding", () => {
+  it("drops the request when the window has no active tab", async () => {
+    const { useUnifiedHistoryStore } = await import("@/stores/documentStore");
+    bindPluginHostSettings();
+    const spy = vi.spyOn(useUnifiedHistoryStore.getState(), "createCheckpoint");
+    // The branch that used to live in sourcePeekInline: no tab, no checkpoint.
+    hostDocument.checkpoint("nowhere", { markdown: "x", mode: "wysiwyg" });
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("records a checkpoint for the window's active tab", async () => {
+    const { useTabStore } = await import("@/stores/tabStore");
+    const { useDocumentStore, useUnifiedHistoryStore } = await import(
+      "@/stores/documentStore"
+    );
+    bindPluginHostSettings();
+    const tabId = useTabStore.getState().createTab("main", null);
+    useDocumentStore.getState().initDocument(tabId, "body", "/tmp/cp.md");
+    const spy = vi.spyOn(useUnifiedHistoryStore.getState(), "createCheckpoint");
+    hostDocument.checkpoint("main", { markdown: "body", mode: "wysiwyg" });
+    expect(spy).toHaveBeenCalledWith(
+      tabId,
+      expect.objectContaining({ markdown: "body", mode: "wysiwyg" })
+    );
+    spy.mockRestore();
+  });
+
+  it("reads the active document's content and hard-break style", async () => {
+    const { useTabStore } = await import("@/stores/tabStore");
+    const { useDocumentStore } = await import("@/stores/documentStore");
+    bindPluginHostSettings();
+    expect(hostDocument.activeContent("nowhere")).toBe("");
+    // "unknown" is a real answer: a fresh buffer has no evidence either way.
+    expect(hostDocument.activeHardBreakStyle("nowhere")).toBe("unknown");
+
+    const tabId = useTabStore.getState().createTab("main", null);
+    useDocumentStore.getState().initDocument(tabId, "line one", "/tmp/hb.md");
+    expect(hostDocument.activeContent("main")).toBe("line one");
+  });
+});
