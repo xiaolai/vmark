@@ -7,29 +7,23 @@
 
 import { open } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { wikiLinkPopupWarn, wikiLinkPopupError } from "@/utils/debug";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { buildPopupIconButton, buildPopupInput } from "@/utils/popupComponents";
-import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import type { StoreApi } from "zustand";
+import { WysiwygPopupView, type EditorViewLike } from "@/plugins/shared";
+import type { WikiLinkPopupState } from "./types";
 import { pathToWikiTarget, resolveWikiLinkPath } from "./wikiLinkPaths";
 
 const DEFAULT_POPUP_WIDTH = 320;
 const DEFAULT_POPUP_HEIGHT = 32;
 
-/** Wiki link popup store state (extends base with wiki-link-specific fields) */
-interface WikiLinkPopupState extends PopupStoreBase {
-  target: string;
-  nodePos: number | null;
-  updateTarget: (target: string) => void;
-}
-
 export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
-  constructor(view: EditorViewLike) {
-    super(view, useWikiLinkPopupStore);
+  constructor(view: EditorViewLike, store: StoreApi<WikiLinkPopupState>) {
+    super(view, store);
     // Handle mouse leaving the popup (arrow fields are initialized after super())
     this.container.addEventListener("mouseleave", this.handleMouseLeave);
   }
@@ -160,8 +154,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
 
       if (!selected || Array.isArray(selected)) return;
 
-      const { rootPath } = useWorkspaceStore.getState();
-      const target = pathToWikiTarget(selected, rootPath);
+      const target = pathToWikiTarget(selected, hostDocument.workspaceRoot());
 
       this.targetInput.value = target;
       this.store.getState().updateTarget(target);
@@ -177,8 +170,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
     const target = this.targetInput.value.trim();
     if (!target) return;
 
-    const { rootPath } = useWorkspaceStore.getState();
-    const filePath = resolveWikiLinkPath(target, rootPath);
+    const filePath = resolveWikiLinkPath(target, hostDocument.workspaceRoot());
 
     if (!filePath) {
       wikiLinkPopupWarn("Cannot resolve wiki link target:", target);
