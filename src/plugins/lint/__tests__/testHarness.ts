@@ -16,7 +16,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { LintDiagnostic } from "@/lib/lintEngine/types";
 import { LintExtension } from "../tiptap";
-import { lintDiagnosticsSource } from "@/services/assembly/lintDiagnosticsSource";
+import { lintDiagnosticsSource } from "@/services/assembly/hostAdapters";
 
 /** Flip the markdown.lintEnabled setting in the real settings store. */
 export function setLintEnabled(enabled: boolean) {

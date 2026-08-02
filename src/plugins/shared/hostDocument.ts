@@ -38,12 +38,25 @@ export interface HostDocument {
    * cursor is, the host decides what to do with that.
    */
   reportCursorInfo: (windowLabel: string, info: unknown) => void;
+  /**
+   * Whether the buffer for `tabId` has unsaved changes.
+   *
+   * Keyed by TAB, unlike the two above, because the caller already holds a
+   * tab id: an AI suggestion records which buffer it targets, and accepting
+   * it must know whether that buffer was already dirty before the edit.
+   *
+   * Defaults to false — "nothing unsaved" is the safe answer when no host is
+   * bound, since the only consumer uses it to decide whether to preserve an
+   * existing dirty flag.
+   */
+  isTabDirty: (tabId: string) => boolean;
 }
 
 /** No document — the honest answer when no host has bound anything. */
 const DEFAULTS: HostDocument = {
   activeFilePath: () => null,
   reportCursorInfo: () => {},
+  isTabDirty: () => false,
 };
 
 let bound: HostDocument = DEFAULTS;
@@ -62,4 +75,5 @@ export function resetHostDocument(): void {
 export const hostDocument: HostDocument = {
   activeFilePath: (windowLabel) => bound.activeFilePath(windowLabel),
   reportCursorInfo: (windowLabel, info) => bound.reportCursorInfo(windowLabel, info),
+  isTabDirty: (tabId) => bound.isTabDirty(tabId),
 };

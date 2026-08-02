@@ -50,3 +50,58 @@ export interface AiSuggestion {
   /** Timestamp when suggestion was created */
   createdAt: number;
 }
+
+/**
+ * The pending-suggestion registry this plugin decorates — the plugin's PORT.
+ *
+ * Declared here rather than imported from the app's AI store (ADR-015).
+ * Suggestions are PRODUCED by the host — a model writes them — and this
+ * plugin only paints them and applies the accept/reject the user chooses.
+ * Deliberately narrower than the store: `addSuggestion`, `clearForTab` and
+ * `getSortedSuggestions` are the producer's half and are not in the
+ * painter's vocabulary.
+ */
+interface AiSuggestionPort {
+  suggestions: Map<string, AiSuggestion>;
+  focusedSuggestionId: string | null;
+  acceptSuggestion: (id: string) => void;
+  rejectSuggestion: (id: string) => void;
+  removeSuggestion: (id: string) => void;
+  updateSuggestionRanges: (
+    updates: ReadonlyArray<{ id: string; range: { from: number; to: number } | null }>
+  ) => void;
+  acceptAll: () => void;
+  rejectAll: () => void;
+  focusSuggestion: (id: string | null) => void;
+  navigateNext: () => void;
+  navigatePrevious: () => void;
+  getSuggestion: (id: string) => AiSuggestion | undefined;
+}
+
+/** A store-like handle over that state. */
+export interface AiSuggestionStore {
+  getState: () => AiSuggestionPort;
+  subscribe: (listener: () => void) => () => void;
+}
+
+export interface AiSuggestionOptions {
+  /**
+   * Required — a port gets no default.
+   *
+   * There is no honest stand-in for "the user's pending suggestions", so the
+   * extension throws at wiring time rather than rendering an editor that
+   * silently swallows every accept. That failure would look like a model bug
+   * and be debugged in the wrong place.
+   */
+  store: AiSuggestionStore | null;
+}
+
+/** Read the wired store, or fail with a message that names the fix. */
+export function requireSuggestionStore(store: AiSuggestionStore | null): AiSuggestionStore {
+  if (!store) {
+    throw new Error(
+      "aiSuggestionExtension requires a `store` option — configure it with the host's suggestion store."
+    );
+  }
+  return store;
+}
