@@ -3,6 +3,10 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 
+// The actions take the popup state as a parameter now. These tests drive the
+// REAL store, so they pass it — the wiring the app ships.
+const store = useMediaPopupStore as never;
+
 // Mock external dependencies
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: vi.fn(() => Promise.resolve()),
@@ -18,20 +22,8 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: vi.fn((...parts: string[]) => Promise.resolve(parts.join("/"))),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: vi.fn(() => ({ filePath: "/test/doc.md" })),
-    }),
-  },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: { main: "tab1" },
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => "/test/doc.md" },
 }));
 
 vi.mock("@/services/navigation/windowFocus", () => ({
@@ -80,7 +72,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       expect(view.state.doc.toString()).toBe(
         'Image ![alt](<new path> "Title") end.'
@@ -104,7 +96,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("Before ![photo](new.png) after.");
       view.destroy();
@@ -123,7 +115,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("No image here");
       view.destroy();
@@ -142,7 +134,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("![alt](<path with spaces.png>)");
       view.destroy();
@@ -161,7 +153,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       expect(view.state.doc.toString()).toBe("![new alt](image.png)");
       view.destroy();
@@ -179,7 +171,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      await copyImagePath();
+      await copyImagePath(store);
 
       // ./assets/photo.png → dirname("/test/doc.md") = "/test" → join("/test", "assets/photo.png")
       expect(writeText).toHaveBeenCalledWith("/test/assets/photo.png");
@@ -195,7 +187,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      await copyImagePath();
+      await copyImagePath(store);
 
       expect(writeText).not.toHaveBeenCalled();
     });
@@ -212,7 +204,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      await expect(copyImagePath()).resolves.toBeUndefined();
+      await expect(copyImagePath(store)).resolves.toBeUndefined();
     });
   });
 
@@ -232,7 +224,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      removeImage(view);
+      removeImage(view, store);
 
       expect(view.state.doc.toString()).toBe("Before  after.");
       view.destroy();
@@ -251,7 +243,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      removeImage(view);
+      removeImage(view, store);
 
       expect(view.state.doc.toString()).toBe("No image here");
       view.destroy();
@@ -270,7 +262,7 @@ describe("source image actions", () => {
         anchorRect: null,
       });
 
-      removeImage(view);
+      removeImage(view, store);
 
       expect(view.state.doc.toString()).toBe("");
       view.destroy();

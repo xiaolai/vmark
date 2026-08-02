@@ -14,7 +14,7 @@ import i18n from "@/i18n";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { buildPopupIconButton, buildPopupInput, popupIcons } from "@/utils/popupComponents";
 
-import type { MediaNodeType } from "@/stores/mediaPopupStore";
+import type { MediaNodeType } from "@/plugins/shared/popupPorts";
 
 interface MediaPopupDomHandlers {
   onBrowse: () => void;

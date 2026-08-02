@@ -10,9 +10,12 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { dirname, join } from "@tauri-apps/api/path";
 import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { MediaPopupState } from "@/plugins/shared/popupPorts";
+
+/** The popup state these actions read — injected, never imported (ADR-015). */
+type Store = StoreApi<MediaPopupState>;
 import { copyImageToAssets } from "@/hooks/useImageOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
@@ -81,8 +84,11 @@ function findImageAtPos(
   return null;
 }
 
-function getImageRange(view: EditorView): { from: number; to: number } | null {
-  const { mediaNodePos: imageNodePos } = useMediaPopupStore.getState();
+function getImageRange(
+  view: EditorView,
+  store: Store
+): { from: number; to: number } | null {
+  const { mediaNodePos: imageNodePos } = store.getState();
   if (imageNodePos < 0) return null;
   return findImageAtPos(view, imageNodePos);
 }
@@ -104,10 +110,10 @@ function getImageMetaFromRange(
  * Save image changes to the document.
  * Replaces the current image markdown with updated values.
  */
-export function saveImageChanges(view: EditorView): void {
-  const state = useMediaPopupStore.getState();
+export function saveImageChanges(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { mediaSrc: imageSrc, mediaAlt: imageAlt } = state;
-  const range = getImageRange(view);
+  const range = getImageRange(view, store);
   if (!range) {
     return;
   }
@@ -136,7 +142,7 @@ export function saveImageChanges(view: EditorView): void {
 /**
  * Browse and replace image with a local file.
  */
-export async function browseImage(view: EditorView): Promise<boolean> {
+export async function browseImage(view: EditorView, store: Store): Promise<boolean> {
   const windowLabel = getWindowLabel();
 
   const ran = await withReentryGuard(windowLabel, "source-image-popup:browse", async () => {
@@ -154,9 +160,7 @@ export async function browseImage(view: EditorView): Promise<boolean> {
         return false;
       }
 
-      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-      const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-      const filePath = doc?.filePath;
+      const filePath = hostDocument.activeFilePath(windowLabel);
 
       if (!filePath) {
         await message(i18n.t("dialog:unsavedDocument.messageLocalImages"), {
@@ -169,10 +173,10 @@ export async function browseImage(view: EditorView): Promise<boolean> {
       const relativePath = await copyImageToAssets(sourcePath as string, filePath);
 
       // Update store with new path
-      useMediaPopupStore.getState().setSrc(relativePath);
+      store.getState().setSrc(relativePath);
 
       // Save immediately
-      saveImageChanges(view);
+      saveImageChanges(view, store);
 
       return true;
     } catch (error) {
@@ -189,8 +193,8 @@ export async function browseImage(view: EditorView): Promise<boolean> {
  * Copy image path to clipboard.
  * Resolves relative paths to absolute using the current document's directory.
  */
-export async function copyImagePath(): Promise<void> {
-  const { mediaSrc: imageSrc } = useMediaPopupStore.getState();
+export async function copyImagePath(store: Store): Promise<void> {
+  const { mediaSrc: imageSrc } = store.getState();
 
   if (!imageSrc) {
     return;
@@ -200,9 +204,7 @@ export async function copyImagePath(): Promise<void> {
   let pathToCopy = imageSrc;
   if (!imageSrc.startsWith("/") && !imageSrc.startsWith("http")) {
     const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-    const filePath = doc?.filePath;
+    const filePath = hostDocument.activeFilePath(windowLabel);
     if (filePath) {
       try {
         const docDir = await dirname(filePath);
@@ -225,8 +227,8 @@ export async function copyImagePath(): Promise<void> {
  * Remove image from the document.
  * Deletes the entire image markdown syntax.
  */
-export function removeImage(view: EditorView): void {
-  const range = getImageRange(view);
+export function removeImage(view: EditorView, store: Store): void {
+  const range = getImageRange(view, store);
   if (!range) {
     return;
   }
