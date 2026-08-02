@@ -19,7 +19,7 @@ import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
 import { MarkdownSplitView } from "@/components/Editor/MarkdownSplitView";
 import { HeadingPicker } from "@/components/Editor/HeadingPicker";
 import { DropZoneIndicator } from "@/components/Editor/DropZoneIndicator";
-import { GhaWorkflowSidePanel } from "@/plugins/ghaWorkflowPreview/GhaWorkflowSidePanel";
+import { GhaWorkflowSidePanel } from "@/components/Editor/WorkflowPanel/GhaWorkflowSidePanel";
 import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
 import { languages } from "@codemirror/language-data";
 import { lintMarkdown } from "@/lib/lintEngine";

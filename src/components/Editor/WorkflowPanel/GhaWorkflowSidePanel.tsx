@@ -18,7 +18,7 @@
  * @coordinates-with src/stores/ghaWorkflowPanelStore.ts — read state
  * @coordinates-with src/components/Editor/WorkflowPanel/WorkflowCanvas.tsx
  * @coordinates-with src/plugins/codemirror/sourceGhaWorkflowPreview.ts — writes the store
- * @module plugins/ghaWorkflowPreview/GhaWorkflowSidePanel
+ * @module components/Editor/WorkflowPanel/GhaWorkflowSidePanel
  */
 
 import {
@@ -32,7 +32,7 @@ import {
   type ReactElement,
 } from "react";
 import { useWorkflowStore } from "@/stores/workflowStore";
-import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
+import { WorkflowCanvas } from "./WorkflowCanvas";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { WindowContext } from "@/contexts/WindowContext";
