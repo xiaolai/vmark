@@ -11,6 +11,7 @@
 
 import { useEffect } from "react";
 import { initImagePasteToast, destroyImagePasteToast } from "@/plugins/imagePasteToast";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 
 /**
  * Initialize the image paste toast view.
@@ -18,7 +19,9 @@ import { initImagePasteToast, destroyImagePasteToast } from "@/plugins/imagePast
  */
 export function useImagePasteToast(): void {
   useEffect(() => {
-    initImagePasteToast();
+    // The toast declares its own state PORT; the app supplies the store that
+    // satisfies it (ADR-015).
+    initImagePasteToast(useImagePasteToastStore);
     return () => {
       destroyImagePasteToast();
     };
