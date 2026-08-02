@@ -31,7 +31,16 @@ import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
 export function bindPluginHostSettings(): void {
   bindHostSettings({
     tabSize: () => useSettingsStore.getState().general.tabSize,
+    onChange: (listener) => useSettingsStore.subscribe(listener),
     tableFitToWidth: () => useSettingsStore.getState().markdown.tableFitToWidth ?? false,
+    htmlRendering: () => {
+      const m = useSettingsStore.getState().markdown;
+      return {
+        mode: m.htmlRenderingMode ?? "sanitized",
+        allowlistLevel: m.htmlAllowlistLevel ?? "strict",
+        customTags: m.htmlAllowlistCustomTags ?? "",
+      };
+    },
   });
 
   bindHostDocument({
@@ -39,6 +48,10 @@ export function bindPluginHostSettings(): void {
       const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
       if (!tabId) return null;
       return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    },
+    reportCursorInfo: (windowLabel, info) => {
+      const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
+      if (tabId) useDocumentStore.getState().setCursorInfo(tabId, info as never);
     },
   });
 

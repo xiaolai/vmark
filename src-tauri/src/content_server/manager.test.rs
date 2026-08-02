@@ -97,18 +97,38 @@ fn reregister_replaces_and_bumps_generation() {
     assert_eq!(mgr.get("/ws/a").unwrap().port, 4002);
 }
 
+/// A child that exits 0 immediately.
+///
+/// `true` and `sleep` are Unix binaries. Windows has neither, so nine tests in
+/// this module died with `program not found` — on a leg CI's `rust-test`
+/// matrix actually runs (`windows-latest`). `pnpm check:all` is frontend-only
+/// and `check-cross-target.sh` COMPILES for Windows without running the suite,
+/// so nothing local could see it.
 fn spawn_exiting() -> Child {
-    // `true` exits 0 immediately; portable across macOS/Linux test hosts.
-    std::process::Command::new("true")
-        .spawn()
-        .expect("spawn true")
+    let mut cmd = if cfg!(windows) {
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "exit", "0"]);
+        c
+    } else {
+        std::process::Command::new("true")
+    };
+    cmd.spawn().expect("spawn exiting child")
 }
 
+/// A child that stays alive long enough for the test to observe it.
 fn spawn_sleeping() -> Child {
-    std::process::Command::new("sleep")
-        .arg("30")
-        .spawn()
-        .expect("spawn sleep")
+    let mut cmd = if cfg!(windows) {
+        // PowerShell rather than `timeout`, which needs a console and fails
+        // with "input redirection is not supported" when spawned detached.
+        let mut c = std::process::Command::new("powershell");
+        c.args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"]);
+        c
+    } else {
+        let mut c = std::process::Command::new("sleep");
+        c.arg("30");
+        c
+    };
+    cmd.spawn().expect("spawn sleeping child")
 }
 
 fn kill_taken(mgr: &ContentServerManager, root: &str) {
