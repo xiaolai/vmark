@@ -31,8 +31,6 @@ import type {
   HeadingPickerSlice,
   ImageContextMenuSlice,
   ImagePasteToastSlice,
-  InlineMathEditingSlice,
-  InlineMathEditingCallbacks,
   LinkCreatePopupSlice,
   LinkPopupSlice,
   MathPopupSlice,
@@ -55,7 +53,6 @@ interface PopupStoreState {
   headingPicker: HeadingPickerSlice;
   imageContextMenu: ImageContextMenuSlice;
   imagePasteToast: ImagePasteToastSlice;
-  inlineMathEditing: InlineMathEditingSlice;
   linkCreatePopup: LinkCreatePopupSlice;
   linkPopup: LinkPopupSlice;
   mathPopup: MathPopupSlice;
@@ -111,11 +108,6 @@ export interface EditingPopupActions {
   imagePasteConfirm: () => void;
   imagePasteDismiss: () => void;
 
-  /* inlineMathEditing */
-  inlineMathStartEditing: (pos: number, callbacks: InlineMathEditingCallbacks) => void;
-  inlineMathStopEditing: (pos: number) => void;
-  inlineMathIsEditingAt: (pos: number) => boolean;
-  inlineMathClear: (pos: number) => void;
 }
 
 /** Actions implemented in `./pickerActions.ts`. */

@@ -87,6 +87,7 @@ import { alertBlockExtension } from "@/plugins/alertBlock/tiptap";
 import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detailsBlock/tiptap";
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
+import { appInlineMathEditingRegistry } from "./inlineMathEditingRegistry";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -175,7 +176,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     subscriptExtension,
     superscriptExtension,
     underlineExtension,
-    mathInlineExtension,
+    mathInlineExtension.configure({ editingRegistry: appInlineMathEditingRegistry }),
     mathPopupExtension.configure({ store: useMathPopupStore }),
     alertBlockExtension,
     detailsSummaryExtension,
