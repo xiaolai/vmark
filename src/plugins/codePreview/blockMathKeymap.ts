@@ -17,7 +17,7 @@
  *     $pos belongs to a different doc instance.
  *
  * @coordinates-with codePreview/tiptap.ts — the code preview node that hosts the math editor
- * @coordinates-with stores/blockMathEditingStore.ts — editing state (original content, position)
+ * @coordinates-with codePreview/editingRegistry.ts — editing state (original content, position)
  * @module plugins/codePreview/blockMathKeymap
  */
 
