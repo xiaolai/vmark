@@ -7,7 +7,11 @@
 
 import type { EditorView } from "@codemirror/view";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { LinkPopupState } from "@/plugins/linkPopup/types";
+
+/** The popup state these actions read — injected, never imported (ADR-015). */
+type Store = StoreApi<LinkPopupState>;
 import { sourceActionError } from "@/utils/debug";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { findHeadingByIdCM } from "@/utils/headingSlug";
@@ -72,8 +76,8 @@ function getLinkMetaFromRange(
  * Save link changes to the document.
  * Replaces the current link markdown with updated values.
  */
-export function saveLinkChanges(view: EditorView): void {
-  const state = useLinkPopupStore.getState();
+export function saveLinkChanges(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { href, linkFrom, linkTo } = state;
 
   if (linkFrom < 0 || linkTo < 0) {
@@ -97,8 +101,8 @@ export function saveLinkChanges(view: EditorView): void {
 /**
  * Open link in browser or navigate to bookmark.
  */
-export async function openLink(view: EditorView): Promise<void> {
-  const { href } = useLinkPopupStore.getState();
+export async function openLink(view: EditorView, store: Store): Promise<void> {
+  const { href } = store.getState();
   if (!href) return;
 
   // Handle bookmark links - navigate to heading
@@ -115,7 +119,7 @@ export async function openLink(view: EditorView): Promise<void> {
           scrollIntoView: true,
         });
       });
-      useLinkPopupStore.getState().closePopup();
+      store.getState().closePopup();
       view.focus();
     }
     return;
@@ -135,8 +139,8 @@ export async function openLink(view: EditorView): Promise<void> {
 /**
  * Copy link URL to clipboard.
  */
-export async function copyLinkHref(): Promise<void> {
-  const { href } = useLinkPopupStore.getState();
+export async function copyLinkHref(store: Store): Promise<void> {
+  const { href } = store.getState();
 
   if (!href) {
     return;
@@ -153,8 +157,8 @@ export async function copyLinkHref(): Promise<void> {
  * Remove link from the document.
  * Removes the link markdown syntax but keeps the text content.
  */
-export function removeLink(view: EditorView): void {
-  const state = useLinkPopupStore.getState();
+export function removeLink(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { linkFrom, linkTo } = state;
 
   if (linkFrom < 0 || linkTo < 0) {
