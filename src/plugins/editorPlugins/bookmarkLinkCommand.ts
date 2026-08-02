@@ -6,7 +6,7 @@
  * - handleBookmarkLinkShortcut
  *
  * @coordinates-with editorPlugins.tiptap.ts (keymap builder binds this)
- * @coordinates-with headingPickerStore.ts (heading picker popup state)
+ * @coordinates-with plugins/shared/hostPopups.ts — opens the heading picker
  * @coordinates-with utils/headingSlug.ts (heading extraction)
  * @coordinates-with utils/popupPosition.ts (popup positioning)
  */

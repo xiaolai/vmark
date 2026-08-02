@@ -7,7 +7,7 @@
  * - handleWikiLinkShortcut: Insert/edit wiki link
  *
  * @coordinates-with editorPlugins.tiptap.ts (keymap builder binds these)
- * @coordinates-with linkPopupStore.ts, linkCreatePopupStore.ts, wikiLinkPopupStore.ts, headingPickerStore.ts (popup state)
+ * @coordinates-with plugins/shared/hostPopups.ts — opens all four link surfaces
  * @coordinates-with syntaxReveal/marks.ts (findMarkRange, findWordAtCursor)
  */
 
