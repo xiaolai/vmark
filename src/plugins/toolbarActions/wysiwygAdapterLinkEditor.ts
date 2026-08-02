@@ -7,8 +7,7 @@
  *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates link action here
  * @coordinates-with wysiwygAdapterLinks.ts — wiki link / bookmark link insertion
- * @coordinates-with linkPopupStore.ts — opens the link editing popup
- * @coordinates-with wikiLinkPopupStore.ts — opens the wiki link editing popup
+ * @coordinates-with plugins/shared/hostPopups.ts — opens both link popups
  * @module plugins/toolbarActions/wysiwygAdapterLinkEditor
  */
 import type { EditorView } from "@tiptap/pm/view";
