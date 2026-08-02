@@ -15,7 +15,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { buildPopupIconButton, buildPopupInput } from "@/utils/popupComponents";
 import type { StoreApi } from "zustand";
 import { WysiwygPopupView, type EditorViewLike } from "@/plugins/shared";
-import type { WikiLinkPopupState } from "./types";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
 import { pathToWikiTarget, resolveWikiLinkPath } from "./wikiLinkPaths";
 
 const DEFAULT_POPUP_WIDTH = 320;

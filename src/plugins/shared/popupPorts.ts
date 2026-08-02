@@ -15,6 +15,7 @@
  *
  * @coordinates-with plugins/linkPopup, plugins/sourceLinkPopup
  * @coordinates-with plugins/footnotePopup, plugins/sourceFootnotePopup
+ * @coordinates-with plugins/wikiLinkPopup, plugins/sourceWikiLinkPopup
  * @module plugins/shared/popupPorts
  */
 
@@ -54,4 +55,12 @@ export interface FootnotePopupState extends PopupStoreBase {
     referencePos: number | null,
     autoFocus?: boolean,
   ) => void;
+}
+
+/** The wiki-link popup's state, driven from both surfaces. */
+export interface WikiLinkPopupState extends PopupStoreBase {
+  target: string;
+  nodePos: number | null;
+  updateTarget: (target: string) => void;
+  openPopup: (rect: Anchor, target: string, pos: number) => void;
 }
