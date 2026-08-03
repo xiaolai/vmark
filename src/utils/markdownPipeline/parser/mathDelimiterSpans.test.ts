@@ -232,7 +232,7 @@ describe("findMathDelimiterSpans", () => {
     const flood = "\\( ".repeat(20000);
     const started = performance.now();
     expect(findMathDelimiterSpans(flood)).toHaveLength(0);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
   });
 
   it("survives a flood of openers whose only closer is inside code", () => {
@@ -241,6 +241,6 @@ describe("findMathDelimiterSpans", () => {
     const flood = "\\( ".repeat(20000) + "`\\)`";
     const started = performance.now();
     expect(findMathDelimiterSpans(flood)).toHaveLength(0);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
   });
 });

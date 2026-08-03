@@ -30,8 +30,20 @@
  * @coordinates-with @/utils/markdownPipeline/__tests__/fidelity/docFingerprint — equivalence
  * @module plugins/toolbarActions/__tests__/parity/behavioralParity.test
  */
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import { parseMarkdown } from "@/utils/markdownPipeline";
+
+// One exception to "nothing here is mocked": the debug loggers. The real
+// surfaces mount the mermaid plugin, whose async render failures log via
+// debug.ts AFTER this synchronous suite has finished — console writes
+// racing worker teardown produced CI-only EnvironmentTeardownError
+// flakes ("Closing rpc while onUserConsoleLog was pending", main run
+// #1244). The loggers are no-ops in production builds, so no-oping them
+// here mirrors production, and no parity assertion reads them.
+vi.mock("@/utils/debug", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return Object.fromEntries(Object.keys(actual).map((k) => [k, () => {}]));
+});
 import { stripBlockMarkup } from "@/plugins/shared/lineContent";
 import { getProductionSchema } from "@/test/productionSchema";
 import { docFingerprint } from "@/utils/markdownPipeline/__tests__/fidelity/docFingerprint";
