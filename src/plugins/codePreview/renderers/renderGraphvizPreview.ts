@@ -108,8 +108,15 @@ export function createGraphvizPreviewWidget(
           previewCache.set(cacheKey, { rendered: svg });
           placeholder.className = "code-block-preview graphviz-preview";
           placeholder.innerHTML = sanitizeSvg(svg);
-          setupMermaidPanZoom(placeholder);
-          setupGraphvizExport(placeholder, content);
+          // Defer enhancement: Panzoom throws on elements that are not
+          // attached to the DOM, and ProseMirror attaches the widget only
+          // after this factory returns. The isConnected guard matters because
+          // a throw inside the frame callback escapes the promise chain below.
+          requestAnimationFrame(() => {
+            if (!placeholder.isConnected) return;
+            setupMermaidPanZoom(placeholder);
+            setupGraphvizExport(placeholder, content);
+          });
         })
         .catch((error: unknown) => {
           diagramWarn("Graphviz preview render failed:", errorMessage(error));
