@@ -71,6 +71,47 @@ export function restoreTabs(text) {
   return text.replaceAll("→", "\t");
 }
 
+/**
+ * Parse a markdown-it-testgen fixture file: repeating blocks of
+ * `[optional title]\n.\n<markdown>\n.\n<expected html>\n.` — delimiters are
+ * lines that are EXACTLY a dot. The title (last non-empty line before the
+ * opening dot) becomes the example's section, so issue references like
+ * "Issue #246" survive into ids' context.
+ */
+export function parseMarkdownItFixtures(text) {
+  const lines = text.split("\n");
+  const examples = [];
+  let title = "";
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i] !== ".") {
+      if (lines[i].trim() !== "") title = lines[i].trim();
+      i += 1;
+      continue;
+    }
+    const md = [];
+    i += 1;
+    while (i < lines.length && lines[i] !== ".") {
+      md.push(lines[i]);
+      i += 1;
+    }
+    const html = [];
+    i += 1;
+    while (i < lines.length && lines[i] !== ".") {
+      html.push(lines[i]);
+      i += 1;
+    }
+    i += 1; // past the closing dot
+    examples.push({
+      example: examples.length + 1,
+      section: title,
+      markdown: md.join("\n") + "\n",
+      html: html.join("\n") + (html.length > 0 ? "\n" : ""),
+    });
+  }
+  return examples;
+}
+
 /** Keep only examples whose section is in `sections` (exact match). */
 export function filterSections(examples, sections) {
   const wanted = new Set(sections);
@@ -96,7 +137,7 @@ function main() {
   const [mode, inPath, outPath, sectionsCsv] = process.argv.slice(2);
   if (!mode || !inPath || !outPath) {
     console.error(
-      "Usage: vendor-spec-corpus.mjs <commonmark-json|spec-txt> <in> <out> [sections-csv]\n" +
+      "Usage: vendor-spec-corpus.mjs <commonmark-json|spec-txt|markdown-it> <in> <out> [sections-csv]\n" +
         "  Provenance fields are read from env: CORPUS_SOURCE, CORPUS_REVISION, CORPUS_LICENSE",
     );
     process.exit(2);
@@ -113,6 +154,8 @@ function main() {
   } else if (mode === "spec-txt") {
     examples = parseSpecTxt(raw);
     if (sectionsCsv) examples = filterSections(examples, sectionsCsv.split(","));
+  } else if (mode === "markdown-it") {
+    examples = parseMarkdownItFixtures(raw);
   } else {
     console.error(`Unknown mode: ${mode}`);
     process.exit(2);

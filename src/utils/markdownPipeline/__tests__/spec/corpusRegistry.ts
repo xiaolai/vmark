@@ -34,6 +34,18 @@ export interface CorpusRoutes {
   roundtrip: boolean;
 }
 
+/**
+ * ADR-2's dialect-node-produced contract for roundtrip-only corpora: a
+ * wiki-link corpus whose examples all parsed as plain text would trivially
+ * roundtrip and prove nothing — a self-oracle. The gate counts the examples
+ * whose VMark parse contains `nodeType` and requires EXACTLY the measured
+ * number, so the dialect silently dying (or silently widening) both fail.
+ */
+export interface MustProduce {
+  nodeType: string;
+  exampleCount: number;
+}
+
 export interface VendoredCorpus {
   kind: "vendored-json";
   /** Id prefix; also names the source file in ids (`cm-93`). */
@@ -46,6 +58,8 @@ export interface VendoredCorpus {
   /** sha256 of the vendored file. Mutation fails the registry test. */
   sha256: string;
   routes: CorpusRoutes;
+  /** Required for roundtrip-only dialect corpora; optional elsewhere. */
+  mustProduce?: MustProduce;
 }
 
 export interface FixtureCorpus {
@@ -86,6 +100,102 @@ export const CORPORA: readonly CorpusEntry[] = [
   {
     kind: "fixtures-manifest",
     prefix: "vmark",
+    routes: { conformance: true, roundtrip: true },
+  },
+  // ── WI-2.3: external corpora, routed per what each case actually tests ──
+  {
+    kind: "vendored-json",
+    prefix: "cmreg",
+    file: "cmark-regression.json",
+    source: "https://raw.githubusercontent.com/commonmark/cmark/0.31.1/test/regression.txt",
+    revision: "0.31.1",
+    license: "BSD-2-Clause (spec text CC-BY-SA 4.0)",
+    sha256: "c7799ca7aa2cbe8ce10aa1b14a4a5462d5a97b71da49a6fccac519b5cc5d0365",
+    routes: { conformance: true, roundtrip: true },
+  },
+  {
+    kind: "vendored-json",
+    prefix: "gfmreg",
+    file: "cmark-gfm-regression.json",
+    source: "https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/regression.txt",
+    revision: "0.29.0.gfm.13",
+    license: "BSD-2-Clause (spec text CC-BY-SA 4.0)",
+    sha256: "7aed2291e4774a41ddba4c90bb558bc2f4d731e60230e9400f72f8053f000192",
+    routes: { conformance: true, roundtrip: true },
+  },
+  {
+    kind: "vendored-json",
+    prefix: "gfmext",
+    file: "cmark-gfm-extensions.json",
+    source: "https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/extensions.txt",
+    revision: "0.29.0.gfm.13",
+    license: "BSD-2-Clause (spec text CC-BY-SA 4.0)",
+    sha256: "5a16e546b87a9ab74aa748cf0885d468a032a1acec0f07fcc4fb6f274127f570",
+    routes: { conformance: true, roundtrip: true },
+  },
+  {
+    // Parser-level CJK emphasis boundaries. Typing-level CJK boundary cases
+    // live in the WI-1.3 typed-input matrix — route by what a case TESTS,
+    // not by its filename.
+    kind: "vendored-json",
+    prefix: "cjk",
+    file: "pulldown-cjk-emphasis.json",
+    source:
+      "https://raw.githubusercontent.com/pulldown-cmark/pulldown-cmark/5cc24e8c3536ceb2519baddb09327834ef6c4858/pulldown-cmark/specs/cjk_friendly_emphasis.txt",
+    revision: "main@5cc24e8c (postdates v0.13.0)",
+    license: "MIT",
+    sha256: "d17d23697816658825bd8589bc4ef9169391f63ab99ec5dbe8eb86c686c82c97",
+    routes: { conformance: true, roundtrip: true },
+  },
+  {
+    // Roundtrip-only: [[wiki]] is VMark dialect the stock reference cannot
+    // read, so a conformance route would only declare a blanket delta family
+    // against a knowingly-inapplicable oracle (ADR-2 forbids exactly that).
+    kind: "vendored-json",
+    prefix: "wiki",
+    file: "pulldown-wikilinks.json",
+    source:
+      "https://raw.githubusercontent.com/pulldown-cmark/pulldown-cmark/v0.13.0/pulldown-cmark/specs/wikilinks.txt",
+    revision: "v0.13.0",
+    license: "MIT",
+    sha256: "ff538c83c4bcda443b570ca40abf35e003d485d20368d130355053b21ad0b0a1",
+    routes: { conformance: false, roundtrip: true },
+    mustProduce: { nodeType: "wikiLink", exampleCount: 7 },
+  },
+  {
+    kind: "vendored-json",
+    prefix: "math",
+    file: "pulldown-math.json",
+    source:
+      "https://raw.githubusercontent.com/pulldown-cmark/pulldown-cmark/v0.13.0/pulldown-cmark/specs/math.txt",
+    revision: "v0.13.0",
+    license: "MIT",
+    sha256: "dd44da6b45dd62b91ec357b3666bb84f3bd0383e0a96abae30e7d4b94778e5ed",
+    routes: { conformance: false, roundtrip: true },
+    mustProduce: { nodeType: "inlineMath", exampleCount: 37 },
+  },
+  {
+    kind: "vendored-json",
+    prefix: "mdx",
+    file: "markdown-it-extras.json",
+    source:
+      "https://raw.githubusercontent.com/markdown-it/markdown-it/14.1.0/test/fixtures/markdown-it/commonmark_extras.txt",
+    revision: "14.1.0",
+    license: "MIT",
+    sha256: "cc10035a31bcb2f495391246b385adfa8a9480010fcf0060d5904c8e41b80539",
+    routes: { conformance: true, roundtrip: true },
+  },
+  {
+    // Security-input fixtures. Roundtrip verdicts pin the policy rewrites;
+    // the EXPLICIT sanitization assertions live in specXss.test.ts.
+    kind: "vendored-json",
+    prefix: "xss",
+    file: "markdown-it-xss.json",
+    source:
+      "https://raw.githubusercontent.com/markdown-it/markdown-it/14.1.0/test/fixtures/markdown-it/xss.txt",
+    revision: "14.1.0",
+    license: "MIT",
+    sha256: "ee2aac2a58d868ead38f5a9b0067ef36f7cfbb4dc1176d7c9004593dc7c4f165",
     routes: { conformance: true, roundtrip: true },
   },
 ] as const;

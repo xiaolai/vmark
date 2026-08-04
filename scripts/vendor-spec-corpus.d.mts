@@ -6,6 +6,7 @@ export interface SpecTxtExample {
   html: string;
 }
 export function parseSpecTxt(text: string): SpecTxtExample[];
+export function parseMarkdownItFixtures(text: string): SpecTxtExample[];
 export function restoreTabs(text: string): string;
 export function filterSections(
   examples: SpecTxtExample[],
