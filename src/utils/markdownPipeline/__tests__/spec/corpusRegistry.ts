@@ -186,6 +186,21 @@ export const CORPORA: readonly CorpusEntry[] = [
     routes: { conformance: true, roundtrip: true },
   },
   {
+    // WI-2.1: Tiptap's official markdown→PM-JSON pairs — an independent
+    // oracle at the mdast→ProseMirror boundary neither spec gate pins.
+    // Routed to NEITHER gate: its consumer is specTiptapOracle.test.ts,
+    // which reads the file's extra `expectedOutput` field directly.
+    kind: "vendored-json",
+    prefix: "tiptap",
+    file: "tiptap-conversion.json",
+    source:
+      "https://github.com/ueberdosis/tiptap/tree/5158212970344952dd9918b6a44bfb400d7fb6c1/packages/markdown/__tests__/conversion-files",
+    revision: "main@51582129 (12 of 16 fixtures; custom-*/nested-nodes need Tiptap-internal extensions)",
+    license: "MIT",
+    sha256: "990ee9c9e3a3e9b6b7eeb33cf72b3e1aa64c7a863f5aab2a6dc8576d626d0ef0",
+    routes: { conformance: false, roundtrip: false },
+  },
+  {
     // Security-input fixtures. Roundtrip verdicts pin the policy rewrites;
     // the EXPLICIT sanitization assertions live in specXss.test.ts.
     kind: "vendored-json",
