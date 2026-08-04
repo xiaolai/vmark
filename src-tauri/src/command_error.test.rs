@@ -268,12 +268,18 @@ fn frontend_wire_fixture_stays_in_sync() {
         .join("../src/test/fixtures/commandErrorWire.json");
     // cargo-mutants copies ONLY the crate into its sandbox, so the frontend
     // tree this bond reaches into does not exist there and the BASELINE run
-    // failed with exit 4 (first live mutation.yml dispatch, run 30889201743).
-    // Skip only under cargo-mutants (it sets CARGO_MUTANTS=1) AND only when
-    // the path is genuinely absent — a deleted fixture still fails plain
-    // `cargo test`, and mutation coverage for this module comes from the
-    // other tests in this file.
-    if std::env::var_os("CARGO_MUTANTS").is_some() && !path.exists() {
+    // failed with exit 4 (mutation.yml runs 30889201743 AND 30891869767 —
+    // the second because a CARGO_MUTANTS env guard never fired: the variable
+    // is NOT set in the baseline environment; measured, not assumed).
+    // The deterministic marker is compile-time: inside the sandbox,
+    // env!("CARGO_MANIFEST_DIR") is the sandbox copy itself
+    // (/tmp/cargo-mutants-<name>-XXXX.tmp/), so its path contains
+    // "cargo-mutants". Skip only there AND only when the fixture is genuinely
+    // absent — a deleted fixture still fails plain `cargo test`, and mutation
+    // coverage for this module comes from the other tests in this file.
+    let in_mutants_sandbox = env!("CARGO_MANIFEST_DIR").contains("cargo-mutants")
+        || std::env::var_os("CARGO_MUTANTS").is_some();
+    if in_mutants_sandbox && !path.exists() {
         eprintln!("skipping frontend-fixture bond: cargo-mutants sandbox has no frontend tree");
         return;
     }
