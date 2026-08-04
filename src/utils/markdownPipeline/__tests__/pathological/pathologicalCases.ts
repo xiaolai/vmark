@@ -77,6 +77,15 @@ export function pathologicalCases(scale = 1): PathologicalCase[] {
       serialize: true,
     },
     {
+      // Deep mdast NESTING (not just long delimiter runs): alternating
+      // emphasis markers nest one level per pair. The OSS-Fuzz soak found a
+      // per-child recursion in remarkPlugins that blew the call stack on
+      // exactly this shape (WI-5.1); fixed to an explicit stack.
+      name: "deep-inline-nesting",
+      markdown: `${"*_".repeat(n(1500))}x${"_*".repeat(n(1500))}\n`,
+      serialize: true,
+    },
+    {
       name: "many-link-references",
       markdown:
         Array.from({ length: n(1000) }, (_, i) => `[ref${i}]: /url${i}`).join("\n") +

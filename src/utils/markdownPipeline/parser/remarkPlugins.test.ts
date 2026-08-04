@@ -16,7 +16,7 @@
  * @module utils/markdownPipeline/parser/remarkPlugins.test
  */
 import { describe, it, expect } from "vitest";
-import { analyzeContent } from "./remarkPlugins";
+import { analyzeContent, remarkValidateMath } from "./remarkPlugins";
 
 const ambiguous = (md: string): boolean => analyzeContent(md).hasAmbiguousListUnderline;
 
@@ -77,5 +77,19 @@ describe("hasAmbiguousListUnderline — code regions are excluded", () => {
     // CommonMark keeps a 5-backtick block open across a 3-backtick line, so
     // the `  -` is still literal code.
     expect(ambiguous("`````\ncode\n```\n  -\n`````\n")).toBe(false);
+  });
+});
+
+describe("remarkValidateMath — deep nesting (WI-5.1 regression)", () => {
+  it("survives a 100k-deep mdast tree without stack overflow", () => {
+    // The OSS-Fuzz soak crashed the per-child recursion with RangeError on
+    // deeply nested inline emphasis; the traversal is now an explicit stack.
+    interface Chain { type: string; children: Chain[] }
+    const leaf: Chain = { type: "text", children: [] };
+    let node: Chain = leaf;
+    for (let i = 0; i < 100_000; i += 1) node = { type: "emphasis", children: [node] };
+    const root = { type: "root", children: [node] };
+    const transformer = (remarkValidateMath as () => (tree: unknown) => void)();
+    expect(() => transformer(root)).not.toThrow();
   });
 });

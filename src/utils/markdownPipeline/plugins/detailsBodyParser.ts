@@ -31,6 +31,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
+import { remarkDepthLimit } from "../parser/remarkPlugins";
 import { remarkCustomInline } from "./customInline";
 import { remarkResolveReferences } from "./resolveReferences";
 import { remarkWikiLinks } from "./wikiLinks";
@@ -61,6 +62,7 @@ function buildDefaultBodyProcessor(): DetailsBodyProcessor {
     .use(remarkParse)
     .use(remarkGfm, { singleTilde: false })
     .use(remarkMath)
+    .use(remarkDepthLimit)
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkWikiLinks)
     .use(remarkCustomInline)
