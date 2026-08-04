@@ -243,3 +243,5 @@ NOT FIXED (deliberate, with reasons):
 - corpusRegistry example numbers must be unique POSITIVE INTEGERS
 - backtick state timer now DELETES the map entry — destroyed-view retention bounded to 500ms
 Accepted-by-design (documented, not defects): registry revision/license use startsWith because the registry legitimately appends commentary after the file's exact value; unknown corpus fields tolerated (upstream data preserved by design). Verify thread r1: 019fce98-b297-7b01-a32a-d5c37d9977df.
+
+## Round 3: final verify CLEAN (thread 019fce9e-03fb-7d22-b5b6-0ffc3cd214b5) — 4/4 FIXED, no regressions.
