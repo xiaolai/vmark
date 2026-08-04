@@ -66,6 +66,7 @@ describe.runIf(Boolean(DUMP_PATH))("spec triage dump", () => {
 
     const stability = [];
     const fidelity = [];
+    const independentRuler = [];
     const crashes = [];
     for (const example of examplesForRoute("roundtrip")) {
       try {
@@ -94,6 +95,22 @@ describe.runIf(Boolean(DUMP_PATH))("spec triage dump", () => {
             outputValue: jsonSafe(d.sourcePositionValue),
           });
         }
+        for (const d of diff(
+          project(referenceOf(example.markdown)),
+          project(referenceOf(pass1)),
+        )) {
+          independentRuler.push({
+            exampleId: example.id,
+            section: example.section,
+            markdown: example.markdown,
+            pass1,
+            path: d.path,
+            kind: d.kind,
+            detail: d.detail,
+            inputValue: jsonSafe(d.documentValue),
+            outputValue: jsonSafe(d.sourcePositionValue),
+          });
+        }
       } catch (error) {
         crashes.push({
           exampleId: example.id,
@@ -104,7 +121,7 @@ describe.runIf(Boolean(DUMP_PATH))("spec triage dump", () => {
 
     writeFileSync(
       DUMP_PATH!,
-      JSON.stringify({ conformance, stability, fidelity, crashes }, null, 1),
+      JSON.stringify({ conformance, stability, fidelity, independentRuler, crashes }, null, 1),
     );
   });
 });

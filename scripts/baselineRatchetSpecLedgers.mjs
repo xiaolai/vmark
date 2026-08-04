@@ -65,6 +65,13 @@ export function specRoundtripRecords(doc, label) {
       ["fidelity", ...["exampleId", "path", "kind", "detail", "verdict"].map((f) => requireString(d[f], label, f))].join(" | "),
     );
   }
+  // WI-2.2's independent-ruler section arrived after the first ledgers; a
+  // base-ref file may predate it, so absence reads as empty, not malformed.
+  for (const d of requireArray(doc?.independentRuler ?? [], label)) {
+    out.add(
+      ["independentRuler", ...["exampleId", "path", "kind", "detail", "verdict"].map((f) => requireString(d[f], label, f))].join(" | "),
+    );
+  }
   return out;
 }
 

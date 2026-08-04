@@ -1,4 +1,1603 @@
 {
+ "independentRuler": [
+  {
+   "exampleId": "cm-39",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "inputValue": 1,
+   "outputValue": 2,
+   "verdict": "defect",
+   "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
+  },
+  {
+   "exampleId": "cm-39",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo\n\nbar",
+   "outputValue": "foo",
+   "verdict": "defect",
+   "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
+  },
+  {
+   "exampleId": "cm-39",
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "paragraph",
+   "verdict": "defect",
+   "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
+  },
+  {
+   "exampleId": "cm-109",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-143",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "meta",
+   "inputValue": "startline=3 $%@#$",
+   "outputValue": null,
+   "verdict": "model-limit",
+   "reason": "Code-fence meta: the ProseMirror code block keeps language only, so the fence meta string after the language is dropped on serialize."
+  },
+  {
+   "exampleId": "cm-146",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "meta",
+   "inputValue": "``` ~~~",
+   "outputValue": null,
+   "verdict": "model-limit",
+   "reason": "Code-fence meta: the ProseMirror code block keeps language only, so the fence meta string after the language is dropped on serialize."
+  },
+  {
+   "exampleId": "cm-148",
+   "path": "root.children[1].children[1]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": ".\n",
+   "outputValue": ". ",
+   "verdict": "normalization",
+   "reason": "Soft line break adjacent to inline/raw HTML serializes as a space; whitespace-equivalent in the rendered document, byte-different in the markdown."
+  },
+  {
+   "exampleId": "cm-187",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "Foo\n",
+   "outputValue": "Foo ",
+   "verdict": "normalization",
+   "reason": "Soft line break adjacent to inline/raw HTML serializes as a space; whitespace-equivalent in the rendered document, byte-different in the markdown."
+  },
+  {
+   "exampleId": "cm-194",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs text",
+   "inputValue": "linkReference",
+   "outputValue": "text",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-194",
+   "path": "root.children[1].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-195",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo bar",
+   "outputValue": "foo bar",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-195",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-205",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo",
+   "outputValue": "foo",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-205",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-214",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo",
+   "outputValue": "foo",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-214",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-300",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-300",
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-306",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-311",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-313",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-314",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-315",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-316",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-317",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-320",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-320",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-321",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-321",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": false,
+   "outputValue": true,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-326",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "spread",
+   "inputValue": true,
+   "outputValue": false,
+   "verdict": "model-limit",
+   "reason": "List looseness: the ProseMirror list model does not represent per-list tight/loose spread, so a loose list serializes tight (or vice versa). Honest, pinned data loss; the rendered list items keep their content."
+  },
+  {
+   "exampleId": "cm-369",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-369",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "(",
+   "outputValue": "(foo)",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-369",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "emphasis",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-369",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-373",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-373",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "(",
+   "outputValue": "(foo)",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-373",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "emphasis",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-373",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-389",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-389",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo, ",
+   "outputValue": "foo, bar, baz",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-389",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-389",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-407",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-407",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo ",
+   "outputValue": "foo bar baz",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-407",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "emphasis",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-407",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-408",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "inputValue": 2,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-408",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "emphasis vs text",
+   "inputValue": "emphasis",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-408",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-408",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-409",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "inputValue": 2,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-409",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo ",
+   "outputValue": "foo bar",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-409",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "emphasis",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-417",
+   "path": "root.children[0].children[1].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-417",
+   "path": "root.children[0].children[1].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-418",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-418",
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "bar ",
+   "outputValue": "bar baz bim",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-418",
+   "path": "root.children[0].children[0].children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "emphasis",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-418",
+   "path": "root.children[0].children[0].children[1].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-419",
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "type",
+   "detail": "emphasis vs text",
+   "inputValue": "emphasis",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-419",
+   "path": "root.children[0].children[0].children[1].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-425",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-425",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo ",
+   "outputValue": "foo bar baz",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-425",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-425",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-426",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "inputValue": 2,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-426",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-426",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-426",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-427",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "inputValue": 2,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-427",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "foo ",
+   "outputValue": "foo bar",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-427",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-432",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-432",
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "bar ",
+   "outputValue": "bar baz\nbim",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-432",
+   "path": "root.children[0].children[0].children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-432",
+   "path": "root.children[0].children[0].children[1].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-433",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs emphasis",
+   "inputValue": "link",
+   "outputValue": "emphasis",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-433",
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "type",
+   "detail": "emphasis vs link",
+   "inputValue": "emphasis",
+   "outputValue": "link",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-461",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "emphasis vs text",
+   "inputValue": "emphasis",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-461",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-463",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "emphasis vs text",
+   "inputValue": "emphasis",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-463",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-464",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-464",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-465",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-465",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-466",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-466",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "strong",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-468",
+   "path": "root.children[0].children[0].children[0].children[0]",
+   "kind": "type",
+   "detail": "strong vs text",
+   "inputValue": "strong",
+   "outputValue": "text",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-468",
+   "path": "root.children[0].children[0].children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Inline mark model: nested same-type emphasis, mark order around links, or empty-text inline constructs cannot be represented distinctly by ProseMirror marks, so the re-parse reads a flattened/re-ordered inline shape."
+  },
+  {
+   "exampleId": "cm-484",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 0",
+   "inputValue": 1,
+   "outputValue": 0,
+   "verdict": "model-limit",
+   "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
+  },
+  {
+   "exampleId": "cm-484",
+   "path": "root.children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "paragraph",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
+  },
+  {
+   "exampleId": "cm-487",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 0",
+   "inputValue": 1,
+   "outputValue": 0,
+   "verdict": "model-limit",
+   "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
+  },
+  {
+   "exampleId": "cm-487",
+   "path": "root.children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "paragraph",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
+  },
+  {
+   "exampleId": "cm-500",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "url",
+   "inputValue": "foo):",
+   "outputValue": "about:blank",
+   "verdict": "policy",
+   "reason": "isSafeUrl sanitization: unknown or scriptable URL schemes are rewritten to about:blank on serialize. Deliberate policy; note it rewrites the author's file on save (render-time sanitization is an open design question)."
+  },
+  {
+   "exampleId": "cm-512",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs text",
+   "inputValue": "link",
+   "outputValue": "text",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-512",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-517",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs image",
+   "inputValue": "link",
+   "outputValue": "image",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-517",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "image",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-531",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs image",
+   "inputValue": "linkReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-531",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "image",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-539",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "BaR",
+   "outputValue": "bar",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-540",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "ẞ",
+   "outputValue": "ss",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-540",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-541",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo bar",
+   "outputValue": "foo bar",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-549",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs text",
+   "inputValue": "linkReference",
+   "outputValue": "text",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-549",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-550",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs text",
+   "inputValue": "linkReference",
+   "outputValue": "text",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-550",
+   "path": "root.children[1].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "defect",
+   "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
+  },
+  {
+   "exampleId": "cm-555",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo",
+   "outputValue": "foo",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-555",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "collapsed",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-561",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "label",
+   "inputValue": "Foo",
+   "outputValue": "foo",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-561",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-564",
+   "path": "root.children[1].children[1]",
+   "kind": "attribute",
+   "detail": "referenceType",
+   "inputValue": "shortcut",
+   "outputValue": "full",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-573",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-576",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-577",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-582",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-583",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-584",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-585",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-586",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-587",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-588",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-589",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-591",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "inputValue": "imageReference",
+   "outputValue": "image",
+   "verdict": "normalization",
+   "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
+  },
+  {
+   "exampleId": "cm-596",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "url",
+   "inputValue": "irc://foo.bar:2233/baz",
+   "outputValue": "about:blank",
+   "verdict": "policy",
+   "reason": "isSafeUrl sanitization: unknown or scriptable URL schemes are rewritten to about:blank on serialize. Deliberate policy; note it rewrites the author's file on save (render-time sanitization is an open design question)."
+  },
+  {
+   "exampleId": "cm-598",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "url",
+   "inputValue": "a+b+c:d",
+   "outputValue": "about:blank",
+   "verdict": "policy",
+   "reason": "isSafeUrl sanitization: unknown or scriptable URL schemes are rewritten to about:blank on serialize. Deliberate policy; note it rewrites the author's file on save (render-time sanitization is an open design question)."
+  },
+  {
+   "exampleId": "cm-599",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "url",
+   "inputValue": "made-up-scheme://foo,bar",
+   "outputValue": "about:blank",
+   "verdict": "policy",
+   "reason": "isSafeUrl sanitization: unknown or scriptable URL schemes are rewritten to about:blank on serialize. Deliberate policy; note it rewrites the author's file on save (render-time sanitization is an open design question)."
+  },
+  {
+   "exampleId": "cm-601",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "url",
+   "inputValue": "localhost:5001/foo",
+   "outputValue": "about:blank",
+   "verdict": "policy",
+   "reason": "isSafeUrl sanitization: unknown or scriptable URL schemes are rewritten to about:blank on serialize. Deliberate policy; note it rewrites the author's file on save (render-time sanitization is an open design question)."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 3",
+   "inputValue": 1,
+   "outputValue": 3,
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "break",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "break",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-638",
+   "path": "root.children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "emphasis",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 3",
+   "inputValue": 1,
+   "outputValue": 3,
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "inputValue": 3,
+   "outputValue": 1,
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "break",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "inputValue": "text",
+   "outputValue": "__undefined__",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "break",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "cm-639",
+   "path": "root.children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "emphasis",
+   "verdict": "model-limit",
+   "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+  },
+  {
+   "exampleId": "gfm-202",
+   "path": "root.children[0].children[2]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "inputValue": 1,
+   "outputValue": 2,
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-202",
+   "path": "root.children[0].children[2].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "tableCell",
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "align",
+   "inputValue": [
+    null,
+    null
+   ],
+   "outputValue": [
+    null,
+    null,
+    null
+   ],
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 3",
+   "inputValue": 2,
+   "outputValue": 3,
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "tableCell",
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0].children[1]",
+   "kind": "child-count",
+   "detail": "1 vs 3",
+   "inputValue": 1,
+   "outputValue": 3,
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0].children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "tableCell",
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "gfm-204",
+   "path": "root.children[0].children[1].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "tableCell",
+   "verdict": "normalization",
+   "reason": "Table rectangularization: VMark serializes every row padded to the header's column count and absorbs lazy continuation into the table, so the mdast gains empty cells; GFM rendering pads short rows identically, so the rendered table is unchanged."
+  },
+  {
+   "exampleId": "vmark-alert-note",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "inputValue": 1,
+   "outputValue": 2,
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  },
+  {
+   "exampleId": "vmark-alert-note",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "[!NOTE]\nSomething.",
+   "outputValue": "[!NOTE]",
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  },
+  {
+   "exampleId": "vmark-alert-note",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "paragraph",
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  },
+  {
+   "exampleId": "vmark-cm-bare-list-marker",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "inputValue": 1,
+   "outputValue": 2,
+   "verdict": "defect",
+   "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+  },
+  {
+   "exampleId": "vmark-cm-bare-list-marker",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "heading vs paragraph",
+   "inputValue": "heading",
+   "outputValue": "paragraph",
+   "verdict": "defect",
+   "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+  },
+  {
+   "exampleId": "vmark-cm-bare-list-marker",
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "inputValue": "__undefined__",
+   "outputValue": "list",
+   "verdict": "defect",
+   "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "<details><summary>S</summary>",
+   "outputValue": "<details>\n<summary>S</summary>",
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "<details><summary>S</summary>",
+   "outputValue": "<details>\n<summary>S</summary>",
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  },
+  {
+   "exampleId": "vmark-toc-block",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "inputValue": "[toc]",
+   "outputValue": "[TOC]",
+   "verdict": "normalization",
+   "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
+  }
+ ],
  "stability": [
   {
    "exampleId": "cm-43",

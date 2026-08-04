@@ -24,6 +24,9 @@
  * @module utils/markdownPipeline/__tests__/spec/specRoundtrip.test
  */
 import { describe, it, expect } from "vitest";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
 import "../../dialect";
 import { createProcessor } from "../../parser/processorFactory";
 import { parseMarkdown, serializeMarkdown } from "../../adapter";
@@ -50,10 +53,20 @@ function mdastOf(markdown: string): RawNode {
   return processor.runSync(processor.parse(markdown)) as unknown as RawNode;
 }
 
+function referenceMdastOf(markdown: string): RawNode {
+  const processor = unified().use(remarkParse).use(remarkGfm);
+  return processor.runSync(processor.parse(markdown)) as unknown as RawNode;
+}
+
 interface RoundtripResult {
   pass1: string;
   pass2: string;
   fidelityDivergences: Divergence[];
+  /** WI-2.2 (ADR-4): STOCK REMARK parses input and output — an independent
+   *  ruler. The `fidelity` leg parses both sides with VMark's own parser, so
+   *  a defect shared by parser AND serializer is invisible to it; this leg
+   *  does not share those blind spots. */
+  independentRulerDivergences: Divergence[];
 }
 
 const cache = new Map<string, RoundtripResult>();
@@ -66,7 +79,11 @@ function roundtripOf(example: SpecExample): RoundtripResult {
     project(mdastOf(example.markdown)),
     project(mdastOf(pass1)),
   );
-  const out = { pass1, pass2, fidelityDivergences };
+  const independentRulerDivergences = diff(
+    project(referenceMdastOf(example.markdown)),
+    project(referenceMdastOf(pass1)),
+  );
+  const out = { pass1, pass2, fidelityDivergences, independentRulerDivergences };
   cache.set(example.id, out);
   return out;
 }
@@ -93,6 +110,22 @@ describe("fidelity: VMark reads the output as it read the input, except where de
   it.each(EXAMPLES)("$id ($section)", (example) => {
     const undeclared = roundtripOf(example).fidelityDivergences.filter(
       (d) => !LEDGER.fidelity.some((delta) => fidelityMatches(delta, d, example.id)),
+    );
+    expect(
+      undeclared.map(
+        (d) =>
+          `${example.id} ${d.path} ${d.kind} ${d.detail} ` +
+          `input=${JSON.stringify(d.documentValue)} output=${JSON.stringify(d.sourcePositionValue)}`,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("independent ruler: stock remark reads input and output the same, except where declared", () => {
+  it.each(EXAMPLES)("$id ($section)", (example) => {
+    const undeclared = roundtripOf(example).independentRulerDivergences.filter(
+      (d) =>
+        !LEDGER.independentRuler.some((delta) => fidelityMatches(delta, d, example.id)),
     );
     expect(
       undeclared.map(
@@ -134,7 +167,26 @@ describe("the roundtrip ledger cannot rot into a suppression file", () => {
     ).toEqual([]);
   });
 
+  it("every independent-ruler declaration matches a real divergence", () => {
+    const stale = LEDGER.independentRuler.filter((delta) => {
+      const example = examplesById.get(delta.exampleId);
+      if (!example) return true;
+      return !roundtripOf(example).independentRulerDivergences.some((d) =>
+        fidelityMatches(delta, d, delta.exampleId),
+      );
+    });
+    expect(
+      stale.map((d) => `${d.exampleId} ${d.path} ${d.kind} ${d.detail}`),
+    ).toEqual([]);
+  });
+
   it("every declaration carries a stated reason", () => {
-    expect(reasonsAreStated([...LEDGER.stability, ...LEDGER.fidelity])).toEqual([]);
+    expect(
+      reasonsAreStated([
+        ...LEDGER.stability,
+        ...LEDGER.fidelity,
+        ...LEDGER.independentRuler,
+      ]),
+    ).toEqual([]);
   });
 });
