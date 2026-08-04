@@ -1,42 +1,26 @@
 /**
- * Backtick Code Mark Toggle Tests (Issue #58 Problem 2)
+ * WI-1.1 — Backtick Code Mark Toggle Tests (Issue #58 Problem 2), on the
+ * PRODUCTION schema.
  *
- * Verifies that backtick in WYSIWYG mode toggles inline code mark
- * instead of inserting backtick text.
+ * Verifies that backtick in WYSIWYG mode toggles inline code mark instead of
+ * inserting backtick text. This file previously built a hand-written
+ * snake_case schema (`code_block`), which is exactly how a production defect
+ * stayed invisible: the shipped schema names the node `codeBlock`, so the
+ * triple-backtick lookup `schema.nodes.code_block` returned undefined in the
+ * real editor and the feature silently no-oped — while these tests passed
+ * against their private schema. Plan ADR-3: editing tests run the production
+ * stack; never a hand-built schema.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { Schema, type Node } from "@tiptap/pm/model";
+import { type Node } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { EditorView } from "@tiptap/pm/view";
+import { getProductionSchema } from "@/test/productionSchema";
 import { handleTextInput, type AutoPairConfig } from "../handlers";
 import { resetBacktickState } from "../backtickToggle";
 
-// Minimal schema with code mark and code_block node
-const schema = new Schema({
-  nodes: {
-    doc: { content: "block+" },
-    paragraph: { content: "text*", group: "block" },
-    code_block: {
-      content: "text*",
-      group: "block",
-      code: true,
-      defining: true,
-      parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
-      toDOM() { return ["pre", ["code", 0]]; },
-    },
-    text: { inline: true },
-  },
-  marks: {
-    code: {
-      excludes: "_",
-      parseDOM: [{ tag: "code" }],
-      toDOM() {
-        return ["code", 0];
-      },
-    },
-  },
-});
+const schema = getProductionSchema();
 
 const defaultConfig: AutoPairConfig = {
   enabled: true,
@@ -201,10 +185,10 @@ describe("backtick code mark toggle (WYSIWYG)", () => {
     const { handled: h3, newState: s3 } = callHandleTextInput(s2, "`");
 
     expect(h3).toBe(true);
-    // Document should contain a code_block node
+    // Document should contain the production codeBlock node
     let hasCodeBlock = false;
     s3.doc.descendants((node) => {
-      if (node.type.name === "code_block") hasCodeBlock = true;
+      if (node.type.name === "codeBlock") hasCodeBlock = true;
     });
     expect(hasCodeBlock).toBe(true);
   });
@@ -264,8 +248,8 @@ describe("backtick code mark toggle (WYSIWYG)", () => {
   });
 
   it("triple backtick inside code block is not handled", () => {
-    // Create state with cursor inside a code_block
-    const codeBlockNode = schema.nodes.code_block.create(null, []);
+    // Create state with cursor inside the production codeBlock
+    const codeBlockNode = schema.nodes.codeBlock.create(null, []);
     const doc = schema.node("doc", null, [codeBlockNode]);
     const state = EditorState.create({ doc });
     const stateWithCursor = state.apply(

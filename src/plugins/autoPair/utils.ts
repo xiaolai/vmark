@@ -22,8 +22,10 @@ import { SMART_QUOTE_CHARS } from "./pairs";
 export function isInCodeBlock(state: EditorState): boolean {
   const { $from } = state.selection;
   for (let d = $from.depth; d > 0; d--) {
-    const nodeName = $from.node(d).type.name;
-    if (nodeName === "code_block" || nodeName === "fence") {
+    // The production Tiptap schema names the node `codeBlock`. The previous
+    // snake_case `code_block` (plus a `fence` name no schema defines) matched
+    // nothing in the shipped editor, so this guard was silently dead.
+    if ($from.node(d).type.name === "codeBlock") {
       return true;
     }
   }

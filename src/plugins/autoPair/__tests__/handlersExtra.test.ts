@@ -27,7 +27,7 @@ const schema = new Schema({
   nodes: {
     doc: { content: "block+" },
     paragraph: { content: "text*", group: "block" },
-    code_block: { content: "text*", group: "block", code: true },
+    codeBlock: { content: "text*", group: "block", code: true },
     text: { inline: true },
   },
   marks: {
@@ -496,12 +496,12 @@ describe("handleTextInput — skip when next char is already closing (line 191)"
 /* ================================================================== */
 
 describe("handleBacktickCodeToggle — uncovered branches", () => {
-  // Schema with code_block node (isInCodeBlock returns true for code_block content)
+  // Schema with codeBlock node (isInCodeBlock returns true for codeBlock content)
   const codeBlockSchema = new Schema({
     nodes: {
       doc: { content: "block+" },
       paragraph: { content: "text*", group: "block" },
-      code_block: { content: "text*", group: "block", code: true },
+      codeBlock: { content: "text*", group: "block", code: true },
       text: { inline: true },
     },
     marks: {
@@ -522,10 +522,10 @@ describe("handleBacktickCodeToggle — uncovered branches", () => {
     },
   });
 
-  it("returns false when typing backtick inside a code_block (line 84 guard)", () => {
+  it("returns false when typing backtick inside a codeBlock (line 84 guard)", () => {
     // isInCodeBlock returns true when cursor is inside a node with code=true
     const doc = codeBlockSchema.node("doc", null, [
-      codeBlockSchema.node("code_block", null, [codeBlockSchema.text("some code")]),
+      codeBlockSchema.node("codeBlock", null, [codeBlockSchema.text("some code")]),
     ]);
     const state = EditorState.create({ doc, schema: codeBlockSchema });
     const stateWithCursor = state.apply(
@@ -749,10 +749,10 @@ describe("handleTextInput — wrap selection with pair (from !== to branch, line
 /* ================================================================== */
 
 describe("handleTabJump — code context guard", () => {
-  /** Create a state with cursor inside a code_block containing `text` */
+  /** Create a state with cursor inside a codeBlock containing `text` */
   function createCodeBlockState(text: string, cursorOffset: number): EditorState {
     const textNode = text ? schema.text(text) : undefined;
-    const codeBlock = schema.node("code_block", null, textNode ? [textNode] : []);
+    const codeBlock = schema.node("codeBlock", null, textNode ? [textNode] : []);
     const doc = schema.node("doc", null, [codeBlock]);
     const state = EditorState.create({ doc, schema });
     const pos = 1 + cursorOffset;
@@ -774,22 +774,22 @@ describe("handleTabJump — code context guard", () => {
     );
   }
 
-  it("does NOT jump over ) inside code_block", () => {
-    // code_block: "foo()" with cursor at offset 4 (between ( and ))
+  it("does NOT jump over ) inside codeBlock", () => {
+    // codeBlock: "foo()" with cursor at offset 4 (between ( and ))
     const state = createCodeBlockState("foo()", 4);
     const view = createMockView(state);
 
     expect(handleTabJump(view, ENABLED)).toBe(false);
   });
 
-  it("does NOT jump over ] inside code_block", () => {
+  it("does NOT jump over ] inside codeBlock", () => {
     const state = createCodeBlockState("arr[]", 4);
     const view = createMockView(state);
 
     expect(handleTabJump(view, ENABLED)).toBe(false);
   });
 
-  it("does NOT jump over } inside code_block", () => {
+  it("does NOT jump over } inside codeBlock", () => {
     const state = createCodeBlockState("obj{}", 4);
     const view = createMockView(state);
 
@@ -815,7 +815,7 @@ describe("handleTabJump — code context guard", () => {
 describe("handleShiftTabJump — code context guard", () => {
   function createCodeBlockState(text: string, cursorOffset: number): EditorState {
     const textNode = text ? schema.text(text) : undefined;
-    const codeBlock = schema.node("code_block", null, textNode ? [textNode] : []);
+    const codeBlock = schema.node("codeBlock", null, textNode ? [textNode] : []);
     const doc = schema.node("doc", null, [codeBlock]);
     const state = EditorState.create({ doc, schema });
     const pos = 1 + cursorOffset;
@@ -836,15 +836,15 @@ describe("handleShiftTabJump — code context guard", () => {
     );
   }
 
-  it("does NOT jump before ( inside code_block", () => {
-    // code_block: "foo()" with cursor at offset 4 — right after ( at offset 3
+  it("does NOT jump before ( inside codeBlock", () => {
+    // codeBlock: "foo()" with cursor at offset 4 — right after ( at offset 3
     const state = createCodeBlockState("(text)", 1);
     const view = createMockView(state);
 
     expect(handleShiftTabJump(view, ENABLED)).toBe(false);
   });
 
-  it("does NOT jump before [ inside code_block", () => {
+  it("does NOT jump before [ inside codeBlock", () => {
     const state = createCodeBlockState("[item]", 1);
     const view = createMockView(state);
 
