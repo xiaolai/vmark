@@ -62,7 +62,8 @@
     "lint:merge-drops": "node scripts/check-merge-drops.mjs",
     "lint:hooks-purity": "node scripts/check-hooks-react-purity.mjs",
     "gen:mcp-contracts": "tsx server/mcp/scripts/gen-mcp-contracts.ts",
-    "lint:mcp-contracts": "tsx server/mcp/scripts/gen-mcp-contracts.ts --check"
+    "lint:mcp-contracts": "tsx server/mcp/scripts/gen-mcp-contracts.ts --check",
+    "test:soak": "vitest run --config vitest.soak.config.ts"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.60",

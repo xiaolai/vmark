@@ -14,47 +14,106 @@ import { createCodeFenceTracker } from "./opaqueRegions";
  * Invalid inline math: content with leading or trailing whitespace.
  * This prevents `$100 and $200` from being parsed as math.
  */
+/**
+ * Maximum mdast nesting depth the pipeline accepts before flattening.
+ *
+ * The mdast→ProseMirror converters (and several serializer walks) are
+ * mutually recursive; adversarial input can nest emphasis thousands of
+ * levels deep and blow the call stack — a parser CRASH found by the
+ * OSS-Fuzz corpus soak (WI-5.1). No legitimate document approaches 200
+ * levels (ProseMirror marks cannot even represent nested same-type
+ * emphasis), so beyond it the subtree flattens to its plain text: defined
+ * degradation instead of a RangeError.
+ */
+export const MAX_MDAST_DEPTH = 200;
+
+/** Flatten any node deeper than MAX_MDAST_DEPTH into its plain text. */
+export const remarkDepthLimit: Plugin<[], Root> = function () {
+  return (tree: Root) => {
+    // Iterative — this guard must not itself be depth-limited.
+    const stack: { node: Parent; depth: number }[] = [{ node: tree, depth: 0 }];
+    while (stack.length > 0) {
+      const { node, depth } = stack.pop()!;
+      if (!Array.isArray(node.children)) continue;
+      if (depth >= MAX_MDAST_DEPTH) {
+        (node as { children: unknown[] }).children = [
+          { type: "text", value: textOf(node) },
+        ];
+        continue;
+      }
+      for (const child of node.children) {
+        if ("children" in child && Array.isArray((child as Parent).children)) {
+          stack.push({ node: child as Parent, depth: depth + 1 });
+        }
+      }
+    }
+  };
+};
+
+/** Concatenated text of a subtree, iteratively. */
+function textOf(node: Parent): string {
+  let out = "";
+  const stack: unknown[] = [node];
+  while (stack.length > 0) {
+    const current = stack.pop() as { value?: string; children?: unknown[] };
+    if (typeof current.value === "string") out += current.value;
+    if (Array.isArray(current.children)) {
+      for (let i = current.children.length - 1; i >= 0; i -= 1) {
+        stack.push(current.children[i]);
+      }
+    }
+  }
+  return out;
+}
+
 export const remarkValidateMath: Plugin<[], Root> = function () {
   return (tree: Root) => {
     visitAndFixMath(tree);
   };
 };
 
-function visitAndFixMath(node: Root | Parent): void {
-  /* v8 ignore next -- @preserve defensive guard: always called with Root or Parent nodes; protects against leaf nodes passed in future refactors */
-  if (!("children" in node) || !Array.isArray(node.children)) return;
+function visitAndFixMath(root: Root | Parent): void {
+  // Iterative, NOT recursive: adversarial input can nest mdast thousands of
+  // levels deep (emphasis-in-emphasis chains), and per-child recursion blew
+  // the call stack — a parser CRASH on garbage input, found by the OSS-Fuzz
+  // corpus soak (WI-5.1). An explicit stack has no depth limit.
+  const stack: (Root | Parent)[] = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    /* v8 ignore next -- @preserve defensive guard: always pushed with Root or Parent nodes; protects against leaf nodes passed in future refactors */
+    if (!("children" in node) || !Array.isArray(node.children)) continue;
 
-  // Type-safe children array using unknown to avoid strict type conflicts
-  const newChildren: unknown[] = [];
-  let modified = false;
+    // Type-safe children array using unknown to avoid strict type conflicts
+    const newChildren: unknown[] = [];
+    let modified = false;
 
-  for (const child of node.children) {
-    if (child.type === "inlineMath") {
-      const mathNode = child as InlineMath;
-      /* v8 ignore next -- @preserve remark-math always sets value to a string; the || "" fallback guards against hypothetical undefined from future parser versions */
-      const value = mathNode.value || "";
-      // Reject math with leading/trailing whitespace
-      if (/^\s/.test(value) || /\s$/.test(value)) {
-        // Convert back to text with dollar delimiters
-        newChildren.push({
-          type: "text",
-          value: `$${value}$`,
-        });
-        modified = true;
-        continue;
+    for (const child of node.children) {
+      if (child.type === "inlineMath") {
+        const mathNode = child as InlineMath;
+        /* v8 ignore next -- @preserve remark-math always sets value to a string; the || "" fallback guards against hypothetical undefined from future parser versions */
+        const value = mathNode.value || "";
+        // Reject math with leading/trailing whitespace
+        if (/^\s/.test(value) || /\s$/.test(value)) {
+          // Convert back to text with dollar delimiters
+          newChildren.push({
+            type: "text",
+            value: `$${value}$`,
+          });
+          modified = true;
+          continue;
+        }
       }
+
+      if ("children" in child && Array.isArray((child as Parent).children)) {
+        stack.push(child as Parent);
+      }
+      newChildren.push(child);
     }
 
-    // Recurse into children
-    if ("children" in child && Array.isArray((child as Parent).children)) {
-      visitAndFixMath(child as Parent);
+    if (modified) {
+      // Use type assertion to assign the modified children array
+      (node as { children: unknown[] }).children = newChildren;
     }
-    newChildren.push(child);
-  }
-
-  if (modified) {
-    // Use type assertion to assign the modified children array
-    (node as { children: unknown[] }).children = newChildren;
   }
 }
 
