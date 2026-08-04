@@ -27,6 +27,8 @@
   ],
   "_dryRunTimeout_comment": "WI-4: the dry run used to die at the 5-minute default ('Initial test run timed out!', every CI run). The runner executes the dry run SINGLE-THREADED (vitest-runner pins maxWorkers/maxThreads to 1) with mutant instrumentation and perTest coverage collection, so the parallel suite's wall time is meaningless here; `related: true` (runner default, pinned explicitly) already narrows the test set to files related to the mutate globs. 20 minutes is generous headroom for CI runners — it only ever bites when something is genuinely wrong, and the job-level timeout still bounds the run.",
   "dryRunTimeoutMinutes": 20,
+  "_timeoutMS_comment": "Absolute per-mutant timeout cap (WI-4 follow-up, measured on run 30898727907): without it, timeout-class mutants inherit dry-run-derived budgets that ballooned the CI tail to an estimated ~7 h for the last 228 mutants. A timeout IS a detection in Stryker scoring, so capping it lower only makes those detections faster — it cannot mask a surviving mutant.",
+  "timeoutMS": 60000,
   "mutate": [
     "src/lib/cjkFormatter/rules/**/*.ts",
     "src/lib/cjkFormatter/quotePairing.ts",

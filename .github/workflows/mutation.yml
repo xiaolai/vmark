@@ -44,7 +44,7 @@ concurrency:
 jobs:
   mutants:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 240 # measured (run 30898727907): baseline 3.5 min green, then 139 mutants did not fit 60 min on a 2-core runner; weekly non-blocking job, headroom is cheap
     steps:
       - uses: actions/checkout@v7
 
@@ -85,7 +85,7 @@ jobs:
 
   ts-mutants:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 300 # measured (run 30898727907): 2,234/2,462 mutants at 90 min; the tail is timeout-class — bounded by stryker timeoutMS (see stryker.config.json)
     steps:
       - uses: actions/checkout@v7
 
