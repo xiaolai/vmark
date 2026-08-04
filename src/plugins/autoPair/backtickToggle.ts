@@ -136,7 +136,7 @@ export function handleBacktickCodeToggle(
   if (consecutiveBackticks === 3) {
     // Triple backtick: create code block
     resetBacktickState();
-    const codeBlockType = state.schema.nodes.code_block;
+    const codeBlockType = state.schema.nodes.codeBlock;
     if (!codeBlockType) return false;
     const tr = state.tr.replaceSelectionWith(codeBlockType.create());
     dispatch(tr);
