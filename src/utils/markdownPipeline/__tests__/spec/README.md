@@ -62,9 +62,13 @@ changes, rendered document does not), `policy` (deliberate `isSafeUrl`
 rewriting — note it edits the author's file on save; render-time
 sanitization is an open design question).
 
-There are no numeric ceilings: the records themselves are the identity, and
-`scripts/check-baseline-ratchet.mjs` refuses new `defect` records and
-removed corpus examples at the merge base (ADR-5, WI-0.3).
+There are no numeric ceilings: the records themselves are the identity.
+`scripts/check-baseline-ratchet.mjs` compares them at the merge base
+(ADR-5, WI-0.3): ledger-record ADDITIONS are reported loudly (an addition is
+legible in the diff; record removals are tightening), while corpus examples
+carry content-addressed identities under `no-remove` polarity — removing OR
+editing a vendored example fails even if the same commit updates the
+registry digest to match.
 
 ## Corpus provenance
 

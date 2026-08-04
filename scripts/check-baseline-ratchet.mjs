@@ -151,9 +151,13 @@ function main() {
 
   if (opts.list) {
     const registered = new Set(manifest.entries.map((e) => e.path));
+    const discovered = new Set(onDisk);
     for (const p of onDisk) console.log(`${registered.has(p) ? "registered  " : "UNREGISTERED"} ${p}`);
+    // Entries registered by hand outside the discovery globs (e.g. the
+    // markdown spec tier under src/) are part of the coverage too.
     for (const e of manifest.entries) {
-      if (!existsSync(path.join(root, e.path))) console.log(`MISSING      ${e.path}`);
+      if (discovered.has(e.path)) continue;
+      console.log(`${existsSync(path.join(root, e.path)) ? "registered  " : "MISSING     "} ${e.path}`);
     }
     process.exit(coverage.length > 0 ? 1 : 0);
   }
