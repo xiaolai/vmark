@@ -127,9 +127,18 @@ function applyIncrementalUpdate(
   tr.steps.forEach((_step, i) => {
     const map = tr.mapping.maps[i];
     map.forEach((_oldStart: number, _oldEnd: number, newStart: number, newEnd: number) => {
+      // `newStart`/`newEnd` live in the document AFTER STEP i, not the final
+      // one — map them through the REMAINING steps before resolving. A
+      // multi-step shrinking transaction (a mark input rule deleting its
+      // `**` markers) otherwise yields positions past the final doc's end,
+      // and resolve() throws mid-typing. The old Math.min on newEnd alone
+      // was a symptom-patch of this on one operand.
+      const rest = tr.mapping.slice(i + 1);
+      const start = Math.min(rest.map(newStart, -1), tr.doc.content.size);
+      const end = Math.min(rest.map(newEnd, 1), tr.doc.content.size);
       // Expand range to full node boundaries for correctness
-      const $from = tr.doc.resolve(newStart);
-      const $to = tr.doc.resolve(Math.min(newEnd, tr.doc.content.size));
+      const $from = tr.doc.resolve(Math.min(start, end));
+      const $to = tr.doc.resolve(end);
       const rangeFrom = $from.start($from.depth);
       const rangeTo = $to.end($to.depth);
 

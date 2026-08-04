@@ -293,4 +293,28 @@ describe("the enabled predicate is injected, and re-asked", () => {
     state = state.apply(state.tr.insertText("", 1, 1));
     expect(getDecorations(plugin, state).length).toBeGreaterThan(0);
   });
+
+  it("survives a multi-step shrinking transaction at the document's end (WI-1.3 regression)", () => {
+    // A mark input rule firing on `**粗体**` emits TWO deletes in one
+    // transaction (closing then opening markers). Per-step map coordinates
+    // live in the doc AFTER THAT STEP — resolving them against the FINAL doc
+    // read positions past the end and threw `Position N out of range`
+    // mid-typing whenever nothing followed the edit. Found by the typed-input
+    // matrix on the production stack.
+    const plugin = createPlugin("cjk-spacing", () => true);
+    const state = createState(["前文**粗体**"], plugin);
+    const size = state.doc.content.size;
+
+    const tr = state.tr;
+    tr.delete(size - 3, size - 1); // closing ** (doc shrinks)
+    const mappedOpen = tr.mapping.map(3);
+    tr.delete(mappedOpen - 2, mappedOpen); // opening ** (shrinks again)
+
+    expect(() => state.apply(tr)).not.toThrow();
+    const next = state.apply(tr);
+    // Decorations still cover the surviving CJK text, in final-doc bounds.
+    for (const deco of getDecorations(plugin, next)) {
+      expect(deco.to).toBeLessThanOrEqual(next.doc.content.size);
+    }
+  });
 });
