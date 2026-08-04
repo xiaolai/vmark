@@ -36,8 +36,9 @@ import { useAiInvocationStore } from "@/stores/aiStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useGeniesStore } from "@/stores/aiStore";
 import { genieWarn } from "@/utils/debug";
-import { extractContent, formatContext, fillTemplate } from "./genieInvocation/extraction";
-import { runGenieStream } from "./genieInvocation/streamRunner";
+import { commandErrorMessage } from "@/services/commands/commandError";
+import { extractContent, formatContext, fillTemplate } from "@/services/genieInvocation/extraction";
+import { runGenieStream } from "@/services/genieInvocation/streamRunner";
 
 /**
  * WI-7.1: workflow genies dispatch through run_workflow instead of
@@ -97,7 +98,11 @@ async function runWorkflowGenie(genie: GenieDefinition): Promise<void> {
     }
     useGeniesStore.getState().addRecent(genie.metadata.name);
   } catch (err) {
-    toast.error(String(err));
+    // `run_workflow` returns a typed CommandError since WI-19 (feature-disabled
+    // when the engine is off, invalid-input for bad YAML). `String(err)` on that
+    // object renders the literal "[object Object]" — the exact defect
+    // commandErrorMessage exists to close.
+    toast.error(commandErrorMessage(err));
   }
 }
 

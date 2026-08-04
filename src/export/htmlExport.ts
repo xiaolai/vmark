@@ -58,9 +58,9 @@ import { errorMessage } from "@/utils/errorMessage";
 /** Configuration for HTML folder export. */
 export interface HtmlExportOptions {
   /** Document title */
-  title?: string;
-  /** Source file path (for resource resolution) */
-  sourceFilePath?: string | null;
+  title?: string | undefined;
+  /** Source file path (resource resolution); `| undefined` — unsaved docs have none. */
+  sourceFilePath?: string | null | undefined;
   /** Output folder path (the document folder) */
   outputPath: string;
   /** User font settings */

@@ -57,6 +57,37 @@ pub struct BrowserSurface {
     pub profile_opens: Mutex<Vec<ProfileOpen>>,
 }
 
+/// Machine-readable prefixes on the native surface's `Result<_, String>`
+/// failures (audit 20260803 §7).
+///
+/// The surface is `String`-errored on every platform, and the AI command layer
+/// funnelled EVERY failure through `lock_failure` — reporting a window that had
+/// closed, a URL WebKit would not accept, and an exhausted profile-store cap all
+/// as `internal` / "the browser state could not be read", which is the message
+/// for a poisoned mutex. Typing the surface end to end would touch both native
+/// backends and every caller; tagging the handful of distinguishable failures
+/// with a stable token does not, and it is the convention two of these sites
+/// already used on their own (`PROFILE_STORE_LIMIT`, `UNSUPPORTED_PLATFORM`).
+///
+/// The token is a CONTRACT, not a sniff: the producer and
+/// `ai_guards::surface_failure` both name the constant, matching is anchored at
+/// the start and must be followed by `": "` or end-of-string, and anything
+/// unrecognised stays `internal`. Rewording the prose after the colon is free.
+pub mod fail {
+    /// The window a tab was to be attached to is gone (or has no content view).
+    pub const WINDOW_GONE: &str = "WINDOW_GONE";
+    /// No native webview is registered for that tab id.
+    pub const NO_WEBVIEW: &str = "NO_WEBVIEW";
+    /// The platform URL type rejected the string.
+    pub const INVALID_URL: &str = "INVALID_URL";
+    /// The named-profile data-store cap is exhausted (WI-P6.1 H2).
+    pub const PROFILE_STORE_LIMIT: &str = "PROFILE_STORE_LIMIT";
+    /// This build has no native browser surface.
+    pub const UNSUPPORTED_PLATFORM: &str = "UNSUPPORTED_PLATFORM";
+    /// The main-thread hop did not answer within its deadline.
+    pub const MAIN_THREAD_TIMEOUT: &str = "MAIN_THREAD_TIMEOUT";
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TabAttachment {
     pub tab_id: String,

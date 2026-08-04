@@ -33,10 +33,16 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { coherenceLog } from "@/utils/debug";
 
+/**
+ * One capture input on the way to the Rust side. Serialized as JSON, where a
+ * key holding `undefined` and a missing key are the same wire bytes — so the
+ * fields are `| undefined` rather than forcing every producer to reshape the
+ * object around whichever facts it happens to know.
+ */
 export interface CoherenceCaptureInput {
-  path?: string;
-  object_id?: string;
-  revision?: string;
+  path?: string | undefined;
+  object_id?: string | undefined;
+  revision?: string | undefined;
   role: "direct" | "contextual";
 }
 

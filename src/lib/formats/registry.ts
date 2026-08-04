@@ -95,6 +95,24 @@ export function registerFormat(config: FormatConfig): void {
       `[formats] "${config.id}" kind=wysiwyg requires wysiwygComponent`,
     );
   }
+  // WI-13 — surfaces are IMPORT THUNKS, and that has to fail at composition
+  // rather than at first mount. A non-callable value here means either a
+  // half-written adapter or the pre-WI-13 shape (an already-imported
+  // component), and the second one silently reinstates the static import this
+  // change removed: everything would still render, and the ~900 kB WYSIWYG
+  // chunk would be back on the cold start of every Settings window with no
+  // test failing. Callability is all that is checkable — a thunk and a
+  // function component are indistinguishable by inspection, and CALLING it
+  // here would defeat the point of the field being lazy.
+  for (const surface of ["wysiwygComponent", "language"] as const) {
+    const value = config[surface];
+    if (value !== undefined && typeof value !== "function") {
+      throw new Error(
+        `[formats] "${config.id}" ${surface} must be an import thunk ` +
+          `(() => import(...)), got ${typeof value}`,
+      );
+    }
+  }
   // Invariant 4 (per plan rev 5): non-wysiwyg formats may omit
   // loadLanguage. They render with raw CodeMirror — full editing,
   // find, undo, save still work. The original strict invariant is

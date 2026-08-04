@@ -42,7 +42,7 @@ import {
 } from "./mediaPopupDom";
 import { browseAndReplaceMedia } from "./mediaPopupActions";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import type { ImageDimensions } from "@/types/image";
 
 /** Approximate popup height by media type (rows × ~24px row height + padding). */

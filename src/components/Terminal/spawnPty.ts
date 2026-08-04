@@ -247,7 +247,13 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     throw new Error("disposed before spawn");
   }
 
-  const baseSpawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd };
+  // `cwd` omitted, not `undefined`, when the caller names no directory: the PTY
+  // contract is "no cwd key = inherit the process's".
+  const baseSpawnOpts = {
+    cols: term.cols || 80,
+    rows: term.rows || 24,
+    ...(cwd !== undefined && { cwd }),
+  };
   let pty: IPty;
   try {
     pty = spawn(shell, spawnConfig.args, { ...baseSpawnOpts, env: spawnConfig.env });

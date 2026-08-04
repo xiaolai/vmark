@@ -1,4 +1,6 @@
 // WI-N2.1 — AI command result contracts remain camelCase and ticket-bearing.
+// The refusal vocabulary (WI-14) is tested beside the guards that produce it,
+// in `ai_guards.test.rs`.
 use super::*;
 use crate::browser::registry::AutomationMode;
 

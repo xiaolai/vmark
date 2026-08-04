@@ -15,12 +15,12 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 const mockCopyMediaToAssets = vi.fn();
-vi.mock("@/hooks/useMediaOperations", () => ({
+vi.mock("@/services/media/mediaOperations", () => ({
   copyMediaToAssets: (...args: unknown[]) => mockCopyMediaToAssets(...args),
 }));
 
 const mockCopyImageToAssets = vi.fn();
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
 }));
 

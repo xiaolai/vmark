@@ -66,13 +66,13 @@ vi.mock("@/utils/popupComponents", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
-  getEditorBounds: () => ({
-    horizontal: { left: 0, right: 800 },
-    vertical: { top: 0, bottom: 600 },
-  }),
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+  getEditorBounds: () => ({ horizontal: { left: 0, right: 800 }, vertical: { top: 0, bottom: 600 } }),
 }));
 
 import { SourceLinkCreatePopupView } from "./SourceLinkCreatePopupView";
@@ -689,7 +689,7 @@ describe("SourceLinkCreatePopupView", () => {
 
     it("uses absolute positioning when getPopupHostForDom returns a non-body host", async () => {
       // Temporarily override the mock to return a custom host
-      const sourcePopup = await import("@/plugins/sourcePopup/sourcePopupUtils");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       const hostEl = document.createElement("div");
       hostEl.style.position = "relative";
       hostEl.getBoundingClientRect = () => ({

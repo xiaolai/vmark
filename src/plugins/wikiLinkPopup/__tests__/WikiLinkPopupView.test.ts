@@ -73,7 +73,7 @@ vi.mock("@/utils/popupComponents", () => ({
 }));
 
 const mockGetPopupHostForDom = vi.fn((dom: HTMLElement) => dom.closest(".editor-container") as HTMLElement | null);
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (...args: unknown[]) => mockGetPopupHostForDom(args[0] as HTMLElement),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));

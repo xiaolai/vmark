@@ -28,15 +28,21 @@
  * @module utils/markdownPipeline/plugins/rebasePositions
  */
 
+/**
+ * A structural view of the mdast nodes this module WALKS. Every field carries
+ * `| undefined` because that is how mdast declares them — a synthesized node
+ * arrives with `position` present and holding undefined, and this type has to
+ * accept the trees it is handed rather than a tidier version of them.
+ */
 interface Point {
-  line?: number;
-  column?: number;
-  offset?: number;
+  line?: number | undefined;
+  column?: number | undefined;
+  offset?: number | undefined;
 }
 
 interface NodeLike {
-  position?: { start?: Point; end?: Point };
-  children?: NodeLike[];
+  position?: { start?: Point | undefined; end?: Point | undefined } | undefined;
+  children?: NodeLike[] | undefined;
 }
 
 /** Where an extracted body begins inside its host document. */

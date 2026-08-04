@@ -13,9 +13,10 @@ use super::handshake::{
     await_auth, check_upgrade_request, AuthOutcome, ConnectionSlot, AUTH_DEADLINE,
     MAX_CONCURRENT_CONNECTIONS,
 };
+use super::managed::{bridge, McpBridgeState};
 use super::message_loop::run_message_loop;
 use super::principal::BridgePrincipal;
-use super::state::{get_bridge_state, ClientConnection, CLIENT_TX_CAPACITY};
+use super::state::{ClientConnection, CLIENT_TX_CAPACITY};
 use crate::mcp_config::client_tokens;
 use futures_util::{FutureExt, SinkExt, StreamExt};
 use std::future::Future;
@@ -55,7 +56,7 @@ pub(super) fn admit_connection<R: tauri::Runtime>(
     // Captured at admission: if the bridge stops (or restarts) while this
     // connection is mid-handshake, registration re-checks the generation and
     // refuses — an authenticated stray must not outlive its bridge.
-    let admitted_generation = super::state::connection_generation();
+    let admitted_generation = bridge(app).connection_generation();
     crate::task::spawn_logged(
         "mcp-bridge-connection",
         handle_connection(
@@ -75,9 +76,8 @@ pub(super) fn admit_connection<R: tauri::Runtime>(
 /// A counter bump, not an allocation: the id is needed for the welcome frame
 /// and the auth-phase logs, and pre-minting it keeps the wire format
 /// unchanged while the `clients` entry stays behind authentication.
-async fn mint_client_id() -> u64 {
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
+async fn mint_client_id(bridge: &McpBridgeState) -> u64 {
+    let mut guard = bridge.lock().await;
     let id = guard.next_client_id;
     guard.next_client_id += 1;
     id
@@ -113,7 +113,7 @@ async fn handle_connection<R: tauri::Runtime>(
     };
 
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-    let client_id = mint_client_id().await;
+    let client_id = mint_client_id(bridge(&app)).await;
     log::debug!("[MCP Bridge] Peer {client_id} connected from {addr}");
 
     if !send_frame(&mut ws_sender, &welcome_frame(client_id)).await {
@@ -193,7 +193,10 @@ async fn serve_authenticated<R: tauri::Runtime, S>(
         identity: None,
         principal,
     };
-    if !super::state::try_register_client(client_id, connection, admitted_generation).await {
+    if !bridge(app)
+        .try_register_client(client_id, connection, admitted_generation)
+        .await
+    {
         log::warn!(
             "[MCP Bridge] Client {client_id} authenticated during bridge shutdown — refused"
         );
@@ -243,8 +246,7 @@ async fn unregister_after<R: tauri::Runtime, F: Future<Output = ()>>(
     // Cleanup. F6 (WI-3.5, D4.2): disconnect removes ONLY the client record
     // — never tabs, never a window's workspace (disconnect_preserves_* test).
     let had_identity = {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge(app).lock().await;
         match guard.clients.remove(&client_id) {
             Some(client) => {
                 let name = client

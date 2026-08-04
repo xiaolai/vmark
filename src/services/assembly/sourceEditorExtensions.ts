@@ -20,6 +20,7 @@
  *   - Plugins are loaded via imports from codemirror/ directory (co-located)
  *
  * @coordinates-with SourceEditor.tsx — creates EditorView with these extensions
+ * @coordinates-with sourceLanguageBinding.ts — the format's language pack (WI-13)
  * @coordinates-with codemirror/theme.ts — visual theme for the source editor
  * @coordinates-with codemirror/, hostAdapters.ts — source plugins and their stores
  * @module utils/sourceEditorExtensions
@@ -30,10 +31,7 @@ import { history } from "@codemirror/commands";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { workflowWarn } from "@/utils/debug";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { markdownLanguageSupport } from "@/lib/formats/markdownLanguageSupport";
-import { languages } from "@codemirror/language-data";
-import { isYamlFileName } from "@/utils/dropPaths";
-import { dispatchEditor } from "@/lib/formats/registry";
+import { formatLanguageExtension } from "./sourceLanguageBinding";
 import { sourceWorkflowPreviewExtensions } from "@/plugins/codemirror/sourceWorkflowPreview";
 // WI-2.4 — sourceGhaWorkflowPreview retired. Standalone workflow YAML
 // routes through the yaml adapter: its schemaRenderer mounts the
@@ -43,7 +41,7 @@ import { workflowCompletionExtension } from "@/plugins/codemirror/sourceWorkflow
 import { workflowCursorSyncExtension } from "@/plugins/codemirror/sourceWorkflowCursorSync";
 import { gotoExtension } from "@/plugins/codemirror/sourceWorkflowGoto";
 import { yamlLintExtension } from "@/plugins/codemirror/sourceYamlLint";
-import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
+import { workflowExtensionGates } from "./workflowExtensionGates";
 import { syntaxHighlighting } from "@codemirror/language";
 import { closeBrackets } from "@codemirror/autocomplete";
 import { search } from "@codemirror/search";
@@ -74,7 +72,7 @@ import {
 } from "@/plugins/codemirror";
 import { buildSourceKeymapEntries } from "./sourceEditorKeymap";
 import { resolveExtensions } from "@/lib/extensions/resolve";
-import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { deriveAfterConstraints, assertCanonicalCoverage, orderingSlice } from "./extensionOrdering";
 import { SOURCE_COMPOSITION_ORDER } from "./compositionOrder";
 import type { VMarkExtension } from "@/lib/extensions/types";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
@@ -109,47 +107,27 @@ interface ExtensionConfig {
   initialReadOnly?: boolean;
   initialShowInvisibles?: boolean;
   updateListener: Extension;
-  /** Tab ID for per-tab lint diagnostics (required when lintEnabled is true) */
-  tabId?: string;
+  /** Tab ID for per-tab lint diagnostics (required when lintEnabled is true).
+   *  `| undefined`: callers forward the active tab, which may not exist yet. */
+  tabId?: string | undefined;
   /** Whether to include the lint annotation extension */
-  lintEnabled?: boolean;
+  lintEnabled?: boolean | undefined;
   /** File path for language mode detection (YAML vs markdown) */
-  filePath?: string | null;
+  filePath?: string | null | undefined;
 }
 
 /**
  * Creates the array of CodeMirror extensions for the source editor.
  */
-/**
- * The CodeMirror language pack for `filePath`, from the format registry.
- *
- * Formats that bundle their pack anyway expose it synchronously via
- * `FormatConfig.language`, so the primary path never mounts unhighlighted
- * (ADR-015 Phase 4A, option 2).
- *
- * Falls back to markdown when the registry is unavailable — `dispatchEditor`
- * throws if no format has been registered, which happens in unit tests that
- * build extensions without bootstrapping. A source editor with the wrong
- * highlighting is recoverable; one that throws on construction is not.
- */
-function resolveLanguage(filePath: string | null | undefined): Extension {
-  const fallback = () => markdownLanguageSupport(languages);
-  try {
-    return dispatchEditor(filePath ?? null).language?.() ?? fallback();
-  } catch {
-    return fallback();
-  }
-}
-
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
-  // YAML detection ignores the workflow feature flag — every YAML file gets
-  // `lang-yaml` highlighting and parse-error linting; workflow-only extensions
-  // (preview, completion, goto, cursor sync) gate on isWorkflowEnabled(). MED-2.
-  const isYaml = filePath
-    ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
-    : false;
-  const workflowFeatures = isYaml && isWorkflowEnabled();
+  // YAML detection ignores the workflow feature flags — every YAML file gets
+  // `lang-yaml` highlighting and parse-error linting (MED-2). The workflow
+  // families are gated separately since WI-19: `viewer` for the GitHub Actions
+  // authoring aids (completion, cursor sync, goto-def) and `engine` for the
+  // bespoke preview parse that feeds the Run panel.
+  const { yaml: isYaml, viewer: viewerFeatures, engine: engineFeatures } =
+    workflowExtensionGates(filePath);
 
   const parts: Array<{ id: string; ext: Extension }> = [
     // Line wrapping (dynamic via compartment)
@@ -204,27 +182,24 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     { id: "source.keymap", ext: keymap.of(buildSourceKeymapEntries()) },
     // Search extension (programmatic control only, no panel)
     { id: "source.search", ext: search() },
-    // Language mode: YAML for .yml/.yaml files, markdown for everything else
-    // Language comes from the format registry, not a hard-coded branch. Formats
-    // that bundle their pack anyway expose it synchronously via
-    // `FormatConfig.language`, so the primary path never mounts unhighlighted;
-    // anything else falls back to the statically imported markdown pack until
-    // the async `loadLanguage` path is wired (ADR-015 Phase 4A).
-    { id: "source.language", ext: resolveLanguage(filePath) },
+    // Language mode. The pack comes from the format registry, not a hard-coded
+    // branch, and since WI-13 it arrives through an import thunk — see
+    // sourceLanguageBinding.ts for the compartment + fallback it composes.
+    { id: "source.language", ext: formatLanguageExtension(filePath) },
     // Workflow preview plugin for YAML files (parses YAML → workflowPreviewStore)
-    { id: "source.workflowPreview", ext: (workflowFeatures ? sourceWorkflowPreviewExtensions : []) },
+    { id: "source.workflowPreview", ext: (engineFeatures ? sourceWorkflowPreviewExtensions : []) },
     // YAML parse-error linter (every YAML file, regardless of workflow
     // flag). Surfaces duplicate keys, unterminated strings, indentation
     // breaks via the CodeMirror gutter.
     { id: "source.yamlLint", ext: (isYaml ? [yamlLintExtension()] : []) },
     // Workflow expression autocomplete inside ${{ }} (WI-A.1).
-    { id: "source.workflowCompletion", ext: (workflowFeatures && tabId ? [workflowCompletionExtension(tabId)] : []) },
+    { id: "source.workflowCompletion", ext: (viewerFeatures && tabId ? [workflowCompletionExtension(tabId)] : []) },
     // Source cursor → canvas job selection (WI-B.3).
-    { id: "source.workflowCursorSync", ext: (workflowFeatures && tabId ? [workflowCursorSyncExtension(tabId)] : []) },
+    { id: "source.workflowCursorSync", ext: (viewerFeatures && tabId ? [workflowCursorSyncExtension(tabId)] : []) },
     // Cmd/Ctrl-Click on `uses:` opens local target (WI-B.2).
     {
       id: "source.gotoExtension",
-      ext: (workflowFeatures && filePath
+      ext: (viewerFeatures && filePath
       ? [
           gotoExtension({
             filePath,
@@ -301,7 +276,7 @@ export function createSourceEditorExtensions(config: ExtensionConfig): Extension
     .map(({ id, ext }) => ({
       id,
       contributions: [{ kind: "codemirror", factory: () => ext }],
-      ordering: after.has(id) ? { after: after.get(id) } : undefined,
+      ...orderingSlice(after, id),
     }));
 
   const { ordered, errors } = resolveExtensions(descriptors);

@@ -6,10 +6,17 @@
  * and the manual "Test Restore" button (AdvancedSettings) must use this so a
  * multi-window session is never silently collapsed to its main window (#970).
  *
+ * WI-3: this module is also the validated READ boundary — persisted payloads
+ * pass through `salvageSessionPayload` (Zod, per-item salvage, quarantine of
+ * failures) before any restore command is chosen.
+ *
+ * @coordinates-with sessionSalvage.ts — the salvage parser re-exported here
  * @module services/persistence/hotExit/restoreDispatch
  */
 
 import type { SessionData } from "./types";
+
+export { salvageSessionPayload } from "./sessionSalvage";
 
 /** Tauri command: restore only the main window from a session. */
 export const HOT_EXIT_RESTORE = "hot_exit_restore";

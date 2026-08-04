@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "当前没有正在运行的工作流"
   workflow.circularDependency: "工作流步骤中检测到循环依赖"
   workflow.noInteractivePrompt: "工作流执行中不支持交互式提示"
+  workflow.engineDisabled: "工作流引擎已在设置中关闭"
+  workflow.noPendingApproval: "没有匹配的待处理审批请求"
+  workflow.appDataDirUnavailable: "无法解析应用数据目录：%{detail}"
+
+  # === 保存路径（file_write.rs，WI-14 CommandError）===
+  save.parentMissing: "该文件所在的文件夹已不存在：%{dir}"
+  save.noParentDirectory: "文件路径没有上级文件夹"
+  save.writeFailed: "无法保存文件：%{detail}"
+  save.taskFailed: "保存任务意外结束：%{detail}"
+
+  # === 内置浏览器，AI 导航（browser/ai_commands.rs，WI-14）===
+  browser.disabled: "内置浏览器已在设置中关闭"
+  browser.approvalRequired: "AI 打开此页面前需要你的许可"
+  browser.blockedDestination: "策略禁止 AI 访问该目标地址"
+  browser.profileNotApproved: "未获许可打开该浏览器配置"
+  browser.tabNotFound: "该浏览器标签页已不存在"
+  browser.tabNotAiOwned: "该浏览器标签页不受 AI 控制"
+  browser.policyStale: "浏览器策略已变更，请重试该操作"
+  browser.tabProvenanceMismatch: "该标签页是在另一种自动化模式下创建的"
+  browser.invalidSessionMode: "未知的浏览器会话模式“%{mode}”"
+  browser.stateUnavailable: "无法读取浏览器状态：%{detail}"
+  browser.invalidUrl: "这不是可用的网址"
+  browser.invalidProfileName: "该浏览器配置名称不被允许"
+  browser.windowGone: "该浏览器标签页所属的窗口已关闭"
+  browser.profileLimit: "同时打开的浏览器配置过多"
+  browser.unsupportedPlatform: "内置浏览器在此平台上不可用"
+  browser.surfaceTimeout: "浏览器未在规定时间内响应"
+  browser.surfaceFailed: "浏览器无法完成该操作"
 
   # === Hot exit ===
   hotExit.noWindows: "没有需要捕获的文档窗口"

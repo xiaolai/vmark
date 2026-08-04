@@ -16,7 +16,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { buildContainer } from "./mermaidPreviewDOM";
 import { renderPreview } from "./mermaidPreviewRender";
 

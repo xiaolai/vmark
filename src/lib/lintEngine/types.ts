@@ -30,8 +30,16 @@ export interface LintDiagnostic {
   column: number;
   /** 0-based character offset in source */
   offset: number;
-  /** End of affected range (0-based). Undefined = point diagnostic. */
-  endOffset?: number;
+  /**
+   * End of affected range (0-based). Undefined = point diagnostic.
+   *
+   * Explicitly `| undefined`: rules derive this from `mdast` positions, whose
+   * `offset` is itself optional, so "we could not determine an end" arrives as
+   * a present key holding undefined. Consumers (`sourceLint.diagnosticToCM`)
+   * test `!= null`, so a present-undefined and an absent key mean the same
+   * thing — the type now says so instead of forcing callers to drop the key.
+   */
+  endOffset?: number | undefined;
   /** Rendering hint for WYSIWYG mode */
   uiHint: UiHint;
 }

@@ -169,9 +169,13 @@ describe("decideOnClose", () => {
 
 ## Coverage Check
 
-Coverage is tracked but not enforced via hard thresholds in CI. Run manually:
+Coverage IS enforced: `vitest.config.ts` carries ratchet-only floors (measured actuals minus a
+~0.05 pp flake buffer; relaxing requires written justification in the commit message), and
+`pnpm test:coverage` — which runs inside `pnpm check:all` and therefore in CI's `frontend`
+check — fails when coverage drops below them. `vitest.config.ts` is the single authority for the
+numbers (pinned by `src/test/coverageThresholdSources.test.ts`).
 
-**To check:** `pnpm test:coverage` — review the report for gaps.
+**To check locally:** `pnpm test:coverage` — then `coverage/index.html` for per-file gaps.
 
 ## Test Utilities
 

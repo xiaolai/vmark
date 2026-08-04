@@ -21,7 +21,7 @@ const subscribeMock = vi.fn((_label: string, cb: (events: unknown[]) => void) =>
     wsEventCallback = null;
   };
 });
-vi.mock("@/hooks/useWorkspaceEventBus", () => ({
+vi.mock("@/services/workspaceEvents/subscribeWorkspaceEvents", () => ({
   subscribeWorkspaceEvents: (...args: unknown[]) =>
     (subscribeMock as unknown as (...a: unknown[]) => unknown)(...args),
 }));

@@ -112,3 +112,105 @@ describe("linkCreatePopupStore", () => {
     expect(state.url).toBe("");
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("linkCreatePopupStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useLinkCreatePopupStore.getState().closePopup();
+  });
+
+  const initialData = {
+    isOpen: false,
+    text: "",
+    url: "",
+    rangeFrom: 0,
+    rangeTo: 0,
+    anchorRect: null,
+    showTextInput: true,
+  };
+
+  function dataOf(s: ReturnType<typeof useLinkCreatePopupStore.getState>) {
+    const { isOpen, text, url, rangeFrom, rangeTo, anchorRect, showTextInput } = s;
+    return { isOpen, text, url, rangeFrom, rangeTo, anchorRect, showTextInput };
+  }
+
+  it("no leak across sessions: open A → setText/setUrl → close → open B shows only B", () => {
+    useLinkCreatePopupStore.getState().openPopup({
+      text: "a",
+      rangeFrom: 1,
+      rangeTo: 2,
+      anchorRect: rect,
+      showTextInput: false,
+    });
+    useLinkCreatePopupStore.getState().setText("a-edited");
+    useLinkCreatePopupStore.getState().setUrl("https://a.com");
+    useLinkCreatePopupStore.getState().closePopup();
+
+    useLinkCreatePopupStore.getState().openPopup({
+      text: "b",
+      rangeFrom: 10,
+      rangeTo: 20,
+      anchorRect: rect,
+      showTextInput: true,
+    });
+
+    expect(dataOf(useLinkCreatePopupStore.getState())).toEqual({
+      isOpen: true,
+      text: "b",
+      url: "",
+      rangeFrom: 10,
+      rangeTo: 20,
+      anchorRect: rect,
+      showTextInput: true,
+    });
+  });
+
+  it("setText/setUrl while closed still mutate (pinned legacy behavior: setters are unguarded)", () => {
+    useLinkCreatePopupStore.getState().setText("closed text");
+    useLinkCreatePopupStore.getState().setUrl("https://closed.com");
+    const state = useLinkCreatePopupStore.getState();
+    expect(state.text).toBe("closed text");
+    expect(state.url).toBe("https://closed.com");
+    expect(state.isOpen).toBe(false);
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useLinkCreatePopupStore.getState().openPopup({
+        text: `t${i}`,
+        rangeFrom: i,
+        rangeTo: i + 1,
+        anchorRect: rect,
+        showTextInput: i % 2 === 0,
+      });
+      useLinkCreatePopupStore.getState().closePopup();
+    }
+    expect(dataOf(useLinkCreatePopupStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useLinkCreatePopupStore.getState().openPopup({
+        text: "m",
+        rangeFrom: 1,
+        rangeTo: 2,
+        anchorRect: rect,
+        showTextInput: false,
+      });
+      expect(dataOf(useLinkCreatePopupStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useLinkCreatePopupStore.getState().openPopup({
+        text: "m",
+        rangeFrom: 1,
+        rangeTo: 2,
+        anchorRect: rect,
+        showTextInput: false,
+      });
+      useLinkCreatePopupStore.setState(useLinkCreatePopupStore.getInitialState());
+      expect(dataOf(useLinkCreatePopupStore.getState())).toEqual(initialData);
+    });
+  });
+});

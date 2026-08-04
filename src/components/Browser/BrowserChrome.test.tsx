@@ -7,7 +7,7 @@ vi.mock("@/contexts/WindowContext", () => ({ useWindowLabel: () => "main" }));
 vi.mock("@/components/Browser/BrowserOmnibox", () => ({
   BrowserOmnibox: ({ tabId }: { tabId: string }) => <div data-testid="omnibox">{tabId}</div>,
 }));
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: vi.fn(() => Promise.resolve(true)),
 }));
 

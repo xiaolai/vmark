@@ -45,12 +45,15 @@ export function diagnosticToCodemirror(
   } else {
     to = Math.min(from + 1, lineInfo.to);
   }
+  // No `source` key for a diagnostic with no rule id — CodeMirror renders the
+  // source as a badge next to the message, and an empty badge is not the same
+  // as no badge.
   return {
     from,
     to: to <= from ? Math.min(from + 1, lineInfo.to) : to,
     severity: d.severity,
     message: d.message,
-    source: d.ruleId,
+    ...(d.ruleId !== undefined ? { source: d.ruleId } : {}),
   };
 }
 
@@ -83,8 +86,9 @@ export interface BuildExtensionsArgs {
   languageCompartment: Compartment;
   /** Compartment owning the lazily-loaded per-format extras
    *  (FormatConfig.loadExtraExtensions). Optional: panes for formats
-   *  without extras skip the slot entirely. */
-  extrasCompartment?: Compartment;
+   *  without extras skip the slot entirely — the caller reads the format's
+   *  slot and forwards whatever is there, so `| undefined` is that answer. */
+  extrasCompartment?: Compartment | undefined;
   /** Persist-on-change listener (writes documentStore.setContent). */
   persistOnUpdate: Extension;
   /** Hoists lint diagnostics to the preview pane. */

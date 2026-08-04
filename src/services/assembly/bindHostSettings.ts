@@ -25,7 +25,7 @@ import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
 import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 import { useTabStore } from "@/stores/tabStore";
 import { useUIStore } from "@/stores/uiStore";
-import { usePopupStore } from "@/stores/popupStore";
+import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { bindHostEditors } from "@/plugins/shared/hostEditors";
 import { bindHostViewModes } from "@/plugins/shared/hostViewModes";
@@ -37,6 +37,7 @@ import { bindWorkflowPort } from "@/plugins/codemirror/workflowPort";
 import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
 import { bindBlockMathEditingStore } from "@/plugins/codePreview/editingRegistry";
 import { useDocumentStore, useUnifiedHistoryStore } from "@/stores/documentStore";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 /** The document behind `windowLabel`'s active tab, or undefined. */
 function activeDoc(windowLabel: string) {
@@ -90,6 +91,11 @@ export function bindPluginHostSettings(): void {
   bindBlockMathEditingStore(useBlockMathEditingStore as never);
 
   bindHostDocument({
+    // The seam's default is null ("no window"), which is the honest answer for
+    // a lifted-out plugin and the WRONG one inside VMark: unbound, every
+    // caller of `activeFilePathForCurrentWindow()` would resolve relative
+    // links against nothing. This line is what makes it the app's real window.
+    currentWindowLabel: () => getWindowLabel(),
     activeFilePath: (windowLabel) => {
       const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
       if (!tabId) return null;
@@ -181,7 +187,7 @@ export function bindPluginHostSettings(): void {
       else toast.showToast({ ...r, imagePath: r.imagePath, imageType: r.imageType, onDismiss });
     },
     openEditorContextMenu: (r) =>
-      usePopupStore.getState().editorContextOpenMenu(r),
+      useEditorContextMenuStore.getState().openMenu(r),
     dismissUniversalToolbar: () => {
       const ui = useUIStore.getState();
       if (!ui.universalToolbarVisible) return false;

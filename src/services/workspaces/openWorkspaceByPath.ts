@@ -15,7 +15,7 @@
  *
  * @coordinates-with services/commands/workspaceCommands.ts — menu "Open Folder"
  * @coordinates-with services/commands/recentWorkspacesCommands.ts — "Open Recent"
- * @coordinates-with hooks/mcpBridge/v2/workspace.ts — open_workspace handler
+ * @coordinates-with services/mcpBridge/v2/workspace.ts — open_workspace handler
  * @module services/workspaces/openWorkspaceByPath
  */
 import { useUIStore } from "@/stores/uiStore";

@@ -12,7 +12,7 @@
  * retries and the retry consumes it. No standing grants — a remembered grant to
  * open any folder would defeat the point (ADR-2).
  *
- * @coordinates-with hooks/mcpBridge/v2/workspace.ts — the open_workspace handler
+ * @coordinates-with services/mcpBridge/v2/workspace.ts — the open_workspace handler
  * @coordinates-with components (approval UI) — resolveApproval
  * @module stores/workspaceApprovalStore
  */

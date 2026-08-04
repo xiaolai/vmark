@@ -29,7 +29,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDropZoneStore } from "@/stores/dropZoneStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { saveImageToAssets } from "@/hooks/useImageOperations";
+import { saveImageToAssets } from "@/services/media/imageOperations";
 import { dragDropError } from "@/utils/debug";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { hasImageExtension } from "@/utils/imagePathDetection";

@@ -39,7 +39,10 @@ import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { browserOcclusion } from "@/services/browser/browserOcclusion";
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { clearNavIntent } from "@/services/browser/navIntent";
-import { errorMessage } from "@/utils/errorMessage";
+import {
+  classifyCommandError,
+  commandErrorMessage,
+} from "@/services/commands/commandError";
 import type { BrowserAutomationMode } from "@/stores/tabStoreTypes";
 
 /** The mount that currently owns each tab's native webview — see hazard 1 above. */
@@ -127,7 +130,14 @@ export function useBrowserNativeView(
       .catch((e: unknown) => {
         // A create that fails leaves NO native view at all — the tab would sit there as an
         // empty rect forever. Say so (WI-S0.9).
-        if (active) useBrowserUiStore.getState().setError(tabId, errorMessage(e));
+        //
+        // Except when it is only awaiting approval (WI-14): the approval prompt
+        // owns that interaction and the MCP handler retries once the user
+        // decides, so a persistent error under the prompt is a second, wrong
+        // story about the same event — and before the error was typed it read
+        // as the raw token "APPROVAL_REQUIRED".
+        if (!active || classifyCommandError(e) === "needs-approval") return;
+        useBrowserUiStore.getState().setError(tabId, commandErrorMessage(e));
       })
       .finally(() => active && useBrowserUiStore.getState().setLoading(tabId, false));
 

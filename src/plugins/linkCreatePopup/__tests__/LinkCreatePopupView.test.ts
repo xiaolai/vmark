@@ -58,7 +58,7 @@ vi.mock("@/utils/popupComponents", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -553,7 +553,7 @@ describe("LinkCreatePopupView", () => {
 
   describe("Host positioning", () => {
     it("uses absolute positioning when host is not document.body", async () => {
-      const sourcePopup = await import("@/plugins/sourcePopup");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       const hostEl = document.createElement("div");
       hostEl.style.position = "relative";
       hostEl.getBoundingClientRect = () => ({
@@ -579,7 +579,7 @@ describe("LinkCreatePopupView", () => {
     });
 
     it("uses fixed positioning when host is document.body", async () => {
-      const sourcePopup = await import("@/plugins/sourcePopup");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       vi.spyOn(sourcePopup, "getPopupHostForDom" as never).mockReturnValue(null as never);
 
       popup.destroy();

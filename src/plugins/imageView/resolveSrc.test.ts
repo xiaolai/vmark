@@ -11,6 +11,17 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: async (...parts: string[]) => parts.join("/"),
 }));
 
+/**
+ * A host with a window open on `filePath`. The window label is part of the
+ * seam's contract (WI-11): a fake that answers "which file" but not "which
+ * window" is a host that does not exist, and the resolver correctly treats it
+ * as "no document".
+ */
+const openIn = (filePath: string) => ({
+  currentWindowLabel: () => "main",
+  activeFilePath: () => filePath,
+});
+
 describe("resolveImageSrc", () => {
   beforeEach(() => {
     resetHostDocument();
@@ -26,17 +37,17 @@ describe("resolveImageSrc", () => {
   });
 
   it("resolves a relative path against the active document's directory", async () => {
-    bindHostDocument({ activeFilePath: () => "/docs/note.md" });
+    bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("img/a.png")).toBe("asset://localhost//docs/img/a.png");
   });
 
   it("strips a leading ./ before joining", async () => {
-    bindHostDocument({ activeFilePath: () => "/docs/note.md" });
+    bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("./a.png")).toBe("asset://localhost//docs/a.png");
   });
 
   it("decodes percent-escapes so the filesystem sees real spaces", async () => {
-    bindHostDocument({ activeFilePath: () => "/docs/note.md" });
+    bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("my%20pic.png")).toBe("asset://localhost//docs/my pic.png");
   });
 
@@ -50,7 +61,7 @@ describe("resolveImageSrc", () => {
     // `isRelativePath` only rejects a LEADING `../`, so this one reaches
     // `validateImagePath` — the layer that rejects `..` anywhere — and is
     // blanked rather than resolved into the user's home directory.
-    bindHostDocument({ activeFilePath: () => "/docs/note.md" });
+    bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("img/../../../etc/passwd")).toBe("");
   });
 
@@ -59,12 +70,13 @@ describe("resolveImageSrc", () => {
     // "unknown format". Harmless: an unresolved relative src in the webview
     // has the app origin as its base, not `file://`, so it cannot read the
     // filesystem. Asserted so the two rejection layers stay distinguishable.
-    bindHostDocument({ activeFilePath: () => "/docs/note.md" });
+    bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("../../../etc/passwd")).toBe("../../../etc/passwd");
   });
 
   it("falls back to the original src when path joining throws", async () => {
     bindHostDocument({
+      currentWindowLabel: () => "main",
       activeFilePath: () => {
         throw new Error("store exploded");
       },

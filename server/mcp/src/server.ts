@@ -3,6 +3,7 @@
  */
 
 import type { Bridge, BridgeRequest } from './bridge/types.js';
+import { checkOutboundRequest } from './bridge/operationSchemas.js';
 import type {
   ToolDefinition,
   ToolHandler,
@@ -116,8 +117,16 @@ export class VMarkMcpServer implements McpServerInterface {
    * request for human consent, and discarding the envelope left the AI with an
    * error it could not act on. The message is defensive too — a failure without
    * `error` previously produced `new Error(undefined)`, i.e. an empty message.
+   *
+   * Every request is checked against its operation schema first (WI-15). That
+   * is what makes `operationSchemas.ts` the contract rather than a comment: a
+   * payload carrying a field the contract does not declare cannot quietly
+   * cross the wire and land in a branch nobody knew was reachable.
    */
   async sendBridgeRequest<T>(request: BridgeRequest): Promise<T> {
+    const { error: contractError, warning } = checkOutboundRequest(request);
+    if (contractError) throw new Error(contractError);
+    if (warning) console.warn(`[VMark MCP] ${warning}`);
     const response = await this.bridge.send<T>(request);
     if (!response.success) {
       const error = new Error(response.error || 'VMark rejected the request') as Error & {

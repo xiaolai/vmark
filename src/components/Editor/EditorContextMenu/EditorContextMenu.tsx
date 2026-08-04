@@ -1,8 +1,8 @@
 /**
  * Editor Context Menu — right-click menu for the editing surfaces.
  *
- * Singleton driven by the popupStore `editorContextMenu` slice (opened by
- * the per-surface triggers with a position + state snapshot). Renders the
+ * Singleton driven by the editorContextMenuStore (opened by the
+ * per-surface triggers with a position + state snapshot). Renders the
  * pure model from `buildEditorContextMenu`; activation routes through
  * `runMenuAction` (adapters / native clipboard bridge / link commands).
  *
@@ -25,7 +25,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { usePopupStore } from "@/stores/popupStore";
+import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -43,9 +43,9 @@ const VIEWPORT_INSET = 10;
 
 export function EditorContextMenu() {
   const { t } = useTranslation("editor");
-  const isOpen = usePopupStore((s) => s.editorContextMenu.isOpen);
-  const position = usePopupStore((s) => s.editorContextMenu.position);
-  const snapshot = usePopupStore((s) => s.editorContextMenu.snapshot);
+  const isOpen = useEditorContextMenuStore((s) => s.isOpen);
+  const position = useEditorContextMenuStore((s) => s.position);
+  const snapshot = useEditorContextMenuStore((s) => s.snapshot);
   // Subscribed so an open menu re-renders if bindings change; values are
   // read via getShortcut below.
   useShortcutsStore((s) => s.customBindings);
@@ -66,19 +66,19 @@ export function EditorContextMenu() {
   const topItems = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
   const closeOnly = useCallback(() => {
-    usePopupStore.getState().editorContextCloseMenu();
+    useEditorContextMenuStore.getState().closeMenu();
   }, []);
 
   const closeAndRefocus = useCallback(() => {
-    const surface = usePopupStore.getState().editorContextMenu.snapshot?.surface;
-    usePopupStore.getState().editorContextCloseMenu();
+    const surface = useEditorContextMenuStore.getState().snapshot?.surface;
+    useEditorContextMenuStore.getState().closeMenu();
     if (surface) focusEditorSurface(surface);
   }, []);
 
   const activate = useCallback(
     (item: EditorMenuAction) => {
-      const snap = usePopupStore.getState().editorContextMenu.snapshot;
-      usePopupStore.getState().editorContextCloseMenu();
+      const snap = useEditorContextMenuStore.getState().snapshot;
+      useEditorContextMenuStore.getState().closeMenu();
       /* v8 ignore next -- @preserve reason: activation is unreachable while closed; defensive */
       if (!snap) return;
       runEditorMenuItem(item.run, snap).catch((error) => {
@@ -101,7 +101,7 @@ export function EditorContextMenu() {
   // dependency.
   const activeTabId = useTabStore((s) => s.activeTabId[getCurrentWindowLabel()] ?? null);
   useEffect(() => {
-    if (usePopupStore.getState().editorContextMenu.isOpen) closeOnly();
+    if (useEditorContextMenuStore.getState().isOpen) closeOnly();
   }, [activeTabId, closeOnly]);
 
   // Close on scroll (outside the menu), window resize, and window blur.

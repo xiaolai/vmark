@@ -134,11 +134,11 @@ export interface ExportToHtmlOptions {
   /** Markdown content */
   markdown: string;
   /** Default folder name (document title) */
-  defaultName?: string;
-  /** Default parent directory */
-  defaultDirectory?: string;
+  defaultName?: string | undefined;
+  /** Default parent directory; `| undefined` — unsaved docs have no path to derive it from. */
+  defaultDirectory?: string | undefined;
   /** Source file path for resource resolution */
-  sourceFilePath?: string | null;
+  sourceFilePath?: string | null | undefined;
 }
 
 /**

@@ -52,7 +52,7 @@ export class LinkCreatePopupView extends WysiwygPopupView<LinkCreatePopupState> 
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return getLinkCreatePopupDimensions(this.store.getState().showTextInput);
   }
 

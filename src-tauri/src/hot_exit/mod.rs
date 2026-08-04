@@ -9,10 +9,12 @@ pub mod dedup;
 pub mod merge;
 pub mod migration;
 pub mod session;
+pub mod state;
 pub mod storage;
 pub mod validation;
 
 // Re-export commonly used types
+pub use state::HotExitState;
 
 /// Tauri event emitted to request session state capture from all windows.
 pub const EVENT_CAPTURE_REQUEST: &str = "hot-exit:capture-request";

@@ -4,12 +4,15 @@
  *
  * 1. Point git at the versioned hooks dir (`.githooks`) so the `pre-push`
  *    quality gate runs (no husky dependency).
- * 2. Add an SSH keepalive to `core.sshCommand`. The `pre-push` hook runs the
- *    full `pnpm check:all` (~3 min) while git holds the SSH connection to the
- *    remote open. Without a keepalive the idle connection times out, so the
- *    subsequent pack upload dies with SIGPIPE (exit 141) on direct pushes to
- *    `main` / `v*` tags — the gate passes but the push never lands. The
- *    keepalive sends traffic every 20s so the connection survives the hook.
+ * 2. Add an SSH keepalive to `core.sshCommand`. The `pre-push` hook can run
+ *    the full legacy quality gate under `VMARK_OFFLINE_GATE=1` (minutes —
+ *    the authoritative timing claim lives in the .githooks/pre-push header;
+ *    the default tag leg is a seconds-fast `gh api` check) while git holds
+ *    the SSH connection to the remote open. Without a keepalive the idle
+ *    connection times out, so the subsequent pack upload dies with SIGPIPE
+ *    (exit 141) on direct pushes to `main` / `v*` tags — the gate passes but
+ *    the push never lands. The keepalive sends traffic every 20s so the
+ *    connection survives the hook.
  *    Only set when no *effective* `core.sshCommand` exists (local, global, or
  *    system), so a custom SSH wrapper — global PuTTY/plink, a proxy command,
  *    identity routing — is never shadowed. Plain `ssh -o …` still reads

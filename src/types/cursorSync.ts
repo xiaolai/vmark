@@ -74,6 +74,11 @@ export interface CursorInfo {
   /**
    * Block-specific anchor for complex blocks (tables, code blocks).
    * Provides stable intra-block coordinates that don't depend on text matching.
+   *
+   * Explicitly `| undefined`: the extractors compute this as
+   * `BlockAnchor | undefined` in one pass and assign the result, and every
+   * consumer truthiness-tests it, so "key present holding undefined" and
+   * "key absent" are the same state (hot-exit JSON collapses them too).
    */
-  blockAnchor?: BlockAnchor;
+  blockAnchor?: BlockAnchor | undefined;
 }

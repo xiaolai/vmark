@@ -46,7 +46,7 @@ vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: () => ({ addFile: mockAddFile }) },
 }));
 
-vi.mock("@/hooks/tabCleanup", () => ({ cleanupTabState: vi.fn() }));
+vi.mock("@/services/windowClose/tabCleanup", () => ({ cleanupTabState: vi.fn() }));
 vi.mock("@/utils/debug", () => ({
   windowCloseWarn: vi.fn(),
   windowContextError: vi.fn(),

@@ -34,7 +34,7 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn((e: KeyboardEvent) => e.key === "Process"),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_host: unknown, pos: { top: number; left: number }) => pos),
 }));

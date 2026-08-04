@@ -14,11 +14,10 @@
  * WI-14).
  *
  * @coordinates-with switchWorkspaceInstance.ts — the visible switch
- * @coordinates-with stores/paneStore.ts — focused-pane activation under a split
+ * @coordinates-with stores/tabActivationBus.ts — setActiveTab is pane-aware (WI-2)
  * @module services/workspaces/activateTabWithWorkspaceContext
  */
 import { useTabStore } from "@/stores/tabStore";
-import { usePaneStore } from "@/stores/paneStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
 import { BROWSER_SCOPE, partitionWindowTabs } from "./workspaceOwnershipKernel";
@@ -30,16 +29,6 @@ export interface ActivateTabResult {
   /** True when activating required switching the visible workspace. */
   workspaceSwitched: boolean;
   workspaceInstanceId: string | null;
-}
-
-/** Pane-aware activation: the focused pane owns the alias under a split. */
-function activateTab(windowLabel: string, tabId: string, isDocument: boolean): void {
-  const split = usePaneStore.getState().getSplit(windowLabel);
-  if (split.enabled && isDocument) {
-    usePaneStore.getState().setFocusedPaneTab(windowLabel, tabId);
-  } else {
-    useTabStore.getState().setActiveTab(windowLabel, tabId);
-  }
 }
 
 /**
@@ -81,7 +70,8 @@ export function activateTabWithWorkspaceContext(
       return { activated: false, workspaceSwitched: false, workspaceInstanceId: activeId };
     }
   }
-  activateTab(windowLabel, tabId, tab.kind === "document");
+  // WI-2: setActiveTab is pane-aware through the activation seam.
+  useTabStore.getState().setActiveTab(windowLabel, tabId);
 
   return {
     activated: true,

@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "Nessun flusso di lavoro è attualmente in esecuzione"
   workflow.circularDependency: "Rilevata dipendenza circolare nei passaggi del flusso di lavoro"
   workflow.noInteractivePrompt: "Il prompt interattivo non è supportato nell'esecuzione del flusso di lavoro"
+  workflow.engineDisabled: "Il motore dei flussi di lavoro è disattivato nelle impostazioni"
+  workflow.noPendingApproval: "Nessuna richiesta di approvazione in sospeso corrisponde"
+  workflow.appDataDirUnavailable: "Impossibile risolvere la cartella dei dati dell'applicazione: %{detail}"
+
+  # === Percorso di salvataggio (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "La cartella di questo file non esiste più: %{dir}"
+  save.noParentDirectory: "Il percorso del file non ha una cartella superiore"
+  save.writeFailed: "Impossibile salvare il file: %{detail}"
+  save.taskFailed: "L'attività di salvataggio è terminata in modo imprevisto: %{detail}"
+
+  # === Browser integrato, navigazione dell'IA (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "Il browser integrato è disattivato nelle Impostazioni"
+  browser.approvalRequired: "Questa pagina richiede la tua approvazione prima che l'IA possa aprirla"
+  browser.blockedDestination: "I criteri bloccano la navigazione dell'IA verso questa destinazione"
+  browser.profileNotApproved: "L'apertura di questo profilo del browser non è stata approvata"
+  browser.tabNotFound: "Quella scheda del browser non esiste più"
+  browser.tabNotAiOwned: "Quella scheda del browser non è controllata dall'IA"
+  browser.policyStale: "I criteri del browser sono cambiati: riprova l'azione"
+  browser.tabProvenanceMismatch: "Quella scheda è stata creata in un'altra modalità di automazione"
+  browser.invalidSessionMode: "Modalità sessione del browser sconosciuta «%{mode}»"
+  browser.stateUnavailable: "Impossibile leggere lo stato del browser: %{detail}"
+  browser.invalidUrl: "Questo non è un indirizzo web utilizzabile"
+  browser.invalidProfileName: "Quel nome di profilo del browser non è consentito"
+  browser.windowGone: "La finestra a cui appartiene questa scheda del browser è stata chiusa"
+  browser.profileLimit: "Ci sono troppi profili del browser aperti contemporaneamente"
+  browser.unsupportedPlatform: "Il browser integrato non è disponibile su questa piattaforma"
+  browser.surfaceTimeout: "Il browser non ha risposto in tempo"
+  browser.surfaceFailed: "Il browser non è riuscito a completare questa azione"
 
   # === Hot exit ===
   hotExit.noWindows: "Nessuna finestra documento da catturare"

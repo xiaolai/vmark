@@ -64,17 +64,25 @@ export default defineConfig({
       // (and of the credential reader) is now asserted — so the floors move
       // with it.
       //
-      // Actual at the time of writing: 87.73 / 85.48 / 86.63 / 87.29 global,
-      // tools 100/89.44/100/100, utils 100/99.21/100/100,
-      // bridge 87.31/78.88/94.62/87.04.
+      // Raised again 2026-08-04 by WI-15 (MCP contracts generated from one set
+      // of per-operation zod schemas). Two effects, both real coverage rather
+      // than accounting: `operationSchemas.ts` arrives fully exercised (every
+      // tool send now validates through `checkOutboundRequest`), and the new
+      // `operationSends.test.ts` drives every (tool, action) pair through the
+      // real handlers — which is why `src/tools` branch coverage jumped from
+      // 89.44 to 96.46.
+      //
+      // Actual at the time of writing: 88.22 / 89.05 / 87.50 / 87.98 global,
+      // tools 100/96.46/100/100, utils 100/99.21/100/100,
+      // bridge 88.37/80.00/95.09/88.08.
       thresholds: {
-        statements: 87,
-        branches: 85,
-        functions: 86,
+        statements: 88,
+        branches: 89,
+        functions: 87,
         lines: 87,
         'src/tools/**': {
           statements: 100,
-          branches: 89,
+          branches: 96,
           functions: 100,
           lines: 100,
         },
@@ -85,10 +93,10 @@ export default defineConfig({
           lines: 100,
         },
         'src/bridge/**': {
-          statements: 87,
-          branches: 78,
-          functions: 94,
-          lines: 87,
+          statements: 88,
+          branches: 80,
+          functions: 95,
+          lines: 88,
         },
       },
     },

@@ -37,8 +37,11 @@ export interface FitResizeTarget {
   };
   pty: IPty | null;
   disposed?: boolean;
-  /** Per-entry debounce handle — see "Key decisions" above. */
-  ptyResizeTimer?: ReturnType<typeof setTimeout>;
+  /**
+   * Per-entry debounce handle — see "Key decisions" above. Explicitly
+   * `| undefined`: a mutable slot this module clears to mean "nothing pending".
+   */
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
 }
 
 /**

@@ -7,12 +7,34 @@
  * iframe and offers "open in browser". Actions are injected so the panel stays
  * free of store/service wiring (the `useContentServer` hook supplies them).
  *
- * Registered into AppShell as a slot (ADR-007); never edits App.tsx.
+ * Reached from App.tsx, which passes `<KnowledgeBaseOverlay />` into EditorArea's
+ * `sidePanel` prop — an in-flow right dock, not an overlay. ADR-007 describes a
+ * slot-registration mechanism; none exists, so this mount is an edit to App.tsx
+ * like every other surface, and `scripts/check-shell-slots.mjs` is what keeps
+ * that set from growing unnoticed (WI-12).
+ *
+ * The graph view is behind `React.lazy`: `@xyflow/react` chunks with
+ * `@dagrejs/dagre`, and xyflow's d3 dependencies chunk with mermaid, so a static
+ * import here put ~3.2 MB on every document window's cold start.
+ *
+ * The boundary deliberately sits directly around the graph, inside an
+ * already-mounted panel — the placement WorkflowCanvas.tsx settled on after the
+ * React 19 + xyflow `disappearLayoutEffects` loop, which it attributes to a
+ * boundary at the PANEL-MOUNT level rather than at the canvas. Following that
+ * placement is what makes lazy safe here; moving the boundary up to
+ * KnowledgeBaseOverlay would reproduce the shape that broke.
+ *
+ * Audit 20260804-F4: it used to be a bare `Suspense`, which handles the
+ * PENDING half and nothing else — a rejected 3.2 MB chunk propagated past the
+ * panel to the root boundary and took the whole window down over a graph the
+ * user could simply have retried. `RetryableLazy` catches it here and mounts a
+ * FRESH lazy per attempt, because React.lazy caches its rejection forever.
  *
  * @module components/KnowledgeBasePanel
  */
 
 import { useTranslation } from "react-i18next";
+import { RetryableLazy } from "@/components/RetryableLazy";
 import {
   useContentServerStore,
   selectServerStatus,
@@ -22,8 +44,10 @@ import {
   selectIframeUrl,
   selectViewMode,
 } from "@/stores/contentServerStore";
-import { KbGraphView } from "./KbGraphView";
 import "./knowledge-base-panel.css";
+
+const loadKbGraphView = () =>
+  import("./KbGraphView").then((m) => ({ default: m.KbGraphView }));
 
 export interface KnowledgeBasePanelProps {
   onStart: () => void;
@@ -127,7 +151,22 @@ export function KnowledgeBasePanel({
             </button>
           </div>
           {viewMode === "graph" ? (
-            <KbGraphView />
+            <RetryableLazy
+              feature="Knowledge base graph"
+              load={loadKbGraphView}
+              componentProps={{}}
+              // Same placeholder the graph itself uses while fetching, so chunk
+              // load and data load read as one continuous state.
+              pending={<div className="kb-graph__loading" data-testid="kb-graph-pending" />}
+              renderError={(retry) => (
+                <div className="kb-panel__error" role="alert">
+                  <p>{t("contentServer.graph.error")}</p>
+                  <button type="button" className="vm-btn" onClick={retry}>
+                    {t("contentServer.action.retry")}
+                  </button>
+                </div>
+              )}
+            />
           ) : (
             <iframe
               className="kb-panel__frame"

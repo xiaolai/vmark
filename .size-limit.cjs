@@ -41,9 +41,19 @@ module.exports = [
     // The application entry chunk itself (app code that isn't in a vendor
     // or App chunk). 1219 kB at audit 20260612; budget with modest headroom
     // so regressions surface instead of migrating here invisibly.
+    //
+    // Ratcheted 1300 → 20 kB by WI-13; actual 14.3 kB. The 1219 kB the old
+    // limit was calibrated against is long gone — later chunking work moved
+    // that code into App and the vendor chunks, and nobody lowered the number,
+    // so this budget has been ~90x above reality and could not have failed on
+    // anything. WI-13 itself ADDS ~4 kB here (10.4 → 14.3): the format
+    // adapters' import thunks compile to dynamic-import glue that lives in the
+    // entry chunk. That is the trade — 4 kB of glue in exchange for 0.66 MB
+    // off the cold-start closure — and it is the reason the headroom is 40%
+    // rather than the file's usual 5%: more lazy boundaries mean more glue.
     name: "EAGER: entry",
     path: "dist/assets/entry-*.js",
-    limit: "1300 kB",
+    limit: "20 kB",
     brotli: false,
   },
 
@@ -146,19 +156,24 @@ module.exports = [
   },
   {
     // Top-level App.tsx chunk + transitively-imported hooks (~30 hooks).
-    // ~1196 kB. The audit's B2 finding is to split this by window kind
-    // (main/document/settings); doing so should drop this to ~700 kB.
     //
-    // Bumped from 1250 to 1400 kB by Phase 2 (WI-2.6) of the GHA workflow
-    // viewer: GhaWorkflowSidePanel must be eager-mounted to avoid a React
-    // 19 + Suspense + xyflow setState loop in disappearLayoutEffects.
-    // See dev-docs/plans/20260504-github-actions-workflow-viewer.md ADR-1
-    // for the lazy-vs-eager tradeoff. xyflow + dagre add ~150 kB eager.
-    // The Suspense workaround can be re-attempted after a future xyflow
-    // release that addresses the strict-mode compatibility issue.
+    // Ratcheted 1400 → 610 kB by WI-12; actual 577 kB. The 1400 came from
+    // Phase 2 (WI-2.6) of the GHA workflow viewer, whose stated reason was
+    // that xyflow + dagre (~150 kB) rode this chunk eagerly because
+    // GhaWorkflowSidePanel had to be eager-mounted (a React 19 + Suspense +
+    // xyflow setState loop in disappearLayoutEffects). Neither half still
+    // holds: WorkflowCanvas moved the Suspense boundary next to the canvas
+    // instead of the panel mount and the loop went away, and WI-12 did the
+    // same for KbGraphView — the last static xyflow import in this chunk.
+    // The budget follows the justification down.
+    //
+    // NOTE this number is the App chunk alone. It never measured the App
+    // chunk's static GRAPH, which is where the real cold-start weight was:
+    // one static import of xyflow pulled vendor-mermaid + vendor-graph in
+    // behind it. `pnpm lint:eager` is what checks that now.
     name: "EAGER: App",
     path: "dist/assets/App-*.js",
-    limit: "1400 kB",
+    limit: "610 kB",
     brotli: false,
   },
 
@@ -173,13 +188,53 @@ module.exports = [
     brotli: false,
   },
   {
-    // CodeMirror Source-mode wrapper. Lazy via React.lazy in Editor.tsx.
-    // Bumped 140 → 145 kB after Phase A/B GHA features (WI-A.1
+    // CodeMirror Source-mode wrapper. Lazy via React.lazy in the markdown
+    // surface. Bumped 140 → 145 kB after Phase A/B GHA features (WI-A.1
     // expression autocomplete, WI-B.2 goto-def, WI-B.3 cursor sync).
     // Each adds a small CodeMirror extension; total ~1 kB minified.
+    //
+    // Ratcheted 145 → 80 kB by WI-13; actual 70.9 kB (69.5 kB before, so the
+    // WI moved ~1.4 kB in, not out — the old limit was simply stale).
     name: "LAZY: SourceEditor",
     path: "dist/assets/SourceEditor-*.js",
-    limit: "145 kB",
+    limit: "80 kB",
+    brotli: false,
+  },
+  {
+    // The markdown WYSIWYG surface, split out of the markdown ADAPTER by
+    // WI-13 and reached only through `FormatConfig.wysiwygComponent`'s import
+    // thunk. It was previously inside the eagerly-evaluated formats chunk, so
+    // every window — Settings, PDF export — paid it at cold start. Budgeted
+    // now that it is a chunk: unbudgeted is how weight migrates unnoticed.
+    // ~188 kB at the split.
+    name: "LAZY: markdownSurface",
+    path: "dist/assets/markdownSurface-*.js",
+    limit: "200 kB",
+    brotli: false,
+  },
+  {
+    // The yaml adapter's gha-workflow schemaRenderer (workflow IR parse +
+    // the workbench mount), lazy since WI-13 for the same reason: the yaml
+    // adapter is always registered, so a static reference was cold start for
+    // every window. ~10 kB at the split; the workbench and xyflow it mounts
+    // are their own chunks.
+    name: "LAZY: yamlWorkflowRenderer",
+    path: "dist/assets/yamlWorkflowRenderer-*.js",
+    limit: "15 kB",
+    brotli: false,
+  },
+  {
+    // @xyflow/react itself. Named as its own chunk by WI-12 (scripts/
+    // manualChunks.ts) so check-eager-chunks.mjs can denylist the family —
+    // unassigned it landed in an incidentally-named `style-*` chunk that no
+    // gate could target without also matching htmlExportStyles.
+    // LAZY: every graph surface (workflow canvas, KB graph) is behind a
+    // React.lazy boundary. Keeping it that way matters more than its own
+    // 120 kB — xyflow's d3-* dependencies chunk into vendor-mermaid, so one
+    // static import of it drags ~3.1 MB onto cold start.
+    name: "LAZY: vendor-xyflow",
+    path: "dist/assets/vendor-xyflow-*.js",
+    limit: "130 kB",
     brotli: false,
   },
   {

@@ -15,7 +15,7 @@ import { ContentSearch } from "../ContentSearch";
 vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: vi.fn(),
 }));
-vi.mock("@/hooks/contentSearchNavigation", () => ({
+vi.mock("@/services/navigation/contentSearchNavigation", () => ({
   setPendingContentSearchNav: vi.fn(),
 }));
 

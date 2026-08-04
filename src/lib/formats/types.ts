@@ -128,21 +128,42 @@ export interface FormatConfig {
   nameI18nKey: string;
   extensions: string[];
   kind: FormatKind;
-  wysiwygComponent?: ComponentType<{ tabId: string }>;
   /**
-   * Synchronous CodeMirror language, for packs the app bundles anyway.
+   * The WYSIWYG editing surface, as an IMPORT THUNK (WI-13).
    *
-   * `loadLanguage` is the general path and is async, which means a host must
-   * mount with no language and reconfigure a Compartment when the promise
-   * resolves. For markdown — the primary format, opened constantly — that would
-   * put a frame of unhighlighted text on the most-used path.
+   * `bootstrapFormats()` runs in every window — Settings, PDF export — before
+   * `import("./App")`, so a direct `ComponentType` reference here (the shape
+   * before WI-13) meant every window statically imported the Tiptap surface at
+   * cold start whether or not it would ever show an editor. The registry now
+   * registers METADATA eagerly and loads the surface at first mount, through
+   * `resolveFormatSurface` (`lib/formats/lazySurfaces.ts`), which owns caching
+   * and the D4 failure semantics.
    *
-   * A format that is statically imported regardless (markdown, yaml) may expose
-   * it synchronously here instead. Hosts prefer `language` when present and fall
-   * back to `loadLanguage`, so one host serves every format without the common
-   * case paying for the general one. ADR-015 Phase 4A, option 2.
+   * Shape is `{ default }` so the value drops straight into `React.lazy`.
    */
-  language?: () => Extension;
+  wysiwygComponent?: () => Promise<{
+    default: ComponentType<{ tabId: string }>;
+  }>;
+  /**
+   * The format's CodeMirror language pack, as an import thunk.
+   *
+   * Was `() => Extension` — synchronous, on the argument that markdown's pack
+   * is "bundled regardless" so the primary format's source mode never mounts
+   * unhighlighted. WI-13 removed the premise: it was bundled regardless
+   * BECAUSE this field forced a static import from the adapter, and that
+   * import is exactly what put ~1.6 MB of CodeMirror on the cold start of
+   * windows with no editor in them.
+   *
+   * The unhighlighted-frame concern is still handled, one layer down: the
+   * source editor mounts its statically-imported markdown pack into a
+   * Compartment and reconfigures when this thunk resolves, so the primary
+   * format sees the same first frame it always did.
+   *
+   * Distinct from `loadLanguage` only by kind: `wysiwyg` formats may not
+   * declare `loadLanguage` (see registerFormat), so this is the field a
+   * WYSIWYG format's source mode uses.
+   */
+  language?: () => Promise<Extension>;
   loadLanguage?: () => Promise<Extension>;
   /**
    * Per-format CodeMirror extensions for the split-pane SourcePane,

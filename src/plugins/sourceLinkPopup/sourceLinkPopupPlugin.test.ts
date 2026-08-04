@@ -59,12 +59,12 @@ describe("createSourceLinkPopupPlugin", () => {
     vi.clearAllMocks();
   });
 
-  it("returns an array extension (CmdClick + popup plugin)", () => {
+  it("returns an array extension (CmdClick + range-sync + popup plugin)", () => {
     const result = createSourceLinkPopupPlugin(mockStore);
 
-    // Should be an array with 2 elements: CmdClick plugin + popup plugin
+    // 3 elements: CmdClick plugin + WI-1 range-sync guard + popup plugin
     expect(Array.isArray(result)).toBe(true);
-    expect((result as unknown[]).length).toBe(2);
+    expect((result as unknown[]).length).toBe(3);
   });
 
   it("calls createSourcePopupPlugin with correct config", () => {
@@ -235,7 +235,7 @@ describe("CmdClick handler", () => {
   it("CmdClick plugin is in the returned array", () => {
     const result = createSourceLinkPopupPlugin(mockStore);
     expect(Array.isArray(result)).toBe(true);
-    expect((result as unknown[]).length).toBe(2);
+    expect((result as unknown[]).length).toBe(3);
   });
 
   function getCmdClickHandler(): {

@@ -38,13 +38,13 @@ interface State {
 }
 
 class FeatureErrorBoundaryInner extends Component<Props, State> {
-  state: State = { error: null };
+  override state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
+  override componentDidCatch(error: Error, info: React.ErrorInfo) {
     appError(`[FeatureErrorBoundary:${this.props.feature}]`, error, info.componentStack);
   }
 
@@ -52,7 +52,7 @@ class FeatureErrorBoundaryInner extends Component<Props, State> {
     this.setState({ error: null });
   };
 
-  render() {
+  override render() {
     const { error } = this.state;
     if (error) {
       if (this.props.fallback) {

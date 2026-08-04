@@ -37,7 +37,6 @@ function parseLinkMarkdown(
   const match = markdown.match(
     /^\[([^\]]*)\]\((?:<([^>]+)>|([^)\s"]+))(?:\s+"([^"]*)")?\)$/
   );
-  /* v8 ignore next -- @preserve reason: non-link markdown passed to parseLinkMarkdown not tested */
   if (!match) return null;
   return {
     text: match[1],
@@ -47,53 +46,73 @@ function parseLinkMarkdown(
   };
 }
 
-function getLinkTextFromRange(view: EditorView, from: number, to: number): string {
-  const markdown = view.state.doc.sliceString(from, to);
-  const parsed = parseLinkMarkdown(markdown);
-  /* v8 ignore next -- @preserve reason: link text range always contains valid link markdown */
-  return parsed?.text ?? markdown;
-}
-
-function getLinkMetaFromRange(
+/**
+ * Stale-range guard (WI-1 / D1): the captured `[from, to)` is only safe to
+ * mutate while it is in bounds and still holds link markdown. A concurrent
+ * edit (MCP, AI suggestion, external reload) shifts or destroys the range —
+ * dispatching the captured offsets blindly would rewrite unrelated text.
+ * Mirrors WYSIWYG `linkRangeIsIntact` (commit c89c1656).
+ */
+function getIntactLinkFromRange(
   view: EditorView,
   from: number,
   to: number
-): { text: string; title: string | null; useAngleBrackets: boolean } {
-  const markdown = view.state.doc.sliceString(from, to);
-  const parsed = parseLinkMarkdown(markdown);
-  /* v8 ignore next -- @preserve reason: metadata range always contains valid link markdown */
-  if (!parsed) {
-    return { text: markdown, title: null, useAngleBrackets: false };
-  }
-  return {
-    text: parsed.text,
-    title: parsed.title,
-    useAngleBrackets: parsed.useAngleBrackets,
-  };
+): { text: string; href: string; title: string | null; useAngleBrackets: boolean } | null {
+  if (from < 0 || to <= from || to > view.state.doc.length) return null;
+  return parseLinkMarkdown(view.state.doc.sliceString(from, to));
+}
+
+/**
+ * The user's intent, read at ACTION time (audit 20260804-F2).
+ *
+ * The popup closes on the same click that starts a save/remove, and closing
+ * RESETS the store (`href: ""`, `linkFrom: 0`, `linkTo: 0`). While the user is
+ * mid-composition the action is queued instead of run, so reading the store
+ * inside the queued callback saw the reset values — `0..0` fails the intact-
+ * range check and the edit was dropped with only a debug line. Capturing the
+ * intent up front is what makes a CJK user's save survive the deferral; the
+ * RANGE is still re-validated against the live doc at execution time, so the
+ * capture never licenses a stale write.
+ */
+interface LinkEditIntent {
+  href: string;
+  linkFrom: number;
+  linkTo: number;
+  closePopup: (() => void) | undefined;
+}
+
+function captureIntent(store: Store): LinkEditIntent {
+  const { href, linkFrom, linkTo, closePopup } = store.getState();
+  return { href, linkFrom, linkTo, closePopup };
 }
 
 /**
  * Save link changes to the document.
  * Replaces the current link markdown with updated values.
+ *
+ * Guards:
+ *   - intent (URL + range) captured at ACTION time, before the popup closes;
+ *   - range RE-VALIDATED inside the queued action against the live doc, so a
+ *     stale/destroyed range → abort, close the popup, never dispatch (D1);
+ *   - empty/whitespace URL → unlink (keep the text), matching WYSIWYG (D7).
  */
 export function saveLinkChanges(view: EditorView, store: Store): void {
-  const state = store.getState();
-  const { href, linkFrom, linkTo } = state;
-
-  if (linkFrom < 0 || linkTo < 0) {
-    return;
-  }
-
-  const { text, title, useAngleBrackets } = getLinkMetaFromRange(view, linkFrom, linkTo);
-  const newMarkdown = buildLinkMarkdown(text, href, title, useAngleBrackets);
+  const { href, linkFrom, linkTo, closePopup } = captureIntent(store);
 
   runOrQueueCodeMirrorAction(view, () => {
+    const parsed = getIntactLinkFromRange(view, linkFrom, linkTo);
+    if (!parsed) {
+      sourceActionError("Stale link range — skipping save:", { linkFrom, linkTo });
+      closePopup?.();
+      return;
+    }
+
+    const insert = href.trim()
+      ? buildLinkMarkdown(parsed.text, href, parsed.title, parsed.useAngleBrackets)
+      : parsed.text;
+
     view.dispatch({
-      changes: {
-        from: linkFrom,
-        to: linkTo,
-        insert: newMarkdown,
-      },
+      changes: { from: linkFrom, to: linkTo, insert },
     });
   });
 }
@@ -156,24 +175,23 @@ export async function copyLinkHref(store: Store): Promise<void> {
 /**
  * Remove link from the document.
  * Removes the link markdown syntax but keeps the text content.
+ * Same stale-range guard as saveLinkChanges (D1): abort + close, never
+ * dispatch captured offsets that no longer hold the link.
  */
 export function removeLink(view: EditorView, store: Store): void {
-  const state = store.getState();
-  const { linkFrom, linkTo } = state;
+  const { linkFrom, linkTo, closePopup } = captureIntent(store);
 
-  if (linkFrom < 0 || linkTo < 0) {
-    return;
-  }
-
-  // Replace with just the text (remove link formatting)
-  const linkText = getLinkTextFromRange(view, linkFrom, linkTo);
   runOrQueueCodeMirrorAction(view, () => {
+    const parsed = getIntactLinkFromRange(view, linkFrom, linkTo);
+    if (!parsed) {
+      sourceActionError("Stale link range — skipping remove:", { linkFrom, linkTo });
+      closePopup?.();
+      return;
+    }
+
+    // Replace with just the text (remove link formatting)
     view.dispatch({
-      changes: {
-        from: linkFrom,
-        to: linkTo,
-        insert: linkText,
-      },
+      changes: { from: linkFrom, to: linkTo, insert: parsed.text },
     });
   });
 }

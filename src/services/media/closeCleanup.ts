@@ -27,8 +27,8 @@
  *
  * @coordinates-with orphanAssetCleanup.ts — findOrphanedImages/deleteOrphanedImages
  * @coordinates-with liveDocumentContents.ts — sibling buffers
- * @coordinates-with hooks/useTabOperations.ts — per-tab close caller
- * @coordinates-with hooks/windowCloseFlow.ts — window close caller
+ * @coordinates-with services/tabs/tabOperations.ts — per-tab close caller
+ * @coordinates-with services/windowClose/windowCloseFlow.ts — window close caller
  * @module services/media/closeCleanup
  */
 

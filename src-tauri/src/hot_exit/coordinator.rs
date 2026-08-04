@@ -5,6 +5,7 @@
 
 use super::migration::{can_migrate, migrate_session, needs_migration};
 use super::session::{SessionData, WindowState, MAX_SESSION_AGE_DAYS, SCHEMA_VERSION};
+use super::state::{HotExitState, RestoreRound};
 use super::{
     EVENT_CAPTURE_REQUEST, EVENT_CAPTURE_RESPONSE, EVENT_CAPTURE_TIMEOUT, EVENT_RESTORE_START,
     MAIN_WINDOW_LABEL,
@@ -12,7 +13,7 @@ use super::{
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use tokio::time::{timeout, Duration};
 
@@ -26,81 +27,12 @@ const CAPTURE_TIMEOUT_SECS: u64 = 5;
 /// If not all windows complete within this window, state is cleared to avoid leaks.
 const RESTORE_TIMEOUT_SECS: u64 = 60;
 
-/// Pending restore state for multi-window restoration
-/// Windows pull their state from here on startup
-#[derive(Debug, Default)]
-pub(crate) struct PendingRestoreState {
-    /// Window states indexed by window label
-    pub window_states: HashMap<String, WindowState>,
-    /// Set of window labels that are expected to complete restoration
-    pub expected_labels: HashSet<String>,
-    /// Labels of windows that have completed restoration
-    pub completed_windows: HashSet<String>,
-    /// Generation counter — incremented on each new restore to invalidate stale timeouts
-    pub generation: u64,
-}
-
-impl PendingRestoreState {
-    /// Check if all expected windows have completed
-    fn all_complete(&self) -> bool {
-        !self.expected_labels.is_empty()
-            && self
-                .expected_labels
-                .iter()
-                .all(|label| self.completed_windows.contains(label))
-    }
-
-    /// Clear all state (preserves generation counter)
-    fn clear(&mut self) {
-        self.window_states.clear();
-        self.expected_labels.clear();
-        self.completed_windows.clear();
-    }
-
-    /// Advance generation and clear all state
-    fn advance_and_clear(&mut self) {
-        self.generation += 1;
-        self.clear();
-    }
-}
-
-/// Global pending restore state
-static PENDING_RESTORE: OnceLock<Arc<Mutex<PendingRestoreState>>> = OnceLock::new();
-
-/// Handle for the active restore timeout task (cancelled on new restore).
-/// In production we use `tauri::async_runtime::spawn` (works from any thread);
-/// in tests we use `tokio::spawn` (works with `start_paused` time control).
-#[cfg(not(test))]
-type TimeoutJoinHandle = tauri::async_runtime::JoinHandle<()>;
-#[cfg(test)]
-type TimeoutJoinHandle = tokio::task::JoinHandle<()>;
-
-static RESTORE_TIMEOUT_HANDLE: OnceLock<Arc<Mutex<Option<TimeoutJoinHandle>>>> = OnceLock::new();
-
-fn get_timeout_handle() -> Arc<Mutex<Option<TimeoutJoinHandle>>> {
-    Arc::clone(RESTORE_TIMEOUT_HANDLE.get_or_init(|| Arc::new(Mutex::new(None))))
-}
-
-/// Get the pending restore state (for internal use)
-pub(crate) fn get_pending_restore_state() -> Arc<Mutex<PendingRestoreState>> {
-    Arc::clone(PENDING_RESTORE.get_or_init(|| Arc::new(Mutex::new(PendingRestoreState::default()))))
-}
-
-/// Lock the pending restore state, recovering from poisoning
-fn lock_pending_restore(
-    pending: &Arc<Mutex<PendingRestoreState>>,
-) -> std::sync::MutexGuard<'_, PendingRestoreState> {
-    pending.lock().unwrap_or_else(|poisoned| {
-        log::warn!("[HotExit] Recovering from poisoned mutex");
-        poisoned.into_inner()
-    })
-}
-
-/// Clear pending restore state
-pub fn clear_pending_restore() {
-    let pending = get_pending_restore_state();
-    let mut state = lock_pending_restore(&pending);
-    state.clear();
+/// Reach the hot-exit state an app manages.
+///
+/// Panics if it was never managed — a composition-root bug, not a runtime
+/// condition (`lib.rs` manages it before any window exists).
+pub(crate) fn hot_exit<R: tauri::Runtime>(app: &AppHandle<R>) -> &HotExitState {
+    app.state::<HotExitState>().inner()
 }
 
 /// Capture request payload with correlation ID
@@ -133,6 +65,20 @@ static CAPTURE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 fn generate_capture_id() -> String {
     let seq = CAPTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
     format!("capture-{}-{}", chrono::Utc::now().timestamp_millis(), seq)
+}
+
+/// Lock a capture's response accumulator.
+///
+/// The listener callback runs on the tokio runtime, so this is a
+/// `std::sync::Mutex` rather than a tokio one (`blocking_lock()` there would
+/// panic). Poisoning is recovered from in this ONE place: a half-collected
+/// response map is still internally consistent, and dropping a capture because
+/// one listener callback unwound would lose window state we already have.
+fn lock_capture_state(state: &Arc<Mutex<CaptureState>>) -> std::sync::MutexGuard<'_, CaptureState> {
+    state.lock().unwrap_or_else(|poisoned| {
+        log::warn!("[HotExit] Recovering from poisoned capture state mutex");
+        poisoned.into_inner()
+    })
 }
 
 /// Coordinator state for collecting window responses
@@ -181,10 +127,7 @@ fn register_response_listener(app: &AppHandle, state: Arc<Mutex<CaptureState>>) 
     app.listen(EVENT_CAPTURE_RESPONSE, move |event| {
         match serde_json::from_str::<CaptureResponse>(event.payload()) {
             Ok(mut response) => {
-                let mut state = state.lock().unwrap_or_else(|poisoned| {
-                    log::warn!("[HotExit] Recovering from poisoned capture state mutex");
-                    poisoned.into_inner()
-                });
+                let mut state = lock_capture_state(&state);
 
                 // Ignore responses from different capture requests (stale responses)
                 if response.capture_id != state.capture_id {
@@ -341,9 +284,7 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
     // Always unlisten after waiting
     app.unlisten(unlisten);
 
-    let final_state = state
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let final_state = lock_capture_state(&state);
 
     if result.is_err() {
         let missing: Vec<&String> = final_state
@@ -372,10 +313,7 @@ pub async fn capture_session(app: &AppHandle) -> Result<CaptureResult, String> {
 async fn wait_for_all_responses(state: Arc<Mutex<CaptureState>>, expected: usize) {
     loop {
         {
-            let current = state
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            if current.responses.len() >= expected {
+            if lock_capture_state(&state).responses.len() >= expected {
                 break;
             }
         }
@@ -413,27 +351,12 @@ fn prepare_session_for_restore(session: SessionData) -> Result<SessionData, Stri
     Ok(session)
 }
 
-/// Initialize pending restore state with given windows (sync version).
-/// Advances the generation counter and returns the new generation for timeout binding.
-fn init_pending_restore_state_sync(
-    windows: impl IntoIterator<Item = (String, WindowState)>,
-    expected_labels: HashSet<String>,
-) -> u64 {
-    let pending = get_pending_restore_state();
-    let mut state = lock_pending_restore(&pending);
-    state.advance_and_clear();
-    state.expected_labels = expected_labels;
-    for (label, window_state) in windows {
-        state.window_states.insert(label, window_state);
-    }
-    state.generation
-}
-
 /// Restore session to main window (legacy single-window restore)
 ///
-/// Now uses pull-based approach: stores state in PendingRestoreState,
+/// Now uses pull-based approach: stores state in the managed `HotExitState`,
 /// then emits RESTORE_START signal to trigger main window to pull its state.
 pub fn restore_session(app: &AppHandle, session: SessionData) -> Result<(), String> {
+    let state = hot_exit(app);
     let session = prepare_session_for_restore(session)?;
 
     // Find the target window: prefer "main" label, fall back to first document window
@@ -463,19 +386,19 @@ pub fn restore_session(app: &AppHandle, session: SessionData) -> Result<(), Stri
         window_label: target_label.clone(),
         ..main_state
     };
-    let gen = init_pending_restore_state_sync(
+    let round = state.store(
         std::iter::once((target_label.clone(), state_with_correct_label)),
         expected,
     );
 
     // Safety net: clear pending state after timeout to avoid memory leaks
     // if the window never calls mark_window_restore_complete
-    spawn_restore_timeout(gen);
+    spawn_restore_timeout(app, round);
 
     // Emit restore signal to target window (signal only, state is pulled)
     if let Err(e) = target_window.emit(EVENT_RESTORE_START, ()) {
         // Clean up pending state to avoid memory leak since no window will pull it
-        clear_pending_restore();
+        state.clear();
         return Err(format!("Failed to emit restore event: {}", e));
     }
 
@@ -499,6 +422,7 @@ pub fn restore_session_multi_window(
     app: &AppHandle,
     session: SessionData,
 ) -> Result<RestoreMultiWindowResult, String> {
+    let state = hot_exit(app);
     let session = prepare_session_for_restore(session)?;
 
     // Validate main window exists BEFORE modifying state
@@ -565,11 +489,11 @@ pub fn restore_session_multi_window(
     }
 
     // Store all state atomically BEFORE any windows are created
-    let gen = init_pending_restore_state_sync(window_states_to_store, expected_labels);
+    let round = state.store(window_states_to_store, expected_labels);
 
     // Safety net: clear pending state after timeout to avoid memory leaks
     // if any window crashes or fails to call mark_window_restore_complete
-    spawn_restore_timeout(gen);
+    spawn_restore_timeout(app, round);
 
     // Phase 2: Create windows with pre-allocated labels
     for label in &labels_to_create {
@@ -584,15 +508,11 @@ pub fn restore_session_multi_window(
                 );
                 // Abort the whole restore rather than silently dropping this
                 // window's tabs (including any dirty in-memory documents).
-                // Clear the pending state (advance_and_clear bumps the
-                // generation, invalidating the stale timeout task) and close any
-                // already-created windows. Returning Err makes the frontend
+                // End the round (which stands its timeout task down) and close
+                // any already-created windows. Returning Err makes the frontend
                 // invoke throw, so session.json is NOT cleared and the full
                 // session is retried on the next launch (#968).
-                let pending = get_pending_restore_state();
-                let mut state = lock_pending_restore(&pending);
-                state.advance_and_clear();
-                drop(state);
+                state.begin_round();
                 for created in &windows_created {
                     if let Some(w) = app.get_webview_window(created) {
                         let _ = w.close();
@@ -608,12 +528,9 @@ pub fn restore_session_multi_window(
 
     // Emit restore signal to main window (signal only, state is pulled)
     if let Err(e) = main_window.emit(EVENT_RESTORE_START, ()) {
-        // Clean up: pending state + orphaned secondary windows
-        // Use advance_and_clear to bump generation, invalidating the stale timeout task
-        let pending = get_pending_restore_state();
-        let mut state = lock_pending_restore(&pending);
-        state.advance_and_clear();
-        drop(state);
+        // Clean up: pending state + orphaned secondary windows. Ending the
+        // round stands its timeout task down.
+        state.begin_round();
         for label in &windows_created {
             if let Some(w) = app.get_webview_window(label) {
                 let _ = w.close();
@@ -625,47 +542,33 @@ pub fn restore_session_multi_window(
     Ok(RestoreMultiWindowResult { windows_created })
 }
 
-/// Spawn a background task that clears pending restore state after a timeout.
-/// This prevents memory leaks if a window crashes or never completes restoration.
+/// The restore-timeout safety net: after `RESTORE_TIMEOUT_SECS`, drop pending
+/// state that no window ever claimed, so a crashed or never-completing window
+/// cannot leak a whole session's worth of tabs for the life of the process.
 ///
-/// Generation-safe: captures the current generation at spawn time and only
-/// clears state if the generation still matches (a newer restore hasn't started).
-/// Also cancels any previously running timeout task.
-fn spawn_restore_timeout(generation: u64) {
-    // Cancel any existing timeout task
-    let handle_arc = get_timeout_handle();
-    let mut handle_slot = handle_arc.lock().unwrap_or_else(|p| p.into_inner());
-    if let Some(prev) = handle_slot.take() {
-        prev.abort();
+/// Kept as a plain awaitable body rather than folded into the spawn below so
+/// the timing is testable under `tokio::time` control.
+async fn restore_timeout_body(state: &HotExitState, round: RestoreRound) {
+    tokio::time::sleep(Duration::from_secs(RESTORE_TIMEOUT_SECS)).await;
+    if let Some(incomplete) = state.expire_round(&round) {
+        log::warn!(
+            "[HotExit] Restore timeout ({}s) — clearing pending state. Incomplete windows: {:?}",
+            RESTORE_TIMEOUT_SECS,
+            incomplete
+        );
     }
+}
 
-    // Inner body is wrapped in catch_unwind so a panic inside the cleanup
-    // doesn't disappear silently — the restore-timeout task owns the
-    // expected_labels invariant; a swallowed panic would leak that state.
-    // We use inline catch_unwind (not spawn_logged) because the JoinHandle
-    // type is tauri::async_runtime::JoinHandle in prod and tokio::task::
-    // JoinHandle in test, and the handle is stored for abort().
-    let future = async move {
-        let body = async {
-            tokio::time::sleep(Duration::from_secs(RESTORE_TIMEOUT_SECS)).await;
-            let pending = get_pending_restore_state();
-            let mut state = lock_pending_restore(&pending);
-            // Only clear if this timeout's generation still matches current state
-            if state.generation == generation && !state.expected_labels.is_empty() {
-                let incomplete: Vec<_> = state
-                    .expected_labels
-                    .iter()
-                    .filter(|l| !state.completed_windows.contains(*l))
-                    .cloned()
-                    .collect();
-                log::warn!(
-                    "[HotExit] Restore timeout ({}s) — clearing pending state. Incomplete windows: {:?}",
-                    RESTORE_TIMEOUT_SECS,
-                    incomplete
-                );
-                state.clear();
-            }
-        };
+/// Spawn [`restore_timeout_body`] for `round` and park its handle on the state.
+///
+/// `tauri::async_runtime::spawn`, not `tokio::spawn`: restore runs from a
+/// synchronous Tauri command, which has no ambient tokio runtime. Cancellation
+/// only makes a superseded timeout a no-op at the END of its 60s sleep, so the
+/// handle goes to `set_restore_timeout`, which aborts it (audit 20260803 §9).
+fn spawn_restore_timeout(app: &AppHandle, round: RestoreRound) {
+    let owned = app.clone();
+    let handle = tauri::async_runtime::spawn(async move {
+        let body = restore_timeout_body(hot_exit(&owned), round);
         if let Err(payload) =
             futures_util::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(body)).await
         {
@@ -674,53 +577,14 @@ fn spawn_restore_timeout(generation: u64) {
                 crate::task::panic_payload_message(&payload),
             );
         }
-    };
-
-    // Production: tauri::async_runtime::spawn works from any thread (no tokio context needed).
-    // Tests: tokio::spawn runs on the test runtime with paused-time control.
-    #[cfg(not(test))]
-    let new_handle = tauri::async_runtime::spawn(future);
-    #[cfg(test)]
-    let new_handle = tokio::spawn(future);
-
-    *handle_slot = Some(new_handle);
-}
-
-/// Get pending window state for restoration
-///
-/// Called by windows on startup to get their pending restore state.
-/// Returns None if no state is pending for the given window.
-pub fn get_window_restore_state(window_label: &str) -> Option<WindowState> {
-    let pending = get_pending_restore_state();
-    let state = lock_pending_restore(&pending);
-    state.window_states.get(window_label).cloned()
-}
-
-/// Mark a window as having completed restoration
-///
-/// Returns true if all expected windows have completed.
-/// Only counts windows that were in the expected set.
-pub fn mark_window_restore_complete(window_label: &str) -> bool {
-    let pending = get_pending_restore_state();
-    let mut state = lock_pending_restore(&pending);
-
-    // Only track completion for expected windows
-    if state.expected_labels.contains(window_label) {
-        state.completed_windows.insert(window_label.to_string());
-    } else {
-        log::warn!(
-            "[HotExit] Ignoring completion from unexpected window: {}",
-            window_label
-        );
-    }
-
-    let all_done = state.all_complete();
-    if all_done {
-        state.clear();
-    }
-    all_done
+    });
+    hot_exit(app).set_restore_timeout(handle);
 }
 
 #[cfg(test)]
 #[path = "coordinator.test.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "coordinator_pins.test.rs"]
+mod pin_tests;

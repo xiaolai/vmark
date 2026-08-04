@@ -79,7 +79,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupState>
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 300,
       height: 100,

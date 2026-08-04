@@ -49,7 +49,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 const mockGetPopupHostForDom = vi.fn((dom: HTMLElement) => dom.closest(".editor-container"));
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (...args: Parameters<typeof mockGetPopupHostForDom>) => mockGetPopupHostForDom(...args),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));

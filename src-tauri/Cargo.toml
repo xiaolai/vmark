@@ -27,6 +27,11 @@ tauri-plugin-notification = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
+# WI-14: derive macro for the crate-wide `CommandError`. dtolnay's crate, the
+# de-facto standard for library error types (~500M downloads, first published
+# 2019, already in the lockfile transitively via tauri). Compile-time only —
+# it generates `Display`/`Error` impls and adds no runtime dependency.
+thiserror = "2"
 # `preserve_order` keeps `serde_json::Map` in document order (IndexMap) rather
 # than sorting it (BTreeMap). Without it, every `mcp_config` install parsed and
 # re-serialised the user's `~/.claude.json` into alphabetical order at every

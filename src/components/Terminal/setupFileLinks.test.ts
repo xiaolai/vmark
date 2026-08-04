@@ -31,7 +31,7 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ ingestExternalContent: h.ingestExternalContent }) },
 }));
 vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
-vi.mock("@/hooks/contentSearchNavigation", () => ({
+vi.mock("@/services/navigation/contentSearchNavigation", () => ({
   setPendingContentSearchNav: h.setPendingContentSearchNav,
 }));
 

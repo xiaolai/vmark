@@ -17,7 +17,7 @@
  *
  * @coordinates-with stores/documentStore/document.ts — updateLastDiskContent
  * @coordinates-with hooks/useExternalFileChanges.ts — the soft-equals branch
- * @coordinates-with hooks/fileChangeBatch.ts — keepAllLocal
+ * @coordinates-with services/files/fileChangeBatch.ts — keepAllLocal
  * @module hooks/useExternalFileChanges.eolRewrite.test
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -29,7 +29,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 }));
 
 import { useDocumentStore } from "@/stores/documentStore";
-import { keepAllLocal } from "./fileChangeBatch";
+import { keepAllLocal } from "@/services/files/fileChangeBatch";
 
 const TAB = "tab-eol";
 const PATH = "/watched/doc.md";

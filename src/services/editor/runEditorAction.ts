@@ -44,8 +44,12 @@ import { isActionExecutable } from "@/services/commands/actionAvailability";
 export interface RunEditorActionOptions {
   /** The webview window the action targets (retry + ownership are per-window). */
   windowLabel: string;
-  /** Parameterized-action payload, e.g. `{ level }` for `setHeading`. */
-  params?: Record<string, unknown>;
+  /**
+   * Parameterized-action payload, e.g. `{ level }` for `setHeading`.
+   * `| undefined`: dispatchers forward a payload they derived from the
+   * incoming menu/command event, and most events carry none.
+   */
+  params?: Record<string, unknown> | undefined;
 }
 
 /**

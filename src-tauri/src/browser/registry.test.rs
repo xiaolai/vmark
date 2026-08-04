@@ -189,12 +189,10 @@ fn transition_and_bump_reject_unknown_tabs() {
 fn valid_lifecycle_path_is_accepted() {
     let mut reg = BrowserRegistry::default();
     reg.create("t1", "main").unwrap();
-    // Creating → Live → Navigating → Live → Hibernated → Creating → Destroyed
+    // Creating → Live → Navigating → Live → Crashed → Creating → Destroyed
     reg.transition("t1", Lifecycle::Live).unwrap();
     reg.transition("t1", Lifecycle::Navigating).unwrap();
     reg.transition("t1", Lifecycle::Live).unwrap();
-    reg.transition("t1", Lifecycle::Hibernated).unwrap();
-    reg.transition("t1", Lifecycle::Creating).unwrap();
     reg.transition("t1", Lifecycle::Crashed).unwrap();
     reg.transition("t1", Lifecycle::Creating).unwrap();
     reg.transition("t1", Lifecycle::Destroyed).unwrap();
@@ -205,12 +203,14 @@ fn valid_lifecycle_path_is_accepted() {
 fn invalid_transitions_are_rejected() {
     let mut reg = BrowserRegistry::default();
     reg.create("t1", "main").unwrap();
-    // A tab still constructing cannot hibernate — it has no page to collapse.
+    // A live tab cannot go back to constructing — re-creation only happens
+    // through a crash reload (Crashed → Creating) or a fresh entry.
+    reg.transition("t1", Lifecycle::Live).unwrap();
     assert_eq!(
-        reg.transition("t1", Lifecycle::Hibernated),
+        reg.transition("t1", Lifecycle::Creating),
         Err(BrowserError::InvalidTransition {
-            from: Lifecycle::Creating,
-            to: Lifecycle::Hibernated
+            from: Lifecycle::Live,
+            to: Lifecycle::Creating
         })
     );
 }
@@ -467,7 +467,6 @@ fn only_live_and_navigating_are_executable_states() {
     assert!(Lifecycle::Navigating.is_executable());
     assert!(!Lifecycle::Creating.is_executable());
     assert!(!Lifecycle::Crashed.is_executable());
-    assert!(!Lifecycle::Hibernated.is_executable());
     assert!(!Lifecycle::Destroyed.is_executable());
 }
 
@@ -489,14 +488,14 @@ fn a_crash_revokes_the_committed_url_and_freshness() {
 }
 
 #[test]
-fn hibernation_revokes_the_committed_url_and_freshness() {
+fn destruction_revokes_the_committed_url_and_freshness() {
     let mut reg = BrowserRegistry::default();
     reg.create("t1", "main").unwrap();
     reg.transition("t1", Lifecycle::Live).unwrap();
     reg.set_committed_url("t1", "https://a.com").unwrap();
     let gen = reg.generation("t1").unwrap();
 
-    reg.transition("t1", Lifecycle::Hibernated).unwrap();
+    reg.transition("t1", Lifecycle::Destroyed).unwrap();
     assert_eq!(reg.committed_url("t1"), None);
     assert!(!reg.is_command_fresh("t1", gen));
 }
