@@ -42,10 +42,10 @@ class GlyphWidget extends WidgetType {
     el.setAttribute("aria-hidden", "true");
     return el;
   }
-  eq(other: GlyphWidget) {
+  override eq(other: GlyphWidget) {
     return this.glyph === other.glyph && this.kind === other.kind;
   }
-  ignoreEvent() {
+  override ignoreEvent() {
     return false;
   }
 }

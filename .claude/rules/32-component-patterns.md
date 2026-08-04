@@ -31,10 +31,17 @@ Knowledge Base panel shipped that way and text simply vanished behind it.
 deliberately transient and small: breakdown, window-status, quick-look, context
 menus, inline popups.
 
-New top-level surfaces are slot registrations, not edits to `App.tsx`
-(ADR-007) — enforced by `pnpm lint:shell-slots`. When it fires, bundle related
-surfaces behind one mount (see `src/components/CoherenceOverlays.tsx`) rather
-than raising the budget.
+ADR-007 says new top-level surfaces become "slot registrations, not edits to
+`App.tsx`". **No registration mechanism exists** — a surface is mounted by
+editing App.tsx's `<AppShell>` composition, and claiming otherwise in a file
+header is a documentation bug (WI-12 removed one from
+`KnowledgeBasePanel.tsx`). What `pnpm lint:shell-slots` enforces is the
+checkable half: `scripts/shell-slots-baseline.json` holds the IDENTITY LIST of
+the 20 surfaces App.tsx mounts, and the gate fails both ways — a surface that is
+not listed, and a listed surface that is no longer mounted. When it fires,
+bundle related surfaces behind one mount (see
+`src/components/CoherenceOverlays.tsx`) or give the surface a real shell slot;
+appending a name to the list is not the fix.
 
 ## Single Source of Truth
 

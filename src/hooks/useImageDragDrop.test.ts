@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 }));
 
 const mockSaveImageToAssets = vi.fn(() => Promise.resolve("assets/img.png"));
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   saveImageToAssets: (...args: unknown[]) => mockSaveImageToAssets(...args),
 }));
 

@@ -15,7 +15,7 @@ import {
   getViewportBounds,
 } from "@/utils/popupPosition";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "./popupHostDom";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type {
   EditorViewLike,

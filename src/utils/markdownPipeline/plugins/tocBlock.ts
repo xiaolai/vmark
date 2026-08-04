@@ -37,9 +37,12 @@ export const remarkTocBlock: Plugin<[], Root> = function () {
       if (!TOC_RE.test((child as Text).value)) return;
 
       // Replace the paragraph with a toc node
+      // No `position` key when the source paragraph carried none — an mdast
+      // node without a position is one that has no place in the document,
+      // which is not the same as one placed nowhere.
       const tocNode: Toc = {
         type: "toc",
-        position: node.position,
+        ...(node.position ? { position: node.position } : {}),
       };
 
       parent.children[index] = tocNode as unknown as typeof parent.children[number];

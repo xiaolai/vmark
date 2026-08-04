@@ -200,13 +200,16 @@ function InfoRow({
   copyable,
   fullValue,
 }: {
+  // The optional props are `| undefined`: callers compute them inline
+  // (`preview.isDev ? t(...) : undefined`), and React cannot tell a prop
+  // passed as `undefined` from one that was never written.
   label: string;
   value: string;
-  mono?: boolean;
-  badge?: string;
-  badgeColor?: "green" | "amber";
-  copyable?: boolean;
-  fullValue?: string; // Full value to copy (if different from displayed value)
+  mono?: boolean | undefined;
+  badge?: string | undefined;
+  badgeColor?: "green" | "amber" | undefined;
+  copyable?: boolean | undefined;
+  fullValue?: string | undefined; // Full value to copy (if different from displayed value)
 }) {
   return (
     <div className="flex items-center gap-2">

@@ -117,8 +117,12 @@ export interface ResolveIngestMetadataInput {
   derived: LineMetadata;
   /** What the document holds right now. */
   existing: LineMetadata;
-  /** Metadata stored alongside a snapshot, where the origin has one. */
-  persisted?: Partial<LineMetadata>;
+  /**
+   * Metadata stored alongside a snapshot, where the origin has one.
+   * `| undefined`: forwarded straight from `IngestOptions.persisted`, and
+   * `preferPersisted` below is written to read an undefined field.
+   */
+  persisted?: Partial<LineMetadata> | undefined;
 }
 
 /** A persisted field counts only when it is present AND actually decided. */

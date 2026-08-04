@@ -80,18 +80,18 @@ export class FootnotePopupView extends WysiwygPopupView<FootnotePopupState> {
     return dom.container;
   }
 
-  protected shouldReshow(prev: FootnotePopupState, state: FootnotePopupState): boolean {
+  protected override shouldReshow(prev: FootnotePopupState, state: FootnotePopupState): boolean {
     // Re-show on label change (hover moved to another footnote) or when
     // autoFocus turns on (click on the reference while hover popup is open)
     return state.label !== prev.label || (state.autoFocus && !prev.autoFocus);
   }
 
   /** Hover popup must not steal focus on show; autoFocus is handled in onShow. */
-  protected getFirstFocusable(): HTMLElement | null {
+  protected override getFirstFocusable(): HTMLElement | null {
     return null;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     const rect = this.container.getBoundingClientRect();
     return {
       width: rect.width || DEFAULT_POPUP_WIDTH,
@@ -101,7 +101,7 @@ export class FootnotePopupView extends WysiwygPopupView<FootnotePopupState> {
     };
   }
 
-  protected updatePosition(anchorRect: AnchorRect): void {
+  protected override updatePosition(anchorRect: AnchorRect): void {
     super.updatePosition(anchorRect);
     this.autoResizeTextarea();
   }
@@ -284,7 +284,7 @@ export class FootnotePopupView extends WysiwygPopupView<FootnotePopupState> {
     }
   }
 
-  destroy(): void {
+  override destroy(): void {
     this.clearFocusTimeout();
     this.clearBlurTimeout();
     this.container.removeEventListener("mouseleave", this.handlePopupMouseLeave);

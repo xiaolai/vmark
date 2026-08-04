@@ -10,13 +10,13 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { SessionData } from './types';
-import { HOT_EXIT_EVENTS } from './types';
 import { migrateSession, canMigrate, needsMigration, SCHEMA_VERSION } from './schemaMigration';
-import { hasSecondaryWindows } from './restoreDispatch';
+import { hasSecondaryWindows, salvageSessionPayload } from './restoreDispatch';
+import { quarantineSessionEntries } from './sessionQuarantine';
+import { setupRestoreListeners } from './restoreListeners';
 import { restoreMainWindowState } from '../resilience/_hotExitRestore';
 import { hotExitLog, hotExitWarn, hotExitError } from '@/utils/debug';
 
@@ -46,6 +46,29 @@ function formatTimestamp(timestamp: number): string {
     return `invalid(${timestamp})`;
     /* v8 ignore stop */
   }
+}
+
+/**
+ * Did Rust serve the BACKUP because the main session file was unusable?
+ *
+ * `hot_exit_inspect_session` reports `recovered_from_backup: bool` alongside
+ * the session's own fields (src-tauri/src/hot_exit/commands.rs
+ * `InspectedSession`). Without it the frontend could not see the case that
+ * matters most: `storage.rs::read_session` substitutes `session.prev.json`
+ * UPSTREAM of the salvage boundary, so the payload arriving here is perfectly
+ * valid, nothing is quarantined, and a successful restore clears BOTH files —
+ * destroying the corrupt main bytes unread.
+ *
+ * Absence still reads as `false`: Rust omits the field when it is false (the
+ * crate's "absent optionals are ABSENT" wire convention), so a clean read has
+ * no key at all.
+ */
+function wasRecoveredFromBackup(raw: unknown): boolean {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    (raw as { recovered_from_backup?: unknown }).recovered_from_backup === true
+  );
 }
 
 /**
@@ -116,12 +139,32 @@ export async function checkAndRestoreSession(
     : DEFAULT_RESTORE_TIMEOUT_MS;
 
   try {
-    const session = await invoke<SessionData | null>(HOT_EXIT_COMMANDS.INSPECT);
+    // WI-3: the persisted payload is untrusted at this boundary — salvage it
+    // through the Zod schemas before migration/dispatch. Failures are
+    // quarantined (preserved on disk), and an unusable payload leaves the
+    // session file in place instead of clearing it.
+    const rawSession = await invoke<unknown>(HOT_EXIT_COMMANDS.INSPECT);
+    const salvage = salvageSessionPayload(rawSession);
+    const recoveredFromBackup = wasRecoveredFromBackup(rawSession);
 
-    if (!session) {
+    if (salvage.status === 'empty') {
       hotExitLog('No saved session found');
       return false;
     }
+    if (salvage.quarantined.length > 0) {
+      const preserved = await quarantineSessionEntries(salvage.quarantined);
+      if (!preserved) {
+        // Preservation beats restore: without the artifact, a successful
+        // restore would clear the session file and destroy the corrupt bytes.
+        hotExitWarn('Quarantine write failed; keeping session file, skipping restore');
+        return false;
+      }
+    }
+    if (salvage.status === 'invalid') {
+      hotExitWarn('Session payload failed validation; file kept, quarantine artifact written');
+      return false;
+    }
+    const session = salvage.session;
 
     // Check if session can be migrated
     if (!canMigrate(session.version)) {
@@ -184,6 +227,24 @@ export async function checkAndRestoreSession(
     const restoreResult = await resultPromise;
 
     if (restoreResult.success) {
+      // Audit 20260804-F10: DELETING is the irreversible half of this
+      // function, so it is refused whenever the payload was not wholly
+      // readable. Two triggers:
+      //   - salvage rejected material: something in that file failed schema
+      //     validation, and the quarantine artifact is a DERIVED copy. Keeping
+      //     the original costs one stale file (the next quit overwrites it);
+      //     deleting it costs the only pristine evidence of the corruption.
+      //   - Rust served the backup: the corrupt main file was never seen by
+      //     the salvage boundary at all, so clearing would erase it unread.
+      //     See the TODO(WI-3-followup) above — this arm is unreachable until
+      //     the Rust half reports the substitution.
+      if (salvage.quarantined.length > 0 || recoveredFromBackup) {
+        hotExitLog(
+          'Restore succeeded, but the payload was not wholly readable — session file preserved',
+          { quarantined: salvage.quarantined.length, recoveredFromBackup }
+        );
+        return true;
+      }
       await clearSessionFile('restore success');
       return true;
     } else {
@@ -196,83 +257,4 @@ export async function checkAndRestoreSession(
     hotExitLog('Failed to restore session:', error);
     return false;
   }
-}
-
-/** Result type for restore listener setup */
-interface RestoreListenerHandle {
-  /** Promise that resolves when restore completes or fails */
-  resultPromise: Promise<{ success: boolean; error?: string }>;
-  /** Cleanup function to call if invoke fails */
-  cleanup: () => void;
-}
-
-/**
- * Set up restore event listeners and wait for them to be ready.
- *
- * This function AWAITS listener registration before returning, ensuring
- * no race condition between listener setup and event emission.
- *
- * @param timeoutMs - Maximum time to wait for restore completion
- * @returns Handle with result promise and cleanup function
- */
-async function setupRestoreListeners(timeoutMs: number): Promise<RestoreListenerHandle> {
-  let resolved = false;
-  let resolveResult: (result: { success: boolean; error?: string }) => void;
-  let unlistenComplete: (() => void) | undefined;
-  let unlistenFailed: (() => void) | undefined;
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  const resultPromise = new Promise<{ success: boolean; error?: string }>((resolve) => {
-    resolveResult = resolve;
-  });
-
-  const cleanup = () => {
-    /* v8 ignore start -- timeoutId is always set before cleanup is externally reachable; false branch unreachable */
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = undefined;
-    }
-    /* v8 ignore stop */
-    /* v8 ignore start -- unlistenComplete is always set before cleanup is externally reachable; false branch unreachable */
-    if (unlistenComplete) {
-      unlistenComplete();
-      unlistenComplete = undefined;
-    }
-    /* v8 ignore stop */
-    /* v8 ignore start -- unlistenFailed is always set before cleanup is externally reachable; false branch unreachable */
-    if (unlistenFailed) {
-      unlistenFailed();
-      unlistenFailed = undefined;
-    }
-    /* v8 ignore stop */
-  };
-
-  const handleResolve = (result: { success: boolean; error?: string }) => {
-    /* v8 ignore start -- double-fire guard: handleResolve is called at most once in normal flow; true branch unreachable */
-    if (resolved) return;
-    /* v8 ignore stop */
-    resolved = true;
-    cleanup();
-    resolveResult(result);
-  };
-
-  // AWAIT listener registration - this is the key fix for the race condition
-  const [completeUnsub, failedUnsub] = await Promise.all([
-    listen(HOT_EXIT_EVENTS.RESTORE_COMPLETE, () => {
-      handleResolve({ success: true });
-    }),
-    listen<{ error: string }>(HOT_EXIT_EVENTS.RESTORE_FAILED, (event) => {
-      handleResolve({ success: false, error: event.payload.error });
-    }),
-  ]);
-
-  unlistenComplete = completeUnsub;
-  unlistenFailed = failedUnsub;
-
-  // Set up timeout AFTER listeners are confirmed ready
-  timeoutId = setTimeout(() => {
-    handleResolve({ success: false, error: 'Restore timed out' });
-  }, timeoutMs);
-
-  return { resultPromise, cleanup };
 }

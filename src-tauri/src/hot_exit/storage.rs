@@ -3,7 +3,7 @@
 //! Uses tmp + rename pattern to ensure atomic writes and data durability.
 
 use super::dedup;
-use super::session::SessionData;
+use super::session::{LoadedSession, SessionData};
 use super::validation::validate_and_repair;
 use std::fs::File;
 use std::io::Write;
@@ -190,35 +190,39 @@ fn finalize_session(mut session: SessionData) -> Result<Option<SessionData>, Str
 
 /// Read session from disk, falling back to backup if main file is corrupt,
 /// at an unsupported version, or fails to migrate.
-pub async fn read_session(app: &tauri::AppHandle) -> Result<Option<SessionData>, String> {
+pub async fn read_session(app: &tauri::AppHandle) -> Result<Option<LoadedSession>, String> {
     let session_path = get_session_path(app)?;
+    let backup_path = get_backup_session_path(app)?;
+    read_session_from_paths(&session_path, &backup_path).await
+}
 
+/// The path-based core of [`read_session`], so the fallback ladder is testable
+/// without an `AppHandle`. `storage.test.rs` used to carry its own copy of this
+/// ladder and assert against the copy — which cannot catch a divergence.
+///
+/// The corrupt main file is deliberately left ON DISK: it is the only evidence
+/// of what went wrong, and the frontend needs `recovered_from_backup` (audit
+/// 20260803 §11) to quarantine it before a successful restore clears both.
+async fn read_session_from_paths(
+    session_path: &std::path::Path,
+    backup_path: &std::path::Path,
+) -> Result<Option<LoadedSession>, String> {
     // Try main session file first.
     //
     // The "unsupported version" and "migration failed" arms used to early-
     // return Ok(None) / propagate `?` — that meant a single bad main file
     // could shadow a perfectly migratable backup. Both now fall through so
     // the backup arm below gets a chance (audit #952).
-    match try_read_session_file(&session_path).await {
+    match try_read_session_file(session_path).await {
         Ok(Some(session)) => match finalize_session(session) {
-            Ok(Some(s)) => return Ok(Some(s)),
-            Ok(None) => {
-                // Unsupported main version — already logged inside finalize_session;
-                // fall through to the backup arm.
-            }
-            Err(e) => {
-                log::warn!(
-                    "[HotExit] Main session migration failed ({}), trying backup",
-                    e
-                );
-            }
+            Ok(Some(s)) => return Ok(Some(LoadedSession::from_main(s))),
+            // Unsupported version (logged inside finalize_session) — fall through.
+            Ok(None) => {}
+            Err(e) => log::warn!("[HotExit] Main session migration failed ({e}), trying backup"),
         },
-        Ok(None) => {
-            // Main file doesn't exist — check backup before giving up
-        }
-        Err(e) => {
-            log::warn!("[HotExit] Main session corrupt ({}), trying backup", e);
-        }
+        // Main file doesn't exist — check backup before giving up.
+        Ok(None) => {}
+        Err(e) => log::warn!("[HotExit] Main session corrupt ({e}), trying backup"),
     }
 
     // Fall back to backup session. Reuse the same finalize pipeline as the
@@ -226,25 +230,22 @@ pub async fn read_session(app: &tauri::AppHandle) -> Result<Option<SessionData>,
     // the recovery path can't drift from production migration/validation
     // logic. An unsupported version or migration failure on the backup leaves
     // nothing else to fall back to, so both collapse to a fresh session.
-    let backup_path = get_backup_session_path(app)?;
-    match try_read_session_file(&backup_path).await {
+    match try_read_session_file(backup_path).await {
         Ok(Some(session)) => match finalize_session(session) {
             Ok(Some(s)) => {
                 log::info!("[HotExit] Restored session from backup");
-                Ok(Some(s))
+                Ok(Some(LoadedSession::from_backup(s)))
             }
-            Ok(None) => {
-                // Unsupported backup version — already logged inside finalize_session.
-                Ok(None)
-            }
+            // Nothing else to fall back to — start fresh either way.
+            Ok(None) => Ok(None),
             Err(e) => {
-                log::error!("[HotExit] Backup session migration failed: {}", e);
-                Ok(None) // Nothing else to fall back to — start fresh
+                log::error!("[HotExit] Backup session migration failed: {e}");
+                Ok(None)
             }
         },
         Ok(None) => Ok(None),
         Err(e) => {
-            log::error!("[HotExit] Backup session also failed: {}", e);
+            log::error!("[HotExit] Backup session also failed: {e}");
             Ok(None) // Both files unusable — start fresh
         }
     }

@@ -45,8 +45,8 @@ import { DEFAULT_SHORTCUTS } from "@/stores/settingsStore/shortcutDefinitions";
 import { registerMiscCommands } from "@/services/commands/miscCommands";
 import { registerViewCommands } from "@/services/commands/viewCommands";
 import { registerBrowserCommands } from "@/services/commands/browserCommands";
-import { registerTabCommands } from "@/hooks/tabCommands";
-import { registerFileCommands } from "@/hooks/fileCommands";
+import { registerTabCommands } from "@/services/commands/tabCommands";
+import { registerFileCommands } from "@/services/commands/fileCommands";
 import { registerGenieCommands } from "@/services/commands/genieCommands";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

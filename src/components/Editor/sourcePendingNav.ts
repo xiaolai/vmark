@@ -10,7 +10,7 @@
  *
  * @coordinates-with SourceEditor.tsx — calls this after focus/cursor restore
  * @coordinates-with services/lint/lintNavigation.ts — pending lint-scroll source
- * @coordinates-with hooks/contentSearchNavigation.ts — pending search-nav source
+ * @coordinates-with services/navigation/contentSearchNavigation.ts — pending search-nav source
  * @module components/Editor/sourcePendingNav
  */
 
@@ -19,7 +19,7 @@ import { consumePendingLintScroll } from "@/services/lint/lintNavigation";
 import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,
-} from "@/hooks/contentSearchNavigation";
+} from "@/services/navigation/contentSearchNavigation";
 
 /** Delay before pre-filling the FindBar, letting the scroll settle first. */
 const FIND_BAR_DELAY_MS = 100;

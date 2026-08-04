@@ -18,7 +18,7 @@
  *     sees it.
  *
  * @coordinates-with TiptapEditor.tsx — deferred init + visibility transition
- * @coordinates-with hooks/contentSearchNavigation.ts — pending search-nav source
+ * @coordinates-with services/navigation/contentSearchNavigation.ts — pending search-nav source
  * @module components/Editor/wysiwygPendingNav
  */
 
@@ -27,7 +27,7 @@ import { Selection } from "@tiptap/pm/state";
 import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,
-} from "@/hooks/contentSearchNavigation";
+} from "@/services/navigation/contentSearchNavigation";
 import { contentSearchLog } from "@/utils/debug";
 
 /** Delay before pre-filling the FindBar, letting the scroll settle first. */

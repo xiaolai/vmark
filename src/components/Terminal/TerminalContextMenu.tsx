@@ -67,8 +67,10 @@ interface TerminalContextMenuProps {
    *  absent without shell integration, which hides the item. */
   getCommands?: () => CommandMark[];
   /** Buffer line the right-click landed on, used to pick the command whose
-   *  output to copy. */
-  clickLine?: number;
+   *  output to copy. `| undefined` because JSX cannot conditionally omit an
+   *  attribute — React treats a prop passed as `undefined` as not supplied,
+   *  and the reader below tests `clickLine === undefined` for exactly that. */
+  clickLine?: number | undefined;
   onClose: () => void;
 }
 

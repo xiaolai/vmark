@@ -62,8 +62,14 @@ type PinnableToastOpts = NonNullable<Parameters<typeof toast.info>[1]> & {
   pin?: boolean;
 };
 
-/** Args accepted by imeToast emit methods (message + optional pinnable options). */
-type ToastArgs = [Parameters<typeof toast.info>[0], PinnableToastOpts?];
+/**
+ * Args accepted by imeToast emit methods (message + optional pinnable options).
+ *
+ * The options element is `| undefined` to mirror sonner's own parameter tuple:
+ * `applyPin` hands its result straight back to these helpers, and sonner types
+ * that slot as `data?: ExternalToast | undefined`.
+ */
+type ToastArgs = [Parameters<typeof toast.info>[0], (PinnableToastOpts | undefined)?];
 
 /** Args accepted by sonner internally (message + sonner-native options). */
 type SonnerArgs = Parameters<typeof toast.info>;

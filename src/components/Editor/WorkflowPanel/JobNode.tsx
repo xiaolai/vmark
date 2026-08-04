@@ -31,6 +31,7 @@ import type { JobNodeData } from "@/lib/ghaWorkflow/render/toGraph";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import "./job-node.css";
 
 // xyflow's NodeProps narrows to the data + minimal id/selected props
@@ -69,7 +70,7 @@ function truncate(s: string): string {
  */
 function buildJobAriaLabel(
   job: JobIR,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction<"workflowEditor">,
 ): string {
   const parts: string[] = [];
   parts.push(t("panel.aria.jobPrefix", { name: job.name ?? job.id }));

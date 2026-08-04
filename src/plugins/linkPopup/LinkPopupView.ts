@@ -57,7 +57,7 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     this.deleteBtn.addEventListener("click", this.handleRemove);
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return { width: 320, height: 36, gap: 6, preferAbove: true };
   }
 
@@ -90,14 +90,14 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
   /** An open popup retargeted at a different link must re-run show(), or the
    *  input keeps the previous link's URL while the store already points at the
    *  new range — saving would then write URL A over link B. */
-  protected shouldReshow(prev: LinkPopupState, next: LinkPopupState): boolean {
+  protected override shouldReshow(prev: LinkPopupState, next: LinkPopupState): boolean {
     return prev.linkFrom !== next.linkFrom || prev.linkTo !== next.linkTo;
   }
 
   /** The base class focuses this in a deferred frame; yield nothing once the
    *  popup is hidden, so a fast Escape / outside click cannot pull focus back
    *  out of the editor and into a hidden input. */
-  protected getFirstFocusable(): HTMLElement | null {
+  protected override getFirstFocusable(): HTMLElement | null {
     if (!this.isVisible() || !this.container.isConnected) return null;
     return this.input;
   }

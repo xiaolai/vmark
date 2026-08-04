@@ -24,7 +24,7 @@
  * @coordinates-with useStatusBarTabDrag.ts — calls transferTabFromDragOut on drag-out
  * @coordinates-with useTabContextMenuActions.ts — "Move to New Window" uses similar logic
  * @coordinates-with WindowContext.tsx — receiving window applies transferred tab data
- * @coordinates-with tabCleanup.ts — cleanupTabState used on detach to free all per-tab state
+ * @coordinates-with services/windowClose/tabCleanup.ts — cleanupTabState used on detach to free all per-tab state
  * @module components/StatusBar/tabTransferActions
  */
 import { invoke } from "@tauri-apps/api/core";
@@ -35,9 +35,12 @@ import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { DragOutPoint } from "@/hooks/useTabDragOut";
 import type { TabRemovalAck, TabTransferPayload } from "@/types/tabTransfer";
-import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
+import {
+  buildTransferDocumentFields,
+  pickTransferLineMetadata,
+} from "@/utils/transferLineMetadata";
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
-import { cleanupTabState } from "@/hooks/tabCleanup";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import i18n from "@/i18n";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -116,10 +119,7 @@ export async function restoreTransferredTab(
   });
   useDocumentStore.getState().initDocument(restoredTabId, live.content, live.filePath, {
     savedContent: live.savedContent,
-    lineEnding: live.lineEnding,
-    hardBreakStyle: live.hardBreakStyle,
-    hasBom: live.hasBom,
-    lastDiskContent: live.lastDiskContent,
+    ...pickTransferLineMetadata(live),
   });
 
   // Phase 3 — now that the tab is safe here, let the destination drop it. If

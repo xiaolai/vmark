@@ -33,8 +33,15 @@ export interface MdastToPmContext {
 /**
  * Extract source line number from MDAST node position.
  * Returns null if position is not available.
+ *
+ * The `| undefined` on each level is deliberate, not blanket-widening: mdast
+ * declares `position?: Position | undefined`, so a synthesized node carries the
+ * key with an undefined value rather than omitting it. The optional chain below
+ * already handles both, so the parameter accepts both.
  */
-export function getSourceLine(node: { position?: { start?: { line?: number } } }): number | null {
+export function getSourceLine(node: {
+  position?: { start?: { line?: number | undefined } | undefined } | undefined;
+}): number | null {
   return node.position?.start?.line ?? null;
 }
 

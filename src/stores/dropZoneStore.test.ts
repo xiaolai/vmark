@@ -92,3 +92,50 @@ describe("dropZoneStore", () => {
     });
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("dropZoneStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useDropZoneStore.getState().reset();
+  });
+
+  const initialData = { isDragging: false, hasImages: false, imageCount: 0 };
+
+  function dataOf(s: ReturnType<typeof useDropZoneStore.getState>) {
+    const { isDragging, hasImages, imageCount } = s;
+    return { isDragging, hasImages, imageCount };
+  }
+
+  it("rapid setDragging/reset x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useDropZoneStore.getState().setDragging(true, true, i);
+      useDropZoneStore.getState().reset();
+    }
+    expect(dataOf(useDropZoneStore.getState())).toEqual(initialData);
+  });
+
+  it("no leak across sessions: drag A → reset → drag B shows only B", () => {
+    useDropZoneStore.getState().setDragging(true, true, 9);
+    useDropZoneStore.getState().reset();
+    useDropZoneStore.getState().setDragging(true);
+    expect(dataOf(useDropZoneStore.getState())).toEqual({
+      isDragging: true,
+      hasImages: false,
+      imageCount: 0,
+    });
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useDropZoneStore.getState().setDragging(true, true, 3);
+      expect(dataOf(useDropZoneStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useDropZoneStore.getState().setDragging(true, true, 3);
+      useDropZoneStore.setState(useDropZoneStore.getInitialState());
+      expect(dataOf(useDropZoneStore.getState())).toEqual(initialData);
+    });
+  });
+});

@@ -46,6 +46,10 @@ const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "
 export const MAX_PENDING_APPROVALS = 64;
 
 /** Same element? Both target-less (a read), or both naming the same role+name. */
+/** Approval bindings, ABSENT for kinds that don't bind them (a click binds role+name). */
+const approvalBindings = (target: ActionTarget | undefined, script: string | undefined) =>
+  ({ ...(target !== undefined && { target }), ...(script !== undefined && { script }) });
+
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
   if (a === undefined || b === undefined) return a === b;
   return a.role === b.role && a.name === b.name;
@@ -168,9 +172,8 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       // unboundedly (each pending may retain a full script). (Sec review P5.)
       if (get().pending.some((p) => p.id === id)) return "existing";
       if (get().pending.length >= MAX_PENDING_APPROVALS) return "overloaded";
-      set((state) => ({
-        pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],
-      }));
+      const req = { id, targetUrl, operation, tabId, generation, ...approvalBindings(target, script) };
+      set((state) => ({ pending: [...state.pending, req] }));
       return "queued";
     },
 
@@ -222,14 +225,12 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
               {
                 originPattern: pattern as string,
                 operation: request.operation,
-                target: request.target,
                 tabId: request.tabId,
                 // The generation the prompt was RAISED against — not whatever is current
                 // when the driver eventually receives the mint. (Audit, High.)
                 generation: request.generation,
-                // The exact script the user saw and approved — bound so a substituted
-                // retry is refused on both layers. (Security review P5, High #1.)
-                script: request.script,
+                // Element + exact script approved, so a substituted retry is refused.
+                ...approvalBindings(request.target, request.script),
               },
             ]
           : state.oneShots,

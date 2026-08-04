@@ -6,7 +6,7 @@
  *   fingerprints it (via the {@link ContentHashCache}), and drops the event
  *   when the fingerprint matches the last-known one — catching external touches,
  *   no-op formatter rewrites, and reverts-to-identical that would otherwise storm
- *   consumers. Injected reader/hash/media-probe (mirrors hooks/fsChangeHandlers)
+ *   consumers. Injected reader/hash/media-probe (mirrors services/windowClose/fsChangeHandlers)
  *   so it unit-tests without Tauri.
  *
  * Safety direction: anything that cannot be verified (media, unreadable file,

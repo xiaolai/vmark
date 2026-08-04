@@ -129,3 +129,72 @@ describe("imageContextMenuStore", () => {
     });
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("imageContextMenuStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useImageContextMenuStore.getState().closeMenu();
+  });
+
+  const initialData = { isOpen: false, position: null, imageSrc: "", imageNodePos: -1 };
+
+  function dataOf(s: ReturnType<typeof useImageContextMenuStore.getState>) {
+    const { isOpen, position, imageSrc, imageNodePos } = s;
+    return { isOpen, position, imageSrc, imageNodePos };
+  }
+
+  it("no leak across sessions: open A → close → open B shows only B", () => {
+    useImageContextMenuStore.getState().openMenu({
+      position: { x: 1, y: 2 },
+      imageSrc: "a.png",
+      imageNodePos: 1,
+    });
+    useImageContextMenuStore.getState().closeMenu();
+    useImageContextMenuStore.getState().openMenu({
+      position: { x: 3, y: 4 },
+      imageSrc: "b.png",
+      imageNodePos: 2,
+    });
+
+    expect(dataOf(useImageContextMenuStore.getState())).toEqual({
+      isOpen: true,
+      position: { x: 3, y: 4 },
+      imageSrc: "b.png",
+      imageNodePos: 2,
+    });
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useImageContextMenuStore.getState().openMenu({
+        position: { x: i, y: i },
+        imageSrc: `i${i}.png`,
+        imageNodePos: i,
+      });
+      useImageContextMenuStore.getState().closeMenu();
+    }
+    expect(dataOf(useImageContextMenuStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useImageContextMenuStore.getState().openMenu({
+        position: { x: 9, y: 9 },
+        imageSrc: "m.png",
+        imageNodePos: 9,
+      });
+      expect(dataOf(useImageContextMenuStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useImageContextMenuStore.getState().openMenu({
+        position: { x: 9, y: 9 },
+        imageSrc: "m.png",
+        imageNodePos: 9,
+      });
+      useImageContextMenuStore.setState(useImageContextMenuStore.getInitialState());
+      expect(dataOf(useImageContextMenuStore.getState())).toEqual(initialData);
+    });
+  });
+});

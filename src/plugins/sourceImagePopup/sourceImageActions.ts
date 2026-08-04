@@ -16,7 +16,7 @@ import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 
 /** The popup state these actions read — injected, never imported (ADR-015). */
 type Store = StoreApi<MediaPopupState>;
-import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { sourceActionError } from "@/utils/debug";

@@ -21,7 +21,7 @@ import { dirname, join } from "@tauri-apps/api/path";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import type { EditorView } from "@tiptap/pm/view";
 import { useImageContextMenuStore } from "@/stores/imageContextMenuStore";
-import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { imageContextMenuWarn, imageContextMenuError } from "@/utils/debug";
 import i18n from "@/i18n";

@@ -51,11 +51,18 @@ jobs:
         # active "slopsquat" supply-chain attacks. See scripts/check-new-deps.sh.
         run: bash scripts/check-new-deps.sh
 
-      - name: File-size baseline ratchet (merge-base)
-        # check-file-size.mjs compares the tree against the baseline in the
-        # SAME commit, so a PR could raise limit+caps together and pass. This
-        # compares the baseline against the merge base and rejects any
-        # loosening (audit 20260729 C3).
+      - name: Baseline ratchet (merge-base, all committed baselines)
+        # Every gate compares the tree against its baseline in the SAME commit,
+        # so a PR can raise its own floor — edit the offending file and its
+        # baseline together and every check reports green (audit 20260729 C3;
+        # generalized from file-size alone to all 12 baselines by the 20260803
+        # review, D2). This re-reads each baseline at the merge base, where the
+        # PR cannot have written it, and rejects any loosening.
+        #
+        # PR-only, and NOT part of `pnpm check:all`: the comparison needs a base
+        # ref, which a local checkout cannot guarantee. The checkout above uses
+        # fetch-depth: 0, so `git merge-base origin/<base> HEAD` resolves here;
+        # if it ever cannot, the script exits 1 rather than skipping.
         if: github.event_name == 'pull_request'
         run: node scripts/check-baseline-ratchet.mjs "origin/${{ github.base_ref }}"
 

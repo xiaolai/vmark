@@ -38,7 +38,10 @@ function viewBinding(
     commandId,
     shortcutId,
     scope: "window",
-    when: opts.suppressInInput ? notInInput : undefined,
+    // No `when` at all for an unconditional binding — the dispatcher treats
+    // the key's absence as "always applies", which is not the same claim as
+    // "there is a predicate and it is nothing".
+    ...(opts.suppressInInput ? { when: notInInput } : {}),
     priority: 0,
     captureOwner: "window",
     repeat: "deny",

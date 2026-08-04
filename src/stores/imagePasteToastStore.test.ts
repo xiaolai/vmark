@@ -357,3 +357,136 @@ describe("imagePasteToastStore", () => {
     expect(state.imagePaths).toEqual([]);
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("imagePasteToastStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useImagePasteToastStore.getState().hideToast();
+  });
+
+  const mockAnchorRect: AnchorRect = { x: 100, y: 200, width: 50, height: 20 };
+  const mockEditorDom = document.createElement("div");
+  const initialData = {
+    isOpen: false,
+    imagePath: "",
+    imageType: "url",
+    imagePaths: [],
+    imageResults: [],
+    isMultiple: false,
+    imageCount: 0,
+    anchorRect: null,
+    editorDom: null,
+    onConfirm: null,
+    onDismiss: null,
+  };
+
+  function dataOf(s: ReturnType<typeof useImagePasteToastStore.getState>) {
+    const {
+      isOpen, imagePath, imageType, imagePaths, imageResults, isMultiple,
+      imageCount, anchorRect, editorDom, onConfirm, onDismiss,
+    } = s;
+    return {
+      isOpen, imagePath, imageType, imagePaths, imageResults, isMultiple,
+      imageCount, anchorRect, editorDom, onConfirm, onDismiss,
+    };
+  }
+
+  it("no leak across sessions: single toast A → hide → multi toast B carries no A residue", () => {
+    useImagePasteToastStore.getState().showToast({
+      imagePath: "a.png",
+      imageType: "url",
+      anchorRect: mockAnchorRect,
+      editorDom: mockEditorDom,
+      onConfirm: vi.fn(),
+      onDismiss: vi.fn(),
+    });
+    useImagePasteToastStore.getState().hideToast();
+
+    const results: ImagePathResult[] = [
+      { path: "b1.png", type: "localPath" } as ImagePathResult,
+      { path: "b2.png", type: "localPath" } as ImagePathResult,
+    ];
+    const onConfirm = vi.fn();
+    const onDismiss = vi.fn();
+    useImagePasteToastStore.getState().showMultiToast({
+      imageResults: results,
+      anchorRect: mockAnchorRect,
+      editorDom: mockEditorDom,
+      onConfirm,
+      onDismiss,
+    });
+
+    expect(dataOf(useImagePasteToastStore.getState())).toEqual({
+      isOpen: true,
+      imagePath: "",
+      imageType: "localPath",
+      imagePaths: ["b1.png", "b2.png"],
+      imageResults: results,
+      isMultiple: true,
+      imageCount: 2,
+      anchorRect: mockAnchorRect,
+      editorDom: mockEditorDom,
+      onConfirm,
+      onDismiss,
+    });
+  });
+
+  it("hideToast does NOT invoke callbacks (pinned legacy behavior: only confirm/dismiss do)", () => {
+    const onConfirm = vi.fn();
+    const onDismiss = vi.fn();
+    useImagePasteToastStore.getState().showToast({
+      imagePath: "a.png",
+      imageType: "url",
+      anchorRect: mockAnchorRect,
+      editorDom: mockEditorDom,
+      onConfirm,
+      onDismiss,
+    });
+    useImagePasteToastStore.getState().hideToast();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("rapid show/hide x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useImagePasteToastStore.getState().showToast({
+        imagePath: `p${i}.png`,
+        imageType: "url",
+        anchorRect: mockAnchorRect,
+        editorDom: mockEditorDom,
+        onConfirm: vi.fn(),
+        onDismiss: vi.fn(),
+      });
+      useImagePasteToastStore.getState().hideToast();
+    }
+    expect(dataOf(useImagePasteToastStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useImagePasteToastStore.getState().showToast({
+        imagePath: "m.png",
+        imageType: "url",
+        anchorRect: mockAnchorRect,
+        editorDom: mockEditorDom,
+        onConfirm: vi.fn(),
+        onDismiss: vi.fn(),
+      });
+      expect(dataOf(useImagePasteToastStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useImagePasteToastStore.getState().showToast({
+        imagePath: "m.png",
+        imageType: "url",
+        anchorRect: mockAnchorRect,
+        editorDom: mockEditorDom,
+        onConfirm: vi.fn(),
+        onDismiss: vi.fn(),
+      });
+      useImagePasteToastStore.setState(useImagePasteToastStore.getInitialState());
+      expect(dataOf(useImagePasteToastStore.getState())).toEqual(initialData);
+    });
+  });
+});

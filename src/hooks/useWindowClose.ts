@@ -27,7 +27,7 @@
  *   - All ordering/revalidation decisions live in windowCloseFlow.ts.
  *
  * @coordinates-with windowCloseFlow.ts — the close transaction itself
- * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for menu:close
+ * @coordinates-with services/tabs/tabOperations.ts — closeTabWithDirtyCheck for menu:close
  * @module hooks/useWindowClose
  */
 
@@ -37,8 +37,8 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useTabStore } from "../stores/tabStore";
-import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
-import { runWindowCloseFlow } from "@/hooks/windowCloseFlow";
+import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
+import { runWindowCloseFlow } from "@/services/windowClose/windowCloseFlow";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug";
 

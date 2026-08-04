@@ -58,7 +58,7 @@ vi.mock("@/plugins/toolbarActions/sourceAdapterLinks", () => ({
   findWordAtCursorSource: (...args: unknown[]) => mockFindWordAtCursorSource(...args),
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
 }));
 

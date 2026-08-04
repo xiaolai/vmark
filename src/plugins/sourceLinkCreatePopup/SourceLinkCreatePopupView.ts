@@ -51,7 +51,7 @@ export class SourceLinkCreatePopupView extends SourcePopupView<LinkCreatePopupSt
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return getLinkCreatePopupDimensions(this.store.getState().showTextInput);
   }
 

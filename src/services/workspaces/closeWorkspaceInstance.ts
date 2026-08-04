@@ -51,7 +51,7 @@ export type CloseWorkspaceInstanceResult =
 export interface CloseWorkspaceInstanceOptions {
   /**
    * Closes the given tabs, prompting per dirty tab, and resolves false as soon
-   * as the user cancels one — i.e. `hooks/useTabOperations`'
+   * as the user cancels one — i.e. `services/tabs/tabOperations`'
    * `closeTabsWithDirtyCheck`.
    *
    * INJECTED rather than imported: `services/` must not import from `hooks/`

@@ -185,6 +185,7 @@ fn unknown_coherence_request_type_is_clean_error() {
 #[cfg(not(target_os = "windows"))]
 fn mock_app_with_coherence() -> tauri::App<tauri::test::MockRuntime> {
     tauri::test::mock_builder()
+        .manage(super::super::managed::McpBridgeState::default())
         .manage(coherence_state())
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app")
@@ -240,6 +241,7 @@ fn handle_rust_side_without_managed_state_errors_instead_of_panicking() {
     // No .manage(CoherenceState) — the arm must answer with an error
     // response, never fall through to the webview or panic.
     let app = tauri::test::mock_builder()
+        .manage(super::super::managed::McpBridgeState::default())
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app");
     let request = McpRequest {

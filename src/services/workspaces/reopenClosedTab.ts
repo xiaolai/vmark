@@ -9,16 +9,15 @@
  *
  * A closed document whose path is already live in the window is SKIPPED
  * (dropped from history and the next candidate tried) rather than duplicated
- * or stolen from its current tab. Activation is pane-aware: with a split
- * enabled, a reopened document lands in the focused pane (which owns the
- * activeTabId alias, ADR-1); otherwise plain setActiveTab.
+ * or stolen from its current tab. Activation is pane-aware through
+ * `setActiveTab` itself (WI-2 seam, ADR-1): under a split a reopened document
+ * lands in the focused pane; browser tabs activate in place.
  *
  * @coordinates-with stores/tabStoreClosedScopes.ts — scoped history
- * @coordinates-with stores/paneStore.ts — focused-pane activation under a split
+ * @coordinates-with stores/tabActivationBus.ts — setActiveTab is pane-aware (WI-2)
  * @module services/workspaces/reopenClosedTab
  */
 import { useTabStore, type Tab } from "@/stores/tabStore";
-import { usePaneStore } from "@/stores/paneStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import {
@@ -45,16 +44,6 @@ function isPathAlreadyLive(windowLabel: string, tab: Tab): boolean {
   return useTabStore.getState().findTabByPath(windowLabel, tab.filePath) !== null;
 }
 
-function activateReopened(windowLabel: string, tab: Tab): void {
-  const split = usePaneStore.getState().getSplit(windowLabel);
-  if (split.enabled && tab.kind === "document") {
-    // The focused pane owns the alias under a split (ADR-1).
-    usePaneStore.getState().setFocusedPaneTab(windowLabel, tab.id);
-  } else {
-    useTabStore.getState().setActiveTab(windowLabel, tab.id);
-  }
-}
-
 /**
  * Reopen the newest closed tab of the window's ACTIVE context. Returns the
  * reopened tab, or null when every candidate history is empty.
@@ -76,7 +65,7 @@ export function reopenClosedTabForActiveContext(windowLabel: string): Tab | null
     }
 
     useTabStore.getState().restoreTab(windowLabel, tab);
-    activateReopened(windowLabel, tab);
+    useTabStore.getState().setActiveTab(windowLabel, tab.id); // pane-aware (WI-2)
     return tab;
   }
 }

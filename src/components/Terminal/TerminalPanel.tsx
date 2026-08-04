@@ -159,10 +159,13 @@ export function TerminalPanel() {
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
+      // No `line` key when the pointer resolved to no buffer row — the menu
+      // reads its absence to mean "no command to copy output from".
+      const line = resolveBufferLineFromEvent(getActiveTerminal()?.term, e);
       setContextMenu({
         x: e.clientX,
         y: e.clientY,
-        line: resolveBufferLineFromEvent(getActiveTerminal()?.term, e),
+        ...(line !== undefined ? { line } : {}),
       });
     },
     [getActiveTerminal],

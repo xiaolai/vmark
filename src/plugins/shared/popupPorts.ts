@@ -32,6 +32,12 @@ export interface LinkPopupState extends PopupStoreBase {
   linkFrom: number;
   linkTo: number;
   setHref: (href: string) => void;
+  /**
+   * Remap the tracked range after a doc change while the popup is open
+   * (Source-mode remap path — WI-1/D1). Optional: a store without it forces
+   * the guard onto its fail-safe close path instead of remapping.
+   */
+  setLinkRange?: (linkFrom: number, linkTo: number) => void;
   openPopup: (args: {
     href: string;
     linkFrom: number;

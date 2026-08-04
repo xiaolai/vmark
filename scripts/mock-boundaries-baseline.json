@@ -1,0 +1,1381 @@
+{
+  "//": [
+    "Identity baseline of test-side mocks of src/stores/* — (file, mocking API, resolved target) triples, never counts (counts permit like-for-like swaps).",
+    "Checked by scripts/check-mock-boundaries.mjs (pnpm lint:mock-boundaries, in check:all); regenerate ONLY to remove entries via --write-baseline.",
+    "Two-way ratchet: an unbaselined store mock fails the gate, and a baselined mock that no longer exists also fails until its entry is deleted — record the win.",
+    "Entries only get REMOVED, never added. Instead of mocking a store, use the real store (setState/reset in beforeEach) or an explicit store-factory seam with a recorded reason.",
+    "Registered in the WI-16 ratchet manifest (scripts/check-baseline-ratchet.mjs), which re-compares this file against the merge base in CI — so the commit that adds an entry cannot also be the commit that authorizes it."
+  ],
+  "entries": [
+    {
+      "file": "src/components/BottomBar/BottomBar.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/__tests__/HeadingPicker.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/headingPickerStore"
+    },
+    {
+      "file": "src/components/Editor/Editor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/Editor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/Editor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/Editor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/ImageContextMenu.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/imageContextMenuStore"
+    },
+    {
+      "file": "src/components/Editor/MediaViewer/MediaViewer.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/SourceEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/components/Editor/SourceEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/SourceEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/SourceEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/SplitPaneEditor/SourcePane.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/SplitPaneEditor/SourcePane.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/SplitPaneEditor/sourcePaneExtensions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/SplitPaneEditor/sourcePaneExtensions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/activeEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tiptapEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.callbacks.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.doMock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/activeEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tiptapEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.lifecycle.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/activeEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tiptapEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.sync.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/activeEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tiptapEditorStore"
+    },
+    {
+      "file": "src/components/Editor/TiptapEditor.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Editor/UniversalToolbar/UniversalToolbar.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/components/Editor/UniversalToolbar/UniversalToolbar.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/geniePickerStore"
+    },
+    {
+      "file": "src/components/Editor/useTiptapFlush.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Editor/useTiptapFlush.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Editor/useTiptapFlush.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/FindBar/FindBar.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/FindBar/FindBar.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/GeniePicker/GeniePicker.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/components/GeniePicker/GeniePicker.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/geniePickerStore"
+    },
+    {
+      "file": "src/components/GeniePicker/GeniePicker.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/quickOpenStore"
+    },
+    {
+      "file": "src/components/GeniePicker/ProviderSwitcher.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/components/McpHistory/__tests__/McpHistoryButton.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/mcpCheckpointPersistence"
+    },
+    {
+      "file": "src/components/QuickOpen/QuickOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/geniePickerStore"
+    },
+    {
+      "file": "src/components/QuickOpen/QuickOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/QuickOpen/QuickOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/QuickOpen/useQuickOpenItems.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/QuickOpen/useQuickOpenItems.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/Sidebar/FileExplorer/useExplorerOperations.duplicateFile.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Sidebar/FileExplorer/useExplorerOperations.openFile.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/StatusBar/LintBadge.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/StatusBar/LintBadge.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/StatusBar/StatusBarRight.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/imagePasteToastStore"
+    },
+    {
+      "file": "src/components/StatusBar/StatusBarRight.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/StatusBar/tabTransferActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/StatusBar/tabTransferActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/StatusBar/tabTransferActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/StatusBar/UpdateIndicator.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/mcpStore"
+    },
+    {
+      "file": "src/components/StatusBar/UpdateIndicator.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Tabs/Tab.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Tabs/Tab.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabRenameStore"
+    },
+    {
+      "file": "src/components/Tabs/TabRenameInput.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabRenameStore"
+    },
+    {
+      "file": "src/components/Tabs/useTabContextMenuActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Tabs/useTabContextMenuActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Terminal/__tests__/useTerminalPosition.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/__tests__/useTerminalPosition.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.webgl.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.webgl.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/createTerminalInstance.webgl.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Terminal/fileLinkProvider.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/Terminal/imeAsciiHandoff.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/imeAsciiHandoff.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Terminal/setupCopyOnSelect.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/setupFileLinks.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Terminal/setupFileLinks.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Terminal/spawnPty.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/components/Terminal/spawnPty.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/spawnPty.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Terminal/spawnPty.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/Terminal/terminalKeyHandler.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/Terminal/terminalKeyHandler.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/components/Terminal/useTerminalResize.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/TitleBar/TitleBar.a11y.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/components/TitleBar/TitleBar.a11y.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/components/Welcome/WelcomeScreen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/components/WorkflowApproval/ApprovalDialog.a11y.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workflowStore"
+    },
+    {
+      "file": "src/contexts/tabTransferHandlers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/contexts/tabTransferHandlers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/contexts/tabTransferHandlers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/contexts/WindowContext.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/contexts/WindowContext.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/contexts/WindowContext.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/export/__tests__/PdfExportDialog.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/__tests__/useOutlineSync.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/__tests__/useSourceOutlineSync.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/resilience/_hotExitCapture.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/resilience/_hotExitCapture.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/resilience/_hotExitCapture.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.fault.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.fault.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.fault.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useAutoSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useContentServer.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useFileOperations.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useFileOperations.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useFileOperations.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.comprehensive.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.comprehensive.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.comprehensive.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useFinderFileOpen.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/geniePickerStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.invokeGenie.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/useGenieShortcuts.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useImageDragDrop.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useImageDragDrop.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/dropZoneStore"
+    },
+    {
+      "file": "src/hooks/useImageDragDrop.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useImageDragDrop.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useKeybindingRouter.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore/shortcuts"
+    },
+    {
+      "file": "src/hooks/useKeybindingRouter.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/useMcpBridge.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mcpCheckpointPersistence"
+    },
+    {
+      "file": "src/hooks/usePromptHistory.comprehensive.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/hooks/usePromptHistory.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/hooks/useReloadGuard.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useSidebarResize.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/useSourceOutlineSync.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/hooks/useUpdateChecker.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useUpdateChecker.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mcpStore"
+    },
+    {
+      "file": "src/hooks/useUpdateChecker.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/hooks/useWorkspaceBootstrap.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/hooks/useWorkspaceBootstrap.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/hooks/useWorkspaceSync.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/i18n.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/pages/settings/RestProviderConfigFields.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/pages/settings/UpdateAvailableCard.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/mcpStore"
+    },
+    {
+      "file": "src/plugins/autoPair/__tests__/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/codemirror/__tests__/listSmartIndent.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/codemirror/listSmartIndent.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/codemirror/smartPaste.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/codemirror/sourceShortcutsHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/plugins/codemirror/sourceShortcutsHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/codemirror/sourceShortcutsHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/sourceCursorContextStore"
+    },
+    {
+      "file": "src/plugins/codemirror/sourceShortcutsHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/plugins/codePaste/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/focusMode/__tests__/focusMode.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/plugins/htmlPaste/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/imagePasteToast/__tests__/ImagePasteToastView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/imagePasteToastStore"
+    },
+    {
+      "file": "src/plugins/imageView/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/plugins/imageView/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/imageContextMenuStore"
+    },
+    {
+      "file": "src/plugins/imageView/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mediaPopupStore"
+    },
+    {
+      "file": "src/plugins/imageView/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/plugins/latex/__tests__/MathInlineNodeView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/latex/MathInlineNodeView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/markdownCopy/tiptap.test.ts",
+      "api": "vi.doMock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/mediaPopup/MediaPopupView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mediaPopupStore"
+    },
+    {
+      "file": "src/plugins/search/__tests__/search.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/searchStore"
+    },
+    {
+      "file": "src/plugins/sourceFootnotePopup/__tests__/SourceFootnotePopupView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/footnotePopupStore"
+    },
+    {
+      "file": "src/plugins/sourceFootnotePopup/sourceFootnoteActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/footnotePopupStore"
+    },
+    {
+      "file": "src/plugins/sourceFootnotePopup/sourceFootnotePopupPlugin.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/footnotePopupStore"
+    },
+    {
+      "file": "src/plugins/sourceImagePopup/__tests__/SourceImagePopupView.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mediaPopupStore"
+    },
+    {
+      "file": "src/plugins/sourceImagePopup/sourceImagePopupPlugin.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mediaPopupStore"
+    },
+    {
+      "file": "src/plugins/tabIndent/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceAdapter.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/linkCreatePopupStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceAdapter.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/linkPopupStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceCjkActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceCjkActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceCjkActions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/sourceTextTransforms.boundaries.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/wysiwygAdapterCjk.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/wysiwygAdapterCjk.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/wysiwygAdapterCjk.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/plugins/toolbarActions/wysiwygAdapterFormatting.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/plugins/wikiLinkPopup/__tests__/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/wikiLinkPopupStore"
+    },
+    {
+      "file": "src/plugins/wikiLinkPopup/__tests__/tiptap.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/assembly/pasteOptions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/assembly/sourceEditorExtensions.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/commands/commandContext.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/commands/commandContext.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/commands/commandContext.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/commands/genieCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/commands/genieCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/geniePickerStore"
+    },
+    {
+      "file": "src/services/commands/genieCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/commands/menuListener.editorActions.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/commands/menuListener.editorActions.test.tsx",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/commands/tabCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/commands/tabCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/commands/tabCommands.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/editor/clipboardUrl.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/editor/readOnlyGuard.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/editor/runEditorAction.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/editor/runEditorAction.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/editor/runEditorAction.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/files/fileChangeBatch.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/files/fileSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/files/fileSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/files/fileSave.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/ime/imeToast.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/keybinding/keybindingRegistry.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore/shortcuts"
+    },
+    {
+      "file": "src/services/lint/lintNavigation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/lint/lintNavigation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/lint/lintNavigation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/lint/runActiveLint.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/lint/runActiveLint.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/lint/runActiveLint.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/lint/runActiveLint.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/macos/macQuarantineNotice.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/mcpBridge/v2/__tests__/document.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/editorStore"
+    },
+    {
+      "file": "src/services/mcpBridge/v2/__tests__/document.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mcpCheckpointPersistence"
+    },
+    {
+      "file": "src/services/mcpBridge/v2/__tests__/selection.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mcpCheckpointPersistence"
+    },
+    {
+      "file": "src/services/mcpBridge/v2/__tests__/workflow.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/mcpCheckpointPersistence"
+    },
+    {
+      "file": "src/services/media/imageResize.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/menu/rebuildNativeMenu.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/menu/rebuildNativeMenu.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/navigation/finderOpenBranches.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/navigation/finderOpenBranches.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/navigation/loadFileIntoTab.closeDuringRead.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/navigation/loadFileIntoTab.closeDuringRead.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/navigation/newFile.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/navigation/newFile.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/navigation/restoreWorkspaceTabs.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/navigation/restoreWorkspaceTabs.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreDocumentState.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreHelpers.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreTabs.isolation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreTabs.isolation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/hotExit/restoreTabs.isolation.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/persistence/renameFile.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.ordering.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.ordering.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.ordering.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.ordering.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/persistence/saveToPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/tabs/replaceableTab.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/tabs/replaceableTab.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/terminalAttention.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/services/terminalAttention.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/services/windowClose/tabCleanup.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/aiStore"
+    },
+    {
+      "file": "src/services/windowClose/tabCleanup.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/documentStore"
+    },
+    {
+      "file": "src/services/workspaces/openWorkspaceByPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/uiStore"
+    },
+    {
+      "file": "src/services/workspaces/openWorkspaceByPath.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/services/workspaces/openWorkspaceWithConfig.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStore"
+    },
+    {
+      "file": "src/stores/documentStore/__tests__/ingestMatrix.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/stores/documentStore/__tests__/transferRoundTrip.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/settingsStore"
+    },
+    {
+      "file": "src/stores/recentsStore.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStoreHelpers"
+    },
+    {
+      "file": "src/stores/selectSourceEditing.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/tabStore"
+    },
+    {
+      "file": "src/stores/workspaceStore.test.ts",
+      "api": "vi.mock",
+      "target": "src/stores/workspaceStoreHelpers"
+    }
+  ]
+}

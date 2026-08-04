@@ -35,7 +35,12 @@ import { errorMessage } from "@/utils/errorMessage";
 
 interface PdfExportContentProps {
   renderedHtml: string;
-  defaultName?: string;
+  /**
+   * `| undefined`: the export window reads this off a URL query param that is
+   * simply absent for an untitled document, and React treats a prop passed as
+   * `undefined` as not supplied.
+   */
+  defaultName?: string | undefined;
   onClose: () => void;
 }
 

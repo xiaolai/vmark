@@ -23,7 +23,7 @@
  *   - Empty selection → no decoration. A bare cursor while blurred
  *     should not render anything (would look like a stray bar).
  *
- * @coordinates-with hooks/mcpBridge/v2/selection.ts — the MCP tools that
+ * @coordinates-with services/mcpBridge/v2/selection.ts — the MCP tools that
  *   benefit from visible selection while focus is elsewhere
  * @module plugins/inactiveSelection/inactiveSelectionPlugin
  */

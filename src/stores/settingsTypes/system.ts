@@ -63,7 +63,25 @@ export interface AdvancedSettingsState {
    */
   developerMode: boolean;
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
-  workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
+  /**
+   * GitHub Actions workflow VIEWER extras in the source pane: `${{ }}`
+   * expression completion, cursor↔canvas job sync, and `uses:` goto-def.
+   * Read-only authoring aids over the `gha` IR — they run no code.
+   *
+   * Split out of `workflowEngine` by WI-19: one flag used to gate these
+   * alongside the execution engine, so a user who wanted GHA authoring had to
+   * switch on a runner that spawns AI providers and writes files. The GHA
+   * workbench itself (the yaml adapter's `gha-workflow` schema renderer) is
+   * always on and is NOT gated by this flag. Default: false.
+   */
+  workflowViewer: boolean;
+  /**
+   * The bespoke YAML workflow EXECUTION engine: the side panel's Run/Cancel
+   * controls, the live preview graph that feeds them, and the `run_workflow`
+   * Rust runner. Off means the backend refuses the commands too (WI-19), not
+   * merely that the buttons are hidden. Default: false.
+   */
+  workflowEngine: boolean;
   /**
    * When the structured workflow editor saves changes, preserve comments,
    * anchors, and existing formatting where possible (CST round-trip).

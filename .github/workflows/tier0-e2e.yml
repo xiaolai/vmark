@@ -1,0 +1,193 @@
+name: Tier-0 E2E Journeys
+
+# The Tier-0 data-integrity journeys (save / autosave / external change /
+# close-guard / line endings / terminal cwd) run against a LIVE debug build over
+# the Tauri automation bridge on 127.0.0.1:9323. Until this workflow existed, no
+# workflow referenced e2e/ at all: the flows were CI-verified only as mock
+# choreography, and the real-app tier ran when a maintainer remembered.
+#
+# WI-17 pairs this with a fast per-PR tier — src/test/tier0/*, jsdom, real
+# stores and services over a stateful fs fake — which is what `pnpm check:all`
+# runs on every change. This workflow is the SLOW half: a real WebKitGTK app,
+# a real filesystem, real timers.
+#
+# Why weekly and not nightly: a debug Tauri build plus the journey suite is
+# ~20-30 runner-minutes, the fast tier already guards every PR, and the two
+# existing scheduled suites (mutation 06:00, rust-coverage 06:30 Monday) set the
+# cadence. 07:00 Monday keeps them from contending for the same window.
+#
+# NOT non-blocking-by-hiding: there is no `continue-on-error` here. A failure
+# fails the run and reports into a single rolling tracking issue, the pattern
+# WI-4 established in mutation.yml after eight silent failures.
+#
+# Headed-runner caveat (e2e/README.md "CI"): GitHub-hosted runners are
+# headless, so the app runs under Xvfb. That is the one part of this workflow
+# no local check can prove — its first live run is a `workflow_dispatch` after
+# merge, verified with `gh run view --json headSha,conclusion,jobs` against the
+# dispatched SHA (never a bare `gh run watch`).
+
+on:
+  workflow_dispatch:
+  # Weekly cadence: Monday 07:00 UTC (offset from mutation.yml and rust-coverage.yml).
+  schedule:
+    - cron: "0 7 * * 1"
+
+# Reporting is a separate job so `issues: write` is not held by the job that
+# builds and runs a debug desktop app: `journeys` compiles the Rust crate,
+# installs npm dependencies and drives a live WebKitGTK process, all of which
+# would otherwise execute with a token able to write to this repo's issues.
+# The measurement job gets `contents: read`; only the reporting job, which runs
+# no project code, can write. (Same change as .github/workflows/mutation.yml.)
+permissions:
+  contents: read
+
+concurrency:
+  group: tier0-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - name: Install Xvfb
+        shell: bash
+        # Job-local rather than in the shared composite action: three other
+        # workflows use that action and none of them needs a display.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: rust-tier0-e2e-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: rust-tier0-e2e-${{ runner.os }}-
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the MCP sidecar
+        # A real binary, not a stub: the app spawns it at startup, and the
+        # journeys exercise a running app rather than a compile.
+        run: pnpm --dir server/mcp build:sidecar
+
+      - name: Launch the debug app under Xvfb
+        shell: bash
+        env:
+          # The 9323 automation bridge is compiled only under
+          # `#[cfg(debug_assertions)]` — a release build has no bridge to talk to.
+          RUST_BACKTRACE: "1"
+        run: |
+          mkdir -p e2e/artifacts
+          xvfb-run -a --server-args="-screen 0 1600x1200x24" \
+            pnpm tauri:dev > e2e/artifacts/app.log 2>&1 &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for the automation bridge
+        shell: bash
+        # Fail loudly with the app log if the bridge never comes up; a silent
+        # skip here would be the same fiction this workflow exists to end.
+        run: |
+          for i in $(seq 1 180); do
+            if (echo > /dev/tcp/127.0.0.1/9323) >/dev/null 2>&1; then
+              echo "bridge up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::automation bridge (127.0.0.1:9323) never came up"
+          tail -n 200 e2e/artifacts/app.log || true
+          exit 1
+
+      - name: Run the Tier-0 journey subset
+        shell: bash
+        # The runner takes ONE `--only` substring, so each Tier-0 journey gets
+        # its own invocation and every failure is collected before exiting —
+        # a `set -e` loop would hide every journey after the first red one.
+        run: |
+          failed=()
+          for journey in \
+            multi-doc-save-integrity \
+            dirty-file-close-guard \
+            autosave-persists-to-disk \
+            line-ending-preservation \
+            failed-save-preserves-document \
+            external-change-reloads-clean-doc \
+            terminal-workspace-cwd \
+            terminal-workspace-cd-sync
+          do
+            echo "::group::$journey"
+            if ! node e2e/run-journeys.mjs --only "$journey"; then
+              failed+=("$journey")
+            fi
+            echo "::endgroup::"
+          done
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::Tier-0 journeys failed: ${failed[*]}"
+            exit 1
+          fi
+
+      - name: Stop the app
+        if: always()
+        shell: bash
+        run: kill "$APP_PID" 2>/dev/null || true
+
+      - name: Upload journey artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier0-e2e-artifacts
+          path: e2e/artifacts/
+          if-no-files-found: ignore
+
+  # The ONLY job with `issues: write`. `if: failure()` on a job with `needs`
+  # fires exactly when `journeys` failed — the same trigger the step-level
+  # condition had, so a cancelled run still reports nothing.
+  report:
+    name: Report failures in the tracking issue
+    needs: journeys
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create or update the rolling issue
+        env:
+          # No checkout here, so gh is told the repository explicitly rather
+          # than inferring it from a git remote.
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Tier-0 E2E journeys failed"
+          BODY="Job \`journeys\` failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"
+          NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

@@ -65,8 +65,12 @@ export function serializeTransferTab(tab: DocumentTab, doc: TabDocument): Worksp
     readOnly: doc.readOnly,
     isPinned: tab.isPinned,
     formatId: tab.formatId,
-    editingEnabled: tab.editingEnabled,
-    activeSchemaId: tab.activeSchemaId,
+    // Omitted when the tab states neither, matching the wire contract the line
+    // metadata below already follows: on the wire, absent and "unknown" mean
+    // the same thing, and omitting keeps payloads from older and newer builds
+    // indistinguishable when there is nothing to say.
+    ...(tab.editingEnabled !== undefined ? { editingEnabled: tab.editingEnabled } : {}),
+    ...(tab.activeSchemaId !== undefined ? { activeSchemaId: tab.activeSchemaId } : {}),
     ...collectTransferLineMetadata(doc),
   };
 }

@@ -5,7 +5,7 @@
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { tabFilePath } from "@/stores/tabStore";
-import { visibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
+import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";

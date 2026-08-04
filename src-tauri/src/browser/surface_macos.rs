@@ -66,8 +66,12 @@ where
         let _ = tx.send(result);
     })
     .map_err(|e| format!("run_on_main_thread: {e}"))?;
-    rx.recv_timeout(Duration::from_secs(20))
-        .map_err(|_| "main-thread op timed out".to_string())?
+    rx.recv_timeout(Duration::from_secs(20)).map_err(|_| {
+        format!(
+            "{fail}: main-thread op timed out",
+            fail = crate::browser::surface::fail::MAIN_THREAD_TIMEOUT
+        )
+    })?
 }
 
 #[path = "eval_macos.rs"]
@@ -100,7 +104,12 @@ pub fn navigate(app: &AppHandle, tab_id: String, url: String) -> Result<(), Stri
     on_main(app, move |_mtm| {
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         let url_obj = ns_url(&url)?;
         let req = NSURLRequest::requestWithURL(&url_obj);
         let _ = unsafe { webview.loadRequest(&req) };
@@ -117,7 +126,12 @@ pub fn go_history(app: &AppHandle, tab_id: String, forward: bool) -> Result<(), 
     on_main(app, move |_mtm| {
         let wv = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         let nav = if forward {
             unsafe { wv.goForward() }
         } else {
@@ -142,9 +156,12 @@ pub fn set_bounds(
     on_main(app, move |_mtm| {
         WEBVIEWS.with(|m| {
             let map = m.borrow();
-            let webview = map
-                .get(&tab_id)
-                .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            let webview = map.get(&tab_id).ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
             // The frontend measured a DOM rect; AppKit needs it in the parent's
             // coordinate space (see surface_view_macos::frame_for_dom_rect).
             webview.setFrame(frame_for_dom_rect(webview, x, y, width, height));
@@ -168,7 +185,12 @@ pub fn set_hidden(app: &AppHandle, tab_id: String, hidden: bool) -> Result<(), S
     on_main(app, move |_mtm| {
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         webview.setHidden(hidden);
         Ok(())
     })
@@ -188,7 +210,12 @@ pub fn assert_no_bridge(app: &AppHandle, tab_id: String) -> Result<String, Strin
     on_main(app, move |mtm| {
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         let run_loop = NSRunLoop::mainRunLoop();
         let page_world = unsafe { WKContentWorld::pageWorld(mtm) };
         Ok(eval_js(
@@ -205,7 +232,12 @@ pub fn stop(app: &AppHandle, tab_id: String) -> Result<(), String> {
     on_main(app, move |_mtm| {
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         unsafe { webview.stopLoading() };
         Ok(())
     })

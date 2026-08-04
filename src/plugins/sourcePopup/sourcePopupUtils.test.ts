@@ -8,8 +8,6 @@ import type { EditorView } from "@codemirror/view";
 import {
   getEditorContainer,
   getPopupHost,
-  getPopupHostForDom,
-  toHostCoordsForDom,
   toHostCoords,
   getAnchorRectFromRange,
   getEditorBounds,
@@ -114,45 +112,8 @@ describe("getPopupHost", () => {
   });
 });
 
-describe("getPopupHostForDom", () => {
-  it("returns null for null dom", () => {
-    expect(getPopupHostForDom(null)).toBeNull();
-  });
-
-  it("returns editor-container when present", () => {
-    const container = document.createElement("div");
-    container.className = "editor-container";
-    const child = document.createElement("div");
-    container.appendChild(child);
-    expect(getPopupHostForDom(child)).toBe(container);
-  });
-
-  it("returns parentElement when no editor-container", () => {
-    const parent = document.createElement("div");
-    const child = document.createElement("div");
-    parent.appendChild(child);
-    expect(getPopupHostForDom(child)).toBe(parent);
-  });
-});
-
-describe("toHostCoordsForDom", () => {
-  it("converts viewport coordinates to host-relative", () => {
-    const host = document.createElement("div");
-    host.getBoundingClientRect = () => ({
-      top: 100, left: 50, bottom: 500, right: 800, width: 750, height: 400,
-      x: 50, y: 100, toJSON: () => ({}),
-    });
-    Object.defineProperty(host, "scrollTop", { value: 10, configurable: true });
-    Object.defineProperty(host, "scrollLeft", { value: 5, configurable: true });
-
-    const result = toHostCoordsForDom(host, { top: 200, left: 150 });
-    expect(result.top).toBe(200 - 100 + 10);  // 110
-    expect(result.left).toBe(150 - 50 + 5);   // 105
-  });
-});
-
 describe("toHostCoords", () => {
-  it("converts viewport coordinates to host-relative (same as toHostCoordsForDom)", () => {
+  it("converts viewport coordinates to host-relative", () => {
     const host = document.createElement("div");
     host.getBoundingClientRect = () => ({
       top: 50, left: 30, bottom: 400, right: 600, width: 570, height: 350,

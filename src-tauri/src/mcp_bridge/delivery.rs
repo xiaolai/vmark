@@ -4,7 +4,8 @@
 //! force-disconnect escalation for lost load-bearing messages, and the
 //! response/error envelope writers used by the connection and message loops.
 
-use super::state::{get_bridge_state, CLIENT_TX_CAPACITY};
+use super::managed::McpBridgeState;
+use super::state::CLIENT_TX_CAPACITY;
 use super::types::{McpResponse, WsMessage};
 use tokio::sync::mpsc;
 
@@ -59,9 +60,8 @@ pub(super) fn enqueue_client_msg(
 /// request response) — leaving the client connected after losing a
 /// response would otherwise let it hang waiting for a reply that will
 /// never arrive.
-pub(super) async fn force_disconnect_client(client_id: u64, reason: &str) {
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
+pub(super) async fn force_disconnect_client(bridge: &McpBridgeState, client_id: u64, reason: &str) {
+    let mut guard = bridge.lock().await;
     if let Some(client) = guard.clients.get_mut(&client_id) {
         if let Some(shutdown_tx) = client.shutdown.take() {
             let _ = shutdown_tx.send(());
@@ -82,6 +82,7 @@ pub(super) async fn force_disconnect_client(client_id: u64, reason: &str) {
 /// `Closed`, the client is forced to disconnect so it can reconnect and
 /// retry, instead of waiting indefinitely for a reply that won't arrive.
 pub(super) async fn send_error_response(
+    bridge: &McpBridgeState,
     client_id: u64,
     client_tx: &mpsc::Sender<String>,
     msg_id: &str,
@@ -102,6 +103,7 @@ pub(super) async fn send_error_response(
             EnqueueOutcome::Sent => {}
             EnqueueOutcome::QueueFull => {
                 force_disconnect_client(
+                    bridge,
                     client_id,
                     "error-response could not be enqueued (queue full)",
                 )
@@ -121,6 +123,7 @@ pub(super) async fn send_error_response(
 /// `queue_full_reason` so it reconnects and retries rather than hanging on
 /// its `await` indefinitely; `Closed` means the client is already gone.
 pub(super) async fn deliver_response(
+    bridge: &McpBridgeState,
     client_id: u64,
     client_tx: &mpsc::Sender<String>,
     msg_id: String,
@@ -137,7 +140,7 @@ pub(super) async fn deliver_response(
     match enqueue_client_msg(client_id, client_tx, response_json) {
         EnqueueOutcome::Sent | EnqueueOutcome::Closed => Ok(()),
         EnqueueOutcome::QueueFull => {
-            force_disconnect_client(client_id, queue_full_reason).await;
+            force_disconnect_client(bridge, client_id, queue_full_reason).await;
             Ok(())
         }
     }
@@ -155,19 +158,16 @@ pub(super) async fn deliver_response(
 /// The state lock is released before answering: `send_error_response` may
 /// force-disconnect, which re-locks it.
 pub(super) async fn fail_pending(
+    bridge: &McpBridgeState,
     request_id: &str,
     client_id: u64,
     client_tx: &mpsc::Sender<String>,
     msg_id: &str,
     error: &str,
 ) {
-    {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.pending.remove(request_id);
-    }
+    bridge.lock().await.pending.remove(request_id);
     log::warn!("[MCP Bridge] Client {client_id} request failed: {error}");
-    send_error_response(client_id, client_tx, msg_id, error).await;
+    send_error_response(bridge, client_id, client_tx, msg_id, error).await;
 }
 
 #[cfg(test)]

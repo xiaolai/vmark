@@ -14,6 +14,7 @@
  */
 
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { z } from "zod";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
@@ -21,19 +22,30 @@ import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
 import { workspaceWarn } from "@/utils/debug";
 
+/** WI-3: a restorable path is a non-empty string — everything else is skipped. */
+const restorablePathSchema = z.string().min(1);
+
 /**
  * Restore the given file paths as tabs in `windowLabel`. Paths that already
  * have an open tab are skipped (dedup). Unreadable paths (moved/deleted) are
- * skipped with a warning. Returns the number of tabs newly created.
+ * skipped with a warning. The list comes from a persisted workspace config, so
+ * it is untrusted (WI-3): wrong-typed entries are skipped, siblings restored.
+ * Returns the number of tabs newly created.
  */
 export async function restoreWorkspaceTabs(
   windowLabel: string,
-  paths: readonly string[] | null | undefined,
+  paths: readonly unknown[] | null | undefined,
 ): Promise<number> {
-  if (!paths || paths.length === 0) return 0;
+  if (!Array.isArray(paths) || paths.length === 0) return 0;
 
   let created = 0;
-  for (const filePath of paths) {
+  for (const rawPath of paths) {
+    const parsed = restorablePathSchema.safeParse(rawPath);
+    if (!parsed.success) {
+      workspaceWarn("Skipping non-restorable session tab path:", rawPath);
+      continue;
+    }
+    const filePath = parsed.data;
     // Dedup guard: skip files already open in this window (e.g. hot-exit restore).
     if (findExistingTabForPath(windowLabel, filePath)) continue;
 

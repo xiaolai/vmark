@@ -58,6 +58,25 @@ export function collectTransferLineMetadata(doc: ConventionSource): TransferLine
   };
 }
 
+/**
+ * Re-select the convention fields a received payload actually carries.
+ *
+ * The receiving sites forward these into `initDocument`'s
+ * `DocumentRestoreState`. Listing them by hand there re-created the exact drift
+ * hazard `buildTransferDocumentFields` exists to prevent, and it also copied a
+ * key the sender had deliberately omitted back in holding `undefined` —
+ * re-asserting "unknown" as a stated value on a bag whose whole contract is
+ * that silence means silence. Selecting here keeps absent absent.
+ */
+export function pickTransferLineMetadata(meta: TransferLineMetadata): TransferLineMetadata {
+  return {
+    ...(meta.lineEnding !== undefined ? { lineEnding: meta.lineEnding } : {}),
+    ...(meta.hardBreakStyle !== undefined ? { hardBreakStyle: meta.hardBreakStyle } : {}),
+    ...(meta.hasBom !== undefined ? { hasBom: meta.hasBom } : {}),
+    ...(meta.lastDiskContent !== undefined ? { lastDiskContent: meta.lastDiskContent } : {}),
+  };
+}
+
 /** The document fields a tab-transfer payload copies verbatim. */
 interface TransferableDocument extends ConventionSource {
   content: string;

@@ -4,9 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { BrowserPageTabs } from "./BrowserPageTabs";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
-import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: vi.fn(() => Promise.resolve(true)),
 }));
 

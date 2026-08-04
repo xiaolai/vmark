@@ -46,6 +46,19 @@ export function deriveAfterConstraints(
 }
 
 /**
+ * The `ordering` slice of a descriptor, or NO KEY when `id` is unconstrained.
+ * The resolver reads an absent `ordering` as "unconstrained", which is not the
+ * same claim as an `ordering` present and holding undefined.
+ */
+export function orderingSlice(
+  after: Map<string, readonly string[]>,
+  id: string,
+): { ordering?: { after: readonly string[] } } {
+  const constraints = after.get(id);
+  return constraints ? { ordering: { after: constraints } } : {};
+}
+
+/**
  * Fail-loud guard: every present id must appear in the canonical order and vice
  * versa (modulo `optional` ids, which may be absent from `presentIds` but must
  * still be declared in the canonical order). Throws with the exact drift so a

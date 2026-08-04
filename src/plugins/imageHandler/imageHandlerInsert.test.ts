@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 const mockCopyImageToAssets = vi.fn();
 const mockInsertBlockImageNode = vi.fn();
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
   insertBlockImageNode: (...args: unknown[]) => mockInsertBlockImageNode(...args),
 }));

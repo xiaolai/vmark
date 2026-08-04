@@ -16,7 +16,7 @@
  * service (the manual command) need it, and services must not import hooks.
  *
  * @coordinates-with orphanAssetCleanup.ts — consumed as OrphanScanOptions.knownContents
- * @coordinates-with hooks/useTabOperations.ts — close-time cleanup
+ * @coordinates-with services/tabs/tabOperations.ts — close-time cleanup
  * @coordinates-with services/commands/miscCommands.ts — manual cleanup command
  * @module services/media/liveDocumentContents
  */

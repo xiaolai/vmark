@@ -7,8 +7,9 @@
 //! classifyDelivery), and waits once more.
 
 use super::delivery::fail_pending;
+use super::managed::bridge;
 use super::routing::wake_webview;
-use super::state::{get_bridge_state, is_webview_alive, set_webview_alive, PendingRequest};
+use super::state::PendingRequest;
 use super::types::{McpRequestEvent, McpResponse};
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
@@ -35,8 +36,9 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
     // First timeout — try to wake the webview and retry once.
     // macOS App Nap or display sleep can suspend JS execution,
     // causing the frontend to miss emitted events.
-    let webview_was_alive = is_webview_alive();
-    set_webview_alive(false);
+    let bridge = bridge(app);
+    let webview_was_alive = bridge.is_webview_alive();
+    bridge.set_webview_alive(false);
     log::warn!(
         "[MCP Bridge] Client {} request {} timed out after 10s (webview_alive={}), attempting wake + retry",
         client_id, request_type_for_log, webview_was_alive
@@ -50,8 +52,7 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
     // audit 20260612 remediation).
     let (retry_tx, retry_rx) = oneshot::channel();
     {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge.lock().await;
         // Replace the pending request with the new channel
         guard.pending.insert(
             request_id.to_string(),
@@ -73,6 +74,7 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
                 e
             );
             fail_pending(
+                bridge,
                 request_id,
                 client_id,
                 client_tx,
@@ -91,6 +93,7 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
             target_label
         );
         fail_pending(
+            bridge,
             request_id,
             client_id,
             client_tx,
@@ -119,6 +122,7 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
                 request_type_for_log
             );
             fail_pending(
+                bridge,
                 request_id,
                 client_id,
                 client_tx,
@@ -136,6 +140,7 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
                 request_type_for_log
             );
             fail_pending(
+                bridge,
                 request_id,
                 client_id,
                 client_tx,

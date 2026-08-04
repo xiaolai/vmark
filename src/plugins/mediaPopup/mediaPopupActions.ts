@@ -10,8 +10,8 @@
  *   - File dialog filters are media-type-aware
  *
  * @coordinates-with MediaPopupView.ts — triggers these actions from popup button clicks
- * @coordinates-with hooks/useImageOperations.ts — image asset copying logic
- * @coordinates-with hooks/useMediaOperations.ts — video/audio asset copying logic
+ * @coordinates-with services/media/imageOperations.ts — image asset copying logic
+ * @coordinates-with services/media/mediaOperations.ts — video/audio asset copying logic
  * @module plugins/mediaPopup/mediaPopupActions
  */
 
@@ -20,8 +20,8 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { hostDocument } from "@/plugins/shared/hostDocument";
 
-import { copyImageToAssets } from "@/hooks/useImageOperations";
-import { copyMediaToAssets } from "@/hooks/useMediaOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
+import { copyMediaToAssets } from "@/services/media/mediaOperations";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { mediaPopupError } from "@/utils/debug";

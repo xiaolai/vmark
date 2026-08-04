@@ -4,6 +4,7 @@
  * @module utils/saveToPath.test
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import wire from "@/test/fixtures/commandErrorWire.json";
 import { saveToPath } from "./saveToPath";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -514,6 +515,95 @@ describe("saveToPath", () => {
       await saveToPath("tab-1", "/x/note.md", "x", "manual");
 
       expect(clearPendingSave).toHaveBeenCalledWith("/x/note.md", expect.any(Number));
+      consoleError.mockRestore();
+    });
+  });
+
+  describe("parent directory missing (WI-14 typed CommandError)", () => {
+    // `atomic_write_file` now rejects with `{code, message, i18nKey?, detail?}`.
+    // The rejection values come from `commandErrorWire.json`, which the Rust
+    // test GENERATES by invoking the real command core — so this suite cannot
+    // pass while Rust emits something else. The legacy-string block above stays
+    // until the ratchet reaches zero: both shapes are live during the migration.
+    const typedParentMissing = {
+      ...wire.saveParentMissing,
+      detail: { dir: "/Users/joker/gone-folder" },
+    };
+
+    it("routes a typed not-found into Save As, reading detail.dir not the message", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(mockMarkSaved).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveParentMissing");
+      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/joker/gone-folder");
+      consoleError.mockRestore();
+    });
+
+    it("still marks missing on a typed auto-save failure but skips the toast", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "auto");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(toastMocks.error).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    it("does NOT route a different typed code into Save As", async () => {
+      // An io failure is a disk problem, not a vanished folder. Under the old
+      // prefix protocol these were told apart by how the sentence started.
+      vi.mocked(invoke).mockRejectedValue({ code: "io", message: "Could not save the file: EIO" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveGeneric");
+      consoleError.mockRestore();
+    });
+
+    it("shows the typed message, not [object Object], in the generic toast", async () => {
+      vi.mocked(invoke).mockRejectedValue({ code: "io", message: "Could not save the file: EIO" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(toastMocks.error.mock.calls[0][0]).toContain("Could not save the file: EIO");
+      expect(toastMocks.error.mock.calls[0][0]).not.toContain("[object Object]");
+      consoleError.mockRestore();
+    });
+
+    it("falls back to the generic toast when a typed not-found omits detail.dir", async () => {
+      // Defensive: a not-found without the directory cannot name a folder, so
+      // it must not produce a toast with an empty/undefined placeholder.
+      vi.mocked(invoke).mockRejectedValue({ code: "not-found", message: "gone" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(mockMarkMissing).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveGeneric");
+      consoleError.mockRestore();
+    });
+
+    it("clears the pending save on a typed failure too", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+
+      expect(clearPendingSave).toHaveBeenCalledWith(
+        "/Users/joker/gone-folder/note.md",
+        expect.any(Number),
+      );
       consoleError.mockRestore();
     });
   });

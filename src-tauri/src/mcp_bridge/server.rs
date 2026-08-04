@@ -5,11 +5,9 @@
 
 use super::connection::admit_connection;
 use super::delivery::{deliver_response, fail_pending, send_error_response};
+use super::managed::bridge;
 use super::routing::{answer_rust_side, emit_to_window_or_reply, route_target_or_reply};
-use super::state::{
-    connection_principal, generate_auth_token, get_bridge_state, get_shutdown_holder,
-    get_write_lock, is_read_only_operation, try_register_pending,
-};
+use super::state::{generate_auth_token, is_read_only_operation, try_register_pending};
 use super::token_file::{remove_port_file, write_port_file};
 use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
 use super::wake_retry::wake_retry_after_timeout;
@@ -86,11 +84,7 @@ pub async fn start_bridge(
     );
 
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
-    {
-        let holder = get_shutdown_holder();
-        let mut guard = holder.lock().await;
-        *guard = Some(shutdown_tx);
-    }
+    *bridge(&app).shutdown_slot().await = Some(shutdown_tx);
 
     let app_handle = app.clone();
 
@@ -150,21 +144,18 @@ pub async fn stop_bridge(app: &AppHandle) {
     remove_port_file(app);
 
     // Send shutdown signal to server loop
-    let holder = get_shutdown_holder();
-    let mut guard = holder.lock().await;
-    if let Some(tx) = guard.take() {
+    let bridge = bridge(app);
+    if let Some(tx) = bridge.shutdown_slot().await.take() {
         let _ = tx.send(());
     }
-    drop(guard);
 
     // Close all client connections
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
+    let mut guard = bridge.lock().await;
 
     // Invalidate in-flight handshakes FIRST (same lock the registration path
     // takes): a connection that authenticates after this drain re-checks the
     // generation and refuses to register — it must not survive shutdown.
-    super::state::bump_connection_generation();
+    bridge.bump_connection_generation();
 
     // Shutdown all clients
     for (_, mut client) in guard.clients.drain() {
@@ -217,8 +208,7 @@ async fn handle_identify<R: tauri::Runtime>(
     app: &AppHandle<R>,
 ) {
     if let Ok(identity) = serde_json::from_value::<ClientIdentity>(payload) {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge(app).lock().await;
 
         if let Some(client) = guard.clients.get_mut(&client_id) {
             log::debug!(
@@ -242,6 +232,7 @@ async fn handle_identify<R: tauri::Runtime>(
 /// bubbling it up to the log-only message loop, which would leave the client
 /// hanging until its own timeout (Codex audit 20260718).
 async fn parse_request_or_reply(
+    bridge: &super::managed::McpBridgeState,
     msg_id: &str,
     payload: serde_json::Value,
     client_id: u64,
@@ -255,7 +246,7 @@ async fn parse_request_or_reply(
                 client_id,
                 e
             );
-            send_error_response(client_id, client_tx, msg_id, &e).await;
+            send_error_response(bridge, client_id, client_tx, msg_id, &e).await;
             None
         }
     }
@@ -282,6 +273,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         );
     }
 
+    let bridge = bridge(app);
     let msg: WsMessage =
         serde_json::from_str(text).map_err(|e| format!("Invalid message format: {}", e))?;
 
@@ -294,13 +286,15 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     if msg.msg_type != "request" {
         // A mistyped envelope must not hang the client until its own timeout —
         // answer with a correlated protocol error when a reply channel exists.
-        let client_tx = {
-            let state = get_bridge_state();
-            let guard = state.lock().await;
-            guard.clients.get(&client_id).map(|c| c.tx.clone())
-        };
+        let client_tx = bridge
+            .lock()
+            .await
+            .clients
+            .get(&client_id)
+            .map(|c| c.tx.clone());
         if let Some(tx) = client_tx {
             send_error_response(
+                bridge,
                 client_id,
                 &tx,
                 &msg.id,
@@ -314,14 +308,16 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     // Fetch the client's tx channel up front — every later step (payload
     // parse failure, rust-side answer, overload, unknown window, response)
     // needs it to answer the client.
-    let client_tx = {
-        let state = get_bridge_state();
-        let guard = state.lock().await;
-        guard.clients.get(&client_id).map(|c| c.tx.clone())
-    };
+    let client_tx = bridge
+        .lock()
+        .await
+        .clients
+        .get(&client_id)
+        .map(|c| c.tx.clone());
     let client_tx = client_tx.ok_or("Client not found")?;
 
-    let Some(request) = parse_request_or_reply(&msg.id, msg.payload, client_id, &client_tx).await
+    let Some(request) =
+        parse_request_or_reply(bridge, &msg.id, msg.payload, client_id, &client_tx).await
     else {
         return Ok(());
     };
@@ -346,9 +342,10 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     // at auth time from the credential VMark issued to that AI client — not to
     // the name the client asserts in `identify`, which it may send and re-send
     // (audit 20260728 §2.1). See `principal.rs`.
-    let principal = connection_principal(client_id).await;
+    let principal = bridge.connection_principal(client_id).await;
     if let Some(response) = answer_rust_side(&request, app, principal).await {
         deliver_response(
+            bridge,
             client_id,
             &client_tx,
             msg.id,
@@ -363,7 +360,6 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
 
     // For write operations, acquire the write lock
     // This serializes writes while allowing concurrent reads
-    let write_lock = get_write_lock();
     let write_guard = if is_read {
         None
     } else {
@@ -372,7 +368,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
             client_id,
             request.request_type
         );
-        Some(write_lock.lock().await)
+        Some(bridge.write_lock().await)
     };
 
     // Create a oneshot channel for the response
@@ -385,8 +381,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     // overload cap). The state lock is released before responding —
     // send_error_response may force-disconnect, which re-locks it.
     let registered = {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge.lock().await;
         try_register_pending(&mut guard, request_id.clone(), response_tx)
     };
     if let Err(err) = registered {
@@ -397,7 +392,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         );
         // Answer the client instead of silently dropping the request —
         // otherwise it hangs until its own timeout.
-        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+        send_error_response(bridge, client_id, &client_tx, &msg.id, &err).await;
         return Ok(());
     }
 
@@ -442,6 +437,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         Ok(Err(_)) => {
             // Channel closed - clean up and send error to sidecar
             fail_pending(
+                bridge,
                 &request_id,
                 client_id,
                 &client_tx,
@@ -483,6 +479,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     without_write_lock(
         write_guard,
         deliver_response(
+            bridge,
             client_id,
             &client_tx,
             msg.id,

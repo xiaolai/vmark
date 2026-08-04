@@ -74,7 +74,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState>
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 340,
       height: 40,

@@ -75,7 +75,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupState> {
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 340,
       height: 72,

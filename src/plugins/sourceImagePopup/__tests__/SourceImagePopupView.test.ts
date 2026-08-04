@@ -60,9 +60,12 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },

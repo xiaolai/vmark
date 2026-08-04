@@ -6,10 +6,10 @@
  * "am I the node being edited, and if not, whose editor do I have to close?"
  *
  * So the default here is not a stub: it is the whole implementation, holding
- * one position and one callback pair. The app passes its own registry (backed
- * by `popupStore`) so devtools and the popup layer can see the same state, but
- * a plugin lifted out of this repo has working inline-math editing with no
- * host at all (ADR-015).
+ * one position and one callback pair. The app passes its own shared instance
+ * (`appInlineMathEditingRegistry` in `services/assembly/hostAdapters.ts`) so
+ * every editor sees the same state, but a plugin lifted out of this repo has
+ * working inline-math editing with no host at all (ADR-015).
  *
  * Key decisions:
  *   - `startEditing` on a DIFFERENT position force-exits the previous editor

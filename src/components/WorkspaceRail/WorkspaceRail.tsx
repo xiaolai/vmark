@@ -10,8 +10,8 @@ import {
 import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { switchWorkspaceInstance } from "@/services/workspaces/switchWorkspaceInstance";
-import { cleanupTabState } from "@/hooks/tabCleanup";
-import { closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
+import { closeTabsWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
 import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
 import { closeWorkspaceInstance } from "@/services/workspaces/closeWorkspaceInstance";

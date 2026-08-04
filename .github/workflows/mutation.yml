@@ -1,11 +1,29 @@
 name: Mutation Testing
 
-# Opt-in mutation testing, deliberately NOT run on every PR — it is slow
-# and non-blocking (a signal source, not a gate).
+# Opt-in mutation testing, deliberately NOT run on every PR — it is slow and
+# does not gate merges (a signal source, not a required check).
 #   - Rust backend (audit L13 / RW-14, hardening v1-017 / v2-016): scoped
-#     to a few pure-logic modules via src-tauri/mutants.toml.
+#     to a few pure-logic modules via src-tauri/.cargo/mutants.toml (the
+#     path cargo-mutants actually reads; guarded by lint:mutants-config).
 #   - TypeScript frontend: scoped to pure-logic modules via
 #     stryker.config.json (Stryker + vitest runner).
+#
+# WI-4: `continue-on-error: true` used to hide every failure (8/8 runs
+# failed invisibly). Jobs now fail loudly and report into a single rolling
+# tracking issue instead — non-blocking for PRs, but never silent.
+#
+# REPORTING IS ITS OWN JOB, for two reasons:
+#   - Least privilege. `issues: write` used to sit at workflow level, so every
+#     step of both measurement jobs — including `cargo mutants` and Stryker
+#     running third-party code under mutation — held a token that could write
+#     to this repository's issues. The measurement jobs now run with
+#     `contents: read`; only the reporting job, which runs no project code,
+#     can write.
+#   - One issue, not two. `mutants` and `ts-mutants` run in PARALLEL, and each
+#     used to do its own list-then-create. Two simultaneous failures raced:
+#     both saw no open issue and both created one, so the "single rolling
+#     tracking issue" quietly became a pair. A single downstream job that
+#     aggregates `needs.*.result` cannot race itself.
 #
 # See dev-docs/testing-hardening.md.
 
@@ -27,8 +45,6 @@ jobs:
   mutants:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Never block anything: this is a signal source, not a gate.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -51,10 +67,12 @@ jobs:
         run: touch "src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
 
       - name: Install cargo-mutants
-        run: cargo install cargo-mutants --locked
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
+        with:
+          tool: cargo-mutants
 
       - name: Run scoped mutation testing
-        # Scope is defined in src-tauri/mutants.toml (examine_globs).
+        # Scope is defined in src-tauri/.cargo/mutants.toml (examine_globs).
         run: cargo mutants --manifest-path src-tauri/Cargo.toml
 
       - name: Upload mutants report
@@ -68,8 +86,6 @@ jobs:
   ts-mutants:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    # Never block anything: this is a signal source, not a gate.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -95,3 +111,50 @@ jobs:
           name: stryker-report
           path: reports/mutation/
           if-no-files-found: ignore
+
+  # The ONLY job with `issues: write`, and the only one that talks to the issue
+  # tracker at all. `if: failure()` on a job with `needs` means "run when any
+  # job it depends on failed" — the same trigger the per-job steps had, so a
+  # cancelled run still reports nothing.
+  report:
+    name: Report failures in the tracking issue
+    needs: [mutants, ts-mutants]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create or update the rolling issue
+        env:
+          # No checkout here (nothing to build), so gh is told the repository
+          # explicitly rather than inferring it from a git remote.
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MUTANTS_RESULT: ${{ needs.mutants.result }}
+          TS_MUTANTS_RESULT: ${{ needs['ts-mutants'].result }}
+        run: |
+          set -euo pipefail
+          FAILED=""
+          if [ "$MUTANTS_RESULT" = "failure" ]; then
+            FAILED="${FAILED}- \`mutants\` (Rust, cargo-mutants)"$'\n'
+          fi
+          if [ "$TS_MUTANTS_RESULT" = "failure" ]; then
+            FAILED="${FAILED}- \`ts-mutants\` (TypeScript, Stryker)"$'\n'
+          fi
+          if [ -z "$FAILED" ]; then
+            echo "No job reported failure (results: $MUTANTS_RESULT / $TS_MUTANTS_RESULT) — nothing to report."
+            exit 0
+          fi
+
+          TITLE="Mutation testing workflow failed"
+          BODY="Failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"$'\n\n'"$FAILED"
+          NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

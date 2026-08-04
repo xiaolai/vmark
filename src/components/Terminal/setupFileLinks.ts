@@ -24,7 +24,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { createFileLinkProvider } from "./fileLinkProvider";
-import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
+import { setPendingContentSearchNav } from "@/services/navigation/contentSearchNavigation";
 import { terminalLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 

@@ -16,10 +16,11 @@ export interface ReadOnlyBannerProps {
   /** Called when the user clicks "Enable editing". */
   onEnableEditing: () => void;
   /** Called when the user clicks "Open in external editor". Hide the
-   *  button by omitting this prop. */
-  onOpenExternal?: () => void;
+   *  button by omitting this prop — or by passing `undefined`, which React
+   *  cannot distinguish from omission (JSX has no conditional attribute). */
+  onOpenExternal?: (() => void) | undefined;
   /** Hide the banner entirely (caller toggles when editing is enabled). */
-  hidden?: boolean;
+  hidden?: boolean | undefined;
 }
 
 export function ReadOnlyBanner({

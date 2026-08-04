@@ -85,7 +85,7 @@ function createStandalonePeekStore(): SourcePeekStore {
   };
   state = {
     ...CLOSED,
-    // Each action mirrors its counterpart in `popupStore/linkMediaActions.ts`
+    // Each action mirrors its counterpart in `stores/sourcePeekStore.ts`
     // field for field. Any divergence here is a bug: the same plugin code runs
     // against both, so they must be indistinguishable.
     open: ({ markdown, range, blockTypeName }) =>

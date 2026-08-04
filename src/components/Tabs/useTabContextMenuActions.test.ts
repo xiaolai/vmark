@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => ({
   getTabsByWindow: vi.fn(() => [{ id: "tab-2" }]),
 }));
 
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: mocks.closeTabWithDirtyCheck,
   closeTabsWithDirtyCheck: mocks.closeTabsWithDirtyCheck,
 }));

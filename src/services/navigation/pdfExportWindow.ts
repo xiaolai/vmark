@@ -51,7 +51,8 @@ async function calculateCenteredPosition(): Promise<{ x: number; y: number } | n
  */
 export async function openPdfExportWindow(data: {
   renderedHtml: string;
-  defaultName?: string;
+  /** `| undefined`: derived from the document title, which may be unset. */
+  defaultName?: string | undefined;
 }): Promise<void> {
   const pos = await calculateCenteredPosition();
 
@@ -80,8 +81,10 @@ export async function openPdfExportWindow(data: {
     height: PDF_EXPORT_HEIGHT,
     minWidth: 380,
     minHeight: 480,
-    x: pos?.x,
-    y: pos?.y,
+    // Tauri reads `x`/`y` presence to decide between explicit placement and
+    // its own default; passing the keys as `undefined` alongside
+    // `center: true` would hand it a contradictory request.
+    ...(pos ? { x: pos.x, y: pos.y } : {}),
     center: !pos,
     resizable: true,
     hiddenTitle: true,

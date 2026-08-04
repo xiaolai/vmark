@@ -14,7 +14,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { renderWarn } from "@/utils/debug";
 import "./math-preview.css";
 import { errorMessage } from "@/utils/errorMessage";

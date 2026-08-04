@@ -96,10 +96,12 @@ export function findDetailsBlocks(
 
       // Only add if we found a closing tag
       if (endLine > startLine) {
+        // No `summaryLine` key when the block has no <summary> — its absence
+        // is what "this block shows the default disclosure label" means.
         blocks.push({
           startLine,
           endLine,
-          summaryLine,
+          ...(summaryLine !== undefined ? { summaryLine } : {}),
           isDirective: false,
         });
         i = endLine + 1;

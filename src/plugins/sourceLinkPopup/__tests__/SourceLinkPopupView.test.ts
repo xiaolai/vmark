@@ -46,9 +46,12 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
@@ -144,8 +147,8 @@ describe("SourceLinkPopupView", () => {
   });
 
   describe("Store subscription", () => {
-    it("subscribes to store on construction", () => {
-      expect(subscribers.length).toBe(1);
+    it("subscribes to store on construction (base + WI-1 reshow port)", () => {
+      expect(subscribers.length).toBe(2);
     });
 
     it("shows popup when store opens", async () => {
@@ -175,8 +178,9 @@ describe("SourceLinkPopupView", () => {
     });
 
     it("unsubscribes on destroy", () => {
-      expect(subscribers.length).toBe(1);
+      expect(subscribers.length).toBe(2);
       popup.destroy();
+      // Both the base subscription and the WI-1 reshow subscription are gone.
       expect(subscribers.length).toBe(0);
     });
   });

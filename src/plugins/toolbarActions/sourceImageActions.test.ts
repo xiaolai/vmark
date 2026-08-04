@@ -10,7 +10,7 @@ vi.mock("@/services/media/clipboardImagePath", () => ({
   readClipboardImagePath: vi.fn(() => Promise.resolve(null)),
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: vi.fn(() => Promise.resolve("assets/image.png")),
 }));
 
@@ -82,7 +82,7 @@ import { unlinkAtCursor, insertImage, insertVideoTag, insertAudioTag } from "./s
 import { insertText } from "./sourceAdapterHelpers";
 import { findMarkdownLinkAtPosition, findWikiLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
-import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { findWordAtCursorSource } from "./sourceAdapterLinks";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";

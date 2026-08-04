@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "Nenhum fluxo de trabalho em execução no momento"
   workflow.circularDependency: "Dependência circular detectada nas etapas do fluxo de trabalho"
   workflow.noInteractivePrompt: "Prompt interativo não é suportado na execução do fluxo de trabalho"
+  workflow.engineDisabled: "O motor de fluxo de trabalho está desativado nas configurações"
+  workflow.noPendingApproval: "Nenhuma solicitação de aprovação pendente corresponde"
+  workflow.appDataDirUnavailable: "Não foi possível resolver o diretório de dados do aplicativo: %{detail}"
+
+  # === Caminho de salvamento (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "A pasta deste arquivo não existe mais: %{dir}"
+  save.noParentDirectory: "O caminho do arquivo não tem pasta superior"
+  save.writeFailed: "Não foi possível salvar o arquivo: %{detail}"
+  save.taskFailed: "A tarefa de salvamento terminou inesperadamente: %{detail}"
+
+  # === Navegador integrado, navegação da IA (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "O navegador integrado está desativado nas Configurações"
+  browser.approvalRequired: "Esta página precisa da sua aprovação antes que a IA possa abri-la"
+  browser.blockedDestination: "A política bloqueia a navegação da IA para este destino"
+  browser.profileNotApproved: "A abertura deste perfil do navegador não foi aprovada"
+  browser.tabNotFound: "Essa aba do navegador não existe mais"
+  browser.tabNotAiOwned: "Essa aba do navegador não é controlada pela IA"
+  browser.policyStale: "A política do navegador mudou: tente a ação novamente"
+  browser.tabProvenanceMismatch: "Essa aba foi criada em outro modo de automação"
+  browser.invalidSessionMode: "Modo de sessão do navegador desconhecido «%{mode}»"
+  browser.stateUnavailable: "Não foi possível ler o estado do navegador: %{detail}"
+  browser.invalidUrl: "Esse não é um endereço da web utilizável"
+  browser.invalidProfileName: "Esse nome de perfil do navegador não é permitido"
+  browser.windowGone: "A janela à qual esta aba do navegador pertence foi fechada"
+  browser.profileLimit: "Há perfis do navegador demais abertos ao mesmo tempo"
+  browser.unsupportedPlatform: "O navegador integrado não está disponível nesta plataforma"
+  browser.surfaceTimeout: "O navegador não respondeu a tempo"
+  browser.surfaceFailed: "O navegador não conseguiu concluir essa ação"
 
   # === Hot exit ===
   hotExit.noWindows: "Nenhuma janela de documento para capturar"

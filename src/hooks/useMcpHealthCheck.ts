@@ -73,7 +73,9 @@ export function useMcpHealthCheck() {
           resourceCount: sidecarHealth.resourceCount,
           bridgeRunning,
           bridgePort,
-          error: bridgeRunning ? undefined : t("mcp.bridgeNotRunning"),
+          // No `error` key on a healthy result — its absence is the success
+          // signal callers read alongside `success`.
+          ...(bridgeRunning ? {} : { error: t("mcp.bridgeNotRunning") }),
         };
 
         setHealth({

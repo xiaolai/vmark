@@ -142,11 +142,11 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
    * Click-outside commits the edit. Defaults to base class would discard the
    * textarea content — surprising for an editor popup with unsaved text.
    */
-  protected onClickOutside(): void {
+  protected override onClickOutside(): void {
     this.handleSave();
   }
 
-  protected getPopupDimensions(): PopupPositionConfig {
+  protected override getPopupDimensions(): PopupPositionConfig {
     return {
       width: 360,
       height: 200,
