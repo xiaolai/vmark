@@ -210,8 +210,8 @@ describe("the shipped spec-tier entries point at real files with parseable shape
     const specEntries = MANIFEST.entries.filter((e) =>
       e.path.includes("markdownPipeline"),
     );
-    // 2 ledgers + 2 TS ledgers + 10 corpus files (WI-0.3 base + WI-2.3).
-    expect(specEntries.length).toBe(14);
+    // 2 ledgers + 2 TS ledgers + 11 corpus files (WI-0.3 base + WI-2.x).
+    expect(specEntries.length).toBe(15);
     for (const entry of specEntries) {
       const raw = readFileSync(path.join(REPO, entry.path), "utf8");
       for (const check of entry.checks) {

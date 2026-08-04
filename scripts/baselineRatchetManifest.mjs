@@ -177,6 +177,7 @@ export const MANIFEST = {
       "pulldown-math.json",
       "markdown-it-extras.json",
       "markdown-it-xss.json",
+      "tiptap-conversion.json",
     ].map((file) => ({
       path: `src/utils/markdownPipeline/__tests__/spec/corpus/${file}`,
       checks: [

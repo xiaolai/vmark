@@ -1,0 +1,1012 @@
+{
+ "source": "https://github.com/ueberdosis/tiptap/tree/5158212970344952dd9918b6a44bfb400d7fb6c1/packages/markdown/__tests__/conversion-files",
+ "revision": "main@51582129",
+ "license": "MIT",
+ "examples": [
+  {
+   "example": 1,
+   "section": "Bullet List with Numeric Punctuation",
+   "markdown": "- 123\n  - 123\n  - 123\n- 123\n- 123.\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "bulletList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "123"
+           }
+          ]
+         },
+         {
+          "type": "bulletList",
+          "content": [
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "123"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "123"
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "123"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "123."
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 2,
+   "section": "Bullet List",
+   "markdown": "- Item 1\n- Item 2\n  - Subitem 1\n  - Subitem 2\n- Item 3\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "bulletList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 1"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 2"
+           }
+          ]
+         },
+         {
+          "type": "bulletList",
+          "content": [
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 1"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 2"
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 3"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 3,
+   "section": "Hard Break with Marks",
+   "markdown": "**Speaker:**  \nJohn Doe.\n\n**Speaker:**  \n**John Doe**\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "Speaker:"
+       },
+       {
+        "type": "hardBreak"
+       },
+       {
+        "type": "text",
+        "text": "John Doe."
+       }
+      ]
+     },
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "Speaker:"
+       },
+       {
+        "type": "hardBreak"
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "John Doe"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 4,
+   "section": "Link with Title",
+   "markdown": "[click here](https://example.com \"Example Site\")\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "text": "click here",
+        "marks": [
+         {
+          "type": "link",
+          "attrs": {
+           "href": "https://example.com",
+           "title": "Example Site"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 5,
+   "section": "Link without Title",
+   "markdown": "[click here](https://example.com)\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "text": "click here",
+        "marks": [
+         {
+          "type": "link",
+          "attrs": {
+           "href": "https://example.com",
+           "title": null
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 6,
+   "section": "Mixed List Types",
+   "markdown": "- Test\n\n- [ ] Test\n- [ ] Test 2\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "bulletList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Test"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "type": "taskList",
+      "content": [
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": false
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Test"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": false
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Test 2"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 7,
+   "section": "Ordered List Separated by Bullet List",
+   "markdown": "1. one\n\n- inner\n\n2. two\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "orderedList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "one"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "type": "bulletList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "inner"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "type": "orderedList",
+      "attrs": {
+       "start": 2
+      },
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "two"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 8,
+   "section": "Ordered List with Nested Bullet List",
+   "markdown": "1. one\n  - inner\n2. two\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "orderedList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "one"
+           }
+          ]
+         },
+         {
+          "type": "bulletList",
+          "content": [
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "inner"
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "two"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 9,
+   "section": "Ordered List",
+   "markdown": "1. Item 1\n2. Item 2\n  1. Subitem 1\n  2. Subitem 2\n    1. Subsubitem 1\n    2. Subsubitem 2\n3. Item 3\n  1. Subitem 1\n  2. Subitem 2\n    1. Subsubitem 1\n    2. Subsubitem 2\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "orderedList",
+      "content": [
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 1"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 2"
+           }
+          ]
+         },
+         {
+          "type": "orderedList",
+          "content": [
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 1"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 2"
+               }
+              ]
+             },
+             {
+              "type": "orderedList",
+              "content": [
+               {
+                "type": "listItem",
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subsubitem 1"
+                   }
+                  ]
+                 }
+                ]
+               },
+               {
+                "type": "listItem",
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subsubitem 2"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "listItem",
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Item 3"
+           }
+          ]
+         },
+         {
+          "type": "orderedList",
+          "content": [
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 1"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "type": "listItem",
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subitem 2"
+               }
+              ]
+             },
+             {
+              "type": "orderedList",
+              "content": [
+               {
+                "type": "listItem",
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subsubitem 1"
+                   }
+                  ]
+                 }
+                ]
+               },
+               {
+                "type": "listItem",
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subsubitem 2"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 10,
+   "section": "Soft Break with Marks",
+   "markdown": "**Speaker:**\nJohn Doe.\n\n**Speaker:**\n**John Doe**\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "Speaker:"
+       },
+       {
+        "type": "text",
+        "text": "\nJohn Doe."
+       }
+      ]
+     },
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "Speaker:"
+       },
+       {
+        "type": "text",
+        "text": "\n"
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "John Doe"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 11,
+   "section": "Task List",
+   "markdown": "- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3\n  - [ ] Subtask 1\n  - [x] Subtask 2\n    - [ ] Subtask 2a\n    - [x] Subtask 2b\n- [x] Task 4\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "taskList",
+      "content": [
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": false
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Task 1"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": true
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Task 2"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": false
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Task 3"
+           }
+          ]
+         },
+         {
+          "type": "taskList",
+          "content": [
+           {
+            "type": "taskItem",
+            "attrs": {
+             "checked": false
+            },
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subtask 1"
+               }
+              ]
+             }
+            ]
+           },
+           {
+            "type": "taskItem",
+            "attrs": {
+             "checked": true
+            },
+            "content": [
+             {
+              "type": "paragraph",
+              "content": [
+               {
+                "type": "text",
+                "text": "Subtask 2"
+               }
+              ]
+             },
+             {
+              "type": "taskList",
+              "content": [
+               {
+                "type": "taskItem",
+                "attrs": {
+                 "checked": false
+                },
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subtask 2a"
+                   }
+                  ]
+                 }
+                ]
+               },
+               {
+                "type": "taskItem",
+                "attrs": {
+                 "checked": true
+                },
+                "content": [
+                 {
+                  "type": "paragraph",
+                  "content": [
+                   {
+                    "type": "text",
+                    "text": "Subtask 2b"
+                   }
+                  ]
+                 }
+                ]
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "taskItem",
+        "attrs": {
+         "checked": true
+        },
+        "content": [
+         {
+          "type": "paragraph",
+          "content": [
+           {
+            "type": "text",
+            "text": "Task 4"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "example": 12,
+   "section": "Trailing Whitespace in Marks",
+   "markdown": "**text** continues here\n\nand **more text** here\n\nalso *italic text* works\n\nand **bold** *italic* mixed\n",
+   "expectedOutput": {
+    "type": "doc",
+    "content": [
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "text"
+       },
+       {
+        "type": "text",
+        "text": " continues here"
+       }
+      ]
+     },
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "text": "and "
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "more text"
+       },
+       {
+        "type": "text",
+        "text": " here"
+       }
+      ]
+     },
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "text": "also "
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "italic"
+         }
+        ],
+        "text": "italic text"
+       },
+       {
+        "type": "text",
+        "text": " works"
+       }
+      ]
+     },
+     {
+      "type": "paragraph",
+      "content": [
+       {
+        "type": "text",
+        "text": "and "
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "bold"
+         }
+        ],
+        "text": "bold"
+       },
+       {
+        "type": "text",
+        "text": " "
+       },
+       {
+        "type": "text",
+        "marks": [
+         {
+          "type": "italic"
+         }
+        ],
+        "text": "italic"
+       },
+       {
+        "type": "text",
+        "text": " mixed"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}
