@@ -60,8 +60,17 @@ export function createMermaidPreviewWidget(
           previewCache.set(cacheKey, { rendered: svg });
           placeholder.className = "code-block-preview mermaid-preview";
           placeholder.innerHTML = sanitizeSvg(svg);
-          setupMermaidPanZoom(placeholder);
-          setupMermaidExport(placeholder, content);
+          // Defer enhancement: Panzoom throws on elements that are not
+          // attached to the DOM, and ProseMirror attaches the widget only
+          // after this factory returns. The cache-hit path in
+          // previewHelpers.createPreviewElement defers for the same reason.
+          // The isConnected guard matters because a throw inside the frame
+          // callback escapes the promise chain below.
+          requestAnimationFrame(() => {
+            if (!placeholder.isConnected) return;
+            setupMermaidPanZoom(placeholder);
+            setupMermaidExport(placeholder, content);
+          });
         } else {
           placeholder.className = "code-block-preview mermaid-error";
           placeholder.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Failed to render diagram`;
