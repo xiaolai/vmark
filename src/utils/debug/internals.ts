@@ -10,7 +10,7 @@
  * @module utils/debug/internals
  */
 
-export const isDev = import.meta.env.DEV;
+export const isDev = Boolean(import.meta.env?.DEV);
 
 // Production warn/error: forward to tauri-plugin-log for file persistence.
 // Lazy-loaded to avoid blocking startup; always falls back to console.
