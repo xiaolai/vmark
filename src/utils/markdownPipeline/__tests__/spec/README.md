@@ -26,8 +26,12 @@ Two gates share one corpus registry:
 | `corpusRegistry.ts` | THE corpus list: files, provenance, licenses, digests, per-gate routes. Both gates load only through it. |
 | `corpus/commonmark-0.31.2.json` | All 652 CommonMark 0.31.2 examples (`cm-<n>`) |
 | `corpus/gfm-extensions.json` | The GFM spec's extension-section examples (`gfm-<n>`, numbered by position in that file's own enumeration) |
+| `corpus/cmark-*.json`, `corpus/pulldown-*.json`, `corpus/markdown-it-*.json` | WI-2.3's external corpora (228 examples), routed per registry — wiki/math are roundtrip-only with `mustProduce` contracts |
+| `corpus/tiptap-conversion.json` | WI-2.1's md→PM-JSON pairs; consumed by `specTiptapOracle.test.ts`, not the gates |
+| `specXss.test.ts` | Explicit sanitization assertions over the xss corpus (policy property, not ledger plumbing) |
+| `specTiptapOracle.test.ts` | Independent md→ProseMirror pinning against Tiptap's converter, with declared divergences |
 | `specDeltas.json` | Conformance ledger — JSON so the merge-base ratchet can read it at a historical ref (ADR-5) |
-| `specRoundtripDeltas.json` | Roundtrip ledger: stability records (sha-pinned pass outputs) + fidelity records with verdicts |
+| `specRoundtripDeltas.json` | Roundtrip ledger: stability records (sha-pinned pass outputs) + fidelity records + WI-2.2's `independentRuler` records (stock remark reads input vs output — the correlated-blind-spot ruler) |
 | `specLedgers.ts` | Typed ledger access + full-signature matching |
 | `specConformance.test.ts` | Parse gate (also runs the `vmark-*` fixture manifest) |
 | `specRoundtrip.test.ts` | Round-trip gate, same three corpora |
