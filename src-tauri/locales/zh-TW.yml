@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "目前沒有正在執行的工作流程"
   workflow.circularDependency: "工作流程步驟中偵測到循環相依"
   workflow.noInteractivePrompt: "工作流程執行不支援互動式提示"
+  workflow.engineDisabled: "工作流程引擎已在設定中關閉"
+  workflow.noPendingApproval: "沒有相符的待處理核准請求"
+  workflow.appDataDirUnavailable: "無法解析應用程式資料目錄：%{detail}"
+
+  # === 儲存路徑（file_write.rs，WI-14 CommandError）===
+  save.parentMissing: "該檔案所在的資料夾已不存在：%{dir}"
+  save.noParentDirectory: "檔案路徑沒有上層資料夾"
+  save.writeFailed: "無法儲存檔案：%{detail}"
+  save.taskFailed: "儲存工作意外結束：%{detail}"
+
+  # === 內建瀏覽器，AI 導覽（browser/ai_commands.rs，WI-14）===
+  browser.disabled: "內建瀏覽器已在設定中關閉"
+  browser.approvalRequired: "AI 開啟此頁面前需要你的許可"
+  browser.blockedDestination: "政策禁止 AI 前往該目標位址"
+  browser.profileNotApproved: "未獲許可開啟該瀏覽器設定檔"
+  browser.tabNotFound: "該瀏覽器分頁已不存在"
+  browser.tabNotAiOwned: "該瀏覽器分頁不受 AI 控制"
+  browser.policyStale: "瀏覽器政策已變更，請重試該操作"
+  browser.tabProvenanceMismatch: "該分頁是在另一種自動化模式下建立的"
+  browser.invalidSessionMode: "未知的瀏覽器工作階段模式「%{mode}」"
+  browser.stateUnavailable: "無法讀取瀏覽器狀態：%{detail}"
+  browser.invalidUrl: "這不是可用的網址"
+  browser.invalidProfileName: "該瀏覽器設定檔名稱不被允許"
+  browser.windowGone: "該瀏覽器分頁所屬的視窗已關閉"
+  browser.profileLimit: "同時開啟的瀏覽器設定檔過多"
+  browser.unsupportedPlatform: "內建瀏覽器在此平台上無法使用"
+  browser.surfaceTimeout: "瀏覽器未在時限內回應"
+  browser.surfaceFailed: "瀏覽器無法完成該操作"
 
   # === Hot exit ===
   hotExit.noWindows: "沒有需要擷取的文件視窗"

@@ -19,7 +19,8 @@ import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { resetContextGenerations } from "@/services/workspaces/workspaceContextGeneration";
 import { switchWorkspaceInstance } from "@/services/workspaces/switchWorkspaceInstance";
-import { useVisibleWindowTabs, visibleWindowTabs, allWindowTabs } from "./useVisibleWindowTabs";
+import { useVisibleWindowTabs } from "./useVisibleWindowTabs";
+import { visibleWindowTabs, allWindowTabs } from "@/services/tabs/visibleWindowTabs";
 
 const W = "main";
 

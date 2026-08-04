@@ -40,7 +40,7 @@ import { emit } from "@tauri-apps/api/event";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getVersion } from "@tauri-apps/api/app";
-import { shouldWriteProgress } from "@/hooks/updateProgressThrottle";
+import { shouldWriteProgress } from "@/services/updates/updateProgressThrottle";
 import i18n from "@/i18n";
 
 // Event names for cross-window communication

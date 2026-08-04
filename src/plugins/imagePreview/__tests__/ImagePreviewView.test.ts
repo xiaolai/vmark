@@ -21,11 +21,9 @@ vi.mock("@tauri-apps/api/path", () => ({
 // The active document arrives through the host seam now — this plugin no
 // longer reaches into the app's tab and document stores (ADR-015). Binding is
 // what the app does at its composition root.
-bindHostDocument({ activeFilePath: () => "/test/doc.md" });
-
-vi.mock("@/services/navigation/windowFocus", () => ({
-  getWindowLabel: () => "main",
-}));
+// WI-11: the host declares the WINDOW too — the label is a seam member now,
+// not something the plugin reads out of the app's window service.
+bindHostDocument({ currentWindowLabel: () => "main", activeFilePath: () => "/test/doc.md" });
 
 // Import after mocking
 import { ImagePreviewView, getImagePreviewView, hideImagePreview } from "../ImagePreviewView";

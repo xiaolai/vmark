@@ -109,10 +109,16 @@ export function guardCodeMirrorKeyBinding(binding: KeyBinding): KeyBinding {
     };
   };
 
+  // Wrap only the handlers the binding actually declares. Writing `run` or
+  // `shift` as `undefined` would ADD the keys to a binding that had neither,
+  // and CodeMirror's keymap treats a declared-but-empty handler differently
+  // from an undeclared one when it decides whether a key is bound.
+  const wrappedRun = guard(binding.run);
+  const wrappedShift = guard(binding.shift);
   return {
     ...binding,
-    run: guard(binding.run),
-    shift: guard(binding.shift),
+    ...(wrappedRun ? { run: wrappedRun } : {}),
+    ...(wrappedShift ? { shift: wrappedShift } : {}),
   };
 }
 

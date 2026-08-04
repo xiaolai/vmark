@@ -28,6 +28,7 @@
  * @coordinates-with workspaceStore.ts — lastOpenTabs for session restore
  * @coordinates-with lib/formats/registry.ts — dispatchEditor() drives formatId derivation
  * @coordinates-with tabRemovalBus.ts — closeTab/detachTab notify on tab removal (#1081)
+ * @coordinates-with tabActivationBus.ts — every activation is announced so paneStore converges a split (WI-2, ADR-1)
  * @module stores/tabStore
  */
 
@@ -53,11 +54,12 @@ import {
   applyPathUpdate,
   removeTabAt,
   insertTabForPin,
-  repositionForPin,
+  applyTogglePin,
   setActiveTabGuarded,
   generateTabId,
 } from "@/stores/tabStoreHelpers";
 import { notifyTabRemoved } from "@/stores/tabRemovalBus";
+import { notifyTabActivated } from "@/stores/tabActivationBus";
 
 // Re-exported so existing `import { Tab } from "@/stores/tabStore"` keeps working (shapes live in tabStoreTypes.ts, which breaks the store↔helpers cycle).
 export type { Tab, DocumentTab } from "@/stores/tabStoreTypes";
@@ -188,7 +190,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         untitledCounter: newCounter,
       };
     });
-
+    notifyTabActivated(windowLabel, returnId); // WI-2: converge an enabled split
     return returnId;
   },
 
@@ -225,7 +227,7 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
         activeTabId: { ...state.activeTabId, [windowLabel]: fullTab.id },
       };
     });
-
+    notifyTabActivated(windowLabel, returnId); // WI-2: converge an enabled split
     return returnId;
   },
 
@@ -268,6 +270,8 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     // the payload feeds the scoped reopen history (reason "close").
     if (removed && removedTab) {
       notifyTabRemoved(windowLabel, tabId, { tab: removedTab, reason: "close" });
+      // WI-2: announce the neighbor pick AFTER the split reconciled the removal.
+      notifyTabActivated(windowLabel, get().activeTabId[windowLabel] ?? null);
     }
     return removed;
   },
@@ -286,6 +290,8 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     // #1081: detaching removes the tab here too — collapse a split that held it.
     if (removed && removedTab) {
       notifyTabRemoved(windowLabel, tabId, { tab: removedTab, reason: "detach" });
+      // WI-2: announce the neighbor pick AFTER the split reconciled the removal.
+      notifyTabActivated(windowLabel, get().activeTabId[windowLabel] ?? null);
     }
   },
 
@@ -306,6 +312,8 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
       }
       return next;
     });
+    // WI-2: announce only a write the guard accepted (unknown ids stay a no-op).
+    if (get().activeTabId[windowLabel] === tabId) notifyTabActivated(windowLabel, tabId);
   },
 
   /** WI-4.3 — promote a tab to read-write or revert to read-only. */
@@ -357,24 +365,10 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
     });
   },
 
+  // Both directions land on the pinned/unpinned boundary, so the pinned
+  // zone stays contiguous at the left of the strip.
   togglePin: (windowLabel, tabId) => {
-    set((state) => {
-      const windowTabs = state.tabs[windowLabel] || [];
-      const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
-      if (tabIndex === -1) return state;
-
-      const tab = windowTabs[tabIndex];
-      const updatedTab = { ...tab, isPinned: !tab.isPinned };
-
-      // Both directions land on the pinned/unpinned boundary, so the pinned
-      // zone stays contiguous at the left of the strip.
-      return {
-        tabs: {
-          ...state.tabs,
-          [windowLabel]: repositionForPin(windowTabs, tabIndex, updatedTab),
-        },
-      };
-    });
+    set((state) => applyTogglePin(state, windowLabel, tabId));
   },
 
   reorderTabs: (windowLabel, fromIndex, toIndex) => {

@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: mocks.join,
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: mocks.copyImageToAssets,
 }));
 

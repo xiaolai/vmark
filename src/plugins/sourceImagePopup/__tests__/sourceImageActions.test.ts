@@ -32,7 +32,7 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => "main",
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: vi.fn(() => Promise.resolve("./assets/image.png")),
 }));
 

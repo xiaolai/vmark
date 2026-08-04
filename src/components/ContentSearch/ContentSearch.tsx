@@ -29,7 +29,7 @@ import {
   type LineMatch,
 } from "@/stores/uiStore";
 import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
-import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
+import { setPendingContentSearchNav } from "@/services/navigation/contentSearchNavigation";
 import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";

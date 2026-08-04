@@ -73,6 +73,48 @@ describe("useBrowserNativeView — create/destroy", () => {
     );
   });
 
+  // WI-14 — a typed CommandError is a plain object, so the old
+  // `errorMessage(e)` printed the literal text "[object Object]" into the
+  // browser chrome.
+  it("shows a typed rejection's message, not [object Object]", async () => {
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_ai_create"
+        ? Promise.reject({
+            code: "permission-denied",
+            message: "AI navigation to this destination is blocked by policy",
+            detail: { mcpCode: "SSRF_BLOCKED" },
+          })
+        : Promise.resolve(),
+    );
+    renderHook(() =>
+      useBrowserNativeView("t1", "https://example.com", "v0", viewportRef(), "ai-sandbox"),
+    );
+    await waitFor(() =>
+      expect(useBrowserUiStore.getState().entries.t1?.error).toBe(
+        "AI navigation to this destination is blocked by policy",
+      ),
+    );
+  });
+
+  it("leaves the tab clean when the create is only awaiting approval", async () => {
+    // The approval prompt owns this interaction and the MCP handler retries
+    // after the user decides. Painting a persistent error underneath it showed
+    // the raw protocol token "APPROVAL_REQUIRED" in the chrome at the same time.
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_ai_create"
+        ? Promise.reject({
+            code: "approval-required",
+            message: "This page needs your approval before the AI can open it",
+          })
+        : Promise.resolve(),
+    );
+    renderHook(() =>
+      useBrowserNativeView("t2", "https://example.com", "v0", viewportRef(), "ai-shared"),
+    );
+    await waitFor(() => expect(useBrowserUiStore.getState().entries.t2?.loading).toBe(false));
+    expect(useBrowserUiStore.getState().entries.t2?.error).toBeNull();
+  });
+
   it("shares an AI create promise when the hook and MCP open race", async () => {
     let resolveCreate!: () => void;
     invoke.mockImplementation((cmd: string) =>

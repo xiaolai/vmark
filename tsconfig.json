@@ -19,6 +19,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
 
     /* Path alias (paths resolve relative to this tsconfig; TS 6 deprecated baseUrl) */
     "paths": {

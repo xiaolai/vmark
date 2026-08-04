@@ -63,11 +63,14 @@ export function useWorkflowExecution() {
       (e) => {
         const current = store.getState().preview.executionId;
         if (current && e.payload.executionId !== current) return;
+        // Only the facts this event actually reports. A running step has no
+        // duration and no error yet; writing those keys as `undefined` would
+        // make the entry claim the runner had reported them empty.
         store.getState().setStepStatus(e.payload.stepId, {
           status: e.payload.status,
-          output: e.payload.output,
-          error: e.payload.error,
-          duration: e.payload.duration,
+          ...(e.payload.output !== undefined ? { output: e.payload.output } : {}),
+          ...(e.payload.error !== undefined ? { error: e.payload.error } : {}),
+          ...(e.payload.duration !== undefined ? { duration: e.payload.duration } : {}),
         });
       },
     );

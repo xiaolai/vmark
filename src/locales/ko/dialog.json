@@ -61,6 +61,7 @@
   "toast.failedToOpenFile": "파일을 열지 못했습니다: {{error}}",
   "toast.failedToOpen": "{{filename}}을(를) 열지 못했습니다",
   "toast.operationFailed": "작업을 완료할 수 없습니다",
+  "toast.workflowEngineDisableFailed": "워크플로 엔진을 끄지 못했습니다. VMark를 다시 시작할 때까지 워크플로가 계속 실행될 수 있습니다. 확실히 하려면 VMark를 종료했다가 다시 여세요.",
   "toast.quarantineCleared_one": "이 작업 공간의 Markdown 파일 1개에서 macOS 격리를 해제했습니다.",
   "toast.quarantineCleared_other": "이 작업 공간의 Markdown 파일 {{count}}개에서 macOS 격리를 해제했습니다.",
   "toast.quarantineClearedDesc": "macOS는 일부 앱에서 다운로드한 파일에 플래그를 표시하여 VMark 실행 중에 Finder의 더블클릭을 조용히 차단합니다. VMark가 이 플래그를 제거하여 해당 파일이 열릴 수 있게 했습니다. 설정 → 고급에서 비활성화할 수 있습니다.",

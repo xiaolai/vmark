@@ -25,7 +25,7 @@
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
  * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
- * @coordinates-with fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
+ * @coordinates-with services/windowClose/fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
  * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
  * @coordinates-with externalChangeBatchQueue.ts — the debounce/requeue/single-timer rules
@@ -46,7 +46,7 @@ import {
   reloadAllFromDisk,
   keepAllLocal,
   reviewEachIndividually,
-} from "@/hooks/fileChangeBatch";
+} from "@/services/files/fileChangeBatch";
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
 import { softContentEquals } from "@/utils/linebreaks";
@@ -54,10 +54,10 @@ import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
 import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
-import { subscribeWorkspaceEvents } from "@/hooks/useWorkspaceEventBus";
+import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
 import { resolveDirtyFileChange } from "@/services/persistence/resolveDirtyFileChange";
-import { createBatchQueue, type BatchQueue } from "./externalChangeBatchQueue";
-import { handleSemanticBatch, type FsChangeContext } from "./fsChangeHandlers";
+import { createBatchQueue, type BatchQueue } from "@/services/files/externalChangeBatchQueue";
+import { handleSemanticBatch, type FsChangeContext } from "@/services/windowClose/fsChangeHandlers";
 
 /** Pending dirty file change awaiting user decision */
 interface PendingDirtyChange {

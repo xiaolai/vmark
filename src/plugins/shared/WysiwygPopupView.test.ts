@@ -29,7 +29,7 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -390,7 +390,7 @@ describe("WysiwygPopupView", () => {
     });
 
     it("uses absolute positioning and host coords when host is a non-body element", async () => {
-      const sourcePopup = await import("@/plugins/sourcePopup");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       const hostEl = document.createElement("div");
       hostEl.style.position = "relative";
       document.body.appendChild(hostEl);

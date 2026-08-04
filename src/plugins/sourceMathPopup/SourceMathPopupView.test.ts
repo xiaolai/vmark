@@ -20,15 +20,18 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
 }));
 
+vi.mock("@/plugins/shared/popupHostDom", () => ({
+  getPopupHostForDom: vi.fn(() => null),
+  toHostCoordsForDom: vi.fn(
+    (_host: unknown, pos: { top: number; left: number }) => pos,
+  ),
+}));
+
 vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: vi.fn(() => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
   })),
-  getPopupHostForDom: vi.fn(() => null),
-  toHostCoordsForDom: vi.fn(
-    (_host: unknown, pos: { top: number; left: number }) => pos,
-  ),
 }));
 
 vi.mock("@/plugins/latex/katexLoader", () => ({

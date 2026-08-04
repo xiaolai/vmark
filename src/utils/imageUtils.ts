@@ -6,7 +6,7 @@
  * - Filename extraction and generation
  * - Relative path construction
  *
- * Async operations (mkdir, copyFile, etc.) are in hooks/useImageOperations.
+ * Async operations (mkdir, copyFile, etc.) are in services/media/imageOperations.
  */
 
 import { IMAGE_EXTENSIONS } from "./mediaExtensions";

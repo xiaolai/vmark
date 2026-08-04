@@ -15,7 +15,7 @@
 import { EditorView } from "@codemirror/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
 import { hostPopups } from "@/plugins/shared/hostPopups";
 import { smartPasteWarn, smartPasteError } from "@/utils/debug";
 import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePathDetection";

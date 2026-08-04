@@ -78,7 +78,7 @@ vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
   getActiveWorkspaceScope: vi.fn(() => ({ rootPath: mocks.activeScopeRoot() })),
 }));
 
-vi.mock("@/hooks/useWorkspaceEventBus", () => ({
+vi.mock("@/services/workspaceEvents/subscribeWorkspaceEvents", () => ({
   subscribeWorkspaceEvents: mocks.subscribeWorkspaceEvents,
 }));
 

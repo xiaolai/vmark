@@ -56,7 +56,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
 import { isMarkdownFileName, isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
-import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
+import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { runContextMenuAction } from "./contextMenuActions";
 import { openTerminalHere } from "@/services/terminal/openTerminalHere";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -203,12 +203,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const openFileByType = useCallback(
     (path: string) => {
       const fileName = getFileName(path);
-      // Phase 1B: any registered format opens in VMark. The workflow-
-      // engine / markdown-only fallback covers the pre-bootstrap edge.
+      // Phase 1B: any registered format opens in VMark; the workflow/markdown
+      // fallback covers the pre-bootstrap edge (see isWorkflowYamlSurfaceEnabled).
       const isSupported =
         fileName &&
         (isSupportedFileName(fileName) ||
-          (isWorkflowEnabled()
+          (isWorkflowYamlSurfaceEnabled()
             ? isVMarkFileName(fileName)
             : isMarkdownFileName(fileName)));
       if (isSupported) {

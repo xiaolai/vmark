@@ -92,7 +92,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     const rect = this.container.getBoundingClientRect();
     return {
       width: rect.width || DEFAULT_POPUP_WIDTH,
@@ -282,7 +282,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
     this.closePopup();
   };
 
-  destroy(): void {
+  override destroy(): void {
     this.container.removeEventListener("mouseleave", this.handleMouseLeave);
     super.destroy();
   }

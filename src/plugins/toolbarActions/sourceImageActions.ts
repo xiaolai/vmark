@@ -11,7 +11,7 @@
 import type { EditorView } from "@codemirror/view";
 import { getAnchorRectFromRange } from "@/plugins/sourcePopup/sourcePopupUtils";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
-import { copyImageToAssets } from "@/hooks/useImageOperations";
+import { copyImageToAssets } from "@/services/media/imageOperations";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hostPopups } from "@/plugins/shared/hostPopups";

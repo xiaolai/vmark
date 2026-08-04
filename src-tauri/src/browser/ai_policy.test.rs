@@ -25,6 +25,53 @@ fn rejects_unsupported_schemes_and_userinfo() {
     }
 }
 
+// Audit 20260803 §6 — "you may not go there" and "that is not a URL" are two
+// different answers. Every rejection used to be `Blocked`, which the command
+// layer turned into `permission-denied` + `SSRF_BLOCKED`: an empty string, a
+// typo, or a truncated paste was reported to the user (and to the AI client)
+// as a SECURITY refusal. It made the real refusals harder to see and told the
+// caller that fixing its argument could not help.
+#[test]
+fn an_unusable_url_is_invalid_input_not_a_policy_refusal() {
+    for url in [
+        "",
+        "   ",
+        "https://",
+        "http://",
+        "https://:8080/",
+        "https:// example.com/",
+        "https://exa mple.com/",
+        "https://[not-an-ipv6/",
+    ] {
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Invalid),
+            "{url:?} is malformed, not refused"
+        );
+    }
+}
+
+#[test]
+fn a_reachable_but_forbidden_destination_stays_a_policy_refusal() {
+    // The other side of the split: these parse perfectly. Misclassifying one of
+    // THESE as invalid input would be the dangerous direction — the frontend
+    // would invite the caller to "fix" a URL that policy will never allow.
+    for url in [
+        "http://127.0.0.1/",
+        "http://169.254.169.254/",
+        "https://metadata.google.internal/",
+        "https://printer.local/",
+        "file:///etc/passwd",
+        "https://user:password@example.com/",
+    ] {
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Blocked),
+            "{url}"
+        );
+    }
+}
+
 #[test]
 fn rejects_loopback_and_private_literal_addresses() {
     for url in [

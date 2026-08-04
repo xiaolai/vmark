@@ -52,10 +52,14 @@ export function adoptDiskConvention(diskContent: string): Partial<DocumentState>
 
 /** Routing options for one external ingest. */
 export interface IngestOptions {
-  /** File path to adopt; `undefined` keeps the document's current one. */
-  filePath?: string | null;
+  /**
+   * File path to adopt; `undefined` keeps the document's current one.
+   * Explicitly `| undefined` — "keep the current path" is a STATED choice
+   * callers make by passing the value they computed, not an omission.
+   */
+  filePath?: string | null | undefined;
   /** Metadata stored alongside a snapshot, where the origin has one. */
-  persisted?: Partial<LineMetadata>;
+  persisted?: Partial<LineMetadata> | undefined;
   /**
    * Text to DETECT the file's convention, BOM and disk snapshot from, when it
    * differs from the ingested text. Hot-exit loads the canonical SAVED body as

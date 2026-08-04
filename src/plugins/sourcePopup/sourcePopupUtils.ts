@@ -24,29 +24,9 @@ export function getPopupHost(view: EditorView): HTMLElement | null {
 }
 
 /**
- * Get popup host for a DOM element (e.g., CM editor DOM).
- */
-export function getPopupHostForDom(dom: HTMLElement | null): HTMLElement | null {
-  if (!dom) return null;
-  return (dom.closest(".editor-container") as HTMLElement | null) ?? dom.parentElement;
-}
-
-/**
- * Convert viewport coordinates to popup-host coordinates (DOM variant).
- */
-export function toHostCoordsForDom(
-  host: HTMLElement,
-  point: { top: number; left: number }
-): { top: number; left: number } {
-  const rect = host.getBoundingClientRect();
-  return {
-    top: point.top - rect.top + host.scrollTop,
-    left: point.left - rect.left + host.scrollLeft,
-  };
-}
-
-/**
  * Convert viewport coordinates to popup-host coordinates.
+ * (The DOM variants — getPopupHostForDom/toHostCoordsForDom — are generic and
+ * live in plugins/shared/popupHostDom.)
  */
 export function toHostCoords(
   host: HTMLElement,

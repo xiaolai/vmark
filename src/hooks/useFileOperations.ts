@@ -9,7 +9,7 @@
  *   the appropriate handler in useFileSave or services/navigation/fileOpen
  *   -> store updates + file I/O
  *
- * @coordinates-with useFileSave.ts — save operations and workspace moves
+ * @coordinates-with services/files/fileSave.ts — save operations and workspace moves
  * @coordinates-with services/navigation/fileOpen.ts — open operations and tab creation
  * @module hooks/useFileOperations
  */
@@ -17,7 +17,7 @@
 import { useOpenFileEvent } from "./useOpenFileEvent";
 
 // Re-export for testing and external consumers
-export { moveTabToNewWorkspaceWindow } from "./useFileSave";
+export { moveTabToNewWorkspaceWindow } from "@/services/files/fileSave";
 export { openFileInNewTabCore } from "@/services/navigation/fileOpen";
 
 /**

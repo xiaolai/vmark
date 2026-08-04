@@ -30,8 +30,8 @@ import { registerWorkspaceCommands } from "@/services/commands/workspaceCommands
 import { registerFormatCommands } from "@/services/commands/formatCommands";
 import { registerBrowserCommands } from "@/services/commands/browserCommands";
 import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
-import { registerTabCommands } from "@/hooks/tabCommands";
-import { registerFileCommands } from "@/hooks/fileCommands";
+import { registerTabCommands } from "@/services/commands/tabCommands";
+import { registerFileCommands } from "@/services/commands/fileCommands";
 import { registerGenieCommands } from "@/services/commands/genieCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -39,6 +39,7 @@ import { startGrantSync } from "@/services/browser/grantSync";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
+import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
 import { executeCommand } from "@/services/commands/CommandBus";
 
@@ -162,6 +163,9 @@ export function useCommandBootstrap(): void {
     const stopCoherenceScan = startCoherenceScanOnChange();
     const stopWindowWorkspaceSync = startWindowWorkspaceSync();
     const stopBrowserAiPolicySync = startBrowserAiPolicySync();
+    // The Rust workflow runner starts fail-closed; without this push it refuses
+    // every command even for a user who has the engine switched on (WI-19).
+    const stopWorkflowEnginePolicySync = startWorkflowEnginePolicySync();
 
     // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
     // The item exists natively so its accelerator survives the browser taking keyboard
@@ -231,6 +235,7 @@ export function useCommandBootstrap(): void {
       stopCoherenceScan();
       stopWindowWorkspaceSync();
       stopBrowserAiPolicySync();
+      stopWorkflowEnginePolicySync();
       stopBrowserMenuSync();
     };
   }, []);

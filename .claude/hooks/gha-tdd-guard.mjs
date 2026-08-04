@@ -3,30 +3,46 @@
 // PreToolUse hook: scoped TDD guard. Blocks Write/Edit on production source
 // files unless a sibling test file already exists (RED before GREEN).
 //
-// Enforced feature scopes (see .claude/rules/60-ai-governance.md §5):
+// Enforced feature scopes (see .claude/rules/60-ai-governance.md §5).
 //
-//   GitHub Actions workflow viewer
+// EVERY PATH BELOW MUST EXIST. WI-19 found the scope had drifted into fiction:
+// four of the seven workflow entries named directories and stores that had not
+// existed for months (src/lib/workflowRouting, src/plugins/githubWorkflow,
+// src/stores/workflowViewStore.ts, src/stores/workflowEditStore.ts), the two
+// plan files cited as their authority were gone, and the MCP browser handlers
+// had moved hooks/ → services/ (WI-10) without the pattern following. So the
+// guard blocked nothing while the shipped workflow-engine frontend — 613 lines
+// of IR parser, the preview plugin, the runner hook — was never in scope at
+// all. `gha-tdd-guard.test.mjs` now asserts both directions: a probe in each
+// real scope blocks, and each removed path does not.
+//
+//   GitHub Actions workflow VIEWER (`advanced.workflowViewer`)
 //     - src/lib/ghaWorkflow/**/*.{ts,tsx}
-//     - src/lib/workflowRouting/**/*.{ts,tsx}
 //     - src/components/Editor/WorkflowPanel/**/*.{ts,tsx}
 //     - src/components/Editor/WorkflowEditor/**/*.{ts,tsx}
-//     - src/plugins/githubWorkflow/**/*.{ts,tsx}
-//     - src/stores/workflowViewStore.ts
-//     - src/stores/workflowEditStore.ts
 //
-//   Embedded browser / site plugins / web workflows
-//   (dev-docs/plans/20260712-0610-embedded-browser-*.md §13)
+//   Bespoke YAML workflow ENGINE (`advanced.workflowEngine`) — the shipped
+//   frontend of the runner whose Rust commands `workflow::guards` gates.
+//     - src/lib/workflow/**/*.{ts,tsx}            (IR parser, layout)
+//     - src/plugins/workflowPreview/**/*.{ts,tsx} (the graph view)
+//     - src/components/WorkflowApproval/**/*.{ts,tsx}
+//     - src/services/workflow/**/*.{ts,tsx}       (flag push to Rust)
+//     - src/stores/workflowStore.ts
+//
+//   Shared by both — the CodeMirror workflow extensions in the source pane
+//   (completion, cursor sync, goto-def are viewer; preview is engine; the GHA
+//   IR sync is what feeds the first two).
+//     - src/plugins/codemirror/*{Workflow,Gha}*.{ts,tsx}
+//
+//   Embedded browser / site plugins
 //     - src/lib/browser/**/*.{ts,tsx}
 //     - src/lib/sites/**/*.{ts,tsx}
 //     - src/components/Browser/**/*.{ts,tsx}
 //     - src/services/browser/**/*.{ts,tsx}
-//     - src/stores/browserStore.ts
-//     - src/stores/webWorkflowStore.ts
 //     - src/stores/browserApprovalStore.ts
 //
-//   Browser automation — richer perception & interaction
-//   (dev-docs/plans/20260715-browser-automation-perception.md governance)
-//     - src/hooks/mcpBridge/v2/browser*.{ts,tsx}  (the MCP browser handlers)
+//   Browser automation — the MCP browser handlers
+//     - src/services/mcpBridge/v2/browser*.{ts,tsx}
 //
 // Behavior for a Write/Edit/MultiEdit targeting a file in scope:
 //   - If the file is itself a *.test.ts(x), allow (we're writing tests).
@@ -125,27 +141,48 @@ if (rel.startsWith("../")) {
 
 // ── Scope check ─────────────────────────────────────────────────────────
 const SCOPED = [
+  // ── GitHub Actions workflow viewer ──
   /^src\/lib\/ghaWorkflow\/.*\.tsx?$/,
-  /^src\/lib\/workflowRouting\/.*\.tsx?$/,
   /^src\/components\/Editor\/WorkflowPanel\/.*\.tsx?$/,
   /^src\/components\/Editor\/WorkflowEditor\/.*\.tsx?$/,
-  /^src\/plugins\/githubWorkflow\/.*\.tsx?$/,
-  /^src\/stores\/workflowViewStore\.ts$/,
-  /^src\/stores\/workflowEditStore\.ts$/,
-  // Embedded-browser feature (dev-docs/plans/20260712-0610-embedded-browser-*.md §13)
+  // src/lib/workflowRouting/, src/plugins/githubWorkflow/,
+  // src/stores/workflowViewStore.ts and src/stores/workflowEditStore.ts were
+  // listed here until WI-19; none had existed for months, so those four
+  // entries protected nothing (review finding E2).
+
+  // ── Bespoke YAML workflow engine (the frontend of the gated Rust runner) ──
+  /^src\/lib\/workflow\/.*\.tsx?$/,
+  /^src\/plugins\/workflowPreview\/.*\.tsx?$/,
+  /^src\/components\/WorkflowApproval\/.*\.tsx?$/,
+  /^src\/services\/workflow\/.*\.tsx?$/,
+  /^src\/stores\/workflowStore\.ts$/,
+
+  // ── Source-pane workflow extensions (viewer + engine) ──
+  // Matches on `Workflow` or `Gha` ANYWHERE in the filename, not the
+  // `sourceWorkflow` prefix the entry used to carry: `sourceGhaIrSync.ts` (the
+  // live GHA IR parser the completion and cursor-sync extensions read) never
+  // matched that prefix and was silently unguarded. gha-tdd-guard.test.mjs
+  // globs the directory and asserts every workflow extension it finds is
+  // scoped, so a file arriving under a third naming convention fails the suite
+  // instead of escaping.
+  /^src\/plugins\/codemirror\/.*(?:[Ww]orkflow|Gha).*\.tsx?$/,
+
+  // ── Embedded browser / site plugins ──
   /^src\/lib\/browser\/.*\.tsx?$/,
   /^src\/lib\/sites\/.*\.tsx?$/,
   /^src\/components\/Browser\/.*\.tsx?$/,
   /^src\/services\/browser\/.*\.tsx?$/,
-  /^src\/stores\/browserStore\.ts$/,
-  /^src\/stores\/webWorkflowStore\.ts$/,
+  // src/stores/browserStore.ts was scoped here until the hibernation store was
+  // judged fiction and deleted (review finding E4, WI-6 2026-08-03).
+  // src/stores/webWorkflowStore.ts went the same way in WI-19: never created.
   /^src\/stores\/browserApprovalStore\.ts$/,
-  // Browser automation — richer perception & interaction
-  // (dev-docs/plans/20260715-browser-automation-perception.md governance).
-  // The MCP browser handlers (browser.ts, browserNavigation.ts,
-  // browserScreenshot.ts, browserHelpers.ts). The agent-script layer
+
+  // ── Browser automation — the MCP browser handlers ──
+  // (browser.ts, browserNavigation.ts, browserScreenshot.ts, browserHelpers.ts).
+  // WI-10 moved these hooks/ → services/; the pattern followed only in WI-19,
+  // so they were unguarded in between. The agent-script layer
   // (src/lib/browser/**) is already covered above.
-  /^src\/hooks\/mcpBridge\/v2\/browser.*\.tsx?$/,
+  /^src\/services\/mcpBridge\/v2\/browser.*\.tsx?$/,
 ];
 
 if (!SCOPED.some((re) => re.test(rel))) {

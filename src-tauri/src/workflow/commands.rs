@@ -7,16 +7,29 @@
 //!   - Concurrency guard: only one workflow at a time via AtomicBool.
 //!   - Cancellation via shared CancellationToken (AtomicBool checked per step).
 //!   - Snapshots created before execution for file-modifying steps.
+//!   - **The feature flag is enforced here, not only in the UI (WI-19).**
+//!     `run_workflow` opens with `require_workflow_engine_enabled` and the
+//!     state starts fail-closed. Only the command that STARTS work is gated:
+//!     `cancel_workflow` and `respond_workflow_approval` are not, because
+//!     gating them made a running workflow unstoppable by the very user who
+//!     had just switched the feature off (audit 20260803 §3).
+//!     `workflow_engine_policy` is not gated either — it IS the setter.
+//!   - Errors are `CommandError` (WI-14), not `String`: the frontend has to be
+//!     able to tell `feature-disabled` from `conflict` (already running) from
+//!     `invalid-input` (bad YAML) without matching prose.
 
-use super::approval::ApprovalRegistry;
 use super::genie_step::{resolve_genies_dir, ProviderConfig};
+use super::guards::require_workflow_engine_enabled;
 use super::runner::run_workflow_sequential;
 use super::snapshots;
+use super::state::{CancelDecision, WorkflowRunnerState};
 use super::types::RawWorkflow;
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
@@ -43,70 +56,6 @@ impl Drop for RunningGuard {
     }
 }
 
-/// Outcome of evaluating a cancel request against the currently-running
-/// execution. Pure (no Tauri/i18n dependency) so it is unit-testable.
-#[derive(Debug, PartialEq, Eq)]
-enum CancelDecision {
-    /// The requested id matches the running execution — fire the cancel.
-    Cancel,
-    /// Nothing is running, or a *different* execution is running. The
-    /// requested execution must not be cancelled.
-    NotRunning,
-}
-
-/// Decide whether a cancel request for `requested_id` should fire, given the
-/// id of the execution currently running (`current`, `None` when idle).
-///
-/// Honoring the execution id (C6) closes a TOCTOU window: execution A finishes
-/// and execution B starts before A's late `cancel_workflow(A)` arrives. A
-/// global `running`-only check would cancel B; matching the id drops the stale
-/// request instead.
-fn decide_cancel(current: Option<&str>, requested_id: &str) -> CancelDecision {
-    match current {
-        Some(id) if id == requested_id => CancelDecision::Cancel,
-        _ => CancelDecision::NotRunning,
-    }
-}
-
-/// Shared state for workflow execution. Held by the Tauri app via `.manage()`
-/// at startup; outlives any individual execution.
-pub struct WorkflowRunnerState {
-    /// Concurrency guard — only one workflow runs at a time per window.
-    /// `run_workflow` flips this from `false` → `true` via `compare_exchange`
-    /// and the spawned runner task flips it back when done. The CAS makes
-    /// double-start attempts return `errors.workflow.alreadyRunning`.
-    pub running: AtomicBool,
-    /// Soft cancel flag observed by the runner before each step. The bridge
-    /// task in `runner::spawn_cancel_bridge` polls this and forwards the
-    /// signal to a tokio `CancellationToken` so the AI provider stack
-    /// (CLI children, REST requests) reacts without polling.
-    pub cancel_requested: Arc<AtomicBool>,
-    /// Outstanding approval senders keyed by `(execution_id, step_id)`.
-    /// `respond_workflow_approval` looks the entry up and delivers the user's
-    /// verdict; the runner awaits the matching receiver.
-    pub approvals: Arc<ApprovalRegistry>,
-    /// Id of the execution currently running, or `None` when idle.
-    /// `run_workflow` sets it under the concurrency guard; `RunningGuard::drop`
-    /// clears it. `cancel_workflow` matches against it so a stale cancel for an
-    /// already-finished execution can't cancel whatever started next (C6).
-    pub current_execution: Arc<Mutex<Option<String>>>,
-}
-
-impl WorkflowRunnerState {
-    /// Release the concurrency flag and clear the published execution id.
-    /// Called by `RunningGuard::drop`; factored out (no `AppHandle`) so the
-    /// cancel-lifecycle clearing is unit-testable without a Tauri runtime.
-    fn clear_running(&self) {
-        self.running.store(false, Ordering::SeqCst);
-        // Clear the running execution id so a late cancel targeting the
-        // finished execution can no longer fire against whatever starts next.
-        *self
-            .current_execution
-            .lock()
-            .unwrap_or_else(|p| p.into_inner()) = None;
-    }
-}
-
 /// Execute a workflow from YAML string.
 ///
 /// Spawns the runner as a background task and returns the execution ID
@@ -129,14 +78,21 @@ pub async fn run_workflow(
     // useWorkflowExecution).
     execution_id: Option<String>,
     state: State<'_, WorkflowRunnerState>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
+    // The feature gate comes FIRST — before the concurrency CAS, so a refused
+    // call cannot leave `running` latched true for the rest of the session.
+    require_workflow_engine_enabled(&state)?;
+
     // Concurrency guard
     if state
         .running
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        return Err(rust_i18n::t!("errors.workflow.alreadyRunning").to_string());
+        return Err(localized_error!(
+            ErrorCode::Conflict,
+            "errors.workflow.alreadyRunning"
+        ));
     }
 
     // Reset cancellation flag
@@ -145,35 +101,42 @@ pub async fn run_workflow(
     // Validate inputs
     if yaml.trim().is_empty() {
         state.running.store(false, Ordering::SeqCst);
-        return Err(rust_i18n::t!("errors.workflow.emptyYaml").to_string());
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.workflow.emptyYaml"
+        ));
     }
 
     let workspace = PathBuf::from(&workspace_root);
     if !workspace.is_dir() {
         state.running.store(false, Ordering::SeqCst);
-        return Err(
-            rust_i18n::t!("errors.workflow.invalidWorkspace", path = workspace_root).to_string(),
-        );
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.workflow.invalidWorkspace",
+            path = workspace_root
+        ));
     }
 
     let workflow: RawWorkflow = match serde_yaml_ng::from_str(&yaml) {
         Ok(w) => w,
         Err(e) => {
             state.running.store(false, Ordering::SeqCst);
-            return Err(
-                rust_i18n::t!("errors.workflow.parseFailed", detail = e.to_string()).to_string(),
-            );
+            return Err(localized_error!(
+                ErrorCode::InvalidInput,
+                "errors.workflow.parseFailed",
+                detail = e.to_string()
+            ));
         }
     };
 
     // Validate step count
     if workflow.steps.len() > 50 {
         state.running.store(false, Ordering::SeqCst);
-        return Err(rust_i18n::t!(
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
             "errors.workflow.tooManySteps",
             count = workflow.steps.len().to_string()
-        )
-        .to_string());
+        ));
     }
 
     // Validate supported features — reject only what the runner truly can't
@@ -182,12 +145,12 @@ pub async fn run_workflow(
         let step_id = step.id.as_deref().unwrap_or("(unnamed)");
         if step.uses.starts_with("webhook/") {
             state.running.store(false, Ordering::SeqCst);
-            return Err(rust_i18n::t!(
+            return Err(localized_error!(
+                ErrorCode::Unsupported,
                 "errors.workflow.webhookNotImplemented",
                 index = (i + 1).to_string(),
                 id = step_id
-            )
-            .to_string());
+            ));
         }
     }
 
@@ -206,7 +169,11 @@ pub async fn run_workflow(
         Ok(d) => d,
         Err(e) => {
             state.running.store(false, Ordering::SeqCst);
-            return Err(format!("Failed to resolve app data directory: {}", e));
+            return Err(localized_error!(
+                ErrorCode::Io,
+                "errors.workflow.appDataDirUnavailable",
+                detail = e.to_string()
+            ));
         }
     };
     let snapshot_workspace = workspace.clone();
@@ -302,106 +269,86 @@ pub async fn run_workflow(
 /// running (C6). A request for any other id — typically a stale cancel for an
 /// execution that already finished — is rejected so it can't cancel a workflow
 /// that started in the meantime.
+///
+/// **Deliberately NOT gated on the engine flag** (audit 20260803 §3). Turning
+/// `advanced.workflowEngine` off while a workflow runs used to make that
+/// workflow unstoppable: the UI vanished and the only command that could stop
+/// it started returning `feature-disabled`. A gate whose job is "do not START
+/// things" has no business refusing to stop one.
 #[tauri::command]
 pub async fn cancel_workflow(
     _app: AppHandle,
     execution_id: String,
     state: State<'_, WorkflowRunnerState>,
-) -> Result<(), String> {
-    let current = state
-        .current_execution
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .clone();
-    match decide_cancel(current.as_deref(), &execution_id) {
+) -> Result<(), CommandError> {
+    match state.request_cancel(&execution_id) {
         CancelDecision::Cancel => {
-            state.cancel_requested.store(true, Ordering::SeqCst);
             log::info!("Workflow cancellation requested for {}", execution_id);
             Ok(())
         }
-        CancelDecision::NotRunning => Err(rust_i18n::t!("errors.workflow.notRunning").to_string()),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cancel_fires_when_id_matches_running_execution() {
-        assert_eq!(
-            decide_cancel(Some("exec-a"), "exec-a"),
-            CancelDecision::Cancel
-        );
-    }
-
-    #[test]
-    fn cancel_rejected_when_nothing_is_running() {
-        // A cancel arriving while idle must not arm the cancel flag.
-        assert_eq!(decide_cancel(None, "exec-a"), CancelDecision::NotRunning);
-    }
-
-    #[test]
-    fn cancel_rejected_when_a_different_execution_is_running() {
-        // The TOCTOU case: exec-a finished, exec-b started, late cancel(exec-a)
-        // arrives — it must NOT cancel exec-b.
-        assert_eq!(
-            decide_cancel(Some("exec-b"), "exec-a"),
-            CancelDecision::NotRunning
-        );
-    }
-
-    fn state_with(running: bool, exec: Option<&str>) -> WorkflowRunnerState {
-        WorkflowRunnerState {
-            running: AtomicBool::new(running),
-            cancel_requested: Arc::new(AtomicBool::new(false)),
-            approvals: Arc::new(ApprovalRegistry::new()),
-            current_execution: Arc::new(Mutex::new(exec.map(str::to_string))),
-        }
-    }
-
-    #[test]
-    fn clear_running_releases_flag_and_execution_id() {
-        // Mirrors what RunningGuard::drop does on every exit path: the running
-        // execution id and the concurrency flag are both released, so the next
-        // run starts clean and a stale cancel can no longer match.
-        let st = state_with(true, Some("exec-a"));
-        st.clear_running();
-        assert!(!st.running.load(Ordering::SeqCst));
-        assert!(st.current_execution.lock().unwrap().is_none());
-    }
-
-    #[test]
-    fn cancel_no_longer_matches_after_clear() {
-        // End-to-end of the cancel state transition: publish id → clear (as on
-        // drop / pre-spawn failure) → a cancel for that id is now rejected.
-        let st = state_with(true, Some("exec-a"));
-        let published = st.current_execution.lock().unwrap().clone();
-        assert_eq!(
-            decide_cancel(published.as_deref(), "exec-a"),
-            CancelDecision::Cancel
-        );
-        st.clear_running();
-        let after = st.current_execution.lock().unwrap().clone();
-        assert_eq!(
-            decide_cancel(after.as_deref(), "exec-a"),
-            CancelDecision::NotRunning
-        );
+        CancelDecision::NotRunning => Err(localized_error!(
+            ErrorCode::NotFound,
+            "errors.workflow.notRunning"
+        )),
     }
 }
 
 /// Respond to an outstanding approval request from the frontend dialog.
+///
+/// Ungated for the same reason as [`cancel_workflow`]: a step already blocked
+/// on an approval must stay answerable — including with `approved = false` —
+/// after the engine is switched off. Refusing here would strand the runner on
+/// its receiver until the step's own timeout.
 #[tauri::command]
 pub async fn respond_workflow_approval(
     execution_id: String,
     step_id: String,
     approved: bool,
     state: State<'_, WorkflowRunnerState>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let key = (execution_id, step_id);
     if state.approvals.respond(&key, approved) {
         Ok(())
     } else {
-        Err("No outstanding approval request matched".to_string())
+        Err(localized_error!(
+            ErrorCode::NotFound,
+            "errors.workflow.noPendingApproval"
+        ))
     }
+}
+
+/// Record whether `advanced.workflowEngine` is on.
+///
+/// The webview's settings are not readable from Rust, so the flag is pushed —
+/// once at bootstrap and on every change — the same way `browser_ai_policy`
+/// carries the embedded browser's posture. This command is deliberately NOT
+/// gated: it is the gate's setter, it starts nothing, and gating it would make
+/// the engine unswitchable.
+///
+/// **Threat model (audit 20260803 §4).** This is an unauthenticated boolean
+/// setter, and that is the intended design, not an oversight. It MIRRORS a
+/// frontend-authoritative setting; the authoritative copy lives in the
+/// webview's localStorage and is pushed here because Rust cannot read it. What
+/// the gate buys is that a UI-less path — the MCP bridge, a second window, a
+/// replayed `run_workflow` — cannot execute YAML for a feature the user
+/// switched off. What it does NOT claim is protection against a caller who can
+/// already invoke Tauri commands in this process: such a caller runs at the
+/// app's own privilege and is inside the trust boundary by definition, so it
+/// could simply call `run_workflow` were the flag not consulted at all.
+/// Persisting the flag Rust-side would move the toggle, not the boundary — see
+/// rule 60 §12's WI-19 verdict.
+///
+/// The `false` transition also asks any in-flight run to stop: the user who
+/// turns the engine off is asking for it to be off, and the panel that carries
+/// the cancel button is exactly what disappears.
+#[tauri::command]
+pub async fn workflow_engine_policy(
+    enabled: bool,
+    state: State<'_, WorkflowRunnerState>,
+) -> Result<(), CommandError> {
+    state.set_engine_enabled(enabled);
+    if !enabled && state.request_cancel_if_running() {
+        log::info!("Workflow engine switched off — cancelling the running workflow");
+    }
+    Ok(())
 }

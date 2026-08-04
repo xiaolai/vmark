@@ -61,6 +61,7 @@
   "toast.failedToOpenFile": "無法開啟檔案：{{error}}",
   "toast.failedToOpen": "無法開啟 {{filename}}",
   "toast.operationFailed": "無法完成此操作",
+  "toast.workflowEngineDisableFailed": "無法關閉工作流程引擎。在 VMark 重新啟動之前，它可能仍會執行工作流程——請結束並重新開啟 VMark 以確保關閉。",
   "toast.quarantineCleared_one": "已清除此工作區中 1 個 Markdown 檔案的 macOS 隔離標記。",
   "toast.quarantineCleared_other": "已清除此工作區中 {{count}} 個 Markdown 檔案的 macOS 隔離標記。",
   "toast.quarantineClearedDesc": "macOS 會在某些應用程式下載的檔案上加上一個標記，導致 VMark 執行時 Finder 雙擊開啟會被靜默攔截。VMark 已為你清除該標記，讓這些檔案可以正常開啟。可在設定 → 進階中關閉。",

@@ -79,10 +79,13 @@ function toCmCompletion(item: CompletionItem): Completion {
       type = "variable";
       break;
   }
+  // `detail` and `type` are omitted when we have nothing to say: CodeMirror
+  // reads their presence to decide whether to render the detail text and the
+  // category icon at all.
   return {
     label: item.label,
-    detail: item.detail,
-    type,
+    ...(item.detail !== undefined ? { detail: item.detail } : {}),
+    ...(type !== undefined ? { type } : {}),
   };
 }
 

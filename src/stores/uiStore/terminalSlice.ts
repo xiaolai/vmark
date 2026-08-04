@@ -61,6 +61,23 @@ export function resetTerminalIdCounter(): void {
 
 /** Apply a partial update to one session by id (no-op for unknown ids). */
 function updateSession(set: UISet, id: string, patch: Partial<TerminalSession>): void {
+  mapSession(set, id, (session) => ({ ...session, ...patch }));
+}
+
+/**
+ * Replace one session via an arbitrary transform.
+ *
+ * `updateSession` can only ADD or overwrite keys; a caller that needs to take a
+ * key back off the session (`terminalClearRequestedCwd`) cannot express that as
+ * a patch — `{ requestedCwd: undefined }` leaves the key in place holding
+ * undefined, which is not the shape `terminalCreateSession` produces for a
+ * session that never had one.
+ */
+function mapSession(
+  set: UISet,
+  id: string,
+  transform: (session: TerminalSession) => TerminalSession
+): void {
   set((s) => {
     // Genuinely a no-op for an unknown id: mapping unconditionally would build
     // a new sessions array and wake every subscriber for a stale PTY/title
@@ -70,7 +87,7 @@ function updateSession(set: UISet, id: string, patch: Partial<TerminalSession>):
       terminal: {
         ...s.terminal,
         sessions: s.terminal.sessions.map((session) =>
-          session.id === id ? { ...session, ...patch } : session,
+          session.id === id ? transform(session) : session,
         ),
       },
     };
@@ -169,7 +186,9 @@ export function createTerminalActions(set: UISet, get: UIGet): TerminalActions {
       // Clearing on read would lose the user's directory when the first spawn
       // fails, and their retry would silently open somewhere else.
       if (get().terminal.sessions.find((s) => s.id === id)?.requestedCwd === undefined) return;
-      updateSession(set, id, { requestedCwd: undefined });
+      // Take the key OFF, restoring the shape a session created without a
+      // requested directory has — see mapSession.
+      mapSession(set, id, ({ requestedCwd: _requestedCwd, ...rest }) => rest);
     },
     terminalMarkActivity: (id) => {
       // The active session's output is visible — flagging it would leave a

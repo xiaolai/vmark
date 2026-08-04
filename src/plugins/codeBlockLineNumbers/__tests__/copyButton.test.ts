@@ -23,7 +23,7 @@ import type { Editor } from "@tiptap/core";
 
 vi.mock("../code-block-line-numbers.css", () => ({}));
 vi.mock("../hljs-syntax.css", () => ({}));
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_, coords) => coords),
 }));

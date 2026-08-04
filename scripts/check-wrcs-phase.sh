@@ -167,7 +167,7 @@ phase_3() {
   else
     fail "WI-14 workspace.switch_tab missing from server/mcp"
   fi
-  if grep -rq "workspaceSwitched" src/hooks/mcpBridge 2>/dev/null; then
+  if grep -rq "workspaceSwitched" src/services/mcpBridge 2>/dev/null; then
     ok "WI-14 bridge returns workspaceSwitched"
   else
     fail "WI-14 bridge workspaceSwitched payload missing"
@@ -185,12 +185,12 @@ phase_4() {
 
   assert_grep "visibleTabsForWindow\|useVisibleWindowTabs" \
     "src/components/Browser/useBrowserWorkspaceState.ts" "WI-8.1/4R browser+strip projection"
-  if grep -rq "useVisibleWindowTabs\|visibleTabsForWindow" src/hooks/tabCommands.ts 2>/dev/null; then
+  if grep -rq "visibleWindowTabs\|visibleTabsForWindow" src/services/commands/tabCommands.ts 2>/dev/null; then
     ok "WI-4R cycling uses visible projection"
   else
     fail "WI-4R tab cycling not filtered"
   fi
-  assert_grep "allWindowTabs" "src/hooks/useVisibleWindowTabs.ts" "WI-12.1 allWindowTabs operational service"
+  assert_grep "allWindowTabs" "src/services/tabs/visibleWindowTabs.ts" "WI-12.1 allWindowTabs operational service"
   assert_grep "activateTabWithWorkspaceContext" "src/services/navigation/fileOpen.ts" \
     "WI-12.2 user activations ownership-aware"
   assert_grep "ContextGeneration" "src/stores/uiStore/contentSearchSlice.ts" \

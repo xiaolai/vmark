@@ -69,15 +69,29 @@ async function pullAndRestore(windowLabel: string): Promise<boolean> {
   // Rail clicks are declined while the context is half-built; the guard is
   // released in `finally` so a failed restore can never wedge switching.
   beginWindowContextRestore(windowLabel);
+  // Assigned inside the try; `false` is the safe reading if the block throws
+  // before reaching the call (the throw itself is what preserves the file).
+  let contextPreserved: boolean;
   try {
     restoreWindowWorkspaceInstances(windowLabel, windowState);
     const tabIdMap = await restoreWindowState(windowLabel, windowState);
     reconcileRestoredWindowWorkspaceInstances(windowLabel, windowState, tabIdMap);
     // WI-9.4: per-instance UI state (outline ids remapped), reopen history,
     // and browser records — after reconcile, before the final hydrate.
-    restoreInstanceContextState(windowLabel, windowState, tabIdMap);
+    contextPreserved = await restoreInstanceContextState(windowLabel, windowState, tabIdMap);
   } finally {
     endWindowContextRestore(windowLabel);
+  }
+  // Audit 20260804-F12: a failed quarantine write must NOT be followed by a
+  // successful restore, because success is what lets `checkAndRestoreSession`
+  // clear the session file — and the rejected fragments would then exist
+  // nowhere. Failing here keeps the file for the next launch, which is the
+  // same trade the session-level salvage path already makes: preservation
+  // beats restore.
+  if (!contextPreserved) {
+    throw new Error(
+      'Hot-exit quarantine write failed; session file preserved for retry on next launch',
+    );
   }
   await hydrateWorkspaceInstanceContext(windowLabel);
 

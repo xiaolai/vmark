@@ -41,8 +41,17 @@ export const PUNCTUATION_MAP: Record<string, string> = {
   ":": "：",
 };
 
+/**
+ * Anything addressable by UTF-16 code-unit position: a plain string, or a
+ * mutable working array of single characters. `normalizeFullwidthPunctuation`
+ * needs the second form — it reads the left neighbor from the copy it is
+ * converting into, so one scan resolves the neighbor-propagation the rule used
+ * to need a whole extra pass per converted character for.
+ */
+export type CharSequence = { readonly length: number; readonly [index: number]: string };
+
 /** Nearest non-space character to the left of `pos` (handles surrogate pairs). */
-export function getLeftNeighbor(text: string, pos: number): string {
+export function getLeftNeighbor(text: CharSequence, pos: number): string {
   for (let i = pos - 1; i >= 0; i--) {
     if (text[i] !== " " && text[i] !== "\t") {
       const ch = text[i];

@@ -52,14 +52,21 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
   - Run `pnpm check:all` for gates.
 
   - **Pushes to `main` and `v*` tags are gated at push time.** A versioned
-    `pre-push` hook (`.githooks/pre-push`) runs a Windows cross-target compile
-    check (`pnpm check:cross` — catches `cfg(target_os)` breakage that
-    macOS-local cargo can never see; soft-skips if mingw-w64 isn't installed),
-    then `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`
-    (the same rustfmt + lint CI's `rust-test` job runs — `pnpm check:all` is
-    frontend-only and never runs either),
-    and then `pnpm check:all` before any push that updates `main` or a release
-    tag, and refuses the push if any is red. Feature-branch pushes are not
+    `pre-push` hook (`.githooks/pre-push`) gates release tags by verifying —
+    via `gh api` (`scripts/check-tag-green.sh`, seconds per tag) — that the
+    required CI checks (`frontend`, `rust`) are `completed`+`success` on the
+    exact tagged commit; pending, failed, or missing checks refuse the push,
+    and so does an unreachable `gh` (fail closed, never a silent pass).
+    Direct pushes to `main` get an informational message only: branch
+    protection (required checks + `enforce_admins`, since 2026-07-27) makes
+    the remote authoritative there. `VMARK_OFFLINE_GATE=1` runs the full
+    legacy local gate instead — a Windows cross-target compile check
+    (`pnpm check:cross`; soft-skips if mingw-w64 isn't installed), then
+    `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`
+    (which `pnpm check:all`, frontend-only, never runs), then
+    `pnpm check:all` — refusing the push if any is red. Timing for both
+    modes lives in the hook's header (the authoritative claim).
+    Feature-branch pushes are not
     gated locally — CI gates those via the PR's required `frontend` check. The hook is auto-enabled by the root
     `prepare` script (`git config core.hooksPath .githooks`) on `pnpm install`;
     if a fresh clone hasn't run install yet, enable it manually with the same
@@ -254,5 +261,5 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
     `utils/` must be leaf-pure. If you find yourself adding `useXStore` or `@tauri-apps/*` imports inside `utils/`, the file belongs in `services/` instead. `services/` is organised by domain folder (`services/ime/`, `services/featureFlags/`, `services/formats/`).
 
-  - **Shell layer** (ADR-007): `src/shell/AppShell.tsx` is the composition root for the document window. It is pure layout: zero store imports, zero feature knowledge. New top-level surfaces (panels, overlays) become slot registrations, not edits to `App.tsx`.
+  - **Shell layer** (ADR-007): `src/shell/AppShell.tsx` is the composition root for the document window. It is pure layout: zero store imports, zero feature knowledge. ADR-007 calls for new top-level surfaces to be "slot registrations, not edits to `App.tsx`", but **no registration mechanism was ever built** — every surface is mounted by editing App.tsx's `<AppShell>` composition. `pnpm lint:shell-slots` enforces the checkable half instead: the identity list of mounted surfaces in `scripts/shell-slots-baseline.json`, failing both on an unlisted mount and on a listed surface that is gone. See `.claude/rules/32-component-patterns.md`.
 

@@ -18,7 +18,12 @@ interface ToolbarButtonProps {
   focusEnabled?: boolean;
   focusIndex?: number;
   currentFocusIndex?: number;
-  ariaHasPopup?: "menu" | "dialog" | "listbox";
+  /**
+   * `| undefined` because a non-dropdown button has no popup, and JSX cannot
+   * conditionally omit an attribute — React reads a prop passed as `undefined`
+   * as not supplied, which is exactly what `aria-haspopup` needs here.
+   */
+  ariaHasPopup?: "menu" | "dialog" | "listbox" | undefined;
   ariaExpanded?: boolean;
   onClick: () => void;
 }

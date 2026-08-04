@@ -44,7 +44,7 @@ vi.mock("@/utils/icons", () => ({
   icons: new Proxy({}, { get: () => "<svg></svg>" }),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_host: unknown, pos: { top: number; left: number }) => pos),
 }));
@@ -55,7 +55,7 @@ let mockTableFitToWidth = false;
 // keep working unchanged.
 bindHostSettings({ tableFitToWidth: () => mockTableFitToWidth });
 
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { TiptapTableContextMenu } from "./TiptapTableContextMenu";
 
 function createMockView() {

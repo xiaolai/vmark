@@ -61,6 +61,7 @@
   "toast.failedToOpenFile": "ファイルを開けませんでした: {{error}}",
   "toast.failedToOpen": "{{filename}} を開けませんでした",
   "toast.operationFailed": "操作を完了できませんでした",
+  "toast.workflowEngineDisableFailed": "ワークフローエンジンを無効にできませんでした。VMark を再起動するまでワークフローが実行される可能性があります。確実に停止するには VMark を終了して開き直してください。",
   "toast.quarantineCleared_one": "このワークスペース内の 1 個の Markdown ファイルから macOS の隔離属性を削除しました。",
   "toast.quarantineCleared_other": "このワークスペース内の {{count}} 個の Markdown ファイルから macOS の隔離属性を削除しました。",
   "toast.quarantineClearedDesc": "macOS では、一部のアプリでダウンロードしたファイルにフラグが付けられ、VMark の実行中に Finder のダブルクリックが密かにブロックされます。VMark がそのフラグを削除したため、これらのファイルが開けるようになりました。設定 → 詳細で無効にできます。",

@@ -61,6 +61,7 @@
   "toast.failedToOpenFile": "Apertura del file fallita: {{error}}",
   "toast.failedToOpen": "Apertura di {{filename}} fallita",
   "toast.operationFailed": "Non è stato possibile completare l'azione",
+  "toast.workflowEngineDisableFailed": "Non è stato possibile disattivare il motore di workflow. Potrebbe continuare a eseguire workflow finché VMark non viene riavviato: chiudi e riapri VMark per esserne certo.",
   "toast.quarantineCleared_one": "Rimossa la quarantena di macOS da 1 file Markdown in questo spazio di lavoro.",
   "toast.quarantineCleared_other": "Rimossa la quarantena di macOS da {{count}} file Markdown in questo spazio di lavoro.",
   "toast.quarantineClearedDesc": "macOS contrassegna i file scaricati da alcune app con un attributo che blocca silenziosamente il doppio clic dal Finder mentre VMark è in esecuzione. VMark lo ha rimosso per consentire l'apertura di quei file. Disattivabile in Impostazioni → Avanzate.",

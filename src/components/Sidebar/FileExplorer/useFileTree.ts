@@ -23,7 +23,7 @@
  *     back to VMark, regardless of whether fs:changed fired.
  *
  * @coordinates-with FileExplorer.tsx — consumes the tree data and refresh callback
- * @coordinates-with hooks/useWorkspaceEventBus.ts — the shared, scoped fs-event source it subscribes to
+ * @coordinates-with services/workspaceEvents/subscribeWorkspaceEvents.ts — the shared, scoped fs-event source it subscribes to
  * @module components/Sidebar/FileExplorer/useFileTree
  */
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -31,14 +31,14 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { FileNode, DirectoryEntry } from "./types";
-import { subscribeWorkspaceEvents } from "@/hooks/useWorkspaceEventBus";
+import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
 import {
   isMarkdownFileName,
   isSupportedFileName,
   isVMarkFileName,
   stripSupportedExtension,
 } from "@/utils/dropPaths";
-import { isWorkflowEnabled } from "@/services/featureFlags/workflowFeatureFlag";
+import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import { fileExplorerError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -102,12 +102,14 @@ async function loadDirectoryRecursive(
 }
 
 // Phase 1B: file explorer surfaces every registered format. The
-// workflow-engine + markdown-only narrowing of the legacy filter is
-// preserved as a fallback when the registry isn't bootstrapped.
+// workflow + markdown-only narrowing of the legacy filter is preserved as a
+// fallback when the registry isn't bootstrapped. WI-19: either workflow
+// feature makes a standalone .yml a VMark file, so the fallback ORs them —
+// gating on the engine alone would hide workflow files from a viewer-only user.
 const mdFilter = (name: string, isFolder: boolean): boolean => {
   if (isFolder) return true;
   if (isSupportedFileName(name)) return true;
-  if (isWorkflowEnabled()) return isVMarkFileName(name);
+  if (isWorkflowYamlSurfaceEnabled()) return isVMarkFileName(name);
   return isMarkdownFileName(name);
 };
 

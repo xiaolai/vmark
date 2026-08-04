@@ -87,3 +87,73 @@ describe("footnotePopupStore", () => {
     expect(state.anchorRect?.left).toBe(50);
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("footnotePopupStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useFootnotePopupStore.getState().closePopup();
+  });
+
+  const mockRect = createMockRect({ top: 100, left: 50, bottom: 120, right: 200 });
+  const initialData = {
+    isOpen: false,
+    label: "",
+    content: "",
+    anchorRect: null,
+    definitionPos: null,
+    referencePos: null,
+    autoFocus: false,
+  };
+
+  function dataOf(s: ReturnType<typeof useFootnotePopupStore.getState>) {
+    const { isOpen, label, content, anchorRect, definitionPos, referencePos, autoFocus } = s;
+    return { isOpen, label, content, anchorRect, definitionPos, referencePos, autoFocus };
+  }
+
+  it("no leak across sessions: open A → setContent → close → open B shows only B", () => {
+    useFootnotePopupStore.getState().openPopup("a", "A content", mockRect, 100, 10, true);
+    useFootnotePopupStore.getState().setContent("A edited");
+    useFootnotePopupStore.getState().closePopup();
+
+    useFootnotePopupStore.getState().openPopup("b", "B content", mockRect, 200, 20);
+
+    expect(dataOf(useFootnotePopupStore.getState())).toEqual({
+      isOpen: true,
+      label: "b",
+      content: "B content",
+      anchorRect: mockRect,
+      definitionPos: 200,
+      referencePos: 20,
+      autoFocus: false,
+    });
+  });
+
+  it("setContent while closed still mutates (pinned legacy behavior: setters are unguarded)", () => {
+    useFootnotePopupStore.getState().setContent("closed edit");
+    const state = useFootnotePopupStore.getState();
+    expect(state.content).toBe("closed edit");
+    expect(state.isOpen).toBe(false);
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useFootnotePopupStore.getState().openPopup(`${i}`, `c${i}`, mockRect, i, i, i % 2 === 0);
+      useFootnotePopupStore.getState().closePopup();
+    }
+    expect(dataOf(useFootnotePopupStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useFootnotePopupStore.getState().openPopup("m", "mutated", mockRect, 1, 2, true);
+      expect(dataOf(useFootnotePopupStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useFootnotePopupStore.getState().openPopup("m", "open", mockRect, 1, 2, true);
+      useFootnotePopupStore.setState(useFootnotePopupStore.getInitialState());
+      expect(dataOf(useFootnotePopupStore.getState())).toEqual(initialData);
+    });
+  });
+});

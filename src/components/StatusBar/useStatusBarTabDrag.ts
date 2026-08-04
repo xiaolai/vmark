@@ -31,7 +31,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { statusBarWarn } from "@/utils/debug";
-import { visibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
+import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useTabDragOut, type DragOutPoint } from "@/hooks/useTabDragOut";
 import { handleTabKeyboard } from "./tabKeyboard";

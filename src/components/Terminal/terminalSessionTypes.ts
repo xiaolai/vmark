@@ -29,8 +29,12 @@ export interface SessionEntry {
    * Debounce handle for the PTY resize that follows a fit. Owned by
    * fitAndResizePty; per-entry so one session's fit cannot cancel another's
    * pending resize.
+   *
+   * Explicitly `| undefined`: this is a MUTABLE slot on a long-lived entry, and
+   * "no resize pending" is written by clearing it. Deleting the key instead
+   * would say the same thing while making every clear site reshape the object.
    */
-  ptyResizeTimer?: ReturnType<typeof setTimeout>;
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
   /**
    * Workspace root that arrived while the shell was busy and so was deferred;
    * flushed on the next idle (see terminalSessionStoreSync).

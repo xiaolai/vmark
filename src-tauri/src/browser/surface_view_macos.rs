@@ -94,22 +94,37 @@ pub(super) fn content_view(
     window_label: &str,
     _mtm: MainThreadMarker,
 ) -> Result<Retained<NSView>, String> {
+    use crate::browser::surface::fail;
     use tauri::Manager;
     let win = app.get_webview_window(window_label).ok_or_else(|| {
-        format!("window '{window_label}' is gone; nothing to attach a browser to")
+        format!(
+            "{fail}: window '{window_label}' is gone; nothing to attach a browser to",
+            fail = fail::WINDOW_GONE
+        )
     })?;
-    let ptr = win
-        .ns_window()
-        .map_err(|e| format!("window '{window_label}' has no NSWindow: {e}"))?;
+    let ptr = win.ns_window().map_err(|e| {
+        format!(
+            "{fail}: window '{window_label}' has no NSWindow: {e}",
+            fail = fail::WINDOW_GONE
+        )
+    })?;
     // SAFETY: Tauri owns the NSWindow; we borrow it on the main thread (we are inside
     // on_main) only to read its content view. The pointer is non-null when ns_window()
     // succeeds.
     let ns_window: &NSWindow = unsafe { &*ptr.cast::<NSWindow>() };
-    ns_window
-        .contentView()
-        .ok_or_else(|| format!("window '{window_label}' has no contentView"))
+    ns_window.contentView().ok_or_else(|| {
+        format!(
+            "{fail}: window '{window_label}' has no contentView",
+            fail = fail::WINDOW_GONE
+        )
+    })
 }
 
 pub(super) fn ns_url(url: &str) -> Result<Retained<NSURL>, String> {
-    NSURL::URLWithString(&NSString::from_str(url)).ok_or_else(|| format!("invalid URL: {url}"))
+    NSURL::URLWithString(&NSString::from_str(url)).ok_or_else(|| {
+        format!(
+            "{fail}: invalid URL: {url}",
+            fail = crate::browser::surface::fail::INVALID_URL
+        )
+    })
 }

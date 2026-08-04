@@ -61,18 +61,18 @@ class ErrorBoundaryInner extends Component<
   { children: ReactNode } & WithTranslation<"dialog">,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { hasError: false, error: null };
+  override state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     appError("Caught error:", error);
     appError("Error info:", errorInfo);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       const { t } = this.props;
       return (

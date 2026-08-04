@@ -125,7 +125,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             name: r.name,
             command: r.command,
             available: r.available,
-            path: r.path,
+            ...(r.path !== undefined && { path: r.path }), // ABSENT = not found on PATH
           }));
           set({ cliProviders: providers, detecting: false });
 

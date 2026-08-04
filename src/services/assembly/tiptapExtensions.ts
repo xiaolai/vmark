@@ -116,13 +116,13 @@ import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
 import { resolveExtensions } from "@/lib/extensions/resolve";
-import { deriveAfterConstraints, assertCanonicalCoverage } from "./extensionOrdering";
+import { deriveAfterConstraints, assertCanonicalCoverage, orderingSlice } from "./extensionOrdering";
 import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
 import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
-  /** Tab ID for lint diagnostics (lint extension is registered when present) */
-  tabId?: string;
+  /** Tab ID for lint diagnostics; `| undefined` — assembly can precede any tab. */
+  tabId?: string | undefined;
 }
 
 /**
@@ -279,7 +279,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
       return {
         id,
         contributions: [{ kind: "tiptap", factory: () => extension }],
-        ordering: after.has(id) ? { after: after.get(id) } : undefined,
+        ...orderingSlice(after, id),
       };
     })
     .sort((a, b) => a.id.localeCompare(b.id));

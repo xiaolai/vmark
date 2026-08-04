@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
@@ -241,23 +241,42 @@ vi.mock("@/stores/settingsStore", () => {
   };
 });
 
+/** WI-13: the WYSIWYG surface arrives through `import("./markdownSurface")`,
+ *  a real module graph vitest transforms on first use. */
+const SURFACE_LOAD_TIMEOUT_MS = 10_000;
+
 function renderWithProvider(ui: React.ReactElement) {
   return render(<WindowProvider>{ui}</WindowProvider>);
 }
 
 describe("Editor", () => {
-  it("renders the editor container", () => {
+  // WI-13 — the WYSIWYG surface arrives through an import thunk, so it mounts
+  // one microtask after render. The assertions are unchanged; only the wait is
+  // new. A `waitFor` also proves the surface actually ARRIVES: a thunk that
+  // never resolves, or resolves to nothing, fails here rather than rendering
+  // an empty editor area.
+  it("renders the editor container", async () => {
     renderWithProvider(<Editor />);
 
-    const container = document.querySelector(".editor-container");
-    expect(container).toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(document.querySelector(".editor-container")).toBeInTheDocument();
+      },
+      // The surface is a real dynamic import of the whole Tiptap module graph;
+      // under a loaded worker the default 1s is not enough to transform it.
+      { timeout: SURFACE_LOAD_TIMEOUT_MS },
+    );
   });
 
-  it("renders the editor content area", () => {
+  it("renders the editor content area", async () => {
     renderWithProvider(<Editor />);
 
-    const content = document.querySelector(".editor-content");
-    expect(content).toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(document.querySelector(".editor-content")).toBeInTheDocument();
+      },
+      { timeout: SURFACE_LOAD_TIMEOUT_MS },
+    );
   });
 
   it("renders the Welcome screen when activeTabId points at a tab that no longer exists", () => {
@@ -366,7 +385,7 @@ describe("Editor", () => {
       expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
     });
 
-    it("falls back to markdown when an untitled tab's formatId is not registered", () => {
+    it("falls back to markdown when an untitled tab's formatId is not registered", async () => {
       mockTabStore.findTabById = (id: string) =>
         id === "tab-1"
           ? { kind: "document", id: "tab-1", filePath: null, title: "Untitled-1", isPinned: false, formatId: "no-such-format" }
@@ -374,7 +393,12 @@ describe("Editor", () => {
 
       renderWithProvider(<Editor />);
 
-      expect(document.querySelector(".editor-content")).toBeInTheDocument();
+      await waitFor(
+        () => {
+          expect(document.querySelector(".editor-content")).toBeInTheDocument();
+        },
+        { timeout: SURFACE_LOAD_TIMEOUT_MS },
+      );
       expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
     });
   });

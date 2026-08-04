@@ -4,20 +4,14 @@
 //! They are used both in production (update restart flow) and for developer testing.
 
 use super::coordinator::{
-    capture_session, clear_pending_restore, get_window_restore_state, mark_window_restore_complete,
-    restore_session, restore_session_multi_window, CaptureResult, RestoreMultiWindowResult,
+    capture_session, restore_session, restore_session_multi_window, CaptureResult,
+    RestoreMultiWindowResult,
 };
 use super::merge::merge_partial_capture;
-use super::session::{SessionData, WindowState};
+use super::session::{LoadedSession, SessionData, WindowState};
+use super::state::HotExitState;
 use super::storage::{delete_session, read_session, write_session_atomic};
-use std::sync::LazyLock;
-use tauri::AppHandle;
-use tokio::sync::Mutex;
-
-/// Serialization guard for the read-merge-write section of `hot_exit_capture`.
-/// Prevents TOCTOU races when two concurrent captures (e.g., restart + settings button)
-/// both read the previous session, merge independently, and clobber each other's result.
-static CAPTURE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+use tauri::{AppHandle, State};
 
 /// Capture session from all windows and persist to disk atomically.
 ///
@@ -25,20 +19,27 @@ static CAPTURE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 /// previous session so that missing windows retain their last-known state
 /// instead of being silently dropped.
 #[tauri::command]
-pub async fn hot_exit_capture(app: AppHandle) -> Result<SessionData, String> {
+pub async fn hot_exit_capture(
+    app: AppHandle,
+    hot_exit: State<'_, HotExitState>,
+) -> Result<SessionData, String> {
     // Capture outside the lock — the IPC broadcast can take up to CAPTURE_TIMEOUT_SECS.
     // Only the read-merge-write section needs serialization.
     let CaptureResult {
         session,
         expected_labels,
     } = capture_session(&app).await?;
-    let _guard = CAPTURE_LOCK.lock().await;
+    let _guard = hot_exit.capture_lock().await;
 
     // Merge partial captures (pure logic, table-tested in merge.rs): only
     // resurrect windows that were expected (alive at capture time) but
     // failed to respond. Windows that were intentionally closed are NOT in
     // expected_labels and won't be merged.
-    let prev_session = read_session(&app).await.ok().flatten();
+    let prev_session = read_session(&app)
+        .await
+        .ok()
+        .flatten()
+        .map(|loaded| loaded.session);
     let session = merge_partial_capture(
         session,
         prev_session,
@@ -56,17 +57,51 @@ pub fn hot_exit_restore(app: AppHandle, session: SessionData) -> Result<(), Stri
     restore_session(&app, session)
 }
 
-/// Inspect the saved session file (returns None if no session exists)
+/// The inspect payload: every `SessionData` field, flattened, plus the
+/// provenance flag (audit 20260803 §11).
+///
+/// Flattened rather than nested so the frontend's existing salvage pass reads
+/// the same object it always did; the schema passes unknown fields through, and
+/// `restartWithHotExit.ts::wasRecoveredFromBackup` was written to tolerate the
+/// flag's absence so the two halves could land in either order.
+///
+/// Omitted when false, matching the crate's "absent optionals are ABSENT"
+/// convention — the frontend reader tests for `=== true`, not for presence.
+#[derive(serde::Serialize)]
+pub struct InspectedSession {
+    #[serde(flatten)]
+    session: SessionData,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    recovered_from_backup: bool,
+}
+
+impl From<LoadedSession> for InspectedSession {
+    fn from(loaded: LoadedSession) -> Self {
+        Self {
+            session: loaded.session,
+            recovered_from_backup: loaded.recovered_from_backup,
+        }
+    }
+}
+
+/// Inspect the saved session file (returns None if no session exists).
+///
+/// When this reports `recovered_from_backup`, the corrupt `session.json` is
+/// still on disk: the frontend must quarantine it before the restore path
+/// clears the session files.
 #[tauri::command]
-pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<SessionData>, String> {
-    read_session(&app).await
+pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<InspectedSession>, String> {
+    Ok(read_session(&app).await?.map(InspectedSession::from))
 }
 
 /// Delete the saved session file
 #[tauri::command]
-pub async fn hot_exit_clear_session(app: AppHandle) -> Result<(), String> {
+pub async fn hot_exit_clear_session(
+    app: AppHandle,
+    hot_exit: State<'_, HotExitState>,
+) -> Result<(), String> {
     // Also clear pending restore state
-    clear_pending_restore();
+    hot_exit.clear();
     delete_session(&app).await
 }
 
@@ -87,14 +122,20 @@ pub fn hot_exit_restore_multi_window(
 /// Called by windows on startup to get their pending restore state.
 /// Returns None if no state is pending for the given window.
 #[tauri::command]
-pub fn hot_exit_get_window_state(window_label: String) -> Option<WindowState> {
-    get_window_restore_state(&window_label)
+pub fn hot_exit_get_window_state(
+    hot_exit: State<'_, HotExitState>,
+    window_label: String,
+) -> Option<WindowState> {
+    hot_exit.window_state(&window_label)
 }
 
 /// Mark a window as having completed restoration
 ///
 /// Returns true if all expected windows have completed.
 #[tauri::command]
-pub fn hot_exit_window_restore_complete(window_label: String) -> bool {
-    mark_window_restore_complete(&window_label)
+pub fn hot_exit_window_restore_complete(
+    hot_exit: State<'_, HotExitState>,
+    window_label: String,
+) -> bool {
+    hot_exit.mark_complete(&window_label)
 }

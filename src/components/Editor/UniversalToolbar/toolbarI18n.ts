@@ -15,7 +15,15 @@
  * @module components/Editor/UniversalToolbar/toolbarI18n
  */
 
-type TranslateFn = (key: string, opts?: { defaultValue?: string; [k: string]: unknown }) => string;
+import type { TFunction } from "i18next";
+
+/**
+ * The real `t` these helpers receive, not a hand-rolled approximation of it.
+ * The structural stand-in that used to live here was not actually satisfied by
+ * i18next's `TFunction` — its optional-options overload does not accept an
+ * explicit `undefined` — so the alias now names the library type directly.
+ */
+type TranslateFn = TFunction<"editor">;
 
 /** Group id → editor-namespace label key. */
 export const GROUP_LABEL_KEYS: Record<string, string> = {

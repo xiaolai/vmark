@@ -15,12 +15,33 @@
  * To add an entry when you delete something an ADR/plan relies on staying gone:
  * append to REGISTRY with the deleting decision and the reason.
  *
- * Usage: node scripts/check-deleted-names.mjs
+ * SYMBOL DETECTION covers the export forms the codebase actually uses (see
+ * `symbolPatterns`): plain and `async` functions, generators, `const`/`let`/
+ * `var`, classes (incl. `abstract`), `type`/`interface`/`enum`, `declare`
+ * variants, `export default`, `export { X as Name }` re-exports and
+ * `export * as Name from …`. The first version matched only
+ * `export (function|const|class|type|interface) Name`, so a deleted symbol
+ * could come back as `export async function`, or be re-exported from a new
+ * file under its old name, without the gate noticing.
+ *
+ * KNOWN LIMITATION — this is git grep, so it is line-based and not syntax-
+ * aware. Three things it still cannot see, stated rather than implied:
+ *   1. an export clause split across lines (`export {\n  useX,\n}`);
+ *   2. a re-export built at runtime (`Object.assign(exports, …)`);
+ *   3. the difference between code and a comment or string that happens to
+ *      contain the same text (false POSITIVE, i.e. it fails closed).
+ * Closing 1 and 2 means a TypeScript program pass over the glob — worth doing
+ * if this tripwire ever has to be authoritative, and deliberately not done for
+ * a coarse tripwire whose registry is eight entries long.
+ *
+ * Usage:
+ *   node scripts/check-deleted-names.mjs
+ *   node scripts/check-deleted-names.mjs --root <dir> --registry <file.json>
  */
-import { existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -52,56 +73,139 @@ const REGISTRY = [
     deletedBy: "ADR-015 / WI-3.3",
     reason: "Dead registry lookup with zero production callers.",
   },
+  {
+    kind: "path",
+    path: "src/stores/browserStore.ts",
+    deletedBy: "architecture review E4 / WI-6 (plan-20260803-161713, ledger D9)",
+    reason:
+      "Unwired hibernation-cap store; the webview leak its cap would bound was " +
+      "REFUTED — the active-page-only surface lifecycle bounds live views at 1, " +
+      "strictly tighter. Pinned by src/components/Browser/browserLifecycleBound.test.tsx. " +
+      "Wiring the cap was explicitly rejected (plan Deferred section).",
+  },
+  {
+    kind: "symbol",
+    name: "useBrowserStore",
+    glob: "src/stores",
+    deletedBy: "architecture review E4 / WI-6 (plan-20260803-161713, ledger D9)",
+    reason: "The hibernation store must not come back under another filename either.",
+  },
+  {
+    kind: "path",
+    path: "src/stores/_shimHelper.ts",
+    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
+    reason:
+      "T09 revert: the slice-shim engine (WeakMap merge cache, action-filtering " +
+      "setState, getInitialState aliased to getState — a Zustand-semantics " +
+      "deviation) is gone. Every popup store is a standalone create() store now.",
+  },
+  {
+    kind: "path",
+    path: "src/stores/popupStore.ts",
+    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
+    reason:
+      "T09 revert: the merged 15-slice popup mega-store facade was deleted; " +
+      "each slice was re-inlined as its own standalone store.",
+  },
+  {
+    kind: "symbol",
+    name: "usePopupStore",
+    glob: "src/stores",
+    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
+    reason: "The merged popup store must not come back under another filename either.",
+  },
 ];
 
-const failures = [];
+/** POSIX ERE word boundary — `git grep -E` has no portable `\b`. */
+const EDGE = "[^A-Za-z0-9_$]";
+const SP = "[[:space:]]";
 
-for (const entry of REGISTRY) {
-  if (entry.kind === "path") {
-    if (existsSync(join(root, entry.path))) {
-      failures.push(
-        `  ${entry.path} was deleted by ${entry.deletedBy} but exists again.\n` +
-          `    ${entry.reason}`,
-      );
-    }
-    continue;
-  }
+/** Every export form that would re-introduce `name`, as `git grep -E` patterns. */
+export function symbolPatterns(name) {
+  const declarators = "function|const|let|var|class|type|interface|enum";
+  return [
+    // export [default] [declare] [async] [abstract] <declarator>[*] Name
+    `export${SP}+(default${SP}+)?(declare${SP}+)?(async${SP}+)?(abstract${SP}+)?(${declarators})[[:space:]*]+${name}(${EDGE}|$)`,
+    // export default Name        — re-export of an existing binding
+    `export${SP}+default${SP}+${name}(${EDGE}|$)`,
+    // export { Name }, export { X as Name }, export { a, Name } [from "…"]
+    `export${SP}*\\{${SP}*${name}(${EDGE}|$)`,
+    `export${SP}*\\{[^}]*${EDGE}${name}(${EDGE}|$)`,
+    // export * as Name from "…"
+    `export${SP}*[*]${SP}+as${SP}+${name}(${EDGE}|$)`,
+  ];
+}
 
-  if (entry.kind === "symbol") {
-    // Look for a definition of the symbol (export function/const/class) in the
-    // scoped source glob. Grep is enough — this is a coarse tripwire, not a parser.
-    let hits = "";
-    try {
-      hits = execSync(
-        `git grep -lE "export (function|const|class|type|interface) ${entry.name}\\\\b" -- '${entry.glob}'`,
-        { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
-      ).trim();
-    } catch {
-      hits = ""; // git grep exits non-zero when nothing matches
-    }
-    if (hits) {
-      failures.push(
-        `  \`${entry.name}\` was deleted by ${entry.deletedBy} but is defined again in:\n` +
-          hits
-            .split("\n")
-            .map((f) => `    ${f}`)
-            .join("\n") +
-          `\n    ${entry.reason}`,
-      );
-    }
+/** Files under `glob` that re-introduce `name`. Empty when git grep matches
+ *  nothing (it exits non-zero, which is not an error here). */
+export function findSymbolDefinitions(name, glob, cwd) {
+  const args = ["grep", "-lE"];
+  for (const pattern of symbolPatterns(name)) args.push("-e", pattern);
+  args.push("--", glob);
+  try {
+    const out = execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return out.trim() === "" ? [] : out.trim().split("\n");
+  } catch {
+    return [];
   }
 }
 
-if (failures.length > 0) {
-  console.error(
-    `\n❌ ${failures.length} deleted name(s) reappeared:\n\n${failures.join("\n\n")}\n`,
-  );
-  console.error(
-    "A decision declared these gone. Re-introducing one silently reverses that\n" +
-      "decision — the ADR-009 failure mode. If the reversal is intended, update the\n" +
-      "ADR/plan AND remove the entry from scripts/check-deleted-names.mjs.\n",
-  );
-  process.exit(1);
+/** Registry → human-readable failures. Pure apart from the filesystem/git reads. */
+export function evaluateRegistry(registry, cwd) {
+  const failures = [];
+  for (const entry of registry) {
+    if (entry.kind === "path") {
+      if (existsSync(join(cwd, entry.path))) {
+        failures.push(
+          `  ${entry.path} was deleted by ${entry.deletedBy} but exists again.\n` +
+            `    ${entry.reason}`,
+        );
+      }
+      continue;
+    }
+    if (entry.kind === "symbol") {
+      const hits = findSymbolDefinitions(entry.name, entry.glob, cwd);
+      if (hits.length > 0) {
+        failures.push(
+          `  \`${entry.name}\` was deleted by ${entry.deletedBy} but is defined again in:\n` +
+            hits.map((f) => `    ${f}`).join("\n") +
+            `\n    ${entry.reason}`,
+        );
+      }
+    }
+  }
+  return failures;
 }
 
-console.log(`✅ Deleted-name gate held (${REGISTRY.length} entries, none reappeared).`);
+function main() {
+  const argv = process.argv.slice(2);
+  let cwd = root;
+  let registry = REGISTRY;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--root") cwd = resolve(argv[++i]);
+    else if (argv[i] === "--registry") registry = JSON.parse(readFileSync(resolve(argv[++i]), "utf8"));
+    else {
+      console.error(`❌ Unknown argument: ${argv[i]}`);
+      process.exit(1);
+    }
+  }
+
+  const failures = evaluateRegistry(registry, cwd);
+  if (failures.length > 0) {
+    console.error(
+      `\n❌ ${failures.length} deleted name(s) reappeared:\n\n${failures.join("\n\n")}\n`,
+    );
+    console.error(
+      "A decision declared these gone. Re-introducing one silently reverses that\n" +
+        "decision — the ADR-009 failure mode. If the reversal is intended, update the\n" +
+        "ADR/plan AND remove the entry from scripts/check-deleted-names.mjs.\n",
+    );
+    process.exit(1);
+  }
+
+  console.log(`✅ Deleted-name gate held (${registry.length} entries, none reappeared).`);
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

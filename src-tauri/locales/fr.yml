@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "Aucun flux de travail n'est en cours d'exécution"
   workflow.circularDependency: "Dépendance circulaire détectée dans les étapes du flux de travail"
   workflow.noInteractivePrompt: "Les invites interactives ne sont pas prises en charge dans l'exécution de flux de travail"
+  workflow.engineDisabled: "Le moteur de workflow est désactivé dans les préférences"
+  workflow.noPendingApproval: "Aucune demande d'approbation en attente ne correspond"
+  workflow.appDataDirUnavailable: "Impossible de résoudre le répertoire de données de l'application : %{detail}"
+
+  # === Chemin d'enregistrement (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "Le dossier de ce fichier n'existe plus : %{dir}"
+  save.noParentDirectory: "Le chemin du fichier n'a pas de dossier parent"
+  save.writeFailed: "Impossible d'enregistrer le fichier : %{detail}"
+  save.taskFailed: "La tâche d'enregistrement s'est terminée de manière inattendue : %{detail}"
+
+  # === Navigateur intégré, navigation de l'IA (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "Le navigateur intégré est désactivé dans les Réglages"
+  browser.approvalRequired: "Cette page nécessite votre autorisation avant que l'IA puisse l'ouvrir"
+  browser.blockedDestination: "La politique bloque la navigation de l'IA vers cette destination"
+  browser.profileNotApproved: "L'ouverture de ce profil de navigateur n'a pas été autorisée"
+  browser.tabNotFound: "Cet onglet du navigateur n'existe plus"
+  browser.tabNotAiOwned: "Cet onglet du navigateur n'est pas contrôlé par l'IA"
+  browser.policyStale: "La politique du navigateur a changé : réessayez l'action"
+  browser.tabProvenanceMismatch: "Cet onglet a été créé dans un autre mode d'automatisation"
+  browser.invalidSessionMode: "Mode de session de navigateur inconnu « %{mode} »"
+  browser.stateUnavailable: "Impossible de lire l'état du navigateur : %{detail}"
+  browser.invalidUrl: "Ce n'est pas une adresse web utilisable"
+  browser.invalidProfileName: "Ce nom de profil de navigateur n'est pas autorisé"
+  browser.windowGone: "La fenêtre à laquelle appartient cet onglet du navigateur a été fermée"
+  browser.profileLimit: "Trop de profils de navigateur sont ouverts en même temps"
+  browser.unsupportedPlatform: "Le navigateur intégré n'est pas disponible sur cette plateforme"
+  browser.surfaceTimeout: "Le navigateur n'a pas répondu à temps"
+  browser.surfaceFailed: "Le navigateur n'a pas pu effectuer cette action"
 
   # === Hot exit ===
   hotExit.noWindows: "Aucune fenêtre de document à capturer"

@@ -42,7 +42,11 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { createSectionMergingStorage } from "./persistedSectionMerge";
-import { migrateWorkspaceRailModeToGeneral, migrateRemoveInputGate } from "./settingsStore/migrations";
+import {
+  migrateWorkspaceRailModeToGeneral,
+  migrateRemoveInputGate,
+  migrateSplitWorkflowFlags,
+} from "./settingsStore/migrations";
 import { initialState, type ObjectSections } from "./settingsStore/defaults";
 import { clampSettingValue } from "./settingsStore/clamp";
 import { reconcileSettings } from "./settingsStore/reconcile";
@@ -172,6 +176,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
         migrateWorkspaceRailModeToGeneral(rawPersisted);
         migrateRemoveInputGate(rawPersisted);
+        migrateSplitWorkflowFlags(rawPersisted);
         // T4/D4: the shared trust boundary — shape-sanitize, deep-merge, clamp
         // bounded numerics, normalize browser posture. The cross-window
         // storage-event path in useSettingsSync runs this exact function, so

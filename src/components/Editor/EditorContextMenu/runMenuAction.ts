@@ -17,7 +17,7 @@ import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { dispatchEditorAction } from "@/plugins/toolbarActions/dispatch";
 import { useEditorStore } from "@/stores/editorStore";
-import { usePopupStore } from "@/stores/popupStore";
+import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 import { focusEditorSurface, runClipboardCommand } from "./clipboardBridge";
 import type { EditorMenuRun } from "./menuModel";
@@ -81,7 +81,7 @@ async function runLinkCommand(
       if (link.from < 0 || link.to > docSize || link.from >= link.to) return;
       if (!rangeIsSameLink(view, link.from, link.to, link.href)) return;
       const coords = view.coordsAtPos(link.from);
-      usePopupStore.getState().linkOpenPopup({
+      useLinkPopupStore.getState().openPopup({
         href: link.href,
         linkFrom: link.from,
         linkTo: link.to,

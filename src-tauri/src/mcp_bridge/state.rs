@@ -1,10 +1,9 @@
-//! MCP Bridge shared state.
+//! MCP Bridge tables and the pure helpers that operate on them.
 //!
-//! Holds the process-global bridge state — connected clients, pending
-//! requests, the window→workspace map, the shutdown signal and the write
-//! lock — plus the small helpers that operate on it (pending-request
-//! registration and TTL sweep, auth-token generation, the read-only
-//! operation list).
+//! The connected clients, the pending requests, the window→workspace map, and
+//! the registration/resolution/TTL-sweep policy that governs them. Everything
+//! here takes the state it works on as a parameter: the state itself is held
+//! by Tauri (`managed.rs`), never by a static.
 //!
 //! The port discovery file and its permission contract live in
 //! `token_file.rs`; this module has not owned them since WI-9.
@@ -12,28 +11,8 @@
 use super::principal::BridgePrincipal;
 use super::types::{ClientIdentity, McpResponse};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{mpsc, oneshot, Mutex};
-
-/// Coarse process-global webview liveness flag, DIAGNOSTIC ONLY: set false
-/// when a bridge request times out, set true by the frontend heartbeat
-/// command. It feeds the wake-retry log line in `server.rs` and gates no
-/// authorization or routing decision. It deliberately does not expire on its
-/// own and does not distinguish windows — a per-window freshness model would
-/// be required before using it for anything load-bearing.
-static WEBVIEW_ALIVE: AtomicBool = AtomicBool::new(true);
-
-/// Mark the webview as alive or not.
-pub(crate) fn set_webview_alive(alive: bool) {
-    WEBVIEW_ALIVE.store(alive, Ordering::Relaxed);
-}
-
-/// Check whether the webview is currently considered alive.
-pub(crate) fn is_webview_alive() -> bool {
-    WEBVIEW_ALIVE.load(Ordering::Relaxed)
-}
+use tokio::sync::{mpsc, oneshot};
 
 /// Per-client outbound message queue capacity.
 ///
@@ -79,6 +58,20 @@ pub(crate) struct BridgeState {
     /// send workspace-scoped requests to the owning window, not just the
     /// focused one.
     pub window_workspaces: HashMap<String, String>,
+}
+
+impl Default for BridgeState {
+    /// Nothing connected, nothing in flight. `next_client_id` starts at 1, not
+    /// 0: the welcome frame carries it and every client id on the wire is
+    /// expected to be positive.
+    fn default() -> Self {
+        Self {
+            clients: HashMap::new(),
+            pending: HashMap::new(),
+            next_client_id: 1,
+            window_workspaces: HashMap::new(),
+        }
+    }
 }
 
 /// Maximum number of pending requests allowed at once.
@@ -144,66 +137,29 @@ pub(crate) fn try_register_pending(
     }
 }
 
-/// Global bridge state.
-static BRIDGE_STATE: std::sync::OnceLock<Arc<Mutex<BridgeState>>> = std::sync::OnceLock::new();
-
-/// Server shutdown signal. Every access is exclusive (install / take), so a
-/// plain `Mutex` is the honest primitive — the previous `RwLock` had no
-/// read-lock path.
-static SHUTDOWN_TX: std::sync::OnceLock<Arc<Mutex<Option<oneshot::Sender<()>>>>> =
-    std::sync::OnceLock::new();
-
-/// Write lock for serializing write operations.
-/// All clients can read simultaneously, but writes are serialized.
-static WRITE_LOCK: std::sync::OnceLock<Arc<tokio::sync::Mutex<()>>> = std::sync::OnceLock::new();
-
-/// The principal a connected client authenticated as.
+/// Deliver a frontend response to the pending request it answers.
 ///
-/// This is the ONLY input to an authorization decision on the bridge, and it
-/// is read from the connection record written at auth time — never from
-/// anything the client sends afterwards. Its predecessor
-/// (`asserted_principal`) returned `identity.name` from the client's own
-/// `identify` message, so any token-holder could claim another client's grants
-/// and have the ratification receipt record that client as the actor
-/// (audit 20260728 §2.1). See `principal.rs` for the mechanism and its honest
-/// boundary.
-///
-/// A client id with no live connection resolves to
-/// [`BridgePrincipal::Anonymous`]: it authorizes nothing, which is the correct
-/// answer for a peer that is not there.
-pub(crate) async fn connection_principal(client_id: u64) -> BridgePrincipal {
-    let state = get_bridge_state();
-    let guard = state.lock().await;
-    guard
-        .clients
-        .get(&client_id)
-        .map(|c| c.principal.clone())
-        .unwrap_or(BridgePrincipal::Anonymous)
-}
-
-pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
-    BRIDGE_STATE
-        .get_or_init(|| {
-            Arc::new(Mutex::new(BridgeState {
-                clients: HashMap::new(),
-                pending: HashMap::new(),
-                next_client_id: 1,
-                window_workspaces: HashMap::new(),
-            }))
-        })
-        .clone()
-}
-
-pub(crate) fn get_shutdown_holder() -> Arc<Mutex<Option<oneshot::Sender<()>>>> {
-    SHUTDOWN_TX
-        .get_or_init(|| Arc::new(Mutex::new(None)))
-        .clone()
-}
-
-pub(crate) fn get_write_lock() -> Arc<tokio::sync::Mutex<()>> {
-    WRITE_LOCK
-        .get_or_init(|| Arc::new(tokio::sync::Mutex::new(())))
-        .clone()
+/// `Ok(false)` means no such request was in flight — an unknown or already
+/// swept id. That is NOT an error: the frontend echoes ids back, and a
+/// response arriving after its request timed out (or after `stop_bridge`
+/// drained the map) must be dropped quietly rather than failing the command
+/// the webview called. The only failure is a pending entry whose receiver is
+/// already gone, which the caller surfaces.
+pub(crate) fn resolve_pending(
+    state: &mut BridgeState,
+    request_id: &str,
+    response: McpResponse,
+) -> Result<bool, String> {
+    match state.pending.remove(request_id) {
+        Some(pending) => {
+            pending
+                .response_tx
+                .send(response)
+                .map_err(|_| "Response channel closed".to_string())?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
 }
 
 /// Generate the ephemeral shared bridge token written to the port file.
@@ -264,37 +220,6 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
 #[path = "state.test.rs"]
 mod tests;
 
-/// Generation of the bridge for CONNECTION ADMISSION. `stop_bridge` bumps it
-/// (while holding the bridge state lock) before draining clients, and a
-/// connection task re-checks it at registration time — an in-flight handshake
-/// that authenticates after the drain must not register into a stopped (or
-/// restarted) bridge and survive shutdown.
-static CONNECTION_GENERATION: AtomicU64 = AtomicU64::new(0);
-
-/// Current admission generation (captured by the accept loop per connection).
-pub(super) fn connection_generation() -> u64 {
-    CONNECTION_GENERATION.load(Ordering::SeqCst)
-}
-
-/// Invalidate every connection admitted before this call (see above).
-pub(super) fn bump_connection_generation() {
-    CONNECTION_GENERATION.fetch_add(1, Ordering::SeqCst);
-}
-
-/// Register an authenticated client, unless the bridge generation moved on
-/// while the peer was mid-handshake. `stop_bridge` bumps the generation UNDER
-/// the state lock before draining, so either this registration lands first
-/// (and is drained) or the stale generation is visible here and refused.
-pub(super) async fn try_register_client(
-    client_id: u64,
-    connection: ClientConnection,
-    admitted_generation: u64,
-) -> bool {
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
-    if connection_generation() != admitted_generation {
-        return false;
-    }
-    guard.clients.insert(client_id, connection);
-    true
-}
+#[cfg(test)]
+#[path = "state_lifecycle.test.rs"]
+mod lifecycle_tests;

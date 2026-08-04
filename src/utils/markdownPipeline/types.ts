@@ -21,10 +21,14 @@ export interface MarkdownPipelineOptions {
 // Re-export standard MDAST types
 export type { FootnoteDefinition, FootnoteReference } from "mdast";
 
-// Position type from unist (optional on all AST nodes)
+// Position type from unist (optional on all AST nodes).
+//
+// `offset` is explicitly `| undefined` to match unist's own declaration: these
+// positions are COPIED OFF real mdast nodes, and a parser that tracked lines
+// but not byte offsets hands over the key holding undefined.
 interface UnistPosition {
-  start: { line: number; column: number; offset?: number };
-  end: { line: number; column: number; offset?: number };
+  start: { line: number; column: number; offset?: number | undefined };
+  end: { line: number; column: number; offset?: number | undefined };
 }
 
 // Frontmatter type from remark-frontmatter
