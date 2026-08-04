@@ -276,8 +276,10 @@ export function loadExamples(entry: CorpusEntry): SpecExample[] {
   }
   const seenNumbers = new Set<number>();
   return parsed.examples.map((e) => {
-    if (typeof e.example !== "number" || seenNumbers.has(e.example)) {
-      throw new Error(`Corpus ${entry.file}: missing or duplicate example number ${String(e.example)}`);
+    if (!Number.isInteger(e.example) || e.example < 1 || seenNumbers.has(e.example)) {
+      throw new Error(
+        `Corpus ${entry.file}: example number must be a unique positive integer, got ${String(e.example)}`,
+      );
     }
     seenNumbers.add(e.example);
     if (typeof e.markdown !== "string" || typeof e.section !== "string") {

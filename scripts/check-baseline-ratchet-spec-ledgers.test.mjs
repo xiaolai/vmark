@@ -228,7 +228,7 @@ describe("TS ledger comparators (source text at both refs)", () => {
     mutate(dir, { [FL]: flSource(`${doc("a.md", ["ruleOne"])}\n${doc("b.md", ["ruleTwo"])}`) });
     const { status, stdout } = run(dir, [flEntry]);
     expect(status).toBe(0);
-    expect(stdout).toContain("b.md | ruleTwo");
+    expect(stdout).toContain('\"b.md\",\"ruleTwo\"');
   });
 });
 

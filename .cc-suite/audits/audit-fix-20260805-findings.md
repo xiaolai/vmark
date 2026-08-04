@@ -235,3 +235,11 @@ NOT FIXED (deliberate, with reasons):
 - G6 handwritten TS parser complexity → working + heavily tested; AST rewrite out of scope
 - G2 dump not exercised in CI → it runs (skipped) in every suite; generation is manual by design (re-triage tool)
 - G1/G2/G3 remaining Medium/Low items → accepted as-is this round; see group texts above
+
+## Round 2 dispositions (verify r1: 6 FIXED / 4 PARTIAL → all four residuals fixed)
+
+- TS expectedDeltas identity now includes documentValue/sourcePositionValue; generic TS extractors emit JSON-tuple identities (no delimiter collisions)
+- declarationIndex requires an identifier boundary (EXPECTED_DELTAS_OLD decoy cannot match)
+- corpusRegistry example numbers must be unique POSITIVE INTEGERS
+- backtick state timer now DELETES the map entry — destroyed-view retention bounded to 500ms
+Accepted-by-design (documented, not defects): registry revision/license use startsWith because the registry legitimately appends commentary after the file's exact value; unknown corpus fields tolerated (upstream data preserved by design). Verify thread r1: 019fce98-b297-7b01-a32a-d5c37d9977df.

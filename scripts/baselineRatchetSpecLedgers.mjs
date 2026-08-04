@@ -101,12 +101,13 @@ export function specCorpusExamples(doc, label) {
   return out;
 }
 
-/** `conformance/expectedDeltas.ts` → one identity per declared delta. */
+/** `conformance/expectedDeltas.ts` → one identity per declared delta,
+ *  VALUES INCLUDED — same rewrite-bypass rule as the JSON ledgers. */
 export function tsExpectedDeltas(source, label) {
   return tsObjectArrayIdentities(
     source,
     "EXPECTED_DELTAS",
-    ["fixtureId", "path", "kind", "detail"],
+    ["fixtureId", "path", "kind", "detail", "documentValue", "sourcePositionValue"],
     label,
   );
 }

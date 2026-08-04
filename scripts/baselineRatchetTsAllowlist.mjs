@@ -273,7 +273,12 @@ function declarationIndex(source, declName) {
     }
     if (source.startsWith("const ", i)) {
       const rest = source.slice(i + 6).replace(/^\s+/, "");
-      if (rest.startsWith(declName)) return i + 6 + (source.slice(i + 6).length - rest.length);
+      // Identifier boundary required: `const EXPECTED_DELTAS_OLD` must not
+      // match a lookup for EXPECTED_DELTAS (verify round 1).
+      const after = rest[declName.length];
+      if (rest.startsWith(declName) && (after === undefined || !/[\w$]/.test(after))) {
+        return i + 6 + (source.slice(i + 6).length - rest.length);
+      }
     }
     i++;
   }
@@ -304,7 +309,7 @@ export function tsObjectArrayIdentities(source, declName, fieldNames, label) {
       const pair = splitField(field);
       if (pair) fields.set(unquote(pair[0]) ?? pair[0], pair[1]);
     }
-    out.add(fieldNames.map((f) => scalarOf(fields.get(f), f)).join(" | "));
+    out.add(JSON.stringify(fieldNames.map((f) => scalarOf(fields.get(f), f))));
   }
   return out;
 }
@@ -347,7 +352,7 @@ export function tsRecordOfArraysIdentities(source, declName, fieldName, label) {
         const p = splitField(field);
         if (p) fields.set(unquote(p[0]) ?? p[0], p[1]);
       }
-      out.add(`${recordKey} | ${scalarOf(fields.get(fieldName), fieldName)}`);
+      out.add(JSON.stringify([recordKey, scalarOf(fields.get(fieldName), fieldName)]));
     }
   }
   return out;

@@ -59,9 +59,12 @@ export function resetBacktickState(view?: EditorView): void {
 function scheduleReset(view: EditorView): void {
   const s = stateFor(view);
   if (s.resetTimeout) clearTimeout(s.resetTimeout);
+  // The timer DELETES the entry (not just the count): a Map has no
+  // view-destruction hook, so entry lifetime is bounded by the reset delay —
+  // a destroyed view is unreferenced within 500ms instead of retained
+  // indefinitely (audit round 1 verify).
   s.resetTimeout = setTimeout(() => {
-    s.consecutive = 0;
-    s.resetTimeout = null;
+    states.delete(view);
   }, BACKTICK_RESET_DELAY);
 }
 
