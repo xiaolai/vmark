@@ -1,9 +1,12 @@
 name: Refresh Star History chart
 
-# Regenerates .github/star-history.svg from the live stargazer data so the
-# self-hosted chart in README.md stays current. The chart is self-hosted because
-# api.star-history.com/chart server-renders the SVG and times out for this repo
-# (see scripts/gen-star-history.mjs).
+# Regenerates star-history.svg from live stargazer data and publishes it to
+# the unprotected `star-history` branch — NOT to `main`: branch protection
+# (enforce_admins + required checks, .claude/rules/60-ai-governance.md §10)
+# rejects direct bot pushes there (GH006), which froze the README chart after
+# 2026-07-22. README.md embeds the branch's raw URL. The chart is self-hosted
+# because api.star-history.com's server-render has been failing service-wide
+# since 2026-07-01 (see scripts/gen-star-history.mjs).
 
 on:
   schedule:
@@ -23,7 +26,12 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7 # main: the generator script
+
+      - uses: actions/checkout@v7 # publication target
+        with:
+          ref: star-history
+          path: chart
 
       - uses: actions/setup-node@v7
         with:
@@ -31,17 +39,21 @@ jobs:
 
       # gh is pre-installed on the runner; GH_TOKEN authenticates its API calls.
       # The generator needs no npm deps — it only shells out to `gh` and Node stdlib.
+      # It writes .github/star-history.svg relative to the repo root (untracked on
+      # main); the publish step copies it into the star-history branch checkout.
       - name: Regenerate the chart
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/gen-star-history.mjs
 
-      - name: Commit if the chart changed
+      # No [skip ci] needed: ci.yml triggers only on main, never on this branch.
+      - name: Publish to the star-history branch if changed
         run: |
+          cp .github/star-history.svg chart/star-history.svg
+          cd chart
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/star-history.svg
+          git add star-history.svg
           git diff --cached --quiet && echo "No star-history changes" && exit 0
-          # [skip ci] — a chart-only update needn't run the full frontend/rust gate.
-          git commit -m "chore: refresh star-history chart [skip ci]"
+          git commit -m "chore: refresh star-history chart"
           git push
