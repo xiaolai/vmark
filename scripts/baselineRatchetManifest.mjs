@@ -141,17 +141,5 @@ export const MANIFEST = {
       checks: [{ mode: "custom", comparator: "tsIdenticalAllowlist", onAdd: "report" }],
     },
   ],
-  allowRaise: [
-    {
-      path: "scripts/extension-budget.json",
-      key: "maxKnownViolations",
-      from: 7,
-      to: 75,
-      reason:
-        "WI-8 re-measurement: the 17 plugin-wide dependency-cruiser pathNot licenses were " +
-        "retired and every masked edge frozen individually. Same debt, counted per-edge " +
-        "instead of hidden plugin-wide (maxRuleExemptions.plugin-isolation fell 28→7 in the " +
-        "same change). Delete this entry once it has landed on main.",
-    },
-  ],
+  allowRaise: [],
 };
