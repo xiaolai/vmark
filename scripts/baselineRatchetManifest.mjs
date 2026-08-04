@@ -167,6 +167,22 @@ export const MANIFEST = {
         { mode: "custom", comparator: "specCorpusExamples", direction: "no-remove", onAdd: "report" },
       ],
     },
+    // WI-2.3's external corpora — identical contract per file.
+    ...[
+      "cmark-regression.json",
+      "cmark-gfm-regression.json",
+      "cmark-gfm-extensions.json",
+      "pulldown-cjk-emphasis.json",
+      "pulldown-wikilinks.json",
+      "pulldown-math.json",
+      "markdown-it-extras.json",
+      "markdown-it-xss.json",
+    ].map((file) => ({
+      path: `src/utils/markdownPipeline/__tests__/spec/corpus/${file}`,
+      checks: [
+        { mode: "custom", comparator: "specCorpusExamples", direction: "no-remove", onAdd: "report" },
+      ],
+    })),
     // Pre-existing ledgers that predate the spec tier, previously
     // unregistered (self-attesting): now pinned via source-text parsing.
     {

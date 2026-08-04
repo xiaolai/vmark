@@ -1,0 +1,145 @@
+{
+ "source": "https://raw.githubusercontent.com/commonmark/cmark/0.31.1/test/regression.txt",
+ "revision": "0.31.1",
+ "license": "BSD-2-Clause (spec text CC-BY-SA 4.0)",
+ "examples": [
+  {
+   "example": 1,
+   "section": "Regression tests",
+   "markdown": "line1\r\r\nline2\n",
+   "html": "<p>line1</p>\n<p>line2</p>\n"
+  },
+  {
+   "example": 2,
+   "section": "Regression tests",
+   "markdown": "By taking it apart\n\n- alternative solutions\n\t\nRepeatedly solving\n\t\n- how techniques\n",
+   "html": "<p>By taking it apart</p>\n<ul>\n<li>alternative solutions</li>\n</ul>\n<p>Repeatedly solving</p>\n<ul>\n<li>how techniques</li>\n</ul>\n"
+  },
+  {
+   "example": 3,
+   "section": "Regression tests",
+   "markdown": "<h1>lorem</h1>\n\n<h2>lorem</h2>\n\n<h3>lorem</h3>\n\n<h4>lorem</h4>\n\n<h5>lorem</h5>\n\n<h6>lorem</h6>\n",
+   "html": "<h1>lorem</h1>\n<h2>lorem</h2>\n<h3>lorem</h3>\n<h4>lorem</h4>\n<h5>lorem</h5>\n<h6>lorem</h6>\n"
+  },
+  {
+   "example": 4,
+   "section": "Regression tests",
+   "markdown": "hi\n--\t\n",
+   "html": "<h2>hi</h2>\n"
+  },
+  {
+   "example": 5,
+   "section": "Regression tests",
+   "markdown": "a***b* c*\n",
+   "html": "<p>a*<em><em>b</em> c</em></p>\n"
+  },
+  {
+   "example": 6,
+   "section": "Regression tests",
+   "markdown": "[a]\n\n[a]: <te<st>\n",
+   "html": "<p>[a]</p>\n<p>[a]: &lt;te<st></p>\n"
+  },
+  {
+   "example": 7,
+   "section": "Regression tests",
+   "markdown": "[a](te\\ st)\n",
+   "html": "<p>[a](te\\ st)</p>\n"
+  },
+  {
+   "example": 8,
+   "section": "Regression tests",
+   "markdown": "City:\n<span itemprop=\"contentLocation\" itemscope itemtype=\"https://schema.org/City\">\n  <meta itemprop=\"name\" content=\"Springfield\">\n</span>\n",
+   "html": "<p>City:\n<span itemprop=\"contentLocation\" itemscope itemtype=\"https://schema.org/City\">\n<meta itemprop=\"name\" content=\"Springfield\">\n</span></p>\n"
+  },
+  {
+   "example": 9,
+   "section": "Regression tests",
+   "markdown": "[a](\\ b)\n\n[a](<<b)\n\n[a](<b\n)\n",
+   "html": "<p>[a](\\ b)</p>\n<p>[a](&lt;&lt;b)</p>\n<p>[a](&lt;b\n)</p>\n"
+  },
+  {
+   "example": 10,
+   "section": "Regression tests",
+   "markdown": "[link](url ((title))\n",
+   "html": "<p>[link](url ((title))</p>\n"
+  },
+  {
+   "example": 11,
+   "section": "Regression tests",
+   "markdown": "</script>\n\n</pre>\n\n</style>\n",
+   "html": "</script>\n</pre>\n</style>\n"
+  },
+  {
+   "example": 12,
+   "section": "Regression tests",
+   "markdown": "[a](<b) c>\n",
+   "html": "<p>[a](&lt;b) c&gt;</p>\n"
+  },
+  {
+   "example": 13,
+   "section": "Regression tests",
+   "markdown": "﻿# Hi\n",
+   "html": "<h1>Hi</h1>\n"
+  },
+  {
+   "example": 14,
+   "section": "Regression tests",
+   "markdown": "- <script>\n- some text\nsome other text\n</script>\n",
+   "html": "<ul>\n<li>\n<script>\n</li>\n<li>some text\nsome other text\n</script></li>\n</ul>\n"
+  },
+  {
+   "example": 15,
+   "section": "Regression tests",
+   "markdown": "*****Hello*world****\n",
+   "html": "<p>**<em><strong>Hello<em>world</em></strong></em></p>\n"
+  },
+  {
+   "example": 16,
+   "section": "Regression tests",
+   "markdown": "*text* [link](#section)\n",
+   "html": "<p><em>text</em> <a href=\"#section\">link</a></p>\n"
+  },
+  {
+   "example": 17,
+   "section": "Regression tests",
+   "markdown": "<!docType html>\n",
+   "html": "<!docType html>\n"
+  },
+  {
+   "example": 18,
+   "section": "Regression tests",
+   "markdown": "x <!A>\n",
+   "html": "<p>x <!A></p>\n"
+  },
+  {
+   "example": 19,
+   "section": "Regression tests",
+   "markdown": "__!_!__\n\n__!x!__\n\n**!*!**\n\n---\n\n_*__*_*\n\n_*xx*_*\n\n_*__-_-\n\n_*xx-_-\n",
+   "html": "<p><strong>!_!</strong></p>\n<p><strong>!x!</strong></p>\n<p><strong>!*!</strong></p>\n<hr />\n<p><em><em>__</em></em>*</p>\n<p><em><em>xx</em></em>*</p>\n<p><em>*__-</em>-</p>\n<p><em>*xx-</em>-</p>\n"
+  },
+  {
+   "example": 20,
+   "section": "Regression tests",
+   "markdown": "```language-r\nx <- 1\n```\n\n```r\nx <- 1\n```\n",
+   "html": "<pre><code class=\"language-r\">x &lt;- 1\n</code></pre>\n<pre><code class=\"language-r\">x &lt;- 1\n</code></pre>\n"
+  },
+  {
+   "example": 21,
+   "section": "Regression tests",
+   "markdown": "x<!x>\n\nx<!>\n",
+   "html": "<p>x<!x></p>\n<p>x&lt;!&gt;</p>\n"
+  },
+  {
+   "example": 22,
+   "section": "Regression tests",
+   "markdown": "[link][µÓĐĹŠƆƦǏǶȜɆΓΨϪЇЛЯҎҶӞԆԮՄႠႴᏸᲕᲩᲿḦṎṶẚỂỪἙἿὭᾑᾥᾼῢΩↃⓉⰍⰡⱩⲔⲼⳫꙢꜢꝌꝽꞪꟇꭾꮒꮦꮺＣＷ𐐐𐐤𐓀𐕰𐖅𐲅𐲙𐲭𑢮𖹂𖹖𞤊𞤞]\n\n[μóđĺšɔʀǐƕȝɇγψϫїляҏҷӟԇԯմⴀⴔᏰვჩჿḧṏṷaʾểừἑἷὥἡιὥιαιῢωↄⓣⰽⱑⱪⲕⲽⳬꙣꜣꝍᵹɦꟈᎮᏂᏖᏪｃｗ𐐸𐑌𐓨𐖗𐖬𐳅𐳙𐳭𑣎𖹢𖹶𞤬𞥀]: /url\n",
+   "html": "<p><a href=\"/url\">link</a></p>\n"
+  },
+  {
+   "example": 23,
+   "section": "Regression tests",
+   "markdown": "(&#xFFFE;&#xFFFF;)\n",
+   "html": "<p>(￾￿)</p>\n"
+  }
+ ]
+}

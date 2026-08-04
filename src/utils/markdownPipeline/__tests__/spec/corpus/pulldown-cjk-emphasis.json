@@ -1,0 +1,73 @@
+{
+ "source": "https://raw.githubusercontent.com/pulldown-cmark/pulldown-cmark/5cc24e8c3536ceb2519baddb09327834ef6c4858/pulldown-cmark/specs/cjk_friendly_emphasis.txt",
+ "revision": "main@5cc24e8c",
+ "license": "MIT",
+ "examples": [
+  {
+   "example": 1,
+   "section": "CJK-friendly emphasis",
+   "markdown": "**このアスタリスクは強調記号として認識されず、そのまま表示されます。**この文のせいで。\n",
+   "html": "<p>**このアスタリスクは強調記号として認識されず、そのまま表示されます。**この文のせいで。</p>\n"
+  },
+  {
+   "example": 2,
+   "section": "CJK-friendly emphasis",
+   "markdown": "**このアスタリスクは強調記号として認識されず、そのまま表示されます。**この文のせいで。\n\n**该星号不会被识别，而是直接显示。**这是因为它没有被识别为强调符号。\n\n**이 별표는 강조 표시로 인식되지 않고 그대로 표시됩니다(이 괄호 때문에)**이 문장 때문에.\n",
+   "html": "<p><strong>このアスタリスクは強調記号として認識されず、そのまま表示されます。</strong>この文のせいで。</p>\n<p><strong>该星号不会被识别，而是直接显示。</strong>这是因为它没有被识别为强调符号。</p>\n<p><strong>이 별표는 강조 표시로 인식되지 않고 그대로 표시됩니다(이 괄호 때문에)</strong>이 문장 때문에.</p>\n"
+  },
+  {
+   "example": 3,
+   "section": "CJK-friendly emphasis",
+   "markdown": "これは**私のやりたかったこと。**だからするの。\n\n**[製品ほげ](./product-foo)**と**[製品ふが](./product-bar)**をお試しください\n\n単語と**[単語と](word-and)**単語\n\n**これは太字になりません。**ご注意ください。\n\nカッコに注意**（太字にならない）**文が続く場合に要警戒。\n\n**[リンク](https://example.com)**も注意。（画像も同様）\n\n先頭の**\\`コード\\`も注意。**\n\n**末尾の\\`コード\\`**も注意。\n\n税込**¥10,000**で入手できます。\n\n正解は**④**です。\n\n太郎は**「こんにちわ」**といった\n\n太郎は**\"こんにちわ\"**といった\n\n太郎は**こんにちわ**といった\n\n太郎は**「Hello」**といった\n\n太郎は**\"Hello\"**といった\n\n太郎は**Hello**といった\n\n太郎は**「Oh my god」**といった\n\n太郎は**\"Oh my god\"**といった\n\n太郎は**Oh my god**といった\n\n**C#**や**F#**は**「.NET」**というプラットフォーム上で動作します。\n\nIDが**001号**になります。\n\nIDが**００１号**になります。\n\nGo**「初心者」**を対象とした記事です。\n\n**[リンク](https://example.com)**も注意。\n\n**⻲田太郎**と申します\n\n・**㋐**:選択肢１つ目\n\n**真，**她\n\n**真。**她\n\n**真、**她\n\n**真；**她\n\n**真：**她\n\n**真？**她\n\n**真！**她\n\n**真“**她\n\n**真”**她\n\n**真‘**她\n\n**真’**她\n\n**真（**她\n\n真**（她**\n\n**真）**她\n\n**真【**她\n\n真**【她**\n\n**真】**她\n\n**真《**她\n\n真**《她**\n\n**真》**她\n\n**真—**她\n\n**真～**她\n\n**真…**她\n\n**真·**她\n\n**真〃**她\n\n**真-**她\n\n**真々**她\n\n**真**她\n\n**真，** 她\n\n**真**，她\n\n**真，**&ZeroWidthSpace;她\n\n私は**⻲田太郎**と申します\n\n選択肢**㋐**: 1つ目の選択肢\n\n**さようなら︙**と太郎はいった。\n\n.NET**（.NET Frameworkは不可）**では、\n\n「禰󠄀」の偏は示ではなく**礻**です。\n\nGit**（注：不是GitHub）**\n\n太郎は**「こんにちわ」**といった。\n\n𰻞𰻞**（ビャンビャン）**麺\n\n𰻞𰻞**(ビャンビャン)**麺\n\nハイパーテキストコーヒーポット制御プロトコル**(HTCPCP)**\n\n﨑**(崎)**\n\n国際規格**[ECMA-262](https://tc39.es/ecma262/)**\n\n㐧**(第の俗字)**\n\n𠮟**(こちらが正式表記)**\n\n𪜈**(トモの合略仮名)**\n\n𫠉**(馬の俗字)**\n\n谺𬤲**(こだま)**石神社\n\n石𮧟**(いしただら)**\n\n**推荐几个框架：**React、Vue等前端框架。\n\n葛󠄀**(こちらが正式表記)**城市\n\n禰󠄀**(こちらが正式表記)**豆子\n\n𱟛**(U+317DB)**\n\n阿寒湖アイヌシアターイコㇿ**(Akanko Ainu Theater Ikor)**\n\nあ𛀙**(か)**よろし\n\n𮹝**(simplified form of 龘 in China)**\n\n大塚︀**(U+585A U+FE00)** 大塚**(U+FA10)**\n\n〽︎**(庵点)**は、\n\n**“︁Git”︁**Hub\n",
+   "html": "<p>これは<strong>私のやりたかったこと。</strong>だからするの。</p>\n<p><strong><a href=\"./product-foo\">製品ほげ</a></strong>と<strong><a href=\"./product-bar\">製品ふが</a></strong>をお試しください</p>\n<p>単語と<strong><a href=\"word-and\">単語と</a></strong>単語</p>\n<p><strong>これは太字になりません。</strong>ご注意ください。</p>\n<p>カッコに注意<strong>（太字にならない）</strong>文が続く場合に要警戒。</p>\n<p><strong><a href=\"https://example.com\">リンク</a></strong>も注意。（画像も同様）</p>\n<p>先頭の<strong>`コード`も注意。</strong></p>\n<p><strong>末尾の`コード`</strong>も注意。</p>\n<p>税込<strong>¥10,000</strong>で入手できます。</p>\n<p>正解は<strong>④</strong>です。</p>\n<p>太郎は<strong>「こんにちわ」</strong>といった</p>\n<p>太郎は<strong>\"こんにちわ\"</strong>といった</p>\n<p>太郎は<strong>こんにちわ</strong>といった</p>\n<p>太郎は<strong>「Hello」</strong>といった</p>\n<p>太郎は<strong>\"Hello\"</strong>といった</p>\n<p>太郎は<strong>Hello</strong>といった</p>\n<p>太郎は<strong>「Oh my god」</strong>といった</p>\n<p>太郎は<strong>\"Oh my god\"</strong>といった</p>\n<p>太郎は<strong>Oh my god</strong>といった</p>\n<p><strong>C#</strong>や<strong>F#</strong>は<strong>「.NET」</strong>というプラットフォーム上で動作します。</p>\n<p>IDが<strong>001号</strong>になります。</p>\n<p>IDが<strong>００１号</strong>になります。</p>\n<p>Go<strong>「初心者」</strong>を対象とした記事です。</p>\n<p><strong><a href=\"https://example.com\">リンク</a></strong>も注意。</p>\n<p><strong>⻲田太郎</strong>と申します</p>\n<p>・<strong>㋐</strong>:選択肢１つ目</p>\n<p><strong>真，</strong>她</p>\n<p><strong>真。</strong>她</p>\n<p><strong>真、</strong>她</p>\n<p><strong>真；</strong>她</p>\n<p><strong>真：</strong>她</p>\n<p><strong>真？</strong>她</p>\n<p><strong>真！</strong>她</p>\n<p><strong>真“</strong>她</p>\n<p><strong>真”</strong>她</p>\n<p><strong>真‘</strong>她</p>\n<p><strong>真’</strong>她</p>\n<p><strong>真（</strong>她</p>\n<p>真<strong>（她</strong></p>\n<p><strong>真）</strong>她</p>\n<p><strong>真【</strong>她</p>\n<p>真<strong>【她</strong></p>\n<p><strong>真】</strong>她</p>\n<p><strong>真《</strong>她</p>\n<p>真<strong>《她</strong></p>\n<p><strong>真》</strong>她</p>\n<p><strong>真—</strong>她</p>\n<p><strong>真～</strong>她</p>\n<p><strong>真…</strong>她</p>\n<p><strong>真·</strong>她</p>\n<p><strong>真〃</strong>她</p>\n<p><strong>真-</strong>她</p>\n<p><strong>真々</strong>她</p>\n<p><strong>真</strong>她</p>\n<p><strong>真，</strong> 她</p>\n<p><strong>真</strong>，她</p>\n<p><strong>真，</strong>​她</p>\n<p>私は<strong>⻲田太郎</strong>と申します</p>\n<p>選択肢<strong>㋐</strong>: 1つ目の選択肢</p>\n<p><strong>さようなら︙</strong>と太郎はいった。</p>\n<p>.NET<strong>（.NET Frameworkは不可）</strong>では、</p>\n<p>「禰󠄀」の偏は示ではなく<strong>礻</strong>です。</p>\n<p>Git<strong>（注：不是GitHub）</strong></p>\n<p>太郎は<strong>「こんにちわ」</strong>といった。</p>\n<p>𰻞𰻞<strong>（ビャンビャン）</strong>麺</p>\n<p>𰻞𰻞<strong>(ビャンビャン)</strong>麺</p>\n<p>ハイパーテキストコーヒーポット制御プロトコル<strong>(HTCPCP)</strong></p>\n<p>﨑<strong>(崎)</strong></p>\n<p>国際規格<strong><a href=\"https://tc39.es/ecma262/\">ECMA-262</a></strong></p>\n<p>㐧<strong>(第の俗字)</strong></p>\n<p>𠮟<strong>(こちらが正式表記)</strong></p>\n<p>𪜈<strong>(トモの合略仮名)</strong></p>\n<p>𫠉<strong>(馬の俗字)</strong></p>\n<p>谺𬤲<strong>(こだま)</strong>石神社</p>\n<p>石𮧟<strong>(いしただら)</strong></p>\n<p><strong>推荐几个框架：</strong>React、Vue等前端框架。</p>\n<p>葛󠄀<strong>(こちらが正式表記)</strong>城市</p>\n<p>禰󠄀<strong>(こちらが正式表記)</strong>豆子</p>\n<p>𱟛<strong>(U+317DB)</strong></p>\n<p>阿寒湖アイヌシアターイコㇿ<strong>(Akanko Ainu Theater Ikor)</strong></p>\n<p>あ𛀙<strong>(か)</strong>よろし</p>\n<p>𮹝<strong>(simplified form of 龘 in China)</strong></p>\n<p>大塚︀<strong>(U+585A U+FE00)</strong> 大塚<strong>(U+FA10)</strong></p>\n<p>〽︎<strong>(庵点)</strong>は、</p>\n<p><strong>“︁Git”︁</strong>Hub</p>\n"
+  },
+  {
+   "example": 4,
+   "section": "CJK-friendly emphasis",
+   "markdown": "**이 [링크](https://example.kr/)**만을 강조하고 싶다.\n\n**스크립트(script)**라고\n\n패키지를 발행하려면 **`npm publish`**를 실행하십시오.\n\n**안녕(hello)**하세요.\n\nᅡ**(a)**\n\n**(k)**ᄏ\n",
+   "html": "<p><strong>이 <a href=\"https://example.kr/\">링크</a></strong>만을 강조하고 싶다.</p>\n<p><strong>스크립트(script)</strong>라고</p>\n<p>패키지를 발행하려면 <strong><code>npm publish</code></strong>를 실행하십시오.</p>\n<p><strong>안녕(hello)</strong>하세요.</p>\n<p>ᅡ<strong>(a)</strong></p>\n<p><strong>(k)</strong>ᄏ</p>\n"
+  },
+  {
+   "example": 5,
+   "section": "CJK-friendly emphasis",
+   "markdown": "a**〰**a\n\na**〽**a\n\na**🈂**a\n\na**🈷**a\n\na**㊗**a\n\na**㊙**a\n",
+   "html": "<p>a<strong>〰</strong>a</p>\n<p>a<strong>〽</strong>a</p>\n<p>a<strong>🈂</strong>a</p>\n<p>a<strong>🈷</strong>a</p>\n<p>a<strong>㊗</strong>a</p>\n<p>a<strong>㊙</strong>a</p>\n"
+  },
+  {
+   "example": 6,
+   "section": "CJK-friendly emphasis",
+   "markdown": "\na**a«**a\n\na**»a**a\n\na**a∇**a\n\na**∇a**a\n\na**a𝜵**a\n\na**𝜵a**a\n\na**𐬻a**a\n\na**a𐬻**a\n",
+   "html": "<p>a**a«**a</p>\n<p>a**»a**a</p>\n<p>a**a∇**a</p>\n<p>a**∇a**a</p>\n<p>a**a𝜵**a</p>\n<p>a**𝜵a**a</p>\n<p>a**𐬻a**a</p>\n<p>a**a𐬻**a</p>\n"
+  },
+  {
+   "example": 7,
+   "section": "CJK-friendly emphasis",
+   "markdown": "__注意__：注意事項\n\n注意：__注意事項__\n\n正體字。︁_Traditional._\n\n正體字。︁__Hong Kong and Taiwan.__\n\n简体字 / 新字体。︀_Simplified._\n\n简体字 / 新字体。︀__Mainland China or Japan.__\n\n“︁Git”︁__Hub__\n",
+   "html": "<p><strong>注意</strong>：注意事項</p>\n<p>注意：<strong>注意事項</strong></p>\n<p>正體字。︁<em>Traditional.</em></p>\n<p>正體字。︁<strong>Hong Kong and Taiwan.</strong></p>\n<p>简体字 / 新字体。︀<em>Simplified.</em></p>\n<p>简体字 / 新字体。︀<strong>Mainland China or Japan.</strong></p>\n<p>“︁Git”︁<strong>Hub</strong></p>\n"
+  },
+  {
+   "example": 8,
+   "section": "CJK-friendly emphasis",
+   "markdown": "foo_bar_\n\n_foo_bar\n\n_foo_bar_baz_\n",
+   "html": "<p>foo_bar_</p>\n<p>_foo_bar</p>\n<p><em>foo_bar_baz</em></p>\n"
+  },
+  {
+   "example": 9,
+   "section": "CJK-friendly emphasis",
+   "markdown": "漢_abc_\n\n_abc_漢\n",
+   "html": "<p>漢_abc_</p>\n<p>_abc_漢</p>\n"
+  },
+  {
+   "example": 10,
+   "section": "CJK-friendly emphasis",
+   "markdown": "真~~（她~~\n\n~~真，~~她\n\nThis~~is~~stricken\n\nHere I strike out an exclamation point~~!~~.\n\n真~（她~\n\n~真，~她\n\n真_（她_\n\n_真，_她\n\nThis~isn't~stricken, this ~is~\n\nHere I don't strike out an exclamation point~!~.\n",
+   "html": "<p>真<del>（她</del></p>\n<p><del>真，</del>她</p>\n<p>This<del>is</del>stricken</p>\n<p>Here I strike out an exclamation point<del>!</del>.</p>\n<p>真~（她~</p>\n<p>~真，~她</p>\n<p>真_（她_</p>\n<p>_真，_她</p>\n<p>This~isn't~stricken, this <del>is</del></p>\n<p>Here I don't strike out an exclamation point~!~.</p>\n"
+  },
+  {
+   "example": 11,
+   "section": "CJK-friendly emphasis",
+   "markdown": "あ**()**あ[^1]\n\n[^1]: ~~あ~~\n",
+   "html": "<p>あ<strong>()</strong>あ<sup class=\"footnote-reference\"><a href=\"#1\">1</a></sup></p>\n<div class=\"footnote-definition\" id=\"1\"><sup class=\"footnote-definition-label\">1</sup>\n<p><del>あ</del></p>\n</div>\n"
+  }
+ ]
+}

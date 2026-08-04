@@ -1,6 +1,136 @@
 {
  "deltas": [
   {
+   "exampleId": "cjk-10",
+   "path": "root.children[4]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[4].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "真",
+   "referenceValue": "真~（她~",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[4].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[0]",
+   "kind": "type",
+   "detail": "subscript vs text",
+   "vmarkValue": "subscript",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[8].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[8].children[3]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "vmarkValue": 3,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Here I don't strike out an exclamation point",
+   "referenceValue": "Here I don't strike out an exclamation point~!~.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
    "exampleId": "cm-23",
    "path": "root.children[0].children[0]",
    "kind": "type",
@@ -873,6 +1003,296 @@
   {
    "exampleId": "cm-593",
    "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cmreg-22",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[1].children[0].children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[1].children[1].children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-17",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2]",
+   "kind": "child-count",
+   "detail": "5 vs 3",
+   "vmarkValue": 5,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "is ",
+   "referenceValue": "is ~ legit",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[2]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " legit",
+   "referenceValue": " isn't ~ legit.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[3]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[4]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "vmarkValue": 3,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "This is not ~~~~",
+   "referenceValue": "This is not ~~~~~one~~~~~ huge strikethrough.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4]",
+   "kind": "child-count",
+   "detail": "5 vs 4",
+   "vmarkValue": 5,
+   "referenceValue": 4,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[0]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[3]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " ~~",
+   "referenceValue": " ~~~three~~~",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[4]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-10",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "7 vs 5",
+   "vmarkValue": 7,
+   "referenceValue": 5,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[4]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " ~~",
+   "referenceValue": " ~~~curious~~~.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[5]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[6]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "mdx-5",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-6",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-8",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-47",
+   "path": "root.children[0].children[1].children[0]",
    "kind": "type",
    "detail": "link vs linkReference",
    "vmarkValue": "link",

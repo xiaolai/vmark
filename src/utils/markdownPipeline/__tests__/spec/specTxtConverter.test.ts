@@ -15,6 +15,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseSpecTxt,
+  parseMarkdownItFixtures,
   restoreTabs,
   filterSections,
   fromCommonMarkJson,
@@ -99,6 +100,43 @@ describe("filterSections", () => {
     expect(kept.map((e) => e.markdown)).toEqual(["a\n"]);
     // File-position numbering survives filtering — ids must stay stable.
     expect(kept[0].example).toBe(1);
+  });
+});
+
+describe("parseMarkdownItFixtures (dot-delimited testgen format)", () => {
+  it("parses title/markdown/html triples, titles become sections", () => {
+    const text = [
+      "Issue #246. Double escaping",
+      ".",
+      "![&](#)",
+      ".",
+      '<p><img src="#" alt="&amp;"></p>',
+      ".",
+      "",
+      ".",
+      "second, untitled inherits nothing new",
+      ".",
+      "<p>html</p>",
+      ".",
+    ].join("\n");
+    const examples = parseMarkdownItFixtures(text);
+    expect(examples).toHaveLength(2);
+    expect(examples[0].section).toBe("Issue #246. Double escaping");
+    expect(examples[0].markdown).toBe("![&](#)\n");
+    expect(examples[0].html).toBe('<p><img src="#" alt="&amp;"></p>\n');
+    expect(examples[1].example).toBe(2);
+  });
+
+  it("a dot INSIDE markdown content does not delimit (only exact-dot lines do)", () => {
+    const text = [".", "line with . inside", "literally.", ".", "<p>x</p>", "."].join("\n");
+    const examples = parseMarkdownItFixtures(text);
+    expect(examples).toHaveLength(1);
+    expect(examples[0].markdown).toBe("line with . inside\nliterally.\n");
+  });
+
+  it("handles suffixed spec.txt info strings (pulldown's example_wikilinks)", () => {
+    const text = ["# W", `${FENCE} example_wikilinks`, "[[x]]", ".", "<p>x</p>", FENCE].join("\n");
+    expect(parseSpecTxt(text)).toHaveLength(1);
   });
 });
 

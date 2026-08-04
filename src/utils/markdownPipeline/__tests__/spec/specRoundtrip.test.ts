@@ -37,7 +37,14 @@ import {
   type Divergence,
   type RawNode,
 } from "../../conformance/semanticProjection";
-import { examplesForRoute, sha256Of, type SpecExample } from "./corpusRegistry";
+import {
+  CORPORA,
+  examplesForRoute,
+  loadExamples,
+  sha256Of,
+  type SpecExample,
+  type VendoredCorpus,
+} from "./corpusRegistry";
 import {
   loadRoundtripLedger,
   fidelityMatches,
@@ -87,6 +94,38 @@ function roundtripOf(example: SpecExample): RoundtripResult {
   cache.set(example.id, out);
   return out;
 }
+
+describe("dialect corpora actually produce their dialect nodes (no self-oracle)", () => {
+  // A roundtrip-only dialect corpus whose examples all parsed as plain text
+  // would trivially roundtrip and prove nothing. The registry pins how many
+  // examples contain the dialect node; both directions of drift fail.
+  const contains = (node: RawNode, type: string): boolean =>
+    node.type === type || (node.children ?? []).some((c) => contains(c, type));
+
+  const contracted = CORPORA.filter(
+    (c): c is VendoredCorpus => c.kind === "vendored-json" && c.mustProduce !== undefined,
+  );
+
+  it("every roundtrip-only corpus carries a mustProduce contract", () => {
+    const bare = CORPORA.filter(
+      (c) =>
+        c.kind === "vendored-json" &&
+        !c.routes.conformance &&
+        c.routes.roundtrip &&
+        c.mustProduce === undefined,
+    );
+    expect(bare.map((c) => (c as VendoredCorpus).file)).toEqual([]);
+  });
+
+  it.each(contracted)("$file: pinned count of examples producing the dialect node", (entry) => {
+    const { nodeType, exampleCount } = entry.mustProduce!;
+    const count = loadExamples(entry).filter((e) =>
+      contains(mdastOf(e.markdown), nodeType),
+    ).length;
+    expect(count, `${entry.file} examples containing ${nodeType}`).toBe(exampleCount);
+    expect(count).toBeGreaterThan(0);
+  });
+});
 
 describe("stability: serialize∘parse is a fixed point after one pass", () => {
   it.each(EXAMPLES)("$id ($section)", (example) => {
