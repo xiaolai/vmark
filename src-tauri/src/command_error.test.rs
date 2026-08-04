@@ -266,6 +266,17 @@ fn canonical_fixtures() -> serde_json::Value {
 fn frontend_wire_fixture_stays_in_sync() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../src/test/fixtures/commandErrorWire.json");
+    // cargo-mutants copies ONLY the crate into its sandbox, so the frontend
+    // tree this bond reaches into does not exist there and the BASELINE run
+    // failed with exit 4 (first live mutation.yml dispatch, run 30889201743).
+    // Skip only under cargo-mutants (it sets CARGO_MUTANTS=1) AND only when
+    // the path is genuinely absent — a deleted fixture still fails plain
+    // `cargo test`, and mutation coverage for this module comes from the
+    // other tests in this file.
+    if std::env::var_os("CARGO_MUTANTS").is_some() && !path.exists() {
+        eprintln!("skipping frontend-fixture bond: cargo-mutants sandbox has no frontend tree");
+        return;
+    }
     let generated = canonical_fixtures();
 
     if std::env::var("UPDATE_FIXTURES").as_deref() == Ok("1") {
