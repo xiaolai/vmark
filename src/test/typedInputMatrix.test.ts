@@ -9,9 +9,11 @@
  *   3. history undo inverts back to the initial document within a bounded
  *      number of steps (grouping differs per rule, so the bound — not a
  *      single step — is the invariant).
- * Cases flagged `backspaceReverts` additionally assert IMMEDIATE reversal:
- * one Backspace right after a rule fires runs `undoInputRule` and restores
- * the literal typed text — a separate contract from history undo.
+ * Immediate reversal is covered by the explicit heading-Backspace scenario
+ * below (measured: the KEYMAP reverts the block, the literal text does not
+ * return) — a dead `backspaceReverts` per-case field that no case populated
+ * was removed in audit round 1 rather than left advertising an untested
+ * contract.
  *
  * Every expectation is MEASURED production behavior, pinned — never a
  * transplanted golden (case ideas were mined from Lexical's shortcut tables
@@ -45,8 +47,6 @@ interface MatrixCase {
   blocks: string[];
   /** Expected serialized markdown after typing. */
   markdown: string;
-  /** Assert one immediate Backspace produces this markdown (undoInputRule). */
-  backspaceReverts?: string;
   /** Inline mark presence probes: [markName, present?] */
   probes?: [string, boolean][];
 }
@@ -215,17 +215,6 @@ describe("typed-input matrix (production stack)", () => {
       expect(s.markdown(), `history undo (after ${steps} steps)`).toBe(initial);
     });
   });
-
-  it.each(CASES.filter((c) => c.backspaceReverts !== undefined))(
-    "$name — one Backspace immediately after the rule restores the literal text",
-    (c) => {
-      withTypingSession({ markdown: "" }, (s) => {
-        s.type(c.typed);
-        s.press("Backspace");
-        expect(s.markdown()).toBe(c.backspaceReverts);
-      });
-    },
-  );
 
   it("Backspace right after '# ' reverts the heading (measured: block reverts, literal text does NOT return)", () => {
     withTypingSession({ markdown: "" }, (s) => {

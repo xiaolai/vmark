@@ -68,6 +68,11 @@ function divergencesFor(example: SpecExample): Divergence[] {
 }
 
 describe("spec corpus shape", () => {
+  it("the whole registry validates: unique prefixes, loadable corpora, matching provenance", async () => {
+    const { validateRegistry } = await import("./corpusRegistry");
+    expect(() => validateRegistry()).not.toThrow();
+  });
+
   it("enumerates the pinned example counts (additions are deliberate)", () => {
     const byPrefix = new Map<string, number>();
     for (const e of EXAMPLES) {

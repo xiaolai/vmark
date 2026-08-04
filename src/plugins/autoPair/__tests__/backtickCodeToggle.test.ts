@@ -91,6 +91,31 @@ function callHandleTextInput(
   return { handled, newState };
 }
 
+/**
+ * A PERSISTENT mock view for consecutive-keystroke scenarios. Backtick state
+ * is keyed per EditorView (real editors keep one view object across
+ * keystrokes), so tests of the consecutive machine must reuse one view —
+ * a fresh mock per call is a different editor, and counts correctly reset.
+ */
+function makeViewSession(initial: EditorState) {
+  const view = {
+    state: initial,
+    dispatch(tr: ReturnType<EditorState["tr"]["setSelection"]>) {
+      view.state = view.state.apply(tr);
+    },
+  };
+  return {
+    view: view as unknown as EditorView,
+    type(text: string, config = defaultConfig): boolean {
+      const { from, to } = view.state.selection;
+      return handleTextInput(view as unknown as EditorView, from, to, text, config);
+    },
+    get state(): EditorState {
+      return view.state;
+    },
+  };
+}
+
 describe("backtick code mark toggle (WYSIWYG)", () => {
   beforeEach(() => {
     resetBacktickState();
@@ -159,38 +184,41 @@ describe("backtick code mark toggle (WYSIWYG)", () => {
   });
 
   it("double backtick (consecutive) deactivates code mark", () => {
-    const state = createState("", 1);
+    const session = makeViewSession(createState("", 1));
 
     // First backtick: activates code mark
-    const { handled: h1, newState: s1 } = callHandleTextInput(state, "`");
-    expect(h1).toBe(true);
-    expect(s1.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
+    expect(session.type("`")).toBe(true);
+    expect(session.state.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
 
-    // Second backtick: deactivates code mark
-    const { handled: h2, newState: s2 } = callHandleTextInput(s1, "`");
-    expect(h2).toBe(true);
-    // Code mark should be removed from stored marks
-    const hasCode = s2.storedMarks?.some((m) => m.type.name === "code") ?? false;
+    // Second backtick (SAME view): deactivates code mark
+    expect(session.type("`")).toBe(true);
+    const hasCode = session.state.storedMarks?.some((m) => m.type.name === "code") ?? false;
     expect(hasCode).toBe(false);
   });
 
   it("triple backtick (consecutive) creates code block", () => {
-    const state = createState("", 1);
+    const session = makeViewSession(createState("", 1));
 
-    // First backtick
-    const { newState: s1 } = callHandleTextInput(state, "`");
-    // Second backtick
-    const { newState: s2 } = callHandleTextInput(s1, "`");
-    // Third backtick: creates code block
-    const { handled: h3, newState: s3 } = callHandleTextInput(s2, "`");
+    session.type("`");
+    session.type("`");
+    expect(session.type("`")).toBe(true);
 
-    expect(h3).toBe(true);
     // Document should contain the production codeBlock node
     let hasCodeBlock = false;
-    s3.doc.descendants((node) => {
+    session.state.doc.descendants((node) => {
       if (node.type.name === "codeBlock") hasCodeBlock = true;
     });
     expect(hasCodeBlock).toBe(true);
+  });
+
+  it("two SEPARATE views do not share a consecutive count (per-view state)", () => {
+    // The state machine was module-global; a backtick in window A followed by
+    // one in window B read as B's SECOND press. Per-view keying fixes it.
+    const a = makeViewSession(createState("", 1));
+    const b = makeViewSession(createState("", 1));
+    a.type("`");
+    b.type("`"); // must be B's FIRST press: activate, not deactivate
+    expect(b.state.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
   });
 
   it("non-backtick input resets consecutive backtick count", () => {

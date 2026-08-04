@@ -39,15 +39,31 @@ function requireString(value, label, field) {
   return value;
 }
 
+/**
+ * Identity of one ledger record: JSON tuple of EVERY enforcement-relevant
+ * field, values included. Field-name-only identities allowed a same-commit
+ * value rewrite to pass the merge-base ratchet unchanged (audit round 1),
+ * and a " | " join could collapse records containing the delimiter.
+ * `reason` is deliberately excluded — rewording prose is not a new record.
+ */
+function recordIdentity(kind, d, fields, label) {
+  return JSON.stringify([
+    kind,
+    ...fields.map((f) => {
+      if (f.endsWith("Value")) return d[f]; // divergence values may be any JSON
+      return requireString(d[f], label, f);
+    }),
+  ]);
+}
+
+const CONFORMANCE_FIELDS = ["exampleId", "path", "kind", "detail", "verdict", "vmarkValue", "referenceValue"];
+const FIDELITY_FIELDS = ["exampleId", "path", "kind", "detail", "verdict", "inputValue", "outputValue"];
+
 /** `specDeltas.json` → one identity per conformance record. */
 export function specConformanceRecords(doc, label) {
   const out = new Set();
   for (const d of requireArray(doc?.deltas, label)) {
-    out.add(
-      ["exampleId", "path", "kind", "detail", "verdict"]
-        .map((f) => requireString(d[f], label, f))
-        .join(" | "),
-    );
+    out.add(recordIdentity("conformance", d, CONFORMANCE_FIELDS, label));
   }
   return out;
 }
@@ -56,32 +72,30 @@ export function specConformanceRecords(doc, label) {
 export function specRoundtripRecords(doc, label) {
   const out = new Set();
   for (const d of requireArray(doc?.stability, label)) {
-    out.add(
-      ["stability", ...["exampleId", "pass1Sha256", "pass2Sha256"].map((f) => requireString(d[f], label, f))].join(" | "),
-    );
+    out.add(recordIdentity("stability", d, ["exampleId", "pass1Sha256", "pass2Sha256"], label));
   }
   for (const d of requireArray(doc?.fidelity, label)) {
-    out.add(
-      ["fidelity", ...["exampleId", "path", "kind", "detail", "verdict"].map((f) => requireString(d[f], label, f))].join(" | "),
-    );
+    out.add(recordIdentity("fidelity", d, FIDELITY_FIELDS, label));
   }
   // WI-2.2's independent-ruler section arrived after the first ledgers; a
   // base-ref file may predate it, so absence reads as empty, not malformed.
   for (const d of requireArray(doc?.independentRuler ?? [], label)) {
-    out.add(
-      ["independentRuler", ...["exampleId", "path", "kind", "detail", "verdict"].map((f) => requireString(d[f], label, f))].join(" | "),
-    );
+    out.add(recordIdentity("independentRuler", d, FIDELITY_FIELDS, label));
   }
   return out;
 }
 
-/** `corpus/*.json` → one identity per example, content-addressed. */
+/** `corpus/*.json` → one identity per example, content-addressed over the
+ *  WHOLE example (markdown, section, upstream html, and — for the Tiptap
+ *  oracle corpus — expectedOutput), so no consumed field can be silently
+ *  rewritten alongside a same-commit registry-digest update. */
 export function specCorpusExamples(doc, label) {
   const out = new Set();
   for (const e of requireArray(doc?.examples, label)) {
     if (typeof e.example !== "number") throw new Error(`${label}: example without a number`);
-    const markdown = requireString(e.markdown, label, "markdown");
-    const digest = createHash("sha256").update(markdown, "utf8").digest("hex").slice(0, 16);
+    requireString(e.markdown, label, "markdown");
+    const canonical = JSON.stringify([e.section, e.markdown, e.html ?? null, e.expectedOutput ?? null]);
+    const digest = createHash("sha256").update(canonical, "utf8").digest("hex").slice(0, 16);
     out.add(`${e.example} | ${digest}`);
   }
   return out;

@@ -37,6 +37,7 @@ import type {
   Delete,
   InlineCode,
   Link,
+  LinkReference,
   Image,
   Break,
   PhrasingContent,
@@ -247,7 +248,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
             label: referenceId,
             referenceType: (mark.attrs.referenceType as string | null) ?? "shortcut",
             children: content,
-          } as unknown as Link,
+          } satisfies LinkReference as unknown as Link,
         ];
       }
       return [
