@@ -45,13 +45,23 @@ export function parseSpecTxt(text) {
     const heading = /^#{1,6}\s+(.*)$/.exec(line);
     if (heading) section = heading[1].trim();
     if (line.startsWith(`${FENCE} example`)) {
+      const openedAt = i + 1;
       const body = [];
       i += 1;
       while (i < lines.length && lines[i] !== FENCE) {
         body.push(lines[i]);
         i += 1;
       }
+      // Fail LOUD on malformed input: a converter that silently mis-slices a
+      // truncated download vendors a wrong corpus that every gate then
+      // verifies with full confidence.
+      if (i >= lines.length) {
+        throw new Error(`unclosed example fence opened at line ${openedAt}`);
+      }
       const dot = body.indexOf(".");
+      if (dot === -1) {
+        throw new Error(`example at line ${openedAt} has no "." separator between markdown and output`);
+      }
       const markdown = body.slice(0, dot).join("\n");
       const html = body.slice(dot + 1).join("\n");
       examples.push({
@@ -89,18 +99,21 @@ export function parseMarkdownItFixtures(text) {
       i += 1;
       continue;
     }
+    const openedAt = i + 1;
     const md = [];
     i += 1;
     while (i < lines.length && lines[i] !== ".") {
       md.push(lines[i]);
       i += 1;
     }
+    if (i >= lines.length) throw new Error(`fixture at line ${openedAt}: markdown block never closed by "."`);
     const html = [];
     i += 1;
     while (i < lines.length && lines[i] !== ".") {
       html.push(lines[i]);
       i += 1;
     }
+    if (i >= lines.length) throw new Error(`fixture at line ${openedAt}: html block never closed by "."`);
     i += 1; // past the closing dot
     examples.push({
       example: examples.length + 1,

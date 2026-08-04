@@ -251,14 +251,44 @@ function scalarOf(rawValue, field) {
 }
 
 /**
+ * Offset of `const <declName>` OUTSIDE strings and comments, or -1.
+ *
+ * A bare `indexOf(declName)` treated `// EXPECTED_DELTAS = []` in a comment
+ * as the declaration and returned an EMPTY identity set — and since removals
+ * pass, that silently disabled the ledger ratchet (audit round 1). This walk
+ * reuses the string/comment skippers so only real source can match.
+ */
+function declarationIndex(source, declName) {
+  let i = 0;
+  while (i < source.length) {
+    const c = source[i];
+    if (QUOTES.has(c)) {
+      i = skipString(source, i);
+      continue;
+    }
+    const afterComment = skipComment(source, i);
+    if (afterComment !== i) {
+      i = afterComment;
+      continue;
+    }
+    if (source.startsWith("const ", i)) {
+      const rest = source.slice(i + 6).replace(/^\s+/, "");
+      if (rest.startsWith(declName)) return i + 6 + (source.slice(i + 6).length - rest.length);
+    }
+    i++;
+  }
+  return -1;
+}
+
+/**
  * Generic form of the parser below: the identity set of
- * `const <declName> = [ {…}, … ]`, one `field1 | field2 | …` string per
- * entry, fields read by name in any order and quote style. Built for the
- * spec-ledger ratchet entries (WI-0.3), which pin TS ledgers the same way
- * this module already pins the i18n allowlist.
+ * `const <declName> = [ {…}, … ]`, one JSON-tuple identity per entry, fields
+ * read by name in any order and quote style. Built for the spec-ledger
+ * ratchet entries (WI-0.3), which pin TS ledgers the same way this module
+ * already pins the i18n allowlist.
  */
 export function tsObjectArrayIdentities(source, declName, fieldNames, label) {
-  const decl = source.indexOf(declName);
+  const decl = declarationIndex(source, declName);
   if (decl === -1) throw new Error(`${label}: no ${declName} declaration found`);
   const open = arrayAfterAssignment(source, decl);
   if (open === -1) throw new Error(`${label}: ${declName} has no array literal`);
@@ -285,7 +315,7 @@ export function tsObjectArrayIdentities(source, declName, fieldNames, label) {
  * Shape of `fidelity/fidelityLedger.ts`.
  */
 export function tsRecordOfArraysIdentities(source, declName, fieldName, label) {
-  const decl = source.indexOf(declName);
+  const decl = declarationIndex(source, declName);
   if (decl === -1) throw new Error(`${label}: no ${declName} declaration found`);
   // Walk to the `{` that opens the record literal (same assignment walk as
   // arrays, different opener).
@@ -328,7 +358,7 @@ export function tsRecordOfArraysIdentities(source, declName, fieldName, label) {
  * `kind | ns | key | locales` string per exemption.
  */
 export function tsIdenticalAllowlistIdentities(source, label) {
-  const decl = source.indexOf("IDENTICAL_ALLOWLIST");
+  const decl = declarationIndex(source, "IDENTICAL_ALLOWLIST");
   if (decl === -1) throw new Error(`${label}: no IDENTICAL_ALLOWLIST declaration found`);
   // The array is the one after `=`, NOT the first `[` after the name: the
   // declaration is annotated `: IdenticalException[]`, whose empty brackets

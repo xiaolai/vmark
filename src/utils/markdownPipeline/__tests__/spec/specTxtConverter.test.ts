@@ -82,6 +82,23 @@ describe("parseSpecTxt", () => {
   });
 });
 
+describe("malformed input fails LOUD — a silent mis-slice vendors a wrong corpus", () => {
+  it("throws on an unclosed example fence", () => {
+    const text = specTxt("# T", `${FENCE} example`, "md", ".", "html"); // no closing fence
+    expect(() => parseSpecTxt(text)).toThrow(/unclosed example fence/);
+  });
+
+  it("throws on an example without a dot separator", () => {
+    const text = specTxt("# T", `${FENCE} example`, "only markdown, no dot", FENCE);
+    expect(() => parseSpecTxt(text)).toThrow(/no "\." separator/);
+  });
+
+  it("throws on a markdown-it fixture whose blocks never close", () => {
+    expect(() => parseMarkdownItFixtures(".\nmd only, never closed")).toThrow(/never closed/);
+    expect(() => parseMarkdownItFixtures(".\nmd\n.\nhtml never closed")).toThrow(/never closed/);
+  });
+});
+
 describe("restoreTabs", () => {
   it("replaces every placeholder, not just the first", () => {
     expect(restoreTabs("→a→b")).toBe("\ta\tb");

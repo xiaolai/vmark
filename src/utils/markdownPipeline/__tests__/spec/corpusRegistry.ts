@@ -253,11 +253,56 @@ export function loadExamples(entry: CorpusEntry): SpecExample[] {
     );
   }
   const parsed = JSON.parse(raw) as VendoredFileShape;
-  return parsed.examples.map((e) => ({
-    id: `${entry.prefix}-${e.example}`,
-    section: e.section,
-    markdown: e.markdown,
-  }));
+  // The digest proves byte identity, not shape: validate what the gates
+  // consume, and that the file's own provenance matches the registry's (the
+  // registry may append commentary after the file's value, nothing else).
+  if (!Array.isArray(parsed.examples) || parsed.examples.length === 0) {
+    throw new Error(`Corpus ${entry.file}: no examples array`);
+  }
+  if (parsed.source !== entry.source) {
+    throw new Error(
+      `Corpus ${entry.file}: file source ${JSON.stringify(parsed.source)} ≠ registry ${JSON.stringify(entry.source)}`,
+    );
+  }
+  if (!entry.revision.startsWith(parsed.revision)) {
+    throw new Error(
+      `Corpus ${entry.file}: registry revision ${JSON.stringify(entry.revision)} does not start with file revision ${JSON.stringify(parsed.revision)}`,
+    );
+  }
+  if (!entry.license.startsWith(parsed.license)) {
+    throw new Error(
+      `Corpus ${entry.file}: registry license ${JSON.stringify(entry.license)} does not start with file license ${JSON.stringify(parsed.license)}`,
+    );
+  }
+  const seenNumbers = new Set<number>();
+  return parsed.examples.map((e) => {
+    if (typeof e.example !== "number" || seenNumbers.has(e.example)) {
+      throw new Error(`Corpus ${entry.file}: missing or duplicate example number ${String(e.example)}`);
+    }
+    seenNumbers.add(e.example);
+    if (typeof e.markdown !== "string" || typeof e.section !== "string") {
+      throw new Error(`Corpus ${entry.file}: example ${e.example} lacks string markdown/section`);
+    }
+    return {
+      id: `${entry.prefix}-${e.example}`,
+      section: e.section,
+      markdown: e.markdown,
+    };
+  });
+}
+
+/** Registry-wide integrity: prefixes globally unique regardless of routes,
+ *  and every corpus loadable. Route-scoped dedup alone left route-less or
+ *  disjoint-route corpora able to collide in ledger id space. */
+export function validateRegistry(): void {
+  const prefixes = new Set<string>();
+  for (const entry of CORPORA) {
+    if (prefixes.has(entry.prefix)) {
+      throw new Error(`Duplicate corpus prefix: ${entry.prefix}`);
+    }
+    prefixes.add(entry.prefix);
+    loadExamples(entry);
+  }
 }
 
 /** Every example a given gate consumes, across all corpora, id-deduplicated. */

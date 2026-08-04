@@ -219,15 +219,25 @@ function applyDeletionDefault(view: Editor["view"], key: "Backspace" | "Delete")
   }
 }
 
-/** Run `fn` with a session, guaranteeing teardown — the common test shape. */
+/** Run `fn` with a session, guaranteeing teardown — the common test shape.
+ *  Async-aware: a promise-returning callback keeps its editor alive until it
+ *  settles (a synchronous `finally` destroyed the editor while async work
+ *  was still using it — audit round 1). */
 export function withTypingSession<T>(
   options: SessionOptions,
   fn: (session: TypingSession) => T,
 ): T {
   const session = createTypingSession(options);
+  let result: T;
   try {
-    return fn(session);
-  } finally {
+    result = fn(session);
+  } catch (error) {
     session.destroy();
+    throw error;
   }
+  if (result instanceof Promise) {
+    return result.finally(() => session.destroy()) as T;
+  }
+  session.destroy();
+  return result;
 }

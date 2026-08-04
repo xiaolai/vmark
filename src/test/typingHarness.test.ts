@@ -49,6 +49,22 @@ describe("typing harness plumbing (production stack in jsdom)", () => {
     });
   });
 
+  it("forward Delete removes the character after the caret", () => {
+    withTypingSession({ markdown: "ab" }, (s) => {
+      s.setCursor(1); // before a
+      s.press("Delete");
+      expect(s.editor.state.doc.textContent).toBe("b");
+    });
+  });
+
+  it("Backspace with a non-empty selection deletes the whole range", () => {
+    withTypingSession({ markdown: "abcdef" }, (s) => {
+      s.select(2, 5); // "bcd"
+      s.press("Backspace");
+      expect(s.editor.state.doc.textContent).toBe("aef");
+    });
+  });
+
   it("Backspace never splits a surrogate pair", () => {
     withTypingSession({ markdown: "a😀" }, (s) => {
       s.setCursor(4); // after the astral emoji (2 code units)

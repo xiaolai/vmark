@@ -69,10 +69,10 @@ export function handleTextInput(
   text: string,
   config: AutoPairConfig
 ): boolean {
-  // Reset consecutive backtick counter on any non-backtick input
+  // Reset THIS view's consecutive backtick counter on any non-backtick input
   // (before early returns so multi-char pastes and disabled state also reset)
   if (text !== "`") {
-    resetBacktickState();
+    resetBacktickState(view);
   }
 
   if (!config.enabled) return false;

@@ -86,6 +86,16 @@ describe("spec ledger records (identity, additions report)", () => {
     expect(run(dir, [entry]).status).toBe(0);
   });
 
+  it("a same-record VALUE rewrite changes the identity (reported as an addition)", () => {
+    // Field-name-only identities let a commit rewrite vmarkValue/referenceValue
+    // invisibly; values are now part of the identity tuple.
+    const dir = scratchRepo({ [LEDGER]: { deltas: [record()] } });
+    mutate(dir, { [LEDGER]: { deltas: [record({ vmarkValue: "REWRITTEN" })] } });
+    const { status, stdout } = run(dir, [entry]);
+    expect(status).toBe(0);
+    expect(stdout).toContain("REWRITTEN");
+  });
+
   it("fails closed on a record missing its identity fields", () => {
     const dir = scratchRepo({ [LEDGER]: { deltas: [record()] } });
     mutate(dir, { [LEDGER]: { deltas: [{ exampleId: "cm-9" }] } });
@@ -113,7 +123,7 @@ describe("spec ledger records (identity, additions report)", () => {
     });
     const { status, stdout } = run(dir, [rtEntry]);
     expect(status).toBe(0);
-    expect(stdout).toContain("stability | cm-47");
+    expect(stdout).toContain('\"stability\",\"cm-47\"');
   });
 });
 
@@ -178,6 +188,26 @@ describe("TS ledger comparators (source text at both refs)", () => {
   it("fails closed when the declaration is missing", () => {
     const dir = scratchRepo({ [ED]: edSource(edEntryText("cm-x")) });
     mutate(dir, { [ED]: "export const SOMETHING_ELSE = [];\n" });
+    const { status, stderr } = run(dir, [edEntry]);
+    expect(status).toBe(1);
+    expect(stderr).toContain("EXPECTED_DELTAS");
+  });
+
+  it("a COMMENTED-OUT declaration is not mistaken for the real one", () => {
+    // `indexOf` once matched `// const EXPECTED_DELTAS = []` in a comment,
+    // returned an empty identity set, and — since removals pass — silently
+    // disabled the ratchet.
+    const decoy = "// const EXPECTED_DELTAS = [] — see below\n";
+    const dir = scratchRepo({ [ED]: decoy + edSource(edEntryText("cm-x")) });
+    mutate(dir, { [ED]: decoy + edSource(`${edEntryText("cm-x")}\n${edEntryText("cm-z")}`) });
+    const { status, stdout } = run(dir, [edEntry]);
+    expect(status).toBe(0);
+    expect(stdout).toContain("cm-z"); // parsed the REAL declaration, saw the addition
+  });
+
+  it("a file containing ONLY the commented decoy fails closed", () => {
+    const dir = scratchRepo({ [ED]: edSource(edEntryText("cm-x")) });
+    mutate(dir, { [ED]: "// const EXPECTED_DELTAS = []\nexport const OTHER = 1;\n" });
     const { status, stderr } = run(dir, [edEntry]);
     expect(status).toBe(1);
     expect(stderr).toContain("EXPECTED_DELTAS");
