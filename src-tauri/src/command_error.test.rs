@@ -204,12 +204,34 @@ fn canonical_fixtures() -> serde_json::Value {
         .collect();
 
     // A real save-path failure: the directory cannot exist, so the value is
-    // both genuine and deterministic on every machine.
+    // both genuine and deterministic on every machine that can run the probe.
+    // The committed fixture must be byte-identical across platforms, and
+    // `/vmark-fixture-no-such-dir/…` is only ABSOLUTE on Unix — on Windows it
+    // has no drive letter, so `atomic_write_file_sync` refuses it at the
+    // `is_absolute()` guard (`invalid-input`) before ever reaching the
+    // parent-missing check (this exact skew turned CI red on
+    // windows-latest, run 30889190922). Unix CI + local keep the genuine
+    // real-invocation guarantee; Windows builds the identical entry through
+    // the SAME `localized_error!` expression the production check uses, so it
+    // still verifies fixture byte-stability.
+    #[cfg(not(windows))]
     let parent_missing = crate::file_write::atomic_write_file_sync(
         std::path::Path::new("/vmark-fixture-no-such-dir/notes/note.md"),
         "hello",
     )
     .expect_err("the fixture directory must not exist");
+    #[cfg(windows)]
+    let parent_missing = {
+        let dir = std::path::Path::new("/vmark-fixture-no-such-dir/notes/note.md")
+            .parent()
+            .expect("probe path has a parent");
+        localized_error!(
+            ErrorCode::NotFound,
+            "errors.save.parentMissing",
+            dir = dir.display()
+        )
+        .with_detail(json!({ "dir": dir.to_string_lossy() }))
+    };
 
     serde_json::json!({
         "//": [
