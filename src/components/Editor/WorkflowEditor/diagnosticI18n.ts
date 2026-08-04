@@ -12,12 +12,12 @@
  * @module components/Editor/WorkflowEditor/diagnosticI18n
  */
 
+import type { TFunction } from "i18next";
+
 import type { Diagnostic } from "@/lib/ghaWorkflow/types";
 
-type TranslateFn = (
-  key: string,
-  opts?: { defaultValue?: string; [k: string]: unknown }
-) => string;
+/** The real `t` for this namespace — see toolbarI18n.ts for why it is not hand-rolled. */
+type TranslateFn = TFunction<"workflowEditor">;
 
 /** Unfilled i18next placeholder, e.g. `{{jobId}}`. */
 const UNFILLED_PLACEHOLDER = /\{\{\s*\w+\s*\}\}/;

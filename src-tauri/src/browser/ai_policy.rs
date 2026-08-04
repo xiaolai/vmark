@@ -10,9 +10,20 @@ use url::Url;
 
 use crate::browser::registry::AutomationMode;
 
+/// Why an AI destination was rejected.
+///
+/// The two arms are NOT interchangeable (audit 20260803 §6). `Blocked` is a
+/// policy refusal the caller can do nothing about; `Invalid` means the argument
+/// never named a destination at all. Collapsing them reported empty strings and
+/// typos to the user — and to the AI client, as `SSRF_BLOCKED` — as security
+/// refusals, which both buried the real ones and told the caller that fixing
+/// its input was pointless.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AiUrlError {
+    /// Parses fine; policy says no. No re-formatting will help.
     Blocked,
+    /// Not a usable URL: empty, unparsable, or missing a host.
+    Invalid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -51,17 +62,26 @@ impl AiBrowserPolicy {
 }
 
 /// Validate an AI destination and return the exact trimmed URL to load.
+///
+/// Rejections split two ways — see [`AiUrlError`]. The rule for placing a new
+/// check: if a corrected argument could pass it, the check is `Invalid`; if the
+/// destination is simply out of bounds, it is `Blocked`. A non-http(s) scheme
+/// and embedded credentials are `Blocked`, not `Invalid`: both are well-formed
+/// requests to reach somewhere the AI may not go (`file:///etc/passwd`,
+/// credential smuggling), so inviting the caller to fix them would be wrong.
 pub fn validate_ai_navigation_url(input: &str, allow_loopback: bool) -> Result<String, AiUrlError> {
     let value = input.trim();
+    if value.is_empty() {
+        return Err(AiUrlError::Invalid);
+    }
     let lower = value.to_ascii_lowercase();
-    if value.is_empty()
-        || value.contains('\\')
-        || !(lower.starts_with("http://") || lower.starts_with("https://"))
-    {
+    // A backslash is a URL-parser divergence trick (`https://example.com\@evil`)
+    // and the prefix check keeps every other scheme out — both are policy.
+    if value.contains('\\') || !(lower.starts_with("http://") || lower.starts_with("https://")) {
         return Err(AiUrlError::Blocked);
     }
 
-    let parsed = Url::parse(value).map_err(|_| AiUrlError::Blocked)?;
+    let parsed = Url::parse(value).map_err(|_| AiUrlError::Invalid)?;
     if parsed.scheme() != "http" && parsed.scheme() != "https" {
         return Err(AiUrlError::Blocked);
     }
@@ -69,12 +89,14 @@ pub fn validate_ai_navigation_url(input: &str, allow_loopback: bool) -> Result<S
         return Err(AiUrlError::Blocked);
     }
 
-    let host = parsed.host_str().ok_or(AiUrlError::Blocked)?;
+    // No host at all — `https://` on its own, or `https://:8080/`. There is no
+    // destination here to have an opinion about.
+    let host = parsed.host_str().ok_or(AiUrlError::Invalid)?;
     let normalized_host = host.trim_end_matches('.').to_ascii_lowercase();
     if normalized_host.is_empty()
         || normalized_host.contains('.') && normalized_host.starts_with('.')
     {
-        return Err(AiUrlError::Blocked);
+        return Err(AiUrlError::Invalid);
     }
 
     let ip = parsed.host().and_then(|host| match host {

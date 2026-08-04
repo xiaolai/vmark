@@ -176,7 +176,12 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           set({ customBindings: validBindings });
           syncMenuShortcuts(get().getAllShortcuts());
 
-          return { success: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
+          // No `errors` key on a clean import — its absence is the "nothing
+          // went wrong" signal, distinct from an empty problem list.
+          return {
+            success: errors.length === 0,
+            ...(errors.length > 0 ? { errors } : {}),
+          };
         } catch (e) {
           /* v8 ignore start -- JSON.parse always throws Error instances; String(e) fallback is defensive */
           return { success: false, errors: [`Parse error: ${errorMessage(e)}`] };

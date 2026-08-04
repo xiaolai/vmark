@@ -177,3 +177,14 @@ export const tocWarn = createWarnLogger("[TOC]");
 
 /** Warn logger for CJK Formatter integrity checks. */
 export const cjkFmtWarn = createWarnLogger("[CJK Formatter]");
+
+/** Warn logger for MCP bridge wire-contract violations (WI-15). Persists in
+ *  production on purpose: an undeclared payload field is how a dead branch
+ *  gets fed, and it must be visible in a user's log file. */
+export const mcpContractWarn = createWarnLogger("[MCP Contract]");
+
+/** Warn logger for format-adapter degradation — a language pack or an editor
+ *  extension whose chunk failed to load. The editor keeps working with less,
+ *  so the only trace a user could otherwise report is "completion stopped
+ *  working"; this makes the cause visible in the log file. */
+export const formatsWarn = createWarnLogger("[Formats]");

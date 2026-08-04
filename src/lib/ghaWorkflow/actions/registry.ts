@@ -172,24 +172,26 @@ async function getLocalActionMetadata(
     if (!parsed) return null;
     const inputs: Record<string, ActionInputSchema> = {};
     for (const [k, v] of Object.entries(parsed.inputs ?? {})) {
+      // A field the action's `action.yml` does not declare stays ABSENT — this
+      // is a projection of a manifest, where "not declared" is all it can mean.
       inputs[k] = {
-        description: v.description,
+        ...(v.description !== undefined && { description: v.description }),
         required: v.required ?? false,
-        default: v.default == null ? undefined : String(v.default),
-        deprecation_message: v.deprecationMessage,
+        ...(v.default != null && { default: String(v.default) }),
+        ...(v.deprecationMessage !== undefined && { deprecation_message: v.deprecationMessage }),
       };
     }
     const outputs: Record<string, ActionOutputSchema> = {};
     for (const [k, v] of Object.entries(parsed.outputs ?? {})) {
-      outputs[k] = { description: v.description };
+      outputs[k] = v.description !== undefined ? { description: v.description } : {};
     }
     return normalizeMetadata({
-      name: parsed.name,
-      description: parsed.description,
-      author: parsed.author,
+      ...(parsed.name !== undefined ? { name: parsed.name } : {}),
+      ...(parsed.description !== undefined ? { description: parsed.description } : {}),
+      ...(parsed.author !== undefined ? { author: parsed.author } : {}),
       inputs,
       outputs,
-      runs_using: parsed.runs?.using,
+      ...(parsed.runs?.using !== undefined ? { runs_using: parsed.runs.using } : {}),
     });
   } catch {
     return null;

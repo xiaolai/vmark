@@ -3,18 +3,15 @@ import { useEffect, useRef } from "react";
 // broadcast), and only global listen() is guaranteed to receive global events.
 // See: https://v2.tauri.app/develop/calling-frontend
 import { listen } from "@tauri-apps/api/event";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
-import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
-import { resolveFinderOpenBranch } from "@/hooks/finderOpenBranch";
+import { resolveFinderOpenBranch } from "@/services/navigation/finderOpenBranch";
+import { loadFileIntoTab } from "@/services/navigation/loadFileIntoTab";
 import {
   activateExistingTab,
   createNewTabForFile,
@@ -36,25 +33,6 @@ interface OpenFilePayload {
 interface PendingFileOpen {
   path: string;
   workspace_root: string | null;
-}
-
-/**
- * Load file content into a tab (new or existing).
- * Throws on read failure so callers can handle cleanup.
- */
-export async function loadFileIntoTab(tabId: string, path: string): Promise<void> {
-  const content = await readTextFile(path);
-  // Close-during-open guard, mirroring fileOpen.ts (WI-0.2, C1) — writing now
-  // would resurrect an orphan document for a tab closed mid-read.
-  if (!useTabStore.getState().findTabById(tabId)) return;
-
-  // WI-1B.6 / WI-2.6 — registry-driven mode dispatch: .yaml/.yml route to the
-  // YAML adapter (split-pane), so no force-source is needed. The disk-open
-  // ingest creates the document when new and replaces it otherwise.
-  useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", {
-    filePath: path,
-  });
-  useRecentFilesStore.getState().addFile(path);
 }
 
 /**

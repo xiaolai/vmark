@@ -20,7 +20,7 @@ vi.mock("./code-block-line-numbers.css", () => ({}));
 vi.mock("./hljs-syntax.css", () => ({}));
 
 // Mock sourcePopup
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_, coords) => coords),
 }));
@@ -1097,7 +1097,7 @@ describe("CodeBlockWithLineNumbers", () => {
 
     describe("dropdown with popup host", () => {
       it("uses absolute positioning when popup host is found", async () => {
-        const sourcePopup = await import("@/plugins/sourcePopup");
+        const sourcePopup = await import("@/plugins/shared/popupHostDom");
         const editorContainer = document.createElement("div");
         editorContainer.className = "editor-container";
         document.body.appendChild(editorContainer);

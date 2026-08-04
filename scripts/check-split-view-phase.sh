@@ -93,7 +93,7 @@ case "$PHASE" in
     fi
 
     # WI-2.2 — format-aware F6/Shift+F6
-    [[ -f src/hooks/splitPaneViewShortcut.ts ]] && ok "splitPaneViewShortcut module present" || fail "splitPaneViewShortcut missing"
+    [[ -f src/services/keybinding/splitPaneViewShortcut.ts ]] && ok "splitPaneViewShortcut module present" || fail "splitPaneViewShortcut missing"
     if grep -q "applySplitPaneViewShortcut" src/hooks/useViewShortcuts.ts; then
       ok "useViewShortcuts branches F6/Shift+F6 to split-pane"
     else
@@ -126,7 +126,7 @@ case "$PHASE" in
     fi
 
     # Tests
-    if pnpm exec vitest run "$SPE/ViewModeToggle.test.tsx" src/hooks/splitPaneViewShortcut.test.ts >/dev/null 2>&1; then
+    if pnpm exec vitest run "$SPE/ViewModeToggle.test.tsx" src/services/keybinding/splitPaneViewShortcut.test.ts >/dev/null 2>&1; then
       ok "Phase 2 unit tests pass"
     else
       fail "Phase 2 tests failing"

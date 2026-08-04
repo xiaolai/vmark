@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -191,7 +191,7 @@ jobs:
       });
     });
 
-    it("mounts the workbench (canvas + forms editor), not a bare canvas", () => {
+    it("mounts the workbench (canvas + forms editor), not a bare canvas", async () => {
       const Renderer = yamlFormat.schemaRenderers!["gha-workflow"];
       const { container } = render(
         createElement(Renderer, {
@@ -201,9 +201,22 @@ jobs:
           tabId: "tab-render",
         }),
       );
-      expect(
-        container.querySelector(".gha-workflow-workbench__canvas"),
-      ).not.toBeNull();
+      // WI-13: the renderer (workbench + workflow IR parser) is behind a
+      // React.lazy boundary now, so the canvas arrives a microtask later —
+      // the assertion is unchanged, only the await is new. The generous
+      // timeout is deliberate: the FIRST resolution of this lazy chunk pays
+      // vitest's on-demand transform of the whole ghaWorkflow import graph,
+      // which can exceed waitFor's 1s default on a cold or contended worker
+      // (observed flaking 1-in-5 in isolation). The assertion still requires
+      // the element; it just stops racing the transformer.
+      await waitFor(
+        () => {
+          expect(
+            container.querySelector(".gha-workflow-workbench__canvas"),
+          ).not.toBeNull();
+        },
+        { timeout: 15_000 },
+      );
     });
   });
 

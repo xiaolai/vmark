@@ -116,6 +116,7 @@ export const initialState: SettingsState = {
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     developerMode: false,
     keepBothEditorsAlive: false,
+    workflowViewer: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,
     workflowFetchActionMetadata: true,

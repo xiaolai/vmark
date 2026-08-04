@@ -98,3 +98,64 @@ describe("geniePickerStore", () => {
     });
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("geniePickerStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useGeniePickerStore.getState().closePicker();
+  });
+
+  const initialData = {
+    isOpen: false,
+    filterScope: null,
+    mode: "search",
+    submittedPrompt: null,
+    responseText: "",
+    pickerError: null,
+  };
+
+  function dataOf(s: ReturnType<typeof useGeniePickerStore.getState>) {
+    const { isOpen, filterScope, mode, submittedPrompt, responseText, pickerError } = s;
+    return { isOpen, filterScope, mode, submittedPrompt, responseText, pickerError };
+  }
+
+  it("no leak across sessions: process in A → close → open B starts fresh", () => {
+    useGeniePickerStore.getState().openPicker({ filterScope: "selection" });
+    useGeniePickerStore.getState().startProcessing("prompt A");
+    useGeniePickerStore.getState().appendResponse("chunk");
+    useGeniePickerStore.getState().setPickerError("boom");
+    useGeniePickerStore.getState().closePicker();
+
+    useGeniePickerStore.getState().openPicker({ filterScope: "document" });
+
+    expect(dataOf(useGeniePickerStore.getState())).toEqual({
+      ...initialData,
+      isOpen: true,
+      filterScope: "document",
+    });
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useGeniePickerStore.getState().openPicker({ filterScope: "block" });
+      useGeniePickerStore.getState().startProcessing(`p${i}`);
+      useGeniePickerStore.getState().closePicker();
+    }
+    expect(dataOf(useGeniePickerStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useGeniePickerStore.getState().openPicker({ filterScope: "selection" });
+      useGeniePickerStore.getState().startProcessing("mutate");
+      expect(dataOf(useGeniePickerStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useGeniePickerStore.getState().openPicker({ filterScope: "selection" });
+      useGeniePickerStore.setState(useGeniePickerStore.getInitialState());
+      expect(dataOf(useGeniePickerStore.getState())).toEqual(initialData);
+    });
+  });
+});

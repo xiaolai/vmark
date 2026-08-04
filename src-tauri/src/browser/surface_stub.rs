@@ -10,7 +10,7 @@
 //! drift there compiles fine on macOS and breaks these targets.
 
 use tauri::AppHandle;
-const MSG: &str = "embedded browser surface is macOS-only in this build";
+const MSG: &str = "UNSUPPORTED_PLATFORM: embedded browser surface is macOS-only in this build";
 pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
     Err(MSG.into())
 }
@@ -22,13 +22,13 @@ pub fn create_with_mode(
     _mode: crate::browser::registry::AutomationMode,
     _profile: Option<String>,
 ) -> Result<(), String> {
-    Err("UNSUPPORTED_PLATFORM".into())
+    Err(MSG.into())
 }
 pub fn forget_profile(_a: &AppHandle, _p: String) -> Result<(), String> {
-    Err("UNSUPPORTED_PLATFORM".into())
+    Err(MSG.into())
 }
 pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
-    Err("UNSUPPORTED_PLATFORM".into())
+    Err(MSG.into())
 }
 pub fn navigate(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {
     Err(MSG.into())

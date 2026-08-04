@@ -49,8 +49,8 @@ export interface SyncableSessionEntry {
   spawnedCwd: string | undefined;
   /** Set once the session is torn down; suppresses a pending PTY resize. */
   disposed?: boolean;
-  /** Per-entry debounce handle owned by fitAndResizePty. */
-  ptyResizeTimer?: ReturnType<typeof setTimeout>;
+  /** Per-entry debounce handle owned by fitAndResizePty (cleared, not deleted). */
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
   /**
    * Workspace root that arrived while this session's shell was busy and so
    * could not be cd'd immediately. Flushed when the shell returns to idle

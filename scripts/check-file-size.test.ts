@@ -1,6 +1,10 @@
 /**
- * Tests for the file-size gate's pure core (check-file-size.mjs) and the
- * merge-base ratchet comparison (check-baseline-ratchet.mjs).
+ * Tests for the file-size gate's pure core (check-file-size.mjs).
+ *
+ * The merge-base half moved: WI-16 generalized `check-baseline-ratchet.mjs`
+ * from this one baseline to every committed baseline, so its cases now live in
+ * `check-baseline-ratchet.test.mjs` — exercised end-to-end against scratch git
+ * repositories rather than against a hand-built pair of baseline objects.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -12,7 +16,6 @@ import {
   evaluateSizes,
   TYPE_ONLY_ALLOWLIST,
 } from "./check-file-size.mjs";
-import { compareBaselines } from "./check-baseline-ratchet.mjs";
 
 describe("countLines", () => {
   it.each([
@@ -55,6 +58,40 @@ describe("isExcluded", () => {
     }
     // Any other types.ts is scanned like a normal code file.
     expect(isExcluded("src/some/new/types.ts")).toBe(false);
+  });
+
+  // WI-15: generated contracts grow with the surface they describe (one more
+  // MCP operation = one more block), and "split the file" is not a thing a
+  // human can do to them. The ~300-line rule exists for readers of code that
+  // is maintained by hand; a generated file has no such reader.
+  describe("generated files", () => {
+    const marker = "/**\n * GENERATED FILE — DO NOT EDIT.\n */\nexport const X = 1;\n";
+
+    it("exempts a file in a generated/ directory that declares itself generated", () => {
+      expect(isExcluded("src/services/mcpBridge/v2/generated/bridgeContracts.ts", marker)).toBe(
+        true,
+      );
+      expect(isExcluded("server/mcp/src/bridge/generated/bridgeRequests.ts", marker)).toBe(true);
+    });
+
+    it("does NOT exempt a hand-written file that merely sits in generated/", () => {
+      // The directory alone is not a claim — otherwise the exemption is a
+      // one-`mkdir` bypass of the whole gate.
+      expect(isExcluded("src/foo/generated/handWritten.ts", "export const X = 1;\n")).toBe(false);
+    });
+
+    it("does NOT exempt a file that claims to be generated from outside generated/", () => {
+      expect(isExcluded("src/foo/bridgeContracts.ts", marker)).toBe(false);
+    });
+
+    it("only reads the header — a marker buried in the body does not count", () => {
+      const buried = `${"// filler\n".repeat(40)} * GENERATED FILE — DO NOT EDIT.\n`;
+      expect(isExcluded("src/foo/generated/sneaky.ts", buried)).toBe(false);
+    });
+
+    it("is inert when no content is supplied", () => {
+      expect(isExcluded("src/foo/generated/bridgeContracts.ts")).toBe(false);
+    });
   });
 });
 
@@ -136,57 +173,5 @@ describe("evaluateSizes", () => {
     expect(result.regressions).toEqual([]);
     expect(result.slack).toEqual([]);
     expect(result.prunable).toEqual([]);
-  });
-});
-
-describe("compareBaselines (merge-base ratchet)", () => {
-  const base = {
-    limit: 300,
-    files: { "a.ts": 400, "b.ts": 500 },
-    testLimit: 800,
-    testFiles: { "a.test.ts": 1000 },
-  };
-
-  it("passes when nothing loosened", () => {
-    const head = { limit: 300, files: { "a.ts": 380 }, testLimit: 800, testFiles: { "a.test.ts": 900 } }; // lowered + removed
-    expect(compareBaselines(base, head)).toEqual({ failures: [], newEntries: [] });
-  });
-
-  it("fails when the global limit is raised", () => {
-    const head = { limit: 400, files: {}, testLimit: 800, testFiles: {} };
-    const { failures } = compareBaselines(base, head);
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("limit raised");
-  });
-
-  it("fails when the test limit or a test cap is raised", () => {
-    const head = {
-      ...base,
-      files: { ...base.files },
-      testLimit: 900,
-      testFiles: { "a.test.ts": 1200 },
-    };
-    const { failures } = compareBaselines(base, head);
-    expect(failures).toHaveLength(2);
-    expect(failures[0]).toContain("test limit raised");
-    expect(failures[1]).toContain("testFiles cap raised");
-  });
-
-  it("fails when an existing cap is raised", () => {
-    const head = { limit: 300, files: { "a.ts": 450, "b.ts": 500 }, testLimit: 800, testFiles: {} };
-    const { failures } = compareBaselines(base, head);
-    expect(failures).toEqual(["a.ts: files cap raised 400 → 450 (never raise a cap)"]);
-  });
-
-  it("reports (but allows) new entries for reviewer judgment", () => {
-    const head = {
-      limit: 300,
-      files: { ...base.files, "new.ts": 320 },
-      testLimit: 800,
-      testFiles: { ...base.testFiles },
-    };
-    const { failures, newEntries } = compareBaselines(base, head);
-    expect(failures).toEqual([]);
-    expect(newEntries).toEqual([{ p: "new.ts", cap: 320, section: "files" }]);
   });
 });

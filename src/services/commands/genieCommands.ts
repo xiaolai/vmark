@@ -6,7 +6,7 @@
  * `genies.togglePicker` is the keyboard entry (Cmd+Y toggles); `genies.openPicker`
  * is the menu entry (Search Genies… always opens). Both derive the scope filter
  * from the current selection via `detectScope`. The picker state lives in the
- * per-window popupStore slice, so both commands are safe per document window.
+ * per-window geniePickerStore, so both commands are safe per document window.
  *
  * @coordinates-with geniePickerStore.ts — opens/closes the genie picker
  * @coordinates-with keybindingDefinitions.ts — genies.togglePicker binding (aiPrompts)

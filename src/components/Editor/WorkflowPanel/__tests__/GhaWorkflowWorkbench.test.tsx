@@ -106,10 +106,18 @@ const sampleIr = (): WorkflowIR => ({
   diagnostics: [],
 });
 
+// The forms editor sits behind a React.lazy boundary; its FIRST resolution
+// pays vitest's on-demand transform of the editor's import graph, which can
+// exceed waitFor's 1s default on a cold or contended worker (observed flaking
+// 1-in-5 in isolation). The timeout removes the wall-clock race without
+// weakening the assertion.
+const LAZY_MOUNT = { timeout: 15_000 };
+
 async function renderAndQueuePatch() {
   render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
-  await waitFor(() =>
-    expect(document.querySelector(".workflow-editor-panel")).not.toBeNull(),
+  await waitFor(
+    () => expect(document.querySelector(".workflow-editor-panel")).not.toBeNull(),
+    LAZY_MOUNT,
   );
   useWorkflowStore
     .getState()
@@ -133,8 +141,10 @@ describe("GhaWorkflowWorkbench", () => {
     const { container } = render(
       <GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />,
     );
-    await waitFor(() =>
-      expect(container.querySelector(".workflow-editor-panel")).not.toBeNull(),
+    await waitFor(
+      () =>
+        expect(container.querySelector(".workflow-editor-panel")).not.toBeNull(),
+      LAZY_MOUNT,
     );
   });
 

@@ -39,6 +39,7 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 pub mod ai_commands;
+pub mod ai_guards;
 pub mod ai_policy;
 pub mod authorize;
 pub mod commands;

@@ -61,22 +61,28 @@ import { serializeByPath } from "./serializeByPath";
 import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
 import { captureWrite } from "@/services/coherence/captureFunnel";
 import { saveError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorDetailString, commandErrorMessage, isCommandErrorCode }
+  from "@/services/commands/commandError";
 
-/**
- * Sentinel prefix returned by the Rust `atomic_write_file` command when the
- * parent directory of the target path no longer exists (renamed/deleted
- * externally). Must stay in sync with `src-tauri/src/lib.rs`.
- */
+/** Pre-WI-14 sentinel prefix. Transitional only — delete with its tests once
+ *  the CommandError ratchet (`scripts/check-command-error-ratchet.mjs`) is 0. */
 const PARENT_MISSING_PREFIX = "PARENT_MISSING:";
 
+/**
+ * The vanished directory, or `null` if this failure is something else.
+ *
+ * Typed first (`code: "not-found"` + `detail.dir`), legacy prefix second. The
+ * prefix match is what the typed path replaced: it could not tell a real
+ * sentinel from an OS message starting with those characters, and any
+ * rewording of the Rust error silently disabled the Save As recovery.
+ */
 function parseParentMissingError(error: unknown): string | null {
+  if (isCommandErrorCode(error, "not-found")) return commandErrorDetailString(error, "dir");
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : null;
   if (!message || !message.startsWith(PARENT_MISSING_PREFIX)) return null;
   return message.slice(PARENT_MISSING_PREFIX.length);
 }
-
 
 /** Normalized save payload plus the line-ending/hard-break styles applied. */
 interface NormalizedSaveContent {
@@ -151,7 +157,9 @@ function handleWriteError(
   // a notification every interval. The next manual save (or an external
   // signal like the file becoming missing) will surface the problem.
   if (saveType === "manual") {
-    const message = errorMessage(error);
+    // `commandErrorMessage`, not `errorMessage`: a typed rejection is a plain
+    // object, and `String(object)` renders it as "[object Object]".
+    const message = commandErrorMessage(error);
     // Pin: failure messages can be long (system errors include paths and
     // permission details). Users may want to copy them down.
     toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {

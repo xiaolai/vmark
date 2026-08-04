@@ -7,10 +7,10 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import type { AnchorRect } from "@/utils/popupPosition";
-import { calculatePopupPosition } from "@/utils/popupPosition";
+import { calculatePopupPosition, type AnchorRect } from "@/utils/popupPosition";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
-import { getEditorBounds, getPopupHostForDom, toHostCoordsForDom } from "./sourcePopupUtils";
+import { getEditorBounds } from "./sourcePopupUtils";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /**

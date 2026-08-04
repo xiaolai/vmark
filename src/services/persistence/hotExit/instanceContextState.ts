@@ -33,6 +33,9 @@ import {
   type PersistedBrowserTab,
 } from "@/services/persistence/sessionTabs";
 import { orderedWindowInstances } from "@/services/workspaces/workspaceContextOwnership";
+import { instanceUiStateSchema, opaqueRecordSchema, schemaReason } from "./sessionSchema";
+import { quarantineSessionEntries } from "./sessionQuarantine";
+import type { QuarantinedEntry } from "./sessionSalvage";
 import type { WindowState } from "./types";
 
 export interface InstanceContextCapture {
@@ -85,37 +88,72 @@ function remapOutlineTabIds(
   return { ...ui, outlineByTabId: remapped };
 }
 
-/** Restore the captured per-instance context after tab-id reconciliation. */
-export function restoreInstanceContextState(
+/**
+ * Restore the captured per-instance context after tab-id reconciliation.
+ *
+ * Returns whether every rejected fragment was PRESERVED. The caller must not
+ * let the session file be cleared on `false` (audit 20260804-F12): this used
+ * to fire the quarantine write and forget it, so a restore could report
+ * success — and the session file be deleted — while the artifact write was
+ * still in flight or had already failed. The rejected payloads then existed
+ * nowhere, which is the one outcome quarantine exists to prevent.
+ */
+export async function restoreInstanceContextState(
   windowLabel: string,
   windowState: WindowState,
   tabIdMap: Map<string, string>,
-): void {
+): Promise<boolean> {
+  const quarantined: QuarantinedEntry[] = [];
+
   if (windowState.ui_state_by_instance && isWorkspaceRailEnabled()) {
-    // The UI store's hydrate guard drops malformed entries; remap outline
-    // tab ids first so per-tab state follows the recreated tabs. Audit
-    // R2-F16: only THIS window's instances may hydrate (payloads are
-    // untrusted — junk or cross-window ids are dropped).
+    // WI-3: Zod-validate each entry BEFORE the cast; a corrupt entry is
+    // quarantined (preserved), never hydrated. Remap outline tab ids so
+    // per-tab state follows the recreated tabs. Audit R2-F16: only THIS
+    // window's instances may hydrate (payloads are untrusted — junk or
+    // cross-window ids are dropped).
     const windowInstanceIds = new Set(
       orderedWindowInstances(windowLabel).map((i) => i.workspaceInstanceId),
     );
     const remapped: Record<string, InstanceUiState> = {};
     for (const [id, raw] of Object.entries(windowState.ui_state_by_instance)) {
       if (!windowInstanceIds.has(id)) continue;
-      const ui = raw as InstanceUiState;
-      remapped[id] =
-        ui && typeof ui === "object" && ui.outlineByTabId
-          ? remapOutlineTabIds(ui, tabIdMap)
-          : (ui as InstanceUiState);
+      const parsed = instanceUiStateSchema.safeParse(raw);
+      if (!parsed.success) {
+        quarantined.push({
+          path: `ui_state_by_instance.${id}`,
+          raw,
+          reason: schemaReason(parsed.error),
+        });
+        continue;
+      }
+      remapped[id] = remapOutlineTabIds(raw as InstanceUiState, tabIdMap);
     }
     useWorkspaceInstanceUiStore.getState().hydrateInstanceUiStates(remapped);
   }
 
   if (windowState.closed_tab_scopes && isWorkspaceRailEnabled()) {
-    useClosedTabScopesStore
-      .getState()
-      .hydrateWindowClosedScopes(windowLabel, windowState.closed_tab_scopes);
+    // WI-3: a wrong-typed payload is quarantined instead of hydrated.
+    const scopes = opaqueRecordSchema.safeParse(windowState.closed_tab_scopes);
+    if (scopes.success) {
+      useClosedTabScopesStore
+        .getState()
+        .hydrateWindowClosedScopes(windowLabel, windowState.closed_tab_scopes);
+    } else {
+      quarantined.push({
+        path: "closed_tab_scopes",
+        raw: windowState.closed_tab_scopes,
+        reason: schemaReason(scopes.error),
+      });
+    }
   }
+
+  // AWAIT the artifact write, and report the outcome. Restore does block on it
+  // — a few milliseconds of disk against the alternative of clearing the
+  // session file while the only copy of the corrupt bytes is a pending
+  // promise. The browser records below are unrelated and still restore either
+  // way; only the CLEAR is withheld.
+  const preserved =
+    quarantined.length === 0 ? true : await quarantineSessionEntries(quarantined);
 
   if (windowState.browser_session) {
     // Same validation gate as the normal window session (canonical http(s)
@@ -125,4 +163,6 @@ export function restoreInstanceContextState(
     }).filter((rec): rec is PersistedBrowserTab => rec.kind === "browser");
     restoreBrowserRecords(windowLabel, records);
   }
+
+  return preserved;
 }

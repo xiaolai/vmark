@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "現在実行中のワークフローはありません"
   workflow.circularDependency: "ワークフローのステップに循環依存が検出されました"
   workflow.noInteractivePrompt: "ワークフロー実行では対話型プロンプトはサポートされていません"
+  workflow.engineDisabled: "ワークフローエンジンは設定でオフになっています"
+  workflow.noPendingApproval: "該当する保留中の承認リクエストはありません"
+  workflow.appDataDirUnavailable: "アプリデータディレクトリを解決できませんでした: %{detail}"
+
+  # === 保存パス（file_write.rs、WI-14 CommandError）===
+  save.parentMissing: "このファイルのフォルダはもう存在しません: %{dir}"
+  save.noParentDirectory: "ファイルパスに親フォルダがありません"
+  save.writeFailed: "ファイルを保存できませんでした: %{detail}"
+  save.taskFailed: "保存タスクが予期せず終了しました: %{detail}"
+
+  # === 内蔵ブラウザ、AI ナビゲーション（browser/ai_commands.rs、WI-14）===
+  browser.disabled: "内蔵ブラウザは設定でオフになっています"
+  browser.approvalRequired: "AI がこのページを開くには承認が必要です"
+  browser.blockedDestination: "ポリシーにより AI のこの宛先への移動はブロックされています"
+  browser.profileNotApproved: "このブラウザプロファイルを開く許可がありません"
+  browser.tabNotFound: "そのブラウザタブはもう存在しません"
+  browser.tabNotAiOwned: "そのブラウザタブは AI の管理下にありません"
+  browser.policyStale: "ブラウザポリシーが変更されました。操作をやり直してください"
+  browser.tabProvenanceMismatch: "そのタブは別の自動化モードで作成されました"
+  browser.invalidSessionMode: "不明なブラウザセッションモード「%{mode}」"
+  browser.stateUnavailable: "ブラウザの状態を読み取れませんでした: %{detail}"
+  browser.invalidUrl: "これは有効なウェブアドレスではありません"
+  browser.invalidProfileName: "そのブラウザプロファイル名は使用できません"
+  browser.windowGone: "このブラウザタブが属するウインドウは閉じられました"
+  browser.profileLimit: "同時に開いているブラウザプロファイルが多すぎます"
+  browser.unsupportedPlatform: "内蔵ブラウザはこのプラットフォームでは利用できません"
+  browser.surfaceTimeout: "ブラウザが時間内に応答しませんでした"
+  browser.surfaceFailed: "ブラウザはその操作を完了できませんでした"
 
   # === Hot exit ===
   hotExit.noWindows: "キャプチャするドキュメントウィンドウがありません"

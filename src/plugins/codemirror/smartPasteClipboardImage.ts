@@ -6,7 +6,7 @@
  * inserts ![](relative-path) markdown at the cursor.
  *
  * @coordinates-with smartPaste.ts — called from the paste event handler
- * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets for asset management
+ * @coordinates-with services/media/imageOperations.ts — copyImageToAssets for asset management
  * @module plugins/codemirror/smartPasteClipboardImage
  */
 
@@ -14,7 +14,7 @@ import type { EditorView } from "@codemirror/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { hostDocument } from "@/plugins/shared/hostDocument";
-import { saveImageToAssets } from "@/hooks/useImageOperations";
+import { saveImageToAssets } from "@/services/media/imageOperations";
 import { generateClipboardImageFilename } from "@/plugins/imageHandler/imageHandlerUtils";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
 import { getWindowLabel } from "@/services/navigation/windowFocus";

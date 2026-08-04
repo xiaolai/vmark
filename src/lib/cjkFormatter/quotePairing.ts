@@ -9,10 +9,16 @@
  * Key decisions:
  *   - Stack-based (not regex): correctly handles nested quotes, which regex
  *     approaches cannot reliably pair
- *   - Apostrophe detection: letter+'+ letter pattern, possessive 's, decade '90s
- *   - Prime detection: digit+' (feet) and digit+" (inches) patterns
+ *   - Character-level classification (apostrophes, primes, decades, roles)
+ *     lives in quoteClassification.ts; this file owns pairing and conversion
  *   - CJK involvement check: inspects content AND boundary characters to decide
- *     whether a pair should use CJK-style glyphs
+ *     whether a pair should use CJK-style glyphs; boundary checks skip
+ *     spaces/tabs so the decision is stable under the spacing the pipeline
+ *     itself inserts (idempotence)
+ *   - Corner brackets 「」『』 tokenize as fixed-role quotes when
+ *     `cornerBracketsAsQuotes` is set (applyContextualQuotes does; quoteToggle
+ *     must not — it matches corners itself), and are never replaced —
+ *     re-formatting corner-converted output must see the same pairing topology
  *   - Orphan cleanup: when an outer quote closes, any unclosed inner quotes of
  *     the opposite type are moved to the orphan list
  *   - Four conversion modes: off, curly-everywhere, contextual (CJK=curly,
@@ -22,30 +28,30 @@
  *
  * @coordinates-with rules.ts — applyContextualQuotes called from applyRules when smartQuoteConversion enabled
  * @coordinates-with latinSpanScanner.ts — isCJKLetter used for boundary detection
+ * @coordinates-with quoteClassification.ts — quote glyph constants and per-character role classification
  * @module lib/cjkFormatter/quotePairing
  */
 
 import { isCJKLetter } from "./latinSpanScanner";
-
-// Quote characters
-const STRAIGHT_DOUBLE = '"';
-const STRAIGHT_SINGLE = "'";
-const CURLY_DOUBLE_OPEN = "\u201c"; // "
-const CURLY_DOUBLE_CLOSE = "\u201d"; // "
-const CURLY_SINGLE_OPEN = "\u2018"; // '
-const CURLY_SINGLE_CLOSE = "\u2019"; // '
-const CORNER_DOUBLE_OPEN = "「";
-const CORNER_DOUBLE_CLOSE = "」";
-const CORNER_SINGLE_OPEN = "『";
-const CORNER_SINGLE_CLOSE = "』";
-
-// Character sets for context detection
-const OPENING_BRACKETS = "([{（【《〈「『";
-const CLOSING_BRACKETS = ")]}）】》〉」』";
-const TERMINAL_PUNCTUATION = "，。！？；：、.,!?;:";
-
-type QuoteType = "double" | "single";
-type QuoteRole = "open" | "close" | "apostrophe" | "prime" | "ambiguous";
+import {
+  STRAIGHT_DOUBLE,
+  STRAIGHT_SINGLE,
+  CURLY_DOUBLE_OPEN,
+  CURLY_DOUBLE_CLOSE,
+  CURLY_SINGLE_OPEN,
+  CURLY_SINGLE_CLOSE,
+  CORNER_DOUBLE_OPEN,
+  CORNER_DOUBLE_CLOSE,
+  CORNER_SINGLE_OPEN,
+  CORNER_SINGLE_CLOSE,
+  CORNER_QUOTE_ROLES,
+  classifyQuote,
+  isApostrophe,
+  isDecadeAbbreviation,
+  isPrime,
+  type QuoteType,
+  type QuoteRole,
+} from "./quoteClassification";
 
 export interface QuoteToken {
   /** Position in text */
@@ -78,159 +84,19 @@ export interface PairingResult {
   orphans: QuoteToken[];
 }
 
-/**
- * Check if character at position is part of an apostrophe pattern
- * Examples: don't, it's, l'amour, Xiaolai's
- */
-function isApostrophe(text: string, pos: number): boolean {
-  const char = text[pos];
-  /* v8 ignore next 3 -- @preserve structurally unreachable: isApostrophe is only called in tokenizeQuotes when type==="single", guaranteeing char is one of the three single-quote variants */
-  if (char !== "'" && char !== CURLY_SINGLE_CLOSE && char !== CURLY_SINGLE_OPEN) {
-    return false;
-  }
-
-  const before = pos > 0 ? text[pos - 1] : "";
-  const after = pos < text.length - 1 ? text[pos + 1] : "";
-
-  // Letter + ' + letter: don't, it's, l'amour
-  if (/[a-zA-Z]/.test(before) && /[a-zA-Z]/.test(after)) {
-    return true;
-  }
-
-  // Letter + ' + s (possessive): Xiaolai's
-  // Note: this block is structurally unreachable — if after==="s", the letter+'+letter check above
-  // already returns true (since "s" passes /[a-zA-Z]/).
-  /* v8 ignore next 5 -- @preserve unreachable: when after==="s", the letter+letter contraction branch (line 95) fires first; "s" always matches /[a-zA-Z]/ */
-  if (/[a-zA-Z]/.test(before) && after.toLowerCase() === "s") {
-    // Check if followed by word boundary
-    const afterS = pos + 2 < text.length ? text[pos + 2] : "";
-    if (!/[a-zA-Z]/.test(afterS)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Check if character at position is part of a decade abbreviation
- * Example: '90s
- */
-function isDecadeAbbreviation(text: string, pos: number): boolean {
-  const char = text[pos];
-  if (char !== "'" && char !== CURLY_SINGLE_OPEN) {
-    return false;
-  }
-
-  // Must not be preceded by a digit (that would be feet/inches like 5'10")
-  const before = pos > 0 ? text[pos - 1] : "";
-  if (/[0-9]/.test(before)) {
-    return false;
-  }
-
-  // Check for pattern: ' + digit + digit + optional 's'
-  const after1 = pos + 1 < text.length ? text[pos + 1] : "";
-  const after2 = pos + 2 < text.length ? text[pos + 2] : "";
-
-  if (/[0-9]/.test(after1) && /[0-9]/.test(after2)) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Check if character at position is part of a measurement prime
- * Examples: 5'10" (feet/inches), 6', 12"
- */
-function isPrime(text: string, pos: number): boolean {
-  const char = text[pos];
-  const before = pos > 0 ? text[pos - 1] : "";
-
-  // Single prime (feet): digit + '
-  if ((char === "'" || char === CURLY_SINGLE_CLOSE) && /[0-9]/.test(before)) {
-    return true;
-  }
-
-  // Double prime (inches): digit + " or digit' + digit + "
-  if ((char === '"' || char === CURLY_DOUBLE_CLOSE) && /[0-9]/.test(before)) {
-    // Check if this looks like feet/inches pattern
-    // Look back for pattern like 5'10
-    for (let i = pos - 1; i >= 0 && i > pos - 5; i--) {
-      if (text[i] === "'" || text[i] === CURLY_SINGLE_CLOSE) {
-        return true;
-      }
-      if (!/[0-9]/.test(text[i])) {
-        break;
-      }
-    }
-    // Just digit + " could be inches
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Classify a quote as OPEN or CLOSE based on context
- */
-function classifyQuote(
-  text: string,
-  pos: number,
-  type: QuoteType,
-  doubleStack: number[],
-  singleStack: number[]
-): QuoteRole {
-  // Get neighbors (skip whitespace)
-  let leftNeighbor = "";
-  for (let i = pos - 1; i >= 0; i--) {
-    if (text[i] !== " " && text[i] !== "\t") {
-      leftNeighbor = text[i];
-      break;
-    }
-  }
-
-  let rightNeighbor = "";
-  for (let i = pos + 1; i < text.length; i++) {
-    if (text[i] !== " " && text[i] !== "\t") {
-      rightNeighbor = text[i];
-      break;
-    }
-  }
-
-  const atStart = pos === 0 || text[pos - 1] === "\n";
-  const atEnd = pos === text.length - 1 || text[pos + 1] === "\n";
-  const leftIsWhitespace = pos === 0 || /\s/.test(text[pos - 1]);
-  const rightIsWhitespace = pos === text.length - 1 || /\s/.test(text[pos + 1]);
-  const leftIsOpenBracket = OPENING_BRACKETS.includes(leftNeighbor);
-  const rightIsCloseBracket = CLOSING_BRACKETS.includes(rightNeighbor);
-  const rightIsTerminal = TERMINAL_PUNCTUATION.includes(rightNeighbor);
-
-  // Strong OPEN signals
-  if (atStart || leftIsWhitespace || leftIsOpenBracket) {
-    return "open";
-  }
-
-  // Strong CLOSE signals
-  if (atEnd || rightIsWhitespace || rightIsCloseBracket || rightIsTerminal) {
-    return "close";
-  }
-
-  // Check stack for matching opener
-  const stack = type === "double" ? doubleStack : singleStack;
-  if (stack.length > 0) {
-    return "close";
-  }
-
-  // Default to open
-  return "open";
-}
 
 /**
  * Check if a span involves CJK context
  * - Content contains CJK letters, OR
  * - Left boundary touches CJK, OR
  * - Right boundary touches CJK
+ *
+ * Boundary checks skip spaces/tabs (never newlines): the pipeline's own
+ * spacing rules insert spaces between quote glyphs and CJK text AFTER the
+ * quote decision was made, so a decision based on the immediate character
+ * flips on the next formatting pass (''中0 → ‘’ 中 0 → '' 中 0). Whitespace
+ * must be transparent here for the conversion to be idempotent under the
+ * formatter's own output.
  */
 function checkCJKInvolvement(
   text: string,
@@ -245,29 +111,50 @@ function checkCJKInvolvement(
     }
   }
 
-  // Check left boundary (character before opening quote)
-  if (openIndex > 0) {
-    const leftChar = text[openIndex - 1];
-    if (isCJKLetter(leftChar)) {
-      return true;
-    }
+  // Check left boundary (nearest non-space char before the opening quote)
+  for (let i = openIndex - 1; i >= 0; i--) {
+    const ch = text[i];
+    if (ch === " " || ch === "\t") continue;
+    if (isCJKLetter(ch)) return true;
+    break;
   }
 
-  // Check right boundary (character after closing quote)
-  if (closeIndex < text.length - 1) {
-    const rightChar = text[closeIndex + 1];
-    if (isCJKLetter(rightChar)) {
-      return true;
-    }
+  // Check right boundary (nearest non-space char after the closing quote)
+  for (let i = closeIndex + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === " " || ch === "\t") continue;
+    if (isCJKLetter(ch)) return true;
+    break;
   }
 
   return false;
 }
 
+/** Options for tokenizeQuotes / analyzeQuotes. */
+export interface TokenizeOptions {
+  /**
+   * Treat corner brackets 「」『』 as quote tokens with fixed open/close roles.
+   *
+   * Used by applyContextualQuotes so a re-format sees the same pairing
+   * topology it produced: after corner-for-cjk converts "…" to 「…」, a second
+   * pass that cannot see the corners loses that pair's orphan-absorbing
+   * effect, and singles it had absorbed suddenly pair with each other and get
+   * converted (’ became 『 on the second pass). Corner glyphs are only ever
+   * PAIRED, never replaced.
+   *
+   * Off by default: quoteToggle.ts runs its own corner/guillemet matcher on
+   * top of analyzeQuotes and would see duplicate pairs otherwise.
+   */
+  cornerBracketsAsQuotes?: boolean;
+}
+
 /**
  * Tokenize quotes in text, filtering out apostrophes and primes
  */
-export function tokenizeQuotes(text: string): QuoteToken[] {
+export function tokenizeQuotes(
+  text: string,
+  options: TokenizeOptions = {}
+): QuoteToken[] {
   const tokens: QuoteToken[] = [];
   const doubleStack: number[] = [];
   const singleStack: number[] = [];
@@ -276,6 +163,21 @@ export function tokenizeQuotes(text: string): QuoteToken[] {
     const char = text[i];
     let type: QuoteType | null = null;
     let isQuoteChar = false;
+
+    // Corner brackets: unambiguous roles, no classification needed.
+    if (options.cornerBracketsAsQuotes && char in CORNER_QUOTE_ROLES) {
+      const [cornerType, cornerRole] = CORNER_QUOTE_ROLES[char];
+      if (cornerRole === "open") {
+        (cornerType === "double" ? doubleStack : singleStack).push(i);
+      } else {
+        const stack = cornerType === "double" ? doubleStack : singleStack;
+        if (stack.length > 0) {
+          stack.pop();
+        }
+      }
+      tokens.push({ index: i, char, type: cornerType, role: cornerRole });
+      continue;
+    }
 
     // Identify quote characters
     if (
@@ -393,8 +295,11 @@ function pairQuotes(text: string, tokens: QuoteToken[]): PairingResult {
 /**
  * Main entry point: tokenize and pair quotes
  */
-export function analyzeQuotes(text: string): PairingResult {
-  const tokens = tokenizeQuotes(text);
+export function analyzeQuotes(
+  text: string,
+  options: TokenizeOptions = {}
+): PairingResult {
+  const tokens = tokenizeQuotes(text, options);
   return pairQuotes(text, tokens);
 }
 
@@ -413,7 +318,9 @@ export function applyContextualQuotes(
     return text;
   }
 
-  const { pairs } = analyzeQuotes(text);
+  // Corner-aware pairing keeps the topology stable when this function's own
+  // output (corner-for-cjk) is formatted again — see TokenizeOptions.
+  const { pairs } = analyzeQuotes(text, { cornerBracketsAsQuotes: true });
 
   // Build replacement map
   const replacements = new Map<number, string>();
@@ -446,8 +353,15 @@ export function applyContextualQuotes(
       continue;
     }
 
-    replacements.set(pair.openIndex, openQuote);
-    replacements.set(pair.closeIndex, closeQuote);
+    // Never rewrite a corner glyph: user-authored 「」『』 stay as written
+    // (matching the pre-corner-aware behavior, where they were invisible to
+    // pairing and therefore untouched).
+    if (!(text[pair.openIndex] in CORNER_QUOTE_ROLES)) {
+      replacements.set(pair.openIndex, openQuote);
+    }
+    if (!(text[pair.closeIndex] in CORNER_QUOTE_ROLES)) {
+      replacements.set(pair.closeIndex, closeQuote);
+    }
   }
 
   // Apply replacements

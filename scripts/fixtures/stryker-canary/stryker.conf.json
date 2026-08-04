@@ -1,0 +1,20 @@
+{
+  "_comment": "Canary fixture config — NOT the app's mutation config (that is /stryker.config.json). `break: 90` is deliberately unmeetable: src/calc.js's untested isEven leaves surviving mutants that hold the score far below 90, so the meta-test (scripts/stryker-break-canary.test.mjs) can assert a break violation really exits non-zero. Kept tiny (one file, one test, a handful of mutants) so the canary stays fast.",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": {
+    "configFile": "vitest.config.js"
+  },
+  "mutate": ["src/calc.js"],
+  "coverageAnalysis": "perTest",
+  "reporters": ["clear-text"],
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 90
+  },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true,
+  "concurrency": 2,
+  "incremental": false
+}

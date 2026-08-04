@@ -14,7 +14,7 @@
  *   - Supports both inline images (in paragraph context) and block images (at block boundary)
  *   - Utility functions (isImageFile, filename generation, path conversion) live in imageHandlerUtils.ts
  *
- * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets, saveImageToAssets
+ * @coordinates-with services/media/imageOperations.ts — copyImageToAssets, saveImageToAssets
  * @coordinates-with utils/imagePathDetection.ts — image format and path detection
  * @coordinates-with plugins/shared/hostPopups.ts — toast for paste confirmation
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
@@ -28,7 +28,7 @@ import { Plugin, PluginKey, Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { saveImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
+import { saveImageToAssets, insertBlockImageNode } from "@/services/media/imageOperations";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { hostSettings } from "@/plugins/shared/hostSettings";
 import { detectMultipleImagePaths } from "@/utils/imagePathDetection";

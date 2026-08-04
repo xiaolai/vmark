@@ -146,50 +146,39 @@ module.exports = {
       },
     },
 
-    // Rule 4: Cross-plugin imports only via shared/ or sourcePopup/
+    // Rule 4: Cross-plugin imports only via shared/ or coordination plugins
     //
-    // Coordination plugins are exempted — they orchestrate multiple plugins
-    // by design. The rule still catches isolated plugins that shouldn't reach
-    // into other plugins' internals.
+    // WI-8 (arch review B3): the former "verified cross-plugin dependencies"
+    // block granted 17 plugin-WIDE licenses that masked every edge those
+    // plugins had or would ever grow. Deleted. Every real existing edge is
+    // now frozen INDIVIDUALLY in `.dependency-cruiser-known-violations.json`
+    // (regenerate with `pnpm exec depcruise-baseline src --config
+    // .dependency-cruiser.cjs` — only ever to record a REMOVED edge; the
+    // count ratchets down via scripts/extension-budget.json). Only true
+    // coordination plugins — whose PURPOSE is orchestrating other plugins —
+    // keep a license, each with its reason below.
     {
       name: "plugin-isolation",
       severity: "error",
       comment:
-        "Plugins should be self-contained. Cross-plugin imports are allowed only through shared/, sourcePopup/, or coordination plugins.",
+        "Plugins should be self-contained. Cross-plugin imports go through shared/ or a coordination plugin; every other existing edge is frozen per-edge in .dependency-cruiser-known-violations.json and ratchets down.",
       from: {
         path: "^src/plugins/([^/]+)/",
         pathNot: [
-          // Coordination plugins (inherently cross-cutting)
+          // Dispatches every toolbar/context-menu action into the feature
+          // plugins — cross-plugin dispatch is its entire purpose.
           "src/plugins/toolbarActions/",
-          "src/plugins/toolbarContext/",
-          "src/plugins/sourceContextDetection/",
+          // Source-mode assembly cluster (40+ files): composes the CodeMirror
+          // extension stack from the feature plugins.
           "src/plugins/codemirror/",
-          "src/plugins/formatToolbar/",
+          // Composes cross-plugin editor commands/keymaps (multiCursor,
+          // syntaxReveal, toolbarActions policies) into the WYSIWYG editor.
           "src/plugins/editorPlugins/",
+          // WYSIWYG toolbar surface built on toolbarContext's intent types.
+          "src/plugins/formatToolbar/",
+          // Fence-preview hub: dispatches rendering/export to the diagram
+          // plugins (mermaid, graphviz, markmap, svg, latex) by design.
           "src/plugins/codePreview/",
-          // Plugins with verified cross-plugin dependencies
-          "src/plugins/tabIndent/",
-          "src/plugins/blockEscape/",
-          "src/plugins/blockImage/",
-          "src/plugins/sourcePeekInline/",
-          "src/plugins/sourceLinkPopup/",
-          "src/plugins/sourceImagePopup/",
-          // Source-twin popup needing its non-source sibling's operations
-          // (parallel to the sourceLinkPopup / sourceImagePopup pattern above).
-          "src/plugins/sourceLinkCreatePopup/",
-          // Source-twin popup needing the latex katexLoader.
-          "src/plugins/sourceMathPopup/",
-          // markdownArtifacts parses frontmatter; frontmatterPanel owns its
-          // node view. The parser→view coupling is the documented design.
-          "src/plugins/markdownArtifacts/",
-          "src/plugins/htmlPaste/",
-          "src/plugins/markdownPaste/",
-          "src/plugins/aiSuggestion/",
-          "src/plugins/mathPopup/",
-          "src/plugins/mathPreview/",
-          "src/plugins/mermaidPreview/",
-          "src/plugins/latex/",
-          "src/plugins/shared/",
         ],
       },
       to: {
@@ -197,11 +186,6 @@ module.exports = {
         pathNot: [
           "^src/plugins/$1/",
           "^src/plugins/shared/",
-          "^src/plugins/sourcePopup/",
-          // ADR-011: the plugin registry is the cross-cutting contract
-          // module; every plugin's manifest.ts imports its PluginManifest
-          // type. Treat it like shared/.
-          "^src/plugins/registry\\.ts$",
         ],
       },
     },

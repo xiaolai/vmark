@@ -26,7 +26,7 @@ import {
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 const AUTO_DISMISS_MS = 5000;
 

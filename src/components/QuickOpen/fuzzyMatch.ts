@@ -119,9 +119,11 @@ export function fuzzyMatch(
   const combined = filenameScore + pathScore;
   if (combined <= 0 || (!fileResult && !pathIndices)) return null;
 
+  // `pathIndices` is omitted, not set to undefined: its absence is what "the
+  // path contributed no match" means, and the highlighter checks presence.
   return {
     score: combined,
     indices: fileResult?.indices ?? [],
-    pathIndices,
+    ...(pathIndices ? { pathIndices } : {}),
   };
 }

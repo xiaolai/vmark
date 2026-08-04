@@ -249,6 +249,34 @@ errors:
   workflow.notRunning: "No workflow is currently running"
   workflow.circularDependency: "Circular dependency detected in workflow steps"
   workflow.noInteractivePrompt: "Interactive prompt not supported in workflow execution"
+  workflow.engineDisabled: "The workflow engine is turned off in Settings"
+  workflow.noPendingApproval: "No outstanding approval request matched"
+  workflow.appDataDirUnavailable: "Could not resolve the app data directory: %{detail}"
+
+  # === Save path (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "The folder for this file no longer exists: %{dir}"
+  save.noParentDirectory: "The file path has no containing folder"
+  save.writeFailed: "Could not save the file: %{detail}"
+  save.taskFailed: "The save task ended unexpectedly: %{detail}"
+
+  # === Embedded browser, AI navigation (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "The embedded browser is turned off in Settings"
+  browser.approvalRequired: "This page needs your approval before the AI can open it"
+  browser.blockedDestination: "AI navigation to this destination is blocked by policy"
+  browser.profileNotApproved: "Opening this browser profile was not approved"
+  browser.tabNotFound: "That browser tab no longer exists"
+  browser.tabNotAiOwned: "That browser tab is not controlled by the AI"
+  browser.policyStale: "The browser policy changed — try the action again"
+  browser.tabProvenanceMismatch: "That tab was created under a different automation mode"
+  browser.invalidSessionMode: "Unknown browser session mode '%{mode}'"
+  browser.stateUnavailable: "The browser state could not be read: %{detail}"
+  browser.invalidUrl: "That is not a usable web address"
+  browser.invalidProfileName: "That browser profile name is not allowed"
+  browser.windowGone: "The window this browser tab belongs to has closed"
+  browser.profileLimit: "Too many browser profiles are open at once"
+  browser.unsupportedPlatform: "The embedded browser is not available on this platform"
+  browser.surfaceTimeout: "The browser did not respond in time"
+  browser.surfaceFailed: "The browser could not complete that action"
 
   # === Hot exit ===
   hotExit.noWindows: "No document windows to capture"

@@ -7,7 +7,14 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { bindPluginHostSettings } from "./bindHostSettings";
 import { hostSettings, resetHostSettings } from "@/plugins/shared/hostSettings";
-import { hostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
+import {
+  hostDocument,
+  resetHostDocument,
+  activeFilePathForCurrentWindow,
+} from "@/plugins/shared/hostDocument";
+import * as windowFocus from "@/services/navigation/windowFocus";
+import { useTabStore } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { hostPopups } from "@/plugins/shared/hostPopups";
 import { lintDiagnosticsSource } from "./hostAdapters";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -59,6 +66,23 @@ describe("a real tab resolves to its document path", () => {
 
     bindPluginHostSettings();
     expect(hostDocument.activeFilePath("main")).toBe("/tmp/doc.md");
+  });
+
+  it("binds the REAL window label, so the seam default is never what ships", () => {
+    // WI-11 case 10 — "default ≡ app default", the `tabSize` 4-vs-2 lesson in
+    // its other direction. The seam's default `currentWindowLabel` is null
+    // ("no window"), which is right for a lifted-out plugin and WRONG inside
+    // VMark: if the composition root forgets to bind it, every one of the
+    // eight callers of `activeFilePathForCurrentWindow()` silently resolves
+    // relative links against nothing. Asserting the resolved PATH (not the
+    // label) is what makes a missing binding fail here.
+    const { getWindowLabel } = windowFocus;
+    const tabId = useTabStore.getState().createTab(getWindowLabel(), null);
+    useDocumentStore.getState().initDocument(tabId, "body", "/tmp/current-window.md");
+
+    bindPluginHostSettings();
+    expect(hostDocument.currentWindowLabel()).toBe(getWindowLabel());
+    expect(activeFilePathForCurrentWindow()).toBe("/tmp/current-window.md");
   });
 });
 
@@ -151,8 +175,14 @@ describe("the link-surface bindings map requests onto the real stores", () => {
   });
 
   it("reports nothing open before anything opens", async () => {
-    const { usePopupStore } = await import("@/stores/popupStore");
-    usePopupStore.setState(usePopupStore.getInitialState());
+    const { useLinkPopupStore } = await import("@/stores/linkPopupStore");
+    const { useLinkCreatePopupStore } = await import("@/stores/linkCreatePopupStore");
+    const { useWikiLinkPopupStore } = await import("@/stores/wikiLinkPopupStore");
+    const { useHeadingPickerStore } = await import("@/stores/headingPickerStore");
+    useLinkPopupStore.setState(useLinkPopupStore.getInitialState());
+    useLinkCreatePopupStore.setState(useLinkCreatePopupStore.getInitialState());
+    useWikiLinkPopupStore.setState(useWikiLinkPopupStore.getInitialState());
+    useHeadingPickerStore.setState(useHeadingPickerStore.getInitialState());
     expect(hostPopups.anyLinkSurfaceOpen()).toBe(false);
   });
 

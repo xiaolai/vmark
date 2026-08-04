@@ -40,6 +40,7 @@ type ClientSocket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
 fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
     tauri::test::mock_builder()
+        .manage(super::super::managed::McpBridgeState::default())
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app")
 }
@@ -50,7 +51,7 @@ fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
 /// admission decision under test is the shipping code path rather than a
 /// test-only imitation of it. The counters record what that decision did.
 struct Server {
-    _app: tauri::App<tauri::test::MockRuntime>,
+    app: tauri::App<tauri::test::MockRuntime>,
     port: u16,
     admitted: Arc<AtomicUsize>,
     refused: Arc<AtomicUsize>,
@@ -77,7 +78,7 @@ async fn serve() -> Server {
         }
     });
     Server {
-        _app: app,
+        app,
         port,
         admitted,
         refused,
@@ -119,16 +120,9 @@ async fn send_auth(socket: &mut ClientSocket, token: &str) {
         .expect("send auth");
 }
 
-async fn is_registered(client_id: u64) -> bool {
-    let state = get_bridge_state();
-    let guard = state.lock().await;
-    guard.clients.contains_key(&client_id)
-}
-
-async fn unregister(client_id: u64) {
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
-    guard.clients.remove(&client_id);
+/// Whether `app`'s bridge holds a record for `client_id`.
+async fn is_registered(app: &tauri::AppHandle<tauri::test::MockRuntime>, client_id: u64) -> bool {
+    bridge(app).lock().await.clients.contains_key(&client_id)
 }
 
 /// Poll a synchronous predicate for up to 3s. Used where the observable
@@ -144,9 +138,12 @@ async fn eventually_true(mut check: impl FnMut() -> bool) -> bool {
 }
 
 /// Same, for the registration check, which needs the async state lock.
-async fn eventually_registered(client_id: u64) -> bool {
+async fn eventually_registered(
+    app: &tauri::AppHandle<tauri::test::MockRuntime>,
+    client_id: u64,
+) -> bool {
     for _ in 0..300 {
-        if is_registered(client_id).await {
+        if is_registered(app, client_id).await {
             return true;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -277,7 +274,7 @@ async fn an_over_cap_preauth_frame_is_refused_even_with_the_real_token() {
     let reply = next_json(&mut socket).await.expect("auth_result");
     assert_eq!(reply["payload"]["success"], serde_json::json!(false));
     assert!(
-        !is_registered(client_id).await,
+        !is_registered(server.app.handle(), client_id).await,
         "an over-cap pre-auth frame must not authenticate anyone"
     );
 }
@@ -320,7 +317,7 @@ async fn a_rejected_peer_never_gets_a_client_record() {
     let client_id = welcome_client_id(&mut socket).await;
 
     assert!(
-        !is_registered(client_id).await,
+        !is_registered(server.app.handle(), client_id).await,
         "the welcome frame must not imply an allocated client"
     );
 
@@ -329,7 +326,7 @@ async fn a_rejected_peer_never_gets_a_client_record() {
     assert_eq!(reply["payload"]["success"], serde_json::json!(false));
 
     assert!(
-        !is_registered(client_id).await,
+        !is_registered(server.app.handle(), client_id).await,
         "a failed auth must leave nothing behind"
     );
 }
@@ -348,12 +345,9 @@ async fn an_authenticated_peer_is_registered() {
     assert_eq!(reply["payload"]["success"], serde_json::json!(true));
 
     assert!(
-        eventually_registered(client_id).await,
+        eventually_registered(server.app.handle(), client_id).await,
         "a valid token must produce a client record"
     );
-
-    drop(socket);
-    unregister(client_id).await;
 }
 
 // --- 3b. Concurrent-connection cap -----------------------------------------
@@ -463,14 +457,13 @@ async fn a_connection_slot_is_released_even_when_the_task_unwinds() {
 /// probe sender. `probe.is_closed()` becomes true only once the writer task
 /// has actually been dropped, which is how an abort is observed.
 async fn register_with_writer(
+    app: &tauri::AppHandle<tauri::test::MockRuntime>,
     client_id: u64,
 ) -> (tauri::async_runtime::JoinHandle<()>, mpsc::Sender<String>) {
     let (tx, mut rx) = mpsc::channel::<String>(4);
     let probe = tx.clone();
     let writer = tauri::async_runtime::spawn(async move { while rx.recv().await.is_some() {} });
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
-    guard.clients.insert(
+    bridge(app).lock().await.clients.insert(
         client_id,
         ClientConnection {
             tx,
@@ -491,8 +484,11 @@ async fn a_panic_after_registration_still_unregisters_and_stops_the_writer() {
     let _lock = connection_test_lock().lock().await;
     let app = mock_app();
     let client_id = 990_001;
-    let (writer, probe) = register_with_writer(client_id).await;
-    assert!(is_registered(client_id).await, "precondition: registered");
+    let (writer, probe) = register_with_writer(app.handle(), client_id).await;
+    assert!(
+        is_registered(app.handle(), client_id).await,
+        "precondition: registered"
+    );
 
     unregister_after(client_id, app.handle(), writer, async {
         panic!("simulated panic inside handle_message");
@@ -500,7 +496,7 @@ async fn a_panic_after_registration_still_unregisters_and_stops_the_writer() {
     .await;
 
     assert!(
-        !is_registered(client_id).await,
+        !is_registered(app.handle(), client_id).await,
         "a panic must not leak the client record"
     );
     let closed = eventually_true(|| probe.is_closed()).await;
@@ -517,10 +513,10 @@ async fn a_clean_exit_unregisters_and_stops_the_writer_too() {
     let _lock = connection_test_lock().lock().await;
     let app = mock_app();
     let client_id = 990_002;
-    let (writer, probe) = register_with_writer(client_id).await;
+    let (writer, probe) = register_with_writer(app.handle(), client_id).await;
 
     unregister_after(client_id, app.handle(), writer, async {}).await;
 
-    assert!(!is_registered(client_id).await);
+    assert!(!is_registered(app.handle(), client_id).await);
     assert!(eventually_true(|| probe.is_closed()).await);
 }

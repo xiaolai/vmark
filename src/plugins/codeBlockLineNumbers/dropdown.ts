@@ -13,7 +13,7 @@
  * @coordinates-with sourcePopup — uses getPopupHostForDom/toHostCoordsForDom for popup-host detection
  * @module plugins/codeBlockLineNumbers/dropdown
  */
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import i18n from "@/i18n";
 import { LANGUAGES } from "./languages";
 

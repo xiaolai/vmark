@@ -64,7 +64,7 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => mockIsImeKeyEvent,
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -1440,7 +1440,7 @@ describe("MediaPopupView", () => {
 
   describe("show() — no host found early return (line 276 if branch)", () => {
     it("returns early from show() when getPopupHostForDom returns null", async () => {
-      const sourcePopup = await import("@/plugins/sourcePopup");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       vi.spyOn(sourcePopup, "getPopupHostForDom" as never).mockReturnValue(null as never);
 
       popup.destroy();

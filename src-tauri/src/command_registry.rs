@@ -114,6 +114,7 @@ macro_rules! all_commands {
             genies::commands::list_genies,
             genies::commands::read_genie,
             workflow::commands::run_workflow,
+            workflow::commands::workflow_engine_policy,
             workflow::commands::cancel_workflow,
             workflow::commands::respond_workflow_approval,
             gha_workflow::commands::gha_lint,

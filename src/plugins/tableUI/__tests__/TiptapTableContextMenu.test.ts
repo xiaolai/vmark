@@ -48,7 +48,7 @@ vi.mock("@/utils/icons", () => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));

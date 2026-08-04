@@ -35,7 +35,7 @@ vi.mock("@/hooks/useMcpClients", () => ({
   useMcpClients: () => [],
 }));
 
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: vi.fn(),
 }));
 

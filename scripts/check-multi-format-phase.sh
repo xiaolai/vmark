@@ -256,15 +256,15 @@ case "$PHASE" in
     fi
 
     # WI-1B.8 — closeSave saveDialogFilters per-tab
-    if grep -q "saveFiltersForFilePath\|saveDialogFilters" src/hooks/closeSave.ts \
-      && ! grep -q "MARKDOWN_FILTERS" src/hooks/closeSave.ts; then
+    if grep -q "saveFiltersForFilePath\|saveDialogFilters" src/services/windowClose/closeSave.ts \
+      && ! grep -q "MARKDOWN_FILTERS" src/services/windowClose/closeSave.ts; then
       ok "closeSave.ts derives filters per format"
     else
       fail "closeSave.ts still uses MARKDOWN_FILTERS"
     fi
 
     # WI-1B.9 — useFileSave uses untitledExtension
-    if grep -q "untitledExtension" src/hooks/useFileSave.ts; then
+    if grep -q "untitledExtension" src/services/files/fileSave.ts; then
       ok "useFileSave uses adapters.untitledExtension"
     else
       fail "useFileSave still hardcodes .md"

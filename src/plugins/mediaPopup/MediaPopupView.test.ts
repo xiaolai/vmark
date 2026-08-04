@@ -136,7 +136,7 @@ vi.mock("./mediaPopupDom", () => ({
   updateMediaPopupToggleButton: vi.fn(),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => document.createElement("div")),
   toHostCoordsForDom: vi.fn((_host: unknown, pos: { top: number; left: number }) => pos),
 }));
@@ -144,7 +144,7 @@ vi.mock("@/plugins/sourcePopup", () => ({
 import { MediaPopupView } from "./MediaPopupView";
 import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { getPopupHostForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom } from "@/plugins/shared/popupHostDom";
 import { mediaPopupWarn } from "@/utils/debug";
 import { createMediaPopupDom } from "./mediaPopupDom";
 

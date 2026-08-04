@@ -144,50 +144,25 @@ async fn try_read_null_json_returns_error() {
 
 // -----------------------------------------------------------------------
 // Fallback logic tests
-// These test the read_session fallback pattern by exercising
-// try_read_session_file against session.json and session.prev.json
-// in the same way read_session does (without needing AppHandle).
+//
+// These drive the REAL `read_session_from_paths` — the path-based core the
+// `AppHandle`-taking `read_session` delegates to. They used to drive a
+// hand-written copy of the same ladder living in this file, which asserted
+// that the copy behaved, not that production did (audit 20260803 §11).
+//
+// `.map(|l| l.session)` where a test only cares about the payload; the
+// provenance flag has its own section at the bottom.
 // -----------------------------------------------------------------------
 
-/// Simulate the read_session fallback logic using direct file paths.
-/// This mirrors the logic in read_session() without requiring AppHandle —
-/// in particular it uses the same finalize_session pipeline so the version /
-/// migration fall-through introduced for audit #952 is testable here.
+/// The payload half of the real loader, for the tests that predate the
+/// provenance flag and assert only on session content.
 async fn read_session_from_paths(
     session_path: &std::path::Path,
     backup_path: &std::path::Path,
 ) -> Result<Option<SessionData>, String> {
-    // Try main session file first
-    match try_read_session_file(session_path).await {
-        Ok(Some(session)) => match finalize_session(session) {
-            Ok(Some(s)) => return Ok(Some(s)),
-            Ok(None) | Err(_) => {
-                // Unsupported version or migration failure — fall through
-                // to backup arm, matching the production behavior.
-            }
-        },
-        Ok(None) => {
-            // Main file doesn't exist — check backup
-        }
-        Err(_e) => {
-            // Main session corrupt — try backup
-        }
-    }
-
-    // Fall back to backup session — mirror production by running the
-    // backup through the same finalize_session pipeline (migrate +
-    // validate/repair), so backup migration and unsupported-version
-    // behavior are actually exercised by these tests.
-    match try_read_session_file(backup_path).await {
-        Ok(Some(session)) => match finalize_session(session) {
-            Ok(Some(s)) => Ok(Some(s)),
-            Ok(None) | Err(_) => Ok(None),
-        },
-        Ok(None) => Ok(None),
-        Err(_e) => {
-            Ok(None) // Both files unusable — start fresh
-        }
-    }
+    Ok(super::read_session_from_paths(session_path, backup_path)
+        .await?
+        .map(|loaded| loaded.session))
 }
 
 #[tokio::test]
@@ -523,4 +498,120 @@ async fn delete_session_files_errors_when_backup_cannot_be_removed() {
         "backup deletion failure must propagate as an error"
     );
     assert!(!session_path.exists(), "main session was still removed");
+}
+
+// -----------------------------------------------------------------------
+// Backup-substitution provenance (audit 20260803 §11)
+//
+// The substitution used to be silent, so the frontend could not tell a
+// backup-served payload from a main-served one — and a successful restore
+// then cleared BOTH files, destroying the corrupt main bytes unquarantined.
+// -----------------------------------------------------------------------
+
+#[tokio::test]
+async fn a_backup_substitution_is_reported_and_leaves_the_corrupt_main_intact() {
+    let dir = TempDir::new().unwrap();
+    let session_path = dir.path().join("session.json");
+    let backup_path = dir.path().join("session.prev.json");
+
+    const CORRUPT: &str = "{{{garbage";
+    std::fs::write(&session_path, CORRUPT).unwrap();
+    std::fs::write(
+        &backup_path,
+        serde_json::to_string_pretty(&make_valid_session()).unwrap(),
+    )
+    .unwrap();
+
+    let loaded = super::read_session_from_paths(&session_path, &backup_path)
+        .await
+        .expect("the backup is usable")
+        .expect("a session was served");
+
+    assert!(
+        loaded.recovered_from_backup,
+        "the frontend cannot quarantine what it is not told about"
+    );
+    assert_eq!(loaded.session.vmark_version, "0.6.9-test");
+    assert_eq!(
+        std::fs::read_to_string(&session_path).unwrap(),
+        CORRUPT,
+        "the corrupt main file is the only evidence of the failure — reading \
+         must not consume or repair it"
+    );
+}
+
+#[tokio::test]
+async fn a_usable_main_file_reports_no_substitution() {
+    let dir = TempDir::new().unwrap();
+    let session_path = dir.path().join("session.json");
+    let backup_path = dir.path().join("session.prev.json");
+
+    std::fs::write(
+        &session_path,
+        serde_json::to_string_pretty(&make_valid_session()).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        &backup_path,
+        serde_json::to_string_pretty(&make_valid_session()).unwrap(),
+    )
+    .unwrap();
+
+    let loaded = super::read_session_from_paths(&session_path, &backup_path)
+        .await
+        .expect("the main file is usable")
+        .expect("a session was served");
+
+    assert!(
+        !loaded.recovered_from_backup,
+        "a clean read must not claim recovery — the frontend would quarantine \
+         a perfectly good session file"
+    );
+}
+
+#[tokio::test]
+async fn a_missing_main_file_still_counts_as_a_substitution() {
+    // No corrupt bytes to preserve here, but the frontend's quarantine branch
+    // is the same one: the payload it holds did NOT come from session.json.
+    let dir = TempDir::new().unwrap();
+    let session_path = dir.path().join("session.json");
+    let backup_path = dir.path().join("session.prev.json");
+    std::fs::write(
+        &backup_path,
+        serde_json::to_string_pretty(&make_valid_session()).unwrap(),
+    )
+    .unwrap();
+
+    let loaded = super::read_session_from_paths(&session_path, &backup_path)
+        .await
+        .expect("the backup is usable")
+        .expect("a session was served");
+
+    assert!(loaded.recovered_from_backup);
+}
+
+#[test]
+fn the_inspect_payload_flattens_the_session_and_omits_a_false_flag() {
+    // The wire shape the frontend salvage pass reads. `recovered_from_backup`
+    // sits BESIDE the session's own fields, not under a wrapper key, because
+    // `salvageSessionPayload` is handed the whole invoke result.
+    let clean = serde_json::to_value(crate::hot_exit::commands::InspectedSession::from(
+        LoadedSession::from_main(make_valid_session()),
+    ))
+    .expect("serializes");
+    assert_eq!(clean["vmark_version"], "0.6.9-test");
+    assert!(
+        clean.get("recovered_from_backup").is_none(),
+        "a false flag must be ABSENT, not null or false: {clean}"
+    );
+
+    let recovered = serde_json::to_value(crate::hot_exit::commands::InspectedSession::from(
+        LoadedSession::from_backup(make_valid_session()),
+    ))
+    .expect("serializes");
+    assert_eq!(recovered["recovered_from_backup"], serde_json::json!(true));
+    assert_eq!(
+        recovered["vmark_version"], "0.6.9-test",
+        "the session's own fields must still be at the top level"
+    );
 }

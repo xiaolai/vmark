@@ -12,7 +12,7 @@
  *   bare Windows drive root (`C:`) is rejected as too broad.
  *
  * @coordinates-with hooks/useWindowFileWatcher — starts the Rust watcher on this path
- * @coordinates-with hooks/useWorkspaceEventBus — scopes normalized events to this path
+ * @coordinates-with services/workspaceEvents/subscribeWorkspaceEvents — scopes normalized events to this path
  * @module utils/watchRoot
  */
 

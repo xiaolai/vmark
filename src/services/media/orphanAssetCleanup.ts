@@ -27,7 +27,7 @@
  * @coordinates-with imageHandler/tiptap.ts — creates images in assets folder
  * @coordinates-with settingsStore.ts — autoCleanupEnabled user preference
  * @coordinates-with orphanCleanupPrompt.ts — the confirm-before-delete flow
- * @coordinates-with hooks/useTabOperations.ts — auto-cleanup on close
+ * @coordinates-with services/tabs/tabOperations.ts — auto-cleanup on close
  * @module services/media/orphanAssetCleanup
  */
 
@@ -65,8 +65,11 @@ export interface OrphanScanOptions {
    * Authoritative content for documents the caller already holds, keyed by
    * absolute path — open tabs whose buffer is ahead of disk, and other
    * documents closing in the same batch. Consulted instead of reading the file.
+   *
+   * `| undefined`: callers build the map from whatever live buffers they have
+   * and pass the result, which is nothing when they have none.
    */
-  knownContents?: ReadonlyMap<string, string>;
+  knownContents?: ReadonlyMap<string, string> | undefined;
   /**
    * Reference keys from OTHER WINDOWS' live buffers (WI-9). `complete: false`
    * — any window unheard from — makes the whole scan incomplete, and an

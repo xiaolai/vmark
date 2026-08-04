@@ -27,7 +27,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 const mockCloseTabWithDirtyCheck = vi.fn(
   (_windowLabel: string, _tabId: string) => Promise.resolve(true)
 );
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: (windowLabel: string, tabId: string) =>
     mockCloseTabWithDirtyCheck(windowLabel, tabId),
 }));
@@ -51,7 +51,7 @@ const mockPromptSaveForMultipleDocuments = vi.fn(
     return { action: "saved-all" as const };
   },
 );
-vi.mock("@/hooks/closeSave", () => ({
+vi.mock("@/services/windowClose/closeSave", () => ({
   promptSaveForDirtyDocument: (...args: unknown[]) =>
     mockPromptSaveForDirtyDocument(...args),
   promptSaveForMultipleDocuments: (...args: unknown[]) =>

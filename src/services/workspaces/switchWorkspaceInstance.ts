@@ -147,8 +147,12 @@ export function sanitizeSplitForInstance(
 }
 
 export interface SwitchWorkspaceOptions {
-  /** WI-13.3: config the open path already read — skips the disk re-read. */
-  preloadedConfig?: import("@/stores/workspaceStore").WorkspaceConfig | null;
+  /**
+   * WI-13.3: config the open path already read — skips the disk re-read.
+   * `| undefined`: the caller forwards whatever its read produced, and
+   * "nothing was preloaded" is that result rather than an omitted argument.
+   */
+  preloadedConfig?: import("@/stores/workspaceStore").WorkspaceConfig | null | undefined;
 }
 
 /**

@@ -32,7 +32,7 @@ vi.mock("sonner", () => ({
 }));
 
 const mockCopyImageToAssets = vi.fn();
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
 }));
 

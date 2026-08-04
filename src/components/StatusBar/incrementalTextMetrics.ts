@@ -139,8 +139,12 @@ interface MetricsCacheOptions {
    * `LIST_START_RE` optimisation below mirror `stripMarkdown`'s own list
    * regexes — they are markdown's shape, not a general one. Correctness for
    * other formats beats reusing an optimisation that does not apply to them.
+   *
+   * `| undefined` because the caller passes the ACTIVE FORMAT's projection,
+   * and a format that supplies none resolves to undefined — the reader falls
+   * back to `stripMarkdown` for exactly that case.
    */
-  toPlainText?: (content: string) => string;
+  toPlainText?: ((content: string) => string) | undefined;
 }
 
 /**

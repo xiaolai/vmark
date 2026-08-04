@@ -33,7 +33,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
-import { cleanupTabState } from "@/hooks/tabCleanup";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore, useWorkspaceStore } from "@/stores/workspaceStore";
@@ -45,6 +45,7 @@ import type {
 import { windowCloseWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
+import { pickTransferLineMetadata } from "@/utils/transferLineMetadata";
 
 const REMOVE_ACK_EVENT = "tab:remove-ack";
 
@@ -76,10 +77,7 @@ export async function applyTabTransferData(
     savedContent: data.savedContent,
     // The file's convention travels with the payload; canonical content
     // cannot carry it, so without this a CRLF+BOM file arrived LF-only.
-    lineEnding: data.lineEnding,
-    hardBreakStyle: data.hardBreakStyle,
-    hasBom: data.hasBom,
-    lastDiskContent: data.lastDiskContent,
+    ...pickTransferLineMetadata(data),
   });
   if (data.filePath) {
     useRecentFilesStore.getState().addFile(data.filePath);

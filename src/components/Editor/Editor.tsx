@@ -10,7 +10,7 @@
  * Pipeline: useActiveTabId → useTabStore.findTabById →
  *   tab.kind === "browser" ? <BrowserWorkspaceSurface />
  *   : resolveFormat(tab) →
- *     kind === "wysiwyg" ? <wysiwygComponent />
+ *     kind === "wysiwyg" ? <FormatSurface /> (loads wysiwygComponent thunk)
  *     : kind === "media" ? <MediaViewer />
  *     : <SplitPaneEditor />
  *
@@ -24,20 +24,23 @@
  *     the sole source of truth for an untitled JSON/txt/… document (created via
  *     createUntitledTab(formatId) or restored by hot-exit, which persists
  *     format_id precisely because the path cannot recover it).
- *   - Markdown rendering surface lives in src/lib/formats/adapters/markdown.tsx
- *     as MarkdownEditorSurface; this dispatcher pulls the component reference
- *     out of the FormatConfig so the registry is the single source of truth.
+ *   - Markdown rendering surface lives in
+ *     src/lib/formats/adapters/markdownSurface.tsx; this dispatcher pulls the
+ *     import THUNK out of the FormatConfig (WI-13) so the registry stays the
+ *     single source of truth AND `bootstrapFormats()` — which runs in every
+ *     window before App — no longer drags the Tiptap surface onto cold start.
  *   - The remount key is `${tabId}-${formatConfig.id}`: a kind change
  *     (markdown → txt → json …) remounts the surface so per-tab state doesn't
  *     leak across formats (ADR-10 / WI-1A.12).
  *   - No active tab → the empty-workspace window: render <WelcomeScreen />
  *     instead of an editor bound to no document. The window stays open after
  *     the last tab is closed (VSCode-style); this is what fills the editor area.
- *   - Failure-open: when a tab IS active but no format resolves, the dispatcher
- *     still falls back to MarkdownEditorSurface so the surface renders something.
+ *   - Failure-open: when a tab IS active but no format resolves, dispatchEditor
+ *     answers markdown, so the surface still renders something.
  *
  * @coordinates-with src/lib/formats/registry.ts — dispatchEditor() / getFormatById()
- * @coordinates-with src/lib/formats/adapters/markdown.tsx — MarkdownEditorSurface
+ * @coordinates-with src/components/Editor/FormatSurface — loads the wysiwyg thunk
+ * @coordinates-with src/lib/formats/adapters/markdownSurface.tsx — the markdown surface
  * @coordinates-with src/components/Browser/BrowserWorkspaceSurface — kind:"browser" workspace surface
  * @coordinates-with src/components/Editor/MediaViewer/MediaViewer — kind:"media" surface
  * @coordinates-with src/components/Editor/SplitPaneEditor — SplitPaneEditor
@@ -53,6 +56,7 @@ import { BrowserWorkspaceSurface } from "@/components/Browser/BrowserWorkspaceSu
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import type { FormatConfig } from "@/lib/formats/types";
 import { WelcomeScreen } from "@/components/Welcome/WelcomeScreen";
+import { FormatSurface } from "./FormatSurface";
 import { MediaViewer } from "./MediaViewer/MediaViewer";
 import { SplitPaneEditor } from "./SplitPaneEditor/SplitPaneEditor";
 import "./editor.css";
@@ -116,15 +120,11 @@ export function Editor() {
     // No `?? MarkdownEditorSurface` fallback: registerFormat guarantees a
     // wysiwyg format declares its own surface, so a missing one is a
     // registration error rather than a silent render-as-markdown (WI-4.5).
-    const Surface = formatConfig.wysiwygComponent;
-    if (!Surface) {
-      // registerFormat rejects this at registration; this guard exists so the
-      // invariant is visible to the type system and to a reader here.
-      throw new Error(
-        `[Editor] format "${formatConfig.id}" is kind=wysiwyg but declares no wysiwygComponent`,
-      );
-    }
-    return <Surface key={key} tabId={tabId} />;
+    //
+    // WI-13: the surface is an import thunk, so mounting it is asynchronous.
+    // FormatSurface owns that boundary — including the D4 failure surface, so
+    // a chunk that fails to load shows something instead of nothing.
+    return <FormatSurface key={key} formatConfig={formatConfig} tabId={tabId} />;
   }
   // Media (image/audio/video) renders in a dedicated read-only surface —
   // NOT SplitPaneEditor, which would mount an empty CodeMirror source pane.

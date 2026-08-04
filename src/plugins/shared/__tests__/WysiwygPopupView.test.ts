@@ -31,7 +31,7 @@ vi.mock("@/utils/popupComponents", () => ({
   handlePopupTabNavigation: vi.fn(),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_host: HTMLElement, pos: { top: number; left: number }) => pos),
 }));
@@ -42,7 +42,7 @@ vi.mock("@/utils/imeGuard", () => ({
 
 import { WysiwygPopupView } from "../WysiwygPopupView";
 import type { PopupStoreBase, StoreApi, EditorViewLike } from "../types";
-import { getPopupHostForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom } from "@/plugins/shared/popupHostDom";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 
 /* ------------------------------------------------------------------ */

@@ -20,113 +20,14 @@ export const MCP_PROTOCOL_VERSION = '0.3.0';
 /**
  * Bridge request types — every command the MCP server can send.
  *
- * One entry per (tool, action) pair. See the workflow tool for the
- * IRPatch shape rules; `patches` is `unknown[]` because the
- * discriminated union for IRPatch lives in the frontend repo
- * (`src/lib/ghaWorkflow/save/mutators.ts`) and we don't want to
- * duplicate the shape here.
+ * GENERATED from `operationSchemas.ts`, which is the one declaration of the
+ * payload contract (WI-15). This used to be a hand-written union kept in step
+ * with the Rust pass-through and the webview's `typeof` narrowing by nothing
+ * but care; `pnpm lint:mcp-contracts` now proves the copies agree.
  */
-export type BridgeRequest =
-  | { type: 'vmark.session.get_state'; clientProtocol?: string }
-  | { type: 'vmark.workspace.new'; kind?: string; windowLabel?: string }
-  | { type: 'vmark.workspace.open'; filePath: string; windowLabel?: string }
-  | { type: 'vmark.workspace.open_workspace'; folderPath: string; windowLabel?: string }
-  | { type: 'vmark.workspace.save'; tabId?: string }
-  | { type: 'vmark.workspace.save_as'; tabId?: string; filePath: string }
-  | { type: 'vmark.workspace.close'; tabId: string; force?: boolean }
-  | { type: 'vmark.workspace.switch_tab'; tabId: string }
-  | { type: 'vmark.workspace.focus_window'; windowLabel: string }
-  | { type: 'vmark.document.read'; tabId?: string }
-  | {
-      type: 'vmark.document.write';
-      tabId?: string;
-      content: string;
-      expected_revision?: string;
-      save?: boolean;
-    }
-  | {
-      type: 'vmark.document.transform';
-      tabId?: string;
-      kind: string;
-      expected_revision?: string;
-    }
-  | {
-      type: 'vmark.workflow.apply_patch';
-      tabId?: string;
-      patches: unknown[];
-      expected_revision?: string;
-    }
-  | { type: 'vmark.workflow.validate'; tabId?: string }
-  | { type: 'vmark.selection.get'; tabId?: string }
-  | {
-      type: 'vmark.selection.set';
-      tabId?: string;
-      content: string;
-      expected_revision?: string;
-    }
-  | { type: 'vmark.browser.read'; tabId?: string }
-  | {
-      // `act` targets EITHER a precise `ref` OR an ARIA `role`+`name` (click/type),
-      // and for scroll/key carries `dy`/`key`/`modifiers` — so every target field
-      // is optional at the type level; the handler validates the combination.
-      type: 'vmark.browser.act';
-      tabId?: string;
-      operation: string;
-      role?: string;
-      name?: string;
-      text?: string;
-      ref?: string;
-      dy?: number;
-      key?: string;
-      modifiers?: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean };
-    }
-  | { type: 'vmark.browser.open'; url: string; timeoutMs?: number; profile?: string }
-  | { type: 'vmark.browser.navigate'; tabId?: string; url: string; timeoutMs?: number }
-  | {
-      type: 'vmark.browser.wait';
-      tabId?: string;
-      navigationId?: string;
-      timeoutMs?: number;
-    }
-  | {
-      type: 'vmark.browser.wait_for';
-      tabId?: string;
-      ref?: string;
-      role?: string;
-      name?: string;
-      text?: string;
-      timeoutMs?: number;
-    }
-  | { type: 'vmark.browser.screenshot'; tabId?: string }
-  | { type: 'vmark.browser.query'; tabId?: string; selector: string; fields?: unknown }
-  | {
-      type: 'vmark.browser.style';
-      tabId?: string;
-      ref?: string;
-      selector?: string;
-      set?: Record<string, string>;
-      addClasses?: string[];
-      removeClasses?: string[];
-      injectCss?: string;
-    }
-  | { type: 'vmark.browser.execute_js'; tabId?: string; script: string }
-  | { type: 'vmark.browser.session.save'; tabId?: string; handle: string }
-  | { type: 'vmark.browser.session.load'; tabId?: string; handle: string }
-  | { type: 'vmark.browser.console'; tabId?: string; clear?: boolean }
-  // Coherence layer (WI-1.10) — READ-ONLY, answered entirely in Rust
-  // (src-tauri/src/mcp_bridge/routing.rs), no webview hop.
-  | { type: 'vmark.coherence.status'; workspace_root: string }
-  | { type: 'vmark.coherence.edges'; workspace_root: string }
-  | { type: 'vmark.coherence.claims'; workspace_root: string }
-  | { type: 'vmark.coherence.contexts'; workspace_root: string }
-  | {
-      type: 'vmark.coherence.resolve';
-      workspace_root: string;
-      txf: unknown;
-      input: unknown;
-      resolution: unknown;
-      reason?: unknown;
-    };
+import type { BridgeRequest } from './generated/bridgeRequests.js';
+
+export type { BridgeRequest };
 
 /**
  * Bridge response types — what VMark returns.

@@ -26,9 +26,29 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
   private declare hrefInput: HTMLInputElement;
   private declare openBtn: HTMLElement;
   private isBookmark = false;
+  private reshowPrev: LinkPopupState | null = null;
+  private unsubscribeReshow: () => void;
 
   constructor(view: EditorView, store: StoreApi<LinkPopupState>) {
     super(view, store);
+    // shouldReshow port (WI-1 / D1, from WYSIWYG commit c89c1656): an open
+    // popup retargeted at a different link range must refresh its fields, or
+    // the input keeps the previous link's URL while the store already points
+    // at the new range — saving would write URL A over link B. The base
+    // subscription only runs show() on the closed→open transition, so this
+    // second, subclass-local subscription covers open→open range changes.
+    this.unsubscribeReshow = store.subscribe((state) => {
+      const prev = this.reshowPrev;
+      this.reshowPrev = state;
+      if (!prev?.isOpen || !state.isOpen) return;
+      if (prev.linkFrom === state.linkFrom && prev.linkTo === state.linkTo) return;
+      this.refreshOnRetarget(state);
+    });
+  }
+
+  override destroy(): void {
+    this.unsubscribeReshow();
+    super.destroy();
   }
 
   protected buildContainer(): HTMLElement {
@@ -67,7 +87,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 340,
       height: 40,
@@ -76,30 +96,28 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
     };
   }
 
-  protected onShow(state: LinkPopupState): void {
+  /** Apply store state to the input and bookmark-mode chrome. Shared by the
+   *  fresh-open path (onShow) and the retarget refresh (WI-1). */
+  private applyState(state: LinkPopupState): void {
     this.isBookmark = state.href.startsWith("#");
 
-    // Set input values from store
-    this.hrefInput.value = state.href;
-
-    // Configure for bookmark vs regular link
-    if (this.isBookmark) {
-      // Bookmark: disable href input, update open button title
-      this.hrefInput.disabled = true;
-      this.hrefInput.classList.add("disabled");
-      const openLabel = i18n.t("editor:popup.link.goToHeading");
-      this.openBtn.title = openLabel;
-      this.openBtn.setAttribute("aria-label", openLabel);
-    } else {
-      // Regular link: enable href input
-      this.hrefInput.disabled = false;
-      this.hrefInput.classList.remove("disabled");
-      const openLabel = i18n.t("editor:popup.link.openLink");
-      this.openBtn.title = openLabel;
-      this.openBtn.setAttribute("aria-label", openLabel);
+    // Skip identical assignment: setting .value resets the caret, and the
+    // remap path refreshes state under a user who may be mid-typing.
+    if (this.hrefInput.value !== state.href) {
+      this.hrefInput.value = state.href;
     }
 
-    // Focus appropriate input (base class has already blurred the editor)
+    // Configure for bookmark vs regular link
+    this.hrefInput.disabled = this.isBookmark;
+    this.hrefInput.classList.toggle("disabled", this.isBookmark);
+    const openLabel = this.isBookmark
+      ? i18n.t("editor:popup.link.goToHeading")
+      : i18n.t("editor:popup.link.openLink");
+    this.openBtn.title = openLabel;
+    this.openBtn.setAttribute("aria-label", openLabel);
+  }
+
+  private focusPrimaryControl(): void {
     requestAnimationFrame(() => {
       if (this.isBookmark) {
         this.openBtn.focus();
@@ -108,6 +126,27 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
         this.hrefInput.select();
       }
     });
+  }
+
+  protected onShow(state: LinkPopupState): void {
+    this.applyState(state);
+    // Focus appropriate input (base class has already blurred the editor)
+    this.focusPrimaryControl();
+  }
+
+  /** Open→open transition onto a different link range: refresh fields and
+   *  position. A remap (same href, range merely moved by a concurrent edit)
+   *  must not steal the caret or re-select while the user is typing; a
+   *  genuine retarget refreshes focus like a fresh open. */
+  private refreshOnRetarget(state: LinkPopupState): void {
+    const hrefChanged = this.hrefInput.value !== state.href;
+    this.applyState(state);
+    if (state.anchorRect) {
+      this.updatePosition(state.anchorRect);
+    }
+    if (hrefChanged) {
+      this.focusPrimaryControl();
+    }
   }
 
   protected onHide(): void {

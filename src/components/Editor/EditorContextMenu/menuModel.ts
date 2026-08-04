@@ -158,14 +158,17 @@ function toAction(
   d: ContextMenuItemDescriptor,
   opts: { checked?: boolean; disabled?: boolean } = {}
 ): EditorMenuAction {
+  // The three optional fields are carried across only when the descriptor
+  // declares them: the renderer decides whether to draw an icon or a shortcut
+  // hint from the key's presence, so an item with no icon must have no key.
   return {
     kind: "action",
     id: d.id,
     labelKey: d.labelKey,
     run: d.run,
-    iconId: d.iconId,
-    shortcutId: d.shortcutId,
-    shortcutKey: d.shortcutKey,
+    ...(d.iconId !== undefined ? { iconId: d.iconId } : {}),
+    ...(d.shortcutId !== undefined ? { shortcutId: d.shortcutId } : {}),
+    ...(d.shortcutKey !== undefined ? { shortcutKey: d.shortcutKey } : {}),
     checkable: d.checkable ?? false,
     checked: opts.checked ?? false,
     disabled: opts.disabled ?? false,

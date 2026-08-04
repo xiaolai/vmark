@@ -60,11 +60,33 @@ export function isTestFile(p) {
   return false;
 }
 
-export function isExcluded(p) {
+/**
+ * Header marker a generated file must carry to claim the exemption below.
+ * The directory alone is deliberately NOT enough — that would make the whole
+ * gate bypassable with one `mkdir generated`.
+ */
+export const GENERATED_MARKER = "GENERATED FILE — DO NOT EDIT.";
+/** How far into a file the marker may appear (a header, not a buried line). */
+const GENERATED_HEADER_LINES = 12;
+
+/**
+ * A generated file: inside a `generated/` directory AND declaring itself so in
+ * its header (WI-15). Exempt because the ~300-line rule protects HUMAN
+ * maintainability — a generated contract grows one block per operation, and
+ * "split it" is not an action available to anyone. Drift is policed by its
+ * own regenerate-and-compare gate instead.
+ */
+export function isGenerated(p, text) {
+  if (typeof text !== "string") return false;
+  if (!p.includes("/generated/")) return false;
+  return text.split("\n", GENERATED_HEADER_LINES).join("\n").includes(GENERATED_MARKER);
+}
+
+export function isExcluded(p, text) {
   const base = p.split("/").pop() ?? "";
   if (base.endsWith(".d.ts")) return true;
   if (base === "types.ts" && TYPE_ONLY_ALLOWLIST.has(p)) return true;
-  return false;
+  return isGenerated(p, text);
 }
 
 /** Line count matching the baseline's Python `sum(1 for _ in fh)`: number of
@@ -215,8 +237,11 @@ function main() {
   const production = new Map();
   const tests = new Map();
   for (const p of files) {
-    const n = countLines(readFileSync(p, "utf8"));
-    (isTestFile(p) ? tests : production).set(p, n);
+    const text = readFileSync(p, "utf8");
+    // The content-dependent exclusions (generated files) can only be applied
+    // here — `walk` has the path but not the bytes.
+    if (isExcluded(p, text)) continue;
+    (isTestFile(p) ? tests : production).set(p, countLines(text));
   }
 
   const prodResult = evaluateSizes(production, { limit: baseline.limit, files: baseline.files });

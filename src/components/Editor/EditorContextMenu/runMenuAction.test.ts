@@ -26,7 +26,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText: mocks.writeT
 
 import { runEditorMenuItem } from "./runMenuAction";
 import { useEditorStore } from "@/stores/editorStore";
-import { usePopupStore } from "@/stores/popupStore";
+import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 
 function snapshot(overrides: Partial<EditorContextMenuSnapshot> = {}): EditorContextMenuSnapshot {
@@ -123,7 +123,7 @@ describe("runEditorMenuItem", () => {
   it("editLink opens the link popup anchored at the link range", async () => {
     const view = editLinkView();
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editorView: view as never } }));
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
 
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
@@ -137,7 +137,7 @@ describe("runEditorMenuItem", () => {
   });
 
   it("editLink no-ops without a link range", async () => {
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
       snapshot({ link: { href: "https://example.com" } })
@@ -150,7 +150,7 @@ describe("runEditorMenuItem", () => {
     const view = editLinkView();
     view.state.doc.content.size = 10;
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editorView: view as never } }));
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
       snapshot({ link: { href: "https://example.com", from: 8, to: 14 } })
@@ -162,7 +162,7 @@ describe("runEditorMenuItem", () => {
   it("editLink no-ops when the link mark is gone from the range", async () => {
     const view = editLinkView({ href: null });
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editorView: view as never } }));
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
       snapshot({ link: { href: "https://example.com", from: 8, to: 14 } })
@@ -176,7 +176,7 @@ describe("runEditorMenuItem", () => {
     // doc changed under the open menu; the popup must not rewrite [8, 14).
     const view = editLinkView({ nodeTo: 11 });
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editorView: view as never } }));
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
       snapshot({ link: { href: "https://example.com", from: 8, to: 14 } })
@@ -188,7 +188,7 @@ describe("runEditorMenuItem", () => {
   it("editLink no-ops when the range now carries a different href", async () => {
     const view = editLinkView({ href: "https://other.example" });
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editorView: view as never } }));
-    const openSpy = vi.spyOn(usePopupStore.getState(), "linkOpenPopup");
+    const openSpy = vi.spyOn(useLinkPopupStore.getState(), "openPopup");
     await runEditorMenuItem(
       { type: "link", command: "editLink" },
       snapshot({ link: { href: "https://example.com", from: 8, to: 14 } })

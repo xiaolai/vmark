@@ -50,9 +50,10 @@ const FORMAT_META: Record<PandocFormatKey, { name: string; ext: string }> = {
 export async function exportViaPandoc(options: {
   markdown: string;
   format: string;
-  defaultName?: string;
-  defaultDirectory?: string;
-  sourceDirectory?: string;
+  defaultName?: string | undefined;
+  /** `| undefined` for the same reason as ExportToHtmlOptions.defaultDirectory. */
+  defaultDirectory?: string | undefined;
+  sourceDirectory?: string | undefined;
 }): Promise<boolean> {
   const { markdown, format, defaultName = "document", defaultDirectory, sourceDirectory } = options;
 

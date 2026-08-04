@@ -18,7 +18,7 @@ const mockGenerateClipboardImageFilename = vi.fn(() => "img-123.png");
 const mockGetWindowLabel = vi.fn(() => "main");
 const mockIsViewConnected = vi.fn(() => true);
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   saveImageToAssets: (...args: unknown[]) => mockSaveImageToAssets(...args),
 }));
 

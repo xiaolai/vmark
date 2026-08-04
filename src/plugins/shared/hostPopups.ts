@@ -92,8 +92,13 @@ interface WikiLinkPopupRequest {
 interface HeadingPickerRequest {
   headings: HeadingWithId[];
   onSelect: (id: string, text: string) => void;
-  anchorRect?: { top: number; left: number; right: number; bottom: number };
-  containerBounds?: BoundaryRects;
+  /**
+   * Both `| undefined`: a plugin measures the caret/editor and forwards the
+   * measurement, which is nothing when the DOM cannot supply one. The host
+   * falls back to centred placement for exactly that case.
+   */
+  anchorRect?: { top: number; left: number; right: number; bottom: number } | undefined;
+  containerBounds?: BoundaryRects | undefined;
 }
 
 /** Shared by both toast shapes. */

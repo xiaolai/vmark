@@ -93,7 +93,7 @@ export class MathPopupView extends WysiwygPopupView<MathPopupState> {
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     const rect = this.container.getBoundingClientRect();
     return {
       width: rect.width || DEFAULT_POPUP_WIDTH,

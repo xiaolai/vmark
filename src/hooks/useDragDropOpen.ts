@@ -20,8 +20,8 @@ import { replaceTabWithFile, type ReplaceTabResult } from "@/services/navigation
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
-import { openDroppedFileInNewTab } from "@/hooks/dragDropOpenFile";
-import { openDroppedPathsInLegacyWindows } from "@/hooks/dragDropLegacyWindows";
+import { openDroppedFileInNewTab } from "@/services/navigation/dragDropOpenFile";
+import { openDroppedPathsInLegacyWindows } from "@/services/navigation/dragDropLegacyWindows";
 
 /** Surface a drag-drop replace-tab read failure (cancellations stay silent). */
 function reportReplaceFailure(result: ReplaceTabResult, path: string): void {

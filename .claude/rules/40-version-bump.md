@@ -89,11 +89,18 @@ any `cargo build --locked` / `--frozen` (release + CI).
 
    Always push the **specific tag only**: `git push origin v0.4.0`
 
-   **Pushing `main`/`v*` triggers the `pre-push` gate** (`pnpm check:all`, ~3 min)
-   while git holds the SSH connection open. The `prepare` script
+   **Pushing a `v*` tag triggers the local `pre-push` tag leg**: a seconds-fast
+   `gh api` verification (`scripts/check-tag-green.sh`) that CI's required
+   checks (`frontend`, `rust`) are green on the exact tagged commit — since
+   the tag names the just-merged, fully-checked commit, this passes right
+   after the PR merge. It refuses (fail closed) if a check is pending, red,
+   missing, or `gh` is unreachable; `VMARK_OFFLINE_GATE=1` runs the full
+   legacy local gate instead (minutes — see the `.githooks/pre-push` header
+   for the authoritative timing) while git holds the SSH connection open.
+   The `prepare` script
    (`scripts/setup-local-git.mjs`) sets an SSH keepalive (`core.sshCommand`) so
-   the idle connection survives the gate. If a push ever dies with **SIGPIPE
-   (exit 141)** right after "quality gate green — push allowed", the keepalive is
+   an idle connection survives a long gate. If a push ever dies with **SIGPIPE
+   (exit 141)** right after the gate reports green, the keepalive is
    missing: run `node scripts/setup-local-git.mjs`, or push once with
    `GIT_SSH_COMMAND='ssh -o ServerAliveInterval=20' git push origin v0.4.0`.
    The gate is green — this is a transport timeout, not a quality failure, so

@@ -61,6 +61,7 @@
   "toast.failedToOpenFile": "Datei konnte nicht geöffnet werden: {{error}}",
   "toast.failedToOpen": "{{filename}} konnte nicht geöffnet werden",
   "toast.operationFailed": "Die Aktion konnte nicht abgeschlossen werden",
+  "toast.workflowEngineDisableFailed": "Die Workflow-Engine konnte nicht deaktiviert werden. Sie führt möglicherweise weiterhin Workflows aus, bis VMark neu gestartet wird — beenden Sie VMark und öffnen Sie es erneut, um sicherzugehen.",
   "toast.quarantineCleared_one": "macOS-Quarantäne für 1 Markdown-Datei in diesem Arbeitsbereich entfernt.",
   "toast.quarantineCleared_other": "macOS-Quarantäne für {{count}} Markdown-Dateien in diesem Arbeitsbereich entfernt.",
   "toast.quarantineClearedDesc": "macOS markiert Dateien, die von bestimmten Apps heruntergeladen wurden, mit einem Attribut, das den Finder-Doppelklick stillschweigend blockiert, während VMark läuft. VMark hat es entfernt, damit diese Dateien geöffnet werden können. Unter Einstellungen → Erweitert deaktivierbar.",

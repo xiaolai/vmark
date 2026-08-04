@@ -120,10 +120,15 @@ origin, each one re-triggering a release run. Push the single new tag
 only. See `.claude/rules/40-version-bump.md` for the full incident
 context.
 
-Pushing a `v*` tag still fires the local `pre-push` gate (cross-target compile
-check, `cargo fmt --check`, `cargo clippy -D warnings`, then `pnpm check:all` —
-~3 min) while git holds the SSH connection open. If the push dies with
-**SIGPIPE (exit 141)** right after "quality gate green — push allowed", the SSH
+Pushing a `v*` tag fires the local `pre-push` tag leg: a seconds-fast `gh api`
+verification (`scripts/check-tag-green.sh`) that the required checks
+(`frontend`, `rust`) are green on the tagged commit — it passes immediately
+here because the tag names the just-merged, fully-checked commit. It refuses
+(fail closed) on a pending/red/missing check or an unreachable `gh`;
+`VMARK_OFFLINE_GATE=1` runs the full legacy local gate instead (minutes — the
+authoritative timing lives in the `.githooks/pre-push` header) while git holds
+the SSH connection open. If the push dies with
+**SIGPIPE (exit 141)** right after the gate reports green, the SSH
 keepalive is missing: run `node scripts/setup-local-git.mjs`, or retry once with
 `GIT_SSH_COMMAND='ssh -o ServerAliveInterval=20' git push origin v{version}`.
 That is a transport timeout, not a quality failure — `--no-verify` is not the

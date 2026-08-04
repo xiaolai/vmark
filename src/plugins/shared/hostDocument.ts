@@ -27,10 +27,22 @@
 
 import type { HardBreakStyle } from "@/utils/linebreakDetection";
 import type { CursorInfo } from "@/types/cursorSync";
-import { getWindowLabel } from "@/services/navigation/windowFocus";
 
 /** What a plugin needs to know about the document it is editing. */
 export interface HostDocument {
+  /**
+   * Which window the plugin is running in, or null when there is none.
+   *
+   * A seam member rather than a call into the app's window service: this file
+   * exists to be liftable, and importing `services/navigation/windowFocus`
+   * made the one module a standalone plugin must carry drag the app in behind
+   * it. The host knows what a "window" is; the plugin only needs its name.
+   *
+   * Null is a real answer — a plugin running outside any window (a test, a
+   * headless embedding) has no window to ask about, and every consumer already
+   * treats "no window" as "nothing to resolve against".
+   */
+  currentWindowLabel: () => string | null;
   /**
    * Absolute path of the document in `windowLabel`, or null.
    *
@@ -100,6 +112,7 @@ export interface HostDocument {
 
 /** No document — the honest answer when no host has bound anything. */
 const DEFAULTS: HostDocument = {
+  currentWindowLabel: () => null,
   activeFilePath: () => null,
   reportCursorInfo: () => {},
   isTabDirty: () => false,
@@ -124,6 +137,7 @@ export function resetHostDocument(): void {
 
 /** The bound lookup, read through an accessor so it is never captured stale. */
 export const hostDocument: HostDocument = {
+  currentWindowLabel: () => bound.currentWindowLabel(),
   activeFilePath: (windowLabel) => bound.activeFilePath(windowLabel),
   reportCursorInfo: (windowLabel, info) => bound.reportCursorInfo(windowLabel, info),
   isTabDirty: (tabId) => bound.isTabDirty(tabId),
@@ -137,24 +151,25 @@ export const hostDocument: HostDocument = {
 /**
  * The active document's path for the CURRENT window, or null.
  *
- * A guarded convenience over `activeFilePath`, not a seam member: it calls
- * `getWindowLabel()`, which reads the Tauri window and THROWS outside a Tauri
- * context. Eight plugin files need this; six had each hand-rolled the same
- * try/catch and two had not, so a copy-resolution handler could reject
- * instead of falling back. One guard here makes that unrepeatable.
+ * A guarded convenience over the two seam members, not a seam member itself.
+ * The host's window lookup can THROW — the app binds Tauri's, which does so
+ * outside a Tauri context. Eight plugin files need this; six had each
+ * hand-rolled the same try/catch and two had not, so a copy-resolution handler
+ * could reject instead of falling back. One guard here makes that unrepeatable.
  *
  * The pre-seam helper this replaces (`getActiveTabIdForCurrentWindow`) had
  * exactly this guard — losing it is what the audit caught, twice.
  */
 export function activeFilePathForCurrentWindow(): string | null {
-  let windowLabel: string;
+  let windowLabel: string | null;
   try {
-    windowLabel = getWindowLabel();
+    windowLabel = hostDocument.currentWindowLabel();
   } catch {
     // Only the LABEL lookup is guarded. A wider try would also swallow a
     // failure inside the host's binding, which several callers wrap in their
     // own try/catch precisely so they can log it.
     return null;
   }
+  if (windowLabel === null) return null;
   return hostDocument.activeFilePath(windowLabel);
 }

@@ -9,12 +9,12 @@ vi.mock("@/plugins/syntaxReveal/marks", () => ({
   findWordAtCursor: vi.fn(),
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: vi.fn(),
   insertBlockImageNode: vi.fn(),
 }));
 
-vi.mock("@/hooks/useMediaOperations", () => ({
+vi.mock("@/services/media/mediaOperations", () => ({
   copyMediaToAssets: vi.fn(),
   insertBlockVideoNode: vi.fn(),
   insertBlockAudioNode: vi.fn(),
@@ -63,8 +63,8 @@ import {
 import { Selection, NodeSelection } from "@tiptap/pm/state";
 import { open, message } from "@tauri-apps/plugin-dialog";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
-import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
-import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
+import { copyImageToAssets, insertBlockImageNode } from "@/services/media/imageOperations";
+import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/services/media/mediaOperations";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { wysiwygAdapterWarn } from "@/utils/debug";

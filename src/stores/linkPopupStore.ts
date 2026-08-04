@@ -1,21 +1,56 @@
 /**
- * Link Popup Store — slice projection of usePopupStore.
- * Routes to popupStore's `linkPopup` slice.
+ * Link Popup Store — WYSIWYG link-edit popup state.
+ *
+ * Standalone Zustand store (T09 revert, WI-9 plan-20260803-161713): the
+ * former merged-store slice re-inlined. The shim API is the contract —
+ * consumers are unchanged.
  *
  * @module stores/linkPopupStore
  */
 
-import { usePopupStore } from "./popupStore";
-import { createSliceShim } from "./_shimHelper";
+import { create } from "zustand";
 import type { AnchorRect } from "@/utils/popupPosition";
 
-export const useLinkPopupStore = createSliceShim("linkPopup", {
+interface LinkPopupData {
+  isOpen: boolean;
+  href: string;
+  linkFrom: number;
+  linkTo: number;
+  anchorRect: AnchorRect | null;
+}
+
+interface LinkPopupState extends LinkPopupData {
   openPopup: (data: {
     href: string;
     linkFrom: number;
     linkTo: number;
     anchorRect: AnchorRect;
-  }) => usePopupStore.getState().linkOpenPopup(data),
-  closePopup: () => usePopupStore.getState().linkClosePopup(),
-  setHref: (href: string) => usePopupStore.getState().linkSetHref(href),
-});
+  }) => void;
+  closePopup: () => void;
+  setHref: (href: string) => void;
+  /** Remap the tracked link range after an external doc change (WI-1). */
+  setLinkRange: (linkFrom: number, linkTo: number) => void;
+}
+
+const initialState: LinkPopupData = {
+  isOpen: false,
+  href: "",
+  linkFrom: 0,
+  linkTo: 0,
+  anchorRect: null,
+};
+
+export const useLinkPopupStore = create<LinkPopupState>((set) => ({
+  ...initialState,
+  openPopup: (data) =>
+    set({
+      isOpen: true,
+      href: data.href,
+      linkFrom: data.linkFrom,
+      linkTo: data.linkTo,
+      anchorRect: data.anchorRect,
+    }),
+  closePopup: () => set(initialState),
+  setHref: (href) => set({ href }),
+  setLinkRange: (linkFrom, linkTo) => set({ linkFrom, linkTo }),
+}));

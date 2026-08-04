@@ -18,7 +18,6 @@
  * @module services/workspaces/reassignTabOwnershipForPath
  */
 import { useTabStore } from "@/stores/tabStore";
-import { usePaneStore } from "@/stores/paneStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
@@ -66,15 +65,10 @@ export function reassignTabOwnershipForPath(
   if (allowSwitch && isActiveTab && owner.workspaceInstanceId !== activeId) {
     const switched = switchWorkspaceInstance(windowLabel, owner.workspaceInstanceId).switched;
     // The reassigned tab stays the active one after the context follows.
-    // Pane-aware (ADR-1): the incoming context may have restored a split, in
-    // which case only the focused-pane action may write the alias.
+    // Pane-aware through setActiveTab itself (WI-2 seam, ADR-1): the incoming
+    // context may have restored a split; the seam converges it.
     if (switched) {
-      const split = usePaneStore.getState().getSplit(windowLabel);
-      if (split.enabled) {
-        usePaneStore.getState().setFocusedPaneTab(windowLabel, tabId);
-      } else {
-        useTabStore.getState().setActiveTab(windowLabel, tabId);
-      }
+      useTabStore.getState().setActiveTab(windowLabel, tabId);
     }
     return { workspaceSwitched: switched, workspaceInstanceId: owner.workspaceInstanceId };
   }
@@ -82,7 +76,7 @@ export function reassignTabOwnershipForPath(
     // Audit R2-F7: the ACTIVE tab now belongs to a hidden instance and the
     // caller (MCP, D10) forbids yanking. Leaving it active would point the
     // alias at a tab the projection hides — activate the current instance's
-    // best tab instead (pane-aware, single alias writer).
+    // best tab instead (pane-aware through the WI-2 seam).
     const activeInstance = useWorkspaceInstancesStore.getState().instances[activeId];
     if (activeInstance) {
       const liveTabs = useTabStore.getState().getTabsByWindow(windowLabel);
@@ -91,12 +85,7 @@ export function reassignTabOwnershipForPath(
         liveTabs,
         orderedWindowInstances(windowLabel),
       );
-      const split = usePaneStore.getState().getSplit(windowLabel);
-      if (split.enabled && next) {
-        usePaneStore.getState().setFocusedPaneTab(windowLabel, next);
-      } else {
-        useTabStore.getState().setActiveTab(windowLabel, next);
-      }
+      useTabStore.getState().setActiveTab(windowLabel, next);
     }
   }
   return { workspaceSwitched: false, workspaceInstanceId: owner.workspaceInstanceId };

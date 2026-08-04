@@ -433,14 +433,28 @@ This lets you create links like `obsidian://open?vault=...` or `vscode://file/..
 |---------|-------------|---------|
 | Keep both editors alive | Mount both the WYSIWYG and Source mode editors simultaneously for faster mode switching. Increases memory usage | Off |
 
-### Workflow Engine
+### Workflow
+
+Two independent switches, because they are two different features.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Workflow engine | Enable the GitHub Actions workflow viewer/editor for `.yml`/`.yaml` files under `.github/workflows/`. When off, those files open as plain YAML | Off | On / Off |
-| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy) | On | On / Off |
+| Workflow viewer | GitHub Actions authoring help in the source pane: `${{ }}` expression completion, cursor-to-canvas job sync, and goto-definition for `uses:` references. These aids only read your file | Off | On / Off |
+| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy). Shown when the workflow viewer is on | On | On / Off |
+| Workflow engine | Run VMark's own YAML workflow files: adds the Run/Cancel side panel and lets workflow genies execute. Steps can call AI providers and write files, so it stays off until you ask for it | Off | On / Off |
 
-See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
+The **workflow canvas itself is always available** — opening a file under
+`.github/workflows/` shows the graph and the form editor with no setting to
+turn on. The viewer switch adds the source-pane extras on top of it.
+
+Turning the viewer on does not enable the engine, and vice versa. With the
+engine off, VMark refuses workflow-execution requests outright rather than
+merely hiding the button — including requests that arrive over MCP — and
+reports "The workflow engine is turned off in Settings".
+
+Both toggles live under **Developer Tools** (see below) — turn Developer Tools
+on to reveal them. See [Workflow Viewer](/guide/workflow-viewer) for the full
+feature surface.
 
 ### Embedded Browser
 

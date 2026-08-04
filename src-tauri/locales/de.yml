@@ -248,6 +248,34 @@ errors:
   workflow.notRunning: "Derzeit läuft kein Workflow"
   workflow.circularDependency: "Zirkuläre Abhängigkeit in Workflow-Schritten erkannt"
   workflow.noInteractivePrompt: "Interaktive Eingabeaufforderung in Workflow-Ausführung nicht unterstützt"
+  workflow.engineDisabled: "Die Workflow-Engine ist in den Einstellungen deaktiviert"
+  workflow.noPendingApproval: "Keine offene Genehmigungsanfrage stimmt überein"
+  workflow.appDataDirUnavailable: "Das App-Datenverzeichnis konnte nicht ermittelt werden: %{detail}"
+
+  # === Speicherpfad (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "Der Ordner dieser Datei existiert nicht mehr: %{dir}"
+  save.noParentDirectory: "Der Dateipfad hat keinen übergeordneten Ordner"
+  save.writeFailed: "Datei konnte nicht gespeichert werden: %{detail}"
+  save.taskFailed: "Der Speichervorgang wurde unerwartet beendet: %{detail}"
+
+  # === Integrierter Browser, KI-Navigation (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "Der integrierte Browser ist in den Einstellungen deaktiviert"
+  browser.approvalRequired: "Diese Seite benötigt Ihre Freigabe, bevor die KI sie öffnen darf"
+  browser.blockedDestination: "Die Richtlinie blockiert die KI-Navigation zu diesem Ziel"
+  browser.profileNotApproved: "Das Öffnen dieses Browserprofils wurde nicht freigegeben"
+  browser.tabNotFound: "Dieser Browser-Tab existiert nicht mehr"
+  browser.tabNotAiOwned: "Dieser Browser-Tab wird nicht von der KI gesteuert"
+  browser.policyStale: "Die Browser-Richtlinie hat sich geändert – versuchen Sie es erneut"
+  browser.tabProvenanceMismatch: "Dieser Tab wurde in einem anderen Automatisierungsmodus erstellt"
+  browser.invalidSessionMode: "Unbekannter Browser-Sitzungsmodus „%{mode}“"
+  browser.stateUnavailable: "Der Browserstatus konnte nicht gelesen werden: %{detail}"
+  browser.invalidUrl: "Das ist keine verwendbare Webadresse"
+  browser.invalidProfileName: "Dieser Name für das Browserprofil ist nicht zulässig"
+  browser.windowGone: "Das Fenster, zu dem dieser Browser-Tab gehört, wurde geschlossen"
+  browser.profileLimit: "Es sind zu viele Browserprofile gleichzeitig geöffnet"
+  browser.unsupportedPlatform: "Der integrierte Browser ist auf dieser Plattform nicht verfügbar"
+  browser.surfaceTimeout: "Der Browser hat nicht rechtzeitig geantwortet"
+  browser.surfaceFailed: "Der Browser konnte diese Aktion nicht ausführen"
 
   # === Hot exit ===
   hotExit.noWindows: "Keine Dokumentfenster zum Erfassen"

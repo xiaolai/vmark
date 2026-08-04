@@ -106,7 +106,8 @@ pub(super) fn configure(
             Some(store)
         });
         // Fail closed: an over-cap profile must NOT silently share the sandbox store.
-        let store = store.ok_or_else(|| "PROFILE_STORE_LIMIT".to_string())?;
+        let store =
+            store.ok_or_else(|| crate::browser::surface::fail::PROFILE_STORE_LIMIT.to_string())?;
         unsafe { config.setWebsiteDataStore(&store) };
         return Ok(());
     }

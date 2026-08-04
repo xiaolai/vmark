@@ -19,7 +19,7 @@ import i18n from "@/i18n";
 import type { EditorView } from "@tiptap/pm/view";
 import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable, isCurrentTableFitToWidth, toggleFitToWidth } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 interface MenuAction {
   label: string;

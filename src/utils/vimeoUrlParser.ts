@@ -95,14 +95,18 @@ export function parseVimeoUrlFull(url: string): VimeoVideoInfo | null {
   if (host === "player.vimeo.com") {
     const match = parsed.pathname.match(/^\/video\/(\d+)\/?$/);
     if (!match) return null;
-    return { videoId: match[1], privacyHash: vimeoPrivacyHash(parsed) };
+    // `privacyHash` omitted rather than undefined: a public video HAS no hash,
+    // and the embed builder tests for the key's presence.
+    const hash = vimeoPrivacyHash(parsed);
+    return { videoId: match[1], ...(hash ? { privacyHash: hash } : {}) };
   }
 
   if (host === "vimeo.com") {
     const segments = parsed.pathname.split("/").filter(Boolean);
     const found = idFromSegments(segments);
     if (!found) return null;
-    return { videoId: found.id, privacyHash: vimeoPrivacyHash(parsed, found.pathHash) };
+    const hash = vimeoPrivacyHash(parsed, found.pathHash);
+    return { videoId: found.id, ...(hash ? { privacyHash: hash } : {}) };
   }
 
   return null;

@@ -63,7 +63,9 @@ import {
 export function proseMirrorToMdast(
   schema: Schema,
   doc: PMNode,
-  options: { preserveBlankLines?: boolean } = {},
+  // `| undefined`: callers forward the pipeline's own optional setting, whose
+  // "not configured" value is undefined; the default below absorbs it.
+  options: { preserveBlankLines?: boolean | undefined } = {},
 ): Root {
   const converter = new PMToMdastConverter(schema, options.preserveBlankLines ?? false);
   return converter.convertDoc(doc);
@@ -190,11 +192,13 @@ class PMToMdastConverter {
 
     const value = String(node.attrs.value ?? "");
 
-    // Only include alias if it differs from value
+    // Only include alias if it differs from value. Omitted, not undefined:
+    // the mdast node's key set is what the serializer reads to decide between
+    // `[[value]]` and `[[value|alias]]`.
     return {
       type: "wikiLink",
       value,
-      alias: alias && alias !== value ? alias : undefined,
+      ...(alias && alias !== value ? { alias } : {}),
     };
   }
 
