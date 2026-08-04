@@ -72,6 +72,10 @@ interface ConformanceLedgerFile {
 interface RoundtripLedgerFile {
   stability: StabilityDelta[];
   fidelity: FidelityDelta[];
+  /** WI-2.2: same shape as `fidelity`, but the ruler is STOCK REMARK parsing
+   *  input and output — the independent second opinion that catches
+   *  correlated parser/serializer defects VMark's own parse cannot see. */
+  independentRuler: FidelityDelta[];
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
