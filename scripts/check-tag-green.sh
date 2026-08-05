@@ -60,25 +60,57 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-api_path="repos/${REPO_SLUG}/commits/${sha}/check-runs?per_page=100"
 timeout_s="${VMARK_GH_TIMEOUT:-30}"
 
-set +e
-if command -v timeout >/dev/null 2>&1; then
-  json=$(timeout "$timeout_s" gh api "$api_path")
-else
-  json=$(gh api "$api_path")
+# ── Candidate commits: the tag, plus ancestors with an IDENTICAL TREE ────────
+#
+# CI runs on pull_request only (see .github/workflows/ci.yml), so a merge
+# commit on `main` carries no check-runs of its own — the checks live on the PR
+# head. Those two commits have the same tree, because branch protection sets
+# `strict: true` and so the PR branch must contain main's tip before merging.
+#
+# Tree equality is the whole safety argument, and it is exact: an identical
+# tree is the identical bytes, so a green check on it verified precisely what
+# this tag names. Matching on "an ancestor" ALONE would be unsound — that is
+# just "some older commit passed". `git rev-parse <sha>^{tree}` is computed
+# locally from the object store, so it cannot be spoofed by the API.
+#
+# Depth is bounded: the PR head is the tag's own parent, so 25 is slack, not a
+# search. Candidates are evaluated in order and the FIRST green one wins.
+# The fallback is an ENHANCEMENT layered on the original rule, never a
+# loosening of it: with no git (or an unresolvable SHA) the candidate list is
+# just the tagged commit, which is exactly how this gate behaved before. Any
+# degradation therefore makes it STRICTER, never laxer — the one direction a
+# release gate may fail in.
+candidates="$sha"
+tag_tree=""
+if command -v git >/dev/null 2>&1; then
+  tag_tree=$(git rev-parse "${sha}^{tree}" 2>/dev/null || true)
 fi
-gh_status=$?
-set -e
+if [ -n "$tag_tree" ]; then
+  while read -r cand; do
+    [ -n "$cand" ] || continue
+    [ "$cand" = "$sha" ] && continue
+    cand_tree=$(git rev-parse "${cand}^{tree}" 2>/dev/null || true)
+    if [ "$cand_tree" = "$tag_tree" ]; then
+      candidates="$candidates $cand"
+    fi
+  done <<EOF
+$(git rev-list --max-count=25 "$sha" 2>/dev/null || true)
+EOF
+fi
 
-if [ "$gh_status" -ne 0 ]; then
-  echo "✖ check-tag-green: \`gh api ${api_path}\` failed (exit ${gh_status})." >&2
-  echo "  Network/auth error or timeout — failing closed, never treated as green." >&2
-  echo "  Check \`gh auth status\` and connectivity, or run the full local gate" >&2
-  echo "  instead: VMARK_OFFLINE_GATE=1 git push …" >&2
-  exit 1
-fi
+fetch_checks() {
+  set +e
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$timeout_s" gh api "repos/${REPO_SLUG}/commits/${1}/check-runs?per_page=100"
+  else
+    gh api "repos/${REPO_SLUG}/commits/${1}/check-runs?per_page=100"
+  fi
+  local rc=$?
+  set -e
+  return $rc
+}
 
 # JSON evaluation in node: highest-id-per-name over the required checks,
 # restricted to runs the `github-actions` App published.
@@ -155,8 +187,46 @@ process.stdin.on("end", () => {
 });
 JSEOF
 
-if printf '%s' "$json" | node -e "$PARSE_JS" "$sha"; then
-  exit 0
-else
-  exit 1
+# Evaluate each candidate; the first green one satisfies the gate. A network or
+# parse failure on the TAGGED commit fails closed immediately — degrading to
+# "try an ancestor" would turn an unreachable API into a pass by another route.
+first_err=""
+for cand in $candidates; do
+  set +e
+  json=$(fetch_checks "$cand")
+  gh_status=$?
+  set -e
+
+  if [ "$gh_status" -ne 0 ]; then
+    echo "✖ check-tag-green: \`gh api\` for ${cand} failed (exit ${gh_status})." >&2
+    echo "  Network/auth error or timeout — failing closed, never treated as green." >&2
+    echo "  Check \`gh auth status\` and connectivity, or run the full local gate" >&2
+    echo "  instead: VMARK_OFFLINE_GATE=1 git push …" >&2
+    exit 1
+  fi
+
+  set +e
+  err=$(printf '%s' "$json" | node -e "$PARSE_JS" "$cand" 2>&1 >/dev/null)
+  ok=$?
+  set -e
+
+  if [ "$ok" -eq 0 ]; then
+    if [ "$cand" = "$sha" ]; then
+      echo "✔ check-tag-green: frontend and rust are green on ${sha}"
+    else
+      echo "✔ check-tag-green: frontend and rust are green on ${cand}, whose tree"
+      echo "  (${tag_tree}) is identical to ${sha} — the tagged bytes are verified."
+    fi
+    exit 0
+  fi
+  [ -z "$first_err" ] && first_err="$err"
+done
+
+# Nothing green. Report the tagged commit's own diagnosis — the most useful one
+# — and say plainly that the identical-tree fallback found nothing either.
+printf '%s\n' "$first_err" >&2
+if [ "$candidates" != "$sha" ]; then
+  echo "✖ check-tag-green: no identical-tree ancestor had green required checks either." >&2
+  echo "  Checked: ${candidates}" >&2
 fi
+exit 1
