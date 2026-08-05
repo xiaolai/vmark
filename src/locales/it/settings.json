@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "Rimuovi",
   "integrations.installMcp.install": "Installa",
   "integrations.installMcp.recheck": "Ricontrolla",
+  "integrations.installMcp.legacyBadge": "Dismesso",
+  "integrations.installMcp.legacyHint": "Questo strumento è stato dismesso. Rimuovi la voce VMark residua.",
   "integrations.group.aiProviders": "Provider IA",
   "integrations.detectCli.label": "Rileva provider CLI",
   "integrations.detectCli.description": "Cerca le CLI IA installate (claude, codex, gemini, ollama)",

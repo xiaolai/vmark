@@ -71,6 +71,9 @@ pub enum DiagnosticStatus {
 pub struct ProviderDiagnostic {
     pub provider: String,
     pub name: String,
+    /// A discontinued tool (Gemini CLI). The panel shows such a row only
+    /// because a vmark entry is still in its config, and offers removal only.
+    pub legacy: bool,
     #[serde(rename = "configPath")]
     pub config_path: String,
     #[serde(rename = "configExists")]

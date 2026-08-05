@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "Fournisseur inconnu : %{provider}"
+  mcp.legacyProvider: "%{name} est abandonné ; l'entrée VMark restante ne peut être que supprimée."
   mcp.noHomeDir: "Impossible de déterminer le répertoire personnel"
   mcp.exePathFailed: "Impossible d'obtenir le chemin de l'exécutable : %{detail}"
   mcp.exeDirFailed: "Impossible d'obtenir le répertoire de l'exécutable"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "TOML invalide : %{detail}"
   mcp.jsonSerializeFailed: "Erreur de sérialisation JSON : %{detail}"
   mcp.invalidJsonStructure: "Structure JSON invalide"
-  mcp.serversNotObject: "mcpServers n'est pas un objet"
+  mcp.serversNotObject: "%{key} n'est pas un objet"
   mcp.serversNotTable: "mcp_servers n'est pas une table"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark n'est pas un objet"
+  mcp.vmarkEntryNotObject: "%{key} n'est pas un objet"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark n'est pas une table"
-  mcp.envNotObject: "mcpServers.vmark.env n'est pas un objet"
+  mcp.envNotObject: "%{key} n'est pas un objet"
   mcp.envNotTable: "mcp_servers.vmark.env n'est pas une table"
 
   # Passerelle MCP — les identifiants client auxquels le principal d'autorisation est lié

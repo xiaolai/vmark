@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "未知的提供商：%{provider}"
+  mcp.legacyProvider: "%{name} 已停止支持；残留的 VMark 条目只能移除。"
   mcp.noHomeDir: "无法确定用户主目录"
   mcp.exePathFailed: "无法获取可执行文件路径：%{detail}"
   mcp.exeDirFailed: "无法获取可执行文件所在目录"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "TOML 无效：%{detail}"
   mcp.jsonSerializeFailed: "JSON 序列化错误：%{detail}"
   mcp.invalidJsonStructure: "JSON 结构无效"
-  mcp.serversNotObject: "mcpServers 不是对象"
+  mcp.serversNotObject: "%{key} 不是对象"
   mcp.serversNotTable: "mcp_servers 不是表"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark 不是对象"
+  mcp.vmarkEntryNotObject: "%{key} 不是对象"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark 不是表"
-  mcp.envNotObject: "mcpServers.vmark.env 不是对象"
+  mcp.envNotObject: "%{key} 不是对象"
   mcp.envNotTable: "mcp_servers.vmark.env 不是表"
 
   # MCP 桥接 —— 授权主体所绑定的客户端凭据

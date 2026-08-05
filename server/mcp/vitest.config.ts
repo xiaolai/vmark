@@ -5,6 +5,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['__tests__/**/*.test.ts'],
+    // Liveness bound, not a performance assertion — see the root
+    // `vitest.config.ts`. Kept in step so the three projects cannot drift.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

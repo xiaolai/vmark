@@ -39,7 +39,16 @@ Supported AI assistants:
 - **Claude Desktop** - Anthropic's desktop app
 - **Claude Code** - CLI for developers
 - **Codex CLI** - OpenAI's coding assistant
-- **Gemini CLI** - Google's AI assistant
+- **Antigravity CLI** - Google's `agy`, the successor to Gemini CLI
+- **Grok CLI** - xAI's coding agent
+- **opencode** - the open-source, provider-agnostic terminal agent
+
+::: info Gemini CLI is discontinued
+Google replaced Gemini CLI with Antigravity. If an earlier VMark install left a
+`vmark` entry in `~/.gemini/settings.json`, the Integrations panel shows a
+**Discontinued** row for it with a **Remove** button; new installs target
+Antigravity instead.
+:::
 
 ::: info Other MCP-Compatible Clients
 Other MCP-compatible clients such as Cursor, Windsurf, and similar tools can also connect to VMark's MCP server. Configure them manually by pointing to the MCP server binary path (see [Manual Configuration](#manual-configuration) below).
@@ -129,9 +138,9 @@ Edit `~/.codex/config.toml`:
 command = "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
 ```
 
-### Gemini CLI
+### Antigravity CLI
 
-Edit `~/.gemini/settings.json`:
+Edit `~/.gemini/config/mcp_config.json`:
 
 ```json
 {
@@ -142,6 +151,46 @@ Edit `~/.gemini/settings.json`:
   }
 }
 ```
+
+### Grok CLI
+
+Edit `~/.grok/config.toml`:
+
+```toml
+[mcp_servers.vmark]
+command = "/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"
+```
+
+### opencode
+
+Edit `~/.config/opencode/opencode.json`. opencode's schema differs from the
+`mcpServers` one: the key is `mcp`, and `command` is a single array holding
+the program and its arguments:
+
+```json
+{
+  "mcp": {
+    "vmark": {
+      "type": "local",
+      "command": ["/Applications/VMark.app/Contents/MacOS/vmark-mcp-server"],
+      "enabled": true
+    }
+  }
+}
+```
+
+If your own settings live in `opencode.jsonc`, leave them there — opencode
+merges both files, so VMark's entry in `opencode.json` is additive. VMark writes
+the plain-JSON file because it cannot round-trip the comments in a `.jsonc` one.
+
+::: warning An existing `vmark` entry in `opencode.jsonc` wins
+opencode merges `config.json`, then `opencode.json`, then `opencode.jsonc`, and
+the last one read takes precedence. So if you previously added a `vmark` entry
+to `opencode.jsonc` by hand, it overrides the one VMark manages — VMark will
+report the provider as valid while opencode keeps using your older entry (and
+its stale binary path). Delete the hand-written `mcp.vmark` block from
+`opencode.jsonc` and let the Integrations panel own it.
+:::
 
 ::: tip Finding the Binary Path
 On macOS, the MCP server binary is inside VMark.app:

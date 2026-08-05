@@ -16,6 +16,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Liveness bound, not a performance assertion — see the root
+    // `vitest.config.ts`. These tests bind real sockets and drive a real file
+    // watcher, and the live-socket case timed out at 5072ms against the 5000ms
+    // default purely because the machine was busy.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
