@@ -26,6 +26,7 @@ import { useDocumentFilePath } from "@/hooks/useDocumentState";
 import { imageContextMenuWarn, imageContextMenuError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
+import { attrsForSingleEdit } from "@/plugins/mediaPopup/mediaAttrUpdates";
 
 type GetEditorView = () => EditorView | null;
 
@@ -109,10 +110,14 @@ export function useImageContextMenu(getEditorView: GetEditorView) {
               return;
             }
 
-            const tr = state.tr.setNodeMarkup(imageNodePos, null, {
-              ...node.attrs,
-              src: relativePath,
-            });
+            const tr = state.tr.setNodeMarkup(
+              imageNodePos,
+              null,
+              // New source, so the node no longer stands for its old
+              // `![alt][id]` reference — keeping it would re-emit the
+              // reference and discard the image the user just chose.
+              attrsForSingleEdit(node.attrs, "src", relativePath),
+            );
 
             dispatch(tr);
           } catch (error) {

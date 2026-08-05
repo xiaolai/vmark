@@ -30,6 +30,7 @@
  */
 
 import type { Node as PMNode, Mark } from "@tiptap/pm/model";
+import { buildImageOrReference } from "./imageReferenceEmit";
 import type {
   Text,
   Strong,
@@ -38,6 +39,7 @@ import type {
   InlineCode,
   Link,
   Image,
+  ImageReference,
   Break,
   PhrasingContent,
 } from "mdast";
@@ -228,13 +230,10 @@ export function convertHardBreak(): Break {
 /**
  * Convert an image node to MDAST image.
  */
-export function convertImage(node: PMNode): Image {
-  return {
-    type: "image",
-    url: node.attrs.src as string,
-    alt: (node.attrs.alt as string) || undefined,
-    title: (node.attrs.title as string) || undefined,
-  };
+export function convertImage(node: PMNode): Image | ImageReference {
+  // Shared emitter: a node still carrying reference identity serializes as
+  // `![alt][id]`, exactly as links do.
+  return buildImageOrReference(node.attrs as never);
 }
 
 /**

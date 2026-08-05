@@ -11,8 +11,9 @@
  * @module utils/markdownPipeline/pmMediaConverters
  */
 
+import { buildImageOrReference } from "./imageReferenceEmit";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import type { Html, Image, Paragraph } from "mdast";
+import type { Html, Paragraph } from "mdast";
 import * as inlineConverters from "./pmInlineConverters";
 import { buildEmbedUrl, getProviderConfig, type VideoProvider } from "@/utils/videoProviderRegistry";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
@@ -42,14 +43,10 @@ function tryMediaImageSyntax(
   preload: string,
   extraCheck: boolean,
   hasMediaExtension: boolean,
+  referenceAttrs: { referenceId?: unknown; referenceType?: unknown } = {},
 ): Paragraph | null {
   if (!hasMediaExtension || !extraCheck || !controls || preload !== "metadata") return null;
-  const image: Image = {
-    type: "image",
-    url: src,
-    alt,
-    title: title || undefined,
-  };
+  const image = buildImageOrReference({ src, alt, title, ...referenceAttrs });
   return { type: "paragraph", children: [image] };
 }
 
@@ -73,7 +70,7 @@ export function convertBlockVideo(node: PMNode): Paragraph | Html {
   const preload = String(node.attrs.preload ?? "metadata");
   const alt = String(node.attrs.alt ?? "");
   // Prefer image syntax when every attribute is expressible (clean round-trip).
-  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, !poster, hasVideoExtension(src));
+  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, !poster, hasVideoExtension(src), node.attrs);
   if (imageResult) return imageResult;
 
   // Fallback: multi-line HTML (remark treats multi-line as block HTML type 7)
@@ -122,7 +119,7 @@ export function convertBlockAudio(node: PMNode): Paragraph | Html {
   const controls = node.attrs.controls !== false;
   const preload = String(node.attrs.preload ?? "metadata");
   const alt = String(node.attrs.alt ?? "");
-  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, true, hasAudioExtension(src));
+  const imageResult = tryMediaImageSyntax(src, alt, title, controls, preload, true, hasAudioExtension(src), node.attrs);
   if (imageResult) return imageResult;
 
   // Fallback: multi-line HTML
