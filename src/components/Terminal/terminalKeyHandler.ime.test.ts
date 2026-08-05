@@ -12,13 +12,26 @@
  *
  * An earlier draft of this suite asserted the opposite — that the handler
  * writes `/`, the digits and their shifted punctuation itself. That was a
- * candidate design for #1176 which was not the one adopted, and the
- * assertions were committed without an implementation, so they described
- * behaviour no code had. They are removed rather than skipped: a test for a
- * rejected design is not pending work, it is a false description of the
- * system. The real-IME behaviour is covered where it can actually be
- * observed — `setupImeCompositionGate.webkit.test.ts` against a real xterm,
- * and the opt-in `pnpm e2e:ime` lane driving the OS input method.
+ * candidate design for #1176 which was not the one adopted (the fix,
+ * 271c044d, changed this file by one blank comment line; its ~84 real lines
+ * went into the GATE), so the assertions described behaviour no code had.
+ * They are removed rather than skipped: a test for a rejected design is not
+ * pending work, it is a false description of the system.
+ *
+ * WHERE #1176 IS ACTUALLY COVERED, and where it is NOT:
+ *   - `imeAsciiHandoff.test.ts` wires the REAL handler to the REAL gate and
+ *     replays the RECORDED event order (insert before its own keydown),
+ *     asserting the slash, the digits and shifted punctuation each reach the
+ *     PTY exactly once. That is the delivery proof.
+ *   - No tier drives a real OS IME in the TERMINAL. The WebKit tier says so
+ *     itself — it can drive ASCII and direct non-ASCII insertion, not a
+ *     macOS Pinyin candidate cycle — and `pnpm e2e:ime` focuses
+ *     `.ProseMirror`, never the terminal. So every check above is synthetic
+ *     in its event shape. If an affected IME emits no `input` event at all,
+ *     the key is still lost by construction and nothing here would notice.
+ *     Stating that plainly is the point: an earlier version of this comment
+ *     claimed those two tiers covered it, which is the same false
+ *     description the deleted tests were removed for.
  *
  * Split from terminalKeyHandler.test.ts, which is at its frozen size baseline.
  */
@@ -88,12 +101,16 @@ describe("createTerminalKeyHandler — keys the IME passed through (#1176)", () 
     },
   );
 
-  it("does not write when the PTY is gone", () => {
+  it("still consumes the keydown when the PTY is gone", () => {
+    // Asserting only "does not throw" was vacuous: the 229 branch returns
+    // before it ever consults `ptyRef`, so it passed with a live PTY too.
+    // The property that matters is that a dead PTY does not change the
+    // channel decision — xterm must still not see the keydown.
     const handler = createTerminalKeyHandler(makeTerm(), { current: null }, {
       onSearch: vi.fn(),
       isComposing: () => false,
     });
-    expect(() => handler(imeKeydown("/"))).not.toThrow();
+    expect(handler(imeKeydown("/"))).toBe(false);
   });
 
   it.each(["a", "n", "z"])("consumes the letter %s WITHOUT writing (it starts a composition)", (key) => {
