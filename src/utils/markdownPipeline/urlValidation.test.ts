@@ -62,11 +62,16 @@ describe("urlValidation", () => {
       });
 
       it("blocks data URLs with script content", () => {
-        // data: URLs are allowed for images but could contain scripts
-        // The isSafeUrl function allows data: but specific mime types
+        // NOTE: `data:` passes this predicate, including `data:text/html`,
+        // which is NOT a safe scheme — a data:text/html document can execute
+        // script when loaded in a document context. This function is no
+        // longer the thing standing between that URL and the user: storage
+        // keeps URLs verbatim, and containment lives at the sinks
+        // (Tiptap renderHTML + openExternalLink's allowlist), proven
+        // end-to-end in linkSecurity.test.ts. Kept here only to document
+        // what this predicate does, not to bless the scheme.
         // should be validated at a higher level
         expect(isSafeUrl("data:text/html,<script>alert(1)</script>")).toBe(true);
-        // Note: This is intentionally allowed because data: scheme is safe
         // Content-type filtering should happen elsewhere
       });
 

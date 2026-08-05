@@ -25,6 +25,12 @@
  */
 
 import DOMPurify from "dompurify";
+export { sanitizeSvg } from "./svgSanitize";
+import {
+  KATEX_STYLE_PROPS,
+  filterStyleAttributes,
+  isSafeStyleValue,
+} from "./styleSafety";
 import {
   type HtmlAllowlistLevel,
   PREVIEW_TAGS_INLINE_STRICT,
@@ -117,7 +123,7 @@ function sanitizeStyleAttribute(style: string): string {
     if (!HTML_PREVIEW_STYLE_PROPS.has(property)) continue;
 
     const value = rest.join(":").trim();
-    if (!isSafeStyleValue(value)) continue;
+    if (!isSafeStyleValue(value, property)) continue;
 
     safeDeclarations.push(`${property}: ${value}`);
   }
@@ -125,16 +131,6 @@ function sanitizeStyleAttribute(style: string): string {
   return safeDeclarations.join("; ");
 }
 
-function isSafeStyleValue(value: string): boolean {
-  const lowered = value.toLowerCase();
-  if (lowered.includes("url(") || lowered.includes("expression(") || lowered.includes("javascript:")) {
-    return false;
-  }
-  if (lowered.includes("<") || lowered.includes(">")) {
-    return false;
-  }
-  return true;
-}
 
 /**
  * Sanitize media HTML content (video, audio, video embed iframes).
@@ -200,75 +196,10 @@ function stripNonWhitelistedIframes(html: string): string {
 }
 
 /**
- * Sanitize SVG content for safe rendering (e.g., Mermaid diagrams).
- * Allows SVG elements but removes scripts and event handlers.
- * Preserves style attributes and all SVG-specific attributes for proper rendering.
- *
- * Mermaid uses foreignObject with HTML labels (div, span) inside SVG.
- * HTML_INTEGRATION_POINTS tells DOMPurify to allow HTML inside foreignObject,
- * and the html profile provides the allowed HTML tag list. Without these,
- * DOMPurify strips the HTML wrappers (div, span) from foreignObject content,
- * losing inline styles (line-height, display, text-align) that mermaid relies
- * on for correct text sizing — causing text to clip inside node boxes.
- */
-export function sanitizeSvg(svg: string): string {
-  // Use a separate DOMPurify instance for SVG to avoid hook leaks
-  const purify = DOMPurify();
-
-  // Hook: sanitize dangerous CSS patterns in style attributes
-  // DOMPurify does not filter CSS property values for SVG profiles,
-  // so we strip expression(), javascript:, -moz-binding, and url(javascript:)
-  purify.addHook("uponSanitizeAttribute", (_node, data) => {
-    if (data.attrName === "style" && data.attrValue) {
-      data.attrValue = sanitizeSvgStyleValue(data.attrValue);
-    }
-  });
-
-  const result = purify.sanitize(svg, {
-    USE_PROFILES: { svg: true, svgFilters: true, html: true },
-    ADD_TAGS: ["foreignObject", "use"],
-    // Explicitly add style and common SVG attributes that might be needed
-    ADD_ATTR: ["style", "fill", "stroke", "class", "transform", "d", "cx", "cy", "r", "rx", "ry", "x", "y", "width", "height", "viewBox", "xmlns", "marker-end", "marker-start", "href"],
-    FORBID_TAGS: ["script"],
-    FORBID_ATTR: [
-      "onerror",
-      "onload",
-      "onclick",
-      "onmouseover",
-      "onfocus",
-      "onblur",
-    ],
-    // Allow HTML elements inside SVG foreignObject (mermaid's htmlLabels)
-    HTML_INTEGRATION_POINTS: { foreignobject: true },
-  });
-
-  purify.removeAllHooks();
-  return result;
-}
-
-/**
- * Strip dangerous CSS patterns from SVG style attribute values.
- * Blocks expression(), -moz-binding, javascript: URLs, and similar vectors.
- */
-function sanitizeSvgStyleValue(style: string): string {
-  const lowered = style.toLowerCase();
-  if (
-    lowered.includes("expression(") ||
-    lowered.includes("javascript:") ||
-    lowered.includes("-moz-binding") ||
-    lowered.includes("behavior:")
-  ) {
-    // Strip the entire style — partial removal is error-prone
-    return "";
-  }
-  return style;
-}
-
-/**
  * Sanitize KaTeX output for safe rendering.
  */
 export function sanitizeKatex(html: string): string {
-  return DOMPurify.sanitize(html, {
+  const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "span",
       "math",
@@ -316,6 +247,10 @@ export function sanitizeKatex(html: string): string {
     ],
     ALLOW_DATA_ATTR: false,
   });
+  // KaTeX needs inline styles for layout, but an unfiltered `style` is a
+  // beacon (`url(https://…)`) and a viewport overlay (`position: fixed`).
+  // Filter to the properties KaTeX actually emits, with safe values.
+  return filterStyleAttributes(sanitized, KATEX_STYLE_PROPS);
 }
 
 /**

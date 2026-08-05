@@ -71,7 +71,7 @@
     "src/plugins/footnotePopup/tiptap.ts": 384,
     "src/plugins/imagePasteToast/ImagePasteToastView.ts": 308,
     "src/plugins/latex/MathInlineNodeView.ts": 565,
-    "src/plugins/mediaPopup/MediaPopupView.ts": 485,
+    "src/plugins/mediaPopup/MediaPopupView.ts": 480,
     "src/plugins/mermaidPreview/MermaidPreviewView.ts": 402,
     "src/plugins/multiCursor/inputHandling.ts": 354,
     "src/plugins/search/tiptap.ts": 337,
@@ -96,8 +96,6 @@
     "src/stores/workflowStore.ts": 377,
     "src/utils/cursorSync/codemirror.ts": 306,
     "src/utils/exportNaming.ts": 327,
-    "src/utils/markdownPipeline/serializer.ts": 354,
-    "src/utils/sanitize.ts": 335,
     "src/utils/textTransformations.ts": 335
   },
   "testLimit": 800,

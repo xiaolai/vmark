@@ -48,6 +48,11 @@ export const remarkResolveReferences: Plugin<[], Root> = function () {
 
     visit(tree, "definition", (node: Definition) => {
       const id = node.identifier.toLowerCase();
+      // FIRST definition wins, per CommonMark: "if there are several
+      // matching definitions, the first one takes precedence". Overwriting
+      // meant VMark edited against a different URL than every compliant
+      // renderer showed.
+      if (definitions.has(id)) return;
       definitions.set(id, {
         url: node.url,
         title: node.title ?? null,
@@ -97,8 +102,12 @@ function resolveLinkReference(
     children: node.children,
     position: node.position,
     // Remember what this was, so the serializer can put it back. Resolving is
-    // for EDITING — the reference form is what the author wrote.
-    data: { referenceId: node.identifier || node.label || "", referenceType: node.referenceType },
+    // for EDITING — the reference form is what the author wrote. Prefer the
+    // LABEL: it is the decoded form, and the serializer re-escapes labels on
+    // output. Storing the identifier (still escape-carrying: `ref\[`) got
+    // escaped AGAIN into `ref\\\[`, which no longer matched its definition —
+    // the bracket-escape-growth defect (CommonMark examples 194/549/550).
+    data: { referenceId: node.label || node.identifier || "", referenceType: node.referenceType },
   } as Link;
 }
 
@@ -123,5 +132,13 @@ function resolveImageReference(
     title: def.title,
     alt: node.alt ?? null,
     position: node.position,
-  };
+    // Same contract as links above: resolving is for EDITING, so the node
+    // remembers what the author wrote and the serializer puts it back.
+    // Without this, `![alt][id]` was rewritten inline on save and its
+    // definition became an orphan (lint W03 on VMark's own output).
+    data: {
+      referenceId: node.label || node.identifier || "",
+      referenceType: node.referenceType,
+    },
+  } as Image;
 }
