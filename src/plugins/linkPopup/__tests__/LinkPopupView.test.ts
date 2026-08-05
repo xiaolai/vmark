@@ -60,6 +60,7 @@ vi.mock("@/plugins/shared/popupHostDom", () => ({
 
 // Import after mocking
 import { LinkPopupView } from "../LinkPopupView";
+import { ASYNC_IMPORT_WAIT } from "@/test/waitBudget";
 
 // Helper functions
 const createMockRect = (overrides: Partial<DOMRect> = {}): DOMRect => ({
@@ -317,7 +318,7 @@ describe("LinkPopupView", () => {
       // Use vi.waitFor to reliably wait for the async dynamic import chain
       await vi.waitFor(() => {
         expect(mockOpenUrl).toHaveBeenCalledWith("https://test.com");
-      });
+      }, ASYNC_IMPORT_WAIT);
     });
 
     it("copy button copies URL to clipboard", async () => {

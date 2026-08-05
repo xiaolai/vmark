@@ -420,7 +420,7 @@ describe("linkPopupExtension", () => {
       // Wait deterministically for the dynamic openUrl import to resolve.
       await vi.waitFor(() => {
         expect(mockOpenUrl).toHaveBeenCalledWith("http://example.com");
-      });
+      }, { timeout: 5000 }); // budget: src/test/waitBudget.ts
     });
 
     it("Ctrl+click on external link opens in browser", async () => {

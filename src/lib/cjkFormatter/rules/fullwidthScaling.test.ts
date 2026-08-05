@@ -25,6 +25,22 @@ function elapsed(fn: () => void): number {
   return performance.now() - started;
 }
 
+/**
+ * The fastest of `runs` samples.
+ *
+ * Scheduler noise is one-sided: a descheduled worker can only make a sample
+ * look SLOWER, never faster. So the minimum is the sample least contaminated by
+ * the rest of the suite, and it preserves the property under test — a quadratic
+ * implementation is quadratic in its best run too. A single sample is what made
+ * the ratio assertion below flake inside the full parallel suite while passing
+ * in isolation.
+ */
+function fastest(runs: number, fn: () => void): number {
+  let best = Infinity;
+  for (let i = 0; i < runs; i++) best = Math.min(best, elapsed(fn));
+  return best;
+}
+
 describe("normalizeFullwidthPunctuation scaling", () => {
   it("converts a 10k-comma run after a CJK char well inside the budget", () => {
     const input = `中${",".repeat(10_000)}`;
@@ -62,8 +78,11 @@ describe("normalizeFullwidthPunctuation scaling", () => {
     // Warm up so JIT/first-run costs do not land on the small sample.
     normalizeFullwidthPunctuation(run(500));
 
-    const small = elapsed(() => normalizeFullwidthPunctuation(run(2_000)));
-    const large = elapsed(() => normalizeFullwidthPunctuation(run(8_000)));
+    // Best-of-5 on both sides: the baseline is sub-millisecond, so a single
+    // sample of `large` that catches one preemption is enough to blow a 12x
+    // ratio that the algorithm itself never approaches.
+    const small = fastest(5, () => normalizeFullwidthPunctuation(run(2_000)));
+    const large = fastest(5, () => normalizeFullwidthPunctuation(run(8_000)));
 
     // 4x input under a quadratic law is ~16x time; allow a very wide margin
     // for timer noise on a sub-millisecond baseline.

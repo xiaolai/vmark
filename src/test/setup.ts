@@ -1,7 +1,13 @@
 import "@testing-library/jest-dom";
+import { configure as configureTestingLibrary } from "@testing-library/react";
 import { expect, vi } from "vitest";
 import React from "react";
 import "./localStorageShim";
+import { ASYNC_IMPORT_WAIT } from "./waitBudget";
+
+// Suite-wide async-wait budget. Rationale (and the `vi.waitFor` twin, which
+// has no global equivalent) live in `./waitBudget`.
+configureTestingLibrary({ asyncUtilTimeout: ASYNC_IMPORT_WAIT.timeout });
 
 // vitest-axe matchers (RW-15 / L11): register `toHaveNoViolations` globally so
 // a11y tests can assert `expect(await axe(el)).toHaveNoViolations()`.

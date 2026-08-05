@@ -80,6 +80,7 @@ import { Schema } from "@tiptap/pm/model";
 import { EditorState, type Transaction } from "@tiptap/pm/state";
 // isImeKeyEvent is mocked above — no direct import needed
 import { linkPopupError } from "@/utils/debug";
+import { ASYNC_IMPORT_WAIT } from "@/test/waitBudget";
 
 // ---------------------------------------------------------------------------
 // Document fixture: <p><a href=HREF>link</a> tail</p> — the link spans 1..5,
@@ -471,7 +472,7 @@ describe("LinkPopupView", () => {
 
     await vi.waitFor(() => {
       expect(openUrl).toHaveBeenCalledWith(HREF);
-    });
+    }, ASYNC_IMPORT_WAIT);
 
     popup.destroy();
   });
@@ -489,7 +490,7 @@ describe("LinkPopupView", () => {
 
     await vi.waitFor(() => {
       expect(openUrl).toHaveBeenCalledWith("https://pasted.example");
-    });
+    }, ASYNC_IMPORT_WAIT);
 
     popup.destroy();
   });
@@ -513,8 +514,8 @@ describe("LinkPopupView", () => {
         "../appendix/cards.md#bern",
         null,
       );
-    });
-    await vi.waitFor(() => expect(mockClosePopup).toHaveBeenCalled());
+    }, ASYNC_IMPORT_WAIT);
+    await vi.waitFor(() => expect(mockClosePopup).toHaveBeenCalled(), ASYNC_IMPORT_WAIT);
 
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     expect(openUrl).not.toHaveBeenCalled();
@@ -537,7 +538,7 @@ describe("LinkPopupView", () => {
 
     await vi.waitFor(() => {
       expect(mockOpenFilepathLink).toHaveBeenCalled();
-    });
+    }, ASYNC_IMPORT_WAIT);
     expect(mockClosePopup).not.toHaveBeenCalled();
 
     popup.destroy();
@@ -559,7 +560,7 @@ describe("LinkPopupView", () => {
     mockClosePopup.mockClear();
 
     resolveOpen(true);
-    await vi.waitFor(() => expect(mockOpenFilepathLink).toHaveBeenCalled());
+    await vi.waitFor(() => expect(mockOpenFilepathLink).toHaveBeenCalled(), ASYNC_IMPORT_WAIT);
 
     // The completion belongs to the old popup — it must not close the new one.
     expect(mockClosePopup).not.toHaveBeenCalled();
@@ -598,7 +599,7 @@ describe("LinkPopupView", () => {
 
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("https://pasted.example");
-    });
+    }, ASYNC_IMPORT_WAIT);
 
     popup.destroy();
   });
@@ -624,7 +625,7 @@ describe("LinkPopupView", () => {
         "Failed to copy URL:",
         expect.any(Error)
       );
-    });
+    }, ASYNC_IMPORT_WAIT);
 
     popup.destroy();
 
