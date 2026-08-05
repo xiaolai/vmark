@@ -85,6 +85,12 @@ pub(crate) use supported_files::has_supported_extension;
 #[path = "lib.test.rs"]
 mod lib_test;
 
+// Capability files are data, not code, and nothing else reads them at build
+// time — so their contract is pinned here (#1202).
+#[cfg(test)]
+#[path = "capabilities.test.rs"]
+mod capabilities_test;
+
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
