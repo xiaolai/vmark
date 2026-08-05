@@ -41,27 +41,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
-  frontend-run:
+
+  # ── Frontend verification, split into parallel groups ─────────────────────
+  #
+  # This was ONE job running `pnpm check:all` end to end: 25 lint gates, then
+  # 35k tests with coverage, then three builds — strictly serial, ~22 min, and
+  # the critical path of every PR. The groups below are the same 31 steps
+  # (`pnpm check:all` still composes exactly them, and check-scripts-parity
+  # asserts it), so the critical path becomes the MAX of the groups rather than
+  # their SUM.
+  #
+  # Tests shard because they dominate. Each shard writes a blob report; the
+  # merge job reconstitutes them and applies the coverage thresholds to the
+  # COMBINED result — verified to reproduce the unsharded numbers
+  # (94.28/90.62/93.77/95.13 vs 94.27/90.60/93.74/95.13). Sharding without that
+  # merge would silently drop the coverage gate, which is worse than being slow.
+  fe-static:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
-          # Fetch enough history for the new-deps slopsquatting gate to diff
-          # against origin/main.
+          # Full history: the slopsquatting gate and the baseline ratchet both
+          # diff against the merge base.
           fetch-depth: 0
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-node-pnpm
 
       - name: Security audit
         # pnpm 10 audit broken: npm retired legacy endpoint (410), bulk API lands in pnpm 11
@@ -78,19 +82,69 @@ jobs:
       - name: Baseline ratchet (merge-base, all committed baselines)
         # Every gate compares the tree against its baseline in the SAME commit,
         # so a PR can raise its own floor — edit the offending file and its
-        # baseline together and every check reports green (audit 20260729 C3;
-        # generalized from file-size alone to all 12 baselines by the 20260803
-        # review, D2). This re-reads each baseline at the merge base, where the
-        # PR cannot have written it, and rejects any loosening.
-        #
-        # PR-only, and NOT part of `pnpm check:all`: the comparison needs a base
-        # ref, which a local checkout cannot guarantee. The checkout above uses
-        # fetch-depth: 0, so `git merge-base origin/<base> HEAD` resolves here;
-        # if it ever cannot, the script exits 1 rather than skipping.
-        if: github.event_name == 'pull_request'
+        # baseline together and every check reports green (audit 20260729 C3).
+        # This re-reads each baseline at the merge base, where the PR cannot
+        # have written it, and rejects any loosening.
         run: node scripts/check-baseline-ratchet.mjs "origin/${{ github.base_ref }}"
 
-      - run: pnpm check:all
+      - run: pnpm check:static
+
+  fe-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+
+      # Blob reports carry this shard's coverage; fe-coverage merges them and
+      # is the ONLY place thresholds are applied.
+      - name: Tests (shard ${{ matrix.shard }}/4)
+        run: pnpm vitest run --coverage --shard=${{ matrix.shard }}/4 --reporter=blob --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: .vitest-reports/*
+          retention-days: 1
+
+  fe-coverage:
+    needs: [fe-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: .vitest-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      # Thresholds live in vitest.config.ts and apply to the MERGED report, so
+      # this is the real coverage gate — the shards deliberately do not gate.
+      - name: Merge shard reports and enforce coverage thresholds
+        run: pnpm vitest --merge-reports=.vitest-reports --coverage
+
+  fe-servers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+      - run: pnpm check:servers
+
+  fe-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+      - run: pnpm check:build
 
   # Real-WebKit tier. `pnpm check:all` is jsdom-only, and the difference is not
   # cosmetic: real WebKit drains a microtask BETWEEN capture listeners and jsdom
@@ -122,21 +176,37 @@ jobs:
 
       - run: pnpm exec vitest run --config vitest.browser.config.ts
 
-  # Gate job: required by branch protection (exact name "frontend")
+  # Gate job: required by branch protection (exact name "frontend").
+  #
+  # Fails unless EVERY group succeeded. `if: always()` means this runs even when
+  # a dependency failed or was skipped, so the check must treat anything other
+  # than "success" as a failure — a skipped group is not a passed group, and
+  # `needs` alone would let one silently vanish from the gate.
   frontend:
     if: always()
-    needs: [frontend-run, webkit]
+    needs: [fe-static, fe-test, fe-coverage, fe-servers, fe-build, webkit]
     runs-on: ubuntu-latest
     steps:
       - name: Check result
         env:
-          RESULT: ${{ needs.frontend-run.result }}
+          STATIC: ${{ needs.fe-static.result }}
+          TESTS: ${{ needs.fe-test.result }}
+          COVERAGE: ${{ needs.fe-coverage.result }}
+          SERVERS: ${{ needs.fe-servers.result }}
+          BUILD: ${{ needs.fe-build.result }}
           WEBKIT: ${{ needs.webkit.result }}
         run: |
-          if [ "$RESULT" != "success" ]; then
-            echo "frontend-run: $RESULT"
-            exit 1
-          fi
+          failed=0
+          for pair in "fe-static:$STATIC" "fe-test:$TESTS" "fe-coverage:$COVERAGE" \
+                      "fe-servers:$SERVERS" "fe-build:$BUILD" "webkit:$WEBKIT"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" != "success" ]; then
+              echo "$name: $result"
+              failed=1
+            fi
+          done
+          [ "$failed" -eq 0 ]
           if [ "$WEBKIT" != "success" ]; then
             echo "webkit: $WEBKIT"
             exit 1
