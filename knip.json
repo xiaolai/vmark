@@ -19,7 +19,8 @@
         "src/**/*.{test,spec}.{ts,tsx}",
         "src/bench/**/*.bench.ts",
         "scripts/*.{ts,mjs}",
-        ".claude/hooks/*.mjs"
+        ".claude/hooks/*.mjs",
+        "src/utils/markdownPipeline/__tests__/pathological/runCases.ts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",

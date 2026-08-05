@@ -99,8 +99,15 @@ describe("round-trip defects", () => {
     // The serializer normalizes thematic breaks to `---`; on line 1 the
     // reparse reads that as a frontmatter fence and swallows structure
     // (CommonMark spec examples 43, 47, 77).
-    it("does not emit `---` as the first line of a document", () => {
-      const out = roundTrip("***\n\ntext");
+    it("keeps a LONE leading rule as `---` — it cannot be misread", () => {
+      // The guard verifies rather than assumes: a single leading break
+      // reparses as a break, so rewriting it would cost fidelity for nothing
+      // (typing `---` in an empty document used to come back as `***`).
+      expect(roundTrip("---")).toBe("---");
+    });
+
+    it("avoids `---` when the reparse WOULD read frontmatter", () => {
+      const out = roundTrip("***\n---\n___\n");
       expect(out).not.toMatch(/^---/);
       expect(roundTrip(out)).toBe(out);
     });

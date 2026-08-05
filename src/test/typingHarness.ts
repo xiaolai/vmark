@@ -47,7 +47,7 @@ const KEYS: Record<string, { key: string; code: string; keyCode: number }> = {
   Space: { key: " ", code: "Space", keyCode: 32 },
 };
 
-export type HarnessKey = keyof typeof KEYS;
+type HarnessKey = keyof typeof KEYS;
 
 export interface TypingSession {
   readonly editor: Editor;

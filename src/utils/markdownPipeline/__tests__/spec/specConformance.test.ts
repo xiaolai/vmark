@@ -30,10 +30,12 @@ import "../../dialect";
 import { createProcessor } from "../../parser/processorFactory";
 import {
   project,
-  diff,
-  type Divergence,
   type RawNode,
 } from "../../conformance/semanticProjection";
+import {
+  diff,
+  type Divergence,
+} from "../../conformance/projectionDiff";
 import { examplesForRoute, type SpecExample } from "./corpusRegistry";
 import {
   loadConformanceLedger,

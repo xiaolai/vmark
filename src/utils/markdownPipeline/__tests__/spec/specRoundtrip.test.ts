@@ -33,10 +33,12 @@ import { parseMarkdown, serializeMarkdown } from "../../adapter";
 import { getProductionSchema } from "@/test/productionSchema";
 import {
   project,
-  diff,
-  type Divergence,
   type RawNode,
 } from "../../conformance/semanticProjection";
+import {
+  diff,
+  type Divergence,
+} from "../../conformance/projectionDiff";
 import {
   CORPORA,
   examplesForRoute,

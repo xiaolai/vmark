@@ -30,8 +30,8 @@ import { sameValue, type Divergence } from "../../conformance/semanticProjection
 
 export const UNDEFINED_SENTINEL = "__undefined__";
 
-export type ConformanceVerdict = "extension" | "defect";
-export type FidelityVerdict = "defect" | "model-limit" | "normalization" | "policy";
+type ConformanceVerdict = "extension" | "defect";
+type FidelityVerdict = "defect" | "model-limit" | "normalization" | "policy";
 
 export interface ConformanceDelta {
   exampleId: string;
@@ -44,7 +44,7 @@ export interface ConformanceDelta {
   reason: string;
 }
 
-export interface StabilityDelta {
+interface StabilityDelta {
   exampleId: string;
   /** sha256 of the first and second serializer passes — the oscillation's
    *  exact identity. A serializer change that alters either output makes the
@@ -85,7 +85,7 @@ function readJson<T>(file: string): T {
 }
 
 /** Map the JSON spelling of `undefined` back to the value itself. */
-export function reviveValue(value: unknown): unknown {
+function reviveValue(value: unknown): unknown {
   return value === UNDEFINED_SENTINEL ? undefined : value;
 }
 

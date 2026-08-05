@@ -24,7 +24,8 @@ import "../../dialect";
 import { createProcessor } from "../../parser/processorFactory";
 import { parseMarkdown, serializeMarkdown } from "../../adapter";
 import { getProductionSchema } from "@/test/productionSchema";
-import { project, diff, type RawNode } from "../../conformance/semanticProjection";
+import { project, type RawNode } from "../../conformance/semanticProjection";
+import { diff } from "../../conformance/projectionDiff";
 import { examplesForRoute, sha256Of } from "./corpusRegistry";
 import { UNDEFINED_SENTINEL } from "./specLedgers";
 
