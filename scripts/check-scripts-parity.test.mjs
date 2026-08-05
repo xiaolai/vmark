@@ -61,6 +61,20 @@ describe("check:all and CI run the same gates", () => {
     expect(ci).toMatch(/--merge-reports[^\n]*--coverage|--coverage[^\n]*--merge-reports/);
   });
 
+  it("a failing shard prints why — blob must not be the only reporter", () => {
+    // `--reporter=blob` REPLACES the console reporter. On its own, a red shard
+    // emitted nothing but "Process completed with exit code 1": no test name,
+    // no assertion, nothing to distinguish a real regression from a flake.
+    const shardStep = ci.slice(ci.indexOf("Tests (shard"), ci.indexOf("upload-artifact"));
+    expect(shardStep).toContain("--reporter=blob");
+    expect(shardStep, "shard needs a console reporter beside blob").toContain(
+      "--reporter=default",
+    );
+    // With two reporters, the blob path must be addressed per-reporter or the
+    // blob silently lands somewhere else (or not at all).
+    expect(shardStep).toContain("--outputFile.blob=");
+  });
+
   it("shards do NOT gate on coverage — only the merged report does", () => {
     // A shard runs a quarter of the suite and measures ~49% lines, so leaving
     // the global thresholds active makes every shard fail on every run — which
