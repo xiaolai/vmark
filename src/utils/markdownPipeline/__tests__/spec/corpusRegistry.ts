@@ -41,7 +41,7 @@ export interface CorpusRoutes {
  * whose VMark parse contains `nodeType` and requires EXACTLY the measured
  * number, so the dialect silently dying (or silently widening) both fail.
  */
-export interface MustProduce {
+interface MustProduce {
   nodeType: string;
   exampleCount: number;
 }
@@ -62,7 +62,7 @@ export interface VendoredCorpus {
   mustProduce?: MustProduce;
 }
 
-export interface FixtureCorpus {
+interface FixtureCorpus {
   kind: "fixtures-manifest";
   prefix: string;
   routes: CorpusRoutes;

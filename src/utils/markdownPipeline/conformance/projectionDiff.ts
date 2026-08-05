@@ -59,14 +59,17 @@ export function diff(
     // anyone seeing them. That is the vacuous-gate failure this module exists
     // to avoid.
     //
-    // Attributes are still compared across a type change. Skipping them
-    // entirely meant a declared flip (linkReference→link) also hid a changed
-    // `url` or `title`, so a resolved destination could drift invisibly.
-    return [
-      ...out,
-      ...diffSharedAttributes(documentTree, sourceTree, path),
-      ...diffChildren(documentTree, sourceTree, path),
-    ];
+    // Attributes are skipped (unrelated shapes have unrelated fields), but
+    // children are still compared by index.
+    //
+    // KNOWN GAP, deliberately left to the ledger layer: a declared type flip
+    // (linkReference→link) also hides a changed `url` or `title` on that same
+    // node. The spec tier's exact-signature ledgers pin the type row's values
+    // but cannot see attributes `diff` never emits. Widening this primitive
+    // was tried and reverted — every ledger in the spec tier is measured
+    // against this contract, so changing it here re-authors those ledgers
+    // blind. Close it in the ledger layer, or with a targeted assertion.
+    return [...out, ...diffChildren(documentTree, sourceTree, path)];
   }
 
   const keys = new Set([
@@ -98,32 +101,6 @@ export function diff(
   }
 
   return [...out, ...diffChildren(documentTree, sourceTree, path)];
-}
-
-/** Compare only the attribute keys BOTH shapes carry. */
-function diffSharedAttributes(
-  documentTree: ProjectedNode,
-  sourceTree: ProjectedNode,
-  path: string
-): Divergence[] {
-  const out: Divergence[] = [];
-  const shared = Object.keys(documentTree.attributes)
-    .filter((k) => Object.hasOwn(sourceTree.attributes, k))
-    .sort();
-  for (const key of shared) {
-    const a = documentTree.attributes[key];
-    const b = sourceTree.attributes[key];
-    if (!sameValue(a, b)) {
-      out.push({
-        path,
-        kind: "attribute",
-        detail: key,
-        documentValue: a,
-        sourcePositionValue: b,
-      });
-    }
-  }
-  return out;
 }
 
 /** Compare children by index. Extra children on either side are reported. */

@@ -9,8 +9,21 @@
  * plumbing; "no dangerous scheme survives the pipeline" is the claim.
  *
  * The corpus's own HTML side is NOT the oracle (markdown-it's sanitizer
- * decisions differ); the oracle is VMark's declared policy: `isSafeUrl`
- * returns true, or the URL was rewritten to about:blank.
+ * decisions differ); the oracle is VMark's declared policy.
+ *
+ * THAT POLICY CHANGED. Rewriting an unsafe URL to `about:blank` at the
+ * MDAST→PM boundary corrupted the author's file on save — opening and saving
+ * turned `[x](s3://bucket/key)` into `[x](about:blank)` — so storage now
+ * keeps every URL VERBATIM and containment lives at the sinks that actually
+ * activate a URL: Tiptap's `renderHTML` refuses to emit a dangerous href,
+ * and `openExternalLink` allow-lists schemes (with a deny floor no user
+ * setting can lift) before the OS opener sees one.
+ *
+ * So the claim asserted here is the one the pipeline still owes: a dangerous
+ * scheme must survive UNCHANGED (no silent rewrite, no silent laundering
+ * into something that looks safe), and `isSafeUrl` must still classify it as
+ * unsafe so those sinks refuse it. The end-to-end containment proof lives in
+ * `services/navigation/linkSecurity.test.ts`.
  *
  * @coordinates-with corpusRegistry.ts — the xss corpus entry
  * @coordinates-with ../../urlValidation.ts — the policy under assertion
@@ -63,22 +76,30 @@ describe("xss corpus: no dangerous scheme survives the pipeline", () => {
     // on the re-parse (not the serialized bytes) means an encoding trick that
     // smuggles a scheme through serialization is still caught when it becomes
     // a live URL again.
-    for (const url of collectUrls(mdastOf(output))) {
-      // `about:blank` is the policy's own rewrite SENTINEL — inert by design,
-      // yet not in the allow-list, so it must be accepted here explicitly.
-      expect(
-        isSafeUrl(url) || url === "about:blank",
-        `${example.id}: unsafe URL survived the roundtrip: ${JSON.stringify(url)}`,
-      ).toBe(true);
-    }
+    const before = collectUrls(mdastOf(example.markdown));
+    const after = collectUrls(mdastOf(output));
+    // 1. No laundering: the roundtrip must not turn an unsafe URL into one
+    //    that reads as safe. That is the failure mode a storage rewrite was
+    //    meant to prevent and the one the sinks cannot catch, because by
+    //    then the URL already looks legitimate.
+    expect(
+      after.filter((u) => !isSafeUrl(u)).length,
+      `${example.id}: unsafe-URL count changed across the roundtrip`,
+    ).toBe(before.filter((u) => !isSafeUrl(u)).length);
+    // 2. No rewrite: the author's URL is preserved byte for byte.
+    expect(after, `${example.id}: a URL was rewritten on save`).toEqual(before);
   });
 
-  it("a KNOWN-dangerous input is actually rewritten (probe, not just filtered)", () => {
+  it("a KNOWN-dangerous input is preserved, and still classified unsafe", () => {
+    // Preserved (the editor is not allowed to rewrite the author's file) …
     const output = serializeMarkdown(
       schema,
       parseMarkdown(schema, "[click](javascript:alert(1))\n"),
     );
-    expect(output).toContain("about:blank");
-    expect(output).not.toContain("javascript:");
+    expect(output).toContain("javascript:alert(1)");
+    expect(output).not.toContain("about:blank");
+    // … and still recognised as unsafe, which is what makes the render and
+    // activation sinks refuse it (proved end-to-end in linkSecurity.test.ts).
+    expect(isSafeUrl("javascript:alert(1)")).toBe(false);
   });
 });
