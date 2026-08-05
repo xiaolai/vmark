@@ -5,6 +5,10 @@
 //! gate. The mode items (`wysiwyg-mode`, `source-mode`, `markdown-split`)
 //! are `CheckMenuItem`s whose checkmarks are kept in sync by
 //! `menu::menu_state`.
+//!
+//! `universal-toolbar` is deliberately a plain `MenuItem`: invoking it while
+//! the toolbar is already visible moves focus rather than hiding it (Esc
+//! dismisses), so a checkmark would advertise a state the click cannot clear.
 
 use rust_i18n::t;
 use tauri::menu::{CheckMenuItem, MenuItem, PredefinedMenuItem, Submenu};

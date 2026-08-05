@@ -1,10 +1,17 @@
 /**
  * Universal Toolbar Toggle Hook
  *
- * Purpose: Listens for the configurable keyboard shortcut to toggle the
- *   universal toolbar visibility — works in both WYSIWYG and Source modes.
+ * Purpose: Listens for the configurable keyboard shortcut to summon the
+ *   universal toolbar — works in both WYSIWYG and Source modes — and owns the
+ *   Escape cascade that dismisses it.
  *
- * @coordinates-with uiStore.ts — toggles toolbar visibility
+ *   The summon itself is delegated to `services/editor/universalToolbarToggle`,
+ *   shared with the View-menu command so the keyboard and the menu item cannot
+ *   drift. This hook keeps the key matching and the Escape handling, which have
+ *   no menu counterpart.
+ *
+ * @coordinates-with services/editor/universalToolbarToggle.ts — the shared summon
+ * @coordinates-with uiStore.ts — Escape cascade (dropdown → toolbar → StatusBar)
  * @coordinates-with shortcutsStore.ts — reads configurable shortcut binding
  * @module hooks/useUniversalToolbar
  */
