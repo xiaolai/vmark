@@ -116,16 +116,17 @@ jobs:
       # "Process completed with exit code 1" — no test name, no assertion, no
       # way to tell a real failure from a flake without re-running locally.
       # (Enforced below by check-scripts-parity.)
+      #
+      # Deliberately ONE long line rather than a folded `>-` block. `ci.yml` is
+      # on the BYTE_IDENTICAL identity ratchet in
+      # `ghaWorkflow/save/__tests__/corpusRoundtrip.test.ts`, and a folded
+      # scalar does not survive that CST round trip byte-identically — it
+      # dropped the file off the list. A literal `|` block is NOT the
+      # alternative: `>-` folds to a single command, while `|` keeps the
+      # newlines, so under `bash -e` every flag line would run as its own
+      # command.
       - name: Tests (shard ${{ matrix.shard }}/4)
-        run: >-
-          pnpm vitest run --coverage
-          --shard=${{ matrix.shard }}/4
-          --reporter=blob --reporter=default
-          --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
-          --coverage.thresholds.lines=0
-          --coverage.thresholds.functions=0
-          --coverage.thresholds.statements=0
-          --coverage.thresholds.branches=0
+        run: pnpm vitest run --coverage --shard=${{ matrix.shard }}/4 --reporter=blob --reporter=default --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0
 
       - uses: actions/upload-artifact@v4
         with:
