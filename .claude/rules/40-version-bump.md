@@ -68,7 +68,18 @@ any `cargo build --locked` / `--frozen` (release + CI).
    git commit -m "chore: bump version to 0.4.0"
    ```
 
-4. **Open a PR, then tag** (`main` requires one since 2026-07-27 — see
+4. **Prefer folding the bump into the feature PR.** A standalone bump PR pays a
+   FULL CI cycle — frontend-run ~22 min, the 3-OS Rust matrix, bench, webkit,
+   ~57 runner-minutes — to change five version strings and one lockfile line.
+   On the v0.9.28 release that was the single largest waste of the whole
+   release. When the change being released is still in flight, commit the bump
+   onto that branch and let one PR carry both; the release notes do not care
+   which commit moved the number.
+
+   A standalone bump PR is the fallback for when `main` already carries the
+   changes being released. It is not the default.
+
+5. **Open a PR, then tag** (`main` requires one since 2026-07-27 — see
    `60-ai-governance.md` §10; a direct push of a new commit is rejected because
    the required checks cannot have run on it yet):
    ```bash
@@ -91,9 +102,12 @@ any `cargo build --locked` / `--frozen` (release + CI).
 
    **Pushing a `v*` tag triggers the local `pre-push` tag leg**: a seconds-fast
    `gh api` verification (`scripts/check-tag-green.sh`) that CI's required
-   checks (`frontend`, `rust`) are green on the exact tagged commit — since
-   the tag names the just-merged, fully-checked commit, this passes right
-   after the PR merge. It refuses (fail closed) if a check is pending, red,
+   checks (`frontend`, `rust`) are green on the tagged commit — or, since CI is
+   `pull_request`-only, on an ancestor with an IDENTICAL TREE, which is where a
+   merge commit's checks actually live. Either way it passes immediately after
+   the PR merge; there is no waiting for a second CI run. (Before 2026-08-05
+   this blocked releases for ~22 min while `main`'s duplicate run re-verified
+   bytes the PR had already passed — see `60-ai-governance.md` §10.) It refuses (fail closed) if a check is pending, red,
    missing, or `gh` is unreachable; `VMARK_OFFLINE_GATE=1` runs the full
    legacy local gate instead (minutes — see the `.githooks/pre-push` header
    for the authoritative timing) while git holds the SSH connection open.
