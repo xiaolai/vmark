@@ -110,12 +110,18 @@ jobs:
       # only place it can be judged is after the merge. (Enforced by
       # scripts/check-scripts-parity.test.mjs, so a future edit cannot quietly
       # restore per-shard gating and make the matrix permanently red.)
+      #
+      # `--reporter=default` alongside `blob` is not cosmetic: the blob reporter
+      # REPLACES the console reporter, so a failing shard printed nothing but
+      # "Process completed with exit code 1" — no test name, no assertion, no
+      # way to tell a real failure from a flake without re-running locally.
+      # (Enforced below by check-scripts-parity.)
       - name: Tests (shard ${{ matrix.shard }}/4)
         run: >-
           pnpm vitest run --coverage
           --shard=${{ matrix.shard }}/4
-          --reporter=blob
-          --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json
+          --reporter=blob --reporter=default
+          --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
           --coverage.thresholds.lines=0
           --coverage.thresholds.functions=0
           --coverage.thresholds.statements=0
