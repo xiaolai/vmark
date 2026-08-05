@@ -1,12 +1,13 @@
 # Markdown pipeline — spec gates (exhaustive by enumeration)
 
-Runs **every** example of the official CommonMark spec plus the GFM extension
-sections through VMark's pipeline. The hand-written corpora
-(`../characterization/corpus/`, `conformance/fixtures.ts`) are
-representative-by-construction; these gates are exhaustive-by-enumeration — a
-spec corner nobody thought to hand-write still has an example here.
+Runs **every** example of the official CommonMark spec, the GFM extension
+sections, and the VMark dialect manifest through the pipeline. The
+hand-written corpora (`../characterization/corpus/`,
+`../../conformance/fixtures.ts`) are representative-by-construction; these
+gates are exhaustive-by-enumeration — a spec corner nobody thought to
+hand-write still has an example here.
 
-Two gates share the corpus:
+Two gates share one corpus registry:
 
 1. **Parse conformance** (`specConformance.test.ts`) — VMark's mdast
    deep-compared against a stock `remark-parse` + `remark-gfm` reference.
@@ -22,69 +23,76 @@ Two gates share the corpus:
 
 | Path | Role |
 |---|---|
-| `corpus/commonmark-0.31.2.json` | All 652 CommonMark 0.31.2 spec examples (`cm-<n>`) |
-| `corpus/gfm-extensions.json` | The GFM spec's extension-section examples: tables, task lists, strikethrough, autolinks, disallowed raw HTML (`gfm-<n>`) |
-| `specDeltas.ts` | Parse-conformance ledger + `defect` ceiling (ratchets DOWN only) |
-| `specRoundtripDeltas.ts` | Round-trip ledger: stability defects + fidelity verdicts (`defect` / `model-limit` / `normalization` / `policy`), ceilings ratchet DOWN only |
-| `fingerprints/parse.json`, `fingerprints/roundtrip.json` | The exact divergences pinned per declared example. Generated — see `scripts/gen-spec-fingerprints.mjs` |
-| `specConformance.test.ts` | Parse gate. Also runs `conformance/fixtures.ts` (`vmark-<id>`) through the same ruler |
+| `corpusRegistry.ts` | THE corpus list: files, provenance, licenses, digests, per-gate routes. Both gates load only through it. |
+| `corpus/commonmark-0.31.2.json` | All 652 CommonMark 0.31.2 examples (`cm-<n>`) |
+| `corpus/gfm-extensions.json` | The GFM spec's extension-section examples (`gfm-<n>`, numbered by position in that file's own enumeration) |
+| `corpus/cmark-*.json`, `corpus/pulldown-*.json`, `corpus/markdown-it-*.json` | WI-2.3's external corpora (228 examples), routed per registry — wiki/math are roundtrip-only with `mustProduce` contracts |
+| `corpus/tiptap-conversion.json` | WI-2.1's md→PM-JSON pairs; consumed by `specTiptapOracle.test.ts`, not the gates |
+| `specXss.test.ts` | Explicit sanitization assertions over the xss corpus (policy property, not ledger plumbing) |
+| `specTiptapOracle.test.ts` | Independent md→ProseMirror pinning against Tiptap's converter, with declared divergences |
+| `specDeltas.json` | Conformance ledger — JSON so the merge-base ratchet can read it at a historical ref (ADR-5) |
+| `specRoundtripDeltas.json` | Roundtrip ledger: stability records (sha-pinned pass outputs) + fidelity records + WI-2.2's `independentRuler` records (stock remark reads input vs output — the correlated-blind-spot ruler) |
+| `specLedgers.ts` | Typed ledger access + full-signature matching |
+| `specConformance.test.ts` | Parse gate (also runs the `vmark-*` fixture manifest) |
 | `specRoundtrip.test.ts` | Round-trip gate, same three corpora |
+| `specTriage.dump.test.ts` | Re-triage tool: `SPEC_TRIAGE_DUMP=<path> vitest run …` dumps every observed divergence for ledger authoring; inert otherwise |
+| `specTxtConverter.test.ts` | Unit tests for `scripts/vendor-spec-corpus.mjs` |
+
+## Declarations are exact signatures, never example IDs
+
+A ledger record pins example id, **path, kind, detail, and both observed
+values**. An id-only declaration is a wildcard — once declared, any different
+or larger future divergence on that example would pass silently, which is the
+suppression-file decay `../../conformance/expectedDeltas.ts` documents from
+experience. The gates fail in both directions: an undeclared divergence, and
+a declared record that no longer matches anything (stale — fixing a defect
+forces its record's deletion). Stability records pin the sha256 of BOTH
+serializer passes, so any output change forces re-triage.
+
+Records are MEASURED, not written from expectation: run the triage dump,
+classify, generate. `JSON` cannot spell `undefined`, so the sentinel
+`"__undefined__"` stands for it in record values (`specLedgers.reviveValue`).
+
+## Verdicts
+
+Conformance: `extension` (deliberate dialect structure) / `defect`
+(corruption of standard input). Roundtrip fidelity: `defect` (fixable
+corruption — currently the leading-`---` frontmatter trap, bracket-escape
+growth, entity-newline injection, bare-list-marker escape, caret escape
+asymmetry), `model-limit` (the ProseMirror model cannot represent the
+construct: nested same-type emphasis, marks across hard breaks, list
+looseness, empty-text links, code-fence meta), `normalization` (markdown
+changes, rendered document does not), `policy` (deliberate `isSafeUrl`
+rewriting — note it edits the author's file on save; render-time
+sanitization is an open design question).
+
+There are no numeric ceilings: the records themselves are the identity.
+`scripts/check-baseline-ratchet.mjs` compares them at the merge base
+(ADR-5, WI-0.3): ledger-record ADDITIONS are reported loudly (an addition is
+legible in the diff; record removals are tightening), while corpus examples
+carry content-addressed identities under `no-remove` polarity — removing OR
+editing a vendored example fails even if the same commit updates the
+registry digest to match.
 
 ## Corpus provenance
 
-Vendored (no network at test time), stripped to `{example, section, markdown}`
-— the ruler is the reference *parser*, not the spec's HTML output.
+Vendored — no network at test time; registry digests fail on silent
+mutation. Regenerate with `scripts/vendor-spec-corpus.mjs` (provenance via
+`CORPUS_*` env, see its header):
 
 - CommonMark: <https://spec.commonmark.org/0.31.2/spec.json>, 652 examples.
-- GFM: `test/spec.txt` from <https://github.com/github/cmark-gfm>
-  (0.29.0.gfm.13), extension sections only; example numbers are positions in
-  that file's own enumeration. Tab placeholders (`→`) are converted back to
-  real tabs.
-
-Spec text license: CC-BY-SA 4.0. To regenerate, re-download the sources above
-and re-emit the same JSON shape (a top-level `{source, version, examples}`
-wrapper).
-
-## What a failure means
-
-- **Undeclared divergence** — behavior changed on a spec input. Either a
-  regression (declare nothing; fix the pipeline) or a new deliberate behavior
-  → add the id to the right ledger entry with a reason and verdict.
-- **Stale declaration** — a declared example now conforms. Delete the id from
-  its entry; if it counted toward a `defect` ceiling, lower the ceiling.
-- **Changed divergences on a DECLARED example** — the exact set of
-  divergences per declared example is pinned in `fingerprints/*.json`
-  (path, kind, detail and both values, compared as an exact multiset), so a
-  declaration is not a blanket licence. Review what changed, then
-  regenerate with `node scripts/gen-spec-fingerprints.mjs` and read the
-  diff. The fingerprint key set must match the ledger exactly — a stale pin
-  or a declared-but-unpinned example fails.
-- **Oscillation or crash in the round trip** — always a real bug; oscillations
-  can be declared (ratcheted), crashes cannot.
-
-Verdict meanings in the round-trip ledger:
-
-- `defect` — fixable corruption (currently: the leading-`---` frontmatter
-  trap, bracket-escape growth, entity-newline injection). Ratcheted.
-- `model-limit` — the ProseMirror model cannot represent the construct
-  (nested same-type emphasis, mark order around links, list looseness,
-  empty-text links, link-wrapped images, code-fence `meta`). Honest,
-  pinned data loss — the set cannot grow silently.
-- `normalization` — the markdown changes, the rendered document does not.
-- `policy` — deliberate `isSafeUrl` sanitization of unknown URL schemes to
-  `about:blank`. Note: this rewrites the author's file on save; sanitizing
-  at render time instead is an open design question.
+- GFM: `test/spec.txt` from <https://github.com/github/cmark-gfm> at
+  `0.29.0.gfm.13`, extension sections only; `→` placeholders become real
+  tabs. Spec text license: CC-BY-SA 4.0.
 
 ## Known limits
 
-- A node-**type** divergence compares children and the attributes BOTH
-  shapes carry; keys unique to one shape stay out, since unrelated shapes
-  legitimately have unrelated fields. (Skipping attributes entirely used to
-  mean a declared `linkReference`→`link` flip also hid a changed `url` or
-  `title` on that node.)
+- In the parse gate, a node-**type** divergence compares children but skips
+  attributes (unrelated shapes have unrelated fields); the roundtrip gate's
+  fidelity invariant covers resolved values on the same corpus.
 - The GFM corpus covers the extension *sections* only; the GFM spec's base
   examples are CommonMark 0.29 and are superseded by the 0.31.2 corpus.
-- Fidelity compares mdast, which abstracts syntax: a change the renderer
-  would show but mdast does not encode (none known) would pass. The
-  characterization goldens remain the byte-level check for the curated
+- Fidelity compares mdast, which abstracts syntax — WI-2.2 adds the
+  independent stock-remark ruler for the correlated-blind-spot direction.
+  The characterization goldens remain the byte-level check for the curated
   corpus.

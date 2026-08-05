@@ -25,7 +25,7 @@ const schema = new Schema({
   nodes: {
     doc: { content: "block+" },
     paragraph: { content: "inline*", group: "block" },
-    code_block: { content: "text*", group: "block", code: true },
+    codeBlock: { content: "text*", group: "block", code: true },
     text: { inline: true, group: "inline" },
   },
   marks: {
@@ -56,7 +56,7 @@ function createState(text: string, cursorOffset?: number): EditorState {
 
 function createCodeBlockState(text: string, cursorOffset?: number): EditorState {
   const textNode = text ? schema.text(text) : undefined;
-  const codeBlock = schema.node("code_block", null, textNode ? [textNode] : []);
+  const codeBlock = schema.node("codeBlock", null, textNode ? [textNode] : []);
   const doc = schema.node("doc", null, [codeBlock]);
   const state = EditorState.create({ doc, schema });
 
@@ -101,7 +101,7 @@ describe("isInCodeBlock", () => {
     expect(isInCodeBlock(state)).toBe(false);
   });
 
-  it("returns true inside a code_block node", () => {
+  it("returns true inside a codeBlock node", () => {
     const state = createCodeBlockState("let x = 1;", 0);
     expect(isInCodeBlock(state)).toBe(true);
   });

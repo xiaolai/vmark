@@ -251,11 +251,119 @@ function scalarOf(rawValue, field) {
 }
 
 /**
+ * Offset of `const <declName>` OUTSIDE strings and comments, or -1.
+ *
+ * A bare `indexOf(declName)` treated `// EXPECTED_DELTAS = []` in a comment
+ * as the declaration and returned an EMPTY identity set — and since removals
+ * pass, that silently disabled the ledger ratchet (audit round 1). This walk
+ * reuses the string/comment skippers so only real source can match.
+ */
+function declarationIndex(source, declName) {
+  let i = 0;
+  while (i < source.length) {
+    const c = source[i];
+    if (QUOTES.has(c)) {
+      i = skipString(source, i);
+      continue;
+    }
+    const afterComment = skipComment(source, i);
+    if (afterComment !== i) {
+      i = afterComment;
+      continue;
+    }
+    if (source.startsWith("const ", i)) {
+      const rest = source.slice(i + 6).replace(/^\s+/, "");
+      // Identifier boundary required: `const EXPECTED_DELTAS_OLD` must not
+      // match a lookup for EXPECTED_DELTAS (verify round 1).
+      const after = rest[declName.length];
+      if (rest.startsWith(declName) && (after === undefined || !/[\w$]/.test(after))) {
+        return i + 6 + (source.slice(i + 6).length - rest.length);
+      }
+    }
+    i++;
+  }
+  return -1;
+}
+
+/**
+ * Generic form of the parser below: the identity set of
+ * `const <declName> = [ {…}, … ]`, one JSON-tuple identity per entry, fields
+ * read by name in any order and quote style. Built for the spec-ledger
+ * ratchet entries (WI-0.3), which pin TS ledgers the same way this module
+ * already pins the i18n allowlist.
+ */
+export function tsObjectArrayIdentities(source, declName, fieldNames, label) {
+  const decl = declarationIndex(source, declName);
+  if (decl === -1) throw new Error(`${label}: no ${declName} declaration found`);
+  const open = arrayAfterAssignment(source, decl);
+  if (open === -1) throw new Error(`${label}: ${declName} has no array literal`);
+  const body = source.slice(open + 1, matchingBracket(source, open));
+  const out = new Set();
+  for (const entry of splitTopLevel(body)) {
+    if (!entry.startsWith("{")) {
+      throw new Error(`${label}: ${declName} entry is not an object literal: ${entry.slice(0, 40)}…`);
+    }
+    const inner = entry.slice(1, matchingBracket(entry, 0));
+    const fields = new Map();
+    for (const field of splitTopLevel(inner)) {
+      const pair = splitField(field);
+      if (pair) fields.set(unquote(pair[0]) ?? pair[0], pair[1]);
+    }
+    out.add(JSON.stringify(fieldNames.map((f) => scalarOf(fields.get(f), f))));
+  }
+  return out;
+}
+
+/**
+ * The identity set of `const <declName> = { "key": [ {…}, … ], … }` — a
+ * record of entry arrays, one `recordKey | <field>` identity per entry.
+ * Shape of `fidelity/fidelityLedger.ts`.
+ */
+export function tsRecordOfArraysIdentities(source, declName, fieldName, label) {
+  const decl = declarationIndex(source, declName);
+  if (decl === -1) throw new Error(`${label}: no ${declName} declaration found`);
+  // Walk to the `{` that opens the record literal (same assignment walk as
+  // arrays, different opener).
+  let i = decl;
+  while (i < source.length && source[i] !== "=") {
+    if (QUOTES.has(source[i])) i = skipString(source, i);
+    else i = skipComment(source, i) !== i ? skipComment(source, i) : i + 1;
+  }
+  while (i < source.length && source[i] !== "{") i++;
+  if (i >= source.length) throw new Error(`${label}: ${declName} has no object literal`);
+  const body = source.slice(i + 1, matchingBracket(source, i));
+  const out = new Set();
+  for (const recordEntry of splitTopLevel(body)) {
+    const pair = splitField(recordEntry);
+    if (!pair) continue;
+    const recordKey = unquote(pair[0]) ?? pair[0];
+    const value = pair[1];
+    if (!value.startsWith("[")) {
+      throw new Error(`${label}: ${declName}["${recordKey}"] is not an array literal`);
+    }
+    const inner = value.slice(1, matchingBracket(value, 0));
+    for (const item of splitTopLevel(inner)) {
+      if (!item.startsWith("{")) {
+        throw new Error(`${label}: entry under "${recordKey}" is not an object literal`);
+      }
+      const itemInner = item.slice(1, matchingBracket(item, 0));
+      const fields = new Map();
+      for (const field of splitTopLevel(itemInner)) {
+        const p = splitField(field);
+        if (p) fields.set(unquote(p[0]) ?? p[0], p[1]);
+      }
+      out.add(JSON.stringify([recordKey, scalarOf(fields.get(fieldName), fieldName)]));
+    }
+  }
+  return out;
+}
+
+/**
  * The identity set of `scripts/i18nIdenticalAllowlist.ts`: one
  * `kind | ns | key | locales` string per exemption.
  */
 export function tsIdenticalAllowlistIdentities(source, label) {
-  const decl = source.indexOf("IDENTICAL_ALLOWLIST");
+  const decl = declarationIndex(source, "IDENTICAL_ALLOWLIST");
   if (decl === -1) throw new Error(`${label}: no IDENTICAL_ALLOWLIST declaration found`);
   // The array is the one after `=`, NOT the first `[` after the name: the
   // declaration is annotated `: IdenticalException[]`, whose empty brackets

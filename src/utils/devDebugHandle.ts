@@ -40,7 +40,7 @@ function handles(): DebugHandles | undefined {
  * No-op outside DEV and outside a browser context.
  */
 export function publishDebugHandle(key: string, value: unknown): void {
-  if (!import.meta.env.DEV || typeof window === "undefined") return;
+  if (!import.meta.env?.DEV || typeof window === "undefined") return;
   const target = window as unknown as { __VMARK_DEBUG__?: DebugHandles };
   target.__VMARK_DEBUG__ = { ...(target.__VMARK_DEBUG__ ?? {}), [key]: value };
 }

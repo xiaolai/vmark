@@ -1,0 +1,85 @@
+{
+ "source": "https://raw.githubusercontent.com/markdown-it/markdown-it/14.1.0/test/fixtures/markdown-it/xss.txt",
+ "revision": "14.1.0",
+ "license": "MIT",
+ "examples": [
+  {
+   "example": 1,
+   "section": "",
+   "markdown": "[normal link](javascript)\n",
+   "html": "<p><a href=\"javascript\">normal link</a></p>\n"
+  },
+  {
+   "example": 2,
+   "section": "Should not allow some protocols in links and images",
+   "markdown": "[xss link](javascript:alert(1))\n\n[xss link](JAVASCRIPT:alert(1))\n\n[xss link](vbscript:alert(1))\n\n[xss link](VBSCRIPT:alert(1))\n\n[xss link](file:///123)\n",
+   "html": "<p>[xss link](javascript:alert(1))</p>\n<p>[xss link](JAVASCRIPT:alert(1))</p>\n<p>[xss link](vbscript:alert(1))</p>\n<p>[xss link](VBSCRIPT:alert(1))</p>\n<p>[xss link](file:///123)</p>\n"
+  },
+  {
+   "example": 3,
+   "section": "Should not allow some protocols in links and images",
+   "markdown": "[xss link](&#34;&#62;&#60;script&#62;alert&#40;&#34;xss&#34;&#41;&#60;/script&#62;)\n\n[xss link](&#74;avascript:alert(1))\n\n[xss link](&#x26;#74;avascript:alert(1))\n\n[xss link](\\&#74;avascript:alert(1))\n",
+   "html": "<p><a href=\"%22%3E%3Cscript%3Ealert(%22xss%22)%3C/script%3E\">xss link</a></p>\n<p>[xss link](Javascript:alert(1))</p>\n<p><a href=\"&amp;#74;avascript:alert(1)\">xss link</a></p>\n<p><a href=\"&amp;#74;avascript:alert(1)\">xss link</a></p>\n"
+  },
+  {
+   "example": 4,
+   "section": "Should not allow some protocols in links and images",
+   "markdown": "[xss link](<javascript:alert(1)>)\n",
+   "html": "<p>[xss link](&lt;javascript:alert(1)&gt;)</p>\n"
+  },
+  {
+   "example": 5,
+   "section": "Should not allow some protocols in links and images",
+   "markdown": "[xss link](javascript&#x3A;alert(1))\n",
+   "html": "<p>[xss link](javascript:alert(1))</p>\n"
+  },
+  {
+   "example": 6,
+   "section": "Should not allow data-uri except some whitelisted mimes",
+   "markdown": "![](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7)\n",
+   "html": "<p><img src=\"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7\" alt=\"\"></p>\n"
+  },
+  {
+   "example": 7,
+   "section": "Should not allow data-uri except some whitelisted mimes",
+   "markdown": "[xss link](data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4K)\n",
+   "html": "<p>[xss link](data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4K)</p>\n"
+  },
+  {
+   "example": 8,
+   "section": "Should not allow data-uri except some whitelisted mimes",
+   "markdown": "[normal link](/javascript:link)\n",
+   "html": "<p><a href=\"/javascript:link\">normal link</a></p>\n"
+  },
+  {
+   "example": 9,
+   "section": "Image parser use the same code base as link.",
+   "markdown": "![xss link](javascript:alert(1))\n",
+   "html": "<p>![xss link](javascript:alert(1))</p>\n"
+  },
+  {
+   "example": 10,
+   "section": "Autolinks",
+   "markdown": "<javascript&#x3A;alert(1)>\n\n<javascript:alert(1)>\n",
+   "html": "<p>&lt;javascript:alert(1)&gt;</p>\n<p>&lt;javascript:alert(1)&gt;</p>\n"
+  },
+  {
+   "example": 11,
+   "section": "Linkifier",
+   "markdown": "javascript&#x3A;alert(1)\n\njavascript:alert(1)\n",
+   "html": "<p>javascript:alert(1)</p>\n<p>javascript:alert(1)</p>\n"
+  },
+  {
+   "example": 12,
+   "section": "References",
+   "markdown": "[test]: javascript:alert(1)\n",
+   "html": "<p>[test]: javascript:alert(1)</p>\n"
+  },
+  {
+   "example": 13,
+   "section": "Make sure we decode entities before split:",
+   "markdown": "```js&#32;custom-class\ntest1\n```\n\n```js&#x0C;custom-class\ntest2\n```\n",
+   "html": "<pre><code class=\"js\">test1\n</code></pre>\n<pre><code class=\"js\">test2\n</code></pre>\n"
+  }
+ ]
+}

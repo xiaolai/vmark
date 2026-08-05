@@ -1,42 +1,26 @@
 /**
- * Backtick Code Mark Toggle Tests (Issue #58 Problem 2)
+ * WI-1.1 — Backtick Code Mark Toggle Tests (Issue #58 Problem 2), on the
+ * PRODUCTION schema.
  *
- * Verifies that backtick in WYSIWYG mode toggles inline code mark
- * instead of inserting backtick text.
+ * Verifies that backtick in WYSIWYG mode toggles inline code mark instead of
+ * inserting backtick text. This file previously built a hand-written
+ * snake_case schema (`code_block`), which is exactly how a production defect
+ * stayed invisible: the shipped schema names the node `codeBlock`, so the
+ * triple-backtick lookup `schema.nodes.code_block` returned undefined in the
+ * real editor and the feature silently no-oped — while these tests passed
+ * against their private schema. Plan ADR-3: editing tests run the production
+ * stack; never a hand-built schema.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { Schema, type Node } from "@tiptap/pm/model";
+import { type Node } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { EditorView } from "@tiptap/pm/view";
+import { getProductionSchema } from "@/test/productionSchema";
 import { handleTextInput, type AutoPairConfig } from "../handlers";
 import { resetBacktickState } from "../backtickToggle";
 
-// Minimal schema with code mark and code_block node
-const schema = new Schema({
-  nodes: {
-    doc: { content: "block+" },
-    paragraph: { content: "text*", group: "block" },
-    code_block: {
-      content: "text*",
-      group: "block",
-      code: true,
-      defining: true,
-      parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
-      toDOM() { return ["pre", ["code", 0]]; },
-    },
-    text: { inline: true },
-  },
-  marks: {
-    code: {
-      excludes: "_",
-      parseDOM: [{ tag: "code" }],
-      toDOM() {
-        return ["code", 0];
-      },
-    },
-  },
-});
+const schema = getProductionSchema();
 
 const defaultConfig: AutoPairConfig = {
   enabled: true,
@@ -107,6 +91,31 @@ function callHandleTextInput(
   return { handled, newState };
 }
 
+/**
+ * A PERSISTENT mock view for consecutive-keystroke scenarios. Backtick state
+ * is keyed per EditorView (real editors keep one view object across
+ * keystrokes), so tests of the consecutive machine must reuse one view —
+ * a fresh mock per call is a different editor, and counts correctly reset.
+ */
+function makeViewSession(initial: EditorState) {
+  const view = {
+    state: initial,
+    dispatch(tr: ReturnType<EditorState["tr"]["setSelection"]>) {
+      view.state = view.state.apply(tr);
+    },
+  };
+  return {
+    view: view as unknown as EditorView,
+    type(text: string, config = defaultConfig): boolean {
+      const { from, to } = view.state.selection;
+      return handleTextInput(view as unknown as EditorView, from, to, text, config);
+    },
+    get state(): EditorState {
+      return view.state;
+    },
+  };
+}
+
 describe("backtick code mark toggle (WYSIWYG)", () => {
   beforeEach(() => {
     resetBacktickState();
@@ -175,38 +184,41 @@ describe("backtick code mark toggle (WYSIWYG)", () => {
   });
 
   it("double backtick (consecutive) deactivates code mark", () => {
-    const state = createState("", 1);
+    const session = makeViewSession(createState("", 1));
 
     // First backtick: activates code mark
-    const { handled: h1, newState: s1 } = callHandleTextInput(state, "`");
-    expect(h1).toBe(true);
-    expect(s1.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
+    expect(session.type("`")).toBe(true);
+    expect(session.state.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
 
-    // Second backtick: deactivates code mark
-    const { handled: h2, newState: s2 } = callHandleTextInput(s1, "`");
-    expect(h2).toBe(true);
-    // Code mark should be removed from stored marks
-    const hasCode = s2.storedMarks?.some((m) => m.type.name === "code") ?? false;
+    // Second backtick (SAME view): deactivates code mark
+    expect(session.type("`")).toBe(true);
+    const hasCode = session.state.storedMarks?.some((m) => m.type.name === "code") ?? false;
     expect(hasCode).toBe(false);
   });
 
   it("triple backtick (consecutive) creates code block", () => {
-    const state = createState("", 1);
+    const session = makeViewSession(createState("", 1));
 
-    // First backtick
-    const { newState: s1 } = callHandleTextInput(state, "`");
-    // Second backtick
-    const { newState: s2 } = callHandleTextInput(s1, "`");
-    // Third backtick: creates code block
-    const { handled: h3, newState: s3 } = callHandleTextInput(s2, "`");
+    session.type("`");
+    session.type("`");
+    expect(session.type("`")).toBe(true);
 
-    expect(h3).toBe(true);
-    // Document should contain a code_block node
+    // Document should contain the production codeBlock node
     let hasCodeBlock = false;
-    s3.doc.descendants((node) => {
-      if (node.type.name === "code_block") hasCodeBlock = true;
+    session.state.doc.descendants((node) => {
+      if (node.type.name === "codeBlock") hasCodeBlock = true;
     });
     expect(hasCodeBlock).toBe(true);
+  });
+
+  it("two SEPARATE views do not share a consecutive count (per-view state)", () => {
+    // The state machine was module-global; a backtick in window A followed by
+    // one in window B read as B's SECOND press. Per-view keying fixes it.
+    const a = makeViewSession(createState("", 1));
+    const b = makeViewSession(createState("", 1));
+    a.type("`");
+    b.type("`"); // must be B's FIRST press: activate, not deactivate
+    expect(b.state.storedMarks?.some((m) => m.type.name === "code")).toBe(true);
   });
 
   it("non-backtick input resets consecutive backtick count", () => {
@@ -264,8 +276,8 @@ describe("backtick code mark toggle (WYSIWYG)", () => {
   });
 
   it("triple backtick inside code block is not handled", () => {
-    // Create state with cursor inside a code_block
-    const codeBlockNode = schema.nodes.code_block.create(null, []);
+    // Create state with cursor inside the production codeBlock
+    const codeBlockNode = schema.nodes.codeBlock.create(null, []);
     const doc = schema.node("doc", null, [codeBlockNode]);
     const state = EditorState.create({ doc });
     const stateWithCursor = state.apply(

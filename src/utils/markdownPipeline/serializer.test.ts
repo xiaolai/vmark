@@ -476,11 +476,11 @@ $$`;
     });
 
     it("round-trips horizontal rules", () => {
-      // NOT `---` at document start: line-1 `---` reparses as a frontmatter
-      // fence and swallows structure (roundtripDefects D5), so a LEADING
-      // thematic break serializes as `***`. Mid-document rules stay `---`.
+      // A LONE leading `---` reparses as a thematic break exactly as written,
+      // so it is kept. Only when the reparse would actually read frontmatter
+      // does the serializer fall back to `***` (roundtripDefects D5).
       const leading = parseMarkdownToMdast("---");
-      expect(serializeMdastToMarkdown(leading).trim()).toBe("***");
+      expect(serializeMdastToMarkdown(leading).trim()).toBe("---");
 
       const midDocument = parseMarkdownToMdast("text\n\n---");
       expect(serializeMdastToMarkdown(midDocument).trim()).toBe("text\n\n---");

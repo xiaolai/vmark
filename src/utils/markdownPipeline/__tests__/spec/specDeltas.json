@@ -1,0 +1,1774 @@
+{
+ "deltas": [
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[4]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[4].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "真",
+   "referenceValue": "真~（她~",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[4].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[0]",
+   "kind": "type",
+   "detail": "subscript vs text",
+   "vmarkValue": "subscript",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[5].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[8].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[8].children[3]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "vmarkValue": 3,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Here I don't strike out an exclamation point",
+   "referenceValue": "Here I don't strike out an exclamation point~!~.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cjk-10",
+   "path": "root.children[9].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "cm-23",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-33",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "3 vs 4",
+   "vmarkValue": 3,
+   "referenceValue": 4,
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "yaml vs thematicBreak",
+   "vmarkValue": "yaml",
+   "referenceValue": "thematicBreak",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Bar",
+   "referenceValue": "Foo",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root.children[2]",
+   "kind": "type",
+   "detail": "paragraph vs heading",
+   "vmarkValue": "paragraph",
+   "referenceValue": "heading",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root.children[2].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Baz",
+   "referenceValue": "Bar",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-96",
+   "path": "root.children[3]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-98",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "vmarkValue": 1,
+   "referenceValue": 2,
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-98",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "yaml vs thematicBreak",
+   "vmarkValue": "yaml",
+   "referenceValue": "thematicBreak",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-98",
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "thematicBreak",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "cm-192",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-193",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-194",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-195",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-196",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-198",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-200",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-202",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-203",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-204",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-205",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-206",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-214",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-215",
+   "path": "root.children[2].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-216",
+   "path": "root.children[1].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-217",
+   "path": "root.children[3].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-217",
+   "path": "root.children[3].children[2]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-217",
+   "path": "root.children[3].children[4]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-218",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-527",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-528",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-529",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-530",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-531",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-532",
+   "path": "root.children[0].children[3]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-533",
+   "path": "root.children[0].children[1].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-533",
+   "path": "root.children[0].children[3]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-534",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-535",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-539",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-540",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-541",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-542",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-543",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-544",
+   "path": "root.children[2].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "wikiLink vs text",
+   "vmarkValue": "wikiLink",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[1]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "wikiLink vs text",
+   "vmarkValue": "wikiLink",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "cm-548",
+   "path": "root.children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-549",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-550",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-553",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-554",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-555",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-556",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-557",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-558",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-559",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-560",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-561",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-562",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-564",
+   "path": "root.children[1].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-565",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-566",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-568",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-569",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-570",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-570",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-571",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-573",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-576",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-577",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-582",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-583",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-584",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-585",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-586",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-587",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-588",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-589",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-590",
+   "path": "root.children[1]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-590",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "wikiLink vs text",
+   "vmarkValue": "wikiLink",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "cm-590",
+   "path": "root.children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Wiki-link shadow: VMark's [[target]] wiki-link syntax captures double-bracket spans inside CommonMark reference labels ([[[foo]]], ![[foo]]), so the reference does not resolve and the inline splits differently than the stock reference. Deliberate dialect collision, cost of the wiki-link extension."
+  },
+  {
+   "exampleId": "cm-591",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "image vs imageReference",
+   "vmarkValue": "image",
+   "referenceValue": "imageReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cm-593",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "cmreg-22",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[1].children[0].children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-13",
+   "path": "root.children[1].children[1].children[0].children[1]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "gfmext-17",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2]",
+   "kind": "child-count",
+   "detail": "5 vs 3",
+   "vmarkValue": 5,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "is ",
+   "referenceValue": "is ~ legit",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[2]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " legit",
+   "referenceValue": " isn't ~ legit.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[3]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[4]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "vmarkValue": 3,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "This is not ~~~~",
+   "referenceValue": "This is not ~~~~~one~~~~~ huge strikethrough.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[3].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4]",
+   "kind": "child-count",
+   "detail": "5 vs 4",
+   "vmarkValue": 5,
+   "referenceValue": 4,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[0]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[3]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " ~~",
+   "referenceValue": " ~~~three~~~",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[4].children[4]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-10",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "7 vs 5",
+   "vmarkValue": 7,
+   "referenceValue": 5,
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[4]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": " ~~",
+   "referenceValue": " ~~~curious~~~.",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[5]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "subscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "gfmreg-11",
+   "path": "root.children[0].children[6]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "mdx-5",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-6",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-8",
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "mdx-47",
+   "path": "root.children[0].children[1].children[0]",
+   "kind": "type",
+   "detail": "link vs linkReference",
+   "vmarkValue": "link",
+   "referenceValue": "linkReference",
+   "verdict": "extension",
+   "reason": "Reference-link resolution: VMark's document pipeline resolves linkReference/imageReference (and their definitions) to direct link/image nodes at parse time so the editor renders one link shape; the stock reference keeps the reference form. Deliberate dialect behavior, resolved values verified by the roundtrip gate's fidelity leg."
+  },
+  {
+   "exampleId": "vmark-cm-bare-list-marker",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "paragraph vs heading",
+   "vmarkValue": "paragraph",
+   "referenceValue": "heading",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "vmark-cm-bare-list-marker",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "text\n-",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Setext repair: document mode runs remarkDisableSetextHeadings so an underline-looking line stays a paragraph in the editor; the stock reference reads the setext heading CommonMark specifies. Same repair family as conformance/expectedDeltas.ts' cm-bare-list-marker."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "7 vs 3",
+   "vmarkValue": 7,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "highlight vs text",
+   "vmarkValue": "highlight",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Highlight extension: VMark reads ==text== as a highlight node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "text vs delete",
+   "vmarkValue": "text",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[2]",
+   "kind": "type",
+   "detail": "subscript vs text",
+   "vmarkValue": "subscript",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[2].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[3]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[4]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "superscript",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[5]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-custom-inline-all",
+   "path": "root.children[0].children[6]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "underline",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Custom inline extensions: VMark reads ==highlight==, ~sub~, ^sup^ and underline spans as dedicated nodes, splitting the text run; the stock reference reads fewer, plainer children."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 3",
+   "vmarkValue": 1,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "details vs html",
+   "vmarkValue": "details",
+   "referenceValue": "html",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root.children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "paragraph",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-details-simple",
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "html",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-frontmatter-yaml",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "2 vs 3",
+   "vmarkValue": 2,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-frontmatter-yaml",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "yaml vs thematicBreak",
+   "vmarkValue": "yaml",
+   "referenceValue": "thematicBreak",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-frontmatter-yaml",
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "paragraph vs heading",
+   "vmarkValue": "paragraph",
+   "referenceValue": "heading",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-frontmatter-yaml",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Body.",
+   "referenceValue": "title: T",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-frontmatter-yaml",
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-gfm-strikethrough",
+   "path": "root.children[0].children[2]",
+   "kind": "type",
+   "detail": "subscript vs delete",
+   "vmarkValue": "subscript",
+   "referenceValue": "delete",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+  },
+  {
+   "exampleId": "vmark-malformed-frontmatter",
+   "path": "root",
+   "kind": "child-count",
+   "detail": "2 vs 3",
+   "vmarkValue": 2,
+   "referenceValue": 3,
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-frontmatter",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "yaml vs thematicBreak",
+   "vmarkValue": "yaml",
+   "referenceValue": "thematicBreak",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-frontmatter",
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "paragraph vs heading",
+   "vmarkValue": "paragraph",
+   "referenceValue": "heading",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-frontmatter",
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Body.",
+   "referenceValue": "not: [valid",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-frontmatter",
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-unterminated-math",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "math vs paragraph",
+   "vmarkValue": "math",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-malformed-unterminated-math",
+   "path": "root.children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Frontmatter extension: VMark reads leading --- blocks as yaml frontmatter; stock remark (no remark-frontmatter) reads a thematic break plus paragraph text."
+  },
+  {
+   "exampleId": "vmark-math-block",
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "math vs paragraph",
+   "vmarkValue": "math",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Math extension: VMark reads $...$/$$...$$ as inlineMath/math nodes; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-math-block",
+   "path": "root.children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "Math extension: VMark reads $...$/$$...$$ as inlineMath/math nodes; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-math-inline",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "vmarkValue": 2,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Math extension: VMark reads $...$/$$...$$ as inlineMath/math nodes; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-math-inline",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "Euler: ",
+   "referenceValue": "Euler: $e^{i\\pi}+1=0$",
+   "verdict": "extension",
+   "reason": "Math extension: VMark reads $...$/$$...$$ as inlineMath/math nodes; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-math-inline",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "inlineMath",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Math extension: VMark reads $...$/$$...$$ as inlineMath/math nodes; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "2 vs 4",
+   "vmarkValue": 2,
+   "referenceValue": 4,
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "type",
+   "detail": "details vs html",
+   "vmarkValue": "details",
+   "referenceValue": "html",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "paragraph",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-nesting-details-in-list",
+   "path": "root.children[0].children[0].children[3]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "html",
+   "verdict": "extension",
+   "reason": "Details extension: VMark reads <details><summary> blocks as a structured details node; the stock reference reads raw html plus loose children."
+  },
+  {
+   "exampleId": "vmark-toc-block",
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "toc vs paragraph",
+   "vmarkValue": "toc",
+   "referenceValue": "paragraph",
+   "verdict": "extension",
+   "reason": "TOC extension: VMark reads the [TOC] marker as a toc node; the stock reference reads a paragraph."
+  },
+  {
+   "exampleId": "vmark-toc-block",
+   "path": "root.children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "text",
+   "verdict": "extension",
+   "reason": "TOC extension: VMark reads the [TOC] marker as a toc node; the stock reference reads a paragraph."
+  },
+  {
+   "exampleId": "vmark-wiki-link",
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "vmarkValue": 3,
+   "referenceValue": 1,
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-wiki-link",
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "See ",
+   "referenceValue": "See [[Another Note]] please.",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-wiki-link",
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "wikiLink",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  },
+  {
+   "exampleId": "vmark-wiki-link",
+   "path": "root.children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "vmarkValue": "text",
+   "referenceValue": "__undefined__",
+   "verdict": "extension",
+   "reason": "Wiki-link extension: VMark reads [[target]] as a wikiLink node; the stock reference reads plain text."
+  }
+ ]
+}

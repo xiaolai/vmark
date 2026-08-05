@@ -23,25 +23,10 @@ export interface Divergence {
 }
 
 /** Every way two projections differ. Empty means identical. */
-/** Optional comparison behaviours. Defaults preserve the original contract. */
-export interface DiffOptions {
-  /**
-   * On a node-TYPE divergence, also emit both attribute sets as one entry.
-   *
-   * Off by default: `parserConformance` compares two parses of the SAME text
-   * and treats unrelated shapes as having unrelated fields. The spec gates
-   * turn it on because they PIN declared divergences, where a silent change
-   * to a resolved `url` inside a declared type flip is exactly the drift the
-   * fingerprints exist to catch.
-   */
-  pinAttributesAcrossTypes?: boolean;
-}
-
 export function diff(
   documentTree: ProjectedNode | undefined,
   sourceTree: ProjectedNode | undefined,
-  path = "root",
-  options: DiffOptions = {}
+  path = "root"
 ): Divergence[] {
   // Both absent is not a difference — "empty means identical" is the contract.
   if (!documentTree && !sourceTree) return [];
@@ -74,31 +59,17 @@ export function diff(
     // anyone seeing them. That is the vacuous-gate failure this module exists
     // to avoid.
     //
-    // Attributes are still compared across a type change. Skipping them
-    // entirely meant a declared flip (linkReference→link) also hid a changed
-    // `url` or `title`, so a resolved destination could drift invisibly.
-    return [
-      ...out,
-      ...diffSharedAttributes(documentTree, sourceTree, path),
-      // Shared keys are not enough on their own: `link` carries url/title
-      // while `linkReference` carries identifier/label/referenceType, so the
-      // commonest declared flip has NO overlap and a changed resolved URL
-      // would stay invisible. The spec gates opt in to pinning both
-      // attribute sets whole; the default stays as parserConformance has
-      // always defined it.
-      ...(options.pinAttributesAcrossTypes
-        ? [
-            {
-              path,
-              kind: "attribute" as const,
-              detail: "«attributes across a type change»",
-              documentValue: documentTree.attributes,
-              sourcePositionValue: sourceTree.attributes,
-            },
-          ]
-        : []),
-      ...diffChildren(documentTree, sourceTree, path, options),
-    ];
+    // Attributes are skipped (unrelated shapes have unrelated fields), but
+    // children are still compared by index.
+    //
+    // KNOWN GAP, deliberately left to the ledger layer: a declared type flip
+    // (linkReference→link) also hides a changed `url` or `title` on that same
+    // node. The spec tier's exact-signature ledgers pin the type row's values
+    // but cannot see attributes `diff` never emits. Widening this primitive
+    // was tried and reverted — every ledger in the spec tier is measured
+    // against this contract, so changing it here re-authors those ledgers
+    // blind. Close it in the ledger layer, or with a targeted assertion.
+    return [...out, ...diffChildren(documentTree, sourceTree, path)];
   }
 
   const keys = new Set([
@@ -129,41 +100,14 @@ export function diff(
     });
   }
 
-  return [...out, ...diffChildren(documentTree, sourceTree, path, options)];
-}
-
-/** Compare only the attribute keys BOTH shapes carry. */
-function diffSharedAttributes(
-  documentTree: ProjectedNode,
-  sourceTree: ProjectedNode,
-  path: string
-): Divergence[] {
-  const out: Divergence[] = [];
-  const shared = Object.keys(documentTree.attributes)
-    .filter((k) => Object.hasOwn(sourceTree.attributes, k))
-    .sort();
-  for (const key of shared) {
-    const a = documentTree.attributes[key];
-    const b = sourceTree.attributes[key];
-    if (!sameValue(a, b)) {
-      out.push({
-        path,
-        kind: "attribute",
-        detail: key,
-        documentValue: a,
-        sourcePositionValue: b,
-      });
-    }
-  }
-  return out;
+  return [...out, ...diffChildren(documentTree, sourceTree, path)];
 }
 
 /** Compare children by index. Extra children on either side are reported. */
 function diffChildren(
   documentTree: ProjectedNode,
   sourceTree: ProjectedNode,
-  path: string,
-  options: DiffOptions = {}
+  path: string
 ): Divergence[] {
   const out: Divergence[] = [];
   // Walk the LONGER side: children beyond the shorter one were previously
@@ -176,7 +120,6 @@ function diffChildren(
         documentTree.children[i],
         sourceTree.children[i],
         `${path}.children[${i}]`,
-        options
       )
     );
   }

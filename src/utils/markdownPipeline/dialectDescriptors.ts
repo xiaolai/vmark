@@ -53,6 +53,7 @@ import {
 import {
   remarkDisableSetextHeadings,
   remarkValidateMath,
+  remarkDepthLimit,
   type ContentAnalysis,
 } from "./parser/remarkPlugins";
 
@@ -162,6 +163,21 @@ export const DIALECT: readonly PluginDescriptor[] = [
       "`source-position` loads everything unconditionally so positions never " +
       "depend on content sniffing. A summary is inline-only; block math there " +
       "is not a thing the editor can represent.",
+  },
+  {
+    name: "remarkDepthLimit",
+    plugin: remarkDepthLimit,
+    modes: {
+      document: "always",
+      "source-position": "always",
+      "details-body": "always",
+      "inline-summary": "always",
+    },
+    reason:
+      "Adversarial input nests mdast deep enough to blow the recursive " +
+      "mdast→PM converters' call stack (OSS-Fuzz soak, WI-5.1). Beyond " +
+      "MAX_MDAST_DEPTH the subtree flattens to plain text — defined " +
+      "degradation on garbage, inert on every real document.",
   },
   {
     name: "remarkValidateMath",

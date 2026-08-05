@@ -1,0 +1,187 @@
+{
+ "source": "https://raw.githubusercontent.com/github/cmark-gfm/0.29.0.gfm.13/test/extensions.txt",
+ "revision": "0.29.0.gfm.13",
+ "license": "BSD-2-Clause (spec text CC-BY-SA 4.0)",
+ "examples": [
+  {
+   "example": 1,
+   "section": "Tables",
+   "markdown": "| abc | def |\n| --- | --- |\n| ghi | jkl |\n| mno | pqr |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>ghi</td>\n<td>jkl</td>\n</tr>\n<tr>\n<td>mno</td>\n<td>pqr</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 2,
+   "section": "Tables",
+   "markdown": "Hello!\n\n| _abc_ | セン |\n| ----- | ---- |\n| 1. Block elements inside cells don't work. | |\n| But _**inline elements do**_. | x |\n\nHi!\n",
+   "html": "<p>Hello!</p>\n<table>\n<thead>\n<tr>\n<th><em>abc</em></th>\n<th>セン</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1. Block elements inside cells don't work.</td>\n<td></td>\n</tr>\n<tr>\n<td>But <em><strong>inline elements do</strong></em>.</td>\n<td>x</td>\n</tr>\n</tbody>\n</table>\n<p>Hi!</p>\n"
+  },
+  {
+   "example": 3,
+   "section": "Tables",
+   "markdown": "| Not enough table | to be considered table |\n\n| Not enough table | to be considered table |\n| Not enough table | to be considered table |\n\n| Just enough table | to be considered table |\n| ----------------- | ---------------------- |\n\n| ---- | --- |\n\n|x|\n|-|\n\n| xyz |\n| --- |\n",
+   "html": "<p>| Not enough table | to be considered table |</p>\n<p>| Not enough table | to be considered table |\n| Not enough table | to be considered table |</p>\n<table>\n<thead>\n<tr>\n<th>Just enough table</th>\n<th>to be considered table</th>\n</tr>\n</thead>\n</table>\n<p>| ---- | --- |</p>\n<table>\n<thead>\n<tr>\n<th>x</th>\n</tr>\n</thead>\n</table>\n<table>\n<thead>\n<tr>\n<th>xyz</th>\n</tr>\n</thead>\n</table>\n"
+  },
+  {
+   "example": 4,
+   "section": "Tables",
+   "markdown": "abc | def\n--- | ---\nxyz | ghi\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>abc</th>\n<th>def</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>xyz</td>\n<td>ghi</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 5,
+   "section": "Tables",
+   "markdown": "Hello!\n\n| _abc_ | セン |\n| ----- | ---- |\n| this row has a space at the end | | \n| But _**inline elements do**_. | x |\n\nHi!\n",
+   "html": "<p>Hello!</p>\n<table>\n<thead>\n<tr>\n<th><em>abc</em></th>\n<th>セン</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>this row has a space at the end</td>\n<td></td>\n</tr>\n<tr>\n<td>But <em><strong>inline elements do</strong></em>.</td>\n<td>x</td>\n</tr>\n</tbody>\n</table>\n<p>Hi!</p>\n"
+  },
+  {
+   "example": 6,
+   "section": "Tables",
+   "markdown": "aaa | bbb | ccc | ddd | eee\n:-- | --- | :-: | --- | --:\nfff | ggg | hhh | iii | jjj\n",
+   "html": "<table>\n<thead>\n<tr>\n<th align=\"left\">aaa</th>\n<th>bbb</th>\n<th align=\"center\">ccc</th>\n<th>ddd</th>\n<th align=\"right\">eee</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"left\">fff</td>\n<td>ggg</td>\n<td align=\"center\">hhh</td>\n<td>iii</td>\n<td align=\"right\">jjj</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 7,
+   "section": "Table cell count mismatches",
+   "markdown": "| a | b | c |\n| --- | --- |\n| this | isn't | okay |\n",
+   "html": "<p>| a | b | c |\n| --- | --- |\n| this | isn't | okay |</p>\n"
+  },
+  {
+   "example": 8,
+   "section": "Table cell count mismatches",
+   "markdown": "| a | b | c |\n| --- | --- | ---\n| x\n| a | b\n| 1 | 2 | 3 | 4 | 5 |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>x</td>\n<td></td>\n<td></td>\n</tr>\n<tr>\n<td>a</td>\n<td>b</td>\n<td></td>\n</tr>\n<tr>\n<td>1</td>\n<td>2</td>\n<td>3</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 9,
+   "section": "Embedded pipes",
+   "markdown": "| a | b |\n| --- | --- |\n| Escaped pipes are \\|okay\\|. | Like \\| this. |\n| Within `\\|code\\| is okay` too. |\n| _**`c\\|`**_ \\| complex\n| don't **\\_reparse\\_**\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Escaped pipes are |okay|.</td>\n<td>Like | this.</td>\n</tr>\n<tr>\n<td>Within <code>|code| is okay</code> too.</td>\n<td></td>\n</tr>\n<tr>\n<td><em><strong><code>c|</code></strong></em> | complex</td>\n<td></td>\n</tr>\n<tr>\n<td>don't <strong>_reparse_</strong></td>\n<td></td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 10,
+   "section": "Oddly-formatted markers",
+   "markdown": "| a |\n--- |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n</table>\n"
+  },
+  {
+   "example": 11,
+   "section": "Escaping",
+   "markdown": "| a | b |\n| --- | --- |\n| \\\\ | `\\\\` |\n| \\\\\\\\ | `\\\\\\\\` |\n| \\_ | `\\_` |\n| \\| | `\\|` |\n| \\a | `\\a` |\n\n\\\\ `\\\\`\n\n\\\\\\\\ `\\\\\\\\`\n\n\\_ `\\_`\n\n\\| `\\|`\n\n\\a `\\a`\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>\\</td>\n<td><code>\\\\</code></td>\n</tr>\n<tr>\n<td>\\\\</td>\n<td><code>\\\\\\\\</code></td>\n</tr>\n<tr>\n<td>_</td>\n<td><code>\\_</code></td>\n</tr>\n<tr>\n<td>|</td>\n<td><code>|</code></td>\n</tr>\n<tr>\n<td>\\a</td>\n<td><code>\\a</code></td>\n</tr>\n</tbody>\n</table>\n<p>\\ <code>\\\\</code></p>\n<p>\\\\ <code>\\\\\\\\</code></p>\n<p>_ <code>\\_</code></p>\n<p>| <code>\\|</code></p>\n<p>\\a <code>\\a</code></p>\n"
+  },
+  {
+   "example": 12,
+   "section": "Embedded HTML",
+   "markdown": "| a |\n| --- |\n| <strong>hello</strong> |\n| ok <br> sure |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><strong>hello</strong></td>\n</tr>\n<tr>\n<td>ok <br> sure</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 13,
+   "section": "Reference-style links",
+   "markdown": "Here's a link to [Freedom Planet 2][].\n\n| Here's a link to [Freedom Planet 2][] in a table header. |\n| --- |\n| Here's a link to [Freedom Planet 2][] in a table row. |\n\n[Freedom Planet 2]: http://www.freedomplanet2.com/\n",
+   "html": "<p>Here's a link to <a href=\"http://www.freedomplanet2.com/\">Freedom Planet 2</a>.</p>\n<table>\n<thead>\n<tr>\n<th>Here's a link to <a href=\"http://www.freedomplanet2.com/\">Freedom Planet 2</a> in a table header.</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Here's a link to <a href=\"http://www.freedomplanet2.com/\">Freedom Planet 2</a> in a table row.</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 14,
+   "section": "Sequential cells",
+   "markdown": "| a | b | c |\n| --- | --- | --- |\n| d || e |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 15,
+   "section": "Interaction with emphasis",
+   "markdown": "| a | b |\n| --- | --- |\n|***(a)***|\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><em><strong>(a)</strong></em></td>\n<td></td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 16,
+   "section": "a table can be recognised when separated from a paragraph of text without an empty line",
+   "markdown": "123\n456\n| a | b |\n| ---| --- |\nd | e\n",
+   "html": "<p>123\n456</p>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 17,
+   "section": "Strikethroughs",
+   "markdown": "A proper ~strikethrough~.\n",
+   "html": "<p>A proper <del>strikethrough</del>.</p>\n"
+  },
+  {
+   "example": 18,
+   "section": "Strikethroughs",
+   "markdown": "These are ~not strikethroughs.\n\nNo, they are not~\n\nThis ~is ~ legit~ isn't ~ legit.\n\nThis is not ~~~~~one~~~~~ huge strikethrough.\n\n~one~ ~~two~~ ~~~three~~~\n\nNo ~mismatch~~\n",
+   "html": "<p>These are ~not strikethroughs.</p>\n<p>No, they are not~</p>\n<p>This <del>is ~ legit</del> isn't ~ legit.</p>\n<p>This is not ~~~~~one~~~~~ huge strikethrough.</p>\n<p><del>one</del> <del>two</del> ~~~three~~~</p>\n<p>No ~mismatch~~</p>\n"
+  },
+  {
+   "example": 19,
+   "section": "Autolinks",
+   "markdown": ": http://google.com https://google.com\n\n<http://google.com/å> http://google.com/å\n\nscyther@pokemon.com\n\nscy.the_rbe-edr+ill@pokemon.com\n\nscyther@pokemon.com.\n\nscyther@pokemon.com/\n\nscyther@pokemon.com/beedrill@pokemon.com\n\nmailto:scyther@pokemon.com\n\nThis is a mailto:scyther@pokemon.com\n\nmailto:scyther@pokemon.com.\n\nmmmmailto:scyther@pokemon.com\n\nmailto:scyther@pokemon.com/\n\nmailto:scyther@pokemon.com/message\n\nmailto:scyther@pokemon.com/mailto:beedrill@pokemon.com\n\nxmpp:scyther@pokemon.com\n\nxmpp:scyther@pokemon.com.\n\nxmpp:scyther@pokemon.com/message\n\nxmpp:scyther@pokemon.com/message.\n\nEmail me at:scyther@pokemon.com\n\nwww.github.com www.github.com/á\n\nwww.google.com/a_b\n\nUnderscores not allowed in host name www.xxx.yyy._zzz\n\nUnderscores not allowed in host name www.xxx._yyy.zzz\n\nUnderscores allowed in domain name www._xxx.yyy.zzz\n\n**Autolink and http://inlines**\n\n![http://inline.com/image](http://inline.com/image)\n\na.w@b.c\n\nFull stop outside parens shouldn't be included http://google.com/ok.\n\n(Full stop inside parens shouldn't be included http://google.com/ok.)\n\n\"http://google.com\"\n\n'http://google.com'\n\nhttp://🍄.ga/ http://x🍄.ga/\n",
+   "html": "<p>: <a href=\"http://google.com\">http://google.com</a> <a href=\"https://google.com\">https://google.com</a></p>\n<p><a href=\"http://google.com/%C3%A5\">http://google.com/å</a> <a href=\"http://google.com/%C3%A5\">http://google.com/å</a></p>\n<p><a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a></p>\n<p><a href=\"mailto:scy.the_rbe-edr+ill@pokemon.com\">scy.the_rbe-edr+ill@pokemon.com</a></p>\n<p><a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a>.</p>\n<p><a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a>/</p>\n<p><a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a>/<a href=\"mailto:beedrill@pokemon.com\">beedrill@pokemon.com</a></p>\n<p><a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a></p>\n<p>This is a <a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a></p>\n<p><a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a>.</p>\n<p>mmmmailto:<a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a></p>\n<p><a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a>/</p>\n<p><a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a>/message</p>\n<p><a href=\"mailto:scyther@pokemon.com\">mailto:scyther@pokemon.com</a>/<a href=\"mailto:beedrill@pokemon.com\">mailto:beedrill@pokemon.com</a></p>\n<p><a href=\"xmpp:scyther@pokemon.com\">xmpp:scyther@pokemon.com</a></p>\n<p><a href=\"xmpp:scyther@pokemon.com\">xmpp:scyther@pokemon.com</a>.</p>\n<p><a href=\"xmpp:scyther@pokemon.com/message\">xmpp:scyther@pokemon.com/message</a></p>\n<p><a href=\"xmpp:scyther@pokemon.com/message\">xmpp:scyther@pokemon.com/message</a>.</p>\n<p>Email me at:<a href=\"mailto:scyther@pokemon.com\">scyther@pokemon.com</a></p>\n<p><a href=\"http://www.github.com\">www.github.com</a> <a href=\"http://www.github.com/%C3%A1\">www.github.com/á</a></p>\n<p><a href=\"http://www.google.com/a_b\">www.google.com/a_b</a></p>\n<p>Underscores not allowed in host name www.xxx.yyy._zzz</p>\n<p>Underscores not allowed in host name www.xxx._yyy.zzz</p>\n<p>Underscores allowed in domain name <a href=\"http://www._xxx.yyy.zzz\">www._xxx.yyy.zzz</a></p>\n<p><strong>Autolink and <a href=\"http://inlines\">http://inlines</a></strong></p>\n<p><img src=\"http://inline.com/image\" alt=\"http://inline.com/image\" /></p>\n<p><a href=\"mailto:a.w@b.c\">a.w@b.c</a></p>\n<p>Full stop outside parens shouldn't be included <a href=\"http://google.com/ok\">http://google.com/ok</a>.</p>\n<p>(Full stop inside parens shouldn't be included <a href=\"http://google.com/ok\">http://google.com/ok</a>.)</p>\n<p>&quot;<a href=\"http://google.com\">http://google.com</a>&quot;</p>\n<p>'<a href=\"http://google.com\">http://google.com</a>'</p>\n<p><a href=\"http://%F0%9F%8D%84.ga/\">http://🍄.ga/</a> <a href=\"http://x%F0%9F%8D%84.ga/\">http://x🍄.ga/</a></p>\n"
+  },
+  {
+   "example": 20,
+   "section": "Autolinks",
+   "markdown": "This shouldn't crash everything: (_A_@_.A\n",
+   "html": "<IGNORE>\n"
+  },
+  {
+   "example": 21,
+   "section": "Autolinks",
+   "markdown": "These should not link:\n\n* @a.b.c@. x\n* n@.  b\n",
+   "html": "<p>These should not link:</p>\n<ul>\n<li>@a.b.c@. x</li>\n<li>n@.  b</li>\n</ul>\n"
+  },
+  {
+   "example": 22,
+   "section": "HTML tag filter",
+   "markdown": "This is <xmp> not okay, but **this** <strong>is</strong>.\n\n<p>This is <xmp> not okay, but **this** <strong>is</strong>.</p>\n\nNope, I won't have <textarea>.\n\n<p>No <textarea> here either.</p>\n\n<p>This <random /> <thing> is okay</thing> though.</p>\n\nYep, <totally>okay</totally>.\n\n<!-- HTML comments are okay, though. -->\n<!- But we're strict. ->\n<! No nonsense. >\n<!-- Leave multiline comments the heck alone, though, okay?\nEven with {\"x\":\"y\"} or 1 > 2 or whatever. Even **markdown**.\n-->\n<!--- Support everything CommonMark's parser does. -->\n<!---->\n<!--thistoo-->\n",
+   "html": "<p>This is &lt;xmp> not okay, but <strong>this</strong> <strong>is</strong>.</p>\n<p>This is &lt;xmp> not okay, but **this** <strong>is</strong>.</p>\n<p>Nope, I won't have &lt;textarea>.</p>\n<p>No &lt;textarea> here either.</p>\n<p>This <random /> <thing> is okay</thing> though.</p>\n<p>Yep, <totally>okay</totally>.</p>\n<!-- HTML comments are okay, though. -->\n<p>&lt;!- But we're strict. -&gt;\n&lt;! No nonsense. &gt;</p>\n<!-- Leave multiline comments the heck alone, though, okay?\nEven with {\"x\":\"y\"} or 1 > 2 or whatever. Even **markdown**.\n-->\n<!--- Support everything CommonMark's parser does. -->\n<!---->\n<!--thistoo-->\n"
+  },
+  {
+   "example": 23,
+   "section": "Footnotes",
+   "markdown": "This is some text![^1]. Other text.[^footnote].\n\nHere's a thing[^other-note].\n\nAnd another thing[^codeblock-note].\n\nThis doesn't have a referent[^nope].\n\n\n[^other-note]:       no code block here (spaces are stripped away)\n\n[^codeblock-note]:\n        this is now a code block (8 spaces indentation)\n\n[^1]: Some *bolded* footnote definition.\n\nHi!\n\n[^footnote]:\n    > Blockquotes can be in a footnote.\n\n        as well as code blocks\n\n    or, naturally, simple paragraphs.\n\n[^unused]: This is unused.\n",
+   "html": "<p>This is some text!<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\" data-footnote-ref>1</a></sup>. Other text.<sup class=\"footnote-ref\"><a href=\"#fn-footnote\" id=\"fnref-footnote\" data-footnote-ref>2</a></sup>.</p>\n<p>Here's a thing<sup class=\"footnote-ref\"><a href=\"#fn-other-note\" id=\"fnref-other-note\" data-footnote-ref>3</a></sup>.</p>\n<p>And another thing<sup class=\"footnote-ref\"><a href=\"#fn-codeblock-note\" id=\"fnref-codeblock-note\" data-footnote-ref>4</a></sup>.</p>\n<p>This doesn't have a referent[^nope].</p>\n<p>Hi!</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-1\">\n<p>Some <em>bolded</em> footnote definition. <a href=\"#fnref-1\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">↩</a></p>\n</li>\n<li id=\"fn-footnote\">\n<blockquote>\n<p>Blockquotes can be in a footnote.</p>\n</blockquote>\n<pre><code>as well as code blocks\n</code></pre>\n<p>or, naturally, simple paragraphs. <a href=\"#fnref-footnote\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">↩</a></p>\n</li>\n<li id=\"fn-other-note\">\n<p>no code block here (spaces are stripped away) <a href=\"#fnref-other-note\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"3\" aria-label=\"Back to reference 3\">↩</a></p>\n</li>\n<li id=\"fn-codeblock-note\">\n<pre><code>this is now a code block (8 spaces indentation)\n</code></pre>\n<a href=\"#fnref-codeblock-note\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"4\" aria-label=\"Back to reference 4\">↩</a>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+   "example": 24,
+   "section": "When a footnote is used multiple times, we insert multiple backrefs.",
+   "markdown": "This is some text. It has a footnote[^a-footnote].\n\nThis footnote is referenced[^a-footnote] multiple times, in lots of different places.[^a-footnote]\n\n[^a-footnote]: This footnote definition should have three backrefs.\n",
+   "html": "<p>This is some text. It has a footnote<sup class=\"footnote-ref\"><a href=\"#fn-a-footnote\" id=\"fnref-a-footnote\" data-footnote-ref>1</a></sup>.</p>\n<p>This footnote is referenced<sup class=\"footnote-ref\"><a href=\"#fn-a-footnote\" id=\"fnref-a-footnote-2\" data-footnote-ref>1</a></sup> multiple times, in lots of different places.<sup class=\"footnote-ref\"><a href=\"#fn-a-footnote\" id=\"fnref-a-footnote-3\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-a-footnote\">\n<p>This footnote definition should have three backrefs. <a href=\"#fnref-a-footnote\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">↩</a> <a href=\"#fnref-a-footnote-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">↩<sup class=\"footnote-ref\">2</sup></a> <a href=\"#fnref-a-footnote-3\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-3\" aria-label=\"Back to reference 1-3\">↩<sup class=\"footnote-ref\">3</sup></a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+   "example": 25,
+   "section": "Footnote reference labels are href escaped",
+   "markdown": "Hello[^\"><script>alert(1)</script>]\n\n[^\"><script>alert(1)</script>]: pwned\n",
+   "html": "<p>Hello<sup class=\"footnote-ref\"><a href=\"#fn-%22%3E%3Cscript%3Ealert(1)%3C/script%3E\" id=\"fnref-%22%3E%3Cscript%3Ealert(1)%3C/script%3E\" data-footnote-ref>1</a></sup></p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-%22%3E%3Cscript%3Ealert(1)%3C/script%3E\">\n<p>pwned <a href=\"#fnref-%22%3E%3Cscript%3Ealert(1)%3C/script%3E\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">↩</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+   "example": 26,
+   "section": "Interop",
+   "markdown": "~~www.google.com~~\n\n~~http://google.com~~\n",
+   "html": "<p><del><a href=\"http://www.google.com\">www.google.com</a></del></p>\n<p><del><a href=\"http://google.com\">http://google.com</a></del></p>\n"
+  },
+  {
+   "example": 27,
+   "section": "Interop",
+   "markdown": "| a | b |\n| --- | --- |\n| https://github.com www.github.com | http://pokemon.com |\n",
+   "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"https://github.com\">https://github.com</a> <a href=\"http://www.github.com\">www.github.com</a></td>\n<td><a href=\"http://pokemon.com\">http://pokemon.com</a></td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+   "example": 28,
+   "section": "Task lists",
+   "markdown": "- [ ] foo\n- [x] bar\n",
+   "html": "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> foo</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> bar</li>\n</ul>\n"
+  },
+  {
+   "example": 29,
+   "section": "Task lists",
+   "markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n\nShow a regular (non task) list to show that it has the same structure\n- [@] foo\n  - [@] bar\n  - [@] baz\n- [@] bim\n",
+   "html": "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> foo\n<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> bar</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> baz</li>\n</ul>\n</li>\n<li><input type=\"checkbox\" disabled=\"\" /> bim</li>\n</ul>\n<p>Show a regular (non task) list to show that it has the same structure</p>\n<ul>\n<li>[@] foo\n<ul>\n<li>[@] bar</li>\n<li>[@] baz</li>\n</ul>\n</li>\n<li>[@] bim</li>\n</ul>\n"
+  },
+  {
+   "example": 30,
+   "section": "Task lists",
+   "markdown": "- [x] foo\n    - [ ] bar\n    - [x] baz\n- [ ] bim\n\nShow a regular (non task) list to show that it has the same structure\n- [@] foo\n    - [@] bar\n    - [@] baz\n- [@] bim\n",
+   "html": "<ul>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> foo\n<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> bar</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> baz</li>\n</ul>\n</li>\n<li><input type=\"checkbox\" disabled=\"\" /> bim</li>\n</ul>\n<p>Show a regular (non task) list to show that it has the same structure</p>\n<ul>\n<li>[@] foo\n<ul>\n<li>[@] bar</li>\n<li>[@] baz</li>\n</ul>\n</li>\n<li>[@] bim</li>\n</ul>\n"
+  }
+ ]
+}

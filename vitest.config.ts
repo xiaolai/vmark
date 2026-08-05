@@ -20,7 +20,15 @@ export default defineConfig({
     // not jsdom — it needs real xterm + real keyboard input. See `pnpm test:browser`.
     // (`*.browser.test.ts` is NOT excluded — that suffix means the embedded-browser
     // feature and those are ordinary jsdom tests.)
-    exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.webkit.test.{ts,tsx}"],
+    // `*.soak.test.ts` is the scheduled/local soak tier (vitest.soak.config.ts,
+    // `pnpm test:soak`) — runtime downloads and long-running sweeps that must
+    // never gate a PR (ADR-6 of the markdown-testing plan).
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "src/**/*.webkit.test.{ts,tsx}",
+      "src/**/*.soak.test.{ts,tsx}",
+    ],
     server: {
       deps: {
         // The @actions/* packages ship JSON imports without
