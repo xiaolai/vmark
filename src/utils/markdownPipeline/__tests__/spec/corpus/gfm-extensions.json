@@ -1,0 +1,129 @@
+{
+ "source": "https://raw.githubusercontent.com/github/cmark-gfm/master/test/spec.txt",
+ "spec": "GitHub Flavored Markdown (extension sections only)",
+ "version": "0.29.0.gfm.13",
+ "license": "CC-BY-SA 4.0 (spec text; examples reproduced for conformance testing)",
+ "note": "Example numbers are positions in the full GFM spec.txt enumeration.",
+ "examples": [
+  {
+   "example": 198,
+   "section": "Tables (extension)",
+   "markdown": "| foo | bar |\n| --- | --- |\n| baz | bim |\n"
+  },
+  {
+   "example": 199,
+   "section": "Tables (extension)",
+   "markdown": "| abc | defghi |\n:-: | -----------:\nbar | baz\n"
+  },
+  {
+   "example": 200,
+   "section": "Tables (extension)",
+   "markdown": "| f\\|oo  |\n| ------ |\n| b `\\|` az |\n| b **\\|** im |\n"
+  },
+  {
+   "example": 201,
+   "section": "Tables (extension)",
+   "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\n> bar\n"
+  },
+  {
+   "example": 202,
+   "section": "Tables (extension)",
+   "markdown": "| abc | def |\n| --- | --- |\n| bar | baz |\nbar\n\nbar\n"
+  },
+  {
+   "example": 203,
+   "section": "Tables (extension)",
+   "markdown": "| abc | def |\n| --- |\n| bar |\n"
+  },
+  {
+   "example": 204,
+   "section": "Tables (extension)",
+   "markdown": "| abc | def |\n| --- | --- |\n| bar |\n| bar | baz | boo |\n"
+  },
+  {
+   "example": 205,
+   "section": "Tables (extension)",
+   "markdown": "| abc | def |\n| --- | --- |\n"
+  },
+  {
+   "example": 279,
+   "section": "Task list items (extension)",
+   "markdown": "- [ ] foo\n- [x] bar\n"
+  },
+  {
+   "example": 280,
+   "section": "Task list items (extension)",
+   "markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n"
+  },
+  {
+   "example": 491,
+   "section": "Strikethrough (extension)",
+   "markdown": "~~Hi~~ Hello, world!\n"
+  },
+  {
+   "example": 492,
+   "section": "Strikethrough (extension)",
+   "markdown": "This ~~has a\n\nnew paragraph~~.\n"
+  },
+  {
+   "example": 621,
+   "section": "Autolinks (extension)",
+   "markdown": "www.commonmark.org\n"
+  },
+  {
+   "example": 622,
+   "section": "Autolinks (extension)",
+   "markdown": "Visit www.commonmark.org/help for more information.\n"
+  },
+  {
+   "example": 623,
+   "section": "Autolinks (extension)",
+   "markdown": "Visit www.commonmark.org.\n\nVisit www.commonmark.org/a.b.\n"
+  },
+  {
+   "example": 624,
+   "section": "Autolinks (extension)",
+   "markdown": "www.google.com/search?q=Markup+(business)\n\nwww.google.com/search?q=Markup+(business)))\n\n(www.google.com/search?q=Markup+(business))\n\n(www.google.com/search?q=Markup+(business)\n"
+  },
+  {
+   "example": 625,
+   "section": "Autolinks (extension)",
+   "markdown": "www.google.com/search?q=(business))+ok\n"
+  },
+  {
+   "example": 626,
+   "section": "Autolinks (extension)",
+   "markdown": "www.google.com/search?q=commonmark&hl=en\n\nwww.google.com/search?q=commonmark&hl;\n"
+  },
+  {
+   "example": 627,
+   "section": "Autolinks (extension)",
+   "markdown": "www.commonmark.org/he<lp\n"
+  },
+  {
+   "example": 628,
+   "section": "Autolinks (extension)",
+   "markdown": "http://commonmark.org\n\n(Visit https://encrypted.google.com/search?q=Markup+(business))\n\nAnonymous FTP is available at ftp://foo.bar.baz.\n"
+  },
+  {
+   "example": 629,
+   "section": "Autolinks (extension)",
+   "markdown": "foo@bar.baz\n"
+  },
+  {
+   "example": 630,
+   "section": "Autolinks (extension)",
+   "markdown": "hello@mail+xyz.example isn't valid, but hello+xyz@mail.example is.\n"
+  },
+  {
+   "example": 631,
+   "section": "Autolinks (extension)",
+   "markdown": "a.b-c_d@a.b\n\na.b-c_d@a.b.\n\na.b-c_d@a.b-\n\na.b-c_d@a.b_\n"
+  },
+  {
+   "example": 652,
+   "section": "Disallowed Raw HTML (extension)",
+   "markdown": "<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n"
+  }
+ ]
+}

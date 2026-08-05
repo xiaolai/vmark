@@ -57,7 +57,9 @@ export function promoteImageToMediaNode(
   src: string,
   alt: string,
   title: string,
-  sourceLine: number | null
+  sourceLine: number | null,
+  /** Reference identity from the source `![alt][id]`, if it was one. */
+  reference: { referenceId?: string; referenceType?: string } = {}
 ): PMNode | null {
   // Same gate as the HTML-tag path: `javascript:x.mp4` has a video extension
   // but must never cross into a block_video src. Declining promotion routes
@@ -71,7 +73,16 @@ export function promoteImageToMediaNode(
   if (!nodeName) return null;
   const type = context.schema.nodes[nodeName];
   if (!type) return null;
-  return type.create({ src, alt, title, controls: true, preload: "metadata", sourceLine });
+  return type.create({
+    src,
+    alt,
+    title,
+    controls: true,
+    preload: "metadata",
+    sourceLine,
+    referenceId: reference.referenceId ?? null,
+    referenceType: reference.referenceType ?? null,
+  });
 }
 
 /**

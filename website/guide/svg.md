@@ -139,6 +139,8 @@ The AI generates an SVG bar chart that renders inline in your document, with pan
 
 VMark sanitizes SVG content before rendering. Script tags and event handler attributes (`onclick`, `onerror`, etc.) are stripped. This protects against XSS when pasting SVG from untrusted sources.
 
+External references are also removed: `<use>` and `<image>` may point at a same-document fragment (`href="#arrowhead"`) or an inline `data:image/…` payload, but a URL pointing off the machine is dropped. Without this, simply opening a document containing an untrusted diagram would fetch that URL — revealing your IP address and the moment you opened the file. Diagram tools such as Mermaid only ever reference fragments, so normal diagrams are unaffected.
+
 ### Sizing
 
 If your SVG doesn't include explicit `width`/`height` attributes, add a `viewBox` to control its aspect ratio:

@@ -49,6 +49,10 @@ function buildBlockImage(
     alt: imageNode.attrs.alt ?? "",
     title: imageNode.attrs.title ?? "",
     sourceLine,
+    // A lone `![alt][id]` promoted to a block image must still remember the
+    // reference, or saving rewrites it inline and orphans the definition.
+    referenceId: imageNode.attrs.referenceId ?? null,
+    referenceType: imageNode.attrs.referenceType ?? null,
   });
 }
 
@@ -72,7 +76,8 @@ export function convertParagraph(
         img.url ?? "",
         img.alt ?? "",
         img.title ?? "",
-        sourceLine
+        sourceLine,
+        (img as { data?: { referenceId?: string; referenceType?: string } }).data ?? {}
       );
     },
     promoteHtml: () => tryPromoteMediaHtml(context, (onlyChild as Html).value ?? "", sourceLine),
