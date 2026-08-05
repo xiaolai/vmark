@@ -108,7 +108,7 @@ describe("registerViewCommands — full command set", () => {
     expect(getCommand("view.toggleSourceMode")).toBeDefined();
   });
 
-  it("registers all 32 view/lint commands", () => {
+  it("registers all 33 view/lint commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toContain("view.toggleSidebar");
     expect(ids).toContain("view.toggleSourceMode");
@@ -122,7 +122,8 @@ describe("registerViewCommands — full command set", () => {
     expect(ids).toContain("view.contentSearch");
     expect(ids).toContain("explorer.toggleHiddenFiles");
     expect(ids).toContain("explorer.toggleAllFiles");
-    expect(ids.length).toBe(32);
+    expect(ids).toContain("view.toggleUniversalToolbar");
+    expect(ids.length).toBe(33);
   });
 
   it("every command resolves a non-empty title and executes without throwing", async () => {

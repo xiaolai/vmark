@@ -123,16 +123,12 @@ fn fetch_only_new_shas_without_head_move_is_noop() {
     assert_eq!(classify(Some(&b), Some(&a)), GitClass::NoOp);
 }
 
-#[test]
-fn unknown_head_is_external_unknown() {
-    let b = obs("main", "s1", &["s1"], false);
-    let mut a = obs("main", "s1", &["s1"], false);
-    a.head_sha = None;
-    assert!(matches!(
-        classify(Some(&b), Some(&a)),
-        GitClass::ExternalUnknown
-    ));
-}
+// `unknown_head_is_external_unknown` used to assert that an unreadable HEAD
+// falls back to ExternalUnknown. That was the defect, not the contract: the
+// fallback MINTS an external-edit revision, which is itself a guess about what
+// the user did. Superseded by
+// `unreadable_head_after_a_known_one_is_unreliable_not_external` (defer) and
+// `unborn_head_is_still_external_unknown` (genuinely no HEAD — unchanged).
 
 // ── integration: real repos in temp dirs ────────────────────────────────
 
@@ -216,5 +212,62 @@ fn observe_includes_unreachable_detached_head_sha() {
     assert!(
         o.known_shas.contains(&head),
         "unreachable detached HEAD {head} must be in known_shas"
+    );
+}
+
+/// A repository whose HEAD suddenly reads as absent has NOT lost its commits —
+/// `git rev-parse HEAD` failed. Under a loaded full-suite run a git subprocess
+/// can fail transiently, and treating that as a real observation reclassified a
+/// git mutation as an external edit, minting a spurious revision (#1207).
+#[test]
+fn unreadable_head_after_a_known_one_is_unreliable_not_external() {
+    let before = obs("main", "aaa", &["aaa"], false);
+    let after = GitObservation {
+        head_ref: "main".to_string(),
+        head_sha: None, // rev-parse failed — commits cannot vanish
+        known_shas: HashSet::new(),
+        merge_in_progress: false,
+    };
+    assert_eq!(
+        classify(Some(&before), Some(&after)),
+        GitClass::ObservationUnreliable
+    );
+}
+
+/// An UNBORN repository legitimately has no HEAD, and never had one. That is a
+/// real state, not a failed read, so it must keep its existing handling.
+#[test]
+fn unborn_head_is_still_external_unknown() {
+    let before = GitObservation {
+        head_ref: "main".to_string(),
+        head_sha: None,
+        known_shas: HashSet::new(),
+        merge_in_progress: false,
+    };
+    let after = GitObservation {
+        head_ref: "main".to_string(),
+        head_sha: None,
+        known_shas: HashSet::new(),
+        merge_in_progress: false,
+    };
+    assert_eq!(
+        classify(Some(&before), Some(&after)),
+        GitClass::ExternalUnknown
+    );
+}
+
+/// A merge in progress still wins: it is checked before anything else.
+#[test]
+fn unreliable_observation_does_not_mask_a_merge() {
+    let before = obs("main", "aaa", &["aaa"], false);
+    let after = GitObservation {
+        head_ref: "main".to_string(),
+        head_sha: None,
+        known_shas: HashSet::new(),
+        merge_in_progress: true,
+    };
+    assert_eq!(
+        classify(Some(&before), Some(&after)),
+        GitClass::MergeInProgress
     );
 }

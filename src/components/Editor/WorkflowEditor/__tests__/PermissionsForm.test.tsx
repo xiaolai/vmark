@@ -52,8 +52,10 @@ describe("PermissionsForm", () => {
     render(<PermissionsForm permissions={{ contents: "read" }} />);
     const allSelects = screen.getAllByRole("combobox");
     const issuesScope = allSelects.find((s) =>
-      // The select for 'issues' starts empty.
-      (s.parentElement?.textContent ?? "").includes("issues"),
+      // Walk to the labelled ROW rather than the immediate parent: the select
+      // sits inside a `.vm-select-field` wrapper that owns the chevron, so
+      // `parentElement` is that wrapper and carries no scope name.
+      (s.closest("label")?.textContent ?? "").includes("issues"),
     );
     fireEvent.change(issuesScope!, { target: { value: "write" } });
     const patches = useWorkflowStore.getState().edit.pendingPatches;

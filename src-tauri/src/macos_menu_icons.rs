@@ -165,6 +165,7 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     ("zoom-actual", "1.magnifyingglass"),
     ("zoom-in", "plus.magnifyingglass"),
     ("zoom-out", "minus.magnifyingglass"),
+    ("universal-toolbar", "textformat"),
     ("word-wrap", "arrow.right.to.line"),
     ("line-numbers", "number"),
     ("diagram-preview", "eye.square"),

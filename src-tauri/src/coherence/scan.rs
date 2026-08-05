@@ -52,6 +52,9 @@ pub struct ScanReport {
     pub navigations: usize,
     pub git_mutations: usize,
     pub external_edits: usize,
+    /// Set when the git observation could not be trusted and reconciliation
+    /// was deferred to the next scan (#1207).
+    pub git_observation_unreliable: bool,
     pub adopted: usize,
     pub absent_marked: usize,
     pub diagnostics: usize,
@@ -90,6 +93,16 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
         // Defer: reconcile once the merge concludes.
         kernel.last_git = current_git;
         report.merge_deferred = true;
+        return Ok(report);
+    }
+    if class == GitClass::ObservationUnreliable {
+        // A repository that HAD a resolvable HEAD now reports none, so the
+        // `git` read failed rather than the repo changing. Reconciling on it
+        // would mint a spurious external-edit revision for what is really a
+        // git mutation (#1207). Return WITHOUT storing the bad observation,
+        // so the next scan compares against the same good baseline and
+        // reconciles normally — a transient failure costs one cycle.
+        report.git_observation_unreliable = true;
         return Ok(report);
     }
     if let GitClass::Navigation { op, from, to } = &class {

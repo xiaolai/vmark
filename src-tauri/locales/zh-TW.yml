@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "放大"
   view.zoomOut: "縮小"
   view.wordWrap: "切換自動換行"
+  view.universalToolbar: "顯示通用工具列"
   view.lineNumbers: "切換行號"
   view.diagramPreview: "切換圖表預覽"
   view.fitTables: "表格配合寬度"

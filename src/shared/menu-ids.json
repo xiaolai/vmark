@@ -228,6 +228,7 @@
     "typewriter-mode",
     "underline",
     "undo",
+    "universal-toolbar",
     "unnest-blockquote",
     "unordered-list",
     "use-selection-find",
@@ -242,5 +243,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-07-18T08:37:00.317Z"
+  "generatedAt": "2026-08-05T06:33:21.492Z"
 }
