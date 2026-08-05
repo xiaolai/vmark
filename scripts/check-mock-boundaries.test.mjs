@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { invokedScripts } from "./lib/packageScripts.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(REPO, "scripts", "check-mock-boundaries.mjs");
 
@@ -316,7 +317,10 @@ describe("wiring (case 13) — real package.json and real baseline", () => {
   it("exposes lint:mock-boundaries and chains it into check:all", () => {
     const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
     expect(pkg.scripts["lint:mock-boundaries"]).toBe("node scripts/check-mock-boundaries.mjs");
-    expect(pkg.scripts["check:all"]).toContain("lint:mock-boundaries");
+    // Transitive: check:all composes check:static/servers/build, so a
+    // literal substring check would break on regrouping (see
+    // scripts/lib/packageScripts.mjs).
+    expect(invokedScripts(pkg.scripts, "check:all")).toContain("lint:mock-boundaries");
   });
 
   it("ships a real identity baseline, registered in the WI-16 merge-base ratchet", async () => {

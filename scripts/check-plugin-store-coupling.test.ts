@@ -43,6 +43,7 @@ import { fileURLToPath } from "node:url";
 // @ts-expect-error — plain .mjs module without type declarations
 import { findCouplingViolations } from "./check-plugin-store-coupling.mjs";
 
+import { invokedScripts } from "./lib/packageScripts.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(REPO, "scripts", "check-plugin-store-coupling.mjs");
 
@@ -396,7 +397,10 @@ describe("wiring — the real package.json and the real baseline", () => {
   it("exposes lint:store-coupling and chains it into check:all", () => {
     const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
     expect(pkg.scripts["lint:store-coupling"]).toBe("node scripts/check-plugin-store-coupling.mjs");
-    expect(pkg.scripts["check:all"]).toContain("lint:store-coupling");
+    // Transitive: check:all composes check:static/servers/build, so a
+    // literal substring check would break on regrouping (see
+    // scripts/lib/packageScripts.mjs).
+    expect(invokedScripts(pkg.scripts, "check:all")).toContain("lint:store-coupling");
   });
 
   it("keeps the @/stores channel at ZERO — the win the other three now protect", () => {

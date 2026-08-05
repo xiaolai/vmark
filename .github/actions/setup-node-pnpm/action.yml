@@ -1,0 +1,22 @@
+name: Setup Node and pnpm
+description: >
+  pnpm + Node 22 with the pnpm store cached, then `pnpm install --frozen-lockfile`.
+  Extracted when the single serial `frontend-run` job became five parallel jobs
+  (fe-static / fe-test / fe-coverage / fe-servers / fe-build): the same four
+  steps were about to be copy-pasted five times, and a version bump applied to
+  four of the five copies is a drift bug that reports green.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+      with:
+        version: 10
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - run: pnpm install --frozen-lockfile
+      shell: bash

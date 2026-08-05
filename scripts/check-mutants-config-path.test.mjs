@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { invokedScripts } from "./lib/packageScripts.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(REPO, "scripts", "check-mutants-config-path.mjs");
 
@@ -104,7 +105,10 @@ describe("wiring — real package.json and the real tree", () => {
     expect(pkg.scripts["lint:mutants-config"]).toBe(
       "node scripts/check-mutants-config-path.mjs",
     );
-    expect(pkg.scripts["check:all"]).toContain("lint:mutants-config");
+    // Transitive: check:all composes check:static/servers/build, so a
+    // literal substring check would break on regrouping (see
+    // scripts/lib/packageScripts.mjs).
+    expect(invokedScripts(pkg.scripts, "check:all")).toContain("lint:mutants-config");
   });
 
   it("passes on the real repository (config relocated, legacy file gone)", () => {
