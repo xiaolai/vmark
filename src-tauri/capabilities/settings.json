@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "settings-window",
-  "description": "[capability-version: 0.8.2] Settings window capability — UI-only, no filesystem, shell, PTY, or MCP access. Settings are stored via Zustand persist (localStorage), not direct filesystem operations. `updater:default` is required because Settings → About hosts the 'Check for Updates' / 'Download' buttons; useUpdateOperations runs check()/downloadAndInstall() inline in whichever window the user clicked from, by design (the prior 'always route to main' approach silently dropped clicks when main had been closed). Without this permission, every manual Check Now from Settings throws a permission-denied error that bubbles up as 'Failed to check for updates' while the main window's startup auto-check (which has updater:default via default.json) succeeds against the same endpoint — the exact symptom reported in #909.",
+  "description": "[capability-version: 0.9.28] Settings window capability — UI-only, no filesystem, shell, PTY, or MCP access. Settings are stored via Zustand persist (localStorage), not direct filesystem operations. `updater:default` is required because Settings → About hosts the 'Check for Updates' / 'Download' buttons; useUpdateOperations runs check()/downloadAndInstall() inline in whichever window the user clicked from, by design (the prior 'always route to main' approach silently dropped clicks when main had been closed). Without this permission, every manual Check Now from Settings throws a permission-denied error that bubbles up as 'Failed to check for updates' while the main window's startup auto-check (which has updater:default via default.json) succeeds against the same endpoint — the exact symptom reported in #909. The scoped `opener:allow-open-url` for `ccswitch://*` is required because the CC-Switch MCP import button renders in THIS window: `opener:default` permits only mailto:, tel:, http:// and https://, and the identical scope in default.json covers `main`/`doc-*` only, so every click failed with 'Not allowed to open url' on every platform (#1202).",
   "windows": ["settings"],
   "permissions": [
     "core:default",
@@ -13,6 +13,10 @@
     "dialog:default",
     "log:default",
     "opener:default",
-    "updater:default"
+    "updater:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "ccswitch://*" }]
+    }
   ]
 }
