@@ -26,6 +26,16 @@ export interface DocumentSessionTab {
   revision: string;
   /** Additive alias for clients that prefer an explicit field name. */
   documentKind: DocumentKind;
+  /** True when this tab is the window's active tab. */
+  active: boolean;
+  /**
+   * True when this tab actually renders in the window right now. Under the
+   * workspace rail a window holds tabs from several workspace instances but
+   * shows only the active one's, so a tab can exist, be activatable, and still
+   * not be on screen (#1208). Without this the client cannot tell a successful
+   * activation from one that landed in a hidden instance.
+   */
+  visible: boolean;
 }
 
 /** Browser tab info returned in session.get_state. */
@@ -45,7 +55,18 @@ export type SessionTab = DocumentSessionTab | BrowserSessionTab;
 
 export interface SessionWindow {
   label: string;
+  /**
+   * True when the OS focus is on this window. This is NOT "the window that
+   * answered the request" — the bridge routes a request to whichever window
+   * owns the relevant workspace, which need not be the one the user is looking
+   * at (#1208).
+   */
   focused: boolean;
+  /**
+   * The workspace instance this window is currently showing, or null when the
+   * workspace rail is off (then every tab of the window is visible).
+   */
+  activeWorkspaceInstanceId: string | null;
   tabs: SessionTab[];
 }
 
