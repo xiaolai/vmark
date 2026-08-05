@@ -18,6 +18,10 @@
  *   - `new` and `open` accept an optional `windowLabel` so a
  *     multi-window workflow can target a specific window; default is
  *     focused.
+ *   - `switch_tab` reports the state it can OBSERVE, never the state it
+ *     intended (#1208). Both the activation and the workspace switch are
+ *     re-read from the stores before the response is built, so a silently
+ *     declined switch cannot be reported as a successful one.
  *   - `open` never reloads a tab that holds local content. `createTab`
  *     dedupes by path, so re-opening an already-open file returns the
  *     EXISTING tab; re-initialising it there discarded unsaved edits. Both
@@ -35,6 +39,7 @@
  */
 
 import { useTabStore } from "@/stores/tabStore";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { respond } from "@/services/mcpBridge/utils";
@@ -156,14 +161,24 @@ export async function handleWorkspaceSwitchTab(
     // context — full workspace switch when the tab's owner is hidden, with
     // the change disclosed so the AI client can inform the user.
     const result = activateTabWithWorkspaceContext(owner[0], tabIdArg);
+    // #1208: report what the stores SAY, not what the coordinator intended. A
+    // silently-declined activation used to be indistinguishable from a real
+    // one, which is how a client could be told the tab was showing while the
+    // window had not moved. `workspaceSwitched` is likewise downgraded when the
+    // window is not actually showing the instance the coordinator named.
+    const activeTabId = useTabStore.getState().activeTabId[owner[0]] ?? null;
+    const activeInstanceId =
+      useWorkspaceInstancesStore.getState().windows[owner[0]]?.activeWorkspaceInstanceId ?? null;
+    const switchLanded =
+      result.workspaceSwitched && activeInstanceId === result.workspaceInstanceId;
     await respond({
       id,
       success: true,
       data: {
-        activated: result.activated,
-        workspaceSwitched: result.workspaceSwitched,
-        workspaceInstanceId: result.workspaceInstanceId,
-        activeTabId: useTabStore.getState().activeTabId[owner[0]] ?? null,
+        activated: result.activated && activeTabId === tabIdArg,
+        workspaceSwitched: switchLanded,
+        workspaceInstanceId: activeInstanceId,
+        activeTabId,
       },
     });
   });

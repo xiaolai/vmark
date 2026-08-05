@@ -40,6 +40,7 @@ No arguments.
     {
       "label": "main",
       "focused": true,
+      "activeWorkspaceInstanceId": "wsi-a1b2c3",
       "tabs": [
         {
           "id": "tab-1",
@@ -47,7 +48,9 @@ No arguments.
           "title": "notes",
           "dirty": false,
           "revision": "rev-x7Q3aB1F",
-          "kind": "markdown"
+          "kind": "markdown",
+          "active": true,
+          "visible": true
         },
         {
           "id": "tab-2",
@@ -55,7 +58,9 @@ No arguments.
           "title": "ci",
           "dirty": true,
           "revision": "rev-x7Q3aB1F",
-          "kind": "yaml-workflow"
+          "kind": "yaml-workflow",
+          "active": false,
+          "visible": false
         }
       ]
     }
@@ -67,6 +72,20 @@ No arguments.
   }
 }
 ```
+
+#### Knowing what is actually on screen
+
+A tab can exist, be addressable, and still not be showing. Three fields say so:
+
+| Field | Meaning |
+|---|---|
+| `tab.active` | This tab is its window's current tab. |
+| `tab.visible` | This tab renders right now. It is `false` when the tab belongs to a workspace instance the window is not currently showing. |
+| `window.activeWorkspaceInstanceId` | The workspace instance the window is showing, or `null` when the workspace rail is off (then every tab is visible). |
+
+`window.focused` is the window the **user** is looking at, read from the operating system. It is not "the window that answered this request" — VMark routes a request to whichever window owns the relevant workspace, which in a multi-window session is often a different one.
+
+Treat these as the confirmation step: after `workspace.switch_tab`, a follow-up `get_state` tells you whether the tab is really in front of the user. `switch_tab` itself re-reads the stores before answering, so it reports `activated: false` when an activation did not land rather than echoing the request back.
 
 The `kind` discriminator tells you whether to use `document.write` (for markdown) or `workflow.apply_patch` (for yaml-workflow) on that tab.
 
