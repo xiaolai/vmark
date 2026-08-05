@@ -1,9 +1,31 @@
 name: CI
 
+# PULL REQUESTS ONLY — deliberately not `push: [main]`.
+#
+# Every commit reaching `main` arrives through a PR (branch protection:
+# required checks `frontend` + `rust`, `enforce_admins: true`, and — the
+# load-bearing part — `strict: true`, which forces the PR branch to contain
+# main's tip before it can merge). `strict` is what makes a second run
+# pointless: the merge commit's TREE is then byte-identical to the PR head's,
+# so a push-triggered run re-tested bytes CI had already passed.
+#
+# That was not a small waste. It doubled CI for every change (~57 runner-min)
+# AND it gated releases: `check-tag-green.sh` reads check-runs on the tagged
+# commit, so tagging sat waiting ~22 min for a duplicate run to re-confirm an
+# identical tree. Measured on v0.9.28: PR head 635b7dd7 and merge commit
+# 7e89a426 both had tree 0e15a780.
+#
+# The release gate did NOT get weaker — it got more honest. Rather than being
+# satisfied by a status this workflow could have stamped on `main` for free,
+# `check-tag-green.sh` now resolves the tagged commit to an ancestor with an
+# IDENTICAL TREE and requires the real, green PR checks there. See that script
+# and `.claude/rules/60-ai-governance.md` §10.
+#
+# If `strict` is ever turned off, this reasoning collapses — a PR could be
+# verified against a stale main and land a tree nothing tested. Re-add
+# `push: [main]` in the same change.
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
 
 permissions:
@@ -11,10 +33,12 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Never cancel main-branch runs: a release tag can point at a commit whose
-  # CI was cancelled by a faster push, shipping unverified code (audit
-  # 20260612, observed for v0.8.4). PRs still cancel superseded runs.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Superseded PR runs are cancelled; there are no main-branch runs to protect
+  # any more. (The old comment guarded against a release tag pointing at a
+  # cancelled main run — v0.8.4, audit 20260612. That failure mode is gone with
+  # the trigger: the tag gate now reads the PR's own checks, which are never
+  # cancelled once merged.)
+  cancel-in-progress: true
 
 jobs:
   # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
@@ -179,7 +203,12 @@ jobs:
 
   rust-test:
     needs: [changes]
-    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    # Path-filtered, full stop. This used to carry `|| github.event_name ==
+    # 'push'`, which defeated the filter on every merge to main: a docs-only
+    # change still compiled and tested Rust on three OSes (~29 runner-min,
+    # Windows alone 14m). With the push trigger gone the clause is dead, and
+    # leaving it would silently restore that cost if the trigger came back.
+    if: needs.changes.outputs.rust == 'true'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -255,7 +284,9 @@ jobs:
   # (audit 20260612: ~11 runner-minutes per CI run saved).
   rust-audit:
     needs: [changes]
-    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    # Path-filtered — see rust-test. cargo-audit reads Cargo.lock, which the
+    # `rust` filter already covers.
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

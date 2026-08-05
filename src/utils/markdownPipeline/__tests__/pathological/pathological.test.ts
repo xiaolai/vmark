@@ -29,8 +29,25 @@ const TSX = join(repoRoot, "node_modules", ".bin", "tsx");
 const ENTRY = join(here, "runCases.ts");
 
 /** Generous: every class together takes well under this on any dev machine
- *  or CI runner; a HANG is minutes-to-forever, so the gap is unambiguous. */
-const WALL_CEILING_MS = 60_000;
+ *  or CI runner; a HANG is minutes-to-forever, so the gap is unambiguous.
+ *
+ *  This is a LIVENESS bound, not a performance assertion — per-case timings are
+ *  reported, never asserted (see the header). It was 60s, which the gap made
+ *  look unambiguous until the machine was saturated: the child pays Node + tsx
+ *  startup before it parses anything, and with three suites competing for cores
+ *  a perfectly healthy run hit 60023ms and was killed as a "hang". Raising the
+ *  bound cannot mask a real hang — that is unbounded, and the child is still
+ *  killed and its culprit named — it only stops a busy machine from forging
+ *  one. */
+const WALL_CEILING_MS = 180_000;
+
+/** Kill window for the self-test probe.
+ *
+ *  Must cover Node + tsx startup AND the probe announcing itself, because the
+ *  assertion is that the culprit is NAMEABLE. At 3s under load the child was
+ *  killed before it printed `starting`, so the harness looked broken when it
+ *  was working perfectly. */
+const HANG_PROBE_WINDOW_MS = 20_000;
 
 interface CaseReport {
   name?: string;
@@ -76,10 +93,10 @@ describe("pathological inputs (killable child process)", () => {
   }, WALL_CEILING_MS + 30_000);
 
   it("SELF-TEST: a deliberate busy loop is killed and reported, not hung", () => {
-    const { res, lines } = runChild({ HANG_PROBE: "1" }, 3_000);
+    const { res, lines } = runChild({ HANG_PROBE: "1" }, HANG_PROBE_WINDOW_MS);
     expect(res.signal).toBe("SIGKILL");
     // The probe announced itself before hanging — the culprit is nameable.
     expect(lines.some((l) => l.name === "hang-probe" && l.starting)).toBe(true);
     expect(lines.some((l) => l.done)).toBe(false);
-  }, 30_000);
+  }, HANG_PROBE_WINDOW_MS + 30_000);
 });

@@ -302,3 +302,141 @@ describe("check-tag-green.sh (stubbed gh, matrix)", () => {
     expect(stderr.toLowerCase()).toContain("usage");
   });
 });
+
+/**
+ * Identical-tree fallback (CI is pull_request-only).
+ *
+ * A merge commit on `main` carries no check-runs of its own — CI ran on the PR,
+ * and the checks live on the PR head. Branch protection's `strict: true` forces
+ * the PR branch to contain main's tip, so the merge commit's TREE is identical
+ * to the PR head's, and a green check there verified these exact bytes.
+ *
+ * The safety property is tree equality, NOT ancestry: "some ancestor passed" is
+ * meaningless. Both directions are pinned below.
+ */
+const MERGE_SHA = "1111111111111111111111111111111111111111";
+const PR_HEAD_SHA = "2222222222222222222222222222222222222222";
+const OLD_SHA = "3333333333333333333333333333333333333333";
+const TREE_A = "aaaa000000000000000000000000000000000000";
+const TREE_B = "bbbb000000000000000000000000000000000000";
+
+/** git stub: rev-parse <sha>^{tree} from a table, rev-list from a list. */
+const GIT_STUB = `#!/bin/bash
+set -u
+if [ "\${1:-}" = "rev-parse" ]; then
+  want="\${2%%^*}"
+  while read -r s t; do
+    if [ "$s" = "$want" ]; then printf '%s\\n' "$t"; exit 0; fi
+  done < "\${GIT_TREES}"
+  exit 1
+fi
+if [ "\${1:-}" = "rev-list" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do printf '%s\\n' "$line"; done < "\${GIT_ANCESTORS}"
+  exit 0
+fi
+exit 99
+`;
+
+/** gh stub that serves a per-SHA fixture, so several candidates can be queried. */
+const GH_MULTI_STUB = `#!/bin/bash
+set -u
+if [ "$#" -ne 2 ] || [ "\${1}" != "api" ]; then
+  echo "unexpected gh argv (\$# args): $*" >&2
+  exit 99
+fi
+sha="\${2#repos/xiaolai/vmark/commits/}"
+sha="\${sha%/check-runs?per_page=100}"
+f="\${GH_FIXTURE_DIR}/\${sha}.json"
+if [ ! -f "$f" ]; then
+  printf '%s\\n' '{"total_count":0,"check_runs":[]}'
+  exit 0
+fi
+while IFS= read -r line || [ -n "$line" ]; do printf '%s\\n' "$line"; done < "$f"
+`;
+
+function runWithGit({ trees, ancestors, fixtures }) {
+  const dir = mkdtempSync(path.join(tmpdir(), "check-tag-green-tree-"));
+  const bin = path.join(dir, "bin");
+  mkdirSync(bin, { recursive: true });
+  symlinkSync(process.execPath, path.join(bin, "node"));
+  writeFileSync(path.join(bin, "gh"), GH_MULTI_STUB, { mode: 0o755 });
+  writeFileSync(path.join(bin, "git"), GIT_STUB, { mode: 0o755 });
+
+  const treesFile = path.join(dir, "trees");
+  writeFileSync(treesFile, trees.map(([s, t]) => `${s} ${t}`).join("\n") + "\n");
+  const ancestorsFile = path.join(dir, "ancestors");
+  writeFileSync(ancestorsFile, ancestors.join("\n") + "\n");
+
+  const fixtureDir = path.join(dir, "fixtures");
+  mkdirSync(fixtureDir, { recursive: true });
+  for (const [sha, body] of Object.entries(fixtures)) {
+    writeFileSync(path.join(fixtureDir, `${sha}.json`), JSON.stringify(body, null, 2));
+  }
+
+  const res = spawnSync("/bin/bash", [SCRIPT, MERGE_SHA], {
+    encoding: "utf8",
+    env: {
+      PATH: bin,
+      GIT_TREES: treesFile,
+      GIT_ANCESTORS: ancestorsFile,
+      GH_FIXTURE_DIR: fixtureDir,
+    },
+  });
+  return { status: res.status, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
+}
+
+describe("check-tag-green.sh — identical-tree fallback", () => {
+  it("accepts a green ancestor whose tree is identical to the tagged commit", () => {
+    const { status, stdout } = runWithGit({
+      trees: [
+        [MERGE_SHA, TREE_A],
+        [PR_HEAD_SHA, TREE_A],
+      ],
+      ancestors: [MERGE_SHA, PR_HEAD_SHA],
+      fixtures: { [PR_HEAD_SHA]: checkRuns(GREEN_FRONTEND, GREEN_RUST) },
+    });
+    expect(status).toBe(0);
+    expect(stdout).toContain(PR_HEAD_SHA);
+    expect(stdout).toContain("identical");
+  });
+
+  it("REFUSES a green ancestor whose tree differs — ancestry alone proves nothing", () => {
+    // The whole safety argument. An older commit passing CI says nothing about
+    // the bytes being tagged; only an identical tree does.
+    const { status, stderr } = runWithGit({
+      trees: [
+        [MERGE_SHA, TREE_A],
+        [OLD_SHA, TREE_B],
+      ],
+      ancestors: [MERGE_SHA, OLD_SHA],
+      fixtures: { [OLD_SHA]: checkRuns(GREEN_FRONTEND, GREEN_RUST) },
+    });
+    expect(status).toBe(1);
+    expect(stderr).toContain("missing");
+  });
+
+  it("refuses when the identical-tree ancestor is itself red", () => {
+    const { status, stderr } = runWithGit({
+      trees: [
+        [MERGE_SHA, TREE_A],
+        [PR_HEAD_SHA, TREE_A],
+      ],
+      ancestors: [MERGE_SHA, PR_HEAD_SHA],
+      fixtures: {
+        [PR_HEAD_SHA]: checkRuns(GREEN_FRONTEND, run("rust", "completed", "failure")),
+      },
+    });
+    expect(status).toBe(1);
+    expect(stderr).toContain("no identical-tree ancestor had green required checks");
+  });
+
+  it("still passes directly when the tagged commit itself is green", () => {
+    const { status, stdout } = runWithGit({
+      trees: [[MERGE_SHA, TREE_A]],
+      ancestors: [MERGE_SHA],
+      fixtures: { [MERGE_SHA]: checkRuns(GREEN_FRONTEND, GREEN_RUST) },
+    });
+    expect(status).toBe(0);
+    expect(stdout).toContain(`green on ${MERGE_SHA}`);
+  });
+});
