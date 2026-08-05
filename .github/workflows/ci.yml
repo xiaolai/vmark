@@ -102,8 +102,24 @@ jobs:
 
       # Blob reports carry this shard's coverage; fe-coverage merges them and
       # is the ONLY place thresholds are applied.
+      #
+      # The zeroed thresholds are REQUIRED, not tidiness. A shard runs a quarter
+      # of the suite, so it measures ~49% line coverage and would fail the 94.7%
+      # global floor every time — all four shards did exactly that on the first
+      # run of this workflow. Coverage is a property of the WHOLE suite, so the
+      # only place it can be judged is after the merge. (Enforced by
+      # scripts/check-scripts-parity.test.mjs, so a future edit cannot quietly
+      # restore per-shard gating and make the matrix permanently red.)
       - name: Tests (shard ${{ matrix.shard }}/4)
-        run: pnpm vitest run --coverage --shard=${{ matrix.shard }}/4 --reporter=blob --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json
+        run: >-
+          pnpm vitest run --coverage
+          --shard=${{ matrix.shard }}/4
+          --reporter=blob
+          --outputFile=.vitest-reports/blob-${{ matrix.shard }}.json
+          --coverage.thresholds.lines=0
+          --coverage.thresholds.functions=0
+          --coverage.thresholds.statements=0
+          --coverage.thresholds.branches=0
 
       - uses: actions/upload-artifact@v4
         with:

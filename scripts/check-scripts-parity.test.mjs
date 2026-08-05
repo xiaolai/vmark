@@ -60,4 +60,18 @@ describe("check:all and CI run the same gates", () => {
     expect(ci).toContain("--merge-reports");
     expect(ci).toMatch(/--merge-reports[^\n]*--coverage|--coverage[^\n]*--merge-reports/);
   });
+
+  it("shards do NOT gate on coverage — only the merged report does", () => {
+    // A shard runs a quarter of the suite and measures ~49% lines, so leaving
+    // the global thresholds active makes every shard fail on every run — which
+    // is exactly what happened the first time this matrix ran. Coverage is a
+    // property of the whole suite; a fraction of it cannot be judged.
+    const shardStep = ci.slice(ci.indexOf("Tests (shard"), ci.indexOf("upload-artifact"));
+    for (const metric of ["lines", "functions", "statements", "branches"]) {
+      expect(
+        shardStep,
+        `shard run must zero coverage.thresholds.${metric}`,
+      ).toContain(`--coverage.thresholds.${metric}=0`);
+    }
+  });
 });
