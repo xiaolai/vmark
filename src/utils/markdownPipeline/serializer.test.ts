@@ -476,10 +476,14 @@ $$`;
     });
 
     it("round-trips horizontal rules", () => {
-      const input = "---";
-      const mdast = parseMarkdownToMdast(input);
-      const output = serializeMdastToMarkdown(mdast);
-      expect(output.trim()).toBe(input);
+      // NOT `---` at document start: line-1 `---` reparses as a frontmatter
+      // fence and swallows structure (roundtripDefects D5), so a LEADING
+      // thematic break serializes as `***`. Mid-document rules stay `---`.
+      const leading = parseMarkdownToMdast("---");
+      expect(serializeMdastToMarkdown(leading).trim()).toBe("***");
+
+      const midDocument = parseMarkdownToMdast("text\n\n---");
+      expect(serializeMdastToMarkdown(midDocument).trim()).toBe("text\n\n---");
     });
   });
 

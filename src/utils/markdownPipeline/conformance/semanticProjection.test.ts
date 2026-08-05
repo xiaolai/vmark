@@ -16,12 +16,14 @@ import { createMarkdownProcessor } from "../parser/processorFactory";
 import { FIXTURES } from "./fixtures";
 import {
   project,
-  diff,
   listedTypes,
   NEVER_SEMANTIC,
   DELIBERATELY_DROPPED,
   type RawNode,
 } from "./semanticProjection";
+import {
+  diff,
+} from "./projectionDiff";
 
 const node = (n: RawNode) => n;
 

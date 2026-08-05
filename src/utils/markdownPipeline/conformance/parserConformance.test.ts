@@ -38,7 +38,13 @@ import {
   fixturesOfClass,
   type ConformanceFixture,
 } from "./fixtures";
-import { project, diff, type RawNode } from "./semanticProjection";
+import {
+  project,
+  type RawNode,
+} from "./semanticProjection";
+import {
+  diff,
+} from "./projectionDiff";
 import { EXPECTED_DELTAS, matches } from "./expectedDeltas";
 
 function parseAs(mode: "document" | "source-position", markdown: string): RawNode {
