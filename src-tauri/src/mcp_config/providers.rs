@@ -87,6 +87,29 @@ fn get_target_triple() -> &'static str {
     }
 }
 
+/// Present a canonical path the way third-party tools expect it.
+///
+/// `canonicalize()` returns a Windows extended-length (verbatim) path —
+/// `\\?\C:\…`, or `\\?\UNC\server\share` for a network path. That string
+/// is not internal: it is written into the `command` field of Claude's,
+/// Codex's and Gemini's config files and into the `ccswitch://v1/import`
+/// payload, where consumers do not recognise the prefix (#1202).
+///
+/// Always compiled — a no-op on Unix, whose paths never carry the prefix — so
+/// the rule is unit-tested on every platform rather than only on Windows CI.
+/// Mirrors `workspace_validation::strip_verbatim_prefix`, which does the same
+/// for the frontend; the two stay separate because they are different
+/// boundaries and neither module should depend on the other.
+fn display_path(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = path.strip_prefix(r"\\?\") {
+        rest.to_owned()
+    } else {
+        path.to_owned()
+    }
+}
+
 pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
     let binary_name_with_target = format!("vmark-mcp-server-{}", get_target_triple());
     let binary_name_simple = "vmark-mcp-server";
@@ -98,7 +121,7 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
             .join("binaries")
             .join(&binary_name_with_target);
         if dev_path.exists() {
-            return Ok(dev_path.to_string_lossy().to_string());
+            return Ok(display_path(&dev_path.to_string_lossy()));
         }
         // Fallback: try current exe location
     }
@@ -120,11 +143,12 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
     };
     let simple_path = exe_dir.join(&simple_name);
     if simple_path.exists() {
-        return Ok(simple_path
-            .canonicalize()
-            .unwrap_or(simple_path)
-            .to_string_lossy()
-            .to_string());
+        return Ok(display_path(
+            &simple_path
+                .canonicalize()
+                .unwrap_or(simple_path)
+                .to_string_lossy(),
+        ));
     }
 
     // macOS only: try Resources folder (alternative bundle location)
@@ -132,19 +156,24 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
     {
         let resources_path = exe_dir.join("../Resources").join(&binary_name_with_target);
         if resources_path.exists() {
-            return Ok(resources_path
-                .canonicalize()
-                .unwrap_or(resources_path)
-                .to_string_lossy()
-                .to_string());
+            return Ok(display_path(
+                &resources_path
+                    .canonicalize()
+                    .unwrap_or(resources_path)
+                    .to_string_lossy(),
+            ));
         }
     }
 
     // Fallback: try next to executable with target suffix
     let prod_path = exe_dir.join(&binary_name_with_target);
     if prod_path.exists() {
-        return Ok(prod_path.to_string_lossy().to_string());
+        return Ok(display_path(&prod_path.to_string_lossy()));
     }
 
     Err(rust_i18n::t!("errors.mcp.binaryNotFound", name = binary_name_simple).to_string())
 }
+
+#[cfg(test)]
+#[path = "providers.test.rs"]
+mod providers_test;
