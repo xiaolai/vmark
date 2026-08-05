@@ -96,6 +96,7 @@ const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:breakdown", commandId: "view.toggleBreakdown" },
   { menuEvent: "menu:word-wrap", commandId: "view.toggleWordWrap" },
   { menuEvent: "menu:line-numbers", commandId: "view.toggleLineNumbers" },
+  { menuEvent: "menu:universal-toolbar", commandId: "view.toggleUniversalToolbar" },
   { menuEvent: "menu:diagram-preview", commandId: "view.toggleDiagramPreview" },
   { menuEvent: "menu:fit-tables", commandId: "view.toggleFitTables" },
   { menuEvent: "menu:read-only", commandId: "view.toggleReadOnly" },

@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Ingrandisci"
   view.zoomOut: "Riduci"
   view.wordWrap: "Attiva/disattiva a capo automatico"
+  view.universalToolbar: "Mostra barra strumenti universale"
   view.lineNumbers: "Mostra/Nascondi numeri riga"
   view.diagramPreview: "Mostra/Nascondi anteprima diagramma"
   view.fitTables: "Adatta tabelle alla larghezza"
