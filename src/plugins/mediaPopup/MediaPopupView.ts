@@ -44,6 +44,11 @@ import { browseAndReplaceMedia } from "./mediaPopupActions";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import type { ImageDimensions } from "@/types/image";
+import {
+  attrsForImageEdit,
+  attrsForMediaEdit,
+  attrsForSingleEdit,
+} from "./mediaAttrUpdates";
 
 /** Approximate popup height by media type (rows × ~24px row height + padding). */
 const POPUP_HEIGHT: Record<MediaNodeType, number> = {
@@ -70,16 +75,9 @@ function isImageType(type: MediaNodeType): boolean {
 }
 
 export class MediaPopupView {
-  private container: HTMLElement;
-  private srcInput: HTMLInputElement;
-  private altRow: HTMLElement;
-  private altInput: HTMLInputElement;
-  private dimensionsSpan: HTMLElement;
-  private titleRow: HTMLElement;
-  private titleInput: HTMLInputElement;
-  private posterInput: HTMLInputElement;
-  private posterRow: HTMLElement;
-  private toggleBtn: HTMLElement;
+  /** The popup DOM, kept as one object (ten parallel fields were just
+   *  a spread-out copy of it). */
+  private dom: ReturnType<typeof createMediaPopupDom>;
   private unsubscribe: () => void;
   private editorView: EditorView;
   private justOpened = false;
@@ -91,29 +89,19 @@ export class MediaPopupView {
   constructor(view: EditorView, private store: StoreApi<MediaPopupState>) {
     this.editorView = view;
 
-    const dom = createMediaPopupDom({
+    this.dom = createMediaPopupDom({
       onBrowse: this.handleBrowse,
       onCopy: this.handleCopy,
       onToggle: this.handleToggle,
       onRemove: this.handleRemove,
       onInputKeydown: this.handleInputKeydown,
     });
-    this.container = dom.container;
-    this.srcInput = dom.srcInput;
-    this.altRow = dom.altRow;
-    this.altInput = dom.altInput;
-    this.dimensionsSpan = dom.dimensionsSpan;
-    this.titleRow = dom.titleRow;
-    this.titleInput = dom.titleInput;
-    this.posterInput = dom.posterInput;
-    this.posterRow = dom.posterRow;
-    this.toggleBtn = dom.toggleBtn;
 
     // Live input updates to store + node attrs
-    this.srcInput.addEventListener("input", this.handleSrcChange);
-    this.altInput.addEventListener("input", this.handleAltChange);
-    this.titleInput.addEventListener("input", this.handleTitleChange);
-    this.posterInput.addEventListener("input", this.handlePosterChange);
+    this.dom.srcInput.addEventListener("input", this.handleSrcChange);
+    this.dom.altInput.addEventListener("input", this.handleAltChange);
+    this.dom.titleInput.addEventListener("input", this.handleTitleChange);
+    this.dom.posterInput.addEventListener("input", this.handlePosterChange);
 
     // Subscribe to store changes — show() on open transition or data change
     this.unsubscribe = this.store.subscribe((state, prevState) => {
@@ -158,29 +146,29 @@ export class MediaPopupView {
     const isVideo = mediaNodeType === "block_video";
 
     // Set input values
-    this.srcInput.value = mediaSrc;
-    this.altInput.value = mediaAlt;
-    this.titleInput.value = mediaTitle;
-    this.posterInput.value = mediaPoster;
+    this.dom.srcInput.value = mediaSrc;
+    this.dom.altInput.value = mediaAlt;
+    this.dom.titleInput.value = mediaTitle;
+    this.dom.posterInput.value = mediaPoster;
 
     // Conditional row visibility
-    this.altRow.style.display = isImage ? "" : "none";
-    this.titleRow.style.display = isImage ? "none" : "";
-    this.posterRow.style.display = isVideo ? "" : "none";
-    this.toggleBtn.style.display = isImage ? "" : "none";
+    this.dom.altRow.style.display = isImage ? "" : "none";
+    this.dom.titleRow.style.display = isImage ? "none" : "";
+    this.dom.posterRow.style.display = isVideo ? "" : "none";
+    this.dom.toggleBtn.style.display = isImage ? "" : "none";
 
     // Dimensions: only for images with valid values
     if (isImage && mediaDimensions && mediaDimensions.width > 0 && mediaDimensions.height > 0) {
-      this.dimensionsSpan.textContent = `${mediaDimensions.width} × ${mediaDimensions.height} px`;
-      this.dimensionsSpan.style.display = "";
+      this.dom.dimensionsSpan.textContent = `${mediaDimensions.width} × ${mediaDimensions.height} px`;
+      this.dom.dimensionsSpan.style.display = "";
     } else {
-      this.dimensionsSpan.textContent = "";
-      this.dimensionsSpan.style.display = "none";
+      this.dom.dimensionsSpan.textContent = "";
+      this.dom.dimensionsSpan.style.display = "none";
     }
 
     // Update toggle button icon based on current type
     if (isImage) {
-      updateMediaPopupToggleButton(this.toggleBtn, mediaNodeType);
+      updateMediaPopupToggleButton(this.dom.toggleBtn, mediaNodeType);
     }
 
     // Mount to editor container — popups must be inside editor container, not document.body
@@ -189,12 +177,12 @@ export class MediaPopupView {
       mediaPopupWarn("No editor container found for popup host");
       return;
     }
-    if (this.container.parentElement !== this.host) {
-      this.container.style.position = "absolute";
-      this.host.appendChild(this.container);
+    if (this.dom.container.parentElement !== this.host) {
+      this.dom.container.style.position = "absolute";
+      this.host.appendChild(this.dom.container);
     }
 
-    this.container.style.display = "flex";
+    this.dom.container.style.display = "flex";
 
     // Set guard to prevent immediate close from same click event
     this.justOpened = true;
@@ -222,15 +210,15 @@ export class MediaPopupView {
 
     // Convert to host-relative coordinates (mounted inside editor container)
     const hostPos = toHostCoordsForDom(this.host, { top, left });
-    this.container.style.top = `${hostPos.top}px`;
-    this.container.style.left = `${hostPos.left}px`;
+    this.dom.container.style.top = `${hostPos.top}px`;
+    this.dom.container.style.left = `${hostPos.left}px`;
 
     // Set up keyboard navigation with ESC handler
     if (this.removeKeyboardNavigation) {
       this.removeKeyboardNavigation();
     }
     this.removeKeyboardNavigation = installMediaPopupKeyboardNavigation(
-      this.container,
+      this.dom.container,
       () => {
         this.store.getState().closePopup();
         this.editorView.focus();
@@ -239,13 +227,13 @@ export class MediaPopupView {
 
     // Focus src input
     requestAnimationFrame(() => {
-      this.srcInput.focus();
-      this.srcInput.select();
+      this.dom.srcInput.focus();
+      this.dom.srcInput.select();
     });
   }
 
   private hide(): void {
-    this.container.style.display = "none";
+    this.dom.container.style.display = "none";
     this.host = null;
     if (this.removeKeyboardNavigation) {
       this.removeKeyboardNavigation();
@@ -270,7 +258,7 @@ export class MediaPopupView {
   private handleSave = () => {
     const state = this.store.getState();
     const { mediaNodePos, mediaNodeType } = state;
-    const newSrc = this.srcInput.value.trim();
+    const newSrc = this.dom.srcInput.value.trim();
 
     if (!newSrc) {
       this.handleRemove();
@@ -285,10 +273,16 @@ export class MediaPopupView {
       const node = editorState.doc.nodeAt(mediaNodePos);
       if (!node || node.type.name !== mediaNodeType) return;
 
-      // Type-aware attribute assembly
+      // Type-aware attribute assembly; source edits detach the reference
+      // identity (see mediaAttrUpdates).
       const attrs = isImageType(mediaNodeType)
-        ? { ...node.attrs, src: newSrc, alt: this.altInput.value.trim() }
-        : { ...node.attrs, src: newSrc, title: this.titleInput.value.trim(), poster: this.posterInput.value.trim() };
+        ? attrsForImageEdit(node.attrs, newSrc, this.dom.altInput.value.trim())
+        : attrsForMediaEdit(
+            node.attrs,
+            newSrc,
+            this.dom.titleInput.value.trim(),
+            this.dom.posterInput.value.trim(),
+          );
 
       const tr = editorState.tr.setNodeMarkup(mediaNodePos, null, attrs);
       dispatch(tr);
@@ -332,25 +326,25 @@ export class MediaPopupView {
   };
 
   private handleSrcChange = () => {
-    const value = this.srcInput.value;
+    const value = this.dom.srcInput.value;
     this.store.getState().setSrc(value);
     this.updateNodeAttr("src", value);
   };
 
   private handleAltChange = () => {
-    const value = this.altInput.value;
+    const value = this.dom.altInput.value;
     this.store.getState().setAlt(value);
     this.updateNodeAttr("alt", value);
   };
 
   private handleTitleChange = () => {
-    const value = this.titleInput.value;
+    const value = this.dom.titleInput.value;
     this.store.getState().setTitle(value);
     this.updateNodeAttr("title", value);
   };
 
   private handlePosterChange = () => {
-    const value = this.posterInput.value;
+    const value = this.dom.posterInput.value;
     this.store.getState().setPoster(value);
     this.updateNodeAttr("poster", value);
   };
@@ -431,7 +425,7 @@ export class MediaPopupView {
     if (!isOpen) return;
 
     const target = e.target as Node;
-    if (!this.container.contains(target)) {
+    if (!this.dom.container.contains(target)) {
       // Defer the close to next frame — allows click handler to fire first
       // and potentially reopen/update the popup (e.g., clicking a different media node)
       if (this.pendingCloseRaf === null) {
@@ -439,7 +433,7 @@ export class MediaPopupView {
           this.pendingCloseRaf = null;
           // Re-check if popup should still close (might have been reopened)
           const currentState = this.store.getState();
-          if (currentState.isOpen && !this.container.contains(document.activeElement)) {
+          if (currentState.isOpen && !this.dom.container.contains(document.activeElement)) {
             this.store.getState().closePopup();
           }
         });
@@ -456,10 +450,11 @@ export class MediaPopupView {
       const node = state.doc.nodeAt(mediaNodePos);
       if (!node || node.type.name !== mediaNodeType) return;
 
-      const tr = state.tr.setNodeMarkup(mediaNodePos, undefined, {
-        ...node.attrs,
-        [attr]: value,
-      });
+      const tr = state.tr.setNodeMarkup(
+        mediaNodePos,
+        undefined,
+        attrsForSingleEdit(node.attrs, attr, value),
+      );
       dispatch(tr);
     } catch {
       // Silently ignore — doc may have changed while popup is open
@@ -480,6 +475,6 @@ export class MediaPopupView {
     this.editorView.dom
       .closest(".editor-container")
       ?.removeEventListener("scroll", this.handleScroll, true);
-    this.container.remove();
+    this.dom.container.remove();
   }
 }

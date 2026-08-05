@@ -33,6 +33,7 @@ import {
 
 import type { MediaNodeType, MediaPopupState } from "@/plugins/shared/popupPorts";
 import type { StoreApi } from "zustand";
+import { detachedReferenceAttrs } from "@/utils/referenceIdentity";
 
 /** Check if a media type is an image type. */
 function isImageType(type: MediaNodeType): boolean {
@@ -91,6 +92,8 @@ export async function browseAndReplaceMedia(
       const tr = view.state.tr.setNodeMarkup(currentPos, null, {
         ...node.attrs,
         src: relativePath,
+        // New source, so the node no longer stands for its old reference.
+        ...detachedReferenceAttrs(),
       });
 
       view.dispatch(tr);

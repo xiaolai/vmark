@@ -30,6 +30,7 @@
  */
 
 import type { Node as PMNode, Mark } from "@tiptap/pm/model";
+import { buildImageOrReference } from "./imageReferenceEmit";
 import type {
   Text,
   Strong,
@@ -39,6 +40,7 @@ import type {
   Link,
   LinkReference,
   Image,
+  ImageReference,
   Break,
   PhrasingContent,
 } from "mdast";
@@ -246,7 +248,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
             type: "linkReference",
             identifier: referenceId,
             label: referenceId,
-            referenceType: (mark.attrs.referenceType as string | null) ?? "shortcut",
+            referenceType: asReferenceType(mark.attrs.referenceType),
             children: content,
           } satisfies LinkReference as unknown as Link,
         ];
@@ -293,13 +295,21 @@ export function convertHardBreak(): Break {
 /**
  * Convert an image node to MDAST image.
  */
-export function convertImage(node: PMNode): Image {
-  return {
-    type: "image",
-    url: node.attrs.src as string,
-    alt: (node.attrs.alt as string) || undefined,
-    title: (node.attrs.title as string) || undefined,
-  };
+/**
+ * Narrow a stored reference type to mdast's union.
+ *
+ * The attribute is `string | null` on the mark, so a bare cast let anything
+ * through — `satisfies LinkReference` is what surfaced it. Anything
+ * unrecognised degrades to `shortcut`, the form that needs no extra syntax.
+ */
+function asReferenceType(value: unknown): "shortcut" | "collapsed" | "full" {
+  return value === "full" || value === "collapsed" ? value : "shortcut";
+}
+
+export function convertImage(node: PMNode): Image | ImageReference {
+  // Shared emitter: a node still carrying reference identity serializes as
+  // `![alt][id]`, exactly as links do.
+  return buildImageOrReference(node.attrs as never);
 }
 
 /**

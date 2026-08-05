@@ -103,6 +103,29 @@ export async function openFilepathLink(
 const SAFE_LINK_SCHEMES = ["http:", "https:", "mailto:"];
 
 /**
+ * Schemes a user setting can NEVER enable.
+ *
+ * `customLinkProtocols` is user data that lives in localStorage, so it can
+ * arrive from an imported or synced settings blob rather than a deliberate
+ * choice. Without this floor, one entry (`"javascript"`) turned every link
+ * in every document into script execution — the allowlist was overridable
+ * by the very input it was protecting against.
+ */
+const NEVER_OPENABLE_SCHEMES = new Set([
+  "javascript:",
+  "vbscript:",
+  "data:",
+  "file:",
+  "blob:",
+  "filesystem:",
+  "about:",
+  "view-source:",
+  "jar:",
+  "chrome:",
+  "chrome-extension:",
+]);
+
+/**
  * Open an external link via the OS opener, iff its scheme is allowlisted:
  * the built-in safe schemes plus the user's configured custom protocols
  * (settings -> advanced -> customLinkProtocols). Blocks file:, javascript:,
@@ -120,6 +143,10 @@ export async function openExternalLink(href: string): Promise<boolean> {
   const { useSettingsStore } = await import("@/stores/settingsStore");
   const custom =
     useSettingsStore.getState().advanced.customLinkProtocols ?? [];
+  if (NEVER_OPENABLE_SCHEMES.has(parsed.protocol.toLowerCase())) {
+    linkPopupError("Blocked always-unsafe URL scheme:", parsed.protocol, href);
+    return false;
+  }
   const allowed =
     SAFE_LINK_SCHEMES.includes(parsed.protocol) ||
     custom.includes(parsed.protocol.replace(/:$/, ""));
