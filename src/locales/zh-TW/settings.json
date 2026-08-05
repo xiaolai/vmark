@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "移除",
   "integrations.installMcp.install": "安裝",
   "integrations.installMcp.recheck": "重新檢查",
+  "integrations.installMcp.legacyBadge": "已停用",
+  "integrations.installMcp.legacyHint": "該工具已停止支援，請移除殘留的 VMark 條目。",
   "integrations.group.aiProviders": "AI 提供者",
   "integrations.detectCli.label": "偵測 CLI 提供者",
   "integrations.detectCli.description": "掃描已安裝的 AI CLI（claude、codex、gemini、ollama）",

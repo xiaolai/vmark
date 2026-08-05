@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "不明なプロバイダーです: %{provider}"
+  mcp.legacyProvider: "%{name} は廃止されました。残っている VMark エントリは削除のみ可能です。"
   mcp.noHomeDir: "ホームディレクトリを特定できません"
   mcp.exePathFailed: "実行ファイルのパスを取得できません: %{detail}"
   mcp.exeDirFailed: "実行ファイルのディレクトリを取得できません"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "TOML が無効です: %{detail}"
   mcp.jsonSerializeFailed: "JSON のシリアライズエラー: %{detail}"
   mcp.invalidJsonStructure: "JSON の構造が無効です"
-  mcp.serversNotObject: "mcpServers がオブジェクトではありません"
+  mcp.serversNotObject: "%{key} がオブジェクトではありません"
   mcp.serversNotTable: "mcp_servers がテーブルではありません"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark がオブジェクトではありません"
+  mcp.vmarkEntryNotObject: "%{key} がオブジェクトではありません"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark がテーブルではありません"
-  mcp.envNotObject: "mcpServers.vmark.env がオブジェクトではありません"
+  mcp.envNotObject: "%{key} がオブジェクトではありません"
   mcp.envNotTable: "mcp_servers.vmark.env がテーブルではありません"
 
   # MCP ブリッジ — 認可プリンシパルが結び付くクライアント資格情報

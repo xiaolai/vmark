@@ -16,6 +16,14 @@ const PROVIDER: ProviderConfig = ProviderConfig {
     name: "Claude Code",
     id: "claude",
     relative_path: ".claude.json",
+    legacy: false,
+};
+
+const LEGACY_PROVIDER: ProviderConfig = ProviderConfig {
+    name: "Gemini CLI",
+    id: "gemini",
+    relative_path: ".gemini/settings.json",
+    legacy: true,
 };
 
 /// A binary path that certainly exists on every platform the tests run on.
@@ -110,4 +118,53 @@ fn a_vmark_entry_pointing_elsewhere_reports_a_path_mismatch() {
         Some("/Applications/VMark.app/other"),
     );
     assert!(matches!(d.status, DiagnosticStatus::PathMismatch));
+}
+
+// -- legacy providers: a row only while there is something to remove --------
+//
+// Gemini CLI is discontinued. A permanent row would nag every user with an
+// Install button for a tool nothing reads; no row at all would strand the
+// machines that still carry a vmark entry from an earlier install.
+
+#[test]
+fn a_legacy_provider_with_a_vmark_entry_is_listed() {
+    assert!(should_list(&LEGACY_PROVIDER, &parsed(Some("/opt/vmark"))));
+}
+
+#[test]
+fn a_legacy_provider_without_a_vmark_entry_is_not_listed() {
+    assert!(!should_list(&LEGACY_PROVIDER, &ExistingConfig::Absent));
+    assert!(!should_list(&LEGACY_PROVIDER, &parsed(None)));
+    assert!(!should_list(
+        &LEGACY_PROVIDER,
+        &ExistingConfig::Unreadable {
+            detail: "Invalid JSON".to_string()
+        }
+    ));
+}
+
+#[test]
+fn an_active_provider_is_always_listed() {
+    assert!(should_list(&PROVIDER, &ExistingConfig::Absent));
+    assert!(should_list(&PROVIDER, &parsed(None)));
+    assert!(should_list(&PROVIDER, &parsed(Some("/opt/vmark"))));
+}
+
+#[test]
+fn the_diagnostic_carries_the_legacy_flag() {
+    let d = build_diagnostic(
+        &LEGACY_PROVIDER,
+        Path::new("/home/u/.gemini/settings.json"),
+        parsed(Some("/opt/vmark")),
+        None,
+    );
+    assert!(d.legacy);
+    assert!(!diagnose(parsed(None), None).legacy);
+}
+
+#[test]
+fn install_and_preview_refuse_a_legacy_provider() {
+    let err = require_active(&LEGACY_PROVIDER).expect_err("legacy providers take no new install");
+    assert!(err.contains("Gemini CLI"), "unexpected error: {err}");
+    require_active(&PROVIDER).expect("active providers install normally");
 }

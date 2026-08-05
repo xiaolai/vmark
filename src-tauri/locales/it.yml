@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "Provider sconosciuto: %{provider}"
+  mcp.legacyProvider: "%{name} è stato dismesso; la voce VMark residua può solo essere rimossa."
   mcp.noHomeDir: "Impossibile determinare la directory home"
   mcp.exePathFailed: "Impossibile ottenere il percorso dell'eseguibile: %{detail}"
   mcp.exeDirFailed: "Impossibile ottenere la directory dell'eseguibile"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "TOML non valido: %{detail}"
   mcp.jsonSerializeFailed: "Errore di serializzazione JSON: %{detail}"
   mcp.invalidJsonStructure: "Struttura JSON non valida"
-  mcp.serversNotObject: "mcpServers non è un oggetto"
+  mcp.serversNotObject: "%{key} non è un oggetto"
   mcp.serversNotTable: "mcp_servers non è una tabella"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark non è un oggetto"
+  mcp.vmarkEntryNotObject: "%{key} non è un oggetto"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark non è una tabella"
-  mcp.envNotObject: "mcpServers.vmark.env non è un oggetto"
+  mcp.envNotObject: "%{key} non è un oggetto"
   mcp.envNotTable: "mcp_servers.vmark.env non è una tabella"
 
   # Bridge MCP: le credenziali del client a cui è associato il principal di autorizzazione

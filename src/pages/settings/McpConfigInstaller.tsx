@@ -8,16 +8,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { SettingsGroup, Button, CopyButton } from "./components";
+import { SettingsGroup } from "./components";
 import { McpConfigPreviewDialog } from "./McpConfigPreviewDialog";
 import { CcSwitchImportRow } from "./CcSwitchImportRow";
-import { getFileName } from "@/utils/paths";
-import { DiagnosticIcon } from "./DiagnosticIcon";
+import { ProviderRow } from "./McpProviderRow";
 import {
-  diagnosticMessage,
-  formatPath,
   installMessage,
-  rowActions,
   uninstallMessage,
   type InstallResult,
   type ProviderDiagnostic,
@@ -32,89 +28,6 @@ interface ConfigPreview {
   currentContent: string | null;
   proposedContent: string;
   backupPath: string;
-}
-
-/** Shorten path to just filename for display */
-function shortenPath(path: string): string {
-  return getFileName(path) || path;
-}
-
-interface ProviderRowProps {
-  diagnostic: ProviderDiagnostic;
-  onPreview: () => void;
-  onRepair: () => void;
-  onUninstall: () => void;
-  onRecheck: () => void;
-  loading: boolean;
-}
-
-function ProviderRow(props: ProviderRowProps) {
-  const { diagnostic, onPreview, onRepair, onUninstall, onRecheck, loading } = props;
-  const { t } = useTranslation("settings");
-  const actions = rowActions(diagnostic);
-  const broken = diagnostic.status === "ConfigUnreadable";
-
-  const diagnosticText = diagnosticMessage(diagnostic, t);
-
-  return (
-    <div className="flex flex-col py-2.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <DiagnosticIcon status={diagnostic.status} />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-[var(--text-color)] truncate">
-              {diagnostic.name}
-            </div>
-            <div className="flex items-center gap-1">
-              <span
-                className="text-xs text-[var(--text-tertiary)] font-mono truncate"
-                title={formatPath(diagnostic.configPath)}
-              >
-                {shortenPath(diagnostic.configPath)}
-              </span>
-              <CopyButton text={diagnostic.configPath} size="xs" />
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 ml-3">
-          {actions.repair && (
-            <Button size="sm" variant="warning" onClick={onRepair} disabled={loading}>
-              {t("integrations.installMcp.repair")}
-            </Button>
-          )}
-          {actions.update && (
-            <Button size="sm" onClick={onPreview} disabled={loading}>
-              {t("integrations.installMcp.update")}
-            </Button>
-          )}
-          {actions.remove && (
-            <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
-              {t("integrations.installMcp.remove")}
-            </Button>
-          )}
-          {actions.install && (
-            <Button size="sm" variant="primary" onClick={onPreview} disabled={loading}>
-              {t("integrations.installMcp.install")}
-            </Button>
-          )}
-          {actions.recheck && (
-            <Button size="sm" onClick={onRecheck} disabled={loading}>
-              {t("integrations.installMcp.recheck")}
-            </Button>
-          )}
-        </div>
-      </div>
-      {diagnosticText && (
-        <div
-          className={`mt-1 ml-6.5 text-xs ${
-            broken ? "text-[var(--error-color)]" : "text-[var(--warning-color)]"
-          }`}
-        >
-          {diagnosticText}
-        </div>
-      )}
-    </div>
-  );
 }
 
 interface McpConfigInstallerProps {

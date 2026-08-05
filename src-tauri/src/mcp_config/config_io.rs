@@ -1,15 +1,17 @@
 //! Config *content* — reading, generating, and removing MCP entries.
 //!
-//! Handles the JSON (Claude Desktop, Claude Code, Gemini) and TOML (Codex)
-//! config formats for adding/removing the vmark MCP server entry. Filesystem
-//! side effects live in `install_io.rs` and `backup_io.rs`; the parsed-document
-//! representation lives in `parsed_config.rs`; the vmark entry's own
-//! field-level upsert lives in `vmark_entry.rs`.
+//! Handles the JSON (Claude Desktop, Claude Code, Antigravity), opencode-JSON
+//! (`opencode.json`) and TOML (Codex, Grok) config formats for adding/removing
+//! the vmark MCP server entry. Filesystem side effects live in `install_io.rs`
+//! and `backup_io.rs`; the parsed-document representation lives in
+//! `parsed_config.rs`; the vmark entry's own field-level upsert lives in
+//! `vmark_entry.rs` (opencode's in `opencode_entry.rs`).
 //!
 //! Key decision: both formats round-trip **non-destructively** — see
 //! `parsed_config.rs`. Only the bytes VMark owns may change.
 
 use super::install_io::read_config_for_merge;
+use super::opencode_entry::upsert_opencode_vmark;
 use super::parsed_config::{merge_base, parse, Parsed};
 use super::vmark_entry::{upsert_json_vmark, upsert_toml_vmark, TomlEntryStyle};
 use std::path::Path;
@@ -20,18 +22,25 @@ use toml_edit::{DocumentMut, Item as TomlItem, Table as TomlTable};
 /// Classified in exactly one place. Four functions previously repeated the
 /// `"claude-desktop" | "claude" | "gemini" => JSON, "codex" => TOML` match,
 /// which is how one of them could validate differently from the others.
+///
+/// `OpenCode` is JSON *syntax* with a different schema: the server map lives
+/// under `mcp`, an entry's `command` is one array holding the program and its
+/// arguments, env vars live under `environment`, and entries carry
+/// `type`/`enabled` fields. See `opencode_entry.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ConfigFormat {
     Json,
+    OpenCode,
     Toml,
 }
 
 impl ConfigFormat {
     /// The key holding the server map. JSON configs camelCase it; TOML ones
-    /// snake_case it.
+    /// snake_case it; opencode shortens it to `mcp`.
     pub(crate) fn servers_key(self) -> &'static str {
         match self {
             ConfigFormat::Json => "mcpServers",
+            ConfigFormat::OpenCode => "mcp",
             ConfigFormat::Toml => "mcp_servers",
         }
     }
@@ -40,8 +49,9 @@ impl ConfigFormat {
 /// Map a provider id to its config format, or reject an unknown provider.
 pub(crate) fn config_format(provider_id: &str) -> Result<ConfigFormat, String> {
     match provider_id {
-        "claude-desktop" | "claude" | "gemini" => Ok(ConfigFormat::Json),
-        "codex" => Ok(ConfigFormat::Toml),
+        "claude-desktop" | "claude" | "gemini" | "antigravity" => Ok(ConfigFormat::Json),
+        "opencode" => Ok(ConfigFormat::OpenCode),
+        "codex" | "grok" => Ok(ConfigFormat::Toml),
         _ => Err(rust_i18n::t!("errors.mcp.unknownProvider", provider = provider_id).to_string()),
     }
 }
@@ -94,7 +104,7 @@ pub(crate) fn read_existing_config(
     }
     match parse(format, &content) {
         Ok(parsed) => {
-            let entry = parsed.vmark_entry();
+            let entry = parsed.vmark_entry(format);
             Ok(ExistingConfig::Parsed {
                 has_vmark: entry.is_some(),
                 binary_path: entry.and_then(|e| e.command().map(str::to_string)),
@@ -127,7 +137,7 @@ pub(crate) fn client_token_in(
         return Ok(None);
     };
     Ok(parse(format, content)?
-        .vmark_entry()
+        .vmark_entry(format)
         .and_then(|entry| entry.client_token()))
 }
 
@@ -158,11 +168,11 @@ pub(crate) fn generate_config_content(
     let key = format.servers_key();
 
     match format {
-        ConfigFormat::Json => {
+        ConfigFormat::Json | ConfigFormat::OpenCode => {
             let mut json: serde_json::Value = match merge_base(existing_content) {
                 Some(c) => match parse(format, c)? {
                     Parsed::Json(v) => v,
-                    Parsed::Toml(_) => unreachable!("JSON format parses to Parsed::Json"),
+                    Parsed::Toml(_) => unreachable!("JSON syntax parses to Parsed::Json"),
                 },
                 None => serde_json::json!({}),
             };
@@ -173,9 +183,16 @@ pub(crate) fn generate_config_content(
                 .entry(key)
                 .or_insert_with(|| serde_json::json!({}))
                 .as_object_mut()
-                .ok_or_else(|| rust_i18n::t!("errors.mcp.serversNotObject").to_string())?;
+                .ok_or_else(|| {
+                    rust_i18n::t!("errors.mcp.serversNotObject", key = key).to_string()
+                })?;
 
-            upsert_json_vmark(servers, binary_path, client_token)?;
+            match format {
+                ConfigFormat::OpenCode => {
+                    upsert_opencode_vmark(servers, binary_path, client_token)?
+                }
+                _ => upsert_json_vmark(servers, binary_path, client_token)?,
+            }
             Parsed::Json(json).serialize()
         }
         ConfigFormat::Toml => {
@@ -253,3 +270,7 @@ pub(crate) fn remove_vmark_from_config(
 #[cfg(test)]
 #[path = "config_io.test.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "config_io_formats.test.rs"]
+mod format_tests;

@@ -73,6 +73,65 @@ fn handles_an_empty_string() {
     assert_eq!(display_path(""), "");
 }
 
+// -- The provider set itself (Gemini CLI replaced by Antigravity; -----------
+// -- opencode and Grok added) -----------------------------------------------
+
+#[test]
+fn the_active_provider_set_names_the_tools_vmark_targets() {
+    let active: Vec<&str> = PROVIDERS
+        .iter()
+        .filter(|p| !p.legacy)
+        .map(|p| p.id)
+        .collect();
+    assert_eq!(
+        active,
+        vec![
+            "claude-desktop",
+            "claude",
+            "codex",
+            "antigravity",
+            "grok",
+            "opencode"
+        ]
+    );
+}
+
+#[test]
+fn gemini_is_the_only_legacy_provider() {
+    let legacy: Vec<&str> = PROVIDERS
+        .iter()
+        .filter(|p| p.legacy)
+        .map(|p| p.id)
+        .collect();
+    assert_eq!(legacy, vec!["gemini"]);
+}
+
+#[test]
+fn new_provider_config_paths_are_the_documented_ones() {
+    // Antigravity keeps Google's `.gemini` dir but its own file — it does NOT
+    // read the legacy `settings.json`, so the two must stay distinct paths.
+    let path_of = |id: &str| {
+        PROVIDERS
+            .iter()
+            .find(|p| p.id == id)
+            .expect("provider exists")
+            .relative_path
+    };
+    assert_eq!(path_of("antigravity"), ".gemini/config/mcp_config.json");
+    assert_eq!(path_of("gemini"), ".gemini/settings.json");
+    assert_eq!(path_of("grok"), ".grok/config.toml");
+    assert_eq!(path_of("opencode"), ".config/opencode/opencode.json");
+}
+
+#[test]
+fn provider_ids_are_unique() {
+    let mut ids: Vec<&str> = PROVIDERS.iter().map(|p| p.id).collect();
+    ids.sort_unstable();
+    let before = ids.len();
+    ids.dedup();
+    assert_eq!(before, ids.len(), "duplicate provider id");
+}
+
 #[test]
 fn the_resolved_binary_path_is_never_verbatim() {
     // The property that actually matters, asserted against whatever this

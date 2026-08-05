@@ -13,6 +13,7 @@ function diagnostic(over: Partial<ProviderDiagnostic> = {}): ProviderDiagnostic 
   return {
     provider: "claude",
     name: "Claude Code",
+    legacy: false,
     configPath: "/Users/someone/.claude.json",
     configExists: true,
     hasVmark: false,
@@ -165,6 +166,32 @@ describe("McpConfigInstaller — what each status offers", () => {
 
     expect(await screen.findByRole("button", { name: "Install" })).toBeInTheDocument();
     expect(screen.getByTitle("/")).toBeInTheDocument();
+  });
+
+  it("marks a legacy provider and offers only Remove", async () => {
+    // A legacy row (discontinued Gemini CLI) is listed only because a vmark
+    // entry is still in its config; every other action is refused backend-side.
+    withDiagnostics([
+      diagnostic({
+        provider: "gemini",
+        name: "Gemini CLI",
+        legacy: true,
+        status: "Valid",
+        hasVmark: true,
+        binaryExists: true,
+        configuredBinaryPath: "/opt/vmark-mcp-server",
+        expectedBinaryPath: "/opt/vmark-mcp-server",
+        configPath: "/Users/someone/.gemini/settings.json",
+      }),
+    ]);
+    render(<McpConfigInstaller />);
+
+    expect(await screen.findByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(screen.getByText("Discontinued")).toBeInTheDocument();
+    expect(screen.getByText(/leftover VMark entry/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Repair" })).not.toBeInTheDocument();
   });
 });
 
