@@ -9,7 +9,8 @@
  *     passed down to children, producing flat PM text with stacked marks
  *   - Same-type marks are never stacked twice (addMarkOnce) — nested identical
  *     emphasis is legal CommonMark but must collapse to one mark (#1102)
- *   - URLs are validated via isSafeUrl() to prevent XSS — unsafe URLs become about:blank
+ *   - URLs are stored VERBATIM. Sanitizing here rewrote the author's file on
+ *     save; scheme policy lives at the render and activation sinks instead.
  *   - Missing mark types in schema are gracefully handled by falling through
  *     to convertChildren without adding the mark (schema flexibility)
  *
@@ -36,7 +37,6 @@ import type {
 } from "mdast";
 import type { InlineMath } from "mdast-util-math";
 import type { Subscript, Superscript, Highlight, Underline } from "./types";
-import { isSafeUrl } from "./urlValidation";
 
 /**
  * Convert a text node to ProseMirror text.
@@ -140,8 +140,14 @@ export function convertLink(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  // Validate URL scheme to prevent XSS
-  const href = isSafeUrl(node.url) ? node.url : "about:blank";
+  // The author's URL is stored VERBATIM. Rewriting an unrecognized scheme
+  // to about:blank here rewrote the user's FILE on save — opening and saving
+  // a document silently turned `[x](s3://bucket/key)` into `[x](about:blank)`.
+  // Safety belongs at the sinks, which already enforce it independently:
+  // Tiptap's renderHTML refuses to emit a dangerous href, and
+  // `openExternalLink` allowlists schemes before the OS opener ever sees one.
+  // `linkSecurity.test.ts` pins that whole chain.
+  const href = node.url;
   const ref = (node as { data?: { referenceId?: string; referenceType?: string } }).data;
   const linkMark = markType.create({
     href,
@@ -165,12 +171,17 @@ export function convertImage(schema: Schema, node: Image): PMNode | null {
   const type = schema.nodes.image;
   if (!type) return null;
 
-  // Validate URL scheme to prevent XSS
-  const src = isSafeUrl(node.url) ? node.url : "about:blank";
+  // Stored verbatim, as for links above. An image src cannot execute a
+  // scheme (a `javascript:` src simply fails to load), and the node views
+  // apply `mediaSecurity` before assigning anything to the DOM.
+  const src = node.url;
+  const ref = (node as { data?: { referenceId?: string; referenceType?: string } }).data;
   return type.create({
     src,
     alt: node.alt || null,
     title: node.title || null,
+    referenceId: ref?.referenceId ?? null,
+    referenceType: ref?.referenceType ?? null,
   });
 }
 

@@ -209,7 +209,10 @@ describe("mdastInlineConverters", () => {
       expect(linkMark!.attrs.href).toBe("https://example.com");
     });
 
-    it("sanitizes unsafe URL to about:blank", () => {
+    it("stores a dangerous URL VERBATIM — sanitizing belongs at the sinks", () => {
+      // Rewriting here rewrote the author's FILE on save. The scheme is
+      // blocked where it matters (render + activation); see
+      // linkSecurity.test.ts for the end-to-end proof.
       const node: Link = {
         type: "link",
         url: "javascript:alert(1)",
@@ -217,7 +220,18 @@ describe("mdastInlineConverters", () => {
       };
       const result = convertLink(fullSchema, node, [], convertChildrenMock);
       const linkMark = result[0].marks.find((m) => m.type.name === "link");
-      expect(linkMark!.attrs.href).toBe("about:blank");
+      expect(linkMark!.attrs.href).toBe("javascript:alert(1)");
+    });
+
+    it("preserves an unrecognized but harmless scheme", () => {
+      const node: Link = {
+        type: "link",
+        url: "s3://bucket/key",
+        children: [{ type: "text", value: "obj" }],
+      };
+      const result = convertLink(fullSchema, node, [], convertChildrenMock);
+      const linkMark = result[0].marks.find((m) => m.type.name === "link");
+      expect(linkMark!.attrs.href).toBe("s3://bucket/key");
     });
 
     it("falls back without link mark in schema", () => {
@@ -255,10 +269,10 @@ describe("mdastInlineConverters", () => {
       expect(result!.attrs.title).toBeNull();
     });
 
-    it("sanitizes unsafe image URL", () => {
+    it("stores an image src verbatim — a scheme cannot execute from src", () => {
       const node: Image = { type: "image", url: "javascript:alert(1)", alt: "" };
       const result = convertImage(fullSchema, node);
-      expect(result!.attrs.src).toBe("about:blank");
+      expect(result!.attrs.src).toBe("javascript:alert(1)");
     });
 
     it("returns null when image node not in schema", () => {

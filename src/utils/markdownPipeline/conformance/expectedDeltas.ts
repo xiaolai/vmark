@@ -24,7 +24,12 @@
  * @coordinates-with parserConformance.test.ts — the gate that consumes this
  * @module utils/markdownPipeline/conformance/expectedDeltas
  */
-import { sameValue, type Divergence } from "./semanticProjection";
+import {
+  sameValue,
+} from "./semanticProjection";
+import {
+  type Divergence,
+} from "./projectionDiff";
 
 export interface ExpectedDelta {
   /** Stable fixture ID from `fixtures.ts`. */

@@ -1,0 +1,2281 @@
+{
+ "cm-23": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "ti*tle",
+    "url": "/bar*"
+   }
+  }
+ ],
+ "cm-33": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "föö",
+    "url": "/föö"
+   }
+  }
+ ],
+ "cm-96": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "4 vs 3",
+   "leftValue": 4,
+   "rightValue": 3
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "thematicBreak vs yaml",
+   "leftValue": "thematicBreak",
+   "rightValue": "yaml"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "value": "Foo"
+   }
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "Foo",
+   "rightValue": "Bar"
+  },
+  {
+   "path": "root.children[2]",
+   "kind": "type",
+   "detail": "heading vs paragraph",
+   "leftValue": "heading",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[2]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "depth": 2
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[2].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "Bar",
+   "rightValue": "Baz"
+  },
+  {
+   "path": "root.children[3]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "paragraph"
+  }
+ ],
+ "cm-98": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "2 vs 1",
+   "leftValue": 2,
+   "rightValue": 1
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "thematicBreak vs yaml",
+   "leftValue": "thematicBreak",
+   "rightValue": "yaml"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "value": ""
+   }
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "thematicBreak"
+  }
+ ],
+ "cm-192": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-193": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "the title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-194": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo*bar\\]",
+    "label": "Foo*bar]",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title (with parens)",
+    "url": "my_(url)"
+   }
+  }
+ ],
+ "cm-195": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo bar",
+    "label": "Foo bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "my url"
+   }
+  }
+ ],
+ "cm-196": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "\ntitle\nline1\nline2\n",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-198": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-200": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": ""
+   }
+  }
+ ],
+ "cm-202": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "foo\"bar\\baz",
+    "url": "/url\\bar*baz"
+   }
+  }
+ ],
+ "cm-203": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "url"
+   }
+  }
+ ],
+ "cm-204": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "first"
+   }
+  }
+ ],
+ "cm-205": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-206": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "αγω",
+    "label": "αγω",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/φου"
+   }
+  }
+ ],
+ "cm-214": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-215": [
+  {
+   "path": "root.children[2].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[2].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-216": [
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-217": [
+  {
+   "path": "root.children[3].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[3].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "foo",
+    "url": "/foo-url"
+   }
+  },
+  {
+   "path": "root.children[3].children[2]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[3].children[2]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "bar",
+    "url": "/bar-url"
+   }
+  },
+  {
+   "path": "root.children[3].children[4]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[3].children[4]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "baz",
+    "label": "baz",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/baz-url"
+   }
+  }
+ ],
+ "cm-218": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-527": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-528": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-529": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-530": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-531": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-532": [
+  {
+   "path": "root.children[0].children[3]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[3]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-533": [
+  {
+   "path": "root.children[0].children[1].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  },
+  {
+   "path": "root.children[0].children[3]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[3]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-534": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-535": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref",
+    "label": "ref",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-539": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "BaR",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-540": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ss",
+    "label": "ẞ",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-541": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo bar",
+    "label": "Foo bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-542": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-543": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-544": [
+  {
+   "path": "root.children[2].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[2].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url1"
+   }
+  }
+ ],
+ "cm-548": [
+  {
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "leftValue": 1,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "text vs wikiLink",
+   "leftValue": "text",
+   "rightValue": "wikiLink"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "[[[foo]]]",
+   "rightValue": "[foo"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "[[[foo]]]"
+   },
+   "rightValue": {
+    "value": "[foo"
+   }
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "leftValue": 1,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "text vs wikiLink",
+   "leftValue": "text",
+   "rightValue": "wikiLink"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "[[[foo]]]: /url",
+   "rightValue": "[foo"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "[[[foo]]]: /url"
+   },
+   "rightValue": {
+    "value": "[foo"
+   }
+  },
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  }
+ ],
+ "cm-549": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "ref\\[",
+    "label": "ref[",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-550": [
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar\\\\",
+    "label": "bar\\",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/uri"
+   }
+  }
+ ],
+ "cm-553": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-554": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "*foo* bar",
+    "label": "*foo* bar",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-555": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-556": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-557": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-558": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "*foo* bar",
+    "label": "*foo* bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-559": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "*foo* bar",
+    "label": "*foo* bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-560": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-561": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-562": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-564": [
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo*",
+    "label": "foo*",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-565": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url2"
+   }
+  }
+ ],
+ "cm-566": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url1"
+   }
+  }
+ ],
+ "cm-568": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url1"
+   }
+  }
+ ],
+ "cm-569": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "baz",
+    "label": "baz",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-570": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url2"
+   }
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "baz",
+    "label": "baz",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url1"
+   }
+  }
+ ],
+ "cm-571": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "baz",
+    "label": "baz",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "title": null,
+    "url": "/url1"
+   }
+  }
+ ],
+ "cm-573": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo bar",
+    "identifier": "foo *bar*",
+    "label": "foo *bar*",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "alt": "foo bar",
+    "title": "train & tracks",
+    "url": "train.jpg"
+   }
+  }
+ ],
+ "cm-576": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo bar",
+    "identifier": "foo *bar*",
+    "label": "foo *bar*",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "alt": "foo bar",
+    "title": "train & tracks",
+    "url": "train.jpg"
+   }
+  }
+ ],
+ "cm-577": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo bar",
+    "identifier": "foobar",
+    "label": "foobar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "alt": "foo bar",
+    "title": "train & tracks",
+    "url": "train.jpg"
+   }
+  }
+ ],
+ "cm-582": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo",
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "alt": "foo",
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-583": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo",
+    "identifier": "bar",
+    "label": "bar",
+    "referenceType": "full"
+   },
+   "rightValue": {
+    "alt": "foo",
+    "title": null,
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-584": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo",
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "alt": "foo",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-585": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo bar",
+    "identifier": "*foo* bar",
+    "label": "*foo* bar",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "alt": "foo bar",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-586": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "Foo",
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "collapsed"
+   },
+   "rightValue": {
+    "alt": "Foo",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-587": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo",
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "alt": "foo",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-588": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo",
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "alt": "foo",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-589": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "foo bar",
+    "identifier": "*foo* bar",
+    "label": "*foo* bar",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "alt": "foo bar",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-590": [
+  {
+   "path": "root.children[1]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "leftValue": 1,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "type",
+   "detail": "text vs wikiLink",
+   "leftValue": "text",
+   "rightValue": "wikiLink"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "[[foo]]: /url \"title\"",
+   "rightValue": "foo"
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "[[foo]]: /url \"title\""
+   },
+   "rightValue": {
+    "value": "foo"
+   }
+  },
+  {
+   "path": "root.children[1].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  }
+ ],
+ "cm-591": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "imageReference vs image",
+   "leftValue": "imageReference",
+   "rightValue": "image"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "alt": "Foo",
+    "identifier": "foo",
+    "label": "Foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "alt": "Foo",
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "cm-593": [
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "linkReference vs link",
+   "leftValue": "linkReference",
+   "rightValue": "link"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "identifier": "foo",
+    "label": "foo",
+    "referenceType": "shortcut"
+   },
+   "rightValue": {
+    "title": "title",
+    "url": "/url"
+   }
+  }
+ ],
+ "vmark-cm-bare-list-marker": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "leftValue": 1,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "heading vs paragraph",
+   "leftValue": "heading",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "depth": 2
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "list"
+  }
+ ],
+ "vmark-gfm-strikethrough": [
+  {
+   "path": "root.children[0].children[2]",
+   "kind": "type",
+   "detail": "delete vs subscript",
+   "leftValue": "delete",
+   "rightValue": "subscript"
+  },
+  {
+   "path": "root.children[0].children[2]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {}
+  }
+ ],
+ "vmark-frontmatter-yaml": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "3 vs 2",
+   "leftValue": 3,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "thematicBreak vs yaml",
+   "leftValue": "thematicBreak",
+   "rightValue": "yaml"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "value": "title: T"
+   }
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "heading vs paragraph",
+   "leftValue": "heading",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "depth": 2
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "title: T",
+   "rightValue": "Body."
+  },
+  {
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "paragraph"
+  }
+ ],
+ "vmark-math-inline": [
+  {
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 2",
+   "leftValue": 1,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "Euler: $e^{i\\pi}+1=0$",
+   "rightValue": "Euler: "
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "inlineMath"
+  }
+ ],
+ "vmark-math-block": [
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "paragraph vs math",
+   "leftValue": "paragraph",
+   "rightValue": "math"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "meta": null,
+    "value": "\\int_0^1 x\\,dx"
+   }
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "text"
+  }
+ ],
+ "vmark-details-simple": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "3 vs 1",
+   "leftValue": 3,
+   "rightValue": 1
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "html vs details",
+   "leftValue": "html",
+   "rightValue": "details"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "<details><summary>S</summary>"
+   },
+   "rightValue": {
+    "open": false,
+    "summary": "S"
+   }
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "paragraph"
+  },
+  {
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "html"
+  }
+ ],
+ "vmark-toc-block": [
+  {
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "paragraph vs toc",
+   "leftValue": "paragraph",
+   "rightValue": "toc"
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "text"
+  }
+ ],
+ "vmark-wiki-link": [
+  {
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "1 vs 3",
+   "leftValue": 1,
+   "rightValue": 3
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "See [[Another Note]] please.",
+   "rightValue": "See "
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "wikiLink"
+  },
+  {
+   "path": "root.children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  }
+ ],
+ "vmark-custom-inline-all": [
+  {
+   "path": "root.children[0]",
+   "kind": "child-count",
+   "detail": "3 vs 7",
+   "leftValue": 3,
+   "rightValue": 7
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "type",
+   "detail": "text vs highlight",
+   "leftValue": "text",
+   "rightValue": "highlight"
+  },
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "==hi== and "
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[0].children[0].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "type",
+   "detail": "delete vs text",
+   "leftValue": "delete",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "value": " and "
+   }
+  },
+  {
+   "path": "root.children[0].children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "text"
+  },
+  {
+   "path": "root.children[0].children[2]",
+   "kind": "type",
+   "detail": "text vs subscript",
+   "leftValue": "text",
+   "rightValue": "subscript"
+  },
+  {
+   "path": "root.children[0].children[2]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": " and ^sup^ and ++under++"
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[0].children[2].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[0].children[3]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[0].children[4]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "superscript"
+  },
+  {
+   "path": "root.children[0].children[5]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "text"
+  },
+  {
+   "path": "root.children[0].children[6]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "underline"
+  }
+ ],
+ "vmark-malformed-frontmatter": [
+  {
+   "path": "root",
+   "kind": "child-count",
+   "detail": "3 vs 2",
+   "leftValue": 3,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "type",
+   "detail": "thematicBreak vs yaml",
+   "leftValue": "thematicBreak",
+   "rightValue": "yaml"
+  },
+  {
+   "path": "root.children[0]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {},
+   "rightValue": {
+    "value": "not: [valid"
+   }
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "type",
+   "detail": "heading vs paragraph",
+   "leftValue": "heading",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "depth": 2
+   },
+   "rightValue": {}
+  },
+  {
+   "path": "root.children[1].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "leftValue": "not: [valid",
+   "rightValue": "Body."
+  },
+  {
+   "path": "root.children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "paragraph"
+  }
+ ],
+ "vmark-nesting-details-in-list": [
+  {
+   "path": "root.children[0].children[0]",
+   "kind": "child-count",
+   "detail": "4 vs 2",
+   "leftValue": 4,
+   "rightValue": 2
+  },
+  {
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "type",
+   "detail": "html vs details",
+   "leftValue": "html",
+   "rightValue": "details"
+  },
+  {
+   "path": "root.children[0].children[0].children[1]",
+   "kind": "attribute",
+   "detail": "«attributes across a type change»",
+   "leftValue": {
+    "value": "<details><summary>S</summary>"
+   },
+   "rightValue": {
+    "open": false,
+    "summary": "S"
+   }
+  },
+  {
+   "path": "root.children[0].children[0].children[1].children[0]",
+   "kind": "missing",
+   "detail": "absent in document",
+   "rightValue": "paragraph"
+  },
+  {
+   "path": "root.children[0].children[0].children[2]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "paragraph"
+  },
+  {
+   "path": "root.children[0].children[0].children[3]",
+   "kind": "missing",
+   "detail": "absent in source-position",
+   "leftValue": "html"
+  }
+ ]
+}
