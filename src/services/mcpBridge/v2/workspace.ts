@@ -166,6 +166,12 @@ export async function handleWorkspaceSwitchTab(
     // one, which is how a client could be told the tab was showing while the
     // window had not moved. `workspaceSwitched` is likewise downgraded when the
     // window is not actually showing the instance the coordinator named.
+    //
+    // Reading `activated` off the alias is safe under a split: the WI-2
+    // activation seam converges `activeTabId` with the focused pane, and
+    // `activateTabWithWorkspaceContext.test.ts` pins that for the background,
+    // other-pane and browser-tab cases. If that invariant is ever relaxed, this
+    // check turns into a false negative and must move to the pane state.
     const activeTabId = useTabStore.getState().activeTabId[owner[0]] ?? null;
     const activeInstanceId =
       useWorkspaceInstancesStore.getState().windows[owner[0]]?.activeWorkspaceInstanceId ?? null;
