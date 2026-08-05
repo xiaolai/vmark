@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "拡大"
   view.zoomOut: "縮小"
   view.wordWrap: "折り返しの切り替え"
+  view.universalToolbar: "ユニバーサルツールバーを表示"
   view.lineNumbers: "行番号の表示切替"
   view.diagramPreview: "ダイアグラムプレビューの切り替え"
   view.fitTables: "テーブルを幅に合わせる"

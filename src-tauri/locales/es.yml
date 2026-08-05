@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Acercar"
   view.zoomOut: "Alejar"
   view.wordWrap: "Alternar ajuste de línea"
+  view.universalToolbar: "Mostrar barra de herramientas universal"
   view.lineNumbers: "Alternar números de línea"
   view.diagramPreview: "Alternar vista previa de diagramas"
   view.fitTables: "Ajustar tablas al ancho"

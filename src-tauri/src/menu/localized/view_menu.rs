@@ -90,6 +90,13 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
             )?,
             &MenuItem::with_id(
                 app,
+                "universal-toolbar",
+                &t!("menu.view.universalToolbar"),
+                true,
+                accel("universal-toolbar", "CmdOrCtrl+Shift+B"),
+            )?,
+            &MenuItem::with_id(
+                app,
                 "line-numbers",
                 &t!("menu.view.lineNumbers"),
                 true,

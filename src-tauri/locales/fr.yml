@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Zoom avant"
   view.zoomOut: "Zoom arrière"
   view.wordWrap: "Activer/désactiver le retour à la ligne"
+  view.universalToolbar: "Afficher la barre d'outils universelle"
   view.lineNumbers: "Afficher/masquer les numéros de ligne"
   view.diagramPreview: "Afficher/masquer l'aperçu des diagrammes"
   view.fitTables: "Ajuster les tableaux à la largeur"

@@ -12,6 +12,7 @@ import { useEffect, useCallback } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
+import { toggleUniversalToolbar } from "@/services/editor/universalToolbarToggle";
 
 /**
  * Hook to handle the universal toolbar toggle shortcut.
@@ -25,15 +26,9 @@ import { matchesShortcutEvent } from "@/utils/shortcutMatch";
  * }
  */
 export function useUniversalToolbar(): void {
-  const toggleToolbar = useCallback(() => {
-    const ui = useUIStore.getState();
-    if (!ui.universalToolbarVisible) {
-      // Opening UniversalToolbar: displace StatusBar and close FindBar
-      ui.displaceStatusBar();
-      useUIStore.getState().searchClose();
-    }
-    ui.toggleUniversalToolbar();
-  }, []);
+  // Shared with the View-menu command so the two entry points cannot drift
+  // (services/editor/universalToolbarToggle).
+  const toggleToolbar = useCallback(() => toggleUniversalToolbar(), []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
