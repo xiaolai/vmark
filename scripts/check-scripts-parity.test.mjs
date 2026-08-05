@@ -75,6 +75,17 @@ describe("check:all and CI run the same gates", () => {
     expect(shardStep).toContain("--outputFile.blob=");
   });
 
+  it("shard blobs actually upload — hidden dir, and a missing blob is fatal", () => {
+    // vitest writes blobs into `.vitest-reports/`, a dot-directory.
+    // upload-artifact@v4 skips hidden files by default, so the blob was written
+    // and silently dropped; `if-no-files-found` then defaults to `warn`, so the
+    // shard passed and fe-coverage failed with ENOENT instead — the error
+    // naming the consumer rather than the producer.
+    const upload = ci.slice(ci.indexOf("upload-artifact"), ci.indexOf("fe-coverage:"));
+    expect(upload, "blobs live in a dot-directory").toContain("include-hidden-files: true");
+    expect(upload, "a missing blob must fail the shard").toContain("if-no-files-found: error");
+  });
+
   it("shards do NOT gate on coverage — only the merged report does", () => {
     // A shard runs a quarter of the suite and measures ~49% lines, so leaving
     // the global thresholds active makes every shard fail on every run — which
