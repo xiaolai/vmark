@@ -57,7 +57,7 @@ export function registerSessionTool(server: VMarkMcpServer): void {
         windows: z
           .array(z.unknown())
           .optional()
-          .describe('Open windows, each {label, focused, tabs[]}.'),
+          .describe('Open windows, each {label, focused, activeWorkspaceInstanceId, tabs[]}.'),
         capabilities: z
           .unknown()
           .optional()
