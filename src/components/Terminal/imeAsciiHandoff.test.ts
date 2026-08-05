@@ -97,7 +97,15 @@ function typeWithIme(textarea: HTMLTextAreaElement, char: string) {
   textarea.dispatchEvent(new KeyboardEvent("keyup", { key: char, keyCode: 229, bubbles: true }));
 }
 
-/** Enter IME mode: the gate learns it from any keyCode-229 keydown. */
+/**
+ * Dispatch a keyCode-229 keydown ahead of the run.
+ *
+ * NOT "the gate learns IME mode from it" — the gate registers only
+ * `compositionstart`/`compositionend`/`input` listeners, its keydown listener
+ * having been deleted when ownership moved to accepted writes (57c53aed).
+ * This is here because the REAL key handler is wired in these tests and must
+ * see the same keydown a live IME would send; the gate itself ignores it.
+ */
 function enterImeMode(textarea: HTMLTextAreaElement) {
   textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "a", keyCode: 229, bubbles: true }));
 }
@@ -141,10 +149,13 @@ describe("terminal ASCII reaches the PTY exactly once (#1176)", () => {
     (char) => {
       enterImeMode(w.textarea);
       typeWithIme(w.textarea, char);
-      // Before the fix this was "" — T2 ate the keydown and, for these keys, a
-      // live Shuangpin trace shows no input event follows at all. Now xterm's
-      // keydown path writes it. The trailing input event in this harness is the
-      // belt-and-braces case: some IME might emit one, and it must not double.
+      // Before the fix this was "": T2 ate the keydown, and the gate dropped
+      // the insert because it assumed xterm's keydown path had already
+      // written it. Now the GATE writes it — xterm's keydown path cannot,
+      // because the handler consumes every keyCode-229 keydown
+      // (terminalKeyHandler.ts, T2). `typeWithIme` dispatches the insert
+      // BEFORE the keydown, which is the order the live trace recorded, so
+      // the gate is the only writer in play here.
       expect(w.ptyWrites.join("")).toBe(char);
     },
   );
