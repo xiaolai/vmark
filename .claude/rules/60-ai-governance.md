@@ -178,6 +178,43 @@ The hook is enabled by `git config core.hooksPath .githooks`, which the root
 `package.json` `prepare` script applies on `pnpm install` (no husky
 dependency). Overriding it (`git push --no-verify`) falls under §9.
 
+**CI is `pull_request`-only, and `strict: true` is what makes that safe
+(2026-08-05).** `ci.yml` used to trigger on `push: [main]` as well, so every
+change was verified TWICE against byte-identical trees. Measured on v0.9.28:
+PR head `635b7dd7` and merge commit `7e89a426` both had tree `0e15a780`. The
+duplicate cost ~57 runner-minutes per change and — worse — it gated releases,
+because `check-tag-green.sh` reads check-runs on the tagged commit and so sat
+waiting ~22 min for a re-run to reconfirm bytes CI had already passed.
+
+Three pieces now hold the property "every commit on `main` was verified as the
+exact tree it is", and **all three are load-bearing** — removing any one
+reintroduces a real hole:
+
+1. **`strict: true`** on the required checks (added 2026-08-05). The PR branch
+   must contain main's tip before merging, so the merge commit's tree equals
+   the PR head's, and the PR's run tested precisely what lands. Without it, a
+   PR verified against a stale `main` could land a combination nothing tested —
+   and there is no longer a push-triggered run to catch it. **If this is ever
+   turned off, restore `push: [main]` in `ci.yml` in the same change.**
+2. **`enforce_admins: true` + required `frontend`/`rust`** — nothing reaches
+   `main` outside that path, including for the repo owner.
+3. **`check-tag-green.sh` resolves an identical-tree ancestor.** A merge commit
+   has no check-runs of its own now, so the gate walks (bounded) to a commit
+   with an IDENTICAL TREE and requires the real green checks there. Tree
+   equality, not ancestry, is the argument — "some ancestor passed" would be
+   meaningless, and `scripts/check-tag-green.test.mjs` pins the refusal of a
+   green ancestor whose tree differs. With no `git` on PATH the candidate list
+   collapses to the tagged commit alone, i.e. the older, STRICTER behaviour —
+   degradation can only tighten this gate, never loosen it.
+
+Do NOT "fix" a slow release by making the gate accept a status that CI could
+have stamped for free; the point is that it verifies a real test result.
+
+To inspect or revert the strictness:
+```bash
+gh api repos/xiaolai/vmark/branches/main/protection --jq .required_status_checks.strict
+```
+
 **Residual control — ENABLED 2026-07-27.** The hook was never the whole story:
 `main` had required status checks (`frontend`, `rust`) but `enforce_admins:
 false`, so an owner push sailed past them with
