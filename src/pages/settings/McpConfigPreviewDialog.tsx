@@ -26,10 +26,15 @@ interface McpConfigPreviewDialogProps {
   loading: boolean;
 }
 
+// The non-legacy half of `PROVIDERS` in providers.rs — legacy providers never
+// reach this dialog because the backend refuses to preview them.
 const PROVIDER_NAMES: Record<string, string> = {
+  "claude-desktop": "Claude Desktop",
   claude: "Claude Code",
   codex: "Codex CLI",
-  gemini: "Gemini CLI",
+  antigravity: "Antigravity CLI",
+  grok: "Grok CLI",
+  opencode: "opencode",
 };
 
 export function McpConfigPreviewDialog({

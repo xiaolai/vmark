@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "Provedor desconhecido: %{provider}"
+  mcp.legacyProvider: "%{name} foi descontinuado; a entrada restante do VMark só pode ser removida."
   mcp.noHomeDir: "Não foi possível determinar o diretório inicial"
   mcp.exePathFailed: "Não foi possível obter o caminho do executável: %{detail}"
   mcp.exeDirFailed: "Não foi possível obter o diretório do executável"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "TOML inválido: %{detail}"
   mcp.jsonSerializeFailed: "Erro de serialização JSON: %{detail}"
   mcp.invalidJsonStructure: "Estrutura JSON inválida"
-  mcp.serversNotObject: "mcpServers não é um objeto"
+  mcp.serversNotObject: "%{key} não é um objeto"
   mcp.serversNotTable: "mcp_servers não é uma tabela"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark não é um objeto"
+  mcp.vmarkEntryNotObject: "%{key} não é um objeto"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark não é uma tabela"
-  mcp.envNotObject: "mcpServers.vmark.env não é um objeto"
+  mcp.envNotObject: "%{key} não é um objeto"
   mcp.envNotTable: "mcp_servers.vmark.env não é uma tabela"
 
   # Ponte MCP: as credenciais de cliente às quais o principal de autorização é vinculado

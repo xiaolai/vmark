@@ -15,8 +15,21 @@
  * @module utils/ccswitchLink
  */
 
-/** AI CLIs CC-Switch can sync VMark's MCP entry into, by default. */
-const DEFAULT_APPS = ["claude", "codex", "gemini"];
+/**
+ * AI CLIs CC-Switch can sync VMark's MCP entry into, by default.
+ *
+ * These are **CC-Switch's** app ids, not VMark's provider ids, and its parser
+ * rejects the whole link if any one of them is unknown — so this list may only
+ * contain ids CC-Switch accepts: `claude`, `codex`, `gemini`, `grokbuild`,
+ * `grok`, `opencode`, `openclaw`, `hermes`. In particular **Antigravity is not
+ * one of them**, so VMark's own `antigravity` provider has no counterpart here;
+ * it is installed through the panel's own Install button instead.
+ *
+ * `gemini` is deliberately absent: Gemini CLI is discontinued (see the legacy
+ * provider in `providers.rs`), and a default hand-off should not write a fresh
+ * entry into a tool VMark is retiring.
+ */
+const DEFAULT_APPS = ["claude", "codex", "grok", "opencode"];
 
 /**
  * Build a CC-Switch import deep link for VMark's MCP server.
@@ -24,7 +37,7 @@ const DEFAULT_APPS = ["claude", "codex", "gemini"];
  * @param binaryPath Absolute path to the `vmark-mcp-server` sidecar binary
  *   (this is machine-specific, so the link is for the user's own machine,
  *   not for sharing across machines).
- * @param apps CC-Switch app ids to import into (default: claude, codex, gemini).
+ * @param apps CC-Switch app ids to import into (default: see `DEFAULT_APPS`).
  */
 export function buildCcSwitchImportLink(
   binaryPath: string,

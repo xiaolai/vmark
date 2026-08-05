@@ -8,6 +8,20 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // A test timeout is a LIVENESS bound — "this hung" — not a performance
+    // assertion. Vitest's 5000ms default is sized for an isolated unit test,
+    // but this suite runs ~1450 files across every core at once, so for any
+    // test doing real I/O, a dynamic import, or a heavy render, 5000ms of wall
+    // clock measures how busy the machine is rather than whether the code is
+    // correct. Four separate tests failed that way in one session — at 5072ms,
+    // 6814ms and ~1000ms waits — each passing in isolation in a few seconds.
+    //
+    // Raising it cannot mask a correctness bug: a wrong result still fails
+    // immediately, and only a genuine hang takes longer to report. Actual
+    // performance budgets stay explicit and separate (see
+    // `fullwidthScaling.test.ts`), where they belong.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     include: [
       "src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",
       "scripts/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}",

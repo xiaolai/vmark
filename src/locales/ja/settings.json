@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "削除",
   "integrations.installMcp.install": "インストール",
   "integrations.installMcp.recheck": "再確認",
+  "integrations.installMcp.legacyBadge": "提供終了",
+  "integrations.installMcp.legacyHint": "このツールは提供が終了しました。残っている VMark エントリを削除してください。",
   "integrations.group.aiProviders": "AIプロバイダー",
   "integrations.detectCli.label": "CLIプロバイダーを検出",
   "integrations.detectCli.description": "インストール済みのAI CLI（claude、codex、gemini、ollama）をスキャンする",

@@ -78,6 +78,7 @@ fn build_diagnostic(
     ProviderDiagnostic {
         provider: provider.id.to_string(),
         name: provider.name.to_string(),
+        legacy: provider.legacy,
         config_path: config_path.to_string_lossy().to_string(),
         config_exists,
         has_vmark,
@@ -87,6 +88,36 @@ fn build_diagnostic(
         status,
         message,
     }
+}
+
+/// Whether a provider belongs in the Integrations panel at all.
+///
+/// A legacy provider (a tool VMark no longer targets) earns a row only while
+/// its config still holds a vmark entry to remove. Absent, unconfigured and
+/// unreadable configs are all skipped: there is nothing a discontinued tool's
+/// row could offer for them, and an Install button would write into a config
+/// nothing reads anymore.
+fn should_list(provider: &ProviderConfig, existing: &ExistingConfig) -> bool {
+    !provider.legacy
+        || matches!(
+            existing,
+            ExistingConfig::Parsed {
+                has_vmark: true,
+                ..
+            }
+        )
+}
+
+/// Refuse config-writing commands for a legacy provider.
+///
+/// The panel never offers Install or Preview for one, so reaching this is a
+/// caller bug or a stale UI — either way the config of a discontinued tool
+/// must not gain a fresh vmark entry.
+fn require_active(config: &ProviderConfig) -> Result<(), String> {
+    if config.legacy {
+        return Err(rust_i18n::t!("errors.mcp.legacyProvider", name = config.name).to_string());
+    }
+    Ok(())
 }
 
 /// Diagnose MCP configuration for all AI providers
@@ -103,6 +134,9 @@ pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, String> {
         // `config_exists` comes out of this read rather than a separate
         // `path.exists()` stat, so it cannot disagree with what was read.
         let existing = read_existing_config(&path, provider.id)?;
+        if !should_list(provider, &existing) {
+            continue;
+        }
         diagnostics.push(build_diagnostic(
             provider,
             &path,
@@ -125,6 +159,7 @@ pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, String> {
 #[tauri::command]
 pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, String> {
     let config = get_provider_config(&provider)?;
+    require_active(config)?;
     let path = get_config_path(config)?;
     let binary_path = get_mcp_binary_path()?;
 
@@ -164,6 +199,7 @@ pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, String> {
 #[tauri::command]
 pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
     let config = get_provider_config(&provider)?;
+    require_active(config)?;
     let path = get_config_path(config)?;
     let binary_path = get_mcp_binary_path()?;
 

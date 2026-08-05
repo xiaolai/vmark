@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "Entfernen",
   "integrations.installMcp.install": "Installieren",
   "integrations.installMcp.recheck": "Erneut prüfen",
+  "integrations.installMcp.legacyBadge": "Eingestellt",
+  "integrations.installMcp.legacyHint": "Dieses Tool wird nicht mehr unterstützt. Entfernen Sie den verbliebenen VMark-Eintrag.",
   "integrations.group.aiProviders": "KI-Anbieter",
   "integrations.detectCli.label": "CLI-Anbieter erkennen",
   "integrations.detectCli.description": "Nach installierten KI-CLIs suchen (claude, codex, gemini, ollama)",

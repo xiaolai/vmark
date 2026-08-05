@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "제거",
   "integrations.installMcp.install": "설치",
   "integrations.installMcp.recheck": "다시 확인",
+  "integrations.installMcp.legacyBadge": "지원 중단",
+  "integrations.installMcp.legacyHint": "이 도구는 지원이 중단되었습니다. 남아 있는 VMark 항목을 제거하세요.",
   "integrations.group.aiProviders": "AI 제공자",
   "integrations.detectCli.label": "CLI 제공자 감지",
   "integrations.detectCli.description": "설치된 AI CLI 검색 (claude, codex, gemini, ollama)",

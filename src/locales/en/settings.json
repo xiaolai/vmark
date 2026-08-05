@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "Remove",
   "integrations.installMcp.install": "Install",
   "integrations.installMcp.recheck": "Recheck",
+  "integrations.installMcp.legacyBadge": "Discontinued",
+  "integrations.installMcp.legacyHint": "This tool is discontinued. Remove the leftover VMark entry.",
   "integrations.group.aiProviders": "AI Providers",
   "integrations.detectCli.label": "Detect CLI Providers",
   "integrations.detectCli.description": "Scan for installed AI CLIs (claude, codex, gemini, ollama)",

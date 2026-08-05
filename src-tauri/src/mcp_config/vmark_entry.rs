@@ -122,9 +122,9 @@ pub(crate) fn upsert_json_vmark(
     let entry = servers
         .entry("vmark")
         .or_insert_with(|| JsonValue::Object(Map::new()));
-    let entry = entry
-        .as_object_mut()
-        .ok_or_else(|| rust_i18n::t!("errors.mcp.vmarkEntryNotObject").to_string())?;
+    let entry = entry.as_object_mut().ok_or_else(|| {
+        rust_i18n::t!("errors.mcp.vmarkEntryNotObject", key = "mcpServers.vmark").to_string()
+    })?;
 
     entry.insert(
         "command".to_string(),

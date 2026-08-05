@@ -63,11 +63,20 @@ pub(crate) fn usable(raw: Option<&str>) -> Option<String> {
     Some(token.to_string())
 }
 
-/// Read the credential out of a JSON `vmark` entry.
+/// Read the credential out of a JSON `vmark` entry (`mcpServers` schema).
 pub(crate) fn read_json(entry: &JsonValue) -> Option<String> {
+    read_json_under(entry, "env")
+}
+
+/// Read the credential from under `env_key` in a JSON `vmark` entry.
+///
+/// The env map's key is the one schema difference this field has across the
+/// JSON formats: `mcpServers` entries call it `env`, opencode calls it
+/// `environment`.
+pub(crate) fn read_json_under(entry: &JsonValue, env_key: &str) -> Option<String> {
     usable(
         entry
-            .get("env")
+            .get(env_key)
             .and_then(|env| env.get(TOKEN_ENV_KEY))
             .and_then(JsonValue::as_str),
     )
@@ -92,11 +101,25 @@ pub(crate) fn read_toml(entry: &TomlItem) -> Option<String> {
 /// `env` holding the user's `NODE_OPTIONS` or `HTTPS_PROXY` would be discarded
 /// on every install and every Repair click.
 pub(crate) fn write_json(entry: &mut Map<String, JsonValue>, token: &str) -> Result<(), String> {
+    write_json_under(entry, "env", "mcpServers.vmark.env", token)
+}
+
+/// Write the credential under `env_key`, keeping the user's other variables.
+///
+/// `env_path` is the dotted path named in the error when the existing value is
+/// not an object — `mcpServers.vmark.env` or `mcp.vmark.environment` — so the
+/// message points at the field the user actually has in their file.
+pub(crate) fn write_json_under(
+    entry: &mut Map<String, JsonValue>,
+    env_key: &str,
+    env_path: &str,
+    token: &str,
+) -> Result<(), String> {
     let env = entry
-        .entry("env")
+        .entry(env_key)
         .or_insert_with(|| JsonValue::Object(Map::new()))
         .as_object_mut()
-        .ok_or_else(|| rust_i18n::t!("errors.mcp.envNotObject").to_string())?;
+        .ok_or_else(|| rust_i18n::t!("errors.mcp.envNotObject", key = env_path).to_string())?;
     env.insert(
         TOKEN_ENV_KEY.to_string(),
         JsonValue::String(token.to_string()),

@@ -268,22 +268,7 @@ fn toml_non_table_vmark_entry_is_rejected() {
     );
 }
 
-// -- format classification is defined once (finding 8) ---------------------
-
-#[test]
-fn every_shipped_provider_classifies_to_exactly_one_format() {
-    for provider in super::super::providers::PROVIDERS {
-        let format = config_format(provider.id)
-            .unwrap_or_else(|e| panic!("provider {} has no format: {e}", provider.id));
-        let expected = if provider.id == "codex" {
-            ConfigFormat::Toml
-        } else {
-            ConfigFormat::Json
-        };
-        assert_eq!(format, expected, "provider {}", provider.id);
-    }
-    config_format("nope").expect_err("unknown providers have no format");
-}
+// -- format classification is defined once: see `config_io_formats.test.rs` -
 
 // -- remove_vmark_from_config: already correct; lock the behavior in -------
 
