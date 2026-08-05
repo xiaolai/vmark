@@ -19,6 +19,13 @@
  *   TypeScript source is a parser, not a comparison mode
  */
 import { tsIdenticalAllowlistIdentities } from "./baselineRatchetTsAllowlist.mjs";
+import {
+  specConformanceRecords,
+  specRoundtripRecords,
+  specCorpusExamples,
+  tsExpectedDeltas,
+  tsFidelityLedger,
+} from "./baselineRatchetSpecLedgers.mjs";
 
 /** `//`-prefixed and `_`-prefixed keys are prose, present in most baselines. */
 function isCommentKey(key) {
@@ -87,7 +94,14 @@ function identitySet(value, { shape, key }, label) {
   return out;
 }
 
-const CUSTOM_COMPARATORS = { tsIdenticalAllowlist: tsIdenticalAllowlistIdentities };
+const CUSTOM_COMPARATORS = {
+  tsIdenticalAllowlist: tsIdenticalAllowlistIdentities,
+  specConformanceRecords,
+  specRoundtripRecords,
+  specCorpusExamples,
+  tsExpectedDeltas,
+  tsFidelityLedger,
+};
 
 /**
  * Compare one check across base and head. Returns failures, allowed-addition
@@ -165,6 +179,22 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
 function diffIdentity(baseSet, headSet, check, where) {
   const failures = [];
   const notices = [];
+
+  // `direction: "no-remove"` inverts the ratchet's polarity for corpus-like
+  // sets: coverage only grows, so entries REMOVED (or mutated, when the
+  // identity is content-addressed) since the merge base fail. Additions are
+  // still governed by onAdd below.
+  if (check.direction === "no-remove") {
+    const removed = [...baseSet].filter((e) => !headSet.has(e));
+    if (removed.length > 0) {
+      failures.push(
+        `${where}: ${removed.length} entr${removed.length > 1 ? "ies" : "y"} removed or changed since ` +
+          "the merge base (this set only grows — coverage is never silently dropped or edited):",
+      );
+      for (const r of removed) failures.push(`    - ${r}`);
+    }
+  }
+
   const added = [...headSet].filter((e) => !baseSet.has(e));
   if (added.length === 0) return { failures, notices, raises: [] };
 

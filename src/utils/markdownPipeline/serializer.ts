@@ -34,6 +34,7 @@ import type { Root } from "mdast";
 import { remarkCustomInline, remarkDetailsBlock, remarkWikiLinks, tocToMarkdown } from "./plugins";
 import { handleImage, handleLink, blankLinesJoin } from "./serializerHandlers";
 import type { MarkdownPipelineOptions } from "./types";
+import { parseMarkdownToMdast } from "./parser";
 import {
   applyCosmeticPass,
   buildCodeRanges,
@@ -110,12 +111,17 @@ export function serializeMdastToMarkdown(
   const processor = getSerializer();
   let result = processor.stringify(mdast);
 
-  // A document-leading thematic break must not serialize as `---`: on line 1
-  // the REPARSE reads `---` as a frontmatter fence and swallows structure
-  // (CommonMark examples 43/47/77). Real frontmatter is a `yaml` first child,
-  // which the guard excludes, so its fences are untouched.
+  // A document-leading thematic break can serialize as `---` and then be
+  // REPARSED as a frontmatter fence, swallowing structure (CommonMark
+  // examples 43/47/77). But that only happens when something later closes
+  // the fence — a lone `---` rule reparses as a thematic break exactly as
+  // written. So VERIFY rather than assume: swap to `***` only when the
+  // reparse actually turns the break into frontmatter. Assuming cost real
+  // fidelity — typing `---` in an empty document came back as `***`.
   if (mdast.children[0]?.type === "thematicBreak" && result.startsWith("---")) {
-    result = `***${result.slice(3)}`;
+    if (parseMarkdownToMdast(result).children[0]?.type !== "thematicBreak") {
+      result = `***${result.slice(3)}`;
+    }
   }
 
   // Verified cosmetic pass: restore serializer-emitted &#x20; entities and

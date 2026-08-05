@@ -1,0 +1,349 @@
+{
+ "source": "https://raw.githubusercontent.com/markdown-it/markdown-it/14.1.0/test/fixtures/markdown-it/commonmark_extras.txt",
+ "revision": "14.1.0",
+ "license": "MIT",
+ "examples": [
+  {
+   "example": 1,
+   "section": "Issue commonmark/cmark#383:",
+   "markdown": "*****Hello*world****\n",
+   "html": "<p>**<em><strong>Hello<em>world</em></strong></em></p>\n"
+  },
+  {
+   "example": 2,
+   "section": "Issue #246.  Double escaping in ALT",
+   "markdown": "![&](#)\n",
+   "html": "<p><img src=\"#\" alt=\"&amp;\"></p>\n"
+  },
+  {
+   "example": 3,
+   "section": "Strip markdown in ALT tags",
+   "markdown": "![*strip* [markdown __in__ alt](#)](#)\n",
+   "html": "<p><img src=\"#\" alt=\"strip markdown in alt\"></p>\n"
+  },
+  {
+   "example": 4,
+   "section": "Issue #55:",
+   "markdown": "![test]\n\n![test](foo bar)\n",
+   "html": "<p>![test]</p>\n<p>![test](foo bar)</p>\n"
+  },
+  {
+   "example": 5,
+   "section": "Reference labels: 'i̇θωkå'.toUpperCase() is 'İΘΩKÅ', but these should still be equivalent",
+   "markdown": "[İϴΩKÅ]\n\n[i̇θωkå]: /url\n",
+   "html": "<p><a href=\"/url\">İϴΩKÅ</a></p>\n"
+  },
+  {
+   "example": 6,
+   "section": "Reference labels: support ligatures (equivalent according to unicode case folding)",
+   "markdown": "[ﬀﬁﬂ]\n\n[fffifl]: /url\n",
+   "html": "<p><a href=\"/url\">ﬀﬁﬂ</a></p>\n"
+  },
+  {
+   "example": 7,
+   "section": "Reference can be interrupted by other rules",
+   "markdown": "[foo]: /url 'title\n - - -\n'\n\n[foo]\n",
+   "html": "<p>[foo]: /url 'title</p>\n<hr>\n<p>’</p>\n<p>[foo]</p>\n"
+  },
+  {
+   "example": 8,
+   "section": "Escape character in link reference title doesn't escape newlines",
+   "markdown": "[foo]: /url \"\nhello\n\\\n\\\n\\\nworld\n\"\n\n[foo]\n",
+   "html": "<p><a href=\"/url\" title=\"\nhello\n\\\n\\\n\\\nworld\n\">foo</a></p>\n"
+  },
+  {
+   "example": 9,
+   "section": "Issue #35. `<` should work as punctuation",
+   "markdown": "an **(:**<br>\n",
+   "html": "<p>an <strong>(:</strong><br></p>\n"
+  },
+  {
+   "example": 10,
+   "section": "Should unescape only needed things in link destinations/titles:",
+   "markdown": "[test](<\\f\\o\\o\\>\\\\>)\n\n[test](foo \"\\\\\\\"\\b\\a\\r\")\n",
+   "html": "<p><a href=\"%5Cf%5Co%5Co%3E%5C\">test</a></p>\n<p><a href=\"foo\" title=\"\\&quot;\\b\\a\\r\">test</a></p>\n"
+  },
+  {
+   "example": 11,
+   "section": "Not a closing tag",
+   "markdown": "</ 123>\n",
+   "html": "<p>&lt;/ 123&gt;</p>\n"
+  },
+  {
+   "example": 12,
+   "section": "Escaping entities in links:",
+   "markdown": "[](<&quot;> \"&amp;&ouml;\")\n\n[](<\\&quot;> \"\\&amp;\\&ouml;\")\n\n[](<\\\\&quot;> \"\\\\&quot;\\\\&ouml;\")\n",
+   "html": "<p><a href=\"%22\" title=\"&amp;ö\"></a></p>\n<p><a href=\"&amp;quot;\" title=\"&amp;amp;&amp;ouml;\"></a></p>\n<p><a href=\"%5C%22\" title=\"\\&quot;\\ö\"></a></p>\n"
+  },
+  {
+   "example": 13,
+   "section": "Checking combination of replaceEntities and unescapeMd:",
+   "markdown": "~~~ &amp;&bad;\\&amp;\\\\&amp;\njust a funny little fence\n~~~\n",
+   "html": "<pre><code class=\"&amp;&amp;bad;&amp;amp;\\&amp;\">just a funny little fence\n</code></pre>\n"
+  },
+  {
+   "example": 14,
+   "section": "Underscore between punctuation chars should be able to close emphasis.",
+   "markdown": "_(hai)_.\n",
+   "html": "<p><em>(hai)</em>.</p>\n"
+  },
+  {
+   "example": 15,
+   "section": "Regression test, should not match emphasis markers in different link tags:",
+   "markdown": "[*b]() [c*]()\n",
+   "html": "<p><a href=\"\">*b</a> <a href=\"\">c*</a></p>\n"
+  },
+  {
+   "example": 16,
+   "section": "Those are two separate blockquotes:",
+   "markdown": " - > foo\n  > bar\n",
+   "html": "<ul>\n<li>\n<blockquote>\n<p>foo</p>\n</blockquote>\n</li>\n</ul>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
+  },
+  {
+   "example": 17,
+   "section": "Blockquote should terminate itself after paragraph continuation",
+   "markdown": "- list\n    > blockquote\nblockquote continuation\n    - next list item\n",
+   "html": "<ul>\n<li>list\n<blockquote>\n<p>blockquote\nblockquote continuation</p>\n</blockquote>\n<ul>\n<li>next list item</li>\n</ul>\n</li>\n</ul>\n"
+  },
+  {
+   "example": 18,
+   "section": "Regression test (code block + regular paragraph)",
+   "markdown": ">     foo\n> bar\n",
+   "html": "<blockquote>\n<pre><code>foo\n</code></pre>\n<p>bar</p>\n</blockquote>\n"
+  },
+  {
+   "example": 19,
+   "section": "Regression test (tabs in lists, #830)",
+   "markdown": "1. asd\n    2. asd\n\n---\n\n1. asd\n\t2. asd\n",
+   "html": "<ol>\n<li>asd\n2. asd</li>\n</ol>\n<hr>\n<ol>\n<li>asd\n2. asd</li>\n</ol>\n"
+  },
+  {
+   "example": 20,
+   "section": "Blockquotes inside indented lists should terminate correctly",
+   "markdown": "   - a\n     > b\n     ```\n     c\n     ```\n   - d\n",
+   "html": "<ul>\n<li>a\n<blockquote>\n<p>b</p>\n</blockquote>\n<pre><code>c\n</code></pre>\n</li>\n<li>d</li>\n</ul>\n"
+  },
+  {
+   "example": 21,
+   "section": "Don't output empty class here:",
+   "markdown": "```&#x20;\ntest\n```\n",
+   "html": "<pre><code>test\n</code></pre>\n"
+  },
+  {
+   "example": 22,
+   "section": "Setext header text supports lazy continuations:",
+   "markdown": " - foo\nbar\n   ===\n",
+   "html": "<ul>\n<li>\n<h1>foo\nbar</h1>\n</li>\n</ul>\n"
+  },
+  {
+   "example": 23,
+   "section": "But setext header underline doesn't:",
+   "markdown": " - foo\n   bar\n  ===\n",
+   "html": "<ul>\n<li>foo\nbar\n===</li>\n</ul>\n"
+  },
+  {
+   "example": 24,
+   "section": "Tabs should be stripped from the beginning of the line",
+   "markdown": " foo\n bar\n\tbaz\n",
+   "html": "<p>foo\nbar\nbaz</p>\n"
+  },
+  {
+   "example": 25,
+   "section": "Tabs should not cause hardbreak, EOL tabs aren't stripped in commonmark 0.27",
+   "markdown": "foo1\t\nfoo2    \nbar\n",
+   "html": "<p>foo1\t\nfoo2<br>\nbar</p>\n"
+  },
+  {
+   "example": 26,
+   "section": "List item terminating quote should not be paragraph continuation",
+   "markdown": "1. foo\n   > quote\n2. bar\n",
+   "html": "<ol>\n<li>foo\n<blockquote>\n<p>quote</p>\n</blockquote>\n</li>\n<li>bar</li>\n</ol>\n"
+  },
+  {
+   "example": 27,
+   "section": "Link destination cannot contain '<'",
+   "markdown": "[](<foo<bar>)\n\n[](<foo\\<bar>)\n",
+   "html": "<p>[](&lt;foo<bar>)</p>\n<p><a href=\"foo%3Cbar\"></a></p>\n"
+  },
+  {
+   "example": 28,
+   "section": "Link title cannot contain '(' when opened with it",
+   "markdown": "[](url (xxx())\n\n[](url (xxx\\())\n",
+   "html": "<p>[](url (xxx())</p>\n<p><a href=\"url\" title=\"xxx(\"></a></p>\n"
+  },
+  {
+   "example": 29,
+   "section": "Escaped space is not allowed in link destination, commonmark/CommonMark#493.",
+   "markdown": "[link](a\\ b)\n",
+   "html": "<p>[link](a\\ b)</p>\n"
+  },
+  {
+   "example": 30,
+   "section": "Allow EOL in processing instructions, commonmark/commonmark.js#196.",
+   "markdown": "a <?\n?>\n",
+   "html": "<p>a <?\n?></p>\n"
+  },
+  {
+   "example": 31,
+   "section": "Allow meta tag in an inline context, commonmark/commonmark-spec#527.",
+   "markdown": "City:\n<span itemprop=\"contentLocation\" itemscope itemtype=\"https://schema.org/City\">\n  <meta itemprop=\"name\" content=\"Springfield\">\n</span>\n",
+   "html": "<p>City:\n<span itemprop=\"contentLocation\" itemscope itemtype=\"https://schema.org/City\">\n<meta itemprop=\"name\" content=\"Springfield\">\n</span></p>\n"
+  },
+  {
+   "example": 32,
+   "section": "Coverage. Directive can terminate paragraph.",
+   "markdown": "a\n<?php\n",
+   "html": "<p>a</p>\n<?php\n"
+  },
+  {
+   "example": 33,
+   "section": "Coverage. Nested email autolink (silent mode)",
+   "markdown": "*<foo@bar.com>*\n",
+   "html": "<p><em><a href=\"mailto:foo@bar.com\">foo@bar.com</a></em></p>\n"
+  },
+  {
+   "example": 34,
+   "section": "Coverage. Unpaired nested backtick (silent mode)",
+   "markdown": "*`foo*\n",
+   "html": "<p><em>`foo</em></p>\n"
+  },
+  {
+   "example": 35,
+   "section": "Coverage. Should continue scanning after closing \"```\" despite cache",
+   "markdown": "```aaa``bbb``ccc```ddd``eee``\n",
+   "html": "<p><code>aaa``bbb``ccc</code>ddd<code>eee</code></p>\n"
+  },
+  {
+   "example": 36,
+   "section": "Coverage. Entities.",
+   "markdown": "*&*\n\n*&#x20;*\n\n*&amp;*\n",
+   "html": "<p><em>&amp;</em></p>\n<p><em> </em></p>\n<p><em>&amp;</em></p>\n"
+  },
+  {
+   "example": 37,
+   "section": "Coverage. Escape.",
+   "markdown": "*\\a*\n",
+   "html": "<p><em>\\a</em></p>\n"
+  },
+  {
+   "example": 38,
+   "section": "Coverage. parseLinkDestination",
+   "markdown": "[foo](<\nbar>)\n\n[foo](<bar)\n",
+   "html": "<p>[foo](&lt;\nbar&gt;)</p>\n<p>[foo](&lt;bar)</p>\n"
+  },
+  {
+   "example": 39,
+   "section": "Coverage. parseLinkTitle",
+   "markdown": "[foo](bar \"ba)\n\n[foo](bar \"ba\\\nz\")\n",
+   "html": "<p>[foo](bar &quot;ba)</p>\n<p><a href=\"bar\" title=\"ba\\\nz\">foo</a></p>\n"
+  },
+  {
+   "example": 40,
+   "section": "Coverage. Image",
+   "markdown": "![test]( x )\n",
+   "html": "<p><img src=\"x\" alt=\"test\"></p>\n"
+  },
+  {
+   "example": 41,
+   "section": "Coverage. Image",
+   "markdown": "![test][foo]\n\n[bar]: 123\n",
+   "html": "<p>![test][foo]</p>\n"
+  },
+  {
+   "example": 42,
+   "section": "Coverage. Image",
+   "markdown": "![test][[[\n\n[bar]: 123\n",
+   "html": "<p>![test][[[</p>\n"
+  },
+  {
+   "example": 43,
+   "section": "Coverage. Image",
+   "markdown": "![test](\n",
+   "html": "<p>![test](</p>\n"
+  },
+  {
+   "example": 44,
+   "section": "Coverage. Link",
+   "markdown": "[test](\n",
+   "html": "<p>[test](</p>\n"
+  },
+  {
+   "example": 45,
+   "section": "Coverage. Reference",
+   "markdown": "[\ntest\\\n]: 123\nfoo\nbar\n",
+   "html": "<p>foo\nbar</p>\n"
+  },
+  {
+   "example": 46,
+   "section": "Coverage. Reference",
+   "markdown": "[\ntest\n]\n",
+   "html": "<p>[\ntest\n]</p>\n"
+  },
+  {
+   "example": 47,
+   "section": "Coverage. Reference",
+   "markdown": "> [foo]: bar\n[foo]\n",
+   "html": "<blockquote></blockquote>\n<p><a href=\"bar\">foo</a></p>\n"
+  },
+  {
+   "example": 48,
+   "section": "Coverage. Tabs in blockquotes.",
+   "markdown": ">\t\ttest\n\n >\t\ttest\n\n  >\t\ttest\n\n> ---\n>\t\ttest\n\n > ---\n >\t\ttest\n\n  > ---\n  >\t\ttest\n\n>\t\t\ttest\n\n >\t\t\ttest\n\n  >\t\t\ttest\n\n> ---\n>\t\t\ttest\n\n > ---\n >\t\t\ttest\n\n  > ---\n  >\t\t\ttest\n",
+   "html": "<blockquote>\n<pre><code>  test\n</code></pre>\n</blockquote>\n<blockquote>\n<pre><code> test\n</code></pre>\n</blockquote>\n<blockquote>\n<pre><code>test\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code>  test\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code> test\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code>test\n</code></pre>\n</blockquote>\n<blockquote>\n<pre><code>  \ttest\n</code></pre>\n</blockquote>\n<blockquote>\n<pre><code> \ttest\n</code></pre>\n</blockquote>\n<blockquote>\n<pre><code>\ttest\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code>  \ttest\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code> \ttest\n</code></pre>\n</blockquote>\n<blockquote>\n<hr>\n<pre><code>\ttest\n</code></pre>\n</blockquote>\n"
+  },
+  {
+   "example": 49,
+   "section": "Coverage. Tabs in lists.",
+   "markdown": "1. \tfoo\n\n\t     bar\n",
+   "html": "<ol>\n<li>\n<p>foo</p>\n<pre><code> bar\n</code></pre>\n</li>\n</ol>\n"
+  },
+  {
+   "example": 50,
+   "section": "Coverage. Various tags not interrupting blockquotes because of indentation:",
+   "markdown": "> foo\n    - - - -\n\n> foo\n    # not a heading\n",
+   "html": "<blockquote>\n<p>foo\n- - - -</p>\n</blockquote>\n<blockquote>\n<p>foo\n# not a heading</p>\n</blockquote>\n"
+  },
+  {
+   "example": 51,
+   "section": "Coverage, entities with code > 10FFFF. Made this way for compatibility with commonmark.js.",
+   "markdown": "&#x110000;\n\n&#x1100000;\n",
+   "html": "<p>�</p>\n<p>&amp;#x1100000;</p>\n"
+  },
+  {
+   "example": 52,
+   "section": "Issue #696. Blockquotes should remember their level.",
+   "markdown": ">>> foo\nbar\n>>> baz\n",
+   "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+   "example": 53,
+   "section": "Issue #696. Blockquotes should stop when outdented from a list.",
+   "markdown": "1. >>> foo\n   bar\nbaz\n   >>> foo\n  >>> bar\n   >>> baz\n",
+   "html": "<ol>\n<li>\n<blockquote>\n<blockquote>\n<blockquote>\n<p>foo\nbar\nbaz\nfoo</p>\n</blockquote>\n</blockquote>\n</blockquote>\n</li>\n</ol>\n<blockquote>\n<blockquote>\n<blockquote>\n<p>bar\nbaz</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+   "example": 54,
+   "section": "Issue #772. Header rule should not interfere with html tags.",
+   "markdown": "<!--\n==\n-->\n\n<pre>\n==\n</pre>\n",
+   "html": "<!--\n==\n-->\n<pre>\n==\n</pre>\n"
+  },
+  {
+   "example": 55,
+   "section": "Softbreak in image description",
+   "markdown": "There is a newline in this image ![here\nit is](https://github.com/executablebooks/)\n",
+   "html": "<p>There is a newline in this image <img src=\"https://github.com/executablebooks/\" alt=\"here\nit is\"></p>\n"
+  },
+  {
+   "example": 56,
+   "section": "Hardbreak in image description",
+   "markdown": "There is a newline in this image ![here\\\nit is](https://github.com/executablebooks/)\n",
+   "html": "<p>There is a newline in this image <img src=\"https://github.com/executablebooks/\" alt=\"here\nit is\"></p>\n"
+  },
+  {
+   "example": 57,
+   "section": "Html in image description",
+   "markdown": "![text <textarea> text](image.png)\n",
+   "html": "<p><img src=\"image.png\" alt=\"text &lt;textarea&gt; text\"></p>\n"
+  }
+ ]
+}

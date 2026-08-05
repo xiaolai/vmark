@@ -130,6 +130,7 @@ describe("the deltas between modes are the declared ones", () => {
     expect(namesFor("inline-summary")).toEqual([
       "remarkParse",
       "remarkGfm",
+      "remarkDepthLimit",
       "remarkCustomInline",
     ]);
   });

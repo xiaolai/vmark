@@ -45,7 +45,7 @@ export const CONTENT_CLASSES = [
 export type ContentClass = (typeof CONTENT_CLASSES)[number];
 
 /** Whether a fixture's nodes can carry verifiable source offsets. */
-export type PositionExpectation =
+type PositionExpectation =
   /** Every node has a canonical range; offsets are round-trip checked. */
   | "all-canonical"
   /** Contains synthesised nodes — offsets checked only for trusted ones. */

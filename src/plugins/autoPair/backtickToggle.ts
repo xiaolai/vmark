@@ -19,29 +19,52 @@ import type { EditorState } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
 import { isInCodeBlock } from "./utils";
 
-// --- Consecutive backtick state machine ---
+// --- Consecutive backtick state machine, PER EDITOR VIEW ---
 // Tracks consecutive backtick presses without intervening text input.
 // 1 = code mark activated, 2 = code mark deactivated, 3 = create code block.
-let consecutiveBackticks = 0;
-let lastBacktickFrom = -1;
-let resetTimeout: ReturnType<typeof setTimeout> | null = null;
+// Keyed by view: module-global state let two live editors corrupt each
+// other's count (a first backtick in window A + one in window B read as B's
+// second), and a destroyed editor left a shared timer alive (audit round 1).
+interface BacktickState {
+  consecutive: number;
+  lastFrom: number;
+  resetTimeout: ReturnType<typeof setTimeout> | null;
+}
+const states = new Map<EditorView, BacktickState>();
 const BACKTICK_RESET_DELAY = 500;
 
-/** Reset consecutive backtick state. Called by handlers.ts on non-backtick input. */
-export function resetBacktickState(): void {
-  consecutiveBackticks = 0;
-  lastBacktickFrom = -1;
-  if (resetTimeout) {
-    clearTimeout(resetTimeout);
-    resetTimeout = null;
+function stateFor(view: EditorView): BacktickState {
+  let s = states.get(view);
+  if (!s) {
+    s = { consecutive: 0, lastFrom: -1, resetTimeout: null };
+    states.set(view, s);
+  }
+  return s;
+}
+
+/**
+ * Reset consecutive backtick state — for one view (handlers.ts, on
+ * non-backtick input) or for ALL views (test isolation, no argument).
+ * Clearing also drops the map entry, so destroyed editors do not accumulate.
+ */
+export function resetBacktickState(view?: EditorView): void {
+  const targets = view ? [view] : [...states.keys()];
+  for (const v of targets) {
+    const s = states.get(v);
+    if (s?.resetTimeout) clearTimeout(s.resetTimeout);
+    states.delete(v);
   }
 }
 
-function scheduleReset(): void {
-  if (resetTimeout) clearTimeout(resetTimeout);
-  resetTimeout = setTimeout(() => {
-    consecutiveBackticks = 0;
-    resetTimeout = null;
+function scheduleReset(view: EditorView): void {
+  const s = stateFor(view);
+  if (s.resetTimeout) clearTimeout(s.resetTimeout);
+  // The timer DELETES the entry (not just the count): a Map has no
+  // view-destruction hook, so entry lifetime is bounded by the reset delay —
+  // a destroyed view is unreferenced within 500ms instead of retained
+  // indefinitely (audit round 1 verify).
+  s.resetTimeout = setTimeout(() => {
+    states.delete(view);
   }, BACKTICK_RESET_DELAY);
 }
 
@@ -69,20 +92,20 @@ export function handleBacktickCodeToggle(
       ""
     );
     if (textBefore === "\\") {
-      resetBacktickState();
+      resetBacktickState(view);
       return false;
     }
   }
 
   // Don't handle in code blocks
   if (isInCodeBlock(state)) {
-    resetBacktickState();
+    resetBacktickState(view);
     return false;
   }
 
   const codeMarkType = state.schema.marks.code;
   if (!codeMarkType) {
-    resetBacktickState();
+    resetBacktickState(view);
     return false;
   }
 
@@ -92,7 +115,7 @@ export function handleBacktickCodeToggle(
 
   if (inCode) {
     // Escape: move cursor to end of code mark (not part of consecutive counting)
-    resetBacktickState();
+    resetBacktickState(view);
     const endPos = findCodeMarkEnd(state, from, codeMarkType);
     /* v8 ignore next -- @preserve reason: endPos is always non-null when inCode is true; the ?? from fallback is structurally unreachable */
     const pos = endPos ?? from;
@@ -104,7 +127,7 @@ export function handleBacktickCodeToggle(
 
   // Selection: wrap with code mark (one-shot, not part of consecutive counting)
   if (from !== to) {
-    resetBacktickState();
+    resetBacktickState(view);
     const tr = state.tr.addMark(from, to, codeMarkType.create());
     dispatch(tr);
     return true;
@@ -112,31 +135,32 @@ export function handleBacktickCodeToggle(
 
   // --- Consecutive backtick state machine ---
   // Reset if cursor moved since last backtick (e.g., user clicked elsewhere)
-  if (consecutiveBackticks > 0 && from !== lastBacktickFrom) {
-    resetBacktickState();
+  if (stateFor(view).consecutive > 0 && from !== stateFor(view).lastFrom) {
+    resetBacktickState(view);
   }
-  consecutiveBackticks++;
-  lastBacktickFrom = from;
-  scheduleReset();
+  const s = stateFor(view);
+  s.consecutive++;
+  s.lastFrom = from;
+  scheduleReset(view);
 
-  if (consecutiveBackticks === 1) {
+  if (s.consecutive === 1) {
     // First backtick: activate code mark
     const tr = state.tr.addStoredMark(codeMarkType.create());
     dispatch(tr);
     return true;
   }
 
-  if (consecutiveBackticks === 2) {
+  if (s.consecutive === 2) {
     // Second backtick: deactivate code mark (user changed their mind)
     const tr = state.tr.removeStoredMark(codeMarkType);
     dispatch(tr);
     return true;
   }
 
-  if (consecutiveBackticks === 3) {
+  if (s.consecutive === 3) {
     // Triple backtick: create code block
-    resetBacktickState();
-    const codeBlockType = state.schema.nodes.code_block;
+    resetBacktickState(view);
+    const codeBlockType = state.schema.nodes.codeBlock;
     if (!codeBlockType) return false;
     const tr = state.tr.replaceSelectionWith(codeBlockType.create());
     dispatch(tr);

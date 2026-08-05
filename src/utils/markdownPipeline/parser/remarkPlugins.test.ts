@@ -16,7 +16,7 @@
  * @module utils/markdownPipeline/parser/remarkPlugins.test
  */
 import { describe, it, expect } from "vitest";
-import { analyzeContent } from "./remarkPlugins";
+import { analyzeContent, remarkValidateMath, remarkDepthLimit, MAX_MDAST_DEPTH } from "./remarkPlugins";
 
 const ambiguous = (md: string): boolean => analyzeContent(md).hasAmbiguousListUnderline;
 
@@ -77,5 +77,57 @@ describe("hasAmbiguousListUnderline — code regions are excluded", () => {
     // CommonMark keeps a 5-backtick block open across a 3-backtick line, so
     // the `  -` is still literal code.
     expect(ambiguous("`````\ncode\n```\n  -\n`````\n")).toBe(false);
+  });
+});
+
+describe("remarkValidateMath — deep nesting (WI-5.1 regression)", () => {
+  it("survives a 100k-deep mdast tree without stack overflow", () => {
+    // The OSS-Fuzz soak crashed the per-child recursion with RangeError on
+    // deeply nested inline emphasis; the traversal is now an explicit stack.
+    interface Chain { type: string; children: Chain[] }
+    const leaf: Chain = { type: "text", children: [] };
+    let node: Chain = leaf;
+    for (let i = 0; i < 100_000; i += 1) node = { type: "emphasis", children: [node] };
+    const root = { type: "root", children: [node] };
+    const transformer = (remarkValidateMath as () => (tree: unknown) => void)();
+    expect(() => transformer(root)).not.toThrow();
+  });
+});
+
+describe("remarkDepthLimit — direct semantics (audit round 1)", () => {
+  interface Chain { type: string; value?: string; children?: Chain[] }
+  const chain = (depth: number): Chain => {
+    let node: Chain = { type: "text", value: "leaf" };
+    for (let i = 0; i < depth; i += 1) node = { type: "emphasis", children: [node] };
+    return node;
+  };
+  const run = (tree: Chain) =>
+    (remarkDepthLimit as () => (t: unknown) => void)()(tree);
+
+  it("is inert below the limit", () => {
+    const root = { type: "root", children: [chain(10)] };
+    run(root as Chain);
+    let depth = 0;
+    let node: Chain | undefined = root.children[0];
+    while (node?.children) { depth += 1; node = node.children[0]; }
+    expect(depth).toBe(10);
+    expect(node?.value).toBe("leaf");
+  });
+
+  it("flattens past MAX_MDAST_DEPTH to the subtree's plain text", () => {
+    const root = { type: "root", children: [chain(MAX_MDAST_DEPTH + 50)] };
+    run(root as Chain);
+    const texts: string[] = [];
+    const stack: Chain[] = [root as Chain];
+    let maxDepth = 0;
+    const walk = (n: Chain, d: number) => {
+      maxDepth = Math.max(maxDepth, d);
+      if (n.value) texts.push(n.value);
+      (n.children ?? []).forEach((c) => walk(c, d + 1));
+    };
+    void stack;
+    walk(root as Chain, 0);
+    expect(maxDepth).toBeLessThanOrEqual(MAX_MDAST_DEPTH + 2);
+    expect(texts).toContain("leaf"); // content survives, structure flattens
   });
 });
