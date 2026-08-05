@@ -41,9 +41,20 @@ pub enum GitClass {
     },
     /// Mid-conflict merge: defer reconciliation until it concludes.
     MergeInProgress,
-    /// Observation gap (repo appeared/disappeared, unreadable HEAD):
+    /// Observation gap (repo appeared/disappeared, unborn HEAD):
     /// fall back to observed-external handling — honest, never guessed.
     ExternalUnknown,
+    /// The observation itself cannot be trusted: a repository that HAD a
+    /// resolvable HEAD now reports none. Commits do not vanish, so this is a
+    /// failed `git` read (a subprocess that could not spawn or exited
+    /// non-zero — `git_output` reports both as `None`), not a state change.
+    ///
+    /// Treating it as `ExternalUnknown` reclassified a git mutation as an
+    /// external edit and minted a spurious revision (#1207). Defer instead:
+    /// the next scan re-observes against the SAME baseline and reconciles
+    /// normally, so a transient failure costs one cycle rather than
+    /// corrupting history.
+    ObservationUnreliable,
 }
 
 fn git_output(root: &Path, args: &[&str]) -> Option<String> {
@@ -119,7 +130,13 @@ pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>)
         (Some(b), Some(a)) => (b, a),
     };
     let Some(head) = &a.head_sha else {
-        return GitClass::ExternalUnknown;
+        // A repo that HAD a HEAD cannot stop having one; that read failed.
+        // An unborn repo (never had one) keeps its existing handling.
+        return if b.head_sha.is_some() {
+            GitClass::ObservationUnreliable
+        } else {
+            GitClass::ExternalUnknown
+        };
     };
     let new_shas: Vec<String> = {
         let mut v: Vec<String> = a.known_shas.difference(&b.known_shas).cloned().collect();
