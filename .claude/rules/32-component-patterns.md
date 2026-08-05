@@ -7,9 +7,19 @@ Standard patterns for UI components. Follow these for consistency.
 | Need | Use | Defined in |
 |---|---|---|
 | Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--danger`) | `src/styles/button-shared.css` |
+| Dropdown / `<select>` | `.vm-select` inside a `.vm-select-field` wrapper | `src/styles/select-shared.css` |
 | Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) | `src/styles/popup-shared.css` |
 | Editor toolbar button | `.universal-toolbar-btn` | `universal-toolbar.css` |
 | Popup surface | `.popup-container` | `src/styles/popup-shared.css` |
+
+A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
+native bezel, native chevron, 5px pill radius — and author styling only partly
+applies. A fully tokenised stylesheet still renders as macOS chrome; text
+inputs beside it look correct, which is why the drift survives review. Reach
+for `.vm-select`, and note the wrapper is load-bearing: `select` cannot host a
+reliable `::after`, so the chevron lives on `.vm-select-field` and is drawn
+with `mask-image` + `currentColor` rather than a `background-image` data URI,
+which would bake in a colour that no theme token can reach.
 
 Writing a new `*-btn` class is a **gate failure** — `pnpm lint:bespoke-buttons`
 (`scripts/check-bespoke-buttons.mjs`) ratchets the bespoke count down only.
