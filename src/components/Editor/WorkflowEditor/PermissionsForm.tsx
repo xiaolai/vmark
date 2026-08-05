@@ -109,8 +109,9 @@ export function PermissionsForm({
         </span>
       </header>
       <label className="workflow-form__field">
+        <span className="vm-select-field">
         <select
-          className="workflow-form__input"
+          className="vm-select"
           value={mode}
           onChange={(e) => onModeChange(e.target.value as PresetMode)}
         >
@@ -126,6 +127,7 @@ export function PermissionsForm({
             })}
           </option>
         </select>
+        </span>
       </label>
       {mode === "custom" && (
         <div className="workflow-form__permissions-scopes">
@@ -134,8 +136,9 @@ export function PermissionsForm({
               <span className="workflow-form__permissions-scope-name">
                 <code>{scope}</code>
               </span>
+              <span className="vm-select-field">
               <select
-                className="workflow-form__input"
+                className="vm-select"
                 value={customMap[scope] ?? ""}
                 onChange={(e) =>
                   onScopeChange(scope, e.target.value as PermLevel | "")
@@ -148,6 +151,7 @@ export function PermissionsForm({
                 <option value="write">write</option>
                 <option value="none">none</option>
               </select>
+              </span>
             </label>
           ))}
         </div>
