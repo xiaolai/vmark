@@ -94,7 +94,17 @@ export function specCorpusExamples(doc, label) {
   for (const e of requireArray(doc?.examples, label)) {
     if (typeof e.example !== "number") throw new Error(`${label}: example without a number`);
     requireString(e.markdown, label, "markdown");
-    const canonical = JSON.stringify([e.section, e.markdown, e.html ?? null, e.expectedOutput ?? null]);
+    // Identity is what the example IS plus the contract it asserts:
+    // section, markdown, and `expectedOutput` (a mustProduce contract, which
+    // a commit could otherwise edit while updating the registry sha256 in the
+    // same breath — the exact swap this ratchet exists to catch).
+    //
+    // `html` is deliberately EXCLUDED. It is the upstream spec's own rendered
+    // output, carried for provenance and consumed by no gate, so binding it
+    // makes the ratchet fail on a re-vendoring that merely enriches a file
+    // while proving nothing extra. Any edit to it still fails the registry's
+    // whole-file sha256.
+    const canonical = JSON.stringify([e.section, e.markdown, e.expectedOutput ?? null]);
     const digest = createHash("sha256").update(canonical, "utf8").digest("hex").slice(0, 16);
     out.add(`${e.example} | ${digest}`);
   }
