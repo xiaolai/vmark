@@ -14,6 +14,7 @@ import {
 } from "@/plugins/shared/diagramThemeTokens";
 import { buildMermaidThemeVariables, exportThemeVariables } from "./themeConfig";
 import { cleanupMermaidContainer, getMonoFontSize } from "./renderDomUtils";
+import { ensureSvgSize } from "./ensureSvgSize";
 
 // Lazy-loaded mermaid instance
 let mermaidModule: typeof import("mermaid") | null = null;
@@ -185,7 +186,10 @@ export async function renderMermaid(
       }
       // mermaidModule is guaranteed non-null after initMermaid()
       const { svg } = await mermaidModule!.default.render(diagramId, content);
-      return svg;
+      // mermaid emits width="100%" and NO height under useMaxWidth (its
+      // default), which can collapse to zero height in the preview's flex
+      // container — an invisible diagram in a grey box (#1200, #1215).
+      return ensureSvgSize(svg);
     } catch (error) {
       diagramWarn("Failed to render diagram:", error);
       return null;
@@ -233,7 +237,7 @@ export async function renderMermaidForExport(
         themeVariables: themeVars,
       });
       const { svg } = await mermaidModule!.default.render(diagramId, content);
-      return svg;
+      return ensureSvgSize(svg);
     } catch (error) {
       diagramWarn("Failed to render export diagram:", error);
       return null;

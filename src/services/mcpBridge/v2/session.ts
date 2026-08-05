@@ -13,11 +13,21 @@
  *     is validated against the correct document.
  *   - `kind` is computed by sniffing filePath + content via the existing
  *     workflow detection helpers — the AI shouldn't reimplement it.
+ *   - The payload describes what is ON SCREEN, not just what exists (#1208).
+ *     Document tabs carry `active` and `visible`, and each window reports the
+ *     workspace instance it is showing, because a window holds tabs from
+ *     several instances and renders only one instance's. Without those the
+ *     client cannot tell a successful activation from one that landed in a
+ *     hidden instance.
+ *   - `focused` comes from the PLATFORM, not from this webview's own label.
+ *     The bridge routes a request to whichever window owns the workspace, so
+ *     the responding window is frequently not the one the user is looking at.
  *
  * @coordinates-with stores/tabStore.ts — open tabs per window
  * @coordinates-with stores/documentStore.ts — filePath, dirty, content
  * @coordinates-with stores/revisionStore.ts — revision token
- * @coordinates-with stores/windowStore.ts — focused window resolution
+ * @coordinates-with services/mcpBridge/focusedWindow.ts — real focused window
+ * @coordinates-with services/tabs/visibleWindowTabs.ts — the on-screen projection
  * @coordinates-with lib/ghaWorkflow/detection.ts — kind discrimination
  * @module services/mcpBridge/v2/session
  */
@@ -26,6 +36,9 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
+import { resolveFocusedWindowLabel } from "@/services/mcpBridge/focusedWindow";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
@@ -93,15 +106,27 @@ function detectKind(
  * Pure function over store state — exported for unit testing without
  * the bridge `respond` round-trip.
  */
-export function buildSessionState(appVersion: string, clientProtocol?: string): SessionState {
+export function buildSessionState(
+  appVersion: string,
+  clientProtocol?: string,
+  osFocusedLabel?: string | null,
+): SessionState {
   const includeBrowserTabs = clientSupportsBrowserTabs(clientProtocol);
   const tabState = useTabStore.getState();
   const docState = useDocumentStore.getState();
   const revisionStore = useRevisionStore.getState();
-  const focusedLabel = getCurrentWindowLabel();
+  // The window the USER is looking at. `undefined` means the caller could not
+  // resolve it, and we fall back to the responding window — historical
+  // behaviour, so an unresolvable focus degrades rather than blinding a
+  // single-window client. `null` is a RESOLVED answer meaning no VMark window
+  // holds focus, and must not be flattened into that fallback.
+  const focusedLabel =
+    osFocusedLabel === undefined ? getCurrentWindowLabel() : osFocusedLabel;
 
   const windowLabels = Object.keys(tabState.tabs);
   const windows: SessionWindow[] = windowLabels.map((label) => {
+    const visibleIds = new Set(visibleWindowTabs(label).map((t) => t.id));
+    const activeTabId = tabState.activeTabId[label] ?? null;
     const sessionTabs: SessionTab[] = (tabState.tabs[label] ?? [])
       .filter((tab) => includeBrowserTabs || tab.kind !== "browser")
       .map((tab) => {
@@ -128,11 +153,15 @@ export function buildSessionState(appVersion: string, clientProtocol?: string): 
         dirty: doc?.isDirty ?? false,
         revision: revisionStore.getRevision(tab.id),
         documentKind,
+        active: tab.id === activeTabId,
+        visible: visibleIds.has(tab.id),
       };
     });
     return {
       label,
       focused: label === focusedLabel,
+      activeWorkspaceInstanceId:
+        useWorkspaceInstancesStore.getState().windows[label]?.activeWorkspaceInstanceId ?? null,
       tabs: sessionTabs,
     };
   });
@@ -161,7 +190,9 @@ export async function handleSessionGetState(
 ): Promise<void> {
   return wrapHandler(id, async () => {
     const clientProtocol = typeof args?.clientProtocol === "string" ? args.clientProtocol : undefined;
-    const state = buildSessionState(appVersion, clientProtocol);
+    // Ask the platform which window is actually on screen; this webview may not
+    // be it (#1208).
+    const state = buildSessionState(appVersion, clientProtocol, await resolveFocusedWindowLabel());
     await respond({ id, success: true, data: state });
   });
 }

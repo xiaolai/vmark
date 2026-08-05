@@ -128,6 +128,7 @@ export const KEYBINDING_MANIFEST: readonly KeybindingManifestEntry[] = [
   { id: "markdownSplit", defaultKey: "Shift-F6", menuId: "markdown-split" },
   { id: "focusMode", defaultKey: "F8", menuId: "focus-mode" },
   { id: "typewriterMode", defaultKey: "F9", menuId: "typewriter-mode" },
+  { id: "formatToolbar", defaultKey: "Mod-Shift-b", menuId: "universal-toolbar" },
   { id: "wordWrap", defaultKey: "Alt-z", menuId: "word-wrap" },
   { id: "lineNumbers", defaultKey: "Alt-Mod-l", menuId: "line-numbers" },
   { id: "toggleTerminal", defaultKey: "Ctrl-`", menuId: "toggle-terminal" },

@@ -111,6 +111,7 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "typewriter-mode",
   "word-wrap",
   "line-numbers",
+  "universal-toolbar",
   "show-invisibles",
   "diagram-preview",
   "fit-tables",

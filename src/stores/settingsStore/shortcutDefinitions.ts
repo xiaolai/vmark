@@ -89,7 +89,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "softUndoCursor", label: "Soft Undo Cursor", category: "navigation", defaultKey: "Alt-Mod-z", description: "Undo last cursor addition" },
   { id: "addCursorAbove", label: "Add Cursor Above", category: "navigation", defaultKey: "Mod-Alt-Up", description: "Add cursor one line above" },
   { id: "addCursorBelow", label: "Add Cursor Below", category: "navigation", defaultKey: "Mod-Alt-Down", description: "Add cursor one line below" },
-  { id: "formatToolbar", label: "Universal Toolbar", category: "navigation", defaultKey: "Mod-Shift-b", description: "Show the universal bottom toolbar" },
+  { id: "formatToolbar", label: "Universal Toolbar", category: "navigation", defaultKey: "Mod-Shift-b", menuId: "universal-toolbar", description: "Show the universal bottom toolbar" },
   { id: "sourcePeek", label: "Source Peek", category: "navigation", defaultKey: "F5", description: "Edit selection as markdown" },
   { id: "findReplace", label: "Find & Replace", category: "navigation", defaultKey: "Mod-f", menuId: "find-replace" },
   { id: "findNext", label: "Find Next", category: "navigation", defaultKey: "Mod-g", menuId: "find-next" },

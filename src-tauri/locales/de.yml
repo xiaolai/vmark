@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Vergrößern"
   view.zoomOut: "Verkleinern"
   view.wordWrap: "Zeilenumbruch umschalten"
+  view.universalToolbar: "Universelle Symbolleiste anzeigen"
   view.lineNumbers: "Zeilennummern umschalten"
   view.diagramPreview: "Diagramm-Vorschau umschalten"
   view.fitTables: "Tabellen an Breite anpassen"

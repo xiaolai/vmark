@@ -35,7 +35,8 @@ export function registerSessionTool(server: VMarkMcpServer): void {
       description:
         'One-shot session orientation — discover every open window, every tab, and the server\'s capabilities in a single call. Use this first to learn what is available; subsequent tool calls reference tabs by their `id`.\n\n' +
         'Action:\n' +
-        '- get_state: Return windows[], capabilities. Document tabs carry {id, filePath, title, dirty, revision, kind} where `kind` is `"markdown"` or `"yaml-workflow"` (use `document.write` or `workflow.apply_patch` respectively). Browser tabs carry {id, kind:"browser", title, url, active, loading, automationMode} — act on those with the `browser.*` tools.\n\n' +
+        '- get_state: Return windows[], capabilities. Document tabs carry {id, filePath, title, dirty, revision, kind, active, visible} where `kind` is `"markdown"` or `"yaml-workflow"` (use `document.write` or `workflow.apply_patch` respectively). Browser tabs carry {id, kind:"browser", title, url, active, loading, automationMode} — act on those with the `browser.*` tools.\n\n' +
+        'Reading what is ON SCREEN: a tab can exist and be activatable without being shown. `active` marks its window\'s current tab; `visible` is false when the tab belongs to a workspace instance the window is not currently showing (`window.activeWorkspaceInstanceId` names the one it is). `window.focused` marks the window the USER is looking at, which need not be the window a request was routed to — so after activating a tab, confirm with get_state rather than trusting the activation result alone.\n\n' +
         'Returns: {windows, capabilities}.',
       inputSchema: {
         action: z.enum(['get_state']).describe('The action to perform'),
@@ -56,7 +57,7 @@ export function registerSessionTool(server: VMarkMcpServer): void {
         windows: z
           .array(z.unknown())
           .optional()
-          .describe('Open windows, each {label, focused, tabs[]}.'),
+          .describe('Open windows, each {label, focused, activeWorkspaceInstanceId, tabs[]}.'),
         capabilities: z
           .unknown()
           .optional()
