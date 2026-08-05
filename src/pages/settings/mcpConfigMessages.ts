@@ -13,11 +13,19 @@
  * `message` is a parse/IO detail (localized Rust-side via `errors.mcp.*`) that
  * the frontend cannot reconstruct — it is interpolated, not replaced.
  *
+ * `legacy` is a SECOND dimension, orthogonal to `status`: it marks a provider
+ * VMark no longer targets (Gemini CLI), whose row exists only to remove a
+ * leftover entry. It short-circuits both functions here, because a
+ * discontinued tool's row offers the same one action and the same advice
+ * whatever its config happens to say.
+ *
  * Kept out of the component file so the derivation can grow without pushing
- * `McpConfigInstaller.tsx` further over the file-size baseline.
+ * `McpConfigInstaller.tsx` back over the 300-line limit; the row markup itself
+ * lives in `McpProviderRow.tsx` for the same reason.
  *
  * @coordinates-with src-tauri/src/mcp_config/commands.rs — builds the prose these replace
- * @coordinates-with src-tauri/src/mcp_config/types.rs — DiagnosticStatus, UninstallResult.changed
+ * @coordinates-with src-tauri/src/mcp_config/types.rs — DiagnosticStatus, ProviderDiagnostic.legacy, UninstallResult.changed
+ * @coordinates-with src/pages/settings/McpProviderRow.tsx — the sole consumer of rowActions
  * @module pages/settings/mcpConfigMessages
  */
 
@@ -29,6 +37,9 @@ import type { DiagnosticStatus } from "./DiagnosticIcon";
 export interface ProviderDiagnostic {
   provider: string;
   name: string;
+  /** A discontinued tool. The backend lists it only while a vmark entry is
+   * still in its config; the row offers removal and nothing else. */
+  legacy: boolean;
   configPath: string;
   configExists: boolean;
   hasVmark: boolean;
@@ -66,10 +77,19 @@ export interface RowActions {
  * the old `showInstall = !hasVmark` turned that unknown into an Install button
  * pointed at a file the install path refuses to parse. Recheck replaces it:
  * the fix happens in the user's editor, and this re-runs the diagnosis.
+ *
+ * A legacy row exists only to be removed: Install/Update/Repair would write a
+ * fresh entry into the config of a discontinued tool, and the backend refuses
+ * them anyway.
  */
-export function rowActions(diagnostic: Pick<ProviderDiagnostic, "status" | "hasVmark">): RowActions {
+export function rowActions(
+  diagnostic: Pick<ProviderDiagnostic, "status" | "hasVmark" | "legacy">,
+): RowActions {
   if (diagnostic.status === "ConfigUnreadable") {
     return { repair: false, update: false, remove: false, install: false, recheck: true };
+  }
+  if (diagnostic.legacy) {
+    return { repair: false, update: false, remove: true, install: false, recheck: false };
   }
   const mismatch = diagnostic.status === "PathMismatch";
   return {
@@ -90,9 +110,14 @@ export function rowActions(diagnostic: Pick<ProviderDiagnostic, "status" | "hasV
  * silently rendering blank.
  */
 export function diagnosticMessage(
-  diagnostic: Pick<ProviderDiagnostic, "status" | "message" | "configPath">,
+  diagnostic: Pick<ProviderDiagnostic, "status" | "message" | "configPath" | "legacy">,
   t: TFunction<"settings">,
 ): string {
+  // A legacy row is present precisely because there is something to remove;
+  // whatever else its status says, the advice is the same.
+  if (diagnostic.legacy) {
+    return t("integrations.installMcp.legacyHint");
+  }
   switch (diagnostic.status) {
     case "BinaryMissing":
       return t("integrations.installMcp.statusBinaryMissing");

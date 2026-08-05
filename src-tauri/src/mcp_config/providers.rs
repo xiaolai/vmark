@@ -11,6 +11,10 @@ pub(crate) struct ProviderConfig {
     pub id: &'static str,
     /// Path relative to `$HOME`. Claude Desktop differs per platform.
     pub relative_path: &'static str,
+    /// A tool VMark no longer targets. A legacy provider appears in
+    /// diagnostics only while its config still holds a vmark entry, and the
+    /// only action offered is removal — install and preview refuse it.
+    pub legacy: bool,
 }
 
 /// Claude Desktop config path per platform:
@@ -29,21 +33,55 @@ pub(crate) const PROVIDERS: &[ProviderConfig] = &[
         name: "Claude Desktop",
         id: "claude-desktop",
         relative_path: CLAUDE_DESKTOP_PATH,
+        legacy: false,
     },
     ProviderConfig {
         name: "Claude Code",
         id: "claude",
         relative_path: ".claude.json",
+        legacy: false,
     },
     ProviderConfig {
         name: "Codex CLI",
         id: "codex",
         relative_path: ".codex/config.toml",
+        legacy: false,
     },
+    // Antigravity CLI (`agy`) is Google's successor to Gemini CLI. It keeps
+    // the `.gemini` directory but reads MCP servers from its own file, in the
+    // same `mcpServers` JSON shape.
+    ProviderConfig {
+        name: "Antigravity CLI",
+        id: "antigravity",
+        relative_path: ".gemini/config/mcp_config.json",
+        legacy: false,
+    },
+    // xAI's Grok CLI (`xai-org/grok-build`). Its `[mcp_servers.<name>]` TOML
+    // is the same shape Codex reads.
+    ProviderConfig {
+        name: "Grok CLI",
+        id: "grok",
+        relative_path: ".grok/config.toml",
+        legacy: false,
+    },
+    // opencode deep-merges `config.json`, `opencode.json` and `opencode.jsonc`
+    // in its global config dir, so writing plain JSON to `opencode.json` is
+    // additive even for a user whose own settings live in `opencode.jsonc` —
+    // which VMark could not round-trip (serde_json does not parse comments).
+    ProviderConfig {
+        name: "opencode",
+        id: "opencode",
+        relative_path: ".config/opencode/opencode.json",
+        legacy: false,
+    },
+    // Gemini CLI is discontinued (replaced by Antigravity). Kept only so a
+    // machine that still carries a vmark entry from an earlier install gets a
+    // removal path in the Integrations panel.
     ProviderConfig {
         name: "Gemini CLI",
         id: "gemini",
         relative_path: ".gemini/settings.json",
+        legacy: true,
     },
 ];
 

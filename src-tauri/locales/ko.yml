@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "알 수 없는 제공자: %{provider}"
+  mcp.legacyProvider: "%{name}은(는) 지원이 중단되었습니다. 남아 있는 VMark 항목은 제거만 가능합니다."
   mcp.noHomeDir: "홈 디렉터리를 확인할 수 없습니다"
   mcp.exePathFailed: "실행 파일 경로를 가져올 수 없습니다: %{detail}"
   mcp.exeDirFailed: "실행 파일 디렉터리를 가져올 수 없습니다"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "잘못된 TOML: %{detail}"
   mcp.jsonSerializeFailed: "JSON 직렬화 오류: %{detail}"
   mcp.invalidJsonStructure: "잘못된 JSON 구조"
-  mcp.serversNotObject: "mcpServers가 객체가 아닙니다"
+  mcp.serversNotObject: "%{key}가 객체가 아닙니다"
   mcp.serversNotTable: "mcp_servers가 테이블이 아닙니다"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark가 객체가 아닙니다"
+  mcp.vmarkEntryNotObject: "%{key}가 객체가 아닙니다"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark가 테이블이 아닙니다"
-  mcp.envNotObject: "mcpServers.vmark.env가 객체가 아닙니다"
+  mcp.envNotObject: "%{key}가 객체가 아닙니다"
   mcp.envNotTable: "mcp_servers.vmark.env가 테이블이 아닙니다"
 
   # MCP 브리지 — 권한 주체가 연결되는 클라이언트 자격 증명

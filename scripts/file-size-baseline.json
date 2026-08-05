@@ -100,7 +100,7 @@
   },
   "testLimit": 800,
   "testFiles": {
-    "src-tauri/src/mcp_config/config_io.test.rs": 847,
+    "src-tauri/src/mcp_config/config_io.test.rs": 832,
     "src/components/Editor/SourceEditor.test.tsx": 937,
     "src/components/Editor/UniversalToolbar/GroupDropdown.test.tsx": 1041,
     "src/components/Editor/UniversalToolbar/UniversalToolbar.test.tsx": 1636,

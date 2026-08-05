@@ -300,6 +300,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "Unknown provider: %{provider}"
+  mcp.legacyProvider: "%{name} is discontinued; the leftover VMark entry can only be removed."
   mcp.noHomeDir: "Cannot determine home directory"
   mcp.exePathFailed: "Cannot get executable path: %{detail}"
   mcp.exeDirFailed: "Cannot get executable directory"
@@ -310,11 +311,11 @@ errors:
   mcp.invalidToml: "Invalid TOML: %{detail}"
   mcp.jsonSerializeFailed: "JSON serialization error: %{detail}"
   mcp.invalidJsonStructure: "Invalid JSON structure"
-  mcp.serversNotObject: "mcpServers is not an object"
+  mcp.serversNotObject: "%{key} is not an object"
   mcp.serversNotTable: "mcp_servers is not a table"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark is not an object"
+  mcp.vmarkEntryNotObject: "%{key} is not an object"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark is not a table"
-  mcp.envNotObject: "mcpServers.vmark.env is not an object"
+  mcp.envNotObject: "%{key} is not an object"
   mcp.envNotTable: "mcp_servers.vmark.env is not a table"
 
   # MCP bridge — the per-client credential the authorization principal binds to

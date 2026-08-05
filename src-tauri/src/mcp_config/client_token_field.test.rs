@@ -42,6 +42,32 @@ fn json_round_trips_a_written_token() {
     assert_eq!(read_json(&value), Some("tok-json".to_string()));
 }
 
+/// opencode calls the env map `environment` — same field rules, different key.
+#[test]
+fn json_round_trips_under_a_custom_env_key() {
+    let mut entry = Map::new();
+    write_json_under(&mut entry, "environment", "mcp.vmark.environment", "tok-oc").expect("write");
+    let value = JsonValue::Object(entry);
+    assert_eq!(
+        read_json_under(&value, "environment"),
+        Some("tok-oc".to_string())
+    );
+    assert_eq!(
+        read_json(&value),
+        None,
+        "the token under `environment` must not read back from `env`"
+    );
+}
+
+#[test]
+fn json_write_under_a_custom_key_names_that_key_in_its_error() {
+    let mut entry: Map<String, JsonValue> =
+        serde_json::from_value(serde_json::json!({ "environment": "oops" })).expect("entry");
+    let err = write_json_under(&mut entry, "environment", "mcp.vmark.environment", "tok")
+        .expect_err("a scalar environment cannot hold the token");
+    assert!(err.contains("mcp.vmark.environment"), "unexpected: {err}");
+}
+
 /// The user's own `env` keys are theirs. Replacing the object wholesale is
 /// the bug `vmark_entry.rs` exists to prevent, one level deeper.
 #[test]

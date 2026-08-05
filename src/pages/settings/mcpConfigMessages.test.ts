@@ -17,6 +17,7 @@ function diagnostic(over: Partial<ProviderDiagnostic> = {}): ProviderDiagnostic 
   return {
     provider: "claude",
     name: "Claude Code",
+    legacy: false,
     configPath: "/Users/someone/.claude.json",
     configExists: true,
     hasVmark: false,
@@ -80,6 +81,20 @@ describe("rowActions", () => {
       remove: false,
     });
   });
+
+  it("offers only Remove on a legacy provider, whatever its status", () => {
+    // A legacy row exists only because a vmark entry is still in the config
+    // of a discontinued tool; writing a fresh entry there is refused backend-side.
+    for (const status of ["Valid", "BinaryMissing", "PathMismatch"] as const) {
+      expect(rowActions(diagnostic({ status, hasVmark: true, legacy: true }))).toEqual({
+        repair: false,
+        update: false,
+        remove: true,
+        install: false,
+        recheck: false,
+      });
+    }
+  });
 });
 
 describe("diagnosticMessage", () => {
@@ -116,6 +131,14 @@ describe("diagnosticMessage", () => {
       message: "backend says so",
     });
     expect(diagnosticMessage(unknown, t)).toBe("backend says so");
+  });
+
+  it("explains a legacy row regardless of its status", () => {
+    for (const status of ["Valid", "BinaryMissing", "PathMismatch"] as const) {
+      expect(diagnosticMessage(diagnostic({ status, legacy: true }), t)).toBe(
+        "integrations.installMcp.legacyHint",
+      );
+    }
   });
 });
 

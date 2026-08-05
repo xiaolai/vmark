@@ -20,7 +20,7 @@ use toml_edit::{DocumentMut, Item as TomlItem};
 /// reports "Invalid JSON"/"Invalid TOML" identically.
 pub(crate) fn parse(format: ConfigFormat, content: &str) -> Result<Parsed, String> {
     match format {
-        ConfigFormat::Json => serde_json::from_str(content)
+        ConfigFormat::Json | ConfigFormat::OpenCode => serde_json::from_str(content)
             .map(Parsed::Json)
             .map_err(|e| {
                 rust_i18n::t!("errors.mcp.invalidJson", detail = e.to_string()).to_string()
@@ -57,14 +57,23 @@ pub(crate) enum Parsed {
 
 impl Parsed {
     /// The `vmark` entry under this document's server map, if present.
-    pub(crate) fn vmark_entry(&self) -> Option<VmarkEntry<'_>> {
+    ///
+    /// Takes the format because the document alone cannot answer: a
+    /// `Parsed::Json` may be either the `mcpServers` schema or opencode's
+    /// `mcp` one, and they differ in both the map's key and the entry's shape.
+    pub(crate) fn vmark_entry(&self, format: ConfigFormat) -> Option<VmarkEntry<'_>> {
         match self {
-            Parsed::Json(json) => json
-                .get(ConfigFormat::Json.servers_key())
-                .and_then(|s| s.get("vmark"))
-                .map(VmarkEntry::Json),
+            Parsed::Json(json) => {
+                let entry = json
+                    .get(format.servers_key())
+                    .and_then(|s| s.get("vmark"))?;
+                Some(match format {
+                    ConfigFormat::OpenCode => VmarkEntry::OpenCode(entry),
+                    _ => VmarkEntry::Json(entry),
+                })
+            }
             Parsed::Toml(doc) => doc
-                .get(ConfigFormat::Toml.servers_key())
+                .get(format.servers_key())
                 .and_then(TomlItem::as_table_like)
                 .and_then(|s| s.get("vmark"))
                 .map(VmarkEntry::Toml),
@@ -84,6 +93,9 @@ impl Parsed {
 
 pub(crate) enum VmarkEntry<'a> {
     Json(&'a JsonValue),
+    /// opencode's schema: `command` is one array whose first element is the
+    /// program, and env vars live under `environment`.
+    OpenCode(&'a JsonValue),
     Toml(&'a TomlItem),
 }
 
@@ -91,6 +103,11 @@ impl VmarkEntry<'_> {
     pub(crate) fn command(&self) -> Option<&str> {
         match self {
             VmarkEntry::Json(v) => v.get("command").and_then(|c| c.as_str()),
+            VmarkEntry::OpenCode(v) => v
+                .get("command")
+                .and_then(JsonValue::as_array)
+                .and_then(|c| c.first())
+                .and_then(JsonValue::as_str),
             VmarkEntry::Toml(v) => v.as_table_like()?.get("command").and_then(TomlItem::as_str),
         }
     }
@@ -99,6 +116,7 @@ impl VmarkEntry<'_> {
     pub(crate) fn client_token(&self) -> Option<String> {
         match self {
             VmarkEntry::Json(v) => client_token_field::read_json(v),
+            VmarkEntry::OpenCode(v) => client_token_field::read_json_under(v, "environment"),
             VmarkEntry::Toml(v) => client_token_field::read_toml(v),
         }
     }

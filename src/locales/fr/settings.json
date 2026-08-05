@@ -381,6 +381,8 @@
   "integrations.installMcp.remove": "Supprimer",
   "integrations.installMcp.install": "Installer",
   "integrations.installMcp.recheck": "Revérifier",
+  "integrations.installMcp.legacyBadge": "Abandonné",
+  "integrations.installMcp.legacyHint": "Cet outil est abandonné. Supprimez l'entrée VMark restante.",
   "integrations.group.aiProviders": "Fournisseurs IA",
   "integrations.detectCli.label": "Détecter les fournisseurs CLI",
   "integrations.detectCli.description": "Rechercher les CLI IA installés (claude, codex, gemini, ollama)",

@@ -299,6 +299,7 @@ errors:
 
   # MCP client config — provider and sidecar binary resolution
   mcp.unknownProvider: "Unbekannter Anbieter: %{provider}"
+  mcp.legacyProvider: "%{name} wird nicht mehr unterstützt; der verbliebene VMark-Eintrag kann nur entfernt werden."
   mcp.noHomeDir: "Home-Verzeichnis konnte nicht ermittelt werden"
   mcp.exePathFailed: "Pfad der ausführbaren Datei konnte nicht ermittelt werden: %{detail}"
   mcp.exeDirFailed: "Verzeichnis der ausführbaren Datei konnte nicht ermittelt werden"
@@ -309,11 +310,11 @@ errors:
   mcp.invalidToml: "Ungültiges TOML: %{detail}"
   mcp.jsonSerializeFailed: "JSON-Serialisierungsfehler: %{detail}"
   mcp.invalidJsonStructure: "Ungültige JSON-Struktur"
-  mcp.serversNotObject: "mcpServers ist kein Objekt"
+  mcp.serversNotObject: "%{key} ist kein Objekt"
   mcp.serversNotTable: "mcp_servers ist keine Tabelle"
-  mcp.vmarkEntryNotObject: "mcpServers.vmark ist kein Objekt"
+  mcp.vmarkEntryNotObject: "%{key} ist kein Objekt"
   mcp.vmarkEntryNotTable: "mcp_servers.vmark ist keine Tabelle"
-  mcp.envNotObject: "mcpServers.vmark.env ist kein Objekt"
+  mcp.envNotObject: "%{key} ist kein Objekt"
   mcp.envNotTable: "mcp_servers.vmark.env ist keine Tabelle"
 
   # MCP-Bridge — die Client-Anmeldedaten, an die der Autorisierungsprincipal gebunden ist
