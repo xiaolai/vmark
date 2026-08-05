@@ -9,7 +9,12 @@
  *   panel for the most common scopes. Power users (rare scope edits)
  *   continue to drop to source.
  *
+ *   Selects use the canonical `.vm-select` primitive inside a
+ *   `.vm-select-field` wrapper (rule 32); a bare `<select>` renders native
+ *   macOS chrome that ignores the design tokens.
+ *
  * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — workflow.permissions.set patch
+ * @coordinates-with src/styles/select-shared.css — the select primitive
  * @module components/Editor/WorkflowEditor/PermissionsForm
  */
 
