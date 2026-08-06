@@ -8,8 +8,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use super::adopt::register_if_needed_with;
 use super::canonical::text_content_hash;
-use super::capture::{adopt_from_disk, observed_external_entry, register_if_needed};
+use super::capture::{adopt_from_disk, observed_external_entry};
 use super::frontmatter::read_identity;
 use super::gitops::{observe_outcome, GitClass};
 use super::scan_git::{run_git_phase, GitObserver, GitPhase};
@@ -141,6 +142,12 @@ fn scan_workspace_locked(
     let mut present_paths: HashSet<&str> = files.iter().map(|(rel, _)| rel.as_str()).collect();
     present_paths.extend(skipped_md.iter().map(String::as_str));
 
+    // ONCE for the whole walk — never `index().heads()` per file, which reloads
+    // every revision in the workspace each time (see `load_dag`). Safe as a
+    // snapshot for the same reason the registry snapshot above is: each object
+    // is visited at most once, so no earlier iteration can have changed the
+    // revisions this one asks about.
+    let dag = kernel.index().load_dag()?;
     let mut seen_at: HashMap<ObjectId, String> = HashMap::new();
     let mut duplicates: HashSet<ObjectId> = HashSet::new();
     for (rel_path, text) in &files {
@@ -193,11 +200,13 @@ fn scan_workspace_locked(
         }
         kernel.index_mut().set_absent(&object, false)?;
         if registry.path_of.get(&object).map(String::as_str) != Some(rel_path.as_str()) {
-            register_if_needed(kernel, object, rel_path, schema.as_deref())?;
+            // Pass the snapshot taken before the walk: re-reading the whole
+            // registry per file was ~99% of a breakdown refresh.
+            register_if_needed_with(kernel, &registry, object, rel_path, schema.as_deref())?;
         }
 
         let disk_hash = text_content_hash(text);
-        let heads = kernel.index().heads(&object)?;
+        let heads = dag.heads(&object);
         let at_head = {
             let mut found = false;
             for h in &heads {

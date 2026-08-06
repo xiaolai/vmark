@@ -72,6 +72,12 @@ CREATE INDEX IF NOT EXISTS check_results_by_edge ON check_results (txf, input_id
 
 pub struct CoherenceIndex {
     pub(super) conn: Connection,
+    /// Test-only counter for `load_dag` calls — see `index_dag::load_dag`.
+    /// Per-INDEX, not a global: a process-wide static would be shared by every
+    /// test running in parallel, so an unrelated concurrent scan could inflate
+    /// the count and make the assertion flaky.
+    #[cfg(test)]
+    pub(super) load_dag_calls: std::sync::atomic::AtomicUsize,
 }
 
 impl CoherenceIndex {
@@ -117,7 +123,14 @@ impl CoherenceIndex {
             .map_err(|e| format!("index schema failed: {e}"))?;
         conn.pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| format!("index version write failed: {e}"))?;
-        Ok((Self { conn }, needs_rebuild))
+        Ok((
+            Self {
+                conn,
+                #[cfg(test)]
+                load_dag_calls: std::sync::atomic::AtomicUsize::new(0),
+            },
+            needs_rebuild,
+        ))
     }
 
     /// Apply one ledger entry incrementally. Idempotent by entry id.

@@ -18,7 +18,27 @@ use super::index::CoherenceIndex;
 use super::types::{ObjectId, RevisionId};
 
 impl CoherenceIndex {
+    /// Load the WHOLE workspace revision DAG.
+    ///
+    /// Cost is O(revisions) with a JSON `parents` parse per row, so this is a
+    /// per-OPERATION call, never a per-item one. `heads()` is a thin wrapper
+    /// over it, which makes `heads()` in a loop quadratic: the scan's per-file
+    /// `heads()` call had a 300-file workspace loading ~360,000 rows to answer
+    /// 300 lookups, and that was ~99% of a breakdown refresh (the read path
+    /// runs a full scan before projecting). Callers that need heads for many
+    /// objects must load this once and query the returned DAG.
+    ///
+    /// `scan_loads_the_revision_dag_once_per_scan` pins that structurally —
+    /// the regression is invisible to any correctness test, since it returns
+    /// identical results and only costs more.
     pub(super) fn load_dag(&self) -> Result<RevisionDag, String> {
+        // Counted so a per-file regression is catchable structurally: this
+        // reads EVERY revision in the workspace, which is fine once per
+        // operation and quadratic once per file — and the two are
+        // indistinguishable by results, only by cost.
+        #[cfg(test)]
+        self.load_dag_calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut dag = RevisionDag::default();
         let mut stmt = self
             .conn
