@@ -50,6 +50,7 @@ pub mod frontmatter;
 pub mod gitops;
 pub mod gitops_cmd;
 pub mod index;
+pub mod index_apply;
 pub mod index_checks;
 pub mod index_dag;
 pub mod index_query;
