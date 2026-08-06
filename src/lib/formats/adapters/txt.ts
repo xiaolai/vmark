@@ -14,7 +14,7 @@ export const txtFormat: FormatConfig = {
   extensions: ["txt"],
   kind: "split-pane",
   adapters: {
-    saveDialogFilters: [{ name: "Plain Text", extensions: ["txt"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.txt", extensions: ["txt"] }],
     untitledExtension: "txt",
     exportEnabled: false,
     findEnabled: true,
@@ -27,7 +27,7 @@ export const txtFormat: FormatConfig = {
       insertBlockActions: false,
       paragraphFormatting: false,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 

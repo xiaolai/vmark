@@ -1,8 +1,18 @@
 /**
  * URL Validation Utilities
  *
- * Purpose: Validates URLs to prevent XSS via dangerous schemes (javascript:, vbscript:, etc.).
- * Used at the MDAST → PM boundary to sanitize all link/image hrefs.
+ * Purpose: classify a URL's scheme against a known-safe allow-list.
+ *
+ * NOTE: this is NO LONGER used to rewrite link/image hrefs at the MDAST → PM
+ * boundary. Doing so corrupted the author's file on save (`[x](s3://…)`
+ * became `[x](about:blank)`), so storage now keeps URLs verbatim and
+ * containment lives at the sinks — Tiptap's `renderHTML` refuses to emit a
+ * dangerous href, and `openExternalLink` allow-lists schemes (with an
+ * unoverridable deny floor) before the OS opener sees one. The chain is
+ * pinned end-to-end in `services/navigation/linkSecurity.test.ts`.
+ *
+ * It remains a useful predicate for decisions that are NOT storage — e.g.
+ * whether an image is safe to promote to a media node.
  *
  * Key decisions:
  *   - Allowlist approach: only known-safe schemes are permitted
@@ -11,7 +21,7 @@
  *   - Empty/null URLs are treated as safe (schema handles them)
  *   - Slash-before-colon detection prevents false blocking of paths like "path/to:file"
  *
- * @coordinates-with mdastInlineConverters.ts — calls isSafeUrl for link/image conversion
+ * @coordinates-with @/services/navigation/linkOpen — the activation allow-list
  * @coordinates-with shared/mediaSecurity.ts — additional image-specific URL validation
  * @module utils/markdownPipeline/urlValidation
  */

@@ -15,7 +15,7 @@
   --gha-job-node-min-height: 80px;
   /* Reset button styling */
   appearance: none;
-  border: var(--space-px) solid var(--border-color);
+  border: var(--border-thin) solid var(--border-color);
   background: var(--bg-color);
   color: var(--text-color);
   border-radius: var(--radius-md);
@@ -111,7 +111,7 @@
 }
 
 .gha-job-node__badge--reusable {
-  border: var(--space-px) dashed var(--border-color);
+  border: var(--border-thin) dashed var(--border-color);
   background: transparent;
 }
 
@@ -160,7 +160,7 @@
   list-style: none;
   margin: var(--space-1) 0 0 0;
   padding: var(--space-1) 0 0 0;
-  border-top: var(--space-px) solid var(--border-color);
+  border-top: var(--border-thin) solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: var(--space-half);

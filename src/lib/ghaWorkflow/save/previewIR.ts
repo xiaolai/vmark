@@ -114,9 +114,10 @@ function applyOne(ir: WorkflowIR, patch: IRPatch): WorkflowIR {
 
   if (patch.kind === "job.create") {
     if (jobs.find((j) => j.id === patch.jobId)) return ir;
+    // No `name`: a freshly created job has none yet, and `name` is optional on
+    // JobIR precisely to mean "the workflow does not give this job a name".
     const newJob: JobIR = {
       id: patch.jobId,
-      name: undefined,
       runsOn: [patch.runsOn ?? "ubuntu-latest"],
       needs: [],
       steps: [],

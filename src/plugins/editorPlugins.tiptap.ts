@@ -8,30 +8,30 @@
  * - editorKeymapExtension: Tiptap Extension wrapping the keymap plugin
  * - expandedToggleMarkTiptap: Re-export for external consumers
  *
- * @coordinates-with shortcutsStore.ts (reads current shortcut bindings)
+ * @coordinates-with plugins/shared/ — hostShortcuts (chords), hostPopups (Escape)
  * @coordinates-with editorPlugins/keymapUtils.ts (binding helpers)
- * @coordinates-with editorPlugins/linkCommands.ts (link shortcuts)
- * @coordinates-with editorPlugins/bookmarkLinkCommand.ts (bookmark link shortcut)
- * @coordinates-with editorPlugins/inlineMathCommand.ts (inline math shortcut)
- * @coordinates-with editorPlugins/textTransformCommands.ts (text transforms)
- * @coordinates-with editorPlugins/lineOperationCommands.ts (line operations)
+ * @coordinates-with services/editor/runEditorAction.ts (executor for editor.* actions)
+ * @coordinates-with editorPlugins/linkCommands.ts (unlink shortcut — no editor.* command)
  */
 
-import { Extension, type Editor as TiptapEditor } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
 import { keydownHandler } from "@tiptap/pm/keymap";
 import { Plugin, PluginKey, type Command, type EditorState } from "@tiptap/pm/state";
-import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/settingsStore";
-import { useSourcePeekStore } from "@/stores/sourcePeekStore";
-import { openSourcePeekInline, revertAndCloseSourcePeek } from "@/plugins/sourcePeekInline";
+import { hostPopups } from "@/plugins/shared/hostPopups";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
+import {
+  openSourcePeekInline,
+  revertAndCloseSourcePeek,
+  isSourcePeekOpen,
+} from "@/plugins/sourcePeekInline";
 import { guardProseMirrorCommand } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
+import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { triggerPastePlainText } from "@/plugins/markdownPaste/tiptap";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
-import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { runEditorAction } from "@/services/editor/runEditorAction";
 
 import {
   escapeMarkBoundary,
@@ -39,28 +39,12 @@ import {
   bindIfKey,
   wrapWithMultiSelectionGuard,
 } from "./editorPlugins/keymapUtils";
-import { handleSmartLinkShortcut, handleUnlinkShortcut, handleWikiLinkShortcut } from "./editorPlugins/linkCommands";
-import { handleBookmarkLinkShortcut } from "./editorPlugins/bookmarkLinkCommand";
-import { handleInlineMathShortcut } from "./editorPlugins/inlineMathCommand";
-import {
-  doWysiwygTransformUppercase,
-  doWysiwygTransformLowercase,
-  doWysiwygTransformTitleCase,
-  doWysiwygTransformToggleCase,
-} from "./editorPlugins/textTransformCommands";
-import {
-  doWysiwygMoveLineUp,
-  doWysiwygMoveLineDown,
-  doWysiwygDuplicateLine,
-  doWysiwygDeleteLine,
-  doWysiwygJoinLines,
-} from "./editorPlugins/lineOperationCommands";
+import { handleUnlinkShortcut } from "./editorPlugins/linkCommands";
 
 
 const editorKeymapPluginKey = new PluginKey("editorKeymaps");
 
 export function buildEditorKeymapBindings(): Record<string, Command> {
-  const shortcuts = useShortcutsStore.getState();
   const bindings: Record<string, Command> = {};
 
   // Note: toggleSidebar and sourceMode toggles are handled by the useViewShortcuts
@@ -69,92 +53,89 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // fire on the same keypress.
 
   // --- Inline mark formatting ---
+  // Each binding keeps its multi-selection guard but routes the terminal action
+  // through the shared editor executor (runEditorAction) — the SAME path the menu
+  // uses (IME queue, read-only re-validation, isActionExecutable gate). NOT
+  // executeCommand: that applies the palette actionAvailability gate, which is
+  // stricter and would drop keyboard formatting the executor accepts (WI-4.2).
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("bold"),
-    wrapWithMultiSelectionGuard("bold", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "bold");
+    hostShortcuts.getShortcut("bold"),
+    wrapWithMultiSelectionGuard("bold", () => {
+      runEditorAction("bold", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("italic"),
-    wrapWithMultiSelectionGuard("italic", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "italic");
+    hostShortcuts.getShortcut("italic"),
+    wrapWithMultiSelectionGuard("italic", () => {
+      runEditorAction("italic", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("code"),
-    wrapWithMultiSelectionGuard("code", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "code");
+    hostShortcuts.getShortcut("code"),
+    wrapWithMultiSelectionGuard("code", () => {
+      runEditorAction("code", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("strikethrough"),
-    wrapWithMultiSelectionGuard("strikethrough", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "strike");
+    hostShortcuts.getShortcut("strikethrough"),
+    wrapWithMultiSelectionGuard("strikethrough", () => {
+      runEditorAction("strikethrough", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("underline"),
-    wrapWithMultiSelectionGuard("underline", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "underline");
+    hostShortcuts.getShortcut("underline"),
+    wrapWithMultiSelectionGuard("underline", () => {
+      runEditorAction("underline", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("highlight"),
-    wrapWithMultiSelectionGuard("highlight", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "highlight");
+    hostShortcuts.getShortcut("highlight"),
+    wrapWithMultiSelectionGuard("highlight", () => {
+      runEditorAction("highlight", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("subscript"),
-    wrapWithMultiSelectionGuard("subscript", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "subscript");
+    hostShortcuts.getShortcut("subscript"),
+    wrapWithMultiSelectionGuard("subscript", () => {
+      runEditorAction("subscript", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("superscript"),
-    wrapWithMultiSelectionGuard("superscript", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return expandedToggleMark(view, "superscript");
+    hostShortcuts.getShortcut("superscript"),
+    wrapWithMultiSelectionGuard("superscript", () => {
+      runEditorAction("superscript", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
 
   // --- Link shortcuts ---
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("link"),
-    wrapWithMultiSelectionGuard("link", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return handleSmartLinkShortcut(view);
+    hostShortcuts.getShortcut("link"),
+    wrapWithMultiSelectionGuard("link", () => {
+      runEditorAction("link", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
+  // unlink has no editor.* command (executor gap) — keep the direct handler.
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("unlink"),
+    hostShortcuts.getShortcut("unlink"),
     wrapWithMultiSelectionGuard("unlink", (_state, _dispatch, view) => {
       /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
       if (!view) return false;
@@ -163,102 +144,57 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("wikiLink"),
-    wrapWithMultiSelectionGuard("wikiLink", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return handleWikiLinkShortcut(view);
+    hostShortcuts.getShortcut("wikiLink"),
+    wrapWithMultiSelectionGuard("wikiLink", () => {
+      runEditorAction("wikiLink", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("bookmarkLink"),
-    wrapWithMultiSelectionGuard("bookmarkLink", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return handleBookmarkLinkShortcut(view);
+    hostShortcuts.getShortcut("bookmarkLink"),
+    wrapWithMultiSelectionGuard("bookmarkLink", () => {
+      runEditorAction("bookmark", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
 
   // --- Inline math ---
   bindIfKey(
     bindings,
-    shortcuts.getShortcut("inlineMath"),
-    wrapWithMultiSelectionGuard("inlineMath", (_state, _dispatch, view) => {
-      /* v8 ignore next -- @preserve wrapWithMultiSelectionGuard already guards !view above */
-      if (!view) return false;
-      return handleInlineMathShortcut(view);
+    hostShortcuts.getShortcut("inlineMath"),
+    wrapWithMultiSelectionGuard("inlineMath", () => {
+      runEditorAction("insertInlineMath", { windowLabel: getCurrentWindowLabel() });
+      return true;
     })
   );
 
   // --- Paste / Insert ---
-  bindIfKey(bindings, shortcuts.getShortcut("pastePlainText"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("pastePlainText"), (_state, _dispatch, view) => {
     if (!view) return false;
     void triggerPastePlainText(view);
     return true;
   });
 
-  // Insert image - emit menu event to trigger the same flow as menu item
-  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), () => {
-    void getCurrentWebviewWindow().emit("menu:image", getCurrentWebviewWindow().label);
+  // Insert image — route through the executor. `editor.insertImage` runs the
+  // same runEditorAction("insertImage") path the menu:image event maps to.
+  bindIfKey(bindings, hostShortcuts.getShortcut("insertImage"), () => {
+    runEditorAction("insertImage", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
 
-  // Blockquote toggle - handle directly to avoid relying on Tauri menu accelerator
-  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), (_state, _dispatch, view) => {
+  // Blockquote toggle — route through the executor. The wysiwyg adapter's
+  // toggleBlockquote handles the list-wrapping / full-unwrap logic identically.
+  bindIfKey(bindings, hostShortcuts.getShortcut("blockquote"), (_state, _dispatch, view) => {
     if (!view) return false;
-    const editor = (view.dom as HTMLElement & { editor?: TiptapEditor }).editor;
-    if (!editor) return false;
-
-    if (editor.isActive("blockquote")) {
-      // Remove blockquote - use handleRemoveBlockquote to unwrap the entire blockquote,
-      // not just the current selection's block range (important for lists in blockquotes)
-      handleRemoveBlockquote(view);
-    } else {
-      // Add blockquote - use ProseMirror wrap
-      const { state, dispatch } = view;
-      const { $from, $to } = state.selection;
-      const blockquoteType = state.schema.nodes.blockquote;
-      if (!blockquoteType) return false;
-
-      // Find if we're inside a list - if so, wrap the entire list
-      let wrapDepth = -1;
-      for (let d = $from.depth; d > 0; d--) {
-        const node = $from.node(d);
-        if (node.type.name === "bulletList" || node.type.name === "orderedList") {
-          wrapDepth = d;
-          break;
-        }
-      }
-
-      let range;
-      if (wrapDepth > 0) {
-        // Wrap at list level
-        const listStart = $from.before(wrapDepth);
-        const listEnd = $from.after(wrapDepth);
-        range = state.doc.resolve(listStart).blockRange(state.doc.resolve(listEnd));
-      } else {
-        // Normal block range for non-list content
-        range = $from.blockRange($to);
-      }
-
-      if (range) {
-        try {
-          dispatch(state.tr.wrap(range, [{ type: blockquoteType }]));
-          view.focus();
-        } catch {
-          // Wrap failed - might be schema constraint, ignore
-        }
-      }
-    }
+    runEditorAction("blockquote", { windowLabel: getCurrentWindowLabel() });
     return true;
   });
 
   // --- Source peek ---
-  bindIfKey(bindings, shortcuts.getShortcut("sourcePeek"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("sourcePeek"), (_state, _dispatch, view) => {
     if (!view) return false;
-    const sourcePeek = useSourcePeekStore.getState();
-    if (sourcePeek.isOpen) {
+    if (isSourcePeekOpen()) {
       // Close inline Source Peek with revert
       revertAndCloseSourcePeek(view);
       return true;
@@ -270,17 +206,12 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   // --- Escape key ---
   bindings.Escape = guardProseMirrorCommand((_state: EditorState, _dispatch, view) => {
     if (!view) return false;
-    const sourcePeek = useSourcePeekStore.getState();
-    if (sourcePeek.isOpen) {
+    if (isSourcePeekOpen()) {
       // Close inline Source Peek with revert
       revertAndCloseSourcePeek(view);
       return true;
     }
-    const uiStore = useUIStore.getState();
-    if (uiStore.universalToolbarVisible) {
-      uiStore.setUniversalToolbarVisible(false);
-      return true;
-    }
+    if (hostPopups.dismissUniversalToolbar()) return true;
     // Collapse a non-empty range (e.g. whole-doc after Cmd+A) to a cursor
     // so users can dismiss a selection without typing or clicking.
     // Skipped for multi-cursor selections — the multi-cursor keymap's own
@@ -290,58 +221,64 @@ export function buildEditorKeymapBindings(): Record<string, Command> {
   });
 
   // --- Line operations ---
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("moveLineUp"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygMoveLineUp(view);
+    runEditorAction("moveLineUp", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("moveLineDown"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygMoveLineDown(view);
+    runEditorAction("moveLineDown", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("duplicateLine"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygDuplicateLine(view);
+    runEditorAction("duplicateLine", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("deleteLine"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygDeleteLine(view);
+    runEditorAction("deleteLine", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("joinLines"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygJoinLines(view);
+    runEditorAction("joinLines", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
   // Note: Sort lines are not implemented for WYSIWYG as they work on plain text lines
 
   // --- Text transformations ---
-  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformUppercase"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygTransformUppercase(view);
+    runEditorAction("transformUppercase", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformLowercase"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygTransformLowercase(view);
+    runEditorAction("transformLowercase", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformTitleCase"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygTransformTitleCase(view);
+    runEditorAction("transformTitleCase", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
-  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), (_state, _dispatch, view) => {
+  bindIfKey(bindings, hostShortcuts.getShortcut("transformToggleCase"), (_state, _dispatch, view) => {
     if (!view) return false;
-    return doWysiwygTransformToggleCase(view);
+    runEditorAction("transformToggleCase", { windowLabel: getCurrentWindowLabel() });
+    return true;
   });
 
   // --- Unified Undo/Redo ---
-  // Uses unified history that works across mode switches.
-  // First tries native undo/redo, then falls back to checkpoint-based undo/redo.
-  bindings["Mod-z"] = guardProseMirrorCommand(() => {
+  // Uses unified history that works across mode switches. Chords come from the
+  // single source of truth (undoRedoChords.ts) so WYSIWYG + Source can't drift;
+  // Mod-y is added off-mac only (macOS reserves Cmd+Y for the AI genie picker).
+  bindings[UNDO_CHORD] = guardProseMirrorCommand(() => {
     return performUnifiedUndo(getCurrentWindowLabel());
   });
-  bindings["Mod-Shift-z"] = guardProseMirrorCommand(() => {
-    return performUnifiedRedo(getCurrentWindowLabel());
-  });
-  // Windows/Linux convention: Ctrl+Y for redo (skip on macOS where Cmd+Y = AI Genies)
-  if (!isMacPlatform()) {
-    bindings["Mod-y"] = guardProseMirrorCommand(() => {
+  for (const chord of redoChords(isMacPlatform())) {
+    bindings[chord] = guardProseMirrorCommand(() => {
       return performUnifiedRedo(getCurrentWindowLabel());
     });
   }
@@ -354,7 +291,7 @@ export const editorKeymapExtension = Extension.create({
   priority: 1000,
   addProseMirrorPlugins() {
     let handler = keydownHandler(buildEditorKeymapBindings());
-    const unsubscribe = useShortcutsStore.subscribe(() => {
+    const unsubscribe = hostShortcuts.onChange(() => {
       handler = keydownHandler(buildEditorKeymapBindings());
     });
 

@@ -18,6 +18,9 @@ vi.mock("@/stores/footnotePopupStore", () => ({
   useFootnotePopupStore: { getState: () => mockGetState() },
 }));
 
+// The actions take the popup state as a parameter now.
+const store = { getState: () => mockGetState() } as never;
+
 vi.mock("@/utils/imeGuard", () => ({
   runOrQueueCodeMirrorAction: vi.fn((_view: unknown, action: () => void) => action()),
 }));
@@ -108,7 +111,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 20,
         referencePos: firstRefPos,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^x]");
       view.destroy();
@@ -241,7 +244,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 0,
         label: "1",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(view.state.doc.toString()).toBe("[^1]: New content\n\nSome text");
       view.destroy();
     });
@@ -253,7 +256,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: null,
         label: "1",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(view.state.doc.toString()).toBe("[^1]: Content");
       view.destroy();
     });
@@ -265,7 +268,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 0,
         label: "",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(view.state.doc.toString()).toBe("[^1]: Content");
       view.destroy();
     });
@@ -277,7 +280,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 0, // points to "Some text" line (not a definition)
         label: "1",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(view.state.doc.toString()).toContain("[^1]: Updated");
       view.destroy();
     });
@@ -290,7 +293,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 10,
         referencePos: 4,
       });
-      gotoFootnoteTarget(view, true);
+      gotoFootnoteTarget(view, true, store);
       expect(view.state.selection.main.anchor).toBe(10);
       view.destroy();
     });
@@ -301,7 +304,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 10,
         referencePos: 4,
       });
-      gotoFootnoteTarget(view, false);
+      gotoFootnoteTarget(view, false, store);
       expect(view.state.selection.main.anchor).toBe(4);
       view.destroy();
     });
@@ -313,7 +316,7 @@ describe("sourceFootnoteActions", () => {
         referencePos: null,
       });
       const origAnchor = view.state.selection.main.anchor;
-      gotoFootnoteTarget(view, true);
+      gotoFootnoteTarget(view, true, store);
       expect(view.state.selection.main.anchor).toBe(origAnchor);
       view.destroy();
     });
@@ -327,7 +330,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 16,
         referencePos: 4,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^1]");
       expect(result).not.toContain("Definition");
@@ -341,7 +344,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: null,
         referencePos: null,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       expect(view.state.doc.toString()).toBe("See [^1]");
       view.destroy();
     });
@@ -353,7 +356,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: null,
         referencePos: null,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       // Document unchanged - no references for "missing"
       expect(view.state.doc.toString()).toBe("No refs\n\n[^1]: Definition");
       view.destroy();
@@ -366,7 +369,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 18,
         referencePos: 4,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^a.b]");
       view.destroy();
@@ -398,7 +401,7 @@ describe("sourceFootnoteActions", () => {
         referencePos: refPos,
       });
       // Should not throw — line 127 adds referenceAtPos to the references array
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       // Reference should have been removed
       expect(result).not.toContain("[^1]: Def");
@@ -417,7 +420,7 @@ describe("sourceFootnoteActions", () => {
       });
       // Both findFootnoteDefinitionAtPos (pos 5 = not a def) and
       // findFootnoteDefinition (label "missing" = not found) return null
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(sourcePopupWarn).toHaveBeenCalledWith("Definition not found for save");
       // Document unchanged
       expect(view.state.doc.toString()).toBe("Just some text without any footnote definition.");
@@ -454,7 +457,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 0,
         label: "1",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       expect(view.state.doc.toString()).toBe("[^1]: ");
       view.destroy();
     });
@@ -466,7 +469,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 0,
         label: "1",
       });
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
       const result = view.state.doc.toString();
       expect(result).toContain("[^1]: First line");
       expect(result).toContain("  Second line");
@@ -487,7 +490,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 15,
         referencePos: refPos,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^z]");
       view.destroy();
@@ -510,7 +513,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 20,
         referencePos: refPos,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^abc]");
       view.destroy();
@@ -563,7 +566,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: null,
         referencePos: 4,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       // Both reference and definition should be removed
       expect(result).not.toContain("[^q]");
@@ -581,7 +584,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 15,
         referencePos: 4,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^e]");
       view.destroy();
@@ -596,7 +599,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: null,
         referencePos: 4,
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^m]");
       view.destroy();
@@ -612,7 +615,7 @@ describe("sourceFootnoteActions", () => {
         definitionPos: 16,
         referencePos: 6, // inside [^r] — between [ and ]
       });
-      removeFootnote(view);
+      removeFootnote(view, store);
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^r]");
       view.destroy();
@@ -635,7 +638,7 @@ describe("sourceFootnoteActions", () => {
       // findFootnoteReferenceAtPos returns null (pos 2 is inside [^1]: which is excluded by (?!:))
       // references from findFootnoteReferences will still find the reference in "See [^1] here."
       // So line 127 guard: referenceAtPos is null → not added
-      removeFootnote(view);
+      removeFootnote(view, store);
       // Document should still have removed [^1] reference and definition
       const result = view.state.doc.toString();
       expect(result).not.toContain("[^1]: Def");

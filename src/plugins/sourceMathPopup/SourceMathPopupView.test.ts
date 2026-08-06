@@ -20,15 +20,18 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: vi.fn(() => false),
 }));
 
+vi.mock("@/plugins/shared/popupHostDom", () => ({
+  getPopupHostForDom: vi.fn(() => null),
+  toHostCoordsForDom: vi.fn(
+    (_host: unknown, pos: { top: number; left: number }) => pos,
+  ),
+}));
+
 vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: vi.fn(() => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
   })),
-  getPopupHostForDom: vi.fn(() => null),
-  toHostCoordsForDom: vi.fn(
-    (_host: unknown, pos: { top: number; left: number }) => pos,
-  ),
 }));
 
 vi.mock("@/plugins/latex/katexLoader", () => ({
@@ -48,6 +51,8 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
 import { SourceMathPopupView } from "./SourceMathPopupView";
+// The view receives its state PORT now (ADR-015); the real store satisfies it,
+// which is also what the CodeMirror plugin supplies in production.
 import { useSourceMathPopupStore } from "@/stores/sourceMathPopupStore";
 
 function createCmView(doc: string): EditorView {
@@ -107,7 +112,7 @@ describe("SourceMathPopupView — construction (class-fields regression)", () =>
   beforeEach(() => {
     resetStore();
     view = createCmView("");
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
   });
 
   afterEach(() => {
@@ -135,7 +140,7 @@ describe("SourceMathPopupView — click-outside commits the edit (P2)", () => {
     resetStore();
     view = createCmView("text $x^2$ tail");
     restoreRaf = flushJustOpened();
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
   });
 
   afterEach(() => {
@@ -186,7 +191,7 @@ describe("SourceMathPopupView — stale range validation (P3)", () => {
     resetStore();
     view = createCmView("text $x^2$ tail");
     restoreRaf = flushJustOpened();
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
   });
 
   afterEach(() => {
@@ -236,7 +241,7 @@ describe("SourceMathPopupView — stale range validation (P3)", () => {
     view.destroy();
     view = createCmView("plain text without math");
     popup.destroy();
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
 
     openPopup({ latex: "x", mathFrom: 0, mathTo: 5, isBlock: true });
     useSourceMathPopupStore.getState().updateLatex("y");
@@ -254,7 +259,7 @@ describe("SourceMathPopupView — stale range validation (P3)", () => {
     view.destroy();
     view = createCmView("$$\nx^2\n\nstray paragraph");
     popup.destroy();
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
 
     openPopup({ latex: "x^2", mathFrom: 0, mathTo: 23, isBlock: true });
     useSourceMathPopupStore.getState().updateLatex("y^3");
@@ -269,7 +274,7 @@ describe("SourceMathPopupView — stale range validation (P3)", () => {
     view.destroy();
     view = createCmView("```latex\nx^2\nmore content with no fence end");
     popup.destroy();
-    popup = new SourceMathPopupView(view);
+    popup = new SourceMathPopupView(view, useSourceMathPopupStore);
 
     openPopup({
       latex: "x^2",

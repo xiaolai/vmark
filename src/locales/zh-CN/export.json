@@ -31,10 +31,5 @@
   "pdf.progress.rendering": "正在生成 PDF…",
   "pdf.progress.done": "完成",
   "pdf.saveDialog.title": "导出 PDF",
-  "pdf.defaultTitle": "文档",
-  "pdf": {
-    "pageSetup": {
-      "marginUnit": "mm"
-    }
-  }
+  "pdf.defaultTitle": "文档"
 }

@@ -61,7 +61,9 @@ export function deriveEdges(jobs: JobIR[]): DeriveEdgesResult {
       severity: "error",
       code: "GHA-NEEDS-002",
       message: `Cycle in job dependency graph: ${cycle.join(" → ")} → ${cycle[0]}`,
-      position: anchorJob?.position,
+      // `position` is documented as ABSENT for a workflow-global diagnostic;
+      // when the anchor job carries no range there is nothing to point at.
+      ...(anchorJob?.position ? { position: anchorJob.position } : {}),
       context: { jobId: anchor, cycle: cycle.join(" → ") },
     });
   }

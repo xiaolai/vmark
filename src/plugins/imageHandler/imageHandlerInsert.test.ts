@@ -20,14 +20,14 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 const mockCopyImageToAssets = vi.fn();
 const mockInsertBlockImageNode = vi.fn();
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: (...args: unknown[]) => mockCopyImageToAssets(...args),
   insertBlockImageNode: (...args: unknown[]) => mockInsertBlockImageNode(...args),
 }));
 
 const mockGetState = vi.fn();
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => mockGetState() },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { copyImagesToAssets: () => mockGetState().image.copyToAssets },
 }));
 
 vi.mock("@/utils/debug", () => ({

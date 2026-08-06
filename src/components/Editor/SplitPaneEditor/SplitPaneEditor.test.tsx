@@ -24,7 +24,7 @@ const baseAdapters: FormatConfig["adapters"] = {
   saveDialogFilters: [{ name: "JSON", extensions: ["json"] }],
   untitledExtension: "json",
   readOnlyDefault: false,
-  closeSavePolicy: "markdown-default",
+  closeSavePolicy: "prompt-on-close",
   menuPolicy: {
     sourceWysiwygToggle: false,
     cjkFormatActions: false,

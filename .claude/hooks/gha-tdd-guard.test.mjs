@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Vitest runs with cwd = repo root; import.meta.url is a virtual URL under the
@@ -126,16 +126,128 @@ describe("gha-tdd-guard — embedded-browser scope is live", () => {
       "src/lib/sites/__probe__.ts",
       "src/components/Browser/__probe__.tsx",
       "src/services/browser/__probe__.ts",
-      "src/stores/webWorkflowStore.ts", // exact-path store scope; no test exists
+      // "src/stores/webWorkflowStore.ts" used to be asserted here as an
+      // exact-path store scope. It never existed, so it blocked on the
+      // no-such-file branch and this row proved nothing — WI-19 removed both
+      // the scope entry and the claim.
     ]) {
       expect(runGuard(write(p)).status, `${p} should be scoped (blocked, no test)`).toBe(2);
     }
   });
 
   it("allows a scoped store that already has a test", () => {
-    // browserStore.ts / browserApprovalStore.ts ship with tests — the gate is
+    // browserApprovalStore.ts ships with a test in __tests__/ — the gate is
     // satisfied, proving the sibling-test lookup resolves __tests__/ too.
-    expect(runGuard(write("src/stores/browserStore.ts")).status).toBe(0);
+    // (browserStore.ts used to be the second case; the hibernation store was
+    // judged fiction and deleted — E4/WI-6 — and its scope entry went with it.)
     expect(runGuard(write("src/stores/browserApprovalStore.ts")).status).toBe(0);
+  });
+});
+
+describe("gha-tdd-guard — WI-19: SCOPED names paths that exist", () => {
+  // The scope had drifted into fiction: four of its seven workflow entries
+  // named paths that had not existed for months (src/lib/workflowRouting,
+  // src/plugins/githubWorkflow, src/stores/workflowViewStore.ts,
+  // src/stores/workflowEditStore.ts), plus src/stores/webWorkflowStore.ts and
+  // the pre-WI-10 src/hooks/mcpBridge/v2/browser* location. A guard aimed at
+  // nothing blocks nothing, and the shipped workflow-engine frontend was
+  // unguarded the whole time.
+
+  it("blocks an untested file in each REAL workflow scope", () => {
+    for (const p of [
+      "src/lib/workflow/__probe__.ts", // bespoke engine IR (parser, layout)
+      "src/plugins/workflowPreview/__probe__.tsx", // the engine's graph view
+      "src/services/workflow/__probe__.ts", // engine policy sync
+      "src/components/WorkflowApproval/__probe__.tsx", // engine approval dialog
+      "src/plugins/codemirror/sourceWorkflow__probe__.ts", // viewer + engine CM extensions
+      "src/lib/ghaWorkflow/__probe__.ts", // GHA viewer core
+      "src/components/Editor/WorkflowPanel/__probe__.tsx",
+      "src/components/Editor/WorkflowEditor/__probe__.tsx",
+    ]) {
+      expect(runGuard(write(p)).status, `${p} should be scoped (blocked, no test)`).toBe(2);
+    }
+  });
+
+  it("blocks the MCP browser handlers at their post-WI-10 location", () => {
+    // They moved hooks/ → services/ in WI-10; the scope pattern did not follow,
+    // so the automation handlers were silently unguarded.
+    expect(runGuard(write("src/services/mcpBridge/v2/browser__probe__.ts")).status).toBe(2);
+  });
+
+  it("allows the real engine store, which ships with its test", () => {
+    // Exact-path scope entry, satisfied — proves the entry resolves to a file
+    // that exists, unlike the two store paths removed above.
+    expect(runGuard(write("src/stores/workflowStore.ts")).status).toBe(0);
+  });
+
+  it("still honours the allow-list inside the new scopes", () => {
+    expect(runGuard(write("src/lib/workflow/types.ts")).status).toBe(0);
+    expect(runGuard(write("src/lib/workflow/parser.test.ts")).status).toBe(0);
+    expect(runGuard(write("src/plugins/workflowPreview/workflow-node.css")).status).toBe(0);
+  });
+
+  // ── The CodeMirror workflow scope, derived from the tree, not from a list ──
+  //
+  // The scope entry was `sourceWorkflow*`, a NAME prefix. `sourceGhaIrSync.ts`
+  // — 100+ lines that parse a GitHub Actions workflow into the IR the whole
+  // viewer reads — is a workflow extension whose name simply does not start
+  // that way, so it was unguarded. Enumerating by hand is how that happened;
+  // this test globs the directory instead, so the next file to arrive under a
+  // third naming convention fails here rather than escaping quietly.
+
+  const CM_DIR = join(REPO, "src/plugins/codemirror");
+  /** Imports that make a CodeMirror extension part of the workflow feature. */
+  const WORKFLOW_LIBS = /ghaWorkflow|lib\/workflow|workflowPort/;
+
+  /** Production CodeMirror extensions that belong to the workflow feature. */
+  function realWorkflowExtensions() {
+    return readdirSync(CM_DIR, { withFileTypes: true })
+      .filter((e) => e.isFile() && /\.tsx?$/.test(e.name))
+      .filter((e) => !/\.(test|spec)\.tsx?$/.test(e.name) && !e.name.endsWith(".d.ts"))
+      .filter(
+        (e) =>
+          /workflow/i.test(e.name) || WORKFLOW_LIBS.test(readFileSync(join(CM_DIR, e.name), "utf8")),
+      )
+      .map((e) => e.name)
+      .sort();
+  }
+
+  it("scopes EVERY workflow extension in src/plugins/codemirror, globbed from the tree", () => {
+    const files = realWorkflowExtensions();
+    // The specific miss, named so the regression is not merely counted.
+    expect(files).toContain("sourceGhaIrSync.ts");
+    expect(files.length).toBeGreaterThanOrEqual(6);
+
+    for (const name of files) {
+      // Probe a sibling that cannot have a test rather than the file itself:
+      // a scoped file WITH a test also exits 0, so the real path cannot tell
+      // "in scope and satisfied" from "not in scope at all". Renaming can only
+      // make this assertion stricter, never let a gap through.
+      const probe = name.replace(/(\.tsx?)$/, "__probe__$1");
+      expect(
+        runGuard(write(`src/plugins/codemirror/${probe}`)).status,
+        `${name} must be TDD-scoped (probe: ${probe})`,
+      ).toBe(2);
+    }
+  });
+
+  it("leaves non-workflow CodeMirror extensions out of scope", () => {
+    // The scope is the workflow feature, not the whole 40-file cluster.
+    expect(runGuard(write("src/plugins/codemirror/markdownAutoPair__probe__.ts")).status).toBe(0);
+  });
+
+  it("does NOT block the removed dead paths — a scope aimed at nothing is not enforcement", () => {
+    // These would have been blocked before WI-19 while protecting no code. If
+    // one is ever recreated, it must be re-added deliberately, not inherited.
+    for (const p of [
+      "src/lib/workflowRouting/router.ts",
+      "src/plugins/githubWorkflow/tiptap.ts",
+      "src/stores/workflowViewStore.ts",
+      "src/stores/workflowEditStore.ts",
+      "src/stores/webWorkflowStore.ts",
+      "src/hooks/mcpBridge/v2/browserNavigation.ts",
+    ]) {
+      expect(runGuard(write(p)).status, `${p} no longer exists; must not be scoped`).toBe(0);
+    }
   });
 });

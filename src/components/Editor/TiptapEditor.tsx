@@ -35,7 +35,7 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import { useActiveTabId, useDocumentActions, useDocumentContent, useDocumentCursorInfo } from "@/hooks/useDocumentState";
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
-import { initializeRevisionTracking } from "@/hooks/mcpBridge/revisionTracker";
+import { initializeRevisionTracking } from "@/services/mcpBridge/revisionTracker";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { useWysiwygFlusherRegistration } from "@/hooks/useWysiwygFlusherRegistration";
 import { useTiptapUnmountFlush } from "@/hooks/useTiptapUnmountFlush";

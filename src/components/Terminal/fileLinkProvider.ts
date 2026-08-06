@@ -40,34 +40,59 @@ function looksLikeFilePath(path: string): boolean {
   return path.includes("/") && /\.\w{1,10}$/.test(path);
 }
 
+/**
+ * Normalize a base directory for anchoring: drop trailing separators so `/w/`
+ * and `/w` behave identically, but keep the filesystem root as `/` rather than
+ * collapsing it to the empty string.
+ */
+export function normalizeBase(base: string): string {
+  const trimmed = base.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed;
+}
+
 /** Resolve a possibly-relative path against a base directory.
  * Prefers the shell's live cwd (OSC 7, WI-2.3); falls back to the workspace
  * root. Returns null for a relative path with no base, or one that escapes the
  * base via `..` — so terminal output like `../../../etc/passwd` is NOT turned
- * into a clickable link (path-traversal guard). */
-function resolvePath(raw: string, getCwd?: () => string | null): string | null {
+ * into a clickable link (path-traversal guard).
+ *
+ * Resolution is plain segment arithmetic rather than `new URL(…, 'file://…')`
+ * for two reasons (WI-1.5 / T6):
+ *   - URL-based resolution produced a containment check of
+ *     `resolved.startsWith(base + '/')`, which for `base === "/"` demanded a
+ *     leading `//` and therefore rejected EVERY relative path once the shell
+ *     `cd`-ed to the filesystem root.
+ *   - URL normalization silently CLAMPS an over-long `..` run at the root
+ *     (`../etc/passwd` → `/etc/passwd`), which a containment check then waves
+ *     through. Counting net ascent refuses it explicitly instead. A path is
+ *     bytes, not a URL, so this also removes the percent-encode/decode dance
+ *     that `#`, `?`, spaces and CJK bases needed.
+ */
+export function resolvePath(raw: string, getCwd?: () => string | null): string | null {
   if (raw.startsWith("/")) return raw;
-  const clean = raw.replace(/^\.\//, '');
   // Live cwd wins over workspace root: a path like `./build/x.ts` is relative
   // to where the shell actually is, not where the workspace was opened.
-  const base = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
+  const rawBase = getCwd?.() ?? useWorkspaceStore.getState().rootPath;
   // No base to anchor a relative path → don't create a link we can't resolve.
-  if (!base) return null;
-  // Normalize to resolve .. segments. Decode the result before comparing: a
-  // base with spaces/CJK ("/Users/me/My Project") otherwise yields a
-  // percent-encoded pathname that would never match the raw base (false skip).
-  let resolved: string;
-  try {
-    // Percent-encode the URL-syntactic chars in both the base cwd and the
-    // relative segment so a path like "/tmp/a#b" isn't truncated at the fragment
-    // (mirrors the OSC 7 emitter); URL handles spaces/CJK, decode reverses both.
-    const enc = (s: string) => s.replace(/%/g, '%25').replace(/#/g, '%23').replace(/\?/g, '%3F');
-    resolved = decodeURIComponent(new URL(enc(clean), 'file://' + enc(base) + '/').pathname);
-  } catch {
-    return null; // malformed escape sequence — don't link it
+  if (!rawBase) return null;
+  const base = normalizeBase(rawBase);
+
+  // Walk the relative segments, tracking depth BELOW the base. A `..` with
+  // nothing left to pop means net ascent above the anchor → refuse.
+  const rel: string[] = [];
+  for (const seg of raw.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      if (rel.length === 0) return null;
+      rel.pop();
+      continue;
+    }
+    rel.push(seg);
   }
-  if (!resolved.startsWith(base + '/') && resolved !== base) return null;
-  return resolved;
+  if (rel.length === 0) return base;
+  // Keep the base's own prefix verbatim (it may be a Windows drive path), and
+  // avoid emitting a doubled separator when the base IS the root.
+  return base === "/" ? `/${rel.join("/")}` : `${base}/${rel.join("/")}`;
 }
 
 /**

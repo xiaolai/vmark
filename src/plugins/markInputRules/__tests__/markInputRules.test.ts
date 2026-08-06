@@ -315,12 +315,8 @@ describe("CJKBold extension", () => {
     expect(commands).toHaveProperty("unsetBold");
   });
 
-  it("defines keyboard shortcuts Mod-b and Mod-B", () => {
-    const shortcuts = CJKBold.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleBold: vi.fn() } },
-    } as never);
-    expect(shortcuts).toHaveProperty("Mod-b");
-    expect(shortcuts).toHaveProperty("Mod-B");
+  it("defines NO keyboard shortcuts — Mod-b is owned by editorKeymapExtension (consolidated)", () => {
+    expect(CJKBold.config.addKeyboardShortcuts).toBeUndefined();
   });
 
   it("defines two input rules (star and underscore)", () => {
@@ -377,12 +373,8 @@ describe("CJKItalic extension", () => {
     expect(commands).toHaveProperty("unsetItalic");
   });
 
-  it("defines keyboard shortcuts Mod-i and Mod-I", () => {
-    const shortcuts = CJKItalic.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleItalic: vi.fn() } },
-    } as never);
-    expect(shortcuts).toHaveProperty("Mod-i");
-    expect(shortcuts).toHaveProperty("Mod-I");
+  it("defines NO keyboard shortcuts — Mod-i is owned by editorKeymapExtension (consolidated)", () => {
+    expect(CJKItalic.config.addKeyboardShortcuts).toBeUndefined();
   });
 
   it("defines two input rules (star and underscore)", () => {
@@ -634,47 +626,10 @@ describe("CJKItalic command execution", () => {
   });
 });
 
-// --- Keyboard shortcut execution tests ---
-
-describe("CJKBold keyboard shortcut execution", () => {
-  it("Mod-b toggles bold", () => {
-    const mockToggleBold = vi.fn(() => true);
-    const shortcuts = CJKBold.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleBold: mockToggleBold } },
-    } as never);
-    shortcuts["Mod-b"]();
-    expect(mockToggleBold).toHaveBeenCalled();
-  });
-
-  it("Mod-B toggles bold", () => {
-    const mockToggleBold = vi.fn(() => true);
-    const shortcuts = CJKBold.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleBold: mockToggleBold } },
-    } as never);
-    shortcuts["Mod-B"]();
-    expect(mockToggleBold).toHaveBeenCalled();
-  });
-});
-
-describe("CJKItalic keyboard shortcut execution", () => {
-  it("Mod-i toggles italic", () => {
-    const mockToggleItalic = vi.fn(() => true);
-    const shortcuts = CJKItalic.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleItalic: mockToggleItalic } },
-    } as never);
-    shortcuts["Mod-i"]();
-    expect(mockToggleItalic).toHaveBeenCalled();
-  });
-
-  it("Mod-I toggles italic", () => {
-    const mockToggleItalic = vi.fn(() => true);
-    const shortcuts = CJKItalic.config.addKeyboardShortcuts!.call({
-      editor: { commands: { toggleItalic: mockToggleItalic } },
-    } as never);
-    shortcuts["Mod-I"]();
-    expect(mockToggleItalic).toHaveBeenCalled();
-  });
-});
+// Keyboard-shortcut execution tests removed: Mod-b/Mod-i are no longer bound by
+// these extensions (consolidated onto editorKeymapExtension, tested in
+// editorPlugins.tiptap.test.ts). The mark commands (toggleBold/toggleItalic) and
+// input rules remain covered above.
 
 // --- renderHTML with merged attributes ---
 

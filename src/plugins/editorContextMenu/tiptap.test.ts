@@ -13,8 +13,8 @@ vi.mock("./snapshot", () => ({ buildWysiwygSnapshot: mocks.buildWysiwygSnapshot 
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { handleEditorContextMenu, isPosInTable } from "./tiptap";
-import { usePopupStore } from "@/stores/popupStore";
-import { initialEditorContextMenu } from "@/stores/popupStore/slices";
+import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 
 const schema = new Schema({
   nodes: {
@@ -72,8 +72,10 @@ function contextMenuEvent(overrides: Partial<MouseEvent> = {}): MouseEvent {
 }
 
 beforeEach(() => {
+  // These read/write the REAL stores through the seams, so bind them.
+  bindPluginHostSettings();
   vi.clearAllMocks();
-  usePopupStore.setState({ editorContextMenu: initialEditorContextMenu });
+  useEditorContextMenuStore.setState(useEditorContextMenuStore.getInitialState());
 });
 
 describe("handleEditorContextMenu — precedence guards", () => {
@@ -82,7 +84,7 @@ describe("handleEditorContextMenu — precedence guards", () => {
     const event = contextMenuEvent();
     event.preventDefault();
     expect(handleEditorContextMenu(view as never, event)).toBe(false);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("bails on image targets (image menu owns them)", () => {
@@ -120,8 +122,8 @@ describe("handleEditorContextMenu — selection rule and opening", () => {
     expect(handleEditorContextMenu(view as never, event)).toBe(true);
     expect(event.defaultPrevented).toBe(true);
     expect(view.state.selection.from).toBe(8);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(true);
-    expect(usePopupStore.getState().editorContextMenu.position).toEqual({ x: 100, y: 200 });
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(true);
+    expect(useEditorContextMenuStore.getState().position).toEqual({ x: 100, y: 200 });
   });
 
   it("preserves a selection when the click lands inside it", () => {
@@ -138,6 +140,6 @@ describe("handleEditorContextMenu — selection rule and opening", () => {
     const view = createView(createState(), 3);
     handleEditorContextMenu(view as never, contextMenuEvent());
     expect(mocks.buildWysiwygSnapshot).toHaveBeenCalled();
-    expect(usePopupStore.getState().editorContextMenu.snapshot).toEqual({ surface: "wysiwyg" });
+    expect(useEditorContextMenuStore.getState().snapshot).toEqual({ surface: "wysiwyg" });
   });
 });

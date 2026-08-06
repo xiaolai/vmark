@@ -79,4 +79,4 @@ export function resolveDefaultSaveFolder(input: DefaultSaveFolderInput): string 
 }
 
 // Note: The async wrapper getDefaultSaveFolderWithFallback is now in
-// @/hooks/useDefaultSaveFolder. Import from there for Tauri/store integration.
+// @/services/files/defaultSaveFolder. Import from there for Tauri/store integration.

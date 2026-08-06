@@ -1,3 +1,4 @@
+import { bindHostSearch } from "@/plugins/shared/hostSearch";
 /**
  * Search replace staleness tests (Codex audit finding 7).
  *
@@ -37,16 +38,13 @@ const mockSearchState = {
   findNext: vi.fn(),
 };
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => ({
-      search: mockSearchState,
-      searchSetMatches: mockSearchState.setMatches,
-      searchFindNext: mockSearchState.findNext,
-    }),
-    subscribe: () => () => {},
-  },
-}));
+// The find bar arrives through the plugins' host seam now (ADR-015); binding
+// it is what the app does at its composition root.
+bindHostSearch({
+  current: () => mockSearchState as never,
+  reportMatches: (c, i) => mockSearchState.setMatches(c, i),
+  findNext: () => mockSearchState.findNext(),
+});
 
 import { searchExtension } from "../tiptap";
 

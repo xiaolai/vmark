@@ -33,6 +33,15 @@ export interface EditorAreaProps {
   panel?: ReactNode;
   /** Where the panel sits relative to the editor. */
   panelPosition: PanelPosition;
+  /**
+   * Optional full-height right-docked surface (Knowledge Base today).
+   *
+   * Separate from `panel` so it composes with the terminal at any
+   * `panelPosition` instead of competing for the same slot. Docking here makes
+   * such a panel DISPLACE the editor; rendering it as a `position: fixed`
+   * overlay instead would occlude the document underneath it.
+   */
+  sidePanel?: ReactNode;
 }
 
 export function EditorArea({
@@ -40,6 +49,7 @@ export function EditorArea({
   bottomBar,
   panel,
   panelPosition,
+  sidePanel,
 }: EditorAreaProps) {
   const { t } = useTranslation();
 
@@ -47,7 +57,7 @@ export function EditorArea({
   const horizontal = panelPosition === "left" || panelPosition === "right";
   const panelFirst = panelPosition === "top" || panelPosition === "left";
 
-  return (
+  const panelAxis = (
     <div
       style={{
         flex: 1,
@@ -88,6 +98,25 @@ export function EditorArea({
         </div>
       </div>
       {!panelFirst && panel}
+    </div>
+  );
+
+  // Only wrap when a side dock exists, so the DOM (and the panel-positioning
+  // contract above) is byte-identical for every window that has none.
+  if (!sidePanel) return panelAxis;
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "row",
+        minHeight: 0,
+        minWidth: 0,
+      }}
+    >
+      {panelAxis}
+      {sidePanel}
     </div>
   );
 }

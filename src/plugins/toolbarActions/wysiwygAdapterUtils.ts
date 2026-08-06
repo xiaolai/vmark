@@ -11,10 +11,9 @@
  * @module plugins/toolbarActions/wysiwygAdapterUtils
  */
 import type { EditorView } from "@tiptap/pm/view";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
+import { hostDocument, activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
 import { wysiwygAdapterError } from "@/utils/debug";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
@@ -36,10 +35,7 @@ export function isViewConnected(view: EditorView): boolean {
  */
 export function getActiveFilePath(): string | null {
   try {
-    const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-    if (!tabId) return null;
-    return useDocumentStore.getState().getDocument(tabId)?.filePath ?? null;
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }
@@ -49,14 +45,21 @@ export function getActiveFilePath(): string | null {
  * Get serialization options (line break preservation and hard break style)
  * based on current document and settings.
  */
-export function getSerializeOptions(): { preserveLineBreaks: boolean; hardBreakStyle: "twoSpaces" | "backslash" } {
+export function getSerializeOptions(): {
+  preserveLineBreaks: boolean;
+  preserveBlankLines: boolean;
+  hardBreakStyle: "twoSpaces" | "backslash";
+} {
   const windowLabel = getWindowLabel();
-  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-  const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : null;
-  const preserveLineBreaks = useSettingsStore.getState().markdown.preserveLineBreaks;
-  const hardBreakStyleOnSave = useSettingsStore.getState().markdown.hardBreakStyleOnSave;
-  const hardBreakStyle = resolveHardBreakStyle(doc?.hardBreakStyle ?? "unknown", hardBreakStyleOnSave);
-  return { preserveLineBreaks, hardBreakStyle };
+  const hardBreakStyle = resolveHardBreakStyle(
+    hostDocument.activeHardBreakStyle(windowLabel),
+    hostSettings.hardBreakStyleOnSave()
+  );
+  return {
+    preserveLineBreaks: hostSettings.preserveLineBreaks(),
+    preserveBlankLines: hostSettings.preserveBlankLines(),
+    hardBreakStyle,
+  };
 }
 
 /**

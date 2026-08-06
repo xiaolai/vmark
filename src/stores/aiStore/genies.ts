@@ -90,11 +90,14 @@ export const useGeniesStore = create<GeniesState & GeniesActions>()(
               const content: GenieContent = await invoke("read_genie", {
                 path: entry.path,
               });
+              // The category falls back file → directory → none, and "none" is
+              // the ABSENCE of a category rather than a stated empty one, so
+              // an uncategorised genie carries no key at all.
+              const { category: fileCategory, ...metadataRest } = content.metadata;
+              const category = fileCategory ?? entry.category ?? undefined;
               genies.push({
-                metadata: {
-                  ...content.metadata,
-                  category: content.metadata.category ?? entry.category ?? undefined,
-                },
+                metadata:
+                  category !== undefined ? { ...metadataRest, category } : metadataRest,
                 template: content.template,
                 filePath: entry.path,
                 source: "global",

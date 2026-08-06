@@ -150,3 +150,85 @@ describe("sourcePeekStore", () => {
     });
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("sourcePeekStore — T09 revert contract pins", () => {
+  const initialData = {
+    isOpen: false,
+    editingPos: null,
+    range: null,
+    markdown: "",
+    originalMarkdown: null,
+    savedMarkdown: null,
+    livePreview: false,
+    parseError: null,
+    hasUnsavedChanges: false,
+    blockTypeName: null,
+  };
+
+  function dataOf(s: ReturnType<typeof useSourcePeekStore.getState>) {
+    const {
+      isOpen, editingPos, range, markdown, originalMarkdown, savedMarkdown,
+      livePreview, parseError, hasUnsavedChanges, blockTypeName,
+    } = s;
+    return {
+      isOpen, editingPos, range, markdown, originalMarkdown, savedMarkdown,
+      livePreview, parseError, hasUnsavedChanges, blockTypeName,
+    };
+  }
+
+  it("no leak across sessions: edit + save in A → close → open B is a fresh baseline", () => {
+    useSourcePeekStore.getState().open(samplePayload);
+    useSourcePeekStore.getState().setMarkdown("A edited");
+    useSourcePeekStore.getState().markSaved();
+    useSourcePeekStore.getState().close();
+
+    useSourcePeekStore.getState().open({
+      markdown: "B content",
+      range: { from: 5, to: 9 },
+      blockTypeName: "paragraph",
+    });
+
+    expect(dataOf(useSourcePeekStore.getState())).toEqual({
+      ...initialData,
+      isOpen: true,
+      editingPos: 5,
+      range: { from: 5, to: 9 },
+      markdown: "B content",
+      originalMarkdown: "B content",
+      savedMarkdown: "B content",
+      blockTypeName: "paragraph",
+    });
+  });
+
+  it("setMarkdown while closed still mutates and reads dirty against a null baseline (pinned legacy behavior)", () => {
+    useSourcePeekStore.getState().setMarkdown("closed edit");
+    const state = useSourcePeekStore.getState();
+    expect(state.markdown).toBe("closed edit");
+    expect(state.hasUnsavedChanges).toBe(true);
+    expect(state.isOpen).toBe(false);
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useSourcePeekStore.getState().open({ markdown: `m${i}`, range: { from: i, to: i + 1 } });
+      useSourcePeekStore.getState().close();
+    }
+    expect(dataOf(useSourcePeekStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useSourcePeekStore.getState().open(samplePayload);
+      useSourcePeekStore.getState().setMarkdown("mutated");
+      expect(dataOf(useSourcePeekStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useSourcePeekStore.getState().open(samplePayload);
+      useSourcePeekStore.setState(useSourcePeekStore.getInitialState());
+      expect(dataOf(useSourcePeekStore.getState())).toEqual(initialData);
+    });
+  });
+});

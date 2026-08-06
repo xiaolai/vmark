@@ -11,9 +11,15 @@ import { axe } from "vitest-axe";
 
 const AXE_OPTS = { rules: { "color-contrast": { enabled: false } } };
 
+// OutlineView reads the window label for per-instance outline state (WI-9.3).
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => "main",
+}));
+
 // Empty document → no headings → the simplest complementary-landmark branch.
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentContent: () => "",
+  useDocumentFilePath: () => null,
 }));
 
 import { OutlineView } from "./OutlineView";

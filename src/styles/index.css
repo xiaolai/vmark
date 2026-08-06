@@ -43,6 +43,12 @@
   /* UI chrome */
   --sidebar-bg: #e5e4e4;
   --outline-width: 200px;
+  /* Static default; App.tsx overrides it on the shell root from
+     WORKSPACE_RAIL_WIDTH, which stays the source of truth because the rail's
+     width also feeds layout arithmetic in TS. Declared here so consumers that
+     use it WITHOUT a fallback (title-bar.css) still resolve, and so the value is
+     visible to anyone reading the token file. */
+  --workspace-rail-width: 30px;
   --border-color: #d5d4d4;
   --table-border-color: #d5d4d4;
   --selection-color: rgba(0, 102, 204, 0.2);
@@ -60,6 +66,17 @@
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-pill: 100px;
+
+  /* Semantic spacing — the family .claude/rules/31-design-tokens.md mandates
+     for padding/margin/gap. These were documented (and referenced by the
+     PRIMITIVES comment below) but never actually declared, so every reference
+     to them resolved to nothing and CSS dropped the whole
+     declaration: 133 padding/margin/gap rules across 13 components silently
+     did nothing, which is why panels rendered with their content flush to the
+     edge. Aliased onto the primitive scale so the two layers cannot drift. */
+  --spacing-1: var(--space-1); /* 4px */
+  --spacing-2: var(--space-2); /* 8px */
+  --spacing-3: var(--space-3); /* 12px */
 
   /* Popup shared tokens (format toolbar, source popup, etc.) */
   --popup-padding: 6px;

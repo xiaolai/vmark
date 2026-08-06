@@ -18,7 +18,7 @@
 
 .gha-panel-shell__pane--left {
   flex: 0 0 auto;
-  border-right: var(--space-px) solid var(--border-color);
+  border-right: var(--border-thin) solid var(--border-color);
 }
 
 .gha-panel-shell__pane--right {

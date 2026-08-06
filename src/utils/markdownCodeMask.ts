@@ -81,7 +81,16 @@ export function buildCodeMask(markdown: string): Uint8Array {
 
       if (!inFencedCodeBlock) {
         const openMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
-        if (openMatch) {
+        // CommonMark: a backtick fence's info string may not contain a
+        // backtick — "```foo`" is prose, and treating it as an opener
+        // mis-masks everything after it.
+        if (
+          openMatch &&
+          !(
+            openMatch[1][0] === "`" &&
+            line.slice(openMatch[0].length).includes("`")
+          )
+        ) {
           inFencedCodeBlock = true;
           fencedChar = openMatch[1][0] as "`" | "~";
           fencedLen = openMatch[1].length;
@@ -90,9 +99,12 @@ export function buildCodeMask(markdown: string): Uint8Array {
           continue;
         }
       } else {
-        // Check for closing fence: same char, >= same count
+        // Check for closing fence: same char, >= same count. CommonMark
+        // allows ONLY trailing whitespace after the closing run — a
+        // "``` x" line is content, not a closer (accepting it
+        // under-masked everything after it).
         const closeRe = new RegExp(
-          `^ {0,3}\\${fencedChar}{${fencedLen},}(?:\\s|$)`
+          `^ {0,3}\\${fencedChar}{${fencedLen},}[ \\t]*\\r?$`
         );
         if (closeRe.test(line)) {
           inFencedCodeBlock = false;

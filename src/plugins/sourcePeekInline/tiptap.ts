@@ -17,7 +17,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { useSourcePeekStore } from "@/stores/sourcePeekStore";
+import { peekStore } from "./peekStore";
 import { applySourcePeekMarkdown, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 import { createEditHeader } from "./sourcePeekHeader";
 import { createCodeMirrorEditor, cleanupCMView } from "./sourcePeekEditor";
@@ -50,7 +50,7 @@ export const sourcePeekInlineExtension = Extension.create({
             return { decorations: DecorationSet.empty, editingPos: null };
           },
           apply(tr, state, _oldState, newState): SourcePeekPluginState {
-            const store = useSourcePeekStore.getState();
+            const store = peekStore().getState();
             const { isOpen, range, markdown, blockTypeName, hasUnsavedChanges, livePreview } = store;
 
             const editingChanged = tr.getMeta(EDITING_STATE_CHANGED);
@@ -93,7 +93,7 @@ export const sourcePeekInlineExtension = Extension.create({
                   () => revertAndCloseSourcePeek(view),
                   () => commitSourcePeek(view),
                   () => {
-                    useSourcePeekStore.getState().toggleLivePreview();
+                    peekStore().getState().toggleLivePreview();
                     // Rebuild decorations
                     const tr = view.state.tr.setMeta(EDITING_STATE_CHANGED, true);
                     view.dispatch(tr);
@@ -108,17 +108,17 @@ export const sourcePeekInlineExtension = Extension.create({
                   () => commitSourcePeek(view),
                   () => revertAndCloseSourcePeek(view),
                   (newMarkdown) => {
-                    useSourcePeekStore.getState().setMarkdown(newMarkdown);
+                    peekStore().getState().setMarkdown(newMarkdown);
 
                     // Live preview: apply changes immediately
-                    if (useSourcePeekStore.getState().livePreview) {
-                      const currentRange = useSourcePeekStore.getState().range;
+                    if (peekStore().getState().livePreview) {
+                      const currentRange = peekStore().getState().range;
                       if (currentRange) {
                         const options = getMarkdownOptions();
                         applySourcePeekMarkdown(view, currentRange, newMarkdown, options);
                         // Update range after apply (content may have changed size)
                         const newRange = getExpandedSourcePeekRange(view.state);
-                        useSourcePeekStore.setState({ range: newRange });
+                        peekStore().setState({ range: newRange });
                       }
                     }
                   }

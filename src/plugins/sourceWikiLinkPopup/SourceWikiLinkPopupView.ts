@@ -9,8 +9,8 @@ import type { EditorView } from "@codemirror/view";
 import { open } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { sourceActionError } from "@/utils/debug";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { IMAGE_EXTENSIONS } from "@/utils/mediaExtensions";
@@ -31,14 +31,12 @@ function buildSourceWikiLinkBtn(iconSvg: string, title: string, onClick: () => v
  * Source wiki link popup view.
  * Extends the base SourcePopupView for common functionality.
  */
-type WikiLinkPopupStoreState = ReturnType<typeof useWikiLinkPopupStore.getState>;
-
-export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreState> {
+export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState> {
   // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
   private declare targetInput: HTMLInputElement;
   private declare openBtn: HTMLElement;
 
-  constructor(view: EditorView, store: StoreApi<WikiLinkPopupStoreState>) {
+  constructor(view: EditorView, store: StoreApi<WikiLinkPopupState>) {
     super(view, store);
   }
 
@@ -76,7 +74,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 340,
       height: 40,
@@ -85,7 +83,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
     };
   }
 
-  protected onShow(state: WikiLinkPopupStoreState): void {
+  protected onShow(state: WikiLinkPopupState): void {
     // Set input values from store
     this.targetInput.value = state.target;
 
@@ -120,12 +118,12 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
 
   private handleTargetInput(): void {
     const target = this.targetInput.value;
-    useWikiLinkPopupStore.getState().updateTarget(target);
+    this.store.getState().updateTarget(target);
     this.updateOpenButtonState(target);
   }
 
   private handleSave(): void {
-    const { target } = useWikiLinkPopupStore.getState();
+    const { target } = this.store.getState();
 
     if (!target.trim()) {
       // Empty target - remove the wiki link
@@ -133,7 +131,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
       return;
     }
 
-    saveWikiLinkChanges(this.editorView);
+    saveWikiLinkChanges(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }
@@ -152,11 +150,11 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
 
       if (!selected || Array.isArray(selected)) return;
 
-      const { rootPath } = useWorkspaceStore.getState();
+      const rootPath = hostDocument.workspaceRoot();
       const target = pathToWikiTarget(selected, rootPath);
 
       this.targetInput.value = target;
-      useWikiLinkPopupStore.getState().updateTarget(target);
+      this.store.getState().updateTarget(target);
       this.updateOpenButtonState(target);
 
       this.targetInput.focus();
@@ -166,15 +164,15 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupStoreS
   }
 
   private handleOpen(): void {
-    openWikiLink();
+    openWikiLink(this.store);
   }
 
   private handleCopy(): void {
-    copyWikiLinkTarget();
+    copyWikiLinkTarget(this.store);
   }
 
   private handleRemove(): void {
-    removeWikiLink(this.editorView);
+    removeWikiLink(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }

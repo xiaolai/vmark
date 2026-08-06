@@ -9,11 +9,9 @@
 
 import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { useSourcePeekStore } from "@/stores/sourcePeekStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { useUnifiedHistoryStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { peekStore } from "./peekStore";
+import { hostSettings } from "@/plugins/shared/hostSettings";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { applySourcePeekMarkdown, serializeSourcePeekRange, getExpandedSourcePeekRange } from "@/services/editor/sourcePeek";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
@@ -38,23 +36,20 @@ export const EDITING_STATE_CHANGED = "sourcePeekEditingChanged";
 /**
  * Get current tab ID for unified history.
  */
-function getCurrentTabId(): string | null {
-  const windowLabel = getCurrentWebviewWindow().label;
-  return useTabStore.getState().activeTabId[windowLabel] ?? null;
+function currentWindow(): string {
+  return getCurrentWebviewWindow().label;
 }
 
 /**
  * Get markdown pipeline options.
  */
 export function getMarkdownOptions() {
-  const settings = useSettingsStore.getState();
-  const tabId = getCurrentTabId();
-  const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : null;
+  const windowLabel = currentWindow();
   return {
-    preserveLineBreaks: settings.markdown.preserveLineBreaks,
+    preserveLineBreaks: hostSettings.preserveLineBreaks(),
     hardBreakStyle: resolveHardBreakStyle(
-      doc?.hardBreakStyle ?? "unknown",
-      settings.markdown.hardBreakStyleOnSave
+      hostDocument.activeHardBreakStyle(windowLabel),
+      hostSettings.hardBreakStyleOnSave()
     ),
   };
 }
@@ -72,6 +67,17 @@ export function canUseSourcePeek(typeName: string): boolean {
  * Creates a checkpoint in unified history for revert.
  * Returns false if the block type is excluded from Source Peek.
  */
+/**
+ * Whether an inline Source Peek is currently open.
+ *
+ * Exported so the editor keymap can ask without importing the store itself —
+ * Escape and the sourcePeek chord both need "is it open?" to decide between
+ * closing this and falling through (ADR-015).
+ */
+export function isSourcePeekOpen(): boolean {
+  return peekStore().getState().isOpen;
+}
+
 export function openSourcePeekInline(view: EditorView): boolean {
   const range = getExpandedSourcePeekRange(view.state);
 
@@ -88,19 +94,14 @@ export function openSourcePeekInline(view: EditorView): boolean {
   const markdown = serializeSourcePeekRange(view.state, range, options);
 
   // Create checkpoint in unified history
-  const tabId = getCurrentTabId();
-  if (tabId) {
-    /* v8 ignore next -- @preserve reason: missing document content is an untested edge case */
-    const docContent = useDocumentStore.getState().getDocument(tabId)?.content ?? "";
-    useUnifiedHistoryStore.getState().createCheckpoint(tabId, {
-      markdown: docContent,
-      mode: "wysiwyg",
-      cursorInfo: null,
-    });
-  }
+  const windowLabel = currentWindow();
+  hostDocument.checkpoint(windowLabel, {
+    markdown: hostDocument.activeContent(windowLabel),
+    mode: "wysiwyg",
+  });
 
   // Open the store
-  useSourcePeekStore.getState().open({
+  peekStore().getState().open({
     markdown,
     range,
     blockTypeName,
@@ -117,7 +118,7 @@ export function openSourcePeekInline(view: EditorView): boolean {
  * Commit changes and close Source Peek.
  */
 export function commitSourcePeek(view: EditorView): void {
-  const store = useSourcePeekStore.getState();
+  const store = peekStore().getState();
   const { markdown, range, originalMarkdown } = store;
 
   if (!range) return;
@@ -159,7 +160,7 @@ export function commitSourcePeek(view: EditorView): void {
  * Revert to original content and close Source Peek.
  */
 export function revertAndCloseSourcePeek(view: EditorView): void {
-  const store = useSourcePeekStore.getState();
+  const store = peekStore().getState();
 
   // Just close - no changes applied
   store.close();

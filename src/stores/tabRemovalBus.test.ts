@@ -24,8 +24,8 @@ describe("tabRemovalBus (#1081)", () => {
     const offA = onTabRemoved(a);
     const offB = onTabRemoved(b);
     notifyTabRemoved("w", "t");
-    expect(a).toHaveBeenCalledWith("w", "t");
-    expect(b).toHaveBeenCalledWith("w", "t");
+    expect(a).toHaveBeenCalledWith("w", "t", undefined);
+    expect(b).toHaveBeenCalledWith("w", "t", undefined);
     offA();
     offB();
   });

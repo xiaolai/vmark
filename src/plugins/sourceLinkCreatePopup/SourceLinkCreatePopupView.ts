@@ -12,10 +12,10 @@
  */
 
 import type { EditorView } from "@codemirror/view";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { sourceActionError } from "@/utils/debug";
 import { encodeMarkdownUrl, urlNeedsBrackets } from "@/utils/markdownUrl";
 import { SourcePopupView, type PopupStoreBase } from "@/plugins/sourcePopup/SourcePopupView";
+import type { StoreApi } from "@/plugins/shared/types";
 import {
   LinkCreateFlow,
   getLinkCreatePopupDimensions,
@@ -23,21 +23,25 @@ import {
 } from "@/plugins/linkCreatePopup/linkCreateController";
 
 /** Link create popup store state (extends base with creation-specific fields) */
-type LinkCreatePopupState = PopupStoreBase & LinkCreateFlowState;
+/** The popup state this view needs — the plugin's PORT (ADR-015). */
+export type LinkCreatePopupState = PopupStoreBase & LinkCreateFlowState;
 
 /**
  * Source link create popup view - manages the floating popup UI for creating links.
  */
 export class SourceLinkCreatePopupView extends SourcePopupView<LinkCreatePopupState> {
-  private flow = new LinkCreateFlow(this.container, useLinkCreatePopupStore, {
-    commitLink: (finalUrl, linkText, state) => this.commitLink(finalUrl, linkText, state),
-    closePopup: () => this.closePopup(),
-    focusEditor: () => this.focusEditor(),
-    onError: (error) => sourceActionError("Save failed:", error),
-  });
+  // Built in the CONSTRUCTOR: it needs the store that arrives as a parameter,
+  // which a field initializer cannot see.
+  private flow: LinkCreateFlow;
 
-  constructor(view: EditorView) {
-    super(view, useLinkCreatePopupStore);
+  constructor(view: EditorView, store: StoreApi<LinkCreatePopupState>) {
+    super(view, store);
+    this.flow = new LinkCreateFlow(this.container, store, {
+      commitLink: (finalUrl, linkText, state) => this.commitLink(finalUrl, linkText, state),
+      closePopup: () => this.closePopup(),
+      focusEditor: () => this.focusEditor(),
+      onError: (error) => sourceActionError("Save failed:", error),
+    });
   }
 
   protected buildContainer(): HTMLElement {
@@ -47,7 +51,7 @@ export class SourceLinkCreatePopupView extends SourcePopupView<LinkCreatePopupSt
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return getLinkCreatePopupDimensions(this.store.getState().showTextInput);
   }
 

@@ -12,18 +12,19 @@ vi.mock("sonner", () => ({
     dismiss: vi.fn(),
   },
 }));
-vi.mock("@/plugins/editorPlugins.tiptap", () => ({
-  expandedToggleMarkTiptap: vi.fn(() => true),
+vi.mock("@/plugins/editorPlugins/expandedToggleMark", () => ({
+  expandedToggleMark: vi.fn(() => true),
 }));
 vi.mock("@/plugins/formatToolbar/nodeActions.tiptap", () => ({
-  handleBlockquoteNest: vi.fn(),
-  handleBlockquoteUnnest: vi.fn(),
-  handleRemoveBlockquote: vi.fn(),
-  handleListIndent: vi.fn(),
-  handleListOutdent: vi.fn(),
-  handleRemoveList: vi.fn(),
-  handleToBulletList: vi.fn(),
-  handleToOrderedList: vi.fn(),
+  // Handlers return real command booleans (B2); mock the success case.
+  handleBlockquoteNest: vi.fn(() => true),
+  handleBlockquoteUnnest: vi.fn(() => true),
+  handleRemoveBlockquote: vi.fn(() => true),
+  handleListIndent: vi.fn(() => true),
+  handleListOutdent: vi.fn(() => true),
+  handleRemoveList: vi.fn(() => true),
+  handleToBulletList: vi.fn(() => true),
+  handleToOrderedList: vi.fn(() => true),
 }));
 vi.mock("@/plugins/tableUI/tableActions.tiptap", () => ({
   addColLeft: vi.fn(() => true),
@@ -37,10 +38,10 @@ vi.mock("@/plugins/tableUI/tableActions.tiptap", () => ({
   formatTable: vi.fn(() => true),
 }));
 vi.mock("@/plugins/footnotePopup/tiptapInsertFootnote", () => ({
-  insertFootnoteAndOpenPopup: vi.fn(),
+  insertFootnoteAndOpenPopup: vi.fn(() => true),
 }));
 vi.mock("@/plugins/taskToggle/tiptapTaskListUtils", () => ({
-  toggleTaskList: vi.fn(),
+  toggleTaskList: vi.fn(() => true),
 }));
 vi.mock("@/plugins/toolbarActions/tiptapSelectionActions", () => ({
   selectWordInView: vi.fn(() => true),
@@ -62,20 +63,23 @@ vi.mock("./wysiwygAdapterLinks", () => ({
 }));
 vi.mock("./wysiwygAdapterFormatting", () => ({
   clearFormattingInView: vi.fn(() => true),
-  increaseHeadingLevel: vi.fn(() => true),
-  decreaseHeadingLevel: vi.fn(() => true),
   toggleBlockquote: vi.fn(() => true),
   handleWysiwygTransformCase: vi.fn(() => true),
   toggleQuoteStyleAtCursor: vi.fn(() => true),
 }));
+vi.mock("./wysiwygHeadingLevel", () => ({ increaseHeadingLevel: vi.fn(() => true), decreaseHeadingLevel: vi.fn(() => true) }));
 vi.mock("./wysiwygAdapterInsert", () => ({
   handleInsertImage: vi.fn(() => true),
   handleInsertVideo: vi.fn(() => true),
   handleInsertAudio: vi.fn(() => true),
-  insertMathBlock: vi.fn(() => true),
-  insertDiagramBlock: vi.fn(() => true),
-  insertMarkmapBlock: vi.fn(() => true),
   insertInlineMath: vi.fn(() => true),
+}));
+vi.mock("./wysiwygAdapterBlockInsert", () => ({  // own module since the parity fixes
+  insertMathBlock: vi.fn(() => true), insertDiagramBlock: vi.fn(() => true),
+  insertGraphvizBlock: vi.fn(() => true), insertMarkmapBlock: vi.fn(() => true),
+}));
+vi.mock("./wysiwygAdapterCodeBlock", () => ({
+  handleInsertCodeBlock: vi.fn(() => true),
 }));
 vi.mock("./wysiwygAdapterLinkEditor", () => ({
   openLinkEditor: vi.fn(() => true),
@@ -107,22 +111,22 @@ const baseContext: WysiwygToolbarContext = {
   context: null,
 };
 
+/** A chainable editor-command stub. */
+const link = () => vi.fn().mockReturnThis();
+
 function createMockEditor(overrides?: Record<string, unknown>) {
   return {
     commands: {
       undo: vi.fn(() => true),
       redo: vi.fn(() => true),
-      insertAlertBlock: vi.fn(),
-      insertDetailsBlock: vi.fn(),
+      insertAlertBlock: vi.fn(() => true),
+      insertDetailsBlock: vi.fn(() => true),
     },
-    chain: vi.fn().mockReturnThis(),
-    focus: vi.fn().mockReturnThis(),
-    setParagraph: vi.fn().mockReturnThis(),
-    setHeading: vi.fn().mockReturnThis(),
-    setCodeBlock: vi.fn().mockReturnThis(),
-    setHorizontalRule: vi.fn().mockReturnThis(),
-    insertTable: vi.fn().mockReturnThis(),
-    run: vi.fn().mockReturnThis(),
+    chain: link(), focus: link(), setParagraph: link(), setHeading: link(), setCodeBlock: link(),
+    setHorizontalRule: link(), insertTable: link(), insertContentAt: link(), setTextSelection: link(),
+    // Divider/table read the selection to place the block AFTER the current one.
+    state: { selection: { $from: { depth: 0 }, $to: { pos: 0 } } },
+    run: vi.fn(() => true),
     ...overrides,
   } as unknown as TiptapEditor;
 }
@@ -159,7 +163,7 @@ describe("performWysiwygToolbarAction", () => {
     };
 
     for (const [action, alertType] of Object.entries(actions)) {
-      const insertAlertBlock = vi.fn();
+      const insertAlertBlock = vi.fn(() => true);
       const editor = { commands: { insertAlertBlock } } as unknown as TiptapEditor;
       const applied = performWysiwygToolbarAction(action, {
         ...baseContext,
@@ -232,19 +236,29 @@ describe("performWysiwygToolbarAction", () => {
     expect(result).toBe(false);
   });
 
-  it("returns false for insertCodeBlock without editor", () => {
-    const result = performWysiwygToolbarAction("insertCodeBlock", baseContext);
-    expect(result).toBe(false);
+  it("delegates insertCodeBlock to handleInsertCodeBlock", async () => {
+    const { handleInsertCodeBlock } = await import("./wysiwygAdapterCodeBlock");
+    const context = { ...baseContext, editor: createMockEditor() };
+    const result = performWysiwygToolbarAction("insertCodeBlock", context);
+    expect(result).toBe(true);
+    expect(handleInsertCodeBlock).toHaveBeenCalledWith(context);
   });
 
-  it("inserts code block with editor", () => {
-    const editor = createMockEditor();
-    const result = performWysiwygToolbarAction("insertCodeBlock", {
-      ...baseContext,
-      editor,
-    });
+  it("delegates insertGraphvizDiagram to insertGraphvizBlock", async () => {
+    const { insertGraphvizBlock } = await import("./wysiwygAdapterBlockInsert");
+    const context = { ...baseContext, editor: createMockEditor() };
+    const result = performWysiwygToolbarAction("insertGraphvizDiagram", context);
     expect(result).toBe(true);
-    expect(editor.chain).toHaveBeenCalled();
+    expect(insertGraphvizBlock).toHaveBeenCalledWith(context);
+  });
+
+  it("rejects non-integer and out-of-range heading levels", () => {
+    const editor = createMockEditor();
+    const context = { ...baseContext, editor };
+    for (const bad of [-1, 7, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(setWysiwygHeadingLevel(context, bad)).toBe(false);
+    }
+    expect(editor.chain).not.toHaveBeenCalled();
   });
 
   it("returns false for insertDivider without editor", () => {

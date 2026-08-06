@@ -23,9 +23,8 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { needsBootstrap } from "@/services/persistence/workspaceBootstrap";
 import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
-import { findExistingTabForPath } from "@/hooks/useReplaceableTab";
+import { findExistingTabForPath } from "@/services/tabs/replaceableTab";
 import { workspaceWarn, workspaceError } from "@/utils/debug";
 
 /**
@@ -96,8 +95,10 @@ export function useWorkspaceBootstrap() {
         const tabId = useTabStore.getState().createTab(windowLabel, filePath);
         try {
           // WI-2.6 — registry handles YAML routing; bandaid retired.
-          useDocumentStore.getState().initDocument(tabId, content, filePath);
-          useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
+          // The disk-open door canonicalises AND derives line metadata.
+          useDocumentStore
+            .getState()
+            .ingestExternalContent(tabId, content, "disk-open", { filePath });
         } catch (error) {
           // The file read fine — this is a real failure after the tab exists.
           // Roll the tab back rather than leaving an orphan with no document,

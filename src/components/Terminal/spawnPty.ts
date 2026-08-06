@@ -19,7 +19,14 @@
  *     generic "unknown terminal" path. The impersonation is kept honest by
  *     terminalKeyHandler.ts, which translates Shift+Enter into the matching
  *     CSI-u sequence ("\x1b[13;2u") that real WezTerm sends.
- *   - Sets EDITOR=vmark so $EDITOR-aware CLI tools open files back in VMark.
+ *   - Does NOT set EDITOR (T1/D1). It used to be forced to "vmark" on every
+ *     platform, which could never work: the `vmark` shim is opt-in, macOS-only
+ *     and admin-gated, so the default state is `vmark: command not found`; and
+ *     even when installed the shim runs `open -b app.vmark "$@"` without `-W`,
+ *     so it returns immediately and `git commit` aborts with "empty commit
+ *     message". Leaving EDITOR unset lets the value from the user's login shell
+ *     rc win. Restoring it requires a real blocking `vmark --wait` protocol
+ *     (an IPC handshake, VS Code's `code --wait` design) — tracked separately.
  *   - Injects login shell PATH via get_login_shell_path Tauri command so CLI
  *     tools (node, claude, etc.) are discoverable — macOS GUI apps have minimal
  *     PATH by default. Fallback PATH is platform-aware (Windows vs Unix).
@@ -50,7 +57,8 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getParentDir } from "@/utils/paths/paths";
-import { resolveLoginShellPath, buildShellEnv } from "./terminalSpawnEnv";
+import { terminalLog } from "@/utils/debug";
+import { resolveLoginShellPath, buildShellSpawnConfig } from "./terminalSpawnEnv";
 
 /**
  * Resolve terminal working directory:
@@ -203,7 +211,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     // Impersonate WezTerm so CLI tools with terminal allowlists (Claude Code's
     // /terminal-setup, etc.) recognize the host. See ADR-006. Do NOT change to "vmark".
     TERM_PROGRAM: "WezTerm",
-    EDITOR: "vmark",
+    // NOTE: EDITOR is deliberately absent — see the header's "Key decisions".
     // macOS GUI apps launched from Dock/Spotlight have minimal environment —
     // set UTF-8 encoding so the shell and tools handle CJK/multibyte correctly.
     // LC_CTYPE (not LANG) to only affect encoding without overriding the user's locale.
@@ -215,6 +223,12 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   if (workspaceRoot) {
     env.VMARK_WORKSPACE = workspaceRoot;
   }
+  // Observability (T1): make "why doesn't `git commit` open VMark?" answerable
+  // from a dev-mode log instead of guesswork. Once per session, not per bell.
+  terminalLog(
+    "EDITOR not set: the vmark shim is opt-in/macOS-only and does not block, " +
+      "so forcing it would break $EDITOR-aware tools. Inheriting the shell's own value.",
+  );
 
   // Shell integration (WI-3.1): inject OSC 133 command marks + OSC 7 cwd via a
   // per-shell rc. The overrides are SHELL-SPECIFIC (e.g. ZDOTDIR points at a
@@ -224,19 +238,25 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const shellIntegrationEnabled =
     useSettingsStore.getState().terminal.shellIntegration;
 
-  const primaryEnv = await buildShellEnv(env, shell, shellIntegrationEnabled);
-  // The session may have been disposed while awaiting buildShellEnv. Even
-  // with integration disabled the call is awaited (a microtask tick), and
+  const spawnConfig = await buildShellSpawnConfig(env, shell, shellIntegrationEnabled);
+  // The session may have been disposed while awaiting buildShellSpawnConfig.
+  // Even with integration disabled the call is awaited (a microtask tick), and
   // with it enabled it does real IPC — either way a session disposed during
   // that window must not spawn an orphan PTY.
   if (disposed()) {
     throw new Error("disposed before spawn");
   }
 
-  const baseSpawnOpts = { cols: term.cols || 80, rows: term.rows || 24, cwd };
+  // `cwd` omitted, not `undefined`, when the caller names no directory: the PTY
+  // contract is "no cwd key = inherit the process's".
+  const baseSpawnOpts = {
+    cols: term.cols || 80,
+    rows: term.rows || 24,
+    ...(cwd !== undefined && { cwd }),
+  };
   let pty: IPty;
   try {
-    pty = spawn(shell, [], { ...baseSpawnOpts, env: primaryEnv });
+    pty = spawn(shell, spawnConfig.args, { ...baseSpawnOpts, env: spawnConfig.env });
   } catch (err) {
     // If configured shell fails, fall back to system default
     if (safeShell) {
@@ -247,17 +267,22 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
       /* v8 ignore next 3 -- @preserve reason: platform-specific PTY fallback path; requires real shell spawning failure not reproducible in unit tests */
       const fallbackIsAbsolute = fallback.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(fallback);
       const safeFallback = fallbackIsAbsolute ? fallback : "/bin/sh";
-      // Recompute shell integration for the fallback shell — its overrides
-      // differ from the failed configured shell's, and reusing them would
-      // poison the default shell's startup.
-      const fallbackEnv = await buildShellEnv(
+      // Recompute shell integration for the fallback shell — its env AND its
+      // args differ from the failed configured shell's, and reusing them would
+      // poison the default shell's startup (handing zsh's ZDOTDIR to bash, or
+      // bash's `--rcfile` to a shell that has no such flag and would treat the
+      // path as a script to run).
+      const fallbackConfig = await buildShellSpawnConfig(
         env,
         safeFallback,
         shellIntegrationEnabled,
       );
       if (disposed())
         throw new Error("disposed before fallback spawn", { cause: err });
-      pty = spawn(safeFallback, [], { ...baseSpawnOpts, env: fallbackEnv });
+      pty = spawn(safeFallback, fallbackConfig.args, {
+        ...baseSpawnOpts,
+        env: fallbackConfig.env,
+      });
     } else {
       throw err;
     }

@@ -39,6 +39,7 @@ const _ACTION_IDS = [
 
   // === Links ===
   "link",
+  "unlink",
   "wikiLink",
   "bookmark",
 
@@ -159,7 +160,7 @@ interface ActionCapability {
 /**
  * Action category for grouping in UI
  */
-type ActionCategory =
+export type ActionCategory =
   | "edit"
   | "formatting"
   | "links"

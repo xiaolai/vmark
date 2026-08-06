@@ -3,16 +3,15 @@
  * in source mode.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
 import { EditorState, EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
-// Mock settingsStore
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({ general: { tabSize: 2 } }),
-  },
-}));
+// The tab size arrives through the plugins' host-settings seam, not the app's
+// store — these plugins no longer import it (ADR-015). Binding here is what the
+// app does at its composition root.
+bindHostSettings({ tabSize: () => 2 });
 
 import {
   getListItemInfo,
@@ -450,11 +449,14 @@ describe("getListBlockBounds", () => {
     view.destroy();
   });
 
-  it("handles mixed list types", () => {
+  // CommonMark: changing the bullet char or ordered delimiter STARTS A NEW
+  // LIST — "- bullet" / "1. ordered" / "* another" is three lists, so the
+  // block around the cursor covers only the first line.
+  it("stops at a marker-type change (three lists, not one)", () => {
     const view = createView("- bullet\n1. ordered\n* another", 2);
     const bounds = getListBlockBounds(view);
     expect(bounds!.from).toBe(0);
-    expect(bounds!.to).toBe(29);
+    expect(bounds!.to).toBe(8);
     view.destroy();
   });
 
@@ -516,6 +518,142 @@ describe("getListBlockBounds", () => {
     const bounds = getListBlockBounds(view);
     expect(bounds!.from).toBe(0);
     expect(bounds!.to).toBe(28);
+    view.destroy();
+  });
+
+  it("returns null for a spaced thematic break (- - -)", () => {
+    const view = createView("- - -", 2);
+    expect(getListBlockBounds(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("returns null for a spaced thematic break (* * *)", () => {
+    const view = createView("* * *", 2);
+    expect(getListBlockBounds(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("ends the block at a spaced thematic break between lists", () => {
+    const view = createView("- a\n* * *\n- b", 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(3); // "- a" only
+    view.destroy();
+  });
+});
+
+describe("getListBlockBounds — continuation lines", () => {
+  // CommonMark: a non-blank line indented to the item's content column
+  // CONTINUES that item; it must not split the list into partial ranges.
+  it("scans down through a continuation paragraph", () => {
+    const doc = "- item one\n  continuation\n- item two";
+    const view = createView(doc, 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(doc.length);
+    view.destroy();
+  });
+
+  it("scans up through a continuation paragraph", () => {
+    const doc = "- item one\n  continuation\n- item two";
+    const view = createView(doc, doc.length - 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(doc.length);
+    view.destroy();
+  });
+
+  it("crosses a blank line followed by an indented child block", () => {
+    const doc = "- item one\n\n  child paragraph\n\n- item two";
+    const view = createView(doc, 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(doc.length);
+    view.destroy();
+  });
+
+  it("still ends at a flush-left paragraph", () => {
+    const doc = "- item one\n  continuation\nparagraph";
+    const view = createView(doc, 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.to).toBe("- item one\n  continuation".length);
+    view.destroy();
+  });
+});
+
+describe("getListBlockBounds — delimiter boundaries", () => {
+  // CommonMark: "- one\n* two\n1. three" parses as THREE lists; a bullet-char
+  // or ordered-delimiter change at the top level starts a new list.
+  it.each([
+    { cursor: 2, from: 0, to: 5 }, // in "- one"
+    { cursor: 8, from: 6, to: 11 }, // in "* two"
+    { cursor: 14, from: 12, to: 20 }, // in "1. three"
+  ])("isolates each list of - / * / 1. at cursor $cursor", ({ cursor, from, to }) => {
+    const view = createView("- one\n* two\n1. three", cursor);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(from);
+    expect(bounds!.to).toBe(to);
+    view.destroy();
+  });
+
+  it("splits ordered lists on delimiter change (. vs ))", () => {
+    const view = createView("1. a\n1) b", 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(4); // "1. a" only
+    view.destroy();
+  });
+
+  it("allows a nested child list to use a different marker", () => {
+    const doc = "- parent\n  * child\n- sibling";
+    const view = createView(doc, 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(doc.length);
+    view.destroy();
+  });
+
+  it("separates loose lists whose delimiters differ", () => {
+    const doc = "- one\n\n* two";
+    const view = createView(doc, 2);
+    const bounds = getListBlockBounds(view);
+    expect(bounds!.from).toBe(0);
+    expect(bounds!.to).toBe(5); // "- one" only — the blank is a list boundary here
+    view.destroy();
+  });
+});
+
+describe("getListItemInfo — CommonMark/GFM marker coverage", () => {
+  it("detects a close-paren ordered item", () => {
+    const view = createView("1) item", 3);
+    const info = getListItemInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.type).toBe("ordered");
+    expect(info!.number).toBe(1);
+    expect(info!.marker).toBe("1) ");
+    view.destroy();
+  });
+
+  it("detects an ordered task item as a task", () => {
+    const view = createView("1. [x] done", 4);
+    const info = getListItemInfo(view);
+    expect(info).not.toBeNull();
+    expect(info!.type).toBe("task");
+    expect(info!.number).toBe(1);
+    expect(info!.checked).toBe(true);
+    expect(info!.marker).toBe("1. [x] ");
+    view.destroy();
+  });
+
+  it("does not treat a spaced thematic break as a list item", () => {
+    const view = createView("- - -", 2);
+    expect(getListItemInfo(view)).toBeNull();
+    view.destroy();
+  });
+
+  it("does not treat a spaced asterisk thematic break as a list item", () => {
+    const view = createView("* * *", 2);
+    expect(getListItemInfo(view)).toBeNull();
     view.destroy();
   });
 });

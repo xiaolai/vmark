@@ -8,6 +8,12 @@
  * (WI-2.x); OSC 133 builds a list of command marks (prompt line + exit code)
  * that drive prompt navigation (WI-3.3) and exit-status decorations (WI-3.4).
  *
+ * Also exposes `commandOutputRange` / `readBufferRange` (WI-4.4): the pure
+ * arithmetic that turns a clicked buffer line into the output span of the
+ * command that produced it, excluding its prompt line.
+ *
+
+ *
  * Key decisions:
  *   - OSC 7 payload is `file://<host>/<path>`. We use the path regardless of
  *     host (matches VS Code / iTerm2 behavior); SSH'd remote cwds still update
@@ -188,4 +194,71 @@ export function scrollToAdjacentCommand(
       ? [...lines].reverse().find((l) => l < top)
       : lines.find((l) => l > top);
   if (target !== undefined) term.scrollToLine(target);
+}
+
+/* ─────────────────── command output range (WI-4.4) ─────────────────── */
+
+/** An inclusive buffer-line span. */
+export interface CommandRange {
+  /** First line of the command's OUTPUT (the prompt line is excluded). */
+  startLine: number;
+  /** Last line of the output, inclusive. */
+  endLine: number;
+}
+
+/**
+ * The output range of the command containing `line` (WI-4.4 / F4).
+ *
+ * The OSC 133 `A` marks sit on PROMPT lines, so a command's output is
+ * everything strictly after its own mark and strictly before the next one.
+ * The last (still open) command runs to `lastBufferLine`.
+ *
+ * Returns null when there is nothing to copy: no marks at all (shell
+ * integration off), a click above the first prompt, or a command that
+ * produced no output.
+ *
+ * Pure — takes plain line numbers so it is unit-testable without a terminal.
+ */
+export function commandOutputRange(
+  commands: CommandMark[],
+  line: number,
+  lastBufferLine: number,
+): CommandRange | null {
+  const lines = commands
+    .map((c) => c.marker.line)
+    // A disposed marker reports a negative line; it is no longer in the buffer.
+    .filter((l) => l >= 0)
+    .sort((a, b) => a - b);
+  if (lines.length === 0) return null;
+
+  // The prompt at or above the clicked line owns it.
+  let ownerIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] <= line) ownerIndex = i;
+    else break;
+  }
+  if (ownerIndex === -1) return null; // clicked above the first prompt
+
+  const startLine = lines[ownerIndex] + 1; // skip the prompt line itself
+  const next = lines[ownerIndex + 1];
+  const endLine = next === undefined ? lastBufferLine : next - 1;
+  if (endLine < startLine) return null; // command produced no output
+  return { startLine, endLine };
+}
+
+/**
+ * Read an inclusive buffer-line span as text, trimming trailing padding from
+ * each line (xterm reports cells, not characters) and dropping trailing blank
+ * lines. Returns "" when the range holds nothing.
+ */
+export function readBufferRange(term: Terminal, range: CommandRange): string {
+  const buffer = term.buffer.active;
+  const lines: string[] = [];
+  for (let y = range.startLine; y <= range.endLine; y++) {
+    const line = buffer.getLine(y);
+    if (!line) continue;
+    lines.push(line.translateToString(true).replace(/\s+$/, ""));
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.join("\n");
 }

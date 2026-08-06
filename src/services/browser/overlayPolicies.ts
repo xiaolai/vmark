@@ -51,6 +51,9 @@ export const OVERLAY_POLICIES: Record<string, OcclusionPolicy> = {
   QuickLookOverlay: { kind: "freeze" },
   DropOverlay: { kind: "freeze" },
   ApprovalDialog: { kind: "freeze" },
+  // Centred modal asking to open a folder as a workspace — freeze so a live
+  // browser view can't paint over the consent prompt.
+  WorkspaceApprovalDialog: { kind: "freeze" },
 
   // The browser's own consent prompt freezes the tab the request targets — it does so
   // itself rather than through `useBrowserOccluder`, because a blanket freeze of every

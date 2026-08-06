@@ -30,12 +30,16 @@ vi.mock("@/services/navigation/activeDocument", () => ({
 
 const mockRunLint = vi.fn(() => []);
 const mockRunYamlLint = vi.fn(() => []);
+// WI-4.3: the call site now asks the FORMAT for its linter instead of choosing
+// between two hard-coded store actions.
+const mockRunLintForFormat = vi.fn(() => []);
 const mockRunLinkCheck = vi.fn(() => Promise.resolve([]));
 vi.mock("@/stores/documentStore", () => ({
   useLintStore: {
     getState: () => ({
       runLint: mockRunLint,
       runYamlLint: mockRunYamlLint,
+      runLintForFormat: mockRunLintForFormat,
       runLinkCheck: mockRunLinkCheck,
     }),
   },
@@ -74,7 +78,9 @@ describe("runActiveLint doc-epoch marking", () => {
   it("marks the run start for the active tab when content is captured", () => {
     runActiveLint("main");
     expect(mockMarkLintRunStart).toHaveBeenCalledWith("tab-42");
-    expect(mockRunLint).toHaveBeenCalledWith("tab-42", "# hi");
+    // WI-4.3: dispatch is by FORMAT now — the file path is what selects the
+    // linter, so it must reach the store.
+    expect(mockRunLintForFormat).toHaveBeenCalledWith("tab-42", "# hi", null);
   });
 
   it("marks the run start for YAML files too", () => {
@@ -84,7 +90,11 @@ describe("runActiveLint doc-epoch marking", () => {
     });
     runActiveLint("main");
     expect(mockMarkLintRunStart).toHaveBeenCalledWith("tab-42");
-    expect(mockRunYamlLint).toHaveBeenCalledWith("tab-42", "a: 1");
+    expect(mockRunLintForFormat).toHaveBeenCalledWith(
+      "tab-42",
+      "a: 1",
+      "/tmp/x.yaml",
+    );
   });
 
   it("does not mark when lint is disabled", () => {

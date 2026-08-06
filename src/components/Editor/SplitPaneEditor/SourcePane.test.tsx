@@ -4,8 +4,9 @@
 // requires DOM extension globals; smoke-tests verify the slot wires the
 // document content + format and exposes the CodeMirror container.
 
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ViewPlugin } from "@codemirror/view";
 import type { FormatConfig } from "@/lib/formats/types";
 import { SourcePane } from "./SourcePane";
 
@@ -61,7 +62,7 @@ const txtConfig: FormatConfig = {
     saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
     untitledExtension: "txt",
     readOnlyDefault: false,
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
     menuPolicy: {
       sourceWysiwygToggle: false,
       cjkFormatActions: false,
@@ -186,5 +187,24 @@ describe("SourcePane", () => {
     expect(container.querySelector(".cm-content")?.textContent ?? "").toContain(
       "loaded after mount",
     );
+  });
+
+  it("loads per-format extra extensions with tab/file context and mounts them", async () => {
+    let extraMounted = false;
+    const marker = ViewPlugin.define(() => {
+      extraMounted = true;
+      return {};
+    });
+    const loadExtraExtensions = vi.fn(() => Promise.resolve([marker]));
+    const cfg: FormatConfig = { ...txtConfig, loadExtraExtensions };
+    render(<SourcePane tabId="tab-1" formatId="txt" formatConfig={cfg} />);
+    expect(loadExtraExtensions).toHaveBeenCalledWith({
+      tabId: "tab-1",
+      filePath: "/foo.txt",
+      windowLabel: expect.any(String),
+    });
+    // The extras arrive async and are swapped into the live view via a
+    // compartment reconfigure — no remount.
+    await waitFor(() => expect(extraMounted).toBe(true));
   });
 });

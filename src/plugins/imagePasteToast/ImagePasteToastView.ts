@@ -9,18 +9,15 @@
  *   - Positioned relative to the cursor using the popup positioning system
  *   - DOM-based (not React) for consistency with other editor popups
  *   - Escape key dismisses the toast
+ *   - Reads state through a PORT it declares, never the app's store (ADR-015)
  *
- * @coordinates-with stores/imagePasteToastStore.ts — toast visibility and action state
+ * @coordinates-with imagePasteToast/types.ts — the state PORT the host satisfies
  * @coordinates-with imageHandler/tiptap.ts — triggers the toast on ambiguous image pastes
  * @module plugins/imagePasteToast/ImagePasteToastView
  */
 
+import type { ImagePasteToastStore } from "./types";
 import i18n from "@/i18n";
-
-/**
- */
-
-import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import {
   calculatePopupPosition,
   getBoundaryRects,
@@ -29,7 +26,7 @@ import {
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { popupIcons } from "@/utils/popupComponents";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -43,14 +40,14 @@ class ImagePasteToastView {
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private host: HTMLElement | null = null;
 
-  constructor() {
+  constructor(private store: ImagePasteToastStore) {
     // Build DOM structure
     this.container = this.buildContainer();
 
     // Container will be appended to host in show()
 
     // Subscribe to store changes
-    this.unsubscribe = useImagePasteToastStore.subscribe((state) => {
+    this.unsubscribe = this.store.subscribe((state) => {
       if (state.isOpen && state.anchorRect) {
         this.show(
           state.imagePath,
@@ -201,7 +198,7 @@ class ImagePasteToastView {
     this.keydownHandler = (e: KeyboardEvent) => {
       if (isImeKeyEvent(e)) return;
 
-      const { isOpen } = useImagePasteToastStore.getState();
+      const { isOpen } = this.store.getState();
       /* v8 ignore next -- @preserve defensive guard: handler is removed in hide() before isOpen becomes false */
       if (!isOpen) return;
 
@@ -221,7 +218,7 @@ class ImagePasteToastView {
       } else if (e.key === "Escape") {
         e.preventDefault();
         // Escape closes without any action (no paste)
-        useImagePasteToastStore.getState().hideToast();
+        this.store.getState().hideToast();
       } else if (e.key === "Tab") {
         // Trap focus within toast
         e.preventDefault();
@@ -249,7 +246,7 @@ class ImagePasteToastView {
     this.clearAutoDismissTimer();
     this.autoDismissTimer = window.setTimeout(() => {
       // Auto-dismiss = close without any action (user ignored it)
-      useImagePasteToastStore.getState().hideToast();
+      this.store.getState().hideToast();
     }, AUTO_DISMISS_MS);
   }
 
@@ -261,21 +258,21 @@ class ImagePasteToastView {
   }
 
   private handleInsert = () => {
-    useImagePasteToastStore.getState().confirm();
+    this.store.getState().confirm();
   };
 
   private handleDismiss = () => {
-    useImagePasteToastStore.getState().dismiss();
+    this.store.getState().dismiss();
   };
 
   private handleClickOutside = (e: MouseEvent) => {
-    const { isOpen } = useImagePasteToastStore.getState();
+    const { isOpen } = this.store.getState();
     if (!isOpen) return;
 
     const target = e.target as Node;
     if (!this.container.contains(target)) {
       // Click outside = close without any action (no paste)
-      useImagePasteToastStore.getState().hideToast();
+      this.store.getState().hideToast();
     }
   };
 
@@ -294,9 +291,9 @@ let instance: ImagePasteToastView | null = null;
 /**
  * Initialize the image paste toast view (call once at app startup).
  */
-export function initImagePasteToast(): void {
+export function initImagePasteToast(store: ImagePasteToastStore): void {
   if (!instance) {
-    instance = new ImagePasteToastView();
+    instance = new ImagePasteToastView(store);
   }
 }
 

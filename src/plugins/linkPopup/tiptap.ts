@@ -16,9 +16,10 @@ import type { EditorView } from "@tiptap/pm/view";
 import type { Mark } from "@tiptap/pm/model";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { linkPopupError } from "@/utils/debug";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { useTabStore, tabFilePath } from "@/stores/tabStore";
+import type { StoreApi } from "zustand";
+import type { PopupStoreBase } from "@/plugins/shared";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
+import { hostDocument } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
 import { classifyLinkAction, openLink } from "./operations";
 import { LinkPopupView } from "./LinkPopupView";
@@ -117,7 +118,11 @@ export function findLinkMarkRange(view: EditorView, pos: number): MarkRange | nu
  * or opens a target file in a new tab. Regular click on a link opens the
  * edit popup. Regular click elsewhere closes any open popups.
  */
-function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean {
+function makeHandleClick(
+  store: StoreApi<LinkPopupState>,
+  createStore: StoreApi<PopupStoreBase>
+) {
+  return function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean {
   try {
     // Cmd/Ctrl + click: open link, navigate to fragment, or open target file
     if (event.metaKey || event.ctrlKey) {
@@ -143,10 +148,9 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
             return true;
           }
           if (action.kind === "filepath") {
-            const activeTab = useTabStore
-              .getState()
-              .getActiveTab(getCurrentWebviewWindow().label);
-            const sourcePath = activeTab ? tabFilePath(activeTab) : null;
+            const sourcePath = hostDocument.activeFilePath(
+              getCurrentWebviewWindow().label
+            );
             // navigateToFragment passed as null — Tiptap path uses
             // navigateToHeadingById above for fragments, so openLink
             // only handles filepath here.
@@ -165,8 +169,8 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
       const href = linkRange.mark.attrs.href as string;
       if (href) {
         // Close create popup if open
-        if (useLinkCreatePopupStore.getState().isOpen) {
-          useLinkCreatePopupStore.getState().closePopup();
+        if (createStore.getState().isOpen) {
+          createStore.getState().closePopup();
         }
 
         // Compute anchor rect from link range coordinates. When the link wraps
@@ -183,7 +187,7 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
           right: wrapped ? startCoords.left : endCoords.right,
         };
 
-        useLinkPopupStore.getState().openPopup({
+        store.getState().openPopup({
           href,
           linkFrom: linkRange.from,
           linkTo: linkRange.to,
@@ -194,18 +198,15 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
     }
 
     // Regular click not on a link: close all link popups
-    if (useLinkPopupStore.getState().isOpen) {
-      useLinkPopupStore.getState().closePopup();
-    }
-    if (useLinkCreatePopupStore.getState().isOpen) {
-      useLinkCreatePopupStore.getState().closePopup();
-    }
+    if (store.getState().isOpen) store.getState().closePopup();
+    if (createStore.getState().isOpen) createStore.getState().closePopup();
 
     return false;
   } catch (error) {
     linkPopupError("Click handler error:", error);
     return false;
   }
+  };
 }
 
 /**
@@ -215,8 +216,8 @@ function handleClick(view: EditorView, pos: number, event: MouseEvent): boolean 
 class LinkPopupPluginView {
   private popupView: LinkPopupView;
 
-  constructor(view: EditorView) {
-    this.popupView = new LinkPopupView(view);
+  constructor(view: EditorView, store: StoreApi<LinkPopupState>) {
+    this.popupView = new LinkPopupView(view, store);
   }
 
   // No update() — the popup tracks the store, not the plugin view lifecycle.
@@ -227,14 +228,33 @@ class LinkPopupPluginView {
 }
 
 /** Tiptap extension that shows a popup when the cursor is on a link. */
-export const linkPopupExtension = Extension.create({
+export interface LinkPopupOptions {
+  /** The edit popup's state — a PORT, no default (ADR-015). */
+  store: StoreApi<LinkPopupState>;
+  /** The create popup's, which this plugin only dismisses. */
+  createStore: StoreApi<PopupStoreBase>;
+}
+
+export const linkPopupExtension = Extension.create<LinkPopupOptions>({
   name: "linkPopup",
+  addOptions() {
+    return {
+      store: undefined as unknown as StoreApi<LinkPopupState>,
+      createStore: undefined as unknown as StoreApi<PopupStoreBase>,
+    };
+  },
   addProseMirrorPlugins() {
+    const { store, createStore } = this.options;
+    if (!store || !createStore) {
+      throw new Error(
+        "linkPopupExtension requires `store` and `createStore` options — see services/assembly/tiptapExtensions.ts"
+      );
+    }
     return [
       new Plugin({
         key: linkPopupPluginKey,
-        view: (editorView) => new LinkPopupPluginView(editorView),
-        props: { handleClick },
+        view: (editorView) => new LinkPopupPluginView(editorView, store),
+        props: { handleClick: makeHandleClick(store, createStore) },
       }),
     ];
   },

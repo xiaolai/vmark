@@ -107,7 +107,7 @@ function instanceOf(id: string) {
 
 function addDocumentTab(filePath: string | null, content = "c"): string {
   const tabId = useTabStore.getState().createTab(WINDOW, filePath);
-  useDocumentStore.getState().initDocument(tabId, content, filePath, content);
+  useDocumentStore.getState().initDocument(tabId, content, filePath, { savedContent: content });
   return tabId;
 }
 

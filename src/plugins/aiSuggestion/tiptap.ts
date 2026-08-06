@@ -4,8 +4,8 @@
  * Purpose: Renders AI-generated suggestions as non-destructive decorations (ghost text,
  * strikethrough) and commits document changes only when the user explicitly accepts.
  *
- * Pipeline: AI provider → aiSuggestionStore → this plugin reads store → decorations rendered
- *         → user accept/reject → store event → this plugin applies or discards transaction
+ * Pipeline: AI provider → the host's suggestion registry → this plugin reads it
+ *         through its PORT → decorations → accept/reject applies or discards
  *
  * Key decisions:
  *   - UNDO/REDO SAFE: Document is NOT modified until user accepts — all previews are decorations
@@ -15,142 +15,36 @@
  *   - Insert: ghost text widget at position
  *   - Replace: original with strikethrough + ghost text for new content
  *   - Delete: original with strikethrough
- *   - Accept/reject buttons rendered as ProseMirror widgets to stay in editor coordinate space
+ *   - Accept/reject buttons are ProseMirror widgets, acting on the view they are handed
  *
  * @coordinates-with types.ts — AiSuggestion interface and event name constants
- * @coordinates-with stores/aiSuggestionStore.ts — source of suggestion data
+ * @coordinates-with types.ts — the AiSuggestionStore PORT; widgets.ts — its DOM
  * @module plugins/aiSuggestion/tiptap
  */
 
-import i18n from "@/i18n";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
-import { useAiSuggestionStore } from "@/stores/aiStore";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useEditorStore } from "@/stores/editorStore";
-import { captureAiEdit } from "@/services/coherence/captureFunnel";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import {
+  requireSuggestionStore,
+  type AiSuggestionOptions,
+} from "./types";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
-import { cleanMarkdownForClipboard } from "@/plugins/markdownCopy/tiptap";
 import type { AiSuggestion } from "./types";
 import { AI_SUGGESTION_EVENTS } from "./types";
+import {
+  createGhostText,
+  createButtons,
+  captureAcceptedSuggestion,
+} from "./widgets";
 import "./ai-suggestion.css";
 
 const aiSuggestionPluginKey = new PluginKey("aiSuggestion");
 
-/**
- * Create Lucide-style SVG icon element.
- */
-function createIcon(pathD: string | string[]): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-
-  const paths = Array.isArray(pathD) ? pathD : [pathD];
-  for (const d of paths) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-
-  return svg;
-}
-
-// Lucide icon paths
-const ICON_CHECK = "M20 6 9 17l-5-5";
-const ICON_X = ["M18 6 6 18", "m6 6 12 12"];
-
-/**
- * Create ghost text element for insert/replace preview.
- */
-function createGhostText(text: string, isFocused: boolean): HTMLSpanElement {
-  const span = document.createElement("span");
-  span.className = `ai-suggestion-ghost${isFocused ? " ai-suggestion-ghost-focused" : ""}`;
-  // Strip markdown backslash escapes (\$, \~, \@ …) and collapse autolinks
-  // so ghost text matches what the user will see after accepting.
-  span.textContent = cleanMarkdownForClipboard(text);
-  return span;
-}
-
 export { applySuggestionToTr, computeSuggestionRemap, isValidPosition } from "./applySuggestion";
 import { applySuggestionToTr, computeSuggestionRemap, isValidPosition } from "./applySuggestion";
 
-/**
- * Coherence capture (WI-1.6): report an accepted suggestion to the kernel
- * after the buffer settles. Dirty state is read BEFORE the apply — it
- * decides exact vs. inferred provenance (spec §8). Fire-and-forget.
- */
-function captureAcceptedSuggestion(tabId: string, bufferWasDirty: boolean): void {
-  // Called synchronously after dispatch: tiptap's onUpdate has already
-  // synced the store, and captureAiEdit snapshots at entry (audit T3) —
-  // a rapid second apply cannot change what this capture records.
-  void captureAiEdit({
-    tabId,
-    intentKind: "ai-suggestion",
-    summary: "suggestion accepted",
-    bufferWasDirty,
-  }).catch(() => {});
-}
-
-/**
- * Apply a suggestion directly on the editor view.
- * Uses runOrQueueProseMirrorAction for IME safety.
- */
-function applySuggestion(view: EditorView, suggestion: AiSuggestion): void {
-  runOrQueueProseMirrorAction(view, () => {
-    const bufferWasDirty =
-      useDocumentStore.getState().getDocument(suggestion.tabId)?.isDirty ?? false;
-    const { state } = view;
-    view.dispatch(applySuggestionToTr(state, state.tr, suggestion));
-    captureAcceptedSuggestion(suggestion.tabId, bufferWasDirty);
-  });
-}
-
-/**
- * Create accept/reject buttons container.
- * Buttons apply changes directly via the editor store — no CustomEvent
- * indirection — for immediate visual response.
- */
-function createButtons(suggestion: AiSuggestion): HTMLSpanElement {
-  const container = document.createElement("span");
-  container.className = "ai-suggestion-buttons";
-
-  // Use mousedown instead of click — ProseMirror's mousedown handler
-  // triggers state updates that rebuild widget decorations, so the button
-  // DOM is replaced before the click event fires.
-  const acceptBtn = document.createElement("button");
-  acceptBtn.className = "ai-suggestion-btn ai-suggestion-btn-accept";
-  const acceptLabel = i18n.t("editor:plugin.acceptSuggestion");
-  acceptBtn.title = acceptLabel;
-  acceptBtn.setAttribute("aria-label", acceptLabel);
-  acceptBtn.appendChild(createIcon(ICON_CHECK));
-  acceptBtn.onmousedown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const view = useEditorStore.getState().tiptap.editorView;
-    if (!view) return;
-    applySuggestion(view, suggestion);
-    useAiSuggestionStore.getState().removeSuggestion(suggestion.id);
-  };
-
-  // Reject button with X icon
-  const rejectBtn = document.createElement("button");
-  rejectBtn.className = "ai-suggestion-btn ai-suggestion-btn-reject";
-  const rejectLabel = i18n.t("editor:plugin.rejectSuggestion");
-  rejectBtn.title = rejectLabel;
-  rejectBtn.setAttribute("aria-label", rejectLabel);
-  rejectBtn.appendChild(createIcon(ICON_X));
-  rejectBtn.onmousedown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    useAiSuggestionStore.getState().removeSuggestion(suggestion.id);
-  };
-
-  container.appendChild(acceptBtn);
-  container.appendChild(rejectBtn);
-  return container;
-}
 
 /**
  * Check if a DOM event targets a suggestion button.
@@ -175,14 +69,18 @@ export function getDecorationClass(suggestion: AiSuggestion, isFocused: boolean)
 
 
 /** Tiptap extension that renders AI suggestion decorations and handles accept/reject shortcuts. */
-export const aiSuggestionExtension = Extension.create({
+export const aiSuggestionExtension = Extension.create<AiSuggestionOptions>({
   name: "aiSuggestion",
+
+  addOptions() {
+    return { store: null };
+  },
 
   // Remap pending suggestion positions through every document change so
   // decorations and accept always target the intended text (audit H8).
   onTransaction({ transaction }) {
     if (!transaction.docChanged) return;
-    const store = useAiSuggestionStore.getState();
+    const store = requireSuggestionStore(this.options.store).getState();
     if (store.suggestions.size === 0) return;
     store.updateSuggestionRanges(
       computeSuggestionRemap(store.suggestions.values(), transaction.mapping)
@@ -193,7 +91,7 @@ export const aiSuggestionExtension = Extension.create({
     return {
       // Enter: accept focused suggestion
       Enter: () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         if (state.focusedSuggestionId && state.suggestions.size > 0) {
           state.acceptSuggestion(state.focusedSuggestionId);
           return true;
@@ -203,7 +101,7 @@ export const aiSuggestionExtension = Extension.create({
 
       // Escape: reject focused suggestion
       Escape: () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         if (state.focusedSuggestionId && state.suggestions.size > 0) {
           state.rejectSuggestion(state.focusedSuggestionId);
           return true;
@@ -213,7 +111,7 @@ export const aiSuggestionExtension = Extension.create({
 
       // Tab: navigate to next suggestion
       Tab: () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         if (state.suggestions.size > 0) {
           state.navigateNext();
           return true;
@@ -223,7 +121,7 @@ export const aiSuggestionExtension = Extension.create({
 
       // Shift-Tab: navigate to previous suggestion
       "Shift-Tab": () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         /* v8 ignore start -- @preserve else branch: no suggestions to navigate */
         if (state.suggestions.size > 0) {
           state.navigatePrevious();
@@ -235,7 +133,7 @@ export const aiSuggestionExtension = Extension.create({
 
       // Mod-Shift-Enter: accept all suggestions
       "Mod-Shift-Enter": () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         if (state.suggestions.size > 0) {
           state.acceptAll();
           return true;
@@ -245,7 +143,7 @@ export const aiSuggestionExtension = Extension.create({
 
       // Mod-Shift-Escape: reject all suggestions
       "Mod-Shift-Escape": () => {
-        const state = useAiSuggestionStore.getState();
+        const state = requireSuggestionStore(this.options.store).getState();
         if (state.suggestions.size > 0) {
           state.rejectAll();
           return true;
@@ -256,13 +154,15 @@ export const aiSuggestionExtension = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const store = requireSuggestionStore(this.options.store);
+
     return [
       new Plugin({
         key: aiSuggestionPluginKey,
 
         props: {
           decorations(state) {
-            const suggestionState = useAiSuggestionStore.getState();
+            const suggestionState = store.getState();
             if (suggestionState.suggestions.size === 0) {
               return DecorationSet.empty;
             }
@@ -282,7 +182,7 @@ export const aiSuggestionExtension = Extension.create({
                   // Insert: Show ghost text widget at position
                   // No inline decoration - document unchanged
                   decorations.push(
-                    Decoration.widget(suggestion.from, () => {
+                    Decoration.widget(suggestion.from, (view) => {
                       const container = document.createElement("span");
                       container.className = "ai-suggestion-insert-container";
                       container.setAttribute("data-suggestion-id", suggestion.id);
@@ -294,7 +194,7 @@ export const aiSuggestionExtension = Extension.create({
 
                       // Buttons for focused suggestion
                       if (isFocused) {
-                        container.appendChild(createButtons(suggestion));
+                        container.appendChild(createButtons(suggestion, view, store));
                       }
 
                       return container;
@@ -318,7 +218,7 @@ export const aiSuggestionExtension = Extension.create({
 
                   // Ghost text widget after original
                   decorations.push(
-                    Decoration.widget(suggestion.to, () => {
+                    Decoration.widget(suggestion.to, (view) => {
                       const container = document.createElement("span");
                       container.className = "ai-suggestion-replace-container";
                       container.setAttribute("data-suggestion-id", suggestion.id);
@@ -330,7 +230,7 @@ export const aiSuggestionExtension = Extension.create({
 
                       // Buttons for focused suggestion
                       if (isFocused) {
-                        container.appendChild(createButtons(suggestion));
+                        container.appendChild(createButtons(suggestion, view, store));
                       }
 
                       return container;
@@ -354,7 +254,10 @@ export const aiSuggestionExtension = Extension.create({
                   // Buttons for focused suggestion
                   if (isFocused) {
                     decorations.push(
-                      Decoration.widget(suggestion.to, () => createButtons(suggestion), { side: 0, stopEvent: isButtonEvent })
+                      Decoration.widget(suggestion.to, (view) => createButtons(suggestion, view, store), {
+                        side: 0,
+                        stopEvent: isButtonEvent,
+                      })
                     );
                   }
                   break;
@@ -373,7 +276,7 @@ export const aiSuggestionExtension = Extension.create({
               const id = suggestionEl.getAttribute("data-suggestion-id");
               /* v8 ignore next -- @preserve else branch: data-suggestion-id attribute exists but value is null */
               if (id) {
-                useAiSuggestionStore.getState().focusSuggestion(id);
+                store.getState().focusSuggestion(id);
                 return true;
               }
             }
@@ -389,8 +292,7 @@ export const aiSuggestionExtension = Extension.create({
             };
 
             runOrQueueProseMirrorAction(editorView, () => {
-              const bufferWasDirty =
-                useDocumentStore.getState().getDocument(suggestion.tabId)?.isDirty ?? false;
+              const bufferWasDirty = hostDocument.isTabDirty(suggestion.tabId);
               const { state } = editorView;
               editorView.dispatch(applySuggestionToTr(state, state.tr, suggestion));
               captureAcceptedSuggestion(suggestion.tabId, bufferWasDirty);
@@ -417,8 +319,7 @@ export const aiSuggestionExtension = Extension.create({
 
             runOrQueueProseMirrorAction(editorView, () => {
               const tabId = suggestions[0].tabId;
-              const bufferWasDirty =
-                useDocumentStore.getState().getDocument(tabId)?.isDirty ?? false;
+              const bufferWasDirty = hostDocument.isTabDirty(tabId);
               const { state } = editorView;
               let { tr } = state;
 
@@ -437,12 +338,12 @@ export const aiSuggestionExtension = Extension.create({
           const handleRejectAll = refreshDecorations;
 
           // Handle store changes to trigger decoration updates
-          const unsubscribe = useAiSuggestionStore.subscribe(refreshDecorations);
+          const unsubscribe = store.subscribe(refreshDecorations);
 
           // Subscribe to scroll-to-focus events
           const handleFocusChanged = (event: Event) => {
             const { id } = (event as CustomEvent).detail;
-            const suggestion = useAiSuggestionStore.getState().getSuggestion(id);
+            const suggestion = store.getState().getSuggestion(id);
             if (!suggestion) return;
 
             // Guard against stale positions after doc changes

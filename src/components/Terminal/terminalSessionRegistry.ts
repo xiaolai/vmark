@@ -9,8 +9,11 @@
  * @module components/Terminal/terminalSessionRegistry
  */
 import type { SessionEntry, SessionsRef } from "./terminalSessionTypes";
+import { fitAndResizePty } from "./fitAndResizePty";
+import { terminalLog } from "@/utils/debug";
 
-/** Remove a session — cancel pending rAF, kill PTY, and dispose instance. */
+/** Remove a session — cancel pending rAF, dispose the instance, then kill the
+ *  PTY (dispose-before-kill so a dispose-time IME flush reaches a live PTY). */
 export function removeSessionEntry(
   sessionsRef: SessionsRef,
   sessionId: string,
@@ -22,6 +25,15 @@ export function removeSessionEntry(
     cancelAnimationFrame(entry.pendingRafId);
     entry.pendingRafId = null;
   }
+  // Dispose BEFORE kill (WI-1.3): instance.dispose() flushes a pending IME
+  // commit through the PTY, so the session must still be live. Catch (not just
+  // finally) so a throwing dispose never propagates — the PTY is still killed
+  // and the entry removed, instead of leaking the PTY and orphaning the entry.
+  try {
+    entry.instance.dispose();
+  } catch (e) {
+    terminalLog("session dispose threw:", e);
+  }
   if (entry.pty) {
     try {
       entry.pty.kill();
@@ -29,7 +41,6 @@ export function removeSessionEntry(
       /* ignore */
     }
   }
-  entry.instance.dispose();
   sessionsRef.current.delete(sessionId);
 }
 
@@ -62,8 +73,14 @@ export function switchVisibility(
   }
   entry.pendingRafId = requestAnimationFrame(() => {
     entry.pendingRafId = null;
+    // Fit AND resize: a hidden session that missed geometry changes while it
+    // was display:none (a font-size change applies term.options to every
+    // session, but fit() no-ops on a zero-size container) would otherwise come
+    // back with its PTY still on the pre-change dimensions. For a session whose
+    // shell hasn't started yet this is harmless — spawnPty reads term.cols
+    // after the fit, and the debounced resize is skipped via the null pty.
+    fitAndResizePty(entry, () => sessionsRef.current.get(activeId) !== entry);
     try {
-      entry.instance.fitAddon.fit();
       entry.instance.term.focus();
     } catch {
       /* ignore */
@@ -88,6 +105,15 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
       cancelAnimationFrame(entry.pendingRafId);
       entry.pendingRafId = null;
     }
+    clearTimeout(entry.ptyResizeTimer);
+    entry.ptyResizeTimer = undefined;
+    // Dispose BEFORE kill (WI-1.3) — see removeSessionEntry. Catch per entry so
+    // one throwing dispose never blocks cleanup of the remaining sessions.
+    try {
+      entry.instance.dispose();
+    } catch (e) {
+      terminalLog("session dispose threw:", e);
+    }
     if (entry.pty) {
       try {
         entry.pty.kill();
@@ -95,7 +121,6 @@ export function disposeAllSessions(sessions: Map<string, SessionEntry>): void {
         /* ignore */
       }
     }
-    entry.instance.dispose();
   }
   sessions.clear();
 }

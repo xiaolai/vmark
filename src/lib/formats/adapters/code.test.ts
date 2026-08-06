@@ -55,10 +55,10 @@ describe("code adapters", () => {
     }
   });
 
-  it("every code-* adapter has closeSavePolicy='markdown-default' (invariant 5)", () => {
-    // readOnlyDefault=true ⟹ closeSavePolicy="markdown-default"
+  it("every code-* adapter has closeSavePolicy='prompt-on-close' (invariant 5)", () => {
+    // readOnlyDefault=true ⟹ closeSavePolicy="prompt-on-close"
     for (const f of codeFormats) {
-      expect(f.adapters.closeSavePolicy).toBe("markdown-default");
+      expect(f.adapters.closeSavePolicy).toBe("prompt-on-close");
     }
   });
 

@@ -11,6 +11,10 @@
  *   - Image/video/audio share one MediaPickerSpec-driven picker flow
  *   - Inline math delegates to handleInlineMathShortcut (single source of truth)
  *
+ * The fenced-block inserts (math, mermaid, graphviz, markmap) live in
+ * `wysiwygAdapterBlockInsert.ts`.
+ *
+ * @coordinates-with plugins/toolbarActions/wysiwygAdapterBlockInsert.ts — the block half
  * @coordinates-with wysiwygAdapter.ts — main dispatcher delegates insert actions here
  * @coordinates-with wysiwygAdapterUtils.ts — uses isViewConnected, getActiveFilePath
  * @coordinates-with editorPlugins/inlineMathCommand.ts — shared inline math toggle
@@ -20,14 +24,11 @@ import { open, message } from "@tauri-apps/plugin-dialog";
 import type { EditorView } from "@tiptap/pm/view";
 import i18n from "@/i18n";
 import { findWordAtCursor } from "@/plugins/syntaxReveal/marks";
-import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
-import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { copyImageToAssets, insertBlockImageNode } from "@/services/media/imageOperations";
+import { copyMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/services/media/mediaOperations";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { readClipboardImagePath } from "@/services/media/clipboardImagePath";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { DEFAULT_MERMAID_DIAGRAM } from "@/plugins/mermaid/constants";
-import { DEFAULT_GRAPHVIZ_DIAGRAM } from "@/plugins/graphviz/constants";
-import { DEFAULT_MARKMAP_CONTENT } from "@/plugins/markmap/constants";
 import { handleInlineMathShortcut } from "@/plugins/editorPlugins/inlineMathCommand";
 import { wysiwygAdapterWarn, wysiwygAdapterError } from "@/utils/debug";
 import { isViewConnected, getActiveFilePath } from "./wysiwygAdapterUtils";
@@ -35,7 +36,6 @@ import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, AUDIO_EXTENSIONS } from "@/utils/me
 import type { WysiwygToolbarContext } from "./types";
 import { errorMessage } from "@/utils/errorMessage";
 
-const DEFAULT_MATH_BLOCK = "c = \\pm\\sqrt{a^2 + b^2}";
 
 /**
  * Insert an image node with alt text.
@@ -256,54 +256,6 @@ export function handleInsertAudio(context: WysiwygToolbarContext): boolean {
 
 // --- Block content insertion (math / diagram / graphviz / markmap) ---
 
-/**
- * Insert a code block of `language`. A non-empty selection becomes the block
- * content (mirroring source mode, which wraps the selection in the fence);
- * otherwise `defaultText` is used.
- */
-function insertLanguageBlock(
-  context: WysiwygToolbarContext,
-  language: string,
-  defaultText: string,
-): boolean {
-  const editor = context.editor;
-  if (!editor) return false;
-
-  const { selection, doc } = editor.state;
-  const selectedText = selection.empty ? "" : doc.textBetween(selection.from, selection.to, "\n");
-  const text = selectedText || defaultText;
-
-  editor
-    .chain()
-    .focus()
-    .insertContent({
-      type: "codeBlock",
-      attrs: { language },
-      content: [{ type: "text", text }],
-    })
-    .run();
-  return true;
-}
-
-/** Insert a LaTeX math code block (selection becomes the formula). */
-export function insertMathBlock(context: WysiwygToolbarContext): boolean {
-  return insertLanguageBlock(context, "latex", DEFAULT_MATH_BLOCK);
-}
-
-/** Insert a Mermaid diagram code block (selection becomes the diagram source). */
-export function insertDiagramBlock(context: WysiwygToolbarContext): boolean {
-  return insertLanguageBlock(context, "mermaid", DEFAULT_MERMAID_DIAGRAM);
-}
-
-/** Insert a Graphviz DOT diagram code block (selection becomes the DOT source). */
-export function insertGraphvizBlock(context: WysiwygToolbarContext): boolean {
-  return insertLanguageBlock(context, "dot", DEFAULT_GRAPHVIZ_DIAGRAM);
-}
-
-/** Insert a Markmap mind-map code block (selection becomes the outline). */
-export function insertMarkmapBlock(context: WysiwygToolbarContext): boolean {
-  return insertLanguageBlock(context, "markmap", DEFAULT_MARKMAP_CONTENT);
-}
 
 /**
  * Insert inline math with word expansion and toggle behavior.

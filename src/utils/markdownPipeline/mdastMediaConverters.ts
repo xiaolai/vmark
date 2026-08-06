@@ -1,8 +1,9 @@
 /**
  * MDAST Media Converters
  *
- * Purpose: Converts paragraph and HTML MDAST nodes to ProseMirror nodes, including
- * promotion of media content to native block nodes. Split from mdastBlockConverters.ts
+ * Purpose: Converts HTML MDAST nodes to ProseMirror nodes, including
+ * promotion of media content to native block nodes (paragraph conversion
+ * lives in mdastParagraphConverter.ts). Split from mdastBlockConverters.ts
  * for size.
  *
  * Key decisions:
@@ -15,59 +16,17 @@
  *     promoted as a safety net for CommonMark inline-HTML edge cases
  *
  * @coordinates-with mdastConverterHelpers.ts — shared context type and helpers
+ * @coordinates-with mdastParagraphConverter.ts — paragraph claims consume the promoters
  * @coordinates-with mdastBlockConverters.ts — re-export hub for all block converters
  * @module utils/markdownPipeline/mdastMediaConverters
  */
 
-import type { Node as PMNode, Mark } from "@tiptap/pm/model";
-import type { Content, Html, Paragraph } from "mdast";
-import * as inlineConverters from "./mdastInlineConverters";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import type { Html } from "mdast";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
-import { detectProviderFromIframeSrc, extractVideoIdFromSrc, getProviderConfig } from "@/utils/videoProviderRegistry";
+import { detectProviderFromIframeSrc, extractVideoInfoFromSrc, getProviderConfig } from "@/utils/videoProviderRegistry";
+import { isSafeUrl } from "./urlValidation";
 import { getSourceLine, type MdastToPmContext } from "./mdastConverterHelpers";
-
-export function convertParagraph(
-  context: MdastToPmContext,
-  node: Paragraph,
-  marks: Mark[]
-): PMNode | null {
-  const type = context.schema.nodes.paragraph;
-  if (!type) return null;
-  const sourceLine = getSourceLine(node);
-
-  // Promote single image child to block_image, block_video, or block_audio based on extension
-  if (node.children.length === 1 && node.children[0]?.type === "image") {
-    const imgChild = node.children[0] as import("mdast").Image;
-    const src = imgChild.url ?? "";
-
-    // Check for video/audio extension first, then fall back to block_image
-    const mediaNode = promoteImageToMediaNode(context, src, imgChild.title ?? "", sourceLine);
-    if (mediaNode) return mediaNode;
-
-    const blockImageType = context.schema.nodes.block_image;
-    if (blockImageType) {
-      const imageNode = inlineConverters.convertImage(context.schema, imgChild);
-      if (imageNode) {
-        return blockImageType.create({
-          /* v8 ignore next -- @preserve reason: convertImage always returns a node with a string src (isSafeUrl returns a string); the ?? "" fallback is unreachable */
-          src: imageNode.attrs.src ?? "",
-          alt: imageNode.attrs.alt ?? "",
-          title: imageNode.attrs.title ?? "",
-          sourceLine,
-        });
-      }
-    }
-  }
-  // Safety net: promote single inline-html child containing <video>/<audio>
-  if (node.children.length === 1 && node.children[0]?.type === "html") {
-    const htmlChild = node.children[0] as import("mdast").Html;
-    const promoted = tryPromoteMediaHtml(context, htmlChild.value ?? "", sourceLine);
-    if (promoted) return promoted;
-  }
-
-  const children = context.convertChildren(node.children as Content[], marks, "inline");
-  return type.create({ sourceLine }, children);
-}
 
 export function convertHtml(
   context: MdastToPmContext,
@@ -93,12 +52,19 @@ export function convertHtml(
  * block node. Returns null when the extension is not media or the schema
  * lacks the node type (callers then fall back to block_image / paragraph).
  */
-function promoteImageToMediaNode(
+export function promoteImageToMediaNode(
   context: MdastToPmContext,
   src: string,
+  alt: string,
   title: string,
-  sourceLine: number | null
+  sourceLine: number | null,
+  /** Reference identity from the source `![alt][id]`, if it was one. */
+  reference: { referenceId?: string; referenceType?: string } = {}
 ): PMNode | null {
+  // Same gate as the HTML-tag path: `javascript:x.mp4` has a video extension
+  // but must never cross into a block_video src. Declining promotion routes
+  // the image through convertImage, which sanitizes.
+  if (!src || !isSafeUrl(src)) return null;
   const nodeName = hasVideoExtension(src)
     ? "block_video"
     : hasAudioExtension(src)
@@ -107,7 +73,16 @@ function promoteImageToMediaNode(
   if (!nodeName) return null;
   const type = context.schema.nodes[nodeName];
   if (!type) return null;
-  return type.create({ src, title, controls: true, preload: "metadata", sourceLine });
+  return type.create({
+    src,
+    alt,
+    title,
+    controls: true,
+    preload: "metadata",
+    sourceLine,
+    referenceId: reference.referenceId ?? null,
+    referenceType: reference.referenceType ?? null,
+  });
 }
 
 /**
@@ -115,7 +90,7 @@ function promoteImageToMediaNode(
  * <iframe> to native block nodes. Returns null if the HTML doesn't match
  * or the schema lacks the node type.
  */
-function tryPromoteMediaHtml(
+export function tryPromoteMediaHtml(
   context: MdastToPmContext,
   html: string,
   sourceLine: number | null
@@ -133,6 +108,25 @@ const MEDIA_TAG_SPECS = [
   { tag: "audio", nodeName: "block_audio", withPoster: false },
 ] as const;
 
+/** Count closing tags of `tag` in the HTML (case-insensitive). */
+function countTagCloses(html: string, tag: string): number {
+  return (html.match(new RegExp(`</${tag}>`, "gi")) ?? []).length;
+}
+
+/**
+ * Whether promoting this media markup would LOSE information: multiple
+ * <source> children (codec/format alternatives), any <track> (captions), or
+ * a src attr PLUS a <source> fallback cannot be represented on a single-src
+ * block node. Lossy markup stays an html_block so a round trip preserves it
+ * byte-for-byte.
+ */
+function mediaPromotionWouldBeLossy(innerHtml: string, hasSrcAttr: boolean): boolean {
+  const sourceCount = (innerHtml.match(/<source\b/gi) ?? []).length;
+  if (/<track\b/i.test(innerHtml)) return true;
+  if (sourceCount > 1) return true;
+  return hasSrcAttr && sourceCount >= 1;
+}
+
 /** Detect `<video ...>...</video>` / `<audio ...>...</audio>` and promote. */
 function promoteMediaTagHtml(
   context: MdastToPmContext,
@@ -143,24 +137,49 @@ function promoteMediaTagHtml(
     const re = new RegExp(`^<${spec.tag}\\b([^>]*)>([\\s\\S]*)</${spec.tag}>$`, "i");
     const match = trimmed.match(re);
     if (!match) continue;
+    // Sibling tags swallowed by the greedy match, or markup a single-src
+    // node cannot express — keep the html_block rather than promote lossily.
+    if (countTagCloses(trimmed, spec.tag) !== 1) return null;
 
     const type = context.schema.nodes[spec.nodeName];
     if (!type) return null;
     const attrs = parseHtmlAttributes(match[1]);
+    if (mediaPromotionWouldBeLossy(match[2], "src" in attrs)) return null;
     // Common markup puts the src on a nested <source> tag instead of the
     // media element itself — fall back to the first one so it isn't lost.
     const src = attrs.src ?? extractNestedSourceSrc(match[2]) ?? "";
+    // Promotion must not smuggle unsafe schemes (javascript:, data:) into
+    // media nodes — same gate the image path applies. Unsafe → stays html_block.
+    if (src && !isSafeUrl(src)) return null;
     const nodeAttrs: Record<string, unknown> = {
       src,
+      // data-alt carries the alt metadata <video>/<audio> cannot express —
+      // the serializer writes it, this restores it.
+      alt: attrs["data-alt"] ?? "",
       title: attrs.title ?? "",
       controls: "controls" in attrs,
       preload: attrs.preload ?? "metadata",
       sourceLine,
     };
-    if (spec.withPoster) nodeAttrs.poster = attrs.poster ?? "";
+    if (spec.withPoster) {
+      // Poster is a URL attribute too — same scheme policy as src.
+      const poster = attrs.poster ?? "";
+      nodeAttrs.poster = poster && isSafeUrl(poster) ? poster : "";
+    }
     return type.create(nodeAttrs);
   }
   return null;
+}
+
+/**
+ * Strict positive-integer dimension: rejects negatives, units ("50%"), and
+ * non-decimal forms parseInt would truncate-accept. Falls back to the
+ * provider default.
+ */
+function parseDimension(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || !/^\d+$/.test(raw)) return fallback;
+  const n = Number(raw);
+  return n > 0 ? n : fallback;
 }
 
 /** Detect video provider `<iframe ...>...</iframe>` (YouTube, Vimeo, Bilibili) and promote. */
@@ -171,6 +190,9 @@ function promoteIframeHtml(
 ): PMNode | null {
   const iframeMatch = trimmed.match(/^<iframe\b([^>]*)>[\s\S]*<\/iframe>$/i);
   if (!iframeMatch) return null;
+  // The greedy regex would swallow SIBLING iframes into one match, silently
+  // discarding all but the first — exactly one closing tag or no promotion.
+  if (countTagCloses(trimmed, "iframe") !== 1) return null;
 
   const videoEmbedType = context.schema.nodes.video_embed;
   if (!videoEmbedType) return null;
@@ -178,16 +200,17 @@ function promoteIframeHtml(
   const src = attrs.src ?? "";
   const provider = detectProviderFromIframeSrc(src);
   if (!provider) return null; // Not a recognized video iframe, let it be html_block
-  const videoId = extractVideoIdFromSrc(provider, src);
-  if (!videoId) return null;
+  const info = extractVideoInfoFromSrc(provider, src);
+  if (!info) return null;
   const config = getProviderConfig(provider);
+  /* v8 ignore next -- @preserve defensive: config is always defined when provider is recognized */
+  if (!config) return null;
   return videoEmbedType.create({
     provider,
-    videoId,
-    /* v8 ignore start -- @preserve reason: config is always defined when provider is recognized; the ?? 560/315 fallbacks are unreachable in practice */
-    width: parseInt(attrs.width ?? String(config?.defaultWidth ?? 560), 10) || 560,
-    height: parseInt(attrs.height ?? String(config?.defaultHeight ?? 315), 10) || 315,
-    /* v8 ignore stop */
+    videoId: info.videoId,
+    privacyHash: info.privacyHash ?? null,
+    width: parseDimension(attrs.width, config.defaultWidth),
+    height: parseDimension(attrs.height, config.defaultHeight),
     sourceLine,
   });
 }

@@ -4,6 +4,7 @@ import {
   buildEmbedUrl,
   detectProviderFromIframeSrc,
   extractVideoIdFromSrc,
+  extractVideoInfoFromSrc,
   getProviderConfig,
   parseVideoUrl,
   type VideoProvider,
@@ -34,14 +35,24 @@ describe("parseVideoUrl — Vimeo routing", () => {
     });
   });
 
+  describe("parses documented container video schemas", () => {
+    it.each([
+      ["https://vimeo.com/channels/staffpicks/123", "123"],
+      ["https://vimeo.com/groups/foo/videos/123", "123"],
+      ["https://vimeo.com/ondemand/foo/123", "123"],
+      ["https://vimeo.com/album/77/video/123", "123"],
+      ["https://vimeo.com/showcase/77/video/123", "123"],
+    ])("parses %s", (url, id) => {
+      expect(parseVideoUrl(url)).toEqual({ provider: "vimeo", videoId: id });
+    });
+  });
+
   describe("rejects non-video paths", () => {
     it.each([
-      "https://vimeo.com/channels/staffpicks/123",
-      "https://vimeo.com/groups/foo/videos/123",
       "https://vimeo.com/user42/123",
       "https://vimeo.com/showcase/123",
       "https://vimeo.com/manage/videos/123",
-      "https://vimeo.com/ondemand/foo/123",
+      "https://vimeo.com/channels/staffpicks",
       "https://vimeo.com/categories/animation",
     ])("rejects %s", (url) => {
       expect(parseVideoUrl(url)).toBeNull();
@@ -262,7 +273,6 @@ describe("getProviderConfig", () => {
     "returns config for %s",
     (provider) => {
       const config = getProviderConfig(provider);
-      expect(config?.name).toBe(provider);
       expect(typeof config?.defaultWidth).toBe("number");
       expect(typeof config?.defaultHeight).toBe("number");
       expect(typeof config?.aspectRatio).toBe("string");
@@ -271,5 +281,126 @@ describe("getProviderConfig", () => {
 
   it("returns undefined for unknown provider", () => {
     expect(getProviderConfig("unknown" as VideoProvider)).toBeUndefined();
+  });
+});
+
+describe("hardening (audit round)", () => {
+  it("rejects malformed player paths instead of extracting a partial ID", () => {
+    expect(parseVideoUrl("https://player.vimeo.com/video/123abc")).toBeNull();
+    expect(
+      parseVideoUrl("https://www.bilibili.com/video/BV1xx411c7mDgarbage")
+    ).toBeNull();
+  });
+
+  it("accepts trailing slashes on anchored player paths", () => {
+    expect(parseVideoUrl("https://player.vimeo.com/video/123456/")).toEqual({
+      provider: "vimeo",
+      videoId: "123456",
+    });
+    expect(parseVideoUrl("https://www.bilibili.com/video/BV1xx411c7mD/")).toEqual({
+      provider: "bilibili",
+      videoId: "BV1xx411c7mD",
+    });
+  });
+
+  it("requires the bilibili embed player path to be /player.html", () => {
+    expect(
+      parseVideoUrl("https://player.bilibili.com/anything?bvid=BV1xx411c7mD")
+    ).toBeNull();
+    expect(
+      parseVideoUrl("https://player.bilibili.com/player.html?bvid=BV1xx411c7mD")
+    ).toEqual({ provider: "bilibili", videoId: "BV1xx411c7mD" });
+  });
+
+  it("does not detect lookalike domains as providers", () => {
+    expect(
+      detectProviderFromIframeSrc("https://notyoutube.com/embed/dQw4w9WgXcQ")
+    ).toBeNull();
+    expect(
+      detectProviderFromIframeSrc(
+        "https://evil.example/?u=player.vimeo.com/video/123"
+      )
+    ).toBeNull();
+  });
+
+  it("refuses to build embed URLs from malformed IDs", () => {
+    expect(buildEmbedUrl("youtube", "../evil")).toBe("about:blank");
+    expect(buildEmbedUrl("vimeo", "123?autoplay=1")).toBe("about:blank");
+    expect(buildEmbedUrl("bilibili", "BV1xx411c7mD&danmaku=1")).toBe("about:blank");
+  });
+
+  it("handles empty src in direct extraction (parser guards are reachable)", () => {
+    expect(extractVideoIdFromSrc("vimeo", "")).toBeNull();
+    expect(extractVideoIdFromSrc("bilibili", "")).toBeNull();
+  });
+
+  it("exposes frozen configs so callers cannot mutate global behavior", () => {
+    const config = getProviderConfig("youtube");
+    expect(Object.isFrozen(config)).toBe(true);
+  });
+});
+
+describe("ID validation surface (audit round 2)", () => {
+  it("exposes a validation closure, not a mutable RegExp", () => {
+    const config = getProviderConfig("bilibili");
+    // Object.freeze cannot protect a RegExp (.compile() swaps the pattern
+    // before throwing), so the config must not expose one at all.
+    expect("idPattern" in (config ?? {})).toBe(false);
+    expect(config?.isValidId("BV1xx411c7mD")).toBe(true);
+    expect(config?.isValidId("nope")).toBe(false);
+  });
+});
+
+describe("Vimeo unlisted privacy hash (WI-6)", () => {
+  it("parses the unlisted path form vimeo.com/{id}/{hash}", () => {
+    expect(parseVideoUrl("https://vimeo.com/123456789/abcDEF123")).toEqual({
+      provider: "vimeo",
+      videoId: "123456789",
+      privacyHash: "abcDEF123",
+    });
+  });
+
+  it("parses the ?h= form on both vimeo.com and player URLs", () => {
+    expect(parseVideoUrl("https://vimeo.com/123456789?h=beef1234")).toEqual({
+      provider: "vimeo",
+      videoId: "123456789",
+      privacyHash: "beef1234",
+    });
+    expect(
+      parseVideoUrl("https://player.vimeo.com/video/123456789?h=beef1234")
+    ).toEqual({ provider: "vimeo", videoId: "123456789", privacyHash: "beef1234" });
+  });
+
+  it("ordinary vimeo URLs carry no hash", () => {
+    expect(parseVideoUrl("https://vimeo.com/123456789")).toEqual({
+      provider: "vimeo",
+      videoId: "123456789",
+      privacyHash: undefined,
+    });
+  });
+
+  it("builds embed URLs with the hash, validated", () => {
+    expect(buildEmbedUrl("vimeo", "123456789", { privacyHash: "beef1234" })).toBe(
+      "https://player.vimeo.com/video/123456789?h=beef1234"
+    );
+    // Malformed hashes are dropped, not interpolated.
+    expect(buildEmbedUrl("vimeo", "123456789", { privacyHash: "x&autoplay=1" })).toBe(
+      "https://player.vimeo.com/video/123456789"
+    );
+    // Hash is vimeo-only.
+    expect(buildEmbedUrl("youtube", "dQw4w9WgXcQ", { privacyHash: "beef" })).toBe(
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+    );
+  });
+
+  it("round-trips: unlisted URL → parse → embed src → extract (DoD)", () => {
+    const parsed = parseVideoUrl("https://vimeo.com/123456789/abcDEF123");
+    expect(parsed?.privacyHash).toBe("abcDEF123");
+    const embedSrc = buildEmbedUrl("vimeo", parsed!.videoId, {
+      privacyHash: parsed!.privacyHash,
+    });
+    expect(embedSrc).toContain("h=abcDEF123");
+    const back = extractVideoInfoFromSrc("vimeo", embedSrc);
+    expect(back).toEqual({ videoId: "123456789", privacyHash: "abcDEF123" });
   });
 });

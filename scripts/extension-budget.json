@@ -1,0 +1,14 @@
+{
+  "//": "Ceiling for .dependency-cruiser-known-violations.json (plugin-isolation, severity error). Ratchets DOWN only — see scripts/check-extension-budget.mjs and dev-docs/plans/20260722-extension-architecture.md WI-1.7/1.8.",
+  "//rebased-20260803": "WI-8 (arch review B3): the 17 plugin-wide 'verified dependency' pathNot licenses (plus 2 dead entries and the deleted registry.ts target) were retired and every real edge frozen INDIVIDUALLY. Measured at the flip: stripping ALL from-licenses exposed 209 edges; keeping only the 5 coordination licenses (toolbarActions/codemirror/editorPlugins/formatToolbar/codePreview) and dropping sourcePopup's blanket target status left 74 real edges — frozen per-edge below. maxKnownViolations therefore moved 7→74 while maxRuleExemptions.plugin-isolation moved 28→7: the same debt, made visible per-edge instead of masked plugin-wide. From here BOTH numbers ratchet down only.",
+  "//rule-level-exemptions": "GATED by maxRuleExemptions below. A pathNot entry removes paths from a rule's scope, so its violations never reach the known-violations list. Measure with: strip the plugin-isolation pathNot list, run `pnpm exec depcruise src --config .dependency-cruiser.cjs --no-ignore-known`.",
+  "maxKnownViolations": 75,
+  "maxRuleExemptions": {
+    "leaf-modules-stay-pure": 5,
+    "utils-no-platform": 1,
+    "services-no-upward": 3,
+    "node-safe-markdown-seam": 1,
+    "plugin-isolation": 7
+  },
+  "//wi-10-straggler-20260804": "WI-10 (hooks→services migration, B1): moving mcpBridge/v2 into services/ made the PRE-EXISTING browserNavigation → components/Browser/useBrowserNativeView edge visible to services-no-upward (it was an unmodeled hooks→components edge before). The ensure/waitFor native-view helpers share module-scope mount-token state with the hook lifecycle, so extracting them is a behavioral refactor, not a mechanical move — frozen per-edge in known-violations instead (74→75). Same debt, now visible; BOTH numbers still ratchet DOWN only from here."
+}

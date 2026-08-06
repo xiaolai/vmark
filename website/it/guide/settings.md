@@ -76,7 +76,7 @@ Tipografia, display, comportamento di modifica e impostazioni degli spazi bianch
 | Impostazione | Descrizione | Predefinito | Opzioni |
 |-------------|-------------|-------------|---------|
 | Fine riga al salvataggio | Controlla come vengono gestite le terminazioni di riga quando si salvano i file | Preserva esistente | Preserva esistente, LF (`\n`), CRLF (`\r\n`) |
-| Preserva interruzioni di riga consecutive | Mantieni più righe vuote così come sono invece di comprimerle | Off | Attivo / Off |
+| Preserva interruzioni di riga consecutive | Mantieni più righe vuote così come sono invece di comprimerle | Attivo | Attivo / Off |
 | Stile interruzione rigida al salvataggio | Come vengono rappresentate le interruzioni di riga rigide nel file Markdown salvato | Preserva esistente | Due spazi (Consigliato), Preserva esistente, Barra rovesciata (`\`) |
 | Mostra tag `<br>` | Visualizza i tag di interruzione di riga HTML visibilmente nell'editor | Off | Attivo / Off |
 
@@ -160,7 +160,7 @@ Queste impostazioni si applicano solo quando un workspace (cartella) è aperto.
 |-------------|-------------|-------------|---------|
 | Ridimensiona automaticamente all'incolla | Ridimensiona automaticamente le immagini grandi prima di salvarle nella cartella assets. Il valore è la dimensione massima in pixel | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copia nella cartella assets | Copia le immagini incollate o trascinate nella cartella assets del documento invece di incorporarle | Attivo | Attivo / Off |
-| Pulisci immagini inutilizzate alla chiusura | Elimina automaticamente le immagini dalla cartella assets che non sono più referenziate nel documento quando lo chiudi | Off | Attivo / Off |
+| Pulisci immagini inutilizzate alla chiusura | Elimina automaticamente le immagini dalla cartella assets che il documento non referenzia più. Viene eseguita alla chiusura del documento, della finestra o dell'applicazione. Le immagini ancora referenziate da un altro documento nella stessa cartella vengono conservate, e quelle rimosse finiscono nel cestino di sistema | Off | Attivo / Off |
 | Soglia immagini incorporate | Dimensione massima (MB) per incorporare le immagini come URL di dati base64 nell'esportazione HTML/PDF. I file più grandi vengono collegati invece | 1.0 MB | 0.1 – 10 MB |
 
 ### File di grandi dimensioni
@@ -300,7 +300,7 @@ La sezione Lingua contiene oltre 20 toggle di formattazione granulari. Per una s
 | Limita punteggiatura consecutiva | Limita i segni di punteggiatura ripetuti come `!!!` | Off | Off, Singolo (`!!` diventa `!`), Doppio (`!!!` diventa `!!`) |
 | Rimuovi spazi finali | Rimuovi gli spazi alla fine delle righe | Attivo | Attivo / Off |
 | Normalizza puntini di sospensione | Converti i punti spaziati (`. . .`) in puntini di sospensione corretti (`...`) | Attivo | Attivo / Off |
-| Comprimi newline | Riduci tre o più newline consecutive a due | Attivo | Attivo / Off |
+| Comprimi newline | Riduci tre o più newline consecutive a due | Off | Attivo / Off |
 
 ## Scorciatoie
 

@@ -27,10 +27,10 @@
  * @coordinates-with sourceEditorSearch.ts — equivalent search for Source mode (CodeMirror)
  * @module plugins/search/tiptap
  */
+import { hostSearch } from "@/plugins/shared/hostSearch";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import { useUIStore } from "@/stores/uiStore";
 import { runOrQueueProseMirrorAction } from "@/utils/imeGuard";
 import { findMatchesInDoc, type Match } from "./findMatches";
 import { createQueryDebounce } from "./queryDebounce";
@@ -82,7 +82,7 @@ export const searchExtension = Extension.create({
             return { matches: [] as Match[], currentIndex: -1, decorationSet: DecorationSet.empty };
           },
           apply(tr, value) {
-            const state = useUIStore.getState().search;
+            const state = hostSearch.current();
             const queryChanged =
               state.query !== lastQuery ||
               state.caseSensitive !== lastCaseSensitive ||
@@ -114,10 +114,10 @@ export const searchExtension = Extension.create({
               const initialIndex = matchCount > 0 ? 0 : -1;
               // Defer store update out of ProseMirror's apply() to avoid side-effects during state computation
               queueMicrotask(() => {
-                useUIStore.getState().searchSetMatches(matchCount, initialIndex);
+                hostSearch.reportMatches(matchCount, initialIndex);
               });
 
-              const currentIndex = useUIStore.getState().search.currentIndex;
+              const currentIndex = hostSearch.current().currentIndex;
               let decorationSet = DecorationSet.empty;
               if (state.isOpen && state.query && matches.length > 0) {
                 const decorations = matches.map((match: Match, i: number) =>
@@ -171,7 +171,7 @@ export const searchExtension = Extension.create({
               matches = matches
                 .map((m: Match) => ({ from: tr.mapping.map(m.from), to: tr.mapping.map(m.to) }))
                 .filter((m: Match) => m.from < m.to);
-              const currentIndex = useUIStore.getState().search.currentIndex;
+              const currentIndex = hostSearch.current().currentIndex;
               // Adjust index if matches were lost due to mapping collapse
               const adjustedIndex = matches.length === 0
                 ? -1
@@ -179,12 +179,12 @@ export const searchExtension = Extension.create({
                   ? 0
                   : currentIndex;
               queueMicrotask(() => {
-                useUIStore.getState().searchSetMatches(matches.length, adjustedIndex);
+                hostSearch.reportMatches(matches.length, adjustedIndex);
               });
               return { matches, currentIndex: adjustedIndex, decorationSet: mappedDecorationSet };
             }
 
-            const currentIndex = useUIStore.getState().search.currentIndex;
+            const currentIndex = hostSearch.current().currentIndex;
 
             // Path 4 — No structural change; only update decorations if active index changed.
             if (currentIndex !== value.currentIndex) {
@@ -215,7 +215,7 @@ export const searchExtension = Extension.create({
           let lastScrollKey = "";
 
           const scrollToMatch = () => {
-            const state = useUIStore.getState().search;
+            const state = hostSearch.current();
             if (!state.isOpen || state.currentIndex < 0) return;
 
             const scrollKey = `${state.query}|${state.caseSensitive}|${state.wholeWord}|${state.useRegex}|${state.currentIndex}`;
@@ -251,12 +251,12 @@ export const searchExtension = Extension.create({
             );
 
           let prevState = {
-            query: useUIStore.getState().search.query,
-            caseSensitive: useUIStore.getState().search.caseSensitive,
-            wholeWord: useUIStore.getState().search.wholeWord,
-            useRegex: useUIStore.getState().search.useRegex,
-            currentIndex: useUIStore.getState().search.currentIndex,
-            isOpen: useUIStore.getState().search.isOpen,
+            query: hostSearch.current().query,
+            caseSensitive: hostSearch.current().caseSensitive,
+            wholeWord: hostSearch.current().wholeWord,
+            useRegex: hostSearch.current().useRegex,
+            currentIndex: hostSearch.current().currentIndex,
+            isOpen: hostSearch.current().isOpen,
           };
 
           // Single debounce slot for query/options changes. Nav/open changes
@@ -272,8 +272,8 @@ export const searchExtension = Extension.create({
             requestAnimationFrame(scrollToMatch);
           };
 
-          const unsubscribe = useUIStore.subscribe((root) => {
-            const state = root.search;
+          const unsubscribe = hostSearch.onChange(() => {
+            const state = hostSearch.current();
             const currentState = {
               query: state.query,
               caseSensitive: state.caseSensitive,

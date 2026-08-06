@@ -27,9 +27,31 @@ describe("buildCcSwitchImportLink", () => {
     expect(q.name).toBe("vmark");
   });
 
-  it("defaults apps to claude,codex,gemini (comma-separated, literal)", () => {
+  it("defaults apps to claude,codex,grok,opencode (comma-separated, literal)", () => {
     const link = buildCcSwitchImportLink("/bin/x");
-    expect(link).toContain("apps=claude,codex,gemini");
+    expect(link).toContain("apps=claude,codex,grok,opencode");
+  });
+
+  it("only names app ids CC-Switch's parser accepts", () => {
+    // CC-Switch rejects the ENTIRE link if any one id is unknown, so a typo or
+    // a VMark-side provider id smuggled in here breaks the hand-off silently
+    // from VMark's side. This is the id set its `parse_mcp_deeplink` matches.
+    const accepted = new Set([
+      "claude",
+      "codex",
+      "gemini",
+      "grokbuild",
+      "grok",
+      "opencode",
+      "openclaw",
+      "hermes",
+    ]);
+    const q = parseQuery(buildCcSwitchImportLink("/bin/x"));
+    for (const app of q.apps.split(",")) {
+      expect(accepted, `CC-Switch would reject "${app}"`).toContain(app);
+    }
+    // VMark's own provider id for Antigravity has no CC-Switch counterpart.
+    expect(q.apps).not.toContain("antigravity");
   });
 
   it("honors a custom apps list", () => {

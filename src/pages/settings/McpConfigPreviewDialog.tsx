@@ -26,10 +26,15 @@ interface McpConfigPreviewDialogProps {
   loading: boolean;
 }
 
+// The non-legacy half of `PROVIDERS` in providers.rs — legacy providers never
+// reach this dialog because the backend refuses to preview them.
 const PROVIDER_NAMES: Record<string, string> = {
+  "claude-desktop": "Claude Desktop",
   claude: "Claude Code",
   codex: "Codex CLI",
-  gemini: "Gemini CLI",
+  antigravity: "Antigravity CLI",
+  grok: "Grok CLI",
+  opencode: "opencode",
 };
 
 export function McpConfigPreviewDialog({
@@ -200,13 +205,16 @@ function InfoRow({
   copyable,
   fullValue,
 }: {
+  // The optional props are `| undefined`: callers compute them inline
+  // (`preview.isDev ? t(...) : undefined`), and React cannot tell a prop
+  // passed as `undefined` from one that was never written.
   label: string;
   value: string;
-  mono?: boolean;
-  badge?: string;
-  badgeColor?: "green" | "amber";
-  copyable?: boolean;
-  fullValue?: string; // Full value to copy (if different from displayed value)
+  mono?: boolean | undefined;
+  badge?: string | undefined;
+  badgeColor?: "green" | "amber" | undefined;
+  copyable?: boolean | undefined;
+  fullValue?: string | undefined; // Full value to copy (if different from displayed value)
 }) {
   return (
     <div className="flex items-center gap-2">

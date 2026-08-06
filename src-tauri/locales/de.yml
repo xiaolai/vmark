@@ -33,7 +33,7 @@ menu:
   file.export.pandocEpub: "EPUB (.epub)..."
   file.export.pandocLatex: "LaTeX (.tex)..."
   file.export.pandocOdt: "OpenDocument (.odt)..."
-  file.export.pandocRtf: "Rich Text (.rtf)..."
+  file.export.pandocRtf: "Formatierter Text (.rtf)..."
   file.export.pandocTxt: "Nur Text (.txt)..."
   file.export.pandocHint: "Pandoc installieren, um Word, EPUB, LaTeX… zu exportieren"
   file.export.copyHtml: "Als HTML kopieren"
@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Vergrößern"
   view.zoomOut: "Verkleinern"
   view.wordWrap: "Zeilenumbruch umschalten"
+  view.universalToolbar: "Universelle Symbolleiste anzeigen"
   view.lineNumbers: "Zeilennummern umschalten"
   view.diagramPreview: "Diagramm-Vorschau umschalten"
   view.fitTables: "Tabellen an Breite anpassen"
@@ -248,6 +249,34 @@ errors:
   workflow.notRunning: "Derzeit läuft kein Workflow"
   workflow.circularDependency: "Zirkuläre Abhängigkeit in Workflow-Schritten erkannt"
   workflow.noInteractivePrompt: "Interaktive Eingabeaufforderung in Workflow-Ausführung nicht unterstützt"
+  workflow.engineDisabled: "Die Workflow-Engine ist in den Einstellungen deaktiviert"
+  workflow.noPendingApproval: "Keine offene Genehmigungsanfrage stimmt überein"
+  workflow.appDataDirUnavailable: "Das App-Datenverzeichnis konnte nicht ermittelt werden: %{detail}"
+
+  # === Speicherpfad (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "Der Ordner dieser Datei existiert nicht mehr: %{dir}"
+  save.noParentDirectory: "Der Dateipfad hat keinen übergeordneten Ordner"
+  save.writeFailed: "Datei konnte nicht gespeichert werden: %{detail}"
+  save.taskFailed: "Der Speichervorgang wurde unerwartet beendet: %{detail}"
+
+  # === Integrierter Browser, KI-Navigation (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "Der integrierte Browser ist in den Einstellungen deaktiviert"
+  browser.approvalRequired: "Diese Seite benötigt Ihre Freigabe, bevor die KI sie öffnen darf"
+  browser.blockedDestination: "Die Richtlinie blockiert die KI-Navigation zu diesem Ziel"
+  browser.profileNotApproved: "Das Öffnen dieses Browserprofils wurde nicht freigegeben"
+  browser.tabNotFound: "Dieser Browser-Tab existiert nicht mehr"
+  browser.tabNotAiOwned: "Dieser Browser-Tab wird nicht von der KI gesteuert"
+  browser.policyStale: "Die Browser-Richtlinie hat sich geändert – versuchen Sie es erneut"
+  browser.tabProvenanceMismatch: "Dieser Tab wurde in einem anderen Automatisierungsmodus erstellt"
+  browser.invalidSessionMode: "Unbekannter Browser-Sitzungsmodus „%{mode}“"
+  browser.stateUnavailable: "Der Browserstatus konnte nicht gelesen werden: %{detail}"
+  browser.invalidUrl: "Das ist keine verwendbare Webadresse"
+  browser.invalidProfileName: "Dieser Name für das Browserprofil ist nicht zulässig"
+  browser.windowGone: "Das Fenster, zu dem dieser Browser-Tab gehört, wurde geschlossen"
+  browser.profileLimit: "Es sind zu viele Browserprofile gleichzeitig geöffnet"
+  browser.unsupportedPlatform: "Der integrierte Browser ist auf dieser Plattform nicht verfügbar"
+  browser.surfaceTimeout: "Der Browser hat nicht rechtzeitig geantwortet"
+  browser.surfaceFailed: "Der Browser konnte diese Aktion nicht ausführen"
 
   # === Hot exit ===
   hotExit.noWindows: "Keine Dokumentfenster zum Erfassen"
@@ -267,6 +296,47 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP-Sidecar-Start bereits in Arbeit"
   mcp.configMismatch: "Konfigurationsvalidierung fehlgeschlagen: geschriebener Inhalt stimmt nicht überein"
+
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Unbekannter Anbieter: %{provider}"
+  mcp.legacyProvider: "%{name} wird nicht mehr unterstützt; der verbliebene VMark-Eintrag kann nur entfernt werden."
+  mcp.noHomeDir: "Home-Verzeichnis konnte nicht ermittelt werden"
+  mcp.exePathFailed: "Pfad der ausführbaren Datei konnte nicht ermittelt werden: %{detail}"
+  mcp.exeDirFailed: "Verzeichnis der ausführbaren Datei konnte nicht ermittelt werden"
+  mcp.binaryNotFound: "MCP-Server-Binärdatei nicht gefunden: %{name}. Bitte installieren Sie VMark neu."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "Ungültiges JSON: %{detail}"
+  mcp.invalidToml: "Ungültiges TOML: %{detail}"
+  mcp.jsonSerializeFailed: "JSON-Serialisierungsfehler: %{detail}"
+  mcp.invalidJsonStructure: "Ungültige JSON-Struktur"
+  mcp.serversNotObject: "%{key} ist kein Objekt"
+  mcp.serversNotTable: "mcp_servers ist keine Tabelle"
+  mcp.vmarkEntryNotObject: "%{key} ist kein Objekt"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark ist keine Tabelle"
+  mcp.envNotObject: "%{key} ist kein Objekt"
+  mcp.envNotTable: "mcp_servers.vmark.env ist keine Tabelle"
+
+  # MCP-Bridge — die Client-Anmeldedaten, an die der Autorisierungsprincipal gebunden ist
+  mcp.principalMissing: "Dieser KI-Client hat keine VMark-Anmeldedaten vorgelegt, daher werden delegierte Aktionen abgelehnt. Öffnen Sie Einstellungen > Integrationen, führen Sie dort Installieren aus und starten Sie den Client neu."
+  mcp.principalUnknown: "Die von diesem KI-Client vorgelegten Anmeldedaten sind VMark nicht bekannt, daher werden delegierte Aktionen abgelehnt. Öffnen Sie Einstellungen > Integrationen, führen Sie dort Installieren aus und starten Sie den Client neu."
+  mcp.principalAmbiguous: "Die von diesem KI-Client vorgelegten Anmeldedaten sind für mehrere Clients (%{detail}) konfiguriert, daher kann VMark sie nicht unterscheiden. Öffnen Sie Einstellungen > Integrationen, führen Sie Installieren für jeden davon aus und starten Sie sie neu."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "%{path} konnte nicht gelesen werden: %{detail}"
+  mcp.createDirFailed: "Verzeichnis %{path} konnte nicht erstellt werden: %{detail}"
+  mcp.configChangedOnDisk: "%{path} wurde auf der Festplatte geändert, während VMark die Datei aktualisiert hat. Schließen Sie den Client, der sie schreibt, und versuchen Sie es erneut."
+  mcp.backupWriteFailed: "Backup %{path} konnte nicht geschrieben werden: %{detail}"
+  mcp.backupFlushFailed: "Puffer des Backups %{path} konnte nicht geleert werden: %{detail}"
+  mcp.backupSyncFailed: "Backup %{path} konnte nicht synchronisiert werden: %{detail}"
+  mcp.backupCreateFailed: "Backup %{path} konnte nicht erstellt werden: %{detail}"
+  mcp.backupVariantsExhausted: "Backup konnte nicht erstellt werden: %{count} Varianten von %{path} existieren bereits"
+  mcp.stageConfigFailed: "Zwischendatei für die Konfiguration konnte in %{dir} nicht angelegt werden: %{detail}"
+  mcp.restrictStagedConfigFailed: "Berechtigungen der Zwischendatei %{path} konnten nicht eingeschränkt werden: %{detail}"
+  mcp.writeStagedConfigFailed: "Zwischendatei der Konfiguration für %{path} konnte nicht geschrieben werden: %{detail}"
+  mcp.createConfigFailed: "%{path} konnte nicht erstellt werden: Eine vorbereitete Kopie ließ sich nicht per Hardlink an ihren Platz bringen (%{link_detail}), und die Datei ließ sich auch nicht direkt erstellen (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "%{path} konnte nicht geschrieben werden: %{detail} (die unvollständige Datei wurde entfernt)"
+  mcp.writeConfigPartialOrphaned: "%{path} konnte nicht geschrieben werden: %{detail}. Die unvollständige Datei ließ sich ebenfalls nicht entfernen (%{cleanup_detail}) — löschen Sie sie von Hand, bevor Sie es erneut versuchen, sonst liest die nächste Installation sie als beschädigte Konfiguration."
 
 window:
   settings.title: "Einstellungen"

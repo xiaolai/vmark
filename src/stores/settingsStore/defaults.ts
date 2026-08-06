@@ -13,11 +13,14 @@
 
 import { resolveInitialLanguage } from "@/utils/localeDetect";
 import type { SettingsState } from "../settingsTypes";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 
 export const initialState: SettingsState = {
   general: {
     autoSaveEnabled: true,
     autoSaveInterval: 30,
+    // Opt-in: capture rewrites the file to insert a `vmark:` identity block.
+    coherenceCaptureOnSave: false,
     historyEnabled: true,
     historyMaxSnapshots: 50,
     historyMaxAgeDays: 7,
@@ -61,40 +64,12 @@ export const initialState: SettingsState = {
     autoHideStatusBar: false,
     focusModeDim: "standard", // color-only dimming by default (current behavior)
   },
-  cjkFormatting: {
-    // Group 1: Universal
-    ellipsisNormalization: true,
-    newlineCollapsing: true,
-    // Group 2: Fullwidth Normalization
-    fullwidthAlphanumeric: true,
-    fullwidthPunctuation: true,
-    fullwidthParentheses: true,
-    fullwidthBrackets: false, // OFF by default
-    // Group 3: Spacing
-    cjkEnglishSpacing: true,
-    cjkParenthesisSpacing: true,
-    currencySpacing: true,
-    slashSpacing: true,
-    spaceCollapsing: true,
-    // Group 4: Dash & Quote
-    dashConversion: true,
-    emdashSpacing: true,
-    smartQuoteConversion: true, // ON by default - convert " to ""
-    quoteStyle: "curly", // curly quotes for Simplified Chinese
-    contextualQuotes: true, // ON by default - curly for CJK, straight for pure Latin
-    quoteSpacing: true,
-    singleQuoteSpacing: true,
-    cjkCornerQuotes: false, // OFF by default (Traditional Chinese/Japanese only)
-    cjkNestedQuotes: false, // OFF by default
-    quoteToggleMode: "simple", // 2-state: straight <-> preferred style
-    // Group 5: Cleanup
-    consecutivePunctuationLimit: 0, // 0=off
-    trailingSpaceRemoval: true,
-    // Group 6: Section Handling
-    skipReferenceSections: false, // OFF by default — opt-in for academic documents
-  },
+  cjkFormatting: { ...DEFAULT_CJK_FORMATTING },
   markdown: {
     preserveLineBreaks: false,
+    // ON by default: a plain Cmd+S must not collapse blank lines the file
+    // already had — a fresh install never rewrites untouched content.
+    preserveBlankLines: true,
     showBrTags: false,
     showInvisibles: false,
     codeBlockLineNumbers: false,
@@ -134,6 +109,7 @@ export const initialState: SettingsState = {
     useWebGL: true,
     macOptionIsMeta: true,
     shellIntegration: true,
+    osc52Clipboard: true,
     screenReaderMode: false,
     bellMode: "visual",
     notifyOnBell: true,
@@ -151,6 +127,7 @@ export const initialState: SettingsState = {
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     developerMode: false,
     keepBothEditorsAlive: false,
+    workflowViewer: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,
     workflowFetchActionMetadata: true,

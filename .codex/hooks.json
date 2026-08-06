@@ -1,0 +1,20 @@
+{
+  "_cc_bridge_version": "1",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/gha-tdd-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/multi-format-tdd-guard.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

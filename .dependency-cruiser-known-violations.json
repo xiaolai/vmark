@@ -1,1 +1,1283 @@
-[]
+[
+  {
+    "type": "dependency",
+    "from": "src/plugins/aiSuggestion/applySuggestion.ts",
+    "to": "src/plugins/markdownPaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/markdownPaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/aiSuggestion/widgets.ts",
+    "to": "src/plugins/markdownCopy/tiptap.ts",
+    "unresolvedTo": "@/plugins/markdownCopy/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/blockEscape/blockEscape.test.ts",
+    "to": "src/plugins/blockquoteEscape/index.ts",
+    "unresolvedTo": "@/plugins/blockquoteEscape",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/blockEscape/blockEscape.test.ts",
+    "to": "src/plugins/listEscape/index.ts",
+    "unresolvedTo": "@/plugins/listEscape",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/blockEscape/tiptap.ts",
+    "to": "src/plugins/blockquoteEscape/index.ts",
+    "unresolvedTo": "@/plugins/blockquoteEscape",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/blockEscape/tiptap.ts",
+    "to": "src/plugins/listEscape/index.ts",
+    "unresolvedTo": "@/plugins/listEscape",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/formatToolbar/tiptapContext.ts",
+    "unresolvedTo": "@/plugins/formatToolbar/tiptapContext",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/dispatch.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/dispatch",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/enableRules.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/enableRules",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/multiSelectionContext.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/multiSelectionContext",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/editorContextMenu/snapshot.ts",
+    "to": "src/plugins/toolbarActions/types.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/types",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/htmlPaste/tiptap.test.ts",
+    "to": "src/plugins/markdownPaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/markdownPaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/htmlPaste/tiptap.ts",
+    "to": "src/plugins/markdownPaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/markdownPaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/latex/__tests__/MathInlineNodeView.test.ts",
+    "to": "src/plugins/inlineNodeEditing/tiptap.ts",
+    "unresolvedTo": "@/plugins/inlineNodeEditing/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/latex/MathInlineNodeView.ts",
+    "to": "src/plugins/inlineNodeEditing/tiptap.ts",
+    "unresolvedTo": "@/plugins/inlineNodeEditing/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/latex/MathInlineNodeView.ts",
+    "to": "src/plugins/mathPreview/MathPreviewView.ts",
+    "unresolvedTo": "@/plugins/mathPreview/MathPreviewView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/markdownArtifacts/frontmatter.ts",
+    "to": "src/plugins/frontmatterPanel/nodeView.ts",
+    "unresolvedTo": "@/plugins/frontmatterPanel/nodeView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/markdownPaste/tiptap.test.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mathPopup/__tests__/MathPopupView.test.ts",
+    "to": "src/plugins/latex/katexLoader.ts",
+    "unresolvedTo": "@/plugins/latex/katexLoader",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mathPopup/MathPopupView.ts",
+    "to": "src/plugins/latex/katexLoader.ts",
+    "unresolvedTo": "@/plugins/latex/katexLoader",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mathPreview/MathPreviewView.ts",
+    "to": "src/plugins/latex/katexLoader.ts",
+    "unresolvedTo": "@/plugins/latex/katexLoader",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mathPreview/MathPreviewView.ts",
+    "to": "src/plugins/latex/latexErrorParser.ts",
+    "unresolvedTo": "@/plugins/latex/latexErrorParser",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/__tests__/mermaidPreviewRender.test.ts",
+    "to": "src/plugins/graphviz/index.ts",
+    "unresolvedTo": "@/plugins/graphviz",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/__tests__/mermaidPreviewRender.test.ts",
+    "to": "src/plugins/markmap/index.ts",
+    "unresolvedTo": "@/plugins/markmap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/__tests__/mermaidPreviewRender.test.ts",
+    "to": "src/plugins/mermaid/index.ts",
+    "unresolvedTo": "@/plugins/mermaid",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/__tests__/mermaidPreviewRender.test.ts",
+    "to": "src/plugins/svg/svgRender.ts",
+    "unresolvedTo": "@/plugins/svg/svgRender",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/mermaidPreviewRender.ts",
+    "to": "src/plugins/graphviz/index.ts",
+    "unresolvedTo": "@/plugins/graphviz",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/mermaidPreviewRender.ts",
+    "to": "src/plugins/markmap/index.ts",
+    "unresolvedTo": "@/plugins/markmap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/mermaidPreviewRender.ts",
+    "to": "src/plugins/mermaid/index.ts",
+    "unresolvedTo": "@/plugins/mermaid",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/mermaidPreview/mermaidPreviewRender.ts",
+    "to": "src/plugins/svg/svgRender.ts",
+    "unresolvedTo": "@/plugins/svg/svgRender",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/shared/pasteSettings.test.ts",
+    "to": "src/plugins/codePaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/codePaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/shared/pasteSettings.test.ts",
+    "to": "src/plugins/htmlPaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/htmlPaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/shared/pasteSettings.test.ts",
+    "to": "src/plugins/markdownPaste/tiptap.ts",
+    "unresolvedTo": "@/plugins/markdownPaste/tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/shared/sourceLineNodes.ts",
+    "to": "src/plugins/codeBlockLineNumbers/index.ts",
+    "unresolvedTo": "@/plugins/codeBlockLineNumbers",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceContextDetection/sourceContextAdapter.ts",
+    "to": "src/plugins/toolbarContext/index.ts",
+    "unresolvedTo": "@/plugins/toolbarContext",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceContextDetection/sourceContextAdapter.ts",
+    "to": "src/plugins/toolbarContext/types.ts",
+    "unresolvedTo": "@/plugins/toolbarContext/types",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceContextDetection/sourceInsertions.ts",
+    "to": "src/plugins/graphviz/constants.ts",
+    "unresolvedTo": "@/plugins/graphviz/constants",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceContextDetection/sourceInsertions.ts",
+    "to": "src/plugins/markmap/constants.ts",
+    "unresolvedTo": "@/plugins/markmap/constants",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceContextDetection/sourceInsertions.ts",
+    "to": "src/plugins/mermaid/constants.ts",
+    "unresolvedTo": "@/plugins/mermaid/constants",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceFootnotePopup/sourceFootnoteActions.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceFootnotePopup/sourceFootnotePopupPlugin.test.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceFootnotePopup/sourceFootnotePopupPlugin.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceFootnotePopup/SourceFootnotePopupView.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/sourceImageActions.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/sourceImagePopupPlugin.test.ts",
+    "to": "src/plugins/imagePreview/ImagePreviewView.ts",
+    "unresolvedTo": "@/plugins/imagePreview/ImagePreviewView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/sourceImagePopupPlugin.test.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/sourceImagePopupPlugin.ts",
+    "to": "src/plugins/imagePreview/ImagePreviewView.ts",
+    "unresolvedTo": "@/plugins/imagePreview/ImagePreviewView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/sourceImagePopupPlugin.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceImagePopup/SourceImagePopupView.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkCreatePopup/SourceLinkCreatePopupView.ts",
+    "to": "src/plugins/linkCreatePopup/linkCreateController.ts",
+    "unresolvedTo": "@/plugins/linkCreatePopup/linkCreateController",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkCreatePopup/SourceLinkCreatePopupView.ts",
+    "to": "src/plugins/sourcePopup/SourcePopupView.ts",
+    "unresolvedTo": "@/plugins/sourcePopup/SourcePopupView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/sourceLinkActions.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/sourceLinkPopupPlugin.test.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/sourceLinkPopupPlugin.test.ts",
+    "to": "src/plugins/toolbarActions/sourceAdapterLinks.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/sourceAdapterLinks",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/sourceLinkPopupPlugin.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/sourceLinkPopupPlugin.ts",
+    "to": "src/plugins/toolbarActions/sourceAdapterLinks.ts",
+    "unresolvedTo": "@/plugins/toolbarActions/sourceAdapterLinks",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceLinkPopup/SourceLinkPopupView.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceMathPopup/SourceMathPopupView.ts",
+    "to": "src/plugins/latex/katexLoader.ts",
+    "unresolvedTo": "@/plugins/latex/katexLoader",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceMathPopup/SourceMathPopupView.ts",
+    "to": "src/plugins/sourcePopup/SourcePopupView.ts",
+    "unresolvedTo": "@/plugins/sourcePopup/SourcePopupView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourcePeekInline/sourcePeekEditor.ts",
+    "to": "src/plugins/codemirror/index.ts",
+    "unresolvedTo": "@/plugins/codemirror",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/sourceWikiLinkActions.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-only",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/sourceWikiLinkActions.ts",
+    "to": "src/plugins/wikiLinkPopup/wikiLinkPaths.ts",
+    "unresolvedTo": "@/plugins/wikiLinkPopup/wikiLinkPaths",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/sourceWikiLinkPopupPlugin.test.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/sourceWikiLinkPopupPlugin.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/SourceWikiLinkPopupView.ts",
+    "to": "src/plugins/sourcePopup/index.ts",
+    "unresolvedTo": "@/plugins/sourcePopup",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/sourceWikiLinkPopup/SourceWikiLinkPopupView.ts",
+    "to": "src/plugins/wikiLinkPopup/wikiLinkPaths.ts",
+    "unresolvedTo": "@/plugins/wikiLinkPopup/wikiLinkPaths",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/__tests__/shiftTabEscape.test.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/shiftTabEscape.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tabEscape.multi-cursor.test.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tabEscape.test.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "type-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tabEscape.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tiptap.test.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "dynamic-import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tiptap.ts",
+    "to": "src/plugins/multiCursor/MultiSelection.ts",
+    "unresolvedTo": "@/plugins/multiCursor/MultiSelection",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/plugins/tabIndent/tiptap.ts",
+    "to": "src/plugins/tableUI/tableActions.tiptap.ts",
+    "unresolvedTo": "@/plugins/tableUI/tableActions.tiptap",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "plugin-isolation"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "src/services/mcpBridge/v2/browserNavigation.ts",
+    "to": "src/components/Browser/useBrowserNativeView.ts",
+    "unresolvedTo": "@/components/Browser/useBrowserNativeView",
+    "dependencyTypes": [
+      "aliased",
+      "aliased-tsconfig",
+      "aliased-tsconfig-paths",
+      "local",
+      "import"
+    ],
+    "rule": {
+      "severity": "error",
+      "name": "services-no-upward"
+    }
+  }
+]

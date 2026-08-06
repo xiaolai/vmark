@@ -916,6 +916,7 @@ describe("mdastBlockConverters", () => {
           attrs: {
             provider: { default: "" },
             videoId: { default: "" },
+            privacyHash: { default: null },
             width: { default: 560 },
             height: { default: 315 },
             sourceLine: { default: null },
@@ -977,6 +978,19 @@ describe("mdastBlockConverters", () => {
       expect(result!.attrs.videoId).toBe("dQw4w9WgXcQ");
       expect(result!.attrs.width).toBe(640);
       expect(result!.attrs.height).toBe(360);
+    });
+
+    it("recovers the Vimeo privacy hash from an unlisted embed iframe (WI-6)", () => {
+      const node: Html = {
+        type: "html",
+        value: '<iframe src="https://player.vimeo.com/video/123456789?h=abcDEF123" width="640" height="360"></iframe>',
+      };
+      const result = convertHtml(mediaCtx, node, false);
+      expect(result).not.toBeNull();
+      expect(result!.type.name).toBe("video_embed");
+      expect(result!.attrs.provider).toBe("vimeo");
+      expect(result!.attrs.videoId).toBe("123456789");
+      expect(result!.attrs.privacyHash).toBe("abcDEF123");
     });
 
     it("does not promote non-video iframe to video_embed", () => {

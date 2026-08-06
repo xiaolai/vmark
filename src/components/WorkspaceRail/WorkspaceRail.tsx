@@ -1,5 +1,5 @@
-import { CopyPlus, FileStack, Folder } from "lucide-react";
-import { useRef, type CSSProperties } from "react";
+import { CopyPlus, FileStack } from "lucide-react";
+import { useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
@@ -9,11 +9,21 @@ import {
 } from "@/services/workspaces/workspaceWindowActions";
 import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
 import { imeToast as toast } from "@/services/ime/imeToast";
-import { cleanupTabState } from "@/hooks/tabCleanup";
+import { switchWorkspaceInstance } from "@/services/workspaces/switchWorkspaceInstance";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
+import { closeTabsWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
+import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
+import { closeWorkspaceInstance } from "@/services/workspaces/closeWorkspaceInstance";
+import {
+  WorkspaceRailContextMenu,
+  type WorkspaceRailMenuPosition,
+} from "./WorkspaceRailContextMenu";
 import "./WorkspaceRail.css";
 
-export const WORKSPACE_RAIL_WIDTH = 30;
+// Defined in the shell layout module (with the maths that consume it) and
+// re-exported here so existing importers are unaffected.
+export { WORKSPACE_RAIL_WIDTH } from "@/shell/shellChrome";
 
 const EMPTY_IDS: string[] = [];
 const WORKSPACE_RAIL_COLORS = [
@@ -43,6 +53,9 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
   // follows doesn't ALSO treat the gesture as a move-to-new-window. Reset at
   // the start of each drag and consumed in dragend.
   const droppedInternallyRef = useRef(false);
+  const [menu, setMenu] = useState<
+    { instanceId: string; name: string; position: WorkspaceRailMenuPosition } | null
+  >(null);
 
   if (!enabled) return null;
 
@@ -50,11 +63,23 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
     .map((id) => instancesById[id])
     .filter((instance) => instance !== undefined);
   const labels = disambiguateWorkspaceDisplayNames(instances);
+  // Identity, not position: the glyph is derived from the workspace NAME, so it
+  // survives reordering. The badge it replaces showed `index + 1`, which
+  // changed on reorder and told you only what the layout already showed.
+  const glyphs = workspaceRailGlyphs(
+    instances.map((instance) => ({
+      workspaceInstanceId: instance.workspaceInstanceId,
+      displayName: instance.displayNameKey
+        ? t(instance.displayNameKey)
+        : (labels[instance.workspaceInstanceId] ?? instance.displayName),
+      kind: instance.kind,
+    })),
+  );
 
   return (
     <nav className="workspace-rail" aria-label={t("workspaceRail.label")}>
       <div className="workspace-rail__list" role="list">
-        {instances.map((instance, index) => {
+        {instances.map((instance) => {
           const label = labels[instance.workspaceInstanceId] ?? instance.displayName;
           // Synthetic instances (loose/placeholder) carry a translation key —
           // prefer it over the stored English fallback so the label is localized.
@@ -121,19 +146,29 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                   void handleMoveWorkspace(windowLabel, instanceId, t);
                 }}
                 onClick={() =>
-                  useWorkspaceInstancesStore
-                    .getState()
-                    .activateWorkspaceInstance(windowLabel, instanceId)
+                  // WI-3R: the FULL context switch (stash outgoing, restore
+                  // incoming tabs/panes, sidebar re-root) — not a raw flip.
+                  switchWorkspaceInstance(windowLabel, instanceId)
                 }
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setMenu({
+                    instanceId,
+                    name: displayLabel,
+                    position: { x: event.clientX, y: event.clientY },
+                  });
+                }}
               >
                 {instance.kind === "loose" ? (
                   <span className="workspace-rail__loose" aria-hidden="true">
                     <FileStack size={14} />
                   </span>
                 ) : (
-                  <span className="workspace-rail__folder" aria-hidden="true">
-                    <Folder size={14} />
-                    <span className="workspace-rail__index">{index + 1}</span>
+                  // aria-hidden: the button's aria-label already carries the
+                  // FULL workspace name, so a screen reader must not announce
+                  // the one-letter glyph as well.
+                  <span className="workspace-rail__glyph" aria-hidden="true">
+                    {glyphs[instanceId]}
                   </span>
                 )}
               </button>
@@ -152,6 +187,24 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
           );
         })}
       </div>
+      {menu && (
+        <WorkspaceRailContextMenu
+          position={menu.position}
+          workspaceName={menu.name}
+          onClose={() => setMenu(null)}
+          onCloseWorkspace={() => {
+            void closeWorkspaceInstance(windowLabel, menu.instanceId, {
+              closeTabs: closeTabsWithDirtyCheck,
+            });
+          }}
+          onDuplicate={() => {
+            void handleDuplicateWorkspace(windowLabel, menu.instanceId, t);
+          }}
+          onMoveToNewWindow={() => {
+            void handleMoveWorkspace(windowLabel, menu.instanceId, t);
+          }}
+        />
+      )}
     </nav>
   );
 }

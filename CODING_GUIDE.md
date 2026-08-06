@@ -37,7 +37,9 @@ vmark/
 │   └── src/                # Tauri commands, menu, plugins
 ├── shared/                 # Types shared between frontend and backend
 ├── website/                # VitePress documentation site
-├── vmark-mcp-server/       # MCP server sidecar
+├── server/                 # Node.js server packages
+│   ├── mcp/                # MCP server sidecar
+│   └── content/            # Content server (Slidev knowledge base)
 ├── AGENTS.md               # AI instructions (shared across all tools)
 ├── CLAUDE.md               # Claude Code entry point
 ├── .claude/                # Claude Code configuration

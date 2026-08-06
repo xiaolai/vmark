@@ -8,24 +8,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { SettingsGroup, Button, CopyButton } from "./components";
+import { SettingsGroup } from "./components";
 import { McpConfigPreviewDialog } from "./McpConfigPreviewDialog";
 import { CcSwitchImportRow } from "./CcSwitchImportRow";
-import { getFileName, normalizePath } from "@/utils/paths";
-import { DiagnosticIcon, type DiagnosticStatus } from "./DiagnosticIcon";
-
-interface ProviderDiagnostic {
-  provider: string;
-  name: string;
-  configPath: string;
-  configExists: boolean;
-  hasVmark: boolean;
-  expectedBinaryPath: string | null;
-  configuredBinaryPath: string | null;
-  binaryExists: boolean;
-  status: DiagnosticStatus;
-  message: string;
-}
+import { ProviderRow } from "./McpProviderRow";
+import {
+  installMessage,
+  uninstallMessage,
+  type InstallResult,
+  type ProviderDiagnostic,
+  type UninstallResult,
+} from "./mcpConfigMessages";
 
 interface ConfigPreview {
   provider: string;
@@ -35,106 +28,6 @@ interface ConfigPreview {
   currentContent: string | null;
   proposedContent: string;
   backupPath: string;
-}
-
-interface InstallResult {
-  success: boolean;
-  message: string;
-  backupPath: string | null;
-}
-
-interface UninstallResult {
-  success: boolean;
-  message: string;
-}
-
-/** Shorten path to just filename for display */
-function shortenPath(path: string): string {
-  return getFileName(path) || path;
-}
-
-/** Format path for tooltip (replace home with ~) */
-function formatPath(path: string): string {
-  const normalized = normalizePath(path);
-  // Shorten home paths: macOS /Users/x, Windows C:/Users/x, Linux /home/x → ~
-  return normalized
-    .replace(/^\/Users\/[^/]+/, "~")
-    .replace(/^[A-Za-z]:\/Users\/[^/]+/, "~")
-    .replace(/^\/home\/[^/]+/, "~");
-}
-
-interface ProviderRowProps {
-  diagnostic: ProviderDiagnostic;
-  onPreview: () => void;
-  onRepair: () => void;
-  onUninstall: () => void;
-  loading: boolean;
-}
-
-function ProviderRow({ diagnostic, onPreview, onRepair, onUninstall, loading }: ProviderRowProps) {
-  const { t } = useTranslation("settings");
-  const showRepairButton = diagnostic.status === "PathMismatch";
-  const showUpdateRemove = diagnostic.hasVmark && diagnostic.status !== "PathMismatch";
-  const showInstall = !diagnostic.hasVmark;
-
-  return (
-    <div className="flex flex-col py-2.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <DiagnosticIcon status={diagnostic.status} />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-[var(--text-color)] truncate">
-              {diagnostic.name}
-            </div>
-            <div className="flex items-center gap-1">
-              <span
-                className="text-xs text-[var(--text-tertiary)] font-mono truncate"
-                title={formatPath(diagnostic.configPath)}
-              >
-                {shortenPath(diagnostic.configPath)}
-              </span>
-              <CopyButton text={diagnostic.configPath} size="xs" />
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 ml-3">
-          {showRepairButton && (
-            <>
-              <Button size="sm" variant="warning" onClick={onRepair} disabled={loading}>
-                {t("integrations.installMcp.repair")}
-              </Button>
-              <Button size="sm" onClick={onPreview} disabled={loading}>
-                {t("integrations.installMcp.update")}
-              </Button>
-              <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
-                {t("integrations.installMcp.remove")}
-              </Button>
-            </>
-          )}
-          {showUpdateRemove && (
-            <>
-              <Button size="sm" onClick={onPreview} disabled={loading}>
-                {t("integrations.installMcp.update")}
-              </Button>
-              <Button size="sm" variant="danger" onClick={onUninstall} disabled={loading}>
-                {t("integrations.installMcp.remove")}
-              </Button>
-            </>
-          )}
-          {showInstall && (
-            <Button size="sm" variant="primary" onClick={onPreview} disabled={loading}>
-              {t("integrations.installMcp.install")}
-            </Button>
-          )}
-        </div>
-      </div>
-      {diagnostic.message && (
-        <div className="mt-1 ml-6.5 text-xs text-[var(--warning-color)]">
-          {diagnostic.message}
-        </div>
-      )}
-    </div>
-  );
 }
 
 interface McpConfigInstallerProps {
@@ -192,7 +85,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         provider: preview.provider,
       });
       if (result.success) {
-        setSuccessMessage(result.message);
+        setSuccessMessage(installMessage(preview.provider, t));
         setShowRestartHint(true);
         setPreview(null);
         await loadDiagnostics();
@@ -245,7 +138,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         provider: providerId,
       });
       if (result.success) {
-        setSuccessMessage(result.message);
+        setSuccessMessage(uninstallMessage(result.changed, t));
         await loadDiagnostics();
       } else {
         setError(result.message);
@@ -271,6 +164,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
             onPreview={() => handlePreview(diagnostic.provider)}
             onRepair={() => handleRepair(diagnostic.provider)}
             onUninstall={() => handleUninstall(diagnostic.provider)}
+            onRecheck={loadDiagnostics}
             loading={loading}
           />
         ))}

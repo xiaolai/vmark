@@ -1,9 +1,13 @@
 /**
  * KnowledgeBaseOverlay (Phase 5; grill H7) — app-level mount for the KB panel.
  *
- * Registered in App.tsx's `overlays` slot (ADR-007 — no edits to the shell).
- * Renders the panel as a right-docked surface when the store's `panelOpen` is
- * set, wiring the `useContentServer` controls into the presentational panel.
+ * Rendered into EditorArea's `sidePanel` slot, so it is an IN-FLOW right dock:
+ * opening it displaces the editor. It was previously a `position: fixed`
+ * overlay in App.tsx's `overlays` slot, which occluded the document — text
+ * vanished behind a 420px panel and the editor never reflowed.
+ *
+ * Wires the `useContentServer` controls into the presentational panel and
+ * renders nothing when the store's `panelOpen` is unset.
  *
  * @module components/KnowledgeBasePanel/KnowledgeBaseOverlay
  */
@@ -22,7 +26,7 @@ export function KnowledgeBaseOverlay() {
   const { start, stop, openInBrowser, previewSlides, exportSlides } = useContentServer();
   if (!open) return null;
   return (
-    <div className="kb-overlay" data-testid="kb-overlay">
+    <div className="kb-dock" data-testid="kb-dock">
       <KnowledgeBasePanel
         onStart={start}
         onStop={stop}

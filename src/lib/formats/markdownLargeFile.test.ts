@@ -22,7 +22,7 @@ const stubMd: FormatConfig = {
     saveDialogFilters: [{ name: "Markdown", extensions: ["md"] }],
     untitledExtension: "md",
     readOnlyDefault: false,
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
     menuPolicy: {
       sourceWysiwygToggle: true,
       cjkFormatActions: true,
@@ -41,7 +41,7 @@ const stubTxt: FormatConfig = {
     saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
     untitledExtension: "txt",
     readOnlyDefault: false,
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
     menuPolicy: {
       sourceWysiwygToggle: false,
       cjkFormatActions: false,

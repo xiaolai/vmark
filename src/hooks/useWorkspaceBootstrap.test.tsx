@@ -37,7 +37,7 @@ vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
 }));
 
 const mockFindExistingTabForPath = vi.fn();
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   findExistingTabForPath: (...args: unknown[]) =>
     mockFindExistingTabForPath(...args),
 }));
@@ -55,12 +55,12 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
-const mockInitDocument = vi.fn();
+const mockIngestExternalContent = vi.fn();
 const mockSetLineMetadata = vi.fn();
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      initDocument: mockInitDocument,
+      ingestExternalContent: mockIngestExternalContent,
       setLineMetadata: mockSetLineMetadata,
     }),
   },
@@ -104,7 +104,7 @@ beforeEach(() => {
   mockFindExistingTabForPath.mockReset().mockReturnValue(null);
   mockCreateTab.mockClear();
   mockCloseTab.mockClear();
-  mockInitDocument.mockReset();
+  mockIngestExternalContent.mockReset();
   mockSetLineMetadata.mockReset();
   mockWorkspaceWarn.mockClear();
   mockWorkspaceError.mockClear();
@@ -165,7 +165,7 @@ describe("useWorkspaceBootstrap", () => {
     renderHook(() => useWorkspaceBootstrap());
 
     await waitFor(() => {
-      expect(mockInitDocument).toHaveBeenCalledTimes(2);
+      expect(mockIngestExternalContent).toHaveBeenCalledTimes(2);
     });
 
     // Config applied to the store (observable state, not just a mock call).
@@ -175,22 +175,26 @@ describe("useWorkspaceBootstrap", () => {
       "/ws/b.md",
     ]);
 
-    // Both files restored as tabs, in order, with their content.
+    // Both files restored as tabs, in order, each ingested through the one
+    // store door as a disk-open baseline carrying its filePath.
     expect(mockCreateTab).toHaveBeenNthCalledWith(1, "main", "/ws/a.md");
     expect(mockCreateTab).toHaveBeenNthCalledWith(2, "main", "/ws/b.md");
-    expect(mockInitDocument).toHaveBeenNthCalledWith(
+    expect(mockIngestExternalContent).toHaveBeenNthCalledWith(
       1,
       "tab-1",
       "content-of-/ws/a.md",
-      "/ws/a.md"
+      "disk-open",
+      { filePath: "/ws/a.md" }
     );
-    expect(mockInitDocument).toHaveBeenNthCalledWith(
+    expect(mockIngestExternalContent).toHaveBeenNthCalledWith(
       2,
       "tab-2",
       "content-of-/ws/b.md",
-      "/ws/b.md"
+      "disk-open",
+      { filePath: "/ws/b.md" }
     );
-    expect(mockSetLineMetadata).toHaveBeenCalledTimes(2);
+    // Line metadata derives inside the disk-open door now — no separate call.
+    expect(mockSetLineMetadata).not.toHaveBeenCalled();
   });
 
   it("exercises the config-read silent-catch path: invoke throws → app continues with defaults", async () => {
@@ -235,11 +239,12 @@ describe("useWorkspaceBootstrap", () => {
 
     // Only the surviving file became a tab; the failed one was swallowed.
     expect(mockCreateTab).toHaveBeenCalledWith("main", "/ws/ok.md");
-    expect(mockInitDocument).toHaveBeenCalledTimes(1);
-    expect(mockInitDocument).toHaveBeenCalledWith(
+    expect(mockIngestExternalContent).toHaveBeenCalledTimes(1);
+    expect(mockIngestExternalContent).toHaveBeenCalledWith(
       "tab-1",
       "ok-content",
-      "/ws/ok.md"
+      "disk-open",
+      { filePath: "/ws/ok.md" }
     );
     // The per-file catch warns with the skipped path (regression sentinel).
     expect(mockWorkspaceWarn).toHaveBeenCalledWith(
@@ -320,8 +325,8 @@ describe("useWorkspaceBootstrap", () => {
       makeConfig({ lastOpenTabs: ["/ws/bad.md", "/ws/ok.md"] })
     );
     mockReadTextFile.mockResolvedValue("content");
-    const failure = new Error("initDocument blew up");
-    mockInitDocument.mockImplementationOnce(() => {
+    const failure = new Error("ingestExternalContent blew up");
+    mockIngestExternalContent.mockImplementationOnce(() => {
       throw failure;
     });
 
@@ -342,10 +347,11 @@ describe("useWorkspaceBootstrap", () => {
       "Could not restore tab: /ws/bad.md"
     );
     // …and the remaining file still restored.
-    expect(mockInitDocument).toHaveBeenLastCalledWith(
+    expect(mockIngestExternalContent).toHaveBeenLastCalledWith(
       "tab-2",
       "content",
-      "/ws/ok.md"
+      "disk-open",
+      { filePath: "/ws/ok.md" }
     );
   });
 

@@ -26,24 +26,21 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 let mockWorkspaceRootPath: string | null = "/workspace";
-vi.mock("@/stores/workspaceStore", () => ({
-  useWorkspaceStore: {
-    getState: () => ({ rootPath: mockWorkspaceRootPath }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { workspaceRoot: () => mockWorkspaceRootPath },
 }));
 
 const mockWikiLinkPopupWarn = vi.fn();
@@ -76,7 +73,7 @@ vi.mock("@/utils/popupComponents", () => ({
 }));
 
 const mockGetPopupHostForDom = vi.fn((dom: HTMLElement) => dom.closest(".editor-container") as HTMLElement | null);
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (...args: unknown[]) => mockGetPopupHostForDom(args[0] as HTMLElement),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -95,6 +92,7 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 // Import after mocking
 import { wikiLinkPopupError } from "@/utils/debug";
 import { WikiLinkPopupView } from "../WikiLinkPopupView";
+const makePopup = (v: unknown) => new WikiLinkPopupView(v as never, mockStore as never);
 
 // Helper functions
 const createMockRect = (overrides: Partial<DOMRect> = {}): DOMRect => ({
@@ -189,7 +187,7 @@ describe("WikiLinkPopupView", () => {
     mockGetPopupHostForDom.mockImplementation((domEl: HTMLElement) => domEl.closest(".editor-container") as HTMLElement | null);
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new WikiLinkPopupView(view as unknown as ConstructorParameters<typeof WikiLinkPopupView>[0]);
+    popup = makePopup(view);
   });
 
   afterEach(() => {
@@ -1173,7 +1171,7 @@ describe("WikiLinkPopupView", () => {
 
       const newView = createMockView(dom.editorDom);
       view = newView;
-      popup = new WikiLinkPopupView(view as unknown as ConstructorParameters<typeof WikiLinkPopupView>[0]);
+      popup = makePopup(view);
 
       emitStateChange({ isOpen: true, target: "Test", nodePos: 1, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
@@ -1231,7 +1229,7 @@ describe("WikiLinkPopupView", () => {
       popup.destroy();
       vi.clearAllMocks();
       view = createMockView(dom.editorDom);
-      popup = new WikiLinkPopupView(view as unknown as ConstructorParameters<typeof WikiLinkPopupView>[0]);
+      popup = makePopup(view);
 
       emitStateChange({ isOpen: true, target: "Test", nodePos: 1, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));
@@ -1257,7 +1255,7 @@ describe("WikiLinkPopupView", () => {
 
       popup.destroy();
       vi.clearAllMocks();
-      popup = new WikiLinkPopupView(view as unknown as ConstructorParameters<typeof WikiLinkPopupView>[0]);
+      popup = makePopup(view);
 
       emitStateChange({ isOpen: true, target: "Test", nodePos: 10, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));

@@ -19,6 +19,7 @@ import { Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { BlockImageNodeView } from "./BlockImageNodeView";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
+import { referenceIdentityAttrs } from "@/utils/referenceIdentity";
 
 /** Tiptap node extension for block-level images with custom NodeView. */
 export const blockImageExtension = Node.create({
@@ -33,6 +34,7 @@ export const blockImageExtension = Node.create({
 
   addAttributes() {
     return {
+      ...referenceIdentityAttrs,
       ...sourceLineAttr,
       src: { default: "" },
       alt: { default: "" },

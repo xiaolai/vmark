@@ -16,7 +16,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
 import { documentPathsForRestore } from "@/services/persistence/sessionTabs";
 import i18n from "@/i18n";

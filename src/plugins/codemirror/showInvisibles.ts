@@ -16,7 +16,7 @@
  * pseudo-element with the appropriate glyph; this avoids inserting
  * widgets into the line itself and keeps the doc text intact.
  *
- * @coordinates-with stores/settingsStore.ts — reads markdown.showInvisibles
+ * @coordinates-with plugins/shared/ — the seams that answer this
  * @coordinates-with services/assembly/sourceEditorExtensions.ts — registers via Compartment
  * @module plugins/codemirror/showInvisibles
  */
@@ -42,10 +42,10 @@ class GlyphWidget extends WidgetType {
     el.setAttribute("aria-hidden", "true");
     return el;
   }
-  eq(other: GlyphWidget) {
+  override eq(other: GlyphWidget) {
     return this.glyph === other.glyph && this.kind === other.kind;
   }
-  ignoreEvent() {
+  override ignoreEvent() {
     return false;
   }
 }

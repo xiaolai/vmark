@@ -5,6 +5,13 @@
 // react-json-view-lite component used by the JSON/TOML adapters.
 //
 // WI-2.4 wires GHA-workflow schemaDetector into this adapter.
+//
+// WI-13 — yaml is in the ALWAYS-ON trio, so every static import here is cold
+// start for every window, including the ones with no editor. The workbench +
+// workflow IR parser moved behind `React.lazy` (./yamlWorkflowRenderer), the
+// CodeMirror pack behind the `language`/`loadLanguage` thunks, and the GHA
+// source extensions behind dynamic imports inside `loadExtraExtensions` —
+// which was already async, so nothing but the import site changed.
 
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,15 +20,15 @@ import { parse as parseYaml } from "yaml";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
+import { RetryableLazy } from "@/components/RetryableLazy";
+import { loadWorkflowSourceExtensions } from "./yamlWorkflowExtensions";
 import { jsonViewStyles } from "./jsonViewStyles";
 import "./json-tree.css";
 import {
   isWorkflowYaml,
   looksLikeWorkflowPath,
 } from "@/lib/ghaWorkflow/detection";
-import { parse as parseWorkflow } from "@/lib/ghaWorkflow/parser";
-import { WorkflowCanvas } from "@/components/Editor/WorkflowPanel/WorkflowCanvas";
-import { getFileName } from "@/utils/pathUtils";
+import { lintYaml } from "@/lib/lintEngine/yaml";
 import { registerFormat } from "../registry";
 import type {
   FormatConfig,
@@ -36,6 +43,12 @@ interface YamlException extends Error {
   /** `yaml` library reports positions as 1-based { line, col } in `linePos`. */
   linePos?: Array<{ line: number; col: number }>;
 }
+
+/** The CodeMirror YAML pack, loaded on demand (WI-13). */
+const loadYamlLanguage = async (): Promise<Extension> => {
+  const { yaml } = await import("@codemirror/lang-yaml");
+  return yaml();
+};
 
 export const yamlValidator: Validator = (content) => {
   if (content.length === 0) return [];
@@ -90,55 +103,50 @@ export const yamlSchemaDetector: SchemaDetector = (path, content) => {
 /**
  * WI-2.4 — GitHub Actions workflow schemaRenderer.
  *
- * Parses YAML via the existing @/lib/ghaWorkflow/parser and mounts the
- * @xyflow/react canvas. When parsing fails we fall back to the YAML
- * tree preview so the user still sees something useful.
+ * The renderer itself (workflow IR parse + the workbench + its xyflow canvas)
+ * lives in ./yamlWorkflowRenderer and is loaded on demand: WI-13 moved it out
+ * because this adapter is always registered, so a static reference put the
+ * whole workbench on every window's cold start.
+ *
+ * The boundary is HERE rather than at the host: `schemaRenderers` is a plain
+ * `ComponentType` map and SplitPaneEditor mounts whatever it finds, so a bare
+ * lazy component would suspend — and REJECT — into whichever boundary happened
+ * to be above it.
+ *
+ * Audit 20260804-F3: it used to be a bare `Suspense` over a module-level
+ * `React.lazy`, so a rejected import escaped to the editor-wide boundary,
+ * whose "try again" remounted the SAME lazy object and replayed its cached
+ * rejection forever. `RetryableLazy` gives it the FormatSurface discipline
+ * instead: a fresh lazy per attempt behind a local, retryable boundary, so the
+ * failure stays inside the preview pane and the retry can actually succeed.
  */
-function GhaWorkflowSchemaRenderer({
-  content,
-  path,
-  diagnostics,
-}: PreviewRendererProps) {
+const loadGhaWorkflowRenderer = () =>
+  import("./yamlWorkflowRenderer").then((m) => ({
+    default: m.GhaWorkflowSchemaRenderer,
+  }));
+
+function GhaWorkflowRendererError({ retry }: { retry: () => void }) {
   const { t } = useTranslation("editor");
-  const parseResult = useMemo(() => {
-    try {
-      // Use a cross-platform basename helper — `.split("/")` drops the
-      // final segment on Windows paths (`C:\…\workflow.yml`).
-      const fileName = path ? getFileName(path) || "workflow.yml" : "workflow.yml";
-      const ir = parseWorkflow(content, fileName);
-      return { ok: true as const, ir };
-    } catch (error) {
-      return {
-        ok: false as const,
-        message: errorMessage(error),
-      };
-    }
-  }, [content, path]);
-
-  if (!parseResult.ok) {
-    return (
-      <div
-        className="json-tree-preview json-tree-preview--invalid"
-        data-schema="gha-workflow"
-      >
-        <span>{t("preview.workflowParseFailed")}</span>
-        {diagnostics[0] && (
-          <span className="json-tree-preview__hint">
-            {" "}
-            {t("preview.errorAt", {
-              line: diagnostics[0].line,
-              column: diagnostics[0].column,
-            })}
-          </span>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="yaml-workflow-preview" data-schema="gha-workflow">
-      <WorkflowCanvas workflow={parseResult.ir} />
+    <div className="json-tree-preview json-tree-preview--invalid" role="alert">
+      <span>{t("preview.failedToLoad")}</span>{" "}
+      <button type="button" className="vm-btn" onClick={retry}>
+        {t("dialog:errorBoundary.tryAgain")}
+      </button>
     </div>
+  );
+}
+
+function GhaWorkflowSchemaRenderer(props: PreviewRendererProps) {
+  return (
+    <RetryableLazy
+      feature="GitHub Actions workflow"
+      load={loadGhaWorkflowRenderer}
+      componentProps={props}
+      // Fallback is null — the split pane already shows the source side.
+      pending={null}
+      renderError={(retry) => <GhaWorkflowRendererError retry={retry} />}
+    />
   );
 }
 
@@ -183,10 +191,20 @@ export const yamlFormat: FormatConfig = {
   nameI18nKey: "format.yaml",
   extensions: ["yaml", "yml"],
   kind: "split-pane",
-  loadLanguage: async (): Promise<Extension> => {
-    const { yaml } = await import("@codemirror/lang-yaml");
-    return yaml();
-  },
+  // One loader, two fields: `language` is what a WYSIWYG-kind host reads and
+  // `loadLanguage` what the split pane reads. Both are thunks since WI-13, so
+  // there is nothing left to duplicate — a second copy would just be a second
+  // place to forget.
+  language: loadYamlLanguage,
+  loadLanguage: loadYamlLanguage,
+  lint: (source: string) => lintYaml(source),
+  // GHA workflow editor behavior for the source pane. Dynamic imports
+  // (WI-13): these four CodeMirror extensions are a megabyte of
+  // source-editor machinery that only a mounted YAML source pane can use.
+  // They load INDIVIDUALLY and degrade individually (audit 20260804-F8) —
+  // see ./yamlWorkflowExtensions, which also owns the store binding the
+  // plugins must not carry themselves (lint:store-coupling).
+  loadExtraExtensions: loadWorkflowSourceExtensions,
   validator: yamlValidator,
   genericPreview: YamlTreePreview,
   schemaDetector: yamlSchemaDetector,
@@ -194,7 +212,7 @@ export const yamlFormat: FormatConfig = {
     "gha-workflow": GhaWorkflowSchemaRenderer,
   },
   adapters: {
-    saveDialogFilters: [{ name: "YAML", extensions: ["yaml", "yml"] }],
+    saveDialogFilters: [{ nameI18nKey: "format.yaml", extensions: ["yaml", "yml"] }],
     untitledExtension: "yaml",
     exportEnabled: false,
     findEnabled: true,
@@ -207,7 +225,7 @@ export const yamlFormat: FormatConfig = {
       insertBlockActions: false,
       paragraphFormatting: false,
     },
-    closeSavePolicy: "markdown-default",
+    closeSavePolicy: "prompt-on-close",
   },
 };
 

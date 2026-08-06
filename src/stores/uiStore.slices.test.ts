@@ -1,3 +1,4 @@
+// WI-12.3 — content-search context-generation binding tests
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const invokeMock = vi.fn();
@@ -14,8 +15,13 @@ vi.mock("@/lib/formats/registry", () => ({
 }));
 
 import { useUIStore, resetTerminalSessionStore } from "./uiStore";
+import {
+  bumpContextGeneration,
+  resetContextGenerations,
+} from "@/services/workspaces/workspaceContextGeneration";
 
 function reset() {
+  resetContextGenerations();
   useUIStore.setState({
     search: {
       isOpen: false, query: "", replaceText: "",
@@ -256,6 +262,32 @@ describe("contentSearch slice actions", () => {
     expect(cs.totalFiles).toBe(1);
     expect(cs.totalMatches).toBe(2);
     expect(cs.isSearching).toBe(false);
+  });
+
+  it("contentSearchRun discards a result from a superseded workspace context (WI-12.3)", async () => {
+    useUIStore.setState((s) => ({
+      contentSearch: { ...s.contentSearch, query: "abc" },
+    }));
+    let resolveSlow: (v: unknown) => void = () => {};
+    invokeMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSlow = resolve;
+      }),
+    );
+
+    const run = useUIStore.getState().contentSearchRun("/repo-a", [], "main");
+    // A rail switch supersedes the window's context mid-flight.
+    bumpContextGeneration("main");
+    resolveSlow([
+      {
+        path: "/repo-a/a.md", relativePath: "a.md",
+        matches: [{ lineNumber: 1, lineContent: "abc", matchRanges: [{ start: 0, end: 3 }] }],
+      },
+    ]);
+    await run;
+
+    expect(useUIStore.getState().contentSearch.results).toEqual([]);
+    expect(useUIStore.getState().contentSearch.isSearching).toBe(true);
   });
 
   it("contentSearchRun short-query cancels an in-flight search (audit-fix)", async () => {

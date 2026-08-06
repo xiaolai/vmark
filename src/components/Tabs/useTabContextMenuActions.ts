@@ -18,14 +18,15 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
-import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/hooks/useTabOperations";
+import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { getRelativePath, isWithinRoot } from "@/utils/paths";
 import { restoreTransferredTab } from "@/components/StatusBar/tabTransferActions";
 import type { TabTransferPayload } from "@/types/tabTransfer";
+import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
-import { cleanupTabState } from "@/hooks/tabCleanup";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import i18n from "@/i18n";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -127,10 +128,8 @@ export function useTabContextMenuActions({
       tabId: tab.id,
       title: tab.title,
       filePath,
-      content: doc.content,
-      savedContent: doc.savedContent,
-      isDirty: doc.isDirty,
       workspaceRoot: workspaceRoot ?? null,
+      ...buildTransferDocumentFields(doc),
     };
 
     try {

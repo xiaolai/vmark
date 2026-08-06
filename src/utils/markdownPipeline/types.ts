@@ -9,15 +9,26 @@
 export interface MarkdownPipelineOptions {
   preserveLineBreaks?: boolean;
   hardBreakStyle?: "backslash" | "twoSpaces";
+  /**
+   * When true, re-emit captured inter-block blank-line runs (the
+   * `blankLinesBefore` PM attribute) instead of collapsing them to a single
+   * blank line. Default false = legacy output. See
+   * dev-docs/plans/20260721-blank-line-preservation.md.
+   */
+  preserveBlankLines?: boolean;
 }
 
 // Re-export standard MDAST types
 export type { FootnoteDefinition, FootnoteReference } from "mdast";
 
-// Position type from unist (optional on all AST nodes)
+// Position type from unist (optional on all AST nodes).
+//
+// `offset` is explicitly `| undefined` to match unist's own declaration: these
+// positions are COPIED OFF real mdast nodes, and a parser that tracked lines
+// but not byte offsets hands over the key holding undefined.
 interface UnistPosition {
-  start: { line: number; column: number; offset?: number };
-  end: { line: number; column: number; offset?: number };
+  start: { line: number; column: number; offset?: number | undefined };
+  end: { line: number; column: number; offset?: number | undefined };
 }
 
 // Frontmatter type from remark-frontmatter

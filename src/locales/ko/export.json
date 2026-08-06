@@ -31,10 +31,5 @@
   "pdf.progress.rendering": "PDF 생성 중…",
   "pdf.progress.done": "완료",
   "pdf.saveDialog.title": "PDF 내보내기",
-  "pdf.defaultTitle": "문서",
-  "pdf": {
-    "pageSetup": {
-      "marginUnit": "mm"
-    }
-  }
+  "pdf.defaultTitle": "문서"
 }

@@ -1,262 +1,189 @@
 /**
  * Format Toolbar Node Actions
  *
- * Purpose: Provides context detection and manipulation actions for block-level nodes
- * (tables, lists, blockquotes) used by the format toolbar in WYSIWYG mode.
+ * Purpose: Provides manipulation actions for block-level nodes
+ * (lists, blockquotes) used by the format toolbar in WYSIWYG mode.
  *
  * Key decisions:
- *   - Node context is built by walking up from cursor position through the node tree
  *   - List operations use ProseMirror schema-list commands for correct nesting behavior
  *   - All list types (bullet, ordered, task) share the same indent/outdent logic
+ *   - The bullet/ordered toggles delegate to `listToggle`, which tries three
+ *     focused strategies (range, ancestor, wrap) and keeps "does not apply"
+ *     distinct from "applied and failed"
+ *   - Outdent removes one level of NESTING and declines at the outermost level,
+ *     matching Source mode; leaving a list is Remove List or a toggle
+ *   - Every handler returns whether it changed the document, and the value is
+ *     the underlying ProseMirror command result — callers must not report a
+ *     no-op as handled
+ *   - Blockquote nest/unnest are symmetric: both operate on the WHOLE nearest
+ *     quote's inner range, never just the block under the cursor. Unnest and
+ *     remove share one lift primitive; focus policy stays with the handlers
  *
- * @coordinates-with types.ts — NodeContext and related type definitions
  * @coordinates-with tiptapContext.ts — format toolbar context building
+ * @coordinates-with listToggle.ts — the bullet/ordered toggle strategies
+ * @coordinates-with shared/listHelpers.ts — shared repeated-lift primitive
  * @module plugins/formatToolbar/nodeActions.tiptap
  */
 
 import type { EditorView } from "@tiptap/pm/view";
-import { Selection } from "@tiptap/pm/state";
-import type { NodeContext } from "./types";
-import { liftListItem, sinkListItem, wrapInList } from "@tiptap/pm/schema-list";
-
-/** Detects the block-level node context (table, list, or blockquote) at the current cursor position. */
-export function getNodeContext(view: EditorView): NodeContext {
-  const { $from } = view.state.selection;
-
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    const typeName = node.type.name;
-
-    if (typeName === "table") {
-      const tablePos = $from.before(d);
-      /* v8 ignore next -- @preserve fallback unreachable: valid selections always have $from.depth > table depth */
-      const rowIndex = $from.depth > d ? $from.index(d) : 0;
-      /* v8 ignore next -- @preserve fallback unreachable: valid selections always have $from.depth > table depth + 1 */
-      const colIndex = $from.depth > d + 1 ? $from.index(d + 1) : 0;
-      const numRows = node.childCount;
-      /* v8 ignore next -- @preserve numRows is always > 0 because ProseMirror's "tableRow+" content spec requires at least one row */
-      const numCols = numRows > 0 ? node.child(0).childCount : 0;
-
-      return {
-        type: "table",
-        tablePos,
-        rowIndex,
-        colIndex,
-        numRows,
-        numCols,
-      };
-    }
-
-    if (typeName === "bulletList" || typeName === "orderedList") {
-      const listType = typeName === "orderedList" ? "ordered" : "bullet";
-      let depth = 0;
-
-      for (let dd = 1; dd < d; dd++) {
-        const ancestorName = $from.node(dd).type.name;
-        if (ancestorName === "bulletList" || ancestorName === "orderedList") {
-          depth++;
-        }
-      }
-
-      return {
-        type: "list",
-        listType,
-        nodePos: $from.before(d),
-        depth,
-      };
-    }
-
-    if (typeName === "blockquote") {
-      let depth = 0;
-      for (let dd = 1; dd < d; dd++) {
-        if ($from.node(dd).type.name === "blockquote") {
-          depth++;
-        }
-      }
-
-      return {
-        type: "blockquote",
-        nodePos: $from.before(d),
-        depth,
-      };
-    }
-  }
-
-  return null;
-}
+import { liftTarget } from "@tiptap/pm/transform";
+import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list";
+import { liftSelectionOutOfLists, selectionWithinOneListItem } from "@/plugins/shared/listHelpers";
+import { toggleListType } from "./listToggle";
+import { unlistCoveredLists } from "./listRangeConversion";
 
 /** Indents (sinks) the current list item one level deeper. */
-export function handleListIndent(view: EditorView) {
+export function handleListIndent(view: EditorView): boolean {
   const listItemType = view.state.schema.nodes.listItem;
-  if (!listItemType) return;
+  if (!listItemType) return false;
   view.focus();
-  sinkListItem(listItemType)(view.state, view.dispatch);
+  return sinkListItem(listItemType)(view.state, view.dispatch);
 }
 
-/** Outdents (lifts) the current list item one level up. */
-export function handleListOutdent(view: EditorView) {
+/**
+ * Outdents the current list item one nesting level.
+ *
+ * Refuses at the OUTERMOST level rather than lifting the item out of the list
+ * entirely. "Outdent" means remove one level of nesting, and at the top there is
+ * none to remove; VMark already has Remove List and the list toggles for leaving
+ * a list, so using this command as a third, implicit unlist blurs the action
+ * model. Source mode has always declined here — `liftListItem` was the only
+ * reason the two surfaces disagreed.
+ */
+export function handleListOutdent(view: EditorView): boolean {
   const listItemType = view.state.schema.nodes.listItem;
-  if (!listItemType) return;
+  if (!listItemType) return false;
+  if (!isNestedListItem(view)) return false;
   view.focus();
-  liftListItem(listItemType)(view.state, view.dispatch);
+  return liftListItem(listItemType)(view.state, view.dispatch);
 }
 
-/** Converts the current list to a bullet list, or wraps the current block in one. */
-export function handleToBulletList(view: EditorView) {
-  const { state, dispatch } = view;
-  const { $from } = state.selection;
-
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (node.type.name === "bulletList") {
-      view.focus();
-      return;
-    }
-    if (node.type.name === "orderedList") {
-      convertListType(view, d, "bulletList");
-      view.focus();
-      return;
-    }
+/** Whether the cursor's list item sits inside another list item. */
+function isNestedListItem(view: EditorView): boolean {
+  const { $from } = view.state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name !== "listItem") continue;
+    // depth-1 is the enclosing list; depth-2 is what that list sits in.
+    return depth >= 3 && $from.node(depth - 2).type.name === "listItem";
   }
-
-  const bulletListType = state.schema.nodes.bulletList;
-  if (!bulletListType) return;
-  wrapInList(bulletListType)(state, dispatch);
-  view.focus();
+  return false;
 }
 
-/** Converts the current list to an ordered list, or wraps the current block in one. */
-export function handleToOrderedList(view: EditorView) {
-  const { state, dispatch } = view;
-  const { $from } = state.selection;
+/**
+ * Converts the current list to a bullet list, wraps the current block in one,
+ * converts a task list to a plain bullet list, or — when already in a plain
+ * bullet list — lifts one level (toggle off).
+ */
+export function handleToBulletList(view: EditorView): boolean {
+  return toggleListType(view, "bulletList");
+}
 
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (node.type.name === "orderedList") {
-      view.focus();
-      return;
-    }
-    if (node.type.name === "bulletList") {
-      convertListType(view, d, "orderedList");
-      view.focus();
-      return;
-    }
-  }
-
-  const orderedListType = state.schema.nodes.orderedList;
-  if (!orderedListType) return;
-  wrapInList(orderedListType, { start: 1 })(state, dispatch);
-  view.focus();
+/**
+ * Converts the current list to an ordered list, wraps the current block in one,
+ * or — when already in an ordered list — lifts one level (toggle off).
+ */
+export function handleToOrderedList(view: EditorView): boolean {
+  return toggleListType(view, "orderedList");
 }
 
 /** Removes all list wrapping from the current selection by repeatedly lifting list items. */
-export function handleRemoveList(view: EditorView) {
-  const listItemType = view.state.schema.nodes.listItem;
-  if (!listItemType) return;
-
-  const maxLifts = 10;
-  for (let i = 0; i < maxLifts; i++) {
-    const { $from } = view.state.selection;
-    let inList = false;
-    for (let d = $from.depth; d > 0; d--) {
-      const name = $from.node(d).type.name;
-      if (name === "bulletList" || name === "orderedList") {
-        inList = true;
-        break;
-      }
-    }
-    if (!inList) break;
-    liftListItem(listItemType)(view.state, view.dispatch);
-  }
-
+export function handleRemoveList(view: EditorView): boolean {
+  // A range can span SEPARATE lists, which the single-range lift below
+  // cannot cross — unlist every covered list (nested levels flattened too).
+  const spansItems = !view.state.selection.empty && !selectionWithinOneListItem(view.state);
+  if (spansItems && unlistCoveredLists(view, true)) return true;
+  const lifted = liftSelectionOutOfLists(view);
   view.focus();
+  return lifted;
 }
 
-function convertListType(view: EditorView, listDepth: number, newListType: "bulletList" | "orderedList") {
-  const { state, dispatch } = view;
+/**
+ * Resolve the complete inner block range of the nearest enclosing blockquote
+ * (walking from `innermost ? deepest : shallowest`), or null when the cursor
+ * is not inside one.
+ */
+function nearestBlockquoteInnerRange(view: EditorView, innermost: boolean) {
+  const { state } = view;
   const { $from } = state.selection;
+  const depths = innermost
+    ? Array.from({ length: $from.depth }, (_, i) => $from.depth - i)
+    : Array.from({ length: $from.depth }, (_, i) => i + 1);
 
-  const listNode = $from.node(listDepth);
-  const listPos = $from.before(listDepth);
-  const newType = state.schema.nodes[newListType];
+  for (const d of depths) {
+    if ($from.node(d).type.name === "blockquote") {
+      const start = $from.before(d) + 1;
+      const end = $from.after(d) - 1;
+      return state.doc.resolve(start).blockRange(state.doc.resolve(end));
+    }
+  }
+  return null;
+}
 
-  if (!newType) return;
+/**
+ * Lift the COMPLETE inner range of the nearest enclosing blockquote (deepest
+ * or shallowest) one level. Shared by unnest and remove, whose bodies had
+ * grown into identical range/liftTarget/dispatch copies; focus policy stays
+ * with the callers. Lifting only the block under the cursor would split a
+ * multi-block quote.
+ *
+ * A lift step maps positions faithfully, so cursor AND range selections
+ * survive through EditorState's automatic selection mapping — no manual
+ * cursor arithmetic (the old replaceWith approach collapsed ranges).
+ */
+function liftBlockquote(view: EditorView, innermost: boolean): boolean {
+  const { state, dispatch } = view;
 
-  dispatch(state.tr.setNodeMarkup(listPos, newType, listNode.attrs));
+  const range = nearestBlockquoteInnerRange(view, innermost);
+  if (!range) return false;
+  const target = liftTarget(range);
+  /* v8 ignore next -- @preserve defensive: a quote's inner range is always liftable */
+  if (target === null) return false;
+
+  dispatch(state.tr.lift(range, target));
+  return true;
 }
 
 /** Nests the current blockquote one level deeper by wrapping it in another blockquote. */
-export function handleBlockquoteNest(view: EditorView) {
+export function handleBlockquoteNest(view: EditorView): boolean {
   const { state, dispatch } = view;
-  const { $from } = state.selection;
+  const blockquoteType = state.schema.nodes.blockquote;
+  /* v8 ignore next -- @preserve defensive: schema always has blockquote when quotes exist */
+  if (!blockquoteType) return false;
 
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (node.type.name === "blockquote") {
-      const startPos = $from.before(d);
-      const endPos = $from.after(d);
+  const range = nearestBlockquoteInnerRange(view, true);
+  if (!range) return false;
 
-      const blockquoteType = state.schema.nodes.blockquote;
-      /* v8 ignore next -- @preserve structurally unreachable: the for-loop only enters this branch when node.type.name === "blockquote", guaranteeing the type exists in schema */
-      if (!blockquoteType) return;
-
-      const range = state.doc.resolve(startPos + 1).blockRange(state.doc.resolve(endPos - 1));
-      /* v8 ignore next -- @preserve defensive guard: blockRange between valid blockquote boundaries always resolves */
-      if (!range) return;
-
-      dispatch(state.tr.wrap(range, [{ type: blockquoteType }]));
-      view.focus();
-      return;
-    }
-  }
-}
-
-/** Unnests the current blockquote by lifting it one level up. */
-export function handleBlockquoteUnnest(view: EditorView) {
-  const { state, dispatch } = view;
-  const { $from } = state.selection;
-
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (node.type.name === "blockquote") {
-      const range = $from.blockRange();
-      if (range) {
-        dispatch(state.tr.lift(range, d - 1));
-      }
-      view.focus();
-      return;
-    }
-  }
-}
-
-/** Removes all blockquote wrapping from the current position, preserving cursor position. */
-export function handleRemoveBlockquote(view: EditorView) {
-  const { state, dispatch } = view;
-  const { $from } = state.selection;
-
-  let outermostDepth = -1;
-  for (let d = 1; d <= $from.depth; d++) {
-    const node = $from.node(d);
-    if (node.type.name === "blockquote") {
-      outermostDepth = d;
-      break;
-    }
-  }
-
-  if (outermostDepth === -1) return;
-
-  const blockquotePos = $from.before(outermostDepth);
-  const blockquoteNode = $from.node(outermostDepth);
-
-  // Calculate cursor offset within blockquote to preserve position after unwrap
-  const cursorOffsetInBlockquote = $from.pos - blockquotePos - 1; // -1 for blockquote opening tag
-
-  const tr = state.tr.replaceWith(blockquotePos, blockquotePos + blockquoteNode.nodeSize, blockquoteNode.content);
-
-  // Restore cursor position: blockquotePos + offset within content
-  const newCursorPos = Math.min(blockquotePos + cursorOffsetInBlockquote, tr.doc.content.size);
-  tr.setSelection(Selection.near(tr.doc.resolve(newCursorPos)));
-
-  dispatch(tr);
+  dispatch(state.tr.wrap(range, [{ type: blockquoteType }]));
   view.focus();
+  return true;
+}
+
+/**
+ * Unnests the current blockquote by lifting its COMPLETE inner range one
+ * level — symmetric with nesting, which wraps the whole quote.
+ */
+export function handleBlockquoteUnnest(view: EditorView): boolean {
+  const lifted = liftBlockquote(view, true);
+  if (lifted) view.focus();
+  return lifted;
+}
+
+/** Removes ALL blockquote wrapping from the current position, preserving the selection. */
+export function handleRemoveBlockquote(view: EditorView): boolean {
+  // Nested quotes leave an inner blockquote after the outer unwrap — repeat
+  // until no blockquote ancestor remains. Bounded by the ENTRY depth rather
+  // than `while (unwrap())`: a view whose dispatch does not apply
+  // transactions (test doubles) would otherwise never observe progress.
+  const { $from } = view.state.selection;
+  let quoteDepth = 0;
+  for (let d = 1; d <= $from.depth; d++) {
+    if ($from.node(d).type.name === "blockquote") quoteDepth++;
+  }
+  let removed = false;
+  for (let i = 0; i < quoteDepth; i++) {
+    if (!liftBlockquote(view, false)) break;
+    removed = true;
+  }
+  view.focus();
+  return removed;
 }

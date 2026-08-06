@@ -21,11 +21,11 @@ const {
   runActiveLint: vi.fn(),
 }));
 
-vi.mock("@/hooks/useUnifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
+vi.mock("@/services/history/unifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
 vi.mock("@/services/assembly/modeSwitchCleanup", () => ({ cleanupBeforeModeSwitch }));
-vi.mock("@/components/Terminal/terminalGate", () => ({ requestToggleTerminal }));
+vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal }));
 vi.mock("@/services/workspaces/fileOwnership", () => ({ toggleDocumentReadOnlyWithOwnership }));
-vi.mock("@/hooks/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
+vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
 vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
 
 import {
@@ -108,8 +108,9 @@ describe("registerViewCommands — full command set", () => {
     expect(getCommand("view.toggleSourceMode")).toBeDefined();
   });
 
-  it("registers all 28 view/lint commands", () => {
+  it("registers all 33 view/lint commands", () => {
     const ids = listCommands().map((c) => c.id);
+    expect(ids).toContain("view.toggleSidebar");
     expect(ids).toContain("view.toggleSourceMode");
     expect(ids).toContain("view.setWysiwygMode");
     expect(ids).toContain("view.toggleSplitDocuments");
@@ -118,7 +119,11 @@ describe("registerViewCommands — full command set", () => {
     expect(ids).toContain("view.closePane");
     expect(ids).toContain("view.focusOtherPane");
     expect(ids).toContain("view.toggleBreakdown");
-    expect(ids.length).toBe(28);
+    expect(ids).toContain("view.contentSearch");
+    expect(ids).toContain("explorer.toggleHiddenFiles");
+    expect(ids).toContain("explorer.toggleAllFiles");
+    expect(ids).toContain("view.toggleUniversalToolbar");
+    expect(ids.length).toBe(33);
   });
 
   it("every command resolves a non-empty title and executes without throwing", async () => {

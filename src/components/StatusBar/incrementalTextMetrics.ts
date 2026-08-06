@@ -131,6 +131,20 @@ function computeSegment(segment: string): SegmentEntry {
 interface MetricsCacheOptions {
   /** Test hook: invoked once per kernel computation (i.e. per cache miss). */
   onSegmentComputed?: (segment: string) => void;
+  /**
+   * The format's plain-text projection (WI-4.4).
+   *
+   * Defaults to `stripMarkdown`. When a format supplies a DIFFERENT projection
+   * the segment cache is bypassed, because the segment splitting and
+   * `LIST_START_RE` optimisation below mirror `stripMarkdown`'s own list
+   * regexes — they are markdown's shape, not a general one. Correctness for
+   * other formats beats reusing an optimisation that does not apply to them.
+   *
+   * `| undefined` because the caller passes the ACTIVE FORMAT's projection,
+   * and a format that supplies none resolves to undefined — the reader falls
+   * back to `stripMarkdown` for exactly that case.
+   */
+  toPlainText?: ((content: string) => string) | undefined;
 }
 
 /**
@@ -142,8 +156,15 @@ export function createMetricsCache(
   options?: MetricsCacheOptions,
 ): (content: string) => TextMetrics {
   let prevGen = new Map<string, SegmentEntry>();
+  const project = options?.toPlainText;
+  const isMarkdownProjection = project === undefined || project === stripMarkdown;
 
   return function computeCached(content: string): TextMetrics {
+    // A non-markdown projection cannot use the markdown-shaped segment cache.
+    if (!isMarkdownProjection) {
+      return computeTextMetrics(project(content));
+    }
+
     // CRLF bypass — see the module header.
     if (content.includes("\r")) {
       return computeTextMetrics(stripMarkdown(content));

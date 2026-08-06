@@ -612,6 +612,71 @@ fn path_under_ignored_dir_edge_cases() {
 }
 
 #[test]
+fn path_prefix_ignores_cover_nested_worktrees_only() {
+    // A git worktree checked out INSIDE the repo (`.claude/worktrees/<name>`)
+    // is a second copy of the same tracked files, so every doc there collides
+    // with its main-checkout twin on `vmark.id`. The skip is anchored to the
+    // PATH, not a bare dir name: `.claude` itself stays scannable.
+    assert!(path_under_ignored_dir(
+        ".claude/worktrees/refactor/dev-docs/a.md"
+    ));
+    assert!(path_under_ignored_dir(".claude\\worktrees\\refactor\\a.md")); // Windows
+                                                                           // The rest of `.claude/` is ordinary content and must NOT be skipped.
+    assert!(!path_under_ignored_dir(".claude/rules/10-tdd.md"));
+    assert!(!path_under_ignored_dir(".claude/agents/auditor.md"));
+    // Boundary: a sibling file whose name merely starts with the prefix.
+    assert!(!path_under_ignored_dir(".claude/worktrees.md"));
+    // Only anchored at the workspace root — a nested lookalike is real content.
+    assert!(!path_under_ignored_dir("docs/.claude/worktrees/a.md"));
+}
+
+#[test]
+fn nested_worktree_docs_are_never_scanned() {
+    // The duplicate-id storm this fixes: the worktree copy carries the SAME
+    // vmark.id as the main-checkout file, so scanning both emits a
+    // `duplicate-id` diagnostic per doc. Skipping the worktree keeps the
+    // main copy authoritative and the ledger quiet.
+    let (dir, mut kernel) = workspace();
+    captured_doc(&mut kernel, dir.path(), "seed.md", "init\n");
+    write_file(
+        dir.path(),
+        ".claude/worktrees/refactor/dup.md",
+        "---\nvmark:\n  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b2201\n---\nx\n",
+    );
+    // A real doc elsewhere under .claude/ IS still adopted — the skip is narrow.
+    write_file(
+        dir.path(),
+        ".claude/rules/real.md",
+        "---\nvmark:\n  id: 018f3c7a-9f2e-7cc1-b302-5e9d4a6b2202\n---\ny\n",
+    );
+    let report = scan_workspace(&mut kernel).unwrap();
+    assert_eq!(
+        report.adopted, 1,
+        "only .claude/rules/real.md is adopted; the worktree copy is skipped"
+    );
+}
+
+#[test]
+fn registered_path_under_nested_worktree_is_never_marked_absent() {
+    // Same guarantee as audit C8, for the path-prefix skip: objects already
+    // registered under `.claude/worktrees/` (this repo has 10) must not be
+    // reconciled as deleted just because the walk stopped descending there.
+    let (dir, mut kernel) = workspace();
+    captured_doc(
+        &mut kernel,
+        dir.path(),
+        ".claude/worktrees/refactor/dev-docs/a.md",
+        "keep\n",
+    );
+    let report = scan_workspace(&mut kernel).unwrap();
+    assert!(report.complete, "tiny tree walks completely");
+    assert_eq!(
+        report.absent_marked, 0,
+        "a nested-worktree path must never be marked absent"
+    );
+}
+
+#[test]
 fn registered_path_under_ignored_dir_is_never_marked_absent() {
     // Audit C8: an object registered at a path the walk never descends
     // into (node_modules, .Trash, …) must not be reconciled as deleted —

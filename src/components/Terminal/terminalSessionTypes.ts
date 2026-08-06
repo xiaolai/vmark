@@ -26,20 +26,20 @@ export interface SessionEntry {
   spawnGen: number;
   pendingRafId: number | null;
   /**
+   * Debounce handle for the PTY resize that follows a fit. Owned by
+   * fitAndResizePty; per-entry so one session's fit cannot cancel another's
+   * pending resize.
+   *
+   * Explicitly `| undefined`: this is a MUTABLE slot on a long-lived entry, and
+   * "no resize pending" is written by clearing it. Deleting the key instead
+   * would say the same thing while making every clear site reshape the object.
+   */
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
+  /**
    * Workspace root that arrived while the shell was busy and so was deferred;
    * flushed on the next idle (see terminalSessionStoreSync).
    */
   pendingRoot?: string | null;
-  /**
-   * Last observed `instance.lastCommitTime`. When it changes, a new IME
-   * commit has occurred and `lastCommittedConsumed` must reset to 0.
-   */
-  lastSeenCommitTime: number;
-  /**
-   * Number of chars from `instance.lastCommittedText` already deduped via
-   * onData. Enables suffix-chunk matching for split CJK commits.
-   */
-  lastCommittedConsumed: number;
 }
 
 /** A ref to the live session map keyed by session id. */

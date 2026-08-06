@@ -78,3 +78,40 @@ describe("splitLayoutPersistence (#1081 Phase 4)", () => {
     expect(loadSplitLayout(ROOT)).toBeNull();
   });
 });
+
+// WI-17.2 — stable-root keying: layouts key by workspace root identity, so
+// alternate spellings of one Windows root share one layout, while macOS/Linux
+// stay byte-exact. Legacy raw-path keys migrate on load.
+describe("splitLayoutPersistence stable-root keying (WI-17.2)", () => {
+  it("windows: alternate case/separator spelling loads the same layout", () => {
+    saveSplitLayout("C:\\Repo", LAYOUT, "windows");
+    expect(loadSplitLayout("c:/repo", "windows")).toEqual(LAYOUT);
+  });
+
+  it("macos: alternate casing is a different key (byte-exact)", () => {
+    saveSplitLayout("/Users/me/Project", LAYOUT, "macos");
+    expect(loadSplitLayout("/users/me/project", "macos")).toBeNull();
+  });
+
+  it("migrates a legacy raw-path key on load", () => {
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify(LAYOUT));
+
+    expect(loadSplitLayout(ROOT)).toEqual(LAYOUT);
+    // Migrated: legacy key removed, stable key present, second load still works.
+    expect(localStorage.getItem(`vmark-split-layout:${ROOT}`)).toBeNull();
+    expect(loadSplitLayout(ROOT)).toEqual(LAYOUT);
+  });
+
+  it("does not migrate a malformed legacy value", () => {
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, "{not json");
+    expect(loadSplitLayout(ROOT)).toBeNull();
+    expect(localStorage.getItem(`vmark-split-layout:${ROOT}`)).toBe("{not json");
+  });
+
+  it("saving removes a stale legacy key for the same root", () => {
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify(LAYOUT));
+    saveSplitLayout(ROOT, { ...LAYOUT, fraction: 0.7 });
+    expect(localStorage.getItem(`vmark-split-layout:${ROOT}`)).toBeNull();
+    expect(loadSplitLayout(ROOT)?.fraction).toBe(0.7);
+  });
+});

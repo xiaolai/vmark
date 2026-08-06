@@ -12,6 +12,7 @@ import type {
 } from "@/types/workspaceTransfer";
 import { generateUUID } from "@/utils/workspaceIdentity";
 import { workspaceError } from "@/utils/debug";
+import { pickTransferLineMetadata } from "@/utils/transferLineMetadata";
 import { collectWorkspaceTabs, type CollectedWorkspaceTabs } from "./workspaceTabCollection";
 import { waitForWorkspaceAck } from "./workspaceTransferAck";
 
@@ -105,15 +106,15 @@ export async function applyClaimedWorkspaceTransfer(
       title: tab.title,
       isPinned: tab.isPinned,
       formatId: tab.formatId,
-      editingEnabled: tab.editingEnabled,
-      activeSchemaId: tab.activeSchemaId,
+      // Forwarded only when the payload carries them — see
+      // workspaceTabCollection.serializeTransferTab for the wire contract.
+      ...(tab.editingEnabled !== undefined ? { editingEnabled: tab.editingEnabled } : {}),
+      ...(tab.activeSchemaId !== undefined ? { activeSchemaId: tab.activeSchemaId } : {}),
     });
-    useDocumentStore.getState().initDocument(
-      tabId,
-      tab.content,
-      tab.filePath,
-      tab.savedContent,
-    );
+    useDocumentStore.getState().initDocument(tabId, tab.content, tab.filePath, {
+      savedContent: tab.savedContent,
+      ...pickTransferLineMetadata(tab),
+    });
     useDocumentStore.getState().setReadOnly(tabId, tab.readOnly);
   }
 
@@ -226,7 +227,13 @@ async function createWindowAndWaitForAck(
     }
     return { ok: true, targetWindowLabel: received.targetWindowLabel };
   } catch {
-    return { ok: false, reason: "invokeFailed", targetWindowLabel };
+    // No `targetWindowLabel` key when the invoke failed before one was
+    // known — the failure branch declares it optional for that case.
+    return {
+      ok: false,
+      reason: "invokeFailed",
+      ...(targetWindowLabel !== undefined ? { targetWindowLabel } : {}),
+    };
   }
 }
 

@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
   stat: vi.fn(async (_p: string) => ({ size: 1024 })),
   readTextFile: vi.fn(async (_p: string) => "file contents"),
   createTab: vi.fn(() => "tab-1"),
-  initDocument: vi.fn(),
+  ingestExternalContent: vi.fn(),
   setPendingContentSearchNav: vi.fn(),
 }));
 
@@ -28,10 +28,10 @@ vi.mock("@/stores/tabStore", () => ({
   useTabStore: { getState: () => ({ createTab: h.createTab }) },
 }));
 vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: { getState: () => ({ initDocument: h.initDocument }) },
+  useDocumentStore: { getState: () => ({ ingestExternalContent: h.ingestExternalContent }) },
 }));
 vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
-vi.mock("@/hooks/contentSearchNavigation", () => ({
+vi.mock("@/services/navigation/contentSearchNavigation", () => ({
   setPendingContentSearchNav: h.setPendingContentSearchNav,
 }));
 
@@ -59,7 +59,12 @@ describe("setupFileLinks — activate wiring", () => {
       expect(h.setPendingContentSearchNav).toHaveBeenCalledWith("tab-1", 42, ""),
     );
     expect(h.createTab).toHaveBeenCalledWith("main", "/work/src/main.ts");
-    expect(h.initDocument).toHaveBeenCalledWith("tab-1", "file contents", "/work/src/main.ts");
+    expect(h.ingestExternalContent).toHaveBeenCalledWith(
+      "tab-1",
+      "file contents",
+      "disk-open",
+      { filePath: "/work/src/main.ts" },
+    );
   });
 
   it("does not set nav when no line / line 0 is parsed", async () => {

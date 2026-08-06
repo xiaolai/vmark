@@ -5,9 +5,9 @@ import { loadKatex, isKatexLoaded } from "./katexLoader";
 import { getMathPreviewView } from "@/plugins/mathPreview/MathPreviewView";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { inlineNodeEditingKey } from "@/plugins/inlineNodeEditing/tiptap";
-import { useShortcutsStore } from "@/stores/settingsStore";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
 import { matchesShortcutEvent } from "@/utils/shortcutMatch";
-import { useInlineMathEditingStore } from "@/stores/inlineMathEditingStore";
+import type { InlineMathEditingRegistry } from "./inlineMathEditingRegistry";
 import { renderWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -38,7 +38,8 @@ export class MathInlineNodeView implements NodeView {
   constructor(
     node: PMNode,
     view: EditorView,
-    getPos?: () => number | undefined
+    getPos: (() => number | undefined) | undefined,
+    private editing: InlineMathEditingRegistry
   ) {
     this.editorView = view;
     this.getPos = getPos ?? null;
@@ -126,8 +127,8 @@ export class MathInlineNodeView implements NodeView {
     const pos = this.getPos?.();
     if (pos === undefined) return;
 
-    // Register with the global store - this will force-exit any other editing math
-    useInlineMathEditingStore.getState().startEditing(pos, {
+    // Registering force-exits whichever other math node was being edited.
+    this.editing.startEditing(pos, {
       forceExit: this.forceExit,
       getNodePos: /* v8 ignore next -- @preserve getNodePos callback only invoked from store; covered indirectly */ () => this.getPos?.(),
     });
@@ -191,10 +192,10 @@ export class MathInlineNodeView implements NodeView {
     if (!this.isEditing) return;
     this.isEditing = false;
 
-    // Unregister from the global store
+    // Release the registry — but only if it still points at this node.
     const pos = this.getPos?.();
     if (pos !== undefined) {
-      useInlineMathEditingStore.getState().stopEditing(pos);
+      this.editing.stopEditing(pos);
     }
 
     // Commit changes before exiting
@@ -272,7 +273,7 @@ export class MathInlineNodeView implements NodeView {
     if (isImeKeyEvent(e)) return;
 
     // Toggle shortcut: unwrap math (uses inlineMath shortcut from store)
-    const inlineMathKey = useShortcutsStore.getState().getShortcut("inlineMath");
+    const inlineMathKey = hostShortcuts.getShortcut("inlineMath");
     if (matchesShortcutEvent(e, inlineMathKey)) {
       e.preventDefault();
       this.unwrapToText();
@@ -530,10 +531,9 @@ export class MathInlineNodeView implements NodeView {
   }
 
   destroy(): void {
-    // Clear from the global store
     const pos = this.getPos?.();
     if (pos !== undefined) {
-      useInlineMathEditingStore.getState().clear(pos);
+      this.editing.clear(pos);
     }
 
     this.observer?.disconnect();

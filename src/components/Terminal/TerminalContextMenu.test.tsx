@@ -766,3 +766,124 @@ describe("TerminalContextMenu", () => {
     });
   });
 });
+
+describe("Copy Command Output (WI-4.4)", () => {
+  let onClose: () => void;
+
+  /** A terminal whose buffer holds `lines`, viewport at the top. */
+  function makeBufferTerm(lines: string[]): Terminal {
+    return makeTerm({
+      buffer: {
+        active: {
+          length: lines.length,
+          viewportY: 0,
+          getLine: (y: number) =>
+            lines[y] === undefined
+              ? undefined
+              : ({ translateToString: () => lines[y] } as never),
+        },
+      },
+    } as unknown as Partial<Terminal>);
+  }
+
+  /** CommandMarks at the given prompt lines. */
+  function marksAt(...lines: number[]) {
+    return lines.map((line) => ({ marker: { line } }) as never);
+  }
+
+  const BUFFER = [
+    "user@host:~$ ls", // 0 — prompt
+    "a.txt", //           1 — output
+    "b.txt", //           2 — output
+    "user@host:~$ pwd", //3 — prompt
+    "/home/user", //      4 — output
+  ];
+
+  function renderMenu(opts: {
+    marks?: ReturnType<typeof marksAt>;
+    clickLine?: number;
+  }) {
+    const term = makeBufferTerm(BUFFER);
+    render(
+      <TerminalContextMenu
+        position={{ x: 10, y: 10 }}
+        term={term}
+        getCommands={opts.marks ? () => opts.marks! : undefined}
+        clickLine={opts.clickLine}
+        onClose={onClose}
+      />,
+    );
+    return term;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    onClose = vi.fn<() => void>();
+  });
+
+  it("is hidden without shell integration (no marks)", () => {
+    renderMenu({ marks: marksAt(), clickLine: 1 });
+    expect(screen.queryByText("Copy Command Output")).not.toBeInTheDocument();
+  });
+
+  it("is hidden when the parent supplies no command source at all", () => {
+    renderMenu({ clickLine: 1 });
+    expect(screen.queryByText("Copy Command Output")).not.toBeInTheDocument();
+  });
+
+  it("is hidden when the click lands above the first prompt", () => {
+    renderMenu({ marks: marksAt(3), clickLine: 1 });
+    expect(screen.queryByText("Copy Command Output")).not.toBeInTheDocument();
+  });
+
+  it("appears when the click lands inside a command's output", () => {
+    renderMenu({ marks: marksAt(0, 3), clickLine: 1 });
+    expect(screen.getByText("Copy Command Output")).toBeInTheDocument();
+  });
+
+  it("copies the output WITHOUT the prompt line and stops at the next mark", () => {
+    renderMenu({ marks: marksAt(0, 3), clickLine: 2 });
+    fireEvent.click(screen.getByText("Copy Command Output"));
+    return waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("a.txt\nb.txt");
+    });
+  });
+
+  it("copies to the end of the buffer for the last (open) command", () => {
+    renderMenu({ marks: marksAt(0, 3), clickLine: 4 });
+    fireEvent.click(screen.getByText("Copy Command Output"));
+    return waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("/home/user");
+    });
+  });
+
+  it("does not clobber the clipboard when the command produced no output", () => {
+    // Two prompts back to back → nothing between them, so the item is not
+    // offered at all rather than copying "".
+    const term = makeTerm({
+      buffer: {
+        active: { length: 2, viewportY: 0, getLine: () => undefined },
+      },
+    } as unknown as Partial<Terminal>);
+    render(
+      <TerminalContextMenu
+        position={{ x: 10, y: 10 }}
+        term={term}
+        getCommands={() => marksAt(0, 1)}
+        clickLine={0}
+        onClose={onClose}
+      />,
+    );
+    expect(screen.queryByText("Copy Command Output")).not.toBeInTheDocument();
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("closes the menu and refocuses the terminal after copying", () => {
+    const term = renderMenu({ marks: marksAt(0, 3), clickLine: 1 });
+    fireEvent.click(screen.getByText("Copy Command Output"));
+    return waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+      expect(term.focus).toHaveBeenCalled();
+    });
+  });
+});

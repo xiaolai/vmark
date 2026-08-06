@@ -4,13 +4,16 @@
  * Purpose: Initializes the image paste toast UI at app startup — the toast
  *   shows a preview when pasting an image from clipboard into the editor.
  *
- * @coordinates-with imagePasteToast plugin — provides init/destroy lifecycle
- * @coordinates-with imagePasteToastStore.ts — state for the toast UI
+ * @coordinates-with imagePasteToast plugin — provides init/destroy lifecycle and
+ *   takes the toast store as its state PORT
+ * @coordinates-with imagePasteToastStore.ts — the store this hook supplies to
+ *   the plugin's state PORT; the plugin itself does not import it
  * @module hooks/useImagePasteToast
  */
 
 import { useEffect } from "react";
 import { initImagePasteToast, destroyImagePasteToast } from "@/plugins/imagePasteToast";
+import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 
 /**
  * Initialize the image paste toast view.
@@ -18,7 +21,9 @@ import { initImagePasteToast, destroyImagePasteToast } from "@/plugins/imagePast
  */
 export function useImagePasteToast(): void {
   useEffect(() => {
-    initImagePasteToast();
+    // The toast declares its own state PORT; the app supplies the store that
+    // satisfies it (ADR-015).
+    initImagePasteToast(useImagePasteToastStore);
     return () => {
       destroyImagePasteToast();
     };

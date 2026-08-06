@@ -1,0 +1,1587 @@
+{
+"source": "https://github.com/nst/JSONTestSuite (test_parsing/)",
+"license": "MIT",
+"note": "y_=must accept, n_=must reject, i_=implementation-defined. Files over 65536 bytes skipped at vendor time: 2; deep-nesting crash probes are generated in the test.",
+"cases": [
+{
+"name": "i_number_double_huge_neg_exp.json",
+"expect": "i",
+"json": "[123.456e-789]"
+},
+{
+"name": "i_number_huge_exp.json",
+"expect": "i",
+"json": "[0.4e00669999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999969999999006]"
+},
+{
+"name": "i_number_neg_int_huge_exp.json",
+"expect": "i",
+"json": "[-1e+9999]"
+},
+{
+"name": "i_number_pos_double_huge_exp.json",
+"expect": "i",
+"json": "[1.5e+9999]"
+},
+{
+"name": "i_number_real_neg_overflow.json",
+"expect": "i",
+"json": "[-123123e100000]"
+},
+{
+"name": "i_number_real_pos_overflow.json",
+"expect": "i",
+"json": "[123123e100000]"
+},
+{
+"name": "i_number_real_underflow.json",
+"expect": "i",
+"json": "[123e-10000000]"
+},
+{
+"name": "i_number_too_big_neg_int.json",
+"expect": "i",
+"json": "[-123123123123123123123123123123]"
+},
+{
+"name": "i_number_too_big_pos_int.json",
+"expect": "i",
+"json": "[100000000000000000000]"
+},
+{
+"name": "i_number_very_big_negative_int.json",
+"expect": "i",
+"json": "[-237462374673276894279832749832423479823246327846]"
+},
+{
+"name": "i_object_key_lone_2nd_surrogate.json",
+"expect": "i",
+"json": "{\"\\uDFAA\":0}"
+},
+{
+"name": "i_string_1st_surrogate_but_2nd_missing.json",
+"expect": "i",
+"json": "[\"\\uDADA\"]"
+},
+{
+"name": "i_string_1st_valid_surrogate_2nd_invalid.json",
+"expect": "i",
+"json": "[\"\\uD888\\u1234\"]"
+},
+{
+"name": "i_string_UTF-16LE_with_BOM.json",
+"expect": "i",
+"json": "��[\u0000\"\u0000�\u0000\"\u0000]\u0000"
+},
+{
+"name": "i_string_UTF-8_invalid_sequence.json",
+"expect": "i",
+"json": "[\"日ш�\"]"
+},
+{
+"name": "i_string_UTF8_surrogate_U+D800.json",
+"expect": "i",
+"json": "[\"���\"]"
+},
+{
+"name": "i_string_incomplete_surrogate_and_escape_valid.json",
+"expect": "i",
+"json": "[\"\\uD800\\n\"]"
+},
+{
+"name": "i_string_incomplete_surrogate_pair.json",
+"expect": "i",
+"json": "[\"\\uDd1ea\"]"
+},
+{
+"name": "i_string_incomplete_surrogates_escape_valid.json",
+"expect": "i",
+"json": "[\"\\uD800\\uD800\\n\"]"
+},
+{
+"name": "i_string_invalid_lonely_surrogate.json",
+"expect": "i",
+"json": "[\"\\ud800\"]"
+},
+{
+"name": "i_string_invalid_surrogate.json",
+"expect": "i",
+"json": "[\"\\ud800abc\"]"
+},
+{
+"name": "i_string_invalid_utf-8.json",
+"expect": "i",
+"json": "[\"�\"]"
+},
+{
+"name": "i_string_inverted_surrogates_U+1D11E.json",
+"expect": "i",
+"json": "[\"\\uDd1e\\uD834\"]"
+},
+{
+"name": "i_string_iso_latin_1.json",
+"expect": "i",
+"json": "[\"�\"]"
+},
+{
+"name": "i_string_lone_second_surrogate.json",
+"expect": "i",
+"json": "[\"\\uDFAA\"]"
+},
+{
+"name": "i_string_lone_utf8_continuation_byte.json",
+"expect": "i",
+"json": "[\"�\"]"
+},
+{
+"name": "i_string_not_in_unicode_range.json",
+"expect": "i",
+"json": "[\"����\"]"
+},
+{
+"name": "i_string_overlong_sequence_2_bytes.json",
+"expect": "i",
+"json": "[\"��\"]"
+},
+{
+"name": "i_string_overlong_sequence_6_bytes.json",
+"expect": "i",
+"json": "[\"������\"]"
+},
+{
+"name": "i_string_overlong_sequence_6_bytes_null.json",
+"expect": "i",
+"json": "[\"������\"]"
+},
+{
+"name": "i_string_truncated-utf-8.json",
+"expect": "i",
+"json": "[\"��\"]"
+},
+{
+"name": "i_string_utf16BE_no_BOM.json",
+"expect": "i",
+"json": "\u0000[\u0000\"\u0000�\u0000\"\u0000]"
+},
+{
+"name": "i_string_utf16LE_no_BOM.json",
+"expect": "i",
+"json": "[\u0000\"\u0000�\u0000\"\u0000]\u0000"
+},
+{
+"name": "i_structure_500_nested_arrays.json",
+"expect": "i",
+"json": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+},
+{
+"name": "i_structure_UTF-8_BOM_empty_object.json",
+"expect": "i",
+"json": "﻿{}"
+},
+{
+"name": "n_array_1_true_without_comma.json",
+"expect": "n",
+"json": "[1 true]"
+},
+{
+"name": "n_array_a_invalid_utf8.json",
+"expect": "n",
+"json": "[a�]"
+},
+{
+"name": "n_array_colon_instead_of_comma.json",
+"expect": "n",
+"json": "[\"\": 1]"
+},
+{
+"name": "n_array_comma_after_close.json",
+"expect": "n",
+"json": "[\"\"],"
+},
+{
+"name": "n_array_comma_and_number.json",
+"expect": "n",
+"json": "[,1]"
+},
+{
+"name": "n_array_double_comma.json",
+"expect": "n",
+"json": "[1,,2]"
+},
+{
+"name": "n_array_double_extra_comma.json",
+"expect": "n",
+"json": "[\"x\",,]"
+},
+{
+"name": "n_array_extra_close.json",
+"expect": "n",
+"json": "[\"x\"]]"
+},
+{
+"name": "n_array_extra_comma.json",
+"expect": "n",
+"json": "[\"\",]"
+},
+{
+"name": "n_array_incomplete.json",
+"expect": "n",
+"json": "[\"x\""
+},
+{
+"name": "n_array_incomplete_invalid_value.json",
+"expect": "n",
+"json": "[x"
+},
+{
+"name": "n_array_inner_array_no_comma.json",
+"expect": "n",
+"json": "[3[4]]"
+},
+{
+"name": "n_array_invalid_utf8.json",
+"expect": "n",
+"json": "[�]"
+},
+{
+"name": "n_array_items_separated_by_semicolon.json",
+"expect": "n",
+"json": "[1:2]"
+},
+{
+"name": "n_array_just_comma.json",
+"expect": "n",
+"json": "[,]"
+},
+{
+"name": "n_array_just_minus.json",
+"expect": "n",
+"json": "[-]"
+},
+{
+"name": "n_array_missing_value.json",
+"expect": "n",
+"json": "[   , \"\"]"
+},
+{
+"name": "n_array_newlines_unclosed.json",
+"expect": "n",
+"json": "[\"a\",\n4\n,1,"
+},
+{
+"name": "n_array_number_and_comma.json",
+"expect": "n",
+"json": "[1,]"
+},
+{
+"name": "n_array_number_and_several_commas.json",
+"expect": "n",
+"json": "[1,,]"
+},
+{
+"name": "n_array_spaces_vertical_tab_formfeed.json",
+"expect": "n",
+"json": "[\"\u000ba\"\\f]"
+},
+{
+"name": "n_array_star_inside.json",
+"expect": "n",
+"json": "[*]"
+},
+{
+"name": "n_array_unclosed.json",
+"expect": "n",
+"json": "[\"\""
+},
+{
+"name": "n_array_unclosed_trailing_comma.json",
+"expect": "n",
+"json": "[1,"
+},
+{
+"name": "n_array_unclosed_with_new_lines.json",
+"expect": "n",
+"json": "[1,\n1\n,1"
+},
+{
+"name": "n_array_unclosed_with_object_inside.json",
+"expect": "n",
+"json": "[{}"
+},
+{
+"name": "n_incomplete_false.json",
+"expect": "n",
+"json": "[fals]"
+},
+{
+"name": "n_incomplete_null.json",
+"expect": "n",
+"json": "[nul]"
+},
+{
+"name": "n_incomplete_true.json",
+"expect": "n",
+"json": "[tru]"
+},
+{
+"name": "n_multidigit_number_then_00.json",
+"expect": "n",
+"json": "123\u0000"
+},
+{
+"name": "n_number_++.json",
+"expect": "n",
+"json": "[++1234]"
+},
+{
+"name": "n_number_+1.json",
+"expect": "n",
+"json": "[+1]"
+},
+{
+"name": "n_number_+Inf.json",
+"expect": "n",
+"json": "[+Inf]"
+},
+{
+"name": "n_number_-01.json",
+"expect": "n",
+"json": "[-01]"
+},
+{
+"name": "n_number_-1.0..json",
+"expect": "n",
+"json": "[-1.0.]"
+},
+{
+"name": "n_number_-2..json",
+"expect": "n",
+"json": "[-2.]"
+},
+{
+"name": "n_number_-NaN.json",
+"expect": "n",
+"json": "[-NaN]"
+},
+{
+"name": "n_number_.-1.json",
+"expect": "n",
+"json": "[.-1]"
+},
+{
+"name": "n_number_.2e-3.json",
+"expect": "n",
+"json": "[.2e-3]"
+},
+{
+"name": "n_number_0.1.2.json",
+"expect": "n",
+"json": "[0.1.2]"
+},
+{
+"name": "n_number_0.3e+.json",
+"expect": "n",
+"json": "[0.3e+]"
+},
+{
+"name": "n_number_0.3e.json",
+"expect": "n",
+"json": "[0.3e]"
+},
+{
+"name": "n_number_0.e1.json",
+"expect": "n",
+"json": "[0.e1]"
+},
+{
+"name": "n_number_0_capital_E+.json",
+"expect": "n",
+"json": "[0E+]"
+},
+{
+"name": "n_number_0_capital_E.json",
+"expect": "n",
+"json": "[0E]"
+},
+{
+"name": "n_number_0e+.json",
+"expect": "n",
+"json": "[0e+]"
+},
+{
+"name": "n_number_0e.json",
+"expect": "n",
+"json": "[0e]"
+},
+{
+"name": "n_number_1.0e+.json",
+"expect": "n",
+"json": "[1.0e+]"
+},
+{
+"name": "n_number_1.0e-.json",
+"expect": "n",
+"json": "[1.0e-]"
+},
+{
+"name": "n_number_1.0e.json",
+"expect": "n",
+"json": "[1.0e]"
+},
+{
+"name": "n_number_1_000.json",
+"expect": "n",
+"json": "[1 000.0]"
+},
+{
+"name": "n_number_1eE2.json",
+"expect": "n",
+"json": "[1eE2]"
+},
+{
+"name": "n_number_2.e+3.json",
+"expect": "n",
+"json": "[2.e+3]"
+},
+{
+"name": "n_number_2.e-3.json",
+"expect": "n",
+"json": "[2.e-3]"
+},
+{
+"name": "n_number_2.e3.json",
+"expect": "n",
+"json": "[2.e3]"
+},
+{
+"name": "n_number_9.e+.json",
+"expect": "n",
+"json": "[9.e+]"
+},
+{
+"name": "n_number_Inf.json",
+"expect": "n",
+"json": "[Inf]"
+},
+{
+"name": "n_number_NaN.json",
+"expect": "n",
+"json": "[NaN]"
+},
+{
+"name": "n_number_U+FF11_fullwidth_digit_one.json",
+"expect": "n",
+"json": "[１]"
+},
+{
+"name": "n_number_expression.json",
+"expect": "n",
+"json": "[1+2]"
+},
+{
+"name": "n_number_hex_1_digit.json",
+"expect": "n",
+"json": "[0x1]"
+},
+{
+"name": "n_number_hex_2_digits.json",
+"expect": "n",
+"json": "[0x42]"
+},
+{
+"name": "n_number_infinity.json",
+"expect": "n",
+"json": "[Infinity]"
+},
+{
+"name": "n_number_invalid+-.json",
+"expect": "n",
+"json": "[0e+-1]"
+},
+{
+"name": "n_number_invalid-negative-real.json",
+"expect": "n",
+"json": "[-123.123foo]"
+},
+{
+"name": "n_number_invalid-utf-8-in-bigger-int.json",
+"expect": "n",
+"json": "[123�]"
+},
+{
+"name": "n_number_invalid-utf-8-in-exponent.json",
+"expect": "n",
+"json": "[1e1�]"
+},
+{
+"name": "n_number_invalid-utf-8-in-int.json",
+"expect": "n",
+"json": "[0�]\n"
+},
+{
+"name": "n_number_minus_infinity.json",
+"expect": "n",
+"json": "[-Infinity]"
+},
+{
+"name": "n_number_minus_sign_with_trailing_garbage.json",
+"expect": "n",
+"json": "[-foo]"
+},
+{
+"name": "n_number_minus_space_1.json",
+"expect": "n",
+"json": "[- 1]"
+},
+{
+"name": "n_number_neg_int_starting_with_zero.json",
+"expect": "n",
+"json": "[-012]"
+},
+{
+"name": "n_number_neg_real_without_int_part.json",
+"expect": "n",
+"json": "[-.123]"
+},
+{
+"name": "n_number_neg_with_garbage_at_end.json",
+"expect": "n",
+"json": "[-1x]"
+},
+{
+"name": "n_number_real_garbage_after_e.json",
+"expect": "n",
+"json": "[1ea]"
+},
+{
+"name": "n_number_real_with_invalid_utf8_after_e.json",
+"expect": "n",
+"json": "[1e�]"
+},
+{
+"name": "n_number_real_without_fractional_part.json",
+"expect": "n",
+"json": "[1.]"
+},
+{
+"name": "n_number_starting_with_dot.json",
+"expect": "n",
+"json": "[.123]"
+},
+{
+"name": "n_number_with_alpha.json",
+"expect": "n",
+"json": "[1.2a-3]"
+},
+{
+"name": "n_number_with_alpha_char.json",
+"expect": "n",
+"json": "[1.8011670033376514H-308]"
+},
+{
+"name": "n_number_with_leading_zero.json",
+"expect": "n",
+"json": "[012]"
+},
+{
+"name": "n_object_bad_value.json",
+"expect": "n",
+"json": "[\"x\", truth]"
+},
+{
+"name": "n_object_bracket_key.json",
+"expect": "n",
+"json": "{[: \"x\"}\n"
+},
+{
+"name": "n_object_comma_instead_of_colon.json",
+"expect": "n",
+"json": "{\"x\", null}"
+},
+{
+"name": "n_object_double_colon.json",
+"expect": "n",
+"json": "{\"x\"::\"b\"}"
+},
+{
+"name": "n_object_emoji.json",
+"expect": "n",
+"json": "{🇨🇭}"
+},
+{
+"name": "n_object_garbage_at_end.json",
+"expect": "n",
+"json": "{\"a\":\"a\" 123}"
+},
+{
+"name": "n_object_key_with_single_quotes.json",
+"expect": "n",
+"json": "{key: 'value'}"
+},
+{
+"name": "n_object_lone_continuation_byte_in_key_and_trailing_comma.json",
+"expect": "n",
+"json": "{\"�\":\"0\",}"
+},
+{
+"name": "n_object_missing_colon.json",
+"expect": "n",
+"json": "{\"a\" b}"
+},
+{
+"name": "n_object_missing_key.json",
+"expect": "n",
+"json": "{:\"b\"}"
+},
+{
+"name": "n_object_missing_semicolon.json",
+"expect": "n",
+"json": "{\"a\" \"b\"}"
+},
+{
+"name": "n_object_missing_value.json",
+"expect": "n",
+"json": "{\"a\":"
+},
+{
+"name": "n_object_no-colon.json",
+"expect": "n",
+"json": "{\"a\""
+},
+{
+"name": "n_object_non_string_key.json",
+"expect": "n",
+"json": "{1:1}"
+},
+{
+"name": "n_object_non_string_key_but_huge_number_instead.json",
+"expect": "n",
+"json": "{9999E9999:1}"
+},
+{
+"name": "n_object_repeated_null_null.json",
+"expect": "n",
+"json": "{null:null,null:null}"
+},
+{
+"name": "n_object_several_trailing_commas.json",
+"expect": "n",
+"json": "{\"id\":0,,,,,}"
+},
+{
+"name": "n_object_single_quote.json",
+"expect": "n",
+"json": "{'a':0}"
+},
+{
+"name": "n_object_trailing_comma.json",
+"expect": "n",
+"json": "{\"id\":0,}"
+},
+{
+"name": "n_object_trailing_comment.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}/**/"
+},
+{
+"name": "n_object_trailing_comment_open.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}/**//"
+},
+{
+"name": "n_object_trailing_comment_slash_open.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}//"
+},
+{
+"name": "n_object_trailing_comment_slash_open_incomplete.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}/"
+},
+{
+"name": "n_object_two_commas_in_a_row.json",
+"expect": "n",
+"json": "{\"a\":\"b\",,\"c\":\"d\"}"
+},
+{
+"name": "n_object_unquoted_key.json",
+"expect": "n",
+"json": "{a: \"b\"}"
+},
+{
+"name": "n_object_unterminated-value.json",
+"expect": "n",
+"json": "{\"a\":\"a"
+},
+{
+"name": "n_object_with_single_string.json",
+"expect": "n",
+"json": "{ \"foo\" : \"bar\", \"a\" }"
+},
+{
+"name": "n_object_with_trailing_garbage.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}#"
+},
+{
+"name": "n_single_space.json",
+"expect": "n",
+"json": " "
+},
+{
+"name": "n_string_1_surrogate_then_escape.json",
+"expect": "n",
+"json": "[\"\\uD800\\\"]"
+},
+{
+"name": "n_string_1_surrogate_then_escape_u.json",
+"expect": "n",
+"json": "[\"\\uD800\\u\"]"
+},
+{
+"name": "n_string_1_surrogate_then_escape_u1.json",
+"expect": "n",
+"json": "[\"\\uD800\\u1\"]"
+},
+{
+"name": "n_string_1_surrogate_then_escape_u1x.json",
+"expect": "n",
+"json": "[\"\\uD800\\u1x\"]"
+},
+{
+"name": "n_string_accentuated_char_no_quotes.json",
+"expect": "n",
+"json": "[é]"
+},
+{
+"name": "n_string_backslash_00.json",
+"expect": "n",
+"json": "[\"\\\u0000\"]"
+},
+{
+"name": "n_string_escape_x.json",
+"expect": "n",
+"json": "[\"\\x00\"]"
+},
+{
+"name": "n_string_escaped_backslash_bad.json",
+"expect": "n",
+"json": "[\"\\\\\\\"]"
+},
+{
+"name": "n_string_escaped_ctrl_char_tab.json",
+"expect": "n",
+"json": "[\"\\\t\"]"
+},
+{
+"name": "n_string_escaped_emoji.json",
+"expect": "n",
+"json": "[\"\\🌀\"]"
+},
+{
+"name": "n_string_incomplete_escape.json",
+"expect": "n",
+"json": "[\"\\\"]"
+},
+{
+"name": "n_string_incomplete_escaped_character.json",
+"expect": "n",
+"json": "[\"\\u00A\"]"
+},
+{
+"name": "n_string_incomplete_surrogate.json",
+"expect": "n",
+"json": "[\"\\uD834\\uDd\"]"
+},
+{
+"name": "n_string_incomplete_surrogate_escape_invalid.json",
+"expect": "n",
+"json": "[\"\\uD800\\uD800\\x\"]"
+},
+{
+"name": "n_string_invalid-utf-8-in-escape.json",
+"expect": "n",
+"json": "[\"\\u�\"]"
+},
+{
+"name": "n_string_invalid_backslash_esc.json",
+"expect": "n",
+"json": "[\"\\a\"]"
+},
+{
+"name": "n_string_invalid_unicode_escape.json",
+"expect": "n",
+"json": "[\"\\uqqqq\"]"
+},
+{
+"name": "n_string_invalid_utf8_after_escape.json",
+"expect": "n",
+"json": "[\"\\�\"]"
+},
+{
+"name": "n_string_leading_uescaped_thinspace.json",
+"expect": "n",
+"json": "[\\u0020\"asd\"]"
+},
+{
+"name": "n_string_no_quotes_with_bad_escape.json",
+"expect": "n",
+"json": "[\\n]"
+},
+{
+"name": "n_string_single_doublequote.json",
+"expect": "n",
+"json": "\""
+},
+{
+"name": "n_string_single_quote.json",
+"expect": "n",
+"json": "['single quote']"
+},
+{
+"name": "n_string_single_string_no_double_quotes.json",
+"expect": "n",
+"json": "abc"
+},
+{
+"name": "n_string_start_escape_unclosed.json",
+"expect": "n",
+"json": "[\"\\"
+},
+{
+"name": "n_string_unescaped_ctrl_char.json",
+"expect": "n",
+"json": "[\"a\u0000a\"]"
+},
+{
+"name": "n_string_unescaped_newline.json",
+"expect": "n",
+"json": "[\"new\nline\"]"
+},
+{
+"name": "n_string_unescaped_tab.json",
+"expect": "n",
+"json": "[\"\t\"]"
+},
+{
+"name": "n_string_unicode_CapitalU.json",
+"expect": "n",
+"json": "\"\\UA66D\""
+},
+{
+"name": "n_string_with_trailing_garbage.json",
+"expect": "n",
+"json": "\"\"x"
+},
+{
+"name": "n_structure_U+2060_word_joined.json",
+"expect": "n",
+"json": "[⁠]"
+},
+{
+"name": "n_structure_UTF8_BOM_no_data.json",
+"expect": "n",
+"json": "﻿"
+},
+{
+"name": "n_structure_angle_bracket_..json",
+"expect": "n",
+"json": "<.>"
+},
+{
+"name": "n_structure_angle_bracket_null.json",
+"expect": "n",
+"json": "[<null>]"
+},
+{
+"name": "n_structure_array_trailing_garbage.json",
+"expect": "n",
+"json": "[1]x"
+},
+{
+"name": "n_structure_array_with_extra_array_close.json",
+"expect": "n",
+"json": "[1]]"
+},
+{
+"name": "n_structure_array_with_unclosed_string.json",
+"expect": "n",
+"json": "[\"asd]"
+},
+{
+"name": "n_structure_ascii-unicode-identifier.json",
+"expect": "n",
+"json": "aå"
+},
+{
+"name": "n_structure_capitalized_True.json",
+"expect": "n",
+"json": "[True]"
+},
+{
+"name": "n_structure_close_unopened_array.json",
+"expect": "n",
+"json": "1]"
+},
+{
+"name": "n_structure_comma_instead_of_closing_brace.json",
+"expect": "n",
+"json": "{\"x\": true,"
+},
+{
+"name": "n_structure_double_array.json",
+"expect": "n",
+"json": "[][]"
+},
+{
+"name": "n_structure_end_array.json",
+"expect": "n",
+"json": "]"
+},
+{
+"name": "n_structure_incomplete_UTF8_BOM.json",
+"expect": "n",
+"json": "�{}"
+},
+{
+"name": "n_structure_lone-invalid-utf-8.json",
+"expect": "n",
+"json": "�"
+},
+{
+"name": "n_structure_lone-open-bracket.json",
+"expect": "n",
+"json": "["
+},
+{
+"name": "n_structure_no_data.json",
+"expect": "n",
+"json": ""
+},
+{
+"name": "n_structure_null-byte-outside-string.json",
+"expect": "n",
+"json": "[\u0000]"
+},
+{
+"name": "n_structure_number_with_trailing_garbage.json",
+"expect": "n",
+"json": "2@"
+},
+{
+"name": "n_structure_object_followed_by_closing_object.json",
+"expect": "n",
+"json": "{}}"
+},
+{
+"name": "n_structure_object_unclosed_no_value.json",
+"expect": "n",
+"json": "{\"\":"
+},
+{
+"name": "n_structure_object_with_comment.json",
+"expect": "n",
+"json": "{\"a\":/*comment*/\"b\"}"
+},
+{
+"name": "n_structure_object_with_trailing_garbage.json",
+"expect": "n",
+"json": "{\"a\": true} \"x\""
+},
+{
+"name": "n_structure_open_array_apostrophe.json",
+"expect": "n",
+"json": "['"
+},
+{
+"name": "n_structure_open_array_comma.json",
+"expect": "n",
+"json": "[,"
+},
+{
+"name": "n_structure_open_array_open_object.json",
+"expect": "n",
+"json": "[{"
+},
+{
+"name": "n_structure_open_array_open_string.json",
+"expect": "n",
+"json": "[\"a"
+},
+{
+"name": "n_structure_open_array_string.json",
+"expect": "n",
+"json": "[\"a\""
+},
+{
+"name": "n_structure_open_object.json",
+"expect": "n",
+"json": "{"
+},
+{
+"name": "n_structure_open_object_close_array.json",
+"expect": "n",
+"json": "{]"
+},
+{
+"name": "n_structure_open_object_comma.json",
+"expect": "n",
+"json": "{,"
+},
+{
+"name": "n_structure_open_object_open_array.json",
+"expect": "n",
+"json": "{["
+},
+{
+"name": "n_structure_open_object_open_string.json",
+"expect": "n",
+"json": "{\"a"
+},
+{
+"name": "n_structure_open_object_string_with_apostrophes.json",
+"expect": "n",
+"json": "{'a'"
+},
+{
+"name": "n_structure_open_open.json",
+"expect": "n",
+"json": "[\"\\{[\"\\{[\"\\{[\"\\{"
+},
+{
+"name": "n_structure_single_eacute.json",
+"expect": "n",
+"json": "�"
+},
+{
+"name": "n_structure_single_star.json",
+"expect": "n",
+"json": "*"
+},
+{
+"name": "n_structure_trailing_#.json",
+"expect": "n",
+"json": "{\"a\":\"b\"}#{}"
+},
+{
+"name": "n_structure_uescaped_LF_before_string.json",
+"expect": "n",
+"json": "[\\u000A\"\"]"
+},
+{
+"name": "n_structure_unclosed_array.json",
+"expect": "n",
+"json": "[1"
+},
+{
+"name": "n_structure_unclosed_array_partial_null.json",
+"expect": "n",
+"json": "[ false, nul"
+},
+{
+"name": "n_structure_unclosed_array_unfinished_false.json",
+"expect": "n",
+"json": "[ true, fals"
+},
+{
+"name": "n_structure_unclosed_array_unfinished_true.json",
+"expect": "n",
+"json": "[ false, tru"
+},
+{
+"name": "n_structure_unclosed_object.json",
+"expect": "n",
+"json": "{\"asd\":\"asd\""
+},
+{
+"name": "n_structure_unicode-identifier.json",
+"expect": "n",
+"json": "å"
+},
+{
+"name": "n_structure_whitespace_U+2060_word_joiner.json",
+"expect": "n",
+"json": "[⁠]"
+},
+{
+"name": "n_structure_whitespace_formfeed.json",
+"expect": "n",
+"json": "[\f]"
+},
+{
+"name": "y_array_arraysWithSpaces.json",
+"expect": "y",
+"json": "[[]   ]"
+},
+{
+"name": "y_array_empty-string.json",
+"expect": "y",
+"json": "[\"\"]"
+},
+{
+"name": "y_array_empty.json",
+"expect": "y",
+"json": "[]"
+},
+{
+"name": "y_array_ending_with_newline.json",
+"expect": "y",
+"json": "[\"a\"]"
+},
+{
+"name": "y_array_false.json",
+"expect": "y",
+"json": "[false]"
+},
+{
+"name": "y_array_heterogeneous.json",
+"expect": "y",
+"json": "[null, 1, \"1\", {}]"
+},
+{
+"name": "y_array_null.json",
+"expect": "y",
+"json": "[null]"
+},
+{
+"name": "y_array_with_1_and_newline.json",
+"expect": "y",
+"json": "[1\n]"
+},
+{
+"name": "y_array_with_leading_space.json",
+"expect": "y",
+"json": " [1]"
+},
+{
+"name": "y_array_with_several_null.json",
+"expect": "y",
+"json": "[1,null,null,null,2]"
+},
+{
+"name": "y_array_with_trailing_space.json",
+"expect": "y",
+"json": "[2] "
+},
+{
+"name": "y_number.json",
+"expect": "y",
+"json": "[123e65]"
+},
+{
+"name": "y_number_0e+1.json",
+"expect": "y",
+"json": "[0e+1]"
+},
+{
+"name": "y_number_0e1.json",
+"expect": "y",
+"json": "[0e1]"
+},
+{
+"name": "y_number_after_space.json",
+"expect": "y",
+"json": "[ 4]"
+},
+{
+"name": "y_number_double_close_to_zero.json",
+"expect": "y",
+"json": "[-0.000000000000000000000000000000000000000000000000000000000000000000000000000001]\n"
+},
+{
+"name": "y_number_int_with_exp.json",
+"expect": "y",
+"json": "[20e1]"
+},
+{
+"name": "y_number_minus_zero.json",
+"expect": "y",
+"json": "[-0]"
+},
+{
+"name": "y_number_negative_int.json",
+"expect": "y",
+"json": "[-123]"
+},
+{
+"name": "y_number_negative_one.json",
+"expect": "y",
+"json": "[-1]"
+},
+{
+"name": "y_number_negative_zero.json",
+"expect": "y",
+"json": "[-0]"
+},
+{
+"name": "y_number_real_capital_e.json",
+"expect": "y",
+"json": "[1E22]"
+},
+{
+"name": "y_number_real_capital_e_neg_exp.json",
+"expect": "y",
+"json": "[1E-2]"
+},
+{
+"name": "y_number_real_capital_e_pos_exp.json",
+"expect": "y",
+"json": "[1E+2]"
+},
+{
+"name": "y_number_real_exponent.json",
+"expect": "y",
+"json": "[123e45]"
+},
+{
+"name": "y_number_real_fraction_exponent.json",
+"expect": "y",
+"json": "[123.456e78]"
+},
+{
+"name": "y_number_real_neg_exp.json",
+"expect": "y",
+"json": "[1e-2]"
+},
+{
+"name": "y_number_real_pos_exponent.json",
+"expect": "y",
+"json": "[1e+2]"
+},
+{
+"name": "y_number_simple_int.json",
+"expect": "y",
+"json": "[123]"
+},
+{
+"name": "y_number_simple_real.json",
+"expect": "y",
+"json": "[123.456789]"
+},
+{
+"name": "y_object.json",
+"expect": "y",
+"json": "{\"asd\":\"sdf\", \"dfg\":\"fgh\"}"
+},
+{
+"name": "y_object_basic.json",
+"expect": "y",
+"json": "{\"asd\":\"sdf\"}"
+},
+{
+"name": "y_object_duplicated_key.json",
+"expect": "y",
+"json": "{\"a\":\"b\",\"a\":\"c\"}"
+},
+{
+"name": "y_object_duplicated_key_and_value.json",
+"expect": "y",
+"json": "{\"a\":\"b\",\"a\":\"b\"}"
+},
+{
+"name": "y_object_empty.json",
+"expect": "y",
+"json": "{}"
+},
+{
+"name": "y_object_empty_key.json",
+"expect": "y",
+"json": "{\"\":0}"
+},
+{
+"name": "y_object_escaped_null_in_key.json",
+"expect": "y",
+"json": "{\"foo\\u0000bar\": 42}"
+},
+{
+"name": "y_object_extreme_numbers.json",
+"expect": "y",
+"json": "{ \"min\": -1.0e+28, \"max\": 1.0e+28 }"
+},
+{
+"name": "y_object_long_strings.json",
+"expect": "y",
+"json": "{\"x\":[{\"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}], \"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}"
+},
+{
+"name": "y_object_simple.json",
+"expect": "y",
+"json": "{\"a\":[]}"
+},
+{
+"name": "y_object_string_unicode.json",
+"expect": "y",
+"json": "{\"title\":\"\\u041f\\u043e\\u043b\\u0442\\u043e\\u0440\\u0430 \\u0417\\u0435\\u043c\\u043b\\u0435\\u043a\\u043e\\u043f\\u0430\" }"
+},
+{
+"name": "y_object_with_newlines.json",
+"expect": "y",
+"json": "{\n\"a\": \"b\"\n}"
+},
+{
+"name": "y_string_1_2_3_bytes_UTF-8_sequences.json",
+"expect": "y",
+"json": "[\"\\u0060\\u012a\\u12AB\"]"
+},
+{
+"name": "y_string_accepted_surrogate_pair.json",
+"expect": "y",
+"json": "[\"\\uD801\\udc37\"]"
+},
+{
+"name": "y_string_accepted_surrogate_pairs.json",
+"expect": "y",
+"json": "[\"\\ud83d\\ude39\\ud83d\\udc8d\"]"
+},
+{
+"name": "y_string_allowed_escapes.json",
+"expect": "y",
+"json": "[\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"]"
+},
+{
+"name": "y_string_backslash_and_u_escaped_zero.json",
+"expect": "y",
+"json": "[\"\\\\u0000\"]"
+},
+{
+"name": "y_string_backslash_doublequotes.json",
+"expect": "y",
+"json": "[\"\\\"\"]"
+},
+{
+"name": "y_string_comments.json",
+"expect": "y",
+"json": "[\"a/*b*/c/*d//e\"]"
+},
+{
+"name": "y_string_double_escape_a.json",
+"expect": "y",
+"json": "[\"\\\\a\"]"
+},
+{
+"name": "y_string_double_escape_n.json",
+"expect": "y",
+"json": "[\"\\\\n\"]"
+},
+{
+"name": "y_string_escaped_control_character.json",
+"expect": "y",
+"json": "[\"\\u0012\"]"
+},
+{
+"name": "y_string_escaped_noncharacter.json",
+"expect": "y",
+"json": "[\"\\uFFFF\"]"
+},
+{
+"name": "y_string_in_array.json",
+"expect": "y",
+"json": "[\"asd\"]"
+},
+{
+"name": "y_string_in_array_with_leading_space.json",
+"expect": "y",
+"json": "[ \"asd\"]"
+},
+{
+"name": "y_string_last_surrogates_1_and_2.json",
+"expect": "y",
+"json": "[\"\\uDBFF\\uDFFF\"]"
+},
+{
+"name": "y_string_nbsp_uescaped.json",
+"expect": "y",
+"json": "[\"new\\u00A0line\"]"
+},
+{
+"name": "y_string_nonCharacterInUTF-8_U+10FFFF.json",
+"expect": "y",
+"json": "[\"􏿿\"]"
+},
+{
+"name": "y_string_nonCharacterInUTF-8_U+FFFF.json",
+"expect": "y",
+"json": "[\"￿\"]"
+},
+{
+"name": "y_string_null_escape.json",
+"expect": "y",
+"json": "[\"\\u0000\"]"
+},
+{
+"name": "y_string_one-byte-utf-8.json",
+"expect": "y",
+"json": "[\"\\u002c\"]"
+},
+{
+"name": "y_string_pi.json",
+"expect": "y",
+"json": "[\"π\"]"
+},
+{
+"name": "y_string_reservedCharacterInUTF-8_U+1BFFF.json",
+"expect": "y",
+"json": "[\"𛿿\"]"
+},
+{
+"name": "y_string_simple_ascii.json",
+"expect": "y",
+"json": "[\"asd \"]"
+},
+{
+"name": "y_string_space.json",
+"expect": "y",
+"json": "\" \""
+},
+{
+"name": "y_string_surrogates_U+1D11E_MUSICAL_SYMBOL_G_CLEF.json",
+"expect": "y",
+"json": "[\"\\uD834\\uDd1e\"]"
+},
+{
+"name": "y_string_three-byte-utf-8.json",
+"expect": "y",
+"json": "[\"\\u0821\"]"
+},
+{
+"name": "y_string_two-byte-utf-8.json",
+"expect": "y",
+"json": "[\"\\u0123\"]"
+},
+{
+"name": "y_string_u+2028_line_sep.json",
+"expect": "y",
+"json": "[\" \"]"
+},
+{
+"name": "y_string_u+2029_par_sep.json",
+"expect": "y",
+"json": "[\" \"]"
+},
+{
+"name": "y_string_uEscape.json",
+"expect": "y",
+"json": "[\"\\u0061\\u30af\\u30EA\\u30b9\"]"
+},
+{
+"name": "y_string_uescaped_newline.json",
+"expect": "y",
+"json": "[\"new\\u000Aline\"]"
+},
+{
+"name": "y_string_unescaped_char_delete.json",
+"expect": "y",
+"json": "[\"\"]"
+},
+{
+"name": "y_string_unicode.json",
+"expect": "y",
+"json": "[\"\\uA66D\"]"
+},
+{
+"name": "y_string_unicodeEscapedBackslash.json",
+"expect": "y",
+"json": "[\"\\u005C\"]"
+},
+{
+"name": "y_string_unicode_2.json",
+"expect": "y",
+"json": "[\"⍂㈴⍂\"]"
+},
+{
+"name": "y_string_unicode_U+10FFFE_nonchar.json",
+"expect": "y",
+"json": "[\"\\uDBFF\\uDFFE\"]"
+},
+{
+"name": "y_string_unicode_U+1FFFE_nonchar.json",
+"expect": "y",
+"json": "[\"\\uD83F\\uDFFE\"]"
+},
+{
+"name": "y_string_unicode_U+200B_ZERO_WIDTH_SPACE.json",
+"expect": "y",
+"json": "[\"\\u200B\"]"
+},
+{
+"name": "y_string_unicode_U+2064_invisible_plus.json",
+"expect": "y",
+"json": "[\"\\u2064\"]"
+},
+{
+"name": "y_string_unicode_U+FDD0_nonchar.json",
+"expect": "y",
+"json": "[\"\\uFDD0\"]"
+},
+{
+"name": "y_string_unicode_U+FFFE_nonchar.json",
+"expect": "y",
+"json": "[\"\\uFFFE\"]"
+},
+{
+"name": "y_string_unicode_escaped_double_quote.json",
+"expect": "y",
+"json": "[\"\\u0022\"]"
+},
+{
+"name": "y_string_utf8.json",
+"expect": "y",
+"json": "[\"€𝄞\"]"
+},
+{
+"name": "y_string_with_del_character.json",
+"expect": "y",
+"json": "[\"aa\"]"
+},
+{
+"name": "y_structure_lonely_false.json",
+"expect": "y",
+"json": "false"
+},
+{
+"name": "y_structure_lonely_int.json",
+"expect": "y",
+"json": "42"
+},
+{
+"name": "y_structure_lonely_negative_real.json",
+"expect": "y",
+"json": "-0.1"
+},
+{
+"name": "y_structure_lonely_null.json",
+"expect": "y",
+"json": "null"
+},
+{
+"name": "y_structure_lonely_string.json",
+"expect": "y",
+"json": "\"asd\""
+},
+{
+"name": "y_structure_lonely_true.json",
+"expect": "y",
+"json": "true"
+},
+{
+"name": "y_structure_string_empty.json",
+"expect": "y",
+"json": "\"\""
+},
+{
+"name": "y_structure_trailing_newline.json",
+"expect": "y",
+"json": "[\"a\"]\n"
+},
+{
+"name": "y_structure_true_in_array.json",
+"expect": "y",
+"json": "[true]"
+},
+{
+"name": "y_structure_whitespace_array.json",
+"expect": "y",
+"json": " [] "
+}
+]
+}

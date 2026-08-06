@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import type { BrowserTab } from "@/stores/tabStoreTypes";
 import { useTabStore } from "@/stores/tabStore";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
-import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 import { NEW_BROWSER_TAB_URL } from "@/services/commands/browserCommands";
 

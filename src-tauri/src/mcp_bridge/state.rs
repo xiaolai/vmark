@@ -1,30 +1,18 @@
-//! MCP Bridge shared state and port-file management.
+//! MCP Bridge tables and the pure helpers that operate on them.
 //!
-//! Holds the global bridge state (connected clients, pending requests)
-//! and utilities for the port discovery file.
+//! The connected clients, the pending requests, the window→workspace map, and
+//! the registration/resolution/TTL-sweep policy that governs them. Everything
+//! here takes the state it works on as a parameter: the state itself is held
+//! by Tauri (`managed.rs`), never by a static.
+//!
+//! The port discovery file and its permission contract live in
+//! `token_file.rs`; this module has not owned them since WI-9.
 
+use super::principal::BridgePrincipal;
 use super::types::{ClientIdentity, McpResponse};
-use crate::app_paths;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::time::Instant;
-use tauri::AppHandle;
-use tokio::sync::{mpsc, oneshot, Mutex, RwLock};
-
-/// Tracks whether the frontend webview is alive and responsive.
-/// Updated by periodic heartbeat pings from the frontend.
-static WEBVIEW_ALIVE: AtomicBool = AtomicBool::new(true);
-
-/// Mark the webview as alive or not.
-pub(crate) fn set_webview_alive(alive: bool) {
-    WEBVIEW_ALIVE.store(alive, Ordering::Relaxed);
-}
-
-/// Check whether the webview is currently considered alive.
-pub(crate) fn is_webview_alive() -> bool {
-    WEBVIEW_ALIVE.load(Ordering::Relaxed)
-}
+use tokio::sync::{mpsc, oneshot};
 
 /// Per-client outbound message queue capacity.
 ///
@@ -41,8 +29,18 @@ const _: () = assert!(CLIENT_TX_CAPACITY > 0 && CLIENT_TX_CAPACITY <= 65_536);
 pub(crate) struct ClientConnection {
     pub tx: mpsc::Sender<String>,
     pub shutdown: Option<oneshot::Sender<()>>,
-    /// Client identity (set after identify message)
+    /// What the client SAYS it is, from its `identify` message.
+    ///
+    /// Display only — the Integrations panel's connected-clients list and the
+    /// connect/disconnect log lines. It reaches no authorization decision and
+    /// must not start to: it is caller-supplied and re-sendable, which is
+    /// exactly the defect fixed by binding `principal` to a credential instead
+    /// (audit 20260728 §2.1). See `principal.rs`.
     pub identity: Option<ClientIdentity>,
+    /// Who the client PROVED it is, fixed at authentication time from the
+    /// per-client credential it presented. Immutable for the life of the
+    /// connection — nothing the client sends afterwards can change it.
+    pub principal: BridgePrincipal,
 }
 
 /// Bridge state shared across connections.
@@ -60,6 +58,20 @@ pub(crate) struct BridgeState {
     /// send workspace-scoped requests to the owning window, not just the
     /// focused one.
     pub window_workspaces: HashMap<String, String>,
+}
+
+impl Default for BridgeState {
+    /// Nothing connected, nothing in flight. `next_client_id` starts at 1, not
+    /// 0: the welcome frame carries it and every client id on the wire is
+    /// expected to be positive.
+    fn default() -> Self {
+        Self {
+            clients: HashMap::new(),
+            pending: HashMap::new(),
+            next_client_id: 1,
+            window_workspaces: HashMap::new(),
+        }
+    }
 }
 
 /// Maximum number of pending requests allowed at once.
@@ -107,192 +119,107 @@ pub(crate) fn try_register_pending(
             MAX_PENDING_REQUESTS
         ));
     }
-    state.pending.insert(
-        request_id,
-        PendingRequest {
-            response_tx,
-            created_at: Instant::now(),
-        },
-    );
-    Ok(())
+    // Bridge-internal ids are generated from a monotonic counter, so a
+    // duplicate indicates a bug — reject it loudly instead of silently
+    // replacing (and thereby stranding) the original request's channel.
+    match state.pending.entry(request_id) {
+        std::collections::hash_map::Entry::Occupied(entry) => Err(format!(
+            "MCP bridge internal error: duplicate pending request id {}",
+            entry.key()
+        )),
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(PendingRequest {
+                response_tx,
+                created_at: Instant::now(),
+            });
+            Ok(())
+        }
+    }
 }
 
-/// Global bridge state.
-static BRIDGE_STATE: std::sync::OnceLock<Arc<Mutex<BridgeState>>> = std::sync::OnceLock::new();
-
-/// Server shutdown signal.
-static SHUTDOWN_TX: std::sync::OnceLock<Arc<RwLock<Option<oneshot::Sender<()>>>>> =
-    std::sync::OnceLock::new();
-
-/// Write lock for serializing write operations.
-/// All clients can read simultaneously, but writes are serialized.
-static WRITE_LOCK: std::sync::OnceLock<Arc<tokio::sync::Mutex<()>>> = std::sync::OnceLock::new();
-
-/// WI-3.5 (D2.3): the authenticated identity name of a connected client,
-/// or None if unidentified. The only principal delegated authority binds
-/// to — never a caller-supplied argument.
-pub(crate) async fn authenticated_principal(client_id: u64) -> Option<String> {
-    let state = get_bridge_state();
-    let guard = state.lock().await;
-    guard
-        .clients
-        .get(&client_id)
-        .and_then(|c| c.identity.as_ref())
-        .map(|i| i.name.clone())
+/// Deliver a frontend response to the pending request it answers.
+///
+/// `Ok(false)` means no such request was in flight — an unknown or already
+/// swept id. That is NOT an error: the frontend echoes ids back, and a
+/// response arriving after its request timed out (or after `stop_bridge`
+/// drained the map) must be dropped quietly rather than failing the command
+/// the webview called. The only failure is a pending entry whose receiver is
+/// already gone, which the caller surfaces.
+pub(crate) fn resolve_pending(
+    state: &mut BridgeState,
+    request_id: &str,
+    response: McpResponse,
+) -> Result<bool, String> {
+    match state.pending.remove(request_id) {
+        Some(pending) => {
+            pending
+                .response_tx
+                .send(response)
+                .map_err(|_| "Response channel closed".to_string())?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
 }
 
-pub(crate) fn get_bridge_state() -> Arc<Mutex<BridgeState>> {
-    BRIDGE_STATE
-        .get_or_init(|| {
-            Arc::new(Mutex::new(BridgeState {
-                clients: HashMap::new(),
-                pending: HashMap::new(),
-                next_client_id: 1,
-                window_workspaces: HashMap::new(),
-            }))
-        })
-        .clone()
-}
-
-pub(crate) fn get_shutdown_holder() -> Arc<RwLock<Option<oneshot::Sender<()>>>> {
-    SHUTDOWN_TX
-        .get_or_init(|| Arc::new(RwLock::new(None)))
-        .clone()
-}
-
-pub(crate) fn get_write_lock() -> Arc<tokio::sync::Mutex<()>> {
-    WRITE_LOCK
-        .get_or_init(|| Arc::new(tokio::sync::Mutex::new(())))
-        .clone()
-}
-
-/// Generate a random hex auth token for MCP bridge authentication.
-/// 32 bytes of CSPRNG entropy via two v4 UUIDs (uuid -> getrandom) —
-/// SipHash/RandomState is not a cryptographic RNG and an auth token is a
-/// cryptographic secret (audit 20260612).
+/// Generate the ephemeral shared bridge token written to the port file.
+///
+/// 32 bytes of CSPRNG entropy — see `crate::secret_token`, which is also where
+/// the per-client credentials in `mcp_config::client_tokens` come from, so the
+/// two cannot drift on the property that matters.
 pub(crate) fn generate_auth_token() -> String {
-    let a = uuid::Uuid::new_v4();
-    let b = uuid::Uuid::new_v4();
-    format!("{}{}", a.simple(), b.simple())
-}
-
-/// Write the port and auth token to the port file for MCP sidecar discovery.
-/// Format: `{port}:{token}` — sidecar must send token in auth handshake.
-/// Uses atomic write to prevent partial reads by the sidecar.
-pub(crate) fn write_port_file(app: &AppHandle, port: u16, token: &str) -> Result<(), String> {
-    let path = app_paths::get_port_file_path(app)?;
-
-    // Create app data directory if it doesn't exist
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create app data directory {:?}: {}", parent, e))?;
-    }
-
-    // Write port:token atomically to prevent partial reads
-    let content = format!("{}:{}", port, token);
-    app_paths::atomic_write_file(&path, content.as_bytes())?;
-
-    log::debug!(
-        "[MCP Bridge] Port {} written to {:?} (with auth token)",
-        port,
-        path
-    );
-
-    Ok(())
-}
-
-/// Remove the port file when bridge stops.
-/// Logs errors for non-NotFound failures (permission issues, etc.)
-pub fn remove_port_file(app: &AppHandle) {
-    match app_paths::get_port_file_path(app) {
-        Ok(path) => {
-            match std::fs::remove_file(&path) {
-                Ok(()) => {
-                    log::debug!("[MCP Bridge] Port file removed: {:?}", path);
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    // Already removed - not an error
-                }
-                Err(e) => {
-                    // Real error - log it
-                    log::warn!("[MCP Bridge] Failed to remove port file {:?}: {}", path, e);
-                }
-            }
-        }
-        Err(e) => {
-            log::warn!("[MCP Bridge] Cannot determine port file path: {}", e);
-        }
-    }
+    crate::secret_token::generate_secret_token()
 }
 
 /// Check if an operation is read-only.
+///
+/// ONLY current `vmark.*` operations are classified (the pruned 5-tool
+/// surface; wire types in server/mcp/src/bridge/core-types.ts). Everything
+/// else — including the pre-pruning legacy names (`document.getContent`,
+/// `tabs.list`, …) — falls through to write-class (fail closed): the
+/// frontend dispatcher only accepts `vmark.*` and rejects the rest as
+/// unknown, and the Rust-answered ops (`windows.list`, `windows.getFocused`)
+/// are answered in routing BEFORE this classifier runs, so legacy entries
+/// here were unreachable dead weight (audit 20260729 C4).
 pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
     matches!(
         request_type,
-        // Document read operations
-        "document.getContent"
-            | "document.search"
-            // Selection/cursor read operations
-            | "selection.get"
-            | "cursor.getContext"
-            // Metadata operations
-            | "outline.get"
-            | "metadata.get"
-            // Window/workspace read operations
-            | "windows.list"
-            | "windows.getFocused"
-            | "workspace.getDocumentInfo"
-            | "workspace.listRecentFiles"
-            | "workspace.getInfo"
-            // Tab read operations
-            | "tabs.list"
-            | "tabs.getActive"
-            | "tabs.getInfo"
-            // Editor state operations
-            | "editor.getUndoState"
-            // Suggestion read operations
-            | "suggestion.list"
-            // Paragraph read operations
-            | "paragraph.read"
-            // Protocol/structure read operations
-            | "protocol.getCapabilities"
-            | "protocol.getRevision"
-            | "structure.getAst"
-            | "structure.getDigest"
-            | "structure.listBlocks"
-            | "structure.resolveTargets"
-            | "structure.getSection"
-            // Genie read operations
-            | "genies.list"
-            | "genies.read"
-            // Pruned 5-tool surface (vmark.* prefix) — read operations.
-            // Wire types defined in vmark-mcp-server/src/bridge/core-types.ts.
-            // Missing entries here forced every concurrent AI client read
-            // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
-            | "vmark.session.get_state"
+        // Missing entries here forced every concurrent AI client read
+        // (Claude Code + Codex + Cursor) to serialize through WRITE_LOCK.
+        "vmark.session.get_state"
             | "vmark.document.read"
             | "vmark.selection.get"
             | "vmark.workflow.validate"
             // Embedded-browser read-class ops (Codex audit 20260718). Wire
-            // types in vmark-mcp-server/src/tools/browser.ts. These mutate
+            // types in server/mcp/src/tools/browser.ts. These mutate
             // nothing; the bounded waits especially must not hold the global
             // write lock for up to their full 12s timeout. Write-class
             // browser ops (act, open, navigate, style, execute_js,
             // session.save/load, console with its buffer drain) stay
             // serialized through WRITE_LOCK.
+            //
+            // `vmark.browser.wait` is deliberately NOT here (audit 20260729):
+            // unlike its read-class siblings, its frontend handler activates
+            // the target window and creates/attaches the native browser view
+            // (`activateBrowserTarget` + `ensureBrowserNativeView` in
+            // src/hooks/mcpBridge/v2/browserNavigation.ts) — real mutations
+            // that must serialize through WRITE_LOCK.
             | "vmark.browser.read"
-            | "vmark.browser.wait"
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
-            | "vmark.browser.screenshot"
-            // Coherence status (WI-1.10) is a pure projection. `edges` is
-            // deliberately NOT here: it runs scan reconciliation, which
-            // appends provenance records — server.rs takes the write lock
-            // for it (audit C4/C5).
-            | "vmark.coherence.status"
+            | "vmark.browser.screenshot" // Coherence ops are deliberately ABSENT: they are Rust-answered in
+                                         // `answer_rust_side` BEFORE this classifier runs, and
+                                         // `routing::answer_coherence_async` applies its own lock policy
+                                         // (edges/resolve take the write lock; status/claims/contexts do not).
+                                         // An entry here would be unreachable dead weight (WI-1 manifest
+                                         // parity: src/hooks/mcpBridge/v2/operationManifest.ts).
     )
 }
 
 #[cfg(test)]
 #[path = "state.test.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "state_lifecycle.test.rs"]
+mod lifecycle_tests;

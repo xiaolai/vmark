@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "放大"
   view.zoomOut: "缩小"
   view.wordWrap: "切换自动换行"
+  view.universalToolbar: "显示通用工具栏"
   view.lineNumbers: "切换行号"
   view.diagramPreview: "切换图表预览"
   view.fitTables: "表格适应宽度"
@@ -248,6 +249,34 @@ errors:
   workflow.notRunning: "当前没有正在运行的工作流"
   workflow.circularDependency: "工作流步骤中检测到循环依赖"
   workflow.noInteractivePrompt: "工作流执行中不支持交互式提示"
+  workflow.engineDisabled: "工作流引擎已在设置中关闭"
+  workflow.noPendingApproval: "没有匹配的待处理审批请求"
+  workflow.appDataDirUnavailable: "无法解析应用数据目录：%{detail}"
+
+  # === 保存路径（file_write.rs，WI-14 CommandError）===
+  save.parentMissing: "该文件所在的文件夹已不存在：%{dir}"
+  save.noParentDirectory: "文件路径没有上级文件夹"
+  save.writeFailed: "无法保存文件：%{detail}"
+  save.taskFailed: "保存任务意外结束：%{detail}"
+
+  # === 内置浏览器，AI 导航（browser/ai_commands.rs，WI-14）===
+  browser.disabled: "内置浏览器已在设置中关闭"
+  browser.approvalRequired: "AI 打开此页面前需要你的许可"
+  browser.blockedDestination: "策略禁止 AI 访问该目标地址"
+  browser.profileNotApproved: "未获许可打开该浏览器配置"
+  browser.tabNotFound: "该浏览器标签页已不存在"
+  browser.tabNotAiOwned: "该浏览器标签页不受 AI 控制"
+  browser.policyStale: "浏览器策略已变更，请重试该操作"
+  browser.tabProvenanceMismatch: "该标签页是在另一种自动化模式下创建的"
+  browser.invalidSessionMode: "未知的浏览器会话模式“%{mode}”"
+  browser.stateUnavailable: "无法读取浏览器状态：%{detail}"
+  browser.invalidUrl: "这不是可用的网址"
+  browser.invalidProfileName: "该浏览器配置名称不被允许"
+  browser.windowGone: "该浏览器标签页所属的窗口已关闭"
+  browser.profileLimit: "同时打开的浏览器配置过多"
+  browser.unsupportedPlatform: "内置浏览器在此平台上不可用"
+  browser.surfaceTimeout: "浏览器未在规定时间内响应"
+  browser.surfaceFailed: "浏览器无法完成该操作"
 
   # === Hot exit ===
   hotExit.noWindows: "没有需要捕获的文档窗口"
@@ -267,6 +296,47 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 侧载进程正在启动中"
   mcp.configMismatch: "配置校验失败：写入内容与预期不符"
+
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "未知的提供商：%{provider}"
+  mcp.legacyProvider: "%{name} 已停止支持；残留的 VMark 条目只能移除。"
+  mcp.noHomeDir: "无法确定用户主目录"
+  mcp.exePathFailed: "无法获取可执行文件路径：%{detail}"
+  mcp.exeDirFailed: "无法获取可执行文件所在目录"
+  mcp.binaryNotFound: "未找到 MCP 服务器二进制文件：%{name}。请重新安装 VMark。"
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON 无效：%{detail}"
+  mcp.invalidToml: "TOML 无效：%{detail}"
+  mcp.jsonSerializeFailed: "JSON 序列化错误：%{detail}"
+  mcp.invalidJsonStructure: "JSON 结构无效"
+  mcp.serversNotObject: "%{key} 不是对象"
+  mcp.serversNotTable: "mcp_servers 不是表"
+  mcp.vmarkEntryNotObject: "%{key} 不是对象"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark 不是表"
+  mcp.envNotObject: "%{key} 不是对象"
+  mcp.envNotTable: "mcp_servers.vmark.env 不是表"
+
+  # MCP 桥接 —— 授权主体所绑定的客户端凭据
+  mcp.principalMissing: "该 AI 客户端未提供 VMark 凭据，因此已拒绝其委派操作。请打开“设置 > 集成”，为它执行“安装”，然后重启该客户端。"
+  mcp.principalUnknown: "该 AI 客户端提供的凭据不在 VMark 的记录中，因此已拒绝其委派操作。请打开“设置 > 集成”，为它执行“安装”，然后重启该客户端。"
+  mcp.principalAmbiguous: "该 AI 客户端提供的凭据同时配置给了多个客户端（%{detail}），VMark 无法区分它们。请打开“设置 > 集成”，为每一个都执行“安装”，然后分别重启。"
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "读取 %{path} 失败：%{detail}"
+  mcp.createDirFailed: "创建目录 %{path} 失败：%{detail}"
+  mcp.configChangedOnDisk: "VMark 更新期间 %{path} 在磁盘上发生了变化。请关闭正在写入该文件的客户端后重试。"
+  mcp.backupWriteFailed: "写入备份 %{path} 失败：%{detail}"
+  mcp.backupFlushFailed: "刷新备份 %{path} 的缓冲区失败：%{detail}"
+  mcp.backupSyncFailed: "同步备份 %{path} 失败：%{detail}"
+  mcp.backupCreateFailed: "创建备份 %{path} 失败：%{detail}"
+  mcp.backupVariantsExhausted: "创建备份失败：%{path} 已存在 %{count} 个变体"
+  mcp.stageConfigFailed: "在 %{dir} 中暂存配置失败：%{detail}"
+  mcp.restrictStagedConfigFailed: "限制暂存配置 %{path} 的权限失败：%{detail}"
+  mcp.writeStagedConfigFailed: "写入 %{path} 的暂存配置失败：%{detail}"
+  mcp.createConfigFailed: "创建 %{path} 失败：无法将暂存副本硬链接到目标位置（%{link_detail}），也无法直接创建该文件（%{open_detail}）。"
+  mcp.writeConfigPartialRemoved: "写入 %{path} 失败：%{detail}（已删除不完整的文件）"
+  mcp.writeConfigPartialOrphaned: "写入 %{path} 失败：%{detail}。不完整的文件也无法删除（%{cleanup_detail}）。请在重试前手动删除它，否则下次安装会把它当作损坏的配置读取。"
 
 window:
   settings.title: "设置"

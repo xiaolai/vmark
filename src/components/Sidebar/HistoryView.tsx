@@ -20,7 +20,7 @@ import {
   revertToSnapshot,
   deleteSnapshot,
   type Snapshot,
-} from "@/hooks/useHistoryOperations";
+} from "@/services/history/historyOperations";
 import { buildHistorySettings, HISTORY_CLEARED_EVENT } from "@/utils/historyTypes";
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
 import { historyError } from "@/utils/debug";

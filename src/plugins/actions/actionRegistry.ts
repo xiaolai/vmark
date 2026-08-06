@@ -64,7 +64,10 @@ export function actionSupportsMode(actionId: ActionId, mode: "wysiwyg" | "source
  */
 export function getHeadingLevelFromParams(params?: Record<string, unknown>): HeadingLevel {
   const level = params?.level;
-  if (typeof level === "number" && level >= 1 && level <= 6) {
+  // Require a whole number 1–6: HeadingLevel is the discrete set {1,2,3,4,5,6};
+  // a fractional value (e.g. 2.5) would be cast through and produce a malformed
+  // heading in the WYSIWYG/Source setters (audit-fix #4).
+  if (typeof level === "number" && Number.isInteger(level) && level >= 1 && level <= 6) {
     return level as HeadingLevel;
   }
   return 1;
@@ -80,7 +83,7 @@ export function getMappedMenuEvents(): MenuEventId[] {
 // === Dev-time validation ===
 
 /* v8 ignore start -- DEV-only validation: false-branch unreachable (DEV=true in vitest); warning paths unreachable when registries are in sync */
-if (import.meta.env.DEV) {
+if (import.meta.env?.DEV) {
   const mappedMenuIds = new Set(
     Object.keys(MENU_TO_ACTION).map((k) => k.replace("menu:", ""))
   );

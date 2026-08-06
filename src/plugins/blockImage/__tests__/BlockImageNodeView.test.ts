@@ -15,10 +15,13 @@
 
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { bindHostPopups } from "@/plugins/shared/hostPopups";
 
 // Mock dependencies before imports
 const mockResolveMediaSrc = vi.fn();
 const mockIsExternalUrl = vi.fn();
+// Chrome is asked of the HOST now — these node views reach no store
+// (ADR-015). Binding the seam to the same spies keeps the assertions.
 const mockOpenPopup = vi.fn();
 const mockOpenMenu = vi.fn();
 const mockSelectMediaNode = vi.fn();
@@ -34,17 +37,7 @@ vi.mock("@/plugins/shared/mediaSecurity", () => ({
   isExternalUrl: (...args: unknown[]) => mockIsExternalUrl(...args),
 }));
 
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: () => ({ openPopup: mockOpenPopup }),
-  },
-}));
 
-vi.mock("@/stores/imageContextMenuStore", () => ({
-  useImageContextMenuStore: {
-    getState: () => ({ openMenu: mockOpenMenu }),
-  },
-}));
 
 vi.mock("@/plugins/shared/mediaNodeViewHelpers", () => ({
   attachMediaLoadHandlers: (...args: unknown[]) => mockAttachMediaLoadHandlers(...args),
@@ -83,6 +76,8 @@ function createMockEditor() {
     },
   } as unknown as import("@tiptap/core").Editor;
 }
+
+bindHostPopups({ openMediaPopup: mockOpenPopup, openImageMenu: mockOpenMenu });
 
 describe("BlockImageNodeView", () => {
   let nodeView: BlockImageNodeView;

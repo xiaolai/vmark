@@ -1,29 +1,31 @@
 /**
  * Tiptap Extensions Configuration
  *
- * Purpose: Assembles the Tiptap extension stack for VMark's WYSIWYG editor —
- * StarterKit overrides, custom marks/nodes, media extensions, and plugin registrations.
+ * Purpose: Assembles the Tiptap extension stack — StarterKit overrides, marks,
+ * nodes, media, plugins. Settings reach a plugin as an injected getter (ADR-015).
  *
  * Key decisions:
- *   - StarterKit is used as base but with several nodes overridden
- *     (heading, paragraph, codeBlock, etc.) to add sourceLine attributes
- *   - Extensions are loaded eagerly (not lazy) since WYSIWYG is the default mode
- *   - Link extension configured with openOnClick:false (we have custom popups)
- *   - Bold/Italic replaced with CJK-aware versions (lookbehind regexes)
- *   - Custom marks (highlight, underline, sub/superscript) registered here
- *   - Media extensions (block_video, block_audio, video_embed) with NodeViews
- *   - Media popup and handler extensions for editing and drag-drop
- *   - Table of contents (tocExtension) for [TOC] inline navigation
+ *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
+ *     codeBlock, etc.) to add sourceLine attributes; loaded eagerly (WYSIWYG is
+ *     the default mode)
+ *   - Link uses openOnClick:false (custom popups); Bold/Italic replaced with
+ *     CJK-aware versions; custom marks (highlight, underline, sub/superscript)
+ *   - Media extensions (block_video, block_audio, video_embed) with NodeViews,
+ *     plus media popup/handler extensions; tocExtension for [TOC] navigation
+ *   - Composition order is pinned via WYSIWYG_COMPOSITION_ORDER (WI-3.4)
+ *
+ * The Link mark lives in `linkExtension.ts` with its round-trip attributes.
  *
  * @coordinates-with sourceEditorExtensions.ts — parallel config for CodeMirror source mode
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
+ * @coordinates-with hostAdapters.ts — the app-side values plugins are configured with
  * @module utils/tiptapExtensions
  */
 
 import type { Extensions } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
+import { vmarkLinkExtension } from "./linkExtension";
 import {
   HeadingWithSourceLine,
   ParagraphWithSourceLine,
@@ -47,8 +49,17 @@ import { linkCreatePopupExtension } from "@/plugins/linkCreatePopup";
 import { inlineNodeEditingExtension } from "@/plugins/inlineNodeEditing/tiptap";
 import { searchExtension } from "@/plugins/search/tiptap";
 import { autoPairExtension } from "@/plugins/autoPair/tiptap";
+import { currentAutoPairConfig } from "./autoPairConfig";
+import {
+  currentPasteSettings,
+  copyHostOptions,
+  markdownPasteHostOptions,
+} from "./pasteOptions";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { compositionGuardExtension } from "@/plugins/compositionGuard/tiptap";
+import { blankLinesGuardExtension } from "@/plugins/blankLinesGuard/tiptap";
 import { focusModeExtension } from "@/plugins/focusMode/tiptap";
+import { focusModeHostOptions, typewriterModeHostOptions } from "./uiToggleOptions";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
@@ -74,6 +85,12 @@ import { alertBlockExtension } from "@/plugins/alertBlock/tiptap";
 import { detailsBlockExtension, detailsSummaryExtension } from "@/plugins/detailsBlock/tiptap";
 import { taskListItemExtension } from "@/plugins/taskToggle/tiptap";
 import { mathInlineExtension } from "@/plugins/latex/tiptapInlineMath";
+import {
+  appInlineMathEditingRegistry,
+  lintDiagnosticsSource,
+  pluginStores,
+  linkPopupStores,
+} from "./hostAdapters";
 import { mathPopupExtension } from "@/plugins/mathPopup";
 import { footnotePopupExtension } from "@/plugins/footnotePopup/tiptap";
 import { footnoteDefinitionExtension, footnoteReferenceExtension } from "@/plugins/footnotePopup/tiptapNodes";
@@ -98,17 +115,25 @@ import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints, assertCanonicalCoverage, orderingSlice } from "./extensionOrdering";
+import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
+import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
-  /** Tab ID for lint diagnostics (lint extension is registered when present) */
-  tabId?: string;
+  /** Tab ID for lint diagnostics; `| undefined` — assembly can precede any tab. */
+  tabId?: string | undefined;
 }
 
 /**
- * Creates the array of Tiptap extensions for the WYSIWYG editor.
- * This is a pure factory function with no React dependencies.
+ * The extension list. Not the composition path — `createTiptapExtensions` routes
+ * it through the resolver (ADR-015 D1). WI-3.4: array position is not load-bearing
+ * — order is declared once in `WYSIWYG_COMPOSITION_ORDER` and pinned via explicit
+ * `after` constraints, so this list is sorted alphabetically before composition
+ * yet resolves to the canonical order. Kept in logical/grouped order here for
+ * readability; the sort + constraints make its physical order cosmetic.
  */
-export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
   const { tabId } = config;
   return [
     StarterKit.configure({
@@ -137,17 +162,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
         newGroupDelay: 500,
       },
     }),
-    // Custom Link extension with excludes to prevent nested links and code inside links
-    Link.extend({
-      excludes: "link code",
-    }).configure({
-      openOnClick: false,
-      // Don't add target="_blank" - it bypasses our click handling
-      HTMLAttributes: {
-        target: null,
-        rel: null,
-      },
-    }),
+    vmarkLinkExtension,
     // CJK-aware bold/italic (replaces StarterKit defaults)
     CJKBold,
     CJKItalic,
@@ -164,8 +179,8 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     subscriptExtension,
     superscriptExtension,
     underlineExtension,
-    mathInlineExtension,
-    mathPopupExtension,
+    mathInlineExtension.configure({ editingRegistry: appInlineMathEditingRegistry }),
+    mathPopupExtension.configure({ store: pluginStores.math }),
     alertBlockExtension,
     detailsSummaryExtension,
     detailsBlockExtension,
@@ -175,7 +190,7 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     frontmatterExtension,
     htmlInlineExtension,
     htmlBlockExtension,
-    wikiLinkPopupExtension,
+    wikiLinkPopupExtension.configure({ store: pluginStores.wikiLink }),
     footnoteReferenceExtension,
     footnoteDefinitionExtension,
     TableWithScrollWrapper.configure({ resizable: false }),
@@ -193,21 +208,22 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,
-    footnotePopupExtension,
+    footnotePopupExtension.configure({ store: pluginStores.footnote }),
     smartPasteExtension,
-    markdownPasteExtension,
-    htmlPasteExtension,
-    codePasteExtension,
-    markdownCopyExtension,
-    linkPopupExtension,
-    linkCreatePopupExtension,
+    markdownPasteExtension.configure(markdownPasteHostOptions),
+    htmlPasteExtension.configure({ getPasteSettings: currentPasteSettings }),
+    codePasteExtension.configure({ getPasteSettings: currentPasteSettings }),
+    markdownCopyExtension.configure(copyHostOptions),
+    linkPopupExtension.configure(linkPopupStores),
+    linkCreatePopupExtension.configure({ store: pluginStores.linkCreate }),
     searchExtension,
-    autoPairExtension,
-    focusModeExtension,
-    typewriterModeExtension,
+    autoPairExtension.configure({ getConfig: currentAutoPairConfig }), // see autoPairConfig.ts
+    focusModeExtension.configure(focusModeHostOptions),
+    typewriterModeExtension.configure(typewriterModeHostOptions),
+    blankLinesGuardExtension,
     imageHandlerExtension,
     mediaHandlerExtension,
-    mediaPopupExtension,
+    mediaPopupExtension.configure({ store: pluginStores.media }),
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,
@@ -215,9 +231,11 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     listClickFixExtension,
     // Note: ListKeymap (backspace, arrow keys in list items) is included via StarterKit
     editorKeymapExtension,
-    tabIndentExtension,
+    tabIndentExtension.configure({
+      getTabSize: () => useSettingsStore.getState().general.tabSize,
+    }),
     multiCursorExtension,
-    aiSuggestionExtension,
+    aiSuggestionExtension.configure({ store: pluginStores.aiSuggestion }),
     CJKLetterSpacing,
     sourcePeekInlineExtension,
     smartSelectAllExtension,
@@ -230,6 +248,53 @@ export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Exte
     // tab is known — the plugin gates decoration building on the LIVE
     // markdown.lintEnabled setting, so toggling lint takes effect without an
     // editor remount (mount-time gating left WYSIWYG stale until remount).
-    ...(tabId ? [LintExtension.configure({ tabId })] : []),
+    ...(tabId ? [LintExtension.configure({ tabId, diagnostics: lintDiagnosticsSource })] : []),
   ];
+}
+
+/**
+ * Creates the array of Tiptap extensions for the WYSIWYG editor. Composition
+ * goes through `resolveExtensions` (ADR-015 D1): the registry IS the composition,
+ * so no second representation can drift from it.
+ *
+ * Each Tiptap extension becomes a descriptor keyed by its own `name` (unique
+ * across all 78). Order is pinned by explicit `after` constraints derived from
+ * `WYSIWYG_COMPOSITION_ORDER` (WI-3.4), so the descriptors are sorted
+ * alphabetically before resolution and the resolver reproduces the canonical
+ * order regardless of array position. Resolution errors throw rather than
+ * silently dropping an extension — a missing editor extension is a broken editor.
+ */
+export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
+  const list = buildExtensionList(config);
+  const presentIds = list.map((extension, index) => extension.name || `anonymous-${index}`);
+
+  // Fail loud if an extension was added/removed without updating the canonical
+  // order (WI-3.4), then pin each present entry after its canonical predecessor.
+  assertCanonicalCoverage("wysiwyg", WYSIWYG_COMPOSITION_ORDER, presentIds, WYSIWYG_OPTIONAL_IDS);
+  const after = deriveAfterConstraints(WYSIWYG_COMPOSITION_ORDER, presentIds);
+
+  const descriptors: VMarkExtension[] = list
+    .map((extension, index): VMarkExtension => {
+      const id = extension.name || `anonymous-${index}`;
+      return {
+        id,
+        contributions: [{ kind: "tiptap", factory: () => extension }],
+        ...orderingSlice(after, id),
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const { ordered, errors } = resolveExtensions(descriptors);
+  if (errors.length > 0) {
+    throw new Error(
+      `Editor extension composition failed:\n${errors
+        .map((error) => `  - [${error.code}] ${error.message}`)
+        .join("\n")}`,
+    );
+  }
+
+  return ordered.map(
+    (descriptor) =>
+      (descriptor.contributions[0] as { factory: () => Extensions[number] }).factory(),
+  );
 }

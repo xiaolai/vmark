@@ -16,7 +16,7 @@
  *   - "refused" → no open attempt; liability floor for webview memory safety.
  *
  * @coordinates-with hooks/useFinderFileOpen.ts — routes pre-read on size tier.
- * @coordinates-with hooks/useFileOpen.ts — shared open helper consults tier.
+ * @coordinates-with services/navigation/fileOpen.ts — shared open helper consults tier.
  * @coordinates-with stores/settingsStore.ts — user-togglable thresholds honor
  *   `largeFile.autoSourceMode` and `largeFile.warnAbove5MB`.
  * @module utils/fileSizeThresholds

@@ -9,7 +9,12 @@
  *   panel for the most common scopes. Power users (rare scope edits)
  *   continue to drop to source.
  *
+ *   Selects use the canonical `.vm-select` primitive inside a
+ *   `.vm-select-field` wrapper (rule 32); a bare `<select>` renders native
+ *   macOS chrome that ignores the design tokens.
+ *
  * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — workflow.permissions.set patch
+ * @coordinates-with src/styles/select-shared.css — the select primitive
  * @module components/Editor/WorkflowEditor/PermissionsForm
  */
 
@@ -109,8 +114,9 @@ export function PermissionsForm({
         </span>
       </header>
       <label className="workflow-form__field">
+        <span className="vm-select-field">
         <select
-          className="workflow-form__input"
+          className="vm-select"
           value={mode}
           onChange={(e) => onModeChange(e.target.value as PresetMode)}
         >
@@ -126,6 +132,7 @@ export function PermissionsForm({
             })}
           </option>
         </select>
+        </span>
       </label>
       {mode === "custom" && (
         <div className="workflow-form__permissions-scopes">
@@ -134,8 +141,9 @@ export function PermissionsForm({
               <span className="workflow-form__permissions-scope-name">
                 <code>{scope}</code>
               </span>
+              <span className="vm-select-field">
               <select
-                className="workflow-form__input"
+                className="vm-select"
                 value={customMap[scope] ?? ""}
                 onChange={(e) =>
                   onScopeChange(scope, e.target.value as PermLevel | "")
@@ -148,6 +156,7 @@ export function PermissionsForm({
                 <option value="write">write</option>
                 <option value="none">none</option>
               </select>
+              </span>
             </label>
           ))}
         </div>

@@ -10,12 +10,8 @@ vi.mock("@/utils/imeGuard", () => ({
   guardCodeMirrorKeyBinding: (binding: unknown) => binding,
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({
-      general: { tabSize: 4 },
-    }),
-  },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { tabSize: () => 4 },
 }));
 
 import { EditorState, EditorSelection } from "@codemirror/state";

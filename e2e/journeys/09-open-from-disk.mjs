@@ -36,6 +36,7 @@ import {
 
 export default {
   name: "open-from-disk",
+  coverageRequired: true,
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);

@@ -150,6 +150,7 @@ const DEFAULT_ACCELERATORS: &[(&str, &str)] = &[
     ("typewriter-mode", "F9"),
     ("underline", "CmdOrCtrl+U"),
     ("undo", "CmdOrCtrl+Z"),
+    ("universal-toolbar", "CmdOrCtrl+Shift+B"),
     ("unordered-list", "Alt+CmdOrCtrl+U"),
     ("use-selection-find", "CmdOrCtrl+E"),
     ("video", ""),

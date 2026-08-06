@@ -89,6 +89,15 @@ export const CORE_ACTIONS = {
     category: "links",
     supports: { wysiwyg: true, source: true },
   },
+  // Both adapters already implemented "unlink"; only the ActionId was missing,
+  // so the Source shortcut had to call the adapter directly and skipped the
+  // executor's format/capability gates, unified undo and IME safety (WI-2.1).
+  unlink: {
+    id: "unlink",
+    label: "Unlink",
+    category: "links",
+    supports: { wysiwyg: true, source: true },
+  },
   wikiLink: {
     id: "wikiLink",
     label: "Wiki Link",

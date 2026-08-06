@@ -10,6 +10,11 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkStringify from "remark-stringify";
+// Importing the dialect wires the injected `details-body` parser, which is
+// what production does via processorFactory. Without it the plugin throws a
+// named error rather than silently parsing bodies with the wrong dialect.
+import "../dialect";
+import { visit } from "unist-util-visit";
 import { remarkDetailsBlock } from "./detailsBlock";
 import type { Root } from "mdast";
 import type { Details } from "../types";
@@ -563,5 +568,145 @@ No summary tag here.
       expect(details.type).toBe("details");
       expect(details.summary).toBe("Details");
     });
+  });
+});
+
+describe("nested details keep their own summary and content", () => {
+  const parseDoc = (md: string) => {
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkGfm, { singleTilde: false })
+      .use(remarkDetailsBlock);
+    return processor.runSync(processor.parse(md)) as never;
+  };
+
+  const detailsNodes = (md: string) => {
+    const out: { summary?: string; open?: boolean; children?: unknown[] }[] = [];
+    visit(parseDoc(md), "details", (n) => out.push(n as never));
+    return out;
+  };
+
+  it("an inner compact block does not donate its summary to the outer one", () => {
+    // `extractSummaryFromChildren` searched ANYWHERE in the first html child.
+    // A nested compact `<details><summary>Inner</summary>…</details>` matched,
+    // so the outer block took "Inner" as its title AND consumed the whole
+    // child as the summary — discarding the nested block and its content.
+    const nodes = detailsNodes(
+      "<details><summary>Outer</summary>\n\n<details><summary>Inner</summary>x</details>\n\n</details>\n"
+    );
+
+    expect(nodes[0]?.summary).toBe("Outer");
+    expect(nodes[0]?.children?.length).toBeGreaterThan(0);
+    expect(nodes[1]?.summary).toBe("Inner");
+  });
+
+  it.each([
+    { label: "data-open=\"false\"", html: '<details data-open="false">', open: false },
+    { label: "data-state=\"open\"", html: '<details data-state="open">', open: false },
+    { label: "bare open", html: "<details open>", open: true },
+    { label: 'open="open"', html: '<details open="open">', open: true },
+    { label: "no attributes", html: "<details>", open: false },
+  ])("$label → open: $open", ({ html, open }) => {
+    // `/\bopen\b/i` over the whole tag matched an attribute NAME and a VALUE,
+    // neither of which opens anything, so collapsed blocks rendered expanded.
+    const nodes = detailsNodes(`${html}<summary>S</summary>\n\nbody\n\n</details>\n`);
+    expect(nodes[0]?.open).toBe(open);
+  });
+});
+
+/** The first details node, or null. */
+function detailsOf(md: string): Details | null {
+  let found: Details | null = null;
+  visit(parseWithDetails(md) as never, "details", (node: Details) => {
+    found ??= node;
+  });
+  return found;
+}
+
+describe("attribute parsing survives a `>` inside a quoted value", () => {
+  // The tag matcher was `<details\b[^>]*>`, which stops at the FIRST `>` — so a
+  // quoted value containing one truncated the tag mid-attribute and the `open`
+  // that followed was never seen. Found by verification, not by review.
+  it.each([
+    { label: "double-quoted", md: '<details title="a > b" open>\n<summary>S</summary>\n\nbody\n\n</details>\n' },
+    { label: "single-quoted", md: "<details title='a > b' open>\n<summary>S</summary>\n\nbody\n\n</details>\n" },
+    { label: "compact, quoted", md: '<details title="a > b" open><summary>S</summary>body</details>\n' },
+  ])("$label — reports open", ({ md }) => {
+    expect(detailsOf(md)?.open).toBe(true);
+  });
+
+  it("still refuses a value that merely CONTAINS the word open", () => {
+    const md = '<details data-open="false" title="x > y">\n<summary>S</summary>\n\nb\n\n</details>\n';
+    expect(detailsOf(md)?.open).toBe(false);
+  });
+
+  it("applies the same attribute rule on the COMPACT path", () => {
+    // That branch kept a bare /\bopen\b/i test, so an attribute NAME containing
+    // the substring opened the block on one form and not the other.
+    const md = '<details data-open="false"><summary>S</summary>body</details>\n';
+    expect(detailsOf(md)?.open).toBe(false);
+  });
+});
+
+describe("a comment may precede the summary", () => {
+  it("does not discard a summary behind a leading HTML comment", () => {
+    // `^\s*<summary>` treated a comment as content and dropped the summary,
+    // which is a regression the strictness introduced.
+    const md = "<details>\n<!-- a note -->\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    expect(detailsOf(md)?.summary).toBe("Real");
+  });
+
+  it("keeps content that PRECEDES the summary instead of dropping it", () => {
+    // Per the HTML spec the first <summary> child is the disclosure label
+    // wherever it sits, so "Real" is the right summary here — the defect is
+    // that everything before it used to vanish with the html child.
+    const md = "<details>\nprose\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    const details = detailsOf(md);
+    expect(details?.summary).toBe("Real");
+    const text = JSON.stringify(details?.children ?? []);
+    expect(text).toContain("prose");
+    expect(text).toContain("body");
+  });
+});
+
+describe("the INNER html child's residue survives too", () => {
+  it("keeps text that follows </summary> in the same node", () => {
+    // `extractSummaryFromChildren` returned `{ summary, children: rest }`,
+    // dropping the whole first child. With a blank line after `<details>`,
+    // remark emits `<summary>S</summary>\nprose` as ONE inner html node, so
+    // `prose` went with it.
+    const md = "<details>\n\n<summary>S</summary>\nprose\n\nbody\n\n</details>\n";
+    const details = detailsOf(md);
+    expect(details?.summary).toBe("S");
+    expect(JSON.stringify(details?.children ?? [])).toContain("prose");
+  });
+
+  it("skips a comment in its OWN node before the summary node", () => {
+    const md = "<details>\n\n<!-- note -->\n\n<summary>Real</summary>\n\nbody\n\n</details>\n";
+    expect(detailsOf(md)?.summary).toBe("Real");
+  });
+});
+
+describe("the comment-skip recursion cannot reach a NESTED block's summary", () => {
+  it("does not let a nested compact details donate its title past a comment", () => {
+    // Skipping a comment-only node walks one node further along. If that node
+    // is a nested compact `<details><summary>Inner</summary>`, the outer block
+    // must NOT adopt "Inner" — which is the donation bug the anchored guard
+    // exists to stop, reachable again through the new recursion.
+    const md =
+      "<details>\n\n<!-- c -->\n\n<details><summary>Inner</summary>i</details>\n\n</details>\n";
+    const outer = detailsOf(md);
+    expect(outer?.summary).not.toBe("Inner");
+    // And the nested block survives intact rather than being consumed.
+    expect(JSON.stringify(outer?.children ?? [])).toContain("Inner");
+  });
+
+  it("does not double-count content kept by BOTH the residue and inner paths", () => {
+    // The residue comes from the OPENING node; the inner path from the first
+    // child. They must never describe the same text.
+    const md = "<details>\nlead\n<summary>S</summary>\ntail\n\nbody\n\n</details>\n";
+    const text = JSON.stringify(detailsOf(md)?.children ?? []);
+    expect(text.match(/"lead"/g) ?? []).toHaveLength(1);
+    expect(text.match(/"tail"/g) ?? []).toHaveLength(1);
   });
 });

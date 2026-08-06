@@ -28,8 +28,8 @@ import {
   type FileSearchResult,
   type LineMatch,
 } from "@/stores/uiStore";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
-import { setPendingContentSearchNav } from "@/hooks/contentSearchNavigation";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
+import { setPendingContentSearchNav } from "@/services/navigation/contentSearchNavigation";
 import { useActiveWorkspaceScope } from "@/hooks/useActiveWorkspaceScope";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
@@ -89,6 +89,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   // Debounced search scheduling (min-length gate + fresh exclusions).
   useContentSearchScheduler({
     isOpen,
+    windowLabel,
     query,
     rootPath,
     excludeFolders,

@@ -94,6 +94,14 @@ export interface GeneralSettings {
   // Auto-save
   autoSaveEnabled: boolean;
   autoSaveInterval: number; // seconds
+  /**
+   * Track document provenance (the coherence layer) on save. OFF by default:
+   * capturing assigns a Semantic Object identity, which REWRITES the file to
+   * insert a `vmark:` frontmatter block (prepending one if absent) and creates
+   * `.vmark/` in the workspace. Modifying a user's markdown is opt-in — it must
+   * never happen silently, least of all on autosave.
+   */
+  coherenceCaptureOnSave: boolean;
   // Document history
   historyEnabled: boolean;
   historyMaxSnapshots: number;

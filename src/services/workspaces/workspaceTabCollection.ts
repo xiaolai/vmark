@@ -11,6 +11,7 @@
 
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore, type DocumentTab } from "@/stores/tabStore";
+import { collectTransferLineMetadata } from "@/utils/transferLineMetadata";
 import {
   useWorkspaceInstancesStore,
   type WorkspaceInstanceRecord,
@@ -19,10 +20,8 @@ import type {
   WorkspaceTransferTabPayload,
   WorkspaceWindowOperation,
 } from "@/types/workspaceTransfer";
-import {
-  classifyWorkspaceContextForTab,
-  orderedWindowInstances,
-} from "./workspaceContextOwnership";
+import { orderedWindowInstances } from "./workspaceContextOwnership";
+import { partitionWindowTabs } from "./workspaceOwnershipKernel";
 
 export interface CollectedWorkspaceTabs {
   tabs: WorkspaceTransferTabPayload[];
@@ -66,8 +65,13 @@ export function serializeTransferTab(tab: DocumentTab, doc: TabDocument): Worksp
     readOnly: doc.readOnly,
     isPinned: tab.isPinned,
     formatId: tab.formatId,
-    editingEnabled: tab.editingEnabled,
-    activeSchemaId: tab.activeSchemaId,
+    // Omitted when the tab states neither, matching the wire contract the line
+    // metadata below already follows: on the wire, absent and "unknown" mean
+    // the same thing, and omitting keeps payloads from older and newer builds
+    // indistinguishable when there is nothing to say.
+    ...(tab.editingEnabled !== undefined ? { editingEnabled: tab.editingEnabled } : {}),
+    ...(tab.activeSchemaId !== undefined ? { activeSchemaId: tab.activeSchemaId } : {}),
+    ...collectTransferLineMetadata(doc),
   };
 }
 
@@ -93,22 +97,17 @@ export function resolveTransferActiveTab(
  *
  * Path classification decides only for tabs no instance has explicitly claimed.
  */
-function tabBelongsToWorkspace(
+export function tabBelongsToWorkspace(
   tab: DocumentTab,
   instance: WorkspaceInstanceRecord,
   activeInstanceId: string | null,
 ): boolean {
+  // Thin store-reading wrapper over the pure ownership kernel (WI-1R) — the
+  // partition rule (explicit-claim-wins across all instances, then path
+  // classification) lives in ONE place.
   const instances = orderedWindowInstances(instance.ownerWindowLabel);
-  const explicitOwner = instances.find((candidate) => candidate.tabIds.includes(tab.id));
-  if (explicitOwner) {
-    return explicitOwner.workspaceInstanceId === instance.workspaceInstanceId;
-  }
-  const owner = classifyWorkspaceContextForTab({
-    filePath: tab.filePath,
-    instances,
-    activeWorkspaceInstanceId: activeInstanceId,
-  });
-  return owner?.workspaceInstanceId === instance.workspaceInstanceId;
+  const { ownerOf } = partitionWindowTabs([tab], instances, activeInstanceId);
+  return ownerOf.get(tab.id) === instance.workspaceInstanceId;
 }
 
 /** Collect every tab owned by `instance` in `windowLabel` into a transfer payload. */

@@ -16,6 +16,16 @@ export function manualChunks(id: string): string | undefined {
   // into the entry's static-import graph and onto the cold-start
   // modulepreload list. Pin it to vendor-react, which is always
   // eagerly loaded anyway.
+  //
+  // MEASURED 2026-08-03 (WI-13): this pin no longer takes effect. The id
+  // reaching here IS "\0vite/preload-helper.js" and this branch DOES return
+  // "vendor-react", but vite 8 / rolldown emits the helper into
+  // `vendor-codemirror-languages-*` regardless, and `vendor-react-*` imports
+  // it back from there. Because that chunk statically imports the 1.6 MB
+  // `vendor-codemirror`, every chunk containing a dynamic import transitively
+  // reaches vendor-codemirror — which is why check-eager-chunks.mjs cannot
+  // denylist the codemirror family. Relocating the helper under rolldown is
+  // its own change (advancedChunks), not this one.
   if (id.includes("vite/preload-helper")) return "vendor-react";
   // Pin the CSS-as-JS export-style blob (~460 kB) to a stable chunk
   // name so .size-limit.cjs can budget it — rolldown otherwise merges
@@ -65,6 +75,15 @@ export function manualChunks(id: string): string | undefined {
   // fork (`dagre-d3-es`), so isolating plain `dagre` is safe and removes ~150 KB
   // from the eagerly-loaded vendor-mermaid chunk.
   if (pkgName === "@dagrejs/dagre" || pkgName === "dagre") return "vendor-dagre";
+  // @xyflow/react (React Flow) is reached only through lazily-mounted graph
+  // surfaces (workflow canvas, KB graph). Left unassigned it lands in an
+  // incidentally-named chunk (`style-*`, from its stylesheet import), which
+  // check-eager-chunks.mjs cannot denylist without also matching
+  // htmlExportStyles. Naming the family is what makes the eager gate able to
+  // see it — and it drags weight: xyflow's d3-drag/d3-selection/d3-zoom
+  // dependencies chunk into vendor-mermaid, so anything that statically
+  // imports xyflow also pulls ~3 MB of mermaid + cytoscape.
+  if (pkgName.startsWith("@xyflow/")) return "vendor-xyflow";
   // Keep all mermaid-related packages together to avoid circular dependency issues.
   // Previously splitting mermaid, @mermaid-js/*, d3-*, dagre-d3-es caused
   // "this.clear is not a function" error in production builds.

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from "vitest";
 import type { Link, Paragraph, Root } from "mdast";
-import { handleImage, handleLink } from "./serializerHandlers";
+import { handleImage, handleLink, blankLinesJoin } from "./serializerHandlers";
 import { serializeMdastToMarkdown } from "./serializer";
 import { parseMarkdownToMdast } from "./parser";
 
@@ -91,6 +91,32 @@ describe("image alt text and titles", () => {
       rootWith({ type: "image", url: "i.png", alt: "a", title: 'say "hi"' }),
     );
     expect(md.trim()).toBe('![a](i.png "say \\"hi\\"")');
+  });
+});
+
+describe("blankLinesJoin — count validation", () => {
+  const join = (blankLinesBefore: unknown) =>
+    blankLinesJoin(undefined, { data: { blankLinesBefore } });
+
+  it("returns a valid integer count in range", () => {
+    expect(join(2)).toBe(2);
+    expect(join(10)).toBe(10);
+    expect(join(0)).toBe(0);
+  });
+
+  it("inherits the default (undefined) for a missing/non-number count", () => {
+    expect(join(undefined)).toBeUndefined();
+    expect(join("3")).toBeUndefined();
+    expect(blankLinesJoin(undefined, {})).toBeUndefined();
+  });
+
+  it("rejects NaN, fractional, negative, and over-cap counts (no corruption)", () => {
+    // A negative would concatenate adjacent blocks; a huge value would emit a
+    // pathological run; NaN/fraction are meaningless — all inherit the default.
+    expect(join(NaN)).toBeUndefined();
+    expect(join(2.5)).toBeUndefined();
+    expect(join(-1)).toBeUndefined();
+    expect(join(9999)).toBeUndefined();
   });
 });
 

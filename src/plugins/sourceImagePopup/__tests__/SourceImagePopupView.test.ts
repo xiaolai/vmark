@@ -60,9 +60,12 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
@@ -149,6 +152,18 @@ function resetState() {
   subscribers.length = 0;
 }
 
+// The popup state is a PORT — handed to the view.
+const mockMediaStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
+  },
+};
+
 describe("SourceImagePopupView", () => {
   let view: EditorView;
   let popup: SourceImagePopupView;
@@ -159,10 +174,7 @@ describe("SourceImagePopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceImagePopupView(
-      view,
-      { getState: () => storeState, subscribe: (fn) => { subscribers.push(fn); return () => { const idx = subscribers.indexOf(fn); if (idx >= 0) subscribers.splice(idx, 1); }; } }
-    );
+    popup = new SourceImagePopupView(view, mockMediaStore);
   });
 
   afterEach(() => {
@@ -317,7 +329,7 @@ describe("SourceImagePopupView", () => {
       const browseBtn = document.querySelector('button[title="Browse local file"]') as HTMLElement;
       browseBtn.click();
 
-      expect(browseImage).toHaveBeenCalledWith(view);
+      expect(browseImage).toHaveBeenCalledWith(view, mockMediaStore);
     });
 
     it("copy button calls copyImagePath", () => {
@@ -331,7 +343,7 @@ describe("SourceImagePopupView", () => {
       const deleteBtn = document.querySelector(".source-image-popup-btn-delete") as HTMLElement;
       deleteBtn.click();
 
-      expect(removeImage).toHaveBeenCalledWith(view);
+      expect(removeImage).toHaveBeenCalledWith(view, mockMediaStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
   });

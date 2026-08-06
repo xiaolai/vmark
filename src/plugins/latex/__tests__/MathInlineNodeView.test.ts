@@ -28,6 +28,13 @@ const mockMathPreviewView = {
 const mockStartEditing = vi.fn();
 const mockStopEditing = vi.fn();
 const mockClear = vi.fn();
+// The editing registry is a constructor argument now, not a module import.
+const testRegistry = {
+  startEditing: mockStartEditing,
+  stopEditing: mockStopEditing,
+  isEditingAt: () => false,
+  clear: mockClear,
+};
 
 vi.mock("../katexLoader", () => ({
   loadKatex: (...args: unknown[]) => mockLoadKatex(...args),
@@ -81,16 +88,6 @@ vi.mock("@/stores/settingsStore", () => ({
 
 vi.mock("@/utils/shortcutMatch", () => ({
   matchesShortcutEvent: vi.fn(() => false),
-}));
-
-vi.mock("@/stores/inlineMathEditingStore", () => ({
-  useInlineMathEditingStore: {
-    getState: () => ({
-      startEditing: mockStartEditing,
-      stopEditing: mockStopEditing,
-      clear: mockClear,
-    }),
-  },
 }));
 
 vi.mock("@/utils/debug", () => ({
@@ -176,6 +173,7 @@ describe("MathInlineNodeView", () => {
       node,
       mockView as unknown as import("@tiptap/pm/view").EditorView,
       getPos,
+      testRegistry,
     );
     document.body.appendChild(nodeView.dom);
     return nodeView;
@@ -589,6 +587,7 @@ describe("MathInlineNodeView", () => {
         node,
         mockView as unknown as import("@tiptap/pm/view").EditorView,
         getPos,
+        testRegistry,
       );
       document.body.appendChild(nodeView.dom);
 
@@ -605,6 +604,7 @@ describe("MathInlineNodeView", () => {
         node,
         mockView as unknown as import("@tiptap/pm/view").EditorView,
         getPos,
+        testRegistry,
       );
       document.body.appendChild(nodeView.dom);
 

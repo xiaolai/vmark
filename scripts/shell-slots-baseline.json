@@ -1,0 +1,31 @@
+{
+  "//": [
+    "ADR-007 shell-surface identity list: every component mounted inside <AppShell> in src/App.tsx (any depth, any prop).",
+    "Checked by scripts/check-shell-slots.mjs (pnpm lint:shell-slots, in check:all). An IDENTITY LIST, never a count — a count permits a like-for-like swap.",
+    "Two-way ratchet: a mounted surface missing from this list fails the gate, and a listed surface that is no longer mounted also fails until its entry is deleted (record the win).",
+    "Entries only get REMOVED, never added. To reduce the list, bundle related surfaces behind one mount (see src/components/CoherenceOverlays.tsx) or give the surface a real shell slot.",
+    "Excluded by definition (see the script header): the Suspense/FeatureErrorBoundary/React.Fragment wrappers, and exactly three named bindings — EditorArea (@/shell frame), DocumentWindowMount and MainWindowRunners (@/hooks/lifecycle, both return null)."
+  ],
+  "surfaces": [
+    "ApprovalDialog",
+    "AppTitleBar",
+    "BottomBar",
+    "BrowserApprovalDialog",
+    "CoherenceOverlays",
+    "CommandPalette",
+    "ContentSearch",
+    "DocumentSplitContainer",
+    "DropOverlay",
+    "EditorContextMenu",
+    "GeniePickerOverlay",
+    "KnowledgeBaseOverlay",
+    "QuickLookOverlay",
+    "QuickOpen",
+    "Sidebar",
+    "SidebarResizeHandle",
+    "TerminalPanel",
+    "WindowStatusOverlay",
+    "WorkspaceApprovalDialog",
+    "WorkspaceRail"
+  ]
+}

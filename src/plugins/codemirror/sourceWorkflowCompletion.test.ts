@@ -7,6 +7,10 @@ import { EditorState } from "@codemirror/state";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { workflowCompletionSource } from "./sourceWorkflowCompletion";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
+import { bindWorkflowPort } from "./workflowPort";
+
+// The plugins take their state through a port; bind the app store to it.
+bindWorkflowPort(useWorkflowStore as never);
 
 function makeIR(): WorkflowIR {
   return {
@@ -49,23 +53,23 @@ describe("workflowCompletionSource — gating", () => {
     const text = "if: ${{ ste }}";
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, text.indexOf("ste") + 3);
-    expect(workflowCompletionSource(ctx)).toBeNull();
+    expect(workflowCompletionSource("t1", ctx)).toBeNull();
   });
 
   it("returns null when cursor is outside any ${{ }} expression", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "name: ci\n";
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, 5);
-    expect(workflowCompletionSource(ctx)).toBeNull();
+    expect(workflowCompletionSource("t1", ctx)).toBeNull();
   });
 
   it("returns completions inside ${{ }} when IR is available", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "if: ${{ ste }}";
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, text.indexOf("ste") + 3);
-    const result = workflowCompletionSource(ctx);
+    const result = workflowCompletionSource("t1", ctx);
     expect(result).not.toBeNull();
     expect(result!.options.map((o) => o.label)).toContain("steps");
   });
@@ -73,32 +77,32 @@ describe("workflowCompletionSource — gating", () => {
 
 describe("workflowCompletionSource — explicit-only honoured outside expressions", () => {
   it("does not produce results without explicit completion outside ${{ }}", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "name: ci\n";
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, 5, /* explicit */ false);
-    expect(workflowCompletionSource(ctx)).toBeNull();
+    expect(workflowCompletionSource("t1", ctx)).toBeNull();
   });
 });
 
 describe("workflowCompletionSource — option mapping", () => {
   it("maps context-category items to 'namespace' type icon", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "if: ${{  }}";
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, 8);
-    const result = workflowCompletionSource(ctx);
+    const result = workflowCompletionSource("t1", ctx);
     const githubItem = result?.options.find((o) => o.label === "github");
     expect(githubItem?.type).toBe("namespace");
   });
 
   it("maps github-property items to 'constant' type icon", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "if: ${{ github. }}";
     const cursor = text.indexOf("github.") + "github.".length;
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, cursor);
-    const result = workflowCompletionSource(ctx);
+    const result = workflowCompletionSource("t1", ctx);
     const eventNameItem = result?.options.find(
       (o) => o.label === "event_name",
     );
@@ -106,12 +110,12 @@ describe("workflowCompletionSource — option mapping", () => {
   });
 
   it("maps identifier items (env keys) to 'variable' type icon", () => {
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "if: ${{ env. }}";
     const cursor = text.indexOf("env.") + "env.".length;
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, cursor);
-    const result = workflowCompletionSource(ctx);
+    const result = workflowCompletionSource("t1", ctx);
     const deployEnvItem = result?.options.find(
       (o) => o.label === "DEPLOY_ENV",
     );
@@ -120,12 +124,12 @@ describe("workflowCompletionSource — option mapping", () => {
 
   it("returns null when result has zero options (avoids empty popup)", () => {
     // steps.<id>.outputs.<TAB> returns empty options per WI-A.1 risk
-    useWorkflowStore.getState().setGhaWorkflow(makeIR());
+    useWorkflowStore.getState().setGhaWorkflow("t1", makeIR());
     const text = "if: ${{ steps.checkout.outputs. }}";
     const cursor = text.indexOf("outputs.") + "outputs.".length;
     const state = EditorState.create({ doc: text });
     const ctx = mkContext(state, cursor);
-    expect(workflowCompletionSource(ctx)).toBeNull();
+    expect(workflowCompletionSource("t1", ctx)).toBeNull();
   });
 });
 
@@ -207,7 +211,7 @@ describe("workflowCompletionSource — job-scope detection from cursor", () => {
       positions: {},
       diagnostics: [],
     } as WorkflowIR;
-    useWorkflowStore.getState().setGhaWorkflow(ir);
+    useWorkflowStore.getState().setGhaWorkflow("t1", ir);
 
     const state = EditorState.create({ doc: text });
     // Cursor on line 13 (1-based) at "${{ steps. " position.
@@ -215,7 +219,7 @@ describe("workflowCompletionSource — job-scope detection from cursor", () => {
     const cursor = lineStart + text.split("\n")[12].indexOf("steps.") + "steps.".length;
     const ctx = mkContext(state, cursor);
 
-    const result = workflowCompletionSource(ctx);
+    const result = workflowCompletionSource("t1", ctx);
     expect(result).not.toBeNull();
     const labels = result!.options.map((o) => o.label);
     // Should see only PRIOR steps (install) per GHA semantics — pytest

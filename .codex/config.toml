@@ -1,0 +1,26 @@
+# cc-suite: generated-by-init  (this comment is consumed by unbridge)
+# Codex CLI configuration for this project.
+# See: https://developers.openai.com/codex/config-reference
+
+# Uncomment to also read CLAUDE.md as a fallback instruction source:
+# project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# MCP servers mirrored from .mcp.json are added below by /cc-suite:bridge-mcp.
+# >>> cc-suite-mcp >>>
+[mcp_servers.tauri]
+command = "npx"
+args = ["-y", "@hypothesi/tauri-mcp-server"]
+# <<< cc-suite-mcp <<<
+
+# >>> cc-suite-claude-mcp >>>
+[mcp_servers.claude-code]
+command = "npx"
+args    = ["-y", "claude-octopus@1.2.0"]
+env     = {}
+# Codex default tool_timeout_sec is too short for claude_code calls: a
+# single multi-turn agent invocation can run several minutes, so 900s
+# matches the forward-direction codex-runner deadline. startup_timeout_sec
+# covers cold-cache npx -y downloads on first launch.
+startup_timeout_sec = 60
+tool_timeout_sec    = 900
+# <<< cc-suite-claude-mcp <<<

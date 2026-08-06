@@ -4,16 +4,15 @@ vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getAnchorRectFromRange: vi.fn(() => ({ top: 0, bottom: 20, left: 0, right: 100 })),
 }));
 
-vi.mock("@/stores/headingPickerStore", () => ({
-  useHeadingPickerStore: { getState: vi.fn(() => ({ openPicker: vi.fn() })) },
-}));
-
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: { getState: vi.fn(() => ({ openPopup: vi.fn() })) },
-}));
-
-vi.mock("@/stores/linkCreatePopupStore", () => ({
-  useLinkCreatePopupStore: { getState: vi.fn(() => ({ isOpen: false, openPopup: vi.fn() })) },
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    openLinkPopup: vi.fn(),
+    openLinkCreatePopup: vi.fn(),
+    openWikiLinkPopup: vi.fn(),
+    openHeadingPicker: vi.fn(),
+    openMediaPopup: vi.fn(),
+    anyLinkSurfaceOpen: vi.fn(() => false),
+  },
 }));
 
 vi.mock("@/utils/popupPosition", () => ({
@@ -48,9 +47,7 @@ import {
   insertLink,
 } from "./sourceAdapterLinks";
 import { readClipboardUrl } from "@/services/editor/clipboardUrl";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
-import { useHeadingPickerStore } from "@/stores/headingPickerStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { getBoundaryRects } from "@/utils/popupPosition";
 
 function createView(doc: string, from: number, to?: number): EditorView {
@@ -223,15 +220,16 @@ describe("insertSourceBookmarkLink", () => {
       right: 60,
     });
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const result = insertSourceBookmarkLink(view);
     expect(result).toBe(true);
     expect(openPicker).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ text: "Title" })]),
-      expect.any(Function),
-      expect.any(Object),
+      expect.objectContaining({
+        headings: expect.arrayContaining([expect.objectContaining({ text: "Title" })]),
+        onSelect: expect.any(Function),
+      })
     );
     view.destroy();
   });
@@ -240,17 +238,13 @@ describe("insertSourceBookmarkLink", () => {
 describe("insertLink", () => {
   beforeEach(() => {
     vi.mocked(readClipboardUrl).mockResolvedValue(null);
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: false,
-      openPopup: vi.fn(),
-    } as never);
+    vi.mocked(hostPopups.anyLinkSurfaceOpen).mockReturnValue(false);
+    vi.mocked(hostPopups.openLinkCreatePopup).mockClear();
+    vi.mocked(hostPopups.openLinkPopup).mockClear();
   });
 
   it("returns true when create popup is already open", async () => {
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: true,
-      openPopup: vi.fn(),
-    } as never);
+    vi.mocked(hostPopups.anyLinkSurfaceOpen).mockReturnValue(true);
 
     const view = createView("hello", 0);
     const result = await insertLink(view);
@@ -261,8 +255,7 @@ describe("insertLink", () => {
 
   it("opens link popup when cursor is inside an existing link", async () => {
     const view = createView("[text](https://example.com)", 3);
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
 
     const result = await insertLink(view);
     expect(result).toBe(true);
@@ -280,11 +273,7 @@ describe("insertLink", () => {
   });
 
   it("opens create popup when selection exists but no clipboard URL", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: false,
-      openPopup,
-    } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkCreatePopup);
 
     const view = createView("some text here", 5, 9);
     await insertLink(view);
@@ -325,11 +314,7 @@ describe("insertLink", () => {
   });
 
   it("opens create popup with text+URL inputs when no selection, no word, no URL", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: false,
-      openPopup,
-    } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkCreatePopup);
 
     const view = createView("   ", 1);
     await insertLink(view);
@@ -343,11 +328,7 @@ describe("insertLink", () => {
   });
 
   it("opens create popup for word at cursor when no clipboard URL", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: false,
-      openPopup,
-    } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkCreatePopup);
 
     const view = createView("click hello world", 8);
     await insertLink(view);
@@ -361,8 +342,7 @@ describe("insertLink", () => {
   });
 
   it("does not open link popup when cursor is not inside a link", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
 
     const view = createView("plain text here", 5);
     await insertLink(view);
@@ -373,8 +353,7 @@ describe("insertLink", () => {
   });
 
   it("handles link with angle bracket URL", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
 
     const view = createView("[text](<https://example.com/path with spaces>)", 3);
     const result = await insertLink(view);
@@ -384,8 +363,7 @@ describe("insertLink", () => {
   });
 
   it("handles link with title attribute in link popup", async () => {
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
 
     const view = createView('[text](https://example.com "My Title")', 3);
     const result = await insertLink(view);
@@ -399,8 +377,7 @@ describe("insertLink", () => {
     const { getAnchorRectFromRange } = await import("@/plugins/sourcePopup/sourcePopupUtils");
     vi.mocked(getAnchorRectFromRange).mockReturnValueOnce(null);
 
-    const openPopup = vi.fn();
-    vi.mocked(useLinkPopupStore.getState).mockReturnValue({ openPopup } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkPopup);
 
     const view = createView("[text](https://example.com)", 3);
     const _result = await insertLink(view);
@@ -416,8 +393,9 @@ describe("insertSourceBookmarkLink — callback", () => {
     vi.spyOn(view, "coordsAtPos").mockReturnValue({ top: 10, bottom: 30, left: 50, right: 60 });
 
     let capturedCallback: ((id: string, text: string) => void) | null = null;
-    const openPicker = vi.fn((_, cb) => { capturedCallback = cb; });
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    vi.mocked(hostPopups.openHeadingPicker).mockImplementationOnce((r) => {
+      capturedCallback = r.onSelect;
+    });
 
     const result = insertSourceBookmarkLink(view);
     expect(result).toBe(true);
@@ -436,16 +414,14 @@ describe("insertSourceBookmarkLink — callback", () => {
     // coordsAtPos returns null → anchorRect = undefined
     vi.spyOn(view, "coordsAtPos").mockReturnValue(null as never);
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const result = insertSourceBookmarkLink(view);
     expect(result).toBe(true);
     // openPicker is still called; anchorRect option will be undefined
     expect(openPicker).toHaveBeenCalledWith(
-      expect.any(Array),
-      expect.any(Function),
-      expect.objectContaining({ anchorRect: undefined }),
+      expect.objectContaining({ headings: expect.any(Array), anchorRect: undefined })
     );
     view.destroy();
   });
@@ -470,8 +446,8 @@ describe("insertSourceBookmarkLink — callback", () => {
     const getBoundaryRectsMock = vi.mocked(getBoundaryRects);
     getBoundaryRectsMock.mockClear();
 
-    const openPicker = vi.fn();
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    const openPicker = vi.mocked(hostPopups.openHeadingPicker);
+    openPicker.mockClear();
 
     const result = insertSourceBookmarkLink(view);
     expect(result).toBe(true);
@@ -486,8 +462,9 @@ describe("insertSourceBookmarkLink — callback", () => {
     vi.spyOn(view, "coordsAtPos").mockReturnValue({ top: 10, bottom: 30, left: 50, right: 60 });
 
     let capturedCallback: ((id: string, text: string) => void) | null = null;
-    const openPicker = vi.fn((_, cb) => { capturedCallback = cb; });
-    vi.mocked(useHeadingPickerStore.getState).mockReturnValue({ openPicker } as never);
+    vi.mocked(hostPopups.openHeadingPicker).mockImplementationOnce((r) => {
+      capturedCallback = r.onSelect;
+    });
 
     insertSourceBookmarkLink(view);
     capturedCallback!("title", "Title");
@@ -503,11 +480,8 @@ describe("openLinkCreatePopup — null anchor rect guard", () => {
     const { getAnchorRectFromRange } = await import("@/plugins/sourcePopup/sourcePopupUtils");
     vi.mocked(getAnchorRectFromRange).mockReturnValueOnce(null);
 
-    const openPopup = vi.fn();
-    vi.mocked(useLinkCreatePopupStore.getState).mockReturnValue({
-      isOpen: false,
-      openPopup,
-    } as never);
+    const openPopup = vi.mocked(hostPopups.openLinkCreatePopup);
+    openPopup.mockClear();
 
     // Trigger openLinkCreatePopup via insertLink with selection but no clipboard URL
     const view = createView("some text here", 5, 9);

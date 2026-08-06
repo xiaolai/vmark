@@ -76,7 +76,7 @@ Tipografía, visualización, comportamiento de edición y configuración de espa
 | Configuración | Descripción | Predeterminado | Opciones |
 |---------------|-------------|----------------|---------|
 | Fin de línea al guardar | Controla cómo se gestionan los finales de línea al guardar archivos | Conservar existente | Conservar existente, LF (`\n`), CRLF (`\r\n`) |
-| Conservar saltos de línea consecutivos | Mantener múltiples líneas en blanco tal como están en lugar de colapsarlas | Desactivado | Activado / Desactivado |
+| Conservar saltos de línea consecutivos | Mantener múltiples líneas en blanco tal como están en lugar de colapsarlas | Activado | Activado / Desactivado |
 | Estilo de salto de línea forzado al guardar | Cómo se representan los saltos de línea forzados en el archivo Markdown guardado | Conservar existente | Dos espacios (Recomendado), Conservar existente, Barra invertida (`\`) |
 | Mostrar etiquetas `<br>` | Muestra visiblemente las etiquetas de salto de línea HTML en el editor | Desactivado | Activado / Desactivado |
 
@@ -160,7 +160,7 @@ Estas configuraciones solo se aplican cuando hay un espacio de trabajo (carpeta)
 |---------------|-------------|----------------|---------|
 | Redimensionar automáticamente al pegar | Redimensiona automáticamente las imágenes grandes antes de guardarlas en la carpeta de recursos. El valor es la dimensión máxima en píxeles | Desactivado | Desactivado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar a la carpeta de recursos | Copia las imágenes pegadas o arrastradas a la carpeta de recursos del documento en lugar de incrustarlas | Activado | Activado / Desactivado |
-| Limpiar imágenes no usadas al cerrar | Elimina automáticamente las imágenes de la carpeta de recursos que ya no están referenciadas en el documento cuando lo cierras | Desactivado | Activado / Desactivado |
+| Limpiar imágenes no usadas al cerrar | Elimina automáticamente las imágenes de la carpeta de recursos que el documento ya no referencia. Se ejecuta al cerrar el documento, la ventana o la aplicación. Las imágenes aún referenciadas por otro documento de la misma carpeta se conservan, y las eliminadas van a la papelera del sistema | Desactivado | Activado / Desactivado |
 | Umbral de imagen en línea | Tamaño máximo (MB) para incrustar imágenes como URLs de datos base64 en la exportación HTML/PDF. Los archivos más grandes se enlazan en su lugar | 1.0 MB | 0.1 – 10 MB |
 
 ### Archivos Grandes
@@ -300,7 +300,7 @@ La sección Idioma contiene más de 20 alternadores de formato detallados. Para 
 | Limitar puntuación consecutiva | Limita los signos de puntuación repetidos como `!!!` | Desactivado | Desactivado, Simple (`!!` a `!`), Doble (`!!!` a `!!`) |
 | Eliminar espacios al final | Elimina los espacios al final de las líneas | Activado | Activado / Desactivado |
 | Normalizar puntos suspensivos | Convierte los puntos espaciados (`. . .`) en puntos suspensivos correctos (`...`) | Activado | Activado / Desactivado |
-| Colapsar saltos de línea | Reduce tres o más saltos de línea consecutivos a dos | Activado | Activado / Desactivado |
+| Colapsar saltos de línea | Reduce tres o más saltos de línea consecutivos a dos | Desactivado | Activado / Desactivado |
 
 ## Atajos
 

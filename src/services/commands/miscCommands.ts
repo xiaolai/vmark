@@ -15,12 +15,15 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { clearAllHistory, clearWorkspaceHistory } from "@/hooks/useHistoryRecovery";
+import { clearAllHistory, clearWorkspaceHistory } from "@/services/history/historyRecovery";
 import { historyLog, historyError, menuError } from "@/utils/debug";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";
-import { runOrphanCleanup } from "@/services/media/orphanAssetCleanup";
+import { runOrphanCleanup } from "@/services/media/orphanCleanupPrompt";
+import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
+import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
+import { useQuickOpenStore } from "@/stores/quickOpenStore";
 
 const HELP_URL = "https://vmark.app/guide/";
 const SHORTCUTS_URL = "https://vmark.app/guide/shortcuts";
@@ -40,6 +43,20 @@ export function registerMiscCommands(): void {
     run: async () => {
       await openSettingsWindow();
     },
+  });
+
+  registerCommand({
+    id: "app.commandPalette",
+    title: () => i18n.t("commands:app.commandPalette"),
+    category: "app",
+    run: () => useCommandPaletteStore.getState().toggle(),
+  });
+
+  registerCommand({
+    id: "app.quickOpen",
+    title: () => i18n.t("commands:app.quickOpen"),
+    category: "app",
+    run: () => useQuickOpenStore.getState().toggle(),
   });
 
   registerCommand({
@@ -102,7 +119,21 @@ export function registerMiscCommands(): void {
         const doc = useDocumentStore.getState().getDocument(tabId);
         if (!doc) return;
         const autoCleanupEnabled = useSettingsStore.getState().image.cleanupOrphansOnClose;
-        await runOrphanCleanup(doc.filePath, doc.isDirty ? null : doc.content, autoCleanupEnabled);
+        await runOrphanCleanup(
+          doc.filePath,
+          doc.isDirty ? null : doc.content,
+          autoCleanupEnabled,
+          // Other open tabs' unsaved buffers — an image only they reference
+          // must not be offered for deletion. Passed as a getter so the
+          // pre-delete re-scan sees edits made while the dialog was open.
+          () => liveContentsExcluding(new Set([tabId])),
+          // The subject, re-read at delete time. Null once it is dirty or gone:
+          // its content is then no longer what the scan was based on.
+          () => {
+            const live = useDocumentStore.getState().getDocument(tabId);
+            return live && !live.isDirty ? live.content : null;
+          },
+        );
       });
     },
   });

@@ -7,8 +7,8 @@
  * **no credential values**: only a handle/profile name, a value-free count summary
  * (from `redacted_summary`), and a timestamp.
  *
- * @coordinates-with hooks/mcpBridge/v2/browserSession.ts — records a session on save
- * @coordinates-with hooks/mcpBridge/v2/browserNavigation.ts — records a profile on open
+ * @coordinates-with services/mcpBridge/v2/browserSession.ts — records a session on save
+ * @coordinates-with services/mcpBridge/v2/browserNavigation.ts — records a profile on open
  * @module stores/browserSessionStore
  */
 

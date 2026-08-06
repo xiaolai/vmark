@@ -11,7 +11,14 @@
  * mutated by system flips.
  *
  * Consumers remain responsible for guarding unknown ids
- * (`themes[id] ?? themes.paper`) — this module resolves, it doesn't validate.
+ * (`themes[id] ?? themes.paper`) — `resolveEffectiveThemeId` resolves, it
+ * doesn't validate, and is deliberately pure so it stays platform-agnostic.
+ *
+ * The exported hook and getter additionally narrow the result to what the
+ * platform's native chrome can render (`theme/themeAvailability.ts`): Windows
+ * and Linux draw their own title bar and accept only light or dark, so a theme
+ * outside that pair would always render half-themed. `appearance.theme` is
+ * never mutated, so the user's pick survives a round trip back to macOS.
  *
  * @coordinates-with stores/systemAppearanceStore.ts — OS dark-mode observation
  * @coordinates-with stores/settingsStore.ts — appearance preferences
@@ -22,6 +29,8 @@ import { useSettingsStore, type AppearanceSettings } from "@/stores/settingsStor
 import { initialState } from "@/stores/settingsStore/defaults";
 import { useSystemAppearanceStore } from "@/stores/systemAppearanceStore";
 import type { ThemeId } from "@/theme/themes";
+import { coerceThemeId } from "@/theme/themeAvailability";
+import { isMacPlatform } from "@/utils/platform";
 
 type EffectiveThemeInput = Pick<
   AppearanceSettings,
@@ -40,9 +49,28 @@ export function resolveEffectiveThemeId(
     : (appearance.systemLightTheme ?? initialState.appearance.systemLightTheme);
 }
 
+/**
+ * Resolve, then narrow to what this platform's native chrome can render.
+ *
+ * Kept separate from `resolveEffectiveThemeId` so that stays pure and
+ * platform-agnostic: it resolves, it doesn't validate. Windows/Linux only
+ * draw light or dark chrome, so a theme outside that pair would always render
+ * half-themed. `appearance.theme` is never mutated, so the user's original
+ * pick survives a round trip back to macOS.
+ */
+function resolveForPlatform(
+  appearance: EffectiveThemeInput,
+  prefersDark: boolean
+): ThemeId {
+  return coerceThemeId(
+    resolveEffectiveThemeId(appearance, prefersDark),
+    isMacPlatform()
+  );
+}
+
 /** Non-reactive read for callbacks and store subscribers. */
 export function getEffectiveThemeId(): ThemeId {
-  return resolveEffectiveThemeId(
+  return resolveForPlatform(
     useSettingsStore.getState().appearance,
     useSystemAppearanceStore.getState().prefersDark
   );
@@ -56,7 +84,7 @@ export function useEffectiveThemeId(): ThemeId {
   const light = useSettingsStore((s) => s.appearance.systemLightTheme);
   const dark = useSettingsStore((s) => s.appearance.systemDarkTheme);
   const prefersDark = useSystemAppearanceStore((s) => s.prefersDark);
-  return resolveEffectiveThemeId(
+  return resolveForPlatform(
     { theme, followSystemAppearance: follow, systemLightTheme: light, systemDarkTheme: dark },
     prefersDark
   );

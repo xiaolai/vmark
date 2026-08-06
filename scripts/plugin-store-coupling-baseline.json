@@ -1,0 +1,81 @@
+{
+  "//": [
+    "Frozen plugin->host coupling, per plugin unit and per channel (@/stores, @/services, @/hooks, @/components).",
+    "A plugin importing any of them cannot ship as a standalone extension - the app's services are themselves store-coupled, so @/services is transitive @/stores. See scripts/check-plugin-store-coupling.mjs and dev-docs/deep-researches/20260725-extension-goal-progress-audit.md.",
+    "Checked by pnpm lint:store-coupling (in check:all). Two-way ratchet: a count above baseline fails, and a count below baseline also fails until the win is recorded here.",
+    "Ratchets DOWN only: never raise a number. Decouple the file instead - read host state at the call site, pass it in as a parameter, or declare a seam under plugins/shared/."
+  ],
+  "units": {
+    "aiSuggestion": {
+      "services": 1
+    },
+    "blockAudio": {
+      "services": 1
+    },
+    "blockImage": {
+      "services": 1
+    },
+    "blockVideo": {
+      "services": 1
+    },
+    "codeBlockLineNumbers": {
+      "services": 1
+    },
+    "codemirror": {
+      "services": 6,
+      "components": 1
+    },
+    "editorContextMenu": {
+      "components": 1
+    },
+    "editorPlugins": {
+      "services": 1
+    },
+    "editorPlugins.tiptap.ts": {
+      "services": 1
+    },
+    "imageHandler": {
+      "services": 3
+    },
+    "imagePreview": {
+      "services": 1
+    },
+    "imageView": {
+      "services": 1
+    },
+    "linkCreatePopup": {
+      "services": 1
+    },
+    "linkPopup": {
+      "services": 3
+    },
+    "markdownArtifacts": {
+      "services": 1
+    },
+    "mediaHandler": {
+      "services": 1
+    },
+    "mediaPopup": {
+      "services": 1
+    },
+    "sourceImagePopup": {
+      "services": 1
+    },
+    "sourceLinkPopup": {
+      "services": 2
+    },
+    "sourcePeekInline": {
+      "services": 2
+    },
+    "sourceWikiLinkPopup": {
+      "services": 1
+    },
+    "toolbarActions": {
+      "services": 10,
+      "components": 1
+    },
+    "wikiLinkPopup": {
+      "services": 1
+    }
+  }
+}

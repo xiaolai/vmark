@@ -9,25 +9,31 @@
 //! over the shared `atomic_replace` core; they stay separate commands because
 //! this one is async for the frontend invoke path and carries frontend-only
 //! validation and error semantics.
+//!
+//! WI-14: this was the first command migrated to [`CommandError`]. The
+//! parent-directory failure used to travel as a `"PARENT_MISSING:"` string
+//! prefix that `saveToPath.ts` re-parsed — a cross-language contract held
+//! together by a comment in each file asking the reader to keep the other in
+//! sync. It is now `code: "not-found"` with the directory in `detail.dir`, and
+//! every message here resolves through `t!` instead of being raw English that
+//! `lint:i18n` could not see.
 
-/// Sentinel prefix returned when the target's parent directory does not
-/// exist (renamed/deleted externally). The frontend (`saveToPath.ts`) parses
-/// this to route the user into the Save As flow. Keep in sync with
-/// `PARENT_MISSING_PREFIX` in `src/utils/saveToPath.ts`.
-pub const PARENT_MISSING_ERROR_PREFIX: &str = "PARENT_MISSING:";
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
+use serde_json::json;
 
 /// Synchronous core of `atomic_write_file`. Extracted so it can be unit-tested
 /// without spinning up a tokio runtime. Same semantics as the async wrapper.
 ///
-/// Validation (path traversal, absolute path, parent-missing sentinel) and
-/// the parent-directory sync are the frontend-specific parts; the actual
-/// temp-file + fsync + rename is `atomic_replace::atomic_replace`, shared
+/// Validation (path traversal, absolute path, missing parent) and the
+/// parent-directory sync are the frontend-specific parts; the actual
+/// temp-file, fsync and rename are `atomic_replace::atomic_replace`, shared
 /// with `app_paths::atomic_write_file`.
 pub(crate) fn atomic_write_file_sync(
     target: &std::path::Path,
     content: &str,
-) -> Result<(), String> {
-    use crate::atomic_replace::{atomic_replace, AtomicReplaceError};
+) -> Result<(), CommandError> {
+    use crate::atomic_replace::atomic_replace;
 
     // Defense-in-depth: reject path traversal to prevent writing outside
     // intended directories if the webview is compromised.
@@ -35,34 +41,39 @@ pub(crate) fn atomic_write_file_sync(
         .components()
         .any(|c| c == std::path::Component::ParentDir)
     {
-        return Err(rust_i18n::t!("errors.core.pathTraversal").to_string());
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.core.pathTraversal"
+        ));
     }
 
     if !target.is_absolute() {
-        return Err(rust_i18n::t!("errors.core.pathNotAbsolute").to_string());
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.core.pathNotAbsolute"
+        ));
     }
 
-    let dir = target.parent().ok_or("File path has no parent directory")?;
+    let dir = target.parent().ok_or_else(|| {
+        localized_error!(ErrorCode::InvalidInput, "errors.save.noParentDirectory")
+    })?;
 
     // Surface a structured error when the parent directory is gone (e.g.,
     // renamed or deleted externally while the file was open). Without this
     // explicit check, NamedTempFile leaks a raw "No such file or directory
-    // (os error 2)" with a tempfile name, which looks like VMark dropped
-    // a temp file. The frontend matches the `PARENT_MISSING:` prefix to
-    // route the user into the Save As flow.
+    // (os error 2)" with a tempfile name, which looks like VMark dropped a temp
+    // file. The frontend reads `code` + `detail.dir` to route the user into the
+    // Save As flow.
     if !dir.is_dir() {
-        return Err(format!("{}{}", PARENT_MISSING_ERROR_PREFIX, dir.display()));
+        return Err(localized_error!(
+            ErrorCode::NotFound,
+            "errors.save.parentMissing",
+            dir = dir.display()
+        )
+        .with_detail(json!({ "dir": dir.to_string_lossy() })));
     }
 
-    atomic_replace(target, dir, content.as_bytes()).map_err(|e| match e {
-        AtomicReplaceError::CreateTemp { source, .. } => {
-            format!("Failed to create temp file: {}", source)
-        }
-        AtomicReplaceError::WriteTemp(e) => format!("Failed to write temp file: {}", e),
-        AtomicReplaceError::FlushTemp(e) => format!("Failed to flush temp file: {}", e),
-        AtomicReplaceError::SyncTemp(e) => format!("Failed to sync temp file: {}", e),
-        AtomicReplaceError::Persist(e) => format!("Failed to persist file: {}", e),
-    })?;
+    atomic_replace(target, dir, content.as_bytes()).map_err(save_failure)?;
 
     // Sync parent directory for crash safety. Best-effort (the file itself is
     // already synced and persisted), but a failure here weakens the crash
@@ -80,17 +91,40 @@ pub(crate) fn atomic_write_file_sync(
     Ok(())
 }
 
+/// Localize an atomic-replace failure while keeping the stage and the OS text
+/// the `From` impl extracted. The user sees a translated sentence; the frontend
+/// still gets `detail.stage` to tell "the temp file could not be created" from
+/// "the rename over the target failed".
+fn save_failure(error: crate::atomic_replace::AtomicReplaceError) -> CommandError {
+    let converted = CommandError::from(error);
+    let localized = localized_error!(
+        ErrorCode::Io,
+        "errors.save.writeFailed",
+        detail = converted.message()
+    );
+    match converted.detail() {
+        Some(detail) => localized.with_detail(detail.clone()),
+        None => localized,
+    }
+}
+
 /// Atomic file write using temp file + rename (async Tauri command variant).
 ///
 /// Prevents data loss on crash by writing to a temporary file in the same
 /// directory, flushing to disk, then atomically renaming over the target.
 #[tauri::command]
-pub async fn atomic_write_file(path: String, content: String) -> Result<(), String> {
+pub async fn atomic_write_file(path: String, content: String) -> Result<(), CommandError> {
     tokio::task::spawn_blocking(move || {
         atomic_write_file_sync(std::path::Path::new(&path), &content)
     })
     .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    .map_err(|e| {
+        localized_error!(
+            ErrorCode::Internal,
+            "errors.save.taskFailed",
+            detail = e.to_string()
+        )
+    })?
 }
 
 #[cfg(test)]

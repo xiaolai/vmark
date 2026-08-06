@@ -8,7 +8,7 @@ import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { deleteDocumentHistory } from "@/hooks/useHistoryRecovery";
+import { deleteDocumentHistory } from "@/services/history/historyRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
@@ -24,6 +24,8 @@ import { BookmarksView } from "@/components/Browser/BookmarksView";
 import { BrowserGrantsList } from "@/components/Browser/BrowserGrantsList";
 import { BrowserSessionsList } from "@/components/Browser/BrowserSessionsList";
 import type { BrowserSidebarView } from "@/stores/uiStore/types";
+import { useWindowLabel } from "@/contexts/WindowContext";
+import { useSidebarInstanceSync } from "./useSidebarInstanceSync";
 
 // Constants
 const TRAFFIC_LIGHTS_SPACER_PX = 28;
@@ -49,6 +51,8 @@ const VIEW_CONFIG: Record<SidebarViewMode, {
 /** Navigation sidebar with switchable Files, Outline, and History views. */
 export function Sidebar() {
   const { t } = useTranslation("sidebar");
+  // WI-9.1 (D2): sidebar width/view-mode follow the active workspace instance.
+  useSidebarInstanceSync(useWindowLabel());
   const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const newFileShortcut = useShortcutsStore((state) => state.getShortcut("newFile"));
   const viewMode = useUIStore((state) => state.sidebarViewMode);

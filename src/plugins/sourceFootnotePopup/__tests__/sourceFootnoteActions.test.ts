@@ -12,6 +12,10 @@ import {
 } from "../sourceFootnoteActions";
 import { gotoFootnoteTarget } from "../sourceFootnoteActions";
 
+// The actions take the popup state as a parameter now. These tests drive the
+// REAL store, so they pass it — the wiring the app ships.
+const store = useFootnotePopupStore as never;
+
 function createView(doc: string): EditorView {
   const parent = document.createElement("div");
   const state = EditorState.create({ doc });
@@ -44,7 +48,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
 
       expect(view.state.doc.toString()).toBe(
         "Ref[^1]\n\n[^1]: updated line\n  second updated\n\nAfter."
@@ -67,7 +71,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
 
       // Document unchanged
       expect(view.state.doc.toString()).toBe(doc);
@@ -88,7 +92,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
 
       expect(view.state.doc.toString()).toBe(doc);
       view.destroy();
@@ -109,7 +113,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      saveFootnoteContent(view);
+      saveFootnoteContent(view, store);
 
       expect(view.state.doc.toString()).toBe(
         "Text[^1]\n\n[^1]: new content\n\nAfter."
@@ -135,7 +139,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      removeFootnote(view);
+      removeFootnote(view, store);
 
       expect(view.state.doc.toString()).toBe("Ref middle .\n\nAfter.");
 
@@ -156,7 +160,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      removeFootnote(view);
+      removeFootnote(view, store);
 
       expect(view.state.doc.toString()).toBe(doc);
       view.destroy();
@@ -177,7 +181,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      removeFootnote(view);
+      removeFootnote(view, store);
 
       expect(view.state.doc.toString()).toBe("Text  here.");
       view.destroy();
@@ -199,7 +203,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      removeFootnote(view);
+      removeFootnote(view, store);
 
       expect(view.state.doc.toString()).toBe("Text\n\n");
       view.destroy();
@@ -222,7 +226,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      gotoFootnoteTarget(view, true);
+      gotoFootnoteTarget(view, true, store);
 
       // Should dispatch with selection at definitionPos
       const sel = view.state.selection.main;
@@ -245,7 +249,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      gotoFootnoteTarget(view, false);
+      gotoFootnoteTarget(view, false, store);
 
       const sel = view.state.selection.main;
       expect(sel.anchor).toBe(referencePos);
@@ -267,7 +271,7 @@ describe("source footnote actions", () => {
       });
 
       // Should not throw
-      gotoFootnoteTarget(view, true);
+      gotoFootnoteTarget(view, true, store);
       view.destroy();
     });
   });
@@ -393,7 +397,7 @@ describe("source footnote actions", () => {
         autoFocus: false,
       });
 
-      removeFootnote(view);
+      removeFootnote(view, store);
 
       // With null referencePos, findFootnoteReferenceAtPos returns null.
       // findFootnoteReferences finds the reference at referencePos.

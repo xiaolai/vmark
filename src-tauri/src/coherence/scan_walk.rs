@@ -21,11 +21,7 @@ pub(super) fn walk_markdown(
     let mut out = Vec::new();
     let mut stack: Vec<PathBuf> = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let rel_dir = dir
-            .strip_prefix(root)
-            .unwrap_or(&dir)
-            .to_string_lossy()
-            .into_owned();
+        let rel_dir = to_workspace_rel(dir.strip_prefix(root).unwrap_or(&dir));
         // F2 (dogfood session 2): a directory carrying the standard
         // CACHEDIR.TAG (cargo `target/`, other build caches) is a
         // self-declared cache — never content. Walking one dominated M5
@@ -71,11 +67,7 @@ pub(super) fn walk_markdown(
             }
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().into_owned();
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .to_string_lossy()
-                .into_owned();
+            let rel = to_workspace_rel(path.strip_prefix(root).unwrap_or(&path));
             let Ok(meta) = std::fs::symlink_metadata(&path) else {
                 report.complete = false;
                 continue;
@@ -92,7 +84,12 @@ pub(super) fn walk_markdown(
                 continue;
             }
             if meta.is_dir() {
-                if !IGNORED_DIRS.contains(&name.as_str()) {
+                // Two independent skips: a bare ignored NAME at any depth, and
+                // an anchored workspace-relative PATH prefix (nested git
+                // worktrees — see IGNORED_REL_PREFIXES).
+                if !IGNORED_DIRS.contains(&name.as_str())
+                    && !super::scan::path_at_or_under_ignored_prefix(&rel)
+                {
                     stack.push(path);
                 }
                 continue;
@@ -143,6 +140,19 @@ pub(super) fn walk_markdown(
         }
     }
     finish(out)
+}
+
+/// Canonicalize a stripped relative path to the workspace's forward-slash
+/// convention. Workspace-relative paths are `/`-separated everywhere: the IPC
+/// path guard (`paths.rs`) rejects backslashes, and registry keys built from
+/// frontmatter/IPC use `/`. `to_string_lossy()` yields the OS separator, so on
+/// Windows the walked path must be rewritten to match — otherwise the guard
+/// rejects it (`path contains backslash`) and no walked file ever reconciles.
+/// On Unix `MAIN_SEPARATOR` is already `/`, so this is a no-op and a literal
+/// `\` inside a filename is left untouched.
+fn to_workspace_rel(rel: &Path) -> String {
+    rel.to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/")
 }
 
 fn finish(mut out: Vec<(String, String)>) -> Result<Vec<(String, String)>, String> {

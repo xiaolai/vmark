@@ -178,3 +178,96 @@ mod tests {
         Restore(path, perms)
     }
 }
+
+/// Outcome of a batch trash operation — partial failure is normal
+/// (permissions, network volumes without a trash, files already gone).
+#[derive(serde::Serialize)]
+pub struct TrashOutcome {
+    /// Paths successfully moved to the system trash.
+    pub trashed: Vec<String>,
+    /// Paths that could not be trashed, with the reason.
+    pub failed: Vec<TrashFailure>,
+}
+
+#[derive(serde::Serialize)]
+pub struct TrashFailure {
+    pub path: String,
+    pub error: String,
+}
+
+/// Move files to the SYSTEM TRASH instead of unlinking them (WI-12).
+///
+/// Orphan-image cleanup deletes user files on inference — a scan concluding
+/// "nothing references this". Every wrong conclusion used to be irreversible;
+/// via the trash it is an undo. Callers treat a failure as "file kept", never
+/// fall back to permanent deletion themselves: a volume without a trash keeps
+/// its files, which is the fail-safe direction.
+///
+/// Paths are canonicalized and must be regular files — the same probe-guard
+/// as the other file commands; cleanup has no business trashing directories.
+#[tauri::command]
+pub async fn move_paths_to_trash(paths: Vec<String>) -> Result<TrashOutcome, String> {
+    tokio::task::spawn_blocking(move || {
+        let mut trashed = Vec::new();
+        let mut failed = Vec::new();
+        for raw in paths {
+            match validate_openable_path(&raw)
+                .and_then(|()| trash::delete(&raw).map_err(|e| format!("trash failed: {e}")))
+            {
+                Ok(()) => trashed.push(raw),
+                Err(error) => failed.push(TrashFailure { path: raw, error }),
+            }
+        }
+        TrashOutcome { trashed, failed }
+    })
+    .await
+    .map_err(|e| format!("Trash task failed: {e}"))
+}
+
+#[cfg(test)]
+mod trash_tests {
+    use super::*;
+
+    // Real trashing is NOT exercised here: it would litter the developer's /
+    // CI runner's actual Trash. These cover the guard rails — the paths that
+    // must FAIL into the outcome rather than error the whole batch.
+
+    #[tokio::test]
+    async fn missing_file_lands_in_failed_not_err() {
+        let outcome = move_paths_to_trash(vec!["/nonexistent/vmark-test.png".into()])
+            .await
+            .expect("batch itself must not error");
+        assert!(outcome.trashed.is_empty());
+        assert_eq!(outcome.failed.len(), 1);
+        assert_eq!(outcome.failed[0].path, "/nonexistent/vmark-test.png");
+    }
+
+    #[tokio::test]
+    async fn directory_is_refused() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let outcome = move_paths_to_trash(vec![dir.path().to_string_lossy().into_owned()])
+            .await
+            .expect("ok");
+        assert!(outcome.trashed.is_empty());
+        assert_eq!(outcome.failed.len(), 1);
+        assert!(outcome.failed[0].error.contains("not a regular file"));
+    }
+
+    #[tokio::test]
+    async fn empty_batch_is_empty_outcome() {
+        let outcome = move_paths_to_trash(vec![]).await.expect("ok");
+        assert!(outcome.trashed.is_empty());
+        assert!(outcome.failed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn one_bad_path_does_not_poison_the_batch() {
+        let outcome = move_paths_to_trash(vec![
+            "/nonexistent/a.png".into(),
+            "/nonexistent/b.png".into(),
+        ])
+        .await
+        .expect("ok");
+        assert_eq!(outcome.failed.len(), 2);
+    }
+}

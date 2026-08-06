@@ -10,7 +10,6 @@ import { EditorState, TextSelection } from "@tiptap/pm/state";
 import type { Plugin } from "@tiptap/pm/state";
 import type { DecorationSet } from "@tiptap/pm/view";
 import { CJKLetterSpacing } from "../plugin";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 const schema = new Schema({
   nodes: {
@@ -24,11 +23,18 @@ function paragraph(text: string) {
   return schema.node("paragraph", null, text ? [schema.text(text)] : []);
 }
 
-/** Instantiate the extension's ProseMirror plugin with the given className. */
-function createPlugin(className = "cjk-spacing"): Plugin {
+/**
+ * Instantiate the extension's ProseMirror plugin.
+ *
+ * `isEnabled` is supplied explicitly because this calls
+ * `addProseMirrorPlugins` directly and so bypasses `addOptions`, where the
+ * default lives. It is injected rather than read from a store: the plugin
+ * cannot reach `@/stores` and still ship standalone (ADR-015).
+ */
+function createPlugin(className = "cjk-spacing", isEnabled = () => spacingEnabled): Plugin {
   const plugins = CJKLetterSpacing.config.addProseMirrorPlugins!.call({
     name: "cjkLetterSpacing",
-    options: { className },
+    options: { className, isEnabled },
     storage: {},
     parent: null as never,
     editor: {} as never,
@@ -56,8 +62,17 @@ function getDecorations(plugin: Plugin, state: EditorState): InlineDeco[] {
   return pluginState.decorations.find() as unknown as InlineDeco[];
 }
 
+/**
+ * Whether the injected predicate answers yes.
+ *
+ * This used to write the SETTING and rely on the plugin reading the store —
+ * the coupling that stopped it shipping standalone. The predicate is the
+ * mechanism now, and it is re-asked per transaction, so flipping this mid-test
+ * is exactly what a settings change does at runtime.
+ */
+let spacingEnabled = true;
 function setSpacing(value: "0" | "0.05") {
-  useSettingsStore.getState().updateAppearanceSetting("cjkLetterSpacing", value);
+  spacingEnabled = value !== "0";
 }
 
 beforeEach(() => {
@@ -250,5 +265,56 @@ describe("decorations prop", () => {
     const state = createState(["你好"], plugin);
     const fromProps = plugin.props.decorations!.call(plugin, state) as DecorationSet;
     expect(fromProps.find()).toHaveLength(1);
+  });
+});
+
+describe("the enabled predicate is injected, and re-asked", () => {
+  it("produces no decorations when the host says off", () => {
+    const plugin = createPlugin("cjk-spacing", () => false);
+    const state = createState(["中文段落"], plugin);
+    expect(getDecorations(plugin, state).length).toBe(0);
+  });
+
+  it("decorates when the host says on", () => {
+    const plugin = createPlugin("cjk-spacing", () => true);
+    const state = createState(["中文段落"], plugin);
+    expect(getDecorations(plugin, state).length).toBeGreaterThan(0);
+  });
+
+  it("notices the answer CHANGING — a captured boolean could not", () => {
+    // The predicate is re-asked per transaction so a settings change takes
+    // effect without rebuilding the editor.
+    let on = false;
+    const plugin = createPlugin("cjk-spacing", () => on);
+    let state = createState(["中文段落"], plugin);
+    expect(getDecorations(plugin, state).length).toBe(0);
+
+    on = true;
+    state = state.apply(state.tr.insertText("", 1, 1));
+    expect(getDecorations(plugin, state).length).toBeGreaterThan(0);
+  });
+
+  it("survives a multi-step shrinking transaction at the document's end (WI-1.3 regression)", () => {
+    // A mark input rule firing on `**粗体**` emits TWO deletes in one
+    // transaction (closing then opening markers). Per-step map coordinates
+    // live in the doc AFTER THAT STEP — resolving them against the FINAL doc
+    // read positions past the end and threw `Position N out of range`
+    // mid-typing whenever nothing followed the edit. Found by the typed-input
+    // matrix on the production stack.
+    const plugin = createPlugin("cjk-spacing", () => true);
+    const state = createState(["前文**粗体**"], plugin);
+    const size = state.doc.content.size;
+
+    const tr = state.tr;
+    tr.delete(size - 3, size - 1); // closing ** (doc shrinks)
+    const mappedOpen = tr.mapping.map(3);
+    tr.delete(mappedOpen - 2, mappedOpen); // opening ** (shrinks again)
+
+    expect(() => state.apply(tr)).not.toThrow();
+    const next = state.apply(tr);
+    // Decorations still cover the surviving CJK text, in final-doc bounds.
+    for (const deco of getDecorations(plugin, next)) {
+      expect(deco.to).toBeLessThanOrEqual(next.doc.content.size);
+    }
   });
 });

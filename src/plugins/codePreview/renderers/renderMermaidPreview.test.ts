@@ -127,8 +127,79 @@ describe("createMermaidPreviewWidget", () => {
 
     expect(element.textContent).toContain("result");
     expect(cache.get("key")).toEqual({ rendered: "<svg>result</svg>" });
-    expect(setupMermaidPanZoom).toHaveBeenCalledWith(element);
-    expect(setupMermaidExport).toHaveBeenCalledWith(element, "graph TD; A-->B");
+  });
+
+  // Panzoom throws on elements that are not attached to the DOM, and
+  // ProseMirror attaches a widget only AFTER its factory returns. The
+  // cache-hit path (previewHelpers.createPreviewElement) already defers for
+  // this reason; this path did not — see issue #1200.
+  it("defers pan-zoom and export setup until after an animation frame", async () => {
+    vi.mocked(renderMermaid).mockResolvedValueOnce("<svg>result</svg>");
+    const frames: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(globalThis, "requestAnimationFrame")
+      .mockImplementation((cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+
+    try {
+      const cache = new Map();
+      createMermaidPreviewWidget(10, "graph TD; A-->B", "key", cache, vi.fn());
+      const element = capturedFactory!(null);
+
+      await vi.waitFor(() => {
+        expect(element.className).toBe("code-block-preview mermaid-preview");
+      });
+
+      // The SVG is painted immediately; only the enhancement is deferred.
+      expect(element.textContent).toContain("result");
+      expect(setupMermaidPanZoom).not.toHaveBeenCalled();
+      expect(setupMermaidExport).not.toHaveBeenCalled();
+
+      // ProseMirror attaches the widget, then the frame runs.
+      document.body.appendChild(element);
+      expect(frames).toHaveLength(1);
+      frames[0]!(0);
+
+      expect(setupMermaidPanZoom).toHaveBeenCalledWith(element);
+      expect(setupMermaidExport).toHaveBeenCalledWith(element, "graph TD; A-->B");
+      element.remove();
+    } finally {
+      rafSpy.mockRestore();
+    }
+  });
+
+  // A widget can be replaced before its render promise settles. Calling
+  // Panzoom on the orphan would throw inside the frame callback, where the
+  // promise's .catch() can no longer see it — an unhandled error.
+  it("skips enhancement when the element was detached before the frame ran", async () => {
+    vi.mocked(renderMermaid).mockResolvedValueOnce("<svg>result</svg>");
+    const frames: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(globalThis, "requestAnimationFrame")
+      .mockImplementation((cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+
+    try {
+      const cache = new Map();
+      createMermaidPreviewWidget(10, "graph TD; A-->B", "key", cache, vi.fn());
+      const element = capturedFactory!(null);
+
+      await vi.waitFor(() => {
+        expect(element.className).toBe("code-block-preview mermaid-preview");
+      });
+
+      // Never attached — the frame must be a no-op rather than throwing.
+      expect(frames).toHaveLength(1);
+      expect(() => frames[0]!(0)).not.toThrow();
+      expect(setupMermaidPanZoom).not.toHaveBeenCalled();
+      expect(setupMermaidExport).not.toHaveBeenCalled();
+    } finally {
+      rafSpy.mockRestore();
+    }
   });
 
   it("shows error state when renderMermaid returns null", async () => {

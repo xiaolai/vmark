@@ -1,192 +1,133 @@
 /**
- * Tests for wireSessionInput dedup paths.
- *
- * Path A (#525): chunked re-emission of segments of the committed string.
- * Path B (#948): Linux + WebKitGTK re-emits the committed text 1–2× in
- * a single chunk, sometimes concatenated as whole-integer multiples
- * ("你好" then "你好" — or one chunk "你好你好").
+ * Tests for wireSessionInput under Channel Ownership (single writer per
+ * keystroke). The legacy dual-writer dedup (Path A/B, grace window, echo token)
+ * was removed in WI-4b, so this covers only: IME commit → PTY, onData → PTY,
+ * the composing guard, and press-any-key-to-restart.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { wireSessionInput, type SessionInputState } from "./terminalSessionInputWiring";
 import type { TerminalInstance } from "./createTerminalInstance";
 
-function makeEntry(committedText: string | null, lastCommitTime: number) {
+function makeEntry() {
   let onDataCb: ((data: string) => void) | null = null;
+  let onCommit: ((text: string) => void) | null = null;
   const writeMock = vi.fn();
+  const clearMock = vi.fn();
+  const noteMock = vi.fn();
   const pty = { write: writeMock } as unknown as SessionInputState["pty"];
-  const instance: TerminalInstance = {
+  const instance = {
     term: {
       onData: (cb: (data: string) => void) => {
         onDataCb = cb;
         return { dispose: () => {} };
       },
-      clear: () => {},
-    } as unknown as TerminalInstance["term"],
+      clear: clearMock,
+    },
     composing: false,
-    inGracePeriod: false,
-    onCompositionCommit: null,
-    lastCommittedText: committedText,
-    lastCommitTime,
-    fitAddon: {} as TerminalInstance["fitAddon"],
-    searchAddon: {} as TerminalInstance["searchAddon"],
-    container: {} as TerminalInstance["container"],
-    resetDisplay: () => {},
-    getCwd: () => null,
-    getCommands: () => [],
-    isShellBusy: () => false,
-    dispose: () => {},
-  };
-  const entry: SessionInputState = {
-    instance,
-    pty,
-    shellExited: false,
-    lastSeenCommitTime: 0,
-    lastCommittedConsumed: 0,
-  };
+    get onCompositionCommit() { return onCommit; },
+    set onCompositionCommit(v: ((text: string) => void) | null) { onCommit = v; },
+    noteExternalWrite: noteMock,
+  } as unknown as TerminalInstance;
+  const entry: SessionInputState = { instance, pty, shellExited: false };
   return {
     entry,
     writeMock,
-    fireOnData: (data: string) => {
-      if (onDataCb) onDataCb(data);
-    },
+    clearMock,
+    noteMock,
+    fireOnData: (data: string) => onDataCb?.(data),
+    fireCommit: (text: string) => onCommit?.(text),
   };
 }
 
-describe("wireSessionInput — dedup paths", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+describe("wireSessionInput — single-writer contract", () => {
+  it("writes an IME commit straight to the PTY", () => {
+    const { entry, writeMock, fireCommit } = makeEntry();
+    wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+    fireCommit("你好");
+    expect(writeMock).toHaveBeenCalledExactlyOnceWith("你好");
   });
 
-  it("path A: suppresses chunked re-emission across segments of the committed string", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好世界", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    fireOnData("你好");
-    fireOnData("世界");
-
-    expect(writeMock).not.toHaveBeenCalled();
-  });
-
-  it("path B: suppresses a single full re-emit of the committed text", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    // First arrival is suppressed by the existing path A (remainder === data).
-    fireOnData("你好");
-    // Second arrival (Linux fcitx5 re-emit) — path A's remainder is now
-    // empty; path B catches the full-repetition.
-    fireOnData("你好");
-
-    expect(writeMock).not.toHaveBeenCalled();
-  });
-
-  it("path B: suppresses a doubled re-emit in one chunk (\"你好你好\")", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    fireOnData("你好你好");
-
-    expect(writeMock).not.toHaveBeenCalled();
-  });
-
-  it("path B: does NOT suppress text that is not a whole-integer multiple", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    fireOnData("你好世");
-
-    expect(writeMock).toHaveBeenCalledWith("你好世");
-  });
-
-  it("path B: does NOT suppress a same-multiple-length string that differs in content", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    // 4 chars (clean multiple of 2) but content does not equal "你好你好".
-    fireOnData("你好世界");
-
-    expect(writeMock).toHaveBeenCalledWith("你好世界");
-  });
-
-  it("does not dedup once the post-grace window has elapsed", () => {
-    const { entry, writeMock, fireOnData } = makeEntry("你好", Date.now());
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
-    vi.advanceTimersByTime(1000);
-    fireOnData("你好");
-
-    expect(writeMock).toHaveBeenCalledWith("你好");
-  });
-
-  it("treats an IME commit after shell exit as the press-any-key respawn signal", () => {
-    const { entry, writeMock, fireOnData } = makeEntry(null, 0);
-    entry.pty = null;
-    entry.shellExited = true;
-    let onCommit: ((text: string) => void) | null = null;
-    // Capture the callback the wiring assigns.
-    Object.defineProperty(entry.instance, "onCompositionCommit", {
-      set(v) {
-        onCommit = v;
-      },
-      get() {
-        return onCommit;
-      },
-      configurable: true,
-    });
-    const startShell = vi.fn();
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell,
-    });
-
-    expect(onCommit).toBeTypeOf("function");
-    onCommit!("你好");
-
-    expect(startShell).toHaveBeenCalledWith("s1");
-    expect(entry.shellExited).toBe(false);
-    // Text is intentionally not written or replayed.
-    expect(writeMock).not.toHaveBeenCalled();
-    void fireOnData;
-  });
-
-  it("passes regular keystrokes through to the PTY when no commit is pending", () => {
-    const { entry, writeMock, fireOnData } = makeEntry(null, 0);
-    wireSessionInput({
-      sessionId: "s1",
-      getEntry: () => entry,
-      startShell: () => {},
-    });
-
+  it("passes onData keystrokes through to the PTY", () => {
+    const { entry, writeMock, fireOnData } = makeEntry();
+    wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
     fireOnData("c");
     fireOnData("o");
-
     expect(writeMock).toHaveBeenNthCalledWith(1, "c");
     expect(writeMock).toHaveBeenNthCalledWith(2, "o");
+  });
+
+  it("drops onData while a composition is active (the commit path delivers it)", () => {
+    const { entry, writeMock, fireOnData } = makeEntry();
+    (entry.instance as { composing: boolean }).composing = true;
+    wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell: () => {} });
+    fireOnData("x");
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not write when the entry has been removed", () => {
+    const { entry, writeMock, fireOnData, fireCommit } = makeEntry();
+    let live: SessionInputState | undefined = entry;
+    wireSessionInput({ sessionId: "s1", getEntry: () => live, startShell: () => {} });
+    live = undefined;
+    fireOnData("x");
+    fireCommit("你");
+    expect(writeMock).not.toHaveBeenCalled();
+  });
+
+  describe("press-any-key-to-restart after shell exit", () => {
+    it("an onData chunk respawns the shell and does not write", () => {
+      const { entry, writeMock, clearMock, fireOnData } = makeEntry();
+      entry.pty = null;
+      entry.shellExited = true;
+      const startShell = vi.fn();
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell });
+      fireOnData("\r");
+      expect(startShell).toHaveBeenCalledWith("s1");
+      expect(entry.shellExited).toBe(false);
+      expect(clearMock).toHaveBeenCalled();
+      expect(writeMock).not.toHaveBeenCalled();
+    });
+
+    it("an IME commit respawns the shell and does not replay the text", () => {
+      const { entry, writeMock, fireCommit } = makeEntry();
+      entry.pty = null;
+      entry.shellExited = true;
+      const startShell = vi.fn();
+      wireSessionInput({ sessionId: "s1", getEntry: () => entry, startShell });
+      fireCommit("你好");
+      expect(startShell).toHaveBeenCalledWith("s1");
+      expect(entry.shellExited).toBe(false);
+      expect(writeMock).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// WI-13 — the gate's insert ownership derives from writes the wiring ACTUALLY
+// forwarded. A suppressed onData (mid-composition) must not be reported, or a
+// keystroke xterm never delivered would be treated as already written.
+describe("wireSessionInput — write reporting (WI-13)", () => {
+  it("reports a forwarded onData to the gate", () => {
+    const { entry, fireOnData, noteMock, writeMock } = makeEntry();
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(writeMock).toHaveBeenCalledWith("a");
+    expect(noteMock).toHaveBeenCalledWith("a");
+  });
+
+  it("does NOT report an onData suppressed by an active composition", () => {
+    const { entry, fireOnData, noteMock, writeMock } = makeEntry();
+    (entry.instance as { composing: boolean }).composing = true;
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(writeMock).not.toHaveBeenCalled();
+    expect(noteMock).not.toHaveBeenCalled();
+  });
+
+  it("does not report when there is no PTY to write to", () => {
+    const { entry, fireOnData, noteMock } = makeEntry();
+    entry.pty = null;
+    wireSessionInput({ sessionId: "s", getEntry: () => entry, startShell: vi.fn() });
+    fireOnData("a");
+    expect(noteMock).not.toHaveBeenCalled();
   });
 });

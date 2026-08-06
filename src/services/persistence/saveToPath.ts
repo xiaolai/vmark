@@ -2,8 +2,9 @@
  * Save Document to Path
  *
  * Purpose: Central save logic — normalizes content (line endings, hard breaks),
- * writes to disk, updates stores, records history snapshots, and manages
- * pending save tracking for file watcher coordination.
+ * re-emits the document's BOM (decision D1), writes to disk, updates stores
+ * with the dual save snapshots (WI-1.4), records history snapshots, and
+ * manages pending save tracking for file watcher coordination.
  *
  * Key decisions:
  *   - Pending save is registered BEFORE write and cleared AFTER with 1000ms delay
@@ -11,8 +12,14 @@
  *     exceed 500ms under heavy I/O: Rust debounce + emit + JS event loop + readFile)
  *   - Line ending and hard break normalization applied on save (not in-memory)
  *     to preserve the original editing experience while writing clean files
- *   - History snapshots are fire-and-forget — failures don't block save success,
- *     but the first failure per session warns the user so silent breakage is visible
+ *   - SERIALIZED PER PATH. Saves to one file run in submission order; saves to
+ *     different files stay concurrent. Without this an older write could land
+ *     second and be recorded as the saved snapshot — see serializeByPath.ts
+ *   - History snapshots live in saveHistorySnapshot.ts. Failures don't block
+ *     save success, but the call is AWAITED: `saveToPath` does not resolve
+ *     until it settles, which close flows need. A hung history backend
+ *     therefore holds the save promise open after the file and stores are
+ *     already updated; a bounded timeout is the fix if that ever bites
  *   - Auto-save skips recent files list AND skips error toasts to avoid spam on
  *     a flaky disk; the user didn't initiate the action and the next manual save
  *     will surface the error
@@ -20,8 +27,11 @@
  * @coordinates-with pendingSaves.ts — content-based save tracking for watcher coordination
  * @coordinates-with linebreaks.ts — line ending and hard break normalization
  * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
- * @coordinates-with useHistoryOperations.ts — creates version history snapshots
- * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture (WI-1.6)
+ * @coordinates-with serializeByPath.ts — the per-path save queue
+ * @coordinates-with saveHistorySnapshot.ts — version history snapshots
+ * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture
+ *     (WI-1.6), gated on `general.coherenceCaptureOnSave` (default OFF): capture
+ *     rewrites the file to insert a `vmark:` identity block, so it is opt-in
  * @module utils/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";
@@ -29,10 +39,12 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import {
+  reassignTabOwnershipForPath,
+  windowLabelForTab,
+} from "@/services/workspaces/reassignTabOwnershipForPath";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { createSnapshot } from "@/hooks/useHistoryOperations";
-import { buildHistorySettings } from "@/utils/historyTypes";
 import {
   resolveWritableFileOwnership,
   showFileOwnershipConflictToast,
@@ -44,39 +56,33 @@ import {
   normalizeLineEndings,
 } from "@/utils/linebreaks";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
+import { normalizePath } from "@/utils/paths";
+import { serializeByPath } from "./serializeByPath";
+import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
 import { captureWrite } from "@/services/coherence/captureFunnel";
-import { historyWarn, saveError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
+import { saveError } from "@/utils/debug";
+import { commandErrorDetailString, commandErrorMessage, isCommandErrorCode }
+  from "@/services/commands/commandError";
 
-// Tracks whether we've already warned the user about snapshot failures
-// in this session — without this, every save during a broken history backend
-// would spam toasts.
-let snapshotWarningShown = false;
-
-/**
- * Test-only: reset module-level session flags.
- * @public — accessed dynamically via `("__resetSessionFlags" in mod)` in tests,
- * which static analysis (knip) cannot trace; tag prevents a false unused-export report.
- */
-export function __resetSessionFlags(): void {
-  snapshotWarningShown = false;
-}
-
-/**
- * Sentinel prefix returned by the Rust `atomic_write_file` command when the
- * parent directory of the target path no longer exists (renamed/deleted
- * externally). Must stay in sync with `src-tauri/src/lib.rs`.
- */
+/** Pre-WI-14 sentinel prefix. Transitional only — delete with its tests once
+ *  the CommandError ratchet (`scripts/check-command-error-ratchet.mjs`) is 0. */
 const PARENT_MISSING_PREFIX = "PARENT_MISSING:";
 
+/**
+ * The vanished directory, or `null` if this failure is something else.
+ *
+ * Typed first (`code: "not-found"` + `detail.dir`), legacy prefix second. The
+ * prefix match is what the typed path replaced: it could not tell a real
+ * sentinel from an OS message starting with those characters, and any
+ * rewording of the Rust error silently disabled the Save As recovery.
+ */
 function parseParentMissingError(error: unknown): string | null {
+  if (isCommandErrorCode(error, "not-found")) return commandErrorDetailString(error, "dir");
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : null;
   if (!message || !message.startsWith(PARENT_MISSING_PREFIX)) return null;
   return message.slice(PARENT_MISSING_PREFIX.length);
 }
-
-type SaveType = "manual" | "auto";
 
 /** Normalized save payload plus the line-ending/hard-break styles applied. */
 interface NormalizedSaveContent {
@@ -89,8 +95,12 @@ interface NormalizedSaveContent {
  * Resolve the on-save line-ending and hard-break styles from the document's
  * detected state plus user settings, and apply them to produce the bytes that
  * will be written to disk.
+ *
+ * @public — exported for the Phase 1 all-ingress matrix (WI-1.9), which proves
+ * round-trip fidelity against the REAL save pipeline rather than a re-implementation
+ * that could drift from it.
  */
-function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
+export function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
   const doc = useDocumentStore.getState().getDocument(tabId);
   const settings = useSettingsStore.getState();
   const targetLineEnding = resolveLineEndingOnSave(
@@ -102,7 +112,12 @@ function normalizeSaveContent(tabId: string, content: string): NormalizedSaveCon
     settings.markdown.hardBreakStyleOnSave
   );
   const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
-  const output = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
+  const normalized = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
+  // Decision D1: the editor buffer is BOM-free and `hasBom` remembers that the
+  // file began with U+FEFF. The save is the READER of that flag — without this
+  // line it had writers and no readers, and a BOM'd file lost its mark on the
+  // first save.
+  const output = doc?.hasBom ? `\u{FEFF}${normalized}` : normalized;
   return { output, targetLineEnding, targetHardBreakStyle };
 }
 
@@ -142,7 +157,9 @@ function handleWriteError(
   // a notification every interval. The next manual save (or an external
   // signal like the file becoming missing) will surface the problem.
   if (saveType === "manual") {
-    const message = errorMessage(error);
+    // `commandErrorMessage`, not `errorMessage`: a typed rejection is a plain
+    // object, and `String(object)` renders it as "[object Object]".
+    const message = commandErrorMessage(error);
     // Pin: failure messages can be long (system errors include paths and
     // permission details). Users may want to copy them down.
     toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {
@@ -155,10 +172,17 @@ function handleWriteError(
 /**
  * Update stores after a successful write: file path, line metadata, saved
  * markers, deferred pending-save clear, tab path sync, and recent files.
+ *
+ * `editorSnapshot` is the PRE-normalisation content the caller handed to the
+ * writer — not a fresh store read, which would defeat the TOCTOU check: an
+ * edit landing mid-save must compare against what was actually written, and it
+ * cannot be reconstructed from `output` because `normalizeHardBreaks` is not
+ * invertible.
  */
 function applyPostSaveState(
   tabId: string,
   path: string,
+  editorSnapshot: string,
   normalized: NormalizedSaveContent,
   saveToken: ReturnType<typeof registerPendingSave>,
   saveType: SaveType
@@ -168,10 +192,11 @@ function applyPostSaveState(
   useDocumentStore
     .getState()
     .setLineMetadata(tabId, { lineEnding: targetLineEnding, hardBreakStyle: targetHardBreakStyle });
+  const snapshots = { editorSnapshot, diskSnapshot: output };
   if (saveType === "auto") {
-    useDocumentStore.getState().markAutoSaved(tabId, output);
+    useDocumentStore.getState().markAutoSaved(tabId, snapshots);
   } else {
-    useDocumentStore.getState().markSaved(tabId, output);
+    useDocumentStore.getState().markSaved(tabId, snapshots);
   }
 
   // Delay clearing pending save to allow late-arriving watcher events
@@ -182,6 +207,12 @@ function applyPostSaveState(
 
   // Update tab path for title sync
   useTabStore.getState().updateTabPath(tabId, path);
+  // WI-13.4: Save As across a workspace boundary reassigns ownership; the
+  // visible context follows when this is the active tab.
+  {
+    const ownerWindow = windowLabelForTab(tabId);
+    if (ownerWindow) reassignTabOwnershipForPath(ownerWindow, tabId, path);
+  }
 
   // Add to recent files (skip for auto-save to avoid noise)
   if (saveType === "manual") {
@@ -190,36 +221,18 @@ function applyPostSaveState(
 }
 
 /**
- * Record a version-history snapshot if enabled. Failures never block the save —
- * but the first per session warns the user so silent breakage is visible.
+ * Serialized per path by `saveToPath`. Everything here — the write, the store
+ * update, and the history snapshot — belongs to one save and must not
+ * interleave with another save to the same file.
  */
-async function recordHistorySnapshot(
-  path: string,
-  output: string,
-  saveType: SaveType
-): Promise<void> {
-  const { general } = useSettingsStore.getState();
-  if (!general.historyEnabled) return;
-  try {
-    await createSnapshot(path, output, saveType, buildHistorySettings(general));
-  } catch (historyError) {
-    historyWarn("Failed to create snapshot:", historyError);
-    // Don't fail the save operation if history fails — but warn the user
-    // once per session so silent breakage is visible (e.g., history dir
-    // permissions changed). Subsequent failures stay silent to avoid spam.
-    if (!snapshotWarningShown) {
-      snapshotWarningShown = true;
-      toast.warning(i18n.t("dialog:toast.historySnapshotFailed"), { pin: true });
-    }
-  }
-}
-
-export async function saveToPath(
+async function performSave(
   tabId: string,
   path: string,
   content: string,
-  saveType: SaveType = "manual"
+  saveType: SaveType
 ): Promise<boolean> {
+  // Normalized at RUN time, not submission time: a queued save must use the
+  // document's convention as of its turn, not as of when it was requested.
   const normalized = normalizeSaveContent(tabId, content);
 
   const ownership = resolveWritableFileOwnership(tabId, path);
@@ -238,18 +251,48 @@ export async function saveToPath(
     return handleWriteError(tabId, path, saveToken, saveType, error);
   }
 
-  applyPostSaveState(tabId, path, normalized, saveToken, saveType);
+  applyPostSaveState(tabId, path, content, normalized, saveToken, saveType);
   await recordHistorySnapshot(path, normalized.output, saveType);
 
   // Coherence capture (WI-1.6, human funnel): fire-and-forget — a failed
   // capture never fails the save; scan reconciliation heals gaps. The
   // trailing catch guards the contract even if captureWrite ever throws.
-  void captureWrite({
-    absolutePath: path,
-    content: normalized.output,
-    agent: { type: "human" },
-    intent: { kind: "editor-save", summary: saveType === "auto" ? "auto save" : "manual save" },
-  }).catch(() => {});
+  //
+  // OPT-IN (`general.coherenceCaptureOnSave`, default off). Capture assigns a
+  // Semantic Object identity, and doing so REWRITES the user's file to insert a
+  // `vmark:` frontmatter block — prepending a whole block when the file has
+  // none — and creates `.vmark/` in their workspace. Because autosave is on by
+  // default, leaving this ungated stamped users' markdown silently, without
+  // them ever pressing save. Editing someone's document is a decision they make.
+  if (useSettingsStore.getState().general.coherenceCaptureOnSave) {
+    void captureWrite({
+      absolutePath: path,
+      content: normalized.output,
+      agent: { type: "human" },
+      intent: { kind: "editor-save", summary: saveType === "auto" ? "auto save" : "manual save" },
+    }).catch(() => {});
+  }
 
   return true;
+}
+
+/**
+ * Write `content` to `path`, serialized against every other save to that path.
+ *
+ * Concurrent saves to one file used to race. A debounced auto-save and a
+ * manual save can be in flight together, and nothing ordered their
+ * `atomic_write_file` calls — so the OLDER content could land second and win
+ * on disk, after which `applyPostSaveState` recorded it as the saved snapshot
+ * and the document showed clean against bytes the user never wrote. The
+ * pending-save token protected cleanup bookkeeping; it never ordered writes.
+ */
+export function saveToPath(
+  tabId: string,
+  path: string,
+  content: string,
+  saveType: SaveType = "manual"
+): Promise<boolean> {
+  return serializeByPath(normalizePath(path), () =>
+    performSave(tabId, path, content, saveType)
+  );
 }

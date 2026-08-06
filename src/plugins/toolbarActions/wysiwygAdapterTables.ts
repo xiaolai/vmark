@@ -5,8 +5,16 @@
  * add/delete, per-column and whole-table alignment, and table formatting
  * (with success/no-op toast).
  *
+ * Key decisions:
+ *   - Table insertion is placed AFTER the current block via `blockInsertPos`;
+ *     `insertTable` alone splits the paragraph at the caret.
+ *   - The inserted table's SHAPE comes from `shared/blockTemplates`, the same
+ *     definition the Source adapter renders to markdown, so the two surfaces
+ *     cannot describe different tables.
+ *
  * @coordinates-with wysiwygAdapter.ts — main dispatcher narrows table action IDs and routes here
  * @coordinates-with tableUI/tableActions.tiptap.ts — underlying table commands
+ * @coordinates-with shared/blockTemplates.ts — NEW_TABLE
  * @module plugins/toolbarActions/wysiwygAdapterTables
  */
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -22,6 +30,8 @@ import {
   deleteCurrentTable,
   formatTable,
 } from "@/plugins/tableUI/tableActions.tiptap";
+import { blockInsertPos } from "@/plugins/shared/blockInsertPos";
+import { NEW_TABLE } from "@/plugins/shared/blockTemplates";
 import type { WysiwygToolbarContext } from "./types";
 
 /** Table-related action IDs handled in WYSIWYG mode. */
@@ -53,7 +63,15 @@ export function performWysiwygTableAction(
     case "insertTable":
     case "insertTableBlock":
       if (!context.editor) return false;
-      context.editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
+      // Placed AFTER the current block, matching alerts and details.
+      // `insertTable` alone splits the paragraph at the caret, opening the table
+      // in the middle of a sentence.
+      context.editor
+        .chain()
+        .focus()
+        .setTextSelection(blockInsertPos(context.editor.state.selection))
+        .insertTable({ ...NEW_TABLE })
+        .run();
       return true;
     case "addRowAbove":
       return view ? addRowAbove(view) : false;

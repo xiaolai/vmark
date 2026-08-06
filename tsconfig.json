@@ -19,6 +19,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
 
     /* Path alias (paths resolve relative to this tsconfig; TS 6 deprecated baseUrl) */
     "paths": {
@@ -30,6 +32,12 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
+    // Everything under a `__tests__` directory is test-support, not app
+    // code: it may use node APIs (fs, crypto, process) that the browser
+    // build has no types for. Excluding the DIRECTORY rather than only
+    // `*.test.ts` covers helper modules colocated with their suites —
+    // otherwise each one fails the build the first time CI reaches `tsc`.
+    "src/**/__tests__/**",
     "src/test/**",
     "src/bench/**"
   ],

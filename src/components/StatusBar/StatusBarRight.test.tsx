@@ -27,7 +27,7 @@ vi.mock("@/utils/wysiwygFlush", () => ({
   flushActiveWysiwygNow: () => mockFlush(),
 }));
 
-vi.mock("@/components/Terminal/terminalGate", () => ({
+vi.mock("@/services/terminal/terminalGate", () => ({
   requestToggleTerminal: () => mockRequestToggle(),
 }));
 

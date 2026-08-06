@@ -1,9 +1,13 @@
 //! Tauri command wrappers for menu operations.
 //!
 //! Purpose: Thin `#[tauri::command]` shims that delegate to the real
-//! implementations in `dynamic.rs`, `localized.rs`, and `accelerators.rs`
-//! (differential accelerator updates for Issue #825). Keeps command
-//! registration in `lib.rs` simple.
+//! implementations in `dynamic.rs`, `localized.rs`, `accelerators.rs`
+//! (differential accelerator updates for Issue #825), and `browser_menu_item.rs`.
+//! Keeps command registration in `lib.rs` simple.
+//!
+//! `rebuild_menu` is not purely a shim: it must re-apply browser-item visibility
+//! after `set_menu`, because a rebuild replaces the tree and strands any handle
+//! into the old one.
 //!
 //! @coordinates-with `lib.rs` (registers these commands in `generate_handler!`)
 
@@ -39,6 +43,11 @@ pub fn rebuild_menu(app: AppHandle, shortcuts: HashMap<String, String>) -> Resul
     // cache once the menu tree is built, so we don't seed anything here.
     let menu = create_localized_menu(&app, Some(&shortcuts)).map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
+    // The fresh tree has its own `new-browser-tab`, built to its default state, and
+    // any stashed handle now points into the discarded tree. Re-apply the desired
+    // visibility and drop the stale handle — otherwise a locale switch either
+    // resurrects a hidden item or leaves a dead duplicate to be inserted later.
+    super::browser_menu_item::reapply_browser_menu_visibility(&app)?;
 
     #[cfg(target_os = "macos")]
     crate::macos_menu::apply_menu_fixes(&app);

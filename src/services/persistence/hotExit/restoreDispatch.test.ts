@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   hasSecondaryWindows,
   restoreCommandFor,
+  salvageSessionPayload,
   HOT_EXIT_RESTORE,
   HOT_EXIT_RESTORE_MULTI,
 } from "./restoreDispatch";
@@ -51,5 +52,34 @@ describe("restoreCommandFor", () => {
     expect(restoreCommandFor(session([win(true), win(false)]))).toBe(
       HOT_EXIT_RESTORE_MULTI,
     );
+  });
+});
+
+// WI-3 — the dispatch module is the validated read boundary: payloads pass
+// through salvageSessionPayload before any restore command is chosen.
+describe("salvage → dispatch boundary (WI-3)", () => {
+  const fullWin = (label: string, is_main_window: boolean) => ({
+    window_label: label,
+    is_main_window,
+    active_tab_id: null,
+    tabs: [],
+  });
+
+  it("a salvaged multi-window session still routes to the multi-window command", () => {
+    const raw = {
+      version: 5,
+      timestamp: 1754200000,
+      vmark_version: "0.9.26",
+      windows: [fullWin("main", true), fullWin("secondary-1", false)],
+      workspace: null,
+    };
+    const result = salvageSessionPayload(raw);
+    if (result.status !== "ok") throw new Error(`expected ok, got ${result.status}`);
+    expect(restoreCommandFor(result.session)).toBe(HOT_EXIT_RESTORE_MULTI);
+  });
+
+  it("an unusable envelope never reaches command selection", () => {
+    const result = salvageSessionPayload({ version: 5, windows: "junk" });
+    expect(result.status).toBe("invalid");
   });
 });

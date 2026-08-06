@@ -8,7 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
 
@@ -21,14 +21,12 @@ function buildSourceImageBtn(iconSvg: string, title: string, onClick: () => void
  * Source image popup view.
  * Extends the base SourcePopupView for common functionality.
  */
-type MediaPopupStoreState = ReturnType<typeof useMediaPopupStore.getState>;
-
-export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> {
+export class SourceImagePopupView extends SourcePopupView<MediaPopupState> {
   // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
   private declare srcInput: HTMLInputElement;
   private declare altInput: HTMLInputElement;
 
-  constructor(view: EditorView, store: StoreApi<MediaPopupStoreState>) {
+  constructor(view: EditorView, store: StoreApi<MediaPopupState>) {
     super(view, store);
   }
 
@@ -77,7 +75,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 340,
       height: 72,
@@ -86,7 +84,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
     };
   }
 
-  protected onShow(state: MediaPopupStoreState): void {
+  protected onShow(state: MediaPopupState): void {
     // Set input values from store
     this.srcInput.value = state.mediaSrc;
     this.altInput.value = state.mediaAlt;
@@ -114,29 +112,29 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupStoreState> 
   }
 
   private handleSrcInput(): void {
-    useMediaPopupStore.getState().setSrc(this.srcInput.value);
+    this.store.getState().setSrc(this.srcInput.value);
   }
 
   private handleAltInput(): void {
-    useMediaPopupStore.getState().setAlt(this.altInput.value);
+    this.store.getState().setAlt(this.altInput.value);
   }
 
   private handleSave(): void {
-    saveImageChanges(this.editorView);
+    saveImageChanges(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }
 
   private handleBrowse(): void {
-    browseImage(this.editorView);
+    browseImage(this.editorView, this.store);
   }
 
   private handleCopy(): void {
-    copyImagePath();
+    copyImagePath(this.store);
   }
 
   private handleRemove(): void {
-    removeImage(this.editorView);
+    removeImage(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }

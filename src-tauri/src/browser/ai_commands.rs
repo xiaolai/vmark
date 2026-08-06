@@ -2,12 +2,28 @@
 //!
 //! Kept separate from the human browser lifecycle commands so an AI caller
 //! cannot opt into a weaker path with an untrusted boolean argument.
+//!
+//! WI-14: every refusal here is a [`CommandError`] with a `code`, not a bare
+//! `"APPROVAL_REQUIRED"`-style string. The MCP bridge used to recover the class
+//! with `String(error).includes("APPROVAL_REQUIRED")` at four call sites — a
+//! substring match that any URL carrying that token would have triggered, and
+//! that rewording the refusal would have silently disabled. The security-load-
+//! bearing distinction is `approval-required` (raise a prompt, then retry)
+//! versus `permission-denied` (no approval can unblock it).
+//!
+//! The refusal guards live in `ai_guards.rs` so each policy decision is
+//! unit-testable without a mock Tauri app.
 
-use crate::browser::ai_policy::{validate_ai_navigation_url, AiBrowserPolicy, AiSessionMode};
-use crate::browser::one_shot;
-use crate::browser::origin_guard::is_operation_granted;
+use super::ai_guards::{
+    ai_policy, authorize_shared_navigation, invalid_profile_name, lock_failure, parse_session_mode,
+    rejected_destination, require_ai_owned, require_browser_enabled, require_current_epoch,
+    surface_failure, tab_not_found, with_mcp_code,
+};
+use crate::browser::ai_policy::{validate_ai_navigation_url, AiSessionMode};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use tauri::{AppHandle, State};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -30,33 +46,6 @@ pub struct AiBrowserState {
     pub navigation_id: Option<String>,
 }
 
-fn ai_policy(state: &BrowserSurface) -> Result<AiBrowserPolicy, String> {
-    state
-        .ai_policy
-        .lock()
-        .map(|policy| *policy)
-        .map_err(|e| e.to_string())
-}
-
-fn authorize_shared_navigation(
-    state: &BrowserSurface,
-    tab_id: &str,
-    generation: u64,
-    url: &str,
-) -> Result<(), String> {
-    let grants = state.grants.lock().map_err(|e| e.to_string())?;
-    if is_operation_granted(url, "navigate", &grants) {
-        return Ok(());
-    }
-    drop(grants);
-    let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-    if one_shot::consume_one_shot(&mut shots, tab_id, generation, url, "navigate", None, None) {
-        Ok(())
-    } else {
-        Err("APPROVAL_REQUIRED".into())
-    }
-}
-
 #[tauri::command]
 pub async fn browser_ai_policy(
     app: AppHandle,
@@ -64,13 +53,9 @@ pub async fn browser_ai_policy(
     enabled: bool,
     session: String,
     allow_loopback: bool,
-) -> Result<(), String> {
-    let session = match session.as_str() {
-        "sandbox" => AiSessionMode::Sandbox,
-        "shared" => AiSessionMode::Shared,
-        _ => return Err("INVALID_POLICY".into()),
-    };
-    let mut policy = state.ai_policy.lock().map_err(|e| e.to_string())?;
+) -> Result<(), CommandError> {
+    let session = parse_session_mode(&session)?;
+    let mut policy = state.ai_policy.lock().map_err(lock_failure)?;
     let changed = policy.enabled != enabled
         || policy.session != session
         || policy.allow_loopback != allow_loopback;
@@ -99,31 +84,28 @@ pub async fn browser_ai_create(
     // profile is per-use user-approved — a matching profile-open grant is consumed
     // authoritatively below, BEFORE the profile is applied (H1).
     profile: Option<String>,
-) -> Result<AiNavigationResult, String> {
+) -> Result<AiNavigationResult, CommandError> {
     let policy = ai_policy(&state)?;
-    if !policy.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
+    require_browser_enabled(&policy)?;
     let url = validate_ai_navigation_url(&url, policy.allow_loopback)
-        .map_err(|_| "SSRF_BLOCKED".to_string())?;
+        .map_err(|error| rejected_destination(error, &url))?;
     let mode = policy.automation_mode();
     let window_label = webview.label().to_string();
     let existing_ticket = {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
         if let Some(existing_mode) = reg.automation_mode(&tab_id) {
             if existing_mode != mode {
-                return Err("TAB_PROVENANCE_MISMATCH".into());
+                return Err(with_mcp_code(
+                    localized_error!(ErrorCode::Conflict, "errors.browser.tabProvenanceMismatch"),
+                    "TAB_PROVENANCE_MISMATCH",
+                ));
             }
-            if reg.policy_epoch(&tab_id) != Some(policy.epoch) {
-                return Err("POLICY_STALE".into());
-            }
+            require_current_epoch(reg.policy_epoch(&tab_id), policy.epoch)?;
             reg.navigation_ticket(&tab_id)
                 .map(|existing| existing.id.clone())
         } else {
-            reg.create_with_mode(&tab_id, &window_label, mode)
-                .map_err(|e| format!("{e:?}"))?;
-            reg.set_policy_epoch(&tab_id, policy.epoch)
-                .map_err(|e| format!("{e:?}"))?;
+            reg.create_with_mode(&tab_id, &window_label, mode)?;
+            reg.set_policy_epoch(&tab_id, policy.epoch)?;
             None
         }
     };
@@ -137,19 +119,16 @@ pub async fn browser_ai_create(
         let generation = state
             .registry
             .lock()
-            .map_err(|e| e.to_string())?
+            .map_err(lock_failure)?
             .generation(&tab_id)
             .unwrap_or(0);
         authorize_shared_navigation(&state, &tab_id, generation, &url)?;
     }
     let ticket = {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let ticket = reg
-            .begin_navigation(&tab_id, &url)
-            .map_err(|e| format!("{e:?}"))?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
+        let ticket = reg.begin_navigation(&tab_id, &url)?;
         if mode == AutomationMode::AiShared {
-            reg.set_shared_navigation_approval(&tab_id, &url)
-                .map_err(|e| format!("{e:?}"))?;
+            reg.set_shared_navigation_approval(&tab_id, &url)?;
         }
         ticket
     };
@@ -160,11 +139,18 @@ pub async fn browser_ai_create(
     // content). The frontend raises the approval; the driver is the authority.
     let create_profile = match (mode, profile) {
         (AutomationMode::AiSandbox, Some(name)) => {
-            crate::browser::profile_open::validate_profile(&name)?;
-            let mut opens = state.profile_opens.lock().map_err(|e| e.to_string())?;
+            crate::browser::profile_open::validate_profile(&name)
+                .map_err(|reason| invalid_profile_name(&name, &reason))?;
+            let mut opens = state.profile_opens.lock().map_err(lock_failure)?;
             if !crate::browser::profile_open::consume_profile_open(&mut opens, &name, &url) {
-                state.forget_tab(&tab_id)?;
-                return Err("PROFILE_NOT_APPROVED".into());
+                state.forget_tab(&tab_id).map_err(lock_failure)?;
+                return Err(with_mcp_code(
+                    localized_error!(
+                        ErrorCode::PermissionDenied,
+                        "errors.browser.profileNotApproved"
+                    ),
+                    "PROFILE_NOT_APPROVED",
+                ));
             }
             drop(opens);
             // Pin READ confinement to the approved origin for the tab's whole life
@@ -173,9 +159,8 @@ pub async fn browser_ai_create(
             state
                 .registry
                 .lock()
-                .map_err(|e| e.to_string())?
-                .set_profile_origin(&tab_id, &url)
-                .map_err(|e| format!("{e:?}"))?;
+                .map_err(lock_failure)?
+                .set_profile_origin(&tab_id, &url)?;
             Some(name)
         }
         _ => None,
@@ -188,8 +173,8 @@ pub async fn browser_ai_create(
         mode,
         create_profile,
     ) {
-        state.forget_tab(&tab_id)?;
-        return Err(error);
+        state.forget_tab(&tab_id).map_err(lock_failure)?;
+        return Err(surface_failure(&error));
     }
     Ok(AiNavigationResult {
         tab_id,
@@ -203,27 +188,16 @@ pub async fn browser_ai_navigate(
     state: State<'_, BrowserSurface>,
     tab_id: String,
     url: String,
-) -> Result<AiNavigationResult, String> {
+) -> Result<AiNavigationResult, CommandError> {
     let policy = ai_policy(&state)?;
-    if !policy.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
+    require_browser_enabled(&policy)?;
     let url = validate_ai_navigation_url(&url, policy.allow_loopback)
-        .map_err(|_| "SSRF_BLOCKED".to_string())?;
+        .map_err(|error| rejected_destination(error, &url))?;
     let (mode, previous_state, previous_committed_url, previous_ticket, previous_shared_origin) = {
-        let reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let mode = match reg.automation_mode(&tab_id) {
-            Some(mode @ AutomationMode::AiSandbox) => mode,
-            Some(mode @ AutomationMode::AiShared) => mode,
-            Some(AutomationMode::Human) => return Err("TAB_NOT_AI_OWNED".into()),
-            None => return Err("TAB_NOT_FOUND".into()),
-        };
-        if reg.policy_epoch(&tab_id) != Some(policy.epoch) {
-            return Err("POLICY_STALE".into());
-        }
-        let previous_state = reg
-            .state(&tab_id)
-            .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
+        let reg = state.registry.lock().map_err(lock_failure)?;
+        let mode = require_ai_owned(reg.automation_mode(&tab_id))?;
+        require_current_epoch(reg.policy_epoch(&tab_id), policy.epoch)?;
+        let previous_state = reg.state(&tab_id).ok_or_else(tab_not_found)?;
         let previous_committed_url = reg.committed_url(&tab_id).map(str::to_owned);
         let previous_ticket = reg.navigation_ticket(&tab_id).cloned();
         let previous_shared_origin = reg.shared_navigation_origin(&tab_id);
@@ -236,25 +210,22 @@ pub async fn browser_ai_navigate(
         )
     };
     let generation = {
-        let reg = state.registry.lock().map_err(|e| e.to_string())?;
+        let reg = state.registry.lock().map_err(lock_failure)?;
         reg.generation(&tab_id).unwrap_or(0)
     };
     if mode == AutomationMode::AiShared {
         authorize_shared_navigation(&state, &tab_id, generation, &url)?;
     }
     let ticket = {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let ticket = reg
-            .begin_navigation(&tab_id, &url)
-            .map_err(|e| format!("{e:?}"))?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
+        let ticket = reg.begin_navigation(&tab_id, &url)?;
         if mode == AutomationMode::AiShared {
-            reg.set_shared_navigation_approval(&tab_id, &url)
-                .map_err(|e| format!("{e:?}"))?;
+            reg.set_shared_navigation_approval(&tab_id, &url)?;
         }
         ticket
     };
     if let Err(error) = surface::navigate(&app, tab_id.clone(), url) {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
         let _ = reg.rollback_navigation(
             &tab_id,
             &ticket.id,
@@ -263,7 +234,7 @@ pub async fn browser_ai_navigate(
             previous_ticket,
             previous_shared_origin,
         );
-        return Err(error);
+        return Err(surface_failure(&error));
     }
     Ok(AiNavigationResult {
         tab_id,
@@ -275,11 +246,9 @@ pub async fn browser_ai_navigate(
 pub async fn browser_ai_state(
     state: State<'_, BrowserSurface>,
     tab_id: String,
-) -> Result<AiBrowserState, String> {
-    let reg = state.registry.lock().map_err(|e| e.to_string())?;
-    let mode = reg
-        .automation_mode(&tab_id)
-        .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
+) -> Result<AiBrowserState, CommandError> {
+    let reg = state.registry.lock().map_err(lock_failure)?;
+    let mode = reg.automation_mode(&tab_id).ok_or_else(tab_not_found)?;
     let generation = reg.generation(&tab_id).unwrap_or(0);
     let lifecycle = reg
         .state(&tab_id)

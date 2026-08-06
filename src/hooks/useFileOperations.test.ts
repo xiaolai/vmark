@@ -11,7 +11,7 @@ const {
   mockInvoke, mockClose, mockCloseTab, mockDetachTab, mockReadTextFile,
   mockInitDocument, mockSetLineMetadata, mockAddFile,
   mockCreateTab, mockSetActiveTab,
-  mockUseFileShortcuts,
+  mockUseOpenFileEvent,
 } = vi.hoisted(() => ({
   mockInvoke: vi.fn(() => Promise.resolve()),
   mockClose: vi.fn(() => Promise.resolve()),
@@ -23,7 +23,7 @@ const {
   mockAddFile: vi.fn(),
   mockCreateTab: vi.fn(() => "new-tab-id"),
   mockSetActiveTab: vi.fn(),
-  mockUseFileShortcuts: vi.fn(),
+  mockUseOpenFileEvent: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
@@ -64,7 +64,7 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: vi.fn(() => ({
-      initDocument: mockInitDocument,
+      ingestExternalContent: mockInitDocument,
       setLineMetadata: mockSetLineMetadata,
     })),
   },
@@ -90,7 +90,7 @@ vi.mock("@/utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ lineEnding: "lf", hasMixedLineEndings: false })),
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   findExistingTabForPath: vi.fn(() => null),
 }));
 
@@ -102,8 +102,8 @@ vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("./useFileShortcuts", () => ({
-  useFileShortcuts: mockUseFileShortcuts,
+vi.mock("./useOpenFileEvent", () => ({
+  useOpenFileEvent: mockUseOpenFileEvent,
 }));
 
 import { moveTabToNewWorkspaceWindow, openFileInNewTabCore, useFileOperations } from "./useFileOperations";
@@ -271,7 +271,9 @@ describe("openFileInNewTabCore", () => {
 
     expect(mockCreateTab).toHaveBeenCalledWith("main", "/path/to/file.md");
     expect(mockReadTextFile).toHaveBeenCalledWith("/path/to/file.md");
-    expect(mockInitDocument).toHaveBeenCalledWith("new-tab-id", "# Hello World", "/path/to/file.md");
+    expect(mockInitDocument).toHaveBeenCalledWith("new-tab-id", "# Hello World", "disk-open", {
+      filePath: "/path/to/file.md",
+    });
     expect(mockAddFile).toHaveBeenCalledWith("/path/to/file.md");
   });
 
@@ -311,19 +313,19 @@ describe("useFileOperations hook", () => {
     vi.clearAllMocks();
   });
 
-  it("delegates to useFileShortcuts with the current window label", () => {
+  it("delegates to the open-file event listener", () => {
     renderHook(() => useFileOperations());
 
-    expect(mockUseFileShortcuts).toHaveBeenCalledWith("main");
+    expect(mockUseOpenFileEvent).toHaveBeenCalled();
   });
 
-  it("passes window label from context to useFileShortcuts", async () => {
+  it("mounts the open-file event listener from context", async () => {
     const { useWindowLabel } = await import("@/contexts/WindowContext");
     vi.mocked(useWindowLabel).mockReturnValue("doc-1");
 
     renderHook(() => useFileOperations());
 
-    expect(mockUseFileShortcuts).toHaveBeenCalledWith("doc-1");
+    expect(mockUseOpenFileEvent).toHaveBeenCalled();
 
     // Reset to default
     vi.mocked(useWindowLabel).mockReturnValue("main");

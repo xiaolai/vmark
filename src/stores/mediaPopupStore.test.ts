@@ -199,3 +199,103 @@ describe("mediaPopupStore", () => {
     expect(useMediaPopupStore.getState().mediaPoster).toBe("new-poster.jpg");
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("mediaPopupStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useMediaPopupStore.getState().closePopup();
+  });
+
+  const initialData = {
+    isOpen: false,
+    mediaSrc: "",
+    mediaAlt: "",
+    mediaTitle: "",
+    mediaNodePos: -1,
+    mediaNodeType: "block_video",
+    mediaDimensions: null,
+    mediaPoster: "",
+    anchorRect: null,
+  };
+
+  function dataOf(s: ReturnType<typeof useMediaPopupStore.getState>) {
+    const {
+      isOpen, mediaSrc, mediaAlt, mediaTitle, mediaNodePos,
+      mediaNodeType, mediaDimensions, mediaPoster, anchorRect,
+    } = s;
+    return {
+      isOpen, mediaSrc, mediaAlt, mediaTitle, mediaNodePos,
+      mediaNodeType, mediaDimensions, mediaPoster, anchorRect,
+    };
+  }
+
+  it("no leak across sessions: open video A with extras → close → open bare image B", () => {
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: "a.mp4",
+      mediaTitle: "A",
+      mediaNodePos: 10,
+      mediaNodeType: "block_video",
+      mediaPoster: "poster.jpg",
+      mediaDimensions: { width: 1, height: 2 },
+      anchorRect: rect,
+    });
+    useMediaPopupStore.getState().setAlt("A alt");
+    useMediaPopupStore.getState().closePopup();
+
+    useMediaPopupStore.getState().openPopup({
+      mediaSrc: "b.png",
+      mediaNodePos: 20,
+      mediaNodeType: "image",
+      anchorRect: rect,
+    });
+
+    expect(dataOf(useMediaPopupStore.getState())).toEqual({
+      isOpen: true,
+      mediaSrc: "b.png",
+      mediaAlt: "",
+      mediaTitle: "",
+      mediaNodePos: 20,
+      mediaNodeType: "image",
+      mediaDimensions: null,
+      mediaPoster: "",
+      anchorRect: rect,
+    });
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useMediaPopupStore.getState().openPopup({
+        mediaSrc: `s${i}.mp4`,
+        mediaNodePos: i,
+        mediaNodeType: "block_audio",
+        anchorRect: rect,
+      });
+      useMediaPopupStore.getState().closePopup();
+    }
+    expect(dataOf(useMediaPopupStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useMediaPopupStore.getState().openPopup({
+        mediaSrc: "m.mp4",
+        mediaNodePos: 3,
+        mediaNodeType: "block_video",
+        anchorRect: rect,
+      });
+      expect(dataOf(useMediaPopupStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useMediaPopupStore.getState().openPopup({
+        mediaSrc: "m.mp4",
+        mediaNodePos: 3,
+        mediaNodeType: "block_video",
+        anchorRect: rect,
+      });
+      useMediaPopupStore.setState(useMediaPopupStore.getInitialState());
+      expect(dataOf(useMediaPopupStore.getState())).toEqual(initialData);
+    });
+  });
+});

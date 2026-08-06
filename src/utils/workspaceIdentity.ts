@@ -226,13 +226,18 @@ export function createWorkspaceInstance(options: {
     rootId: options.root?.rootId ?? null,
     rootPath: options.root?.rootPath ?? null,
     displayName: options.displayName ?? workspaceInstanceDisplayName(kind, options.root),
-    displayNameKey,
+    // Both keys are omitted rather than written as `undefined`: the rail
+    // documents `displayNameKey` as "prefer it WHEN PRESENT", and an instance
+    // whose root is fine simply has no `unavailableRoot` claim to make.
+    ...(displayNameKey !== undefined ? { displayNameKey } : {}),
     ownerWindowLabel: options.ownerWindowLabel,
     createdFrom: options.createdFrom,
     activeTabId: null,
     tabIds: [],
     closedTabIds: [],
-    unavailableRoot: options.unavailableRoot,
+    ...(options.unavailableRoot !== undefined
+      ? { unavailableRoot: options.unavailableRoot }
+      : {}),
   };
 }
 

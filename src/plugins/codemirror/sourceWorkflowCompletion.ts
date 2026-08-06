@@ -5,15 +5,16 @@
  *
  *   Activates only when:
  *     1. The cursor is inside an unclosed/closing `${{ }}` expression
- *     2. The ghaWorkflowPanelStore has a parsed workflow IR (i.e.,
- *        the file is a recognized workflow)
+ *     2. The workflowStore gha slice has a parsed workflow IR (i.e.,
+ *        the file is a recognized workflow — sourceGhaIrSync wrote it)
  *
  *   Otherwise returns null and lets other autocomplete sources run.
  *   The pure-logic core is in `lib/ghaWorkflow/completion/expressionCompletion.ts`;
  *   this file owns only the CodeMirror plumbing (CompletionContext →
  *   CompletionResult) and the IR lookup.
  *
- * @coordinates-with src/stores/ghaWorkflowPanelStore.ts — IR source
+ * @coordinates-with codemirror/workflowPort.ts — the parsed IR, injected
+ * @coordinates-with codemirror/sourceGhaIrSync.ts — writes the IR this reads
  * @coordinates-with src/lib/ghaWorkflow/completion/expressionCompletion.ts — logic
  * @module plugins/codemirror/sourceWorkflowCompletion
  */
@@ -28,7 +29,7 @@ import {
   completeAtPosition,
   type CompletionItem,
 } from "@/lib/ghaWorkflow/completion/expressionCompletion";
-import { useWorkflowStore } from "@/stores/workflowStore";
+import { workflowPort } from "./workflowPort";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 
 /**
@@ -78,21 +79,27 @@ function toCmCompletion(item: CompletionItem): Completion {
       type = "variable";
       break;
   }
+  // `detail` and `type` are omitted when we have nothing to say: CodeMirror
+  // reads their presence to decide whether to render the detail text and the
+  // category icon at all.
   return {
     label: item.label,
-    detail: item.detail,
-    type,
+    ...(item.detail !== undefined ? { detail: item.detail } : {}),
+    ...(type !== undefined ? { type } : {}),
   };
 }
 
 /**
  * The raw completion source, exported for unit testing without
- * pulling in the surrounding CodeMirror extension.
+ * pulling in the surrounding CodeMirror extension. Reads THIS tab's
+ * IR — the gha slice is keyed per tab so a second split pane cannot
+ * poison completions with another document's workflow.
  */
 export function workflowCompletionSource(
+  tabId: string,
   context: CompletionContext,
 ): CompletionResult | null {
-  const { workflow } = useWorkflowStore.getState().gha;
+  const workflow = workflowPort().getState().gha.byTab[tabId] ?? null;
   if (!workflow) return null;
 
   const text = context.state.doc.toString();
@@ -136,9 +143,9 @@ export function workflowCompletionSource(
  * and includes only this provider so it doesn't accidentally fire
  * for non-workflow YAML.
  */
-export function workflowCompletionExtension() {
+export function workflowCompletionExtension(tabId: string) {
   return autocompletion({
-    override: [workflowCompletionSource],
+    override: [(context) => workflowCompletionSource(tabId, context)],
     activateOnTyping: true,
     closeOnBlur: true,
     icons: false,

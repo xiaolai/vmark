@@ -34,13 +34,11 @@ vi.mock("@/stores/settingsStore", () => ({
 
 import {
   clearFormattingInView,
-  getCurrentHeadingLevel,
-  increaseHeadingLevel,
-  decreaseHeadingLevel,
   toggleBlockquote,
   handleWysiwygTransformCase,
   toggleQuoteStyleAtCursor,
 } from "./wysiwygAdapterFormatting";
+import { getCurrentHeadingLevel, increaseHeadingLevel, decreaseHeadingLevel } from "./wysiwygHeadingLevel";
 import { handleRemoveBlockquote } from "@/plugins/formatToolbar/nodeActions.tiptap";
 import { computeQuoteToggle } from "@/lib/cjkFormatter/quoteToggle";
 import { MultiSelection } from "@/plugins/multiCursor";
@@ -206,95 +204,88 @@ describe("getCurrentHeadingLevel", () => {
 
 // ---------- increaseHeadingLevel ----------
 
-describe("increaseHeadingLevel", () => {
-  function createEditor(headingLevel: number | null) {
-    const run = vi.fn();
-    const chain = vi.fn(() => ({
-      focus: vi.fn(() => ({
-        setHeading: vi.fn(() => ({ run })),
-        setParagraph: vi.fn(() => ({ run })),
-      })),
-    }));
+/**
+ * Records WHICH level each command asks for, not merely that it asked.
+ *
+ * The previous mocks only checked `chain` was called, so four of these five
+ * cases passed unchanged when the direction was inverted — the suite could not
+ * tell H3→H2 from H3→H4. Capturing the argument is what makes the convention
+ * testable at all.
+ */
+function createHeadingEditor(headingLevel: number | null) {
+  // `run()` reports whether ProseMirror applied the conversion, and the
+  // handlers now return it directly — so the mock must answer, not just record.
+  const run = vi.fn(() => true);
+  const setHeading = vi.fn(() => ({ run }));
+  const setParagraph = vi.fn(() => ({ run }));
+  const chain = vi.fn(() => ({ focus: vi.fn(() => ({ setHeading, setParagraph })) }));
 
-    const parentType = headingLevel !== null ? "heading" : "paragraph";
-    const attrs = headingLevel !== null ? { level: headingLevel } : {};
+  const parentType = headingLevel !== null ? "heading" : "paragraph";
+  const attrs = headingLevel !== null ? { level: headingLevel } : {};
 
-    return {
-      editor: {
-        state: {
-          selection: {
-            $from: { parent: { type: { name: parentType }, attrs } },
-          },
-        },
-        chain,
-      } as unknown as TiptapEditor,
+  return {
+    editor: {
+      state: { selection: { $from: { parent: { type: { name: parentType }, attrs } } } },
       chain,
-      run,
-    };
-  }
+    } as unknown as TiptapEditor,
+    chain,
+    setHeading,
+    setParagraph,
+    run,
+  };
+}
 
-  it("sets heading to level 6 when currently a paragraph", () => {
-    const { editor, chain } = createEditor(null);
+describe("increaseHeadingLevel", () => {
+  it("turns a paragraph into H1 — the lowest level, not the smallest heading", () => {
+    const { editor, setHeading } = createHeadingEditor(null);
     expect(increaseHeadingLevel(editor)).toBe(true);
-    expect(chain).toHaveBeenCalled();
+    expect(setHeading).toHaveBeenCalledWith({ level: 1 });
   });
 
-  it("promotes H3 to H2", () => {
-    const { editor, chain } = createEditor(3);
+  it("increases the LEVEL NUMBER: H3 becomes H4", () => {
+    const { editor, setHeading } = createHeadingEditor(3);
     expect(increaseHeadingLevel(editor)).toBe(true);
-    expect(chain).toHaveBeenCalled();
+    expect(setHeading).toHaveBeenCalledWith({ level: 4 });
   });
 
-  it("returns false when already at H1 (cannot go higher)", () => {
-    const { editor } = createEditor(1);
+  it("clamps at H6 rather than wrapping back to a paragraph", () => {
+    const { editor, setHeading, setParagraph } = createHeadingEditor(6);
     expect(increaseHeadingLevel(editor)).toBe(false);
+    expect(setHeading).not.toHaveBeenCalled();
+    expect(setParagraph).not.toHaveBeenCalled();
   });
 });
 
 // ---------- decreaseHeadingLevel ----------
 
 describe("decreaseHeadingLevel", () => {
-  function createEditor(headingLevel: number | null) {
-    const run = vi.fn();
-    const chain = vi.fn(() => ({
-      focus: vi.fn(() => ({
-        setHeading: vi.fn(() => ({ run })),
-        setParagraph: vi.fn(() => ({ run })),
-      })),
-    }));
-
-    const parentType = headingLevel !== null ? "heading" : "paragraph";
-    const attrs = headingLevel !== null ? { level: headingLevel } : {};
-
-    return {
-      editor: {
-        state: {
-          selection: {
-            $from: { parent: { type: { name: parentType }, attrs } },
-          },
-        },
-        chain,
-      } as unknown as TiptapEditor,
-      chain,
-      run,
-    };
-  }
-
   it("returns false when current node is not a heading", () => {
-    const { editor } = createEditor(null);
+    const { editor } = createHeadingEditor(null);
     expect(decreaseHeadingLevel(editor)).toBe(false);
   });
 
-  it("demotes H2 to H3", () => {
-    const { editor, chain } = createEditor(2);
+  it("decreases the LEVEL NUMBER: H2 becomes H1", () => {
+    const { editor, setHeading } = createHeadingEditor(2);
     expect(decreaseHeadingLevel(editor)).toBe(true);
-    expect(chain).toHaveBeenCalled();
+    expect(setHeading).toHaveBeenCalledWith({ level: 1 });
   });
 
-  it("converts H6 to paragraph", () => {
-    const { editor, chain } = createEditor(6);
+  it("converts H1 to a paragraph — the bottom of the sequence", () => {
+    const { editor, setParagraph } = createHeadingEditor(1);
     expect(decreaseHeadingLevel(editor)).toBe(true);
-    expect(chain).toHaveBeenCalled();
+    expect(setParagraph).toHaveBeenCalled();
+  });
+
+  it("is the exact inverse of increase, so the pair round-trips", () => {
+    for (const level of [1, 2, 3, 4, 5]) {
+      const up = createHeadingEditor(level);
+      expect(increaseHeadingLevel(up.editor)).toBe(true);
+      expect(up.setHeading).toHaveBeenCalledWith({ level: level + 1 });
+
+      const down = createHeadingEditor(level + 1);
+      expect(decreaseHeadingLevel(down.editor)).toBe(true);
+      expect(down.setHeading).toHaveBeenCalledWith({ level });
+    }
   });
 });
 
@@ -306,6 +297,7 @@ describe("toggleBlockquote", () => {
   });
 
   it("removes blockquote when already active", () => {
+    vi.mocked(handleRemoveBlockquote).mockReturnValue(true);
     const editor = {
       isActive: vi.fn(() => true),
       view: { state: {}, dispatch: vi.fn(), focus: vi.fn() },
@@ -313,6 +305,16 @@ describe("toggleBlockquote", () => {
 
     expect(toggleBlockquote(editor)).toBe(true);
     expect(handleRemoveBlockquote).toHaveBeenCalled();
+  });
+
+  it("propagates the unwrap helper's failure instead of claiming success", () => {
+    vi.mocked(handleRemoveBlockquote).mockReturnValue(false);
+    const editor = {
+      isActive: vi.fn(() => true),
+      view: { state: {}, dispatch: vi.fn(), focus: vi.fn() },
+    } as unknown as TiptapEditor;
+
+    expect(toggleBlockquote(editor)).toBe(false);
   });
 
   it("returns false when blockquote node type does not exist", () => {

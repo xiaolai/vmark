@@ -465,14 +465,20 @@
   margin: 0;
 }
 
-/* Fit-to-width: constrain tables to content width with word wrapping */
+/* Fit-to-width: pin tables to the editor width with content-proportional
+   columns (#1182). AUTO layout lets the browser distribute widths by
+   content; FIXED layout (without a <colgroup>) splits columns equally,
+   wasting space on short columns while long ones wrap tall.
+   overflow-wrap: anywhere participates in min-content intrinsic sizing
+   (break-word does not), so long unbreakable tokens like URLs wrap
+   instead of pushing the table past 100%. */
 .table-fit-to-width .tiptap-editor .table-scroll-wrapper table {
   width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
 }
 .table-fit-to-width .tiptap-editor .table-scroll-wrapper td,
 .table-fit-to-width .tiptap-editor .table-scroll-wrapper th {
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 .table-fit-to-width .tiptap-editor .table-scroll-wrapper td img {
@@ -483,11 +489,11 @@
 /* Per-table fit-to-width: same properties applied via context menu toggle */
 .tiptap-editor .table-scroll-wrapper.table-fit-to-width table {
   width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
 }
 .tiptap-editor .table-scroll-wrapper.table-fit-to-width td,
 .tiptap-editor .table-scroll-wrapper.table-fit-to-width th {
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 .tiptap-editor .table-scroll-wrapper.table-fit-to-width td img {

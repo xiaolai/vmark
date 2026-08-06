@@ -12,15 +12,26 @@
 
 mod coherence_answers;
 pub mod commands;
+mod connection;
 mod delivery;
+mod frames;
+mod handshake;
+pub(crate) mod managed;
+mod message_loop;
+mod principal;
 mod routing;
 mod server;
 mod state;
+mod token_compare;
+mod token_dir;
+mod token_file;
 mod types;
+mod wake_retry;
 mod window_routing;
 
 // Re-export public API used by other modules (mcp_server.rs, lib.rs)
 pub use commands::{client_count, connected_clients};
+pub use managed::McpBridgeState;
 pub use server::{start_bridge, stop_bridge};
-pub use state::remove_port_file;
+pub use token_file::remove_port_file;
 pub use types::ConnectedClientInfo;

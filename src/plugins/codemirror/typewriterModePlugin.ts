@@ -11,12 +11,12 @@
  *   - Smooth scrolling for a polished feel
  *
  * @coordinates-with typewriterMode/tiptap.ts — WYSIWYG counterpart
- * @coordinates-with stores/editorStore.ts — reads typewriterMode state
+ * @coordinates-with plugins/shared/hostViewModes.ts — reads typewriterMode
  * @module plugins/codemirror/typewriterModePlugin
  */
 
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
-import { useUIStore } from "@/stores/uiStore";
+import { hostViewModes } from "@/plugins/shared/hostViewModes";
 import { isCodeMirrorComposing } from "@/utils/imeGuard";
 
 // Threshold for scrolling (pixels from target position)
@@ -37,7 +37,7 @@ export function createSourceTypewriterPlugin() {
 
       update(update: ViewUpdate) {
         // Check if typewriter mode is enabled
-        if (!useUIStore.getState().typewriterModeEnabled) return;
+        if (!hostViewModes.typewriterMode()) return;
 
         // Only scroll if selection changed
         if (!update.selectionSet) return;

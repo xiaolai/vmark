@@ -8,16 +8,17 @@
  * and newly-enabled formats remount via the Editor's `${tabId}-${formatId}`
  * remount key.
  *
- * Lives in utils/ rather than stores/ because it only orchestrates —
- * no state of its own.
+ * Lives in services/formats/ (ADR-013): it orchestrates stores + registry with
+ * no state of its own and is React-free. The `useFormatSettingsBridge` hook that
+ * mounts this subscription lives in `hooks/useFormatSettingsBridge.ts`.
  *
  * @coordinates-with stores/settingsStore.ts — reads `formats.*` toggles
  * @coordinates-with lib/formats/index.ts — calls rebootstrapFormats
  * @coordinates-with stores/tabStore.ts — calls recomputeAllFormatIds
- * @module utils/formatSettingsBridge
+ * @coordinates-with hooks/useFormatSettingsBridge.ts — the React mount wrapper
+ * @module services/formats/formatSettingsBridge
  */
 
-import { useEffect } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { rebootstrapFormats, setFormatAssociationsProvider } from "@/lib/formats";
@@ -90,9 +91,15 @@ export function installFormatSettingsSubscription(): () => void {
     const nextAssociations = state.formats.associations;
 
     const togglesChanged = !togglesEqual(lastToggles, nextToggles);
-    // Reference comparison is sufficient: updateFormatsSetting replaces the
-    // whole object, so a real change always yields a new reference.
-    const associationsChanged = lastAssociations !== nextAssociations;
+    // Compare by VALUE, not reference. Reference comparison held only for the
+    // same-window path (updateFormatsSetting replaces the object). The
+    // cross-window path parses JSON, so every storage event hands this
+    // subscriber a fresh-but-identical `associations` object — making any
+    // unrelated `formats` change (even the internal `upgradeNudgeShown` flag)
+    // trigger a full recomputeAllFormatIds() across every open tab.
+    const associationsChanged =
+      lastAssociations !== nextAssociations &&
+      JSON.stringify(lastAssociations) !== JSON.stringify(nextAssociations);
     if (!togglesChanged && !associationsChanged) return;
 
     lastToggles = nextToggles;
@@ -101,13 +108,4 @@ export function installFormatSettingsSubscription(): () => void {
     if (togglesChanged) rebootstrapFormats(nextToggles);
     useTabStore.getState().recomputeAllFormatIds();
   });
-}
-
-/**
- * React hook variant — mount inside document windows only (see
- * `DocumentWindowHooks` in App.tsx). Avoids paying the subscription
- * cost in Settings / PDF-export windows that never carry open tabs.
- */
-export function useFormatSettingsBridge(): void {
-  useEffect(() => installFormatSettingsSubscription(), []);
 }

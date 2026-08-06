@@ -2,7 +2,7 @@
  * History Types and Pure Helpers
  *
  * Type definitions, constants, and pure utility functions for document history.
- * Async operations are in hooks/useHistoryOperations and hooks/useHistoryRecovery.
+ * Async operations are in services/history/historyOperations and services/history/historyRecovery.
  */
 
 import { getFileName } from "./pathUtils";

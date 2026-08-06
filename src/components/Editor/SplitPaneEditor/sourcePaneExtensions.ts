@@ -45,12 +45,15 @@ export function diagnosticToCodemirror(
   } else {
     to = Math.min(from + 1, lineInfo.to);
   }
+  // No `source` key for a diagnostic with no rule id — CodeMirror renders the
+  // source as a badge next to the message, and an empty badge is not the same
+  // as no badge.
   return {
     from,
     to: to <= from ? Math.min(from + 1, lineInfo.to) : to,
     severity: d.severity,
     message: d.message,
-    source: d.ruleId,
+    ...(d.ruleId !== undefined ? { source: d.ruleId } : {}),
   };
 }
 
@@ -81,6 +84,11 @@ export interface BuildExtensionsArgs {
   lineWrapCompartment: Compartment;
   /** Compartment owning the lazily-loaded language pack. */
   languageCompartment: Compartment;
+  /** Compartment owning the lazily-loaded per-format extras
+   *  (FormatConfig.loadExtraExtensions). Optional: panes for formats
+   *  without extras skip the slot entirely — the caller reads the format's
+   *  slot and forwards whatever is there, so `| undefined` is that answer. */
+  extrasCompartment?: Compartment | undefined;
   /** Persist-on-change listener (writes documentStore.setContent). */
   persistOnUpdate: Extension;
   /** Hoists lint diagnostics to the preview pane. */
@@ -96,6 +104,7 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     lineNumberCompartment,
     lineWrapCompartment,
     languageCompartment,
+    extrasCompartment,
     persistOnUpdate,
     onDiagnostics,
   } = args;
@@ -122,6 +131,10 @@ export function buildSourcePaneExtensions(args: BuildExtensionsArgs): Extension[
     sourceEditorTheme,
     // Empty initial language — the loadLanguage promise reconfigures this.
     languageCompartment.of([]),
+    // Empty initial extras slot — the loadExtraExtensions promise
+    // reconfigures this (per-format editor behavior, e.g. yaml's GHA
+    // workflow extensions).
+    ...(extrasCompartment ? [extrasCompartment.of([])] : []),
     persistOnUpdate,
     // Right-click menu, reduced to clipboard + Select All — split panes
     // have no markdown context detection (plan WI-3.3).

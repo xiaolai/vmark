@@ -12,64 +12,15 @@ import { useSettingsStore, type TerminalPosition, type TerminalCursorStyle, type
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
 import { terminalSettingsWarn } from "@/utils/debug";
 import { isMacPlatform, isWindowsPlatform } from "@/utils/platform";
-
-const panelSizeOptions = [
-  { value: "0.1", label: "10%" },
-  { value: "0.15", label: "15%" },
-  { value: "0.2", label: "20%" },
-  { value: "0.25", label: "25%" },
-  { value: "0.3", label: "30%" },
-  { value: "0.35", label: "35%" },
-  { value: "0.4", label: "40%" },
-  { value: "0.45", label: "45%" },
-  { value: "0.5", label: "50%" },
-  { value: "0.6", label: "60%" },
-  { value: "0.7", label: "70%" },
-  { value: "0.8", label: "80%" },
-];
-
-// scrollbackOptions are raw numeric labels — no translation needed (G7/WI-4.2)
-const scrollbackOptions = [
-  { value: "1000", label: "1,000" },
-  { value: "5000", label: "5,000" },
-  { value: "10000", label: "10,000" },
-  { value: "50000", label: "50,000" },
-];
-
-// fontSizeOptions are raw numeric labels — no translation needed
-const fontSizeOptions = [
-  { value: "10", label: "10px" },
-  { value: "11", label: "11px" },
-  { value: "12", label: "12px" },
-  { value: "13", label: "13px" },
-  { value: "14", label: "14px" },
-  { value: "16", label: "16px" },
-  { value: "18", label: "18px" },
-  { value: "20", label: "20px" },
-  { value: "24", label: "24px" },
-];
-
-
-/** Extract shell name from absolute path (e.g. "/bin/zsh" → "zsh", "C:\\Windows\\cmd.exe" → "cmd.exe"). */
-function shellLabel(path: string): string {
-  const name = path.split(/[/\\]/).pop() ?? path;
-  return name || path;
-}
-
-/** Snap a ratio to the nearest dropdown option value. */
-function snapToOption(ratio: number): string {
-  const values = panelSizeOptions.map((o) => Number(o.value));
-  let closest = values[0];
-  let minDiff = Math.abs(ratio - closest);
-  for (const v of values) {
-    const diff = Math.abs(ratio - v);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = v;
-    }
-  }
-  return String(closest);
-}
+import {
+  panelSizeOptions,
+  scrollbackOptions,
+  lineHeightChoices,
+  fontSizeOptionsFor,
+  withCurrentNumericOption,
+  shellLabel,
+  snapToOption,
+} from "./terminalSettingsHelpers";
 
 export function TerminalSettings() {
   const { t } = useTranslation("settings");
@@ -78,7 +29,7 @@ export function TerminalSettings() {
 
   // Platform gating (D1): `macOptionIsMeta` is genuinely macOS-only (the
   // Option/Meta tradeoff only exists on macOS). `shellIntegration` injects
-  // OSC marks for Unix shells (zsh) — keep it on macOS and Linux, hide on
+  // OSC marks for Unix shells (zsh, bash) — keep it on macOS and Linux, hide on
   // Windows where it does not apply.
   const isMac = isMacPlatform();
   const isWindows = isWindowsPlatform();
@@ -144,14 +95,13 @@ export function TerminalSettings() {
     { value: "underline", label: t("terminal.cursorStyle.underline") },
   ];
 
-  const lineHeightOptions = [
-    { value: "1.0", label: t("terminal.lineHeight.tight") },
-    { value: "1.2", label: t("terminal.lineHeight.compact") },
-    { value: "1.4", label: t("terminal.lineHeight.normal") },
-    { value: "1.6", label: t("terminal.lineHeight.relaxed") },
-    { value: "1.8", label: t("terminal.lineHeight.spacious") },
-    { value: "2.0", label: t("terminal.lineHeight.extra") },
-  ];
+  // Values come from the helpers module so the published range stays checkable
+  // (WI-2.2); only the labels are translated here. Value and label key travel
+  // together, so neither can drift out of step with the other.
+  const lineHeightOptions = lineHeightChoices.map(({ value, labelKey }) => ({
+    value: value.toFixed(1),
+    label: t(`terminal.lineHeight.${labelKey}`),
+  }));
 
   return (
     <div className="space-y-6">
@@ -185,7 +135,12 @@ export function TerminalSettings() {
         <SettingRow label={t("terminal.fontSize.label")} description={t("terminal.fontSize.description")}>
           <Select
             value={String(terminal.fontSize)}
-            options={fontSizeOptions}
+            // `Mod +/-` zooms freely past the presets (13 → 15 → 17 …). A
+            // native <select> renders its FIRST option for an unmatched value,
+            // so an unlisted size used to display "10px" and write 10 on the
+            // next change. Inject the current value instead (WI-1.3), mirroring
+            // the synthetic `shellOptions` entry above.
+            options={fontSizeOptionsFor(terminal.fontSize)}
             onChange={(v) => updateTerminalSetting("fontSize", Number(v))}
           />
         </SettingRow>
@@ -193,7 +148,13 @@ export function TerminalSettings() {
         <SettingRow label={t("terminal.lineHeight.label")} description={t("terminal.lineHeight.description")}>
           <Select
             value={String(terminal.lineHeight)}
-            options={lineHeightOptions}
+            // A persisted value outside the presets (the clamp allows up to
+            // 2.5) must still display itself — see withCurrentNumericOption.
+            options={withCurrentNumericOption(
+              lineHeightOptions,
+              terminal.lineHeight,
+              (v) => v.toFixed(1),
+            )}
             onChange={(v) => updateTerminalSetting("lineHeight", Number(v))}
           />
         </SettingRow>
@@ -245,10 +206,21 @@ export function TerminalSettings() {
           </SettingRow>
         )}
 
+        <SettingRow label={t("terminal.osc52Clipboard.label")} description={t("terminal.osc52Clipboard.description")}>
+          <Toggle
+            checked={terminal.osc52Clipboard}
+            onChange={(v) => updateTerminalSetting("osc52Clipboard", v)}
+          />
+        </SettingRow>
+
         <SettingRow label={t("terminal.scrollback.label")} description={t("terminal.scrollback.description")}>
           <Select
             value={String(terminal.scrollback)}
-            options={scrollbackOptions}
+            options={withCurrentNumericOption(
+              scrollbackOptions,
+              terminal.scrollback,
+              (v) => v.toLocaleString(),
+            )}
             onChange={(v) => updateTerminalSetting("scrollback", Number(v))}
           />
         </SettingRow>
@@ -284,12 +256,16 @@ export function TerminalSettings() {
         <SettingRow label={t("terminal.contrast.label")} description={t("terminal.contrast.description")}>
           <Select
             value={String(terminal.minimumContrastRatio ?? 4.5)}
-            options={[
-              { value: "1", label: t("terminal.contrast.off") },
-              { value: "4.5", label: t("terminal.contrast.aa") },
-              { value: "7", label: t("terminal.contrast.aaa") },
-              { value: "21", label: t("terminal.contrast.max") },
-            ]}
+            options={withCurrentNumericOption(
+              [
+                { value: "1", label: t("terminal.contrast.off") },
+                { value: "4.5", label: t("terminal.contrast.aa") },
+                { value: "7", label: t("terminal.contrast.aaa") },
+                { value: "21", label: t("terminal.contrast.max") },
+              ],
+              terminal.minimumContrastRatio ?? 4.5,
+              (v) => `${v}:1`,
+            )}
             onChange={(v) => updateTerminalSetting("minimumContrastRatio", Number(v))}
           />
         </SettingRow>

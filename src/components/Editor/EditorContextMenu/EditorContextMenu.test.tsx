@@ -22,8 +22,7 @@ vi.mock("./clipboardBridge", () => ({
 }));
 
 import { EditorContextMenu } from "./EditorContextMenu";
-import { usePopupStore } from "@/stores/popupStore";
-import { initialEditorContextMenu } from "@/stores/popupStore/slices";
+import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -47,7 +46,7 @@ function snapshot(overrides: Partial<EditorContextMenuSnapshot> = {}): EditorCon
 
 function openMenu(overrides: Partial<EditorContextMenuSnapshot> = {}) {
   act(() => {
-    usePopupStore.getState().editorContextOpenMenu({
+    useEditorContextMenuStore.getState().openMenu({
       position: { x: 40, y: 60 },
       snapshot: snapshot(overrides),
     });
@@ -56,7 +55,7 @@ function openMenu(overrides: Partial<EditorContextMenuSnapshot> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  usePopupStore.setState({ editorContextMenu: initialEditorContextMenu });
+  useEditorContextMenuStore.setState(useEditorContextMenuStore.getInitialState());
   useShortcutsStore.getState().resetAllShortcuts();
 });
 
@@ -149,7 +148,7 @@ describe("EditorContextMenu — keyboard navigation", () => {
       { type: "clipboard", command: "cut" },
       expect.objectContaining({ surface: "wysiwyg" })
     );
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("Escape is two-step: submenu first, then menu with editor refocus", async () => {
@@ -161,9 +160,9 @@ describe("EditorContextMenu — keyboard navigation", () => {
     await user.keyboard("{ArrowRight}");
     await user.keyboard("{Escape}");
     expect(heading).toHaveAttribute("aria-expanded", "false");
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(true);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(true);
     await user.keyboard("{Escape}");
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
     expect(mocks.focusEditorSurface).toHaveBeenCalledWith("wysiwyg");
   });
 
@@ -172,7 +171,7 @@ describe("EditorContextMenu — keyboard navigation", () => {
     render(<EditorContextMenu />);
     openMenu();
     await user.keyboard("{Tab}");
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("Home and End jump to the first and last enabled items", async () => {
@@ -210,7 +209,7 @@ describe("EditorContextMenu — keyboard navigation", () => {
       { type: "adapter", action: "heading:1" },
       expect.objectContaining({ surface: "wysiwyg" })
     );
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("submenu navigation skips disabled children and supports Home/End", async () => {
@@ -265,25 +264,25 @@ describe("EditorContextMenu — activation and dismissal", () => {
     render(<EditorContextMenu />);
     openMenu();
     fireEvent.scroll(document);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("closes on window resize and window blur", () => {
     render(<EditorContextMenu />);
     openMenu();
     fireEvent(window, new Event("resize"));
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
 
     openMenu();
     fireEvent(window, new Event("blur"));
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 
   it("closes on outside mousedown without refocusing the editor", () => {
     render(<EditorContextMenu />);
     openMenu();
     fireEvent.mouseDown(document.body);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
     expect(mocks.focusEditorSurface).not.toHaveBeenCalled();
   });
 
@@ -323,6 +322,6 @@ describe("EditorContextMenu — activation and dismissal", () => {
         activeTabId: { ...s.activeTabId, [getCurrentWindowLabel()]: "other-tab" },
       }));
     });
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
   });
 });

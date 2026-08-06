@@ -23,10 +23,16 @@
 //! ```text
 //!   Creating ─▶ Live ⇄ Navigating ⟲   (a redirect chain commits again)
 //!      │          │
-//!      └──────────┴─▶ Hibernated ─(reactivate)─▶ Creating
-//!                 ├─▶ Crashed    ─(reload)─────▶ Creating | Navigating
-//!                 └─▶ Destroyed  (terminal)
+//!      └──────────┼─▶ Crashed   ─(reload)─▶ Creating | Navigating
+//!                 └─▶ Destroyed (terminal)
 //! ```
+//!
+//! There is no hibernated state: a background tab keeps no native webview at
+//! all. The frontend mounts one surface for the active page only and destroys
+//! the view on unmount, so an inactive page's entry here is simply `Destroyed`
+//! and a fresh entry is created on reactivation. (A `Hibernated` variant used
+//! to sit in this enum "awaiting WI-1.6"; that WI's hibernation-cap store was
+//! judged fiction and deleted — review finding E4, 2026-08-03.)
 //!
 //! `Navigating` is entered by `didCommitNavigation` alone, so it is reachable
 //! from every state that owns a webview which can commit a load: `Creating` (the
@@ -46,10 +52,6 @@ pub enum Lifecycle {
     Live,
     /// A navigation is in flight (provisional → committed).
     Navigating,
-    /// Background tab collapsed to `{url,title,scrollY,snapshot}` (WI-1.6).
-    /// The state machine already models it; the WI that constructs it is not in.
-    #[allow(dead_code, reason = "constructed by the hibernation WI (WI-1.6)")]
-    Hibernated,
     /// The content process died (WI-1.8) — awaiting a user reload.
     Crashed,
     /// The webview has been torn down. Terminal.
@@ -91,15 +93,12 @@ impl Lifecycle {
                 | (Creating, Crashed)
                 | (Creating, Destroyed)
                 | (Live, Navigating)
-                | (Live, Hibernated)
                 | (Live, Crashed)
                 | (Live, Destroyed)
                 | (Navigating, Live)
                 | (Navigating, Navigating)
                 | (Navigating, Crashed)
                 | (Navigating, Destroyed)
-                | (Hibernated, Creating)
-                | (Hibernated, Destroyed)
                 | (Crashed, Creating)
                 | (Crashed, Navigating)
                 | (Crashed, Destroyed)
@@ -113,7 +112,7 @@ impl Lifecycle {
 
     /// Whether a live, committed page can be executed against in this state. Only
     /// `Live`/`Navigating` own a webview with a committed top-level page (`Creating`
-    /// has not committed; `Crashed`/`Hibernated` have no live process; `Destroyed`
+    /// has not committed; `Crashed` has no live process; `Destroyed`
     /// is gone). `browser_eval` freshness and the committed-origin invariant key off
     /// this: a driver command must never authorize against a tab that cannot run it.
     pub fn is_executable(self) -> bool {

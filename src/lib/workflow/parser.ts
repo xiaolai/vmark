@@ -162,11 +162,11 @@ function parseTriggers(on: unknown): WorkflowTrigger[] {
   if (obj.github && typeof obj.github === "object") {
     const gh = obj.github as Record<string, unknown>;
     triggers.push({
-      type: "github",
-      event: gh.event ? String(gh.event) : undefined,
-      action: gh.action ? String(gh.action) : undefined,
-      branches: Array.isArray(gh.branches) ? gh.branches.map(String) : undefined,
-      paths: Array.isArray(gh.paths) ? gh.paths.map(String) : undefined,
+      type: "github", // throughout this IR, a key the file does not state stays ABSENT
+      ...(gh.event ? { event: String(gh.event) } : {}),
+      ...(gh.action ? { action: String(gh.action) } : {}),
+      ...(Array.isArray(gh.branches) && { branches: gh.branches.map(String) }),
+      ...(Array.isArray(gh.paths) && { paths: gh.paths.map(String) }),
     });
   }
 
@@ -181,9 +181,9 @@ function parseLimits(raw: unknown): WorkflowLimits | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const obj = raw as Record<string, unknown>;
   return {
-    timeout: obj.timeout != null ? String(obj.timeout) : undefined,
-    maxTokens: obj.max_tokens != null ? Number(obj.max_tokens) : undefined,
-    maxCost: obj.max_cost != null ? String(obj.max_cost) : undefined,
+    ...(obj.timeout != null && { timeout: String(obj.timeout) }),
+    ...(obj.max_tokens != null && { maxTokens: Number(obj.max_tokens) }),
+    ...(obj.max_cost != null && { maxCost: String(obj.max_cost) }),
   };
 }
 
@@ -193,11 +193,11 @@ function parseLimits(raw: unknown): WorkflowLimits | undefined {
 
 function parseDefaults(raw: unknown): WorkflowDefaults {
   if (!raw || typeof raw !== "object") return {};
-  const obj = raw as Record<string, unknown>;
+  const obj = raw as Record<string, unknown>, limits = parseLimits(obj.limits);
   return {
-    model: obj.model != null ? String(obj.model) : undefined,
-    approval: obj.approval === "ask" ? "ask" : obj.approval === "auto" ? "auto" : undefined,
-    limits: parseLimits(obj.limits),
+    ...(obj.model != null && { model: String(obj.model) }),
+    ...((obj.approval === "ask" || obj.approval === "auto") && { approval: obj.approval }),
+    ...(limits && { limits }),
   };
 }
 
@@ -328,7 +328,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
       }
     }
 
-    // Parse matrix
+    const stepLimits = parseLimits(rawStep.limits);
     let matrix: Record<string, string[]> | undefined;
     if (rawStep.matrix && typeof rawStep.matrix === "object") {
       matrix = {};
@@ -345,12 +345,12 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
       icon: deriveIcon(uses, type),
       with: withObj,
       needs,
-      condition: rawStep.if ? String(rawStep.if) : undefined,
-      matrix,
-      model: rawStep.model ? String(rawStep.model) : undefined,
-      approval: rawStep.approval === "ask" ? "ask" : rawStep.approval === "auto" ? "auto" : undefined,
-      limits: parseLimits(rawStep.limits),
-      sourceRange: sourceRanges[i] ?? undefined,
+      ...(rawStep.if ? { condition: String(rawStep.if) } : {}),
+      ...(matrix && { matrix }),
+      ...(rawStep.model ? { model: String(rawStep.model) } : {}),
+      ...(rawStep.approval === "ask" || rawStep.approval === "auto" ? { approval: rawStep.approval } : {}),
+      ...(stepLimits && { limits: stepLimits }),
+      ...(sourceRanges[i] && { sourceRange: sourceRanges[i] }),
     });
   }
 
@@ -394,7 +394,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
 
   return {
     name: String(obj.name),
-    description: obj.description ? String(obj.description) : undefined,
+    ...(obj.description ? { description: String(obj.description) } : {}),
     triggers: parseTriggers(obj.on),
     env,
     defaults: parseDefaults(obj.defaults),

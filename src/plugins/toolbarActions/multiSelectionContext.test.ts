@@ -649,3 +649,48 @@ function createMockRange(
     $to: { ...JSON.parse(JSON.stringify($pos)), parent: { isTextblock }, node: vi.fn(nodeAtDepth) },
   };
 }
+
+describe("code-fence context uses the shared scanner", () => {
+  // A minimal cursor context: the fence question is answered by the scanner,
+  // not by these flags.
+  const baseContext = { inTable: false, inList: false, inBlockquote: false } as SourceContext;
+
+  function contextAt(doc: string, positions: [number, number]) {
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.create(
+        positions.map((p) => EditorSelection.cursor(p)),
+        0,
+      ),
+      // Without this facet CodeMirror silently collapses to ONE range and the
+      // function under test bails out on its multi-selection guard.
+      extensions: [EditorState.allowMultipleSelections.of(true)],
+    });
+    const parent = document.createElement("div");
+    const view = new CodeMirrorView({ state, parent });
+    const ctx = getSourceMultiSelectionContext(view, baseContext);
+    view.destroy();
+    return ctx;
+  }
+
+  it("recognises a TILDE fence", () => {
+    // The private scanner matched backticks only, so a cursor inside ~~~ was
+    // treated as ordinary markdown and block actions ran against literal text.
+    const ctx = contextAt("~~~\ncode here\n~~~", [5, 6]);
+    expect(ctx.inCodeBlock).toBe(true);
+  });
+
+  it("does not mistake a CLOSER above the cursor for an opener", () => {
+    // Walking up to the nearest fence-looking line read the closing ``` of a
+    // finished block as an opener, flagging plain paragraph text as code.
+    const ctx = contextAt("```\ncode\n```\npara here", [14, 16]);
+    expect(ctx.inCodeBlock).toBe(false);
+  });
+
+  it("protects the content of an UNCLOSED fence", () => {
+    // The old scanner required a closer to say "inside", so exactly the fence
+    // most likely mid-typing had no protection at all.
+    const ctx = contextAt("```\ndangling code", [6, 8]);
+    expect(ctx.inCodeBlock).toBe(true);
+  });
+});

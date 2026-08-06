@@ -13,6 +13,7 @@ import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import type { EditorView as CodeMirrorView } from "@codemirror/view";
 import type { ResolvedPos } from "@tiptap/pm/model";
 import { MultiSelection } from "@/plugins/multiCursor";
+import { enclosingFence } from "@/plugins/shared/fenceScanner";
 import type { CursorContext as WysiwygContext } from "@/plugins/toolbarContext/types";
 import type { CursorContext as SourceContext } from "@/types/cursorContext";
 import type { MultiSelectionContext } from "./types";
@@ -35,37 +36,19 @@ const LIST_NODE_NAMES = new Set([
   "taskItem",
 ]);
 
-const CODE_FENCE_PATTERN = /^(\s*)(```+)(\w*)?/;
-
+/**
+ * Whether `pos` sits inside a fenced code block, answered by the SHARED fence
+ * scanner rather than a private one.
+ *
+ * The private scanner this replaces disagreed with the safety boundary three
+ * ways: backticks only (a `~~~` fence was invisible), the nearest fence-looking
+ * line ABOVE the cursor was assumed to be an opener (a finished block's closer
+ * flagged the paragraph after it as code), and an unclosed fence counted as
+ * outside — removing protection from exactly the block most likely mid-typing.
+ */
 function isInsideCodeFence(doc: CodeMirrorView["state"]["doc"], pos: number): boolean {
-  const cursorLine = doc.lineAt(pos);
-  let openingLine: { number: number; text: string } | null = null;
-  let fenceLength = 0;
-
-  for (let lineNum = cursorLine.number; lineNum >= 1; lineNum--) {
-    const line = doc.line(lineNum);
-    const match = line.text.match(CODE_FENCE_PATTERN);
-    if (!match) continue;
-    const fenceChars = match[2];
-    /* v8 ignore next -- @preserve reason: CODE_FENCE_PATTERN requires backtick chars, match[2] always truthy */
-    if (!fenceChars) continue;
-    openingLine = { number: lineNum, text: line.text };
-    fenceLength = fenceChars.length;
-    break;
-  }
-
-  if (!openingLine) return false;
-
-  for (let lineNum = openingLine.number + 1; lineNum <= doc.lines; lineNum++) {
-    const line = doc.line(lineNum);
-    const trimmed = line.text.trim();
-    const fenceRegex = new RegExp("^`{" + fenceLength + ",}$");
-    if (trimmed.match(fenceRegex)) {
-      return cursorLine.number >= openingLine.number && cursorLine.number <= lineNum;
-    }
-  }
-
-  return false;
+  const lines = doc.toString().split("\n");
+  return enclosingFence(lines, doc.lineAt(pos).number - 1) !== null;
 }
 
 function classifySourceLine(text: string): string {
@@ -214,6 +197,7 @@ export function getWysiwygMultiSelectionContext(
     inTextblock: flags.every((flag) => flag.inTextblock),
     sameBlockParent,
     blockParentType,
+    hasNonEmptyRange: ranges.some((range) => range.$from.pos !== range.$to.pos),
   };
 }
 
@@ -259,5 +243,6 @@ export function getSourceMultiSelectionContext(
     inTextblock,
     sameBlockParent,
     blockParentType,
+    hasNonEmptyRange: ranges.some((range) => !range.empty),
   };
 }

@@ -23,9 +23,9 @@
  * @module plugins/sourceMathPopup/SourceMathPopupView
  */
 
+import type { PopupStoreBase, StoreApi } from "@/plugins/shared/types";
 import type { EditorView } from "@codemirror/view";
 import { SourcePopupView, type PopupPositionConfig } from "@/plugins/sourcePopup/SourcePopupView";
-import { useSourceMathPopupStore } from "@/stores/sourceMathPopupStore";
 import { loadKatex } from "@/plugins/latex/katexLoader";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { renderWarn } from "@/utils/debug";
@@ -33,7 +33,32 @@ import i18n from "@/i18n";
 import "./source-math-popup.css";
 import { errorMessage } from "@/utils/errorMessage";
 
-type SourceMathPopupState = ReturnType<typeof useSourceMathPopupStore.getState>;
+/**
+ * The popup state this view needs — the plugin's PORT.
+ *
+ * Declared here rather than derived from the app's store with
+ * `ReturnType<typeof useXStore.getState>`. That spelling satisfies the
+ * coupling grep only if the import goes away, and it would still pin the
+ * plugin to the app's exact slice. The plugin states what it needs; the host
+ * supplies something that satisfies it.
+ */
+export interface SourceMathPopupState extends PopupStoreBase {
+  latex: string;
+  /** Original document span of the math being edited. */
+  mathFrom: number;
+  mathTo: number;
+  isBlock: boolean;
+  originalLatex: string;
+  updateLatex: (latex: string) => void;
+  /** Opening is part of the port: the source preview plugin opens it. */
+  openPopup: (
+    rect: NonNullable<PopupStoreBase["anchorRect"]>,
+    latex: string,
+    mathFrom: number,
+    mathTo: number,
+    isBlock: boolean
+  ) => void;
+}
 
 export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
   private textarea: HTMLTextAreaElement;
@@ -41,8 +66,8 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
   private error: HTMLElement;
   private renderToken = 0;
 
-  constructor(view: EditorView) {
-    super(view, useSourceMathPopupStore);
+  constructor(view: EditorView, store: StoreApi<SourceMathPopupState>) {
+    super(view, store);
     // Query the DOM refs after super() — assignments inside buildContainer are
     // erased by class-field [[Define]] initialization in ES2022 class semantics.
     this.textarea = this.container.querySelector(".source-math-popup-input") as HTMLTextAreaElement;
@@ -117,11 +142,11 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
    * Click-outside commits the edit. Defaults to base class would discard the
    * textarea content — surprising for an editor popup with unsaved text.
    */
-  protected onClickOutside(): void {
+  protected override onClickOutside(): void {
     this.handleSave();
   }
 
-  protected getPopupDimensions(): PopupPositionConfig {
+  protected override getPopupDimensions(): PopupPositionConfig {
     return {
       width: 360,
       height: 200,
@@ -196,7 +221,7 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
 
   private handleInputChange = () => {
     const value = this.textarea.value;
-    useSourceMathPopupStore.getState().updateLatex(value);
+    this.store.getState().updateLatex(value);
     this.renderPreview(value);
   };
 
@@ -214,7 +239,7 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
   };
 
   private handleSave = () => {
-    const state = useSourceMathPopupStore.getState();
+    const state = this.store.getState();
     const { latex, mathFrom, mathTo, isBlock, originalLatex } = state;
 
     // Don't save if nothing changed
@@ -254,7 +279,7 @@ export class SourceMathPopupView extends SourcePopupView<SourceMathPopupState> {
   };
 
   private handleCancel = () => {
-    useSourceMathPopupStore.getState().closePopup();
+    this.store.getState().closePopup();
     this.editorView.focus();
   };
 }

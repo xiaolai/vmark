@@ -33,11 +33,18 @@ export const recentWarn = createWarnLogger("[Recent]");
 /** Warn logger for Shortcuts store. */
 export const shortcutsWarn = createWarnLogger("[Shortcuts]");
 
+/** Warn logger for the keybinding registry (ADR-018). */
+export const keybindingWarn = createWarnLogger("[Keybinding]");
+
 /** Warn logger for the content server (KB / Slidev). */
 export const contentServerWarn = createWarnLogger("[ContentServer]");
 
 /** Warn logger for the embedded browser (driver gate, grants, surface). */
 export const browserWarn = createWarnLogger("[Browser]");
+
+/** Terminal lifecycle events worth a log line in production — a shell exit that
+ *  silently hides the panel is otherwise indistinguishable from a crash. */
+export const terminalWarn = createWarnLogger("[Terminal]");
 
 /** Warn logger for Image Handler. */
 export const imageHandlerWarn = createWarnLogger("[imageHandler]");
@@ -159,8 +166,25 @@ export const menuSyncWarn = createWarnLogger("[MenuSync]");
 /** Warn logger for Update Sync (cross-window state). */
 export const updateSyncWarn = createWarnLogger("[UpdateSync]");
 
+/** Warn logger for Settings Sync (cross-window settings). */
+export const settingsSyncWarn = createWarnLogger("[SettingsSync]");
+
+/** Warn logger for Shortcuts Sync (cross-window shortcut rebinds). */
+export const shortcutsSyncWarn = createWarnLogger("[ShortcutsSync]");
+
 /** Warn logger for Table of Contents. */
 export const tocWarn = createWarnLogger("[TOC]");
 
 /** Warn logger for CJK Formatter integrity checks. */
 export const cjkFmtWarn = createWarnLogger("[CJK Formatter]");
+
+/** Warn logger for MCP bridge wire-contract violations (WI-15). Persists in
+ *  production on purpose: an undeclared payload field is how a dead branch
+ *  gets fed, and it must be visible in a user's log file. */
+export const mcpContractWarn = createWarnLogger("[MCP Contract]");
+
+/** Warn logger for format-adapter degradation — a language pack or an editor
+ *  extension whose chunk failed to load. The editor keeps working with less,
+ *  so the only trace a user could otherwise report is "completion stopped
+ *  working"; this makes the cause visible in the log file. */
+export const formatsWarn = createWarnLogger("[Formats]");

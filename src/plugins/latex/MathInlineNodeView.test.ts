@@ -54,16 +54,14 @@ vi.mock("@/utils/shortcutMatch", () => ({
   matchesShortcutEvent: vi.fn(() => false),
 }));
 
+// The editing registry is now a constructor argument, so it is passed
+// directly rather than mocked at the module boundary.
 const mathEditingStoreState = {
   startEditing: vi.fn(),
   stopEditing: vi.fn(),
+  isEditingAt: vi.fn(() => false),
   clear: vi.fn(),
 };
-vi.mock("@/stores/inlineMathEditingStore", () => ({
-  useInlineMathEditingStore: {
-    getState: vi.fn(() => mathEditingStoreState),
-  },
-}));
 
 vi.mock("@/utils/debug", () => ({
   renderWarn: vi.fn(),
@@ -73,6 +71,15 @@ vi.mock("./latex.css", () => ({}));
 
 // Import after mocks
 import { MathInlineNodeView } from "./MathInlineNodeView";
+
+/** Every construction passes the same registry; see mathEditingStoreState. */
+const newView = (
+  ...args: [
+    ConstructorParameters<typeof MathInlineNodeView>[0],
+    ConstructorParameters<typeof MathInlineNodeView>[1],
+    ConstructorParameters<typeof MathInlineNodeView>[2]?,
+  ]
+) => new MathInlineNodeView(args[0], args[1], args[2], mathEditingStoreState);
 
 // --- Test schema and helpers ---
 
@@ -112,14 +119,14 @@ describe("MathInlineNodeView — construction", () => {
   it("creates dom element with correct class", () => {
     const node = createMockNode();
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(node, view, () => 0);
+    const nodeView = newView(node, view, () => 0);
     expect(nodeView.dom.className).toBe("math-inline");
   });
 
   it("sets aria attributes", () => {
     const node = createMockNode();
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(node, view, () => 0);
+    const nodeView = newView(node, view, () => 0);
     expect(nodeView.dom.getAttribute("role")).toBe("math");
     expect(nodeView.dom.getAttribute("aria-label")).toContain("Math:");
   });
@@ -127,14 +134,14 @@ describe("MathInlineNodeView — construction", () => {
   it("creates with empty content (placeholder path)", () => {
     const node = createMockNode("");
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(node, view, () => 0);
+    const nodeView = newView(node, view, () => 0);
     expect(nodeView.dom).toBeDefined();
   });
 
   it("creates without getPos (null getPos)", () => {
     const node = createMockNode("y^2");
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(node, view);
+    const nodeView = newView(node, view);
     expect(nodeView.dom).toBeDefined();
   });
 });
@@ -143,7 +150,7 @@ describe("MathInlineNodeView — handleClick", () => {
   it("does nothing when already editing", () => {
     const node = createMockNode("x^2");
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(node, view, () => 0);
+    const nodeView = newView(node, view, () => 0);
 
     // Manually set isEditing via class change
     // (we can't set private field directly — test the public interface)
@@ -157,7 +164,7 @@ describe("MathInlineNodeView — handleClick", () => {
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     const event = new MouseEvent("click", { bubbles: true });
     nodeView.dom.dispatchEvent(event);
@@ -169,7 +176,7 @@ describe("MathInlineNodeView — handleClick", () => {
 
   it("does not dispatch when getPos returns undefined", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => undefined);
+    const nodeView = newView(createMockNode("x^2"), view, () => undefined);
 
     const event = new MouseEvent("click", { bubbles: true });
     nodeView.dom.dispatchEvent(event);
@@ -179,7 +186,7 @@ describe("MathInlineNodeView — handleClick", () => {
 
   it("does not dispatch when getPos is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view);
+    const nodeView = newView(createMockNode("x^2"), view);
 
     const event = new MouseEvent("click", { bubbles: true });
     nodeView.dom.dispatchEvent(event);
@@ -193,7 +200,7 @@ describe("MathInlineNodeView — enterEditMode guard (exitingLeft/exitingRight)"
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Adding "editing" class triggers enterEditMode via MutationObserver
     // The MutationObserver is async, so we can only test the public surface here
@@ -206,7 +213,7 @@ describe("MathInlineNodeView — enterEditMode guard (exitingLeft/exitingRight)"
 describe("MathInlineNodeView — exitEditMode early return (line 186)", () => {
   it("calling forceExit when not editing does nothing", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Access private forceExit via any cast
     const forceExit = (nodeView as unknown as { forceExit: () => void }).forceExit;
@@ -217,7 +224,7 @@ describe("MathInlineNodeView — exitEditMode early return (line 186)", () => {
 describe("MathInlineNodeView — update()", () => {
   it("returns false for non-math_inline node type", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Create a node of a different type
     const wrongSchema = new Schema({
@@ -234,21 +241,21 @@ describe("MathInlineNodeView — update()", () => {
 
   it("returns true for math_inline node", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
     const result = nodeView.update(createMockNode("y^2"));
     expect(result).toBe(true);
   });
 
   it("updates aria-label with new content", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
     nodeView.update(createMockNode("z^3"));
     expect(nodeView.dom.getAttribute("aria-label")).toContain("z^3");
   });
 
   it("update with empty content sets empty aria label", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
     nodeView.update(createMockNode(""));
     expect(nodeView.dom.getAttribute("aria-label")).toContain("empty");
   });
@@ -257,14 +264,14 @@ describe("MathInlineNodeView — update()", () => {
 describe("MathInlineNodeView — selectNode / deselectNode", () => {
   it("selectNode adds ProseMirror-selectednode class", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     nodeView.selectNode();
     expect(nodeView.dom.classList.contains("ProseMirror-selectednode")).toBe(true);
   });
 
   it("deselectNode removes ProseMirror-selectednode class", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     nodeView.selectNode();
     nodeView.deselectNode();
     expect(nodeView.dom.classList.contains("ProseMirror-selectednode")).toBe(false);
@@ -274,14 +281,14 @@ describe("MathInlineNodeView — selectNode / deselectNode", () => {
 describe("MathInlineNodeView — destroy()", () => {
   it("destroy cleans up observer and event listeners", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     expect(() => nodeView.destroy()).not.toThrow();
   });
 
   it("destroy clears from store when pos is valid", () => {
     mathEditingStoreState.clear.mockClear();
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 5);
+    const nodeView = newView(createMockNode(), view, () => 5);
     nodeView.destroy();
     expect(mathEditingStoreState.clear).toHaveBeenCalledWith(5);
   });
@@ -289,7 +296,7 @@ describe("MathInlineNodeView — destroy()", () => {
   it("destroy with no getPos does not call clear", () => {
     mathEditingStoreState.clear.mockClear();
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view);
+    const nodeView = newView(createMockNode(), view);
     nodeView.destroy();
     // getPos is null, so getPos?.() returns undefined → clear not called
     expect(mathEditingStoreState.clear).not.toHaveBeenCalled();
@@ -300,7 +307,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
   it("deleteNode returns early when getPos is null", () => {
     // Access via any cast — deleteNode has guard `if (!this.getPos || !this.editorView) return`
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view);
+    const nodeView = newView(createMockNode(), view);
     // getPos is null (not provided), so deleteNode should return early
     const deleteNode = (nodeView as unknown as { deleteNode: () => void }).deleteNode;
     expect(() => deleteNode.call(nodeView)).not.toThrow();
@@ -309,7 +316,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("deleteNode returns early when editorView is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     // Null out the editorView
     (nodeView as unknown as { editorView: null }).editorView = null;
     const deleteNode = (nodeView as unknown as { deleteNode: () => void }).deleteNode;
@@ -319,7 +326,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("deleteNode returns early when getPos returns undefined", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => undefined);
+    const nodeView = newView(createMockNode(), view, () => undefined);
     const deleteNode = (nodeView as unknown as { deleteNode: () => void }).deleteNode;
     expect(() => deleteNode.call(nodeView)).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -329,7 +336,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
     const deleteNode = (nodeView as unknown as { deleteNode: () => void }).deleteNode;
     deleteNode.call(nodeView);
     expect(view.dispatch).toHaveBeenCalled();
@@ -337,7 +344,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("unwrapToText returns early when getPos is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view);
+    const nodeView = newView(createMockNode(), view);
     const unwrapToText = (nodeView as unknown as { unwrapToText: () => void }).unwrapToText;
     expect(() => unwrapToText.call(nodeView)).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -345,7 +352,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("commitChanges returns early when getPos is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view);
+    const nodeView = newView(createMockNode(), view);
     const commitChanges = (nodeView as unknown as { commitChanges: (l: string) => void }).commitChanges;
     expect(() => commitChanges.call(nodeView, "y^2")).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -353,7 +360,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("commitChanges returns early when getPos returns undefined", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => undefined);
+    const nodeView = newView(createMockNode(), view, () => undefined);
     const commitChanges = (nodeView as unknown as { commitChanges: (l: string) => void }).commitChanges;
     expect(() => commitChanges.call(nodeView, "y^2")).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -363,7 +370,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
     const commitChanges = (nodeView as unknown as { commitChanges: (l: string) => void }).commitChanges;
     commitChanges.call(nodeView, "y^2");
     expect(view.dispatch).toHaveBeenCalled();
@@ -373,7 +380,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode(""), view, () => 0);
+    const nodeView = newView(createMockNode(""), view, () => 0);
     const commitChanges = (nodeView as unknown as { commitChanges: (l: string) => void }).commitChanges;
     // Both empty → delete node (covers lines 371-373)
     commitChanges.call(nodeView, "");
@@ -382,7 +389,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("commitAndExit returns early when inputDom is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     // inputDom is null by default (not in edit mode)
     const commitAndExit = (nodeView as unknown as { commitAndExit: (offset?: number) => void }).commitAndExit;
     expect(() => commitAndExit.call(nodeView)).not.toThrow();
@@ -392,7 +399,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("exitAndFocusEditor returns early when getPos is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view);
+    const nodeView = newView(createMockNode(), view);
     const exitAndFocusEditor = (nodeView as unknown as { exitAndFocusEditor: (offset?: number) => void }).exitAndFocusEditor;
     expect(() => exitAndFocusEditor.call(nodeView)).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -400,7 +407,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("exitAndFocusEditor returns early when getPos returns undefined", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => undefined);
+    const nodeView = newView(createMockNode(), view, () => undefined);
     const exitAndFocusEditor = (nodeView as unknown as { exitAndFocusEditor: (offset?: number) => void }).exitAndFocusEditor;
     expect(() => exitAndFocusEditor.call(nodeView)).not.toThrow();
     expect(view.dispatch).not.toHaveBeenCalled();
@@ -408,7 +415,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("updateInputSize returns early when inputDom is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     // inputDom starts as null
     const updateInputSize = (nodeView as unknown as { updateInputSize: () => void }).updateInputSize;
     expect(() => updateInputSize.call(nodeView)).not.toThrow();
@@ -416,7 +423,7 @@ describe("MathInlineNodeView — private method early-return guards (via indirec
 
   it("handleInput returns early when inputDom is null", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     // inputDom is null by default
     const handleInput = (nodeView as unknown as { handleInput: () => void }).handleInput;
     expect(() => handleInput.call(nodeView)).not.toThrow();
@@ -428,7 +435,7 @@ describe("MathInlineNodeView — handleClassChange", () => {
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Access private handleClassChange
     const handleClassChange = (nodeView as unknown as { handleClassChange: () => void }).handleClassChange;
@@ -440,7 +447,7 @@ describe("MathInlineNodeView — handleClassChange", () => {
 
   it("handleClassChange exiting edit mode when editing is true", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
 
     // Manually set isEditing to true
     (nodeView as unknown as { isEditing: boolean }).isEditing = true;
@@ -457,7 +464,7 @@ describe("MathInlineNodeView — enterEditMode already editing guard (line 118)"
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Set isEditing to true manually
     (nodeView as unknown as { isEditing: boolean }).isEditing = true;
@@ -477,7 +484,7 @@ describe("MathInlineNodeView — enterEditMode exitingLeft/Right guard (line 120
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Set exitingLeft flag
     (nodeView as unknown as { exitingLeft: boolean }).exitingLeft = true;
@@ -493,7 +500,7 @@ describe("MathInlineNodeView — enterEditMode exitingLeft/Right guard (line 120
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "x^2" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => 0);
+    const nodeView = newView(createMockNode("x^2"), view, () => 0);
 
     // Set exitingRight flag
     (nodeView as unknown as { exitingRight: boolean }).exitingRight = true;
@@ -509,7 +516,7 @@ describe("MathInlineNodeView — enterEditMode exitingLeft/Right guard (line 120
 describe("MathInlineNodeView — enterEditMode getPos undefined guard (line 122–123)", () => {
   it("enterEditMode returns early when getPos returns undefined", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode("x^2"), view, () => undefined);
+    const nodeView = newView(createMockNode("x^2"), view, () => undefined);
 
     const enterEditMode = (nodeView as unknown as { enterEditMode: () => void }).enterEditMode;
     mathEditingStoreState.startEditing.mockClear();
@@ -522,7 +529,7 @@ describe("MathInlineNodeView — enterEditMode getPos undefined guard (line 122�
 describe("MathInlineNodeView — exitEditMode not editing guard (line 186)", () => {
   it("exitEditMode returns early when not editing", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
 
     // isEditing is false by default
     const exitEditMode = (nodeView as unknown as { exitEditMode: () => void }).exitEditMode;
@@ -539,7 +546,7 @@ describe("MathInlineNodeView — unwrapToText empty content (line 327 fallback)"
     const doc = schema.node("doc", null, [schema.node("math_inline", { content: "" })]);
     const state = EditorState.create({ schema, doc });
     const view = createMockView(state);
-    const nodeView = new MathInlineNodeView(createMockNode(""), view, () => 0);
+    const nodeView = newView(createMockNode(""), view, () => 0);
 
     // Ensure inputDom is null (not editing) → unwrapToText uses currentLatex ("")
     const unwrapToText = (nodeView as unknown as { unwrapToText: () => void }).unwrapToText;
@@ -553,7 +560,7 @@ describe("MathInlineNodeView — unwrapToText empty content (line 327 fallback)"
 describe("MathInlineNodeView — stopEvent branches", () => {
   it("stopEvent returns true for all events when editing", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     (nodeView as unknown as { isEditing: boolean }).isEditing = true;
 
     const event = new Event("keydown");
@@ -562,7 +569,7 @@ describe("MathInlineNodeView — stopEvent branches", () => {
 
   it("stopEvent returns true for mousedown when not editing", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
 
     const event = new MouseEvent("mousedown");
     expect(nodeView.stopEvent(event)).toBe(true);
@@ -570,7 +577,7 @@ describe("MathInlineNodeView — stopEvent branches", () => {
 
   it("stopEvent returns false for non-mouse events when not editing", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
 
     const event = new Event("keydown");
     expect(nodeView.stopEvent(event)).toBe(false);
@@ -580,7 +587,7 @@ describe("MathInlineNodeView — stopEvent branches", () => {
 describe("MathInlineNodeView — ignoreMutation", () => {
   it("always returns true", () => {
     const view = createMockView();
-    const nodeView = new MathInlineNodeView(createMockNode(), view, () => 0);
+    const nodeView = newView(createMockNode(), view, () => 0);
     expect(nodeView.ignoreMutation()).toBe(true);
   });
 });

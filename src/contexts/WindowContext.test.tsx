@@ -138,7 +138,7 @@ vi.mock("../utils/paths", () => ({
   isWithinRoot: vi.fn(() => false),
 }));
 
-vi.mock("../hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: vi.fn(() => Promise.resolve()),
 }));
 
@@ -150,11 +150,11 @@ vi.mock("../utils/linebreakDetection", () => ({
   detectLinebreaks: vi.fn(() => ({ type: "lf" })),
 }));
 
-// startupFileOpen delegates to openFileInNewTabCore; the file-loading mechanics
-// (read, init, recents, blank-tab fallback) are covered by startupFileOpen's
-// own tests. Here we mock it to drive the same shared store mocks so the
-// orchestration assertions (which path opens which file) stay meaningful.
+// startupFileOpen delegates to openFileInNewTabCore; its mechanics are covered
+// by its own tests. Mocked here (parse behavior real) so the orchestration
+// assertions (which path opens which file) stay meaningful.
 vi.mock("./startupFileOpen", () => ({
+  parseStartupFilesParam: (raw: string | null) => { try { const p = raw ? JSON.parse(raw) : null; return Array.isArray(p) ? p.filter((v: unknown): v is string => typeof v === "string") : null; } catch { return null; } },
   loadStartupFileIntoTab: vi.fn(async (label: string, path: string) => {
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     const tabId = mockCreateTab(label, path);
@@ -559,7 +559,7 @@ describe("WindowContext", () => {
     });
 
     it("opens workspace from workspaceRoot URL param", async () => {
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       Object.defineProperty(globalThis, "location", {
         value: { search: "?workspaceRoot=/projects/myapp&file=/projects/myapp/README.md" },
@@ -600,7 +600,7 @@ describe("WindowContext", () => {
       // file. The file explorer is the entry point; a forced blank tab
       // would feel orphaned. Hot-exit / lastOpenTabs restore can still
       // populate tabs after init.
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       Object.defineProperty(globalThis, "location", {
         value: { search: "?workspaceRoot=/projects/myapp" },
@@ -984,7 +984,7 @@ describe("WindowContext", () => {
       const { invoke } = await import("@tauri-apps/api/core");
       const { resolveWorkspaceRootForExternalFile } = await import("../utils/openPolicy");
       vi.mocked(resolveWorkspaceRootForExternalFile).mockReturnValue("/docs");
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       vi.mocked(invoke).mockResolvedValue({
         tabId: "t1",
@@ -1069,7 +1069,7 @@ describe("WindowContext", () => {
         configurable: true,
       });
 
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
 
       render(
         <WindowProvider>
@@ -1119,7 +1119,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — openWorkspaceWithConfig failure", () => {
     it("continues when workspace config open fails for URL param", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
       vi.mocked(openWorkspaceWithConfig).mockRejectedValueOnce(new Error("config failed"));
 
       Object.defineProperty(globalThis, "location", {
@@ -1149,7 +1149,7 @@ describe("WindowContext", () => {
     it("derives workspace root from file path when no workspace is active", async () => {
       const { resolveWorkspaceRootForExternalFile } = await import("../utils/openPolicy");
       vi.mocked(resolveWorkspaceRootForExternalFile).mockReturnValue("/docs");
-      const { openWorkspaceWithConfig } = await import("../hooks/openWorkspaceWithConfig");
+      const { openWorkspaceWithConfig } = await import("@/services/workspaces/openWorkspaceWithConfig");
       const { readTextFile } = await import("@tauri-apps/plugin-fs");
       vi.mocked(readTextFile).mockResolvedValue("# content");
 

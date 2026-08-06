@@ -30,26 +30,28 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockLinkStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
@@ -137,10 +139,7 @@ describe("SourceLinkPopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceLinkPopupView(
-      view,
-      { getState: () => storeState, subscribe: (fn) => { subscribers.push(fn); return () => { const idx = subscribers.indexOf(fn); if (idx >= 0) subscribers.splice(idx, 1); }; } }
-    );
+    popup = new SourceLinkPopupView(view, mockLinkStore);
   });
 
   afterEach(() => {
@@ -148,8 +147,8 @@ describe("SourceLinkPopupView", () => {
   });
 
   describe("Store subscription", () => {
-    it("subscribes to store on construction", () => {
-      expect(subscribers.length).toBe(1);
+    it("subscribes to store on construction (base + WI-1 reshow port)", () => {
+      expect(subscribers.length).toBe(2);
     });
 
     it("shows popup when store opens", async () => {
@@ -179,8 +178,9 @@ describe("SourceLinkPopupView", () => {
     });
 
     it("unsubscribes on destroy", () => {
-      expect(subscribers.length).toBe(1);
+      expect(subscribers.length).toBe(2);
       popup.destroy();
+      // Both the base subscription and the WI-1 reshow subscription are gone.
       expect(subscribers.length).toBe(0);
     });
   });
@@ -341,7 +341,7 @@ describe("SourceLinkPopupView", () => {
       input.dispatchEvent(event);
 
       expect(mockSetHref).toHaveBeenCalledWith("https://pasted-url.example/new");
-      expect(saveLinkChanges).toHaveBeenCalledWith(view);
+      expect(saveLinkChanges).toHaveBeenCalledWith(view, mockLinkStore);
       expect(mockClosePopup).toHaveBeenCalled();
 
       // Lock in the call order: setHref must precede saveLinkChanges,
@@ -376,7 +376,7 @@ describe("SourceLinkPopupView", () => {
       const openBtn = document.querySelector(".source-link-popup-btn-open") as HTMLElement;
       openBtn.click();
 
-      expect(openLink).toHaveBeenCalledWith(view);
+      expect(openLink).toHaveBeenCalledWith(view, mockLinkStore);
     });
 
     it("copy button calls copyLinkHref", () => {
@@ -390,7 +390,7 @@ describe("SourceLinkPopupView", () => {
       const deleteBtn = document.querySelector(".source-link-popup-btn-delete") as HTMLElement;
       deleteBtn.click();
 
-      expect(removeLink).toHaveBeenCalledWith(view);
+      expect(removeLink).toHaveBeenCalledWith(view, mockLinkStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
   });
@@ -410,7 +410,7 @@ describe("SourceLinkPopupView", () => {
       const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
       input.dispatchEvent(event);
 
-      expect(removeLink).toHaveBeenCalledWith(view);
+      expect(removeLink).toHaveBeenCalledWith(view, mockLinkStore);
     });
   });
 

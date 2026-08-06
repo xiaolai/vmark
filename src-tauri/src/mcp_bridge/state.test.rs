@@ -1,6 +1,7 @@
 //! Tests for `state.rs` (moved from the inline `#[cfg(test)]` module;
 //! included via `#[path]`).
 
+use super::super::managed::McpBridgeState;
 use super::*;
 
 // -- bounded outbound channel -------------------------------------------
@@ -27,61 +28,35 @@ async fn client_tx_overflow_returns_full_not_blocking() {
 // -- is_read_only_operation ------------------------------------------------
 
 #[test]
-fn read_only_document_operations() {
-    assert!(is_read_only_operation("document.getContent"));
-    assert!(is_read_only_operation("document.search"));
-}
-
-#[test]
-fn read_only_selection_operations() {
-    assert!(is_read_only_operation("selection.get"));
-    assert!(is_read_only_operation("cursor.getContext"));
-}
-
-#[test]
-fn read_only_metadata_operations() {
-    assert!(is_read_only_operation("outline.get"));
-    assert!(is_read_only_operation("metadata.get"));
-}
-
-#[test]
-fn read_only_window_workspace_operations() {
-    assert!(is_read_only_operation("windows.list"));
-    assert!(is_read_only_operation("windows.getFocused"));
-    assert!(is_read_only_operation("workspace.getDocumentInfo"));
-    assert!(is_read_only_operation("workspace.listRecentFiles"));
-    assert!(is_read_only_operation("workspace.getInfo"));
-}
-
-#[test]
-fn read_only_tab_operations() {
-    assert!(is_read_only_operation("tabs.list"));
-    assert!(is_read_only_operation("tabs.getActive"));
-    assert!(is_read_only_operation("tabs.getInfo"));
-}
-
-#[test]
-fn read_only_structure_operations() {
-    assert!(is_read_only_operation("protocol.getCapabilities"));
-    assert!(is_read_only_operation("protocol.getRevision"));
-    assert!(is_read_only_operation("structure.getAst"));
-    assert!(is_read_only_operation("structure.getDigest"));
-    assert!(is_read_only_operation("structure.listBlocks"));
-    assert!(is_read_only_operation("structure.resolveTargets"));
-    assert!(is_read_only_operation("structure.getSection"));
-}
-
-#[test]
-fn read_only_other_operations() {
-    assert!(is_read_only_operation("editor.getUndoState"));
-    assert!(is_read_only_operation("suggestion.list"));
-    assert!(is_read_only_operation("paragraph.read"));
-}
-
-#[test]
-fn read_only_genie_operations() {
-    assert!(is_read_only_operation("genies.list"));
-    assert!(is_read_only_operation("genies.read"));
+fn legacy_operations_are_write_class_fail_closed() {
+    // Audit 20260729 C4: the pre-pruning legacy names are unreachable here —
+    // the frontend dispatcher accepts only vmark.*, and windows.list /
+    // windows.getFocused are Rust-answered in routing BEFORE this classifier
+    // runs. They must fall through to write-class (fail closed), not carry a
+    // dead read-only allowlist.
+    for legacy in [
+        "document.getContent",
+        "document.search",
+        "selection.get",
+        "cursor.getContext",
+        "outline.get",
+        "metadata.get",
+        "windows.list",
+        "windows.getFocused",
+        "workspace.getDocumentInfo",
+        "tabs.list",
+        "editor.getUndoState",
+        "suggestion.list",
+        "paragraph.read",
+        "protocol.getCapabilities",
+        "structure.getAst",
+        "genies.list",
+    ] {
+        assert!(
+            !is_read_only_operation(legacy),
+            "legacy op {legacy} must be write-class (fail closed)"
+        );
+    }
 }
 
 #[test]
@@ -102,19 +77,40 @@ fn read_only_browser_operations() {
     // classified as writes they would hold the global write lock for up to
     // their full 12s timeout, stalling every concurrent writer.
     assert!(is_read_only_operation("vmark.browser.read"));
-    assert!(is_read_only_operation("vmark.browser.wait"));
     assert!(is_read_only_operation("vmark.browser.wait_for"));
     assert!(is_read_only_operation("vmark.browser.query"));
     assert!(is_read_only_operation("vmark.browser.screenshot"));
+    // `vmark.browser.wait` is write-class (audit 20260729): its frontend
+    // handler activates the target window and creates/attaches the native
+    // browser view — real mutations that must serialize.
+    assert!(!is_read_only_operation("vmark.browser.wait"));
 }
 
 #[test]
-fn read_only_coherence_operations() {
-    // WI-1.10 / audit C4-C5 — status is a pure projection (read); edges
-    // runs scan reconciliation, which APPENDS provenance records, so it
-    // must be classified as a write and serialize with document writes.
-    assert!(is_read_only_operation("vmark.coherence.status"));
+fn duplicate_pending_request_id_is_rejected() {
+    let mut state = BridgeState::default();
+    let (tx1, _rx1) = tokio::sync::oneshot::channel();
+    let (tx2, _rx2) = tokio::sync::oneshot::channel();
+
+    assert!(try_register_pending(&mut state, "req-1".into(), tx1).is_ok());
+    // Same id again: must be rejected, NOT silently replace (and strand)
+    // the original request's response channel.
+    let err = try_register_pending(&mut state, "req-1".into(), tx2).unwrap_err();
+    assert!(err.contains("duplicate pending request id"));
+    assert_eq!(state.pending.len(), 1);
+}
+
+#[test]
+fn coherence_operations_never_reach_this_classifier() {
+    // WI-1 (audit-followups 20260729): coherence ops are Rust-answered in
+    // `answer_rust_side` BEFORE the lock decision consults this classifier;
+    // their lock policy lives in `routing::answer_coherence_async`. Entries
+    // here would be unreachable — they must all fall through (fail closed).
+    assert!(!is_read_only_operation("vmark.coherence.status"));
+    assert!(!is_read_only_operation("vmark.coherence.claims"));
+    assert!(!is_read_only_operation("vmark.coherence.contexts"));
     assert!(!is_read_only_operation("vmark.coherence.edges"));
+    assert!(!is_read_only_operation("vmark.coherence.resolve"));
 }
 
 #[test]
@@ -235,7 +231,7 @@ fn exhaustive_write_operations_not_read_only() {
         "vmark.workflow.apply_patch",
         "vmark.selection.set",
         // Embedded-browser write-class ops (wire types in
-        // vmark-mcp-server/src/tools/browser.ts). `console` counts as a
+        // server/mcp/src/tools/browser.ts). `console` counts as a
         // write because `clear: true` drains the page's console buffer.
         "vmark.browser.act",
         "vmark.browser.open",
@@ -319,12 +315,7 @@ fn is_read_only_handles_long_strings() {
 // that parallel tests also touch.
 
 fn local_state() -> BridgeState {
-    BridgeState {
-        clients: HashMap::new(),
-        pending: HashMap::new(),
-        next_client_id: 1,
-        window_workspaces: HashMap::new(),
-    }
+    BridgeState::default()
 }
 
 fn fresh_pending() -> (PendingRequest, oneshot::Receiver<McpResponse>) {
@@ -399,248 +390,153 @@ fn try_register_pending_sweeps_stale_entries_before_cap_check() {
 
 // -- webview heartbeat ----------------------------------------------------
 //
-// WEBVIEW_ALIVE is a global AtomicBool shared across all parallel tests.
-// Multi-step set→assert sequences are inherently racy when other tests
-// also call set_webview_alive. To avoid flakiness, all webview alive
-// tests are consolidated into one #[test] that runs sequentially.
+// These used to be ONE test with a "Restore" line at the end, because
+// `WEBVIEW_ALIVE` was a process-global `AtomicBool` that parallel tests raced
+// over. The flag lives on the managed state now, so each case owns one.
 
 #[test]
-fn webview_alive_behavior() {
-    // --- basic set/get ---
-    set_webview_alive(true);
-    assert!(is_webview_alive(), "should be true after set(true)");
-
-    set_webview_alive(false);
-    assert!(!is_webview_alive(), "should be false after set(false)");
-
-    // --- round-trip ---
-    set_webview_alive(false);
-    assert!(!is_webview_alive());
-    set_webview_alive(true);
-    assert!(is_webview_alive());
-
-    // --- idempotent repeated sets ---
-    for _ in 0..3 {
-        set_webview_alive(true);
-    }
-    assert!(is_webview_alive());
-
-    for _ in 0..3 {
-        set_webview_alive(false);
-    }
-    assert!(!is_webview_alive());
-
-    // --- rapid toggling converges to last value ---
-    for _ in 0..1000 {
-        set_webview_alive(false);
-        set_webview_alive(true);
-    }
-    assert!(is_webview_alive());
-
-    for _ in 0..1000 {
-        set_webview_alive(true);
-        set_webview_alive(false);
-    }
-    assert!(!is_webview_alive());
-
-    // Restore
-    set_webview_alive(true);
+fn a_fresh_bridge_considers_the_webview_alive() {
+    // A suspicion flag: suspecting a webview nobody has talked to yet would
+    // log a wake-retry on the very first request.
+    assert!(McpBridgeState::default().is_webview_alive());
 }
 
-/// Multiple threads toggling the flag concurrently.
-/// We cannot predict the final value, but the test verifies no panic,
-/// no UB, and the flag is readable afterwards.
 #[test]
-fn webview_alive_concurrent_access() {
-    use std::sync::Arc;
-    use std::sync::Barrier;
+fn the_liveness_flag_round_trips() {
+    let bridge = McpBridgeState::default();
 
-    let barrier = Arc::new(Barrier::new(4));
-    let mut handles = Vec::new();
-
-    for i in 0..4 {
-        let b = barrier.clone();
-        handles.push(std::thread::spawn(move || {
-            b.wait();
-            for _ in 0..500 {
-                set_webview_alive(i % 2 == 0);
-            }
-        }));
-    }
-
-    for h in handles {
-        h.join().unwrap();
-    }
-
-    // The value is non-deterministic after concurrent access;
-    // just confirm the call doesn't panic.
-    let _ = is_webview_alive();
-
-    // Restore
-    set_webview_alive(true);
+    bridge.set_webview_alive(false);
+    assert!(!bridge.is_webview_alive());
+    bridge.set_webview_alive(true);
+    assert!(bridge.is_webview_alive());
 }
 
-// -- bridge state initialization ------------------------------------------
+#[test]
+fn repeated_sets_are_idempotent_and_the_last_write_wins() {
+    let bridge = McpBridgeState::default();
 
-/// Bridge state is initialized and accessible. Because OnceLock is
-/// shared across tests (which run in parallel), we only assert
-/// structural invariants rather than exact initial values.
-#[tokio::test]
-async fn bridge_state_is_accessible() {
-    let state = get_bridge_state();
-    let guard = state.lock().await;
-    // The maps may have been touched by parallel tests, but the lock
-    // itself must be acquirable without panic.
-    let _ = guard.clients.len();
-    let _ = guard.pending.len();
-    assert!(guard.next_client_id >= 1);
+    for _ in 0..1000 {
+        bridge.set_webview_alive(true);
+        bridge.set_webview_alive(false);
+    }
+    assert!(!bridge.is_webview_alive());
+
+    for _ in 0..1000 {
+        bridge.set_webview_alive(false);
+        bridge.set_webview_alive(true);
+    }
+    assert!(bridge.is_webview_alive());
 }
 
-/// Calling get_bridge_state() multiple times returns the same Arc.
-#[tokio::test]
-async fn bridge_state_is_singleton() {
-    let s1 = get_bridge_state();
-    let s2 = get_bridge_state();
-    assert!(Arc::ptr_eq(&s1, &s2));
-}
+/// Threads toggling the flag concurrently: the final value is not predictable,
+/// but the flag must remain readable and the run must not panic.
+#[test]
+fn concurrent_toggling_is_safe() {
+    let bridge = McpBridgeState::default();
+    let barrier = std::sync::Barrier::new(4);
 
-/// Mutations through one Arc reference are visible through another.
-/// Uses the `pending` map (keyed by a unique test marker) to avoid
-/// interference with other tests that mutate `next_client_id`.
-#[tokio::test]
-async fn bridge_state_shared_mutation() {
-    let s1 = get_bridge_state();
-    let s2 = get_bridge_state();
-
-    let marker = "__test_shared_mutation__".to_string();
-
-    {
-        let mut guard = s1.lock().await;
-        let (tx, _rx) = oneshot::channel::<McpResponse>();
-        guard.pending.insert(
-            marker.clone(),
-            PendingRequest {
-                response_tx: tx,
-                created_at: Instant::now(),
-            },
-        );
-    }
-
-    {
-        let guard = s2.lock().await;
-        assert!(guard.pending.contains_key(&marker));
-    }
-
-    // Clean up
-    {
-        let mut guard = s1.lock().await;
-        guard.pending.remove(&marker);
-    }
-}
-
-/// Multiple tasks concurrently insert into the `pending` map. The Mutex
-/// guarantees all insertions succeed without data loss.
-#[tokio::test]
-async fn bridge_state_concurrent_pending_insert() {
-    let state = get_bridge_state();
-    let mut handles = Vec::new();
-
-    for i in 0..10 {
-        let s = state.clone();
-        handles.push(tokio::spawn(async move {
-            let mut guard = s.lock().await;
-            let (tx, _rx) = oneshot::channel::<McpResponse>();
-            guard.pending.insert(
-                format!("__concurrent_test_{i}__"),
-                PendingRequest {
-                    response_tx: tx,
-                    created_at: Instant::now(),
-                },
-            );
-        }));
-    }
-
-    for h in handles {
-        h.await.unwrap();
-    }
-
-    {
-        let mut guard = state.lock().await;
-        for i in 0..10 {
-            let key = format!("__concurrent_test_{i}__");
-            assert!(guard.pending.contains_key(&key), "missing key: {key}");
-            guard.pending.remove(&key);
+    std::thread::scope(|scope| {
+        for i in 0..4 {
+            let (bridge, barrier) = (&bridge, &barrier);
+            scope.spawn(move || {
+                barrier.wait();
+                for _ in 0..500 {
+                    bridge.set_webview_alive(i % 2 == 0);
+                }
+            });
         }
-    }
+    });
+
+    let _ = bridge.is_webview_alive();
 }
 
-// -- shutdown holder ------------------------------------------------------
+// -- state isolation (WI-20) ----------------------------------------------
+//
+// The proof the migration was structural, not cosmetic. `get_bridge_state()`
+// returned the SAME `Arc` to every caller in the process, and two tests here
+// asserted exactly that (`bridge_state_is_singleton`,
+// `bridge_state_shared_mutation`) — which is why every other test had to key
+// its entries under a `__test_…__` marker and clean up after itself. These two
+// assert the opposite, using the SAME ids on both sides.
 
 #[tokio::test]
-async fn shutdown_holder_is_singleton() {
-    let h1 = get_shutdown_holder();
-    let h2 = get_shutdown_holder();
-    assert!(Arc::ptr_eq(&h1, &h2));
+async fn two_bridges_do_not_observe_each_others_requests() {
+    let first = McpBridgeState::default();
+    let second = McpBridgeState::default();
+
+    let (tx, _rx) = oneshot::channel::<McpResponse>();
+    try_register_pending(&mut *first.lock().await, "req-1".to_string(), tx)
+        .expect("registers on the first bridge");
+
+    assert!(
+        second.lock().await.pending.is_empty(),
+        "a second bridge must not see the first bridge's in-flight request"
+    );
+    // …and the SAME id registers cleanly on the second, which it could not do
+    // if the two shared a map: the duplicate guard would refuse it.
+    let (tx, _rx) = oneshot::channel::<McpResponse>();
+    try_register_pending(&mut *second.lock().await, "req-1".to_string(), tx)
+        .expect("the same id is free on an independent bridge");
 }
 
-/// Store a sender, take it back, fire it, and verify the receiver
-/// gets the signal. Covers the full lifecycle of the shutdown holder.
 #[tokio::test]
-async fn shutdown_holder_store_take_fire() {
-    let holder = get_shutdown_holder();
+async fn two_bridges_mint_client_ids_independently() {
+    let first = McpBridgeState::default();
+    let second = McpBridgeState::default();
 
+    first.lock().await.next_client_id += 5;
+
+    assert_eq!(
+        second.lock().await.next_client_id,
+        1,
+        "one bridge's client-id counter must not advance another's"
+    );
+}
+
+// -- shutdown signal and write lock ---------------------------------------
+
+/// Store a sender, take it back, fire it, and verify the receiver gets the
+/// signal — the full lifecycle `stop_bridge` depends on.
+#[tokio::test]
+async fn the_shutdown_signal_is_installed_taken_and_fired_once() {
+    let bridge = McpBridgeState::default();
     let (tx, rx) = oneshot::channel::<()>();
-    {
-        let mut guard = holder.write().await;
-        *guard = Some(tx);
-    }
 
-    // Take and fire
-    {
-        let mut guard = holder.write().await;
-        let tx = guard.take();
-        assert!(tx.is_some());
-        assert!(guard.is_none()); // gone after take
-        tx.unwrap().send(()).unwrap();
-    }
+    *bridge.shutdown_slot().await = Some(tx);
 
-    // Receiver got the signal
-    assert!(rx.await.is_ok());
+    let taken = bridge.shutdown_slot().await.take();
+    assert!(taken.is_some());
+    assert!(
+        bridge.shutdown_slot().await.is_none(),
+        "the sender is gone after being taken — a second stop must not re-fire it"
+    );
+    taken.expect("sender").send(()).expect("send");
+    assert!(rx.await.is_ok(), "the server loop receives the signal");
 }
 
-// -- write lock -----------------------------------------------------------
-
+/// The write lock serializes its holders: a read-yield-write sequence under it
+/// cannot lose an increment.
 #[tokio::test]
-async fn write_lock_is_singleton() {
-    let l1 = get_write_lock();
-    let l2 = get_write_lock();
-    assert!(Arc::ptr_eq(&l1, &l2));
-}
-
-/// Verify the write lock serializes concurrent access.
-#[tokio::test]
-async fn write_lock_serializes_access() {
-    let lock = get_write_lock();
-    let counter = Arc::new(std::sync::atomic::AtomicU32::new(0));
+async fn the_write_lock_serializes_its_holders() {
+    let bridge = std::sync::Arc::new(McpBridgeState::default());
+    let counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
     let mut handles = Vec::new();
 
     for _ in 0..5 {
-        let l = lock.clone();
-        let c = counter.clone();
+        let bridge = bridge.clone();
+        let counter = counter.clone();
         handles.push(tokio::spawn(async move {
-            let _guard = l.lock().await;
-            // Read, yield, write pattern — would race without the lock
-            let val = c.load(Ordering::SeqCst);
+            let _guard = bridge.write_lock().await;
+            let value = counter.load(std::sync::atomic::Ordering::SeqCst);
             tokio::task::yield_now().await;
-            c.store(val + 1, Ordering::SeqCst);
+            counter.store(value + 1, std::sync::atomic::Ordering::SeqCst);
         }));
     }
-
-    for h in handles {
-        h.await.unwrap();
+    for handle in handles {
+        handle.await.expect("no task may panic");
     }
 
-    assert_eq!(counter.load(Ordering::SeqCst), 5);
+    assert_eq!(counter.load(std::sync::atomic::Ordering::SeqCst), 5);
 }
 
 // -- auth token generation ---------------------------------------------------
@@ -689,70 +585,52 @@ async fn pending_map_cap_is_defined() {
     assert_eq!(MAX_PENDING_REQUESTS, 1000);
 }
 
-#[tokio::test]
-async fn cleanup_stale_pending_removes_old_entries() {
+#[test]
+fn cleanup_stale_pending_removes_old_entries() {
     use std::time::Duration;
 
-    let state = get_bridge_state();
+    let mut state = local_state();
+    let (stale_tx, _stale_rx) = oneshot::channel::<McpResponse>();
+    state.pending.insert(
+        "stale".to_string(),
+        PendingRequest {
+            response_tx: stale_tx,
+            created_at: Instant::now() - Duration::from_secs(PENDING_TTL_SECS * 2),
+        },
+    );
+    let (fresh_tx, _fresh_rx) = oneshot::channel::<McpResponse>();
+    state.pending.insert(
+        "fresh".to_string(),
+        PendingRequest {
+            response_tx: fresh_tx,
+            created_at: Instant::now(),
+        },
+    );
 
-    let marker_stale = "__test_stale_cleanup__".to_string();
-    let marker_fresh = "__test_fresh_cleanup__".to_string();
+    cleanup_stale_pending(&mut state);
 
-    {
-        let mut guard = state.lock().await;
-        let (tx1, _rx1) = oneshot::channel::<McpResponse>();
-        guard.pending.insert(
-            marker_stale.clone(),
-            PendingRequest {
-                response_tx: tx1,
-                created_at: std::time::Instant::now() - Duration::from_secs(120),
-            },
-        );
-        let (tx2, _rx2) = oneshot::channel::<McpResponse>();
-        guard.pending.insert(
-            marker_fresh.clone(),
-            PendingRequest {
-                response_tx: tx2,
-                created_at: std::time::Instant::now(),
-            },
-        );
-    }
-
-    {
-        let mut guard = state.lock().await;
-        cleanup_stale_pending(&mut guard);
-        assert!(!guard.pending.contains_key(&marker_stale));
-        assert!(guard.pending.contains_key(&marker_fresh));
-        guard.pending.remove(&marker_fresh);
-    }
+    assert!(!state.pending.contains_key("stale"));
+    assert!(state.pending.contains_key("fresh"));
 }
 
 /// The checked-cutoff path: an entry created "now" must always survive
 /// cleanup, and repeated cleanup calls must not panic. (The underflow
 /// itself — uptime shorter than the TTL — cannot be simulated in a test,
 /// so this exercises the `checked_sub` + `is_none_or` retain logic.)
-#[tokio::test]
-async fn cleanup_stale_pending_retains_fresh_instant() {
-    let state = get_bridge_state();
-    let marker = "__test_fresh_instant_cleanup__".to_string();
+#[test]
+fn cleanup_stale_pending_retains_fresh_instant() {
+    let mut state = local_state();
+    let (tx, _rx) = oneshot::channel::<McpResponse>();
+    state.pending.insert(
+        "fresh".to_string(),
+        PendingRequest {
+            response_tx: tx,
+            created_at: Instant::now(),
+        },
+    );
 
-    {
-        let mut guard = state.lock().await;
-        let (tx, _rx) = oneshot::channel::<McpResponse>();
-        guard.pending.insert(
-            marker.clone(),
-            PendingRequest {
-                response_tx: tx,
-                created_at: Instant::now(),
-            },
-        );
-    }
+    cleanup_stale_pending(&mut state);
+    cleanup_stale_pending(&mut state);
 
-    {
-        let mut guard = state.lock().await;
-        cleanup_stale_pending(&mut guard);
-        cleanup_stale_pending(&mut guard);
-        assert!(guard.pending.contains_key(&marker));
-        guard.pending.remove(&marker);
-    }
+    assert!(state.pending.contains_key("fresh"));
 }

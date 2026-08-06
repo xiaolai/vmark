@@ -9,20 +9,18 @@
  *   - Detects media files by MIME type and file extension
  *   - Handles both drop events (media files) and paste events (media file paths/URLs)
  *
- * @coordinates-with hooks/useMediaOperations.ts — media file copy and node insertion
+ * @coordinates-with services/media/mediaOperations.ts — media file copy and node insertion
  * @coordinates-with utils/mediaPathDetection.ts — media file type detection
  * @module plugins/mediaHandler/tiptap
  */
 
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/hooks/useMediaOperations";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
+import { copyMediaToAssets, saveMediaToAssets, insertBlockVideoNode, insertBlockAudioNode } from "@/services/media/mediaOperations";
 import { hasVideoExtension, hasAudioExtension } from "@/utils/mediaPathDetection";
 import { mediaHandlerError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -45,11 +43,7 @@ function isMediaFile(file: File): boolean {
 
 function getDocumentPath(): string | null {
   try {
-    const windowLabel = getWindowLabel();
-    const tabId = useTabStore.getState().activeTabId[windowLabel];
-    if (!tabId) return null;
-    const doc = useDocumentStore.getState().getDocument(tabId);
-    return doc?.filePath ?? null;
+    return activeFilePathForCurrentWindow();
   } catch {
     return null;
   }

@@ -27,7 +27,7 @@ import {
   getViewportBounds,
   type AnchorRect,
 } from "@/utils/popupPosition";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { buildPreviewContainer } from "./containerDom";
 import {
   MAX_THUMBNAIL_WIDTH,

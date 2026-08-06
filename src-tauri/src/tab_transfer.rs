@@ -24,6 +24,13 @@
 //!     only then sends `commit`, which removes the destination's copy. A
 //!     destination that is unreachable or refuses leaves its tab intact and the
 //!     undo fails — losing an undo beats losing the user's edits.
+//!   - The payload carries the FILE's line convention (`line_ending`,
+//!     `hard_break_style`, `has_bom`, `last_disk_content`) alongside its
+//!     content. `content`/`saved_content` are canonical editor text — LF and
+//!     BOM-free — so without these a CRLF+BOM file was rewritten LF and
+//!     BOM-less on its first save in the destination window. All four are
+//!     optional: a payload from an older build has none and the receiver falls
+//!     back to detection, as it did for every payload before.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -53,6 +60,21 @@ pub struct TabTransferData {
     pub saved_content: String,
     pub is_dirty: bool,
     pub workspace_root: Option<String>,
+    /// Line convention the FILE has on disk. Canonical LF content cannot carry
+    /// it, so a transfer that omitted these rewrote a CRLF+BOM file to LF and
+    /// BOM-less on its first save in the destination window. `Option` because
+    /// payloads written by older builds have none — the receiver then falls
+    /// back to detection, which is what it did for every payload before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_ending: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hard_break_style: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_bom: Option<bool>,
+    /// RAW disk bytes, so external-change detection in the destination compares
+    /// against what is actually on disk rather than the canonical editor text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_disk_content: Option<String>,
 }
 
 /// Registry of pending tab transfers, keyed by target window label.

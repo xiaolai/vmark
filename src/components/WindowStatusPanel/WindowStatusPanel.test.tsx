@@ -4,7 +4,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const invoke = vi.fn();
+const emit = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
+vi.mock("@tauri-apps/api/event", () => ({ emit: (...a: unknown[]) => emit(...a) }));
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "self",
 }));
@@ -18,6 +20,7 @@ function entry(p: Partial<WindowStatusEntry> & { label: string }): WindowStatusE
 
 beforeEach(() => {
   invoke.mockReset().mockResolvedValue(undefined);
+  emit.mockReset().mockResolvedValue(undefined);
   useWindowStatusStore.getState().reset();
   useWindowStatusStore.getState().setPanelOpen(true);
 });
@@ -82,18 +85,68 @@ describe("WindowStatusPanel", () => {
     expect(screen.getByText(/untitled/i)).toBeInTheDocument();
   });
 
-  it("pin button toggles the pinned state (#1120)", async () => {
+  it("pin dropdown — 'Pin this window' toggles this window's pin (#1120)", async () => {
     const user = userEvent.setup();
     useWindowStatusStore.getState().setWindows([
       entry({ label: "self" }),
       entry({ label: "w", docName: "o.md" }),
     ]);
     render(<WindowStatusPanel />);
-    // The pin button is the only one exposing aria-pressed.
-    const pin = screen.getByRole("button", { pressed: false });
-    await user.click(pin);
+    // The pin button now opens a scope menu instead of toggling directly.
+    await user.click(screen.getByRole("button", { name: /pin/i }));
+    const item = screen.getByRole("menuitemcheckbox", { name: /pin this window/i });
+    expect(item).toHaveAttribute("aria-checked", "false");
+    await user.click(item);
     expect(useWindowStatusStore.getState().pinned).toBe(true);
-    expect(screen.getByRole("button", { pressed: true })).toBeInTheDocument();
+    expect(useWindowStatusStore.getState().globalPin).toBe(false);
+  });
+
+  it("pin dropdown — 'Pin all windows' enables the app-global pin and broadcasts it (#1135)", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setWindows([entry({ label: "self" })]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /pin/i }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: /pin all windows/i }));
+    expect(useWindowStatusStore.getState().globalPin).toBe(true);
+    // Other open windows follow via the broadcast.
+    expect(emit).toHaveBeenCalledWith("window-status:global-pin", true);
+  });
+
+  it("closes the pin menu on Escape", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setWindows([entry({ label: "self" })]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /pin/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("closes the pin menu when clicking outside it", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setWindows([entry({ label: "self" })]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /pin/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.click(screen.getByText(/window status/i)); // panel title, outside the menu
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("with the app-global pin on, clicking a row keeps the panel open (#1135)", async () => {
+    const user = userEvent.setup();
+    useWindowStatusStore.getState().setGlobalPin(true); // opens + marks global
+    useWindowStatusStore.getState().setWindows([
+      entry({ label: "self" }),
+      entry({ label: "w-2", docName: "other.md" }),
+    ]);
+    render(<WindowStatusPanel />);
+    await user.click(screen.getByRole("button", { name: /other\.md/i }));
+    expect(invoke).toHaveBeenCalledWith("focus_window", { label: "w-2" });
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalled());
+    await Promise.resolve();
+    // Global pin behaves pinned everywhere → panel stays open (contrast: the
+    // unpinned case above closes it).
+    expect(useWindowStatusStore.getState().panelOpen).toBe(true);
   });
 
   it("when pinned, clicking a row focuses the window but keeps the panel open (#1120)", async () => {

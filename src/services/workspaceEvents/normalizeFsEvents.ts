@@ -4,7 +4,7 @@
  * Purpose: The deterministic core of the workspace event layer. Turns one raw
  *   Rust `fs:changed` emission into a scoped, deduplicated list of
  *   {@link SemanticWorkspaceEvent}, flagging self-write echoes. Pure and
- *   collaborator-injected (mirrors hooks/fsChangeHandlers) so it unit-tests
+ *   collaborator-injected (mirrors services/windowClose/fsChangeHandlers) so it unit-tests
  *   without Tauri, React, or timers.
  *
  * Boundary discipline: this layer emits the *event*; it never decides the
@@ -80,10 +80,13 @@ function collectRenames(
       isWithinRoot(newPath, root) ||
       (previousPath !== undefined && isWithinRoot(previousPath, root));
     if (!inScope) continue;
+    // No `previousPath` key on an unpaired rename event — the OS told us only
+    // where the file landed, and `suppressUnchanged` reads the key's presence
+    // to decide whether it can move a cache entry.
     out.set(newPath, {
       kind: "renamed",
       path: newPath,
-      previousPath,
+      ...(previousPath !== undefined ? { previousPath } : {}),
       rootPath: root,
       selfWrite: hasPendingSave(newPath),
     });

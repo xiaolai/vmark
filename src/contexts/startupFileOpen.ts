@@ -17,7 +17,7 @@
 
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { openFileInNewTabCore } from "@/hooks/useFileOpen";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
 
 /** Create a blank untitled tab so the window has a live document. */
 function ensureBlankTab(windowLabel: string): void {
@@ -53,4 +53,18 @@ export async function loadStartupFileIntoTab(
 /** Create the fresh-start blank untitled tab (no file, no workspace context). */
 export function createBlankStartupTab(windowLabel: string): void {
   ensureBlankTab(windowLabel);
+}
+
+/** Parse the `files` URL param (JSON string array) defensively. */
+export function parseStartupFilesParam(filesParam: string | null): string[] | null {
+  if (!filesParam) return null;
+  try {
+    const parsed = JSON.parse(filesParam);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((value): value is string => typeof value === "string");
+    }
+  } catch {
+    // Malformed param — treated as absent.
+  }
+  return null;
 }

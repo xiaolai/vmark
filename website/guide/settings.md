@@ -93,7 +93,7 @@ Typography, display, editing behavior, and whitespace settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Line endings on save | Control how line endings are handled when saving files | Preserve existing | Preserve existing, LF (`\n`), CRLF (`\r\n`) |
-| Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | Off | On / Off |
+| Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | On | On / Off |
 | Hard break style on save | How hard line breaks are represented in the saved Markdown file | Preserve existing | Two spaces (Recommended), Preserve existing, Backslash (`\`) |
 | Show `<br>` tags | Display HTML line break tags visibly in the editor | Off | On / Off |
 | Show invisibles | Visualize whitespace: spaces as `·`, tabs as `→` (Source only), soft line breaks as `↓` (Source only), hard line breaks as `⏎`. Hidden when printing. Toggle: `F3` or View → Show Invisibles. | Off | On / Off |
@@ -188,7 +188,7 @@ These settings only apply when a workspace (folder) is open.
 |---------|-------------|---------|---------|
 | Auto-resize on paste | Automatically resize large images before saving to the assets folder. The value is the maximum dimension in pixels | Off | Off, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copy to assets folder | Copy pasted or dropped images into the document's assets folder instead of embedding them | On | On / Off |
-| Clean up unused images on close | Automatically delete images from the assets folder that are no longer referenced in the document when you close it | Off | On / Off |
+| Clean up unused images on close | Automatically delete images from the assets folder that the document no longer references. Runs when you close the document, the window, or the app. Images still referenced by another document in the same folder are kept, and removed images go to the system Trash | Off | On / Off |
 
 ::: tip
 Enable **Auto-resize on paste** if you frequently paste screenshots or photos — it keeps your assets folder lightweight without manual resizing.
@@ -347,7 +347,7 @@ The Language section contains 20+ fine-grained formatting toggles. For a full ex
 | Limit consecutive punctuation | Limit repeated punctuation marks like `!!!` | Off | Off, Single (`!!` to `!`), Double (`!!!` to `!!`) |
 | Remove trailing spaces | Remove spaces at the end of lines | On | On / Off |
 | Normalize ellipsis | Convert spaced dots (`. . .`) to proper ellipsis (`...`) | On | On / Off |
-| Collapse newlines | Reduce three or more consecutive newlines to two | On | On / Off |
+| Collapse newlines | Reduce three or more consecutive newlines to two | Off | On / Off |
 
 ## Shortcuts
 
@@ -433,14 +433,28 @@ This lets you create links like `obsidian://open?vault=...` or `vscode://file/..
 |---------|-------------|---------|
 | Keep both editors alive | Mount both the WYSIWYG and Source mode editors simultaneously for faster mode switching. Increases memory usage | Off |
 
-### Workflow Engine
+### Workflow
+
+Two independent switches, because they are two different features.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Workflow engine | Enable the GitHub Actions workflow viewer/editor for `.yml`/`.yaml` files under `.github/workflows/`. When off, those files open as plain YAML | Off | On / Off |
-| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy) | On | On / Off |
+| Workflow viewer | GitHub Actions authoring help in the source pane: `${{ }}` expression completion, cursor-to-canvas job sync, and goto-definition for `uses:` references. These aids only read your file | Off | On / Off |
+| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy). Shown when the workflow viewer is on | On | On / Off |
+| Workflow engine | Run VMark's own YAML workflow files: adds the Run/Cancel side panel and lets workflow genies execute. Steps can call AI providers and write files, so it stays off until you ask for it | Off | On / Off |
 
-See [Workflow Viewer](/guide/workflow-viewer) for the full feature surface.
+The **workflow canvas itself is always available** — opening a file under
+`.github/workflows/` shows the graph and the form editor with no setting to
+turn on. The viewer switch adds the source-pane extras on top of it.
+
+Turning the viewer on does not enable the engine, and vice versa. With the
+engine off, VMark refuses workflow-execution requests outright rather than
+merely hiding the button — including requests that arrive over MCP — and
+reports "The workflow engine is turned off in Settings".
+
+Both toggles live under **Developer Tools** (see below) — turn Developer Tools
+on to reveal them. See [Workflow Viewer](/guide/workflow-viewer) for the full
+feature surface.
 
 ### Embedded Browser
 

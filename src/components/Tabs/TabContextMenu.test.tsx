@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/hooks/useTabOperations", () => ({
+vi.mock("@/services/tabs/tabOperations", () => ({
   closeTabWithDirtyCheck: mocks.closeTabWithDirtyCheck,
   closeTabsWithDirtyCheck: mocks.closeTabsWithDirtyCheck,
 }));

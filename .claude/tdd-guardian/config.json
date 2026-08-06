@@ -5,14 +5,15 @@
   "coverageSummaryPath": "coverage/coverage-summary.json",
   "mutationCommand": "",
   "thresholds": {
-    "lines": 100,
-    "functions": 100,
-    "branches": 100,
-    "statements": 100
+    "lines": null,
+    "functions": null,
+    "branches": null,
+    "statements": null
   },
   "enforceRedGreenRefactor": true,
   "blockCommitOnFailure": false,
   "blockCommitWithoutFreshGate": false,
   "stack": "react-ts-vitest",
-  "packageManager": "pnpm"
+  "packageManager": "pnpm",
+  "thresholdsAuthority": "vitest.config.ts \u2014 ratchet-only floors enforced by `pnpm test:coverage` and `pnpm check:all`. The numeric values here were untuned `tdd-guardian:init` output that nothing enforced; two disagreeing sources meant a plan could be written against the wrong bar. Guarded by src/test/coverageThresholdSources.test.ts (WI-0.2)."
 }

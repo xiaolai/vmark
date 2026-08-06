@@ -86,7 +86,7 @@ pub async fn mcp_bridge_start(app: AppHandle, port: u16) -> Result<McpServerStat
     // The on_exit callback resets state if the server loop exits unexpectedly
     // — but only if this instance is still the current generation.
     let app_for_cleanup = app.clone();
-    let actual_port = match mcp_bridge::start_bridge(app.clone(), port, move || {
+    let actual_port = match mcp_bridge::start_bridge(app.clone(), move || {
         if BRIDGE_GENERATION.load(Ordering::SeqCst) != generation {
             log::debug!(
                 "[MCP] Stale bridge loop exited (gen {}) — state untouched",
@@ -208,15 +208,18 @@ pub async fn mcp_sidecar_health(app: AppHandle) -> Result<McpHealthInfo, String>
 
 /// Get the number of connected MCP clients.
 #[command]
-pub async fn mcp_bridge_client_count() -> Result<usize, String> {
-    Ok(mcp_bridge::client_count().await)
+pub async fn mcp_bridge_client_count(
+    bridge: tauri::State<'_, mcp_bridge::McpBridgeState>,
+) -> Result<usize, String> {
+    Ok(mcp_bridge::client_count(&bridge).await)
 }
 
 /// Get list of connected MCP clients with their identities.
 #[command]
-pub async fn mcp_bridge_connected_clients() -> Result<Vec<mcp_bridge::ConnectedClientInfo>, String>
-{
-    Ok(mcp_bridge::connected_clients().await)
+pub async fn mcp_bridge_connected_clients(
+    bridge: tauri::State<'_, mcp_bridge::McpBridgeState>,
+) -> Result<Vec<mcp_bridge::ConnectedClientInfo>, String> {
+    Ok(mcp_bridge::connected_clients(&bridge).await)
 }
 
 /// Cleanup function to kill the MCP server on app exit.

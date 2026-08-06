@@ -128,7 +128,7 @@ describe("ImagePasteToastView mounting", () => {
 
   it("mounts inside editor-container when editorDom provided", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     // Trigger show via store
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
@@ -148,7 +148,7 @@ describe("ImagePasteToastView mounting", () => {
   });
 
   it("falls back to document.body when no editorDom", async () => {
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     // Trigger show via store without editorDom
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
@@ -167,7 +167,7 @@ describe("ImagePasteToastView mounting", () => {
 
   it("uses absolute positioning when mounted in editor-container", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -184,7 +184,7 @@ describe("ImagePasteToastView mounting", () => {
   });
 
   it("uses fixed positioning when mounted in document.body", async () => {
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -202,7 +202,7 @@ describe("ImagePasteToastView mounting", () => {
 
   it("cleans up properly on destroy", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -237,7 +237,7 @@ describe("ImagePasteToastView keyboard navigation", () => {
 
   it("Enter on insert button calls confirm", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { confirm: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -263,7 +263,7 @@ describe("ImagePasteToastView keyboard navigation", () => {
 
   it("Escape closes the toast", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { hideToast: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -283,7 +283,7 @@ describe("ImagePasteToastView keyboard navigation", () => {
 
   it("Tab cycles focus between buttons", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -326,7 +326,7 @@ describe("ImagePasteToastView actions", () => {
 
   it("clicking insert button calls confirm", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { confirm: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -347,7 +347,7 @@ describe("ImagePasteToastView actions", () => {
 
   it("clicking dismiss button calls dismiss", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { dismiss: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -368,7 +368,7 @@ describe("ImagePasteToastView actions", () => {
 
   it("click outside closes toast", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { hideToast: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -409,7 +409,7 @@ describe("ImagePasteToastView message display", () => {
 
   it("shows 'Image URL' for url type", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -427,7 +427,7 @@ describe("ImagePasteToastView message display", () => {
 
   it("shows 'Image path' for localPath type", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -445,7 +445,7 @@ describe("ImagePasteToastView message display", () => {
 
   it("shows count for multiple images", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -465,7 +465,7 @@ describe("ImagePasteToastView message display", () => {
 
   it("shows 'Insert All' button title for multiple images", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -485,7 +485,7 @@ describe("ImagePasteToastView message display", () => {
 
   it("shows single image message for isMultiple with count 1", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -522,7 +522,7 @@ describe("ImagePasteToastView keyboard edge cases", () => {
 
   it("Enter on dismiss button calls dismiss", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { dismiss: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -547,7 +547,7 @@ describe("ImagePasteToastView keyboard edge cases", () => {
 
   it("Enter with no button focused defaults to insert", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { confirm: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -570,7 +570,7 @@ describe("ImagePasteToastView keyboard edge cases", () => {
 
   it("Shift+Tab cycles focus backwards", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -595,7 +595,7 @@ describe("ImagePasteToastView keyboard edge cases", () => {
 
   it("Shift+Tab from non-first button moves to previous (currentIndex - 1 branch)", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -622,7 +622,7 @@ describe("ImagePasteToastView keyboard edge cases", () => {
     vi.useFakeTimers();
 
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as { _setState: (s: object) => void; getState: () => { hideToast: ReturnType<typeof vi.fn> } };
     store._setState({
@@ -659,7 +659,7 @@ describe("ImagePasteToastView — hide on close transition", () => {
 
   it("hides toast when store transitions from open to closed", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -700,7 +700,7 @@ describe("ImagePasteToastView — hide on close transition", () => {
     // isImeKeyEvent checks isComposing flag among other things
     // The mock returns false for all events; test IME via Process key (common IME indicator)
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -728,7 +728,7 @@ describe("ImagePasteToastView — hide on close transition", () => {
 
   it("keyboard handler ignores events when popup is already closed", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -779,7 +779,7 @@ describe("ImagePasteToastView — click outside when not open (line 259)", () =>
   });
 
   it("click outside does nothing when popup is not open", () => {
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       getState: () => { hideToast: ReturnType<typeof vi.fn> };
@@ -816,7 +816,7 @@ describe("ImagePasteToastView — IME guard (line 190)", () => {
     mockIsImeKeyEvent.mockReturnValue(true);
 
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -863,7 +863,7 @@ describe("ImagePasteToastView — CodeMirror bounds (lines 141-143)", () => {
       ({ top: 100, left: 80, bottom: 600, right: 700, width: 620, height: 500, x: 80, y: 100, toJSON: () => ({}) }) as DOMRect;
     editorDom.appendChild(cmContent);
 
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -896,8 +896,8 @@ describe("ImagePasteToastView — singleton idempotency", () => {
   });
 
   it("initImagePasteToast is idempotent — does not create a second instance", () => {
-    initImagePasteToast();
-    initImagePasteToast(); // second call should be no-op
+    initImagePasteToast(useImagePasteToastStore as never);
+    initImagePasteToast(useImagePasteToastStore as never); // second call should be no-op
 
     // Only one toast element should exist
     destroyImagePasteToast();
@@ -927,7 +927,7 @@ describe("ImagePasteToastView — click inside toast does not close", () => {
 
   it("does not close when clicking inside the toast container", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -970,7 +970,7 @@ describe("ImagePasteToastView — host container already mounted (line 127)", ()
 
   it("does not re-append when container is already mounted to same host", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     const store = useImagePasteToastStore as unknown as {
       _setState: (s: object) => void;
@@ -1035,7 +1035,7 @@ describe("ImagePasteToastView — editorDom without editor-container (line 138)"
       createMockRect({ top: 0, left: 0, bottom: 600, right: 800, width: 800, height: 600 });
     document.body.appendChild(standaloneEditor);
 
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,
@@ -1073,7 +1073,7 @@ describe("ImagePasteToastView — single image with isMultiple=false button titl
 
   it("shows 'Insert as Image' title for single non-multiple image", async () => {
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-    initImagePasteToast();
+    initImagePasteToast(useImagePasteToastStore as never);
 
     (useImagePasteToastStore as unknown as { _setState: (s: object) => void })._setState({
       isOpen: true,

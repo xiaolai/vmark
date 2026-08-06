@@ -1,7 +1,9 @@
+// WI-3R — rail click performs the full context switch (tests)
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
 import {
   selectWindowWorkspaceState,
   useWorkspaceInstancesStore,
@@ -9,11 +11,15 @@ import {
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "./WorkspaceRail";
 
-const { mockMoveWorkspace, mockDuplicateWorkspace, mockToastError, mockToastMessage } = vi.hoisted(() => ({
+const { mockMoveWorkspace, mockDuplicateWorkspace, mockCloseWorkspace, mockToastError, mockToastMessage } = vi.hoisted(() => ({
   mockMoveWorkspace: vi.fn(),
   mockDuplicateWorkspace: vi.fn(),
+  mockCloseWorkspace: vi.fn(),
   mockToastError: vi.fn(),
   mockToastMessage: vi.fn(),
+}));
+vi.mock("@/services/workspaces/closeWorkspaceInstance", () => ({
+  closeWorkspaceInstance: mockCloseWorkspace,
 }));
 
 vi.mock("@/services/workspaces/workspaceWindowActions", () => ({
@@ -22,6 +28,9 @@ vi.mock("@/services/workspaces/workspaceWindowActions", () => ({
 }));
 vi.mock("@/services/ime/imeToast", () => ({
   imeToast: { error: mockToastError, message: mockToastMessage },
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(() => Promise.resolve(null)),
 }));
 
 function setRailMode(enabled: boolean): void {
@@ -58,8 +67,10 @@ function addLooseInstance(windowLabel: string, id = "wsi-loose"): void {
 beforeEach(() => {
   setRailMode(false);
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   mockMoveWorkspace.mockReset();
   mockDuplicateWorkspace.mockReset();
+  mockCloseWorkspace.mockReset();
   mockToastError.mockReset();
   mockToastMessage.mockReset();
 });
@@ -101,23 +112,93 @@ describe("WorkspaceRail", () => {
     expect(screen.getByRole("button", { name: "Activate a" })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("renders numbered folder indicators with stable workspace colors", () => {
+  it("renders name-derived glyphs with stable workspace colors", () => {
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/a");
     addInstance("main", "wsi-b", "/Users/xiaolai/b");
 
     const { container } = render(<WorkspaceRail windowLabel="main" />);
 
-    const indicators = [...container.querySelectorAll(".workspace-rail__index")].map(
-      (indicator) => indicator.textContent,
+    // Was `index + 1` ("1", "2") — a POSITIONAL number that changed on reorder
+    // and identified nothing. Now the first character of the workspace name.
+    const glyphs = [...container.querySelectorAll(".workspace-rail__glyph")].map(
+      (glyph) => glyph.textContent,
     );
     const entries = [...container.querySelectorAll<HTMLElement>(".workspace-rail__entry")];
-    const folderIcon = container.querySelector(".workspace-rail__folder svg");
-    expect(indicators).toEqual(["1", "2"]);
-    expect(folderIcon).toHaveAttribute("width", "14");
-    expect(folderIcon).toHaveAttribute("height", "14");
-    expect(entries[0]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
-    expect(entries[1]?.style.getPropertyValue("--workspace-rail-color")).toMatch(/^var\(--/);
+    expect(glyphs).toEqual(["A", "B"]);
+    // The colour seeding this test also guarded must survive the change. A
+    // `/^var\(--/` match would pass even if BOTH entries got the same token, so
+    // assert they are distinct as well as well-formed.
+    const colors = entries.map((e) => e.style.getPropertyValue("--workspace-rail-color"));
+    for (const color of colors) expect(color).toMatch(/^var\(--[a-z-]+\)$/);
+    expect(new Set(colors).size).toBe(2);
+  });
+
+  it("keeps glyphs stable when entries are reordered", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/beta");
+
+    const { rerender } = render(<WorkspaceRail windowLabel="main" />);
+    // Query by accessible name, so the assertion survives a CSS-class rename
+    // and states the real contract: THIS workspace shows THIS glyph.
+    const glyphOf = (name: string) =>
+      screen.getByRole("button", { name: `Activate ${name}` }).textContent;
+
+    expect(glyphOf("alpha")).toBe("A");
+    expect(glyphOf("beta")).toBe("B");
+
+    act(() => {
+      useWorkspaceInstancesStore
+        .getState()
+        .reorderWorkspaceInstances("main", ["wsi-b", "wsi-a"]);
+    });
+    rerender(<WorkspaceRail windowLabel="main" />);
+
+    // A positional index would still read "1","2" after the swap while pointing
+    // at different workspaces. Name-derived glyphs travel with their workspace.
+    expect(glyphOf("alpha")).toBe("A");
+    expect(glyphOf("beta")).toBe("B");
+  });
+
+  it("keeps colliding initials at one character each", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/apex");
+
+    render(<WorkspaceRail windowLabel="main" />);
+
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("A");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("A");
+  });
+
+  it("leaves every workspace at one character, colliding or not", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-z", "/Users/xiaolai/zulu");
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+    addInstance("main", "wsi-b", "/Users/xiaolai/apex");
+
+    render(<WorkspaceRail windowLabel="main" />);
+
+    // No glyph is ever lengthened, even when two collide: the full name is
+    // already carried by the accessible name, the tooltip and the accent colour.
+    expect(screen.getByRole("button", { name: "Activate zulu" })).toHaveTextContent("Z");
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toHaveTextContent("A");
+    expect(screen.getByRole("button", { name: "Activate apex" })).toHaveTextContent("A");
+  });
+
+  it("keeps the full workspace name as the accessible name, not the glyph", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+
+    const { container } = render(<WorkspaceRail windowLabel="main" />);
+
+    // Screen readers must announce the workspace, never the one-letter glyph.
+    expect(screen.getByRole("button", { name: "Activate alpha" })).toBeInTheDocument();
+    expect(container.querySelector(".workspace-rail__glyph")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
   });
 
   it("renders loose files as a non-folder rail entry", () => {
@@ -129,14 +210,19 @@ describe("WorkspaceRail", () => {
     expect(screen.getByRole("button", { name: "Activate Loose Files" }))
       .toBeInTheDocument();
     expect(container.querySelector(".workspace-rail__loose svg")).toBeInTheDocument();
-    expect(container.querySelector(".workspace-rail__folder")).not.toBeInTheDocument();
+    // Loose Files is not a workspace: it keeps its own icon and must never be
+    // given an identity glyph (which would make it read as another workspace).
+    expect(container.querySelector(".workspace-rail__glyph")).not.toBeInTheDocument();
   });
 
-  it("activates the clicked workspace instance", async () => {
+  it("performs the FULL context switch on click: activation + outgoing stash (WI-3R)", async () => {
     const user = userEvent.setup();
     setRailMode(true);
     addInstance("main", "wsi-a", "/Users/xiaolai/a");
     addInstance("main", "wsi-b", "/Users/xiaolai/b");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-a");
+    const tabId = useTabStore.getState().createTab("main", "/Users/xiaolai/a/doc.md");
+    useTabStore.getState().setActiveTab("main", tabId);
 
     render(<WorkspaceRail windowLabel="main" />);
     await user.click(screen.getByRole("button", { name: "Activate b" }));
@@ -145,6 +231,29 @@ describe("WorkspaceRail", () => {
       selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main")
         ?.activeWorkspaceInstanceId,
     ).toBe("wsi-b");
+    // The outgoing instance stashed its live context — the full switch ran,
+    // not a raw activation flip.
+    const outgoing = useWorkspaceInstancesStore.getState().instances["wsi-a"];
+    expect(outgoing.tabIds).toEqual([tabId]);
+    expect(outgoing.activeTabId).toBe(tabId);
+    // aria-pressed follows the new active instance.
+    expect(screen.getByRole("button", { name: "Activate b" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Activate a" }))
+      .toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicking the ACTIVE entry is a strict no-op", async () => {
+    const user = userEvent.setup();
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-a");
+    const before = useWorkspaceInstancesStore.getState().instances;
+
+    render(<WorkspaceRail windowLabel="main" />);
+    await user.click(screen.getByRole("button", { name: "Activate a" }));
+
+    expect(useWorkspaceInstancesStore.getState().instances).toEqual(before);
   });
 
   it("moves a workspace when its icon is dragged outside the viewport", () => {
@@ -367,5 +476,120 @@ describe("WorkspaceRail", () => {
     await user.click(screen.getByRole("button", { name: "Duplicate a" }));
 
     expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  describe("context menu", () => {
+    /** Right-click the rail entry for `name` and return its menu. */
+    async function openMenu(name: string) {
+      const user = userEvent.setup();
+      await user.pointer({
+        keys: "[MouseRight]",
+        target: screen.getByRole("button", { name: `Activate ${name}` }),
+      });
+      return screen.getByRole("menu");
+    }
+
+    it("opens on right-click with the three workspace actions", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      const menu = await openMenu("alpha");
+
+      // Close and Move were previously unreachable from the rail: there was no
+      // close affordance at all, and moving required dragging the icon outside
+      // the window — undiscoverable and easy to trigger by accident.
+      expect(menu).toHaveAccessibleName("alpha");
+      expect(screen.getByRole("menuitem", { name: "Close" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Duplicate" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Move to New Window" })).toBeInTheDocument();
+    });
+
+    it("closes the workspace through the dirty-checked path", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      await userEvent.click(screen.getByRole("menuitem", { name: "Close" }));
+
+      // The tab-closing function is INJECTED: services/ may not import hooks/
+      // (ADR-013 tiering), so the component bridges the two tiers.
+      expect(mockCloseWorkspace).toHaveBeenCalledWith("main", "wsi-a", {
+        closeTabs: expect.any(Function),
+      });
+    });
+
+    it("duplicates and moves through the existing actions", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      await openMenu("alpha");
+      await userEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+      expect(mockDuplicateWorkspace).toHaveBeenCalledWith("main", "wsi-a");
+
+      await openMenu("alpha");
+      await userEvent.click(screen.getByRole("menuitem", { name: "Move to New Window" }));
+      expect(mockMoveWorkspace).toHaveBeenCalledWith("main", "wsi-a", expect.anything());
+    });
+
+    it("focuses the first item and roves with arrow keys", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      // Focus lands on an ITEM, not the container — the container's outline is
+      // suppressed, so focusing it would show nothing.
+      expect(screen.getByRole("menuitem", { name: "Close" })).toHaveFocus();
+
+      await userEvent.keyboard("{ArrowDown}");
+      expect(screen.getByRole("menuitem", { name: "Duplicate" })).toHaveFocus();
+      await userEvent.keyboard("{End}");
+      expect(screen.getByRole("menuitem", { name: "Move to New Window" })).toHaveFocus();
+      await userEvent.keyboard("{ArrowDown}");
+      expect(screen.getByRole("menuitem", { name: "Close" })).toHaveFocus();
+    });
+
+    it("returns focus to the rail entry when dismissed", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      const trigger = screen.getByRole("button", { name: "Activate alpha" });
+      await openMenu("alpha");
+
+      await userEvent.keyboard("{Escape}");
+
+      // Without this a keyboard user is dumped on <body>, losing their place.
+      expect(trigger).toHaveFocus();
+    });
+
+    it("dismisses on Escape without running an action", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+
+      await userEvent.keyboard("{Escape}");
+
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(mockCloseWorkspace).not.toHaveBeenCalled();
+    });
+
+    it("does not activate the workspace when right-clicked", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      addInstance("main", "wsi-b", "/Users/xiaolai/beta");
+      useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-b");
+      render(<WorkspaceRail windowLabel="main" />);
+
+      await openMenu("alpha");
+
+      // Opening a menu is not a selection gesture.
+      expect(
+        useWorkspaceInstancesStore.getState().windows["main"]?.activeWorkspaceInstanceId,
+      ).toBe("wsi-b");
+    });
   });
 });
