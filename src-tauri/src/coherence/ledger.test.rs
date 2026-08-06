@@ -201,6 +201,14 @@ fn quarantine_copy_is_not_duplicated_across_reads() {
 fn future_format_entries_are_skipped_not_quarantined() {
     // Spec §1: readers reject newer formats but must preserve them —
     // skipping with a surfaced count, never copying to quarantine.
+    //
+    // This pins the READ half only, and that is deliberate: skipping is the
+    // right behaviour here because a newer format is not corruption. The
+    // consequence — that a skip makes the projection SHORT, so writing on top
+    // of it is unsafe — is enforced one layer up, where the write actually
+    // happens. See `state.test.rs::future_format_ledger_refuses_mutation_but_
+    // still_reads` (WI-2.1). Until that gate existed, `future_format` was
+    // counted here and read by nobody.
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
     let mut e = Envelope::create("diagnostic", writer(1), diag("from the future"));
