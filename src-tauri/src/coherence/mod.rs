@@ -48,6 +48,7 @@ pub mod envelope_typed;
 pub mod envelope_validate;
 pub mod frontmatter;
 pub mod gitops;
+pub mod gitops_cmd;
 pub mod index;
 pub mod index_checks;
 pub mod index_dag;

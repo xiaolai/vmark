@@ -216,7 +216,12 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
     let objects = kernel.index().registry_state()?.path_of.len();
     // Both the badge and the list read the SAME `actionable` flag, so they
     // cannot disagree — the inconsistency this feature produced twice.
-    let open_items = if kernel.is_initialized() {
+    // `scanned` matters for `ledger_short_read` below: the flag is only
+    // meaningful when THIS call actually attempted the lock. On the
+    // uninitialized path no scan runs, so reading it would report a verdict
+    // left over from some earlier refusal.
+    let scanned = kernel.is_initialized();
+    let open_items = if scanned {
         perform_breakdown_in(kernel, None)?
             .iter()
             .filter(|r| r.actionable)
@@ -235,7 +240,10 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
         // so the counts still come back). Without surfacing it here the
         // degradation is silent, and `open_items: 0` on a workspace full of
         // them looks exactly like a clean workspace.
-        ledger_short_read: kernel.refused_for_short_read(),
+        //
+        // Gated on `scanned`: the flag is cleared per acquire, so with no scan
+        // in this call it would report a stale verdict from an earlier one.
+        ledger_short_read: scanned && kernel.refused_for_short_read(),
     })
 }
 

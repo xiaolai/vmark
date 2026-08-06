@@ -668,3 +668,36 @@ fn an_unborn_repo_is_distinguished_from_an_unreadable_one() {
         "a .git git cannot read is Unreadable, never Unborn"
     );
 }
+
+/// Audit round 3 — the REGRESSION my round-2 fix introduced.
+///
+/// Making `Unreadable` unconditionally `ObservationUnreliable` meant a machine
+/// with NO GIT BINARY could never reconcile a git-backed workspace again: the
+/// spawn failure became `Unreadable`, every scan stopped, and ordinary edits
+/// were never captured. That breaks the contract `git_output` documents in this
+/// very module — "not a git repo (or git unavailable) — callers then treat every
+/// change as an ordinary external edit, which is the safe fallback".
+///
+/// "git is not installed" is a fact about the MACHINE and must degrade to
+/// non-git behaviour. "git ran and refused" is a fact about the REPOSITORY and
+/// must stop the scan. Tested through the pure mapping so it does not require
+/// uninstalling git.
+#[test]
+fn a_missing_git_binary_degrades_instead_of_blocking_every_scan() {
+    use crate::coherence::gitops::{outcome_for_git_dir_probe, GitOutcome, GitRun};
+    assert_eq!(
+        outcome_for_git_dir_probe(&GitRun::Unavailable),
+        Some(GitOutcome::NotGit),
+        "no git binary must fall back to non-git behaviour, never block the workspace"
+    );
+    assert_eq!(
+        outcome_for_git_dir_probe(&GitRun::Failed),
+        Some(GitOutcome::Unreadable),
+        "git ran and refused: that IS a repository we cannot read"
+    );
+    assert_eq!(
+        outcome_for_git_dir_probe(&GitRun::Ok(".git".into())),
+        None,
+        "a working probe keeps observing"
+    );
+}
