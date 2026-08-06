@@ -12,6 +12,7 @@ import {
   type CopyFormat,
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
+import { WhitespaceSettings } from "./WhitespaceSettings";
 
 /** Font option definitions (labels are not translated — font names are proper nouns) */
 const fontOptions = {
@@ -264,63 +265,7 @@ export function EditorSettings() {
       </SettingsGroup>
 
       {/* Whitespace */}
-      <SettingsGroup title={t("editor.group.whitespace")}>
-        <SettingRow
-          label={t("editor.lineEndings.label")}
-          description={t("editor.lineEndings.description")}
-        >
-          <Select
-            value={general.lineEndingsOnSave}
-            options={[
-              { value: "preserve", label: t("editor.lineEndings.preserve") },
-              { value: "lf", label: t("editor.lineEndings.lf") },
-              { value: "crlf", label: t("editor.lineEndings.crlf") },
-            ]}
-            onChange={(v) => updateGeneralSetting("lineEndingsOnSave", v as typeof general.lineEndingsOnSave)}
-          />
-        </SettingRow>
-        <SettingRow
-          label={t("editor.preserveLineBreaks.label")}
-          description={t("editor.preserveLineBreaks.description")}
-        >
-          <Toggle
-            checked={markdown.preserveLineBreaks}
-            onChange={(v) => updateMarkdownSetting("preserveLineBreaks", v)}
-          />
-        </SettingRow>
-        <SettingRow
-          label={t("editor.hardBreakStyle.label")}
-          description={t("editor.hardBreakStyle.description")}
-        >
-          <Select
-            value={markdown.hardBreakStyleOnSave}
-            options={[
-              { value: "twoSpaces", label: t("editor.hardBreakStyle.twoSpaces") },
-              { value: "preserve", label: t("editor.hardBreakStyle.preserve") },
-              { value: "backslash", label: t("editor.hardBreakStyle.backslash") },
-            ]}
-            onChange={(v) => updateMarkdownSetting("hardBreakStyleOnSave", v as typeof markdown.hardBreakStyleOnSave)}
-          />
-        </SettingRow>
-        <SettingRow
-          label={t("editor.showBrTags.label")}
-          description={t("editor.showBrTags.description")}
-        >
-          <Toggle
-            checked={markdown.showBrTags}
-            onChange={(v) => updateMarkdownSetting("showBrTags", v)}
-          />
-        </SettingRow>
-        <SettingRow
-          label={t("editor.showInvisibles.label")}
-          description={t("editor.showInvisibles.description")}
-        >
-          <Toggle
-            checked={markdown.showInvisibles}
-            onChange={(v) => updateMarkdownSetting("showInvisibles", v)}
-          />
-        </SettingRow>
-      </SettingsGroup>
+      <WhitespaceSettings />
 
       {/* Large files */}
       <SettingsGroup title={t("editor.group.largeFiles")}>

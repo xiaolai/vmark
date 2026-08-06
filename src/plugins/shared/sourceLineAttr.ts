@@ -40,3 +40,28 @@ export function withSourceLine<T extends ExtendableExtension>(extension: T): T {
     },
   }) as T;
 }
+
+/**
+ * Shared `blankLinesBefore` attribute — the number of blank lines that preceded
+ * this block in the source (captured during MDAST→PM conversion), or null to
+ * inherit the serializer's default. Internal like sourceLine: set only
+ * programmatically, never parsed from or rendered to the DOM. Drives
+ * blank-line preservation (dev-docs/plans/20260721-blank-line-preservation.md).
+ */
+export const blankLinesAttr = {
+  blankLinesBefore: {
+    default: null as number | null,
+  },
+} as const;
+
+/** Extend a Tiptap block node with the blankLinesBefore attribute. */
+export function withBlankLinesBefore<T extends ExtendableExtension>(extension: T): T {
+  return extension.extend({
+    addAttributes() {
+      return {
+        ...(this as unknown as { parent?: () => Record<string, unknown> }).parent?.(),
+        ...blankLinesAttr,
+      };
+    },
+  }) as T;
+}

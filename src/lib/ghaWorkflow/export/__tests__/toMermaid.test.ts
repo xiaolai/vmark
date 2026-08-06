@@ -148,7 +148,7 @@ describe("toMermaid — fixture corpus", () => {
     const { parse } = await import("../../parser");
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
-    const FIXTURE_ROOT = "dev-docs/fixtures/gha-workflows";
+    const FIXTURE_ROOT = "src/test/fixtures/gha-workflows";
     function walk(dir: string): string[] {
       const out: string[] = [];
       for (const f of readdirSync(dir)) {

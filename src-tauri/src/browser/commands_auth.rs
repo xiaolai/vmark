@@ -6,40 +6,35 @@
 //! `#[tauri::command]` entry points, plus `browser_set_grants` /
 //! `browser_add_one_shot`, how the frontend mirrors the user's approvals into
 //! the driver — the sole authority (a caller that never syncs gets default-deny).
+//!
+//! The two commands here that accept caller-supplied script text (`browser_eval`,
+//! `browser_add_one_shot`) also apply the authoritative size bound from
+//! `script_limit.rs` — a resource guard orthogonal to authorization, and the only
+//! copy of that bound below the Tauri command boundary.
 
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
-use crate::browser::one_shot::{OneShot, OneShotTarget};
+use crate::browser::mint::{
+    attach_ai_tab, mint_one_shot, parse_act_target, script_hash, set_standing_grants,
+};
+use crate::browser::one_shot::OneShotTarget;
 use crate::browser::operation;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::{self, ProfileOpen};
-use crate::browser::registry::AutomationMode;
+use crate::browser::script_limit::ensure_script_within_limit;
 use crate::browser::surface::{self, BrowserSurface};
-use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
-
-/// Hex SHA-256 of a script — binds a `style`/`eval` one-shot to the EXACT payload
-/// the user approved, so an approved-A cannot be spent on a substituted-B on the
-/// retry. Computed here (authoritative) both when minting the one-shot and when
-/// running the eval. (Security review P5, High #1.)
-fn script_hash(script: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(script.as_bytes());
-    format!("{:x}", hasher.finalize())
-}
 
 /// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
 ///
 /// The driver's copy is the **authoritative** one: `browser_eval` reads it, so a
 /// caller that never syncs simply gets default-deny. Passing an empty vec revokes
-/// everything.
+/// everything. Validation lives in `mint::set_standing_grants` (WI-1.6).
 #[tauri::command]
 pub async fn browser_set_grants(
     state: State<'_, BrowserSurface>,
     grants: Vec<StandingGrant>,
 ) -> Result<(), String> {
-    let mut current = state.grants.lock().map_err(|e| e.to_string())?;
-    *current = grants;
-    Ok(())
+    set_standing_grants(&state, grants)
 }
 
 /// Mint a single-use authorization from the user's "Allow once" (R5).
@@ -62,59 +57,22 @@ pub async fn browser_add_one_shot(
     // the retry. (Security review P5, High #1.)
     eval_script: Option<String>,
 ) -> Result<(), String> {
-    // Reject a pattern the guard could not enforce, rather than storing authority
-    // that silently never matches.
-    if !origin_guard::is_origin_pattern(&origin_pattern) {
-        return Err(format!("not a valid origin pattern: '{origin_pattern}'"));
+    // Bound the payload before any authority is minted from it. A one-shot bound to
+    // a script `browser_eval` would refuse is authority the guard can never spend —
+    // "never store authority the guard cannot enforce" (`mint.rs`). `None` is passed
+    // through untouched: a missing script is `mint_one_shot`'s call to make.
+    if let Some(script) = eval_script.as_deref() {
+        ensure_script_within_limit("one-shot eval_script", script)?;
     }
-    // And reject an operation outside the closed vocabulary at the boundary, rather than
-    // minting authority the gate can only discover is meaningless later. `operation.rs`
-    // says anything outside the set is refused rather than treated as an opaque
-    // permission — this is where that becomes true for one-shots. (Audit, Medium.)
-    if !operation::is_known_operation(&operation) {
-        return Err(format!("not a browser operation: '{operation}'"));
-    }
-    // A payload-binding operation (`style`/`eval`) MUST carry its script so the
-    // one-shot binds the exact payload — refuse to mint authority that could be
-    // spent on a different script than the user approved. (Security review P5.)
-    let payload_hash = if operation::operation_binds_payload(&operation) {
-        let script = eval_script.ok_or_else(|| {
-            format!("operation '{operation}' requires the exact script to bind the approval to")
-        })?;
-        Some(script_hash(&script))
-    } else {
-        None
-    };
-    // The caller states which generation the user APPROVED against, and we refuse the mint
-    // unless the tab is still on it.
-    //
-    // This used to stamp the tab's CURRENT generation instead — which is a different fact.
-    // The page can navigate between the prompt being raised and the user clicking "Allow
-    // once", and stamping "current" then bound the approval to the page that had just
-    // loaded: authority for a page the user never saw. Reading the generation from the
-    // caller and *checking* it turns that race into a refusal. (Audit, High.)
-    {
-        let reg = state.registry.lock().map_err(|e| e.to_string())?;
-        let current = reg
-            .generation(&tab_id)
-            .ok_or_else(|| format!("unknown tab '{tab_id}'"))?;
-        if current != generation {
-            return Err(format!(
-                "stale approval: tab '{tab_id}' navigated since this was authorized \
-                 (approved gen {generation}, now {current})"
-            ));
-        }
-    }
-    let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-    shots.push(OneShot {
-        tab_id,
+    mint_one_shot(
+        &state,
+        &tab_id,
         generation,
-        origin_pattern,
-        operation,
+        &origin_pattern,
+        &operation,
         target,
-        payload_hash,
-    });
-    Ok(())
+        eval_script,
+    )
 }
 
 /// Attach AI access to a human-created tab for exactly its current generation.
@@ -126,15 +84,7 @@ pub async fn browser_ai_attach(
     generation: u64,
     once: Option<bool>,
 ) -> Result<(), String> {
-    let reg = state.registry.lock().map_err(|e| e.to_string())?;
-    if reg.automation_mode(&tab_id) != Some(AutomationMode::Human) {
-        return Err("TAB_NOT_HUMAN".into());
-    }
-    if reg.generation(&tab_id) != Some(generation) {
-        return Err("STALE_NAVIGATION".into());
-    }
-    drop(reg);
-    state.attach_tab(tab_id, generation, once.unwrap_or(false))
+    attach_ai_tab(&state, &tab_id, generation, once.unwrap_or(false))
 }
 
 /// Evaluate `script` in the driver's isolated content world and return its
@@ -160,19 +110,14 @@ pub async fn browser_eval(
     if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
         return Err("BROWSER_DISABLED".into());
     }
-    // A target is both halves or neither. `(Some(role), None)` must NOT fall
-    // through to a target-less authorization (which a target-less one-shot would
-    // then satisfy) — a half-specified target is a caller bug, and the safe
-    // reading of a caller bug in an authorization path is refusal. (Audit, High.)
-    let target = match (role, name) {
-        (Some(role), Some(name)) => Some(OneShotTarget { role, name }),
-        (None, None) => None,
-        (role, name) => {
-            return Err(format!(
-                "a target needs both role and name (got role={role:?}, name={name:?})"
-            ))
-        }
-    };
+    // THE authoritative script-size bound. The 64 KiB cap also exists in the sidecar
+    // and the webview handler, but both sit above this boundary and are therefore
+    // advisory — a caller that invokes the command directly was previously handed an
+    // unbounded `String`. Bound the payload before interpreting anything else about
+    // it; `BROWSER_DISABLED` still outranks it. (Audit 2026-07-28.)
+    ensure_script_within_limit("script", &script)?;
+    // A target is both halves or neither — see `mint::parse_act_target` (Audit, High).
+    let target = parse_act_target(role, name)?;
     // A `style`/`eval` one-shot is bound to the EXACT script; hash it so the gate can
     // match what the user approved against what is about to run. `None` for the
     // target-only operations (click/type/…), which bind role+name instead.
@@ -186,21 +131,20 @@ pub async fn browser_eval(
         payload_hash.as_deref(),
     )?;
     // Authorization and dispatch are separate steps, and a hostile page can time a
-    // navigation into the gap. Unlike a click, an eval side effect cannot be undone
-    // by a post-check, so re-verify freshness immediately before handing the script
-    // to the main-thread WebKit dispatch — a page that navigated (bumping the
-    // generation / clearing the committed origin) between authorization and here is
-    // refused rather than scripted against the wrong document. This narrows the race
-    // to the residual window between this check and the main-thread closure actually
-    // running; fully closing it requires the committed-generation re-check to move
-    // INSIDE surface::eval's main-thread closure (which needs the registry threaded
-    // in — tracked as a follow-up). (Security review P5, High #2.)
+    // navigation into the gap. Unlike a click, an eval side effect cannot be undone by
+    // a post-check, so freshness is re-verified before the script is handed to WebKit.
+    //
+    // This check is the CHEAP one — it rejects an already-stale command without paying
+    // for a main-thread round trip. It is no longer the last word: `surface::eval` now
+    // re-verifies the same generation INSIDE its main-thread closure, in the same turn
+    // as the dispatch, which closes the window this check alone used to leave open
+    // (Security review P5, High #2 — WI-2.1/2.2).
     if !command_still_fresh(&state, &tab_id, generation) {
         return Err(format!(
             "stale command: tab '{tab_id}' navigated or closed before the script could run"
         ));
     }
-    surface::eval(&app, tab_id, script)
+    surface::eval(&app, tab_id, script, generation)
 }
 
 /// Capture the tab's current rendering as a base64 JPEG (WI-P1.1).

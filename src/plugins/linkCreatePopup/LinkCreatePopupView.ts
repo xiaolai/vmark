@@ -10,9 +10,9 @@
  * WYSIWYG commit strategy: applying a link mark via a ProseMirror transaction.
  */
 
-import { useLinkCreatePopupStore } from "@/stores/linkCreatePopupStore";
 import { linkPopupError } from "@/utils/debug";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
+import type { StoreApi } from "@/plugins/shared/types";
 import {
   LinkCreateFlow,
   getLinkCreatePopupDimensions,
@@ -20,21 +20,29 @@ import {
 } from "./linkCreateController";
 
 /** Link create popup store state (extends base with creation-specific fields) */
-type LinkCreatePopupState = PopupStoreBase & LinkCreateFlowState;
+/**
+ * The popup state this view needs — the plugin's PORT, declared here so the
+ * plugin never names the app's store (ADR-015).
+ */
+export type LinkCreatePopupState = PopupStoreBase & LinkCreateFlowState;
 
 /**
  * Link create popup view - manages the floating popup UI for creating links.
  */
 export class LinkCreatePopupView extends WysiwygPopupView<LinkCreatePopupState> {
-  private flow = new LinkCreateFlow(this.container, useLinkCreatePopupStore, {
-    commitLink: (finalUrl, linkText, state) => this.commitLink(finalUrl, linkText, state),
-    closePopup: () => this.closePopup(),
-    focusEditor: () => this.focusEditor(),
-    onError: (error) => linkPopupError("Save failed:", error),
-  });
+  // Built in the CONSTRUCTOR, not as a field initializer: it needs the store
+  // that arrives as a constructor parameter, and a field initializer cannot
+  // see one.
+  private flow: LinkCreateFlow;
 
-  constructor(view: EditorViewLike) {
-    super(view, useLinkCreatePopupStore);
+  constructor(view: EditorViewLike, store: StoreApi<LinkCreatePopupState>) {
+    super(view, store);
+    this.flow = new LinkCreateFlow(this.container, store, {
+      commitLink: (finalUrl, linkText, state) => this.commitLink(finalUrl, linkText, state),
+      closePopup: () => this.closePopup(),
+      focusEditor: () => this.focusEditor(),
+      onError: (error) => linkPopupError("Save failed:", error),
+    });
   }
 
   protected buildContainer(): HTMLElement {
@@ -44,7 +52,7 @@ export class LinkCreatePopupView extends WysiwygPopupView<LinkCreatePopupState> 
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return getLinkCreatePopupDimensions(this.store.getState().showTextInput);
   }
 

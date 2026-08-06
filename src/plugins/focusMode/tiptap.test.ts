@@ -20,21 +20,28 @@ vi.mock("@/utils/imeGuard", () => ({
   runOrQueueProseMirrorAction: (...args: unknown[]) => mockRunOrQueue(...args),
 }));
 
-// Mock editorStore
+/**
+ * Stands in for the HOST's answers.
+ *
+ * This used to mock `@/stores/uiStore` and rely on the plugin reading and
+ * subscribing to it — the coupling that stopped it shipping standalone
+ * (ADR-015). The plugin takes `isEnabled` and `onChange` now; the same two
+ * capabilities, supplied rather than reached for.
+ */
 const mockEditorStoreState = { focusModeEnabled: false };
 const mockSubscribers: Array<(state: typeof mockEditorStoreState) => void> = [];
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => mockEditorStoreState,
-    subscribe: (fn: (state: typeof mockEditorStoreState) => void) => {
-      mockSubscribers.push(fn);
-      return () => {
-        const idx = mockSubscribers.indexOf(fn);
-        if (idx >= 0) mockSubscribers.splice(idx, 1);
-      };
-    },
+
+const hostOptions = {
+  isEnabled: () => mockEditorStoreState.focusModeEnabled,
+  onChange: (listener: () => void) => {
+    const wrapped = () => listener();
+    mockSubscribers.push(wrapped);
+    return () => {
+      const idx = mockSubscribers.indexOf(wrapped);
+      if (idx >= 0) mockSubscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 import { focusModeExtension } from "./tiptap";
 
@@ -165,7 +172,7 @@ describe("focusModeExtension", () => {
     it("creates a plugin from the extension", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -178,7 +185,7 @@ describe("focusModeExtension", () => {
     it("plugin has a view factory for store subscription", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -190,7 +197,7 @@ describe("focusModeExtension", () => {
     it("plugin provides decorations via props", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -202,7 +209,7 @@ describe("focusModeExtension", () => {
     it("plugin state has init and apply methods", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -217,7 +224,7 @@ describe("focusModeExtension", () => {
     it("subscribes to editorStore when view is created", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -238,7 +245,7 @@ describe("focusModeExtension", () => {
     it("dispatches toggle meta when focusMode changes", () => {
       const plugins = focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,
@@ -296,7 +303,7 @@ describe("focusModeExtension", () => {
     function getPlugin() {
       return focusModeExtension.config.addProseMirrorPlugins!.call({
         name: "focusMode",
-        options: {},
+        options: hostOptions,
         storage: {},
         parent: null as never,
         editor: {} as never,

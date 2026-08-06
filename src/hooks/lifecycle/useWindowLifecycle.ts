@@ -23,8 +23,9 @@
 import { useWindowClose } from "@/hooks/useWindowClose";
 import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
-import { useDocumentResilience } from "@/services/persistence/resilience";
+import { useDocumentResilience } from "@/hooks/resilience";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
+import { useLiveDocsResponder } from "@/hooks/useLiveDocsResponder";
 
 export function useWindowLifecycle(): void {
   useWindowClose();
@@ -32,4 +33,5 @@ export function useWindowLifecycle(): void {
   useWindowFileWatcher();
   useDocumentResilience(); // T07: capture + restore + snapshot writer + cleanup
   useMcpBridge();
+  useLiveDocsResponder(); // WI-9: answer other windows' cleanup queries
 }

@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@e90deca47693f9457b72f2b53c17d7c445a87342 # v1
+      - uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
             Check `batchOpHandlers.ts` (660 LoC) and `sectionHandlers.ts` (564 LoC) especially.
 
             ### 5. MCP sidecar reliability
-            `vmark-mcp-server/src/`. Check for:
+            `server/mcp/src/`. Check for:
             - WebSocket reconnection handling in `bridge/websocket.ts` (648 LoC)
             - Unhandled promise rejections in tool handlers
             - Message protocol type mismatches between `protocol-types.ts` and Rust bridge

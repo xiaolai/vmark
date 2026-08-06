@@ -8,16 +8,15 @@
  * - Edge cases: missing node types, empty doc
  */
 
+import { bindHostPopups } from "@/plugins/shared/hostPopups";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockOpenPopup = vi.fn();
-vi.mock("@/stores/footnotePopupStore", () => ({
-  useFootnotePopupStore: {
-    getState: () => ({
-      openPopup: mockOpenPopup,
-    }),
-  },
-}));
+
+// Opening the footnote editor is asked of the HOST now (ADR-015): the toolbar
+// action lives in another plugin, so routing it through an extension option
+// would move the coupling rather than remove it.
+bindHostPopups({ openFootnotePopup: (r) => mockOpenPopup(r) });
 
 // Mock createRenumberTransaction and getDefinitionInfo
 const mockCreateRenumberTransaction = vi.fn();
@@ -191,14 +190,14 @@ describe("insertFootnoteAndOpenPopup", () => {
 
     insertFootnoteAndOpenPopup(editor);
 
-    expect(mockOpenPopup).toHaveBeenCalledWith(
-      "1",
-      "",
-      mockRect,
-      20,
-      5,
-      true
-    );
+    expect(mockOpenPopup).toHaveBeenCalledWith({
+      label: "1",
+      content: "",
+      anchorRect: mockRect,
+      definitionPos: 20,
+      referencePos: 5,
+      autoFocus: true,
+    });
 
     rafSpy.mockRestore();
   });
@@ -306,7 +305,14 @@ describe("insertFootnoteAndOpenPopup", () => {
     insertFootnoteAndOpenPopup(editor);
 
     // Should pick label "2" as closest
-    expect(mockOpenPopup).toHaveBeenCalledWith("2", "", expect.anything(), 30, 9, true);
+    expect(mockOpenPopup).toHaveBeenCalledWith({
+      label: "2",
+      content: "",
+      anchorRect: expect.anything(),
+      definitionPos: 30,
+      referencePos: 9,
+      autoFocus: true,
+    });
     rafSpy.mockRestore();
   });
 
@@ -357,7 +363,14 @@ describe("insertFootnoteAndOpenPopup", () => {
 
     insertFootnoteAndOpenPopup(editor);
 
-    expect(mockOpenPopup).toHaveBeenCalledWith("2", "", expect.anything(), 20, 5, true);
+    expect(mockOpenPopup).toHaveBeenCalledWith({
+      label: "2",
+      content: "",
+      anchorRect: expect.anything(),
+      definitionPos: 20,
+      referencePos: 5,
+      autoFocus: true,
+    });
     rafSpy.mockRestore();
   });
 
@@ -406,7 +419,14 @@ describe("insertFootnoteAndOpenPopup", () => {
     insertFootnoteAndOpenPopup(editor);
 
     // defPos should be null (no matching definition)
-    expect(mockOpenPopup).toHaveBeenCalledWith("1", "", expect.anything(), null, 5, true);
+    expect(mockOpenPopup).toHaveBeenCalledWith({
+      label: "1",
+      content: "",
+      anchorRect: expect.anything(),
+      definitionPos: null,
+      referencePos: 5,
+      autoFocus: true,
+    });
     rafSpy.mockRestore();
   });
 

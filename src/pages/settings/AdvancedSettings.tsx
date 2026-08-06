@@ -18,6 +18,7 @@ export function AdvancedSettings() {
   const devTools = useSettingsStore((state) => state.advanced.developerMode);
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
+  const workflowViewer = useSettingsStore((state) => state.advanced.workflowViewer);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
   const workflowEditorPreserveYamlFormatting = useSettingsStore(
     (state) => state.advanced.workflowEditorPreserveYamlFormatting,
@@ -114,34 +115,13 @@ export function AdvancedSettings() {
               onChange={(v) => updateAdvancedSetting("clearMacQuarantineOnOpen", v)}
             />
           </SettingRow>
-          <SettingRow
-            label={t("advanced.browserAiSession.label")}
-            description={t("advanced.browserAiSession.description")}
-          >
-            <Select
-              value={browserAiSession}
-              options={[
-                { value: "sandbox", label: t("advanced.browserAiSession.sandbox") },
-                { value: "shared", label: t("advanced.browserAiSession.shared") },
-              ]}
-              onChange={(value) => updateBrowserSetting("aiSession", value)}
-            />
-          </SettingRow>
-          <SettingRow
-            label={t("advanced.browserAiAllowLoopback.label")}
-            description={t("advanced.browserAiAllowLoopback.description")}
-          >
-            <Toggle
-              checked={browserAiAllowLoopback}
-              onChange={(value) => updateBrowserSetting("aiAllowLoopback", value)}
-            />
-          </SettingRow>
-        </SettingsGroup>
-      )}
-
-      {/* Developer features - only visible when developer mode is enabled */}
-      {devTools && (
-        <SettingsGroup title={t("advanced.group.experimental")}>
+          {/* The embedded browser and its two AI settings are ONE group with ONE
+              gate. They used to disagree: posture and loopback sat here in plain
+              sight while the toggle that makes them mean anything was behind
+              `devTools`, so a user could configure a feature they had no way to
+              switch on — and the website documents it as "an early, OPT-IN
+              feature", which a developer-only toggle makes untrue. The dependents
+              are revealed by the gate, matching `workflowEngine` below. */}
           <SettingRow
             label={t("advanced.embeddedBrowser.label")}
             description={t("advanced.embeddedBrowser.description")}
@@ -151,22 +131,62 @@ export function AdvancedSettings() {
               onChange={(v) => updateBrowserSetting("enabled", v)}
             />
           </SettingRow>
-          {/* Site permissions are NOT here. Settings opens as a separate Tauri window with
-              its own JS context, so it has its own Zustand store: a grants list rendered
-              here reads an empty array and its Revoke button mutates a store the document
-              window never sees. It told you that you had revoked, and you had not. They
-              live in the browser sidebar instead, in the window that owns them.
-              (Audit finding, High.) */}
+          {/* Site permissions are NOT here. Settings opens as a separate Tauri window
+              with its own JS context, so it has its own Zustand store: a grants list
+              rendered here reads an empty array and its Revoke button mutates a store
+              the document window never sees. It told you that you had revoked, and you
+              had not. They live in the browser sidebar instead, in the window that owns
+              them. (Audit finding, High.) */}
+          {browserEnabled && (
+            <>
+              <SettingRow
+                label={t("advanced.browserAiSession.label")}
+                description={t("advanced.browserAiSession.description")}
+              >
+                <Select
+                  value={browserAiSession}
+                  options={[
+                    { value: "sandbox", label: t("advanced.browserAiSession.sandbox") },
+                    { value: "shared", label: t("advanced.browserAiSession.shared") },
+                  ]}
+                  onChange={(value) => updateBrowserSetting("aiSession", value)}
+                />
+              </SettingRow>
+              <SettingRow
+                label={t("advanced.browserAiAllowLoopback.label")}
+                description={t("advanced.browserAiAllowLoopback.description")}
+              >
+                <Toggle
+                  checked={browserAiAllowLoopback}
+                  onChange={(value) => updateBrowserSetting("aiAllowLoopback", value)}
+                />
+              </SettingRow>
+            </>
+          )}
+        </SettingsGroup>
+      )}
+
+      {/* Developer features - only visible when developer mode is enabled */}
+      {devTools && (
+        <SettingsGroup title={t("advanced.group.experimental")}>
+          {/* Two switches, not one (WI-19). The viewer is read-only GitHub
+              Actions authoring help; the engine executes YAML — it spawns AI
+              providers, writes files, and takes snapshots. One flag for both
+              meant wanting completion required arming the runner, and the
+              runner's Rust commands ignored the flag entirely. */}
           <SettingRow
-            label={t("advanced.workflowEngine.label")}
-            description={t("advanced.workflowEngine.description")}
+            label={t("advanced.workflowViewer.label")}
+            description={t("advanced.workflowViewer.description")}
           >
             <Toggle
-              checked={workflowEngine}
-              onChange={(v) => updateAdvancedSetting("workflowEngine", v)}
+              checked={workflowViewer}
+              onChange={(v) => updateAdvancedSetting("workflowViewer", v)}
             />
           </SettingRow>
-          {workflowEngine && (
+          {/* A viewer dependent: it governs how the structured GitHub Actions
+              editor writes YAML back. Hanging it off the engine flag is what
+              made it unreachable for a viewer-only user. */}
+          {workflowViewer && (
             <SettingRow
               label={t("advanced.workflowEditorPreserveYamlFormatting.label")}
               description={t(
@@ -184,6 +204,15 @@ export function AdvancedSettings() {
               />
             </SettingRow>
           )}
+          <SettingRow
+            label={t("advanced.workflowEngine.label")}
+            description={t("advanced.workflowEngine.description")}
+          >
+            <Toggle
+              checked={workflowEngine}
+              onChange={(v) => updateAdvancedSetting("workflowEngine", v)}
+            />
+          </SettingRow>
         </SettingsGroup>
       )}
 

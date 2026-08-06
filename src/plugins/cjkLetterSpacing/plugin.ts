@@ -15,6 +15,9 @@
  *     Hangul Syllables, and Bopomofo ranges
  *
  * @coordinates-with stores/settingsStore.ts — reads appearance.cjkLetterSpacing setting
+ * Enablement is INJECTED via the `isEnabled` option — the plugin reaches no
+ * store, so it can ship standalone (ADR-015).
+ *
  * @module plugins/cjkLetterSpacing
  */
 
@@ -23,7 +26,6 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useSettingsStore } from "@/stores/settingsStore";
 import "./cjk-letter-spacing.css";
 
 /** Configuration options for the CJK letter spacing extension. */
@@ -33,6 +35,21 @@ export interface CJKLetterSpacingOptions {
    * @default "cjk-spacing"
    */
   className: string;
+  /**
+   * Whether spacing is on, asked fresh each time.
+   *
+   * INJECTED rather than read from the app's stores. A plugin that reaches
+   * into the app's Zustand singletons cannot ship as a standalone extension,
+   * which is the binding constraint on ADR-015 — so the plugin states what it
+   * needs and the host, which owns the store, answers.
+   *
+   * A predicate, not a boolean: the plugin re-asks on every transaction to
+   * notice the setting changing under it, which a value captured at
+   * construction could not.
+   *
+   * @default () => true
+   */
+  isEnabled: () => boolean;
 }
 
 // CJK Unicode ranges:
@@ -47,22 +64,11 @@ const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u309f\u30a0-\
 
 const pluginKey = new PluginKey("cjkLetterSpacing");
 
-/** Check if CJK letter spacing is enabled */
-function isEnabled(): boolean {
-  const setting = useSettingsStore.getState().appearance.cjkLetterSpacing;
-  return setting !== "0" && setting !== undefined;
-}
-
 /**
  * Create decorations for CJK text runs in a document.
  * Returns empty DecorationSet if feature is disabled.
  */
 function createCJKDecorations(doc: PMNode, className: string): DecorationSet {
-  // Skip all work when disabled
-  if (!isEnabled()) {
-    return DecorationSet.empty;
-  }
-
   const decorations: Decoration[] = [];
 
   doc.descendants((node: PMNode, pos: number) => {
@@ -121,9 +127,18 @@ function applyIncrementalUpdate(
   tr.steps.forEach((_step, i) => {
     const map = tr.mapping.maps[i];
     map.forEach((_oldStart: number, _oldEnd: number, newStart: number, newEnd: number) => {
+      // `newStart`/`newEnd` live in the document AFTER STEP i, not the final
+      // one — map them through the REMAINING steps before resolving. A
+      // multi-step shrinking transaction (a mark input rule deleting its
+      // `**` markers) otherwise yields positions past the final doc's end,
+      // and resolve() throws mid-typing. The old Math.min on newEnd alone
+      // was a symptom-patch of this on one operand.
+      const rest = tr.mapping.slice(i + 1);
+      const start = Math.min(rest.map(newStart, -1), tr.doc.content.size);
+      const end = Math.min(rest.map(newEnd, 1), tr.doc.content.size);
       // Expand range to full node boundaries for correctness
-      const $from = tr.doc.resolve(newStart);
-      const $to = tr.doc.resolve(Math.min(newEnd, tr.doc.content.size));
+      const $from = tr.doc.resolve(Math.min(start, end));
+      const $to = tr.doc.resolve(end);
       const rangeFrom = $from.start($from.depth);
       const rangeTo = $to.end($to.depth);
 
@@ -157,11 +172,14 @@ export const CJKLetterSpacing = Extension.create<CJKLetterSpacingOptions>({
   addOptions() {
     return {
       className: "cjk-spacing",
+      // On unless the host says otherwise — a standalone consumer that does
+      // not care about the setting gets working behaviour, not a dead plugin.
+      isEnabled: () => true,
     };
   },
 
   addProseMirrorPlugins() {
-    const { className } = this.options;
+    const { className, isEnabled } = this.options;
 
     return [
       new Plugin({

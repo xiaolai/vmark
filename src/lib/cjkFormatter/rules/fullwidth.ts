@@ -80,51 +80,84 @@ function isPartOfEllipsis(text: string, pos: number): boolean {
  * Converts ASCII punctuation to fullwidth when in CJK context.
  * Protects punctuation inside technical subspans (URLs, versions, etc.).
  *
+ * A conversion changes the neighbor context of the NEXT candidate — a comma
+ * that becomes ， is itself CJK terminal punctuation — so a scan that reads its
+ * left neighbor from the ORIGINAL text stops a step short of the rule's own
+ * semantics, and repeated formatting passes each converted one more char
+ * (中,, → 中，, → 中，，).
+ *
+ * That propagation is resolved INSIDE one scan now (audit 20260804-F5): the
+ * scan converts into a working copy and reads the left neighbor from it. The
+ * old shape — rescan the whole document, convert one more char, rescan — was
+ * Θ(N²) on a long punctuation run: `中` followed by 10k commas took 10k full
+ * document scans (each with a fresh Latin-span scan) and froze the UI thread,
+ * because the formatter is synchronous.
+ *
+ * Propagation is one-directional, which is what makes a single left-to-right
+ * scan sufficient: every fullwidth form this rule produces (，。！？；：) is CJK
+ * TERMINAL punctuation, which only the LEFT-neighbor test accepts. The right
+ * test accepts CJK letters and OPENING brackets, and no conversion here yields
+ * either — so a conversion can never unlock a candidate to its left.
+ *
+ * The outer fixed-point loop stays: the Latin-span scan is recomputed per pass
+ * (a conversion can shrink a span, since fullwidth punctuation cannot be part
+ * of one), so convergence is still asserted rather than assumed. It now takes
+ * a bounded number of passes instead of one per converted character.
+ *
  * Spec Reference: Rule 3 of cjk-typography-rules-draft.md
  */
 export function normalizeFullwidthPunctuation(text: string): string {
+  let prev = text;
+  let next = normalizeFullwidthPunctuationOnce(prev);
+  while (next !== prev) {
+    prev = next;
+    next = normalizeFullwidthPunctuationOnce(prev);
+  }
+  return next;
+}
+
+/**
+ * One left-to-right scan of the conversion, propagating converted-neighbor
+ * context as it goes; see the fixed-point wrapper above.
+ */
+function normalizeFullwidthPunctuationOnce(text: string): string {
   // Scan for Latin spans and their technical subspans
   const latinSpans = scanLatinSpans(text);
 
-  // Process character by character
-  const result: string[] = [];
+  // The working copy. Conversions are 1 code unit → 1 code unit, so index i of
+  // `out` always corresponds to index i of `text`; `split("")` splits by code
+  // unit (NOT by code point), which is what keeps that true for surrogate
+  // pairs. Guards read `text` — they key on characters this rule never
+  // converts (`\`, `.`, digits, spaces, newlines), so original and working
+  // copy agree there — while the LEFT-neighbor test reads `out`.
+  const out = text.split("");
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     const fullwidth = PUNCTUATION_MAP[char];
 
     // If not a convertible punctuation, keep as-is
-    if (!fullwidth) {
-      result.push(char);
-      continue;
-    }
+    if (!fullwidth) continue;
 
     // Special case: backslash escape - never convert escaped punctuation
-    if (i > 0 && text[i - 1] === "\\") {
-      result.push(char);
-      continue;
-    }
+    if (i > 0 && text[i - 1] === "\\") continue;
 
     // Special case: ellipsis - never convert periods that are part of ...
-    if (char === "." && isPartOfEllipsis(text, i)) {
-      result.push(char);
-      continue;
-    }
+    // (A period adjacent to another period is protected on BOTH sides, so no
+    // conversion can ever create or destroy an ellipsis mid-scan.)
+    if (char === "." && isPartOfEllipsis(text, i)) continue;
 
     // Special case: ordered list marker - never convert "1." "2." etc. at line start
-    if (char === "." && isOrderedListMarker(text, i)) {
-      result.push(char);
-      continue;
-    }
+    if (char === "." && isOrderedListMarker(text, i)) continue;
 
     // Check if inside a technical subspan (URL, version, time, etc.)
-    if (isInTechnicalSubspan(i, latinSpans)) {
-      result.push(char);
-      continue;
-    }
+    if (isInTechnicalSubspan(i, latinSpans)) continue;
 
-    // Get context: nearest non-space neighbors
-    const leftNeighbor = getLeftNeighbor(text, i);
+    // Get context: nearest non-space neighbors. LEFT comes from the working
+    // copy — that is the propagation. RIGHT comes from the original, and may:
+    // no conversion produces a CJK letter or an opening bracket, the only two
+    // things the right-hand test accepts.
+    const leftNeighbor = getLeftNeighbor(out, i);
     const rightNeighbor = getRightNeighbor(text, i);
 
     // Check if either neighbor is a CJK character or CJK bracket
@@ -140,13 +173,11 @@ export function normalizeFullwidthPunctuation(text: string): string {
 
     // Convert if either neighbor is CJK
     if (leftIsCJK || rightIsCJK) {
-      result.push(fullwidth);
-    } else {
-      result.push(char);
+      out[i] = fullwidth;
     }
   }
 
-  return result.join("");
+  return out.join("");
 }
 
 /** Convert half-width parentheses to full-width when content is CJK. */

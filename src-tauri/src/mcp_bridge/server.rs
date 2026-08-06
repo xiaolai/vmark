@@ -3,25 +3,20 @@
 //! Manages the TCP listener, WebSocket upgrades, per-client message loops,
 //! and request routing to the frontend.
 
-use super::delivery::{deliver_response, enqueue_client_msg, send_error_response};
-use super::routing::{
-    answer_rust_side, emit_to_window_or_reply, route_target_or_reply, wake_webview,
-};
-use super::state::{
-    authenticated_principal, generate_auth_token, get_bridge_state, get_shutdown_holder,
-    get_write_lock, is_read_only_operation, is_webview_alive, remove_port_file, set_webview_alive,
-    try_register_pending, write_port_file, ClientConnection, PendingRequest, CLIENT_TX_CAPACITY,
-};
+use super::connection::admit_connection;
+use super::delivery::{deliver_response, fail_pending, send_error_response};
+use super::managed::bridge;
+use super::routing::{answer_rust_side, emit_to_window_or_reply, route_target_or_reply};
+use super::state::{generate_auth_token, is_read_only_operation, try_register_pending};
+use super::token_file::{remove_port_file, write_port_file};
 use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
-use futures_util::{SinkExt, StreamExt};
-use std::net::SocketAddr;
-use std::time::{Duration, Instant};
+use super::wake_retry::wake_retry_after_timeout;
+use std::future::Future;
+use std::time::Duration;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri::Manager;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
-use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 /// Monotonic counter behind `next_bridge_request_id`.
 static NEXT_REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -50,7 +45,6 @@ fn next_bridge_request_id() -> String {
 /// `BRIDGE_RUNNING`.
 pub async fn start_bridge(
     app: AppHandle,
-    _port: u16,
     on_exit: impl FnOnce() + Send + 'static,
 ) -> Result<u16, String> {
     // Always bind to port 0 to let OS assign an available port
@@ -70,21 +64,37 @@ pub async fn start_bridge(
     let auth_token = generate_auth_token();
     write_port_file(&app, actual_port, &auth_token)?;
 
+    // Publish the per-client credentials from the AI clients' own MCP configs
+    // (`mcp_config::client_tokens`) so connections can be attributed to the
+    // client VMark issued the credential to. Never fatal: an unreadable
+    // third-party config is skipped with a log line, and its client simply
+    // connects unidentified.
+    //
+    // AWAITED before the accept loop is spawned, on purpose: no connection is
+    // ever judged against a registry that has not been built yet. It parses up
+    // to four config files — `~/.claude.json` can reach tens of MB — so it runs
+    // on the blocking pool rather than stalling this async worker thread.
+    if let Err(e) = tokio::task::spawn_blocking(crate::mcp_config::client_tokens::refresh).await {
+        log::warn!("[MCP Bridge] client-token refresh task failed: {e}");
+    }
+
     log::info!(
         "[MCP Bridge] WebSocket server listening on 127.0.0.1:{} (auth required)",
         actual_port
     );
 
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
-    {
-        let holder = get_shutdown_holder();
-        let mut guard = holder.write().await;
-        *guard = Some(shutdown_tx);
-    }
+    *bridge(&app).shutdown_slot().await = Some(shutdown_tx);
 
     let app_handle = app.clone();
 
     crate::task::spawn_logged("mcp-bridge-accept-loop", async move {
+        // Backoff on accept errors: an immediate retry turns a persistent
+        // failure (fd exhaustion, listener teardown) into a CPU-pinned log
+        // loop. Repeated failures terminate the loop so `on_exit` can reset
+        // the bridge state instead of spinning forever.
+        const MAX_CONSECUTIVE_ACCEPT_ERRORS: u32 = 30;
+        let mut consecutive_errors: u32 = 0;
         loop {
             tokio::select! {
                 _ = &mut shutdown_rx => {
@@ -94,15 +104,27 @@ pub async fn start_bridge(
                 result = listener.accept() => {
                     match result {
                         Ok((stream, addr)) => {
-                            let app = app_handle.clone();
-                            let token = auth_token.clone();
-                            crate::task::spawn_logged(
-                                "mcp-bridge-connection",
-                                handle_connection(stream, addr, app, token),
-                            );
+                            consecutive_errors = 0;
+                            // Admission (the connection-slot reservation) is
+                            // decided HERE, synchronously, before anything is
+                            // spawned or cloned — see `admit_connection`.
+                            admit_connection(stream, addr, &app_handle, &auth_token);
                         }
                         Err(e) => {
-                            log::error!("[MCP Bridge] Accept error: {}", e);
+                            consecutive_errors += 1;
+                            log::error!(
+                                "[MCP Bridge] Accept error ({consecutive_errors} consecutive): {e}"
+                            );
+                            if consecutive_errors >= MAX_CONSECUTIVE_ACCEPT_ERRORS {
+                                log::error!(
+                                    "[MCP Bridge] Accept failing persistently — stopping bridge loop"
+                                );
+                                break;
+                            }
+                            let backoff = Duration::from_millis(
+                                (100u64 * u64::from(consecutive_errors)).min(1_000),
+                            );
+                            tokio::time::sleep(backoff).await;
                         }
                     }
                 }
@@ -122,16 +144,18 @@ pub async fn stop_bridge(app: &AppHandle) {
     remove_port_file(app);
 
     // Send shutdown signal to server loop
-    let holder = get_shutdown_holder();
-    let mut guard = holder.write().await;
-    if let Some(tx) = guard.take() {
+    let bridge = bridge(app);
+    if let Some(tx) = bridge.shutdown_slot().await.take() {
         let _ = tx.send(());
     }
-    drop(guard);
 
     // Close all client connections
-    let state = get_bridge_state();
-    let mut guard = state.lock().await;
+    let mut guard = bridge.lock().await;
+
+    // Invalidate in-flight handshakes FIRST (same lock the registration path
+    // takes): a connection that authenticates after this drain re-checks the
+    // generation and refuses to register — it must not survive shutdown.
+    bridge.bump_connection_generation();
 
     // Shutdown all clients
     for (_, mut client) in guard.clients.drain() {
@@ -150,237 +174,41 @@ pub async fn stop_bridge(app: &AppHandle) {
     }
 }
 
-/// Handle a single WebSocket connection.
-/// Requires the client to send an `auth` message with a valid token before
-/// any requests are processed.
-async fn handle_connection(
-    stream: TcpStream,
-    addr: SocketAddr,
-    app: AppHandle,
-    expected_token: String,
-) {
-    let ws_stream = match accept_async(stream).await {
-        Ok(ws) => ws,
-        Err(e) => {
-            log::error!(
-                "[MCP Bridge] WebSocket handshake failed for {}: {}",
-                addr,
-                e
-            );
-            return;
-        }
-    };
-
-    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-
-    // Create channel for sending messages to this client.
-    // Bounded so a stalled client cannot exhaust process memory; senders
-    // use `try_send` and drop+log on overflow rather than blocking.
-    let (tx, mut rx) = mpsc::channel::<String>(CLIENT_TX_CAPACITY);
-
-    // Create shutdown channel for this connection
-    let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
-
-    // Register client
-    let client_id = {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-
-        let client_id = guard.next_client_id;
-        guard.next_client_id += 1;
-
-        let client = ClientConnection {
-            tx: tx.clone(),
-            shutdown: Some(shutdown_tx),
-            identity: None,
-        };
-
-        guard.clients.insert(client_id, client);
-        client_id
-    };
-
-    log::debug!("[MCP Bridge] Client {} connected from {}", client_id, addr);
-
-    // Send welcome notification to client (includes auth_required flag)
-    let welcome_msg = WsMessage {
-        id: "system".to_string(),
-        msg_type: "status".to_string(),
-        payload: serde_json::json!({
-            "connected": true,
-            "clientId": client_id,
-            "authRequired": true,
-        }),
-    };
-    if let Ok(msg_str) = serde_json::to_string(&welcome_msg) {
-        enqueue_client_msg(client_id, &tx, msg_str);
-    }
-
-    // Spawn task to forward messages from channel to WebSocket
-    let send_task = tauri::async_runtime::spawn(async move {
-        while let Some(msg) = rx.recv().await {
-            if ws_sender.send(Message::Text(msg.into())).await.is_err() {
-                break;
-            }
-        }
-    });
-
-    // --- Auth phase: wait for auth message before processing requests ---
-    let mut authenticated = false;
-    let auth_timeout = tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        while let Some(msg) = ws_receiver.next().await {
-            match msg {
-                Ok(Message::Text(text)) => {
-                    if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
-                        if ws_msg.msg_type == "auth" {
-                            let token = ws_msg
-                                .payload
-                                .get("token")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
-                            if token == expected_token {
-                                return Ok(true);
-                            } else {
-                                log::warn!(
-                                    "[MCP Bridge] Client {} auth failed: invalid token",
-                                    client_id
-                                );
-                                return Ok(false);
-                            }
-                        }
-                        // Reject any non-auth first message (including identify)
-                        log::warn!(
-                            "[MCP Bridge] Client {} sent '{}' before auth — rejected",
-                            client_id,
-                            ws_msg.msg_type
-                        );
-                    }
-                    // Unknown first message — reject
-                    return Ok(false);
-                }
-                Ok(Message::Close(_)) => return Err("closed"),
-                Err(_) => return Err("error"),
-                _ => continue,
-            }
-        }
-        Err("stream ended")
-    })
-    .await;
-
-    match auth_timeout {
-        Ok(Ok(true)) => {
-            authenticated = true;
-            // Send auth success response
-            let auth_ok = WsMessage {
-                id: "auth".to_string(),
-                msg_type: "auth_result".to_string(),
-                payload: serde_json::json!({ "success": true }),
-            };
-            if let Ok(msg_str) = serde_json::to_string(&auth_ok) {
-                enqueue_client_msg(client_id, &tx, msg_str);
-            }
-            log::debug!("[MCP Bridge] Client {} authenticated", client_id);
-        }
-        Ok(Ok(false)) => {
-            // Auth failed — send error and disconnect
-            let auth_fail = WsMessage {
-                id: "auth".to_string(),
-                msg_type: "auth_result".to_string(),
-                payload: serde_json::json!({ "success": false, "error": "Authentication failed" }),
-            };
-            if let Ok(msg_str) = serde_json::to_string(&auth_fail) {
-                enqueue_client_msg(client_id, &tx, msg_str);
-            }
-            log::warn!("[MCP Bridge] Client {} rejected: auth failed", client_id);
-        }
-        _ => {
-            log::warn!("[MCP Bridge] Client {} auth timeout or error", client_id);
-        }
-    }
-
-    if !authenticated {
-        // Give sender task a moment to flush the auth failure message
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        // Cleanup and disconnect
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-        guard.clients.remove(&client_id);
-        send_task.abort();
-        return;
-    }
-
-    // --- Main message loop (authenticated clients only) ---
-    loop {
-        tokio::select! {
-            _ = &mut shutdown_rx => {
-                log::debug!("[MCP Bridge] Client {} closing due to shutdown", client_id);
-                break;
-            }
-            result = ws_receiver.next() => {
-                match result {
-                    Some(Ok(Message::Text(text))) => {
-                        if let Err(e) = handle_message(&text, client_id, &app).await {
-                            log::error!("[MCP Bridge] Error handling message from client {}: {}", client_id, e);
-                        }
-                    }
-                    Some(Ok(Message::Close(_))) => {
-                        log::debug!("[MCP Bridge] Client {} disconnected", client_id);
-                        break;
-                    }
-                    Some(Err(e)) => {
-                        log::error!("[MCP Bridge] WebSocket error from client {}: {}", client_id, e);
-                        break;
-                    }
-                    None => {
-                        log::debug!("[MCP Bridge] Client {} stream ended", client_id);
-                        break;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    // Cleanup. F6 (WI-3.5, D4.2): disconnect removes ONLY the client record
-    // — never tabs, never a window's workspace (disconnect_preserves_* test).
-    let had_identity = {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
-
-        let had_id = if let Some(client) = guard.clients.remove(&client_id) {
-            let name = client
-                .identity
-                .as_ref()
-                .map(|i| i.display_name())
-                .unwrap_or_else(|| format!("Client {}", client_id));
-            log::debug!(
-                "[MCP Bridge] {} disconnected. Remaining clients: {}",
-                name,
-                guard.clients.len()
-            );
-            client.identity.is_some()
-        } else {
-            false
-        };
-        had_id
-    };
-
-    // Notify frontend when an identified client disconnects
-    if had_identity {
-        let _ = app.emit("mcp-bridge:clients-changed", ());
-    }
-
-    send_task.abort();
+/// Await `deliver` with the global write lock already released.
+///
+/// Rust drops a guard at the END of its scope — i.e. *after* the delivery
+/// await — so the release has to be explicit. It used to only look explicit:
+/// the guard was bound as `let _write_guard`, a comment above the final
+/// `deliver_response` claimed the lock was already gone, and it was not
+/// (audit round 1, finding 8). Delivery can force-disconnect a backpressured
+/// peer, which takes the bridge state lock, so every other write operation
+/// queued behind one slow client's teardown.
+///
+/// Taking the guard by value and dropping it before the await makes the
+/// ordering a property of this function, and one a test can observe from
+/// inside `deliver`.
+async fn without_write_lock<T>(
+    write_guard: Option<tokio::sync::MutexGuard<'_, ()>>,
+    deliver: impl Future<Output = T>,
+) -> T {
+    drop(write_guard);
+    deliver.await
 }
 
 /// Handle the `identify` message a client sends after connecting.
+///
+/// **Informational only.** It sets the label shown in Settings → Integrations
+/// and in connect/disconnect logs, and it deliberately does not touch
+/// `ClientConnection::principal`: a client may send `identify` at any time and
+/// as often as it likes, and it used to be able to name itself into another
+/// client's delegations that way (audit 20260728 §2.1).
 async fn handle_identify<R: tauri::Runtime>(
     payload: serde_json::Value,
     client_id: u64,
     app: &AppHandle<R>,
 ) {
     if let Ok(identity) = serde_json::from_value::<ClientIdentity>(payload) {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge(app).lock().await;
 
         if let Some(client) = guard.clients.get_mut(&client_id) {
             log::debug!(
@@ -404,6 +232,7 @@ async fn handle_identify<R: tauri::Runtime>(
 /// bubbling it up to the log-only message loop, which would leave the client
 /// hanging until its own timeout (Codex audit 20260718).
 async fn parse_request_or_reply(
+    bridge: &super::managed::McpBridgeState,
     msg_id: &str,
     payload: serde_json::Value,
     client_id: u64,
@@ -417,7 +246,7 @@ async fn parse_request_or_reply(
                 client_id,
                 e
             );
-            send_error_response(client_id, client_tx, msg_id, &e).await;
+            send_error_response(bridge, client_id, client_tx, msg_id, &e).await;
             None
         }
     }
@@ -427,17 +256,24 @@ async fn parse_request_or_reply(
 ///
 /// Generic over the Tauri runtime so tests can drive the full path with
 /// `tauri::test::MockRuntime`; production callers pass the default runtime.
-async fn handle_message<R: tauri::Runtime>(
+pub(super) async fn handle_message<R: tauri::Runtime>(
     text: &str,
     client_id: u64,
     app: &AppHandle<R>,
 ) -> Result<(), String> {
-    // Debug: Log raw WebSocket message to trace markdown escaping (dev only — may contain user content)
+    // Debug: Log a bounded prefix to trace markdown escaping (dev only). Even
+    // dev logs must not persist whole documents or anything secret-shaped —
+    // 256 chars shows the envelope and the escaping without the payload.
     #[cfg(debug_assertions)]
     if text.contains("insert") {
-        log::debug!("[MCP Bridge DEBUG] Raw WebSocket message: {}", text);
+        let prefix: String = text.chars().take(256).collect();
+        log::debug!(
+            "[MCP Bridge DEBUG] Raw WebSocket message ({} bytes): {prefix}…",
+            text.len()
+        );
     }
 
+    let bridge = bridge(app);
     let msg: WsMessage =
         serde_json::from_str(text).map_err(|e| format!("Invalid message format: {}", e))?;
 
@@ -448,42 +284,68 @@ async fn handle_message<R: tauri::Runtime>(
     }
 
     if msg.msg_type != "request" {
+        // A mistyped envelope must not hang the client until its own timeout —
+        // answer with a correlated protocol error when a reply channel exists.
+        let client_tx = bridge
+            .lock()
+            .await
+            .clients
+            .get(&client_id)
+            .map(|c| c.tx.clone());
+        if let Some(tx) = client_tx {
+            send_error_response(
+                bridge,
+                client_id,
+                &tx,
+                &msg.id,
+                &format!("Unsupported message type: {}", msg.msg_type),
+            )
+            .await;
+        }
         return Ok(());
     }
 
     // Fetch the client's tx channel up front — every later step (payload
     // parse failure, rust-side answer, overload, unknown window, response)
     // needs it to answer the client.
-    let client_tx = {
-        let state = get_bridge_state();
-        let guard = state.lock().await;
-        guard.clients.get(&client_id).map(|c| c.tx.clone())
-    };
+    let client_tx = bridge
+        .lock()
+        .await
+        .clients
+        .get(&client_id)
+        .map(|c| c.tx.clone());
     let client_tx = client_tx.ok_or("Client not found")?;
 
-    let Some(request) = parse_request_or_reply(&msg.id, msg.payload, client_id, &client_tx).await
+    let Some(request) =
+        parse_request_or_reply(bridge, &msg.id, msg.payload, client_id, &client_tx).await
     else {
         return Ok(());
     };
 
-    // Debug: Log request args to trace markdown escaping issues (dev only — may contain user content)
+    // Debug: bounded arg prefix only (dev only) — see the raw-message note.
     #[cfg(debug_assertions)]
     if request.request_type.starts_with("document.insert")
         || request.request_type == "selection.replace"
     {
-        log::debug!("[MCP Bridge DEBUG] Request type: {}", request.request_type);
+        let args = serde_json::to_string(&request.args).unwrap_or_default();
+        let prefix: String = args.chars().take(256).collect();
         log::debug!(
-            "[MCP Bridge DEBUG] Args: {}",
-            serde_json::to_string_pretty(&request.args).unwrap_or_default()
+            "[MCP Bridge DEBUG] Request type: {} args ({} bytes): {prefix}…",
+            request.request_type,
+            args.len()
         );
     }
 
     // Handle requests Rust answers directly (no webview) — incl. coherence
     // off-loop with the write lock (WI-1.10). WI-3.5 (D2.3): delegated
-    // authority binds only to the client's AUTHENTICATED identity.
-    let principal = authenticated_principal(client_id).await;
+    // authority binds to the principal the CONNECTION authenticated as, fixed
+    // at auth time from the credential VMark issued to that AI client — not to
+    // the name the client asserts in `identify`, which it may send and re-send
+    // (audit 20260728 §2.1). See `principal.rs`.
+    let principal = bridge.connection_principal(client_id).await;
     if let Some(response) = answer_rust_side(&request, app, principal).await {
         deliver_response(
+            bridge,
             client_id,
             &client_tx,
             msg.id,
@@ -498,8 +360,7 @@ async fn handle_message<R: tauri::Runtime>(
 
     // For write operations, acquire the write lock
     // This serializes writes while allowing concurrent reads
-    let write_lock = get_write_lock();
-    let _write_guard = if is_read {
+    let write_guard = if is_read {
         None
     } else {
         log::debug!(
@@ -507,7 +368,7 @@ async fn handle_message<R: tauri::Runtime>(
             client_id,
             request.request_type
         );
-        Some(write_lock.lock().await)
+        Some(bridge.write_lock().await)
     };
 
     // Create a oneshot channel for the response
@@ -520,8 +381,7 @@ async fn handle_message<R: tauri::Runtime>(
     // overload cap). The state lock is released before responding —
     // send_error_response may force-disconnect, which re-locks it.
     let registered = {
-        let state = get_bridge_state();
-        let mut guard = state.lock().await;
+        let mut guard = bridge.lock().await;
         try_register_pending(&mut guard, request_id.clone(), response_tx)
     };
     if let Err(err) = registered {
@@ -532,7 +392,7 @@ async fn handle_message<R: tauri::Runtime>(
         );
         // Answer the client instead of silently dropping the request —
         // otherwise it hangs until its own timeout.
-        send_error_response(client_id, &client_tx, &msg.id, &err).await;
+        send_error_response(bridge, client_id, &client_tx, &msg.id, &err).await;
         return Ok(());
     }
 
@@ -576,144 +436,32 @@ async fn handle_message<R: tauri::Runtime>(
         Ok(Ok(response)) => response,
         Ok(Err(_)) => {
             // Channel closed - clean up and send error to sidecar
-            let state = get_bridge_state();
-            let mut guard = state.lock().await;
-            guard.pending.remove(&request_id);
-            drop(guard);
-
-            send_error_response(client_id, &client_tx, &msg.id, "Response channel closed").await;
+            fail_pending(
+                bridge,
+                &request_id,
+                client_id,
+                &client_tx,
+                &msg.id,
+                "Response channel closed",
+            )
+            .await;
             return Ok(());
         }
         Err(_) => {
-            // First timeout — try to wake the webview and retry once.
-            // macOS App Nap or display sleep can suspend JS execution,
-            // causing the frontend to miss emitted events.
-            let webview_was_alive = is_webview_alive();
-            set_webview_alive(false);
-            log::warn!(
-                "[MCP Bridge] Client {} request {} timed out after 10s (webview_alive={}), attempting wake + retry",
-                client_id, request_type_for_log, webview_was_alive
-            );
-
-            // Install the retry channel BEFORE waking: once the webview
-            // resumes, the QUEUED original event may execute immediately and
-            // its response must land in this channel rather than the
-            // already-abandoned first oneshot — otherwise a successful wake
-            // recovery turns into a client timeout (cross-model review,
-            // audit 20260612 remediation).
-            let (retry_tx, retry_rx) = oneshot::channel();
+            match wake_retry_after_timeout(
+                app,
+                &target_label,
+                &event,
+                &request_id,
+                client_id,
+                &client_tx,
+                &msg.id,
+                &request_type_for_log,
+            )
+            .await
             {
-                let state = get_bridge_state();
-                let mut guard = state.lock().await;
-                // Replace the pending request with the new channel
-                guard.pending.insert(
-                    request_id.clone(),
-                    PendingRequest {
-                        response_tx: retry_tx,
-                        created_at: Instant::now(),
-                    },
-                );
-            }
-
-            wake_webview(app, &target_label).await;
-
-            // Re-emit the event to the target window (not broadcast)
-            if let Some(window) = app.get_webview_window(&target_label) {
-                if let Err(e) = window.emit("mcp-bridge:request", &event) {
-                    log::warn!(
-                        "[MCP Bridge] Retry emit to window '{}' failed: {}",
-                        target_label,
-                        e
-                    );
-                    let state = get_bridge_state();
-                    let mut guard = state.lock().await;
-                    guard.pending.remove(&request_id);
-                    drop(guard);
-                    send_error_response(
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        &format!(
-                            "Failed to re-emit to window '{}' on retry: {}",
-                            target_label, e
-                        ),
-                    )
-                    .await;
-                    return Ok(());
-                }
-            } else {
-                log::warn!(
-                    "[MCP Bridge] Target window '{}' no longer exists for retry",
-                    target_label
-                );
-                let state = get_bridge_state();
-                let mut guard = state.lock().await;
-                guard.pending.remove(&request_id);
-                drop(guard);
-                send_error_response(
-                    client_id,
-                    &client_tx,
-                    &msg.id,
-                    &format!("Target window '{}' was closed during retry", target_label),
-                )
-                .await;
-                return Ok(());
-            }
-
-            // Wait another 10 seconds for the retry
-            match tokio::time::timeout(Duration::from_secs(10), retry_rx).await {
-                Ok(Ok(response)) => {
-                    log::info!(
-                        "[MCP Bridge] Retry succeeded for client {} request {}",
-                        client_id,
-                        request_type_for_log
-                    );
-                    response
-                }
-                Ok(Err(_)) => {
-                    // Retry channel closed
-                    let state = get_bridge_state();
-                    let mut guard = state.lock().await;
-                    guard.pending.remove(&request_id);
-                    drop(guard);
-
-                    log::warn!(
-                        "[MCP Bridge] Client {} request {} retry channel closed",
-                        client_id,
-                        request_type_for_log
-                    );
-
-                    send_error_response(
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        "Response channel closed on retry",
-                    )
-                    .await;
-                    return Ok(());
-                }
-                Err(_) => {
-                    // Final timeout after retry — give up
-                    let state = get_bridge_state();
-                    let mut guard = state.lock().await;
-                    guard.pending.remove(&request_id);
-                    drop(guard);
-
-                    log::warn!(
-                        "[MCP Bridge] Client {} request {} timed out after retry (20s total)",
-                        client_id,
-                        request_type_for_log
-                    );
-
-                    send_error_response(
-                        client_id,
-                        &client_tx,
-                        &msg.id,
-                        "Request timeout after 20s (including retry with webview wake)",
-                    )
-                    .await;
-                    return Ok(());
-                }
+                Some(response) => response,
+                None => return Ok(()),
             }
         }
     };
@@ -726,15 +474,18 @@ async fn handle_message<R: tauri::Runtime>(
         );
     }
 
-    // Write lock is automatically released here when _write_guard is dropped
-
-    // Send response back to client
-    deliver_response(
-        client_id,
-        &client_tx,
-        msg.id,
-        &response,
-        "request response could not be enqueued (queue full)",
+    // Send the response back to the client with the write lock already
+    // released — `without_write_lock` drops the guard before it awaits.
+    without_write_lock(
+        write_guard,
+        deliver_response(
+            bridge,
+            client_id,
+            &client_tx,
+            msg.id,
+            &response,
+            "request response could not be enqueued (queue full)",
+        ),
     )
     .await?;
 

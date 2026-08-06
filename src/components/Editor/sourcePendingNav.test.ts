@@ -10,14 +10,14 @@ import {
   setPendingContentSearchNav,
   consumePendingContentSearchNav,
   clearPendingContentSearchNav,
-} from "@/hooks/contentSearchNavigation";
+} from "@/services/navigation/contentSearchNavigation";
 import { useUIStore } from "@/stores/uiStore";
 
 const lintMock = vi.hoisted(() => ({
   consumePendingLintScroll: vi.fn<(tabId: string) => number | undefined>(() => undefined),
 }));
 
-vi.mock("@/hooks/lintNavigation", () => lintMock);
+vi.mock("@/services/lint/lintNavigation", () => lintMock);
 
 function makeView(doc: string): EditorView {
   return new EditorView({ state: EditorState.create({ doc }) });

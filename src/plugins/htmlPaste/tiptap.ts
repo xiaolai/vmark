@@ -23,7 +23,11 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { htmlToMarkdown, isSubstantialHtml } from "@/utils/htmlToMarkdown";
 import { createMarkdownPasteTransaction } from "@/plugins/markdownPaste/tiptap";
-import { useSettingsStore, type PasteMode } from "@/stores/settingsStore";
+import {
+  DEFAULT_PASTE_SETTINGS,
+  type PasteMode,
+  type PasteSettings,
+} from "@/plugins/shared/pasteSettings";
 import { isViewSelectionInCode, isViewMultiSelection } from "@/utils/pasteUtils";
 import { pasteWarn } from "@/utils/debug";
 
@@ -35,10 +39,14 @@ const htmlPastePluginKey = new PluginKey("htmlPaste");
  */
 const MAX_HTML_SIZE = 100_000;
 
-function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
+function handlePaste(
+  view: EditorView,
+  event: ClipboardEvent,
+  getPasteSettings: () => PasteSettings,
+): boolean {
   // Get paste mode setting
-  const settings = useSettingsStore.getState();
-  const pasteMode: PasteMode = settings.markdown.pasteMode ?? "smart";
+  const settings = getPasteSettings();
+  const pasteMode: PasteMode = settings.pasteMode;
 
   // If paste mode is "rich", let Tiptap handle it natively
   if (pasteMode === "rich") {
@@ -113,7 +121,7 @@ function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
   }
 
   // Create transaction from parsed markdown
-  const preserveLineBreaks = settings.markdown?.preserveLineBreaks ?? false;
+  const preserveLineBreaks = settings.preserveLineBreaks;
   const tr = createMarkdownPasteTransaction(view.state, markdown, {
     preserveLineBreaks,
   });
@@ -129,14 +137,30 @@ function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
 }
 
 /** Tiptap extension that converts pasted HTML to markdown before insertion. */
-export const htmlPasteExtension = Extension.create({
+/** Options for the htmlPaste extension. */
+export interface HtmlPasteOptions {
+  /**
+   * The user's paste behaviour, asked fresh on every paste.
+   *
+   * INJECTED — a plugin reaching the app's stores cannot ship as a standalone
+   * extension (ADR-015). A getter, not a value, so changing the setting takes
+   * effect without rebuilding the editor.
+   */
+  getPasteSettings: () => PasteSettings;
+}
+
+export const htmlPasteExtension = Extension.create<HtmlPasteOptions>({
   name: "htmlPaste",
+  addOptions() {
+    return { getPasteSettings: () => DEFAULT_PASTE_SETTINGS };
+  },
   addProseMirrorPlugins() {
+    const { getPasteSettings } = this.options;
     return [
       new Plugin({
         key: htmlPastePluginKey,
         props: {
-          handlePaste,
+          handlePaste: (view, event) => handlePaste(view, event, getPasteSettings),
         },
       }),
     ];

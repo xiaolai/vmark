@@ -10,24 +10,18 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   message: vi.fn(),
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: () => ({
-      getDocument: vi.fn(() => null),
-    }),
-  },
-}));
+let mockActiveFilePath: string | null = null;
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      activeTabId: {},
-    }),
-  },
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // A `vi.fn()`, not a plain arrow: the throw case below has to make THIS
+  // seam throw. Driving `getWindowLabel` no longer reaches the production
+  // path, so a test that did so passed on the null default instead.
+  activeFilePathForCurrentWindow: vi.fn(() => mockActiveFilePath),
 }));
 
 vi.mock("@/utils/imagePathDetection", () => ({
@@ -139,55 +133,31 @@ describe("getActiveFilePathForCurrentWindow", () => {
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
   });
 
-  it("returns filePath when tab and document exist", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    const origTab = useTabStore.getState;
-    const origDoc = useDocumentStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => ({
-      activeTabId: { main: "tab-1" },
-    });
-    (useDocumentStore as unknown as { getState: () => unknown }).getState = () => ({
-      getDocument: (id: string) => id === "tab-1" ? { filePath: "/docs/test.md" } : null,
-    });
-
+  it("returns the active document's path", () => {
+    mockActiveFilePath = "/docs/test.md";
     expect(getActiveFilePathForCurrentWindow()).toBe("/docs/test.md");
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
-    (useDocumentStore as unknown as { getState: typeof origDoc }).getState = origDoc;
+    mockActiveFilePath = null;
   });
 
-  it("returns null and logs warning when store access throws", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const origTab = useTabStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => {
-      throw new Error("store error");
-    };
+  it("returns null and logs a warning when the lookup throws", async () => {
+    // The seam itself throwing is what this guard exists for. Asserting the
+    // warning too, so the test cannot pass on a null that never threw.
+    const { activeFilePathForCurrentWindow } = await import("@/plugins/shared/hostDocument");
+    const { imageHandlerWarn } = await import("@/utils/debug");
+    vi.mocked(activeFilePathForCurrentWindow).mockImplementationOnce(() => {
+      throw new Error("no window");
+    });
+    vi.mocked(imageHandlerWarn).mockClear();
 
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
+    expect(imageHandlerWarn).toHaveBeenCalled();
   });
 
-  it("returns null when document exists but filePath is null (line 68 ?? branch)", async () => {
-    const { useTabStore } = await import("@/stores/tabStore");
-    const { useDocumentStore } = await import("@/stores/documentStore");
-    const origTab = useTabStore.getState;
-    const origDoc = useDocumentStore.getState;
-
-    (useTabStore as unknown as { getState: () => unknown }).getState = () => ({
-      activeTabId: { main: "tab-1" },
-    });
-    (useDocumentStore as unknown as { getState: () => unknown }).getState = () => ({
-      getDocument: (id: string) => id === "tab-1" ? { filePath: null } : null,
-    });
-
+  it("returns null when the active document has no path yet", () => {
+    // An untitled buffer. Distinct from "no tab" only in the host; from here
+    // both are the same null.
+    mockActiveFilePath = null;
     expect(getActiveFilePathForCurrentWindow()).toBeNull();
-
-    (useTabStore as unknown as { getState: typeof origTab }).getState = origTab;
-    (useDocumentStore as unknown as { getState: typeof origDoc }).getState = origDoc;
   });
 });
 

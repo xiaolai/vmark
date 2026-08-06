@@ -11,7 +11,7 @@
  * Key decisions:
  *   - The inner component is the entire xyflow surface. The outer
  *     WorkflowCanvas keeps the ReactFlowProvider + Suspense boundary so
- *     consumers (GhaWorkflowSidePanel, GhaWorkflowPanel) keep their
+ *     consumers (GhaWorkflowWorkbench, GhaWorkflowPanel) keep their
  *     existing import shape.
  *   - Module-scope NODE_TYPES + PRO_OPTIONS keep React 19's effect
  *     unmount path from feeding xyflow's internal setState a new

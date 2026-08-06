@@ -14,12 +14,12 @@
  * @coordinates-with tiptap.ts — mounts/destroys this menu from the table UI plugin view
  * @module plugins/tableUI/TiptapTableContextMenu
  */
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import i18n from "@/i18n";
 import type { EditorView } from "@tiptap/pm/view";
 import { alignColumn, type TableAlignment, addColLeft, addColRight, addRowAbove, addRowBelow, deleteCurrentColumn, deleteCurrentRow, deleteCurrentTable, formatTable, isCurrentTableFitToWidth, toggleFitToWidth } from "./tableActions.tiptap";
 import { icons } from "@/utils/icons";
-import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/sourcePopup";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 interface MenuAction {
   label: string;
@@ -78,7 +78,7 @@ export class TiptapTableContextMenu {
     ];
 
     // Per-table fit-to-width toggle — hidden when global toggle is ON
-    const globalFit = useSettingsStore.getState().markdown.tableFitToWidth;
+    const globalFit = hostSettings.tableFitToWidth();
     if (!globalFit) {
       const isFit = isCurrentTableFitToWidth(this.editorView);
       actions.push({

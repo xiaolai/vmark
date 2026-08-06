@@ -15,7 +15,7 @@
  * `installConsoleCapture` is the single source of truth: it is unit-tested directly
  * in jsdom, and `CONSOLE_SHIM` embeds its source for page-world injection.
  *
- * @coordinates-with hooks/mcpBridge/v2/browserConsole.ts — the read handler
+ * @coordinates-with services/mcpBridge/v2/browserConsole.ts — the read handler
  * @module lib/browser/agent/consoleShim
  */
 

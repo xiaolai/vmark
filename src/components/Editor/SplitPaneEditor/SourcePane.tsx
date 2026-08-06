@@ -15,6 +15,7 @@ import {
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { detectSourceLanguage } from "@/lib/formats/sourceLanguage";
 // Side-effect import: ships the `.cm-hl-*` color rules (scoped to
 // `.source-editor`/`.source-pane`) used by the shared source theme.
@@ -51,6 +52,9 @@ export function SourcePane({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const languageCompartmentRef = useRef(new Compartment());
+  // Per-format extras (FormatConfig.loadExtraExtensions) land in their
+  // own compartment, mirroring the language pack's async lifecycle.
+  const extrasCompartmentRef = useRef(new Compartment());
   // Line-number gutter lives in its own compartment so the View-menu toggle
   // (Alt+Mod+L / uiStore.showLineNumbers) reconfigures it in place without
   // tearing down the editor and losing undo history. Mirrors the markdown
@@ -120,6 +124,7 @@ export function SourcePane({
   // returned loaders are stable module references, so this is dep-safe.
   const loadLanguage =
     formatConfig.loadLanguage ?? detectSourceLanguage(filePath) ?? undefined;
+  const loadExtraExtensions = formatConfig.loadExtraExtensions;
 
   // One-time mount per (tabId, formatId, readOnly). Document persistence
   // wires via the documentStore.setContent action on every doc change.
@@ -139,7 +144,7 @@ export function SourcePane({
       if (!update.docChanged) return;
       const next = update.state.doc.toString();
       lastSyncedRef.current = next;
-      useDocumentStore.getState().setContent(tabId, next);
+      useDocumentStore.getState().setEditorContent(tabId, next);
     });
 
     // WI-2.4 — the validator-backed lint gutter and the rest of the base
@@ -154,6 +159,9 @@ export function SourcePane({
       lineNumberCompartment: lineNumberCompartmentRef.current,
       lineWrapCompartment: lineWrapCompartmentRef.current,
       languageCompartment: languageCompartmentRef.current,
+      extrasCompartment: loadExtraExtensions
+        ? extrasCompartmentRef.current
+        : undefined,
       persistOnUpdate,
       onDiagnostics: (diagnostics) => onDiagnosticsRef.current?.(diagnostics),
     });
@@ -189,6 +197,29 @@ export function SourcePane({
         });
     }
 
+    if (loadExtraExtensions) {
+      // filePath is read fresh here (not from the render-scope snapshot)
+      // so the mount effect's dep list stays remount-free; the path a
+      // format extension binds to is the one at editor-mount time.
+      void loadExtraExtensions({
+        tabId,
+        filePath:
+          useDocumentStore.getState().documents?.[tabId]?.filePath ?? null,
+        windowLabel: getCurrentWindowLabel(),
+      })
+        .then((extras) => {
+          /* v8 ignore next -- @preserve unmount race */
+          if (cancelled || !viewRef.current) return;
+          viewRef.current.dispatch({
+            effects: extrasCompartmentRef.current.reconfigure(extras),
+          });
+        })
+        .catch(() => {
+          /* v8 ignore next 2 -- @preserve extras are enhancements; the base editor works without them */
+          /* swallow — base editor remains functional */
+        });
+    }
+
     return () => {
       cancelled = true;
       view.destroy();
@@ -197,7 +228,7 @@ export function SourcePane({
 
     // Callbacks read via refs (see H3 comment above) are intentionally excluded
     // from this dep array so the editor doesn't remount on every parent render.
-  }, [tabId, formatId, readOnly, validator, loadLanguage]);
+  }, [tabId, formatId, readOnly, validator, loadLanguage, loadExtraExtensions]);
 
   // Reconfigure the line-number gutter when the toggle flips. Kept out of
   // the mount effect so toggling never tears down the view (preserves undo

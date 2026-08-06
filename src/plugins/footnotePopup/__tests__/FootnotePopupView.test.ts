@@ -29,8 +29,8 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/footnotePopupStore", () => ({
-  useFootnotePopupStore: {
+// The popup's state PORT, satisfied directly (ADR-015).
+const testStore = {
     getState: () => storeState,
     subscribe: (fn: (state: typeof storeState) => void) => {
       subscribers.push(fn);
@@ -39,8 +39,7 @@ vi.mock("@/stores/footnotePopupStore", () => ({
         if (idx >= 0) subscribers.splice(idx, 1);
       };
     },
-  },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
@@ -51,7 +50,7 @@ vi.mock("@/utils/popupComponents", () => ({
   handlePopupTabNavigation: vi.fn(),
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -189,7 +188,7 @@ describe("FootnotePopupView", () => {
     vi.clearAllMocks();
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new FootnotePopupView(view as unknown as ConstructorParameters<typeof FootnotePopupView>[0]);
+    popup = new FootnotePopupView(view as never, testStore as never);
   });
 
   afterEach(() => {
@@ -1114,7 +1113,7 @@ describe("FootnotePopupView", () => {
 
       dom = createEditorContainer();
       view = createMockView(dom.editorDom);
-      popup = new FootnotePopupView(view as unknown as ConstructorParameters<typeof FootnotePopupView>[0]);
+      popup = new FootnotePopupView(view as never, testStore as never);
 
       await new Promise((r) => requestAnimationFrame(r));
 

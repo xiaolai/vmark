@@ -16,6 +16,12 @@ vi.mock("@/hooks/useWorkspaceRailSeed", () => ({
 vi.mock("@/hooks/useSettingsSync", () => ({
   useSettingsSync: () => calls.push("settingsSync"),
 }));
+vi.mock("@/hooks/useShortcutsSync", () => ({
+  useShortcutsSync: () => calls.push("shortcutsSync"),
+}));
+vi.mock("@/hooks/useAiProviderSync", () => ({
+  useAiProviderSync: () => calls.push("aiProviderSync"),
+}));
 vi.mock("@/hooks/useConfirmQuitSync", () => ({
   useConfirmQuitSync: () => calls.push("confirmQuitSync"),
 }));
@@ -25,7 +31,7 @@ vi.mock("@/hooks/useRecentFilesSync", () => ({
 vi.mock("@/hooks/useRecentWorkspacesSync", () => ({
   useRecentWorkspacesSync: () => calls.push("recentWorkspacesSync"),
 }));
-vi.mock("@/services/formats/formatSettingsBridge", () => ({
+vi.mock("@/hooks/useFormatSettingsBridge", () => ({
   useFormatSettingsBridge: () => calls.push("formatSettingsBridge"),
 }));
 
@@ -42,6 +48,8 @@ describe("useWorkspaceLifecycle", () => {
       "workspaceBootstrap",
       "workspaceRailSeed",
       "settingsSync",
+      "shortcutsSync",
+      "aiProviderSync",
       "confirmQuitSync",
       "recentFilesSync",
       "recentWorkspacesSync",

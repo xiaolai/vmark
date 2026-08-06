@@ -1,0 +1,52 @@
+/**
+ * Workspace rail context menu — macOS-style surface per rule 32.
+ * Tokens only (rule 31); dark theme follows the tokens, no overrides needed.
+ */
+
+.workspace-rail-menu {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  min-width: 180px;
+  padding: var(--space-1-5);
+  border: var(--border-hairline) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--popup-shadow);
+}
+
+.workspace-rail-menu:focus-visible {
+  /* The menu takes focus on open purely to receive Escape; the focused ITEM is
+     what should read as focused, so suppress the container ring. */
+  outline: none;
+}
+
+.workspace-rail-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--space-1-5) var(--space-2-5);
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-color);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  text-align: left;
+  cursor: default;
+}
+
+.workspace-rail-menu__item:hover {
+  color: var(--contrast-text);
+  background: var(--primary-color);
+}
+
+/* Focus must stay visible for keyboard users (rule 33). Matching the hover
+   treatment keeps pointer and keyboard highlighting identical. */
+.workspace-rail-menu__item:focus-visible {
+  outline: none;
+  color: var(--contrast-text);
+  background: var(--primary-color);
+}

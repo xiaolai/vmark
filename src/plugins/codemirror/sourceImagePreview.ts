@@ -13,14 +13,15 @@
  *   - Debounces cursor position checks to avoid excessive preview updates
  *
  * @coordinates-with imagePreview/ImagePreviewView.ts — shared preview rendering singleton
- * @coordinates-with stores/mediaPopupStore.ts — checks popup visibility to avoid overlap
+ * @coordinates-with plugins/shared/popupPorts.ts — the media state, injected
  * @coordinates-with utils/mediaPathDetection.ts — media type detection
  * @module plugins/codemirror/sourceImagePreview
  */
 
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { getImagePreviewView, hideImagePreview } from "@/plugins/imagePreview/ImagePreviewView";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
+import type { StoreApi } from "zustand";
+import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 import { getMediaType } from "@/utils/mediaPathDetection";
 
 /** Media type for preview rendering. */
@@ -106,12 +107,12 @@ class SourceImagePreviewPlugin {
   private popupOpen = false;
   private unsubPopup: (() => void) | null = null;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorView, mediaPopup: StoreApi<MediaPopupState>) {
     this.view = view;
 
-    // Subscribe to popup store so we avoid per-event getState() calls
-    this.popupOpen = useMediaPopupStore.getState().isOpen;
-    this.unsubPopup = useMediaPopupStore.subscribe((state) => {
+    // Subscribe to popup state so we avoid per-event getState() calls
+    this.popupOpen = mediaPopup.getState().isOpen;
+    this.unsubPopup = mediaPopup.subscribe((state) => {
       this.popupOpen = state.isOpen;
       if (this.popupOpen) this.hidePreview();
     });
@@ -268,6 +269,6 @@ class SourceImagePreviewPlugin {
   }
 }
 
-export function createSourceImagePreviewPlugin() {
-  return ViewPlugin.fromClass(SourceImagePreviewPlugin);
+export function createSourceImagePreviewPlugin(mediaPopup: StoreApi<MediaPopupState>) {
+  return ViewPlugin.define((view) => new SourceImagePreviewPlugin(view, mediaPopup));
 }

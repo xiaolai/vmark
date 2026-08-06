@@ -6,10 +6,11 @@
  */
 
 import { type Extension } from "@codemirror/state";
-import { ViewPlugin, type EditorView } from "@codemirror/view";
+import { EditorView, ViewPlugin } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { sourceLinkError } from "@/utils/debug";
-import { useLinkPopupStore } from "@/stores/linkPopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { extractMarkdownHeadings } from "@/plugins/toolbarActions/sourceAdapterLinks";
@@ -149,18 +150,55 @@ function createCmdClickPlugin(): Extension {
 }
 
 /**
+ * Stale-range sync (WI-1 / D1: remap-when-mappable, close-when-destroyed).
+ *
+ * While the popup is open, every doc change (typing is impossible — focus is
+ * in the popup — so this is MCP/AI edits, external reloads) either remaps the
+ * tracked `[linkFrom, linkTo)` through the transaction's change mapping or
+ * closes the popup. The remap is accepted only when the mapped slice is
+ * byte-identical to the pre-change slice — the same link, merely moved. A
+ * parse-success check alone would accept a same-length replacement of the
+ * whole link and let save rewrite the WRONG link.
+ */
+function createLinkRangeSyncExtension(store: StoreApi<LinkPopupState>): Extension {
+  return EditorView.updateListener.of((update) => {
+    if (!update.docChanged) return;
+    const state = store.getState();
+    if (!state.isOpen) return;
+
+    const { linkFrom, linkTo } = state;
+    const mappedFrom = update.changes.mapPos(linkFrom, 1);
+    const mappedTo = update.changes.mapPos(linkTo, -1);
+    const survivedVerbatim =
+      mappedFrom < mappedTo &&
+      update.state.doc.sliceString(mappedFrom, mappedTo) ===
+        update.startState.doc.sliceString(linkFrom, linkTo);
+
+    if (survivedVerbatim && state.setLinkRange) {
+      state.setLinkRange(mappedFrom, mappedTo);
+    } else {
+      // Destroyed, edited in place, or the store cannot record a remap:
+      // stale offsets must never survive a doc change (D1 invariant).
+      state.closePopup?.();
+    }
+  });
+}
+
+/**
  * Create the Source link popup plugin.
  *
  * Click on a link opens the edit popup. Cmd+Click opens in browser.
  */
-export function createSourceLinkPopupPlugin(): Extension {
+export function createSourceLinkPopupPlugin(store: StoreApi<LinkPopupState>): Extension {
   return [
     // Cmd+Click handler (capture phase, runs first)
     createCmdClickPlugin(),
+    // Doc-change guard: remap the tracked range or close (WI-1 / D1)
+    createLinkRangeSyncExtension(store),
     // Popup plugin: opens edit popup on regular click
     /* v8 ignore next -- @preserve reason: createSourcePopupPlugin factory not invoked in unit tests */
     createSourcePopupPlugin({
-      store: useLinkPopupStore,
+      store,
       createView: (view, store) => new SourceLinkPopupView(view, store),
       detectTrigger: detectLinkTrigger,
       detectTriggerAtPos: (view, pos) => {

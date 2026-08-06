@@ -8,16 +8,22 @@
  *
  * Key decisions:
  *   - Shortcuts are resolved lazily from the store so user customizations take effect immediately
- *   - Some actions delegate to the sourceAdapter for cross-mode consistency
- *   - Text transformation shortcuts (uppercase, titlecase, etc.) operate directly on CM6 state
- *   - CJK formatting is done in-place on the markdown buffer
+ *   - Smart select-all lives in `sourceSmartSelect.ts` — the one binding
+ *     with state and logic; this file is a flat key-to-action table
+ *   - EVERY document mutation routes through the shared executor
+ *     (runEditorAction, the menu's path — NOT executeCommand; WI-4.2). The last
+ *     exception, `unlink`, had no `editor.*` action though both adapters
+ *     implemented it; adding the ActionId closed the gap (WI-2.1). Direct
+ *     handlers remain only for non-mutations — find/search, copy-as-HTML —
+ *     gated by `__tests__/dispatchBoundary.test.ts`
  *   - Helper functions are extracted to sourceShortcutsHelpers.ts to keep this file focused
  *
  * Known limitations:
  *   - Some shortcuts overlap with system keybindings on different platforms
  *
- * @coordinates-with stores/shortcutsStore.ts — source of shortcut key definitions
- * @coordinates-with toolbarActions/sourceAdapter.ts — action execution for format operations
+ * @coordinates-with plugins/shared/hostShortcuts.ts — the chords, hostSearch — the find bar
+ * @coordinates-with services/editor/runEditorAction.ts — executor for editor.* actions
+ * @coordinates-with plugins/actions/types.ts — the ActionId union the bindings use
  * @coordinates-with plugins/codemirror/sourceShortcutsHelpers.ts — helper functions
  * @module plugins/codemirror/sourceShortcuts
  */
@@ -25,38 +31,50 @@
 import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { toggleBlockComment, selectLine } from "@codemirror/commands";
-import { useUIStore } from "@/stores/uiStore";
-import { useShortcutsStore } from "@/stores/settingsStore";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
-import { getCodeFenceInfo } from "@/plugins/sourceContextDetection/codeFenceDetection";
-import { getSourceTableInfo } from "@/plugins/sourceContextDetection/tableDetection";
-import { getBlockquoteInfo } from "@/plugins/sourceContextDetection/blockquoteDetection";
-import { getListBlockBounds } from "@/plugins/sourceContextDetection/listDetection";
+import { addSmartSelectBindings, getSourceBlockBounds } from "./sourceSmartSelect";
+
+// Re-exported: the block-bounds helper is part of this module's public surface.
+export { getSourceBlockBounds };
+import { runEditorAction } from "@/services/editor/runEditorAction";
+import type { ActionId, HeadingLevel } from "@/plugins/actions/types";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
-  runSourceAction,
-  setHeading,
-  increaseHeadingLevel,
-  decreaseHeadingLevel,
-  toggleBlockquote,
-  toggleList,
   openFindBar,
   findNextMatch,
   findPreviousMatch,
-  formatCJKSelection,
-  formatCJKFile,
   copySelectionAsHtml,
-  doTransformUppercase,
-  doTransformLowercase,
-  doTransformTitleCase,
-  doTransformToggleCase,
-  doMoveLineUp,
-  doMoveLineDown,
-  doDuplicateLine,
-  doDeleteLine,
-  doJoinLines,
-  doSortLinesAsc,
-  doSortLinesDesc,
 } from "./sourceShortcutsHelpers";
+
+/**
+ * CodeMirror command running an action through the shared executor
+ * (`runEditorAction`, the menu's path — NOT `executeCommand`, whose stricter
+ * palette gate would drop keyboard formatting; WI-4.2).
+ *
+ * Takes a TYPED `ActionId`. It previously took a `"editor.foo"` string and cast
+ * the remainder with `as ActionId`, which defeated the action system's whole
+ * type guarantee: a typo compiled, the executor found no such action, and the
+ * binding still returned true — so the key was consumed and nothing happened,
+ * which is indistinguishable from a broken keyboard.
+ */
+function runCommand(actionId: ActionId): (view: EditorView) => boolean {
+  return () => {
+    runEditorAction(actionId, { windowLabel: getCurrentWindowLabel() });
+    return true;
+  };
+}
+
+/** `setHeading` carries its level as a parameter, so it has its own helper. */
+function runHeading(level: HeadingLevel): (view: EditorView) => boolean {
+  return () => {
+    runEditorAction("setHeading", {
+      windowLabel: getCurrentWindowLabel(),
+      params: { level },
+    });
+    return true;
+  };
+}
 
 function bindIfKey(bindings: KeyBinding[], key: string, run: (view: EditorView) => boolean) {
   if (!key) return;
@@ -69,63 +87,17 @@ function bindIfKey(bindings: KeyBinding[], key: string, run: (view: EditorView) 
   );
 }
 
-// --- Source smart select-all state ---
-
-interface SourceSelectUndo {
-  prev: { from: number; to: number };
-  expanded: { from: number; to: number };
-}
-
-const sourceSelectUndoState = new WeakMap<EditorView, SourceSelectUndo>();
-
-/**
- * Get the bounds of the block containing the cursor in source mode.
- * Detection order: code fence -> table -> blockquote -> list.
- * Returns { from, to } or null if cursor is not in any block.
- */
-export function getSourceBlockBounds(view: EditorView): { from: number; to: number } | null {
-  // 1. Code fence
-  const fenceInfo = getCodeFenceInfo(view);
-  if (fenceInfo) {
-    const doc = view.state.doc;
-    // Empty fence — no content to select
-    if (fenceInfo.endLine - fenceInfo.startLine <= 1) return null;
-    const contentStartLine = doc.line(fenceInfo.startLine + 1);
-    const contentEndLine = doc.line(fenceInfo.endLine - 1);
-    return { from: contentStartLine.from, to: contentEndLine.to };
-  }
-
-  // 2. Table
-  const tableInfo = getSourceTableInfo(view);
-  if (tableInfo) {
-    return { from: tableInfo.start, to: tableInfo.end };
-  }
-
-  // 3. Blockquote
-  const bqInfo = getBlockquoteInfo(view);
-  if (bqInfo) {
-    return { from: bqInfo.from, to: bqInfo.to };
-  }
-
-  // 4. List block
-  const listBounds = getListBlockBounds(view);
-  if (listBounds) {
-    return listBounds;
-  }
-
-  return null;
-}
-
-/** Builds the full CodeMirror keymap for source mode from user-configurable shortcuts. */
 export function buildSourceShortcutKeymap(): KeyBinding[] {
-  const shortcuts = useShortcutsStore.getState();
+  const shortcuts = hostShortcuts;
   const bindings: KeyBinding[] = [];
 
   // --- View shortcuts ---
-  bindIfKey(bindings, shortcuts.getShortcut("toggleSidebar"), () => {
-    useUIStore.getState().toggleSidebar();
-    return true;
-  });
+  // toggleSidebar is NOT bound here. It is scope:"global", handled at window
+  // level by the view keybindings, and the WYSIWYG keymap already excludes it
+  // for the same reason — `shortcutDefinitions.ts` states the rule outright:
+  // "handled in useViewShortcuts only, never the TipTap keymap, to avoid
+  // double-toggle". Source was the one surface that did bind it, so both
+  // handlers fired and the sidebar toggled twice — appearing to do nothing.
 
   // Capture sourceMode shortcut to prevent CodeMirror's default comment toggle.
   // The actual toggle is handled by useViewShortcuts hook at window level.
@@ -134,57 +106,58 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
     return true;
   });
 
-  // --- Inline formatting ---
-  bindIfKey(bindings, shortcuts.getShortcut("bold"), runSourceAction("bold"));
-  bindIfKey(bindings, shortcuts.getShortcut("italic"), runSourceAction("italic"));
-  bindIfKey(bindings, shortcuts.getShortcut("code"), runSourceAction("code"));
-  bindIfKey(bindings, shortcuts.getShortcut("strikethrough"), runSourceAction("strikethrough"));
-  bindIfKey(bindings, shortcuts.getShortcut("underline"), runSourceAction("underline"));
-  bindIfKey(bindings, shortcuts.getShortcut("link"), runSourceAction("link"));
-  bindIfKey(bindings, shortcuts.getShortcut("unlink"), runSourceAction("unlink"));
-  bindIfKey(bindings, shortcuts.getShortcut("wikiLink"), runSourceAction("link:wiki"));
-  bindIfKey(bindings, shortcuts.getShortcut("bookmarkLink"), runSourceAction("link:bookmark"));
-  bindIfKey(bindings, shortcuts.getShortcut("highlight"), runSourceAction("highlight"));
-  bindIfKey(bindings, shortcuts.getShortcut("subscript"), runSourceAction("subscript"));
-  bindIfKey(bindings, shortcuts.getShortcut("superscript"), runSourceAction("superscript"));
-  bindIfKey(bindings, shortcuts.getShortcut("inlineMath"), runSourceAction("insertInlineMath"));
-  bindIfKey(bindings, shortcuts.getShortcut("clearFormat"), runSourceAction("clearFormatting"));
+  // --- Inline formatting (routed through the executor; see runCommand) ---
+  bindIfKey(bindings, shortcuts.getShortcut("bold"), runCommand("bold"));
+  bindIfKey(bindings, shortcuts.getShortcut("italic"), runCommand("italic"));
+  bindIfKey(bindings, shortcuts.getShortcut("code"), runCommand("code"));
+  bindIfKey(bindings, shortcuts.getShortcut("strikethrough"), runCommand("strikethrough"));
+  bindIfKey(bindings, shortcuts.getShortcut("underline"), runCommand("underline"));
+  bindIfKey(bindings, shortcuts.getShortcut("link"), runCommand("link"));
+  bindIfKey(bindings, shortcuts.getShortcut("unlink"), runCommand("unlink"));
+  bindIfKey(bindings, shortcuts.getShortcut("wikiLink"), runCommand("wikiLink"));
+  bindIfKey(bindings, shortcuts.getShortcut("bookmarkLink"), runCommand("bookmark"));
+  bindIfKey(bindings, shortcuts.getShortcut("highlight"), runCommand("highlight"));
+  bindIfKey(bindings, shortcuts.getShortcut("subscript"), runCommand("subscript"));
+  bindIfKey(bindings, shortcuts.getShortcut("superscript"), runCommand("superscript"));
+  bindIfKey(bindings, shortcuts.getShortcut("inlineMath"), runCommand("insertInlineMath"));
+  bindIfKey(bindings, shortcuts.getShortcut("clearFormat"), runCommand("clearFormatting"));
+  // toggleComment has no editor.* command — keep the CodeMirror command directly.
   bindIfKey(bindings, shortcuts.getShortcut("toggleComment"), (view) => toggleBlockComment(view));
 
   // --- Block formatting: Headings ---
-  bindIfKey(bindings, shortcuts.getShortcut("heading1"), setHeading(1));
-  bindIfKey(bindings, shortcuts.getShortcut("heading2"), setHeading(2));
-  bindIfKey(bindings, shortcuts.getShortcut("heading3"), setHeading(3));
-  bindIfKey(bindings, shortcuts.getShortcut("heading4"), setHeading(4));
-  bindIfKey(bindings, shortcuts.getShortcut("heading5"), setHeading(5));
-  bindIfKey(bindings, shortcuts.getShortcut("heading6"), setHeading(6));
-  bindIfKey(bindings, shortcuts.getShortcut("paragraph"), setHeading(0));
-  bindIfKey(bindings, shortcuts.getShortcut("increaseHeading"), increaseHeadingLevel);
-  bindIfKey(bindings, shortcuts.getShortcut("decreaseHeading"), decreaseHeadingLevel);
+  bindIfKey(bindings, shortcuts.getShortcut("heading1"), runHeading(1));
+  bindIfKey(bindings, shortcuts.getShortcut("heading2"), runHeading(2));
+  bindIfKey(bindings, shortcuts.getShortcut("heading3"), runHeading(3));
+  bindIfKey(bindings, shortcuts.getShortcut("heading4"), runHeading(4));
+  bindIfKey(bindings, shortcuts.getShortcut("heading5"), runHeading(5));
+  bindIfKey(bindings, shortcuts.getShortcut("heading6"), runHeading(6));
+  bindIfKey(bindings, shortcuts.getShortcut("paragraph"), runCommand("paragraph"));
+  bindIfKey(bindings, shortcuts.getShortcut("increaseHeading"), runCommand("increaseHeading"));
+  bindIfKey(bindings, shortcuts.getShortcut("decreaseHeading"), runCommand("decreaseHeading"));
 
   // --- Block formatting: Lists ---
-  bindIfKey(bindings, shortcuts.getShortcut("bulletList"), (view) => toggleList(view, "bullet"));
-  bindIfKey(bindings, shortcuts.getShortcut("orderedList"), (view) => toggleList(view, "ordered"));
-  bindIfKey(bindings, shortcuts.getShortcut("taskList"), (view) => toggleList(view, "task"));
-  bindIfKey(bindings, shortcuts.getShortcut("indent"), runSourceAction("indent"));
-  bindIfKey(bindings, shortcuts.getShortcut("outdent"), runSourceAction("outdent"));
+  bindIfKey(bindings, shortcuts.getShortcut("bulletList"), runCommand("bulletList"));
+  bindIfKey(bindings, shortcuts.getShortcut("orderedList"), runCommand("orderedList"));
+  bindIfKey(bindings, shortcuts.getShortcut("taskList"), runCommand("taskList"));
+  bindIfKey(bindings, shortcuts.getShortcut("indent"), runCommand("indent"));
+  bindIfKey(bindings, shortcuts.getShortcut("outdent"), runCommand("outdent"));
 
   // --- Block formatting: Other blocks ---
-  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), toggleBlockquote);
-  bindIfKey(bindings, shortcuts.getShortcut("codeBlock"), runSourceAction("insertCodeBlock"));
-  bindIfKey(bindings, shortcuts.getShortcut("mathBlock"), runSourceAction("insertMath"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertTable"), runSourceAction("insertTable"));
-  bindIfKey(bindings, shortcuts.getShortcut("formatTable"), runSourceAction("formatTable"));
-  bindIfKey(bindings, shortcuts.getShortcut("horizontalLine"), runSourceAction("insertDivider"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), runSourceAction("insertImage"));
+  bindIfKey(bindings, shortcuts.getShortcut("blockquote"), runCommand("blockquote"));
+  bindIfKey(bindings, shortcuts.getShortcut("codeBlock"), runCommand("codeBlock"));
+  bindIfKey(bindings, shortcuts.getShortcut("mathBlock"), runCommand("insertMath"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertTable"), runCommand("insertTable"));
+  bindIfKey(bindings, shortcuts.getShortcut("formatTable"), runCommand("formatTable"));
+  bindIfKey(bindings, shortcuts.getShortcut("horizontalLine"), runCommand("horizontalLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertImage"), runCommand("insertImage"));
 
   // --- Block formatting: Alerts and details ---
-  bindIfKey(bindings, shortcuts.getShortcut("insertNote"), runSourceAction("insertAlertNote"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertTip"), runSourceAction("insertAlertTip"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertWarning"), runSourceAction("insertAlertWarning"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertImportant"), runSourceAction("insertAlertImportant"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertCaution"), runSourceAction("insertAlertCaution"));
-  bindIfKey(bindings, shortcuts.getShortcut("insertCollapsible"), runSourceAction("insertDetails"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertNote"), runCommand("insertAlertNote"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertTip"), runCommand("insertAlertTip"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertWarning"), runCommand("insertAlertWarning"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertImportant"), runCommand("insertAlertImportant"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertCaution"), runCommand("insertAlertCaution"));
+  bindIfKey(bindings, shortcuts.getShortcut("insertCollapsible"), runCommand("insertDetails"));
 
   // --- Navigation ---
   bindIfKey(bindings, shortcuts.getShortcut("selectLine"), (view) => selectLine(view));
@@ -193,104 +166,27 @@ export function buildSourceShortcutKeymap(): KeyBinding[] {
   bindIfKey(bindings, shortcuts.getShortcut("findPrevious"), findPreviousMatch);
 
   // --- Editing ---
-  bindIfKey(bindings, shortcuts.getShortcut("formatCJKSelection"), formatCJKSelection);
-  bindIfKey(bindings, shortcuts.getShortcut("formatCJKFile"), formatCJKFile);
+  bindIfKey(bindings, shortcuts.getShortcut("formatCJKSelection"), runCommand("formatCJK"));
+  bindIfKey(bindings, shortcuts.getShortcut("formatCJKFile"), runCommand("formatCJKFile"));
+  // copyAsHTML has no editor.* command — keep the source helper directly.
   bindIfKey(bindings, shortcuts.getShortcut("copyAsHTML"), copySelectionAsHtml);
 
   // --- Line operations ---
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), doMoveLineUp);
-  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), doMoveLineDown);
-  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), doDuplicateLine);
-  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), doDeleteLine);
-  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), doJoinLines);
-  bindIfKey(bindings, shortcuts.getShortcut("sortLinesAsc"), doSortLinesAsc);
-  bindIfKey(bindings, shortcuts.getShortcut("sortLinesDesc"), doSortLinesDesc);
+  bindIfKey(bindings, shortcuts.getShortcut("moveLineUp"), runCommand("moveLineUp"));
+  bindIfKey(bindings, shortcuts.getShortcut("moveLineDown"), runCommand("moveLineDown"));
+  bindIfKey(bindings, shortcuts.getShortcut("duplicateLine"), runCommand("duplicateLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("deleteLine"), runCommand("deleteLine"));
+  bindIfKey(bindings, shortcuts.getShortcut("joinLines"), runCommand("joinLines"));
+  bindIfKey(bindings, shortcuts.getShortcut("sortLinesAsc"), runCommand("sortLinesAsc"));
+  bindIfKey(bindings, shortcuts.getShortcut("sortLinesDesc"), runCommand("sortLinesDesc"));
 
   // --- Text transformations ---
-  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), doTransformUppercase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), doTransformLowercase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), doTransformTitleCase);
-  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), doTransformToggleCase);
+  bindIfKey(bindings, shortcuts.getShortcut("transformUppercase"), runCommand("transformUppercase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformLowercase"), runCommand("transformLowercase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformTitleCase"), runCommand("transformTitleCase"));
+  bindIfKey(bindings, shortcuts.getShortcut("transformToggleCase"), runCommand("transformToggleCase"));
 
-  // --- Smart select-all: block-level expansion ---
-  // Mod-a detects block context and selects block content first, then whole
-  // document on second press. Detection order: code fence -> table ->
-  // blockquote -> list -> default.
-  //
-  // Always returns true (preventDefault is set on the binding). Returning
-  // false would hand the event back to the browser, whose default
-  // `document.execCommand("selectAll")` highlights every selectable element
-  // in the window — including the sidebar — instead of keeping the
-  // selection scoped to the editor.
-  bindings.push(
-    guardCodeMirrorKeyBinding({
-      key: "Mod-a",
-      run: (view) => {
-        const { from, to } = view.state.selection.main;
-        const docLen = view.state.doc.length;
-
-        const blockBounds = getSourceBlockBounds(view);
-
-        if (!blockBounds) {
-          // No detectable block context — select the entire document so the
-          // event is consumed inside the editor instead of escaping to the
-          // browser's page-wide select-all.
-          sourceSelectUndoState.delete(view);
-          if (from === 0 && to === docLen) return true;
-          view.dispatch({ selection: { anchor: 0, head: docLen } });
-          return true;
-        }
-
-        // Already selecting the entire block: progress to whole-document.
-        // We dispatch the document-wide selection ourselves instead of
-        // returning false (which would invoke the browser's spreading
-        // select-all).
-        if (from === blockBounds.from && to === blockBounds.to) {
-          sourceSelectUndoState.delete(view);
-          if (from === 0 && to === docLen) return true;
-          view.dispatch({ selection: { anchor: 0, head: docLen } });
-          return true;
-        }
-
-        // Save current selection for undo, then select block
-        sourceSelectUndoState.set(view, {
-          prev: { from, to },
-          expanded: { from: blockBounds.from, to: blockBounds.to },
-        });
-        view.dispatch({
-          selection: { anchor: blockBounds.from, head: blockBounds.to },
-        });
-        return true;
-      },
-      preventDefault: true,
-    })
-  );
-
-  // --- Smart select-all undo ---
-  // Mod-z restores the previous selection if the last action was a smart select-all expansion
-  bindings.push(
-    guardCodeMirrorKeyBinding({
-      key: "Mod-z",
-      run: (view) => {
-        const undoInfo = sourceSelectUndoState.get(view);
-        if (!undoInfo) return false;
-
-        const { from, to } = view.state.selection.main;
-        // Only restore if current selection matches the expansion
-        if (from !== undoInfo.expanded.from || to !== undoInfo.expanded.to) {
-          sourceSelectUndoState.delete(view);
-          return false;
-        }
-
-        sourceSelectUndoState.delete(view);
-        view.dispatch({
-          selection: { anchor: undoInfo.prev.from, head: undoInfo.prev.to },
-        });
-        return true;
-      },
-      preventDefault: true,
-    })
-  );
+  addSmartSelectBindings(bindings);
 
   return bindings;
 }

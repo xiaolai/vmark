@@ -12,7 +12,7 @@ import {
   setPendingContentSearchNav,
   consumePendingContentSearchNav,
   clearPendingContentSearchNav,
-} from "@/hooks/contentSearchNavigation";
+} from "@/services/navigation/contentSearchNavigation";
 import { useUIStore } from "@/stores/uiStore";
 
 function makeView(paragraphs: string[]) {

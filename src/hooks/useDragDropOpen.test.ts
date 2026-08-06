@@ -51,7 +51,7 @@ vi.mock("@tauri-apps/api/webview", () => ({
   getCurrentWebview: () => ({ onDragDropEvent: mockOnDragDropEvent }),
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: () => null,
   findExistingTabForPath: () => null,
 }));

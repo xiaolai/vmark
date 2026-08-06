@@ -51,7 +51,10 @@ vi.mock('../hotExit/restoreHelpers', () => ({
 
 // We need to dynamically import to reset the module-level flag between tests
 let restoreMainWindowState: typeof import('./_hotExitRestore').restoreMainWindowState;
-let useHotExitRestore: typeof import('./_hotExitRestore').useHotExitRestore;
+// The hook moved to hooks/ (ADR-013) but shares this module's restore guard.
+// After resetModules both re-resolve to the same absolute file, so the guard
+// stays consistent across the two dynamic imports below.
+let useHotExitRestore: typeof import('@/hooks/resilience/_hotExitRestore').useHotExitRestore;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -116,7 +119,7 @@ describe('useHotExitRestore', () => {
 
     const mod = await import('./_hotExitRestore');
     restoreMainWindowState = mod.restoreMainWindowState;
-    useHotExitRestore = mod.useHotExitRestore;
+    useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
   });
 
   // =========================================================================
@@ -193,6 +196,8 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
 
       await mod.restoreMainWindowState();
 
@@ -301,7 +306,8 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
-      useHotExitRestore = mod.useHotExitRestore;
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
 
       const state = makeWindowState();
       mockPullWindowStateWithRetry.mockResolvedValueOnce(state);
@@ -373,9 +379,11 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       mockPullWindowStateWithRetry.mockResolvedValueOnce(null);
 
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       // Secondary windows do NOT emit RESTORE_FAILED (only main does)
       await vi.waitFor(() => {
@@ -417,9 +425,11 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       mockPullWindowStateWithRetry.mockRejectedValueOnce(new Error('restore boom'));
 
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       await vi.waitFor(() => {
         expect(mockEmit).toHaveBeenCalledWith(
@@ -454,11 +464,13 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       const state = makeWindowState();
       mockPullWindowStateWithRetry.mockResolvedValueOnce(state);
       mockInvoke.mockResolvedValueOnce(true); // allDone = true
 
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       await vi.waitFor(() => {
         expect(mockEmit).toHaveBeenCalledWith('hot-exit:restore-complete', {});
@@ -490,9 +502,11 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       mockPullWindowStateWithRetry.mockRejectedValueOnce('string error from secondary');
 
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       await vi.waitFor(() => {
         expect(mockEmit).toHaveBeenCalledWith(
@@ -579,10 +593,12 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
 
       // Render twice (simulates strict mode double-invoke) — second call should be ignored
-      renderHook(() => mod.useHotExitRestore());
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       // Resolve first pull so the test doesn't hang
       resolveFirst(null);
@@ -640,12 +656,14 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       // Make pull throw so emit gets called in catch block
       mockPullWindowStateWithRetry.mockRejectedValueOnce(new Error('pull error'));
       // Make emit also reject to cover the .catch path (line 142)
       mockEmit.mockRejectedValueOnce(new Error('emit also failed'));
 
-      renderHook(() => mod.useHotExitRestore());
+      renderHook(() => useHotExitRestore());
 
       // Wait for the async effect to finish
       await vi.waitFor(() => {
@@ -678,9 +696,11 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
       mockPullWindowStateWithRetry.mockResolvedValue(null);
 
-      const { rerender } = renderHook(() => mod.useHotExitRestore());
+      const { rerender } = renderHook(() => useHotExitRestore());
       await vi.waitFor(() => {
         expect(mockPullWindowStateWithRetry).toHaveBeenCalledTimes(1);
       });
@@ -737,13 +757,15 @@ describe('useHotExitRestore', () => {
       }));
 
       const mod = await import('./_hotExitRestore');
+      restoreMainWindowState = mod.restoreMainWindowState;
+      useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
 
       // First pull will never resolve (simulates in-flight restore)
       let resolveFirst!: (v: null) => void;
       const blockingPromise = new Promise<null>((res) => { resolveFirst = res; });
       mockPullWindowStateWithRetry.mockReturnValueOnce(blockingPromise);
 
-      const { unmount } = renderHook(() => mod.useHotExitRestore());
+      const { unmount } = renderHook(() => useHotExitRestore());
 
       // Let the effect kick off the first async restore
       await new Promise((r) => setTimeout(r, 0));
@@ -845,6 +867,8 @@ describe('createWindowRestoreCoordinator', () => {
     }));
 
     const mod = await import('./_hotExitRestore');
+    restoreMainWindowState = mod.restoreMainWindowState;
+    useHotExitRestore = (await import('@/hooks/resilience/_hotExitRestore')).useHotExitRestore;
     createWindowRestoreCoordinator = mod.createWindowRestoreCoordinator;
   });
 

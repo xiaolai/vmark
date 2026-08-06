@@ -10,6 +10,7 @@
  */
 
 import type { CJKFormattingSettings } from "@/stores/settingsStore";
+import { cjkFmtWarn } from "@/utils/debug";
 import { applyContextualQuotes } from "../quotePairing";
 import { containsCJK } from "./shared";
 import { normalizeEllipsis, collapseNewlines } from "./universal";
@@ -39,8 +40,62 @@ import {
   removeTrailingSpaces,
 } from "./cleanup";
 
-/** Apply all enabled CJK formatting rules to text. */
+/**
+ * Safety cap for the fixed-point iteration in applyRules. Normal text
+ * converges in 1–2 passes; hitting the cap means a rule cycle (a genuine
+ * bug the idempotence property suite exists to catch), or an input deeper
+ * than the cap — not normal operation.
+ */
+export const MAX_RULE_PASSES = 8;
+
+/**
+ * Apply all enabled CJK formatting rules to text.
+ *
+ * Iterates the rule chain to its FIXED POINT. The chain has producer→consumer
+ * dependencies that no single ordering can satisfy: quote conversion creates
+ * corner brackets (「」) that are fullwidth-punctuation and dash context, but
+ * quote classification must run before the spacing rules; fullwidth
+ * parentheses run after parenthesis spacing yet produce （） that earlier
+ * rules key on; nested `(中(文))` needs one paren pass per nesting level.
+ * A single pass therefore stops one step short on such inputs, and every
+ * REPEATED format invocation used to edit the document again (中,,--“中” kept
+ * growing). Each rule only moves text toward its normal form (conversions are
+ * one-way), so iterating converges — `format(format(x)) === format(x)` is
+ * pinned by the idempotence property suite.
+ */
 export function applyRules(
+  text: string,
+  config: CJKFormattingSettings,
+  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+): string {
+  let prev = text;
+  for (let pass = 0; pass < MAX_RULE_PASSES; pass++) {
+    const next = applyRulesOnce(prev, config, options);
+    if (next === prev) {
+      return next;
+    }
+    prev = next;
+  }
+  // Audit 20260804-F7: the cap used to be a SILENT truncation — a document
+  // that needed a ninth pass came back not-quite-normalized and the next
+  // "Format CJK File" edited it again, which is precisely the non-idempotence
+  // the fixed-point loop exists to prevent. The result is still returned (it
+  // is strictly more normalized than the input, and refusing to format would
+  // be worse than formatting incompletely), but the condition is now visible.
+  //
+  // Only the length is logged: this runs over the user's document, and their
+  // log file is something they attach to bug reports.
+  cjkFmtWarn(
+    `rule chain did not converge within ${MAX_RULE_PASSES} passes — returning the last pass. ` +
+      "Expect the next format run to change the text again; this is a rule cycle or a " +
+      "nesting depth beyond the cap.",
+    { inputLength: text.length, passes: MAX_RULE_PASSES },
+  );
+  return prev;
+}
+
+/** One pass of the enabled rules, in their deliberate order. */
+function applyRulesOnce(
   text: string,
   config: CJKFormattingSettings,
   options: { preserveTwoSpaceHardBreaks?: boolean } = {}

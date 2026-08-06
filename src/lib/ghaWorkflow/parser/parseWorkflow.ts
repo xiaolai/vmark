@@ -20,6 +20,18 @@ import {
 } from "./tokens";
 import { errorMessage } from "@/utils/errorMessage";
 
+/** `TopLevelPositions` field → the YAML key it records, in document order. */
+const TOP_LEVEL_POSITION_KEYS = [
+  ["name", "name"],
+  ["runName", "run-name"],
+  ["on", "on"],
+  ["permissions", "permissions"],
+  ["env", "env"],
+  ["defaults", "defaults"],
+  ["concurrency", "concurrency"],
+  ["jobs", "jobs"],
+] as const satisfies ReadonlyArray<readonly [keyof TopLevelPositions, string]>;
+
 /**
  * Parse a GitHub Actions workflow YAML string into a typed
  * WorkflowIR. Always returns an IR — even malformed input produces a
@@ -101,17 +113,16 @@ export function parse(yaml: string, fileName = "workflow.yml"): WorkflowIR {
   const edgesResult = deriveEdges(jobsResult.jobs);
   diagnostics.push(...edgesResult.diagnostics);
 
-  // Top-level positions for click-to-jump.
-  const positions: TopLevelPositions = {
-    name: rangeOf(root.find("name")),
-    runName: rangeOf(root.find("run-name")),
-    on: rangeOf(root.find("on")),
-    permissions: rangeOf(root.find("permissions")),
-    env: rangeOf(root.find("env")),
-    defaults: rangeOf(root.find("defaults")),
-    concurrency: rangeOf(root.find("concurrency")),
-    jobs: rangeOf(root.find("jobs")),
-  };
+  // Top-level positions for click-to-jump. A key the workflow does not declare
+  // gets no entry at all — `positions.env` being ABSENT is what "this file has
+  // no top-level env:" means, and an empty `{}` is already a valid map. Writing
+  // all eight keys unconditionally made `Object.keys(positions)` claim every
+  // section existed.
+  const positions: TopLevelPositions = {};
+  for (const [field, yamlKey] of TOP_LEVEL_POSITION_KEYS) {
+    const range = rangeOf(root.find(yamlKey));
+    if (range) positions[field] = range;
+  }
 
   return {
     ...(name !== undefined ? { name } : {}),
@@ -153,10 +164,18 @@ function translateParserError(message: string): Diagnostic {
   };
 }
 
+/**
+ * A structural read-only view of the upstream parser's error objects. Every
+ * field is explicitly `| undefined` because the library declares them that
+ * way — this type describes what we may RECEIVE, not what we construct, so it
+ * has to accept a key that is present and holding undefined.
+ */
 interface ParserContextError {
-  message?: string;
-  code?: string;
-  range?: { start: { line: number; column: number }; end: { line: number; column: number } };
+  message?: string | undefined;
+  code?: string | undefined;
+  range?:
+    | { start: { line: number; column: number }; end: { line: number; column: number } }
+    | undefined;
 }
 
 function translateContextError(err: ParserContextError): Diagnostic {

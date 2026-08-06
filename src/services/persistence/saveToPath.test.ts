@@ -4,13 +4,14 @@
  * @module utils/saveToPath.test
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import wire from "@/test/fixtures/commandErrorWire.json";
 import { saveToPath } from "./saveToPath";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-vi.mock("@/hooks/useHistoryOperations", () => ({
+vi.mock("@/services/history/historyOperations", () => ({
   createSnapshot: vi.fn(),
 }));
 
@@ -81,7 +82,7 @@ vi.mock("@/i18n", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { createSnapshot } from "@/hooks/useHistoryOperations";
+import { createSnapshot } from "@/services/history/historyOperations";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
@@ -125,9 +126,12 @@ describe("saveToPath", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     nextMockToken = 1;
-    // Reset module-level snapshot-failure flag between tests
-    const mod = await import("./saveToPath");
-    if ("__resetSessionFlags" in mod) (mod as { __resetSessionFlags: () => void }).__resetSessionFlags();
+    // Reset module-level snapshot-failure flag between tests (moved to
+    // saveHistorySnapshot.ts when saveToPath was split for the save queue).
+    const mod = await import("./saveHistorySnapshot");
+    if ("__resetSnapshotFlags" in mod) (mod as { __resetSnapshotFlags: () => void }).__resetSnapshotFlags();
+    const serializer = await import("./serializeByPath");
+    serializer.__resetSerializer();
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,
@@ -158,7 +162,7 @@ describe("saveToPath", () => {
     expect(result).toBe(true);
     expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "Hello" });
     expect(mockSetFilePath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
-    expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", "Hello");
+    expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "Hello", diskSnapshot: "Hello" });
     expect(mockUpdateTabPath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
     expect(mockAddFile).toHaveBeenCalledWith("/tmp/doc.md");
     expect(createSnapshot).toHaveBeenCalledWith("/tmp/doc.md", "Hello", "manual", {
@@ -169,8 +173,11 @@ describe("saveToPath", () => {
     });
   });
 
-  it("reports the write to the coherence capture funnel (WI-1.6, fire-and-forget)", async () => {
+  it("reports the write to the coherence capture funnel when capture is ENABLED (WI-1.6)", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
+    vi.mocked(useSettingsStore.getState).mockReturnValue(
+      makeSettings({ general: { coherenceCaptureOnSave: true } }),
+    );
 
     await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
 
@@ -182,8 +189,32 @@ describe("saveToPath", () => {
     });
   });
 
+  // Capture is OPT-IN (v0.9.6): saving must not rewrite the user's file to
+  // inject a `vmark:` frontmatter id unless they asked for provenance tracking.
+  // Default-on stamping modified users' markdown silently, on autosave.
+  it("does NOT capture on save by default — no silent frontmatter stamping", async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
+
+    expect(mockCaptureWrite).not.toHaveBeenCalled();
+  });
+
+  it("does NOT capture on AUTOSAVE either when disabled", async () => {
+    // Autosave is on by default at 30s, so a default-on capture stamped files
+    // without the user ever pressing save.
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await saveToPath("tab-1", "/tmp/doc.md", "Hello", "auto");
+
+    expect(mockCaptureWrite).not.toHaveBeenCalled();
+  });
+
   it("save succeeds even when the coherence funnel rejects", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
+    vi.mocked(useSettingsStore.getState).mockReturnValue(
+      makeSettings({ general: { coherenceCaptureOnSave: true } }),
+    );
     mockCaptureWrite.mockRejectedValueOnce(new Error("kernel down"));
 
     const result = await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
@@ -282,7 +313,7 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "content", "manual");
 
-      expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", "content");
+      expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "content", diskSnapshot: "content" });
       expect(mockMarkAutoSaved).not.toHaveBeenCalled();
     });
 
@@ -291,7 +322,7 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "content", "auto");
 
-      expect(mockMarkAutoSaved).toHaveBeenCalledWith("tab-1", "content");
+      expect(mockMarkAutoSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "content", diskSnapshot: "content" });
       expect(mockMarkSaved).not.toHaveBeenCalled();
     });
 
@@ -488,6 +519,95 @@ describe("saveToPath", () => {
     });
   });
 
+  describe("parent directory missing (WI-14 typed CommandError)", () => {
+    // `atomic_write_file` now rejects with `{code, message, i18nKey?, detail?}`.
+    // The rejection values come from `commandErrorWire.json`, which the Rust
+    // test GENERATES by invoking the real command core — so this suite cannot
+    // pass while Rust emits something else. The legacy-string block above stays
+    // until the ratchet reaches zero: both shapes are live during the migration.
+    const typedParentMissing = {
+      ...wire.saveParentMissing,
+      detail: { dir: "/Users/joker/gone-folder" },
+    };
+
+    it("routes a typed not-found into Save As, reading detail.dir not the message", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(mockMarkSaved).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveParentMissing");
+      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/joker/gone-folder");
+      consoleError.mockRestore();
+    });
+
+    it("still marks missing on a typed auto-save failure but skips the toast", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "auto");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
+      expect(toastMocks.error).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    it("does NOT route a different typed code into Save As", async () => {
+      // An io failure is a disk problem, not a vanished folder. Under the old
+      // prefix protocol these were told apart by how the sentence started.
+      vi.mocked(invoke).mockRejectedValue({ code: "io", message: "Could not save the file: EIO" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(result).toBe(false);
+      expect(mockMarkMissing).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveGeneric");
+      consoleError.mockRestore();
+    });
+
+    it("shows the typed message, not [object Object], in the generic toast", async () => {
+      vi.mocked(invoke).mockRejectedValue({ code: "io", message: "Could not save the file: EIO" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(toastMocks.error.mock.calls[0][0]).toContain("Could not save the file: EIO");
+      expect(toastMocks.error.mock.calls[0][0]).not.toContain("[object Object]");
+      consoleError.mockRestore();
+    });
+
+    it("falls back to the generic toast when a typed not-found omits detail.dir", async () => {
+      // Defensive: a not-found without the directory cannot name a folder, so
+      // it must not produce a toast with an empty/undefined placeholder.
+      vi.mocked(invoke).mockRejectedValue({ code: "not-found", message: "gone" });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
+
+      expect(mockMarkMissing).not.toHaveBeenCalled();
+      expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveGeneric");
+      consoleError.mockRestore();
+    });
+
+    it("clears the pending save on a typed failure too", async () => {
+      vi.mocked(invoke).mockRejectedValue(typedParentMissing);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+
+      expect(clearPendingSave).toHaveBeenCalledWith(
+        "/Users/joker/gone-folder/note.md",
+        expect.any(Number),
+      );
+      consoleError.mockRestore();
+    });
+  });
+
   describe("pending save handling", () => {
     it("registers pending save before write", async () => {
       vi.mocked(invoke).mockResolvedValue(undefined);
@@ -538,6 +658,47 @@ describe("saveToPath", () => {
       expect(registerCalls).toHaveLength(2);
       expect(registerCalls[0][0]).toBe("/tmp/doc.md");
       expect(registerCalls[1][0]).toBe("/tmp/doc.md");
+    });
+  });
+
+  describe("BOM re-emission (decision D1)", () => {
+    // `hasBom` records that the file on disk began with U+FEFF while the editor
+    // buffer stays BOM-free. A save that does not put the mark back silently
+    // strips it from the user's file — the flag had writers and no readers.
+    it("prepends the BOM when the document carries hasBom", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: true });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "﻿a\nb",
+      });
+    });
+
+    it("writes no BOM when the document has none", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: false });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "a\nb",
+      });
+    });
+
+    it("the BOM precedes CRLF conversion output", async () => {
+      vi.mocked(invoke).mockResolvedValue(undefined);
+      mockGetDocument.mockReturnValue({ hasBom: true, lineEnding: "crlf" });
+
+      await saveToPath("tab-1", "/tmp/doc.md", "a\nb\n", "manual");
+
+      expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
+        path: "/tmp/doc.md",
+        content: "﻿a\r\nb\r\n",
+      });
     });
   });
 });

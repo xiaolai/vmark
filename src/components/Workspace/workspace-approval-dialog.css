@@ -1,0 +1,60 @@
+.workspace-approval-overlay {
+  /* Component-scoped one-off, per .claude/rules/31-design-tokens.md — there is
+     no global scrim token, and the workflow approval dialog scopes its backdrop
+     the same way (`--approval-backdrop-color`). */
+  --workspace-approval-backdrop: color-mix(in srgb, black 35%, transparent);
+
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--workspace-approval-backdrop);
+}
+
+.workspace-approval-dialog {
+  max-width: 30em;
+  padding: var(--space-5);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+}
+
+.dark-theme .workspace-approval-dialog {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+.workspace-approval-title {
+  margin: 0 0 var(--spacing-2);
+  font-size: var(--font-size-lg);
+  color: var(--text-color);
+}
+
+.workspace-approval-body {
+  margin: 0 0 var(--spacing-3);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.workspace-approval-path {
+  display: block;
+  padding: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  background: var(--code-bg-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  color: var(--text-color);
+  word-break: break-all;
+}
+
+/* The buttons themselves are the canonical `.vm-btn` primitive
+   (src/styles/button-shared.css) — padding, radius, border width, font, hover,
+   active, disabled and focus all come from there. This file only positions
+   them. Re-deriving a bordered button here is what rule 32 forbids. */
+.workspace-approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}

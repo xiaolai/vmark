@@ -127,12 +127,38 @@ async function main() {
       log: (msg) => console.error(`          · ${msg}`),
     };
     const start = Date.now();
+
+    // A journey may declare the platforms it can run on (e.g. the embedded browser
+    // is macOS-only — every other target compiles to an explicit "unsupported"
+    // stub). This is a DIFFERENT thing from a skip: a skipped journey means a
+    // precondition was not met and coverage was LOST, which is why
+    // `coverageRequired` fails the suite. A journey that cannot exist on this
+    // platform lost nothing — there is nothing here to cover. Conflating the two
+    // would either make the suite permanently red off-macOS or force us to drop
+    // `coverageRequired` from the browser rows, which is the coverage-theatre we
+    // are trying to avoid.
+    const platforms = journey.platforms;
+    if (Array.isArray(platforms) && !platforms.includes(process.platform)) {
+      console.error(
+        `  N/A   ${journey.name} — not applicable on ${process.platform} ` +
+          `(runs on: ${platforms.join(", ")})`
+      );
+      results.push({ name: journey.name, status: "na", ms: 0, platforms });
+      continue;
+    }
+
     try {
       const outcome = await withCap(journey.run(client, ctx), JOURNEY_CAP_MS, journey.name);
       const ms = Date.now() - start;
       if (outcome?.skip) {
         console.error(`  SKIP  ${journey.name} (${ms}ms) — ${outcome.skip}`);
-        results.push({ name: journey.name, status: "skip", ms });
+        results.push({
+          name: journey.name,
+          status: "skip",
+          ms,
+          reason: outcome.skip,
+          coverageRequired: journey.coverageRequired === true,
+        });
       } else {
         console.error(`  PASS  ${journey.name} (${ms}ms)`);
         results.push({ name: journey.name, status: "pass", ms });
@@ -185,10 +211,32 @@ async function main() {
   const passed = results.filter((r) => r.status === "pass").length;
   const failed = results.filter((r) => r.status === "fail").length;
   const skipped = results.filter((r) => r.status === "skip").length;
+
+  // A skip is indistinguishable from coverage at a glance: the suite would print
+  // "JOURNEYS PASSED" while an invariant the matrix marks ✅ automated silently
+  // went unasserted. A journey that declares `coverageRequired` must therefore
+  // either assert or fail the run — coverage cannot quietly evaporate.
+  const lostCoverage = results.filter((r) => r.status === "skip" && r.coverageRequired);
+  for (const r of lostCoverage) {
+    console.error(
+      `\n  COVERAGE LOST — ${r.name} is marked coverageRequired (✅ automated in ` +
+        `dev-docs/e2e-tier0-matrix.md) but skipped: ${r.reason}\n` +
+        `  Fix the precondition or downgrade the row; do not leave it skipping.`
+    );
+  }
+
+  // Not-applicable is reported separately from skipped and NEVER counts as lost
+  // coverage — but it is printed, because a run where half the suite silently did
+  // not apply should not read the same as a run where everything asserted.
+  const notApplicable = results.filter((r) => r.status === "na").length;
+
+  const red = failed > 0 || lostCoverage.length > 0;
   console.error(
-    `\n${failed === 0 ? "JOURNEYS PASSED" : "JOURNEYS FAILED"} — ${passed} passed, ${failed} failed, ${skipped} skipped.`
+    `\n${red ? "JOURNEYS FAILED" : "JOURNEYS PASSED"} — ${passed} passed, ${failed} failed, ` +
+      `${skipped} skipped${lostCoverage.length ? ` (${lostCoverage.length} REQUIRED)` : ""}` +
+      `${notApplicable ? `, ${notApplicable} n/a on ${process.platform}` : ""}.`
   );
-  process.exit(failed === 0 ? 0 : 1);
+  process.exit(red ? 1 : 0);
 }
 
 main().catch((err) => {

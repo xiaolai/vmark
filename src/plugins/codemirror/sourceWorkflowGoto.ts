@@ -9,7 +9,7 @@
  *   integration is in `gotoExtension()` and is smoke-tested live.
  *
  * @coordinates-with src/lib/ghaWorkflow/paths.ts — resolves the ref
- * @coordinates-with src/hooks/useOpenWorkflowTarget.ts — opens the tab
+ * @coordinates-with src/services/navigation/openWorkflowTarget.ts — opens the tab
  * @module plugins/codemirror/sourceWorkflowGoto
  */
 
@@ -19,7 +19,7 @@ import {
   isLocalUsesRef,
   resolveLocalUsesRef,
 } from "@/lib/ghaWorkflow/paths";
-import { openLocalFileInTab } from "@/hooks/useOpenWorkflowTarget";
+import { openLocalFileInTab } from "@/services/navigation/openWorkflowTarget";
 
 const USES_LINE = /^(\s*-?\s*uses\s*:\s*)([^\s#]+.*)$/;
 

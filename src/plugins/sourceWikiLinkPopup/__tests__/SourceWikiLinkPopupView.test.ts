@@ -29,32 +29,33 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockWikiStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
-vi.mock("@/stores/workspaceStore", () => ({
-  useWorkspaceStore: {
-    getState: () => ({ rootPath: "/workspace" }),
-  },
+let mockWorkspaceRoot: string | null = "/workspace";
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { workspaceRoot: () => mockWorkspaceRoot },
 }));
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
@@ -145,10 +146,7 @@ describe("SourceWikiLinkPopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceWikiLinkPopupView(
-      view,
-      { getState: () => storeState, subscribe: (fn) => { subscribers.push(fn); return () => { const idx = subscribers.indexOf(fn); if (idx >= 0) subscribers.splice(idx, 1); }; } }
-    );
+    popup = new SourceWikiLinkPopupView(view, mockWikiStore);
   });
 
   afterEach(() => {
@@ -331,7 +329,7 @@ describe("SourceWikiLinkPopupView", () => {
       const deleteBtn = document.querySelector(".source-wiki-link-popup-btn-delete") as HTMLElement;
       deleteBtn.click();
 
-      expect(removeWikiLink).toHaveBeenCalledWith(view);
+      expect(removeWikiLink).toHaveBeenCalledWith(view, mockWikiStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
   });
@@ -350,7 +348,7 @@ describe("SourceWikiLinkPopupView", () => {
       const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
       input.dispatchEvent(event);
 
-      expect(removeWikiLink).toHaveBeenCalledWith(view);
+      expect(removeWikiLink).toHaveBeenCalledWith(view, mockWikiStore);
     });
   });
 
@@ -532,8 +530,7 @@ describe("SourceWikiLinkPopupView", () => {
 
   describe("pathToWikiTarget edge cases", () => {
     it("returns full path when workspaceRoot is null (line 25 if branch)", async () => {
-      const { useWorkspaceStore } = await import("@/stores/workspaceStore");
-      vi.spyOn(useWorkspaceStore, "getState").mockReturnValue({ rootPath: null } as ReturnType<typeof useWorkspaceStore.getState>);
+      mockWorkspaceRoot = null;
 
       const { open: dialogOpen } = await import("@tauri-apps/plugin-dialog");
       vi.mocked(dialogOpen).mockResolvedValueOnce("/some/path/page.md");
@@ -549,7 +546,7 @@ describe("SourceWikiLinkPopupView", () => {
       // With null rootPath, pathToWikiTarget returns the full path as-is
       expect(mockUpdateTarget).toHaveBeenCalledWith("/some/path/page.md");
 
-      vi.mocked(useWorkspaceStore.getState).mockRestore?.();
+      mockWorkspaceRoot = "/workspace";
     });
 
     it("does not strip prefix when path does not start with workspaceRoot (line 31 else branch)", async () => {
@@ -570,8 +567,10 @@ describe("SourceWikiLinkPopupView", () => {
     });
 
     it("handles workspaceRoot ending with slash — relative does not start with / (line 31 false branch)", async () => {
-      const { useWorkspaceStore } = await import("@/stores/workspaceStore");
-      vi.spyOn(useWorkspaceStore, "getState").mockReturnValue({ rootPath: "/workspace/" } as ReturnType<typeof useWorkspaceStore.getState>);
+      // Production reads the root through `hostDocument.workspaceRoot()`, so
+      // spying on the workspace store left the root unchanged and the test
+      // passed without exercising the trailing-slash branch at all.
+      mockWorkspaceRoot = "/workspace/";
 
       const { open: dialogOpen } = await import("@tauri-apps/plugin-dialog");
       // After slicing "/workspace/" from "/workspace/page.md" → "page.md" (no leading /)
@@ -588,7 +587,7 @@ describe("SourceWikiLinkPopupView", () => {
       // relative = "page.md", doesn't start with "/" → false branch → .md stripped → "page"
       expect(mockUpdateTarget).toHaveBeenCalledWith("page");
 
-      vi.mocked(useWorkspaceStore.getState).mockRestore?.();
+      mockWorkspaceRoot = "/workspace";
     });
 
     it("does not strip .md when path does not end with .md (line 37 else branch)", async () => {
@@ -639,7 +638,7 @@ describe("SourceWikiLinkPopupView", () => {
       const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true });
       input.dispatchEvent(event);
 
-      expect(removeWikiLink).toHaveBeenCalledWith(view);
+      expect(removeWikiLink).toHaveBeenCalledWith(view, mockWikiStore);
     });
   });
 

@@ -374,45 +374,13 @@ describe("useDocumentActions", () => {
     });
   });
 
-  it("markSaved clears dirty flag", () => {
-    const tabId = useTabStore.getState().createTab(WINDOW, null);
-    useDocumentStore.getState().initDocument(tabId, "content", null);
-    useDocumentStore.getState().setContent(tabId, "changed");
-    expect(useDocumentStore.getState().documents[tabId]?.isDirty).toBe(true);
-
+  // markSaved/markAutoSaved wrapper tests were deleted with the wrappers
+  // (WI-1.4): they had zero production consumers, and a hook cannot honestly
+  // supply the disk snapshot the dual-snapshot save contract requires.
+  it("does not expose save markers — saving is saveToPath's job", () => {
     const { result } = renderHook(() => useDocumentActions());
-    act(() => {
-      result.current.markSaved();
-    });
-
-    expect(useDocumentStore.getState().documents[tabId]?.isDirty).toBe(false);
-  });
-
-  it("markSaved is a no-op when no active tab", () => {
-    const { result } = renderHook(() => useDocumentActions());
-    act(() => {
-      result.current.markSaved();
-    });
-  });
-
-  it("markAutoSaved updates lastAutoSave timestamp", () => {
-    const tabId = useTabStore.getState().createTab(WINDOW, null);
-    useDocumentStore.getState().initDocument(tabId, "content", null);
-    const { result } = renderHook(() => useDocumentActions());
-
-    act(() => {
-      result.current.markAutoSaved();
-    });
-
-    const doc = useDocumentStore.getState().documents[tabId];
-    expect(doc?.lastAutoSave).not.toBeNull();
-  });
-
-  it("markAutoSaved is a no-op when no active tab", () => {
-    const { result } = renderHook(() => useDocumentActions());
-    act(() => {
-      result.current.markAutoSaved();
-    });
+    expect("markSaved" in result.current).toBe(false);
+    expect("markAutoSaved" in result.current).toBe(false);
   });
 
   it("setCursorInfo updates cursor info", () => {

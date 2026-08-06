@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "Approuver l’étape du workflow ?",
-    "step": "Étape",
-    "model": "Modèle",
-    "preview": "Aperçu de l’invite",
-    "approve": "Approuver",
-    "deny": "Refuser"
-  },
-  "run": {
-    "start": "Exécuter le workflow",
-    "cancel": "Annuler le workflow"
-  }
+  "approval.title": "Approuver l’étape du workflow ?",
+  "approval.step": "Étape",
+  "approval.model": "Modèle",
+  "approval.preview": "Aperçu de l’invite",
+  "approval.approve": "Approuver",
+  "approval.deny": "Refuser",
+  "run.start": "Exécuter le workflow",
+  "run.cancel": "Annuler le workflow"
 }

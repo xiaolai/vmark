@@ -22,8 +22,10 @@ import { SMART_QUOTE_CHARS } from "./pairs";
 export function isInCodeBlock(state: EditorState): boolean {
   const { $from } = state.selection;
   for (let d = $from.depth; d > 0; d--) {
-    const nodeName = $from.node(d).type.name;
-    if (nodeName === "code_block" || nodeName === "fence") {
+    // The production Tiptap schema names the node `codeBlock`. The previous
+    // snake_case `code_block` (plus a `fence` name no schema defines) matched
+    // nothing in the shipped editor, so this guard was silently dead.
+    if ($from.node(d).type.name === "codeBlock") {
       return true;
     }
   }
@@ -46,15 +48,7 @@ export function isInInlineCode(state: EditorState): boolean {
  * Used for smart quote detection (don't auto-pair after word chars).
  */
 export function isAfterWordChar(state: EditorState, pos: number): boolean {
-  if (pos <= 0) return false;
-
-  const $pos = state.doc.resolve(pos);
-  const textBefore = $pos.parent.textBetween(
-    Math.max(0, $pos.parentOffset - 1),
-    $pos.parentOffset,
-    ""
-  );
-
+  const textBefore = getCharBefore(state, pos);
   if (!textBefore) return false;
 
   // Match word characters (letters, numbers, underscore)
@@ -84,16 +78,7 @@ export function shouldAutoPair(
   }
 
   // Don't auto-pair if preceded by backslash (escaped)
-  /* v8 ignore next -- @preserve else branch: pos=0 path not exercised in tests */
-  if (pos > 0) {
-    const $pos = state.doc.resolve(pos);
-    const textBefore = $pos.parent.textBetween(
-      Math.max(0, $pos.parentOffset - 1),
-      $pos.parentOffset,
-      ""
-    );
-    if (textBefore === "\\") return false;
-  }
+  if (getCharBefore(state, pos) === "\\") return false;
 
   return true;
 }

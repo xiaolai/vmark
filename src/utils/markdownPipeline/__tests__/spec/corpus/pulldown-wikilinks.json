@@ -1,0 +1,133 @@
+{
+ "source": "https://raw.githubusercontent.com/pulldown-cmark/pulldown-cmark/v0.13.0/pulldown-cmark/specs/wikilinks.txt",
+ "revision": "v0.13.0",
+ "license": "MIT",
+ "examples": [
+  {
+   "example": 1,
+   "section": "Wikilinks",
+   "markdown": "This is a [[WikiLink]].\n",
+   "html": "<p>This is a <a href=\"WikiLink\">WikiLink</a>.</p>\n"
+  },
+  {
+   "example": 2,
+   "section": "Wikilinks",
+   "markdown": "This is a [[Main/WikiLink]].\n",
+   "html": "<p>This is a <a href=\"Main/WikiLink\">Main/WikiLink</a>.</p>\n"
+  },
+  {
+   "example": 3,
+   "section": "Wikilinks",
+   "markdown": "This is [[Ambiguous]].\n\n[Ambiguous]: https://example.com/\n",
+   "html": "<p>This is <a href=\"Ambiguous\">Ambiguous</a>.</p>\n"
+  },
+  {
+   "example": 4,
+   "section": "Wikilinks",
+   "markdown": "[[squid] calamari is considered a delicacy](https://en.wikipedia.org/wiki/Squid)\n\n[calamari [squid]](https://en.wikipedia.org/wiki/Squid)\n",
+   "html": "<p>\n<a href=\"https://en.wikipedia.org/wiki/Squid\">[squid] calamari is considered a delicacy</a>\n</p>\n<p>\n<a href=\"https://en.wikipedia.org/wiki/Squid\">calamari [squid]</a>\n</p>\n"
+  },
+  {
+   "example": 5,
+   "section": "Wikilinks",
+   "markdown": "This is [also [[Ambiguous]]](https://example.com/).\n",
+   "html": "<p>This is [also <a href=\"Ambiguous\">Ambiguous</a>](https://example.com/).</p>\n"
+  },
+  {
+   "example": 6,
+   "section": "Wikilinks",
+   "markdown": "<https://example.org/>\n\n[[https://example.org/]]\n",
+   "html": "<p><a href=\"https://example.org/\">https://example.org/</a></p>\n<p><a href=\"https://example.org/\">https://example.org/</a></p>\n"
+  },
+  {
+   "example": 7,
+   "section": "Wikilinks",
+   "markdown": "This is [[WikiLink|a pothole]].\n",
+   "html": "<p>This is <a href=\"WikiLink\">a pothole</a>.</p>\n"
+  },
+  {
+   "example": 8,
+   "section": "Wikilinks",
+   "markdown": "This is a [[WikiLink/In/A/Directory|WikiLink]].\n",
+   "html": "<p>This is a <a href=\"WikiLink/In/A/Directory\">WikiLink</a>.</p>\n"
+  },
+  {
+   "example": 9,
+   "section": "Wikilinks",
+   "markdown": "This is [[WikiLink|a **strong** pothole]].\n",
+   "html": "<p>This is <a href=\"WikiLink\">a <strong>strong</strong> pothole</a>.</p>\n"
+  },
+  {
+   "example": 10,
+   "section": "Wikilinks",
+   "markdown": "This is a cute dog, linked to the page \"WikiLink\"\n\n[[WikiLink|![dog](dog.png)]]\n",
+   "html": "<p>This is a cute dog, linked to the page \"WikiLink\"</p>\n<p>\n<a href=\"WikiLink\"><img src=\"dog.png\" alt=\"dog\" /></a>\n</p>\n"
+  },
+  {
+   "example": 11,
+   "section": "Wikilinks",
+   "markdown": "[[WikiLink|[[Fish]]]]\n",
+   "html": "<p>[[WikiLink|<a href=\"Fish\">Fish</a>]]</p>\n"
+  },
+  {
+   "example": 12,
+   "section": "Wikilinks",
+   "markdown": "[[WikiLink|[cat](cat.html)]]\n",
+   "html": "<p>[[WikiLink|<a href=\"cat.html\">cat</a>]]</p>\n"
+  },
+  {
+   "example": 13,
+   "section": "Wikilinks",
+   "markdown": "This is a cute dog.\n\n![[dog.png]]\n",
+   "html": "<p>This is a cute dog.</p>\n<p>\n<img src=\"dog.png\" alt=\"dog.png\" />\n</p>\n"
+  },
+  {
+   "example": 14,
+   "section": "Wikilinks",
+   "markdown": "![[dog.png|a cute dog]]\n",
+   "html": "<p><img src=\"dog.png\" alt=\"a cute dog\" /></p>\n"
+  },
+  {
+   "example": 15,
+   "section": "Wikilinks",
+   "markdown": "]] [[]] [[|]] [[|Symbol]] [[\n",
+   "html": "<p>]] [[]] [[|]] [[|Symbol]] [[</p>\n"
+  },
+  {
+   "example": 16,
+   "section": "Wikilinks",
+   "markdown": "[inline link]([[url]])\n",
+   "html": "<p><a href=\"%5B%5Burl%5D%5D\">inline link</a></p>\n"
+  },
+  {
+   "example": 17,
+   "section": "Wikilinks",
+   "markdown": "[inline link]([[url)]]\n",
+   "html": "<p><a href=\"%5B%5Burl\">inline link</a>]]</p>\n"
+  },
+  {
+   "example": 18,
+   "section": "Wikilinks",
+   "markdown": "`[[code]]`\n",
+   "html": "<p><code>[[code]]</code></p>\n"
+  },
+  {
+   "example": 19,
+   "section": "Wikilinks",
+   "markdown": "emphasis **cross [[over** here]]\n",
+   "html": "<p>emphasis **cross <a href=\"over**%20here\">over** here</a></p>\n"
+  },
+  {
+   "example": 20,
+   "section": "Pipe escaping behavior",
+   "markdown": "[[first\\|second]]\n",
+   "html": "<p><a href=\"first%5C\">second</a></p>\n"
+  },
+  {
+   "example": 21,
+   "section": "Pipe escaping behavior",
+   "markdown": "[[first&#33;second]]\n",
+   "html": "<p><a href=\"first&amp;#33;second\">first&amp;#33;second</a></p>\n"
+  }
+ ]
+}

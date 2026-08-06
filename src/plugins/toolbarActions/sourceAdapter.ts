@@ -35,7 +35,7 @@ import { insertImage, insertVideoTag, insertAudioTag } from "./sourceImageAction
 import { removeSourceLinkAtCursor } from "./sourceUnlink";
 import {
   handleBuildInsert, handleInsertAlert, insertCodeBlock, insertDivider,
-  insertFootnote, insertListMarker, insertOrToggleBlockquote, insertTable,
+  insertFootnote, insertOrToggleBlockquote, insertTable,
 } from "./sourceInsertActions";
 import {
   decreaseHeadingLevel, handleBlockquoteAction, handleListAction, increaseHeadingLevel,
@@ -130,12 +130,17 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     case "insertTable":
     case "insertTableBlock":
       return insertTable(view);
+    // `insert*` and the bare toggles are the SAME command under two names, as
+    // they already were in WYSIWYG. Routing these straight at the marker
+    // prepender skipped `handleListAction`'s "am I already in a list?" branch,
+    // so pressing the button on an existing item prepended a second marker and
+    // produced `- - two` / `1. - two` / `- [ ] - text`.
     case "insertBulletList":
-      return insertListMarker(view, "- ");
+      return handleListAction(view, "bulletList");
     case "insertOrderedList":
-      return insertListMarker(view, "1. ");
+      return handleListAction(view, "orderedList");
     case "insertTaskList":
-      return insertListMarker(view, "- [ ] ");
+      return handleListAction(view, "taskList");
 
     // Complex insertions
     case "insertDetails":
@@ -147,13 +152,13 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
     case "insertAlertCaution":
       return handleInsertAlert(view, action);
     case "insertMath":
-      return handleBuildInsert(view, buildMathBlock);
+      return handleBuildInsert(view, buildMathBlock, true);
     case "insertDiagram":
-      return handleBuildInsert(view, buildDiagramBlock);
+      return handleBuildInsert(view, buildDiagramBlock, true);
     case "insertGraphvizDiagram":
-      return handleBuildInsert(view, buildGraphvizBlock);
+      return handleBuildInsert(view, buildGraphvizBlock, true);
     case "insertMarkmap":
-      return handleBuildInsert(view, buildMarkmapBlock);
+      return handleBuildInsert(view, buildMarkmapBlock, true);
     case "insertInlineMath":
       return insertInlineMath(view);
 

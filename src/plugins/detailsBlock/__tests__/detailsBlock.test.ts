@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { getSchema } from "@tiptap/core";
+import { Editor, getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { AllSelection, EditorState, NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { DOMSerializer, DOMParser as PMDOMParser } from "@tiptap/pm/model";
@@ -340,7 +340,9 @@ describe("insertDetailsBlock with depth-0 selections (PL-2)", () => {
     const insertCmd = commandFn.insertDetailsBlock;
 
     let result = state;
+    let dispatched = false;
     const dispatch = (tr: unknown) => {
+      dispatched = true;
       result = state.apply(tr as Parameters<EditorState["apply"]>[0]);
     };
     const returned = insertCmd()({
@@ -348,22 +350,25 @@ describe("insertDetailsBlock with depth-0 selections (PL-2)", () => {
       chain: () => ({}) as never, can: () => ({}) as never,
       commands: {} as never, editor: {} as never, view: {} as never,
     } as never);
-    return { returned, result };
+    return { returned, result, dispatched: () => dispatched };
   }
 
-  it("AllSelection (Cmd+A): does not throw and appends the block at doc end", () => {
+  it("AllSelection (Cmd+A): wraps the whole document into the details block", () => {
+    // Depth-0 selections became wrappable when spannedBlockRange learned to
+    // use their exact bounds — Cmd+A now means "wrap everything", which is the
+    // header contract applied to the largest selection there is.
     const { doc } = createDocWithParagraph("Hello");
     const state = EditorState.create({ doc, selection: new AllSelection(doc) });
 
     const { returned, result } = runInsert(state);
 
     expect(returned).toBe(true);
-    expect(result.doc.lastChild?.type.name).toBe("detailsBlock");
-    // Existing content is untouched
+    expect(result.doc.childCount).toBe(1);
+    expect(result.doc.firstChild?.type.name).toBe("detailsBlock");
     expect(result.doc.textContent).toContain("Hello");
   });
 
-  it("NodeSelection on a top-level hr: does not throw and inserts after the hr", () => {
+  it("NodeSelection on a top-level hr: wraps exactly that node", () => {
     const schema = createSchema();
     const paragraph = schema.nodes.paragraph.create(null, [schema.text("Hello")]);
     const hr = schema.nodes.horizontalRule.create();
@@ -374,13 +379,24 @@ describe("insertDetailsBlock with depth-0 selections (PL-2)", () => {
     const { returned, result } = runInsert(state);
 
     expect(returned).toBe(true);
-    expect(result.doc.childCount).toBe(3);
+    expect(result.doc.childCount).toBe(2);
     expect(result.doc.child(0).type.name).toBe("paragraph");
-    expect(result.doc.child(1).type.name).toBe("horizontalRule");
-    expect(result.doc.child(2).type.name).toBe("detailsBlock");
+    expect(result.doc.child(1).type.name).toBe("detailsBlock");
   });
 
-  it("TextSelection behavior unchanged: inserts after the current block", () => {
+  it("a wrappable non-empty selection is still WRAPPED, not declined", () => {
+    const { doc } = createDocWithParagraph("Hello");
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, 2, 5) });
+
+    const { returned, result } = runInsert(state);
+
+    expect(returned).toBe(true);
+    expect(result.doc.childCount).toBe(1);
+    expect(result.doc.firstChild!.type.name).toBe("detailsBlock");
+    expect(result.doc.textContent).toContain("Hello");
+  });
+
+  it("empty TextSelection behavior unchanged: inserts after the current block", () => {
     const { doc } = createDocWithParagraph("Hello");
     const state = EditorState.create({ doc, selection: TextSelection.create(doc, 3) });
 
@@ -508,7 +524,8 @@ describe("detailsBlock addInputRules", () => {
       },
     });
 
-    expect(result).toBeNull();
+    // Success must NOT return null — Tiptap treats null as cancellation.
+    expect(result).toBeUndefined();
     expect(mockInsertContentAt).toHaveBeenCalled();
     expect(mockSetTextSelection).toHaveBeenCalled();
   });
@@ -541,7 +558,7 @@ describe("detailsBlock addInputRules", () => {
 
     // Line 128 executed: summarySize = detailsNode.firstChild?.nodeSize ?? 0
     // With a real schema, firstChild (detailsSummary "Click to expand") has a nodeSize
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
     expect(mockInsertContentAt).toHaveBeenCalled();
     // setTextSelection is called with paragraphStart + 1 + summarySize + 1
     // summarySize > 0 since firstChild exists
@@ -549,6 +566,63 @@ describe("detailsBlock addInputRules", () => {
     const callArg = mockSetTextSelection.mock.calls[0][0];
     // paragraphStart=0, so position = 0 + 1 + summarySize + 1; summarySize should be > 0
     expect(callArg).toBeGreaterThan(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Input rule end-to-end — real Editor, real input-rule runner
+// ---------------------------------------------------------------------------
+
+describe("details input rule fires end-to-end (real Editor)", () => {
+  // The unit tests above call the handler directly, which cannot catch a
+  // broken return-value contract: Tiptap's runner treats a null return as
+  // CANCELLATION and never dispatches, so a handler that returned null on
+  // success meant typing "<details>" never fired. Route through the actual
+  // handleTextInput prop the way the editor does.
+  function typeAtEnd(editor: Editor, text: string): boolean {
+    const end = editor.state.doc.firstChild!.nodeSize - 1;
+    return Boolean(
+      editor.view.someProp("handleTextInput", (f) => f(editor.view, end, end, text)),
+    );
+  }
+
+  function hasDetailsBlock(editor: Editor): boolean {
+    let found = false;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "detailsBlock") found = true;
+    });
+    return found;
+  }
+
+  it.each([
+    { name: "<details>", content: "<p>&lt;details</p>", typed: ">" },
+    { name: ":::details", content: "<p>:::detail</p>", typed: "s" },
+  ])("typing the last character of '$name' inserts a details block", ({ content, typed }) => {
+    const editor = new Editor({
+      extensions: [StarterKit, detailsBlockExtension, detailsSummaryExtension],
+      content,
+    });
+    try {
+      expect(typeAtEnd(editor, typed)).toBe(true);
+      expect(hasDetailsBlock(editor)).toBe(true);
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("places the caret in the details BODY, not the summary", () => {
+    const editor = new Editor({
+      extensions: [StarterKit, detailsBlockExtension, detailsSummaryExtension],
+      content: "<p>&lt;details</p>",
+    });
+    try {
+      typeAtEnd(editor, ">");
+      const { $from } = editor.state.selection;
+      expect($from.parent.type.name).toBe("paragraph");
+      expect($from.node(1).type.name).toBe("detailsBlock");
+    } finally {
+      editor.destroy();
+    }
   });
 });
 

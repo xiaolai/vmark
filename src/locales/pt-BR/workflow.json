@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "Aprovar etapa do workflow?",
-    "step": "Etapa",
-    "model": "Modelo",
-    "preview": "Pré-visualização do prompt",
-    "approve": "Aprovar",
-    "deny": "Negar"
-  },
-  "run": {
-    "start": "Executar workflow",
-    "cancel": "Cancelar workflow"
-  }
+  "approval.title": "Aprovar etapa do workflow?",
+  "approval.step": "Etapa",
+  "approval.model": "Modelo",
+  "approval.preview": "Pré-visualização do prompt",
+  "approval.approve": "Aprovar",
+  "approval.deny": "Negar",
+  "run.start": "Executar workflow",
+  "run.cancel": "Cancelar workflow"
 }

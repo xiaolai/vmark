@@ -3,12 +3,12 @@ import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
-import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
+import { TOAST_ICONS } from "@/components/toastIcons";
 import { DocumentSplitContainer } from "@/components/Editor";
-import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
+import { shellSideWidth } from "@/shell/shellChrome";
 import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { AppShell, EditorArea } from "@/shell";
 import { appShellClassName } from "@/shell/appShellClassName";
@@ -16,6 +16,7 @@ import { GeniePickerOverlay } from "@/components/GeniePicker/GeniePickerOverlay"
 import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { BrowserApprovalDialog } from "@/components/Browser/BrowserApprovalDialog";
+import { WorkspaceApprovalDialog } from "@/components/Workspace/WorkspaceApprovalDialog";
 import { AppTitleBar } from "@/components/Browser/AppTitleBar";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
@@ -60,18 +61,18 @@ class ErrorBoundaryInner extends Component<
   { children: ReactNode } & WithTranslation<"dialog">,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { hasError: false, error: null };
+  override state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     appError("Caught error:", error);
     appError("Error info:", errorInfo);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       const { t } = this.props;
       return (
@@ -162,7 +163,8 @@ function MainLayout() {
   const browserWorkspaceActive = useBrowserWorkspaceActive();
   const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
-  const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
+  // One definition, shared with the terminal's layout maths (see shellChrome).
+  const sideWidth = shellSideWidth({ workspaceRailVisible: showWorkspaceRail, sidebarVisible, sidebarWidth });
 
   // T03 lifecycle composites — every per-document/per-window hook now
   // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook
@@ -173,9 +175,6 @@ function MainLayout() {
   useTerminalPosition();
   useTabModeSync();
   useWindowStatus();
-  // Mounted once per window (lifted out of Editor so a two-pane split doesn't
-  // double-mount it, #1081); targets the focused pane via pane-aware hooks.
-  useUnifiedMenuCommands();
 
   const className = appShellClassName({ focusMode: focusModeEnabled, typewriterMode: typewriterModeEnabled, findBarOpen, browserWorkspaceActive, workspaceRailVisible: showWorkspaceRail });
 
@@ -220,6 +219,7 @@ function MainLayout() {
             </FeatureErrorBoundary>
           }
           panelPosition={terminalPosition}
+          sidePanel={<KnowledgeBaseOverlay />}
         />
       }
       overlays={
@@ -231,15 +231,13 @@ function MainLayout() {
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
           <QuickLookOverlay />
-          <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
           <CoherenceOverlays />
           <GeniePickerOverlay />
           <EditorContextMenu />
           <ApprovalDialog />
-          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it belongs
-              to, so the page cannot paint over the dialog asking whether it may be acted upon. */}
           <BrowserApprovalDialog />
+          <WorkspaceApprovalDialog />
           <CommandPalette />
         </>
       }
@@ -284,13 +282,7 @@ function App() {
         <Toaster
           position="top-center"
           closeButton
-          icons={{
-            success: <CheckCircle size={16} />,
-            error: <XCircle size={16} />,
-            info: <Info size={16} />,
-            warning: <AlertTriangle size={16} />,
-            loading: <Loader2 size={16} className="animate-spin" />,
-          }}
+          icons={TOAST_ICONS}
         />
       </WindowProvider>
     </ErrorBoundary>

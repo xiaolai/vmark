@@ -16,6 +16,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabe
 
 import { useWindowStatus } from "./useWindowStatus";
 import { useAiInvocationStore } from "@/stores/aiStore";
+import { useWindowStatusStore } from "@/stores/windowStatusStore";
 
 beforeEach(() => {
   invoke.mockReset().mockResolvedValue([]);
@@ -47,6 +48,21 @@ describe("useWindowStatus", () => {
     await vi.waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("report_window_status", expect.objectContaining({ ai: "running" })),
     );
+  });
+
+  it("subscribes to the app-global pin broadcast (#1135)", async () => {
+    renderHook(() => useWindowStatus());
+    // Registered after the snapshot listener is awaited, so wait for it.
+    await vi.waitFor(() =>
+      expect(listen).toHaveBeenCalledWith("window-status:global-pin", expect.any(Function)),
+    );
+  });
+
+  it("opens the panel on mount when the app-global pin is active (#1135)", () => {
+    useWindowStatusStore.setState({ globalPin: true, panelOpen: false });
+    renderHook(() => useWindowStatus());
+    expect(useWindowStatusStore.getState().panelOpen).toBe(true);
+    useWindowStatusStore.setState({ globalPin: false, panelOpen: false });
   });
 
   it("clears attention when the window gains focus", async () => {

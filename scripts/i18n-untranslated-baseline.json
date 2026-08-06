@@ -1,0 +1,6 @@
+{
+  "_comment": "Frozen baseline of locale values still identical to English (i.e. never translated). scripts/check-i18n-keys.ts fails on any NEW entry, and on a baselined entry that has since been translated (record the win by re-running with --update-untranslated). Ratchets down only, and is now EMPTY — keep it that way: translate the string, never re-add an entry here. A value counts only if it has >= minWords words and >= minChars characters — shorter or single-token values (JSON, CLI, Markdown, VMark) are overwhelmingly meant to stay identical. Values that can NEVER be translated (a literal path, runner labels, a bare interpolation) do not belong here either — they go in scripts/i18nIdenticalAllowlist.ts with a stated reason.",
+  "minWords": 3,
+  "minChars": 15,
+  "entries": []
+}

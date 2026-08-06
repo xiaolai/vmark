@@ -1,14 +1,13 @@
 /**
  * Format Toolbar Node Actions Tests
  *
- * Tests for getNodeContext, list operations, and blockquote operations
+ * Tests for list operations and blockquote operations
  * using a minimal ProseMirror schema.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
-import { getNodeContext } from "./nodeActions.tiptap";
 
 // Schema with table, list, and blockquote nodes
 const testSchema = new Schema({
@@ -18,7 +17,7 @@ const testSchema = new Schema({
     blockquote: { group: "block", content: "block+" },
     bulletList: { group: "block", content: "listItem+" },
     orderedList: { group: "block", content: "listItem+" },
-    listItem: { content: "paragraph block*" },
+    listItem: { content: "paragraph block*", attrs: { checked: { default: null } } },
     table: { group: "block", content: "tableRow+" },
     tableRow: { content: "tableCell+" },
     tableCell: { content: "block+" },
@@ -29,260 +28,6 @@ const testSchema = new Schema({
 function p(text?: string) {
   return testSchema.node("paragraph", null, text ? [testSchema.text(text)] : []);
 }
-
-function createViewWithState(state: EditorState) {
-  return {
-    state,
-    focus: vi.fn(),
-    dispatch: vi.fn(),
-  } as unknown as import("@tiptap/pm/view").EditorView;
-}
-
-function stateWithSelection(doc: ReturnType<typeof testSchema.node>, pos: number) {
-  const state = EditorState.create({ doc, schema: testSchema });
-  const $pos = state.doc.resolve(pos);
-  return state.apply(state.tr.setSelection(TextSelection.create(state.doc, $pos.pos)));
-}
-
-describe("getNodeContext", () => {
-  describe("returns null for plain paragraph", () => {
-    it("at cursor in plain paragraph", () => {
-      const doc = testSchema.node("doc", null, [p("Hello world")]);
-      const state = stateWithSelection(doc, 3);
-      const view = createViewWithState(state);
-      expect(getNodeContext(view)).toBeNull();
-    });
-  });
-
-  describe("table context", () => {
-    it("detects table context with row and column indices", () => {
-      const cell = testSchema.node("tableCell", null, [p("Cell")]);
-      const row1 = testSchema.node("tableRow", null, [cell, cell]);
-      const row2 = testSchema.node("tableRow", null, [cell, cell]);
-      const table = testSchema.node("table", null, [row1, row2]);
-      const doc = testSchema.node("doc", null, [table]);
-
-      // Position inside the first cell of the first row
-      // doc(0) -> table(1) -> tableRow -> tableCell -> paragraph -> text
-      // We need a position inside the paragraph in the first cell
-      const state = EditorState.create({ doc, schema: testSchema });
-      // Find a valid text position inside the table
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("table");
-      if (ctx!.type === "table") {
-        expect(ctx!.numRows).toBe(2);
-        expect(ctx!.numCols).toBe(2);
-        expect(ctx!.rowIndex).toBeGreaterThanOrEqual(0);
-        expect(ctx!.colIndex).toBeGreaterThanOrEqual(0);
-        expect(ctx!.tablePos).toBeGreaterThanOrEqual(0);
-      }
-    });
-  });
-
-  describe("list context", () => {
-    it("detects bullet list context", () => {
-      const li = testSchema.node("listItem", null, [p("Item")]);
-      const bulletList = testSchema.node("bulletList", null, [li]);
-      const doc = testSchema.node("doc", null, [bulletList]);
-
-      // Find text position inside the list item
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("list");
-      if (ctx!.type === "list") {
-        expect(ctx!.listType).toBe("bullet");
-        expect(ctx!.depth).toBe(0);
-        expect(ctx!.nodePos).toBeGreaterThanOrEqual(0);
-      }
-    });
-
-    it("detects ordered list context", () => {
-      const li = testSchema.node("listItem", null, [p("Item")]);
-      const orderedList = testSchema.node("orderedList", null, [li]);
-      const doc = testSchema.node("doc", null, [orderedList]);
-
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("list");
-      if (ctx!.type === "list") {
-        expect(ctx!.listType).toBe("ordered");
-        expect(ctx!.depth).toBe(0);
-      }
-    });
-
-    it("calculates nested list depth correctly", () => {
-      const innerLi = testSchema.node("listItem", null, [p("Inner")]);
-      const innerList = testSchema.node("bulletList", null, [innerLi]);
-      const outerLi = testSchema.node("listItem", null, [p("Outer"), innerList]);
-      const outerList = testSchema.node("bulletList", null, [outerLi]);
-      const doc = testSchema.node("doc", null, [outerList]);
-
-      // Find text position in the inner list item ("Inner")
-      let innerTextPos = 0;
-      let foundOuter = false;
-      doc.descendants((node, pos) => {
-        if (node.isText) {
-          if (foundOuter) {
-            innerTextPos = pos;
-            return false;
-          }
-          foundOuter = true;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, innerTextPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("list");
-      if (ctx!.type === "list") {
-        expect(ctx!.depth).toBe(1);
-      }
-    });
-  });
-
-  describe("blockquote context", () => {
-    it("detects blockquote context", () => {
-      const bq = testSchema.node("blockquote", null, [p("Quoted text")]);
-      const doc = testSchema.node("doc", null, [bq]);
-
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("blockquote");
-      if (ctx!.type === "blockquote") {
-        expect(ctx!.depth).toBe(0);
-        expect(ctx!.nodePos).toBeGreaterThanOrEqual(0);
-      }
-    });
-
-    it("calculates nested blockquote depth", () => {
-      const innerBq = testSchema.node("blockquote", null, [p("Nested quote")]);
-      const outerBq = testSchema.node("blockquote", null, [innerBq]);
-      const doc = testSchema.node("doc", null, [outerBq]);
-
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      expect(ctx).not.toBeNull();
-      expect(ctx!.type).toBe("blockquote");
-      if (ctx!.type === "blockquote") {
-        expect(ctx!.depth).toBe(1);
-      }
-    });
-  });
-
-  describe("priority — table wins over list inside table", () => {
-    it("returns table context when cursor is in a list inside a table cell", () => {
-      const li = testSchema.node("listItem", null, [p("In table")]);
-      const list = testSchema.node("bulletList", null, [li]);
-      const cell = testSchema.node("tableCell", null, [list]);
-      const row = testSchema.node("tableRow", null, [cell]);
-      const table = testSchema.node("table", null, [row]);
-      const doc = testSchema.node("doc", null, [table]);
-
-      let textPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && textPos === 0) {
-          textPos = pos;
-          return false;
-        }
-        return true;
-      });
-
-      const state = EditorState.create({ doc, schema: testSchema });
-      const stateWithSel = state.apply(
-        state.tr.setSelection(TextSelection.create(state.doc, textPos))
-      );
-      const view = createViewWithState(stateWithSel);
-      const ctx = getNodeContext(view);
-
-      // The function walks depth from deep to shallow, so it should find
-      // the list first (innermost). Let's verify what actually happens.
-      expect(ctx).not.toBeNull();
-      // getNodeContext walks from $from.depth down to 1, so it finds the
-      // innermost matching node first — which is the list
-      expect(ctx!.type).toBe("list");
-    });
-  });
-});
 
 describe("list operation functions", () => {
   it("handleListIndent does nothing without listItem type", async () => {
@@ -348,7 +93,7 @@ describe("list operation functions", () => {
     expect(view.focus).toHaveBeenCalled();
   });
 
-  it("handleListOutdent lifts list item when in a list (lines 94-95)", async () => {
+  it("handleListOutdent declines at the OUTERMOST list level", async () => {
     const { handleListOutdent } = await import("./nodeActions.tiptap");
 
     const li = testSchema.node("listItem", null, [p("Item")]);
@@ -374,8 +119,8 @@ describe("list operation functions", () => {
       dispatch: vi.fn(),
     } as unknown as import("@tiptap/pm/view").EditorView;
 
-    handleListOutdent(view);
-    expect(view.focus).toHaveBeenCalled();
+    expect(handleListOutdent(view)).toBe(false);
+    expect(view.dispatch).not.toHaveBeenCalled();
   });
 
   it("handleListOutdent does nothing without listItem type", async () => {
@@ -460,43 +205,8 @@ describe("list operation functions", () => {
   });
 });
 
-describe("getNodeContext — table with zero rows (numCols branch, line 34/41)", () => {
-  it("handles table with empty row (covers numCols fallback)", () => {
-    // Create a table with a single row containing 3 cells to verify numCols
-    const cell1 = testSchema.node("tableCell", null, [p("A")]);
-    const cell2 = testSchema.node("tableCell", null, [p("B")]);
-    const cell3 = testSchema.node("tableCell", null, [p("C")]);
-    const row = testSchema.node("tableRow", null, [cell1, cell2, cell3]);
-    const table = testSchema.node("table", null, [row]);
-    const doc = testSchema.node("doc", null, [table]);
-
-    let textPos = 0;
-    doc.descendants((node, pos) => {
-      if (node.isText && textPos === 0) {
-        textPos = pos;
-        return false;
-      }
-      return true;
-    });
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    const stateWithSel = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, textPos))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    expect(ctx).not.toBeNull();
-    expect(ctx!.type).toBe("table");
-    if (ctx!.type === "table") {
-      expect(ctx!.numRows).toBe(1);
-      expect(ctx!.numCols).toBe(3);
-    }
-  });
-});
-
 describe("handleToBulletList", () => {
-  it("does nothing when already in bullet list", async () => {
+  it("unlists when already in bullet list (toggle off)", async () => {
     const { handleToBulletList } = await import("./nodeActions.tiptap");
 
     const li = testSchema.node("listItem", null, [p("Item")]);
@@ -516,16 +226,27 @@ describe("handleToBulletList", () => {
     const stateWithSel = state.apply(
       state.tr.setSelection(TextSelection.create(state.doc, textPos))
     );
+    // Live state so the lift loop observes each dispatched transaction.
+    let currentState = stateWithSel;
     const view = {
-      state: stateWithSel,
+      get state() { return currentState; },
       focus: vi.fn(),
-      dispatch: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
     } as unknown as import("@tiptap/pm/view").EditorView;
 
     handleToBulletList(view);
     expect(view.focus).toHaveBeenCalled();
-    // Should not dispatch since already bullet
-    expect(view.dispatch).not.toHaveBeenCalled();
+    // Clicking the active bullet-list button removes the list formatting.
+    let hasList = false;
+    currentState.doc.descendants((node) => {
+      if (node.type.name === "bulletList" || node.type.name === "orderedList") {
+        hasList = true;
+      }
+    });
+    expect(hasList).toBe(false);
+    expect(currentState.doc.textContent).toBe("Item");
   });
 
   it("wraps plain paragraph in bullet list (lines 117-118)", async () => {
@@ -580,7 +301,7 @@ describe("handleToBulletList", () => {
 });
 
 describe("handleToOrderedList", () => {
-  it("does nothing when already in ordered list", async () => {
+  it("unlists when already in ordered list (toggle off)", async () => {
     const { handleToOrderedList } = await import("./nodeActions.tiptap");
 
     const li = testSchema.node("listItem", null, [p("Item")]);
@@ -600,15 +321,27 @@ describe("handleToOrderedList", () => {
     const stateWithSel = state.apply(
       state.tr.setSelection(TextSelection.create(state.doc, textPos))
     );
+    // Live state so the lift loop observes each dispatched transaction.
+    let currentState = stateWithSel;
     const view = {
-      state: stateWithSel,
+      get state() { return currentState; },
       focus: vi.fn(),
-      dispatch: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
     } as unknown as import("@tiptap/pm/view").EditorView;
 
     handleToOrderedList(view);
     expect(view.focus).toHaveBeenCalled();
-    expect(view.dispatch).not.toHaveBeenCalled();
+    // Clicking the active ordered-list button removes the list formatting.
+    let hasList = false;
+    currentState.doc.descendants((node) => {
+      if (node.type.name === "bulletList" || node.type.name === "orderedList") {
+        hasList = true;
+      }
+    });
+    expect(hasList).toBe(false);
+    expect(currentState.doc.textContent).toBe("Item");
   });
 
   it("wraps plain paragraph in ordered list (lines 140-141)", async () => {
@@ -750,76 +483,6 @@ describe("handleRemoveBlockquote", () => {
     handleRemoveBlockquote(view);
     expect(view.dispatch).toHaveBeenCalled();
     expect(view.focus).toHaveBeenCalled();
-  });
-});
-
-describe("getNodeContext — table with single row", () => {
-  it("detects single-row table correctly", () => {
-    const cell = testSchema.node("tableCell", null, [p("Cell")]);
-    const row = testSchema.node("tableRow", null, [cell]);
-    const table = testSchema.node("table", null, [row]);
-    const doc = testSchema.node("doc", null, [table]);
-
-    let textPos = 0;
-    doc.descendants((node, pos) => {
-      if (node.isText && textPos === 0) {
-        textPos = pos;
-        return false;
-      }
-      return true;
-    });
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    const stateWithSel = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, textPos))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    expect(ctx).not.toBeNull();
-    expect(ctx!.type).toBe("table");
-    if (ctx!.type === "table") {
-      expect(ctx!.numRows).toBe(1);
-      expect(ctx!.numCols).toBe(1);
-    }
-  });
-});
-
-describe("getNodeContext — mixed list types at different depths", () => {
-  it("detects ordered list inside bullet list", () => {
-    const innerLi = testSchema.node("listItem", null, [p("Inner ordered")]);
-    const innerList = testSchema.node("orderedList", null, [innerLi]);
-    const outerLi = testSchema.node("listItem", null, [p("Outer"), innerList]);
-    const outerList = testSchema.node("bulletList", null, [outerLi]);
-    const doc = testSchema.node("doc", null, [outerList]);
-
-    // Find text position in the inner list item
-    let innerTextPos = 0;
-    let foundOuter = false;
-    doc.descendants((node, pos) => {
-      if (node.isText) {
-        if (foundOuter) {
-          innerTextPos = pos;
-          return false;
-        }
-        foundOuter = true;
-      }
-      return true;
-    });
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    const stateWithSel = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, innerTextPos))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    expect(ctx).not.toBeNull();
-    expect(ctx!.type).toBe("list");
-    if (ctx!.type === "list") {
-      expect(ctx!.listType).toBe("ordered");
-      expect(ctx!.depth).toBe(1);
-    }
   });
 });
 
@@ -1061,73 +724,6 @@ describe("handleBlockquoteUnnest — no blockRange (line 210)", () => {
   });
 });
 
-describe("getNodeContext — table shallow depth fallbacks (lines 31-34)", () => {
-  it("rowIndex defaults to 0 when $from.depth === tableDepth (line 31)", () => {
-    // Use NodeSelection on the table node itself — depth equals tableDepth
-    const cell = testSchema.node("tableCell", null, [p("A")]);
-    const row = testSchema.node("tableRow", null, [cell]);
-    const table = testSchema.node("table", null, [row]);
-    const doc = testSchema.node("doc", null, [table]);
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    // NodeSelection on table: $from.depth === tableDepth (both = 1)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { NodeSelection } = require("@tiptap/pm/state");
-    const stateWithSel = state.apply(
-      state.tr.setSelection(NodeSelection.create(state.doc, 0))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    // NodeSelection's $from is at depth 1 (the table node),
-    // so $from.depth > d is false when d = 1, triggering the fallback
-    if (ctx && ctx.type === "table") {
-      expect(ctx.rowIndex).toBe(0);
-      expect(ctx.colIndex).toBe(0);
-    }
-  });
-
-  it("numCols defaults to 0 when table has no rows (line 34 false branch)", () => {
-    // The numCols = numRows > 0 ? ... : 0 branch.
-    // Cannot create empty table with ProseMirror (content: "tableRow+"),
-    // so this branch is structurally unreachable. Skip.
-    expect(true).toBe(true);
-  });
-});
-
-describe("getNodeContext — blockquote depth counting (line 68 false branch)", () => {
-  it("depth remains 0 when no ancestor blockquotes exist (line 68 false)", () => {
-    // Single blockquote (no nesting) — the inner loop checks ancestors
-    // for blockquote but finds none, so depth stays 0
-    const bq = testSchema.node("blockquote", null, [p("Simple quote")]);
-    const doc = testSchema.node("doc", null, [bq]);
-
-    let textPos = 0;
-    doc.descendants((node, pos) => {
-      if (node.isText && textPos === 0) {
-        textPos = pos;
-        return false;
-      }
-      return true;
-    });
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    const stateWithSel = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, textPos))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    expect(ctx).not.toBeNull();
-    expect(ctx!.type).toBe("blockquote");
-    if (ctx!.type === "blockquote") {
-      // depth is 0 — the inner loop body (line 69) is never entered
-      // because there are no blockquote ancestors above the found blockquote
-      expect(ctx!.depth).toBe(0);
-    }
-  });
-});
-
 describe("handleRemoveList — no listItem type in schema (line 146)", () => {
   it("returns early when listItem type is missing", async () => {
     const { handleRemoveList } = await import("./nodeActions.tiptap");
@@ -1247,67 +843,6 @@ describe("handleBlockquoteNest — range null (line 193)", () => {
 // if-check at line 68 is false and depth does not increment.
 // ---------------------------------------------------------------------------
 
-describe("getNodeContext — blockquote with non-blockquote ancestor (line 68 false branch)", () => {
-  it("does not increment depth for non-blockquote ancestors between blockquotes", () => {
-    // Structure: doc > outerBq > bulletList > listItem > innerBq > paragraph
-    // The depth count should only count blockquote ancestors, not bulletList/listItem.
-    // However, getNodeContext walks from innermost — it finds innerBq first.
-    // At that point it checks ancestors from dd=1 to dd<d (the depth of innerBq).
-    // The ancestors include outerBq and bulletList. outerBq increments depth,
-    // but bulletList does NOT (line 68 false branch).
-
-    const schemaWithBothTypes = new Schema({
-      nodes: {
-        doc: { content: "block+" },
-        paragraph: { group: "block", content: "inline*" },
-        blockquote: { group: "block", content: "block+" },
-        bulletList: { group: "block", content: "listItem+" },
-        listItem: { content: "paragraph block*" },
-        text: { group: "inline" },
-      },
-    });
-
-    // doc > blockquote > bulletList > listItem > blockquote > paragraph
-    const innerPara = schemaWithBothTypes.node("paragraph", null, [schemaWithBothTypes.text("deep")]);
-    const innerBq = schemaWithBothTypes.node("blockquote", null, [innerPara]);
-    const li = schemaWithBothTypes.node("listItem", null, [
-      schemaWithBothTypes.node("paragraph", null, [schemaWithBothTypes.text("item")]),
-      innerBq,
-    ]);
-    const list = schemaWithBothTypes.node("bulletList", null, [li]);
-    const outerBq = schemaWithBothTypes.node("blockquote", null, [list]);
-    const doc = schemaWithBothTypes.node("doc", null, [outerBq]);
-
-    // Find the text position inside the innerBq's paragraph ("deep")
-    let deepPos = 0;
-    let foundCount = 0;
-    doc.descendants((node, pos) => {
-      if (node.isText) {
-        foundCount++;
-        if (foundCount === 2) { // second text node is "deep"
-          deepPos = pos;
-          return false;
-        }
-      }
-      return true;
-    });
-
-    const state = EditorState.create({ doc, schema: schemaWithBothTypes });
-    const stateWithSel = state.apply(
-      state.tr.setSelection(TextSelection.create(state.doc, deepPos))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    expect(ctx).not.toBeNull();
-    expect(ctx!.type).toBe("blockquote");
-    if (ctx!.type === "blockquote") {
-      // Only 1 blockquote ancestor (outerBq), bulletList/listItem are not counted
-      expect(ctx!.depth).toBe(1);
-    }
-  });
-});
-
 // ---------------------------------------------------------------------------
 // Branch coverage: table shallow depth — rowIndex/colIndex fallbacks (lines 31-32)
 // These branches trigger when $from.depth === table depth, meaning the cursor
@@ -1316,34 +851,6 @@ describe("getNodeContext — blockquote with non-blockquote ancestor (line 68 fa
 // Line 34 (numCols when numRows === 0) is structurally unreachable because
 // ProseMirror's "tableRow+" content spec requires at least one row.
 // ---------------------------------------------------------------------------
-
-describe("getNodeContext — table NodeSelection fallback branches (lines 31-32)", () => {
-  it("rowIndex and colIndex default to 0 with NodeSelection on table", async () => {
-    const { NodeSelection } = await import("@tiptap/pm/state");
-
-    const cell = testSchema.node("tableCell", null, [p("A")]);
-    const row = testSchema.node("tableRow", null, [cell]);
-    const table = testSchema.node("table", null, [row]);
-    const doc = testSchema.node("doc", null, [table]);
-
-    const state = EditorState.create({ doc, schema: testSchema });
-    // NodeSelection on the table node at position 0
-    // $from.depth will equal the table's depth (d), so $from.depth > d is false
-    const stateWithSel = state.apply(
-      state.tr.setSelection(NodeSelection.create(state.doc, 0))
-    );
-    const view = createViewWithState(stateWithSel);
-    const ctx = getNodeContext(view);
-
-    // With NodeSelection on the table, the selection $from is at doc level
-    // so the loop may not detect it as table context. The key is that if
-    // it does find the table, rowIndex/colIndex should be 0 (fallback).
-    if (ctx && ctx.type === "table") {
-      expect(ctx.rowIndex).toBe(0);
-      expect(ctx.colIndex).toBe(0);
-    }
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Branch coverage: handleBlockquoteNest — !blockquoteType (line 190)
@@ -1358,24 +865,120 @@ describe("getNodeContext — table NodeSelection fallback branches (lines 31-32)
 // defensive guard against corrupted document states.
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Branch coverage: handleBlockquoteUnnest — range is null (line 210)
-// When $from.blockRange() returns null inside a blockquote, the function
-// should still call focus() but not dispatch.
-// ---------------------------------------------------------------------------
-
-describe("handleBlockquoteUnnest — range null path (line 210)", () => {
-  it("calls focus but not dispatch when blockRange returns null", async () => {
-    const { handleBlockquoteUnnest } = await import("./nodeActions.tiptap");
-
-    // Create a doc with a blockquote and use a GapCursor-like situation
-    // where $from.blockRange() returns null. We'll mock the state to control this.
-    const bq = testSchema.node("blockquote", null, [p("text")]);
-    const doc = testSchema.node("doc", null, [bq]);
-
+describe("task list handling (audit round: checked attrs)", () => {
+  function liveView(doc: ReturnType<typeof testSchema.node>, textPos: number) {
     const state = EditorState.create({ doc, schema: testSchema });
+    let currentState = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, textPos))
+    );
+    return {
+      get state() { return currentState; },
+      focus: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
+      current: () => currentState,
+    } as unknown as import("@tiptap/pm/view").EditorView & {
+      current: () => EditorState;
+    };
+  }
 
-    // Find text position inside blockquote
+  function firstTextPos(doc: ReturnType<typeof testSchema.node>): number {
+    let textPos = 0;
+    doc.descendants((node, pos) => {
+      if (node.isText && textPos === 0) {
+        textPos = pos;
+        return false;
+      }
+      return true;
+    });
+    return textPos;
+  }
+
+  it("bullet action converts a task list to a plain bullet list (not unlist)", async () => {
+    const { handleToBulletList } = await import("./nodeActions.tiptap");
+
+    const li = testSchema.node("listItem", { checked: true }, [p("Task")]);
+    const li2 = testSchema.node("listItem", { checked: false }, [p("Other")]);
+    const bulletList = testSchema.node("bulletList", null, [li, li2]);
+    const doc = testSchema.node("doc", null, [bulletList]);
+    const view = liveView(doc, firstTextPos(doc));
+
+    handleToBulletList(view);
+
+    const after = (view as unknown as { current: () => EditorState }).current();
+    let listCount = 0;
+    const checkeds: unknown[] = [];
+    after.doc.descendants((node) => {
+      if (node.type.name === "bulletList") listCount++;
+      if (node.type.name === "listItem") checkeds.push(node.attrs.checked);
+    });
+    expect(listCount).toBe(1); // still a list
+    expect(checkeds).toEqual([null, null]); // checkboxes cleared
+  });
+
+  it("ordered conversion clears checked attrs (no checkboxes in ordered lists)", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const li = testSchema.node("listItem", { checked: true }, [p("Task")]);
+    const bulletList = testSchema.node("bulletList", null, [li]);
+    const doc = testSchema.node("doc", null, [bulletList]);
+    const view = liveView(doc, firstTextPos(doc));
+
+    handleToOrderedList(view);
+
+    const after = (view as unknown as { current: () => EditorState }).current();
+    let orderedCount = 0;
+    const checkeds: unknown[] = [];
+    after.doc.descendants((node) => {
+      if (node.type.name === "orderedList") orderedCount++;
+      if (node.type.name === "listItem") checkeds.push(node.attrs.checked);
+    });
+    expect(orderedCount).toBe(1);
+    expect(checkeds).toEqual([null]);
+  });
+
+  it("toggle-off in a nested list lifts ONE level instead of flattening all", async () => {
+    const { handleToBulletList } = await import("./nodeActions.tiptap");
+
+    const nestedLi = testSchema.node("listItem", null, [p("Nested")]);
+    const nested = testSchema.node("bulletList", null, [nestedLi]);
+    const outerLi = testSchema.node("listItem", null, [p("Outer"), nested]);
+    const outerList = testSchema.node("bulletList", null, [outerLi]);
+    const doc = testSchema.node("doc", null, [outerList]);
+
+    // Cursor inside "Nested"
+    let nestedPos = 0;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === "Nested") {
+        nestedPos = pos;
+        return false;
+      }
+      return true;
+    });
+    const view = liveView(doc, nestedPos);
+
+    handleToBulletList(view);
+
+    const after = (view as unknown as { current: () => EditorState }).current();
+    let listCount = 0;
+    after.doc.descendants((node) => {
+      if (node.type.name === "bulletList") listCount++;
+    });
+    // The nested item outdented into the outer list — the outer list survives.
+    expect(listCount).toBe(1);
+    expect(after.doc.textContent).toContain("Nested");
+  });
+});
+
+describe("handleRemoveBlockquote — nested quotes", () => {
+  it("removes ALL blockquote wrapping, not just the outermost", async () => {
+    const { handleRemoveBlockquote } = await import("./nodeActions.tiptap");
+
+    const inner = testSchema.node("blockquote", null, [p("Deep")]);
+    const outer = testSchema.node("blockquote", null, [inner]);
+    const doc = testSchema.node("doc", null, [outer]);
+
     let textPos = 0;
     doc.descendants((node, pos) => {
       if (node.isText && textPos === 0) {
@@ -1385,35 +988,323 @@ describe("handleBlockquoteUnnest — range null path (line 210)", () => {
       return true;
     });
 
-    const stateWithSel = state.apply(
+    const state = EditorState.create({ doc, schema: testSchema });
+    let currentState = state.apply(
       state.tr.setSelection(TextSelection.create(state.doc, textPos))
     );
-
-    // Create a view that intercepts the state to make blockRange return null
-    // by patching the selection's $from.blockRange
-    const patchedState = {
-      ...stateWithSel,
-      selection: {
-        ...stateWithSel.selection,
-        $from: {
-          ...stateWithSel.selection.$from,
-          depth: stateWithSel.selection.$from.depth,
-          node: (d: number) => stateWithSel.selection.$from.node(d),
-          before: (d: number) => stateWithSel.selection.$from.before(d),
-          blockRange: () => null, // Force null to exercise line 210 false branch
-        },
-      },
-    };
-
     const view = {
-      state: patchedState,
+      get state() { return currentState; },
       focus: vi.fn(),
-      dispatch: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
     } as unknown as import("@tiptap/pm/view").EditorView;
 
-    handleBlockquoteUnnest(view);
-    // Should focus but NOT dispatch (range is null)
-    expect(view.focus).toHaveBeenCalled();
-    expect(view.dispatch).not.toHaveBeenCalled();
+    handleRemoveBlockquote(view);
+
+    let quoteCount = 0;
+    currentState.doc.descendants((node) => {
+      if (node.type.name === "blockquote") quoteCount++;
+    });
+    expect(quoteCount).toBe(0);
+    expect(currentState.doc.textContent).toBe("Deep");
+  });
+});
+
+describe("blockquote symmetry + selection preservation (audit FIX_NOW round)", () => {
+  function liveViewAt(doc: ReturnType<typeof testSchema.node>, from: number, to?: number) {
+    const state = EditorState.create({ doc, schema: testSchema });
+    let currentState = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, from, to ?? from))
+    );
+    const view = {
+      get state() { return currentState; },
+      focus: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
+      current: () => currentState,
+    };
+    return view as unknown as import("@tiptap/pm/view").EditorView & {
+      current: () => EditorState;
+    };
+  }
+
+  function textPosOf(doc: ReturnType<typeof testSchema.node>, text: string): number {
+    let found = -1;
+    doc.descendants((node, pos) => {
+      if (found >= 0) return false;
+      if (node.isText && node.text?.includes(text)) {
+        found = pos + node.text.indexOf(text);
+        return false;
+      }
+      return true;
+    });
+    expect(found).toBeGreaterThanOrEqual(0);
+    return found;
+  }
+
+  it("unnest lifts the WHOLE multi-block quote instead of splitting it", async () => {
+    const { handleBlockquoteUnnest } = await import("./nodeActions.tiptap");
+
+    const bq = testSchema.node("blockquote", null, [p("first"), p("second")]);
+    const doc = testSchema.node("doc", null, [bq]);
+    const view = liveViewAt(doc, textPosOf(doc, "first"));
+
+    expect(handleBlockquoteUnnest(view)).toBe(true);
+
+    const after = view.current();
+    let quoteCount = 0;
+    after.doc.descendants((node) => {
+      if (node.type.name === "blockquote") quoteCount++;
+    });
+    // The whole quote unwrapped — no residual quote holding "second".
+    expect(quoteCount).toBe(0);
+    expect(after.doc.textContent).toBe("firstsecond");
+  });
+
+  it("unnest of a nested quote lifts exactly one level", async () => {
+    const { handleBlockquoteUnnest } = await import("./nodeActions.tiptap");
+
+    const inner = testSchema.node("blockquote", null, [p("deep")]);
+    const outer = testSchema.node("blockquote", null, [inner]);
+    const doc = testSchema.node("doc", null, [outer]);
+    const view = liveViewAt(doc, textPosOf(doc, "deep"));
+
+    expect(handleBlockquoteUnnest(view)).toBe(true);
+
+    const after = view.current();
+    let quoteCount = 0;
+    after.doc.descendants((node) => {
+      if (node.type.name === "blockquote") quoteCount++;
+    });
+    expect(quoteCount).toBe(1); // outer survives, inner dissolved
+  });
+
+  it("removeBlockquote preserves a range selection across paragraphs", async () => {
+    const { handleRemoveBlockquote } = await import("./nodeActions.tiptap");
+
+    const bq = testSchema.node("blockquote", null, [p("alpha"), p("omega")]);
+    const doc = testSchema.node("doc", null, [bq]);
+    const from = textPosOf(doc, "alpha");
+    const to = textPosOf(doc, "omega") + 5;
+    const view = liveViewAt(doc, from, to);
+
+    expect(handleRemoveBlockquote(view)).toBe(true);
+
+    const after = view.current();
+    const sel = after.selection;
+    expect(sel.empty).toBe(false);
+    // The mapped selection still spans from "alpha" through "omega".
+    expect(after.doc.textBetween(sel.from, sel.to, " ")).toBe("alpha omega");
+  });
+
+  it("handlers report real command results (boolean contract)", async () => {
+    const { handleRemoveList, handleListIndent, handleBlockquoteUnnest, handleRemoveBlockquote } =
+      await import("./nodeActions.tiptap");
+
+    // Not in a list / quote → false, and no dispatch
+    const doc = testSchema.node("doc", null, [p("plain")]);
+    const view = liveViewAt(doc, 2);
+    expect(handleRemoveList(view)).toBe(false);
+    expect(handleListIndent(view)).toBe(false);
+    expect(handleBlockquoteUnnest(view)).toBe(false);
+    expect(handleRemoveBlockquote(view)).toBe(false);
+
+    // In a list → true
+    const li = testSchema.node("listItem", null, [p("item")]);
+    const listDoc = testSchema.node("doc", null, [
+      testSchema.node("bulletList", null, [li]),
+    ]);
+    const listView = liveViewAt(listDoc, textPosOf(listDoc, "item"));
+    expect(handleRemoveList(listView)).toBe(true);
+  });
+});
+
+describe("range-aware list conversion (WI-3)", () => {
+  function li(text: string, checked: boolean | null = null) {
+    return testSchema.node("listItem", { checked }, [p(text)]);
+  }
+
+  function liveRange(doc: ReturnType<typeof testSchema.node>, from: number, to: number) {
+    const state = EditorState.create({ doc, schema: testSchema });
+    let currentState = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, from, to))
+    );
+    const dispatch = vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+      currentState = currentState.apply(tr);
+    });
+    const view = {
+      get state() { return currentState; },
+      focus: vi.fn(),
+      dispatch,
+      current: () => currentState,
+    };
+    return view as unknown as import("@tiptap/pm/view").EditorView & {
+      current: () => EditorState;
+      dispatch: typeof dispatch;
+    };
+  }
+
+  function findText(doc: ReturnType<typeof testSchema.node>, text: string): number {
+    let found = -1;
+    doc.descendants((node, pos) => {
+      if (found >= 0) return false;
+      if (node.isText && node.text?.includes(text)) {
+        found = pos + node.text.indexOf(text);
+        return false;
+      }
+      return true;
+    });
+    expect(found).toBeGreaterThanOrEqual(0);
+    return found;
+  }
+
+  function topLevelShape(state: EditorState): string[] {
+    const shape: string[] = [];
+    state.doc.forEach((child) => {
+      shape.push(`${child.type.name}(${child.childCount})`);
+    });
+    return shape;
+  }
+
+  it("converts two bullet lists + the paragraph between into ONE ordered list (single undo step)", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("bulletList", null, [li("alpha")]),
+      p("between"),
+      testSchema.node("bulletList", null, [li("omega")]),
+    ]);
+    const view = liveRange(doc, findText(doc, "alpha"), findText(doc, "omega") + 5);
+
+    expect(handleToOrderedList(view)).toBe(true);
+
+    const after = view.current();
+    expect(topLevelShape(after)).toEqual(["orderedList(3)"]);
+    expect(after.doc.textContent).toBe("alphabetweenomega");
+    // ONE dispatched transaction — the whole conversion is one undo step.
+    expect(view.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("joins a converted list with a pre-existing ordered neighbour (continuous numbering)", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("orderedList", null, [li("one")]),
+      testSchema.node("bulletList", null, [li("two")]),
+    ]);
+    // Range selecting only the bullet list
+    const view = liveRange(doc, findText(doc, "two"), findText(doc, "two") + 3);
+
+    expect(handleToOrderedList(view)).toBe(true);
+
+    const after = view.current();
+    expect(topLevelShape(after)).toEqual(["orderedList(2)"]);
+  });
+
+  it("converts nested lists at their own level", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const nested = testSchema.node("bulletList", null, [li("child")]);
+    const outer = testSchema.node("bulletList", null, [
+      testSchema.node("listItem", null, [p("parent"), nested]),
+    ]);
+    const doc = testSchema.node("doc", null, [outer]);
+    const view = liveRange(doc, findText(doc, "parent"), findText(doc, "child") + 5);
+
+    expect(handleToOrderedList(view)).toBe(true);
+
+    let bulletCount = 0;
+    let orderedCount = 0;
+    view.current().doc.descendants((node) => {
+      if (node.type.name === "bulletList") bulletCount++;
+      if (node.type.name === "orderedList") orderedCount++;
+    });
+    expect(bulletCount).toBe(0);
+    expect(orderedCount).toBe(2);
+  });
+
+  it("clears task checks when range-converting to ordered", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("bulletList", null, [li("task", true), li("other", false)]),
+    ]);
+    const view = liveRange(doc, findText(doc, "task"), findText(doc, "other") + 5);
+
+    expect(handleToOrderedList(view)).toBe(true);
+
+    const checkeds: unknown[] = [];
+    view.current().doc.descendants((node) => {
+      if (node.type.name === "listItem") checkeds.push(node.attrs.checked);
+    });
+    expect(checkeds).toEqual([null, null]);
+  });
+
+  it("reversed selections behave identically", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("bulletList", null, [li("alpha")]),
+      testSchema.node("bulletList", null, [li("omega")]),
+    ]);
+    // anchor AFTER head
+    const view = liveRange(doc, findText(doc, "omega") + 5, findText(doc, "alpha"));
+
+    expect(handleToOrderedList(view)).toBe(true);
+    expect(topLevelShape(view.current())).toEqual(["orderedList(2)"]);
+  });
+
+  it("range toggle-off still lifts when the range is already the plain target type", async () => {
+    const { handleToBulletList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("bulletList", null, [li("only")]),
+    ]);
+    const view = liveRange(doc, findText(doc, "only"), findText(doc, "only") + 4);
+
+    expect(handleToBulletList(view)).toBe(true);
+    expect(topLevelShape(view.current())).toEqual(["paragraph(1)"]);
+  });
+});
+
+describe("cursor-path adjacent-list joining (WI-3)", () => {
+  it("joins with an ordered neighbour when converting at the cursor", async () => {
+    const { handleToOrderedList } = await import("./nodeActions.tiptap");
+
+    const doc = testSchema.node("doc", null, [
+      testSchema.node("orderedList", null, [
+        testSchema.node("listItem", null, [p("one")]),
+      ]),
+      testSchema.node("bulletList", null, [
+        testSchema.node("listItem", null, [p("two")]),
+      ]),
+    ]);
+    let twoPos = 0;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === "two") {
+        twoPos = pos;
+        return false;
+      }
+      return true;
+    });
+    const state = EditorState.create({ doc, schema: testSchema });
+    let currentState = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, twoPos))
+    );
+    const view = {
+      get state() { return currentState; },
+      focus: vi.fn(),
+      dispatch: vi.fn((tr: import("@tiptap/pm/state").Transaction) => {
+        currentState = currentState.apply(tr);
+      }),
+    } as unknown as import("@tiptap/pm/view").EditorView;
+
+    expect(handleToOrderedList(view)).toBe(true);
+
+    const shape: string[] = [];
+    currentState.doc.forEach((child) => shape.push(`${child.type.name}(${child.childCount})`));
+    expect(shape).toEqual(["orderedList(2)"]);
   });
 });

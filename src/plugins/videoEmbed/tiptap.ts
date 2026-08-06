@@ -23,12 +23,46 @@ import {
   parseVideoUrl,
   buildEmbedUrl,
   detectProviderFromIframeSrc,
-  extractVideoIdFromSrc,
+  extractVideoInfoFromSrc,
   getProviderConfig,
   type VideoProvider,
 } from "@/utils/videoProviderRegistry";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
+
+/** Positive-integer dimension from an attribute, else the provider default. */
+function parseDim(raw: string | null | undefined, fallback: number): number {
+  const n = parseInt(raw ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * Derive validated embed attrs from an iframe (+ optionally declared
+ * data-provider). The src is AUTHORITATIVE when it parses: stale or hostile
+ * data-* metadata cannot override a valid src into a mismatched embed. The
+ * declared attrs only fill gaps when the src is missing or unrecognized, and
+ * the final ID must pass the provider's format check — a garbage ID becomes
+ * a refused parse (content preserved), not a broken about:blank embed.
+ */
+function embedAttrsFromIframe(
+  iframe: HTMLIFrameElement | null,
+  declaredProvider: string | null
+): Record<string, unknown> | null {
+  const src = iframe?.getAttribute("src") ?? "";
+  const detected = detectProviderFromIframeSrc(src);
+  const provider = (detected ?? declaredProvider ?? "youtube") as VideoProvider;
+  const srcInfo = detected ? extractVideoInfoFromSrc(detected, src) : null;
+  const videoId = srcInfo?.videoId || iframe?.getAttribute("data-video-id") || "";
+  const config = getProviderConfig(provider);
+  if (!videoId || !config?.isValidId(videoId)) return null;
+  return {
+    provider,
+    videoId,
+    privacyHash: srcInfo?.privacyHash ?? null,
+    width: parseDim(iframe?.getAttribute("width"), config.defaultWidth),
+    height: parseDim(iframe?.getAttribute("height"), config.defaultHeight),
+  };
+}
 
 /** Tiptap node extension for embedded video players (YouTube, Vimeo, Bilibili). */
 export const videoEmbedExtension = Node.create({
@@ -46,6 +80,9 @@ export const videoEmbedExtension = Node.create({
       ...sourceLineAttr,
       provider: { default: "youtube" },
       videoId: { default: "" },
+      // Vimeo unlisted-video privacy hash (WI-6) — required for those embeds
+      // to play; recovered from the iframe src's `h=` param on parse.
+      privacyHash: { default: null },
       width: { default: 560 },
       height: { default: 315 },
     };
@@ -57,17 +94,14 @@ export const videoEmbedExtension = Node.create({
         tag: 'figure[data-type="video_embed"]',
         getAttrs: (dom) => {
           const el = dom as HTMLElement;
-          const iframe = el.querySelector("iframe");
-          const videoId = iframe?.getAttribute("data-video-id") ?? "";
-          const provider = el.getAttribute("data-provider") ?? "youtube";
-          const w = parseInt(iframe?.getAttribute("width") ?? "560", 10);
-          const h = parseInt(iframe?.getAttribute("height") ?? "315", 10);
-          return {
-            provider,
-            videoId,
-            width: Number.isFinite(w) && w > 0 ? w : 560,
-            height: Number.isFinite(h) && h > 0 ? h : 315,
-          };
+          // No derivable, valid video (figure without iframe, unrecognized
+          // src, garbage ID) must not become an empty embed that swallows
+          // the figure's content — refuse the match instead.
+          const attrs = embedAttrsFromIframe(
+            el.querySelector("iframe"),
+            el.getAttribute("data-provider")
+          );
+          return attrs ?? false;
         },
       },
       {
@@ -75,19 +109,11 @@ export const videoEmbedExtension = Node.create({
         tag: "iframe",
         getAttrs: (dom) => {
           const el = dom as HTMLIFrameElement;
-          const src = el.getAttribute("src") ?? "";
-          const provider = detectProviderFromIframeSrc(src);
-          if (!provider) return false; // Not a recognized provider — skip
-          const videoId = extractVideoIdFromSrc(provider, src);
-          if (!videoId) return false;
-          const w = parseInt(el.getAttribute("width") ?? "560", 10);
-          const h = parseInt(el.getAttribute("height") ?? "315", 10);
-          return {
-            provider,
-            videoId,
-            width: Number.isFinite(w) && w > 0 ? w : 560,
-            height: Number.isFinite(h) && h > 0 ? h : 315,
-          };
+          // Bare iframes carry no declared metadata: only a recognized src
+          // may produce an embed.
+          if (!detectProviderFromIframeSrc(el.getAttribute("src") ?? "")) return false;
+          const attrs = embedAttrsFromIframe(el, null);
+          return attrs ?? false;
         },
       },
     ];
@@ -107,7 +133,7 @@ export const videoEmbedExtension = Node.create({
       [
         "iframe",
         {
-          src: buildEmbedUrl(provider, videoId),
+          src: buildEmbedUrl(provider, videoId, { privacyHash: node.attrs.privacyHash as string | null }),
           width: String(node.attrs.width ?? 560),
           height: String(node.attrs.height ?? 315),
           frameborder: "0",
@@ -157,6 +183,7 @@ export const videoEmbedExtension = Node.create({
             const node = nodeType.create({
               provider: result.provider,
               videoId: result.videoId,
+              privacyHash: result.privacyHash ?? null,
               width: config?.defaultWidth ?? 560,
               height: config?.defaultHeight ?? 315,
             });

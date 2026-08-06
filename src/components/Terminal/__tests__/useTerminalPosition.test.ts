@@ -89,44 +89,44 @@ describe("getAvailableDimension", () => {
   const STATUSBAR_HEIGHT = 40;
 
   it("returns windowHeight minus titlebar and statusbar for bottom position", () => {
-    const result = getAvailableDimension("bottom", 1920, 1080, false, 260);
+    const result = getAvailableDimension("bottom", 1920, 1080, 0);
     expect(result).toBe(1080 - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT);
   });
 
   it("bottom position ignores sidebar settings", () => {
-    const withSidebar = getAvailableDimension("bottom", 1920, 1080, true, 260);
-    const withoutSidebar = getAvailableDimension("bottom", 1920, 1080, false, 260);
+    const withSidebar = getAvailableDimension("bottom", 1920, 1080, 260);
+    const withoutSidebar = getAvailableDimension("bottom", 1920, 1080, 0);
     expect(withSidebar).toBe(withoutSidebar);
   });
 
   it("returns windowWidth minus sidebar for right position when sidebar visible", () => {
-    const result = getAvailableDimension("right", 1920, 1080, true, 260);
+    const result = getAvailableDimension("right", 1920, 1080, 260);
     expect(result).toBe(1920 - 260);
   });
 
   it("returns full windowWidth for right position when sidebar hidden", () => {
-    const result = getAvailableDimension("right", 1920, 1080, false, 260);
+    const result = getAvailableDimension("right", 1920, 1080, 0);
     expect(result).toBe(1920);
   });
 
   it("handles zero sidebar width when visible", () => {
-    const result = getAvailableDimension("right", 1920, 1080, true, 0);
+    const result = getAvailableDimension("right", 1920, 1080, 0);
     expect(result).toBe(1920);
   });
 
   it("handles small window dimensions", () => {
-    const result = getAvailableDimension("bottom", 800, 200, false, 0);
+    const result = getAvailableDimension("bottom", 800, 200, 0);
     expect(result).toBe(200 - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT);
   });
 
   it("handles negative sidebar width gracefully", () => {
-    const result = getAvailableDimension("right", 1920, 1080, true, -100);
+    const result = getAvailableDimension("right", 1920, 1080, -100);
     // sidebarW = -100, so offset = -100, result = 1920 - (-100) = 2020
     expect(result).toBe(2020);
   });
 
   it("returns correct dimension when sidebar takes most of the width", () => {
-    const result = getAvailableDimension("right", 1920, 1080, true, 1800);
+    const result = getAvailableDimension("right", 1920, 1080, 1800);
     expect(result).toBe(1920 - 1800);
   });
 });
@@ -162,22 +162,34 @@ describe("pixelsToRatio — additional precision", () => {
 
 describe("getAvailableDimension — additional edge cases", () => {
   it("handles very large sidebar width (exceeds window)", () => {
-    const result = getAvailableDimension("right", 1000, 800, true, 1500);
+    const result = getAvailableDimension("right", 1000, 800, 1500);
     expect(result).toBe(1000 - 1500); // -500
   });
 
   it("handles zero window dimensions for bottom", () => {
-    const result = getAvailableDimension("bottom", 0, 0, false, 0);
+    const result = getAvailableDimension("bottom", 0, 0, 0);
     expect(result).toBe(0 - 40 - 40); // negative
   });
 
   it("treats left like right — width minus sidebar", () => {
-    expect(getAvailableDimension("left", 1000, 800, true, 200)).toBe(800);
-    expect(getAvailableDimension("left", 1000, 800, false, 200)).toBe(1000);
+    expect(getAvailableDimension("left", 1000, 800, 200)).toBe(800);
+    expect(getAvailableDimension("left", 1000, 800, 0)).toBe(1000);
   });
 
   it("treats top like bottom — height minus bars", () => {
-    expect(getAvailableDimension("top", 1000, 800, false, 0)).toBe(800 - 40 - 40);
+    expect(getAvailableDimension("top", 1000, 800, 0)).toBe(800 - 40 - 40);
+  });
+
+  it("subtracts the WHOLE side chrome, rail included (audit fix)", () => {
+    // The bug: this function used to re-derive the offset from sidebar state
+    // alone and forgot the 30px workspace rail, so a rail-enabled window sized
+    // the panel — and its 50% cap — against 30px the editor did not have.
+    const railOnly = 30;
+    const railAndSidebar = 30 + 260;
+    expect(getAvailableDimension("right", 1000, 800, railOnly)).toBe(970);
+    expect(getAvailableDimension("right", 1000, 800, railAndSidebar)).toBe(710);
+    // The vertical axis is unaffected by horizontal chrome.
+    expect(getAvailableDimension("bottom", 1000, 800, railAndSidebar)).toBe(800 - 40 - 40);
   });
 });
 
@@ -237,11 +249,14 @@ vi.mock("@/stores/settingsStore", () => {
   const store = ((selector: (s: unknown) => unknown) => {
     const state = {
       terminal: { position: terminalPosition, panelRatio },
+      // The hook subscribes to the rail so the panel resizes when it toggles.
+      general: { workspaceRailMode: false },
     };
     return selector(state);
   }) as unknown as { getState: () => unknown; subscribe: (fn: (s: unknown) => unknown) => () => void; setState: (partial: Record<string, unknown>) => void };
 
   store.getState = () => ({
+    general: { workspaceRailMode: false },
     terminal: { position: terminalPosition, panelRatio },
   });
   store.subscribe = (fn: (s: unknown) => unknown) => {
@@ -277,6 +292,7 @@ vi.mock("@/stores/uiStore", () => {
   };
 
   store.getState = () => ({
+    general: { workspaceRailMode: false },
     effectiveTerminalPosition: "bottom" as const,
     setEffectiveTerminalPosition: mockSetEffectiveTerminalPosition,
     setTerminalHeight: mockSetTerminalHeight,

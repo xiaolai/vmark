@@ -123,4 +123,71 @@ describe("EditorArea", () => {
     const root = container.firstChild as HTMLElement;
     expect(root.lastChild).toHaveAttribute("data-testid", "panel");
   });
+
+  /**
+   * The side dock is the in-flow home for full-height right-docked surfaces
+   * (Knowledge Base today). It exists so such a panel DISPLACES the editor
+   * instead of floating over it — a `position: fixed` overlay occludes the
+   * document, which is what the KB panel did before.
+   *
+   * It is a separate slot from `panel` so it composes with the terminal at any
+   * `panelPosition` rather than competing for the same slot.
+   */
+  describe("side dock", () => {
+    it("leaves the DOM untouched when no side dock is provided", () => {
+      const { container } = render(
+        <EditorArea
+          editor={<div data-testid="editor">editor</div>}
+          bottomBar={<div>bottom</div>}
+          panel={<div data-testid="panel">panel</div>}
+          panelPosition="bottom"
+        />
+      );
+      // No extra wrapper: the root is still the panel-axis container, so the
+      // existing positioning contract above is unaffected.
+      const root = container.firstChild as HTMLElement;
+      expect(root.lastChild).toHaveAttribute("data-testid", "panel");
+    });
+
+    it("renders the side dock when provided", () => {
+      render(
+        <EditorArea
+          editor={<div>editor</div>}
+          bottomBar={<div>bottom</div>}
+          panelPosition="bottom"
+          sidePanel={<div data-testid="side-dock">kb</div>}
+        />
+      );
+      expect(screen.getByTestId("side-dock")).toBeInTheDocument();
+    });
+
+    it("docks it to the right of the editor on a row axis", () => {
+      const { container } = render(
+        <EditorArea
+          editor={<div data-testid="editor">editor</div>}
+          bottomBar={<div>bottom</div>}
+          panelPosition="bottom"
+          sidePanel={<div data-testid="side-dock">kb</div>}
+        />
+      );
+      const root = container.firstChild as HTMLElement;
+      expect(root).toHaveStyle({ flexDirection: "row" });
+      expect(root.lastChild).toHaveAttribute("data-testid", "side-dock");
+    });
+
+    it("composes with a bottom panel — both are rendered", () => {
+      render(
+        <EditorArea
+          editor={<div data-testid="editor">editor</div>}
+          bottomBar={<div>bottom</div>}
+          panel={<div data-testid="panel">terminal</div>}
+          panelPosition="bottom"
+          sidePanel={<div data-testid="side-dock">kb</div>}
+        />
+      );
+      expect(screen.getByTestId("panel")).toBeInTheDocument();
+      expect(screen.getByTestId("side-dock")).toBeInTheDocument();
+      expect(screen.getByTestId("editor")).toBeInTheDocument();
+    });
+  });
 });

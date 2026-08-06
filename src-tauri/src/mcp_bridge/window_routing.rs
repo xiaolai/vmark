@@ -1,11 +1,21 @@
 //! Workspace-aware window routing (WI-3.5 F5; design-3.md D4.1). Pure
 //! decision: given the request's scoping path and a snapshot of every
 //! window's open workspace, pick the target window with fail-loud
-//! precedence — explicit window, then canonical workspace containment
-//! (deepest wins; a tie between two windows is an ambiguity error),
-//! then focused/main for workspace-less requests. Workspace scope
-//! overrides focus; a workspace request never silently lands on an
-//! unrelated window.
+//! precedence — canonical workspace containment (deepest wins; a tie
+//! between two windows is an ambiguity error), then focused/main for
+//! workspace-less requests. Workspace scope overrides focus; a workspace
+//! request never silently lands on an unrelated window.
+//!
+//! There is deliberately NO explicit-window pin here (WI-15). One existed:
+//! `resolve_target_window` read `args.windowId` and this module honored it
+//! ahead of everything else. No shipped tool has ever sent that field — the
+//! wire contract (`server/mcp/src/bridge/operationSchemas.ts`) declares no
+//! `windowId` on any of the 34 operations — so the branch was unreachable by
+//! construction, and the ambiguity error below advertised a parameter no
+//! client could supply. Explicit window targeting DOES ship, as `windowLabel`
+//! on `workspace.new` / `open` / `focus_window`, resolved by the webview
+//! handler that receives the request; renaming this branch to read
+//! `windowLabel` would have given routing a precedence it never had.
 
 /// One window the bridge could route to.
 #[derive(Debug, Clone)]
@@ -41,31 +51,13 @@ fn contains(root: &str, path: &str) -> bool {
     path.starts_with(&with_sep)
 }
 
-/// D4.1 precedence. `explicit` is `args.windowId` when the caller pinned
-/// a real window (not the `"focused"` sentinel). Returns the target
-/// label, or a fail-loud error on conflict / ambiguity / missing window.
+/// D4.1 precedence. Returns the target label, or a fail-loud error when
+/// the request's workspace is open in more than one window.
 pub fn pick_target_window(
-    explicit: Option<&str>,
     path: Option<&str>,
     candidates: &[WindowCandidate],
 ) -> Result<String, String> {
-    // (1) An explicit window wins — but a workspace path it does not own
-    // is a conflict, never a silent override.
-    if let Some(label) = explicit {
-        let Some(win) = candidates.iter().find(|c| c.label == label) else {
-            return Err(format!("requested window '{label}' is not open"));
-        };
-        if let (Some(p), Some(ws)) = (path, win.workspace.as_deref()) {
-            if !contains(ws, p) {
-                return Err(format!(
-                    "window '{label}' does not own the workspace for '{p}'"
-                ));
-            }
-        }
-        return Ok(label.to_string());
-    }
-
-    // (2) Workspace containment — deepest root wins; a tie between two
+    // (1) Workspace containment — deepest root wins; a tie between two
     // windows on the same root is ambiguous (which one?).
     if let Some(p) = path {
         let mut containing: Vec<&WindowCandidate> = candidates
@@ -84,7 +76,7 @@ pub fn pick_target_window(
             return match containing.as_slice() {
                 [only] => Ok(only.label.clone()),
                 _ => Err(format!(
-                    "path '{p}' is open in {} windows — ambiguous; close one or pass windowId",
+                    "path '{p}' is open in {} windows — ambiguous; close one of them so the target is unambiguous",
                     containing.len()
                 )),
             };

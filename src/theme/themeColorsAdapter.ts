@@ -52,6 +52,23 @@ export interface ThemeColors {
   blockBgSubtleHover?: string;
 }
 
+/**
+ * Copy a legacy override across only when the theme actually states one.
+ *
+ * `t.color.legacy` is optional per theme, so `legacy?.x` yields `undefined`
+ * for "this theme states no override". That is an ABSENT key, not a stated
+ * empty value: `useTheme.ts` falls back to the night defaults for keys the
+ * theme does not carry, and writing the key with `undefined` would claim the
+ * theme had spoken.
+ */
+function setIfStated<K extends keyof ThemeColors>(
+  out: ThemeColors,
+  key: K,
+  value: ThemeColors[K] | undefined
+): void {
+  if (value !== undefined) out[key] = value;
+}
+
 // audit-fix — derive isDark from catalog
 /** Project a ThemeTokens into the legacy ThemeColors surface. */
 function themeTokensToColors(t: ThemeTokens): ThemeColors {
@@ -72,30 +89,30 @@ function themeTokensToColors(t: ThemeTokens): ThemeColors {
     // hardcoded here. They now live on the typed source as
     // ThemeTokens.color.legacy on the dark theme, so retinting a dark
     // theme is a one-file edit per the architecture promise.
-    out.codeText = t.color.legacy?.codeText;
-    out.mdChar = t.color.legacy?.mdChar;
+    setIfStated(out, "codeText", t.color.legacy?.codeText);
+    setIfStated(out, "mdChar", t.color.legacy?.mdChar);
     // Per-theme dark legacy overrides — so a second dark theme
     // (e.g. solarized) renders its OWN values, not night's. useTheme.ts
     // reads each with a night fallback.
     out.bgTertiary = t.color.bg.tertiary;
     out.textTertiary = t.color.text.tertiary;
-    out.blurText = t.color.legacy?.blurText;
-    out.accentBg = t.color.legacy?.accentBg;
-    out.sourceModeBg = t.color.legacy?.sourceModeBg;
+    setIfStated(out, "blurText", t.color.legacy?.blurText);
+    setIfStated(out, "accentBg", t.color.legacy?.accentBg);
+    setIfStated(out, "sourceModeBg", t.color.legacy?.sourceModeBg);
     out.errorColor = t.color.semantic.error;
-    out.errorColorHover = t.color.legacy?.errorColorHover;
+    setIfStated(out, "errorColorHover", t.color.legacy?.errorColorHover);
     out.errorBg = t.color.semantic.errorBg;
     out.successColor = t.color.semantic.success;
-    out.successColorHover = t.color.legacy?.successColorHover;
+    setIfStated(out, "successColorHover", t.color.legacy?.successColorHover);
     out.alertNote = t.color.alert.note;
     out.alertTip = t.color.alert.tip;
     out.alertImportant = t.color.alert.important;
     out.alertWarning = t.color.alert.warning;
     out.alertCaution = t.color.alert.caution;
-    out.highlightBg = t.color.legacy?.highlightBg;
-    out.highlightText = t.color.legacy?.highlightText;
-    out.blockBgSubtle = t.color.legacy?.blockBgSubtle;
-    out.blockBgSubtleHover = t.color.legacy?.blockBgSubtleHover;
+    setIfStated(out, "highlightBg", t.color.legacy?.highlightBg);
+    setIfStated(out, "highlightText", t.color.legacy?.highlightText);
+    setIfStated(out, "blockBgSubtle", t.color.legacy?.blockBgSubtle);
+    setIfStated(out, "blockBgSubtleHover", t.color.legacy?.blockBgSubtleHover);
   }
   return out;
 }

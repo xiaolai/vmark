@@ -39,7 +39,7 @@ assert_grep() {
   if grep -R -q -- "$1" "$2" 2>/dev/null; then ok "$3"; else fail "$3 (pattern '$1' not in $2)"; fi
 }
 
-CS=vmark-content-server/src
+CS=server/content/src
 RS=src-tauri/src/content_server
 
 phase_0() {

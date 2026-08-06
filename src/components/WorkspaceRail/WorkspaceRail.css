@@ -37,8 +37,39 @@
   background: var(--hover-bg);
 }
 
+/* Active state carries BOTH colour and shape. Colour alone fails the same test
+   rule 33 applies to focus ("focus must work without colour alone" — shape
+   change helps colour-blind users), and with six hash-assigned rail colours two
+   workspaces can share one, leaving colour ambiguous even for users who see it.
+   The left bar is the VS Code activity-bar pattern. */
+/* Active state carries BOTH colour and shape. Colour alone fails the same test
+   rule 33 applies to focus ("focus must work without colour alone" — shape
+   change helps colour-blind users), and with six hash-assigned rail colours two
+   workspaces can share one, leaving colour ambiguous even for users who see it.
+
+   The glyph text keeps a contrast-safe token rather than the workspace colour:
+   it is real 11–12px text, so it needs 4.5:1, and several rail colours do not
+   reach that against the sidebar (e.g. --success-color is ~3.3:1 on white).
+   The workspace colour lives on the decorative indicator, which carries no
+   information by itself. */
 .workspace-rail__item[aria-pressed="true"] {
-  color: var(--workspace-rail-color, var(--accent-primary));
+  color: var(--accent-primary);
+  background: var(--accent-bg);
+}
+
+/* Inside the button, not outside it. The rail is 30px around a 28px item, and
+   `.app-shell` sets `overflow: clip` — a bar at a negative offset lands outside
+   the window and is never painted, which silently reduced the active state back
+   to colour-alone. */
+.workspace-rail__item[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  left: 0;
+  width: var(--border-medium);
+  border-radius: var(--radius-pill);
+  background: var(--workspace-rail-color, var(--accent-primary));
 }
 
 .workspace-rail__item:focus-visible {
@@ -56,7 +87,6 @@
   background: var(--workspace-rail-color, var(--accent-primary));
 }
 
-.workspace-rail__folder,
 .workspace-rail__loose {
   position: relative;
   display: inline-flex;
@@ -66,27 +96,22 @@
   justify-content: center;
 }
 
-.workspace-rail__index {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  display: flex;
-  min-width: 10px;
-  height: 10px;
+/* Name-derived identity glyph (replaces the old `index + 1` badge, which was
+   positional and told you nothing the layout didn't already show). It fills the
+   button rather than sitting in the corner, which also resolves the collision
+   with `.workspace-rail__duplicate` — both used to occupy right/bottom -3px, so
+   hovering an entry covered its own number. */
+.workspace-rail__glyph {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
   align-items: center;
   justify-content: center;
-  padding: 0 2px;
-  border: 1px solid var(--sidebar-bg);
-  border-radius: var(--radius-pill);
-  color: var(--sidebar-bg);
-  background: var(--text-secondary);
-  font-size: 7px;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
   line-height: 1;
-}
-
-.workspace-rail__item[aria-pressed="true"] .workspace-rail__index {
-  background: var(--workspace-rail-color, var(--accent-primary));
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 .workspace-rail__duplicate {

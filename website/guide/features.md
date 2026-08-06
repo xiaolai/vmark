@@ -146,6 +146,8 @@ Quickly change text case via Format → Transform:
 - Code blocks with syntax highlighting
 - Ordered, unordered, and task lists
 - Cycle list type: convert a paragraph to bullet, ordered, or task list in sequence
+- Toggle a list off: clicking the active list type again removes the list formatting
+- Convert to code: the Code Block action turns the whole list at the cursor — or any multi-block selection (paragraphs, headings, lists) — into a single code block, one line per block or list item
 - Horizontal rules
 - Tables with full editing support
 
@@ -177,7 +179,8 @@ Full-featured table editing:
 - Insert tables via menu or shortcut
 - Add/delete rows and columns
 - Cell alignment (left, center, right)
-- Resize columns by dragging
+- Columns auto-size to content; wide tables scroll horizontally
+- Fit to width — pin a table to the editor width with content-proportional columns (Settings → Markdown, or per-table via right-click)
 - Context toolbar for quick actions
 - Keyboard navigation (Tab, arrows, Enter)
 
@@ -240,6 +243,13 @@ KaTeX-powered LaTeX rendering:
 
 - Inline math: `$E = mc^2$`
 - Display math: `$$...$$` blocks
+- ChatGPT-style delimiters are recognized on open/paste and normalized to
+  `$`-form: `\( ... \)` becomes inline math, and a standalone `\[ ... \]`
+  becomes a display block
+- A `$$` block must close before a blank line (pandoc's rule) — an unclosed
+  `$$` renders as literal text instead of swallowing the paragraphs after it.
+  Trailing blank lines directly before the closer are fine (an empty
+  `$$` … `$$` block stays a math block)
 - Full LaTeX syntax support
 - Helpful error messages with syntax hints
 
@@ -518,7 +528,7 @@ VMark automatically checks for updates and can download and install them in-app:
 - Quick file switching
 - Recent files tracking
 - Window size and position remembered across sessions
-- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you; pin it to keep it open while you jump between windows (open/pin state is remembered per window)
+- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you; pin it in this window or across all windows (including ones you open later) to keep it open while you jump between windows
 
 [Learn more →](/guide/workspace-management)
 

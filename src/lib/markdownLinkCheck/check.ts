@@ -20,6 +20,10 @@
 
 import { exists } from "@tauri-apps/plugin-fs";
 import { visit } from "unist-util-visit";
+import {
+  createRangeAuthorizer,
+  type PositionedNode,
+} from "@/utils/markdownPipeline/positionTrust";
 import type { Root, Link, Image } from "mdast";
 import { createMarkdownProcessor } from "@/utils/markdownPipeline/parser";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
@@ -59,32 +63,32 @@ interface ExtractedRef {
 
 function extractLocalRefs(mdast: Root): ExtractedRef[] {
   const out: ExtractedRef[] = [];
-  visit(mdast, "link", (node: Link) => {
-    if (!node.position) return;
+  // The offsets here address the document a diagnostic points AT, so they must
+  // be canonical. `?? 0` meant a node with no offset silently reported the
+  // start of the file, and a link inside a `<details>` body carries offsets
+  // from the re-parsed substring — well-formed, and pointing at the wrong
+  // text. The authorizer knows the ancestry a single node cannot show.
+  const authorizer = createRangeAuthorizer(mdast as unknown as PositionedNode);
+
+  const collect = (kind: "link" | "image") => (node: Link | Image) => {
     const url = node.url ?? "";
     if (!url || url.startsWith("#") || isExternalUrl(url)) return;
+    const range = authorizer.rangeOf(node as unknown as PositionedNode);
+    // No canonical range: skip rather than guess. A missed diagnostic is a gap;
+    // one anchored to the wrong span sends the user to unrelated text.
+    if (!range || !node.position) return;
     out.push({
       url,
       line: node.position.start.line,
       column: node.position.start.column,
-      offset: node.position.start.offset ?? 0,
-      endOffset: node.position.end.offset ?? 0,
-      kind: "link",
+      offset: range.start,
+      endOffset: range.end,
+      kind,
     });
-  });
-  visit(mdast, "image", (node: Image) => {
-    if (!node.position) return;
-    const url = node.url ?? "";
-    if (!url || url.startsWith("#") || isExternalUrl(url)) return;
-    out.push({
-      url,
-      line: node.position.start.line,
-      column: node.position.start.column,
-      offset: node.position.start.offset ?? 0,
-      endOffset: node.position.end.offset ?? 0,
-      kind: "image",
-    });
-  });
+  };
+
+  visit(mdast, "link", collect("link"));
+  visit(mdast, "image", collect("image"));
   return out;
 }
 

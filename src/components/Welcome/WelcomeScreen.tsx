@@ -12,7 +12,7 @@
  *   - windowLabel comes from WindowContext so actions target the right window.
  *
  * @coordinates-with components/Editor/Editor.tsx — rendered when no active tab
- * @coordinates-with hooks/useFileOpen.ts — handleNew / handleOpen
+ * @coordinates-with services/navigation/fileOpen.ts — handleNew / handleOpen
  * @coordinates-with services/commands — workspace.openFolder / file.openRecent
  * @coordinates-with stores/workspaceStore.ts — useRecentFilesStore (recent list)
  * @module components/Welcome/WelcomeScreen
@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import { FilePlus, FileUp, FolderOpen, FileClock } from "lucide-react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
-import { handleNew, handleOpen } from "@/hooks/useFileOpen";
+import { handleNew, handleOpen } from "@/services/navigation/fileOpen";
 import { executeCommand } from "@/services/commands";
 import { fileOpsError } from "@/utils/debug";
 import "./welcome.css";

@@ -5,8 +5,9 @@
  * under its size baseline — field updates (updateTabById), format derivation
  * (deriveFormatId), tab titles + localized format names (getTabTitle,
  * getLocalizedFormatName), path re-derivation (applyPathUpdate), tab removal +
- * post-removal active-tab selection (removeTabAt), and pinned-zone placement
- * (insertTabForPin, repositionForPin). No store access.
+ * post-removal active-tab selection (removeTabAt), pinned-zone placement
+ * (insertTabForPin, repositionForPin), and pin toggling (applyTogglePin).
+ * No store access.
  *
  * Key decisions:
  *   - `mapDocumentTabById` preserves object identity wherever nothing changed,
@@ -242,9 +243,29 @@ export function insertTabForPin(tabs: Tab[], tab: Tab): Tab[] {
  *  unpinning moves it to the head of the unpinned zone. Unpinning in place would
  *  strand the remaining pinned tabs to the RIGHT of an unpinned one and break the
  *  contiguity the drag plan assumes. */
-export function repositionForPin(tabs: Tab[], index: number, updated: Tab): Tab[] {
+function repositionForPin(tabs: Tab[], index: number, updated: Tab): Tab[] {
   const remaining = tabs.filter((_, i) => i !== index);
   const next = [...remaining];
   next.splice(pinnedZoneEnd(remaining), 0, updated);
   return next;
+}
+
+/** Flip a tab's pinned state and reposition it via repositionForPin. Unknown
+ *  ids return the original `tabs` reference (guarded keyed update, §1). */
+export function applyTogglePin(
+  state: { tabs: Record<string, Tab[]> },
+  windowLabel: string,
+  tabId: string,
+): { tabs: Record<string, Tab[]> } {
+  const windowTabs = state.tabs[windowLabel] || [];
+  const tabIndex = windowTabs.findIndex((t) => t.id === tabId);
+  if (tabIndex === -1) return { tabs: state.tabs };
+  const tab = windowTabs[tabIndex];
+  const updatedTab = { ...tab, isPinned: !tab.isPinned };
+  return {
+    tabs: {
+      ...state.tabs,
+      [windowLabel]: repositionForPin(windowTabs, tabIndex, updatedTab),
+    },
+  };
 }

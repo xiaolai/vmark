@@ -20,19 +20,19 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 const mockSaveImageToAssets = vi.fn(() => Promise.resolve(".assets/saved.png"));
 const mockInsertBlockImageNode = vi.fn();
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   saveImageToAssets: (...args: unknown[]) => mockSaveImageToAssets(...args),
   insertBlockImageNode: (...args: unknown[]) => mockInsertBlockImageNode(...args),
 }));
 
 const mockGetWindowLabel = vi.fn(() => "main");
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => mockGetWindowLabel(),
 }));
 
 const mockSettingsGetState = vi.fn();
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => mockSettingsGetState() },
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: { copyImagesToAssets: () => mockSettingsGetState().image.copyToAssets },
 }));
 
 vi.mock("@/utils/debug", () => ({

@@ -4,7 +4,8 @@
  */
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
-import { useTabStore, tabFilePath } from "@/stores/tabStore";
+import { tabFilePath } from "@/stores/tabStore";
+import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
 import type { FileNode } from "@/components/Sidebar/FileExplorer/types";
@@ -61,7 +62,10 @@ export function buildQuickOpenItems(
 ): QuickOpenItem[] {
   const rootPath = getActiveWorkspaceScope(windowLabel).rootPath;
   const recentFiles = useRecentFilesStore.getState().files;
-  const windowTabs = useTabStore.getState().getTabsByWindow(windowLabel);
+  // WI-12.1: the open-tab tier lists only the VISIBLE projection (active
+  // instance + browser); selecting a global recent still switches context
+  // through ownership-aware activation (WI-12.2).
+  const windowTabs = visibleWindowTabs(windowLabel);
   const openPathSet = new Set(
     windowTabs
       .map((t) => tabFilePath(t))

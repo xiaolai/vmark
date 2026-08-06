@@ -29,6 +29,7 @@
 
 import type { Image, Link, Parents } from "mdast";
 import { urlNeedsBrackets } from "@/utils/markdownUrl";
+import { MAX_BLANK_LINES } from "./blankLineCapture";
 
 /** mdast-util-to-markdown state (simplified for our handlers). */
 export interface ToMarkdownState {
@@ -36,10 +37,20 @@ export interface ToMarkdownState {
     node: Link,
     info: { before: string; after: string }
   ) => string;
+  /** Push a construct onto the state stack; returns the matching exit. */
+  enter: (construct: string) => () => void;
 }
 
-/** URI scheme at the start of a URL (per CommonMark autolinks). */
-const URI_SCHEME_RE = /^[a-z][a-z+.-]+:/i;
+/**
+ * URI scheme at the start of a URL, per CommonMark: a letter followed by
+ * 1-31 letters, digits, `+`, `.` or `-`.
+ *
+ * The previous spelling (`[a-z][a-z+.-]+`) excluded DIGITS, so `s3://` and
+ * `h2://` were not recognized as autolinks and lost their authored form; and
+ * it had no upper bound, so a 33-character scheme was emitted as `<scheme:…>`
+ * which CommonMark does not read back as an autolink — the link became text.
+ */
+const URI_SCHEME_RE = /^[A-Za-z][A-Za-z0-9+.-]{1,31}:/;
 
 /** True when the URL contains a character that would terminate or invalidate an autolink (`<url>`): control chars, space, `<`, `>`, DEL. */
 function hasAutolinkUnsafeChar(url: string): boolean {
@@ -50,17 +61,30 @@ function hasAutolinkUnsafeChar(url: string): boolean {
   return false;
 }
 
-/** True when `(`/`)` in the URL are not balanced (raw destinations require balance). */
-function hasUnbalancedParens(url: string): boolean {
+/** CommonMark's maximum parenthesis nesting inside a raw destination. */
+const MAX_RAW_DESTINATION_PAREN_DEPTH = 32;
+
+/**
+ * True when a raw destination cannot represent this URL's parentheses —
+ * either they are unbalanced, or they nest deeper than CommonMark allows.
+ *
+ * Checking only the final balance was not enough: 40 balanced pairs are
+ * "balanced" but exceed the nesting limit, so the raw form emitted here
+ * reparsed as plain text and destroyed the link on the next save.
+ */
+function parensNeedAngleForm(url: string): boolean {
   let depth = 0;
+  let deepest = 0;
   for (const ch of url) {
-    if (ch === "(") depth++;
-    else if (ch === ")") {
+    if (ch === "(") {
+      depth++;
+      if (depth > deepest) deepest = depth;
+    } else if (ch === ")") {
       depth--;
       if (depth < 0) return true;
     }
   }
-  return depth !== 0;
+  return depth !== 0 || deepest > MAX_RAW_DESTINATION_PAREN_DEPTH;
 }
 
 /** True when the URL contains an ASCII control character or DEL. */
@@ -81,15 +105,30 @@ function hasControlChar(url: string): boolean {
  * form) — switch to `<…>` with `\`, `<`, `>` escaped and CR/LF
  * percent-encoded (newlines are invalid in a destination even escaped).
  */
+/**
+ * Escape an `&` that would otherwise start a character reference.
+ *
+ * A destination is entity-decoded when parsed, so a URL whose LITERAL text
+ * is `?a=1&amp;b=2` must be written `?a=1&amp;amp;b=2` to come back the
+ * same. Emitting it verbatim silently changed the URL to `?a=1&b=2` on
+ * every save.
+ */
+function escapeEntityStarts(url: string): string {
+  return url.replace(
+    /&(?=[a-zA-Z][a-zA-Z0-9]*;|#\d+;|#[xX][0-9a-fA-F]+;)/g,
+    "&amp;",
+  );
+}
+
 function formatDestination(url: string): string {
   const needsAngle =
     url === "" ||
     url.startsWith("<") ||
     urlNeedsBrackets(url) ||
     hasControlChar(url) ||
-    hasUnbalancedParens(url);
-  if (!needsAngle) return url;
-  const escaped = url
+    parensNeedAngleForm(url);
+  if (!needsAngle) return escapeEntityStarts(url);
+  const escaped = escapeEntityStarts(url)
     .replace(/\\/g, "\\\\")
     .replace(/</g, "\\<")
     .replace(/>/g, "\\>")
@@ -156,11 +195,19 @@ function linkHandler(
 
   const formattedUrl = formatDestination(node.url);
 
-  // Serialize children (the link text)
+  // Serialize children (the link text) INSIDE the label construct, so `]`
+  // is escaped there (upstream marks `]` unsafe only inConstruct "label").
+  // Without this, `[link [foo [bar]]](/uri)` serialized its inner `]`
+  // unescaped, the reparse closed the label early, and the next pass
+  // degraded the link to literal text (CommonMark example 512).
+  const exit = state.enter("link");
+  const subexit = state.enter("label");
   const text = state.containerPhrasing(node, {
     before: "[",
-    after: "]",
+    after: "](",
   });
+  subexit();
+  exit();
 
   if (node.title) {
     return `[${text}](${formattedUrl} "${formatTitle(node.title)}")`;
@@ -177,3 +224,27 @@ export const handleImage = Object.assign(imageHandler, {
 export const handleLink = Object.assign(linkHandler, {
   peek: (node: Link) => (autolinkValue(node) !== null ? "<" : "["),
 });
+
+/**
+ * Custom mdast-util-to-markdown join: when the right sibling carries a captured
+ * `data.blankLinesBefore` count (stamped by proseMirrorToMdast only when
+ * preserveBlankLines is on), emit that many blank lines between the two blocks;
+ * otherwise return undefined to inherit the default join (0 for tight list
+ * children, 1 for normal siblings — so tight lists stay tight, SC5). Only a
+ * finite integer in [0, MAX_BLANK_LINES] counts; any other value inherits the
+ * default. Placed here so serializer.ts stays under its file-size baseline.
+ */
+export function blankLinesJoin(
+  _left: unknown,
+  right: { data?: { blankLinesBefore?: unknown } },
+): number | undefined {
+  const n = right?.data?.blankLinesBefore;
+  // Only a finite integer in the captured range is a valid separator count;
+  // anything else (NaN, fraction, negative, over-cap) inherits the default.
+  // A negative would concatenate adjacent blocks; NaN would remove the
+  // separator; a huge value would emit a pathological run.
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > MAX_BLANK_LINES) {
+    return undefined;
+  }
+  return n;
+}

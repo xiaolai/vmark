@@ -1,0 +1,5 @@
+{
+  "_comment": "Files where a merge kept ONE side whole and the other side's change was RELOCATED, not lost. Each value must name where it was re-applied, so the claim is checkable. Detected by scripts/check-merge-drops.mjs.",
+  "src/hooks/closeSave.ts": "main split this file; our resolveSaveFilters change re-applied in src/hooks/closeSaveShared.ts (saveFiltersForFilePath)",
+  "src/hooks/mcpBridge/v2/workspace.ts": "main extracted the handler; our disk-open ingest routing re-applied in src/hooks/mcpBridge/v2/workspaceOpen.ts"
+}

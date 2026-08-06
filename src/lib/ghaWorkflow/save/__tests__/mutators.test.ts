@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { parseAsCst, stringifyCst, semanticEqual } from "../cstParser";
 import { applyPatch, type IRPatch } from "../mutators";
+import { commentSet } from "@/test/ghaCorpusHelpers";
 
 const SIMPLE_WORKFLOW = `# top-level comment
 name: ci
@@ -29,23 +30,6 @@ function applyAndSave(yaml: string, patch: IRPatch): string {
   return stringifyCst(doc);
 }
 
-function commentSet(yaml: string): Set<string> {
-  const out = new Set<string>();
-  for (const line of yaml.split("\n")) {
-    let inS = false, inD = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === "'" && !inD) inS = !inS;
-      else if (ch === '"' && !inS) inD = !inD;
-      else if (ch === "#" && !inS && !inD) {
-        const t = line.slice(i + 1).trim();
-        if (t) out.add(t);
-        break;
-      }
-    }
-  }
-  return out;
-}
 
 describe("applyPatch — workflow.set", () => {
   it("sets a top-level scalar field", () => {
@@ -364,7 +348,7 @@ describe("applyPatch — gate compliance over a representative fixture", () => {
   it("3-edit sequence preserves all original comments + anchors", async () => {
     const { readFileSync } = await import("node:fs");
     const yaml = readFileSync(
-      "dev-docs/fixtures/gha-workflows/vmark/ci.yml",
+      "src/test/fixtures/gha-workflows/vmark/ci.yml",
       "utf8",
     );
     const orig = commentSet(yaml);

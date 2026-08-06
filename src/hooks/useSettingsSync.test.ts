@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { handleSettingsStorageEvent } from "./useSettingsSync";
+import { initialState } from "@/stores/settingsStore/defaults";
+import { SYNC_GROUPS, handleSettingsStorageEvent } from "./useSettingsSync";
 
 // Helper to create a storage event with settings
 function createStorageEvent(newSettings: Record<string, unknown>): StorageEvent {
@@ -36,7 +37,12 @@ describe("useSettingsSync cross-window sync", () => {
     });
   });
 
-  describe("syncs all setting groups", () => {
+  // Per-group behavioural checks. Exhaustiveness is NOT established here —
+  // these are hand-written samples. The "SYNC_GROUPS covers every persisted
+  // settings section" contract test below is what proves full coverage; this
+  // block was previously named "syncs all setting groups", which read as a
+  // completeness guarantee it never provided and hid three missing groups.
+  describe("syncs individual setting groups", () => {
     it("syncs appearance settings", () => {
       const newAppearance = {
         ...useSettingsStore.getState().appearance,
@@ -264,6 +270,126 @@ describe("useSettingsSync cross-window sync", () => {
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
     });
+  });
+});
+
+describe("SYNC_GROUPS covers every persisted settings section", () => {
+  // Regression: the list was hand-maintained and silently omitted `terminal`,
+  // `largeFile` and `browser`. Because persist has no `partialize`, a window
+  // that skips a group later writes its whole stale state back over it — so a
+  // missing group is silent DATA LOSS, not just staleness. Deriving the list
+  // from the store makes the drift unrepresentable; this test pins that.
+  it("syncs every object-valued key of SettingsState", () => {
+    const sections = Object.keys(initialState).filter(
+      (key) =>
+        typeof initialState[key as keyof typeof initialState] === "object" &&
+        initialState[key as keyof typeof initialState] !== null,
+    );
+
+    expect([...SYNC_GROUPS].sort()).toEqual(sections.sort());
+  });
+
+  it.each(["terminal", "largeFile", "browser"] as const)(
+    "propagates the %s group (previously dropped)",
+    (group) => {
+      expect(SYNC_GROUPS).toContain(group);
+    },
+  );
+
+  it("applies a terminal font-size change from another window", () => {
+    const incoming = { ...useSettingsStore.getState().terminal, fontSize: 20 };
+
+    handleSettingsStorageEvent(createStorageEvent({ terminal: incoming }));
+
+    expect(useSettingsStore.getState().terminal.fontSize).toBe(20);
+  });
+
+  it("applies a browser enable/posture change from another window", () => {
+    const incoming = {
+      ...useSettingsStore.getState().browser,
+      enabled: true,
+      aiSession: "sandbox" as const,
+    };
+
+    handleSettingsStorageEvent(createStorageEvent({ browser: incoming }));
+
+    expect(useSettingsStore.getState().browser.enabled).toBe(true);
+    expect(useSettingsStore.getState().browser.aiSession).toBe("sandbox");
+  });
+
+  it("applies a largeFile threshold change from another window", () => {
+    const before = useSettingsStore.getState().largeFile.autoSourceMode;
+    const incoming = {
+      ...useSettingsStore.getState().largeFile,
+      autoSourceMode: !before,
+    };
+
+    handleSettingsStorageEvent(createStorageEvent({ largeFile: incoming }));
+
+    expect(useSettingsStore.getState().largeFile.autoSourceMode).toBe(!before);
+  });
+});
+
+describe("applies the same trust boundary as hydration", () => {
+  // C4: the sync path used a raw setState, so a value that hydration would
+  // clamp was accepted live from another window — the one hole in the D4
+  // defence. Both routes now share reconcileSettings().
+  it("clamps an out-of-range numeric from another window", () => {
+    const incoming = { ...useSettingsStore.getState().appearance, fontSize: 9999 };
+
+    handleSettingsStorageEvent(createStorageEvent({ appearance: incoming }));
+
+    const applied = useSettingsStore.getState().appearance.fontSize;
+    expect(applied).toBeLessThan(9999);
+    expect(applied).toBeGreaterThan(0);
+  });
+
+  it("normalizes an invalid browser posture to the safe mode", () => {
+    const incoming = {
+      ...useSettingsStore.getState().browser,
+      aiSession: "totally-invalid" as never,
+    };
+
+    handleSettingsStorageEvent(createStorageEvent({ browser: incoming }));
+
+    expect(useSettingsStore.getState().browser.aiSession).toBe("sandbox");
+  });
+
+  it("drops a type-mismatched leaf instead of poisoning the store", () => {
+    const before = useSettingsStore.getState().general.tabSize;
+    const incoming = { ...useSettingsStore.getState().general, tabSize: "four" as never };
+
+    handleSettingsStorageEvent(createStorageEvent({ general: incoming }));
+
+    expect(useSettingsStore.getState().general.tabSize).toBe(before);
+  });
+
+  it("drops non-string customLinkProtocols elements from another window", () => {
+    // audit Medium-10: hydration filtered these but the storage path did not,
+    // so the two untrusted routes applied unequal validation.
+    const incoming = {
+      ...useSettingsStore.getState().advanced,
+      customLinkProtocols: ["obsidian", 42, null, {}, "vscode"] as never,
+    };
+
+    handleSettingsStorageEvent(createStorageEvent({ advanced: incoming }));
+
+    const protocols = useSettingsStore.getState().advanced.customLinkProtocols;
+    expect(protocols).toEqual(protocols.filter((p) => typeof p === "string"));
+    expect(protocols).toContain("obsidian");
+    expect(protocols).toContain("vscode");
+    expect(protocols.every((p) => typeof p === "string")).toBe(true);
+  });
+
+  it("defaults keys the writer omitted rather than dropping them", () => {
+    // setState replaced a group wholesale; a key absent from the writer's blob
+    // vanished instead of keeping its default. A deep merge defaults it.
+    const before = useSettingsStore.getState().terminal.cursorStyle;
+
+    handleSettingsStorageEvent(createStorageEvent({ terminal: { fontSize: 17 } }));
+
+    expect(useSettingsStore.getState().terminal.fontSize).toBe(17);
+    expect(useSettingsStore.getState().terminal.cursorStyle).toBe(before);
   });
 });
 

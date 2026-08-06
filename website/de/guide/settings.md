@@ -76,7 +76,7 @@ Typografie, Anzeige, Bearbeitungsverhalten und Leerzeichen-Einstellungen.
 | Einstellung | Beschreibung | Standard | Optionen |
 |-------------|-------------|---------|---------|
 | Zeilenenden beim Speichern | Steuert, wie Zeilenenden beim Speichern von Dateien behandelt werden | Bestehende erhalten | Bestehende erhalten, LF (`\n`), CRLF (`\r\n`) |
-| Aufeinanderfolgende Zeilenumbrüche erhalten | Mehrere Leerzeilen so lassen, anstatt sie zu reduzieren | Aus | Ein / Aus |
+| Aufeinanderfolgende Zeilenumbrüche erhalten | Mehrere Leerzeilen so lassen, anstatt sie zu reduzieren | Ein | Ein / Aus |
 | Harter Zeilenumbruch-Stil beim Speichern | Wie harte Zeilenumbrüche in der gespeicherten Markdown-Datei dargestellt werden | Bestehende erhalten | Zwei Leerzeichen (Empfohlen), Bestehende erhalten, Backslash (`\`) |
 | `<br>`-Tags anzeigen | HTML-Zeilenumbruch-Tags sichtbar im Editor anzeigen | Aus | Ein / Aus |
 
@@ -160,7 +160,7 @@ Diese Einstellungen gelten nur, wenn ein Arbeitsbereich (Ordner) geöffnet ist.
 |-------------|-------------|---------|---------|
 | Beim Einfügen automatisch skalieren | Große Bilder vor dem Speichern im Asset-Ordner automatisch skalieren. Der Wert ist die maximale Dimension in Pixeln | Aus | Aus, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | In Asset-Ordner kopieren | Eingefügte oder gezogene Bilder in den Asset-Ordner des Dokuments kopieren, anstatt sie einzubetten | Ein | Ein / Aus |
-| Unbenutzte Bilder beim Schließen bereinigen | Bilder aus dem Asset-Ordner automatisch löschen, die beim Schließen nicht mehr im Dokument referenziert werden | Aus | Ein / Aus |
+| Unbenutzte Bilder beim Schließen bereinigen | Bilder aus dem Asset-Ordner automatisch löschen, die das Dokument nicht mehr referenziert. Läuft beim Schließen des Dokuments, des Fensters oder der App. Bilder, die noch von einem anderen Dokument im selben Ordner referenziert werden, bleiben erhalten; entfernte Bilder wandern in den System-Papierkorb | Aus | Ein / Aus |
 | Schwelle für eingebettete Bilder | Maximale Größe (MB) für das Einbetten von Bildern als base64-Daten-URLs im HTML-/PDF-Export. Größere Dateien werden stattdessen verlinkt | 1,0 MB | 0,1 – 10 MB |
 
 ### Große Dateien
@@ -300,7 +300,7 @@ Der Sprach-Abschnitt enthält 20+ feinkörnige Formatierungs-Umschalter. Eine vo
 | Aufeinanderfolgende Interpunktion begrenzen | Wiederholte Satzzeichen wie `!!!` begrenzen | Aus | Aus, Einfach (`!!` zu `!`), Doppelt (`!!!` zu `!!`) |
 | Abschließende Leerzeichen entfernen | Leerzeichen am Zeilenende entfernen | Ein | Ein / Aus |
 | Auslassungspunkte normalisieren | Punkte mit Abstand (`. . .`) in korrekte Auslassungspunkte (`...`) konvertieren | Ein | Ein / Aus |
-| Neue Zeilen reduzieren | Drei oder mehr aufeinanderfolgende neue Zeilen auf zwei reduzieren | Ein | Ein / Aus |
+| Neue Zeilen reduzieren | Drei oder mehr aufeinanderfolgende neue Zeilen auf zwei reduzieren | Aus | Ein / Aus |
 
 ## Tastaturkürzel
 

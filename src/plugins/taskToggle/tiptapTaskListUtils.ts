@@ -6,15 +6,18 @@
  * back to regular lists and toggling checked attributes.
  *
  * @coordinates-with tiptap.ts — the task toggle extension uses these for toolbar commands
- * @coordinates-with toolbarActions — toolbar adapter calls toggleTaskList/untoggleTaskList
+ * @coordinates-with toolbarActions — toolbar adapter calls toggleTaskList/convertSelectionToTaskList
  * @module plugins/taskToggle/tiptapTaskListUtils
  */
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import { liftListItem } from "@tiptap/pm/schema-list";
+import { liftSelectionOutOfLists } from "@/plugins/shared/listHelpers";
 
 /**
- * Check if the current selection is inside a task list.
- * A task list is a bulletList where listItem nodes have a `checked` attribute.
+ * Check if the current selection is inside a task list. Decided at the
+ * NEAREST enclosing listItem only: the item must carry a boolean `checked`
+ * AND live in a bulletList. Walking further up would misclassify a plain
+ * list nested inside a task item (and flatten it), and a stale `checked` on
+ * an ordered-list item is not a task either.
  */
 function isInTaskList(editor: TiptapEditor): boolean {
   const { state } = editor;
@@ -25,9 +28,8 @@ function isInTaskList(editor: TiptapEditor): boolean {
     const node = $from.node(d);
     if (node.type === listItemType) {
       const checked = node.attrs.checked as unknown;
-      if (checked === true || checked === false) {
-        return true;
-      }
+      const parentIsBullet = d > 1 && $from.node(d - 1).type.name === "bulletList";
+      return (checked === true || checked === false) && parentIsBullet;
     }
   }
   return false;
@@ -59,84 +61,53 @@ function clearCheckedAttribute(editor: TiptapEditor): void {
 
 /**
  * Remove list formatting from the current selection.
- * Lifts list items until no longer in a list.
- * Clears checked attribute before lifting to prevent stale task state.
+ * Lifts list items until no longer in a list (shared primitive — stops on a
+ * failed lift instead of retrying it). Clears the checked attribute before
+ * each lift to prevent stale task state.
  */
-function removeTaskList(editor: TiptapEditor): void {
+function removeTaskList(editor: TiptapEditor): boolean {
   const { view } = editor;
-  const listItemType = editor.state.schema.nodes.listItem;
-  /* v8 ignore next -- @preserve reason: schema always defines listItem in Tiptap setup */
-  if (!listItemType) return;
-
-  const maxLifts = 10;
-  for (let i = 0; i < maxLifts; i++) {
-    const { $from } = view.state.selection;
-    let inList = false;
-    for (let d = $from.depth; d > 0; d--) {
-      const name = $from.node(d).type.name;
-      if (name === "bulletList" || name === "orderedList") {
-        inList = true;
-        break;
-      }
-    }
-    if (!inList) break;
-
-    // Clear checked attribute before lifting
-    clearCheckedAttribute(editor);
-
-    liftListItem(listItemType)(view.state, view.dispatch);
-  }
+  const lifted = liftSelectionOutOfLists(view, () => clearCheckedAttribute(editor));
   view.focus();
+  return lifted;
 }
 
 /**
- * Toggle task list: if already in a task list, remove it; otherwise create one.
+ * Toggle task list: if already in a task list, remove it; otherwise create
+ * one. Returns whether the document changed (B2 boolean contract).
  */
-export function toggleTaskList(editor: TiptapEditor): void {
+export function toggleTaskList(editor: TiptapEditor): boolean {
   if (isInTaskList(editor)) {
-    removeTaskList(editor);
-    return;
+    return removeTaskList(editor);
   }
-  convertSelectionToTaskList(editor);
+  return convertSelectionToTaskList(editor);
 }
 
-export function convertSelectionToTaskList(editor: TiptapEditor): void {
+/** Depth of the nearest list ancestor of `$from`, or -1. */
+function nearestListDepth($from: TiptapEditor["state"]["selection"]["$from"]): number {
+  for (let d = $from.depth; d > 0; d--) {
+    const name = $from.node(d).type.name;
+    if (name === "bulletList" || name === "orderedList") return d;
+  }
+  return -1;
+}
+
+/**
+ * Convert the nearest list ancestor of the selection into a task list:
+ * orderedList becomes bulletList, and EVERY direct listItem without a boolean
+ * `checked` gains `checked: false` — all items, not only the one under the
+ * cursor (wrapping a multi-paragraph selection creates several new items).
+ * Dispatches only when something actually changes.
+ */
+function markNearestListAsTasks(editor: TiptapEditor): boolean {
   const { state, view } = editor;
   const bulletListType = state.schema.nodes.bulletList;
   const listItemType = state.schema.nodes.listItem;
-
-  if (!bulletListType || !listItemType) {
-    editor.chain().focus().toggleBulletList().run();
-    return;
-  }
-
   const { $from } = state.selection;
-  let listDepth = -1;
-  for (let d = $from.depth; d > 0; d--) {
-    const name = $from.node(d).type.name;
-    if (name === "bulletList" || name === "orderedList") {
-      listDepth = d;
-      break;
-    }
-  }
 
-  if (listDepth === -1) {
-    editor.chain().focus().toggleBulletList().run();
-    const { $from: $after } = editor.state.selection;
-    for (let d = $after.depth; d > 0; d--) {
-      const node = $after.node(d);
-      if (node.type !== listItemType) continue;
-      const pos = $after.before(d);
-      const checked = node.attrs.checked as unknown;
-      if (checked === true || checked === false) return;
-      const tr = view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: false });
-      tr.setMeta("addToHistory", true);
-      view.dispatch(tr);
-      view.focus();
-      return;
-    }
-    return;
-  }
+  const listDepth = nearestListDepth($from);
+  if (listDepth === -1) return false; // wrap path: chain may not have created a list
+
 
   const listNode = $from.node(listDepth);
   const listPos = $from.before(listDepth);
@@ -153,8 +124,30 @@ export function convertSelectionToTaskList(editor: TiptapEditor): void {
     tr.setNodeMarkup(listPos + 1 + offset, undefined, { ...item.attrs, checked: false });
   });
 
+  // An already fully initialized task list produces no steps — honest no-op.
+  if (tr.steps.length === 0) return false;
   tr.setMeta("addToHistory", true);
   view.dispatch(tr);
   view.focus();
+  return true;
+}
+
+export function convertSelectionToTaskList(editor: TiptapEditor): boolean {
+  const { state } = editor;
+  const bulletListType = state.schema.nodes.bulletList;
+  const listItemType = state.schema.nodes.listItem;
+
+  if (!bulletListType || !listItemType) {
+    return editor.chain().focus().toggleBulletList().run();
+  }
+
+  if (nearestListDepth(state.selection.$from) === -1) {
+    // Not in a list: wrap first, then initialize every new item.
+    const wrapped = editor.chain().focus().toggleBulletList().run();
+    if (!wrapped) return false;
+    return markNearestListAsTasks(editor) || wrapped;
+  }
+
+  return markNearestListAsTasks(editor);
 }
 

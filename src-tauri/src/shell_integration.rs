@@ -1,22 +1,34 @@
-//! Shell integration setup (WI-3.1).
+//! Shell integration setup (WI-3.1, extended by WI-3.3/3.4).
 //!
 //! Purpose: Materializes the per-shell integration rc that emits OSC 133
-//! command-boundary marks + OSC 7 cwd, and returns the environment overrides
-//! the frontend should apply when spawning the shell. Currently zsh-only
-//! (macOS primary, per the WI-0.3 spike); other shells return `None` and the
+//! command-boundary marks + OSC 7 cwd, and returns what the frontend needs to
+//! apply when spawning the shell: environment overrides **and** command-line
+//! arguments. zsh and bash are supported; other shells return `None` and the
 //! terminal spawns without integration (graceful degrade).
 //!
-//! The zsh script is embedded at compile time via `include_str!`, so there is
-//! no runtime resource bundling. It is written to
-//! `<appLocalData>/shell-integration/zsh/.zshrc` and pointed at by `ZDOTDIR`.
+//! Why the return type carries `args` (WI-3.3): zsh is hooked purely through
+//! the environment (`ZDOTDIR`), but bash has no environment hook that applies
+//! to interactive shells — `BASH_ENV` is non-interactive-only — so it must be
+//! spawned as `bash --rcfile <path>`. Rather than special-casing bash in the
+//! frontend, the contract became `{ env, args }` for every shell; zsh returns
+//! `args: []` and behaves byte-identically to before.
+//!
+//! Each script is embedded at compile time via `include_str!`, so there is no
+//! runtime resource bundling. They are written to
+//! `<appLocalData>/shell-integration/<shell>/<rc>`.
+//!
+//! Windows is deliberately untouched: `get_default_shell` yields `%COMSPEC%`
+//! there, and a configured `bash.exe` does not match the `bash` basename, so
+//! Windows keeps spawning with no integration exactly as before.
 //!
 //! @coordinates-with lib.rs — command registered in generate_handler![]
-//! @coordinates-with src/components/Terminal/spawnPty.ts — applies the env overrides
+//! @coordinates-with src/components/Terminal/terminalSpawnEnv.ts — applies env + args
+//! @coordinates-with src/components/Terminal/spawnPty.ts — forwards args to spawn()
 //! @module shell_integration
 
 use std::collections::BTreeMap;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -25,6 +37,53 @@ static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// zsh integration rc, embedded at compile time.
 const ZSH_INTEGRATION: &str = include_str!("../resources/shell-integration/vmark.zsh");
+/// bash integration rc, embedded at compile time (WI-3.4).
+const BASH_INTEGRATION: &str = include_str!("../resources/shell-integration/vmark.bash");
+
+/// What the frontend must apply when spawning an integrated shell.
+///
+/// `env` is merged onto the base environment; `args` is passed to `spawn` in
+/// place of the previously hardcoded empty argument list.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct ShellIntegration {
+    pub env: BTreeMap<String, String>,
+    pub args: Vec<String>,
+}
+
+/// The shells VMark knows how to instrument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ShellKind {
+    Zsh,
+    Bash,
+}
+
+impl ShellKind {
+    /// Subdirectory under `shell-integration/` holding this shell's rc.
+    fn dir_name(self) -> &'static str {
+        match self {
+            ShellKind::Zsh => "zsh",
+            ShellKind::Bash => "bash",
+        }
+    }
+
+    /// Filename the rc is written as. zsh requires the literal `.zshrc`
+    /// (it is found by name inside `ZDOTDIR`); bash is pointed at explicitly
+    /// by `--rcfile`, so the name is ours to choose.
+    fn rc_name(self) -> &'static str {
+        match self {
+            ShellKind::Zsh => ".zshrc",
+            ShellKind::Bash => "vmark.bash",
+        }
+    }
+
+    /// The embedded script for this shell.
+    fn script(self) -> &'static str {
+        match self {
+            ShellKind::Zsh => ZSH_INTEGRATION,
+            ShellKind::Bash => BASH_INTEGRATION,
+        }
+    }
+}
 
 /// Extract the executable basename from a shell path (`/bin/zsh` → `zsh`).
 fn shell_basename(shell: &str) -> &str {
@@ -34,38 +93,104 @@ fn shell_basename(shell: &str) -> &str {
         .unwrap_or("")
 }
 
-/// Prepare shell integration for `shell`. Returns env overrides to apply at
-/// spawn (e.g. `ZDOTDIR`), or `None` for shells without integration support.
+/// Classify a shell path. Returns `None` for anything VMark cannot instrument
+/// — including `bash.exe`, which keeps Windows on the un-integrated path.
+fn shell_kind(shell: &str) -> Option<ShellKind> {
+    match shell_basename(shell) {
+        "zsh" => Some(ShellKind::Zsh),
+        "bash" => Some(ShellKind::Bash),
+        // fish needs XDG_DATA_DIRS + vendor_conf.d, a different mechanism —
+        // tracked as a follow-up, not a cheap rider on --rcfile.
+        _ => None,
+    }
+}
+
+/// Prepare shell integration for `shell`. Returns the env overrides and spawn
+/// args to apply, or `None` for shells without integration support.
+///
+/// The body runs on a BLOCKING thread: it does synchronous filesystem work and,
+/// on the first zsh launch, a login-shell probe that can take seconds
+/// (`login_shell_zdotdir`). Doing that directly in an async command occupies a
+/// runtime worker for the whole duration — during terminal startup, which is
+/// exactly when other IPC needs to be responsive (audit).
 #[tauri::command]
 pub async fn prepare_shell_integration<R: Runtime>(
     shell: String,
     app: AppHandle<R>,
-) -> Result<Option<BTreeMap<String, String>>, String> {
-    if shell_basename(&shell) != "zsh" {
-        // bash (--rcfile) and fish (conf.d) follow in a later WI; unknown shells
-        // never get integration.
+) -> Result<Option<ShellIntegration>, String> {
+    tauri::async_runtime::spawn_blocking(move || prepare_shell_integration_blocking(shell, app))
+        .await
+        .map_err(|e| format!("Shell-integration task failed: {e}"))?
+}
+
+/// The synchronous body of `prepare_shell_integration`.
+fn prepare_shell_integration_blocking<R: Runtime>(
+    shell: String,
+    app: AppHandle<R>,
+) -> Result<Option<ShellIntegration>, String> {
+    let Some(kind) = shell_kind(&shell) else {
         return Ok(None);
+    };
+
+    let base = app.path().app_local_data_dir().map_err(|e| {
+        log::warn!("[shell_integration] no app data dir; spawning without integration: {e}");
+        format!("Failed to resolve app data dir: {e}")
+    })?;
+    let dir = base.join("shell-integration").join(kind.dir_name());
+    std::fs::create_dir_all(&dir).map_err(|e| {
+        log::warn!("[shell_integration] cannot create {dir:?}; spawning without integration: {e}");
+        format!("Failed to create integration dir: {e}")
+    })?;
+    write_rc_atomic(&dir, kind.rc_name(), kind.script()).map_err(|e| {
+        log::warn!(
+            "[shell_integration] cannot write {}; spawning without integration: {e}",
+            kind.rc_name()
+        );
+        format!("Failed to install integration rc: {e}")
+    })?;
+
+    // Resolve via the SHELL being spawned, not the process $SHELL, which in a
+    // minimal GUI env may be /bin/sh and misresolve (Codex audit). Only zsh
+    // consumes this; bash carries no env override.
+    let user_zdotdir = match kind {
+        ShellKind::Zsh => crate::ai_provider::login_shell_zdotdir(&shell),
+        ShellKind::Bash => None,
+    };
+    Ok(Some(build_integration(kind, &dir, user_zdotdir)))
+}
+
+/// Build the `{ env, args }` pair for a prepared integration directory.
+/// Pure — the filesystem work happens in the command above.
+fn build_integration(
+    kind: ShellKind,
+    dir: &Path,
+    user_zdotdir: Option<String>,
+) -> ShellIntegration {
+    match kind {
+        ShellKind::Zsh => ShellIntegration {
+            // `ZDOTDIR` points at the VMark integration dir so zsh reads our
+            // rc; `USER_ZDOTDIR` carries the user's real ZDOTDIR (resolved
+            // from a login shell — the GUI process env is minimal) so
+            // `vmark.zsh` can source their config instead of falling back to
+            // `$HOME` (terminal gap G1, WI-1.2).
+            env: build_zsh_env(dir, user_zdotdir),
+            // zsh needs no args — this is what keeps WI-3.3 byte-identical
+            // for existing users.
+            args: Vec::new(),
+        },
+        ShellKind::Bash => ShellIntegration {
+            env: BTreeMap::new(),
+            args: vec![
+                "--rcfile".to_string(),
+                rc_path(dir, ShellKind::Bash).to_string_lossy().into_owned(),
+            ],
+        },
     }
+}
 
-    let base = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?;
-    let dir = base.join("shell-integration").join("zsh");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create integration dir: {e}"))?;
-    write_rc_atomic(&dir, ZSH_INTEGRATION)
-        .map_err(|e| format!("Failed to install integration rc: {e}"))?;
-
-    // `ZDOTDIR` points at the VMark integration dir so zsh reads our rc;
-    // `USER_ZDOTDIR` carries the user's real ZDOTDIR (resolved from a login
-    // shell — the GUI process env is minimal) so `vmark.zsh` can source their
-    // config instead of falling back to `$HOME` (terminal gap G1, WI-1.2).
-    // Resolve via the SHELL being spawned (zsh here), not the process $SHELL,
-    // which in a minimal GUI env may be /bin/sh and misresolve (Codex audit).
-    Ok(Some(build_zsh_env(
-        &dir,
-        crate::ai_provider::login_shell_zdotdir(&shell),
-    )))
+/// Absolute path of a shell's materialized rc.
+fn rc_path(dir: &Path, kind: ShellKind) -> PathBuf {
+    dir.join(kind.rc_name())
 }
 
 /// Build the env overrides for the zsh integration. `USER_ZDOTDIR` is included
@@ -83,18 +208,19 @@ fn build_zsh_env(integration_dir: &Path, user_zdotdir: Option<String>) -> BTreeM
     env
 }
 
-/// Atomically write `contents` to `<dir>/.zshrc`.
+/// Atomically write `contents` to `<dir>/<file_name>`.
 ///
-/// A concurrent spawn could otherwise source a half-written `.zshrc`. We write
-/// a per-call unique temp file then rename it into place (rename is atomic on
+/// A concurrent spawn could otherwise source a half-written rc. We write a
+/// per-call unique temp file then rename it into place (rename is atomic on
 /// the same filesystem). The per-call unique name (PID + monotonic counter)
 /// keeps two concurrent calls from clobbering each other's temp file before the
-/// rename — the final `.zshrc` is always one writer's complete contents, never
+/// rename — the final rc is always one writer's complete contents, never
 /// a torn mix (WI-4.6).
-fn write_rc_atomic(dir: &Path, contents: &str) -> io::Result<()> {
-    let rc = dir.join(".zshrc");
+fn write_rc_atomic(dir: &Path, file_name: &str, contents: &str) -> io::Result<()> {
+    let rc = dir.join(file_name);
     let tmp = dir.join(format!(
-        ".zshrc.tmp.{}.{}",
+        "{}.tmp.{}.{}",
+        file_name,
         std::process::id(),
         TMP_SEQ.fetch_add(1, Ordering::Relaxed),
     ));
@@ -104,118 +230,5 @@ fn write_rc_atomic(dir: &Path, contents: &str) -> io::Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn shell_basename_extracts_name() {
-        assert_eq!(shell_basename("/bin/zsh"), "zsh");
-        assert_eq!(shell_basename("/usr/local/bin/zsh"), "zsh");
-        assert_eq!(shell_basename("/bin/bash"), "bash");
-        assert_eq!(shell_basename("zsh"), "zsh");
-        assert_eq!(shell_basename(""), "");
-    }
-
-    #[test]
-    fn embedded_script_has_the_osc_marks() {
-        // Guards against an empty/garbled include_str! and documents the contract.
-        assert!(ZSH_INTEGRATION.contains("133;A"));
-        assert!(ZSH_INTEGRATION.contains("133;C"));
-        assert!(ZSH_INTEGRATION.contains("133;D"));
-        assert!(ZSH_INTEGRATION.contains("add-zsh-hook"));
-        // Non-destructive: restores the user's ZDOTDIR and sources their real
-        // rc + env (terminal gap G1 / WI-1.2).
-        assert!(ZSH_INTEGRATION.contains("USER_ZDOTDIR"));
-        assert!(ZSH_INTEGRATION.contains("source \"$ZDOTDIR/.zshrc\""));
-        assert!(ZSH_INTEGRATION.contains(".zshenv"));
-        // Bootstrap: ~/.zshenv (where a custom ZDOTDIR is typically set) is read
-        // explicitly since our injected ZDOTDIR makes zsh skip it (Codex audit).
-        assert!(ZSH_INTEGRATION.contains("$HOME/.zshenv"));
-    }
-
-    #[test]
-    fn build_zsh_env_includes_user_zdotdir_when_resolved() {
-        let env = build_zsh_env(Path::new("/vmark/zsh"), Some("/home/x/.config/zsh".into()));
-        assert_eq!(env.get("ZDOTDIR").map(String::as_str), Some("/vmark/zsh"));
-        assert_eq!(
-            env.get("USER_ZDOTDIR").map(String::as_str),
-            Some("/home/x/.config/zsh")
-        );
-    }
-
-    #[test]
-    fn build_zsh_env_omits_user_zdotdir_when_unset_or_empty() {
-        // Unset → vmark.zsh's `${USER_ZDOTDIR:-$HOME}` fallback handles it.
-        let none = build_zsh_env(Path::new("/vmark/zsh"), None);
-        assert_eq!(none.get("ZDOTDIR").map(String::as_str), Some("/vmark/zsh"));
-        assert!(!none.contains_key("USER_ZDOTDIR"));
-        // Empty string is treated as unset.
-        let empty = build_zsh_env(Path::new("/vmark/zsh"), Some(String::new()));
-        assert!(!empty.contains_key("USER_ZDOTDIR"));
-    }
-
-    #[test]
-    fn write_rc_atomic_writes_complete_contents() {
-        let dir = tempfile::tempdir().unwrap();
-        write_rc_atomic(dir.path(), ZSH_INTEGRATION).unwrap();
-        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
-        assert_eq!(written, ZSH_INTEGRATION);
-    }
-
-    #[test]
-    fn write_rc_atomic_overwrites_existing() {
-        let dir = tempfile::tempdir().unwrap();
-        write_rc_atomic(dir.path(), "first").unwrap();
-        write_rc_atomic(dir.path(), "second").unwrap();
-        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
-        assert_eq!(written, "second");
-    }
-
-    #[test]
-    fn write_rc_atomic_concurrent_writes_yield_intact_file() {
-        // N threads write the same large payload concurrently to the same dir.
-        // Every call must succeed, no temp files may be left behind, and the
-        // final .zshrc must be one writer's *complete* payload — never a torn
-        // mix of two writers (WI-4.6 atomic-write race).
-        use std::sync::Arc;
-        use std::thread;
-
-        let dir = Arc::new(tempfile::tempdir().unwrap());
-        // Distinct, byte-length-varied payloads so a torn write is detectable:
-        // a corrupt file would not equal any single payload.
-        let payloads: Vec<String> = (0..16)
-            .map(|i| format!("# writer {i}\n{}", ZSH_INTEGRATION.repeat(i + 1)))
-            .collect();
-
-        let mut handles = Vec::new();
-        for payload in &payloads {
-            let dir = Arc::clone(&dir);
-            let payload = payload.clone();
-            handles.push(thread::spawn(move || write_rc_atomic(dir.path(), &payload)));
-        }
-        for h in handles {
-            // Every concurrent call succeeds (no clobbered temp, no rename error).
-            h.join()
-                .unwrap()
-                .expect("concurrent write_rc_atomic failed");
-        }
-
-        // The final file is exactly one writer's complete payload.
-        let written = std::fs::read_to_string(dir.path().join(".zshrc")).unwrap();
-        assert!(
-            payloads.contains(&written),
-            "final .zshrc is corrupt/torn — not equal to any single writer's payload",
-        );
-
-        // No leftover temp files: each rename consumed its own unique temp.
-        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
-            .unwrap()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_name().to_string_lossy().starts_with(".zshrc.tmp."))
-            .collect();
-        assert!(
-            leftovers.is_empty(),
-            "stray temp files left behind: {leftovers:?}",
-        );
-    }
-}
+#[path = "shell_integration.test.rs"]
+mod tests;

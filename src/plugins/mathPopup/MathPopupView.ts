@@ -6,18 +6,25 @@
  */
 
 import i18n from "@/i18n";
-import { useMathPopupStore } from "@/stores/mathPopupStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { loadKatex } from "@/plugins/latex/katexLoader";
 import { renderWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import type { StoreApi } from "zustand";
 import { WysiwygPopupView, type EditorViewLike, type PopupStoreBase } from "@/plugins/shared";
 
 const DEFAULT_POPUP_WIDTH = 360;
 const DEFAULT_POPUP_HEIGHT = 200;
 
-/** Math popup store state (extends base with math-specific fields) */
-interface MathPopupState extends PopupStoreBase {
+/**
+ * The popup state this view needs — the plugin's PORT, declared here.
+ *
+ * Not imported from the app's store. The boundary is not "no shape
+ * dependency" — a math popup intrinsically needs a latex string and a way to
+ * update it, and hiding that would be fake decoupling. It is "the plugin
+ * declares the shape it needs, and the host adapts to it".
+ */
+export interface MathPopupState extends PopupStoreBase {
   latex: string;
   nodePos: number | null;
   updateLatex: (latex: string) => void;
@@ -26,8 +33,8 @@ interface MathPopupState extends PopupStoreBase {
 export class MathPopupView extends WysiwygPopupView<MathPopupState> {
   private renderToken = 0;
 
-  constructor(view: EditorViewLike) {
-    super(view, useMathPopupStore);
+  constructor(view: EditorViewLike, store: StoreApi<MathPopupState>) {
+    super(view, store);
   }
 
   // Lazy getters for DOM elements (avoids constructor timing issues)
@@ -86,7 +93,7 @@ export class MathPopupView extends WysiwygPopupView<MathPopupState> {
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     const rect = this.container.getBoundingClientRect();
     return {
       width: rect.width || DEFAULT_POPUP_WIDTH,

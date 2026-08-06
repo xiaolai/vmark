@@ -1,30 +1,31 @@
 /**
  * View commands — ADR-012 migration of useViewMenuEvents.
  *
- * 28 commands covering source/focus/typewriter modes, sidebar views and
- * panels (knowledge base, window status, breakdown), word wrap, line
- * numbers, diagram preview, fit tables, read-only, terminal toggle, zoom,
- * and lint check/navigation. The split-document pane commands live in
- * paneCommands.ts (registered from here).
+ * Commands covering source/focus/typewriter modes, the universal toolbar,
+ * sidebar views and panels (knowledge base, window status, breakdown), word
+ * wrap, line numbers, diagram preview, fit tables, read-only, terminal
+ * toggle, and zoom. Two sibling sets are registered from here so callers
+ * keep one entry point: the split-document pane commands
+ * (paneCommands.ts) and the markdown-lint commands (lintCommands.ts).
  */
 
 import { hasCommand, registerCommand } from "./CommandBus";
 import { registerPaneCommands, __resetPaneCommandsRegistration } from "./paneCommands";
+import { registerLintCommands, __resetLintCommandsRegistration } from "./lintCommands";
 import { useUIStore } from "@/stores/uiStore";
+import { toggleShowHiddenFiles, toggleShowAllFiles } from "@/services/workspaces/workspaceConfig";
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useBreakdownStore } from "@/stores/breakdownStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useLintStore } from "@/stores/documentStore";
-import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
-import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
+import { toggleMarkdownSplitWithCheckpoint } from "@/services/editor/markdownSplitToggle";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
-import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
-import { runActiveLint } from "@/services/lint/runActiveLint";
 import i18n from "@/i18n";
+import { toggleUniversalToolbar } from "@/services/editor/universalToolbarToggle";
 
 const DEFAULT_FONT_SIZE = 18;
 const MIN_FONT_SIZE = 12;
@@ -49,10 +50,38 @@ export function registerViewCommands(): void {
   });
 
   registerCommand({
+    id: "view.toggleUniversalToolbar",
+    title: () => i18n.t("commands:view.toggleUniversalToolbar"),
+    category: "view",
+    run: () => toggleUniversalToolbar(),
+  });
+
+  registerCommand({
     id: "view.toggleFocusMode",
     title: () => i18n.t("commands:view.toggleFocusMode"),
     category: "view",
     run: () => useUIStore.getState().toggleFocusMode(),
+  });
+
+  registerCommand({
+    id: "view.contentSearch",
+    title: () => i18n.t("commands:view.contentSearch"),
+    category: "view",
+    run: () => useUIStore.getState().contentSearchOpen(),
+  });
+
+  registerCommand({
+    id: "explorer.toggleHiddenFiles",
+    title: () => i18n.t("commands:explorer.toggleHiddenFiles"),
+    category: "view",
+    run: () => toggleShowHiddenFiles(),
+  });
+
+  registerCommand({
+    id: "explorer.toggleAllFiles",
+    title: () => i18n.t("commands:explorer.toggleAllFiles"),
+    category: "view",
+    run: () => toggleShowAllFiles(),
   });
 
   registerCommand({
@@ -67,6 +96,13 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:view.toggleOutline"),
     category: "view",
     run: () => useUIStore.getState().toggleSidebarView("outline"),
+  });
+
+  registerCommand({
+    id: "view.toggleSidebar",
+    title: () => i18n.t("commands:view.toggleSidebar"),
+    category: "view",
+    run: () => useUIStore.getState().toggleSidebar(),
   });
 
   registerCommand({
@@ -218,44 +254,8 @@ export function registerViewCommands(): void {
     },
   });
 
-  registerCommand({
-    id: "lint.check",
-    title: () => i18n.t("commands:lint.check"),
-    category: "lint",
-    run: (_args, ctx: Ctx) => {
-      runActiveLint(ctx.windowLabel ?? "main");
-    },
-  });
-
-  registerCommand({
-    id: "lint.next",
-    title: () => i18n.t("commands:lint.next"),
-    category: "lint",
-    run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const tabId = getActiveTabId(windowLabel);
-      if (tabId) {
-        useLintStore.getState().selectNext(tabId);
-        scrollToSelectedDiagnostic(tabId);
-      }
-    },
-  });
-
-  registerCommand({
-    id: "lint.prev",
-    title: () => i18n.t("commands:lint.prev"),
-    category: "lint",
-    run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const tabId = getActiveTabId(windowLabel);
-      if (tabId) {
-        useLintStore.getState().selectPrev(tabId);
-        scrollToSelectedDiagnostic(tabId);
-      }
-    },
-  });
-
   registerPaneCommands();
+  registerLintCommands();
 
   registered = true;
 }
@@ -264,4 +264,5 @@ export function registerViewCommands(): void {
 export function __resetViewCommandsRegistration(): void {
   registered = false;
   __resetPaneCommandsRegistration();
+  __resetLintCommandsRegistration();
 }

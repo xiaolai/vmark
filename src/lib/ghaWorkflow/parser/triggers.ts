@@ -156,12 +156,14 @@ function advisory(
   source: TemplateToken,
 ): void {
   if (trig.event === "pull_request_target") {
+    const range = rangeOf(source);
     diagnostics.push({
       severity: "warning",
       code: "GHA-SEC-001",
       message:
         "pull_request_target runs in the base repo's context with secrets — never check out PR head code without persist-credentials: false.",
-      position: rangeOf(source),
+      // Absent when the token has no range — see Diagnostic.position.
+      ...(range ? { position: range } : {}),
     });
   }
 }

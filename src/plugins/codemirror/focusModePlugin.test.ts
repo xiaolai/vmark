@@ -15,10 +15,10 @@ const mockEditorStore = {
 };
 const mockSubscribe = vi.fn(() => vi.fn());
 
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => mockEditorStore,
-    subscribe: (...args: unknown[]) => mockSubscribe(...args),
+vi.mock("@/plugins/shared/hostViewModes", () => ({
+  hostViewModes: {
+    focusMode: () => mockEditorStore.focusModeEnabled,
+    onChange: (...args: unknown[]) => mockSubscribe(...args),
   },
 }));
 

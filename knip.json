@@ -19,7 +19,8 @@
         "src/**/*.{test,spec}.{ts,tsx}",
         "src/bench/**/*.bench.ts",
         "scripts/*.{ts,mjs}",
-        ".claude/hooks/*.mjs"
+        ".claude/hooks/*.mjs",
+        "src/utils/markdownPipeline/__tests__/pathological/runCases.ts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",
@@ -29,13 +30,14 @@
       "ignoreDependencies": [
         "tailwindcss",
         "@tauri-apps/cli",
-        "@hypothesi/tauri-mcp-server"
+        "@hypothesi/tauri-mcp-server",
+        "@xterm/addon-serialize"
       ],
       "ignoreBinaries": [
         "smoke"
       ]
     },
-    "vmark-content-server": {
+    "server/content": {
       "entry": [
         "src/**/*.{test,spec}.ts",
         "src/**/*.bench.ts"
@@ -51,7 +53,7 @@
         "mdast-util-find-and-replace"
       ]
     },
-    "vmark-mcp-server": {
+    "server/mcp": {
       "project": [
         "src/**/*.ts"
       ],

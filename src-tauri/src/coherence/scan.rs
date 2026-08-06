@@ -29,6 +29,18 @@ pub(super) const IGNORED_DIRS: [&str; 8] = [
     ".Trash",
 ];
 
+/// Workspace-relative directory PATHS never scanned. Unlike `IGNORED_DIRS`
+/// (bare names, matched at any depth) these are anchored at the workspace
+/// root, so the rest of `.claude/` stays ordinary scannable content.
+///
+/// A git worktree checked out inside the repo is a second checkout of the
+/// SAME tracked files, so every doc in it carries its main-checkout twin's
+/// `vmark.id`: scanning both emits a `duplicate-id` diagnostic per doc and
+/// registers phantom objects at paths that exist on one machine only. The
+/// prefix is anchored rather than name-based for the same reason
+/// `CACHEDIR.TAG` is exact — no guessing at directories called "worktrees".
+pub(super) const IGNORED_REL_PREFIXES: [&str; 1] = [".claude/worktrees"];
+
 /// DoS guards for kernels opened on arbitrary roots (MCP surface): a walk
 /// that trips either cap is INCOMPLETE — reported, and deletion
 /// reconciliation is skipped.
@@ -40,6 +52,9 @@ pub struct ScanReport {
     pub navigations: usize,
     pub git_mutations: usize,
     pub external_edits: usize,
+    /// Set when the git observation could not be trusted and reconciliation
+    /// was deferred to the next scan (#1207).
+    pub git_observation_unreliable: bool,
     pub adopted: usize,
     pub absent_marked: usize,
     pub diagnostics: usize,
@@ -87,6 +102,16 @@ fn scan_workspace_locked(kernel: &mut WorkspaceKernel) -> Result<ScanReport, Str
         // Defer: reconcile once the merge concludes.
         kernel.last_git = current_git;
         report.merge_deferred = true;
+        return Ok(report);
+    }
+    if class == GitClass::ObservationUnreliable {
+        // A repository that HAD a resolvable HEAD now reports none, so the
+        // `git` read failed rather than the repo changing. Reconciling on it
+        // would mint a spurious external-edit revision for what is really a
+        // git mutation (#1207). Return WITHOUT storing the bad observation,
+        // so the next scan compares against the same good baseline and
+        // reconciles normally — a transient failure costs one cycle.
+        report.git_observation_unreliable = true;
         return Ok(report);
     }
     if let GitClass::Navigation { op, from, to } = &class {
@@ -271,7 +296,8 @@ fn scan_workspace_locked(kernel: &mut WorkspaceKernel) -> Result<ScanReport, Str
 }
 
 pub(super) use super::scan_diagnostics::{
-    emit_diagnostic, existing_diagnostic_keys, path_under_ignored_dir,
+    emit_diagnostic, existing_diagnostic_keys, path_at_or_under_ignored_prefix,
+    path_under_ignored_dir,
 };
 pub(super) use super::scan_walk::walk_markdown;
 

@@ -83,7 +83,7 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
-vi.mock("@/hooks/useUnifiedHistory", () => ({
+vi.mock("@/services/history/unifiedHistory", () => ({
   performUnifiedUndo: vi.fn(),
   performUnifiedRedo: vi.fn(),
 }));
@@ -182,10 +182,13 @@ import {
   readOnlyCompartment,
   showInvisiblesCompartment,
 } from "./sourceEditorExtensions";
+import { SOURCE_COMPOSITION_ORDER } from "./compositionOrder";
+import { resolveExtensions } from "@/lib/extensions/resolve";
+import { deriveAfterConstraints } from "./extensionOrdering";
 import { keymap } from "@codemirror/view";
 // selectNextOccurrenceSource and selectAllOccurrencesSource are hoisted mocks above
 
-import { performUnifiedUndo, performUnifiedRedo } from "@/hooks/useUnifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 
@@ -241,6 +244,36 @@ describe("createSourceEditorExtensions", () => {
     expect(exts).toContain("alertDecoration");
     expect(exts).toContain("detailsDecoration");
     expect(exts).toContain("mediaDecoration");
+  });
+});
+
+describe("WI-3.4 — source composition order is pinned, not positional", () => {
+  function resolveIds(ids: readonly string[]): string[] {
+    const after = deriveAfterConstraints(SOURCE_COMPOSITION_ORDER, ids);
+    const { ordered, errors } = resolveExtensions(
+      ids.map((id) => ({
+        id,
+        contributions: [{ kind: "codemirror", factory: () => id }],
+        ordering: after.has(id) ? { after: after.get(id) } : undefined,
+      })),
+    );
+    expect(errors).toEqual([]);
+    return ordered.map((d) => d.id);
+  }
+
+  it("has 49 unique canonical entries", () => {
+    expect(SOURCE_COMPOSITION_ORDER.length).toBe(49);
+    expect(new Set(SOURCE_COMPOSITION_ORDER).size).toBe(49);
+  });
+
+  it("alphabetical input resolves to the canonical order", () => {
+    expect(resolveIds([...SOURCE_COMPOSITION_ORDER].sort())).toEqual([...SOURCE_COMPOSITION_ORDER]);
+  });
+
+  it("reversed input resolves to the canonical order (position not load-bearing)", () => {
+    expect(resolveIds([...SOURCE_COMPOSITION_ORDER].reverse())).toEqual([
+      ...SOURCE_COMPOSITION_ORDER,
+    ]);
   });
 });
 
@@ -352,14 +385,11 @@ describe("createSourceEditorExtensions — keymap run() callbacks", () => {
     expect(result).toBe(true);
   });
 
-  it("Mod-Alt-w run: calls toggleWordWrap and returns true", () => {
-    editorStoreState.toggleWordWrap.mockClear();
+  it("no longer binds Mod-Alt-w — word wrap is the rebindable wordWrap (Alt-z) window binding", () => {
+    // Consolidated: the hardcoded source Mod-Alt-w was removed; word wrap now has a
+    // single rebindable authority (view.toggleWordWrap), which resolves in source mode.
     const bindings = getKeyBindings();
-    const binding = bindings.find((b) => b.key === "Mod-Alt-w");
-    expect(binding).toBeDefined();
-    const result = binding!.run({});
-    expect(editorStoreState.toggleWordWrap).toHaveBeenCalled();
-    expect(result).toBe(true);
+    expect(bindings.find((b) => b.key === "Mod-Alt-w")).toBeUndefined();
   });
 
   it("Mod-z run: calls performUnifiedUndo", () => {

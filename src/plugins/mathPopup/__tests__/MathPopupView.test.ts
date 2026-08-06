@@ -26,25 +26,30 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/mathPopupStore", () => ({
-  useMathPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+/**
+ * The popup's state PORT, satisfied here directly.
+ *
+ * No store mock: the view receives a `StoreApi<MathPopupState>` now, so the
+ * test can just BE one (ADR-015). That is the difference the injection makes —
+ * the plugin never names the app's store, so a test never has to fake it.
+ */
+const testStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
 const mockGetPopupHostForDom = vi.fn((dom: HTMLElement) => dom.closest(".editor-container"));
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (...args: Parameters<typeof mockGetPopupHostForDom>) => mockGetPopupHostForDom(...args),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
@@ -150,7 +155,10 @@ describe("MathPopupView", () => {
     mockGetPopupHostForDom.mockImplementation((dom: HTMLElement) => dom.closest(".editor-container"));
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new MathPopupView(view as unknown as ConstructorParameters<typeof MathPopupView>[0]);
+    popup = new MathPopupView(
+      view as unknown as ConstructorParameters<typeof MathPopupView>[0],
+      testStore as unknown as ConstructorParameters<typeof MathPopupView>[1]
+    );
   });
 
   afterEach(() => {
@@ -686,7 +694,10 @@ describe("MathPopupView", () => {
       vi.clearAllMocks();
       const newView = createMockView(dom.editorDom);
       view = newView;
-      popup = new MathPopupView(view as unknown as ConstructorParameters<typeof MathPopupView>[0]);
+      popup = new MathPopupView(
+      view as unknown as ConstructorParameters<typeof MathPopupView>[0],
+      testStore as unknown as ConstructorParameters<typeof MathPopupView>[1]
+    );
 
       emitStateChange({ isOpen: true, latex: "z", nodePos: 1, anchorRect });
       await new Promise((r) => requestAnimationFrame(r));

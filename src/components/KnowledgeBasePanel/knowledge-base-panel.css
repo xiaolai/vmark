@@ -45,14 +45,30 @@
   color: var(--text-secondary);
 }
 
+/* The empty and error states are a paragraph followed by an action button.
+   Tailwind's preflight zeroes the <p> margin, so without an explicit gap the
+   button sits flush against the text. `align-items: flex-start` keeps the
+   button its natural width instead of stretching the full panel. */
+.kb-panel__empty,
+.kb-panel__error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+
 .kb-panel__error {
   color: var(--error-color);
 }
 
 .kb-panel__toolbar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--spacing-2);
-  padding: var(--spacing-1) var(--spacing-2);
+  /* Matches the header's horizontal rhythm so the toolbar's buttons line up
+     with the title above them rather than hugging the panel edge. */
+  padding: var(--spacing-2) var(--spacing-3);
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
@@ -60,25 +76,9 @@
   flex: 1;
 }
 
-.kb-panel__btn {
-  padding: var(--spacing-1) var(--spacing-2);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  color: var(--text-color);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast);
-}
-
-.kb-panel__btn:hover {
-  background: var(--hover-bg);
-}
-
-.kb-panel__btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--border-medium) var(--accent-bg);
-}
+/* Buttons use the canonical `.vm-btn` primitive (src/styles/button-shared.css)
+   rather than a bespoke `kb-panel__btn` class — that class re-derived the same
+   control by hand and drifted from every other panel's version. */
 
 .kb-panel__frame {
   flex: 1;

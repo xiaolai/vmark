@@ -26,12 +26,15 @@ import {
   getPersistedWorkspaceRoot,
   readLocalStorage,
   restoreLocalStorage,
+  readLineEndingPreference,
+  expectedEol,
   poll,
 } from "../lib/vmark.mjs";
 import { evalJs } from "../lib/bridge.mjs";
 
 export default {
   name: "save-to-disk",
+  coverageRequired: true,
 
   async run(client, ctx) {
     const root = await getPersistedWorkspaceRoot(client, ctx.windowLabel);
@@ -94,15 +97,31 @@ export default {
           "save to clear the dirty indicator"
         );
 
-        // Ground truth: read the bytes back from disk in THIS process.
+        // Ground truth: read the bytes back from disk in THIS process and
+        // compare the WHOLE file against the exact expected serialization.
+        //
+        // Substring checks (`onDisk.includes(marker)`) are a weak oracle: they
+        // pass on a file that is truncated, half-overwritten, BOM-prefixed,
+        // line-ending-converted, or contaminated with another document's text —
+        // every silent-corruption mode this journey exists to catch. Assert the
+        // full buffer. If the serializer's canonical output legitimately
+        // changes, this fails loudly and the expectation is updated
+        // deliberately, which is the point.
+        // The save pipeline applies the live `lineEndingsOnSave` preference, so
+        // the expected EOL is derived from it — hardcoding "\n" would fail on
+        // CORRECT output whenever the user has chosen "crlf".
+        const preference = await readLineEndingPreference(client);
+        const EOL = expectedEol("lf", preference);
+        const expected = `# Save Journey${EOL}${EOL}save body ${fixture.stamp} ${marker}${EOL}`;
         const onDisk = await readFile(filePath, "utf8");
-        if (!onDisk.includes(marker)) {
-          throw new Error(`saved file does not contain the marker.\n  disk: ${JSON.stringify(onDisk.slice(0, 200))}`);
+        if (onDisk !== expected) {
+          throw new Error(
+            `saved bytes do not match the expected serialization (lineEndingsOnSave="${preference}").\n` +
+              `  expected (${expected.length}b): ${JSON.stringify(expected)}\n` +
+              `  on disk  (${onDisk.length}b): ${JSON.stringify(onDisk)}`
+          );
         }
-        if (onDisk === original) {
-          throw new Error("file bytes unchanged after save");
-        }
-        ctx.log(`save verified on disk (${onDisk.length} bytes, marker present)`);
+        ctx.log(`save verified on disk — exact byte match (${onDisk.length}b)`);
       });
     } finally {
       await restoreLocalStorage(client, "vmark-recent-files", recentsBefore);

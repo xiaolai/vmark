@@ -9,59 +9,16 @@
 // Spike D verified the gate holds with WORKFLOW_YAML_STRINGIFY_OPTIONS.
 
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import {
   parseAsCst,
   stringifyCst,
   WORKFLOW_YAML_STRINGIFY_OPTIONS,
   semanticEqual,
 } from "../cstParser";
+import { walkWorkflows, commentSet, anchorUsage } from "@/test/ghaCorpusHelpers";
 
-const FIXTURE_ROOT = "dev-docs/fixtures/gha-workflows";
-
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const f of readdirSync(dir)) {
-    const p = join(dir, f);
-    if (statSync(p).isDirectory()) out.push(...walk(p));
-    else if (f.endsWith(".yml") || f.endsWith(".yaml")) out.push(p);
-  }
-  return out;
-}
-
-/**
- * Extract every comment text from a YAML string, robust to both line
- * (`# foo`) and inline (`key: val # foo`) comments. Approximate
- * quoted-string handling — full fidelity would require parsing, but
- * the same heuristic applies to both inputs so over-counts cancel.
- */
-function extractComments(yamlString: string): string[] {
-  const out: string[] = [];
-  for (const line of yamlString.split("\n")) {
-    let inSingle = false;
-    let inDouble = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === "'" && !inDouble) inSingle = !inSingle;
-      else if (ch === '"' && !inSingle) inDouble = !inDouble;
-      else if (ch === "#" && !inSingle && !inDouble) {
-        const text = line.slice(i + 1).trim();
-        if (text) out.push(text);
-        break;
-      }
-    }
-  }
-  return out;
-}
-
-function commentSet(yamlString: string): Set<string> {
-  return new Set(extractComments(yamlString));
-}
-
-function anchorCount(yamlString: string): number {
-  return (yamlString.match(/&[A-Za-z0-9_-]+/g) ?? []).length;
-}
+const FIXTURE_ROOT = "src/test/fixtures/gha-workflows";
 
 describe("WORKFLOW_YAML_STRINGIFY_OPTIONS", () => {
   it("disables auto-wrap (lineWidth: 0)", () => {
@@ -121,7 +78,7 @@ describe("semanticEqual", () => {
 });
 
 describe("identity round-trip — ADR-11 gate", () => {
-  const fixtures = walk(FIXTURE_ROOT);
+  const fixtures = walkWorkflows(FIXTURE_ROOT);
 
   it.each(fixtures.map((f) => [f]))(
     "preserves comments + anchors + semantics: %s",
@@ -139,8 +96,9 @@ describe("identity round-trip — ADR-11 gate", () => {
         expect(savedSet.has(c), `Lost comment: ${c}`).toBe(true);
       }
 
-      // Gate condition 2: anchor count preserved.
-      expect(anchorCount(saved)).toBe(anchorCount(orig));
+      // Gate condition 2: anchor/alias identity preserved (a count could
+      // not see a rename or a retargeted alias).
+      expect(anchorUsage(saved)).toEqual(anchorUsage(orig));
 
       // Gate condition 3: semantic equality.
       expect(semanticEqual(orig, saved)).toBe(true);

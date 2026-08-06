@@ -101,6 +101,7 @@ const mediaSchema = new Schema({
       atom: true,
       attrs: {
         src: { default: "" },
+        alt: { default: "" },
         title: { default: "" },
         poster: { default: "" },
         controls: { default: true },
@@ -123,6 +124,7 @@ const mediaSchema = new Schema({
       attrs: {
         provider: { default: "youtube" },
         videoId: { default: "" },
+        privacyHash: { default: null },
         width: { default: 560 },
         height: { default: 315 },
       },
@@ -219,6 +221,27 @@ describe("pmBlockConverters", () => {
       expect(result.type).toBe("html");
       expect(result.value).toContain("vimeo.com");
       expect(result.value).toContain("123456789");
+    });
+
+    it("serializes an unlisted Vimeo embed with its privacy hash (WI-6)", () => {
+      const node = mediaSchema.nodes.video_embed.create({
+        provider: "vimeo",
+        videoId: "123456789",
+        privacyHash: "abcDEF123",
+      });
+      const result = convertVideoEmbed(node);
+      expect(result.value).toContain("player.vimeo.com/video/123456789?h=abcDEF123");
+    });
+
+    it("drops a malformed privacy hash instead of interpolating it", () => {
+      const node = mediaSchema.nodes.video_embed.create({
+        provider: "vimeo",
+        videoId: "123456789",
+        privacyHash: 'x" onload="evil',
+      });
+      const result = convertVideoEmbed(node);
+      expect(result.value).not.toContain("onload");
+      expect(result.value).toContain("player.vimeo.com/video/123456789");
     });
 
     it("serializes Bilibili embed", () => {
@@ -816,9 +839,8 @@ describe("pmBlockConverters", () => {
     it("handles video with null/undefined attrs (src ?? '', title ?? '' fallbacks)", () => {
       const node = mediaSchema.nodes.block_video.create({});
       const result = convertBlockVideo(node);
-      // Default attrs: src="", title="", poster="", controls=true, preload="metadata"
-      // No poster, controls=true, preload="metadata" → uses image syntax
-      expect(result.type).toBe("paragraph");
+      // Empty src → no media extension → HTML fallback keeps the round trip.
+      expect(result.type).toBe("html");
     });
 
     it("handles video with non-metadata preload (adds preload attr in HTML)", () => {
@@ -847,8 +869,8 @@ describe("pmBlockConverters", () => {
     it("handles audio with null/undefined attrs (src ?? '', title ?? '' fallbacks)", () => {
       const node = mediaSchema.nodes.block_audio.create({});
       const result = convertBlockAudio(node);
-      // Default: controls=true, preload="metadata" → uses image syntax
-      expect(result.type).toBe("paragraph");
+      // Empty src → no media extension → HTML fallback.
+      expect(result.type).toBe("html");
     });
 
     it("handles audio with non-metadata preload", () => {

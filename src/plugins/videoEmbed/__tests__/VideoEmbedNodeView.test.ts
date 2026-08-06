@@ -100,6 +100,24 @@ describe("VideoEmbedNodeView", () => {
     return nodeView;
   }
 
+  describe("dimension + config hardening", () => {
+    it("falls back to provider defaults for invalid width/height", () => {
+      const view = createNodeView({ width: -50, height: "junk" });
+      const iframe = view.dom.querySelector("iframe")!;
+      expect(iframe.getAttribute("width")).toBe("560");
+      expect(iframe.getAttribute("height")).toBe("315");
+    });
+
+    it("clears a stale aspect ratio when the provider config goes missing", () => {
+      const view = createNodeView({});
+      const wrapper = view.dom.querySelector(".video-embed-wrapper") as HTMLElement;
+      expect(wrapper.style.paddingBottom).toBe("56.25%");
+      mockGetProviderConfig.mockReturnValue(undefined);
+      view.update(createMockNode({ provider: "bogus" }) as never);
+      expect(wrapper.style.paddingBottom).toBe("");
+    });
+  });
+
   describe("DOM Structure", () => {
     it("creates a figure element as dom", () => {
       createNodeView();
@@ -150,6 +168,12 @@ describe("VideoEmbedNodeView", () => {
       createNodeView({ videoId: "xyz" });
       const iframe = nodeView.dom.querySelector("iframe")!;
       expect(iframe.src).toBe("https://www.youtube-nocookie.com/embed/xyz");
+    });
+
+    it("passes the node's privacyHash to buildEmbedUrl (WI-6)", () => {
+      mockBuildEmbedUrl.mockReturnValue("https://player.vimeo.com/video/9?h=beef");
+      createNodeView({ provider: "vimeo", videoId: "9", privacyHash: "beef" });
+      expect(mockBuildEmbedUrl).toHaveBeenCalledWith("vimeo", "9", { privacyHash: "beef" });
     });
 
     it("sets iframe src to about:blank when videoId is empty", () => {

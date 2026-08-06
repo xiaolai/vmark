@@ -199,6 +199,21 @@ pub(crate) fn command_still_fresh(state: &BrowserSurface, tab_id: &str, generati
     let Ok(reg) = state.registry.lock() else {
         return false;
     };
+    fresh_under_guard(&reg, &policy, tab_id, generation)
+}
+
+/// The freshness predicate itself, against guards the CALLER holds.
+///
+/// Extracted so `submit_if_fresh` can evaluate it and act while still holding the
+/// registry lock — which is what makes the check and the dispatch atomic against
+/// other threads. `command_still_fresh` keeps the convenience form for callers
+/// that only need a peek.
+fn fresh_under_guard(
+    reg: &crate::browser::registry::BrowserRegistry,
+    policy: &crate::browser::ai_policy::AiBrowserPolicy,
+    tab_id: &str,
+    generation: u64,
+) -> bool {
     if !reg.is_command_fresh(tab_id, generation) || reg.committed_url(tab_id).is_none() {
         return false;
     }
@@ -207,6 +222,50 @@ pub(crate) fn command_still_fresh(state: &BrowserSurface, tab_id: &str, generati
         Some(_) => reg.policy_epoch(tab_id) == Some(policy.epoch),
         None => false,
     }
+}
+
+/// Verify freshness and SUBMIT, both under the registry guard — then hand the
+/// caller a handle to await outside it.
+///
+/// This is the actual close on the WI-2 race. `dispatch_if_fresh` released the
+/// guard before dispatching, so another thread could navigate, destroy the tab, or
+/// bump the policy epoch in the gap; an audit was right that the earlier "nothing
+/// can interleave" claim only covered main-thread work. Holding the registry lock
+/// across the check AND the submit removes the gap entirely: no other thread can
+/// mutate that state while the script is being enqueued.
+///
+/// **`submit` MUST NOT pump the run loop.** That is the whole reason the operation
+/// is split: `callAsyncJavaScript` merely enqueues and returns, which is safe under
+/// the lock, while waiting for the result pumps — and WebKit callbacks re-enter on
+/// the main thread and take this same lock, so pumping here would deadlock. The
+/// guard is dropped before this returns, so the caller awaits unlocked.
+pub(crate) fn submit_if_fresh<S, H>(
+    state: &BrowserSurface,
+    tab_id: &str,
+    generation: u64,
+    submit: S,
+) -> Result<H, String>
+where
+    S: FnOnce() -> H,
+{
+    let policy = state
+        .ai_policy
+        .lock()
+        .map_err(|e| e.to_string())
+        .map(|p| *p)?;
+    if !policy.enabled {
+        return Err("BROWSER_DISABLED".into());
+    }
+    let reg = state.registry.lock().map_err(|e| e.to_string())?;
+    if !fresh_under_guard(&reg, &policy, tab_id, generation) {
+        return Err(format!(
+            "stale command: tab '{tab_id}' navigated or closed before the script could run"
+        ));
+    }
+    // Enqueue while still holding the guard — this is the atomic step.
+    let handle = submit();
+    drop(reg);
+    Ok(handle)
 }
 
 #[cfg(test)]

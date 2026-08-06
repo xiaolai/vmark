@@ -1,9 +1,12 @@
 /**
  * Source Multi-Selection Block Actions
  *
- * Purpose: Applies block-level actions (heading, list, blockquote) across multiple
- * CodeMirror selections by iterating ranges in reverse document order. Each range
- * is independently evaluated and transformed.
+ * Purpose: Applies heading and blockquote actions across multiple CodeMirror
+ * selections by iterating ranges in reverse document order. Each range is
+ * independently evaluated and transformed. LIST actions no longer live here —
+ * `sourceBlockActions` gives every cursor the full single-cursor semantics
+ * (toggle-off, whole-list conversion, shared-block dedupe), which the old
+ * per-range switch could not.
  *
  * @coordinates-with sourceAdapter.ts — delegates here when multi-selection is active
  * @coordinates-with sourceContextDetection — uses detection + action functions per block type
@@ -12,7 +15,6 @@
 import type { EditorView } from "@codemirror/view";
 import { getBlockquoteInfo, nestBlockquote, removeBlockquote, unnestBlockquote } from "@/plugins/sourceContextDetection/blockquoteDetection";
 import { convertToHeading, getHeadingInfo, setHeadingLevel } from "@/plugins/sourceContextDetection/headingDetection";
-import { getListItemInfo, indentListItem, outdentListItem, removeList, toBulletList, toOrderedList, toTaskList } from "@/plugins/sourceContextDetection/listDetection";
 
 function forEachRangeDescending(
   view: EditorView,
@@ -37,36 +39,6 @@ export function applyMultiSelectionHeading(view: EditorView, level: number): boo
     if (level === 0) return false;
     convertToHeading(view, level, pos);
     return true;
-  });
-}
-
-export function applyMultiSelectionListAction(view: EditorView, action: string): boolean {
-  if (view.state.selection.ranges.length <= 1) return false;
-  return forEachRangeDescending(view, (pos) => {
-    const info = getListItemInfo(view, pos);
-    if (!info) return false;
-    switch (action) {
-      case "bulletList":
-        toBulletList(view, info);
-        return true;
-      case "orderedList":
-        toOrderedList(view, info);
-        return true;
-      case "taskList":
-        toTaskList(view, info);
-        return true;
-      case "indent":
-        indentListItem(view, info);
-        return true;
-      case "outdent":
-        outdentListItem(view, info);
-        return true;
-      case "removeList":
-        removeList(view, info);
-        return true;
-      default:
-        return false;
-    }
   });
 }
 

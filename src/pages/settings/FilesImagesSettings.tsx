@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsStore";
-import { updateWorkspaceConfig } from "@/hooks/workspaceConfig";
+import { updateWorkspaceConfig } from "@/services/workspaces/workspaceConfig";
 import { WorkspaceSettingsGroup } from "./WorkspaceSettingsGroup";
 import { DocumentToolsSettings } from "./DocumentToolsSettings";
 
@@ -94,6 +94,19 @@ export function FilesImagesSettings() {
           <Toggle
             checked={general.autoSaveEnabled}
             onChange={(v) => updateGeneralSetting("autoSaveEnabled", v)}
+          />
+        </SettingRow>
+        {/* Provenance tracking is opt-in because turning it on lets VMark
+            REWRITE the document to insert a `vmark:` identity block. It sits
+            here, next to autosave, because autosave is what made the rewrite
+            invisible. */}
+        <SettingRow
+          label={t("files.coherenceCapture.label")}
+          description={t("files.coherenceCapture.description")}
+        >
+          <Toggle
+            checked={general.coherenceCaptureOnSave}
+            onChange={(v) => updateGeneralSetting("coherenceCaptureOnSave", v)}
           />
         </SettingRow>
         <SettingRow

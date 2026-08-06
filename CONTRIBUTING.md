@@ -41,7 +41,9 @@ vmark/
 ├── src-tauri/            # Rust backend (Tauri v2)
 │   ├── src/              # Commands, menu, MCP bridge, AI providers
 │   └── capabilities/     # Tauri security permissions
-├── vmark-mcp-server/     # MCP sidecar server (Node.js)
+├── server/               # Node.js server packages
+│   ├── mcp/              # MCP sidecar server
+│   └── content/          # Content server (Slidev knowledge base)
 ├── website/              # Documentation site (VitePress)
 └── dev-docs/             # Internal architecture docs (local only)
 ```

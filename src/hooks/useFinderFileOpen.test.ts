@@ -4,11 +4,9 @@
  * Covers:
  *   - Event listener registration
  *   - File routing: existing tab, replaceable tab, new tab, new window
- *   - Hot exit restore waiting
- *   - Pending file queue from Rust (cold start path)
+ *   - Hot exit restore waiting; pending file queue from Rust (cold start path)
  *   - Hot open: app:open-file event when app is already running (warm path)
- *   - Workspace adoption, different workspace (new window)
- *   - Error handling in loadFileIntoTab
+ *   - Workspace adoption, different workspace (new window), loadFileIntoTab errors
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -60,6 +58,8 @@ vi.mock("@/stores/tabStore", () => ({
     getState: () => ({
       setActiveTab: mockSetActiveTab,
       createTab: mockCreateTab,
+      findTabById: vi.fn((id: string) => ({ id })), // close-during-read re-check
+      findTabByPath: vi.fn(() => null), // createTab dedup pre-check
       updateTabPath: mockUpdateTabPath,
       detachTab: mockDetachTab,
       getActiveTab: mockGetActiveTab,
@@ -76,15 +76,16 @@ vi.mock("@/i18n", () => ({
   default: { t: (key: string, vars?: Record<string, unknown>) => `${key}:${JSON.stringify(vars ?? {})}` },
 }));
 
-const mockInitDocument = vi.fn();
-const mockLoadContent = vi.fn();
-const mockSetLineMetadata = vi.fn();
+const mockDocuments: Record<string, { filePath: string | null }> = {};
+// Ingest records the filePath so the replace branch's "did content land?" check reads observable state.
+const mockIngestExternalContent = vi.fn((tabId: string, _c: string, _o: string, opts?: { filePath?: string | null }) => {
+  mockDocuments[tabId] = { filePath: opts?.filePath ?? null };
+});
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      initDocument: mockInitDocument,
-      loadContent: mockLoadContent,
-      setLineMetadata: mockSetLineMetadata,
+      documents: mockDocuments,
+      ingestExternalContent: mockIngestExternalContent,
     }),
   },
   useLargeFileSessionStore: (() => {
@@ -133,16 +134,12 @@ vi.mock("@/stores/workspaceStore", () => ({
   },
 }));
 
-vi.mock("@/hooks/useReplaceableTab", () => ({
+vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
 }));
 
-vi.mock("@/utils/linebreakDetection", () => ({
-  detectLinebreaks: vi.fn(() => ({ type: "lf", original: "lf" })),
-}));
-
-vi.mock("@/hooks/openWorkspaceWithConfig", () => ({
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...args: unknown[]) => mockOpenWorkspaceWithConfig(...args),
 }));
 
@@ -170,6 +167,7 @@ import { useFinderFileOpen } from "./useFinderFileOpen";
 describe("useFinderFileOpen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    for (const key of Object.keys(mockDocuments)) delete mockDocuments[key];
     mockUseWindowLabel.mockReturnValue("main");
     mockInvoke.mockResolvedValue([]);
     mockWaitForRestoreComplete.mockResolvedValue(true);
@@ -238,7 +236,8 @@ describe("useFinderFileOpen", () => {
     renderHook(() => useFinderFileOpen());
 
     await vi.waitFor(() => {
-      expect(mockLoadContent).toHaveBeenCalled();
+      // One door: the disk-open ingest replaces content and carries the filePath.
+      expect(mockIngestExternalContent).toHaveBeenCalledWith("empty-tab", "file content", "disk-open", { filePath: "/test/file.md" });
       expect(mockUpdateTabPath).toHaveBeenCalledWith("empty-tab", "/test/file.md");
     });
   });
@@ -261,14 +260,14 @@ describe("useFinderFileOpen", () => {
 
     await vi.waitFor(() => {
       // Orphan tab is cleaned up and the error surfaces via toast — no
-      // silent empty tab, no initDocument zeroing the path.
+      // silent empty tab, no ingest zeroing the path.
       expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab");
       expect(mockToastError).toHaveBeenCalledWith(
         expect.stringContaining("forbidden path"),
         expect.objectContaining({ action: expect.any(Object) }),
       );
     });
-    expect(mockInitDocument).not.toHaveBeenCalled();
+    expect(mockIngestExternalContent).not.toHaveBeenCalled();
   });
 
   it("waits for hot exit restore before processing", async () => {
@@ -631,6 +630,7 @@ describe("useFinderFileOpen", () => {
 describe("useFinderFileOpen — size-tier routing", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    for (const key of Object.keys(mockDocuments)) delete mockDocuments[key];
     mockUseWindowLabel.mockReturnValue("main");
     mockWaitForRestoreComplete.mockResolvedValue(true);
     mockReadTextFile.mockResolvedValue("file content");
@@ -761,7 +761,7 @@ describe("useFinderFileOpen — size-tier routing", () => {
     renderHook(() => useFinderFileOpen());
 
     await vi.waitFor(() => {
-      expect(mockLoadContent).toHaveBeenCalled();
+      expect(mockIngestExternalContent).toHaveBeenCalledWith("empty-tab", "file content", "disk-open", { filePath: "/docs/medium.md" });
     });
     // Indicator was started for the ≥ 300 KB WYSIWYG open. The replaceable-tab
     // branch successfully loaded, so the document path is set — no failure

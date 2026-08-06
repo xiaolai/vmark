@@ -1,9 +1,31 @@
 name: CI
 
+# PULL REQUESTS ONLY — deliberately not `push: [main]`.
+#
+# Every commit reaching `main` arrives through a PR (branch protection:
+# required checks `frontend` + `rust`, `enforce_admins: true`, and — the
+# load-bearing part — `strict: true`, which forces the PR branch to contain
+# main's tip before it can merge). `strict` is what makes a second run
+# pointless: the merge commit's TREE is then byte-identical to the PR head's,
+# so a push-triggered run re-tested bytes CI had already passed.
+#
+# That was not a small waste. It doubled CI for every change (~57 runner-min)
+# AND it gated releases: `check-tag-green.sh` reads check-runs on the tagged
+# commit, so tagging sat waiting ~22 min for a duplicate run to re-confirm an
+# identical tree. Measured on v0.9.28: PR head 635b7dd7 and merge commit
+# 7e89a426 both had tree 0e15a780.
+#
+# The release gate did NOT get weaker — it got more honest. Rather than being
+# satisfied by a status this workflow could have stamped on `main` for free,
+# `check-tag-green.sh` now resolves the tagged commit to an ancestor with an
+# IDENTICAL TREE and requires the real, green PR checks there. See that script
+# and `.claude/rules/60-ai-governance.md` §10.
+#
+# If `strict` is ever turned off, this reasoning collapses — a PR could be
+# verified against a stale main and land a tree nothing tested. Re-add
+# `push: [main]` in the same change.
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
 
 permissions:
@@ -11,33 +33,39 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Never cancel main-branch runs: a release tag can point at a commit whose
-  # CI was cancelled by a faster push, shipping unverified code (audit
-  # 20260612, observed for v0.8.4). PRs still cancel superseded runs.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Superseded PR runs are cancelled; there are no main-branch runs to protect
+  # any more. (The old comment guarded against a release tag pointing at a
+  # cancelled main run — v0.8.4, audit 20260612. That failure mode is gone with
+  # the trigger: the tag gate now reads the PR's own checks, which are never
+  # cancelled once merged.)
+  cancel-in-progress: true
 
 jobs:
-  # Frontend checks: lint, tests, build — platform-independent (jsdom + vite)
-  frontend-run:
+
+  # ── Frontend verification, split into parallel groups ─────────────────────
+  #
+  # This was ONE job running `pnpm check:all` end to end: 25 lint gates, then
+  # 35k tests with coverage, then three builds — strictly serial, ~22 min, and
+  # the critical path of every PR. The groups below are the same 31 steps
+  # (`pnpm check:all` still composes exactly them, and check-scripts-parity
+  # asserts it), so the critical path becomes the MAX of the groups rather than
+  # their SUM.
+  #
+  # Tests shard because they dominate. Each shard writes a blob report; the
+  # merge job reconstitutes them and applies the coverage thresholds to the
+  # COMBINED result — verified to reproduce the unsharded numbers
+  # (94.28/90.62/93.77/95.13 vs 94.27/90.60/93.74/95.13). Sharding without that
+  # merge would silently drop the coverage gate, which is worse than being slow.
+  fe-static:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
-          # Fetch enough history for the new-deps slopsquatting gate to diff
-          # against origin/main.
+          # Full history: the slopsquatting gate and the baseline ratchet both
+          # diff against the merge base.
           fetch-depth: 0
-
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-node-pnpm
 
       - name: Security audit
         # pnpm 10 audit broken: npm retired legacy endpoint (410), bulk API lands in pnpm 11
@@ -51,20 +79,171 @@ jobs:
         # active "slopsquat" supply-chain attacks. See scripts/check-new-deps.sh.
         run: bash scripts/check-new-deps.sh
 
-      - run: pnpm check:all
+      - name: Baseline ratchet (merge-base, all committed baselines)
+        # Every gate compares the tree against its baseline in the SAME commit,
+        # so a PR can raise its own floor — edit the offending file and its
+        # baseline together and every check reports green (audit 20260729 C3).
+        # This re-reads each baseline at the merge base, where the PR cannot
+        # have written it, and rejects any loosening.
+        run: node scripts/check-baseline-ratchet.mjs "origin/${{ github.base_ref }}"
 
-  # Gate job: required by branch protection (exact name "frontend")
+      - run: pnpm check:static
+
+  fe-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+
+      # Blob reports carry this shard's coverage; fe-coverage merges them and
+      # is the ONLY place thresholds are applied.
+      #
+      # The zeroed thresholds are REQUIRED, not tidiness. A shard runs a quarter
+      # of the suite, so it measures ~49% line coverage and would fail the 94.7%
+      # global floor every time — all four shards did exactly that on the first
+      # run of this workflow. Coverage is a property of the WHOLE suite, so the
+      # only place it can be judged is after the merge. (Enforced by
+      # scripts/check-scripts-parity.test.mjs, so a future edit cannot quietly
+      # restore per-shard gating and make the matrix permanently red.)
+      #
+      # `--reporter=default` alongside `blob` is not cosmetic: the blob reporter
+      # REPLACES the console reporter, so a failing shard printed nothing but
+      # "Process completed with exit code 1" — no test name, no assertion, no
+      # way to tell a real failure from a flake without re-running locally.
+      # (Enforced below by check-scripts-parity.)
+      #
+      # Deliberately ONE long line rather than a folded `>-` block. `ci.yml` is
+      # on the BYTE_IDENTICAL identity ratchet in
+      # `ghaWorkflow/save/__tests__/corpusRoundtrip.test.ts`, and a folded
+      # scalar does not survive that CST round trip byte-identically — it
+      # dropped the file off the list. A literal `|` block is NOT the
+      # alternative: `>-` folds to a single command, while `|` keeps the
+      # newlines, so under `bash -e` every flag line would run as its own
+      # command.
+      - name: Tests (shard ${{ matrix.shard }}/4)
+        run: pnpm vitest run --coverage --shard=${{ matrix.shard }}/4 --reporter=blob --reporter=default --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0
+
+      # `include-hidden-files` is REQUIRED: vitest writes blobs to
+      # `.vitest-reports/`, a dot-directory, and upload-artifact@v4 treats
+      # everything under one as hidden and skips it by default. The blob was
+      # written and then silently not uploaded.
+      #
+      # `if-no-files-found: error` is the other half. The default is `warn`, so
+      # that skip passed the shard and only surfaced two jobs later as
+      # `ENOENT: scandir '.vitest-reports'` in fe-coverage — an error message
+      # pointing at the consumer instead of the producer. Fail where the file
+      # should have been made.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: .vitest-reports/*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  fe-coverage:
+    needs: [fe-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: .vitest-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      # Thresholds live in vitest.config.ts and apply to the MERGED report, so
+      # this is the real coverage gate — the shards deliberately do not gate.
+      - name: Merge shard reports and enforce coverage thresholds
+        run: pnpm vitest --merge-reports=.vitest-reports --coverage
+
+  fe-servers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+      - run: pnpm check:servers
+
+  fe-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+      - run: pnpm check:build
+
+  # Real-WebKit tier. `pnpm check:all` is jsdom-only, and the difference is not
+  # cosmetic: real WebKit drains a microtask BETWEEN capture listeners and jsdom
+  # does not, which is the premise the whole CJK IME composition gate rests on
+  # (issues #1176 / #1179, fixed twice in one week with no automated gate
+  # watching). Separate job because it must NOT inherit src/test/setup.ts.
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # --with-deps pulls the system libraries WebKit needs on a bare runner.
+      # The local `test:browser:install` script omits them: macOS has them and
+      # asking for sudo on a dev machine is worse than a clear error.
+      - name: Install WebKit
+        run: pnpm exec playwright install --with-deps webkit
+
+      - run: pnpm exec vitest run --config vitest.browser.config.ts
+
+  # Gate job: required by branch protection (exact name "frontend").
+  #
+  # Fails unless EVERY group succeeded. `if: always()` means this runs even when
+  # a dependency failed or was skipped, so the check must treat anything other
+  # than "success" as a failure — a skipped group is not a passed group, and
+  # `needs` alone would let one silently vanish from the gate.
   frontend:
     if: always()
-    needs: [frontend-run]
+    needs: [fe-static, fe-test, fe-coverage, fe-servers, fe-build, webkit]
     runs-on: ubuntu-latest
     steps:
       - name: Check result
         env:
-          RESULT: ${{ needs.frontend-run.result }}
+          STATIC: ${{ needs.fe-static.result }}
+          TESTS: ${{ needs.fe-test.result }}
+          COVERAGE: ${{ needs.fe-coverage.result }}
+          SERVERS: ${{ needs.fe-servers.result }}
+          BUILD: ${{ needs.fe-build.result }}
+          WEBKIT: ${{ needs.webkit.result }}
         run: |
-          if [ "$RESULT" != "success" ]; then
-            echo "frontend-run: $RESULT"
+          failed=0
+          for pair in "fe-static:$STATIC" "fe-test:$TESTS" "fe-coverage:$COVERAGE" \
+                      "fe-servers:$SERVERS" "fe-build:$BUILD" "webkit:$WEBKIT"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" != "success" ]; then
+              echo "$name: $result"
+              failed=1
+            fi
+          done
+          [ "$failed" -eq 0 ]
+          if [ "$WEBKIT" != "success" ]; then
+            echo "webkit: $WEBKIT"
             exit 1
           fi
 
@@ -85,7 +264,7 @@ jobs:
         with:
           version: 10
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -129,7 +308,12 @@ jobs:
 
   rust-test:
     needs: [changes]
-    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    # Path-filtered, full stop. This used to carry `|| github.event_name ==
+    # 'push'`, which defeated the filter on every merge to main: a docs-only
+    # change still compiled and tested Rust on three OSes (~29 runner-min,
+    # Windows alone 14m). With the push trigger gone the clause is dead, and
+    # leaving it would silently restore that cost if the trigger came back.
+    if: needs.changes.outputs.rust == 'true'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -205,14 +389,16 @@ jobs:
   # (audit 20260612: ~11 runner-minutes per CI run saved).
   rust-audit:
     needs: [changes]
-    if: needs.changes.outputs.rust == 'true' || github.event_name == 'push'
+    # Path-filtered — see rust-test. cargo-audit reads Cargo.lock, which the
+    # `rust` filter already covers.
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@2ca9b94c269419b7b0c711c09d0b21c4e1d51145 # v2.83.1
+        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
         with:
           tool: cargo-audit
 

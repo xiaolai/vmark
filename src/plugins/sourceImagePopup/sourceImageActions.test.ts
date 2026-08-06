@@ -36,7 +36,7 @@ vi.mock("@tauri-apps/api/path", () => ({
   join: mocks.join,
 }));
 
-vi.mock("@/hooks/useImageOperations", () => ({
+vi.mock("@/services/media/imageOperations", () => ({
   copyImageToAssets: mocks.copyImageToAssets,
 }));
 
@@ -44,7 +44,7 @@ vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: mocks.withReentryGuard,
 }));
 
-vi.mock("@/hooks/useWindowFocus", () => ({
+vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: mocks.getWindowLabel,
 }));
 
@@ -52,36 +52,23 @@ vi.mock("@/utils/imeGuard", () => ({
   runOrQueueCodeMirrorAction: mocks.runOrQueueCodeMirrorAction,
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: vi.fn(() => ({
-      getDocument: vi.fn(() => ({
-        filePath: "/docs/test.md",
-        content: "# Hello",
-      })),
-    })),
-  },
+let mockActiveFilePath: string | null = "/docs/test.md";
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: { activeFilePath: () => mockActiveFilePath },
+  // The guarded convenience over activeFilePath; same answer here.
+  activeFilePathForCurrentWindow: () => mockActiveFilePath,
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: vi.fn(() => ({
-      activeTabId: { main: "tab-1" },
-    })),
-  },
-}));
-
+// The popup state is passed to the actions now, not imported by them.
+// Mutable so a test can restate it without reaching for vi.mocked().
 const mockSetSrc = vi.fn();
-vi.mock("@/stores/mediaPopupStore", () => ({
-  useMediaPopupStore: {
-    getState: vi.fn(() => ({
-      mediaNodePos: 0,
-      mediaSrc: "image.png",
-      mediaAlt: "alt text",
-      setSrc: mockSetSrc,
-    })),
-  },
-}));
+let storeState: Record<string, unknown> = {
+  mediaNodePos: 0,
+  mediaSrc: "image.png",
+  mediaAlt: "alt text",
+  setSrc: mockSetSrc,
+};
+const store = { getState: () => storeState } as never;
 
 import {
   saveImageChanges,
@@ -89,9 +76,6 @@ import {
   copyImagePath,
   removeImage,
 } from "./sourceImageActions";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
 
 // --- Mock EditorView ---
 function createMockView(text: string) {
@@ -118,14 +102,14 @@ describe("saveImageChanges", () => {
   it("replaces image markdown when range is found", () => {
     const imgText = "![alt text](image.png)";
     const view = createMockView(imgText);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "new-image.png",
       mediaAlt: "new alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(mocks.runOrQueueCodeMirrorAction).toHaveBeenCalled();
     expect(view.dispatch).toHaveBeenCalledWith(
@@ -139,28 +123,28 @@ describe("saveImageChanges", () => {
 
   it("does nothing when mediaNodePos is negative", () => {
     const view = createMockView("some text");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: -1,
       mediaSrc: "img.png",
       mediaAlt: "alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(view.dispatch).not.toHaveBeenCalled();
   });
 
   it("does nothing when no image found at position", () => {
     const view = createMockView("no image here");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "img.png",
       mediaAlt: "alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(view.dispatch).not.toHaveBeenCalled();
   });
@@ -168,14 +152,14 @@ describe("saveImageChanges", () => {
   it("preserves title in image markdown", () => {
     const imgText = '![alt](image.png "My Title")';
     const view = createMockView(imgText);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "new.png",
       mediaAlt: "new alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(view.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,14 +173,14 @@ describe("saveImageChanges", () => {
   it("preserves angle brackets for src with spaces", () => {
     const imgText = "![alt](<my image.png>)";
     const view = createMockView(imgText);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "new image.png",
       mediaAlt: "new alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(view.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -211,7 +195,7 @@ describe("saveImageChanges", () => {
 describe("browseImage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "old.png",
       mediaAlt: "alt",
@@ -224,22 +208,18 @@ describe("browseImage", () => {
     const imgText = "![alt](old.png)";
     const view = createMockView(imgText);
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(false);
   });
 
   it("shows warning when document has no filePath", async () => {
     mocks.open.mockResolvedValue("/picked/image.png");
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ filePath: null, content: "" })),
-    } as never);
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
+    mockActiveFilePath = null;
+    
     const view = createMockView("![alt](old.png)");
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(false);
     expect(mocks.message).toHaveBeenCalledWith(
@@ -251,16 +231,12 @@ describe("browseImage", () => {
   it("copies image to assets and saves on success", async () => {
     mocks.open.mockResolvedValue("/picked/image.png");
     mocks.copyImageToAssets.mockResolvedValue("assets/image.png");
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ filePath: "/docs/test.md", content: "" })),
-    } as never);
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
+    mockActiveFilePath = "/docs/test.md";
+    
     const imgText = "![alt](old.png)";
     const view = createMockView(imgText);
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(true);
     expect(mocks.copyImageToAssets).toHaveBeenCalledWith("/picked/image.png", "/docs/test.md");
@@ -272,7 +248,7 @@ describe("browseImage", () => {
     mocks.open.mockRejectedValue(new Error("dialog error"));
     const view = createMockView("![alt](old.png)");
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(false);
     expect(mocks.message).toHaveBeenCalledWith(
@@ -286,22 +262,18 @@ describe("browseImage", () => {
     mocks.withReentryGuard.mockResolvedValue(undefined);
     const view = createMockView("![alt](old.png)");
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(false);
   });
 
   it("returns false when no active tab", async () => {
     mocks.open.mockResolvedValue("/picked/image.png");
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: null },
-    } as never);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => undefined),
-    } as never);
+    
+    mockActiveFilePath = null;
     const view = createMockView("![alt](old.png)");
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     expect(result).toBe(false);
   });
@@ -311,15 +283,8 @@ describe("copyImagePath", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Restore default store mocks
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({
-        filePath: "/docs/test.md",
-        content: "# Hello",
-      })),
-    } as never);
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: { main: "tab-1" },
-    } as never);
+    mockActiveFilePath = "/docs/test.md";
+    
     mocks.getWindowLabel.mockReturnValue("main");
   });
 
@@ -327,11 +292,11 @@ describe("copyImagePath", () => {
     mocks.writeText.mockResolvedValue(undefined);
     mocks.dirname.mockResolvedValue("/docs");
     mocks.join.mockResolvedValue("/docs/my-image.png");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "my-image.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.dirname).toHaveBeenCalledWith("/docs/test.md");
     expect(mocks.join).toHaveBeenCalledWith("/docs", "my-image.png");
@@ -342,11 +307,11 @@ describe("copyImagePath", () => {
     mocks.writeText.mockResolvedValue(undefined);
     mocks.dirname.mockResolvedValue("/docs");
     mocks.join.mockResolvedValue("/docs/assets/img.png");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "./assets/img.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.join).toHaveBeenCalledWith("/docs", "assets/img.png");
     expect(mocks.writeText).toHaveBeenCalledWith("/docs/assets/img.png");
@@ -354,11 +319,11 @@ describe("copyImagePath", () => {
 
   it("copies absolute path as-is without resolution", async () => {
     mocks.writeText.mockResolvedValue(undefined);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "/absolute/path/image.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.dirname).not.toHaveBeenCalled();
     expect(mocks.writeText).toHaveBeenCalledWith("/absolute/path/image.png");
@@ -366,11 +331,11 @@ describe("copyImagePath", () => {
 
   it("copies URL as-is without resolution", async () => {
     mocks.writeText.mockResolvedValue(undefined);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "https://example.com/image.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.dirname).not.toHaveBeenCalled();
     expect(mocks.writeText).toHaveBeenCalledWith("https://example.com/image.png");
@@ -378,14 +343,12 @@ describe("copyImagePath", () => {
 
   it("falls back to raw src when document has no filePath", async () => {
     mocks.writeText.mockResolvedValue(undefined);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(() => ({ filePath: null, content: "" })),
-    } as never);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    mockActiveFilePath = null;
+    storeState = ({
       mediaSrc: "img.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.writeText).toHaveBeenCalledWith("img.png");
   });
@@ -393,21 +356,21 @@ describe("copyImagePath", () => {
   it("falls back to raw src when path resolution fails", async () => {
     mocks.writeText.mockResolvedValue(undefined);
     mocks.dirname.mockRejectedValue(new Error("path error"));
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "img.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.writeText).toHaveBeenCalledWith("img.png");
   });
 
   it("does nothing when imageSrc is empty", async () => {
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(mocks.writeText).not.toHaveBeenCalled();
   });
@@ -417,11 +380,11 @@ describe("copyImagePath", () => {
     mocks.writeText.mockRejectedValue(new Error("clipboard denied"));
     mocks.dirname.mockResolvedValue("/docs");
     mocks.join.mockResolvedValue("/docs/img.png");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaSrc: "img.png",
     } as never);
 
-    await copyImagePath();
+    await copyImagePath(store);
 
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
@@ -436,11 +399,11 @@ describe("removeImage", () => {
   it("removes image markdown from document", () => {
     const imgText = "![alt](image.png)";
     const view = createMockView(imgText);
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
     } as never);
 
-    removeImage(view as never);
+    removeImage(view as never, store);
 
     expect(mocks.runOrQueueCodeMirrorAction).toHaveBeenCalled();
     expect(view.dispatch).toHaveBeenCalledWith(
@@ -454,22 +417,22 @@ describe("removeImage", () => {
 
   it("does nothing when no image range found", () => {
     const view = createMockView("no image here");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
     } as never);
 
-    removeImage(view as never);
+    removeImage(view as never, store);
 
     expect(view.dispatch).not.toHaveBeenCalled();
   });
 
   it("does nothing when mediaNodePos is negative", () => {
     const view = createMockView("![alt](img.png)");
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: -1,
     } as never);
 
-    removeImage(view as never);
+    removeImage(view as never, store);
 
     expect(view.dispatch).not.toHaveBeenCalled();
   });
@@ -499,7 +462,7 @@ describe("parseImageMarkdown — false branch when no match (branch 3, line 40)"
       },
       dispatch: vi.fn(),
     };
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 5,
       mediaSrc: "new.png",
       mediaAlt: "alt",
@@ -509,7 +472,7 @@ describe("parseImageMarkdown — false branch when no match (branch 3, line 40)"
     // getImageMetaFromRange calls parseImageMarkdown on "not-an-image" → returns null
     // → getImageMetaFromRange uses ?? fallbacks: title=null, useAngleBrackets=false
     // This covers branch 10 (line 89) as well
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     // dispatch is still called because getImageRange found a range
     expect(view.dispatch).toHaveBeenCalled();
@@ -535,14 +498,14 @@ describe("findImageAtPos — false branch when pos is outside all matches (branc
       dispatch: vi.fn(),
     };
     // mediaNodePos=0 → pos=0, matchStart=5 → 0 < 5, so pos < matchStart → no match
-    vi.mocked(useMediaPopupStore.getState).mockReturnValue({
+    storeState = ({
       mediaNodePos: 0,
       mediaSrc: "new.png",
       mediaAlt: "alt",
       setSrc: mockSetSrc,
     } as never);
 
-    saveImageChanges(view as never);
+    saveImageChanges(view as never, store);
 
     expect(view.dispatch).not.toHaveBeenCalled();
   });
@@ -557,15 +520,11 @@ describe("browseImage — tabId null fallback branches (branches 13, 14)", () =>
     mocks.withReentryGuard.mockImplementation(
       async (_wl: string, _op: string, fn: () => Promise<unknown>) => fn()
     );
-    vi.mocked(useTabStore.getState).mockReturnValue({
-      activeTabId: {}, // no "main" key → activeTabId["main"] is undefined → ?? null
-    } as never);
-    vi.mocked(useDocumentStore.getState).mockReturnValue({
-      getDocument: vi.fn(), // never called when tabId is null
-    } as never);
+    
+    mockActiveFilePath = null;
     const view = createMockView("![alt](old.png)");
 
-    const result = await browseImage(view as never);
+    const result = await browseImage(view as never, store);
 
     // filePath is undefined → warning is shown
     expect(result).toBe(false);

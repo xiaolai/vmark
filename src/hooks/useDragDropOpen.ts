@@ -14,14 +14,14 @@ import {
   isSupportedFileName,
 } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
-import { getReplaceableTab, findExistingTabForPath } from "@/hooks/useReplaceableTab";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { replaceTabWithFile, type ReplaceTabResult } from "@/hooks/useFileOpen";
+import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { replaceTabWithFile, type ReplaceTabResult } from "@/services/navigation/fileOpen";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
-import { openDroppedFileInNewTab } from "@/hooks/dragDropOpenFile";
-import { openDroppedPathsInLegacyWindows } from "@/hooks/dragDropLegacyWindows";
+import { openDroppedFileInNewTab } from "@/services/navigation/dragDropOpenFile";
+import { openDroppedPathsInLegacyWindows } from "@/services/navigation/dragDropLegacyWindows";
 
 /** Surface a drag-drop replace-tab read failure (cancellations stay silent). */
 function reportReplaceFailure(result: ReplaceTabResult, path: string): void {

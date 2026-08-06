@@ -12,6 +12,9 @@
  *   Rust emits {phase: "commit"} → handleTabRemovalRequest removes the tab.
  *
  * Key decisions:
+ *   - `initDocument` receives an explicit DocumentRestoreState, not a bare
+ *     savedContent string: the transfer's line convention and raw disk
+ *     snapshot travel with it (see utils/transferLineMetadata.ts).
  *   - `prepare` is side-effect free. The source's pre-transfer snapshot is stale
  *     the moment the user edits here, so undo must restore what this window
  *     actually holds — and it can only do that if nothing is destroyed first.
@@ -29,8 +32,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { cleanupTabState } from "@/hooks/tabCleanup";
+import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore, useWorkspaceStore } from "@/stores/workspaceStore";
@@ -42,6 +45,7 @@ import type {
 import { windowCloseWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
+import { pickTransferLineMetadata } from "@/utils/transferLineMetadata";
 
 const REMOVE_ACK_EVENT = "tab:remove-ack";
 
@@ -69,7 +73,12 @@ export async function applyTabTransferData(
     isPinned: false,
   });
   useTabStore.getState().updateTabTitle(tabId, data.title);
-  useDocumentStore.getState().initDocument(tabId, data.content, data.filePath, data.savedContent);
+  useDocumentStore.getState().initDocument(tabId, data.content, data.filePath, {
+    savedContent: data.savedContent,
+    // The file's convention travels with the payload; canonical content
+    // cannot carry it, so without this a CRLF+BOM file arrived LF-only.
+    ...pickTransferLineMetadata(data),
+  });
   if (data.filePath) {
     useRecentFilesStore.getState().addFile(data.filePath);
   }

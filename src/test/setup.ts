@@ -1,7 +1,13 @@
 import "@testing-library/jest-dom";
+import { configure as configureTestingLibrary } from "@testing-library/react";
 import { expect, vi } from "vitest";
 import React from "react";
 import "./localStorageShim";
+import { ASYNC_IMPORT_WAIT } from "./waitBudget";
+
+// Suite-wide async-wait budget. Rationale (and the `vi.waitFor` twin, which
+// has no global equivalent) live in `./waitBudget`.
+configureTestingLibrary({ asyncUtilTimeout: ASYNC_IMPORT_WAIT.timeout });
 
 // vitest-axe matchers (RW-15 / L11): register `toHaveNoViolations` globally so
 // a11y tests can assert `expect(await axe(el)).toHaveNoViolations()`.
@@ -38,6 +44,13 @@ function applyInterpolation(template: string, opts?: Record<string, unknown>): s
 /**
  * Walk a nested object by dot-separated path.
  * Returns the leaf string value or undefined if not found.
+ *
+ * Kept as a fallback only. Every locale bundle is now flat (enforced by
+ * `src/locales/__tests__/localeShape.test.ts`), so the flat lookup below
+ * always wins and this never fires. It matters that it stays second: this mock
+ * resolves flat-before-nested while real i18next resolves nested-before-flat,
+ * and that disagreement is exactly what once let a shadowed translation pass
+ * tests and ship as English.
  */
 function walkNestedKey(obj: Record<string, unknown>, dotKey: string): string | undefined {
   const parts = dotKey.split(".");
@@ -77,7 +90,8 @@ function resolveKey(key: string, defaultNs: string, opts?: Record<string, unknow
     }
     localKey = localKey.slice(0, -(suffix.length + 1));
   }
-  // Try flat lookup first (for flat JSON like statusbar), then nested.
+  // Flat lookup first — every bundle is flat now, so this always hits; the
+  // nested walk is a dormant fallback (see walkNestedKey).
   // A missing key honors opts.defaultValue before echoing the key —
   // matching real i18next behavior.
   const flatTemplate = (dict as Record<string, unknown>)[localKey];
@@ -120,7 +134,9 @@ vi.mock("@/i18n", () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     resolveKey(key, "common", opts);
   return {
-    default: { t, language: "en" },
+    // `on`/`off` mirror the real i18next event emitter surface (used by
+    // node views to refresh labels on languageChanged).
+    default: { t, language: "en", on: () => {}, off: () => {} },
     // Ensure the default export and named exports both work
     __esModule: true,
   };
@@ -274,3 +290,5 @@ vi.mock("@tauri-apps/api/path", () => ({
   dirname: vi.fn((path: string) => Promise.resolve(path.split("/").slice(0, -1).join("/") || "/")),
   basename: vi.fn((path: string) => Promise.resolve(path.split("/").pop() || "")),
 }));
+
+import "./bindPluginRegistries";

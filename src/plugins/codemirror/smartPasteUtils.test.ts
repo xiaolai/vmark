@@ -4,10 +4,11 @@
  * Tests pure/small helper functions used by the smart paste plugin.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import {
   isViewConnected,
   isValidUrl,
@@ -17,6 +18,10 @@ import {
   expandHomePath,
   validateLocalPath,
 } from "./smartPasteUtils";
+
+// These drive the REAL stores; bind them to the seams the plugin reads,
+// which is what the app does at startup.
+beforeEach(bindPluginHostSettings);
 
 // Track views for cleanup
 const views: EditorView[] = [];

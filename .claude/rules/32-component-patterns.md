@@ -2,6 +2,57 @@
 
 Standard patterns for UI components. Follow these for consistency.
 
+## Use the canonical components before writing a new class
+
+| Need | Use | Defined in |
+|---|---|---|
+| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--danger`) | `src/styles/button-shared.css` |
+| Dropdown / `<select>` | `.vm-select` inside a `.vm-select-field` wrapper | `src/styles/select-shared.css` |
+| Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) | `src/styles/popup-shared.css` |
+| Editor toolbar button | `.universal-toolbar-btn` | `universal-toolbar.css` |
+| Popup surface | `.popup-container` | `src/styles/popup-shared.css` |
+
+A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
+native bezel, native chevron, 5px pill radius — and author styling only partly
+applies. A fully tokenised stylesheet still renders as macOS chrome; text
+inputs beside it look correct, which is why the drift survives review. Reach
+for `.vm-select`, and note the wrapper is load-bearing: `select` cannot host a
+reliable `::after`, so the chevron lives on `.vm-select-field` and is drawn
+with `mask-image` + `currentColor` rather than a `background-image` data URI,
+which would bake in a colour that no theme token can reach.
+
+Writing a new `*-btn` class is a **gate failure** — `pnpm lint:bespoke-buttons`
+(`scripts/check-bespoke-buttons.mjs`) ratchets the bespoke count down only.
+The count exists because 88 hand-rolled button classes drifted apart: four
+implementations of one control used four paddings, three radii, two font sizes,
+and three spellings of a 1px border — including `--space-px`, a *spacing* token
+misused as a border width. Passing the token gate is not the same as matching
+the design system.
+
+## Panels: dock in-flow, don't float over the editor
+
+A full-height side panel must **displace** the editor, not occlude it. Render it
+into `EditorArea`'s `sidePanel` slot (right dock) or its `panel` slot
+(`panelPosition` top/bottom/left/right, the terminal's mechanism). A
+`position: fixed` panel hides the document underneath and never reflows — the
+Knowledge Base panel shipped that way and text simply vanished behind it.
+
+`position: fixed` is correct only for **floating cards and modals** that are
+deliberately transient and small: breakdown, window-status, quick-look, context
+menus, inline popups.
+
+ADR-007 says new top-level surfaces become "slot registrations, not edits to
+`App.tsx`". **No registration mechanism exists** — a surface is mounted by
+editing App.tsx's `<AppShell>` composition, and claiming otherwise in a file
+header is a documentation bug (WI-12 removed one from
+`KnowledgeBasePanel.tsx`). What `pnpm lint:shell-slots` enforces is the
+checkable half: `scripts/shell-slots-baseline.json` holds the IDENTITY LIST of
+the 20 surfaces App.tsx mounts, and the gate fails both ways — a surface that is
+not listed, and a listed surface that is no longer mounted. When it fires,
+bundle related surfaces behind one mount (see
+`src/components/CoherenceOverlays.tsx`) or give the surface a real shell slot;
+appending a name to the list is not the fix.
+
 ## Single Source of Truth
 
 Each component's styles must live in ONE file only. Duplicating styles across files causes cascade hazards.

@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Acercar"
   view.zoomOut: "Alejar"
   view.wordWrap: "Alternar ajuste de línea"
+  view.universalToolbar: "Mostrar barra de herramientas universal"
   view.lineNumbers: "Alternar números de línea"
   view.diagramPreview: "Alternar vista previa de diagramas"
   view.fitTables: "Ajustar tablas al ancho"
@@ -248,6 +249,34 @@ errors:
   workflow.notRunning: "No hay ningún flujo de trabajo en ejecución"
   workflow.circularDependency: "Se detectó una dependencia circular en los pasos del flujo de trabajo"
   workflow.noInteractivePrompt: "El flujo de trabajo no admite solicitudes interactivas"
+  workflow.engineDisabled: "El motor de flujo de trabajo está desactivado en la configuración"
+  workflow.noPendingApproval: "Ninguna solicitud de aprobación pendiente coincide"
+  workflow.appDataDirUnavailable: "No se pudo resolver el directorio de datos de la aplicación: %{detail}"
+
+  # === Ruta de guardado (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "La carpeta de este archivo ya no existe: %{dir}"
+  save.noParentDirectory: "La ruta del archivo no tiene carpeta contenedora"
+  save.writeFailed: "No se pudo guardar el archivo: %{detail}"
+  save.taskFailed: "La tarea de guardado terminó inesperadamente: %{detail}"
+
+  # === Navegador integrado, navegación de la IA (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "El navegador integrado está desactivado en Ajustes"
+  browser.approvalRequired: "Esta página necesita tu aprobación antes de que la IA pueda abrirla"
+  browser.blockedDestination: "La política bloquea la navegación de la IA a este destino"
+  browser.profileNotApproved: "No se aprobó abrir este perfil del navegador"
+  browser.tabNotFound: "Esa pestaña del navegador ya no existe"
+  browser.tabNotAiOwned: "Esa pestaña del navegador no está controlada por la IA"
+  browser.policyStale: "La política del navegador cambió: vuelve a intentar la acción"
+  browser.tabProvenanceMismatch: "Esa pestaña se creó en otro modo de automatización"
+  browser.invalidSessionMode: "Modo de sesión del navegador desconocido «%{mode}»"
+  browser.stateUnavailable: "No se pudo leer el estado del navegador: %{detail}"
+  browser.invalidUrl: "Esa no es una dirección web utilizable"
+  browser.invalidProfileName: "Ese nombre de perfil del navegador no está permitido"
+  browser.windowGone: "La ventana a la que pertenece esta pestaña del navegador se ha cerrado"
+  browser.profileLimit: "Hay demasiados perfiles del navegador abiertos a la vez"
+  browser.unsupportedPlatform: "El navegador integrado no está disponible en esta plataforma"
+  browser.surfaceTimeout: "El navegador no respondió a tiempo"
+  browser.surfaceFailed: "El navegador no pudo completar esa acción"
 
   # === Hot exit ===
   hotExit.noWindows: "No hay ventanas de documento para capturar"
@@ -267,6 +296,47 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "El inicio del sidecar MCP ya está en curso"
   mcp.configMismatch: "Validación de configuración fallida: el contenido escrito no coincide"
+
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Proveedor desconocido: %{provider}"
+  mcp.legacyProvider: "%{name} está descontinuado; la entrada restante de VMark solo se puede eliminar."
+  mcp.noHomeDir: "No se pudo determinar el directorio de inicio"
+  mcp.exePathFailed: "No se pudo obtener la ruta del ejecutable: %{detail}"
+  mcp.exeDirFailed: "No se pudo obtener el directorio del ejecutable"
+  mcp.binaryNotFound: "No se encontró el binario del servidor MCP: %{name}. Reinstale VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON no válido: %{detail}"
+  mcp.invalidToml: "TOML no válido: %{detail}"
+  mcp.jsonSerializeFailed: "Error de serialización JSON: %{detail}"
+  mcp.invalidJsonStructure: "Estructura JSON no válida"
+  mcp.serversNotObject: "%{key} no es un objeto"
+  mcp.serversNotTable: "mcp_servers no es una tabla"
+  mcp.vmarkEntryNotObject: "%{key} no es un objeto"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark no es una tabla"
+  mcp.envNotObject: "%{key} no es un objeto"
+  mcp.envNotTable: "mcp_servers.vmark.env no es una tabla"
+
+  # Puente MCP: las credenciales de cliente a las que se vincula el principal de autorización
+  mcp.principalMissing: "Este cliente de IA no presentó ninguna credencial de VMark, por lo que se rechazan las acciones delegadas. Abre Ajustes > Integraciones, ejecuta Instalar para ese cliente y reinícialo."
+  mcp.principalUnknown: "La credencial que presentó este cliente de IA no consta en VMark, por lo que se rechazan las acciones delegadas. Abre Ajustes > Integraciones, ejecuta Instalar para ese cliente y reinícialo."
+  mcp.principalAmbiguous: "La credencial que presentó este cliente de IA está configurada para más de un cliente (%{detail}), así que VMark no puede distinguirlos. Abre Ajustes > Integraciones, ejecuta Instalar para cada uno y reinícialos."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Error al leer %{path}: %{detail}"
+  mcp.createDirFailed: "Error al crear el directorio %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} cambió en el disco mientras VMark lo actualizaba. Cierre el cliente que lo está escribiendo y vuelva a intentarlo."
+  mcp.backupWriteFailed: "Error al escribir la copia de seguridad %{path}: %{detail}"
+  mcp.backupFlushFailed: "Error al vaciar el búfer de la copia de seguridad %{path}: %{detail}"
+  mcp.backupSyncFailed: "Error al sincronizar la copia de seguridad %{path}: %{detail}"
+  mcp.backupCreateFailed: "Error al crear la copia de seguridad %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Error al crear la copia de seguridad: ya existen %{count} variantes de %{path}"
+  mcp.stageConfigFailed: "Error al preparar la configuración en %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Error al restringir los permisos de la configuración preparada %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Error al escribir la configuración preparada para %{path}: %{detail}"
+  mcp.createConfigFailed: "Error al crear %{path}: no se pudo colocar una copia preparada mediante un enlace duro (%{link_detail}) ni crear el archivo directamente (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Error al escribir %{path}: %{detail} (se eliminó el archivo incompleto)"
+  mcp.writeConfigPartialOrphaned: "Error al escribir %{path}: %{detail}. Tampoco se pudo eliminar el archivo incompleto (%{cleanup_detail}); elimínelo a mano antes de volver a intentarlo o la próxima instalación lo leerá como una configuración dañada."
 
 window:
   settings.title: "Ajustes"

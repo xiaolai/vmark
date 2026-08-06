@@ -384,3 +384,52 @@ describe("applyFormat — surrounding markers false branch in main body", () => 
     view.destroy();
   });
 });
+
+describe("a mark never swallows block markup", () => {
+  // Selecting a whole line and pressing Bold produced `**### Title**` — the
+  // heading marker inside the emphasis, which is neither a heading nor bold.
+  // WYSIWYG cannot reproduce it: the marker is not text there, so there is
+  // nothing to select. `selectBlock` was the obvious suspect and the wrong
+  // lever — narrowing the selection would have changed what Delete and replace
+  // do in a TEXT surface, and would have missed this case entirely, which
+  // starts from a user dragging across the line by hand.
+  it.each([
+    { label: "heading", doc: "### Title text\n", want: "### **Title text**\n" },
+    { label: "bullet", doc: "- Item text\n", want: "- **Item text**\n" },
+    { label: "ordered", doc: "1. Item text\n", want: "1. **Item text**\n" },
+    { label: "blockquote", doc: "> Quoted text\n", want: "> **Quoted text**\n" },
+    { label: "task item", doc: "- [ ] Task text\n", want: "- [ ] **Task text**\n" },
+  ])("$label — the marker stays outside", ({ doc, want }) => {
+    const view = createView(doc, 0, doc.length - 1);
+    applyFormat(view, "bold");
+    expect(view.state.doc.toString()).toBe(want);
+    view.destroy();
+  });
+
+  it("leaves a MID-LINE selection exactly where the user put it", () => {
+    // The narrowing applies only when the selection starts at the line start.
+    // A user who selected from column 4 meant those characters.
+    const view = createView("### Title text\n", 4, 9);
+    applyFormat(view, "bold");
+    expect(view.state.doc.toString()).toBe("### **Title** text\n");
+    view.destroy();
+  });
+
+  it("does not strip anything from a plain paragraph", () => {
+    const view = createView("Plain text here\n", 0, 15);
+    applyFormat(view, "bold");
+    expect(view.state.doc.toString()).toBe("**Plain text here**\n");
+    view.destroy();
+  });
+
+  it("keeps an indented-code line INDENTED, so it stays code", () => {
+    // Bolding inside indented code inserts literal `**` either way — but
+    // putting it at column 0 would pull the line out of the code block and
+    // turn it into a paragraph. Preserving the indent preserves the block
+    // type, which is the safer of two odd outcomes.
+    const view = createView("    - not a list\n", 0, 16);
+    applyFormat(view, "bold");
+    expect(view.state.doc.toString()).toBe("    **- not a list**\n");
+    view.destroy();
+  });
+});

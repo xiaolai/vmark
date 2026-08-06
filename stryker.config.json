@@ -1,19 +1,49 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Scoped TypeScript mutation testing, the frontend twin of src-tauri/mutants.toml (see that file's header for the philosophy). Mutates ONLY high-value pure-logic modules with real branching and solid unit tests — not the whole app, most of which is React/Tauri glue that mutation testing can't meaningfully evaluate from jsdom. Run weekly + on demand via .github/workflows/mutation.yml (ts-mutants job); non-blocking signal source, not a gate. Local run: pnpm mutation:ts (or narrow it: pnpm mutation:ts -- --mutate src/lib/lintEngine/linter.ts). Widen scope by appending globs to `mutate` once the current scope's kill rate is healthy.",
+  "_comment": "Scoped TypeScript mutation testing, the frontend twin of src-tauri/.cargo/mutants.toml (see that file's header for the philosophy). Mutates ONLY high-value pure-logic modules with real branching and solid unit tests — not the whole app, most of which is React/Tauri glue that mutation testing can't meaningfully evaluate from jsdom. Run weekly + on demand via .github/workflows/mutation.yml (ts-mutants job); non-blocking signal source, not a gate. Local run: pnpm mutation:ts (or narrow it: pnpm mutation:ts -- --mutate src/lib/lintEngine/linter.ts). Widen scope by appending globs to `mutate` once the current scope's kill rate is healthy.",
   "testRunner": "vitest",
   "plugins": ["@stryker-mutator/vitest-runner"],
   "vitest": {
-    "configFile": "vitest.config.ts"
+    "configFile": "vitest.config.ts",
+    "related": true
   },
+  "_ignorePatterns_comment": "WI-4: Stryker copies the project into .stryker-tmp/sandbox-* before running. Without these ignores it copied ~291k files — machine-local agent-tool dirs (.claude/ alone is ~177k files of worktrees, and its plugin symlinks crash the copy outright: copyfile on a symlinked dir → ENOTSUP; .agents/skills is the same class), src-tauri/target/ (~247k build artifacts), website/, dev-docs/, coverage/, dist/. None are inputs to the vitest suite. Defaults (node_modules, .git, reports, tempDir) still apply; these are additive. If a new machine-local tool dir ever crashes the sandbox copy with ENOTSUP, add it here.",
+  "ignorePatterns": [
+    ".agents",
+    ".cc-suite",
+    ".claude",
+    ".codex",
+    ".playwright-mcp",
+    ".superpowers",
+    ".tokenize",
+    ".vitest-attachments",
+    ".vmark",
+    "tmp",
+    "dev-docs",
+    "coverage",
+    "dist",
+    "website",
+    "src-tauri/target"
+  ],
+  "_dryRunTimeout_comment": "WI-4: the dry run used to die at the 5-minute default ('Initial test run timed out!', every CI run). The runner executes the dry run SINGLE-THREADED (vitest-runner pins maxWorkers/maxThreads to 1) with mutant instrumentation and perTest coverage collection, so the parallel suite's wall time is meaningless here; `related: true` (runner default, pinned explicitly) already narrows the test set to files related to the mutate globs. 20 minutes is generous headroom for CI runners — it only ever bites when something is genuinely wrong, and the job-level timeout still bounds the run.",
+  "dryRunTimeoutMinutes": 20,
+  "_timeoutMS_comment": "Absolute per-mutant timeout cap (WI-4 follow-up, measured on run 30898727907): without it, timeout-class mutants inherit dry-run-derived budgets that ballooned the CI tail to an estimated ~7 h for the last 228 mutants. A timeout IS a detection in Stryker scoring, so capping it lower only makes those detections faster — it cannot mask a surviving mutant.",
+  "timeoutMS": 60000,
   "mutate": [
     "src/lib/cjkFormatter/rules/**/*.ts",
     "src/lib/cjkFormatter/quotePairing.ts",
+    "src/lib/cjkFormatter/quoteClassification.ts",
     "src/lib/lintEngine/rules/**/*.ts",
     "src/lib/lintEngine/linter.ts",
+    "src/components/Terminal/resolveCommit.ts",
+    "src/components/Terminal/terminalReadlineKeys.ts",
+    "src/components/Terminal/imeCharClass.ts",
+    "src/lib/extensions/claim.ts",
+    "src/lib/extensions/resolve.ts",
     "!**/*.test.ts",
     "!**/__tests__/**"
   ],
+  "_scopeNotes_comment": "extensions/claim.ts (90.8%) and extensions/resolve.ts (83.4%; 94% on logic once the error-message StringLiteral survivors are set aside) are the extension-registry core (ADR-015). resolve.ts's residual survivors are deliberate: ~2 dozen mutate exact error-message text (pinning those is brittle — the tests assert the error CODE + refused ordering instead), 2 are equivalent mutants on `byId.get(id)` undefined-guards (every ready/sorted id came from `order`, so the else-branch is unreachable), and the rest are cycle-detection DFS internals already covered behaviorally by the 6 `cycles` tests. Do NOT chase the 85% overall bar by asserting exact error strings.",
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "progress", "html", "json"],
   "htmlReporter": {
@@ -22,10 +52,11 @@
   "jsonReporter": {
     "fileName": "reports/mutation/mutation.json"
   },
+  "_break_comment": "Ratchet floor from measured reality (WI-5): first green full run measured 77.26 on 2026-08-03 (2,370 mutants: 1,823 killed, 80 timeout-killed, 538 survived, 22 no-cov; 58m17s local). break is set 2.26 pp under measured because timeout-classed kills are the run-to-run variance source (the vitest.config.ts coverage-floor lesson: too-tight buffers are flake generators). Ratchet UPWARD only from later measured runs; never set above measured reality. That the gate BITES is proven durably by scripts/stryker-break-canary.test.mjs (real Stryker on scripts/fixtures/stryker-canary/, asserting a break violation exits non-zero).",
   "thresholds": {
     "high": 85,
     "low": 70,
-    "break": null
+    "break": 75
   },
   "tempDirName": ".stryker-tmp",
   "cleanTempDir": true

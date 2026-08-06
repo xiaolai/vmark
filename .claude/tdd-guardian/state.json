@@ -3,5 +3,376 @@
   "last_result": "passed",
   "last_head_sha": "de6827c0",
   "tests_passed": true,
-  "coverage_passed": true
+  "coverage_passed": true,
+  "workItems": {
+    "WI-18": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-mock-boundaries.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/check-mock-boundaries.mjs",
+        "scripts/mock-boundaries-baseline.json",
+        "package.json"
+      ],
+      "updatedAt": "2026-08-03T09:37:27.496676+00:00",
+      "notes": "Identity baseline: 276 triples/140 files; nested-git-checkout skip added; full suite 28736 passed"
+    },
+    "WI-1": {
+      "status": "DONE",
+      "testFiles": [
+        "src/plugins/sourceLinkPopup/__tests__/staleRangeGuards.test.ts"
+      ],
+      "sourceFiles": [
+        "src/plugins/sourceLinkPopup/sourceLinkPopupPlugin.ts",
+        "src/plugins/sourceLinkPopup/sourceLinkActions.ts",
+        "src/plugins/sourceLinkPopup/SourceLinkPopupView.ts",
+        "src/plugins/shared/popupPorts.ts",
+        "src/stores/popupStore/types.ts",
+        "src/stores/popupStore/linkMediaActions.ts",
+        "src/stores/linkPopupStore.ts"
+      ],
+      "updatedAt": "2026-08-03T10:09:10.304928+00:00",
+      "notes": "D1 resolved: remap-when-mappable/close-when-destroyed; D7 resolved: unlink. RED reproduced live corruption. Full suite green."
+    },
+    "WI-2": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/paneTabIntegration.test.ts",
+        "src/services/workspaces/activateTabWithWorkspaceContext.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/tabActivationBus.ts",
+        "src/stores/tabStore.ts",
+        "src/stores/tabStoreHelpers.ts",
+        "src/stores/paneStore.ts",
+        "src/services/navigation/activateTabInFocusedPane.ts",
+        "src/services/workspaces/activateTabWithWorkspaceContext.ts",
+        "src/services/workspaces/reopenClosedTab.ts",
+        "src/services/workspaces/reassignTabOwnershipForPath.ts",
+        "src/hooks/mcpBridge/v2/workspaceOpen.ts",
+        "scripts/file-size-baseline.json"
+      ],
+      "updatedAt": "2026-08-03T10:54:12.113431+00:00",
+      "notes": "D2 resolved: focus-follows-tab via tabActivationBus; 5 split checks deleted; DEV assertion; tabStore baseline ratcheted DOWN 466->460. Residual edge: MCP workspace.open under browser-split converges doc into focused pane (invariant-exempt, noted)."
+    },
+    "WI-3": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/persistence/hotExit/schema.test.ts",
+        "src/services/persistence/hotExit/restartWithHotExit.salvage.test.ts",
+        "src/services/persistence/hotExit/restoreDispatch.test.ts",
+        "src/services/persistence/hotExit/instanceContextState.test.ts",
+        "src/services/navigation/restoreWorkspaceTabs.test.ts"
+      ],
+      "sourceFiles": [
+        "src/services/persistence/hotExit/sessionSchema.ts",
+        "src/services/persistence/hotExit/sessionSalvage.ts",
+        "src/services/persistence/hotExit/sessionQuarantine.ts",
+        "src/services/persistence/hotExit/restoreDispatch.ts",
+        "src/services/persistence/hotExit/restartWithHotExit.ts",
+        "src/services/persistence/hotExit/instanceContextState.ts",
+        "src/services/navigation/restoreWorkspaceTabs.ts",
+        "package.json"
+      ],
+      "updatedAt": "2026-08-03T11:32:12.008090+00:00",
+      "notes": "zod ^4.4.3 ADDED TO ROOT MANIFEST (needs check-new-deps acknowledgment in PR). RED proved corrupt version field destroyed session file; now quarantine+preserve. Orchestrator follow-up: de-exported orphaned repositionForPin (WI-2 leftover), knip green."
+    },
+    "WI-4": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-mutants-config-path.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/check-mutants-config-path.mjs",
+        "src-tauri/.cargo/mutants.toml (moved from src-tauri/mutants.toml)",
+        ".github/workflows/mutation.yml",
+        "stryker.config.json",
+        "package.json"
+      ],
+      "updatedAt": "2026-08-04T11:34:30.933691+00:00",
+      "notes": "Rust filter proven live: 139 mutants with config vs 4202 without. Stryker dry run SUCCEEDED (9229 tests, 3m19s; was: timeout every CI run) \u2014 root causes: sandbox copied ~291k machine-local files (.claude worktree symlinks crashed copy) + 5-min single-threaded dry-run cap; fixed via ignorePatterns + dryRunTimeoutMinutes 20 + related:true. Mutation phase reached (165/2370 tested). continue-on-error removed; failure->rolling issue step; taiki-e install. actionlint clean. PENDING AT PR TIME: (1) SHA-pinned live dispatch gh workflow run mutation.yml --ref <branch> + gh run view --json headSha,conclusion,jobs green; (2) deliberately-failing branch dispatch proving the issue step fires. PR-TIME ACCEPTANCE PROGRESS: dispatch 1 (85dc5440) exit-4 = fixture bond reads outside crate in mutants sandbox -> skip added; dispatch 2 (20a3ffe6) same = CARGO_MUTANTS env NOT set in baseline (measured) -> compile-time manifest-path discriminator, proven in exact local sandbox replica; dispatch 3 (cd750542) BASELINE GREEN both legs, killed by undersized job caps (Rust 139 mutants > 60min; TS 2234/2462 @ 90min, ~76% running score); dispatch 4 (8ccf77b0, run 30905319861) with measured caps 240/300min + stryker timeoutMS 60s \u2014 multi-hour, reports failure autonomously via rolling issue."
+    },
+    "WI-5": {
+      "status": "DONE",
+      "testFiles": [
+        "src/lib/cjkFormatter/__tests__/idempotence.property.test.ts",
+        "scripts/stryker-break-canary.test.mjs"
+      ],
+      "sourceFiles": [
+        "src/lib/cjkFormatter/rules/fullwidth.ts",
+        "src/lib/cjkFormatter/quotePairing.ts",
+        "src/lib/cjkFormatter/quoteClassification.ts",
+        "src/lib/cjkFormatter/rules/applyRules.ts",
+        "scripts/fixtures/stryker-canary/",
+        "stryker.config.json",
+        "scripts/file-size-baseline.json"
+      ],
+      "updatedAt": "2026-08-03T13:52:47.263793+00:00",
+      "notes": "Property found+fixed 5 real non-idempotence bug classes (11 pinned counterexamples); D8 recorded. Canary meta-test proves break fires (1.5s, in default suite). break:null pending orchestrator fill from measured run INCLUDING these fixes. ORCHESTRATOR: break=75 set from measured 77.26 (2026-08-03, 58m17s run)."
+    },
+    "WI-6": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/Browser/browserLifecycleBound.test.tsx"
+      ],
+      "sourceFiles": [
+        "src/stores/browserStore.ts (DELETED)",
+        "src/stores/__tests__/browserStore.test.ts (DELETED)",
+        "scripts/check-browser-phase.sh",
+        "src-tauri/src/browser/registry.rs",
+        ".claude/hooks/gha-tdd-guard.mjs",
+        "scripts/check-mock-boundaries.mjs (.stryker-tmp skip)",
+        "scripts/check-deleted-names.mjs"
+      ],
+      "updatedAt": "2026-08-03T15:08:23.750705+00:00",
+      "notes": "D9 recorded (delete-not-wire). Pin sensitivity proven via 2 deliberate mutations. Phase script repaired (was failing on stale paths). Lifecycle::Hibernated removed. deleted-names registered browserStore/useBrowserStore. Coverage floors hold. cargo gates green."
+    },
+    "WI-7": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-tag-green.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/check-tag-green.sh",
+        ".githooks/pre-push",
+        "AGENTS.md",
+        ".claude/rules/60-ai-governance.md",
+        ".claude/rules/40-version-bump.md",
+        ".claude/commands/bump.md",
+        "scripts/setup-local-git.mjs"
+      ],
+      "updatedAt": "2026-08-03T15:27:50.603423+00:00",
+      "notes": "Tag leg -> gh api check-runs (seconds); main leg informational (protection authoritative); legacy gate behind VMARK_OFFLINE_GATE=1. Real-gh smoke green on origin/main. Timing claim centralized in hook header; zero stale ~3min claims."
+    },
+    "WI-8": {
+      "status": "DONE",
+      "testFiles": [
+        "src/plugins/shared/popupHostDom.test.ts",
+        "scripts/depcruise-sensitivity.test.mjs"
+      ],
+      "sourceFiles": [
+        ".dependency-cruiser.cjs",
+        ".dependency-cruiser-known-violations.json",
+        "src/plugins/shared/popupHostDom.ts",
+        "src/plugins/sourcePopup/* (utils removed)",
+        "8 importers repointed",
+        "scripts/extension-budget.json"
+      ],
+      "updatedAt": "2026-08-03T15:54:41.222744+00:00",
+      "notes": "17 plugin-wide licenses deleted; 74 edges frozen per-edge; exemption budget 28->7; known-violations 7->74 (documented rebase \u2014 same debt made visible); 3 dead entries proven+deleted; meta-test 1.2s on real config."
+    },
+    "WI-9": {
+      "status": "DONE",
+      "testFiles": [
+        "14 per-store pin files + src/stores/__tests__/editorContextMenuStore.test.ts + src/services/assembly/modeSwitchCleanup.test.ts"
+      ],
+      "sourceFiles": [
+        "15 standalone stores (901 LOC)",
+        "DELETED: src/stores/popupStore.ts, popupStore/ (5 files), _shimHelper.ts+test, editorContextMenuSlice.test.ts (~1569 LOC)",
+        "6 consumers converted",
+        "scripts/check-deleted-names.mjs",
+        "scripts/mock-boundaries-baseline.json (-2)"
+      ],
+      "updatedAt": "2026-08-03T18:36:32.153803+00:00",
+      "notes": "RED: exactly 28 native-getInitialState pins failed under shim (deviation proven live). modeSwitchCleanup uniform resetIfOpen. WI-1 linkSetRange preserved. All baselines ratcheted down."
+    },
+    "WI-10": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/depcruise-sensitivity.test.mjs (extended)",
+        "src/hooks/useMcpBridge.integration.test.ts"
+      ],
+      "sourceFiles": [
+        "63 moves + 2 splits across services/{windowClose,files,tabs,media,navigation,workspaceEvents,keybinding,updates,genieInvocation,commands,mcpBridge}",
+        "scripts/check-hooks-react-purity.mjs (new gate, zero baseline)",
+        ".dependency-cruiser-known-violations.json (74->75, dated straggler)",
+        "16 mock-boundary + 6 file-size baseline entries re-pathed"
+      ],
+      "updatedAt": "2026-08-03T19:16:18.062272+00:00",
+      "notes": "6 batches, gates green each boundary. mcpBridge 57 files -> services/, one wiring hook remains. hooks-purity: react import OR hook call OR re-export; getState() doesn't count. Follow-up candidate: extract browserNavigation->useBrowserNativeView edge."
+    },
+    "WI-11": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-plugin-store-coupling.test.ts (34 cases)",
+        "src/plugins/shared/hostDocument.test.ts",
+        "src/services/assembly/bindHostSettings.test.ts"
+      ],
+      "sourceFiles": [
+        "scripts/check-plugin-store-coupling.mjs (4-channel AST)",
+        "scripts/plugin-store-coupling-baseline.json (42/0/0/3, 23 units)",
+        "src/plugins/shared/hostDocument.ts",
+        "src/services/assembly/bindHostSettings.ts",
+        ".claude/rules/00-engineering-principles.md"
+      ],
+      "updatedAt": "2026-08-03T20:45:08.352716+00:00",
+      "notes": "D3 executed: all channels parse, prose safe, landmine note replaced. Fallout: 21 tests passed via global-mock leak \u2014 fixed at fakes; 1 vacuous test strengthened. check:all EXIT 0. Ran on opus (Fable subagent limit)."
+    },
+    "WI-12": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-shell-slots.test.ts (14 subprocess + legacy-regex proof)",
+        "scripts/check-eager-chunks.test.ts (+18)",
+        "src/components/KnowledgeBasePanel/KnowledgeBasePanel.test.tsx (+3)"
+      ],
+      "sourceFiles": [
+        "scripts/check-shell-slots.mjs (AST identity)",
+        "scripts/shell-slots-baseline.json (20 surfaces)",
+        "scripts/check-eager-chunks.mjs (boot-graph closure)",
+        "scripts/manualChunks.ts (vendor-xyflow)",
+        "src/components/KnowledgeBasePanel/KnowledgeBasePanel.tsx (React.lazy)",
+        ".size-limit.cjs (App 1400->610kB)",
+        ".claude/rules/32-component-patterns.md",
+        "AGENTS.md"
+      ],
+      "updatedAt": "2026-08-03T21:14:09.667615+00:00",
+      "notes": "Discovered lint:eager was blind below App (dynamic import boundary); closure walk added. Lazy KbGraphView removed xyflow+dagre AND transitively mermaid+graph: cold-start 7.62MB->4.53MB (-41%). 20-surface identity baseline (honest definition beats plan's 14). Ran on opus."
+    },
+    "WI-13": {
+      "status": "DONE",
+      "testFiles": [
+        "src/lib/formats/lazySurfaces.test.ts (18)",
+        "src/services/assembly/sourceLanguageBinding.test.ts (11)",
+        "src/components/Editor/FormatSurface.test.tsx (5)",
+        "markdownSurface/yamlWorkflowRenderer tests (6)",
+        "scripts/check-eager-chunks.test.ts (45 total)"
+      ],
+      "sourceFiles": [
+        "src/lib/formats/* (thunks)",
+        "src/components/Editor/FormatSurface.tsx (new)",
+        "src/services/assembly/sourceLanguageBinding.ts (new)",
+        "scripts/check-eager-chunks.mjs (LAZY_ONLY_CHUNK_PATTERNS)",
+        "scripts/manualChunks.ts",
+        ".size-limit.cjs (entry 1300->20kB)"
+      ],
+      "updatedAt": "2026-08-03T22:29:42.624580+00:00",
+      "notes": "D4 resolved: retry-on-next-mount (React.lazy sticky-rejection trap documented, mutant-tested). Closure -690kB (-14.5%). PLAN CLAIM REFUTED: vendor-codemirror/tiptap unreachable-from-boot is impossible (App reaches via 181 files); lazy-only surface pins chosen instead, fail-closed both ways. PENDING PRE-MERGE HUMAN STEP: macOS cold-start check (tauri:dev, markdown window, source highlight first frame, GHA workbench). Ran on opus."
+    },
+    "WI-14": {
+      "status": "DONE",
+      "testFiles": [
+        "src-tauri command_error/command_error_from/ai_guards #[cfg(test)]",
+        "scripts/check-command-error-ratchet tests (28 fixtures)",
+        "src/services/commands/commandError tests + saveToPath/browserNavigation/useBrowserNativeView dual-shape"
+      ],
+      "sourceFiles": [
+        "src-tauri/src/command_error.rs",
+        "src-tauri/src/command_error_from.rs",
+        "src-tauri/src/browser/ai_guards.rs",
+        "src-tauri/src/file_write.rs",
+        "src-tauri/src/browser/ai_commands.rs",
+        "src/services/commands/commandError.ts",
+        "scripts/check-command-error-ratchet.mjs + baseline (123 legacy/44 files)",
+        "src-tauri/locales/*.yml (14 keys x10 locales)",
+        ".claude/rules/50-codebase-conventions.md",
+        "src-tauri/Cargo.toml (thiserror 2, already in lock transitively)"
+      ],
+      "updatedAt": "2026-08-03T23:28:46.341551+00:00",
+      "notes": "12-code vocabulary incl. feature-disabled (WI-19 dep ready). Migrated the 2 string-sniffed modules (PARENT_MISSING: prefix, APPROVAL_REQUIRED x4). Generated wire fixture bonds Rust<->TS suites. i18n self-scanning test. Independent gates: cargo 1812 passed, frontend green. Stale LSP diagnostics were RED-phase captures \u2014 verified files exist + cargo check clean. Ran on opus."
+    },
+    "WI-15": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/mcpBridge/v2/__tests__/bridgeFieldParity.test.ts",
+        "server/mcp/__tests__/unit/bridge/{operationSends,operationPosture,contractsGenerator}.test.ts",
+        "src-tauri routing tests"
+      ],
+      "sourceFiles": [
+        "server/mcp/src/bridge/operationSchemas.ts (source of truth)",
+        "server/mcp/scripts/gen-mcp-contracts.ts",
+        "generated: bridgeRequests.ts + bridgeContracts.ts (committed, drift-checked)",
+        "src/services/mcpBridge/v2/readOperationArgs.ts",
+        "src-tauri/src/mcp_bridge/{routing,window_routing}.rs (windowId DELETED)",
+        "scripts/check-file-size.mjs (generated-file exemption, test-first)"
+      ],
+      "updatedAt": "2026-08-04T00:23:44.828170+00:00",
+      "notes": "RED found 3 drifts: windowId (deleted, rename-repair rejected \u2014 would invert routing precedence), clientId phantom (one-shot approval was per-session all along), open_workspace.windowLabel dead field. D5a posture: reject for targeting classes, strip-and-log for session. lint:mcp-contracts in check:all. Sidecar coverage floors RAISED. Ran on opus."
+    },
+    "WI-16": {
+      "status": "DONE",
+      "testFiles": [
+        "scripts/check-baseline-ratchet.test.mjs (41 cases, scratch git repos)"
+      ],
+      "sourceFiles": [
+        "scripts/baselineRatchetManifest.mjs (12 entries + allowRaise)",
+        "scripts/baselineRatchetModes.mjs",
+        "scripts/check-baseline-ratchet.mjs (rewritten)",
+        ".github/workflows/ci.yml",
+        ".claude/rules/60-ai-governance.md (\u00a711)",
+        "mock-boundaries + command-error baselines (MANIFEST-PENDING dropped)"
+      ],
+      "updatedAt": "2026-08-04T00:53:16.174238+00:00",
+      "notes": "12 baselines under merge-base ratchet; live negative probes proven (knip 17->18 exit 1). allowRaise for extension-budget 7->75 SELF-CLEANING: next PR after merge MUST delete the entry (gate fails stale). Identity conversions 0 done/4 deferred with per-entry evidence. Ran on opus."
+    },
+    "WI-17": {
+      "status": "DONE",
+      "testFiles": [
+        "src/test/statefulFsFake.test.ts (16)",
+        "src/test/tier0/{saveFlow,openFlow,autosaveFlow,externalChange}.test.ts (36)"
+      ],
+      "sourceFiles": [
+        "src/test/statefulFsFake.ts + fakeDisk.ts",
+        "src/test/tier0/harness.ts",
+        ".github/workflows/tier0-e2e.yml (weekly Mon 07:00 UTC)",
+        "src/services/files/fileSave.test.ts (demotion header)",
+        "dev-docs tier0-matrix + smoke checklist restored"
+      ],
+      "updatedAt": "2026-08-04T01:37:07.172056+00:00",
+      "notes": "D6 RESOLVED: save-wins-file/external-wins-question, content-identity not mtime; residual window stated+pinned. RED: gutted write -> 9/10 failed. Real entry points (handleSave/handleOpen/useAutoSave/useExternalFileChanges pipeline). PENDING POST-MERGE: first live tier0-e2e dispatch (SHA-pinned). Suggested follow-up: coverage floors can ratchet UP 0.2-0.4pp. Ran on opus."
+    },
+    "WI-19": {
+      "status": "DONE",
+      "testFiles": [
+        "settingsStore migrations tests (+23)",
+        "src-tauri/src/workflow/guards.test.rs + commands.test.rs",
+        ".claude/hooks/gha-tdd-guard.test.mjs (21)",
+        "AdvancedSettings + WorkflowEngineSlot + policy-sync tests"
+      ],
+      "sourceFiles": [
+        "src/services/featureFlags/workflowFeatureFlag.ts (split)",
+        "src/stores/settingsStore/migrations.ts",
+        "src-tauri/src/workflow/{guards,state}.rs (new)",
+        "src-tauri/src/workflow/commands.rs (CommandError, ratchet 3->0)",
+        "src/services/workflow/workflowEnginePolicySync.ts",
+        "src/services/assembly/workflowExtensionGates.ts",
+        ".claude/hooks/gha-tdd-guard.mjs (SCOPED repaired)",
+        ".claude/rules/60-ai-governance.md (\u00a712 verdicts, proposed)"
+      ],
+      "updatedAt": "2026-08-04T02:27:30.259264+00:00",
+      "notes": "Viewer/engine split; backend fail-closed via managed-state push (browser_ai_policy pattern). FINDING: GHA workbench never was flag-gated (yaml adapter unconditional) \u2014 viewer flag gates source-pane extras only; website doc corrected. Guard RED = hook blocked agent's own write. VERDICTS AWAIT RATIFICATION: browser keep-dark->2026-11-01; viewer ship-on->2026-09-15; engine extract->2026-10-01. Genie-with-engine-off now fails loudly (toast fixed from [object Object]). Ran on opus."
+    },
+    "WI-20": {
+      "status": "DONE",
+      "testFiles": [
+        "src-tauri/src/mcp_bridge/state_lifecycle.test.rs (6 pins)",
+        "src-tauri/src/hot_exit/coordinator_pins.test.rs (4 pins)",
+        "src-tauri/src/hot_exit/state.test.rs"
+      ],
+      "sourceFiles": [
+        "src-tauri/src/mcp_bridge/managed.rs (new)",
+        "src-tauri/src/hot_exit/state.rs (new)",
+        "migrated call sites in mcp_bridge/* + hot_exit/* + lib.rs + mcp_server.rs",
+        ".claude/rules/50-codebase-conventions.md (state rule)",
+        "scripts/file-size-baseline.json (2 ratcheted down)"
+      ],
+      "updatedAt": "2026-08-04T03:53:50.061197+00:00",
+      "notes": "8 statics deleted; cfg(test) fork + generation-counter cope gone (RestoreRound token); poison recovery 5->2 documented accessors (parking_lot deferred: 110-site convention). Isolation proof INVERTED (two states, same ids, no observation). connection_generation KEPT: production admission epoch. Ratchet candidates named: handshake LIVE_CONNECTIONS, dedup LAST_WRITTEN_HASH. Pins byte-identical across migration. Ran on opus. GATE NOTE: first full-suite run failed on a LATENT WI-13-era flake (lazy-mount transform race, 1-in-5 in isolation) in yaml.test.ts + GhaWorkflowWorkbench.test.tsx \u2014 fixed by orchestrator with documented LAZY_MOUNT timeouts, 10/10 isolated + full suite green after."
+    },
+    "WI-21": {
+      "status": "DONE",
+      "testFiles": [
+        "src/lib/ghaWorkflow/parser/__tests__/parseWorkflow.test.ts (new, RED-first)",
+        "src/plugins/workflowPreview/__tests__/WorkflowPreview.test.tsx (new, RED-first, 12 tests)"
+      ],
+      "sourceFiles": [
+        "tsconfig.json (both flags)",
+        "server/mcp/tsconfig.json (noImplicitOverride only)",
+        "96 files: 33 override keywords + 132 exact-optional sites (58 widened / 73 absence-handled / 7 restructured)",
+        "new helpers: extensionOrdering.ts, mapSession, pickTransferLineMetadata"
+      ],
+      "updatedAt": "2026-08-04T05:07:23.024617+00:00",
+      "notes": "2 latent absent-vs-undefined findings pinned RED-first (parseWorkflow positions claimed all 8 keys; WorkflowPreview wrote duration:undefined over layout). Zero new as/any/!/ts-ignore. file-size ratchet fought back and won (no baselines raised). server/mcp exactOptional deferred (26 errors, out of scope). Ran on opus."
+    }
+  }
 }

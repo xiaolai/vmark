@@ -2,6 +2,8 @@
 
 VMark's Tab and Shift+Tab keys are context-aware — they help you navigate efficiently through formatted text, brackets, and links without reaching for arrow keys.
 
+> With the experimental [workspace rail](/guide/workspace-rail), tab cycling and the tab strip cover only the active workspace's tabs.
+
 ## Quick Overview
 
 | Context | Tab Action | Shift+Tab Action |
@@ -12,7 +14,7 @@ VMark's Tab and Shift+Tab keys are context-aware — they help you navigate effi
 | Inside **bold**, *italic*, `code`, ~~strike~~ | Jump after the formatting | Jump before the formatting |
 | Inside a link | Jump after the link | Jump before the link |
 | In a table cell | Move to next cell | Move to previous cell |
-| In a list item | Indent the item | Outdent the item |
+| In a list item | Indent the item | Outdent the item (stops at the outermost level) |
 
 ## Bracket & Quote Escape
 
@@ -267,6 +269,10 @@ When cursor is in a list item:
 |--------|-----|
 | Indent item | Tab |
 | Outdent item | Shift + Tab |
+
+Outdent removes one level of nesting and **stops at the outermost level** — it
+will not lift an item out of the list. To leave a list entirely, use **Remove
+List**, or press the list button again to toggle it off.
 
 ## Settings
 

@@ -1,15 +1,13 @@
 /**
- * Tests for the two pure helpers in useGenieShortcuts.
+ * Tests for the getMenuShortcuts helper in useGenieShortcuts.
  *
- * Closes #869: getMenuShortcuts and detectScope are critical to genie
- * menu sync and picker scope filtering, but were previously untested. The
- * three-way `null | {} | { ... }` contract that `getMenuShortcuts` reports
- * to `dynamic.rs` is non-obvious; ditto the four-branch return shape of
- * `detectScope`.
+ * Closes #869: getMenuShortcuts is critical to genie menu sync, but was
+ * previously untested. The three-way `null | {} | { ... }` contract that
+ * `getMenuShortcuts` reports to `dynamic.rs` is non-obvious.
  *
- * Scope: per the issue, only the two pure helpers — useEffect blocks,
- * keydown handler, and `loadAndSyncMenu` are out of scope here. The
- * menu:invoke-genie effect is covered in
+ * Scope: only the pure helper — useEffect blocks and `loadAndSyncMenu` are
+ * out of scope here. `detectScope` moved to genieCommands.ts (covered in
+ * genieCommands.test.ts); the menu:invoke-genie effect is covered in
  * useGenieShortcuts.invokeGenie.test.ts.
  */
 
@@ -31,31 +29,13 @@ vi.mock("@/stores/settingsStore", () => ({
   prosemirrorToTauri: (key: string) => prosemirrorToTauriMock(key),
 }));
 
-const editorStoreMock = { sourceMode: false as boolean };
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: {
-    getState: () => editorStoreMock,
-  },
-}));
-
-const tiptapEditorStoreMock = {
-  editor: null as null | { state: { selection: { empty: boolean } } },
-};
-vi.mock("@/stores/editorStore", () => ({
-  useEditorStore: {
-    getState: () => ({ tiptap: tiptapEditorStoreMock }),
-  },
-}));
-
 // Import AFTER mocks so the SUT picks up the mocked stores.
-import { detectScope, getMenuShortcuts } from "./useGenieShortcuts";
+import { getMenuShortcuts } from "./useGenieShortcuts";
 
 beforeEach(() => {
   getAllShortcutsMock.mockReset();
   prosemirrorToTauriMock.mockReset();
   prosemirrorToTauriMock.mockImplementation((key: string) => `TAURI(${key})`);
-  editorStoreMock.sourceMode = false;
-  tiptapEditorStoreMock.editor = null;
 });
 
 describe("getMenuShortcuts", () => {
@@ -92,37 +72,5 @@ describe("getMenuShortcuts", () => {
       throw new Error("store boom");
     });
     expect(getMenuShortcuts()).toBeNull();
-  });
-});
-
-describe("detectScope", () => {
-  it("returns undefined in source mode regardless of selection state", () => {
-    editorStoreMock.sourceMode = true;
-    tiptapEditorStoreMock.editor = {
-      state: { selection: { empty: false } },
-    };
-    expect(detectScope()).toBeUndefined();
-  });
-
-  it("returns undefined when there is no editor", () => {
-    editorStoreMock.sourceMode = false;
-    tiptapEditorStoreMock.editor = null;
-    expect(detectScope()).toBeUndefined();
-  });
-
-  it("returns undefined when the selection is empty", () => {
-    editorStoreMock.sourceMode = false;
-    tiptapEditorStoreMock.editor = {
-      state: { selection: { empty: true } },
-    };
-    expect(detectScope()).toBeUndefined();
-  });
-
-  it("returns 'selection' when there is a non-empty selection", () => {
-    editorStoreMock.sourceMode = false;
-    tiptapEditorStoreMock.editor = {
-      state: { selection: { empty: false } },
-    };
-    expect(detectScope()).toBe("selection");
   });
 });

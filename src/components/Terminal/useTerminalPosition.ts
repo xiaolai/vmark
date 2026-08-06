@@ -10,7 +10,9 @@
  *
  * Pixel dimensions are derived from `settingsStore.terminal.panelRatio`
  * multiplied by the available container dimension, clamped to the absolute
- * pixel floor and a proportional ceiling of TERMINAL_MAX_RATIO (50%).
+ * pixel floor and a proportional ceiling of TERMINAL_MAX_RATIO (50%). The
+ * available dimension subtracts the shell's whole side chrome — workspace rail
+ * INCLUDED; omitting it sized the panel against 30px the editor did not have.
  *
  * Exports a pure `computeTerminalPosition()` for testing and a React hook
  * `useTerminalPosition()` that wires it to window resize events and settings.
@@ -26,6 +28,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { shellSideWidth } from "@/shell/shellChrome";
 import {
   useUIStore,
   type EffectiveTerminalPosition,
@@ -77,8 +80,10 @@ export function computeTerminalPosition(
 /**
  * Compute pixel dimension from ratio, clamped to the absolute pixel floor and
  * a proportional ceiling of TERMINAL_MAX_RATIO (50% of the available space).
+ * Exported so the settings dropdown's options can be proven un-clamped
+ * (WI-1.2) against the real layout function rather than a restatement of it.
  */
-function ratioToPixels(
+export function ratioToPixels(
   ratio: number,
   availableDimension: number,
   min: number
@@ -99,20 +104,38 @@ export function pixelsToRatio(pixels: number, availableDimension: number): numbe
 /**
  * Pure function: compute available dimension for the terminal panel.
  * - Bottom: windowHeight minus titlebar and statusbar
- * - Right: windowWidth minus sidebar (if visible)
+ * - Right/left: windowWidth minus the shell's side chrome (rail + sidebar),
+ *   passed in already combined — see shell/shellChrome
  */
 export function getAvailableDimension(
   pos: EffectiveTerminalPosition,
   windowW: number,
   windowH: number,
-  sidebarVisible: boolean,
-  sidebarW: number
+  /** Chrome to the left of the editor — rail + sidebar. See shellChrome. */
+  sideWidth: number
 ): number {
   if (isHorizontalTerminalAxis(pos)) {
-    const offset = sidebarVisible ? sidebarW : 0;
-    return windowW - offset;
+    // Takes the ALREADY-COMBINED width rather than re-deriving it from
+    // sidebar state: this function used to add up its own answer and forgot
+    // the 30px workspace rail, so a rail-enabled window sized the panel (and
+    // its 50% cap) against 30px it did not have.
+    return windowW - sideWidth;
   }
   return windowH - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;
+}
+
+/**
+ * The live shell side width, read from the stores. The terminal panel only
+ * exists in a document window, which is the one place the rail can show — so
+ * the rail's visibility here is exactly `workspaceRailMode`.
+ */
+export function currentShellSideWidth(): number {
+  const ui = useUIStore.getState();
+  return shellSideWidth({
+    workspaceRailVisible: useSettingsStore.getState().general.workspaceRailMode,
+    sidebarVisible: ui.sidebarVisible,
+    sidebarWidth: ui.sidebarWidth,
+  });
 }
 
 /** True when the terminal sits left/right of the editor (resizes by width). */
@@ -145,6 +168,9 @@ export function useTerminalPosition() {
   const panelRatio = useSettingsStore((s) => s.terminal.panelRatio);
   const sidebarVisible = useUIStore((s) => s.sidebarVisible);
   const sidebarWidth = useUIStore((s) => s.sidebarWidth);
+  // Subscribed, not read via getState(): the panel must re-size when the rail
+  // is toggled, exactly as it does for the sidebar.
+  const railVisible = useSettingsStore((s) => s.general.workspaceRailMode);
   const currentRef = useRef<EffectiveTerminalPosition>(
     useUIStore.getState().effectiveTerminalPosition
   );
@@ -167,7 +193,12 @@ export function useTerminalPosition() {
       }
 
       // 2. Compute pixel dimensions from ratio
-      const available = getAvailableDimension(pos, window.innerWidth, window.innerHeight, sidebarVisible, sidebarWidth);
+      const available = getAvailableDimension(
+        pos,
+        window.innerWidth,
+        window.innerHeight,
+        shellSideWidth({ workspaceRailVisible: railVisible, sidebarVisible, sidebarWidth }),
+      );
       const height = ratioToPixels(panelRatio, available, TERMINAL_MIN_HEIGHT);
       const width = ratioToPixels(panelRatio, available, TERMINAL_MIN_WIDTH);
 
@@ -188,5 +219,5 @@ export function useTerminalPosition() {
 
     window.addEventListener("resize", updateAll);
     return () => window.removeEventListener("resize", updateAll);
-  }, [position, panelRatio, sidebarVisible, sidebarWidth]);
+  }, [position, panelRatio, sidebarVisible, sidebarWidth, railVisible]);
 }

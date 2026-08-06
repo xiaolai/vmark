@@ -39,11 +39,14 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 pub mod ai_commands;
+pub mod ai_guards;
 pub mod ai_policy;
 pub mod authorize;
 pub mod commands;
 pub mod commands_auth;
 pub mod geometry;
+pub mod mint;
+pub mod no_bridge;
 pub mod one_shot;
 pub mod operation;
 pub mod origin_guard;
@@ -51,6 +54,7 @@ pub mod profile_open;
 pub mod recovery;
 pub mod redact;
 pub mod registry;
+pub mod script_limit;
 pub mod session_commands;
 pub mod session_state;
 pub mod surface;

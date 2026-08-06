@@ -11,14 +11,15 @@
  *   - Theme or monoFont changes update each session's term.options.theme and/or
  *     fontFamily, resolving the mono stack straight from the monoFont setting
  *     (not the --font-mono CSS var, which useTheme writes only in a later
- *     effect, so it would lag a monoFont-only change) (G6/WI-4.1).
+ *     effect, so it would lag a monoFont-only change) (G6/WI-4.1). A monoFont
+ *     change also re-fits and resizes the PTY, since cell width changes.
  *   - Workspace-root changes inject a `cd` command into every alive PTY whose
  *     current cwd differs from the new root — the live OSC 7 cwd when known,
  *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
  *   - Terminal-setting changes update fontSize/lineHeight/cursorStyle/
  *     cursorBlink/macOptionIsMeta/screenReaderMode/scrollback/
- *     minimumContrastRatio on each xterm; a font change also re-fits the
- *     addon to repaint at the new metrics.
+ *     minimumContrastRatio on each xterm; a font change also re-fits the addon
+ *     AND resizes the PTY (see fitAndResizePty — the two are one operation).
  *
  * @coordinates-with useTerminalSessions.ts — sole caller
  * @module components/Terminal/terminalSessionStoreSync
@@ -35,6 +36,7 @@ import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceSc
 import { buildXtermThemeForId } from "@/theme";
 import { resolveMonoFontStack } from "@/utils/fontStacks";
 import type { TerminalInstance } from "./createTerminalInstance";
+import { fitAndResizePty } from "./fitAndResizePty";
 
 /**
  * Minimum shape of a session entry that the sync effects need. Kept narrow
@@ -45,6 +47,10 @@ export interface SyncableSessionEntry {
   pty: IPty | null;
   shellExited: boolean;
   spawnedCwd: string | undefined;
+  /** Set once the session is torn down; suppresses a pending PTY resize. */
+  disposed?: boolean;
+  /** Per-entry debounce handle owned by fitAndResizePty (cleared, not deleted). */
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
   /**
    * Workspace root that arrived while this session's shell was busy and so
    * could not be cd'd immediately. Flushed when the shell returns to idle
@@ -117,6 +123,11 @@ export function useUIStoreSync(
       for (const [, entry] of sessions) {
         if (newTheme) entry.instance.term.options.theme = newTheme;
         entry.instance.term.options.fontFamily = newFont;
+        // A different mono family changes cell advance width, so cols/rows
+        // change just as they do for a font-size change. This effect used to
+        // set fontFamily and stop, leaving BOTH xterm geometry and the PTY
+        // stale — strictly worse than the font-size path.
+        if (monoChanged) fitAndResizePty(entry);
       }
     };
     const unsubs = [
@@ -205,11 +216,17 @@ export function useUIStoreSync(
 
   // Terminal-settings sync (font, cursor, macOptionIsMeta)
   useEffect(() => {
-    const getTermSettings = () => useSettingsStore.getState().terminal;
-    let prev = getTermSettings();
-    return useSettingsStore.subscribe((state) => {
+    // `prev` comes from zustand, not a hand-rolled ref. The previous manual
+    // version carried `if (!curr || !prev) { prev = curr; return; }`, which
+    // could strand the baseline: one falsy `curr` set `prev = undefined`, and
+    // the next fire then took the same branch and swallowed a REAL change —
+    // permanently, since the fire after that compared against the
+    // already-applied value. Letting the store supply prev removes the state
+    // that could get stranded.
+    return useSettingsStore.subscribe((state, prevState) => {
       const curr = state.terminal;
-      if (!curr || !prev) { prev = curr; return; }
+      const prev = prevState.terminal;
+      if (!curr || !prev || curr === prev) return;
       const fontChanged = curr.fontSize !== prev.fontSize || curr.lineHeight !== prev.lineHeight;
       const cursorChanged = curr.cursorStyle !== prev.cursorStyle || curr.cursorBlink !== prev.cursorBlink;
       const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
@@ -217,7 +234,6 @@ export function useUIStoreSync(
       const scrollbackChanged = curr.scrollback !== prev.scrollback;
       const contrastChanged = curr.minimumContrastRatio !== prev.minimumContrastRatio;
       if (!fontChanged && !cursorChanged && !metaChanged && !screenReaderChanged && !scrollbackChanged && !contrastChanged) return;
-      prev = curr;
 
       const sessions = sessionsRef.current;
       if (!sessions) return;
@@ -247,7 +263,11 @@ export function useUIStoreSync(
           opts.minimumContrastRatio = Math.min(Math.max(curr.minimumContrastRatio, 1), 21);
         }
         if (fontChanged) {
-          try { entry.instance.fitAddon.fit(); } catch { /* ignore */ }
+          // Font metrics changed, so cols/rows changed — the PTY must be told,
+          // not just xterm. A bare fitAddon.fit() here left the shell drawing
+          // to the old width until an unrelated panel resize happened to
+          // correct it.
+          fitAndResizePty(entry);
         }
       }
     });

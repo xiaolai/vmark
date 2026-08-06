@@ -26,6 +26,7 @@ export const MIN_QUERY_LENGTH = 3;
 
 interface SchedulerArgs {
   isOpen: boolean;
+  windowLabel: string;
   query: string;
   rootPath: string | null;
   excludeFolders: string[];
@@ -37,6 +38,7 @@ interface SchedulerArgs {
 
 export function useContentSearchScheduler({
   isOpen,
+  windowLabel,
   query,
   rootPath,
   excludeFolders,
@@ -68,11 +70,11 @@ export function useContentSearchScheduler({
     }
 
     debounceRef.current = setTimeout(() => {
-      useUIStore.getState().contentSearchRun(rootPath, excludeFoldersRef.current);
+      useUIStore.getState().contentSearchRun(rootPath, excludeFoldersRef.current, windowLabel);
     }, DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [isOpen, query, caseSensitive, wholeWord, useRegex, markdownOnly, rootPath]);
+  }, [isOpen, windowLabel, query, caseSensitive, wholeWord, useRegex, markdownOnly, rootPath]);
 }

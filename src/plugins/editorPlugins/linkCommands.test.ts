@@ -16,38 +16,19 @@ const mockWikiLinkPopupOpen = vi.fn();
 
 let mockHeadingPickerIsOpen = false;
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => ({
-      get isOpen() { return mockLinkPopupIsOpen; },
-      openPopup: mockLinkPopupOpen,
-    }),
-  },
-}));
-
-vi.mock("@/stores/linkCreatePopupStore", () => ({
-  useLinkCreatePopupStore: {
-    getState: () => ({
-      get isOpen() { return mockLinkCreatePopupIsOpen; },
-      openPopup: mockLinkCreatePopupOpen,
-    }),
-  },
-}));
-
-vi.mock("@/stores/wikiLinkPopupStore", () => ({
-  useWikiLinkPopupStore: {
-    getState: () => ({
-      get isOpen() { return mockWikiLinkPopupIsOpen; },
-      openPopup: mockWikiLinkPopupOpen,
-    }),
-  },
-}));
-
-vi.mock("@/stores/headingPickerStore", () => ({
-  useHeadingPickerStore: {
-    getState: () => ({
-      get isOpen() { return mockHeadingPickerIsOpen; },
-    }),
+// All four surfaces are opened through the `hostPopups` seam now, so the
+// test binds the seam instead of mocking four store modules.
+vi.mock("@/plugins/shared/hostPopups", () => ({
+  hostPopups: {
+    openLinkPopup: (...a: unknown[]) => mockLinkPopupOpen(...a),
+    openLinkCreatePopup: (...a: unknown[]) => mockLinkCreatePopupOpen(...a),
+    openWikiLinkPopup: (...a: unknown[]) => mockWikiLinkPopupOpen(...a),
+    openHeadingPicker: vi.fn(),
+    anyLinkSurfaceOpen: () =>
+      mockLinkPopupIsOpen ||
+      mockLinkCreatePopupIsOpen ||
+      mockWikiLinkPopupIsOpen ||
+      mockHeadingPickerIsOpen,
   },
 }));
 
@@ -815,11 +796,13 @@ describe("handleWikiLinkShortcut — setTimeout popup opening (lines 273-291)", 
     if (mockWikiLinkPopupOpen.mock.calls.length > 0) {
       expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith(
         expect.objectContaining({
-          top: expect.any(Number),
-          left: expect.any(Number),
-        }),
-        expect.any(String),
-        expect.any(Number)
+          anchorRect: expect.objectContaining({
+            top: expect.any(Number),
+            left: expect.any(Number),
+          }),
+          target: expect.any(String),
+          nodePos: expect.any(Number),
+        })
       );
     }
     view.destroy();
@@ -928,9 +911,11 @@ describe("handleSmartLinkShortcut — wikiLink with null value attr (line 151)",
 
     // The ?? "" on line 151 converts null to ""
     expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith(
-      expect.objectContaining({ top: 100 }),
-      "",  // null ?? "" = ""
-      expect.any(Number)
+      expect.objectContaining({
+        anchorRect: expect.objectContaining({ top: 100 }),
+        target: "", // null ?? "" = ""
+        nodePos: expect.any(Number),
+      })
     );
     view.destroy();
   });
@@ -1011,16 +996,11 @@ describe("handleWikiLinkShortcut — setTimeout body with mocked resolve (lines 
 
     vi.runAllTimers();
 
-    expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith(
-      expect.objectContaining({
-        top: 100,
-        left: 200,
-        bottom: 120,
-        right: 300,
-      }),
-      "page",
-      1
-    );
+    expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith({
+      anchorRect: { top: 100, left: 200, bottom: 120, right: 300 },
+      target: "page",
+      nodePos: 1,
+    });
     view.destroy();
   });
 
@@ -1078,11 +1058,11 @@ describe("handleWikiLinkShortcut — setTimeout body with mocked resolve (lines 
     vi.runAllTimers();
 
     // The ?? "" fallback should produce empty string
-    expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith(
-      expect.any(Object),
-      "",  // null ?? "" = ""
-      1
-    );
+    expect(mockWikiLinkPopupOpen).toHaveBeenCalledWith({
+      anchorRect: expect.any(Object),
+      target: "", // null ?? "" = ""
+      nodePos: 1,
+    });
     view.destroy();
   });
 });

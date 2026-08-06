@@ -1,3 +1,18 @@
+import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
+
+/**
+ * A tab's state as it moves between windows.
+ *
+ * `content` and `savedContent` are CANONICAL editor text (LF, BOM-free), so
+ * they cannot carry the file's own convention. Without the metadata below, a
+ * CRLF+BOM file moved to another window was rewritten LF and BOM-less on its
+ * first save there, under `preserve` — the setting whose entire promise is
+ * that it does not do that.
+ *
+ * Every metadata field is optional: payloads written by an older build have
+ * none, and the receiver falls back to detection, which is what it did for
+ * every payload before this existed.
+ */
 export interface TabTransferPayload {
   tabId: string;
   title: string;
@@ -6,6 +21,13 @@ export interface TabTransferPayload {
   savedContent: string;
   isDirty: boolean;
   workspaceRoot: string | null;
+  /** The file's line convention. `hardBreakStyle` survives canonicalisation and
+   *  is recoverable from `content`; `lineEnding` and `hasBom` are not. */
+  lineEnding?: LineEnding;
+  hardBreakStyle?: HardBreakStyle;
+  hasBom?: boolean;
+  /** RAW disk bytes, so external-change detection compares the right domain. */
+  lastDiskContent?: string;
 }
 
 export interface TabDropPreviewEvent {

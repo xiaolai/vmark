@@ -77,3 +77,56 @@ describe("mathPopupStore", () => {
     expect(state.nodePos).toBe(99);
   });
 });
+
+// T09 revert contract pins (WI-9, plan-20260803-161713): drift detectors for
+// the shim → standalone re-inline. Written against the legacy public API.
+describe("mathPopupStore — T09 revert contract pins", () => {
+  beforeEach(() => {
+    useMathPopupStore.getState().closePopup();
+  });
+
+  const initialData = { isOpen: false, anchorRect: null, latex: "", nodePos: null };
+  const rect: AnchorRect = { top: 1, left: 2, bottom: 3, right: 4 };
+
+  function dataOf(s: ReturnType<typeof useMathPopupStore.getState>) {
+    const { isOpen, anchorRect, latex, nodePos } = s;
+    return { isOpen, anchorRect, latex, nodePos };
+  }
+
+  it("no leak across sessions: open A → updateLatex → close → open B shows only B", () => {
+    useMathPopupStore.getState().openPopup(rect, "a^2", 1);
+    useMathPopupStore.getState().updateLatex("a^2 + b");
+    useMathPopupStore.getState().closePopup();
+
+    const rectB: AnchorRect = { top: 9, left: 9, bottom: 19, right: 19 };
+    useMathPopupStore.getState().openPopup(rectB, "b^2", 7);
+
+    expect(dataOf(useMathPopupStore.getState())).toEqual({
+      isOpen: true,
+      anchorRect: rectB,
+      latex: "b^2",
+      nodePos: 7,
+    });
+  });
+
+  it("rapid open/close x10 lands exactly on the initial state", () => {
+    for (let i = 0; i < 10; i++) {
+      useMathPopupStore.getState().openPopup(rect, `x^${i}`, i);
+      useMathPopupStore.getState().closePopup();
+    }
+    expect(dataOf(useMathPopupStore.getState())).toEqual(initialData);
+  });
+
+  describe("native initial-state semantics (the legacy shim getInitialState deviation)", () => {
+    it("getInitialState stays pristine after mutations", () => {
+      useMathPopupStore.getState().openPopup(rect, "mutated", 5);
+      expect(dataOf(useMathPopupStore.getInitialState())).toEqual(initialData);
+    });
+
+    it("setState(getInitialState()) is the native reset idiom", () => {
+      useMathPopupStore.getState().openPopup(rect, "open", 5);
+      useMathPopupStore.setState(useMathPopupStore.getInitialState());
+      expect(dataOf(useMathPopupStore.getState())).toEqual(initialData);
+    });
+  });
+});

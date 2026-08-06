@@ -76,25 +76,59 @@ import "./focus-mode.css";
 
 ## 4. MCP Bridge Handlers
 
-The MCP bridge uses a central dispatcher pattern in `src/hooks/mcpBridge/`.
+The MCP bridge lives in **`src/services/mcpBridge/`** — it moved out of
+`src/hooks/` in the WI-10 tier restoration, because a request handler is not a
+React adapter (ADR-013).
 
-**Dispatcher** (`index.ts`): A single `switch` on `event.type` routes to handler functions.
+| File | Role |
+|---|---|
+| `handleRequest.ts` | Top-level router. Dedup, then hand off to `dispatchV2`; an unmatched type gets a diagnostic error listing `SUPPORTED_TOOL_PREFIXES`. |
+| `v2/dispatch.ts` | The `switch` on `event.type` over the 5-tool surface (`vmark.session.*`, `.workspace.*`, `.document.*`, `.workflow.*`, `.selection.*`) plus the browser tools. Returns `true` iff the type matched. Also the single source of truth for `SUPPORTED_TOOL_PREFIXES` — never carry a second list. |
+| `v2/wrapHandler.ts` | The error contract, in one place. |
+| `utils.ts` | `respond()` — sends the result back to Rust via `invoke("mcp_bridge_respond")` and records it for duplicate-delivery re-send. |
 
-**Handler signature:**
+**Handler signature** — the happy path only. `wrapHandler` turns anything thrown
+into `respond({ success: false, error })`, so a hand-written try/catch per
+handler is duplicated error policy, not safety:
+
 ```ts
 export async function handleFoo(id: string, args: Record<string, unknown>): Promise<void> {
-  try {
-    // ... operation
+  return wrapHandler(id, async () => {
+    const result = await doTheThing(args);
     await respond({ id, success: true, data: result });
-  } catch (error) {
-    await respond({ id, success: false, error: error instanceof Error ? error.message : String(error) });
-  }
+  });
 }
 ```
 
-**Shared utils** (`utils.ts`): `respond()` sends results back to Rust, `getEditor()` fetches the active editor instance, `getDocumentContent()` serializes current content.
+**Rule:** Every handler body goes through `wrapHandler` and calls `respond()`
+on its success path. Validation failures inside the body use
+`structuredError()`. Payload shapes are NOT declared in the handler — see the
+next section.
 
-**Rule:** Every handler must wrap its body in try/catch and call `respond()` in both paths.
+### The wire contract is generated, not hand-written (WI-15)
+
+Payload shapes have ONE declaration: the per-operation zod schemas in
+`server/mcp/src/bridge/operationSchemas.ts`. Everything else is generated from
+them by `pnpm gen:mcp-contracts`:
+
+| Generated file | Consumed by |
+|---|---|
+| `server/mcp/src/bridge/generated/bridgeRequests.ts` | the sidecar's `BridgeRequest` union (re-exported from `core-types.ts`) |
+| `src/services/mcpBridge/v2/generated/bridgeContracts.ts` | webview field descriptors, argument types, unknown-field posture |
+
+**To add or change a field:** edit the schema, run `pnpm gen:mcp-contracts`,
+commit the regenerated files. `pnpm lint:mcp-contracts` (in `check:all`) fails
+if they are stale or hand-edited.
+
+Handlers read payloads through `readOperationArgs(operation, args)` — one typed
+parse from the generated contract — rather than a per-field `typeof` chain. A
+chain is a hand-written restatement of a contract that lives elsewhere, which is
+how `routing.rs` came to route on `args.windowId` and `workspaceOpenFolder.ts`
+to read `args.clientId`: fields nothing sends, behind branches nothing could
+reach. Three tests keep that class dead — `bridgeFieldParity.test.ts` (no
+consumer reads an undeclared field), `operationSends.test.ts` (no contract field
+goes unsent), and `operationPosture.test.ts` (unknown-field posture per class,
+ledger D5/D5a).
 
 ## 5. Test Conventions
 
@@ -201,11 +235,100 @@ src-tauri/src/<feature>/
 **Command signature:**
 ```rust
 #[tauri::command]
-pub async fn my_command(app: AppHandle, arg: String) -> Result<MyData, String> {
-    do_thing(&app).map_err(|e| format!("Failed: {}", e))
+pub async fn my_command(app: AppHandle, arg: String) -> Result<MyData, CommandError> {
+    do_thing(&app).map_err(|e| localized_error!(ErrorCode::Io, "errors.mine.failed", detail = e))
 }
 ```
 
 **Registration:** Commands are registered in `lib.rs` via `.invoke_handler(tauri::generate_handler![...])`.
 
-**Rule:** All Tauri commands must return `Result<T, String>` — never panic on user input.
+### Backend state lives in `.manage()`, not in a static (WI-20)
+
+**Rule:** new mutable backend state is a struct held by Tauri —
+`.manage(MyState::default())` in `lib.rs`, reached as a `State<'_, MyState>`
+command parameter or `app.state::<MyState>()` from anything holding an
+`AppHandle`. `WorkflowRunnerState`, `McpBridgeState`, `HotExitState`,
+`BrowserSurface`, `WindowStatusRegistry` and `ContentServerManager` are the
+shape to copy. A process-global `static` is allowed **only where no
+`AppHandle` can reach** — the pre-setup file-open queue is the standing
+example — and that exception must be stated at the declaration. Statics that
+are not mutable *state* stay static and need no exception: `LazyLock<Regex>`
+and other compiled constants, monotonic id counters
+(`NEXT_REQUEST_ID`, `CAPTURE_SEQUENCE`), and the `OnceLock`'d HTTP client.
+
+The decision boundary is **reachability, not convenience**: if the code path
+already carries an `AppHandle` (every command, every window callback, every
+task spawned from one), the state belongs to the app. A static is not simply a
+shortcut — it welds the state to the *process*, so every test in the binary
+shares one instance. That is what the migrated modules were paying for: a
+file-wide test mutex plus `clear_pending_restore()` in `hot_exit`, a
+`GLOBAL_STATE_TEST_LOCK` plus `__test_…__` marker keys and hand-written
+teardown in `mcp_bridge`, a webview-liveness suite collapsed into one `#[test]`
+because parallel tests raced the flag, and a comment conceding that assertions
+could only be "structural" because other tests mutated the same maps. Under
+`.manage()` a test gets its own state by constructing one (or by
+`.manage()`-ing it on a `mock_builder()` app), and all of that deletes.
+
+An **epoch counter is not automatically cope**. `McpBridgeState::
+connection_generation` survived the migration on purpose: the bridge can be
+stopped and restarted inside one process while the managed state outlives both,
+so a handshake that authenticates after a drain still has to be refused. Keep a
+counter when it distinguishes *rounds within one lifetime*; delete it when it
+only existed to tell tests apart. Where a round genuinely needs identity,
+prefer an owned token over a number — `HotExitState`'s `RestoreRound` replaced a
+`u64` that had to be threaded by hand from one function into another, and took
+a `JoinHandle` static and its `#[cfg(test)]` type fork with it.
+
+**Rule:** All Tauri commands must return a `Result` — never panic on user input.
+**New commands return `Result<T, CommandError>`** (`src-tauri/src/command_error.rs`).
+`Result<T, String>` is LEGACY and under a ratchet.
+
+### Why `CommandError`, and what the String form cost (WI-14)
+
+A `String` error carries no class, so the frontend had to reconstruct one by
+matching TEXT: `saveToPath.ts` tested a `"PARENT_MISSING:"` prefix, and the MCP
+browser handlers ran `String(error).includes("APPROVAL_REQUIRED")` at four
+sites. A substring match fires on any payload that happens to contain the token
+and stops firing the day someone rewords the message — and it could not tell
+`approval-required` (raise a prompt, retry) from `permission-denied` (nothing
+the user approves can lift it). Eight hand-rolled error enums were flattened at
+the boundary, `genie_step.rs` with a literal `impl From<GenieStepError> for
+String`. And ~370 raw-English `format!` error sites were invisible to
+`lint:i18n`, against an `AGENTS.md` rule that mandates `t!()`.
+
+`CommandError` serializes exactly `{code, message, i18nKey?, detail?}` (absent
+optionals are absent, never `null`). The vocabulary is a closed set —
+`invalid-input`, `not-found`, `permission-denied`, `approval-required`,
+`conflict`, `io`, `network`, `timeout`, `cancelled`, `feature-disabled`,
+`unsupported`, `internal` — each named after a class this crate already
+produces.
+
+**Writing one:**
+
+| Need | Use |
+|---|---|
+| User-facing message | `localized_error!(ErrorCode::X, "errors.a.b", arg = v)` — the key is written once, so message and `i18nKey` cannot drift |
+| Internal / caller-bug message | `CommandError::invalid_input("…")` and the other per-code constructors |
+| Machine-readable context | `.with_detail(json!({ "dir": … }))` — never user prose |
+| Converting an existing error enum | `CommandError::from(e)` (eight `From` impls live in `command_error_from.rs`) |
+
+Every `i18nKey` must resolve in **all ten** `src-tauri/locales/*.yml` bundles;
+a Rust test scans the crate for the keys and fails otherwise.
+
+**Frontend side:** `src/services/commands/commandError.ts` — `parseCommandError`,
+`isCommandErrorCode`, `classifyCommandError`, `commandErrorMessage`. Branch on
+`code`, never on message text. Use `commandErrorMessage`, not `errorMessage`, at
+any boundary that can receive a typed rejection: a typed error is a plain
+object, and `String(object)` renders as `"[object Object]"`.
+
+**The ratchet:** `pnpm lint:command-errors`
+(`scripts/check-command-error-ratchet.mjs`, in `check:all`) counts remaining
+`Result<T, String>` command signatures per file against
+`scripts/command-error-baseline.json`. Two-way, house standard: a new legacy
+signature fails, and a file that improved fails until its number is lowered.
+Numbers only go down.
+
+**During the migration both shapes are live.** A caller that branches on a
+typed code keeps its legacy-string branch until the ratchet reaches zero —
+`saveToPath.ts` and `browserNavigation.ts` are the worked examples, each with
+tests for both shapes.

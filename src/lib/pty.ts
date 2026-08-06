@@ -20,7 +20,8 @@
  *   - `pause()` and `resume()` are real Tauri commands (not stubs), enabling
  *     the watermark-based flow control in spawnPty.ts.
  *   - `kill()` eagerly cleans up event listeners and guards against mid-setup
- *     races via a `_destroyed` flag.
+ *     races via a `_destroyed` flag; `write()` honours the same flag so a
+ *     dispose-time flush after kill is dropped, not sent to a freed session.
  *   - `pty_close` frees the Rust-side session (FDs/channels/child handle). It
  *     runs from the exit handler on natural exit; but because `kill()` (and the
  *     mid-setup guard) tear down the exit listener first, those paths call
@@ -204,8 +205,14 @@ class VMarkPty implements IPty {
   }
 
   write(data: string): void {
+    // Destroy-guard (WI-1.3): once killed, drop writes. Without this, a
+    // dispose-time IME flush (or any late write) resolves `_ready` and calls
+    // pty_write on a freed session — the failure was previously swallowed by
+    // ptyWarn. This matches the guard `_setup` already applies at line ~168.
+    if (this._destroyed) return;
+    // Recheck _destroyed in the .then — kill() may set it while _ready pends (TOCTOU).
     this._ready
-      .then(() => invoke("pty_write", { pid: this._pid, data }))
+      .then(() => (this._destroyed ? undefined : invoke("pty_write", { pid: this._pid, data })))
       .catch((err) => {
         ptyWarn("pty_write failed:", errorMessage(err));
       });

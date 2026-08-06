@@ -17,7 +17,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from "@xyflow/react";
-import type { NodeMouseHandler } from "@xyflow/react";
+import type { Node, NodeMouseHandler } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "./WorkflowNode";
 import { layoutWorkflow, type WorkflowNodeData } from "@/lib/workflow/layout";
@@ -26,7 +26,7 @@ import "./workflow-preview.css";
 
 const nodeTypes = { workflow: WorkflowNode };
 
-import type { StepStatusEntry } from "@/stores/workflowStore";
+import type { StepStatusEntry } from "@/lib/workflow/types";
 
 interface WorkflowPreviewProps {
   graph: WorkflowGraph;
@@ -35,6 +35,45 @@ interface WorkflowPreviewProps {
    * nodes show static layout-time data only. */
   stepStatuses?: Record<string, StepStatusEntry>;
   onNodeClick?: (stepId: string, yamlLine?: number) => void;
+}
+
+/**
+ * Overlay the LIVE execution feed onto layout-time node data and mark the
+ * active node selected. Pure and exported so the merge is testable without
+ * standing up a React Flow canvas.
+ *
+ * `duration` and `error` are spread CONDITIONALLY rather than assigned: a live
+ * entry that reports neither means "this step has no duration/error right now",
+ * which is the absence of the key, not a stated `undefined`. Writing the keys
+ * unconditionally left a step that went `success (1.5s)` → `running` carrying
+ * `duration: undefined` — the same thing to a truthiness reader, but a claim
+ * the feed never made.
+ */
+export function applyStepStatuses(
+  nodes: readonly Node<WorkflowNodeData>[],
+  activeStepId: string | null | undefined,
+  stepStatuses: Record<string, StepStatusEntry> | undefined,
+): Node<WorkflowNodeData>[] {
+  return nodes.map((n) => {
+    const next: Node<WorkflowNodeData> = { ...n };
+    if (activeStepId && n.id === activeStepId) {
+      next.selected = true;
+    }
+    const status = stepStatuses?.[n.id];
+    if (status) {
+      // Drop the layout-time duration/error first: the live entry is the whole
+      // truth about this step's execution, so a fact it does not report must
+      // not survive from the previous one.
+      const { duration: _duration, error: _error, ...identity } = n.data;
+      next.data = {
+        ...identity,
+        status: status.status,
+        ...(status.duration !== undefined ? { duration: status.duration } : {}),
+        ...(status.error !== undefined ? { error: status.error } : {}),
+      };
+    }
+    return next;
+  });
 }
 
 function WorkflowPreviewInner({
@@ -49,27 +88,13 @@ function WorkflowPreviewInner({
   // Status overlays / active highlighting happen in a cheaper second pass.
   const layoutResult = useMemo(() => layoutWorkflow(graph), [graph]);
 
-  const { nodes, edges } = useMemo(() => {
-    const layoutNodes = layoutResult.nodes.map((n) => ({ ...n }));
-    for (const node of layoutNodes) {
-      if (activeStepId && node.id === activeStepId) {
-        node.selected = true;
-      }
-      if (stepStatuses) {
-        const status = stepStatuses[node.id];
-        if (status) {
-          const data = node.data as WorkflowNodeData;
-          node.data = {
-            ...data,
-            status: status.status,
-            duration: status.duration,
-            error: status.error,
-          };
-        }
-      }
-    }
-    return { nodes: layoutNodes, edges: layoutResult.edges };
-  }, [layoutResult, activeStepId, stepStatuses]);
+  const { nodes, edges } = useMemo(
+    () => ({
+      nodes: applyStepStatuses(layoutResult.nodes, activeStepId, stepStatuses),
+      edges: layoutResult.edges,
+    }),
+    [layoutResult, activeStepId, stepStatuses],
+  );
 
   // Fit view only on graph topology change (not on activeStepId selection changes)
   useEffect(() => {

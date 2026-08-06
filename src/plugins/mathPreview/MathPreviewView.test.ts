@@ -28,7 +28,7 @@ vi.mock("@/utils/popupPosition", () => ({
 
 // Mock sourcePopup utils — allow per-test override of getPopupHostForDom
 const mockGetPopupHostForDom = vi.fn(() => null);
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (...args: unknown[]) => mockGetPopupHostForDom(...args),
   toHostCoordsForDom: vi.fn((_host: unknown, pos: { top: number; left: number }) => pos),
 }));

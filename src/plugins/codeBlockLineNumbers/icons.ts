@@ -15,3 +15,6 @@ export const CHECK_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" f
 
 /** Lucide x icon (14×14) — shown when clipboard write fails or the API is unavailable */
 export const X_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+
+/** Lucide play icon (14×14) — "Run in Terminal" on a shell fence (WI-4.3) */
+export const RUN_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;

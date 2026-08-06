@@ -166,9 +166,9 @@ case "$PHASE" in
 
   1)
     echo "Phase 1 — visual perception (screenshot). Running the DoD suites:"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserScreenshot.test.ts "WI-P1.2 screenshot handler (gate, attachment, redaction)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browserScreenshot.test.ts "WI-P1.2 screenshot handler (gate, attachment, redaction)"
     run_cargo commands_auth "WI-P1.1 shared driver-auth gate (browser_screenshot + browser_eval)"
-    run_script "WI-P1.3 sidecar browser tool (screenshot action)" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-P1.3 sidecar browser tool (screenshot action)" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P1" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P1
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -185,8 +185,8 @@ case "$PHASE" in
     run_vitest src/lib/browser/agent/refs.test.ts "WI-P2.1 ref store (stability + generation scoping)"
     run_vitest src/lib/browser/agent/aria.test.ts "WI-P2.1 ariaSnapshot stamps stable refs"
     run_vitest src/lib/browser/agent/actScript.test.ts "WI-P2.1/P2.2 injected parity + ref click/type + stale-ref refusal"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act accepts {ref} (granted-only) or {role,name}"
-    run_script "WI-P2.4 sidecar act ref arg" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_vitest src/services/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act accepts {ref} (granted-only) or {role,name}"
+    run_script "WI-P2.4 sidecar act ref arg" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P2" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P2
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -202,8 +202,8 @@ case "$PHASE" in
   3)
     echo "Phase 3 — condition waits (wait_for). Running the DoD suites:"
     run_vitest src/lib/browser/agent/actScript.test.ts "WI-P3.1 wait-condition script (ref/role/text, stale-ref refusal)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserWaitFor.test.ts "WI-P3.1 wait_for handler (match / poll / timeout / attachment)"
-    run_script "WI-P3.2 sidecar wait_for action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_vitest src/services/mcpBridge/v2/__tests__/browserWaitFor.test.ts "WI-P3.1 wait_for handler (match / poll / timeout / attachment)"
+    run_script "WI-P3.2 sidecar wait_for action" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P3" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P3
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -218,10 +218,10 @@ case "$PHASE" in
   4)
     echo "Phase 4 — richer interaction (scroll, key). Running the DoD suites:"
     run_vitest src/lib/browser/agent/interactScript.test.ts "WI-P4.2 scroll/key injected scripts (ref/delta/modifiers/stale-ref)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserAct.test.ts "WI-P4.2 act scroll/key handler (grant/approval/refusals)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act click/type/ref (via re-export)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browserAct.test.ts "WI-P4.2 act scroll/key handler (grant/approval/refusals)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browser.test.ts "WI-P2.2 act click/type/ref (via re-export)"
     run_cargo operation "WI-P4.1 scroll/key operation-vocabulary parity (TS <-> Rust)"
-    run_script "WI-P4.3 sidecar act scroll/key" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-P4.3 sidecar act scroll/key" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P4" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P4
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -236,7 +236,7 @@ case "$PHASE" in
   5)
     echo "Phase 5 — scripted power tools (query, style, execute_js). Running the DoD suites:"
     run_vitest src/lib/browser/agent/powerScript.test.ts "WI-P5.1/P5.2 query + style injected scripts"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserPower.test.ts "WI-P5.1/P5.2/P5.3 query/style/execute_js handlers (incl. script-substitution refusal)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browserPower.test.ts "WI-P5.1/P5.2/P5.3 query/style/execute_js handlers (incl. script-substitution refusal)"
     run_vitest src/lib/browser/approval/grants.test.ts "WI-P5.3 eval never grantable (frontend drift)"
     run_vitest src/lib/browser/url.test.ts "WI-P5.3 agent URL strips userinfo/query/fragment"
     run_vitest src/stores/browserApprovalStore.test.ts "WI-P5.3 approval store binds the eval/style payload"
@@ -244,7 +244,7 @@ case "$PHASE" in
     run_cargo origin_guard "WI-P5.3 eval never granted authoritatively (Rust)"
     run_cargo operation "WI-P5 style/eval vocabulary parity"
     run_cargo commands_auth "WI-P5.3 driver eval gate (payload hash + pre-dispatch freshness)"
-    run_script "WI-P5.4 sidecar query/style/execute_js" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-P5.4 sidecar query/style/execute_js" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P5" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P5
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -271,13 +271,13 @@ case "$PHASE" in
     run_cargo profile_open "WI-P6.1 profile-open authorization (single-use, profile+origin bound)"
     run_cargo operation "WI-P6.3 session op vocabulary (never-grantable, payload-binding) parity"
     run_cargo origin_guard "WI-P6.3 session never granted authoritatively (Rust)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserNavigation.test.ts "WI-P6.1 open-profile needs per-use approval (no tab created without it)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browserSession.test.ts "WI-P6.2/P6.3 session save/load handlers (approval, handle-only, substitution-refused)"
+    run_vitest src/services/mcpBridge/v2/__tests__/browserNavigation.test.ts "WI-P6.1 open-profile needs per-use approval (no tab created without it)"
     run_vitest src/lib/browser/approval/grants.test.ts "WI-P6.3 session never grantable (frontend drift)"
     run_vitest src/stores/browserApprovalStore.test.ts "WI-P6.3 approval store binds action:handle"
     run_vitest src/stores/browserSessionStore.test.ts "WI-P6.4/P6.5 session/profile registry (metadata only, no values)"
     run_vitest src/components/Browser/BrowserSessionsList.test.tsx "WI-P6.4/P6.5 management UI (forget session, remove profile revokes store)"
-    run_script "WI-P6.6 sidecar session + open profile" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_script "WI-P6.6 sidecar session + open profile" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P6" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P6
     run_cross
     if [[ "$FULL" -eq 1 ]]; then
@@ -296,8 +296,8 @@ case "$PHASE" in
     echo "  — Option C (page-world shim → shared DOM ring buffer → isolated-world read)"
     echo "  is the ONLY design that preserves the no-bridge invariant. Testable core:"
     run_vitest src/lib/browser/agent/consoleShim.test.ts "WI-P7.1 console shim (ring buffer, cap, transparent, never-throws)"
-    run_vitest src/hooks/mcpBridge/v2/__tests__/browserConsole.test.ts "WI-P7.1 console read handler (read-class, clear option)"
-    run_script "WI-P7.1 sidecar console action" pnpm --dir vmark-mcp-server exec vitest run __tests__/unit/tools/browser.test.ts
+    run_vitest src/services/mcpBridge/v2/__tests__/browserConsole.test.ts "WI-P7.1 console read handler (read-class, clear option)"
+    run_script "WI-P7.1 sidecar console action" pnpm --dir server/mcp exec vitest run __tests__/unit/tools/browser.test.ts
     run_script "WI-linkage for phase P7" bash scripts/check-wi-linkage.sh "$PLAN" --phase=P7
     run_cross
     if [[ "$FULL" -eq 1 ]]; then

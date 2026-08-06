@@ -30,12 +30,26 @@ import type {
   RestProviderType,
 } from "@/types/aiGenies";
 import { DEFAULT_REST_PROVIDERS } from "./providerDefaults";
+import {
+  sanitizeAiProviderPersist,
+  REST_TYPES,
+  KEY_OPTIONAL_REST,
+} from "./providerSanitize";
 
 interface AiProviderState {
   activeProvider: ProviderType | null;
   cliProviders: CliProviderInfo[];
   restProviders: RestProviderConfig[];
   detecting: boolean;
+  /**
+   * Bumped whenever a REST provider's API key is successfully written to the
+   * keychain. API keys are never broadcast cross-window, so this non-secret
+   * counter is what tells peer windows "a credential changed — reload it from
+   * the keychain" (see useAiProviderSync). Session-only: not persisted, resets
+   * to 0 on each launch, when every window rehydrates keys from the keychain
+   * anyway.
+   */
+  credentialsRevision: number;
 }
 
 interface AiProviderActions {
@@ -53,62 +67,9 @@ interface AiProviderActions {
   getActiveProviderName(): string;
 }
 
-/**
- * Shape-guard one persisted REST provider entry (T4). Coerces missing/
- * wrong-typed string fields to `""` so a tampered or stale secure-store blob
- * can't inject `undefined`/non-string fields downstream. Returns null for
- * entries with no string `type` — the identity key is unusable without it.
- */
-function sanitizeRestProvider(raw: unknown): RestProviderConfig | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.type !== "string") return null;
-  const str = (v: unknown): string => (typeof v === "string" ? v : "");
-  return {
-    type: r.type as RestProviderType,
-    name: str(r.name),
-    endpoint: str(r.endpoint),
-    apiKey: str(r.apiKey),
-    model: str(r.model),
-  };
-}
-
-/**
- * Validate/normalize the persisted AI-provider blob at the migrate boundary
- * (T4, zero-trust). Replaces a blind `as unknown as AiProviderState` cast:
- * drops a non-array `restProviders` and malformed entries, and coerces
- * `activeProvider` to `string | null`. A fully-malformed blob recovers to
- * defaults (onRehydrateStorage backfills DEFAULT_REST_PROVIDERS).
- *
- * Exported for testing.
- */
-export function sanitizeAiProviderPersist(data: Record<string, unknown>): {
-  activeProvider: ProviderType | null;
-  restProviders: RestProviderConfig[];
-} {
-  const activeProvider =
-    typeof data.activeProvider === "string"
-      ? (data.activeProvider as ProviderType)
-      : null;
-  const restProviders = Array.isArray(data.restProviders)
-    ? data.restProviders
-        .map(sanitizeRestProvider)
-        .filter((p): p is RestProviderConfig => p !== null)
-    : [];
-  return { activeProvider, restProviders };
-}
-
-/** REST provider type identifiers that require API key configuration. CLI types are everything else. */
-export const REST_TYPES = new Set<string>([
-  "anthropic",
-  "openai",
-  "openai-compatible",
-  "google-ai",
-  "ollama-api",
-]);
-
-/** Ollama API doesn't require an API key. */
-export const KEY_OPTIONAL_REST = new Set<string>(["ollama-api"]);
+// Re-export the public validation surface so the aiStore barrel and existing
+// importers keep working after the extraction to providerSanitize.ts.
+export { sanitizeAiProviderPersist, REST_TYPES, KEY_OPTIONAL_REST };
 
 // Race guard counter for detectProviders
 let _detectId = 0;
@@ -141,6 +102,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
       cliProviders: [],
       restProviders: DEFAULT_REST_PROVIDERS,
       detecting: false,
+      credentialsRevision: 0,
 
       detectProviders: async () => {
         const thisDetectId = ++_detectId;
@@ -163,7 +125,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             name: r.name,
             command: r.command,
             available: r.available,
-            path: r.path,
+            ...(r.path !== undefined && { path: r.path }), // ABSENT = not found on PATH
           }));
           set({ cliProviders: providers, detecting: false });
 
@@ -222,7 +184,15 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
         // stays fire-and-forget so the sync action never blocks on the keychain.
         if (Object.prototype.hasOwnProperty.call(updates, "apiKey")) {
           void setApiKey(type, updates.apiKey ?? "").then((ok) => {
-            if (!ok) reportKeySaveFailure(type);
+            if (!ok) {
+              reportKeySaveFailure(type);
+              return;
+            }
+            // Signal peer windows to reload this credential from the keychain.
+            // Bumped AFTER the keychain write resolves, so a peer that reacts by
+            // reading the keychain is guaranteed to see the new value, not a
+            // half-written one.
+            set((state) => ({ credentialsRevision: state.credentialsRevision + 1 }));
           });
         }
       },

@@ -71,15 +71,19 @@ export function layoutWorkflow(graph: WorkflowGraph): {
         x: nodeData.x - NODE_WIDTH / 2,
         y: nodeData.y - NODE_HEIGHT / 2,
       },
+      // Execution facts a step does not have yet (no status, no duration, no
+      // error) stay absent rather than being written as `undefined` — the
+      // preview merges live status over this data, and a key present with
+      // `undefined` would be indistinguishable from a reported empty value.
       data: {
         label: step.label,
         icon: step.icon,
         stepType: step.type,
         stepId: step.id,
-        status: step.status,
-        duration: step.duration,
-        error: step.error,
-        yamlLine: step.sourceRange?.startLine,
+        ...(step.status !== undefined ? { status: step.status } : {}),
+        ...(step.duration !== undefined ? { duration: step.duration } : {}),
+        ...(step.error !== undefined ? { error: step.error } : {}),
+        ...(step.sourceRange ? { yamlLine: step.sourceRange.startLine } : {}),
       },
     };
   });

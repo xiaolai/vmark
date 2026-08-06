@@ -1,6 +1,12 @@
 // WI-2.3 — YAML adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { render, waitFor } from "@testing-library/react";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { useDocumentStore } from "@/stores/documentStore";
+import { useWorkflowStore } from "@/stores/workflowStore";
 import {
   __resetRegistry,
   dispatchEditor,
@@ -158,6 +164,147 @@ jobs:
     it("declares schemaDetector + schemaRenderers['gha-workflow']", () => {
       expect(typeof yamlFormat.schemaDetector).toBe("function");
       expect(yamlFormat.schemaRenderers?.["gha-workflow"]).toBeDefined();
+    });
+  });
+
+  describe("gha-workflow schemaRenderer", () => {
+    beforeEach(() => {
+      // jsdom shims required by @xyflow/react under WorkflowCanvas.
+      // @ts-expect-error jsdom shim
+      global.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      };
+      Object.defineProperty(window, "matchMedia", {
+        writable: true,
+        value: () => ({
+          matches: false,
+          media: "",
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }),
+      });
+    });
+
+    it("mounts the workbench (canvas + forms editor), not a bare canvas", async () => {
+      const Renderer = yamlFormat.schemaRenderers!["gha-workflow"];
+      const { container } = render(
+        createElement(Renderer, {
+          content: "name: ci\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n",
+          path: "/repo/.github/workflows/ci.yml",
+          diagnostics: [],
+          tabId: "tab-render",
+        }),
+      );
+      // WI-13: the renderer (workbench + workflow IR parser) is behind a
+      // React.lazy boundary now, so the canvas arrives a microtask later —
+      // the assertion is unchanged, only the await is new. The generous
+      // timeout is deliberate: the FIRST resolution of this lazy chunk pays
+      // vitest's on-demand transform of the whole ghaWorkflow import graph,
+      // which can exceed waitFor's 1s default on a cold or contended worker
+      // (observed flaking 1-in-5 in isolation). The assertion still requires
+      // the element; it just stops racing the transformer.
+      await waitFor(
+        () => {
+          expect(
+            container.querySelector(".gha-workflow-workbench__canvas"),
+          ).not.toBeNull();
+        },
+        { timeout: 15_000 },
+      );
+    });
+  });
+
+  describe("loadExtraExtensions — gha slice wiring", () => {
+    const WORKFLOW_YAML = [
+      "name: ci",
+      "on: push",
+      "jobs:",
+      "  build:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - run: pnpm test",
+      "",
+    ].join("\n");
+
+    it("mounts source extensions that feed the workflowStore gha slice", async () => {
+      const filePath = "/repo/.github/workflows/ci.yml";
+      useDocumentStore.setState({
+        documents: { "tab-wf": { content: WORKFLOW_YAML, filePath } },
+      } as never);
+      useWorkflowStore.getState().resetGha();
+
+      const extras = await yamlFormat.loadExtraExtensions!({
+        tabId: "tab-wf",
+        filePath,
+        windowLabel: "main",
+      });
+      expect(extras.length).toBeGreaterThan(0);
+
+      const parent = document.createElement("div");
+      document.body.appendChild(parent);
+      const view = new EditorView({
+        parent,
+        state: EditorState.create({ doc: WORKFLOW_YAML, extensions: extras }),
+      });
+      expect(
+        useWorkflowStore.getState().gha.byTab["tab-wf"]?.jobs.map((j) => j.id),
+      ).toEqual(["build"]);
+
+      // Closing the tab (view destroy) must clear this tab's entry.
+      view.destroy();
+      expect(useWorkflowStore.getState().gha.byTab["tab-wf"]).toBeUndefined();
+    });
+
+    it("a second pane holding plain YAML cannot clobber the workflow pane's IR (document split)", async () => {
+      const wfPath = "/repo/.github/workflows/ci.yml";
+      useDocumentStore.setState({
+        documents: {
+          "tab-wf": { content: WORKFLOW_YAML, filePath: wfPath },
+          "tab-plain": { content: "title: hello\n", filePath: "/repo/config.yml" },
+        },
+      } as never);
+      useWorkflowStore.getState().resetGha();
+
+      const wfExtras = await yamlFormat.loadExtraExtensions!({
+        tabId: "tab-wf",
+        filePath: wfPath,
+        windowLabel: "main",
+      });
+      const plainExtras = await yamlFormat.loadExtraExtensions!({
+        tabId: "tab-plain",
+        filePath: "/repo/config.yml",
+        windowLabel: "main",
+      });
+
+      const host = (doc: string, extensions: unknown) => {
+        const parent = document.createElement("div");
+        document.body.appendChild(parent);
+        return new EditorView({
+          parent,
+          state: EditorState.create({ doc, extensions: extensions as never }),
+        });
+      };
+      const wfView = host(WORKFLOW_YAML, wfExtras);
+      const plainView = host("title: hello\n", plainExtras);
+
+      // The plain pane mounted after the workflow pane and published
+      // null — for ITS tab only. The workflow IR must survive.
+      expect(
+        useWorkflowStore.getState().gha.byTab["tab-wf"]?.jobs.map((j) => j.id),
+      ).toEqual(["build"]);
+
+      // Destroying the plain pane must not wipe the workflow pane.
+      plainView.destroy();
+      expect(useWorkflowStore.getState().gha.byTab["tab-wf"]).toBeDefined();
+
+      wfView.destroy();
+      expect(useWorkflowStore.getState().gha.byTab["tab-wf"]).toBeUndefined();
     });
   });
 });

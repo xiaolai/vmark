@@ -6,7 +6,11 @@
 
 import type { Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { FootnotePopupState } from "@/plugins/shared/popupPorts";
+
+/** The popup state these actions read — injected, never imported (ADR-015). */
+type Store = StoreApi<FootnotePopupState>;
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { sourcePopupWarn } from "@/utils/debug";
 
@@ -67,8 +71,8 @@ function buildFootnoteDefinitionText(label: string, content: string): string {
  * Save footnote content changes.
  * Updates the definition content in the document.
  */
-export function saveFootnoteContent(view: EditorView): void {
-  const state = useFootnotePopupStore.getState();
+export function saveFootnoteContent(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { content, definitionPos, label } = state;
 
   if (definitionPos === null || !label) {
@@ -98,8 +102,12 @@ export function saveFootnoteContent(view: EditorView): void {
 /**
  * Go to the footnote definition from reference (or vice versa).
  */
-export function gotoFootnoteTarget(view: EditorView, openedOnReference: boolean): void {
-  const state = useFootnotePopupStore.getState();
+export function gotoFootnoteTarget(
+  view: EditorView,
+  openedOnReference: boolean,
+  store: Store
+): void {
+  const state = store.getState();
   const { definitionPos, referencePos } = state;
 
   runOrQueueCodeMirrorAction(view, () => {
@@ -120,8 +128,8 @@ export function gotoFootnoteTarget(view: EditorView, openedOnReference: boolean)
 /**
  * Remove the footnote completely (both reference and definition).
  */
-export function removeFootnote(view: EditorView): void {
-  const state = useFootnotePopupStore.getState();
+export function removeFootnote(view: EditorView, store: Store): void {
+  const state = store.getState();
   const { label, definitionPos, referencePos } = state;
   if (!label) return;
 

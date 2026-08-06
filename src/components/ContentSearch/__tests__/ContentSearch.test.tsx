@@ -12,10 +12,10 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { ContentSearch } from "../ContentSearch";
 
 // Mock openFileInNewTabCore and contentSearchNavigation
-vi.mock("@/hooks/useFileOpen", () => ({
+vi.mock("@/services/navigation/fileOpen", () => ({
   openFileInNewTabCore: vi.fn(),
 }));
-vi.mock("@/hooks/contentSearchNavigation", () => ({
+vi.mock("@/services/navigation/contentSearchNavigation", () => ({
   setPendingContentSearchNav: vi.fn(),
 }));
 

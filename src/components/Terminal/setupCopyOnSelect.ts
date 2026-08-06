@@ -25,7 +25,7 @@ const COPY_ON_SELECT_DEBOUNCE_MS = 150;
 
 interface SetupOptions {
   term: Terminal;
-  /** Returns true while an IME composition (or its grace period) is active. */
+  /** Returns true while an IME composition is active. */
   isComposing: () => boolean;
 }
 

@@ -123,8 +123,8 @@ export const useAiSuggestionStore = create<AiSuggestionState & AiSuggestionActio
         wholeDoc: params.wholeDoc ?? false,
         from: params.from,
         to: params.to,
-        newContent: params.newContent,
-        originalContent: params.originalContent,
+        ...(params.newContent !== undefined && { newContent: params.newContent }), // insert/replace only
+        ...(params.originalContent !== undefined && { originalContent: params.originalContent }), // ABSENT otherwise
         createdAt: Date.now(),
       };
 

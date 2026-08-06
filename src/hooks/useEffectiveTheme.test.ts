@@ -1,5 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
+
+// The platform decides whether the resolved theme is narrowed to the
+// light/dark pair Windows and Linux can actually draw chrome for
+// (theme/themeAvailability.ts). Pinned explicitly rather than inherited from
+// jsdom, so these cases state which platform they describe.
+const platform = vi.hoisted(() => ({ isMac: true }));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMacPlatform: () => platform.isMac,
+}));
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSystemAppearanceStore } from "@/stores/systemAppearanceStore";
 import {
@@ -26,6 +36,12 @@ function setPrefersDark(value: boolean): void {
     useSystemAppearanceStore.setState({ prefersDark: value });
   });
 }
+
+beforeEach(() => {
+  // Default to macOS: the cases below cover resolution, which is where the
+  // full catalog is available. Platform narrowing has its own describe.
+  platform.isMac = true;
+});
 
 afterEach(() => {
   act(() => {
@@ -114,5 +130,65 @@ describe("useEffectiveThemeId", () => {
 
     setPrefersDark(true);
     expect(result.current).toBe("sepia");
+  });
+});
+
+// Windows and Linux draw their own title bar (and, on Windows, menu bar), and
+// the OS only accepts light or dark. A theme outside that pair would always
+// render half-themed, so the resolved id is narrowed to one that matches.
+describe("platform narrowing (Windows/Linux)", () => {
+  beforeEach(() => {
+    platform.isMac = false;
+  });
+
+  it("narrows an unsupported light theme to white", () => {
+    setAppearance({ theme: "sepia", followSystemAppearance: false });
+    expect(getEffectiveThemeId()).toBe("white");
+  });
+
+  it("narrows an unsupported dark theme to night", () => {
+    setAppearance({ theme: "solarized", followSystemAppearance: false });
+    expect(getEffectiveThemeId()).toBe("night");
+  });
+
+  it("leaves the two supported themes alone", () => {
+    setAppearance({ theme: "white", followSystemAppearance: false });
+    expect(getEffectiveThemeId()).toBe("white");
+    setAppearance({ theme: "night", followSystemAppearance: false });
+    expect(getEffectiveThemeId()).toBe("night");
+  });
+
+  it("narrows the follow-system pair too", () => {
+    setAppearance({
+      followSystemAppearance: true,
+      systemLightTheme: "paper",
+      systemDarkTheme: "solarized",
+    });
+    setPrefersDark(false);
+    expect(getEffectiveThemeId()).toBe("white");
+    setPrefersDark(true);
+    expect(getEffectiveThemeId()).toBe("night");
+  });
+
+  // The stored pick must survive: someone syncing settings back to macOS
+  // should get their sepia back, not a permanently rewritten "white".
+  it("does not mutate the stored theme", () => {
+    setAppearance({ theme: "sepia", followSystemAppearance: false });
+    expect(getEffectiveThemeId()).toBe("white");
+    expect(useSettingsStore.getState().appearance.theme).toBe("sepia");
+  });
+
+  it("reacts to a system flip while following", () => {
+    setAppearance({
+      followSystemAppearance: true,
+      systemLightTheme: "mint",
+      systemDarkTheme: "night",
+    });
+    setPrefersDark(false);
+    const { result } = renderHook(() => useEffectiveThemeId());
+    expect(result.current).toBe("white");
+
+    setPrefersDark(true);
+    expect(result.current).toBe("night");
   });
 });

@@ -1,22 +1,28 @@
 /**
- * KnowledgeBaseOverlay — right-docked panel surface. Tokens only (rule 31).
+ * KnowledgeBaseDock — right-docked panel surface. Tokens only (rule 31).
+ *
+ * IN-FLOW, not `position: fixed`. It is rendered into EditorArea's `sidePanel`
+ * slot, so opening it DISPLACES the editor rather than floating over it. The
+ * previous fixed overlay occluded the document underneath: text simply
+ * disappeared behind a 420px panel, and the editor never reflowed.
+ *
+ * Every other full-height dock in VMark (the terminal, via EditorArea's `panel`
+ * slot) works this way. The remaining `position: fixed` surfaces — breakdown,
+ * window-status, quick-look — are deliberately floating CARDS, a different
+ * intent, and stay as they are.
  */
 
-.kb-overlay {
-  position: fixed;
-  top: 40px; /* below the title-bar chrome */
-  right: 0;
-  bottom: 0;
-  width: 420px;
+.kb-dock {
+  /* Component-internal one-off dimension — a local var per rule 31, rather
+     than a global token or a bare literal. */
+  --kb-dock-width: 420px;
+
+  flex-shrink: 0;
+  width: var(--kb-dock-width);
   max-width: 90vw;
-  z-index: var(--z-popup);
-  border-left: var(--border-thin) solid var(--border-color);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
   display: flex;
   flex-direction: column;
-}
-
-.dark-theme .kb-overlay {
-  box-shadow: var(--popup-shadow-dark);
+  min-height: 0;
+  border-left: var(--border-thin) solid var(--border-color);
+  background: var(--bg-color);
 }

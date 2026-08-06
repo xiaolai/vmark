@@ -7,7 +7,7 @@
  * @coordinates-with plugins/imageHandler/tiptap.ts — extension entry point
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
  * @coordinates-with plugins/imageHandler/imageHandlerToast.ts — toast UI
- * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets, insertBlockImageNode
+ * @coordinates-with services/media/imageOperations.ts — copyImageToAssets, insertBlockImageNode
  * @module plugins/imageHandler/imageHandlerInsert
  */
 
@@ -16,8 +16,8 @@ import type { EditorView } from "@tiptap/pm/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { copyImageToAssets, insertBlockImageNode } from "@/hooks/useImageOperations";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { copyImageToAssets, insertBlockImageNode } from "@/services/media/imageOperations";
+import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { ImagePathResult } from "@/utils/imagePathDetection";
 import { imageHandlerWarn, imageHandlerError } from "@/utils/debug";
 import {
@@ -93,7 +93,7 @@ export async function insertImageFromPath(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
-  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+  const copyToAssets = hostSettings.copyImagesToAssets();
 
   const imagePath = await resolveImagePath(detection, filePath, copyToAssets);
   if (imagePath === null) return;
@@ -139,7 +139,7 @@ export async function insertMultipleImages(
   }
 
   const filePath = getActiveFilePathForCurrentWindow();
-  const copyToAssets = useSettingsStore.getState().image.copyToAssets;
+  const copyToAssets = hostSettings.copyImagesToAssets();
 
   // Process all images and collect final paths
   const imagePaths: string[] = [];

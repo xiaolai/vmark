@@ -18,12 +18,12 @@
  * @module plugins/blockVideo/BlockVideoNodeView
  */
 
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { isExternalUrl } from "@/plugins/shared/mediaSecurity";
 import { resolveMediaSrc } from "@/services/media/resolveMediaSrc";
-import { useMediaPopupStore } from "@/stores/mediaPopupStore";
 import {
   attachMediaLoadHandlers,
   showMediaError,
@@ -87,7 +87,7 @@ export class BlockVideoNodeView implements NodeView {
     if (pos === undefined) return;
 
     const rect = this.video.getBoundingClientRect();
-    useMediaPopupStore.getState().openPopup({
+    hostPopups.openMediaPopup({
       mediaSrc: this.originalSrc,
       /* v8 ignore next -- video.title is always set from node attrs; "" fallback unreachable */
       mediaTitle: this.video.title ?? "",

@@ -76,7 +76,7 @@ Tipografia, exibição, comportamento de edição e configurações de espaço e
 | Configuração | Descrição | Padrão | Opções |
 |-------------|-----------|--------|--------|
 | Fim de linha ao salvar | Controlar como os fins de linha são tratados ao salvar arquivos | Preservar existente | Preservar existente, LF (`\n`), CRLF (`\r\n`) |
-| Preservar quebras de linha consecutivas | Manter múltiplas linhas em branco como estão em vez de colapsá-las | Desligado | Ligado / Desligado |
+| Preservar quebras de linha consecutivas | Manter múltiplas linhas em branco como estão em vez de colapsá-las | Ligado | Ligado / Desligado |
 | Estilo de quebra rígida ao salvar | Como as quebras de linha rígidas são representadas no arquivo Markdown salvo | Preservar existente | Dois espaços (Recomendado), Preservar existente, Barra invertida (`\`) |
 | Mostrar tags `<br>` | Exibir tags de quebra de linha HTML visivelmente no editor | Desligado | Ligado / Desligado |
 
@@ -160,7 +160,7 @@ Essas configurações só se aplicam quando uma área de trabalho (pasta) estive
 |-------------|-----------|--------|--------|
 | Redimensionar automaticamente ao colar | Redimensionar automaticamente imagens grandes antes de salvar na pasta de ativos. O valor é a dimensão máxima em pixels | Desligado | Desligado, 800px, 1200px, 1920px (Full HD), 2560px (2K) |
 | Copiar para pasta de ativos | Copiar imagens coladas ou arrastadas para a pasta de ativos do documento em vez de incorporá-las | Ligado | Ligado / Desligado |
-| Limpar imagens não utilizadas ao fechar | Excluir automaticamente imagens da pasta de ativos que não são mais referenciadas no documento ao fechá-lo | Desligado | Ligado / Desligado |
+| Limpar imagens não utilizadas ao fechar | Excluir automaticamente imagens da pasta de ativos que o documento não referencia mais. Executa ao fechar o documento, a janela ou o aplicativo. Imagens ainda referenciadas por outro documento na mesma pasta são mantidas, e as removidas vão para a lixeira do sistema | Desligado | Ligado / Desligado |
 | Limite de imagem inline | Tamanho máximo (MB) para incorporar imagens como URLs de dados base64 na exportação HTML/PDF. Arquivos maiores são vinculados | 1.0 MB | 0.1 – 10 MB |
 
 ### Arquivos grandes
@@ -300,7 +300,7 @@ A seção Idioma contém mais de 20 alternâncias de formatação refinadas. Par
 | Limitar pontuação consecutiva | Limitar marcas de pontuação repetidas como `!!!` | Desligado | Desligado, Único (`!!` para `!`), Duplo (`!!!` para `!!`) |
 | Remover espaços no final | Remover espaços no final das linhas | Ligado | Ligado / Desligado |
 | Normalizar reticências | Converter pontos espaçados (`. . .`) em reticências adequadas (`...`) | Ligado | Ligado / Desligado |
-| Colapsar novas linhas | Reduzir três ou mais novas linhas consecutivas para duas | Ligado | Ligado / Desligado |
+| Colapsar novas linhas | Reduzir três ou mais novas linhas consecutivas para duas | Desligado | Ligado / Desligado |
 
 ## Atalhos
 

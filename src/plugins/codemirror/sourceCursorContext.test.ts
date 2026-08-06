@@ -32,6 +32,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEditorStore } from "@/stores/editorStore";
 import { createSourceCursorContextPlugin } from "./sourceCursorContext";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
+
+// These drive the REAL stores; bind them to the seams the plugin reads,
+// which is what the app does at startup.
+beforeEach(bindPluginHostSettings);
 
 const createdViews: EditorView[] = [];
 

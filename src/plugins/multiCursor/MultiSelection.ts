@@ -110,7 +110,7 @@ export class MultiSelection extends Selection {
   /**
    * Deserialize selection from JSON.
    */
-  static fromJSON(
+  static override fromJSON(
     doc: Node,
     json: { ranges: Array<{ anchor: number; head: number }>; primaryIndex: number }
   ): MultiSelection {
@@ -138,7 +138,7 @@ export class MultiSelection extends Selection {
    * Get content of the primary selection.
    * For copy operations, use the dedicated clipboard handling.
    */
-  content() {
+  override content() {
     // Return content of primary selection
     return this.$anchor.doc.slice(this.from, this.to);
   }
@@ -158,7 +158,7 @@ export class MultiSelection extends Selection {
    * to store and restore selections across undo/redo without holding a reference
    * to the document.
    */
-  getBookmark(): SelectionBookmark {
+  override getBookmark(): SelectionBookmark {
     return new MultiSelectionBookmark(
       this.ranges.map((r, i) => ({
         anchor: this.backward[i] ? r.$to.pos : r.$from.pos,

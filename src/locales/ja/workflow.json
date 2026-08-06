@@ -1,14 +1,10 @@
 {
-  "approval": {
-    "title": "ワークフローのステップを承認しますか?",
-    "step": "ステップ",
-    "model": "モデル",
-    "preview": "プロンプトのプレビュー",
-    "approve": "承認",
-    "deny": "拒否"
-  },
-  "run": {
-    "start": "ワークフローを実行",
-    "cancel": "ワークフローをキャンセル"
-  }
+  "approval.title": "ワークフローのステップを承認しますか?",
+  "approval.step": "ステップ",
+  "approval.model": "モデル",
+  "approval.preview": "プロンプトのプレビュー",
+  "approval.approve": "承認",
+  "approval.deny": "拒否",
+  "run.start": "ワークフローを実行",
+  "run.cancel": "ワークフローをキャンセル"
 }

@@ -6,6 +6,8 @@ import {
   selectWindows,
   selectPanelOpen,
   selectPinned,
+  selectGlobalPin,
+  selectEffectivePinned,
   selectOtherWindowsRanked,
   type WindowStatusEntry,
 } from "./windowStatusStore";
@@ -84,6 +86,49 @@ describe("windowStatusStore — pin + persistence (#1120)", () => {
     setCurrentWindowLabel("doc-9");
     useWindowStatusStore.getState().setPinned(false);
     expect(localStorage.getItem("vmark-window-status:doc-9")).toBeTruthy();
+  });
+});
+
+describe("windowStatusStore — global pin (#1135)", () => {
+  it("setGlobalPin(true) enables the flag and opens this window's panel", () => {
+    expect(selectGlobalPin(useWindowStatusStore.getState())).toBe(false);
+    useWindowStatusStore.getState().setGlobalPin(true);
+    expect(selectGlobalPin(useWindowStatusStore.getState())).toBe(true);
+    // Enabling surfaces the panel immediately in the acting window.
+    expect(selectPanelOpen(useWindowStatusStore.getState())).toBe(true);
+  });
+
+  it("setGlobalPin(false) disables the flag without force-closing the panel", () => {
+    useWindowStatusStore.getState().setGlobalPin(true);
+    useWindowStatusStore.getState().setGlobalPin(false);
+    expect(selectGlobalPin(useWindowStatusStore.getState())).toBe(false);
+    // Disabling leaves the panel as-is — each window falls back to its own state.
+    expect(selectPanelOpen(useWindowStatusStore.getState())).toBe(true);
+  });
+
+  it("effective pin is true when EITHER the window pin or the global pin is on", () => {
+    expect(selectEffectivePinned(useWindowStatusStore.getState())).toBe(false);
+    useWindowStatusStore.getState().setPinned(true);
+    expect(selectEffectivePinned(useWindowStatusStore.getState())).toBe(true);
+    useWindowStatusStore.getState().setPinned(false);
+    useWindowStatusStore.getState().setGlobalPin(true);
+    expect(selectEffectivePinned(useWindowStatusStore.getState())).toBe(true);
+  });
+
+  it("persists the global pin app-wide, never inside a window-scoped blob", () => {
+    useWindowStatusStore.getState().setGlobalPin(true);
+    // App-global key holds it...
+    expect(localStorage.getItem("vmark-window-status:__global-pin")).toBe("1");
+    // ...and it must NOT leak into this window's per-window prefs.
+    const raw = localStorage.getItem(getWindowStatusStorageKey(getCurrentWindowLabel()));
+    if (raw) expect(JSON.parse(raw).state.globalPin).toBeUndefined();
+  });
+
+  it("reset clears the global pin (state + persistence)", () => {
+    useWindowStatusStore.getState().setGlobalPin(true);
+    useWindowStatusStore.getState().reset();
+    expect(selectGlobalPin(useWindowStatusStore.getState())).toBe(false);
+    expect(localStorage.getItem("vmark-window-status:__global-pin")).toBeNull();
   });
 });
 

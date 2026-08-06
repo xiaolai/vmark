@@ -32,6 +32,9 @@ vi.mock("./sourcePopupUtils", () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
   })),
+}));
+
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn(
     (_host: unknown, pos: { top: number; left: number }) => pos
@@ -45,7 +48,7 @@ import {
   type StoreApi,
 } from "./SourcePopupView";
 import type { EditorView } from "@codemirror/view";
-import { getPopupHostForDom, toHostCoordsForDom } from "./sourcePopupUtils";
+import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 import { handlePopupTabNavigation } from "@/utils/popupComponents";
 
 // ---------------------------------------------------------------------------

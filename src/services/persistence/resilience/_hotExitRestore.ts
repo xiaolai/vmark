@@ -1,5 +1,5 @@
 /**
- * Hot Exit Restore Hook
+ * Hot Exit Restore — React-free restore logic + coordinator.
  *
  * Restores window state after hot restart. Uses a pull-based approach
  * for reliability — windows pull their state from Rust coordinator
@@ -9,19 +9,18 @@
  *   checkAndRestoreSession() after Rust invoke returns (bypasses event race).
  * For secondary windows: Pulls pending state via invoke on mount.
  *
- * The RESTORE_START listener in the hook is kept as a fallback but
- * is guarded against double-restore.
- *
  * The restore state machine (concurrency guard + per-window coordination)
  * lives in `createWindowRestoreCoordinator` so it can be unit-tested without
- * React render timing. `useHotExitRestore` is pure lifecycle wiring around it.
+ * React render timing. The React lifecycle wiring (`useHotExitRestore`) lives in
+ * `hooks/resilience/_hotExitRestore.ts` (ADR-013) — this module is React-free.
  *
  * @coordinates-with restoreHelpers.ts — all restore logic lives there
+ * @coordinates-with hooks/resilience/_hotExitRestore.ts — the mount wrapper
+ * @module services/persistence/resilience/_hotExitRestore
  */
 
-import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { emit, listen } from '@tauri-apps/api/event';
+import { emit } from '@tauri-apps/api/event';
 import { hotExitLog, hotExitWarn } from '@/utils/debug';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { HOT_EXIT_EVENTS } from '../hotExit/types';
@@ -34,6 +33,12 @@ import {
   reconcileRestoredWindowWorkspaceInstances,
   restoreWindowWorkspaceInstances,
 } from '../hotExit/workspaceInstances';
+import {
+  beginWindowContextRestore,
+  endWindowContextRestore,
+} from '@/services/workspaces/switchWorkspaceInstance';
+import { hydrateWorkspaceInstanceContext } from '@/services/workspaces/hydrateWorkspaceInstanceContext';
+import { restoreInstanceContextState } from '@/services/persistence/hotExit/instanceContextState';
 import { errorMessage } from "@/utils/errorMessage";
 
 /** Module-level flag to prevent double-restore of main window */
@@ -60,9 +65,35 @@ async function pullAndRestore(windowLabel: string): Promise<boolean> {
   }
 
   hotExitLog(`Window '${windowLabel}' found pending state, restoring...`);
-  restoreWindowWorkspaceInstances(windowLabel, windowState);
-  const tabIdMap = await restoreWindowState(windowLabel, windowState);
-  reconcileRestoredWindowWorkspaceInstances(windowLabel, windowState, tabIdMap);
+  // WI-13.2 ordering: instances → tabs → reconcile ids → ONE final hydrate.
+  // Rail clicks are declined while the context is half-built; the guard is
+  // released in `finally` so a failed restore can never wedge switching.
+  beginWindowContextRestore(windowLabel);
+  // Assigned inside the try; `false` is the safe reading if the block throws
+  // before reaching the call (the throw itself is what preserves the file).
+  let contextPreserved: boolean;
+  try {
+    restoreWindowWorkspaceInstances(windowLabel, windowState);
+    const tabIdMap = await restoreWindowState(windowLabel, windowState);
+    reconcileRestoredWindowWorkspaceInstances(windowLabel, windowState, tabIdMap);
+    // WI-9.4: per-instance UI state (outline ids remapped), reopen history,
+    // and browser records — after reconcile, before the final hydrate.
+    contextPreserved = await restoreInstanceContextState(windowLabel, windowState, tabIdMap);
+  } finally {
+    endWindowContextRestore(windowLabel);
+  }
+  // Audit 20260804-F12: a failed quarantine write must NOT be followed by a
+  // successful restore, because success is what lets `checkAndRestoreSession`
+  // clear the session file — and the rejected fragments would then exist
+  // nowhere. Failing here keeps the file for the next launch, which is the
+  // same trade the session-level salvage path already makes: preservation
+  // beats restore.
+  if (!contextPreserved) {
+    throw new Error(
+      'Hot-exit quarantine write failed; session file preserved for retry on next launch',
+    );
+  }
+  await hydrateWorkspaceInstanceContext(windowLabel);
 
   // Signal completion for this window and check if all windows done
   const allDone = await invoke<boolean>('hot_exit_window_restore_complete', { windowLabel });
@@ -208,32 +239,4 @@ export function createWindowRestoreCoordinator(
     checkPending,
     onRestoreStart,
   };
-}
-
-export function useHotExitRestore() {
-  // The coordinator is created once per mount and holds the restore state
-  // machine; the hook only wires it to mount/unmount lifecycle.
-  const coordinatorRef = useRef<WindowRestoreCoordinator | null>(null);
-
-  useEffect(() => {
-    const windowLabel = getCurrentWebviewWindow().label;
-    const coordinator =
-      coordinatorRef.current ?? createWindowRestoreCoordinator(windowLabel);
-    coordinatorRef.current = coordinator;
-
-    void coordinator.checkPending();
-
-    // Listen for RESTORE_START signal (fallback for main window). Primary
-    // restore is triggered directly by checkAndRestoreSession(); this listener
-    // is guarded against double-restore.
-    const unlistenPromise = listen(HOT_EXIT_EVENTS.RESTORE_START, () =>
-      coordinator.onRestoreStart(),
-    );
-
-    return () => {
-      void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {
-        hotExitLog('Cleanup error (expected during unmount):', e);
-      });
-    };
-  }, []);
 }

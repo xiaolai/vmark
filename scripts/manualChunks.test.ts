@@ -39,6 +39,24 @@ describe("manualChunks — special pins (checked before node_modules dispatch)",
     expect(manualChunks("/repo/src/components/Editor/TiptapEditor.tsx")).toBeUndefined();
     expect(manualChunks("/repo/src/main.tsx")).toBeUndefined();
   });
+
+  it("leaves the lazy format surfaces unassigned — they chunk by import site", () => {
+    // WI-13 tried pinning these as named families so the eager gate could
+    // denylist them. It backfired: rolldown's group matching pulls a matched
+    // module's whole private dependency subtree into the group, so four
+    // CodeMirror plugin modules produced a 1.07 MB chunk that vendor-react
+    // then imported — a god-chunk that HID the 0.66 MB the lazy conversion
+    // actually saved. Dynamic-import boundaries already name their own chunks
+    // (`markdownSurface-*`, `yamlWorkflowRenderer-*`, …), which is what
+    // check-eager-chunks.mjs LAZY_ONLY_CHUNK_PATTERNS matches instead.
+    expect(
+      manualChunks("/repo/src/lib/formats/adapters/markdownSurface.tsx"),
+    ).toBeUndefined();
+    expect(
+      manualChunks("/repo/src/components/Editor/WorkflowPanel/GhaWorkflowWorkbench.tsx"),
+    ).toBeUndefined();
+    expect(manualChunks("/repo/src/plugins/codemirror/sourceGhaIrSync.ts")).toBeUndefined();
+  });
 });
 
 describe("manualChunks — vendor dispatch (pnpm-style ids)", () => {
@@ -58,6 +76,9 @@ describe("manualChunks — vendor dispatch (pnpm-style ids)", () => {
     // Workflow layout dagre isolated from mermaid's bundled fork
     ["@dagrejs/dagre", "vendor-dagre"],
     ["dagre", "vendor-dagre"],
+    // React Flow named so the eager gate can denylist the family (WI-12)
+    ["@xyflow/react", "vendor-xyflow"],
+    ["@xyflow/system", "vendor-xyflow"],
     // Mermaid family stays together (circular-dependency safety)
     ["mermaid", "vendor-mermaid"],
     ["@mermaid-js/parser", "vendor-mermaid"],

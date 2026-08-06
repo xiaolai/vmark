@@ -20,6 +20,7 @@ import { Node } from "@tiptap/core";
 import { BlockAudioNodeView } from "./BlockAudioNodeView";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
+import { referenceIdentityAttrs } from "@/utils/referenceIdentity";
 
 /** Tiptap node extension for block-level audio elements. */
 export const blockAudioExtension = Node.create({
@@ -34,8 +35,10 @@ export const blockAudioExtension = Node.create({
 
   addAttributes() {
     return {
+      ...referenceIdentityAttrs,
       ...sourceLineAttr,
       src: { default: "" },
+      alt: { default: "" },
       title: { default: "" },
       controls: { default: true },
       preload: { default: "metadata" },

@@ -9,9 +9,9 @@
  * @module plugins/footnotePopup/tiptapInsertFootnote
  */
 
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
 import { createRenumberTransaction, getDefinitionInfo } from "./tiptapCleanup";
 
 function findNearestReference(doc: PMNode, insertPos: number): { label: string; pos: number } | null {
@@ -32,13 +32,14 @@ function findNearestReference(doc: PMNode, insertPos: number): { label: string; 
   return best;
 }
 
-export function insertFootnoteAndOpenPopup(editor: TiptapEditor): void {
+/** Returns whether a reference was inserted (false when the schema lacks footnote nodes). */
+export function insertFootnoteAndOpenPopup(editor: TiptapEditor): boolean {
   const { state, view } = editor;
   const { schema } = state;
 
   const refType = schema.nodes.footnote_reference;
   const defType = schema.nodes.footnote_definition;
-  if (!refType || !defType) return;
+  if (!refType || !defType) return false;
 
   const insertPos = state.selection.to;
   view.dispatch(state.tr.insert(insertPos, refType.create({ label: "_new_" })));
@@ -49,7 +50,8 @@ export function insertFootnoteAndOpenPopup(editor: TiptapEditor): void {
   }
 
   const ref = findNearestReference(view.state.doc, insertPos);
-  if (!ref?.label) return;
+  // The insert above already changed the document, so this is still a success.
+  if (!ref?.label) return true;
 
   const defPos = getDefinitionInfo(view.state.doc).find((d) => d.label === ref.label)?.pos ?? null;
 
@@ -59,7 +61,15 @@ export function insertFootnoteAndOpenPopup(editor: TiptapEditor): void {
     ) as HTMLElement | null;
     if (!refEl) return;
 
-    useFootnotePopupStore.getState().openPopup(ref.label, "", refEl.getBoundingClientRect(), defPos, ref.pos, true);
+    hostPopups.openFootnotePopup({
+      label: ref.label,
+      content: "",
+      anchorRect: refEl.getBoundingClientRect(),
+      definitionPos: defPos,
+      referencePos: ref.pos,
+      autoFocus: true,
+    });
   });
+  return true;
 }
 

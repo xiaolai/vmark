@@ -9,6 +9,10 @@
  *   - Each hook returns a single value (content, filePath, isDirty, etc.)
  *   - All hooks derive from useActiveTabId() for consistent window scoping
  *   - Safe defaults (empty string, null, false) when tab or document is missing
+ *   - `loadContent` routes to `ingestExternalContent(..., "disk-open")`. The
+ *     store's `loadContent` action is gone: it duplicated the ingest baseline
+ *     branch and retained stale line metadata when no `meta` was passed, which
+ *     was every caller. The hook keeps the name; the door changed
  *   - Pane-aware (#1081): inside a split pane, useActiveTabId resolves THAT
  *     pane's tab; outside any pane it resolves the window's focused pane. With
  *     no split open this is just `tabStore.activeTabId[windowLabel]` — single
@@ -28,6 +32,7 @@ import {
   useDocumentStore,
   type CursorInfo,
   type DocumentState,
+  type SetContentOptions,
 } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
 
@@ -138,10 +143,10 @@ export function useDocumentActions(ownTabId?: string | null) {
   }, [getActiveTabId]);
 
   const setContent = useCallback(
-    (content: string) => {
+    (content: string, options?: SetContentOptions) => {
       const tabId = getActiveTabId();
       if (tabId) {
-        useDocumentStore.getState().setContent(tabId, content);
+        useDocumentStore.getState().setEditorContent(tabId, content, options);
       }
     },
     [getActiveTabId]
@@ -151,7 +156,14 @@ export function useDocumentActions(ownTabId?: string | null) {
     (content: string, filePath?: string | null) => {
       const tabId = getActiveTabId();
       if (tabId) {
-        useDocumentStore.getState().loadContent(tabId, content, filePath);
+        // disk-open: a load IS a new saved baseline, and the file's convention
+        // is re-derived rather than retained. `loadContent` used to keep the
+        // OLD lineEnding when no metadata was passed — which is every caller —
+        // so a reload after the endings changed on disk wrote the stale one
+        // back on the next `preserve` save.
+        useDocumentStore
+          .getState()
+          .ingestExternalContent(tabId, content, "disk-open", { filePath });
       }
     },
     [getActiveTabId]
@@ -169,19 +181,10 @@ export function useDocumentActions(ownTabId?: string | null) {
     [getActiveTabId]
   );
 
-  const markSaved = useCallback(() => {
-    const tabId = getActiveTabId();
-    if (tabId) {
-      useDocumentStore.getState().markSaved(tabId);
-    }
-  }, [getActiveTabId]);
-
-  const markAutoSaved = useCallback(() => {
-    const tabId = getActiveTabId();
-    if (tabId) {
-      useDocumentStore.getState().markAutoSaved(tabId);
-    }
-  }, [getActiveTabId]);
+  // markSaved/markAutoSaved wrappers were DELETED here (WI-1.4): they had zero
+  // production consumers, and they could not honestly supply the disk snapshot
+  // the dual-snapshot contract requires — a hook has no idea what bytes were
+  // written. The real save path is saveToPath, which calls the store directly.
 
   const setCursorInfo = useCallback(
     (info: CursorInfo | null) => {
@@ -208,8 +211,6 @@ export function useDocumentActions(ownTabId?: string | null) {
     setContent,
     loadContent,
     setFilePath,
-    markSaved,
-    markAutoSaved,
     setCursorInfo,
     setSelectedText,
   };

@@ -1,0 +1,92 @@
+/**
+ * Shared select primitive (#1209).
+ *
+ * A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
+ * native bezel, native chevron, and a 5px pill radius — and author styling only
+ * partly applies. The workflow forms are select-heavy, so a fully tokenised
+ * stylesheet (338 `var()` references) still rendered as macOS chrome sitting in
+ * the middle of VMark's own design language. Text inputs were unaffected, which
+ * is why it survived review: the drift is invisible unless you look at a select.
+ *
+ * Rule 32's canonical-component table had no select, so every surface that
+ * needed one re-derived it. Settings had already solved it correctly — inline
+ * `appearance-none` plus a lucide chevron — but as Tailwind classes on one
+ * component rather than something a second caller could reuse.
+ *
+ * The chevron is drawn with `mask-image` and `background-color: currentColor`
+ * rather than a `background-image` data URI. A data URI bakes its stroke colour
+ * into the markup, which cannot follow a theme token and would need a second
+ * copy under `.dark-theme` with two hardcoded colours — exactly what rule 31
+ * forbids. A mask inherits `currentColor`, so one declaration is correct in
+ * every theme.
+ *
+ * `select` cannot host a reliable `::after` across engines, so the chevron
+ * lives on a wrapper:
+ *
+ *     <span class="vm-select-field">
+ *       <select class="vm-select">…</select>
+ *     </span>
+ *
+ * @coordinates-with .claude/rules/32-component-patterns.md — the canonical table
+ * @coordinates-with src/pages/settings/inputs.tsx — the prior inline solution
+ */
+
+/* Wrapper: owns the chevron, so the select itself stays a plain control. */
+.vm-select-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+}
+
+.vm-select-field::after {
+  content: "";
+  position: absolute;
+  right: var(--space-1-5);
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  pointer-events: none;
+  /* currentColor, so the chevron tracks the select's text colour in every
+     theme without a second hardcoded copy. */
+  background-color: var(--text-secondary);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+
+.vm-select {
+  /* The point of the primitive: without this WebKit draws its own control. */
+  appearance: none;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  background: var(--bg-color);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  /* Right padding clears the wrapper's chevron. */
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-1-5);
+  cursor: pointer;
+  outline: none;
+}
+
+.vm-select:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+/* Focus: bottom-anchored ring matching the form inputs beside it (rule 33 —
+   a visible replacement, never a bare `outline: none`). */
+.vm-select:focus-visible {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 var(--border-thin) var(--accent-bg);
+}
+
+.vm-select:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.vm-select-field:has(.vm-select:disabled)::after {
+  opacity: var(--opacity-disabled);
+}

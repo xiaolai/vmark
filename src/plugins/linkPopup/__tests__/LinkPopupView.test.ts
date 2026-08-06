@@ -28,18 +28,17 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkPopupStore", () => ({
-  useLinkPopupStore: {
-    getState: () => storeState,
-    subscribe: (fn: (state: typeof storeState) => void) => {
-      subscribers.push(fn);
-      return () => {
-        const idx = subscribers.indexOf(fn);
-        if (idx >= 0) subscribers.splice(idx, 1);
-      };
-    },
+// The popup state is a PORT — handed to the view, so no module mock.
+const mockStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
   },
-}));
+};
 
 vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
@@ -54,13 +53,14 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: mockOpenUrl,
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
 
 // Import after mocking
 import { LinkPopupView } from "../LinkPopupView";
+import { ASYNC_IMPORT_WAIT } from "@/test/waitBudget";
 
 // Helper functions
 const createMockRect = (overrides: Partial<DOMRect> = {}): DOMRect => ({
@@ -176,7 +176,7 @@ describe("LinkPopupView", () => {
     vi.clearAllMocks();
     dom = createEditorContainer();
     view = createMockView(dom.editorDom);
-    popup = new LinkPopupView(view as unknown as ConstructorParameters<typeof LinkPopupView>[0]);
+    popup = new LinkPopupView(view as never, mockStore as never);
   });
 
   afterEach(() => {
@@ -318,7 +318,7 @@ describe("LinkPopupView", () => {
       // Use vi.waitFor to reliably wait for the async dynamic import chain
       await vi.waitFor(() => {
         expect(mockOpenUrl).toHaveBeenCalledWith("https://test.com");
-      });
+      }, ASYNC_IMPORT_WAIT);
     });
 
     it("copy button copies URL to clipboard", async () => {

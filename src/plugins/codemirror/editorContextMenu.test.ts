@@ -29,8 +29,12 @@ import {
   handleSourceContextMenu,
   reducedEditorContextMenuExtension,
 } from "./editorContextMenu";
-import { usePopupStore } from "@/stores/popupStore";
-import { initialEditorContextMenu } from "@/stores/popupStore/slices";
+import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
+
+// These drive the REAL stores; bind them to the seams the plugin reads,
+// which is what the app does at startup.
+beforeEach(bindPluginHostSettings);
 
 function createView(doc = "hello world", selection?: { anchor: number; head?: number }): EditorView {
   const state = EditorState.create({
@@ -56,7 +60,7 @@ function stubPosAtCoords(view: EditorView, pos: number | null): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  usePopupStore.setState({ editorContextMenu: initialEditorContextMenu });
+  useEditorContextMenuStore.setState(useEditorContextMenuStore.getInitialState());
 });
 
 describe("handleSourceContextMenu", () => {
@@ -81,7 +85,7 @@ describe("handleSourceContextMenu", () => {
     stubPosAtCoords(view, 7);
     expect(handleSourceContextMenu(view, contextMenuEvent(), { reduced: false })).toBe(true);
     expect(view.state.selection.main.from).toBe(7);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(true);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(true);
     view.destroy();
   });
 
@@ -101,7 +105,7 @@ describe("handleSourceContextMenu", () => {
     // false lets the event continue to the table handler even if this
     // handler were ever registered first (ADR-5 order-robustness).
     expect(handleSourceContextMenu(view, contextMenuEvent(), { reduced: false })).toBe(false);
-    expect(usePopupStore.getState().editorContextMenu.isOpen).toBe(false);
+    expect(useEditorContextMenuStore.getState().isOpen).toBe(false);
     view.destroy();
   });
 
@@ -140,7 +144,7 @@ describe("handleSourceContextMenu", () => {
     handleSourceContextMenu(view, contextMenuEvent(), { reduced: true });
     expect(mocks.buildSourceSnapshot).not.toHaveBeenCalled();
     expect(mocks.getSourceTableInfo).not.toHaveBeenCalled();
-    const snap = usePopupStore.getState().editorContextMenu.snapshot;
+    const snap = useEditorContextMenuStore.getState().snapshot;
     expect(snap?.formatPolicy).toEqual({ paragraphFormatting: false, insertBlockActions: false });
     view.destroy();
   });

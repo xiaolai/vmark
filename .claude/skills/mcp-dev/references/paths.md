@@ -14,7 +14,7 @@
 - `src/hooks/mcpBridge/` (central dispatcher + handlers)
 
 ## Standalone sidecar
-- `vmark-mcp-server/` (npm package, runs as stdio MCP server)
+- `server/mcp/` (npm package, runs as stdio MCP server)
 
 ## Website docs
 - `website/guide/mcp-tools.md`

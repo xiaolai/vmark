@@ -89,6 +89,7 @@ describe("openFilepathLink", () => {
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/appendix/cards.md",
       windowLabel: "main",
+      fragment: "bern",
     });
   });
 
@@ -101,8 +102,31 @@ describe("openFilepathLink", () => {
     });
   });
 
-  it("strips the fragment before emitting", async () => {
+  it("strips the fragment from the PATH but carries it in the payload", async () => {
+    // The path must stay clean — the open takes a plain path — but dropping
+    // the fragment entirely is why `foo.md#heading` opened at the top of the
+    // document while lint rule W04 validated that very anchor.
     await openFilepathLink("./neighbour.md#anchor", SOURCE);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/repo/docs/neighbour.md",
+      windowLabel: "main",
+      fragment: "anchor",
+    });
+  });
+
+  it("percent-decodes the fragment, as it does the path", async () => {
+    await openFilepathLink("./neighbour.md#my%20heading", SOURCE);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/repo/docs/neighbour.md",
+      windowLabel: "main",
+      fragment: "my heading",
+    });
+  });
+
+  it("omits `fragment` entirely when the href has none", async () => {
+    // Absent rather than empty-string: a payload field that is always present
+    // but usually meaningless invites callers to test truthiness incorrectly.
+    await openFilepathLink("./neighbour.md", SOURCE);
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/repo/docs/neighbour.md",
       windowLabel: "main",
@@ -130,6 +154,7 @@ describe("openFilepathLink", () => {
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "/abs/path/foo.md",
       windowLabel: "main",
+      fragment: "x",
     });
   });
 
@@ -139,6 +164,7 @@ describe("openFilepathLink", () => {
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "C:/Users/me/foo.md",
       windowLabel: "main",
+      fragment: "x",
     });
   });
 
@@ -157,6 +183,7 @@ describe("openFilepathLink", () => {
     expect(mockEmit).toHaveBeenCalledWith("open-file", {
       path: "D:/work/notes.md",
       windowLabel: "main",
+      fragment: "h",
     });
   });
 

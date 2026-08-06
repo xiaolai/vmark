@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Zoom In"
   view.zoomOut: "Zoom Out"
   view.wordWrap: "Toggle Word Wrap"
+  view.universalToolbar: "Show Universal Toolbar"
   view.lineNumbers: "Toggle Line Numbers"
   view.diagramPreview: "Toggle Diagram Preview"
   view.fitTables: "Fit Tables to Width"
@@ -249,6 +250,34 @@ errors:
   workflow.notRunning: "No workflow is currently running"
   workflow.circularDependency: "Circular dependency detected in workflow steps"
   workflow.noInteractivePrompt: "Interactive prompt not supported in workflow execution"
+  workflow.engineDisabled: "The workflow engine is turned off in Settings"
+  workflow.noPendingApproval: "No outstanding approval request matched"
+  workflow.appDataDirUnavailable: "Could not resolve the app data directory: %{detail}"
+
+  # === Save path (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "The folder for this file no longer exists: %{dir}"
+  save.noParentDirectory: "The file path has no containing folder"
+  save.writeFailed: "Could not save the file: %{detail}"
+  save.taskFailed: "The save task ended unexpectedly: %{detail}"
+
+  # === Embedded browser, AI navigation (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "The embedded browser is turned off in Settings"
+  browser.approvalRequired: "This page needs your approval before the AI can open it"
+  browser.blockedDestination: "AI navigation to this destination is blocked by policy"
+  browser.profileNotApproved: "Opening this browser profile was not approved"
+  browser.tabNotFound: "That browser tab no longer exists"
+  browser.tabNotAiOwned: "That browser tab is not controlled by the AI"
+  browser.policyStale: "The browser policy changed — try the action again"
+  browser.tabProvenanceMismatch: "That tab was created under a different automation mode"
+  browser.invalidSessionMode: "Unknown browser session mode '%{mode}'"
+  browser.stateUnavailable: "The browser state could not be read: %{detail}"
+  browser.invalidUrl: "That is not a usable web address"
+  browser.invalidProfileName: "That browser profile name is not allowed"
+  browser.windowGone: "The window this browser tab belongs to has closed"
+  browser.profileLimit: "Too many browser profiles are open at once"
+  browser.unsupportedPlatform: "The embedded browser is not available on this platform"
+  browser.surfaceTimeout: "The browser did not respond in time"
+  browser.surfaceFailed: "The browser could not complete that action"
 
   # === Hot exit ===
   hotExit.noWindows: "No document windows to capture"
@@ -268,6 +297,47 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP sidecar spawn already in progress"
   mcp.configMismatch: "Config validation failed: written content does not match"
+
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Unknown provider: %{provider}"
+  mcp.legacyProvider: "%{name} is discontinued; the leftover VMark entry can only be removed."
+  mcp.noHomeDir: "Cannot determine home directory"
+  mcp.exePathFailed: "Cannot get executable path: %{detail}"
+  mcp.exeDirFailed: "Cannot get executable directory"
+  mcp.binaryNotFound: "MCP server binary not found: %{name}. Please reinstall VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "Invalid JSON: %{detail}"
+  mcp.invalidToml: "Invalid TOML: %{detail}"
+  mcp.jsonSerializeFailed: "JSON serialization error: %{detail}"
+  mcp.invalidJsonStructure: "Invalid JSON structure"
+  mcp.serversNotObject: "%{key} is not an object"
+  mcp.serversNotTable: "mcp_servers is not a table"
+  mcp.vmarkEntryNotObject: "%{key} is not an object"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark is not a table"
+  mcp.envNotObject: "%{key} is not an object"
+  mcp.envNotTable: "mcp_servers.vmark.env is not a table"
+
+  # MCP bridge — the per-client credential the authorization principal binds to
+  mcp.principalMissing: "This AI client did not present a VMark credential, so delegated actions are refused. Open Settings > Integrations, run Install for it, then restart the client."
+  mcp.principalUnknown: "The credential this AI client presented is not one VMark has on file, so delegated actions are refused. Open Settings > Integrations, run Install for it, then restart the client."
+  mcp.principalAmbiguous: "The credential this AI client presented is configured for more than one client (%{detail}), so VMark cannot tell them apart. Open Settings > Integrations, run Install for each of them, then restart them."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Failed to read %{path}: %{detail}"
+  mcp.createDirFailed: "Failed to create directory %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} changed on disk while VMark was updating it. Close the client that is writing it and retry."
+  mcp.backupWriteFailed: "Failed to write backup %{path}: %{detail}"
+  mcp.backupFlushFailed: "Failed to flush backup %{path}: %{detail}"
+  mcp.backupSyncFailed: "Failed to sync backup %{path}: %{detail}"
+  mcp.backupCreateFailed: "Failed to create backup %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Failed to create backup: %{count} variants of %{path} already exist"
+  mcp.stageConfigFailed: "Failed to stage config in %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Failed to restrict staged config %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Failed to write staged config for %{path}: %{detail}"
+  mcp.createConfigFailed: "Failed to create %{path}: could not hard-link a staged copy into place (%{link_detail}), and could not create the file directly either (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Failed to write %{path}: %{detail} (the partial file was removed)"
+  mcp.writeConfigPartialOrphaned: "Failed to write %{path}: %{detail}. The partial file could not be removed either (%{cleanup_detail}) — delete it by hand before retrying, or the next install will read it as a corrupt config."
 
 window:
   settings.title: "Settings"

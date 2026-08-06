@@ -171,6 +171,7 @@ menu:
   view.zoomIn: "Ingrandisci"
   view.zoomOut: "Riduci"
   view.wordWrap: "Attiva/disattiva a capo automatico"
+  view.universalToolbar: "Mostra barra strumenti universale"
   view.lineNumbers: "Mostra/Nascondi numeri riga"
   view.diagramPreview: "Mostra/Nascondi anteprima diagramma"
   view.fitTables: "Adatta tabelle alla larghezza"
@@ -248,6 +249,34 @@ errors:
   workflow.notRunning: "Nessun flusso di lavoro è attualmente in esecuzione"
   workflow.circularDependency: "Rilevata dipendenza circolare nei passaggi del flusso di lavoro"
   workflow.noInteractivePrompt: "Il prompt interattivo non è supportato nell'esecuzione del flusso di lavoro"
+  workflow.engineDisabled: "Il motore dei flussi di lavoro è disattivato nelle impostazioni"
+  workflow.noPendingApproval: "Nessuna richiesta di approvazione in sospeso corrisponde"
+  workflow.appDataDirUnavailable: "Impossibile risolvere la cartella dei dati dell'applicazione: %{detail}"
+
+  # === Percorso di salvataggio (file_write.rs, WI-14 CommandError) ===
+  save.parentMissing: "La cartella di questo file non esiste più: %{dir}"
+  save.noParentDirectory: "Il percorso del file non ha una cartella superiore"
+  save.writeFailed: "Impossibile salvare il file: %{detail}"
+  save.taskFailed: "L'attività di salvataggio è terminata in modo imprevisto: %{detail}"
+
+  # === Browser integrato, navigazione dell'IA (browser/ai_commands.rs, WI-14) ===
+  browser.disabled: "Il browser integrato è disattivato nelle Impostazioni"
+  browser.approvalRequired: "Questa pagina richiede la tua approvazione prima che l'IA possa aprirla"
+  browser.blockedDestination: "I criteri bloccano la navigazione dell'IA verso questa destinazione"
+  browser.profileNotApproved: "L'apertura di questo profilo del browser non è stata approvata"
+  browser.tabNotFound: "Quella scheda del browser non esiste più"
+  browser.tabNotAiOwned: "Quella scheda del browser non è controllata dall'IA"
+  browser.policyStale: "I criteri del browser sono cambiati: riprova l'azione"
+  browser.tabProvenanceMismatch: "Quella scheda è stata creata in un'altra modalità di automazione"
+  browser.invalidSessionMode: "Modalità sessione del browser sconosciuta «%{mode}»"
+  browser.stateUnavailable: "Impossibile leggere lo stato del browser: %{detail}"
+  browser.invalidUrl: "Questo non è un indirizzo web utilizzabile"
+  browser.invalidProfileName: "Quel nome di profilo del browser non è consentito"
+  browser.windowGone: "La finestra a cui appartiene questa scheda del browser è stata chiusa"
+  browser.profileLimit: "Ci sono troppi profili del browser aperti contemporaneamente"
+  browser.unsupportedPlatform: "Il browser integrato non è disponibile su questa piattaforma"
+  browser.surfaceTimeout: "Il browser non ha risposto in tempo"
+  browser.surfaceFailed: "Il browser non è riuscito a completare questa azione"
 
   # === Hot exit ===
   hotExit.noWindows: "Nessuna finestra documento da catturare"
@@ -267,6 +296,47 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "L'avvio del sidecar MCP è già in corso"
   mcp.configMismatch: "Convalida della configurazione non riuscita: il contenuto scritto non corrisponde"
+
+  # MCP client config — provider and sidecar binary resolution
+  mcp.unknownProvider: "Provider sconosciuto: %{provider}"
+  mcp.legacyProvider: "%{name} è stato dismesso; la voce VMark residua può solo essere rimossa."
+  mcp.noHomeDir: "Impossibile determinare la directory home"
+  mcp.exePathFailed: "Impossibile ottenere il percorso dell'eseguibile: %{detail}"
+  mcp.exeDirFailed: "Impossibile ottenere la directory dell'eseguibile"
+  mcp.binaryNotFound: "Binario del server MCP non trovato: %{name}. Reinstallare VMark."
+
+  # MCP client config — parsing and structure
+  mcp.invalidJson: "JSON non valido: %{detail}"
+  mcp.invalidToml: "TOML non valido: %{detail}"
+  mcp.jsonSerializeFailed: "Errore di serializzazione JSON: %{detail}"
+  mcp.invalidJsonStructure: "Struttura JSON non valida"
+  mcp.serversNotObject: "%{key} non è un oggetto"
+  mcp.serversNotTable: "mcp_servers non è una tabella"
+  mcp.vmarkEntryNotObject: "%{key} non è un oggetto"
+  mcp.vmarkEntryNotTable: "mcp_servers.vmark non è una tabella"
+  mcp.envNotObject: "%{key} non è un oggetto"
+  mcp.envNotTable: "mcp_servers.vmark.env non è una tabella"
+
+  # Bridge MCP: le credenziali del client a cui è associato il principal di autorizzazione
+  mcp.principalMissing: "Questo client IA non ha presentato alcuna credenziale VMark, quindi le azioni delegate vengono rifiutate. Apri Impostazioni > Integrazioni, esegui Installa per quel client e riavvialo."
+  mcp.principalUnknown: "La credenziale presentata da questo client IA non risulta a VMark, quindi le azioni delegate vengono rifiutate. Apri Impostazioni > Integrazioni, esegui Installa per quel client e riavvialo."
+  mcp.principalAmbiguous: "La credenziale presentata da questo client IA è configurata per più client (%{detail}), quindi VMark non riesce a distinguerli. Apri Impostazioni > Integrazioni, esegui Installa per ciascuno di essi e riavviali."
+
+  # MCP client config — reading, backing up and writing
+  mcp.readFailed: "Impossibile leggere %{path}: %{detail}"
+  mcp.createDirFailed: "Impossibile creare la directory %{path}: %{detail}"
+  mcp.configChangedOnDisk: "%{path} è cambiato su disco mentre VMark lo stava aggiornando. Chiudere il client che lo sta scrivendo e riprovare."
+  mcp.backupWriteFailed: "Impossibile scrivere il backup %{path}: %{detail}"
+  mcp.backupFlushFailed: "Impossibile svuotare il buffer del backup %{path}: %{detail}"
+  mcp.backupSyncFailed: "Impossibile sincronizzare il backup %{path}: %{detail}"
+  mcp.backupCreateFailed: "Impossibile creare il backup %{path}: %{detail}"
+  mcp.backupVariantsExhausted: "Impossibile creare il backup: esistono già %{count} varianti di %{path}"
+  mcp.stageConfigFailed: "Impossibile preparare la configurazione in %{dir}: %{detail}"
+  mcp.restrictStagedConfigFailed: "Impossibile limitare i permessi della configurazione preparata %{path}: %{detail}"
+  mcp.writeStagedConfigFailed: "Impossibile scrivere la configurazione preparata per %{path}: %{detail}"
+  mcp.createConfigFailed: "Impossibile creare %{path}: non è stato possibile collocare una copia preparata tramite hard link (%{link_detail}) né creare il file direttamente (%{open_detail})."
+  mcp.writeConfigPartialRemoved: "Impossibile scrivere %{path}: %{detail} (il file incompleto è stato rimosso)"
+  mcp.writeConfigPartialOrphaned: "Impossibile scrivere %{path}: %{detail}. Non è stato possibile rimuovere nemmeno il file incompleto (%{cleanup_detail}): eliminarlo a mano prima di riprovare, altrimenti la prossima installazione lo leggerà come una configurazione danneggiata."
 
 window:
   settings.title: "Impostazioni"

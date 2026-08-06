@@ -1,15 +1,33 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { useShortcutsStore } from "@/stores/settingsStore";
+import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { buildSourceShortcutKeymap, getSourceBlockBounds } from "./sourceShortcuts";
 
 // Shared mock state — must be hoisted so the vi.mock factory can close over it
-const { uiStoreState } = vi.hoisted(() => ({
+const { uiStoreState, runEditorActionMock } = vi.hoisted(() => ({
   uiStoreState: { toggleSidebar: vi.fn() },
+  runEditorActionMock: vi.fn(),
+}));
+
+// Formatting/editing shortcuts now route through the shared editor executor; spy
+// on runEditorAction so tests can assert the shortcut dispatches the right action id.
+// Fully mock (no importOriginal): the real module transitively imports the whole
+// CodeMirror chain (sourceAdapter → codemirror/index), which this suite mocks
+// partially — sourceShortcuts only consumes the runEditorAction export anyway.
+vi.mock("@/services/editor/runEditorAction", () => ({
+  runEditorAction: (...args: unknown[]) => runEditorActionMock(...args),
 }));
 
 // Mock heavy dependencies so callbacks can be invoked without real CodeMirror state
-vi.mock("@/stores/uiStore", () => ({
-  useUIStore: { getState: vi.fn(() => uiStoreState) },
+vi.mock("@/plugins/shared/hostSearch", () => ({
+  bindHostSearch: vi.fn(),
+  resetHostSearch: vi.fn(),
+  hostSearch: {
+    current: () => uiStoreState.search,
+    open: () => uiStoreState.searchOpen(),
+    findNext: () => uiStoreState.searchFindNext(),
+    findPrevious: () => uiStoreState.searchFindPrevious(),
+  },
 }));
 
 vi.mock("./sourceShortcutsHelpers", () => ({
@@ -61,6 +79,7 @@ vi.mock("@/utils/imeGuard", () => ({
 }));
 
 function resetShortcuts() {
+  bindPluginHostSettings();
   useShortcutsStore.setState({ customBindings: {} });
 }
 
@@ -84,19 +103,17 @@ describe("buildSourceShortcutKeymap", () => {
     expect(keys).not.toContain("Mod-i");
   });
 
-  it("toggleSidebar binding invokes uiStore.toggleSidebar and returns true (lines 125-126)", async () => {
-    const { useUIStore } = await import("@/stores/uiStore");
-    const toggleSidebarMock = vi.fn();
-    vi.mocked(useUIStore.getState).mockReturnValue({ toggleSidebar: toggleSidebarMock } as never);
-
-    // toggleSidebar is not a registered shortcut id — inject it via customBindings
+  it("does NOT bind toggleSidebar — it is handled at window level", () => {
+    // This test previously asserted the OPPOSITE, pinning a double-toggle:
+    // toggleSidebar is scope:"global", the window view-keybindings own it, and
+    // `shortcutDefinitions.ts` says so outright ("never the TipTap keymap, to
+    // avoid double-toggle"). WYSIWYG obeyed that; Source bound it anyway, so
+    // both handlers fired and the sidebar toggled twice — indistinguishable
+    // from the shortcut not working.
     useShortcutsStore.setState({ customBindings: { toggleSidebar: "Alt-Mod-s" } } as never);
     const bindings = buildSourceShortcutKeymap();
-    const binding = bindings.find((b) => b.key === "Alt-Mod-s");
-    expect(binding).toBeDefined();
-    const result = binding!.run!(mockView);
-    expect(toggleSidebarMock).toHaveBeenCalled();
-    expect(result).toBe(true);
+
+    expect(bindings.find((b) => b.key === "Alt-Mod-s")).toBeUndefined();
   });
 
   it("sourceMode binding returns true without action (line 133)", () => {
@@ -116,31 +133,37 @@ describe("buildSourceShortcutKeymap", () => {
     expect(cmCommands.toggleBlockComment).toHaveBeenCalledWith(mockView);
   });
 
-  it("bulletList binding calls toggleList with 'bullet' (line 165)", async () => {
-    const helpers = await import("./sourceShortcutsHelpers");
+  it("bulletList binding dispatches bulletList through the editor executor", () => {
+    runEditorActionMock.mockClear();
     const shortcut = useShortcutsStore.getState().getShortcut("bulletList");
     const binding = getBinding(shortcut);
     expect(binding).toBeDefined();
-    binding!.run!(mockView);
-    expect(helpers.toggleList).toHaveBeenCalledWith(mockView, "bullet");
+    const result = binding!.run!(mockView);
+    expect(result).toBe(true);
+    expect(runEditorActionMock).toHaveBeenCalledWith(
+      "bulletList",
+      expect.objectContaining({ windowLabel: expect.any(String) })
+    );
   });
 
-  it("orderedList binding calls toggleList with 'ordered' (line 166)", async () => {
-    const helpers = await import("./sourceShortcutsHelpers");
+  it("orderedList binding dispatches orderedList through the editor executor", () => {
+    runEditorActionMock.mockClear();
     const shortcut = useShortcutsStore.getState().getShortcut("orderedList");
     const binding = getBinding(shortcut);
     expect(binding).toBeDefined();
-    binding!.run!(mockView);
-    expect(helpers.toggleList).toHaveBeenCalledWith(mockView, "ordered");
+    const result = binding!.run!(mockView);
+    expect(result).toBe(true);
+    expect(runEditorActionMock).toHaveBeenCalledWith("orderedList", expect.any(Object));
   });
 
-  it("taskList binding calls toggleList with 'task' (line 167)", async () => {
-    const helpers = await import("./sourceShortcutsHelpers");
+  it("taskList binding dispatches taskList through the editor executor", () => {
+    runEditorActionMock.mockClear();
     const shortcut = useShortcutsStore.getState().getShortcut("taskList");
     const binding = getBinding(shortcut);
     expect(binding).toBeDefined();
-    binding!.run!(mockView);
-    expect(helpers.toggleList).toHaveBeenCalledWith(mockView, "task");
+    const result = binding!.run!(mockView);
+    expect(result).toBe(true);
+    expect(runEditorActionMock).toHaveBeenCalledWith("taskList", expect.any(Object));
   });
 
   it("selectLine binding calls selectLine from @codemirror/commands (line 189)", async () => {

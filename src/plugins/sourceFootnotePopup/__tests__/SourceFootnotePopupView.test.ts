@@ -48,9 +48,12 @@ vi.mock("@/utils/imeGuard", () => ({
   isImeKeyEvent: () => false,
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
   getEditorBounds: () => ({
     horizontal: { left: 0, right: 800 },
     vertical: { top: 0, bottom: 600 },
@@ -129,6 +132,18 @@ function resetState() {
   subscribers.length = 0;
 }
 
+// The popup state is a PORT — handed to the view.
+const mockFootnoteStore = {
+  getState: () => storeState,
+  subscribe: (fn: (state: typeof storeState) => void) => {
+    subscribers.push(fn);
+    return () => {
+      const idx = subscribers.indexOf(fn);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    };
+  },
+};
+
 describe("SourceFootnotePopupView", () => {
   let view: EditorView;
   let popup: SourceFootnotePopupView;
@@ -139,10 +154,7 @@ describe("SourceFootnotePopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceFootnotePopupView(
-      view,
-      { getState: () => storeState, subscribe: (fn) => { subscribers.push(fn); return () => { const idx = subscribers.indexOf(fn); if (idx >= 0) subscribers.splice(idx, 1); }; } }
-    );
+    popup = new SourceFootnotePopupView(view, mockFootnoteStore);
   });
 
   afterEach(() => {
@@ -382,7 +394,7 @@ describe("SourceFootnotePopupView", () => {
       const saveBtn = document.querySelector(".source-footnote-popup-btn-save") as HTMLElement;
       saveBtn.click();
 
-      expect(saveFootnoteContent).toHaveBeenCalledWith(view);
+      expect(saveFootnoteContent).toHaveBeenCalledWith(view, mockFootnoteStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
 
@@ -390,7 +402,7 @@ describe("SourceFootnotePopupView", () => {
       const gotoBtn = document.querySelector(".source-footnote-popup-btn-goto") as HTMLElement;
       gotoBtn.click();
 
-      expect(gotoFootnoteTarget).toHaveBeenCalledWith(view, true);
+      expect(gotoFootnoteTarget).toHaveBeenCalledWith(view, true, mockFootnoteStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
 
@@ -398,7 +410,7 @@ describe("SourceFootnotePopupView", () => {
       const deleteBtn = document.querySelector(".source-footnote-popup-btn-delete") as HTMLElement;
       deleteBtn.click();
 
-      expect(removeFootnote).toHaveBeenCalledWith(view);
+      expect(removeFootnote).toHaveBeenCalledWith(view, mockFootnoteStore);
       expect(mockClosePopup).toHaveBeenCalled();
     });
   });

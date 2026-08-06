@@ -10,6 +10,8 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { remarkResolveReferences } from "./resolveReferences";
 import type { Root, Link, Image, Content, Definition, LinkReference, ImageReference } from "mdast";
+import { testSchema } from "../testSchema";
+import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 
 function parse(markdown: string): Root {
   const processor = unified().use(remarkParse).use(remarkResolveReferences);
@@ -391,5 +393,41 @@ describe("remarkResolveReferences", () => {
       const result = processor.runSync(tree) as Root;
       expect(result.type).toBe("root");
     });
+  });
+});
+
+describe("a reference-style link survives the round trip", () => {
+  // VMark rewrote every reference-style link inline on the FIRST debounced
+  // edit — all four forms plus reference images — and lint rule W03 then
+  // warned "Unused link definition" about VMark's own output. Idempotent and
+  // semantically equal, but an unrequested rewrite of the author's file.
+  const roundTrip = (md: string): string =>
+    serializeMarkdown(testSchema, parseMarkdown(testSchema, md));
+
+  it.each([
+    { label: "full", md: "A [link][ref] here.\n\n[ref]: https://example.com\n" },
+    { label: "collapsed", md: "A [ref][] here.\n\n[ref]: https://example.com\n" },
+    { label: "shortcut", md: "A [ref] here.\n\n[ref]: https://example.com\n" },
+  ])("$label reference is re-emitted as a reference", ({ md }) => {
+    const out = roundTrip(md);
+    expect(out).toContain("[ref]: https://example.com");
+    expect(out).not.toContain("(https://example.com)");
+  });
+
+  it("still resolves the target for EDITING, so the link works", () => {
+    // Resolution is not abandoned — the editor needs a real href to open. Only
+    // the SERIALIZED form goes back to the reference.
+    const doc = parseMarkdown(testSchema, "A [link][ref] here.\n\n[ref]: https://example.com\n");
+    let href: string | null = null;
+    doc.descendants((node) => {
+      const mark = node.marks?.find((m) => m.type.name === "link");
+      if (mark) href = mark.attrs.href as string;
+    });
+    expect(href).toBe("https://example.com");
+  });
+
+  it("leaves an ORDINARY inline link inline", () => {
+    const md = "An [inline](https://example.com/x) link.\n";
+    expect(roundTrip(md)).toContain("[inline](https://example.com/x)");
   });
 });

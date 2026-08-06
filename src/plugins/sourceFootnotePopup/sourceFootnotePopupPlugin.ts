@@ -8,7 +8,8 @@
 
 import type { EditorView } from "@codemirror/view";
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import type { StoreApi } from "@/plugins/sourcePopup";
+import type { FootnotePopupState } from "@/plugins/shared/popupPorts";
 import { SourceFootnotePopupView } from "./SourceFootnotePopupView";
 import {
   findFootnoteDefinition,
@@ -147,9 +148,9 @@ function extractFootnoteData(
 /**
  * Create the Source footnote popup plugin.
  */
-export function createSourceFootnotePopupPlugin() {
+export function createSourceFootnotePopupPlugin(store: StoreApi<FootnotePopupState>) {
   return createSourcePopupPlugin({
-    store: useFootnotePopupStore,
+    store,
     createView: (view, store) => new SourceFootnotePopupView(view, store),
     detectTrigger: detectFootnoteTrigger,
     detectTriggerAtPos: (view, pos) => {
@@ -164,7 +165,7 @@ export function createSourceFootnotePopupPlugin() {
       }
     },
     openPopup: ({ anchorRect, data }) => {
-      useFootnotePopupStore
+      store
         .getState()
         .openPopup(
           data.label,

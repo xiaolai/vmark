@@ -57,6 +57,37 @@ pub struct BrowserSurface {
     pub profile_opens: Mutex<Vec<ProfileOpen>>,
 }
 
+/// Machine-readable prefixes on the native surface's `Result<_, String>`
+/// failures (audit 20260803 §7).
+///
+/// The surface is `String`-errored on every platform, and the AI command layer
+/// funnelled EVERY failure through `lock_failure` — reporting a window that had
+/// closed, a URL WebKit would not accept, and an exhausted profile-store cap all
+/// as `internal` / "the browser state could not be read", which is the message
+/// for a poisoned mutex. Typing the surface end to end would touch both native
+/// backends and every caller; tagging the handful of distinguishable failures
+/// with a stable token does not, and it is the convention two of these sites
+/// already used on their own (`PROFILE_STORE_LIMIT`, `UNSUPPORTED_PLATFORM`).
+///
+/// The token is a CONTRACT, not a sniff: the producer and
+/// `ai_guards::surface_failure` both name the constant, matching is anchored at
+/// the start and must be followed by `": "` or end-of-string, and anything
+/// unrecognised stays `internal`. Rewording the prose after the colon is free.
+pub mod fail {
+    /// The window a tab was to be attached to is gone (or has no content view).
+    pub const WINDOW_GONE: &str = "WINDOW_GONE";
+    /// No native webview is registered for that tab id.
+    pub const NO_WEBVIEW: &str = "NO_WEBVIEW";
+    /// The platform URL type rejected the string.
+    pub const INVALID_URL: &str = "INVALID_URL";
+    /// The named-profile data-store cap is exhausted (WI-P6.1 H2).
+    pub const PROFILE_STORE_LIMIT: &str = "PROFILE_STORE_LIMIT";
+    /// This build has no native browser surface.
+    pub const UNSUPPORTED_PLATFORM: &str = "UNSUPPORTED_PLATFORM";
+    /// The main-thread hop did not answer within its deadline.
+    pub const MAIN_THREAD_TIMEOUT: &str = "MAIN_THREAD_TIMEOUT";
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TabAttachment {
     pub tab_id: String,
@@ -168,15 +199,6 @@ pub(crate) fn consume_attachment_in(
     true
 }
 
-/// The read-only JS that asserts no Tauri bridge leaked into the browsed page
-/// (R3 / SPIKE-1). Returns a JSON object of booleans; all must be false.
-pub const NO_BRIDGE_ASSERTION: &str = "return JSON.stringify({\
-    hasTauriInternals: typeof window.__TAURI_INTERNALS__ !== 'undefined',\
-    hasTauri: typeof window.__TAURI__ !== 'undefined',\
-    hasIpc: typeof window.ipc !== 'undefined',\
-    invokeReachable: (function(){try{return typeof window.__TAURI_INTERNALS__.invoke==='function';}catch(e){return false;}})()\
-});";
-
 #[cfg(target_os = "macos")]
 #[path = "surface_macos.rs"]
 mod imp;
@@ -184,6 +206,9 @@ mod imp;
 // --- Cross-platform command-facing API -------------------------------------
 // macOS delegates to `imp`; other platforms return an explicit "unsupported"
 // (their native backends land in WI-5.1 / WI-5.2).
+
+#[cfg(all(target_os = "macos", debug_assertions))]
+pub use imp::{debug_attached_webviews, debug_hit_test, debug_native_tab_ids};
 
 #[cfg(target_os = "macos")]
 pub use imp::{
@@ -195,82 +220,11 @@ pub use imp::{
 };
 
 #[cfg(not(target_os = "macos"))]
-mod stub {
-    use tauri::AppHandle;
-    const MSG: &str = "embedded browser surface is macOS-only in this build";
-    pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn create_with_mode(
-        _a: &AppHandle,
-        _t: String,
-        _w: String,
-        _u: String,
-        _mode: crate::browser::registry::AutomationMode,
-        _profile: Option<String>,
-    ) -> Result<(), String> {
-        Err("UNSUPPORTED_PLATFORM".into())
-    }
-    pub fn forget_profile(_a: &AppHandle, _p: String) -> Result<(), String> {
-        Err("UNSUPPORTED_PLATFORM".into())
-    }
-    pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
-        Err("UNSUPPORTED_PLATFORM".into())
-    }
-    pub fn navigate(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn go_history(_a: &AppHandle, _t: String, _forward: bool) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn stop(_a: &AppHandle, _t: String) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn dialog_respond(_a: &AppHandle, _id: u64, _accepted: bool) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn set_bounds(
-        _a: &AppHandle,
-        _t: String,
-        _x: f64,
-        _y: f64,
-        _w: f64,
-        _h: f64,
-    ) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn destroy(_a: &AppHandle, _t: String) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn assert_no_bridge(_a: &AppHandle, _t: String) -> Result<String, String> {
-        Err(MSG.into())
-    }
-    pub fn eval(_a: &AppHandle, _t: String, _s: String) -> Result<String, String> {
-        Err(MSG.into())
-    }
-    pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
-        Err(MSG.into())
-    }
-    pub fn capture_cookies(
-        _a: &AppHandle,
-        _t: String,
-        _host: String,
-    ) -> Result<Vec<crate::browser::session_state::StoredCookie>, String> {
-        Err(MSG.into())
-    }
-    pub fn apply_cookies(
-        _a: &AppHandle,
-        _t: String,
-        _host: String,
-        _origin: String,
-        _c: Vec<crate::browser::session_state::StoredCookie>,
-    ) -> Result<(), String> {
-        Err(MSG.into())
-    }
-    pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
-        Err(MSG.into())
-    }
-}
+#[path = "surface_stub.rs"]
+mod stub;
+
+#[cfg(all(not(target_os = "macos"), debug_assertions))]
+pub use stub::{debug_attached_webviews, debug_hit_test, debug_native_tab_ids};
 
 #[cfg(not(target_os = "macos"))]
 pub use stub::{

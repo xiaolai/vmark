@@ -10,6 +10,7 @@
  */
 
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { bindHostSettings } from "@/plugins/shared/hostSettings";
 
 // Mock table actions
 vi.mock("../tableActions.tiptap", () => ({
@@ -47,16 +48,16 @@ vi.mock("@/utils/icons", () => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: (dom: HTMLElement) => dom.closest(".editor-container"),
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: () => ({ markdown: { tableFitToWidth: false } }),
-  },
-}));
+// The setting arrives through the plugins' host seam now (ADR-015).
+// Rebound before EVERY case so an override cannot leak into the next.
+beforeEach(() => {
+  bindHostSettings({ tableFitToWidth: () => false });
+});
 
 // Import after mocking
 import { TiptapTableContextMenu } from "../TiptapTableContextMenu";
@@ -455,6 +456,7 @@ describe("TiptapTableContextMenu", () => {
 
   describe("Global setting: tableFitToWidth", () => {
     it("hides Fit to Width item when global tableFitToWidth is ON", async () => {
+    bindHostSettings({ tableFitToWidth: () => true });
       // Re-mock settings to enable global fit
       const { useSettingsStore } = await import("@/stores/settingsStore");
       const originalGetState = useSettingsStore.getState;

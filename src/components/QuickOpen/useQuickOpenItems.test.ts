@@ -107,6 +107,7 @@ describe("buildQuickOpenItems", () => {
 
   it("includes current-window open tabs as tier 'open'", () => {
     mockTabStore.mockReturnValue({
+      tabs: { win: [{ kind: "document", filePath: "/b.md" }] },
       getTabsByWindow: (wl: string) =>
         wl === "win" ? [{ kind: "document", filePath: "/b.md" }] : [],
     } as any);
@@ -136,6 +137,7 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
+      tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", ["/a.md"]);
@@ -145,6 +147,7 @@ describe("buildQuickOpenItems", () => {
 
   it("deduplicates: open wins over workspace", () => {
     mockTabStore.mockReturnValue({
+      tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", ["/a.md"]);
@@ -157,6 +160,7 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
+      tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", []);
@@ -212,6 +216,12 @@ describe("buildQuickOpenItems", () => {
 
   it("handles tabs without filePath (untitled tabs)", () => {
     mockTabStore.mockReturnValue({
+      tabs: {
+        win: [
+          { kind: "document", filePath: null },
+          { kind: "document", filePath: "/b.md" },
+        ],
+      },
       getTabsByWindow: () => [
         { kind: "document", filePath: null },
         { kind: "document", filePath: "/b.md" },

@@ -13,13 +13,15 @@
  * @coordinates-with WikiLinkPopupView.ts — DOM and interaction logic for the popup
  * @coordinates-with wikiLinkPopupStore.ts — open/close/target state
  * @coordinates-with markdownArtifacts/wikiLink.ts — the wiki link node definition
+ * @coordinates-with plugins/shared/popupPorts.ts — the state PORT the host supplies
  * @module plugins/wikiLinkPopup/tiptap
  */
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { useWikiLinkPopupStore } from "@/stores/wikiLinkPopupStore";
+import type { StoreApi } from "zustand";
 import { WikiLinkPopupView } from "./WikiLinkPopupView";
+import type { WikiLinkPopupState } from "@/plugins/shared/popupPorts";
 import { wikiLinkPopupWarn } from "@/utils/debug";
 import "./wiki-link-popup.css";
 
@@ -33,9 +35,9 @@ class WikiLinkPopupPluginView {
   private hoverTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentLinkElement: HTMLElement | null = null;
 
-  constructor(view: EditorView) {
+  constructor(view: EditorView, private store: StoreApi<WikiLinkPopupState>) {
     this.view = view;
-    this.popupView = new WikiLinkPopupView(view);
+    this.popupView = new WikiLinkPopupView(view, store);
 
     view.dom.addEventListener("mouseover", this.handleMouseOver);
     view.dom.addEventListener("mouseout", this.handleMouseOut);
@@ -76,7 +78,7 @@ class WikiLinkPopupPluginView {
     this.hoverTimeout = setTimeout(() => {
       const popupEl = document.querySelector(".wiki-link-popup");
       if (popupEl && !popupEl.matches(":hover")) {
-        useWikiLinkPopupStore.getState().closePopup();
+        this.store.getState().closePopup();
       }
     }, 100);
   };
@@ -115,7 +117,7 @@ class WikiLinkPopupPluginView {
       if (!node || node.type.name !== "wikiLink" || nodePos < 0) return;
 
       const rect = linkElement.getBoundingClientRect();
-      useWikiLinkPopupStore.getState().openPopup(
+      this.store.getState().openPopup(
         {
           top: rect.top,
           left: rect.left,
@@ -150,13 +152,33 @@ class WikiLinkPopupPluginView {
   }
 }
 
-export const wikiLinkPopupExtension = Extension.create({
+export interface WikiLinkPopupOptions {
+  /**
+   * The popup state this plugin drives — a PORT, not the app's store.
+   *
+   * No default: unlike a setting, there is no sensible stand-in for "the
+   * state this popup drives", so a host that forgets to supply one is told
+   * so rather than crashing inside the view (ADR-015).
+   */
+  store: StoreApi<WikiLinkPopupState>;
+}
+
+export const wikiLinkPopupExtension = Extension.create<WikiLinkPopupOptions>({
   name: "wikiLinkPopup",
+  addOptions() {
+    return { store: undefined as unknown as StoreApi<WikiLinkPopupState> };
+  },
   addProseMirrorPlugins() {
+    const { store } = this.options;
+    if (!store) {
+      throw new Error(
+        "wikiLinkPopupExtension requires a `store` option — see services/assembly/tiptapExtensions.ts"
+      );
+    }
     return [
       new Plugin({
         key: wikiLinkPopupPluginKey,
-        view: (editorView) => new WikiLinkPopupPluginView(editorView),
+        view: (editorView) => new WikiLinkPopupPluginView(editorView, store),
       }),
     ];
   },

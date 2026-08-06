@@ -120,8 +120,72 @@ describe("createGraphvizPreviewWidget", () => {
 
     expect(element.textContent).toContain("result");
     expect(cache.get("key")).toEqual({ rendered: "<svg>result</svg>" });
-    expect(setupMermaidPanZoom).toHaveBeenCalledWith(element);
-    expect(setupGraphvizExport).toHaveBeenCalledWith(element, "digraph { a -> b }");
+  });
+
+  // Same defect as the Mermaid renderer — see issue #1200. Panzoom throws on
+  // detached elements and ProseMirror attaches the widget only after the
+  // factory returns.
+  it("defers pan-zoom and export setup until after an animation frame", async () => {
+    vi.mocked(renderGraphviz).mockResolvedValueOnce("<svg>result</svg>");
+    const frames: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(globalThis, "requestAnimationFrame")
+      .mockImplementation((cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+
+    try {
+      const cache = new Map();
+      createGraphvizPreviewWidget(10, "digraph { a -> b }", "key", cache, vi.fn());
+      const element = capturedFactory!(null);
+
+      await vi.waitFor(() => {
+        expect(element.className).toBe("code-block-preview graphviz-preview");
+      });
+
+      expect(element.textContent).toContain("result");
+      expect(setupMermaidPanZoom).not.toHaveBeenCalled();
+      expect(setupGraphvizExport).not.toHaveBeenCalled();
+
+      document.body.appendChild(element);
+      expect(frames).toHaveLength(1);
+      frames[0]!(0);
+
+      expect(setupMermaidPanZoom).toHaveBeenCalledWith(element);
+      expect(setupGraphvizExport).toHaveBeenCalledWith(element, "digraph { a -> b }");
+      element.remove();
+    } finally {
+      rafSpy.mockRestore();
+    }
+  });
+
+  it("skips enhancement when the element was detached before the frame ran", async () => {
+    vi.mocked(renderGraphviz).mockResolvedValueOnce("<svg>result</svg>");
+    const frames: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(globalThis, "requestAnimationFrame")
+      .mockImplementation((cb: FrameRequestCallback) => {
+        frames.push(cb);
+        return frames.length;
+      });
+
+    try {
+      const cache = new Map();
+      createGraphvizPreviewWidget(10, "digraph { a -> b }", "key", cache, vi.fn());
+      const element = capturedFactory!(null);
+
+      await vi.waitFor(() => {
+        expect(element.className).toBe("code-block-preview graphviz-preview");
+      });
+
+      expect(frames).toHaveLength(1);
+      expect(() => frames[0]!(0)).not.toThrow();
+      expect(setupMermaidPanZoom).not.toHaveBeenCalled();
+      expect(setupGraphvizExport).not.toHaveBeenCalled();
+    } finally {
+      rafSpy.mockRestore();
+    }
   });
 
   it("shows error state when renderGraphviz returns null", async () => {

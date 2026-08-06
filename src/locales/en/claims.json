@@ -5,27 +5,21 @@
   "loading": "Loading…",
   "error": "Couldn't load claims",
   "empty": "No claims yet — select text in a document and use \"Extract claim\"",
-  "maturity": {
-    "draft": "Draft",
-    "established": "Established"
-  },
+  "maturity.draft": "Draft",
+  "maturity.established": "Established",
   "ended": "Ended",
   "hidden": "Hidden in this context",
-  "actions": {
-    "promote": "Promote",
-    "correct": "Correct",
-    "retire": "Retire",
-    "hide": "Hide",
-    "show": "Show"
-  },
+  "actions.promote": "Promote",
+  "actions.correct": "Correct",
+  "actions.retire": "Retire",
+  "actions.hide": "Hide",
+  "actions.show": "Show",
   "promoteTitle": "Promote to established — only established claims can constrain (D4)",
   "correctPlaceholder": "Corrected statement",
   "correctConfirm": "Confirm correction",
-  "create": {
-    "heading": "New claim from selection",
-    "source": "Source: {{path}}",
-    "statementPlaceholder": "Claim statement",
-    "confirm": "Create draft claim",
-    "cancel": "Cancel"
-  }
+  "create.heading": "New claim from selection",
+  "create.source": "Source: {{path}}",
+  "create.statementPlaceholder": "Claim statement",
+  "create.confirm": "Create draft claim",
+  "create.cancel": "Cancel"
 }

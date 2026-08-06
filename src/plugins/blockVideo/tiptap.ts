@@ -21,6 +21,7 @@ import { Node } from "@tiptap/core";
 import { BlockVideoNodeView } from "./BlockVideoNodeView";
 import { sourceLineAttr } from "../shared/sourceLineAttr";
 import { mediaBlockKeyboardShortcuts } from "../shared/mediaNodeViewHelpers";
+import { referenceIdentityAttrs } from "@/utils/referenceIdentity";
 
 /** Tiptap node extension for block-level video elements. */
 export const blockVideoExtension = Node.create({
@@ -35,8 +36,10 @@ export const blockVideoExtension = Node.create({
 
   addAttributes() {
     return {
+      ...referenceIdentityAttrs,
       ...sourceLineAttr,
       src: { default: "" },
+      alt: { default: "" },
       title: { default: "" },
       poster: { default: "" },
       controls: { default: true },

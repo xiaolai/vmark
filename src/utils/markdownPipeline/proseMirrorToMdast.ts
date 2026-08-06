@@ -2,21 +2,28 @@
  * ProseMirror to MDAST Conversion — Orchestrator
  *
  * Purpose: Converts a complete ProseMirror document (including media nodes) to an
- * MDAST tree by dispatching each PM node type to the appropriate converter.
+ * MDAST tree by resolving each PM node through registry 2.
  *
  * Pipeline: PM doc → PMToMdastConverter.convertDoc() → MDAST root
  *
  * Key decisions:
+ *   - Node dispatch lives in registry 2 (pmConverters.registry.ts), NOT in a
+ *     switch here (ADR-015 D2). The 24-arm switch this file used to carry was
+ *     deleted in Phase 2; a node type cannot be added without registering a
+ *     converter, so the switch cannot grow back.
+ *   - PM → MDAST needs no claim protocol: the ProseMirror node type is
+ *     definitive. Attribute-level competition exists only in the reverse
+ *     direction (mdast → PM), which registry 1 owns.
+ *   - convertNode is now PURE DISPATCH: every node type resolves through
+ *     registry 2, with no special cases.
  *   - Schema parameter is accepted but currently unused — reserved for future
  *     custom node detection (e.g., schema-aware type checking)
  *   - ListItem nodes at root level are filtered out (they should only appear
  *     as children of list nodes)
  *   - Wiki link alias is only serialized if it differs from the target value
- *   - Media nodes (block_video, block_audio, video_embed) dispatch to
- *     dedicated converters in pmBlockConverters.ts
- *   - TOC nodes dispatch to convertToc for serialization to `toc` MDAST type
  *
  * @coordinates-with mdastToProseMirror.ts — reverse direction (MDAST → PM)
+ * @coordinates-with pmConverters.registry.ts — registry 2, which owns dispatch
  * @coordinates-with pmBlockConverters.ts — block node conversion functions
  * @coordinates-with pmInlineConverters.ts — inline node/mark conversion functions
  * @coordinates-with serializer.ts — next step: MDAST → markdown string
@@ -28,35 +35,18 @@ import type {
   Root,
   Content,
   PhrasingContent,
-  BlockContent,
   Html,
 } from "mdast";
-import type { FootnoteDefinition, WikiLink } from "./types";
+import type { WikiLink } from "./types";
 import * as inlineConverters from "./pmInlineConverters";
 import type { InlineItem } from "./pmInlineConverters";
-import {
-  convertAlertBlock,
-  convertBlockImage,
-  convertBlockVideo,
-  convertBlockAudio,
-  convertVideoEmbed,
-  convertBlockquote,
-  convertCodeBlock,
-  convertDefinition,
-  convertDetailsBlock,
-  convertFrontmatter,
-  convertHeading,
-  convertHorizontalRule,
-  convertHtmlBlock,
-  convertList,
-  convertListItem,
-  convertParagraph,
-  convertTable,
-  convertToc,
-  type PmToMdastContext,
-  type PmToMdastNode,
-} from "./pmBlockConverters";
+import type { PmToMdastContext, PmToMdastNode } from "./pmBlockConverters";
 import { mdPipelineWarn } from "@/utils/debug";
+import {
+  createTier1Registry,
+  tryRegistry,
+  type PmTier1Registry,
+} from "./pmConverters.registry";
 
 /**
  * Convert ProseMirror document to MDAST root.
@@ -70,8 +60,14 @@ import { mdPipelineWarn } from "@/utils/debug";
  * const mdast = proseMirrorToMdast(schema, doc);
  * const markdown = serializeMdastToMarkdown(mdast);
  */
-export function proseMirrorToMdast(schema: Schema, doc: PMNode): Root {
-  const converter = new PMToMdastConverter(schema);
+export function proseMirrorToMdast(
+  schema: Schema,
+  doc: PMNode,
+  // `| undefined`: callers forward the pipeline's own optional setting, whose
+  // "not configured" value is undefined; the default below absorbs it.
+  options: { preserveBlankLines?: boolean | undefined } = {},
+): Root {
+  const converter = new PMToMdastConverter(schema, options.preserveBlankLines ?? false);
   return converter.convertDoc(doc);
 }
 
@@ -82,7 +78,13 @@ export function proseMirrorToMdast(schema: Schema, doc: PMNode): Root {
 class PMToMdastConverter {
   private context: PmToMdastContext;
 
-  constructor(_schema: Schema) {
+  /** Registry 2 (ADR-015 D2). All node types resolve here — pure registry dispatch, no switch. */
+  private readonly registry: PmTier1Registry = createTier1Registry();
+
+  constructor(
+    _schema: Schema,
+    private preserveBlankLines: boolean = false,
+  ) {
     this.context = {
       convertNode: this.convertNode.bind(this),
       convertInlineContent: this.convertInlineContent.bind(this),
@@ -91,6 +93,11 @@ class PMToMdastConverter {
 
   /**
    * Convert ProseMirror doc to MDAST root.
+   *
+   * When preserveBlankLines is on, a top-level block's captured
+   * `blankLinesBefore` attribute is stamped onto the first resulting MDAST
+   * node's `data`, where the serializer's custom `join` reads it (ADR-1a: the
+   * enablement lives in the DATA, not in the statically-cached serializer).
    */
   convertDoc(doc: PMNode): Root {
     const children: Content[] = [];
@@ -102,13 +109,15 @@ class PMToMdastConverter {
 
     doc.forEach((child) => {
       const converted = this.convertNode(child);
-      if (converted) {
-        if (Array.isArray(converted)) {
-          converted.forEach((node) => pushRootContent(node));
-        } else {
-          pushRootContent(converted);
+      const nodes = converted ? (Array.isArray(converted) ? converted : [converted]) : [];
+      if (this.preserveBlankLines && nodes.length > 0) {
+        const n = (child.attrs as { blankLinesBefore?: unknown }).blankLinesBefore;
+        if (typeof n === "number") {
+          const first = nodes[0] as { data?: Record<string, unknown> };
+          first.data = { ...first.data, blankLinesBefore: n };
         }
       }
+      nodes.forEach((node) => pushRootContent(node));
     });
 
     return { type: "root", children };
@@ -120,64 +129,11 @@ class PMToMdastConverter {
   private convertNode(node: PMNode): PmToMdastNode | PmToMdastNode[] | null {
     const typeName = node.type.name;
 
-    switch (typeName) {
-      // Block nodes
-      case "paragraph":
-        return convertParagraph(this.context, node);
-      case "heading":
-        return convertHeading(this.context, node);
-      case "codeBlock":
-        return convertCodeBlock(node);
-      case "blockquote":
-        return convertBlockquote(this.context, node);
-      case "alertBlock":
-        return convertAlertBlock(this.context, node);
-      case "detailsBlock":
-        return convertDetailsBlock(this.context, node);
-      case "bulletList":
-        return convertList(this.context, node, false);
-      case "orderedList":
-        return convertList(this.context, node, true);
-      case "listItem":
-        return convertListItem(this.context, node);
-      case "horizontalRule":
-        return convertHorizontalRule();
-      case "table":
-        return convertTable(this.context, node);
-      case "block_image":
-        return convertBlockImage(node);
-      case "block_video":
-        return convertBlockVideo(node);
-      case "block_audio":
-        return convertBlockAudio(node);
-      case "video_embed":
-        return convertVideoEmbed(node);
-      case "frontmatter":
-        return convertFrontmatter(node);
-      case "link_definition":
-        return convertDefinition(node);
-      case "html_block":
-        return convertHtmlBlock(node);
-      case "toc":
-        return convertToc();
-      case "hardBreak":
-        return inlineConverters.convertHardBreak();
-      case "image":
-        return inlineConverters.convertImage(node);
+    const viaRegistry = tryRegistry(this.registry, node, this.context);
+    if (viaRegistry.handled) return viaRegistry.result;
 
-      // Custom nodes
-      case "math_inline":
-        return inlineConverters.convertMathInline(node);
-      case "footnote_reference":
-        return inlineConverters.convertFootnoteReference(node);
-      case "footnote_definition":
-        return this.convertFootnoteDefinition(node);
-
-      default:
-        // Unknown node type - skip with warning in dev
-        mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);
-        return null;
-    }
+    mdPipelineWarn(`[PMToMdast] Unknown node type: ${typeName}`);
+    return null;
   }
 
   // Inline content conversion
@@ -226,27 +182,6 @@ class PMToMdastConverter {
 
   // Custom node converters
 
-  private convertFootnoteDefinition(node: PMNode): FootnoteDefinition {
-    const children: BlockContent[] = [];
-    node.forEach((child) => {
-      const converted = this.convertNode(child);
-      /* v8 ignore next -- @preserve convertNode returns null for unrecognized node types */
-      if (converted) {
-        if (Array.isArray(converted)) {
-          children.push(...(converted as BlockContent[]));
-        } else {
-          children.push(converted as BlockContent);
-        }
-      }
-    });
-
-    return {
-      type: "footnoteDefinition",
-      identifier: String(node.attrs.label ?? "1"),
-      label: String(node.attrs.label ?? "1"),
-      children,
-    };
-  }
 
   private convertWikiLink(node: PMNode): WikiLink {
     // Extract text content as alias
@@ -257,11 +192,13 @@ class PMToMdastConverter {
 
     const value = String(node.attrs.value ?? "");
 
-    // Only include alias if it differs from value
+    // Only include alias if it differs from value. Omitted, not undefined:
+    // the mdast node's key set is what the serializer reads to decide between
+    // `[[value]]` and `[[value|alias]]`.
     return {
       type: "wikiLink",
       value,
-      alias: alias && alias !== value ? alias : undefined,
+      ...(alias && alias !== value ? { alias } : {}),
     };
   }
 

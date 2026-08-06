@@ -10,6 +10,7 @@
 
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { ValidationDiagnostic } from "@/lib/formats/types";
 import "./validation-gutter.css";
 
@@ -18,10 +19,8 @@ export interface ValidationGutterProps {
   onJump?: (line: number, column: number) => void;
 }
 
-type EditorTranslate = (
-  key: string,
-  options?: Record<string, unknown>,
-) => string;
+/** The real `t` for this namespace — see toolbarI18n.ts for why it is not hand-rolled. */
+type EditorTranslate = TFunction<"editor">;
 
 // Resolve a diagnostic message:
 //   1. If ruleId has a `diagnostic.<ruleId>` translation, use it (with

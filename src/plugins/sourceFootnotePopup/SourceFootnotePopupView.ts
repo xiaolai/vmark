@@ -8,7 +8,7 @@
 import type { EditorView } from "@codemirror/view";
 import i18n from "@/i18n";
 import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
-import { useFootnotePopupStore } from "@/stores/footnotePopupStore";
+import type { FootnotePopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import {
   saveFootnoteContent,
@@ -27,16 +27,14 @@ function buildSourceFootnoteBtn(iconSvg: string, title: string, onClick: () => v
  * Source footnote popup view.
  * Extends the base SourcePopupView for common functionality.
  */
-type FootnotePopupStoreState = ReturnType<typeof useFootnotePopupStore.getState>;
-
-export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreState> {
+export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupState> {
   // Use 'declare' to avoid ES2022 class field initialization overwriting values set in buildContainer()
   private declare labelSpan: HTMLSpanElement;
   private declare textarea: HTMLTextAreaElement;
   private declare gotoBtn: HTMLButtonElement;
   private openedOnReference = true;
 
-  constructor(view: EditorView, store: StoreApi<FootnotePopupStoreState>) {
+  constructor(view: EditorView, store: StoreApi<FootnotePopupState>) {
     super(view, store);
   }
 
@@ -81,7 +79,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     return container;
   }
 
-  protected getPopupDimensions() {
+  protected override getPopupDimensions() {
     return {
       width: 300,
       height: 100,
@@ -90,7 +88,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
     };
   }
 
-  protected onShow(state: FootnotePopupStoreState): void {
+  protected onShow(state: FootnotePopupState): void {
     // Set label display
     this.labelSpan.textContent = `[^${state.label}]`;
 
@@ -133,7 +131,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
   }
 
   private handleTextareaInput(): void {
-    useFootnotePopupStore.getState().setContent(this.textarea.value);
+    this.store.getState().setContent(this.textarea.value);
     this.autoResizeTextarea();
   }
 
@@ -146,19 +144,19 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupStoreS
   }
 
   private handleSave(): void {
-    saveFootnoteContent(this.editorView);
+    saveFootnoteContent(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }
 
   private handleGoto(): void {
-    gotoFootnoteTarget(this.editorView, this.openedOnReference);
+    gotoFootnoteTarget(this.editorView, this.openedOnReference, this.store);
     this.closePopup();
     this.focusEditor();
   }
 
   private handleDelete(): void {
-    removeFootnote(this.editorView);
+    removeFootnote(this.editorView, this.store);
     this.closePopup();
     this.focusEditor();
   }

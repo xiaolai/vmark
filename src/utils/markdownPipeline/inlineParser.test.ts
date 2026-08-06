@@ -261,10 +261,10 @@ describe("parseInlineMarkdown", () => {
 
   describe("error handling (catch block, lines 73-74)", () => {
     it("returns plain text fallback when unified processor throws", async () => {
-      // Mock unified to throw during parse
-      vi.doMock("unified", () => ({
-        unified: () => ({
-          use: function () { return this; },
+      // The processor now comes from the dialect (WI-3.1), so that is the
+      // boundary to mock — `unified` is no longer imported here.
+      vi.doMock("./dialect", () => ({
+        buildProcessorForMode: () => ({
           parse: () => { throw new Error("Mock parse failure"); },
         }),
       }));
@@ -275,14 +275,13 @@ describe("parseInlineMarkdown", () => {
         expect(result[0].type).toBe("text");
         expect((result[0] as Text).value).toBe("**bold**");
       } finally {
-        vi.doUnmock("unified");
+        vi.doUnmock("./dialect");
       }
     });
 
     it("returns plain text fallback when runSync throws", async () => {
-      vi.doMock("unified", () => ({
-        unified: () => ({
-          use: function () { return this; },
+      vi.doMock("./dialect", () => ({
+        buildProcessorForMode: () => ({
           parse: () => ({ type: "root", children: [] }),
           runSync: () => { throw new Error("Mock runSync failure"); },
         }),
@@ -294,16 +293,15 @@ describe("parseInlineMarkdown", () => {
         expect(result[0].type).toBe("text");
         expect((result[0] as Text).value).toBe("*italic*");
       } finally {
-        vi.doUnmock("unified");
+        vi.doUnmock("./dialect");
       }
     });
   });
 
   describe("empty children from processor (line 60)", () => {
     it("returns text fallback when processor yields empty children", async () => {
-      vi.doMock("unified", () => ({
-        unified: () => ({
-          use: function () { return this; },
+      vi.doMock("./dialect", () => ({
+        buildProcessorForMode: () => ({
           parse: () => ({ type: "root", children: [] }),
           runSync: () => ({ type: "root", children: [] }),
         }),
@@ -315,7 +313,7 @@ describe("parseInlineMarkdown", () => {
         expect(result[0].type).toBe("text");
         expect((result[0] as Text).value).toBe("*text*");
       } finally {
-        vi.doUnmock("unified");
+        vi.doUnmock("./dialect");
       }
     });
   });

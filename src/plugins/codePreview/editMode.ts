@@ -30,7 +30,7 @@
 import { TextSelection, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { diagramWarn } from "@/utils/debug";
-import { useBlockMathEditingStore } from "@/stores/blockMathEditingStore";
+import { blockMathEditing } from "./editingRegistry";
 import i18n from "@/i18n";
 import { isGraphvizLanguage } from "@/plugins/graphviz";
 import { isLatexLanguage } from "./previewHelpers";
@@ -129,7 +129,7 @@ export function updateLivePreview(
  * and cancel any pending live-preview renders.
  */
 function abortEditMode(
-  store: ReturnType<typeof useBlockMathEditingStore.getState>,
+  store: ReturnType<ReturnType<typeof blockMathEditing>["getState"]>,
   state: EditorState,
   dispatch: EditorView["dispatch"],
 ): void {
@@ -148,7 +148,7 @@ export function exitEditMode(view: EditorView | null, revert: boolean): void {
     return;
   }
 
-  const store = useBlockMathEditingStore.getState();
+  const store = blockMathEditing().getState();
   const { editingPos, originalContent } = store;
 
   if (editingPos === null) {

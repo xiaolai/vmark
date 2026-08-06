@@ -36,7 +36,8 @@ export interface TerminalSettings {
   copyOnSelect: boolean; // Default: false — auto-copy selected text to clipboard
   useWebGL: boolean;   // Default: true — use WebGL renderer (disable to troubleshoot IME issues)
   macOptionIsMeta: boolean; // Default: true — treat macOS Option as Meta for Alt+Arrow word navigation; disable for dead-key accent composition (Option+E/N/U)
-  shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh) for prompt nav, exit-status decorations, cwd tracking
+  shellIntegration: boolean; // Default: true — inject OSC 133 command marks + OSC 7 cwd (zsh, bash) for prompt nav, exit-status decorations, cwd tracking
+  osc52Clipboard: boolean; // Default: true — let programs in the terminal (ssh/tmux) WRITE the host clipboard via OSC 52. Reads are always denied (D5) — this toggle only controls writes.
   screenReaderMode: boolean; // Default: false — expose terminal output to assistive tech (VoiceOver); off by default for performance (G3/WI-3.1)
   bellMode: TerminalBellMode; // Default: "visual" — how the terminal bell is signalled (off/visual indicator/audible beep)
   notifyOnBell: boolean; // Default: true — OS notification when an unfocused window's terminal rings the bell
@@ -62,7 +63,25 @@ export interface AdvancedSettingsState {
    */
   developerMode: boolean;
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
-  workflowEngine: boolean; // Enable YAML workflow engine (developer feature, default: false)
+  /**
+   * GitHub Actions workflow VIEWER extras in the source pane: `${{ }}`
+   * expression completion, cursor↔canvas job sync, and `uses:` goto-def.
+   * Read-only authoring aids over the `gha` IR — they run no code.
+   *
+   * Split out of `workflowEngine` by WI-19: one flag used to gate these
+   * alongside the execution engine, so a user who wanted GHA authoring had to
+   * switch on a runner that spawns AI providers and writes files. The GHA
+   * workbench itself (the yaml adapter's `gha-workflow` schema renderer) is
+   * always on and is NOT gated by this flag. Default: false.
+   */
+  workflowViewer: boolean;
+  /**
+   * The bespoke YAML workflow EXECUTION engine: the side panel's Run/Cancel
+   * controls, the live preview graph that feeds them, and the `run_workflow`
+   * Rust runner. Off means the backend refuses the commands too (WI-19), not
+   * merely that the buttons are hidden. Default: false.
+   */
+  workflowEngine: boolean;
   /**
    * When the structured workflow editor saves changes, preserve comments,
    * anchors, and existing formatting where possible (CST round-trip).

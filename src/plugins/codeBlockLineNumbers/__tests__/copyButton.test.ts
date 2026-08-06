@@ -23,7 +23,7 @@ import type { Editor } from "@tiptap/core";
 
 vi.mock("../code-block-line-numbers.css", () => ({}));
 vi.mock("../hljs-syntax.css", () => ({}));
-vi.mock("@/plugins/sourcePopup", () => ({
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: vi.fn(() => null),
   toHostCoordsForDom: vi.fn((_, coords) => coords),
 }));
@@ -168,6 +168,35 @@ describe("copy button", () => {
 
     expect(btn.classList.contains("code-copy-btn--error")).toBe(true);
     expect(btn.classList.contains("code-copy-btn--success")).toBe(false);
+
+    view.destroy();
+  });
+
+  it("writes ONCE for rapid repeated clicks while a write is pending", async () => {
+    let resolveWrite: () => void = () => {};
+    const writeText = vi.fn(
+      () => new Promise<void>((resolve) => (resolveWrite = resolve))
+    );
+    setClipboard({ writeText });
+    const view = createView("hello world");
+    const btn = getCopyButton(view);
+
+    btn.click();
+    btn.click();
+    btn.click();
+    await Promise.resolve();
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    resolveWrite();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // After settlement the button copies again.
+    btn.click();
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledTimes(2);
 
     view.destroy();
   });

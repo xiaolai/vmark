@@ -14,7 +14,7 @@ const mockClearWorkspaceHistory = vi.fn();
 const mockEmitHistoryCleared = vi.fn();
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
-vi.mock("@/hooks/useHistoryRecovery", () => ({
+vi.mock("@/services/history/historyRecovery", () => ({
   clearAllHistory: (...a: unknown[]) => mockClearAllHistory(...a),
   clearWorkspaceHistory: (...a: unknown[]) => mockClearWorkspaceHistory(...a),
 }));
@@ -42,10 +42,12 @@ beforeEach(() => {
 afterEach(() => _resetCommandBus());
 
 describe("registerMiscCommands", () => {
-  it("registers the 8 misc commands", () => {
+  it("registers the 10 misc commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toEqual([
       "app.preferences",
+      "app.commandPalette",
+      "app.quickOpen",
       "history.clearAll",
       "history.clearWorkspace",
       "image.cleanupOrphans",

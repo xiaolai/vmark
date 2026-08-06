@@ -25,6 +25,53 @@ fn rejects_unsupported_schemes_and_userinfo() {
     }
 }
 
+// Audit 20260803 §6 — "you may not go there" and "that is not a URL" are two
+// different answers. Every rejection used to be `Blocked`, which the command
+// layer turned into `permission-denied` + `SSRF_BLOCKED`: an empty string, a
+// typo, or a truncated paste was reported to the user (and to the AI client)
+// as a SECURITY refusal. It made the real refusals harder to see and told the
+// caller that fixing its argument could not help.
+#[test]
+fn an_unusable_url_is_invalid_input_not_a_policy_refusal() {
+    for url in [
+        "",
+        "   ",
+        "https://",
+        "http://",
+        "https://:8080/",
+        "https:// example.com/",
+        "https://exa mple.com/",
+        "https://[not-an-ipv6/",
+    ] {
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Invalid),
+            "{url:?} is malformed, not refused"
+        );
+    }
+}
+
+#[test]
+fn a_reachable_but_forbidden_destination_stays_a_policy_refusal() {
+    // The other side of the split: these parse perfectly. Misclassifying one of
+    // THESE as invalid input would be the dangerous direction — the frontend
+    // would invite the caller to "fix" a URL that policy will never allow.
+    for url in [
+        "http://127.0.0.1/",
+        "http://169.254.169.254/",
+        "https://metadata.google.internal/",
+        "https://printer.local/",
+        "file:///etc/passwd",
+        "https://user:password@example.com/",
+    ] {
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Blocked),
+            "{url}"
+        );
+    }
+}
+
 #[test]
 fn rejects_loopback_and_private_literal_addresses() {
     for url in [
@@ -78,6 +125,56 @@ fn rejects_metadata_and_special_hostnames() {
         assert_eq!(
             validate_ai_navigation_url(&url, false),
             Err(AiUrlError::Blocked)
+        );
+    }
+}
+
+// WI-1.7 — LAN-facing name suffixes. The IP-literal blocks never fire for these:
+// they are `Host::Domain`, so the private-range checks are simply not reached and
+// the request leaves the machine to whatever mDNS/DNS returns. Blocking them by
+// NAME is the only place this can be caught before WebKit resolves.
+//
+// Deliberately NOT gated behind `allow_loopback`. That toggle means "my own
+// machine"; `.local` and `home.arpa` resolve to LAN PEERS — routers, NAS boxes,
+// printers, other people's laptops. Folding them into a loopback opt-in would
+// silently widen it from one host to an entire network.
+#[test]
+fn rejects_lan_facing_name_suffixes_regardless_of_loopback_opt_in() {
+    for host in [
+        "printer.local",
+        "NAS.LOCAL",
+        "router.home.arpa",
+        "db.internal",
+        "instance.compute.internal",
+        "foo.bar.internal",
+    ] {
+        let url = format!("https://{host}/");
+        for allow_loopback in [false, true] {
+            assert_eq!(
+                validate_ai_navigation_url(&url, allow_loopback),
+                Err(AiUrlError::Blocked),
+                "{host} must be blocked with allow_loopback={allow_loopback}"
+            );
+        }
+    }
+}
+
+#[test]
+fn public_hostnames_that_merely_contain_the_suffixes_are_still_allowed() {
+    // The block is on the SUFFIX, not a substring: `notlocal.com` and
+    // `internal.example.com` are ordinary public names and must still work, or the
+    // fix would break real navigation.
+    for host in [
+        "notlocal.com",
+        "local.example.com",
+        "internal.example.com",
+        "myinternal.com",
+        "home.arpa.example.com",
+    ] {
+        let url = format!("https://{host}/");
+        assert!(
+            validate_ai_navigation_url(&url, false).is_ok(),
+            "{host} must remain navigable"
         );
     }
 }

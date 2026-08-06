@@ -467,7 +467,7 @@ describe("tabIndent plugin handler integration", () => {
     // Extract the actual plugin from the extension
     const extensionContext = {
       name: tabIndentExtension.name,
-      options: tabIndentExtension.options,
+      options: { getTabSize: () => 2 }, // INJECTED now, not read from the store
       storage: tabIndentExtension.storage,
       editor: {} as never,
       type: null,

@@ -7,14 +7,14 @@
  * @coordinates-with plugins/imageHandler/tiptap.ts — extension entry point
  * @coordinates-with plugins/imageHandler/imageHandlerUtils.ts — shared utilities
  * @coordinates-with plugins/imageHandler/imageHandlerInsert.ts — image insertion
- * @coordinates-with stores/imagePasteToastStore.ts — toast UI state
+ * @coordinates-with plugins/shared/hostPopups.ts — the host presents the toast
  * @module plugins/imageHandler/imageHandlerToast
  */
 
 import type { EditorView } from "@tiptap/pm/view";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
+import { hostPopups } from "@/plugins/shared/hostPopups";
 import { detectMultipleImagePaths, type ImagePathResult } from "@/utils/imagePathDetection";
 import { parseMultiplePaths } from "@/utils/multiImageParsing";
 import { insertImageFromPath, insertMultipleImages, pasteAsText } from "./imageHandlerInsert";
@@ -140,7 +140,7 @@ function showImagePasteToast(
   const anchorRect = getToastAnchorRect(view);
   const imageType = detection.type === "url" || detection.type === "dataUrl" ? "url" : "localPath";
 
-  useImagePasteToastStore.getState().showToast({
+  hostPopups.showImagePasteToast({
     imagePath: detection.path,
     imageType,
     anchorRect,
@@ -236,7 +236,7 @@ function showMultiImagePasteToast(
 ): void {
   const anchorRect = getToastAnchorRect(view);
 
-  useImagePasteToastStore.getState().showMultiToast({
+  hostPopups.showImagePasteToast({
     imageResults: results,
     anchorRect,
     editorDom: view.dom,

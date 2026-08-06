@@ -19,45 +19,27 @@ const mockStoreState: Record<string, unknown> = {
   close: mockClose,
 };
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: vi.fn(() => ({
-      markdown: {
-        preserveLineBreaks: true,
-        hardBreakStyleOnSave: "preserve",
-      },
-    })),
+// Settings, document context and the peek state all arrive through seams now.
+const mockCheckpoint = vi.fn();
+vi.mock("@/plugins/shared/hostSettings", () => ({
+  hostSettings: {
+    preserveLineBreaks: () => true,
+    hardBreakStyleOnSave: () => "preserve",
   },
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: vi.fn(() => ({
-      activeTabId: { main: "tab-1" },
-    })),
+vi.mock("@/plugins/shared/hostDocument", () => ({
+  hostDocument: {
+    activeContent: () => "# Hello\n\nWorld",
+    activeHardBreakStyle: () => "unknown",
+    checkpoint: (...a: unknown[]) => mockCheckpoint(...a),
   },
 }));
 
-vi.mock("@/stores/documentStore", () => ({
-  useDocumentStore: {
-    getState: vi.fn(() => ({
-      getDocument: vi.fn((id: string) =>
-        id === "tab-1"
-          ? { content: "# Hello\n\nWorld", hardBreakStyle: "unknown" }
-          : null
-      ),
-    })),
-  },
-  useUnifiedHistoryStore: {
-    getState: vi.fn(() => ({ createCheckpoint: vi.fn() })),
-  },
-}));
+const mockPeekStore = { getState: vi.fn(() => mockStoreState) } as never;
 
-vi.mock("@/stores/sourcePeekStore", () => ({
-  useSourcePeekStore: {
-    getState: vi.fn(() => mockStoreState),
-  },
-}));
+import { bindSourcePeekStore } from "./peekStore";
+bindSourcePeekStore(mockPeekStore);
 
 vi.mock("@/services/editor/sourcePeek", () => ({
   applySourcePeekMarkdown: vi.fn(),
@@ -246,15 +228,16 @@ describe("openSourcePeekInline", () => {
     view.state.doc.nodeAt = originalNodeAt;
   });
 
-  it("skips checkpoint when tabId is null (line 92 falsy branch)", async () => {
-    // Make tabStore return no activeTabId for "main" window
-    const { useTabStore } = await import("@/stores/tabStore") as any;
-    vi.mocked(useTabStore.getState).mockReturnValueOnce({ activeTabId: {} });
-
+  it("asks for a checkpoint unconditionally and lets the host decide", () => {
+    // The "no active tab, so skip the checkpoint" branch moved to the host
+    // binding, which is where the tab lives. From here the plugin always
+    // asks; what it must not do is make opening depend on the answer.
     const view = createMockView("Hello");
-    const result = openSourcePeekInline(view);
-    expect(result).toBe(true);
-    // Should still open, just skip checkpoint
+    expect(openSourcePeekInline(view)).toBe(true);
+    expect(mockCheckpoint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ mode: "wysiwyg" })
+    );
     expect(mockOpen).toHaveBeenCalled();
   });
 

@@ -22,6 +22,7 @@ mod asset_access;
 mod atomic_replace;
 mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
 pub mod coherence;
+pub mod command_error; // WI-14 crate-wide typed command error ({code, message, i18nKey?, detail?})
 mod content_search;
 mod content_server;
 mod external_editor;
@@ -32,6 +33,7 @@ mod file_write;
 pub mod genies;
 mod gha_workflow;
 mod hot_exit;
+mod live_docs;
 mod mcp_bridge;
 mod mcp_bridge_path_guard;
 mod mcp_config;
@@ -42,6 +44,7 @@ mod pandoc;
 mod pty;
 mod quarantine;
 mod quit;
+mod secret_token;
 mod secure_store;
 mod shell_env;
 mod shell_integration;
@@ -55,6 +58,7 @@ mod window_manager;
 pub mod workflow;
 mod workspace;
 mod workspace_transfer;
+mod workspace_validation;
 
 #[cfg(target_os = "macos")]
 mod app_nap;
@@ -80,6 +84,12 @@ pub(crate) use supported_files::has_supported_extension;
 #[cfg(test)]
 #[path = "lib.test.rs"]
 mod lib_test;
+
+// Capability files are data, not code, and nothing else reads them at build
+// time — so their contract is pinned here (#1202).
+#[cfg(test)]
+#[path = "capabilities.test.rs"]
+mod capabilities_test;
 
 /// Build and run the Tauri application with all plugins, commands, and event handlers.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -137,12 +147,14 @@ pub fn run() {
                 )
                 .build(),
         )
-        .manage(workflow::commands::WorkflowRunnerState {
-            running: std::sync::atomic::AtomicBool::new(false),
-            cancel_requested: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            approvals: std::sync::Arc::new(workflow::approval::ApprovalRegistry::new()),
-            current_execution: std::sync::Arc::new(std::sync::Mutex::new(None)),
-        })
+        // Fail-closed: `engine_enabled` starts false and the webview pushes the
+        // real value via `workflow_engine_policy` (WI-19).
+        .manage(workflow::state::WorkflowRunnerState::default())
+        // WI-20: the MCP bridge's tables, shutdown signal, write lock and
+        // liveness flag, and the hot-exit pending-restore map — both were
+        // process-global statics.
+        .manage(mcp_bridge::McpBridgeState::default())
+        .manage(hot_exit::HotExitState::default())
         .manage(content_server::ContentServerManager::new())
         .manage(browser::surface::BrowserSurface::default())
         .manage(window_status::WindowStatusRegistry::default())

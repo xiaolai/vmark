@@ -20,6 +20,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
+import { createSectionMergingStorage } from "@/stores/persistedSectionMerge";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { shortcutsWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
@@ -175,7 +176,12 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           set({ customBindings: validBindings });
           syncMenuShortcuts(get().getAllShortcuts());
 
-          return { success: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
+          // No `errors` key on a clean import — its absence is the "nothing
+          // went wrong" signal, distinct from an empty problem list.
+          return {
+            success: errors.length === 0,
+            ...(errors.length > 0 ? { errors } : {}),
+          };
         } catch (e) {
           /* v8 ignore start -- JSON.parse always throws Error instances; String(e) fallback is defensive */
           return { success: false, errors: [`Parse error: ${errorMessage(e)}`] };
@@ -191,7 +197,12 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
     }),
     {
       name: "vmark-shortcuts",
-      storage: createJSONStorage(() => createSafeStorage()),
+      // Section-merged for the same reason settingsStore is: every window
+      // writes this one key with its whole state, so a blind write would push a
+      // stale customBindings map over another window's rebind.
+      storage: createJSONStorage(() =>
+        createSectionMergingStorage(createSafeStorage()),
+      ),
     }
   )
 );

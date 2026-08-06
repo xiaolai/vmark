@@ -39,9 +39,9 @@ import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
 import { useBrowserWorkspaceState } from "@/components/Browser/useBrowserWorkspaceState";
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
-import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
-import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import {
   useDocumentLastAutoSave,

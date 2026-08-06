@@ -20,6 +20,9 @@
  *   - URLs are passed through unchanged; the serializer's custom handlers
  *     add angle brackets for URLs with spaces
  *
+ * A link mark carrying `referenceId` is emitted as a `linkReference`, not an
+ * inline link — see resolveReferences.ts.
+ *
  * @coordinates-with mdastInlineConverters.ts — reverse direction (MDAST → PM)
  * @coordinates-with pmBlockConverters.ts — handles block-level nodes
  * @coordinates-with serializer.ts — custom handlers for URL formatting
@@ -27,6 +30,8 @@
  */
 
 import type { Node as PMNode, Mark } from "@tiptap/pm/model";
+import { buildImageOrReference } from "./imageReferenceEmit";
+import { wrapExpelled } from "./markEdgeWhitespace";
 import type {
   Text,
   Strong,
@@ -34,7 +39,9 @@ import type {
   Delete,
   InlineCode,
   Link,
+  LinkReference,
   Image,
+  ImageReference,
   Break,
   PhrasingContent,
 } from "mdast";
@@ -149,9 +156,6 @@ export function convertTextWithMarks(node: PMNode): PhrasingContent[] {
   return groupInlineItems(textToInlineItems(node));
 }
 
-/**
- * Wrap content with an MDAST mark node.
- */
 export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingContent[] {
   const markName = mark.type.name;
 
@@ -161,7 +165,7 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
     case "italic":
       return [{ type: "emphasis", children: content } as Emphasis];
     case "strike":
-      return [{ type: "delete", children: content } as Delete];
+      return wrapExpelled(content, (children) => ({ type: "delete", children }) as Delete);
     case "code": {
       // Inline code wraps text directly
       const textContent = content
@@ -170,16 +174,40 @@ export function wrapWithMark(content: PhrasingContent[], mark: Mark): PhrasingCo
         .join("");
       return [{ type: "inlineCode", value: textContent } as InlineCode];
     }
-    case "link":
+    case "link": {
+      // A link that came from `[text][id]` goes back as `[text][id]`. Emitting
+      // the inline form rewrote the author's reference-style file on the first
+      // debounced edit, then lint W03 warned "Unused link definition" about
+      // VMark's own output. The definition nodes are preserved separately, so
+      // the pair stays consistent.
+      const referenceId = mark.attrs.referenceId as string | null;
+      if (referenceId) {
+        return [
+          {
+            type: "linkReference",
+            identifier: referenceId,
+            label: referenceId,
+            referenceType: asReferenceType(mark.attrs.referenceType),
+            children: content,
+          } satisfies LinkReference as unknown as Link,
+        ];
+      }
       return [
         {
           type: "link",
           url: mark.attrs.href as string,
+          title: (mark.attrs.title as string | null) ?? undefined,
           children: content,
         } as Link,
       ];
+    }
 
-    // Custom inline marks
+    // Custom inline marks: NO expulsion. Unlike GFM's ~~, VMark's dialect
+    // tokenizer accepts space-adjacent delimiters (measured: `== and real ==`
+    // parses as a highlight spanning the spaces), so the verbatim form
+    // round-trips through VMark's own parser — expelling here would NARROW
+    // the mark's extent, a semantic change the fidelity gate rightly rejects
+    // (17-escaped-markers).
     case "subscript":
       return [{ type: "subscript", children: content } as Subscript];
     case "superscript":
@@ -206,13 +234,21 @@ export function convertHardBreak(): Break {
 /**
  * Convert an image node to MDAST image.
  */
-export function convertImage(node: PMNode): Image {
-  return {
-    type: "image",
-    url: node.attrs.src as string,
-    alt: (node.attrs.alt as string) || undefined,
-    title: (node.attrs.title as string) || undefined,
-  };
+/**
+ * Narrow a stored reference type to mdast's union.
+ *
+ * The attribute is `string | null` on the mark, so a bare cast let anything
+ * through — `satisfies LinkReference` is what surfaced it. Anything
+ * unrecognised degrades to `shortcut`, the form that needs no extra syntax.
+ */
+function asReferenceType(value: unknown): "shortcut" | "collapsed" | "full" {
+  return value === "full" || value === "collapsed" ? value : "shortcut";
+}
+
+export function convertImage(node: PMNode): Image | ImageReference {
+  // Shared emitter: a node still carrying reference identity serializes as
+  // `![alt][id]`, exactly as links do.
+  return buildImageOrReference(node.attrs as never);
 }
 
 /**

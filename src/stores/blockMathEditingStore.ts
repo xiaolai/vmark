@@ -1,18 +1,34 @@
 /**
- * Block Math Editing Store — slice projection of usePopupStore.
+ * Block Math Editing Store — which block-math node is in edit mode.
  *
- * Routes to the merged popupStore's `blockMathEditing` slice. Preserves
- * the original `useBlockMathEditingStore` API so consumers don't change.
+ * Standalone Zustand store (T09 revert, WI-9 plan-20260803-161713): the
+ * former merged-store slice re-inlined. The shim API is the contract —
+ * consumers are unchanged.
  *
  * @module stores/blockMathEditingStore
  */
 
-import { usePopupStore } from "./popupStore";
-import { createSliceShim } from "./_shimHelper";
+import { create } from "zustand";
 
-export const useBlockMathEditingStore = createSliceShim("blockMathEditing", {
-  startEditing: (pos: number, content: string) =>
-    usePopupStore.getState().blockMathStartEditing(pos, content),
-  exitEditing: () => usePopupStore.getState().blockMathExitEditing(),
-  isEditingAt: (pos: number) => usePopupStore.getState().blockMathIsEditingAt(pos),
-});
+interface BlockMathEditingData {
+  editingPos: number | null;
+  originalContent: string | null;
+}
+
+interface BlockMathEditingState extends BlockMathEditingData {
+  startEditing: (pos: number, content: string) => void;
+  exitEditing: () => void;
+  isEditingAt: (pos: number) => boolean;
+}
+
+const initialState: BlockMathEditingData = {
+  editingPos: null,
+  originalContent: null,
+};
+
+export const useBlockMathEditingStore = create<BlockMathEditingState>((set, get) => ({
+  ...initialState,
+  startEditing: (pos, content) => set({ editingPos: pos, originalContent: content }),
+  exitEditing: () => set(initialState),
+  isEditingAt: (pos) => get().editingPos === pos,
+}));

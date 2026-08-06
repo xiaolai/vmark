@@ -8,7 +8,7 @@ Free. Local-first. Format-aware.
   <img src="website/public/screenshots/ai-workflow.png" alt="VMark AI Integration - Claude Code, Claude Desktop, and VMark" width="800">
 </p>
 
-VMark is the plain-text workspace where humans and AI collaborate. Both parties read and write the same artifacts — markdown, YAML, JSON, TOML, Mermaid, SVG, HTML, code — directly, with no translation layer. When the file is a known artifact (GitHub Actions workflow, `Cargo.toml`, `package.json`, `pyproject.toml`), VMark renders the *right* view, not a generic JSON tree.
+VMark is the plain-text workspace where humans and AI collaborate. Both parties read and write the same artifacts — Markdown, YAML, JSON, TOML, Mermaid, SVG, HTML, code — directly, with no translation layer. When the file is a known artifact (GitHub Actions workflow, `Cargo.toml`, `package.json`, `pyproject.toml`), VMark renders the *right* view, not a generic JSON tree.
 
 **[Download](https://github.com/xiaolai/vmark/releases)** · **[Documentation](https://vmark.app/guide/)** · **[Formats](https://vmark.app/guide/formats)** · **[Features](https://vmark.app/guide/features)**
 
@@ -17,7 +17,7 @@ VMark is the plain-text workspace where humans and AI collaborate. Both parties 
 ## Highlights
 
 - **Multi-Format** — Markdown (WYSIWYG + source), JSON / JSONL, YAML, TOML, Mermaid, SVG, HTML (sandboxed), plain text. Code files (.ts, .py, .rs, .go, .css, …) open as syntax-highlighted viewers; toggle to edit in place or open in your `$EDITOR`.
-- **Schema-Aware Previews** — `.github/workflows/ci.yml` opens with a workflow-graph view. `Cargo.toml` and `package.json` and `pyproject.toml` open with a dependency-tree view. Generic JSON / YAML / TOML get a navigable tree.
+- **Schema-Aware Previews** — `.github/workflows/ci.yml` opens with a workflow-graph view. `Cargo.toml`, `package.json`, and `pyproject.toml` open with a dependency-tree view. Generic JSON / YAML / TOML get a navigable tree.
 - **AI-Native** — MCP integration for Claude Desktop, Claude Code, Codex CLI, Gemini CLI. AI Genies for inline writing assistance. Both you and the AI work on the same plain-text files.
 - **Three Markdown Modes** — WYSIWYG (Tiptap/ProseMirror), Source Peek (`F5`), Source Mode (`F6`, CodeMirror 6)
 - **Multi-Cursor** — `Mod + D` to select next match, `Alt + Click` to add cursors, `Mod + Alt + ↑↓` for vertical cursors
@@ -90,12 +90,13 @@ pnpm check:all        # Lint + test + build
 
 ## Star History
 
+<!-- Self-hosted: api.star-history.com's server-render has been failing
+     service-wide since 2026-07-01. The weekly star-history.yml workflow
+     regenerates the chart (scripts/gen-star-history.mjs) and publishes it to
+     the unprotected `star-history` branch — main's branch protection rejects
+     bot pushes. Click through for the live, client-rendered version. -->
 <a href="https://www.star-history.com/?repos=xiaolai%2Fvmark&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left" />
- </picture>
+  <img alt="Star History Chart" src="https://raw.githubusercontent.com/xiaolai/vmark/star-history/star-history.svg" width="800" />
 </a>
 
 ---

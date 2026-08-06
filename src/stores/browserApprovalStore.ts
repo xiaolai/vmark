@@ -33,6 +33,10 @@ export type {
   ProfileOpenApproval,
 } from "./browserApprovalStore.types";
 
+/** requestApproval outcome: queued / already-pending id / unknown operation
+ *  (`rejected`) / queue full (`overloaded` — untrusted-client flooding). */
+export type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
+
 /** Closed operation vocabulary; upload is intentionally never grantable. */
 const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);
 
@@ -42,6 +46,10 @@ const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "
 export const MAX_PENDING_APPROVALS = 64;
 
 /** Same element? Both target-less (a read), or both naming the same role+name. */
+/** Approval bindings, ABSENT for kinds that don't bind them (a click binds role+name). */
+const approvalBindings = (target: ActionTarget | undefined, script: string | undefined) =>
+  ({ ...(target !== undefined && { target }), ...(script !== undefined && { script }) });
+
 function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
   if (a === undefined || b === undefined) return a === b;
   return a.role === b.role && a.name === b.name;
@@ -66,8 +74,8 @@ interface BrowserApprovalActions {
   grant: (originPattern: string, operations: string[]) => boolean;
   /** Revoke all grants for an origin pattern. */
   revoke: (originPattern: string) => void;
-  /** Queue a pending approval request for the UI to resolve. Ignores an unknown
-   *  operation and a duplicate id (one id must map to exactly one action). */
+  /** Queue a pending approval request. Callers MUST NOT advertise
+   *  `needsApproval` on `rejected`/`overloaded` — no prompt exists then. */
   requestApproval: (
     id: string,
     targetUrl: string,
@@ -80,7 +88,7 @@ interface BrowserApprovalActions {
     /** The exact script (for `style`/`eval`) the user is approving — shown in the
      *  prompt and bound into the one-shot. Omit for target-based ops. */
     script?: string,
-  ) => void;
+  ) => BrowserRequestApprovalResult;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
    *  (origin, operation); `deny` just clears it. No-op if the id is unknown. */
@@ -158,19 +166,15 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     },
 
     requestApproval: (id, targetUrl, operation, target, tabId, generation, script) => {
-      if (!KNOWN_OPERATIONS.has(operation)) return;
-      set((state) =>
-        // A duplicate id would let `resolveApproval` authorize one action while
-        // dropping the other — keep the first, ignore the collision. And the AI
-        // client is UNTRUSTED: cap the queue so a flood of unique requests cannot
-        // grow the store without bound (each pending may retain a full script).
-        // (Security review P5 re-verify — High #1 availability.)
-        state.pending.some((p) => p.id === id) || state.pending.length >= MAX_PENDING_APPROVALS
-          ? state
-          : {
-              pending: [...state.pending, { id, targetUrl, operation, target, tabId, generation, script }],
-            },
-      );
+      if (!KNOWN_OPERATIONS.has(operation)) return "rejected";
+      // Duplicate ids would let `resolveApproval` authorize one action while
+      // dropping the other; and the UNTRUSTED client must not grow the queue
+      // unboundedly (each pending may retain a full script). (Sec review P5.)
+      if (get().pending.some((p) => p.id === id)) return "existing";
+      if (get().pending.length >= MAX_PENDING_APPROVALS) return "overloaded";
+      const req = { id, targetUrl, operation, tabId, generation, ...approvalBindings(target, script) };
+      set((state) => ({ pending: [...state.pending, req] }));
+      return "queued";
     },
 
     resolveApproval: (id, outcome) => {
@@ -221,14 +225,12 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
               {
                 originPattern: pattern as string,
                 operation: request.operation,
-                target: request.target,
                 tabId: request.tabId,
                 // The generation the prompt was RAISED against — not whatever is current
                 // when the driver eventually receives the mint. (Audit, High.)
                 generation: request.generation,
-                // The exact script the user saw and approved — bound so a substituted
-                // retry is refused on both layers. (Security review P5, High #1.)
-                script: request.script,
+                // Element + exact script approved, so a substituted retry is refused.
+                ...approvalBindings(request.target, request.script),
               },
             ]
           : state.oneShots,

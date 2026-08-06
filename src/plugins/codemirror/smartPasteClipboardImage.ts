@@ -6,19 +6,18 @@
  * inserts ![](relative-path) markdown at the cursor.
  *
  * @coordinates-with smartPaste.ts — called from the paste event handler
- * @coordinates-with hooks/useImageOperations.ts — copyImageToAssets for asset management
+ * @coordinates-with services/media/imageOperations.ts — copyImageToAssets for asset management
  * @module plugins/codemirror/smartPasteClipboardImage
  */
 
 import type { EditorView } from "@codemirror/view";
 import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import { saveImageToAssets } from "@/hooks/useImageOperations";
+import { hostDocument } from "@/plugins/shared/hostDocument";
+import { saveImageToAssets } from "@/services/media/imageOperations";
 import { generateClipboardImageFilename } from "@/plugins/imageHandler/imageHandlerUtils";
 import { encodeMarkdownUrl } from "@/utils/markdownUrl";
-import { getWindowLabel } from "@/hooks/useWindowFocus";
+import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { smartPasteWarn } from "@/utils/debug";
 import { isViewConnected } from "./smartPasteUtils";
 import { errorMessage } from "@/utils/errorMessage";
@@ -55,9 +54,7 @@ export function handleClipboardImagePaste(view: EditorView, event: Event): boole
 
 async function saveAndInsertImages(view: EditorView, files: File[], capturedFrom: number, capturedTo: number): Promise<void> {
   const windowLabel = getWindowLabel();
-  const tabId = useTabStore.getState().activeTabId[windowLabel] ?? null;
-  const doc = tabId ? useDocumentStore.getState().getDocument(tabId) : undefined;
-  const filePath = doc?.filePath;
+  const filePath = hostDocument.activeFilePath(windowLabel);
 
   if (!filePath) {
     await message(

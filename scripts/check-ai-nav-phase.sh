@@ -64,11 +64,11 @@ case "$PHASE" in
     ;;
   2)
     echo "Phase 2 — open, navigate, wait, and discovery"
-    for path in src/hooks/mcpBridge/v2/browserNavigation.ts src/hooks/mcpBridge/v2/browserHelpers.ts src/services/browser/browserEventBroker.ts src/services/browser/browserEventBroker.test.ts src/hooks/mcpBridge/v2/session.ts src/hooks/mcpBridge/v2/types.ts vmark-mcp-server/src/tools/browser.ts vmark-mcp-server/src/bridge/core-types.ts; do file "$path" "$path"; done
-    text "vmark.browser.open" src/hooks/mcpBridge/v2/dispatch.ts "open route"
-    text "vmark.browser.navigate" src/hooks/mcpBridge/v2/dispatch.ts "navigate route"
-    text "vmark.browser.wait" src/hooks/mcpBridge/v2/dispatch.ts "wait route"
-    test_file src/hooks/mcpBridge/v2/__tests__/dispatch.test.ts "dispatch tests"
+    for path in src/services/mcpBridge/v2/browserNavigation.ts src/services/mcpBridge/v2/browserHelpers.ts src/services/browser/browserEventBroker.ts src/services/browser/browserEventBroker.test.ts src/services/mcpBridge/v2/session.ts src/services/mcpBridge/v2/types.ts server/mcp/src/tools/browser.ts server/mcp/src/bridge/core-types.ts; do file "$path" "$path"; done
+    text "vmark.browser.open" src/services/mcpBridge/v2/dispatch.ts "open route"
+    text "vmark.browser.navigate" src/services/mcpBridge/v2/dispatch.ts "navigate route"
+    text "vmark.browser.wait" src/services/mcpBridge/v2/dispatch.ts "wait route"
+    test_file src/services/mcpBridge/v2/__tests__/dispatch.test.ts "dispatch tests"
     ;;
   3)
     echo "Phase 3 — shared posture and attachment approvals"
@@ -78,7 +78,7 @@ case "$PHASE" in
     ;;
   4)
     echo "Phase 4 — concurrency, windows, persistence, and hardening"
-    for path in src/services/browser/browserEventBroker.ts src-tauri/src/browser/nav_payloads_macos.rs src-tauri/src/browser/nav_registry_macos.rs src-tauri/src/browser/teardown.rs src/services/persistence/sessionTabs.ts src/hooks/mcpBridge/v2/session.ts; do file "$path" "$path"; done
+    for path in src/services/browser/browserEventBroker.ts src-tauri/src/browser/nav_payloads_macos.rs src-tauri/src/browser/nav_registry_macos.rs src-tauri/src/browser/teardown.rs src/services/persistence/sessionTabs.ts src/services/mcpBridge/v2/session.ts; do file "$path" "$path"; done
     text "navigationId" src/services/browser/browserEventBroker.test.ts "ticket race tests"
     text "UNSUPPORTED_PLATFORM" src-tauri/src/browser/surface.rs "non-macOS stub"
     ;;

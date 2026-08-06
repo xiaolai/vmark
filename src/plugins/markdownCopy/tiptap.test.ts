@@ -242,7 +242,7 @@ describe("markdownCopyExtension structure", () => {
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "markdownCopy",
-      options: {},
+      options: copyOptions(),
       storage: {},
       type: undefined,
       parent: undefined,
@@ -257,7 +257,7 @@ describe("markdownCopyExtension structure", () => {
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
       editor: {},
       name: "markdownCopy",
-      options: {},
+      options: copyOptions(),
       storage: {},
       type: undefined,
       parent: undefined,
@@ -355,6 +355,17 @@ describe("cleanMarkdownForClipboard — additional edge cases", () => {
 // --- Plugin integration tests ---
 // Test the plugin behavior through the extension's ProseMirror plugin.
 
+/**
+ * The plugin takes GETTERS now (ADR-015), so these drive the values directly
+ * instead of mocking the settings store — which is also what the app does.
+ */
+let testCopyFormat: "default" | "markdown" = "default";
+let testCopyOnSelect = false;
+const copyOptions = () => ({
+  getCopyFormat: () => testCopyFormat,
+  getCopyOnSelect: () => testCopyOnSelect,
+});
+
 describe("markdownCopyExtension plugin integration", () => {
   let _mockSettingsGetState: ReturnType<typeof vi.fn>;
 
@@ -390,7 +401,7 @@ describe("markdownCopyExtension plugin integration", () => {
     const extensionContext = {
       editor: {},
       name: "markdownCopy",
-      options: {},
+      options: copyOptions(),
       storage: {},
       type: undefined,
       parent: undefined,
@@ -405,7 +416,7 @@ describe("markdownCopyExtension plugin integration", () => {
     const extensionContext = {
       editor: {},
       name: "markdownCopy",
-      options: {},
+      options: copyOptions(),
       storage: {},
       type: undefined,
       parent: undefined,
@@ -420,14 +431,12 @@ describe("markdownCopyExtension plugin integration", () => {
 
 describe("ensureBlockContent and createDocFromSlice via clipboardTextSerializer", () => {
   it("clipboardTextSerializer returns empty string for non-markdown copyFormat", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = false;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -436,10 +445,8 @@ describe("ensureBlockContent and createDocFromSlice via clipboardTextSerializer"
   });
 
   it("clipboardTextSerializer serializes markdown when copyFormat is 'markdown'", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { Schema } = await import("@tiptap/pm/model");
     const { Slice, Fragment } = await import("@tiptap/pm/model");
@@ -460,7 +467,7 @@ describe("ensureBlockContent and createDocFromSlice via clipboardTextSerializer"
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -473,14 +480,12 @@ describe("ensureBlockContent and createDocFromSlice via clipboardTextSerializer"
   });
 
   it("clipboardTextSerializer returns empty string when serialization fails", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -492,10 +497,8 @@ describe("ensureBlockContent and createDocFromSlice via clipboardTextSerializer"
 
 describe("ensureBlockContent and createDocFromSlice edge cases", () => {
   it("handles inline-only content slice for markdown serialization", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { Schema } = await import("@tiptap/pm/model");
     const { Slice, Fragment } = await import("@tiptap/pm/model");
@@ -510,7 +513,7 @@ describe("ensureBlockContent and createDocFromSlice edge cases", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -529,10 +532,8 @@ describe("ensureBlockContent and createDocFromSlice edge cases", () => {
   });
 
   it("handles empty fragment slice", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { Schema } = await import("@tiptap/pm/model");
     const { Slice, Fragment } = await import("@tiptap/pm/model");
@@ -547,7 +548,7 @@ describe("ensureBlockContent and createDocFromSlice edge cases", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -563,14 +564,12 @@ describe("ensureBlockContent and createDocFromSlice edge cases", () => {
 
 describe("mouseup handler with copyOnSelect and markdown format", () => {
   it("copies markdown on mouseup when copyOnSelect and copyFormat=markdown", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = true;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -610,10 +609,8 @@ describe("mouseup handler rAF callback execution", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -624,7 +621,7 @@ describe("mouseup handler rAF callback execution", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -662,10 +659,8 @@ describe("mouseup handler rAF callback execution", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockRejectedValue(new Error("Clipboard denied"));
     Object.defineProperty(navigator, "clipboard", {
@@ -676,7 +671,7 @@ describe("mouseup handler rAF callback execution", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -711,10 +706,8 @@ describe("mouseup handler rAF callback execution", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -725,7 +718,7 @@ describe("mouseup handler rAF callback execution", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -764,10 +757,8 @@ describe("getSelectionText with copyFormat=markdown (lines 123-125)", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -778,7 +769,7 @@ describe("getSelectionText with copyFormat=markdown (lines 123-125)", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -812,10 +803,8 @@ describe("getSelectionText with copyFormat=markdown (lines 123-125)", () => {
 
 describe("createDocFromSlice catch path (line 46)", () => {
   it("falls back to createAndFill when docType.create throws", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { Schema, Slice, Fragment } = await import("@tiptap/pm/model");
 
@@ -840,7 +829,7 @@ describe("createDocFromSlice catch path (line 46)", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -863,10 +852,8 @@ describe("createDocFromSlice catch path (line 46)", () => {
 
 describe("createDocFromSlice — createAndFill returns null path (line 46 ?? branch)", () => {
   it("falls back to docType.create() when createAndFill returns null", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: false },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = false;
 
     const { Schema, Slice, Fragment } = await import("@tiptap/pm/model");
 
@@ -892,7 +879,7 @@ describe("createDocFromSlice — createAndFill returns null path (line 46 ?? bra
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { clipboardTextSerializer: (slice: unknown, view: unknown) => string } };
 
@@ -920,10 +907,8 @@ describe("getSelectionText — md is null fallback to textBetween (line 125)", (
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "markdown", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "markdown";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -934,7 +919,7 @@ describe("getSelectionText — md is null fallback to textBetween (line 125)", (
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -980,10 +965,8 @@ describe("mouseup rAF — view.isDestroyed true path (line 150)", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const writeTextSpy = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -994,7 +977,7 @@ describe("mouseup rAF — view.isDestroyed true path (line 150)", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -1034,10 +1017,8 @@ describe("mouseup rAF — non-Error clipboard rejection (line 155)", () => {
       return rAFCallbacks.length;
     });
 
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     // Reject with a non-Error value (string) to exercise the String(error) branch
     const writeTextSpy = vi.fn().mockRejectedValue("permission denied");
@@ -1049,7 +1030,7 @@ describe("mouseup rAF — non-Error clipboard rejection (line 155)", () => {
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -1081,14 +1062,12 @@ describe("mouseup rAF — non-Error clipboard rejection (line 155)", () => {
 
 describe("mouseup handler with copyOnSelect enabled", () => {
   it("copies selected text on mouseup when copyOnSelect is enabled", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -1119,14 +1098,12 @@ describe("mouseup handler with copyOnSelect enabled", () => {
   });
 
   it("mouseup does not copy when view is destroyed in rAF", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 
@@ -1140,14 +1117,12 @@ describe("mouseup handler with copyOnSelect enabled", () => {
   });
 
   it("mouseup does not copy when selection is empty (from === to)", async () => {
-    const { useSettingsStore } = await import("@/stores/settingsStore");
-    vi.spyOn(useSettingsStore, "getState").mockReturnValue({
-      markdown: { copyFormat: "text", copyOnSelect: true },
-    } as never);
+    testCopyFormat = "default";
+    testCopyOnSelect = true;
 
     const { markdownCopyExtension } = await import("./tiptap");
     const plugins = markdownCopyExtension.config.addProseMirrorPlugins!.call({
-      editor: {}, name: "markdownCopy", options: {}, storage: {}, type: undefined, parent: undefined,
+      editor: {}, name: "markdownCopy", options: copyOptions(), storage: {}, type: undefined, parent: undefined,
     } as never);
     const plugin = plugins[0] as { props: { handleDOMEvents: { mouseup: (view: unknown) => boolean } } };
 

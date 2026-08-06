@@ -29,8 +29,9 @@ let storeState = {
 };
 const subscribers: Array<(state: typeof storeState) => void> = [];
 
-vi.mock("@/stores/linkCreatePopupStore", () => ({
-  useLinkCreatePopupStore: {
+// The popup's state PORT, satisfied directly — no store mock needed,
+// because the view receives a `StoreApi<LinkCreatePopupState>` (ADR-015).
+const testStore = {
     getState: () => storeState,
     subscribe: (fn: (state: typeof storeState) => void) => {
       subscribers.push(fn);
@@ -39,8 +40,7 @@ vi.mock("@/stores/linkCreatePopupStore", () => ({
         if (idx >= 0) subscribers.splice(idx, 1);
       };
     },
-  },
-}));
+};
 
 vi.mock("@/utils/popupPosition", () => ({
   calculatePopupPosition: () => ({ top: 200, left: 150 }),
@@ -66,13 +66,13 @@ vi.mock("@/utils/popupComponents", async (importOriginal) => ({
   },
 }));
 
-vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
-  getEditorBounds: () => ({
-    horizontal: { left: 0, right: 800 },
-    vertical: { top: 0, bottom: 600 },
-  }),
+vi.mock("@/plugins/shared/popupHostDom", () => ({
   getPopupHostForDom: () => null,
   toHostCoordsForDom: (_host: HTMLElement, pos: { top: number; left: number }) => pos,
+}));
+
+vi.mock("@/plugins/sourcePopup/sourcePopupUtils", () => ({
+  getEditorBounds: () => ({ horizontal: { left: 0, right: 800 }, vertical: { top: 0, bottom: 600 } }),
 }));
 
 import { SourceLinkCreatePopupView } from "./SourceLinkCreatePopupView";
@@ -132,7 +132,7 @@ describe("SourceLinkCreatePopupView", () => {
     resetState();
     vi.clearAllMocks();
     view = createMockView();
-    popup = new SourceLinkCreatePopupView(view);
+    popup = new SourceLinkCreatePopupView(view as never, testStore as never);
   });
 
   afterEach(() => {
@@ -533,7 +533,7 @@ describe("SourceLinkCreatePopupView", () => {
       // Recreate popup with proper DOM hierarchy
       popup.destroy();
       resetState();
-      popup = new SourceLinkCreatePopupView(view);
+      popup = new SourceLinkCreatePopupView(view as never, testStore as never);
 
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
 
@@ -689,7 +689,7 @@ describe("SourceLinkCreatePopupView", () => {
 
     it("uses absolute positioning when getPopupHostForDom returns a non-body host", async () => {
       // Temporarily override the mock to return a custom host
-      const sourcePopup = await import("@/plugins/sourcePopup/sourcePopupUtils");
+      const sourcePopup = await import("@/plugins/shared/popupHostDom");
       const hostEl = document.createElement("div");
       hostEl.style.position = "relative";
       hostEl.getBoundingClientRect = () => ({
@@ -704,7 +704,7 @@ describe("SourceLinkCreatePopupView", () => {
       // Need a fresh popup to pick up the new mock
       popup.destroy();
       resetState();
-      popup = new SourceLinkCreatePopupView(view);
+      popup = new SourceLinkCreatePopupView(view as never, testStore as never);
 
       emitStateChange({ isOpen: true, anchorRect, showTextInput: true });
 
@@ -863,7 +863,7 @@ describe("SourceLinkCreatePopupView", () => {
 
       popup.destroy();
       resetState();
-      popup = new SourceLinkCreatePopupView(view);
+      popup = new SourceLinkCreatePopupView(view as never, testStore as never);
 
       // Don't open popup, just scroll
       const scrollEvent = new Event("scroll", { bubbles: true });
@@ -1026,7 +1026,7 @@ describe("SourceLinkCreatePopupView", () => {
       } as unknown as EditorView;
 
       // Should not throw — the ?.addEventListener handles missing ancestor
-      popup = new SourceLinkCreatePopupView(isolatedView);
+      popup = new SourceLinkCreatePopupView(isolatedView as never, testStore as never);
       expect(subscribers.length).toBe(1);
     });
   });
@@ -1132,7 +1132,7 @@ describe("SourceLinkCreatePopupView", () => {
   describe("Open with null anchorRect", () => {
     it("does not show the popup when isOpen is true but anchorRect is null", () => {
       const view2 = createMockView();
-      const popup2 = new SourceLinkCreatePopupView(view2);
+      const popup2 = new SourceLinkCreatePopupView(view2 as never, testStore as never);
 
       const container = (popup2 as unknown as Record<string, HTMLElement>).container;
       // Container display starts as "none"
