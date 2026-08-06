@@ -27,3 +27,13 @@ export function resolveWorkspacePath(workspaceRoot: string, relative: string): s
   if (segments.some((s) => s === "" || s === "." || s === "..")) return null;
   return `${workspaceRoot.replace(/[/\\]+$/, "")}/${relative}`;
 }
+
+/** Mirror of the Rust `ResolveRequest` (WI-1.9a). */
+export interface ResolveEdgeRequest {
+  action: "accept-newer" | "waive";
+  txf: string;
+  input: number;
+  reason?: string;
+  /** D3.2: optional waiver expiry (RFC 3339). */
+  expires?: string;
+}

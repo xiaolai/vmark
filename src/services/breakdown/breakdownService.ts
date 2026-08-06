@@ -35,6 +35,7 @@ import { refreshBreakdown } from "./breakdownRefresh";
 // Split out for the 300-line limit and re-exported here, so every existing
 // `from "@/services/breakdown/breakdownService"` import keeps resolving.
 export { messageOf, resolveWorkspacePath } from "./breakdownShared";
+export type { ResolveEdgeRequest } from "./breakdownShared";
 export { refreshBreakdown } from "./breakdownRefresh";
 export {
   refreshContexts,
@@ -56,15 +57,6 @@ export {
 // importing the guards from this module.
 export { isActiveWorkspace, isLatestRefresh, takeRefreshTicket };
 
-/** Mirror of the Rust `ResolveRequest` (WI-1.9a). */
-export interface ResolveEdgeRequest {
-  action: "accept-newer" | "waive";
-  txf: string;
-  input: number;
-  reason?: string;
-  /** D3.2: optional waiver expiry (RFC 3339). */
-  expires?: string;
-}
 
 // Stale-response guard (audit T12): a slow refresh for workspace A must
 // never overwrite rows after the user switched to workspace B (or closed
