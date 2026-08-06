@@ -8,15 +8,14 @@
 
 use std::collections::{HashMap, HashSet};
 
-use serde_json::json;
-
 use super::canonical::text_content_hash;
 use super::capture::{adopt_from_disk, observed_external_entry, register_if_needed};
 use super::frontmatter::read_identity;
-use super::gitops::{classify, observe, GitClass};
+use super::gitops::{observe, GitClass};
+use super::scan_git::{run_git_phase, GitObserver, GitPhase};
 pub use super::scan_report::ScanReport;
 use super::state::WorkspaceKernel;
-use super::types::{Envelope, ObjectId, RevisionId};
+use super::types::{ObjectId, RevisionId};
 
 /// Directory names never scanned (mirrors the watcher's ignore list).
 pub(super) const IGNORED_DIRS: [&str; 8] = [
@@ -56,10 +55,22 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     // BUILT those transformations from an unlocked index while each append locked
     // only afterwards — the same stale-sibling TOCTOU as capture. The whole span
     // now runs under the workspace lock.
-    kernel.with_write_lock(scan_workspace_locked)
+    scan_workspace_with(kernel, observe)
 }
 
-fn scan_workspace_locked(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String> {
+/// `scan_workspace` with the git observation injected. Production always passes
+/// `gitops::observe`; only tests substitute.
+pub(super) fn scan_workspace_with(
+    kernel: &mut WorkspaceKernel,
+    observe_git: GitObserver,
+) -> Result<ScanReport, String> {
+    kernel.with_write_lock(|k| scan_workspace_locked(k, observe_git))
+}
+
+fn scan_workspace_locked(
+    kernel: &mut WorkspaceKernel,
+    observe_git: GitObserver,
+) -> Result<ScanReport, String> {
     let mut report = ScanReport {
         complete: true,
         ..Default::default()
@@ -76,36 +87,12 @@ fn scan_workspace_locked(kernel: &mut WorkspaceKernel) -> Result<ScanReport, Str
         }
     }
 
-    // Git first (R18): classify before touching content.
-    let current_git = observe(kernel.root());
-    let class = classify(kernel.last_git.as_ref(), current_git.as_ref());
-    if class == GitClass::MergeInProgress {
-        // Defer: reconcile once the merge concludes.
-        kernel.last_git = current_git;
-        report.merge_deferred = true;
-        return Ok(report);
-    }
-    if class == GitClass::ObservationUnreliable {
-        // A repository that HAD a resolvable HEAD now reports none, so the
-        // `git` read failed rather than the repo changing. Reconciling on it
-        // would mint a spurious external-edit revision for what is really a
-        // git mutation (#1207). Return WITHOUT storing the bad observation,
-        // so the next scan compares against the same good baseline and
-        // reconciles normally — a transient failure costs one cycle.
-        report.git_observation_unreliable = true;
-        return Ok(report);
-    }
-    if let GitClass::Navigation { op, from, to } = &class {
-        if kernel.is_initialized() {
-            let env = Envelope::create(
-                "navigation",
-                kernel.writer(),
-                json!({ "git": { "op": op, "from": from, "to": to } }),
-            );
-            kernel.append_and_apply(&env)?;
-            report.navigations += 1;
-        }
-    }
+    // Git first (R18): classify before touching content. Two of the three
+    // outcomes stop the scan outright — see scan_git.rs.
+    let (class, current_git) = match run_git_phase(kernel, &mut report, observe_git)? {
+        GitPhase::Stop => return Ok(report),
+        GitPhase::Continue { class, observation } => (class, observation),
+    };
 
     let registry = kernel.index().registry_state()?;
     let mut existing_diagnostics = existing_diagnostic_keys(&ledger_read.entries);
