@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { invokedScripts } from "./lib/packageScripts.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(REPO, "scripts", "check-command-error-ratchet.mjs");
 
@@ -274,7 +275,10 @@ describe("wiring — real package.json", () => {
   it("exposes lint:command-errors and chains it into check:all", () => {
     const pkg = JSON.parse(readFileSync(path.join(REPO, "package.json"), "utf8"));
     expect(pkg.scripts["lint:command-errors"]).toContain("check-command-error-ratchet.mjs");
-    expect(pkg.scripts["check:all"]).toContain("lint:command-errors");
+    // Transitive: check:all composes check:static/servers/build, so a
+    // literal substring check would break on regrouping (see
+    // scripts/lib/packageScripts.mjs).
+    expect(invokedScripts(pkg.scripts, "check:all")).toContain("lint:command-errors");
   });
 });
 
