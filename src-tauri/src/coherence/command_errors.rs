@@ -63,3 +63,35 @@ pub(super) fn rejected_argument(detail: String) -> CommandError {
 pub(super) fn state_conflict(detail: String) -> CommandError {
     CommandError::conflict(detail)
 }
+
+/// Classify a failure from a MUTATING kernel call.
+///
+/// One failure mode here is provably distinguishable, and it matters because it
+/// demands the opposite response from the user: if the last reconcile skipped
+/// entries in a format this build cannot parse, `with_write_lock` refused the
+/// write (WI-2.2) and the remedy is to UPGRADE VMARK — `unsupported`, not
+/// "fix your input". The kernel answers that as a typed question
+/// (`short_read_entries`), so we never have to match the message text, which
+/// rule 50 forbids and which would silently stop working the day someone
+/// rewords the string.
+///
+/// Everything else falls back to `fallback`, chosen per call site by what that
+/// specific call validates. That residual imprecision is inherent while the
+/// layer beneath these commands still returns `String`; typing it means
+/// threading a `CoherenceError` through the whole subsystem, which is the
+/// refactor this module's header already scopes out.
+pub(super) fn classify_write(
+    kernel: &super::state::WorkspaceKernel,
+    fallback: fn(String) -> CommandError,
+    detail: String,
+) -> CommandError {
+    let skipped = kernel.short_read_entries();
+    if skipped > 0 {
+        return CommandError::unsupported(detail);
+    }
+    fallback(detail)
+}
+
+#[cfg(test)]
+#[path = "command_errors.test.rs"]
+mod tests;

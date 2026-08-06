@@ -21,10 +21,10 @@ import {
   refreshBreakdown,
   takeRefreshTicket,
 } from "./breakdownService";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+// One definition, not two. This file carried a byte-identical private copy of
+// `messageOf`, so the "[object Object]" fix would have landed in one of them
+// and silently missed the provenance/delegation surfaces.
+import { messageOf } from "./breakdownShared";
 
 /** WI-3.2: refresh the orphaned-but-recoverable candidates (pull-only). */
 export async function refreshProvenance(workspaceRoot: string): Promise<void> {

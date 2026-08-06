@@ -44,6 +44,14 @@ pub struct WorkspaceKernel {
     /// the index lacks it, so the O(1) idem lookup can no longer be trusted. All
     /// writes and accepts refuse until reopen re-reconciles from the ledger.
     pub(super) unavailable: Option<String>,
+    /// How many entries the last reconcile had to SKIP because they carry a
+    /// format this build cannot parse (WI-2.2). Cached so the command layer can
+    /// classify a refused write WITHOUT matching the message text — rule 50
+    /// forbids recovering a code from a string, and everything below these
+    /// commands still returns `String`. A refused write is `unsupported` (this
+    /// binary is too old; upgrade) rather than `invalid-input` (your request was
+    /// wrong), and those demand opposite things of the user.
+    pub(super) short_read: usize,
     /// True while a `with_write_lock` scope holds the exclusive workspace `flock`
     /// across its whole read-validate-append span (re-review #1, R1). The `flock`
     /// itself lives in a stack local in `with_write_lock` (so it releases on every
@@ -133,6 +141,7 @@ impl WorkspaceKernel {
             index,
             initialized,
             unavailable: None,
+            short_read: 0,
             in_write_txn: false,
             ignore_rules_unchecked,
             last_git: None,
