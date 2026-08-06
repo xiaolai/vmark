@@ -60,7 +60,7 @@ export function LogbookSection({ workspaceRoot }: LogbookSectionProps) {
     <section className="breakdown-logbook">
       <button
         type="button"
-        className="breakdown-logbook__toggle"
+        className="vm-btn vm-btn--plain"
         data-testid="logbook-toggle"
         onClick={toggle}
         aria-expanded={open}

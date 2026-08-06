@@ -649,22 +649,6 @@
   padding-top: var(--spacing-2);
 }
 
-.breakdown-logbook__toggle {
-  background: transparent;
-  border: none;
-  padding: var(--spacing-1) 0;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.breakdown-logbook__toggle:focus-visible {
-  outline: none;
-  color: var(--accent-primary);
-  text-decoration: underline;
-  text-underline-offset: var(--space-1);
-}
-
 .breakdown-logbook__m2,
 .breakdown-logbook__churn,
 .breakdown-logbook__hint {
