@@ -14,7 +14,7 @@ use std::path::Path;
 
 use rusqlite::Connection;
 
-use super::types::{Envelope, InputRole, ObjectId, TypedBody};
+use super::types::{Envelope, ObjectId};
 
 // v2: applied keyed by idem; edges.confidence; held/disk_lag tables.
 // v3: check_results table (WI-2b.3 — D5.6 context-snapshot liveness).
@@ -121,131 +121,15 @@ impl CoherenceIndex {
     }
 
     /// Apply one ledger entry incrementally. Idempotent by entry id.
+    ///
+    /// Owns its own transaction, so a standalone apply is atomic and durable on
+    /// its own. `rebuild_from` does NOT go through here — it owns one
+    /// transaction for the whole replay and calls `apply_entry_to` directly,
+    /// because a per-entry commit is a per-entry durable write and that made a
+    /// rebuild ~17x slower than it needed to be on a realistic ledger.
     pub fn apply_entry(&mut self, env: &Envelope) -> Result<(), String> {
-        let typed = env
-            .typed()
-            .map_err(|e| format!("index apply on malformed entry: {e}"))?;
         let tx = self.conn.transaction().map_err(|e| e.to_string())?;
-        // Keyed by IDEM, not entry id (audit A4): a crash-recovery replay
-        // carries the same idem with a fresh id and must not re-apply.
-        // Store the entry id alongside the idem (design v4.2): the FIRST entry
-        // for an idem wins (INSERT OR IGNORE), so a later replay does not
-        // overwrite it — `entry_id_by_idem` then returns the original receipt.
-        let inserted = tx
-            .execute(
-                "INSERT OR IGNORE INTO applied (idem, entry_id) VALUES (?1, ?2)",
-                [env.idem.to_string(), env.id.to_string()],
-            )
-            .map_err(|e| e.to_string())?;
-        if inserted == 0 {
-            return Ok(()); // replay
-        }
-        match typed {
-            TypedBody::Transformation(t) => {
-                for o in &t.outputs {
-                    tx.execute(
-                        "INSERT OR IGNORE INTO revisions (object, revision, parents, content_hash) VALUES (?1, ?2, ?3, ?4)",
-                        rusqlite::params![
-                            o.object.0.to_string(),
-                            o.revision.as_str(),
-                            serde_json::to_string(&o.parents).map_err(|e| e.to_string())?,
-                            o.content_hash.as_str()
-                        ],
-                    )
-                    .map_err(|e| e.to_string())?;
-                    // A new revision revives an absent object (file restored).
-                    tx.execute(
-                        "DELETE FROM absent WHERE object = ?1",
-                        [o.object.0.to_string()],
-                    )
-                    .map_err(|e| e.to_string())?;
-                    for (i, input) in t.inputs.iter().enumerate() {
-                        tx.execute(
-                            "INSERT OR IGNORE INTO edges (txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence, edge_kind)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                            rusqlite::params![
-                                env.id.to_string(),
-                                i as i64,
-                                input.object.0.to_string(),
-                                input.revision.as_str(),
-                                o.object.0.to_string(),
-                                o.revision.as_str(),
-                                match input.role {
-                                    InputRole::Direct => "direct",
-                                    InputRole::Contextual => "contextual",
-                                },
-                                match t.confidence {
-                                    super::types::Confidence::Exact => "exact",
-                                    super::types::Confidence::Inferred => "inferred",
-                                    super::types::Confidence::Unknown => "unknown",
-                                },
-                                // Phase 4: persist the input's origin-edge kind
-                                // (conformance from Extract-Canon; else dependency).
-                                input.kind.as_str(),
-                            ],
-                        )
-                        .map_err(|e| e.to_string())?;
-                    }
-                }
-            }
-            TypedBody::Ratification(r) | TypedBody::Waiver(r) => {
-                let kind = if env.kind == "ratification" {
-                    "ratification"
-                } else {
-                    "waiver"
-                };
-                tx.execute(
-                    "INSERT OR IGNORE INTO resolutions (entry_id, txf, input_idx, kind, resolved_against, time, expires)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    rusqlite::params![
-                        env.id.to_string(),
-                        r.edge.txf.to_string(),
-                        r.edge.input as i64,
-                        kind,
-                        r.resolved_against.as_str(),
-                        env.time,
-                        r.expires
-                    ],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-            TypedBody::ObjectRegistered(r) => {
-                tx.execute(
-                    "INSERT OR IGNORE INTO registry (entry_id, object, path, schema, time) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    rusqlite::params![
-                        env.id.to_string(),
-                        r.object.0.to_string(),
-                        r.path,
-                        r.schema,
-                        env.time
-                    ],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-            TypedBody::Preserved { ref kind, ref body } if kind == "check-result" => {
-                // WI-2b.3: validated at parse (envelope.rs); the D5.6
-                // context fields are nullable — results without them are
-                // pre-revision-1 history and never satisfy liveness.
-                tx.execute(
-                    "INSERT OR IGNORE INTO check_results
-                     (entry_id, txf, input_idx, pinned, checked_against, verdict, time, context, claims_fingerprint)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                    rusqlite::params![
-                        env.id.to_string(),
-                        body["edge"]["txf"].as_str().unwrap_or_default(),
-                        body["edge"]["input"].as_i64().unwrap_or_default(),
-                        body["pinned"].as_str().unwrap_or_default(),
-                        body["checked_against"].as_str().unwrap_or_default(),
-                        body["verdict"].as_str().unwrap_or_default(),
-                        env.time,
-                        body.get("context").and_then(|v| v.as_str()),
-                        body.get("claims_fingerprint").and_then(|v| v.as_str()),
-                    ],
-                )
-                .map_err(|e| e.to_string())?;
-            }
-            _ => {} // navigation, diagnostics, other preserved and unknown kinds
-        }
+        super::index_apply::apply_entry_to(&tx, env)?;
         tx.commit().map_err(|e| e.to_string())
     }
 
@@ -253,9 +137,18 @@ impl CoherenceIndex {
     /// version is zeroed for the duration, so an interrupted rebuild
     /// reopens as needs_rebuild instead of masquerading as complete.
     pub fn rebuild_from(&mut self, entries: &[Envelope]) -> Result<(), String> {
+        // Durable crash sentinel FIRST, outside the transaction: if we die
+        // mid-rebuild, the next open must see version 0 and rebuild again.
         self.conn
             .pragma_update(None, "user_version", 0)
             .map_err(|e| e.to_string())?;
+        // One RAII transaction for the whole replacement — an rusqlite
+        // `Transaction`, not raw BEGIN/COMMIT: a failed COMMIT leaves the
+        // transaction ACTIVE in SQLite, and a raw path would return that error
+        // while still holding a write transaction open on a kernel that is
+        // about to be poisoned but stays alive. Drop-rollback closes that,
+        // including on panic.
+        let tx = self.conn.transaction().map_err(|e| e.to_string())?;
         // Ledger-derived tables only: `absent`/`held`/`disk_lag` are
         // scan-owned session state a rebuild must not forget (A12/A18).
         for table in [
@@ -266,13 +159,13 @@ impl CoherenceIndex {
             "applied",
             "check_results",
         ] {
-            self.conn
-                .execute(&format!("DELETE FROM {table}"), [])
+            tx.execute(&format!("DELETE FROM {table}"), [])
                 .map_err(|e| e.to_string())?;
         }
         for e in entries {
-            self.apply_entry(e)?;
+            super::index_apply::apply_entry_to(&tx, e)?;
         }
+        tx.commit().map_err(|e| e.to_string())?;
         self.conn
             .pragma_update(None, "user_version", SCHEMA_VERSION)
             .map_err(|e| e.to_string())?;
