@@ -7,7 +7,7 @@
 
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use uuid::Uuid;
 
@@ -60,37 +60,6 @@ impl SnapshotStore {
         let hash = binary_content_hash(bytes);
         self.put_raw(&hash, bytes)?;
         Ok(hash)
-    }
-
-    /// FATALLY fsync the blob's directory AND every ancestor up to the store
-    /// root, so a prior `put_*` rename — and the creation of any new
-    /// `sha256/<aa>` or `sha256/` directory entry along the way — is durable
-    /// before a caller records a reference to it (re-review #2/#6): a
-    /// group-commit stages content, then appends a durable prepare that points at
-    /// it. A crash between them could otherwise lose an un-synced directory entry
-    /// (the leaf rename OR a freshly-created ancestor) and orphan the staged
-    /// content, breaking client-less recovery. `put_raw`'s dir fsync is
-    /// best-effort (the content is content-addressed, so a lost general-capture
-    /// entry is re-capturable); this is the fatal form group staging needs before
-    /// the prepare append — every failure aborts the staging.
-    pub fn sync_dir_of(&self, hash: &ContentHash) -> Result<(), String> {
-        let blob = self.path_for(hash);
-        let mut dir = blob.parent(); // sha256/<aa>, then sha256, then the root
-        while let Some(d) = dir {
-            Self::fsync_dir(d)?;
-            if d == self.root {
-                break;
-            }
-            dir = d.parent();
-        }
-        Ok(())
-    }
-
-    fn fsync_dir(dir: &Path) -> Result<(), String> {
-        let f = fs::File::open(dir)
-            .map_err(|e| format!("cas dir open failed ({}): {e}", dir.display()))?;
-        f.sync_all()
-            .map_err(|e| format!("cas dir fsync failed ({}): {e}", dir.display()))
     }
 
     fn put_raw(&self, hash: &ContentHash, bytes: &[u8]) -> Result<(), String> {

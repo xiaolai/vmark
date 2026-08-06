@@ -13,9 +13,6 @@
 //! recorded history — the only writes are appends.
 
 pub mod accept;
-pub mod accept_group;
-pub mod accept_group_members;
-pub mod accept_group_recover;
 pub mod accept_precondition;
 pub mod adopt;
 pub mod anchor_parse;
@@ -47,12 +44,8 @@ pub mod edge_kind;
 pub mod envelope;
 pub mod envelope_typed;
 pub mod envelope_validate;
-pub mod extract_canon;
 pub mod frontmatter;
 pub mod gitops;
-pub mod group_bounds;
-pub mod group_prepare;
-pub mod group_prepare_ops;
 pub mod index;
 pub mod index_checks;
 pub mod index_dag;

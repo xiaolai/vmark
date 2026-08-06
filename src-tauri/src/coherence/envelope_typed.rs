@@ -211,74 +211,18 @@ impl Envelope {
                     body: b.clone(),
                 }
             }
-            // Durable group-commit lifecycle records (design-accept-consistency
-            // #5/#6/#7). `group-prepare` marks a validated group whose commit
-            // started (carries its member manifest + a base-head/resolution
-            // snapshot for recovery revalidation); `group-abort` marks an attempt
-            // abandoned because its context changed. Both are keyed by `group_id`.
-            "group-prepare" => {
-                // Full structural validation (re-review #7): a body that would
-                // later panic/parse-fail in recovery must QUARANTINE at read, never
-                // reach the lifecycle lookup and poison it forever.
-                for k in ["group_id", "attempt_id"] {
-                    if b.get(k).and_then(|v| v.as_str()).is_none_or(str::is_empty) {
-                        return Err(format!("group-prepare missing/empty {k}"));
-                    }
-                }
-                if !b.get("members").map(|m| m.is_array()).unwrap_or(false) {
-                    return Err("group-prepare members must be an array".into());
-                }
-                let snap = b.get("snapshot").filter(|s| s.is_object());
-                let snap = snap.ok_or("group-prepare missing snapshot")?;
-                if !snap.get("heads").map(|h| h.is_array()).unwrap_or(false) {
-                    return Err("group-prepare snapshot.heads must be an array".into());
-                }
-                if snap
-                    .get("resolution_digest")
-                    .and_then(|v| v.as_str())
-                    .is_none()
-                {
-                    return Err("group-prepare snapshot.resolution_digest must be a string".into());
-                }
-                // Every affected_edge must be a [uuid-string, number] pair — a
-                // non-UUID txf would abort recovery before an abort could be written.
-                let edges = snap
-                    .get("affected_edges")
-                    .and_then(|v| v.as_array())
-                    .ok_or("group-prepare snapshot.affected_edges must be an array")?;
-                for edge in edges {
-                    let pair = edge
-                        .as_array()
-                        .ok_or("affected_edge must be a [txf, input] pair")?;
-                    let txf = pair
-                        .first()
-                        .and_then(|v| v.as_str())
-                        .ok_or("affected_edge txf must be a string")?;
-                    if uuid::Uuid::parse_str(txf).is_err() {
-                        return Err("affected_edge txf is not a valid uuid".into());
-                    }
-                    if pair.get(1).and_then(|v| v.as_u64()).is_none() {
-                        return Err("affected_edge input must be a number".into());
-                    }
-                }
-                TypedBody::Preserved {
-                    kind: self.kind.clone(),
-                    body: b.clone(),
-                }
-            }
-            "group-abort" => {
-                // #7: an abort MUST name its attempt, or find_latest silently
-                // ignores it and the aborted attempt looks live.
-                for k in ["group_id", "attempt_id"] {
-                    if b.get(k).and_then(|v| v.as_str()).is_none_or(str::is_empty) {
-                        return Err(format!("group-abort missing/empty {k}"));
-                    }
-                }
-                TypedBody::Preserved {
-                    kind: self.kind.clone(),
-                    body: b.clone(),
-                }
-            }
+            // NOTE: `group-prepare` / `group-abort` deliberately have NO arm here.
+            // The group-commit subsystem was severed (see
+            // dev-docs/plans/20260806-coherence-runtime-landing.md §Scope split);
+            // its 2PC protocol failed review and is being rebuilt as format 1 on
+            // branch `coherence/group-commit-2pc`. Falling through to `Unknown`
+            // means such a line parses but is never projected, so a group entry
+            // written by an experimental build cannot become visible state here.
+            //
+            // This is NOT the defence against over-exposed tentative MEMBERS —
+            // those are ordinary format-0 `transformation` envelopes and would
+            // project normally. That hole is closed by the future-format
+            // mutation gate (Phase 2 of the same plan), not by this arm's absence.
             _ => TypedBody::Unknown {
                 kind: self.kind.clone(),
                 body: b.clone(),

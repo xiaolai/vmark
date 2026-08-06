@@ -160,12 +160,13 @@ pub async fn coherence_operator_accept(
     let now = now_rfc3339();
     // #1 (R1): hold the workspace lock across the WHOLE accept — idem lookup,
     // base-head revalidation, reproject, and append are one atomic critical
-    // section, so a concurrent group-commit can't move the head between our
-    // validation and our append (which would fork the object with a stale sibling).
+    // section, so no concurrent writer (another accept, a capture, a git
+    // reconcile) can move the head between our validation and our append, which
+    // would fork the object with a stale sibling.
     // `conflict`, not `internal`: the dominant failure here is base-head
-    // revalidation losing a race with a concurrent group-commit, and the
-    // caller's remedy is to refresh and re-propose rather than to retry the
-    // identical call (ErrorCode::Conflict is deliberately not retryable).
+    // revalidation losing that race, and the caller's remedy is to refresh and
+    // re-propose rather than to retry the identical call (ErrorCode::Conflict is
+    // deliberately not retryable).
     kernel
         .with_write_lock(|k| accept_candidate(k, &candidate, &preview_classes, &now))
         .map_err(state_conflict)
