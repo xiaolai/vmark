@@ -40,6 +40,14 @@ pub struct CoherenceStatus {
     pub open_items: usize,
     pub quarantined: usize,
     pub writer: WriterId,
+    /// True when the ledger holds entries in a format this build cannot read,
+    /// so every count above is derived from a PARTIAL history.
+    ///
+    /// Without this the degradation is silent, which is worse than the outage
+    /// it replaced: `open_items: 0` on a workspace full of them is indis-
+    /// tinguishable from a clean workspace, and nothing tells the user their
+    /// VMark is too old. A count nobody can trust must say so.
+    pub ledger_short_read: bool,
 }
 
 pub(super) fn now_rfc3339() -> String {
