@@ -9,11 +9,8 @@
 //! @coordinates-with group_prepare.rs — the prepare record being recovered
 //! @module coherence/accept_group_recover
 
-
 use super::accept::AcceptReceipt;
-use super::accept_group_members::{
-    commit_member, group_id, member_idem, preflight_member,
-};
+use super::accept_group_members::{commit_member, group_id, member_idem, preflight_member};
 use super::group_prepare::{self, Lifecycle};
 use super::operator::Candidate;
 use super::state::WorkspaceKernel;

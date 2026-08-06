@@ -59,7 +59,6 @@
 //!     permanently-stuck deadlock — the abort keeps the outcome defined, not
 //!     corrupt, even where the lock's reach ends.
 
-
 use super::accept::AcceptReceipt;
 use super::accept_precondition::precondition_holds;
 use super::group_prepare::{self, GroupPrepare, Lifecycle, PreparedMember};
