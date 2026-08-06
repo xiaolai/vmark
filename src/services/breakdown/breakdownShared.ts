@@ -9,9 +9,23 @@
  * @module services/breakdown/breakdownShared
  */
 
+import { commandErrorMessage } from "@/services/commands/commandError";
 
+/**
+ * Render any rejection from a coherence command as user-facing text.
+ *
+ * Delegates to `commandErrorMessage` because these commands reject with a
+ * TYPED `CommandError` (`{code, message, …}`), which is a plain object rather
+ * than an `Error`. The previous `error instanceof Error ? … : String(error)`
+ * therefore produced the literal string "[object Object]" — and this value is
+ * not merely logged, it is handed to `useBreakdownStore.setError` and shown to
+ * the user (rule 50 §10 names this exact failure).
+ *
+ * Legacy `Result<T, String>` commands still reject with a bare string while the
+ * ratchet runs down, so both shapes must keep working.
+ */
 export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return commandErrorMessage(error);
 }
 
 /**

@@ -89,7 +89,16 @@ impl WorkspaceKernel {
     fn reconcile_index_from_ledger(&mut self) -> Result<usize, String> {
         let read = self.ledger.read_all()?;
         self.index.rebuild_from(&read.entries)?;
+        self.short_read = read.future_format;
         Ok(read.future_format)
+    }
+
+    /// How many entries the last reconcile skipped as unparseable-future-format.
+    /// Non-zero means this build cannot safely write to this workspace — see
+    /// `refuse_if_short_read`. Exposed so the command layer can attach the right
+    /// `ErrorCode` to a refused write without reading the message text.
+    pub fn short_read_entries(&self) -> usize {
+        self.short_read
     }
 
     /// Refuse to mutate on top of a projection we know is incomplete.

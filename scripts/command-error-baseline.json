@@ -5,7 +5,7 @@
     "Two-way: a NEW legacy signature fails the gate, and a file that improved fails until its number is lowered here — an unrecorded win is silent headroom for the next regression.",
     "Numbers only go DOWN. Migrate the command to Result<T, CommandError> (see .claude/rules/50-codebase-conventions.md §10), then lower or delete its entry.",
     "Registered in the WI-16 ratchet manifest (scripts/check-baseline-ratchet.mjs), which re-compares this file against the merge base in CI — so a commit cannot raise its own floor.",
-    "RELOCATION, not new debt: coherence/commands.rs was split for the file-size gate and its 6 legacy commands moved verbatim to coherence/commands_ipc.rs. The entry follows the code; the total is unchanged at 120. Migrating those 6 is a separate change — their error shape crosses IPC to the frontend."
+    "The coherence surface is being migrated to zero, one file per WI, under dev-docs/plans/20260806-coherence-runtime-landing.md Phase 3. Its entries are DELETED as each file reaches zero, never left at 0 — a zero entry is headroom the next regression can spend silently."
   ],
   "files": {
     "src-tauri/src/asset_access.rs": 1,
@@ -14,7 +14,6 @@
     "src-tauri/src/browser/session_commands.rs": 3,
     "src-tauri/src/coherence/check_commands.rs": 1,
     "src-tauri/src/coherence/claim_commands.rs": 3,
-    "src-tauri/src/coherence/commands_ipc.rs": 6,
     "src-tauri/src/coherence/context_commands.rs": 5,
     "src-tauri/src/coherence/delegation_commands.rs": 2,
     "src-tauri/src/coherence/merge_surface.rs": 1,
