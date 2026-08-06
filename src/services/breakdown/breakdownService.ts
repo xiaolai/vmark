@@ -34,8 +34,9 @@ import { refreshBreakdown } from "./breakdownRefresh";
 
 // Split out for the 300-line limit and re-exported here, so every existing
 // `from "@/services/breakdown/breakdownService"` import keeps resolving.
-export { messageOf, resolveWorkspacePath } from "./breakdownShared";
-export type { ResolveEdgeRequest } from "./breakdownShared";
+// `messageOf` is deliberately NOT re-exported: nothing imports it from here, and
+// a re-export nobody consumes is dead code the knip ratchet counts.
+export { resolveWorkspacePath } from "./breakdownShared";
 export { refreshBreakdown } from "./breakdownRefresh";
 export {
   refreshContexts,
