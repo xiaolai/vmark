@@ -46,7 +46,10 @@ impl WorkspaceKernel {
         self.ensure_initialized()?;
         if let Err(append_err) = self.ledger.append(env) {
             return match self.reconcile_index_from_ledger() {
-                Ok(()) => Err(format!(
+                // The skipped-count is not consulted on this recovery path: the
+                // write already failed, and `with_write_lock` refused any short
+                // read before we got here.
+                Ok(_) => Err(format!(
                     "ledger append failed ({append_err}); index reconciled — retry the operation"
                 )),
                 Err(rec_err) => Err(self.poison(format!(
@@ -77,9 +80,36 @@ impl WorkspaceKernel {
     }
     /// Rebuild the index from the ledger's current entries — the recovery the
     /// ambiguous-failure paths share (the ledger is always truth).
-    fn reconcile_index_from_ledger(&mut self) -> Result<(), String> {
+    ///
+    /// Returns how many entries the read had to SKIP because they carry a
+    /// format this build cannot parse. The count is returned rather than acted
+    /// on here because the correct response differs by caller: a read or a
+    /// heal-on-open proceeds (a short projection is still worth showing),
+    /// whereas `with_write_lock` must refuse — see `refuse_if_short_read`.
+    fn reconcile_index_from_ledger(&mut self) -> Result<usize, String> {
         let read = self.ledger.read_all()?;
-        self.index.rebuild_from(&read.entries)
+        self.index.rebuild_from(&read.entries)?;
+        Ok(read.future_format)
+    }
+
+    /// Refuse to mutate on top of a projection we know is incomplete.
+    ///
+    /// A `format > FORMAT_VERSION` entry is skipped by `parse_line`, so every
+    /// head, edge and resolution derived from that read is missing whatever the
+    /// newer build recorded. Appending anyway means deciding against history
+    /// this binary cannot see — an older VMark would fork or overwrite a newer
+    /// one's work while every local check looked green. Reads deliberately stay
+    /// available; only mutation is refused, so the remedy (upgrade VMark) is
+    /// reachable from an app that still opens the workspace.
+    fn refuse_if_short_read(skipped: usize) -> Result<(), String> {
+        if skipped == 0 {
+            return Ok(());
+        }
+        Err(format!(
+            "ledger contains {skipped} entr{} in a newer format this build cannot read; \
+             refusing to write on top of an incomplete history — upgrade VMark to continue",
+            if skipped == 1 { "y" } else { "ies" }
+        ))
     }
     /// Open + exclusively `flock` the workspace lock file (re-review #1). The
     /// lock is held for the returned File's lifetime (released on fd close). The
@@ -150,10 +180,16 @@ impl WorkspaceKernel {
         // scan AND `read_all`, so the ledger is already read on that path.
         // Correctness that four audits could not falsify beats a saving that has
         // already been given away.
-        if let Err(e) = self.reconcile_index_from_ledger() {
+        let skipped = match self.reconcile_index_from_ledger() {
+            Ok(skipped) => skipped,
             // A partially rebuilt index must never be served (6R-6).
-            return Err(self.poison(format!("acquire-time reconcile failed: {e}")));
-        }
+            Err(e) => return Err(self.poison(format!("acquire-time reconcile failed: {e}"))),
+        };
+        // Refuse to build on a history we could not fully read. This is NOT a
+        // poison: the workspace is fine and reads keep working — it is this
+        // BINARY that is too old, and the condition clears by upgrading rather
+        // than by reopening.
+        Self::refuse_if_short_read(skipped)?;
         self.in_write_txn = true;
         // Run `f` inside catch_unwind so the flag is reset even on a panic
         // (8th-review 8R-10). Relying on the registry `Mutex` poisoning was not

@@ -46,6 +46,69 @@ fn ensure_initialized_creates_structure_and_git_files() {
     assert!(kernel.is_initialized());
 }
 
+/// WI-2.1 — a ledger carrying a record this build cannot parse makes every
+/// projection derived from it SHORT. Reading a short projection is fine (and
+/// useful — you can still look at what you do understand). Appending onto one
+/// is not: the writer would be deciding against history it cannot see, which is
+/// how an older binary silently overwrites a newer one's work.
+///
+/// `parse_line` has always classified these (`LineOutcome::FutureFormat`) and
+/// `read_all` has always counted them into `LedgerRead::future_format` — but
+/// until this gate NOTHING read that count, so the refusal never happened. The
+/// C2 group-commit review (c2-v2-review-01.md, finding H3) named this as the
+/// reason a format bump alone does not prevent over-exposure; it is a defect in
+/// the wired runtime independent of that subsystem, and it fires for ANY future
+/// format bump, not just the group one.
+#[test]
+fn future_format_ledger_refuses_mutation_but_still_reads() {
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+
+    // One ordinary entry this build DOES understand, so the ledger is not
+    // trivially empty and the read path has something real to return.
+    let mine = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({"code":"t","message":"mine"}),
+    );
+    kernel.append_and_apply(&mine).unwrap();
+
+    // A record from a newer build. This reader skips it — deliberately, and
+    // without quarantining it, since it is not corruption.
+    let mut newer = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    // READ still works, and still reports the short read honestly.
+    let read = kernel.ledger().read_all().unwrap();
+    assert_eq!(read.future_format, 1, "the short read must be visible");
+    assert_eq!(
+        read.entries.len(),
+        1,
+        "only the entry this build understands"
+    );
+    assert!(
+        read.quarantined.is_empty(),
+        "a newer format is not corruption"
+    );
+
+    // MUTATION must refuse. `with_write_lock` is the single choke point every
+    // mutating operation routes through, so gating it covers accept, capture,
+    // scan, claim and resolution at once.
+    let err = kernel
+        .with_write_lock(|_| Ok(()))
+        .expect_err("mutation onto a short projection must be refused");
+    assert!(
+        err.contains("newer format"),
+        "the refusal must name the cause; got: {err}"
+    );
+}
+
 #[test]
 fn append_and_apply_then_reopen_rebuilds_from_ledger() {
     let dir = tmp();
