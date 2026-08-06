@@ -6,9 +6,10 @@
 // growing). Also covers actor identity fallback.
 
 use super::*;
-use crate::coherence::capture::CaptureInputSpec;
+use crate::coherence::capture::{capture, CaptureInputSpec, CaptureReceipt, CaptureRequest};
 use crate::coherence::project::EdgeState;
 use crate::coherence::types::{Agent, AgentType, Confidence, InputRole, Intent};
+use uuid::Uuid;
 
 fn workspace() -> (tempfile::TempDir, WorkspaceKernel) {
     let dir = tempfile::tempdir().unwrap();

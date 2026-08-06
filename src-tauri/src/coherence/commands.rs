@@ -17,10 +17,6 @@ use super::types::WriterId;
 // unused because THIS file no longer names them, and it does not account for a
 // `#[path]`-included child module's glob import — it pruned them once and broke
 // the test build. The allow keeps the next autofix from repeating that.
-#[allow(unused_imports)]
-use super::capture::{capture, CaptureReceipt, CaptureRequest};
-#[allow(unused_imports)]
-use uuid::Uuid;
 
 pub struct CoherenceState {
     pub registry: KernelRegistry,
