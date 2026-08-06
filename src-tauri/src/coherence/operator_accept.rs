@@ -71,20 +71,15 @@ fn uuid_from_digest(digest: [u8; 32]) -> Uuid {
 /// (design v4.1). Errs if the transformation is not single-output — Increment-1
 /// rejects multi-output operators (so edge identity `(txf,input)` stays unique).
 ///
-/// `group` folds a multi-object group's identity into each member's idem
-/// (design-accept-consistency #1). It is the **terminal, optional** field:
-/// a single accept passes `None` and appends nothing, so its idem is
-/// byte-identical to the pre-group v2 preimage (the reviewed single-accept
-/// protocol is untouched); a group member passes `Some(group_id)` and appends
-/// its length-prefixed id. Injective because it is the final field and a group
-/// id is a fixed-length, non-empty hash — so a member idem can never alias the
-/// standalone idem of the same candidate, and a coincidental prior commit is
-/// never misread as group membership.
+/// The preimage is a durable wire contract — this idem is written into the
+/// ledger, so a change to it forks the identity of every transformation already
+/// accepted. `accept_idem_golden_vector` pins the exact output for a fixed
+/// transformation; move it only by bumping the `vmark-operator-accept-vN`
+/// domain tag, which re-keys the surface deliberately.
 pub fn operator_accept_idem(
     operator: &str,
     format: u32,
     txf: &Transformation,
-    group: Option<&str>,
 ) -> Result<Uuid, String> {
     if txf.outputs.len() != 1 {
         return Err(format!(
@@ -132,12 +127,6 @@ pub fn operator_accept_idem(
         txf.intent.prompt_hash.as_ref().map(|h| h.as_str()),
     );
     field(&mut buf, confidence_str(txf.confidence).as_bytes());
-
-    // Terminal optional field: the group identity (design-accept-consistency #1).
-    // Appended only when present, so a single accept's idem is unchanged.
-    if let Some(g) = group {
-        field(&mut buf, g.as_bytes());
-    }
 
     Ok(uuid_from_digest(Sha256::digest(&buf).into()))
 }

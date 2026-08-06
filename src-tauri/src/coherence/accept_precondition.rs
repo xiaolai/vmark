@@ -23,11 +23,6 @@ use super::types::{ObjectId, RevisionId};
 /// The check-independent structural class of a projected edge state (v4.3).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum StructuralClass {
-    /// A synthetic preview-only "did not exist" before-state (re-review #8) — the
-    /// before-class of a brand-new edge a candidate creates. Distinct from
-    /// `Retired` (an edge that DID exist and was superseded). `structural_class`
-    /// never returns this; only the group preview uses it as a `before`.
-    Absent,
     /// Edge retired (`project_edge` returned `None`).
     Retired,
     /// Kept split — a ratification or an "ahead" head move IS structural.

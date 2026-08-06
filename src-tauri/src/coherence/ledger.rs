@@ -22,10 +22,17 @@ use super::ledger_lines::{
 const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Per-line read cap (re-review #3): `read_all` streams each segment line with
-/// this bound, so a single pathological or hostile line (a group-prepare grown
-/// past every field cap, or an externally-corrupted ledger) is quarantined
-/// instead of read whole into memory. Above the largest legal line (a
-/// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
+/// this bound, so a single pathological or hostile line — an externally
+/// corrupted ledger, or an entry from a build whose field caps this one does not
+/// share — is quarantined instead of read whole into memory. The cap sits far
+/// above any legal entry this build writes, so it never fires in normal use;
+/// it is a memory-safety backstop, not a format rule.
+///
+/// (It formerly cited the group-commit `MAX_PREPARE_BYTES` prepare as the
+/// largest legal line. That subsystem was severed — see
+/// dev-docs/plans/20260806-coherence-runtime-landing.md — but the backstop is
+/// independent of it and is deliberately unchanged: lowering a read cap because
+/// today's writers are smaller would weaken the hostile-input guarantee.)
 pub(super) const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
@@ -92,8 +99,9 @@ impl Ledger {
         // a brand-new or rotated segment's *link* in its directory — and a
         // freshly (re)created ledger dir's link in its parent — is not durable
         // until the directory itself is fsynced. Without this, a power loss can
-        // lose an acknowledged append into a new segment, and a `group-prepare`
-        // manifest (the first write of a group) is exactly such an append.
+        // lose an acknowledged append into a new segment — and every first write
+        // after a rotation, or into a freshly created ledger dir, is exactly
+        // such an append.
         let dir_is_new = !self.dir.exists();
         fs::create_dir_all(&self.dir).map_err(|e| format!("ledger mkdir failed: {e}"))?;
         let path = self.active_segment();

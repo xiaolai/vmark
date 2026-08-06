@@ -125,23 +125,3 @@ fn materialize_reinserts_identity_from_registry_data() {
     assert!(other.contains("018f3c7a-9f2e-7cc1-b302-5e9d4a6b21c8"));
     assert!(!other.contains("schema:"));
 }
-
-#[test]
-fn sync_dir_of_is_fatal_and_walks_ancestors() {
-    // Re-review #2: group staging must FATALLY sync the blob's directory and its
-    // freshly-created ancestors before the prepare references it. Success on a
-    // real staged blob (the ancestor walk fsyncs sha256/<aa>, sha256, root); a
-    // hard error when the directory is absent (proving it is NOT best-effort).
-    let dir = tmp();
-    let store = SnapshotStore::new(dir.path().join("snapshots"));
-    let hash = store.put_text(DOC).unwrap();
-    store
-        .sync_dir_of(&hash)
-        .expect("staged blob's dir + ancestors sync durably");
-
-    // If the blob's directory does not exist, the fatal sync must surface an
-    // error — a silent success here is exactly the durability gap #2 flagged.
-    let missing = text_content_hash("never stored\n");
-    let err = store.sync_dir_of(&missing).unwrap_err();
-    assert!(err.contains("cas dir"), "got: {err}");
-}

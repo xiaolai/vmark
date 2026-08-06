@@ -139,7 +139,7 @@ fn a_torn_accept_entry_is_recovered_after_reopen() {
         kind: AgentType::Human,
         id: None,
     });
-    let idem = operator_accept_idem("tidy", FORMAT_VERSION, &txf, None).unwrap();
+    let idem = operator_accept_idem("tidy", FORMAT_VERSION, &txf).unwrap();
     let mut env = Envelope::create(
         "transformation",
         kernel.writer(),

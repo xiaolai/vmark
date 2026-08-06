@@ -103,7 +103,8 @@ fn capture_locked(
     // rewriting the file, appending a registration and staging CAS content, and
     // only then failed the 16 MiB line cap — reporting a retryable error that
     // could never succeed, with those side effects already durable. Reject up
-    // front instead, mirroring the group-prepare bounds.
+    // front instead: a bound that can only be violated is checked before the
+    // first side effect, never after.
     if req.inputs.len() > MAX_CAPTURE_INPUTS {
         return Err(format!(
             "capture has {} inputs, over the {MAX_CAPTURE_INPUTS} cap",
