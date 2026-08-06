@@ -59,3 +59,23 @@ inspection — and all three findings above were real.
   reads as `NotGit`, so git operations there are never classified. Pre-existing,
   and correcting it is a product decision about what "the workspace's
   repository" means, not a bug fix.
+
+## Round 3 — verification of the round-2 fixes
+
+Verdicts: B (sweep refusal) **FIXED**; A (status flag) **PARTIAL**;
+C (unborn/unreadable split) **REGRESSED**. All three closed.
+
+| Item | Round-3 verdict | What was wrong | Resolution |
+|---|---|---|---|
+| C | **REGRESSED** | Making `Unreadable` unconditionally `ObservationUnreliable` meant a machine with **no git binary** could never reconcile a git-backed workspace again — the spawn failure became `Unreadable`, every scan stopped, and ordinary edits were never captured. This broke the contract stated in `gitops.rs`'s own doc comment. | `GitRun` now separates `Unavailable` (spawn failed — a fact about the MACHINE, degrade to non-git) from `Failed` (git ran and refused — a fact about the REPOSITORY, stop the scan). Tested through a pure mapping so it needs no uninstall. |
+| C | PARTIAL (2nd) | `--git-dir` succeeding only proves discovery works; a corrupt HEAD was then mislabelled `Unborn`. | A second probe: `symbolic-ref -q HEAD` succeeds on an unborn branch and fails on a corrupt HEAD. |
+| A | PARTIAL | `perform_status` skips the breakdown when the workspace is uninitialized, then read `refused_for_short_read()` anyway — a verdict left over from an earlier refusal. | Gated on `scanned`, so the flag is only reported when this call actually attempted the lock. |
+
+This round is the reason the loop was worth running: round 2's fix was a real
+regression, and it would have shipped. It was found by review, not by the test
+suite — every gate was green with it in place.
+
+## Final state
+
+Findings 2, 3, 4, 5 fixed; the round-2 defect and both round-3 defects fixed;
+finding 1 (TOCTOU) recorded as design scope with reasons.

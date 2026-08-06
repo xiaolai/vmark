@@ -10,7 +10,10 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::ai_provider::build_command;
+use super::gitops_cmd::git_output;
+pub use super::gitops_cmd::{
+    current_branch, git_run, merge_changed_files, merge_commit_sha, GitRun,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitObservation {
@@ -57,61 +60,19 @@ pub enum GitClass {
     ObservationUnreliable,
 }
 
-fn git_output(root: &Path, args: &[&str]) -> Option<String> {
-    let out = build_command("git", args).current_dir(root).output().ok()?;
-    if !out.status.success() {
-        return None;
+/// Map the `--git-dir` probe to an outcome, or `None` to keep observing.
+///
+/// Pure so the no-git-binary path is testable without uninstalling git.
+pub fn outcome_for_git_dir_probe(probe: &GitRun) -> Option<GitOutcome> {
+    match probe {
+        // No git tooling: fall back to the documented non-git behaviour rather
+        // than blocking the workspace. Treating this as "unreliable" stopped
+        // every scan forever on such a machine.
+        GitRun::Unavailable => Some(GitOutcome::NotGit),
+        // git ran and could not make sense of this directory.
+        GitRun::Failed => Some(GitOutcome::Unreadable),
+        GitRun::Ok(_) => None,
     }
-    Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-/// Observe the git state of a workspace. `None` = not a git repo (or git
-/// unavailable) — callers then treat every change as an ordinary external
-/// edit, which is the safe fallback.
-/// D3.1 (spec §6 rev 2): the exact current branch name, or None for
-/// detached HEAD / not a git repository. No globs, no normalization.
-pub fn current_branch(root: &Path) -> Option<String> {
-    let name = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
-    if name == "HEAD" {
-        return None; // detached
-    }
-    Some(name)
-}
-
-/// D3.3 (WI-3.7): the current HEAD commit's SHA iff it is a completed
-/// merge (two or more parents). `None` for a linear head, detached HEAD,
-/// or a non-git dir. Mid-conflict merges are handled upstream (the scan
-/// defers on MERGE_HEAD), so reaching here means the merge concluded.
-pub fn merge_commit_sha(root: &Path) -> Option<String> {
-    let line = git_output(root, &["rev-list", "--parents", "-n", "1", "HEAD"])?;
-    // "<commit> <parent1> <parent2> ..." — 3+ tokens ⇒ a merge.
-    let mut tokens = line.split_whitespace();
-    let sha = tokens.next()?.to_string();
-    if tokens.count() >= 2 {
-        Some(sha)
-    } else {
-        None
-    }
-}
-
-/// The files a completed merge changed relative to **both** parents — the union
-/// of `git diff --name-only <sha>^1 <sha>` and `<sha>^2 <sha>`, so a change from
-/// either side is caught (Phase 5, SP4/WI-5.1). For a rename git reports the new
-/// path; for a delete, the removed path. Empty for a non-merge, a bad SHA, or a
-/// non-git dir. Deterministic (sorted, deduped) so the audit mapping is total.
-pub fn merge_changed_files(root: &Path, sha: &str) -> Vec<String> {
-    let mut set = std::collections::BTreeSet::new();
-    for parent in [format!("{sha}^1"), format!("{sha}^2")] {
-        if let Some(out) = git_output(root, &["diff", "--name-only", &parent, sha]) {
-            for line in out.lines() {
-                let trimmed = line.trim();
-                if !trimmed.is_empty() {
-                    set.insert(trimmed.to_string());
-                }
-            }
-        }
-    }
-    set.into_iter().collect()
 }
 
 /// What an observation attempt actually learned.
@@ -151,16 +112,22 @@ pub fn observe_outcome(root: &Path) -> GitOutcome {
         return GitOutcome::NotGit; // covers dirs and worktree .git files alike
     }
     // Does git work here AT ALL? Succeeds on an unborn repo (prints `.git`),
-    // fails on a broken one — the discriminator that separates "no commits yet"
-    // from "we cannot read this repository".
-    if git_output(root, &["rev-parse", "--git-dir"]).is_none() {
-        return GitOutcome::Unreadable;
+    // fails on a broken one, and is UNAVAILABLE when git is not installed —
+    // three cases that must not be collapsed.
+    if let Some(outcome) = outcome_for_git_dir_probe(&git_run(root, &["rev-parse", "--git-dir"])) {
+        return outcome;
     }
-    match observe_present_repo(root) {
-        Some(o) => GitOutcome::Observed(o),
-        // git works, but there is no HEAD to resolve: nothing has been
-        // committed yet.
-        None => GitOutcome::Unborn,
+    if let Some(o) = observe_present_repo(root) {
+        return GitOutcome::Observed(o);
+    }
+    // git works and the directory is a repository, but HEAD would not resolve.
+    // Unborn or corrupt? `symbolic-ref HEAD` still succeeds on an unborn branch
+    // (HEAD points at a ref that has no commits yet) and fails on a corrupt or
+    // unreadable HEAD — so this separates "nothing committed" from "we cannot
+    // read this repository", which the `--git-dir` probe alone cannot.
+    match git_run(root, &["symbolic-ref", "-q", "HEAD"]) {
+        GitRun::Ok(_) => GitOutcome::Unborn,
+        GitRun::Failed | GitRun::Unavailable => GitOutcome::Unreadable,
     }
 }
 
