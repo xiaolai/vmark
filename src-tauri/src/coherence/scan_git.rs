@@ -59,7 +59,13 @@ pub(super) fn run_git_phase(
     // Unreadable is not an observation at all and must never be stored.
     let current_git = match outcome {
         GitOutcome::Observed(o) => Some(o),
-        GitOutcome::NotGit | GitOutcome::Unreadable => None,
+        // NotGit and Unborn are real observations of a real state, recorded as
+        // "no head" the way the baseline has always recorded absence. Unreadable
+        // is not an observation at all and must never become the baseline — that
+        // is the half of #1207 that turns a transient failure into a permanent
+        // one. (It cannot reach the store anyway: `classify_outcome` makes it
+        // `ObservationUnreliable`, which stops below without assigning.)
+        GitOutcome::NotGit | GitOutcome::Unborn | GitOutcome::Unreadable => None,
     };
 
     if class == GitClass::MergeInProgress {

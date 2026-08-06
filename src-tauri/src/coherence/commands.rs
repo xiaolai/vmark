@@ -230,6 +230,12 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
         open_items,
         quarantined: kernel.quarantined,
         writer: kernel.writer(),
+        // Read AFTER the breakdown above: the scan inside it is what discovers
+        // the short read (and then declines to reconcile rather than failing,
+        // so the counts still come back). Without surfacing it here the
+        // degradation is silent, and `open_items: 0` on a workspace full of
+        // them looks exactly like a clean workspace.
+        ledger_short_read: kernel.refused_for_short_read(),
     })
 }
 

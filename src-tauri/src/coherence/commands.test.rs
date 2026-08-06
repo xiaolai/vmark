@@ -575,3 +575,39 @@ fn a_future_format_ledger_still_serves_the_breakdown() {
         "mutation must still be refused — the read path must not have opened it"
     );
 }
+
+/// Audit round 2, finding #4 (PARTIAL) — restoring availability must not make
+/// an INCOMPLETE projection look authoritative.
+///
+/// `perform_breakdown_in` discarded the scan report, so `coherence_status`
+/// reported `open_items` from a projection missing whatever the newer build
+/// wrote. Zero open items on a workspace full of them is worse than an error:
+/// the user has no way to know the number is meaningless.
+#[test]
+fn status_admits_when_the_projection_is_incomplete() {
+    let (dir, mut kernel) = workspace();
+    kernel.ensure_initialized().unwrap();
+    write_file(dir.path(), "a.md", "hello\n");
+    save(&mut kernel, "a.md", "hello\n");
+
+    let healthy = perform_status(&mut kernel).unwrap();
+    assert!(
+        !healthy.ledger_short_read,
+        "a fully-read ledger must not claim incompleteness"
+    );
+
+    let mut newer = crate::coherence::types::Envelope::create(
+        "diagnostic",
+        WriterId(uuid::Uuid::from_u128(1)),
+        serde_json::json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    let degraded = perform_status(&mut kernel).expect("status must still answer on a short read");
+    assert!(
+        degraded.ledger_short_read,
+        "status must ADMIT the projection is partial — otherwise open_items \
+         reads as authoritative when it cannot be"
+    );
+}

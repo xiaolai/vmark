@@ -606,3 +606,65 @@ fn an_unborn_repo_is_not_treated_as_an_unreliable_read() {
         "an unborn repo is not a failed observation"
     );
 }
+
+#[test]
+fn a_first_scan_git_failure_is_refused_even_with_no_baseline() {
+    // Audit round 2 residual on finding #3. The first fix decided "unreliable"
+    // by contradicting the PREVIOUS observation — which cannot work on the
+    // first scan, because there is no previous observation. A git failure with
+    // no baseline therefore still fell through to ordinary reconciliation and
+    // could mint external-edit history: the exact #1207 shape, surviving the
+    // fix for it.
+    //
+    // `Unreadable` is now unambiguous (it means git could not answer AT ALL,
+    // distinguished from an unborn repo by `rev-parse --git-dir`), so it can be
+    // refused on its own without needing a baseline to argue with.
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    write_file(root, "a.md", "hello\n");
+    run_git(root, &["add", "-A"]);
+    run_git(root, &["commit", "-qm", "one"]);
+
+    assert!(kernel.last_git.is_none(), "precondition: no baseline yet");
+
+    let report = scan_workspace_with(&mut kernel, git_unreadable).unwrap();
+
+    assert!(
+        report.git_observation_unreliable,
+        "a failed git read must be refused on the FIRST scan too"
+    );
+    assert_eq!(
+        report.external_edits, 0,
+        "no history may be minted from a reading we could not take"
+    );
+    assert!(
+        kernel.last_git.is_none(),
+        "a failed reading must never become the baseline"
+    );
+}
+
+#[test]
+fn an_unborn_repo_is_distinguished_from_an_unreadable_one() {
+    // The discriminator that makes the test above safe: `git init` with no
+    // commits is a real state (git answers `rev-parse --git-dir` fine), not a
+    // failed reading. Without this split, refusing on Unreadable would refuse
+    // every freshly created repository.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]); // no commits
+    assert_eq!(
+        crate::coherence::gitops::observe_outcome(root),
+        crate::coherence::gitops::GitOutcome::Unborn,
+        "an unborn repo is Unborn, never Unreadable"
+    );
+
+    // A `.git` that git cannot make sense of IS unreadable.
+    let broken = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(broken.path().join(".git")).unwrap();
+    assert_eq!(
+        crate::coherence::gitops::observe_outcome(broken.path()),
+        crate::coherence::gitops::GitOutcome::Unreadable,
+        "a .git git cannot read is Unreadable, never Unborn"
+    );
+}

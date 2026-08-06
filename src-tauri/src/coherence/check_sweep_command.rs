@@ -87,6 +87,20 @@ pub async fn coherence_check_sweep(
                                                                 // non-actionable. `anchor-changed` and `anchor-lost` stay in scope.
         let rows =
             super::commands::perform_breakdown_in(&mut kernel, None).map_err(ledger_unavailable)?;
+        // Refuse BEFORE spending money. The breakdown now degrades rather than
+        // failing when the ledger holds entries this build cannot read, which is
+        // right for a panel but wrong here: the sweep would call paid providers
+        // over a partial edge set and then fail at `record_check`, which still
+        // takes the write lock and is still refused. Worse, a partial projection
+        // with no checkable rows returns a "successful" empty sweep, reporting
+        // clean coverage of a history it never read.
+        if kernel.refused_for_short_read() {
+            return Err(CommandError::unsupported(
+                "ledger contains entries in a newer format this build cannot read; \
+                 refusing to run a paid check sweep over a partial projection — \
+                 upgrade VMark to continue",
+            ));
+        }
         let checkable = select_checkable(&rows);
         let cursor = cursor_from_index(
             kernel
