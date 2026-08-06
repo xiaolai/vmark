@@ -24,8 +24,9 @@ import {
   emitOpenFileInCurrentWindow,
 } from "@/services/navigation/openFileEvent";
 import { messageOf, resolveWorkspacePath } from "./breakdownShared";
+import type { ResolveEdgeRequest } from "./breakdownShared";
 import { refreshBreakdown } from "./breakdownRefresh";
-import type { ResolveEdgeRequest } from "./breakdownService";
+
 
 /**
  * Append a ratification (`accept-newer`) or waiver (`waive`) for one edge,
