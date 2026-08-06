@@ -65,11 +65,7 @@ use super::group_prepare::{self, GroupPrepare, Lifecycle, PreparedMember};
 use super::operator::Candidate;
 use super::preview::GroupPreview;
 use super::state::WorkspaceKernel;
-// The test module reaches these through `use super::*`, so they stay imported
-// here even where this file no longer names them directly — `clippy --fix`
-// pruned them once and broke accept_group.test.rs.
-#[allow(unused_imports)]
-use super::types::{Agent, AgentType, ContentHash, Envelope, ObjectId, RevisionId, WriterId};
+use super::types::{ObjectId, RevisionId};
 
 // Moved out for the file-size split and re-exported so existing
 // `accept_group::<name>` paths keep resolving.
