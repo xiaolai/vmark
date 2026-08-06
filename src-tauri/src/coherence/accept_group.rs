@@ -59,151 +59,25 @@
 //!     permanently-stuck deadlock — the abort keeps the outcome defined, not
 //!     corrupt, even where the lock's reach ends.
 
-use sha2::{Digest, Sha256};
 
 use super::accept::AcceptReceipt;
 use super::accept_precondition::precondition_holds;
-use super::dag::Resolved;
 use super::group_prepare::{self, GroupPrepare, Lifecycle, PreparedMember};
 use super::operator::Candidate;
-use super::operator_accept::operator_accept_idem;
 use super::preview::GroupPreview;
 use super::state::WorkspaceKernel;
-use super::types::{Agent, AgentType, ContentHash, Envelope, ObjectId, RevisionId, FORMAT_VERSION};
+// The test module reaches these through `use super::*`, so they stay imported
+// here even where this file no longer names them directly — `clippy --fix`
+// pruned them once and broke accept_group.test.rs.
+#[allow(unused_imports)]
+use super::types::{Agent, AgentType, ContentHash, Envelope, ObjectId, RevisionId, WriterId};
 
-/// Content-addressed group identity (design-accept-consistency #1, hardened for
-/// re-review #4): the hash of the members' **sorted ungrouped accept idems**.
-/// Each member's ungrouped idem is its full canonical accept preimage WITHOUT the
-/// group fold (`operator_accept_idem(.., None)`) — so it binds object, inputs,
-/// edge kind, operator, agent, and intent, not merely content+parents, and it
-/// carries no group_id (no circularity when this is then folded back INTO each
-/// member's grouped idem). The result: a member committed as part of this group
-/// has a grouped idem that encodes the WHOLE group, so the O(1) presence check
-/// answers "committed AS PART OF THIS EXACT GROUP" — two groups whose members
-/// merely share content+parents can no longer collide, and a standalone commit
-/// of the same candidate (different idem) is never misread as membership.
-fn group_id(candidates: &[Candidate]) -> Result<String, String> {
-    let mut ids: Vec<uuid::Uuid> = Vec::with_capacity(candidates.len());
-    for c in candidates {
-        let txf = c.to_transformation(Agent {
-            kind: AgentType::Human,
-            id: None,
-        });
-        ids.push(operator_accept_idem(
-            &c.operator,
-            FORMAT_VERSION,
-            &txf,
-            None,
-        )?);
-    }
-    ids.sort_unstable();
-    let mut buf = Vec::new();
-    buf.extend_from_slice(b"vmark-group-v2"); // v2: full member identity (#4)
-    for id in ids {
-        let bytes = id.as_bytes();
-        buf.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
-        buf.extend_from_slice(bytes);
-    }
-    let digest: [u8; 32] = Sha256::digest(&buf).into();
-    Ok(digest.iter().map(|b| format!("{b:02x}")).collect())
-}
-
-fn member_idem(candidate: &Candidate, group: &str) -> Result<uuid::Uuid, String> {
-    let txf = candidate.to_transformation(Agent {
-        kind: AgentType::Human,
-        id: None,
-    });
-    operator_accept_idem(&candidate.operator, FORMAT_VERSION, &txf, Some(group))
-}
-
-/// Preflight one not-yet-present member (design-accept-consistency #2): its base
-/// must still be the single live head, or — for a brand-new object (a carrier) —
-/// the object must be genuinely absent. This runs for EVERY not-present member
-/// BEFORE any member is appended, so a stale member can never leave a partial
-/// commit. `commit_member` re-checks at append time (defense-in-depth); under
-/// the kernel's serialized single-writer path the two always agree.
-fn preflight_member(kernel: &WorkspaceKernel, candidate: &Candidate) -> Result<(), String> {
-    // Arity gate (G-B re-review 03 H2): a group member must have AT MOST one
-    // parent. Recovery reconstructs each member from its manifest and refuses a
-    // multi-parent transformation (`group_prepare::to_candidate`), so admitting
-    // one here would let a crash strand a prepared group its own recovery path
-    // can never complete. A forward-operator member is 0 parents (a brand-new
-    // carrier) or 1 (its base); a merge is never a group member.
-    if candidate.parents.len() > 1 {
-        return Err("a group member cannot have multiple parents".into());
-    }
-    match (
-        candidate.parents.first(),
-        kernel.index().resolve_live(&candidate.object)?,
-    ) {
-        (Some(base), Resolved::Single(head)) if &head == base => Ok(()),
-        (None, Resolved::Absent) => Ok(()),
-        _ => Err("stale base — re-preview required".into()),
-    }
-}
-
-/// Tamper check: recompute the content-addressed identity from the payload.
-fn verify_untampered(candidate: &Candidate) -> Result<(), String> {
-    let digest: [u8; 32] = Sha256::digest(candidate.content.as_bytes()).into();
-    if ContentHash::from_digest(&digest) != candidate.content_hash {
-        return Err("candidate content hash mismatch (tamper)".into());
-    }
-    if RevisionId::compute(&candidate.content_hash, &candidate.parents) != candidate.revision {
-        return Err("candidate revision id mismatch (tamper)".into());
-    }
-    Ok(())
-}
-
-/// Commit one member (its object is distinct within the group, so its base-head
-/// check is independent). Returns the receipt; `committed=false` if it was
-/// already present (idempotent).
-fn commit_member(
-    kernel: &mut WorkspaceKernel,
-    candidate: &Candidate,
-    idem: uuid::Uuid,
-    existing: Option<uuid::Uuid>,
-) -> Result<AcceptReceipt, String> {
-    if let Some(entry_id) = existing {
-        return Ok(AcceptReceipt {
-            entry_id,
-            revision: candidate.revision.as_str().to_string(),
-            committed: false,
-        });
-    }
-    // Base-head revalidation for THIS object. A revision over a base requires
-    // the base to still be the single head; a brand-new object (a carrier, no
-    // parents) requires the object to be genuinely absent.
-    match (
-        candidate.parents.first(),
-        kernel.index().resolve_live(&candidate.object)?,
-    ) {
-        (Some(base), Resolved::Single(head)) if &head == base => {}
-        (None, Resolved::Absent) => {}
-        _ => return Err("stale base — re-preview required".into()),
-    }
-    kernel.ensure_initialized()?;
-    let stored = kernel.snapshots().put_text(&candidate.content)?;
-    if stored != candidate.content_hash {
-        return Err("CAS stored a different hash than the candidate declares".into());
-    }
-    let txf = candidate.to_transformation(Agent {
-        kind: AgentType::Human,
-        id: None,
-    });
-    let mut env = Envelope::create(
-        "transformation",
-        kernel.writer(),
-        serde_json::to_value(&txf).map_err(|e| e.to_string())?,
-    );
-    env.idem = idem;
-    let entry_id = env.id;
-    kernel.append_and_apply(&env)?;
-    Ok(AcceptReceipt {
-        entry_id,
-        revision: candidate.revision.as_str().to_string(),
-        committed: true,
-    })
-}
+// Moved out for the file-size split and re-exported so existing
+// `accept_group::<name>` paths keep resolving.
+use super::accept_group_members::{
+    commit_member, group_id, member_idem, preflight_member, verify_untampered,
+};
+pub use super::accept_group_recover::recover_group;
 
 /// Accept a group of candidates over distinct objects. `preview` is the group
 /// preview the client holds (v4.3/v4.6); its `base_classes` gate the fresh path.
@@ -393,92 +267,6 @@ fn accept_group_locked(
     }
 
     // Commit each not-present member (present ones return their original receipt).
-    let mut receipts = Vec::with_capacity(candidates.len());
-    for (i, c) in candidates.iter().enumerate() {
-        receipts.push(commit_member(kernel, c, idems[i], existing[i])?);
-    }
-    Ok(receipts)
-}
-
-/// Client-less recovery (re-review #6): complete an incomplete prepared group
-/// from the ledger + CAS ALONE — no client candidate list. Reconstructs each
-/// member from the durable manifest (content out of CAS), revalidates the
-/// prepared snapshot against the current workspace, and commits the missing
-/// members, or aborts if the context drifted. Holds the cross-process lock (#1).
-pub fn recover_group(
-    kernel: &mut WorkspaceKernel,
-    group: &str,
-    now: &str,
-) -> Result<Vec<AcceptReceipt>, String> {
-    kernel.ensure_available()?;
-    kernel.with_write_lock(|k| recover_group_locked(k, group, now))
-}
-
-fn recover_group_locked(
-    kernel: &mut WorkspaceKernel,
-    group: &str,
-    now: &str,
-) -> Result<Vec<AcceptReceipt>, String> {
-    let prepare = match group_prepare::find_latest(kernel, group)? {
-        Lifecycle::Prepared(p) => *p,
-        _ => return Err("no recoverable prepared group for that id".into()),
-    };
-    // Reconstruct the candidates from the manifest — content read back from CAS
-    // (#6), each member fully validated (#2). Then verify the reconstructed set
-    // hashes to the record's group_id, so a forged/inconsistent manifest cannot
-    // make recovery commit the wrong group.
-    let mut candidates: Vec<Candidate> = Vec::with_capacity(prepare.members.len());
-    for m in &prepare.members {
-        let bytes = kernel.read_snapshot(m.content_hash()?)?;
-        let content =
-            String::from_utf8(bytes).map_err(|e| format!("member content not utf-8: {e}"))?;
-        candidates.push(m.to_candidate(content)?);
-    }
-    if candidates.is_empty() {
-        return Err("prepared group has no members".into());
-    }
-    let mut objects = std::collections::HashSet::new();
-    for c in &candidates {
-        if !objects.insert(c.object) {
-            return Err("prepared group has two members for the same object".into());
-        }
-    }
-    if group_id(&candidates)? != prepare.group_id {
-        return Err("prepared manifest does not hash to its group_id (inconsistent)".into());
-    }
-
-    let mut idems = Vec::with_capacity(candidates.len());
-    let mut existing = Vec::with_capacity(candidates.len());
-    for c in &candidates {
-        let idem = member_idem(c, &prepare.attempt_id)?;
-        existing.push(kernel.index().entry_id_by_idem(&idem)?);
-        idems.push(idem);
-    }
-    if existing.iter().all(Option::is_some) {
-        return Ok(candidates
-            .iter()
-            .enumerate()
-            .map(|(i, c)| AcceptReceipt {
-                entry_id: existing[i].expect("present member has an entry id"),
-                revision: c.revision.as_str().to_string(),
-                committed: false,
-            })
-            .collect());
-    }
-    let committed: Vec<(ObjectId, RevisionId, uuid::Uuid)> = candidates
-        .iter()
-        .enumerate()
-        .filter_map(|(i, c)| existing[i].map(|id| (c.object, c.revision.clone(), id)))
-        .collect();
-    if !group_prepare::revalidate(kernel.index(), &prepare, &committed, now)? {
-        group_prepare::append_abort(kernel, group, &prepare.attempt_id)?;
-        return Err("group aborted — the workspace changed since it was prepared".into());
-    }
-    for (i, c) in candidates.iter().enumerate() {
-        if existing[i].is_none() {
-            preflight_member(kernel, c)?;
-        }
-    }
     let mut receipts = Vec::with_capacity(candidates.len());
     for (i, c) in candidates.iter().enumerate() {
         receipts.push(commit_member(kernel, c, idems[i], existing[i])?);
