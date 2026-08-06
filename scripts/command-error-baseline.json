@@ -14,7 +14,6 @@
     "src-tauri/src/browser/session_commands.rs": 3,
     "src-tauri/src/coherence/check_commands.rs": 1,
     "src-tauri/src/coherence/claim_commands.rs": 3,
-    "src-tauri/src/coherence/context_commands.rs": 5,
     "src-tauri/src/coherence/delegation_commands.rs": 2,
     "src-tauri/src/coherence/merge_surface.rs": 1,
     "src-tauri/src/coherence/provenance_commands.rs": 3,
