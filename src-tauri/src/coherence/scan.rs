@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use super::canonical::text_content_hash;
 use super::capture::{adopt_from_disk, observed_external_entry, register_if_needed};
 use super::frontmatter::read_identity;
-use super::gitops::{observe, GitClass};
+use super::gitops::{observe_outcome, GitClass};
 use super::scan_git::{run_git_phase, GitObserver, GitPhase};
 pub use super::scan_report::ScanReport;
 use super::state::WorkspaceKernel;
@@ -55,7 +55,7 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     // BUILT those transformations from an unlocked index while each append locked
     // only afterwards — the same stale-sibling TOCTOU as capture. The whole span
     // now runs under the workspace lock.
-    scan_workspace_with(kernel, observe)
+    scan_workspace_with(kernel, observe_outcome)
 }
 
 /// `scan_workspace` with the git observation injected. Production always passes
@@ -64,7 +64,17 @@ pub(super) fn scan_workspace_with(
     kernel: &mut WorkspaceKernel,
     observe_git: GitObserver,
 ) -> Result<ScanReport, String> {
-    kernel.with_write_lock(|k| scan_workspace_locked(k, observe_git))
+    match kernel.with_write_lock(|k| scan_workspace_locked(k, observe_git)) {
+        Ok(report) => Ok(report),
+        // Declining to reconcile is reported, not thrown, so the read surfaces
+        // above degrade instead of dying — see `ScanReport::ledger_short_read`.
+        Err(_) if kernel.refused_for_short_read() => Ok(ScanReport {
+            ledger_short_read: true,
+            complete: false, // an unreconciled scan must never drive deletions
+            ..Default::default()
+        }),
+        Err(e) => Err(e),
+    }
 }
 
 fn scan_workspace_locked(
@@ -272,3 +282,10 @@ pub(super) use super::scan_walk::walk_markdown;
 #[cfg(test)]
 #[path = "scan.test.rs"]
 mod tests;
+
+// Split out of `scan.test.rs` for the 800-line test-file limit, but kept a test
+// module OF THIS FILE: these tests drive `scan.rs`'s own surface, so hosting
+// them under `scan_git` would mean re-exporting internals purely to be tested.
+#[cfg(test)]
+#[path = "scan_git.test.rs"]
+mod git_tests;

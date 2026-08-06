@@ -534,3 +534,44 @@ fn unchanged_is_the_only_suppressing_anchor_label() {
     assert!(is_actionable(false, Some(AnchorStatus::Changed.label())));
     assert!(is_actionable(false, Some(AnchorStatus::Lost.label())));
 }
+
+// ── Audit finding #4: reads must survive a future-format ledger ──────────
+
+/// The WI-2.2 gate refuses MUTATION on a ledger this build read incompletely.
+/// It must not take the READ surfaces down with it.
+///
+/// `perform_breakdown_in` — behind both `coherence_breakdown` and
+/// `coherence_status` — begins with `scan_workspace`, which acquires the write
+/// lock. So the gate turned "the breakdown is missing whatever the newer build
+/// wrote" into "the breakdown panel is dead", which is strictly worse for the
+/// user and contradicts the guarantee the gate was introduced with: the remedy
+/// (upgrade VMark) must stay reachable from an app that still opens.
+#[test]
+fn a_future_format_ledger_still_serves_the_breakdown() {
+    let (dir, mut kernel) = workspace();
+    kernel.ensure_initialized().unwrap();
+
+    // Something real to project, captured while the ledger is fully readable.
+    write_file(dir.path(), "a.md", "hello\n");
+    save(&mut kernel, "a.md", "hello\n");
+
+    // Now a newer build appends something this one cannot parse.
+    let mut newer = crate::coherence::types::Envelope::create(
+        "diagnostic",
+        WriterId(uuid::Uuid::from_u128(1)),
+        serde_json::json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    // The READ must still answer.
+    let rows = perform_breakdown_in(&mut kernel, None)
+        .expect("a short ledger read must degrade the breakdown, not kill it");
+    let _ = rows; // content is whatever this build can see; availability is the claim
+
+    // ...while the WRITE stays refused.
+    assert!(
+        kernel.with_write_lock(|_| Ok(())).is_err(),
+        "mutation must still be refused — the read path must not have opened it"
+    );
+}

@@ -114,10 +114,50 @@ pub fn merge_changed_files(root: &Path, sha: &str) -> Vec<String> {
     set.into_iter().collect()
 }
 
-pub fn observe(root: &Path) -> Option<GitObservation> {
+/// What an observation attempt actually learned.
+///
+/// `Option<GitObservation>` conflated two opposite situations — "this is not a
+/// repository" and "this IS a repository but git would not answer" — and the
+/// second is precisely the #1207 condition the scan must refuse to reconcile
+/// on. Collapsing them meant a failed `git` read classified as
+/// `ExternalUnknown`, so the scan proceeded and then overwrote its good
+/// baseline with the failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GitOutcome {
+    /// No `.git` — not a repository, or it was deliberately removed.
+    NotGit,
+    Observed(GitObservation),
+    /// `.git` is present but git could not be read.
+    ///
+    /// NOT automatically "unreliable": an UNBORN repository (`git init` with no
+    /// commits) lands here too, because `rev-parse HEAD` fails on it. Treating
+    /// this as unreliable on its own would make every freshly-initialised
+    /// workspace refuse to scan — worse than the bug being fixed. The decision
+    /// is therefore made by `classify_outcome` against the PREVIOUS
+    /// observation: only a baseline that already had a resolved head proves the
+    /// repository has commits and that this read is the thing that broke.
+    Unreadable,
+}
+
+/// Observe git state, distinguishing "not a repo" from "could not read".
+pub fn observe_outcome(root: &Path) -> GitOutcome {
     if !root.join(".git").exists() {
-        return None; // covers dirs and worktree .git files alike
+        return GitOutcome::NotGit; // covers dirs and worktree .git files alike
     }
+    match observe_present_repo(root) {
+        Some(o) => GitOutcome::Observed(o),
+        None => GitOutcome::Unreadable,
+    }
+}
+
+pub fn observe(root: &Path) -> Option<GitObservation> {
+    match observe_outcome(root) {
+        GitOutcome::Observed(o) => Some(o),
+        GitOutcome::NotGit | GitOutcome::Unreadable => None,
+    }
+}
+
+fn observe_present_repo(root: &Path) -> Option<GitObservation> {
     let head_ref = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
     let head_sha = git_output(root, &["rev-parse", "HEAD"]);
     // Include HEAD explicitly: a detached HEAD on an unreachable commit
@@ -137,6 +177,24 @@ pub fn observe(root: &Path) -> Option<GitObservation> {
 }
 
 /// Classify what happened between two observations (G2 matrix).
+/// Classify an observation OUTCOME (preferred over `classify`).
+///
+/// The one thing this adds: an `Unreadable` outcome against a baseline that had
+/// a resolved head is `ObservationUnreliable` — the repository has commits, so
+/// git failing to answer is our read breaking, not the workspace changing.
+/// Without a head-bearing baseline the repo may simply be unborn, which must
+/// keep its existing handling.
+pub fn classify_outcome(before: Option<&GitObservation>, after: &GitOutcome) -> GitClass {
+    match after {
+        GitOutcome::Observed(a) => classify(before, Some(a)),
+        GitOutcome::Unreadable if before.is_some_and(|b| b.head_sha.is_some()) => {
+            GitClass::ObservationUnreliable
+        }
+        // Unborn repo, or no baseline to contradict: unchanged behaviour.
+        GitOutcome::Unreadable | GitOutcome::NotGit => classify(before, None),
+    }
+}
+
 pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>) -> GitClass {
     // A merge in progress must defer regardless of whether we have a
     // prior observation — the FIRST scan of a workspace already mid-merge

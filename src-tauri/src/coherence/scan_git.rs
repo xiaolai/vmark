@@ -13,7 +13,7 @@
 
 use serde_json::json;
 
-use super::gitops::{classify, GitClass, GitObservation};
+use super::gitops::{classify_outcome, GitClass, GitObservation, GitOutcome};
 use super::scan_report::ScanReport;
 use super::state::WorkspaceKernel;
 use super::types::Envelope;
@@ -26,7 +26,7 @@ use super::types::Envelope;
 /// without an injection point that branch is unreachable from a test. It guards
 /// against minting a spurious external-edit revision (#1207), exactly the kind
 /// of silent, data-shaped bug a regression test has to hold down.
-pub(super) type GitObserver = fn(&std::path::Path) -> Option<GitObservation>;
+pub(super) type GitObserver = fn(&std::path::Path) -> GitOutcome;
 
 /// Whether the scan may continue into content reconciliation.
 #[derive(Debug, PartialEq, Eq)]
@@ -52,8 +52,15 @@ pub(super) fn run_git_phase(
     report: &mut ScanReport,
     observe_git: GitObserver,
 ) -> Result<GitPhase, String> {
-    let current_git = observe_git(kernel.root());
-    let class = classify(kernel.last_git.as_ref(), current_git.as_ref());
+    let outcome = observe_git(kernel.root());
+    let class = classify_outcome(kernel.last_git.as_ref(), &outcome);
+    // Only a real observation may become the next baseline. NotGit is a real
+    // observation of absence (Option::None is how the baseline records it);
+    // Unreadable is not an observation at all and must never be stored.
+    let current_git = match outcome {
+        GitOutcome::Observed(o) => Some(o),
+        GitOutcome::NotGit | GitOutcome::Unreadable => None,
+    };
 
     if class == GitClass::MergeInProgress {
         // Defer: reconcile once the merge concludes.
