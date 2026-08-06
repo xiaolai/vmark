@@ -18,27 +18,39 @@ use super::cas::SnapshotStore;
 use super::gitops::GitObservation;
 use super::index::CoherenceIndex;
 use super::ledger::Ledger;
-use super::types::{Envelope, WriterId};
+use super::types::WriterId;
+
+// Re-exported so `coherence::state::load_or_create_writer_id` stays a valid path
+// for `app_setup.rs` and for `state.test.rs` (which reaches these through
+// `use super::*`). The move is physical, not an API change.
+pub use super::workspace_files::load_or_create_writer_id;
+use super::workspace_files::{
+    ensure_line, flock_exclusive, ignore_rules_complete, is_fully_initialized,
+};
 
 pub struct WorkspaceKernel {
-    root: PathBuf,
+    // `pub(super)` for the fields `state_write.rs` needs: this inherent impl is
+    // split across modules, exactly as `CoherenceIndex` already is (index.rs,
+    // index_query.rs, index_state.rs, read_view.rs, …), and `index.rs` marks
+    // `conn` the same way for the same reason. Visibility stops at `coherence`.
+    pub(super) root: PathBuf,
     writer: WriterId,
-    ledger: Ledger,
-    snapshots: SnapshotStore,
-    index: CoherenceIndex,
+    pub(super) ledger: Ledger,
+    pub(super) snapshots: SnapshotStore,
+    pub(super) index: CoherenceIndex,
     initialized: bool,
     /// Set when an ambiguous append/apply failure may have left the ledger and
     /// index inconsistent (re-review #3): the durable ledger line may exist while
     /// the index lacks it, so the O(1) idem lookup can no longer be trusted. All
     /// writes and accepts refuse until reopen re-reconciles from the ledger.
-    unavailable: Option<String>,
+    pub(super) unavailable: Option<String>,
     /// True while a `with_write_lock` scope holds the exclusive workspace `flock`
     /// across its whole read-validate-append span (re-review #1, R1). The `flock`
     /// itself lives in a stack local in `with_write_lock` (so it releases on every
     /// exit incl. panic-unwind — #5); this flag only tells nested
     /// `append_and_apply` calls that the lock is already held, so they reuse it
     /// instead of re-locking (flock is not re-entrant across fds).
-    in_write_txn: bool,
+    pub(super) in_write_txn: bool,
     /// True until the `.gitignore` runtime rules have been verified/augmented once
     /// for this kernel (see `ignore_rules_complete`).
     ignore_rules_unchecked: bool,
@@ -166,167 +178,6 @@ impl WorkspaceKernel {
         Ok(())
     }
 
-    /// The single write path: durable ledger append, then index apply
-    /// (I1/I2 — appends only). Two ambiguous-failure classes are handled so the
-    /// O(1) idem lookup can never miss a durable entry (re-review #3):
-    /// - **append error** — `write_all` may have landed the line before a later
-    ///   step (fsync) failed, so the ledger MAY hold the entry while the index
-    ///   does not. Reconcile from the ledger and return an error asking the
-    ///   caller to retry (a deterministic-idem accept then finds it, no double
-    ///   append); poison the kernel if the reconcile itself fails.
-    /// - **apply error** — the ledger is truth, so rebuild from it; poison on
-    ///   rebuild failure (audit R7).
-    pub fn append_and_apply(&mut self, env: &Envelope) -> Result<(), String> {
-        // A lone append is itself a mutating operation: take the workspace lock
-        // for its whole span (re-review #1). When already inside a held
-        // `with_write_lock` scope (a group's per-member appends), reuse it.
-        if self.in_write_txn {
-            return self.append_and_apply_inner(env);
-        }
-        self.with_write_lock(|k| k.append_and_apply_inner(env))
-    }
-
-    fn append_and_apply_inner(&mut self, env: &Envelope) -> Result<(), String> {
-        // Initialize lazily at the actual write, NOT on every lock acquire
-        // (7th-review 6R-4): a rejected accept (tamper/stale) errors before it
-        // reaches here, so it can no longer fully initialize a pristine `.vmark`.
-        self.ensure_initialized()?;
-        if let Err(append_err) = self.ledger.append(env) {
-            return match self.reconcile_index_from_ledger() {
-                Ok(()) => Err(format!(
-                    "ledger append failed ({append_err}); index reconciled — retry the operation"
-                )),
-                Err(rec_err) => Err(self.poison(format!(
-                    "ledger append failed ({append_err}) and reconcile failed ({rec_err})"
-                ))),
-            };
-        }
-        if let Err(apply_err) = self.index.apply_entry(env) {
-            if let Err(rec_err) = self.reconcile_index_from_ledger() {
-                return Err(self.poison(format!(
-                    "index apply failed ({apply_err}) and rebuild failed ({rec_err})"
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    /// Refuse writes/accepts once an ambiguous failure has poisoned the kernel
-    /// (re-review #3) — the caller must reopen to re-reconcile from the ledger.
-    pub fn ensure_available(&self) -> Result<(), String> {
-        match &self.unavailable {
-            None => Ok(()),
-            Some(reason) => Err(format!("coherence unavailable until reopen: {reason}")),
-        }
-    }
-
-    fn poison(&mut self, reason: String) -> String {
-        self.unavailable = Some(reason.clone());
-        format!("{reason} — coherence unavailable until reopen")
-    }
-
-    /// Rebuild the index from the ledger's current entries — the recovery the
-    /// ambiguous-failure paths share (the ledger is always truth).
-    fn reconcile_index_from_ledger(&mut self) -> Result<(), String> {
-        let read = self.ledger.read_all()?;
-        self.index.rebuild_from(&read.entries)
-    }
-
-    /// Open + exclusively `flock` the workspace lock file (re-review #1). The
-    /// lock is held for the returned File's lifetime (released on fd close). The
-    /// lock path is a permanently-ignored runtime file (never git-tracked, so a
-    /// checkout can't swap its inode while held). Non-Unix skips the OS lock
-    /// (best-effort; macOS/Linux are the gated platforms).
-    fn acquire_lock_file(&self) -> Result<fs::File, String> {
-        let vmark = self.root.join(".vmark");
-        fs::create_dir_all(&vmark).map_err(|e| format!("group lock dir: {e}"))?;
-        flock_exclusive(&vmark)
-    }
-
-    /// Run `f` holding the exclusive cross-process workspace lock across its WHOLE
-    /// span (R1 — full pessimistic lock). EVERY mutating operation — a single
-    /// accept, a group accept/recover, or any command that reads state and then
-    /// appends (capture, adoption, scan, claim, resolution) — routes its whole
-    /// read → build → append through here, so it is atomic against every other
-    /// cooperating writer (7th-review 6R-1).
-    ///
-    /// Cost: the index is reconciled from the ledger on EVERY acquire — O(ledger)
-    /// per mutating operation. The change-gated version this replaced (7th-review
-    /// 6R-5) tried to skip the rebuild when a ledger fingerprint was unchanged;
-    /// four consecutive audits each found a fresh way for the index to diverge
-    /// while that fingerprint stayed put, because the fingerprint answers "did the
-    /// ledger change?" while the invariant that matters is "does the index still
-    /// reflect the ledger?". Those are not the same question, so the gate was
-    /// removed rather than patched a fifth time.
-    ///
-    /// The reconcile guarantees the base-head a caller re-derives inside `f` is
-    /// checked against a current index, so a concurrent commit that moved a head is
-    /// caught as a stale-base rejection, not a silent fork.
-    ///
-    /// Durability + panic safety:
-    /// - `.vmark` is initialized lazily at the actual write (`append_and_apply_inner`),
-    ///   never here, so a rejected op cannot fully initialize a pristine workspace
-    ///   (6R-4). `acquire_lock_file` creates only a bare `.vmark/group.lock`, which
-    ///   is not the `.gitattributes` completion marker `open` trusts.
-    /// - The `flock` lives in the `_flock` stack local, so it releases on EVERY
-    ///   exit path — normal return, `?`, or panic-unwind (6R-5 flock leak, CLOSED).
-    /// - An acquire-time reconcile failure POISONS the kernel (6R-6): a half-applied
-    ///   rebuild must never be used; the kernel refuses until reopen, which re-heals.
-    /// - On an unwind the std `Mutex<WorkspaceKernel>` poisons, so the stale
-    ///   `in_write_txn` can never gate a future write (the kernel is unreachable).
-    ///
-    /// Re-entrant: a nested call (a group's per-member `append_and_apply`) sees
-    /// the flag set and runs `f` directly on the already-held lock.
-    pub fn with_write_lock<R>(
-        &mut self,
-        f: impl FnOnce(&mut Self) -> Result<R, String>,
-    ) -> Result<R, String> {
-        self.ensure_available()?;
-        if self.in_write_txn {
-            return f(self);
-        }
-        let _flock = self.acquire_lock_file()?;
-        // Reconcile UNCONDITIONALLY. The previous change-gated version compared a
-        // cheap `(name, len, mtime, inode)` ledger fingerprint and rebuilt only on
-        // a difference — but four independent audits each found a fresh way for
-        // that oracle to return a FALSE NEGATIVE and serve a stale index: a
-        // same-length in-place rewrite under a coarse or restored mtime keeps the
-        // inode; a delete/recreate can reuse one; non-Unix has no inode at all;
-        // and, decisively, the fingerprint watches the LEDGER while another
-        // process can rebuild the shared `index.db` underneath it — the invariant
-        // that actually matters is "the index still reflects the ledger", which
-        // no ledger-only metadata can witness.
-        //
-        // The optimisation is also no longer buying what it was introduced for:
-        // `perform_status` now goes through `perform_breakdown_in`, which runs a
-        // scan AND `read_all`, so the ledger is already read on that path.
-        // Correctness that four audits could not falsify beats a saving that has
-        // already been given away.
-        if let Err(e) = self.reconcile_index_from_ledger() {
-            // A partially rebuilt index must never be served (6R-6).
-            return Err(self.poison(format!("acquire-time reconcile failed: {e}")));
-        }
-        self.in_write_txn = true;
-        // Run `f` inside catch_unwind so the flag is reset even on a panic
-        // (8th-review 8R-10). Relying on the registry `Mutex` poisoning was not
-        // enough: a DIRECTLY owned kernel whose panic is caught kept the flag set
-        // and the next `with_write_lock` took the re-entrant branch, running
-        // without any flock. The panic is re-raised unchanged afterwards.
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
-        self.in_write_txn = false;
-        match result {
-            Ok(r) => r,
-            Err(payload) => {
-                // A panic may have left the ledger ahead of the index (appended
-                // but not applied). Poison so a kernel surviving an outer
-                // `catch_unwind` refuses until reopen (9th-review 9R-2).
-                self.unavailable =
-                    Some("a panic escaped a locked operation; state may be torn".into());
-                std::panic::resume_unwind(payload)
-            }
-        }
-    }
-
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -406,184 +257,9 @@ impl KernelRegistry {
     }
 }
 
-/// Take the exclusive workspace `flock` on an EXISTING `.vmark` (the caller
-/// decides whether creating it is allowed — `open` must not, per spec §1). The
-/// lock is held for the returned File's lifetime, released on fd close. The lock
-/// path is a permanently-ignored runtime file, so a checkout can't swap its inode
-/// while held. Non-Unix skips the OS lock (macOS/Linux are the gated platforms).
-fn flock_exclusive(vmark: &Path) -> Result<fs::File, String> {
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(vmark.join("group.lock"))
-        .map_err(|e| format!("group lock open failed: {e}"))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::io::AsRawFd;
-        // SAFETY: `file` owns the fd for the flock's lifetime; the lock is
-        // released when the fd closes.
-        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
-        if rc != 0 {
-            return Err(format!(
-                "group lock failed: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-    }
-    Ok(file)
-}
-
 /// The rule the git-transported ledger depends on, and the initialization
 /// completion marker (7th-review 6R-4).
-const MERGE_UNION_RULE: &str = "ledger/*.jsonl merge=union";
-
-/// Is `.vmark` fully initialized? The marker rule alone is NOT a completion
-/// protocol (8th-review 8R-6): a checkout or hand-made workspace can carry
-/// `.gitattributes` while `.gitignore` and the ledger/snapshot dirs are missing,
-/// and `ensure_initialized` would then be skipped forever — leaving `index.db`
-/// and `group.lock` committable. Require EVERY structural piece, so any partial
-/// state re-initializes.
-fn is_fully_initialized(vmark: &Path) -> bool {
-    fs::read_to_string(vmark.join(".gitattributes"))
-        .map(|s| s.lines().any(|l| l.trim() == MERGE_UNION_RULE))
-        .unwrap_or(false)
-        && vmark.join("ledger").is_dir()
-        && vmark.join("snapshots").is_dir()
-}
-
-/// Are `.vmark/.gitignore`'s runtime-file rules complete? Separate from
-/// `is_fully_initialized` ON PURPOSE (found by dogfooding, 2026-07-20): folding
-/// this into the initialized test made a real 119-entry workspace — whose
-/// `.gitignore` predated the `group.lock` rule — report `initialized: false`, so
-/// `perform_status` skipped the breakdown and showed `open_items: 0` while
-/// `edges` correctly returned 5 stale edges. A missing ignore rule means
-/// "augment on next write" (`ensure_initialized`), NOT "this isn't a coherence
-/// workspace".
-fn ignore_rules_complete(vmark: &Path) -> bool {
-    fs::read_to_string(vmark.join(".gitignore"))
-        .map(|s| {
-            let has = |rule: &str| s.lines().any(|l| l.trim() == rule);
-            has("index.db*") && has("group.lock")
-        })
-        .unwrap_or(false)
-}
-
-/// Append `line` to `path` when absent, preserving existing content
-/// (audit R22 — a pre-existing file must still gain the required rules).
-/// The write is ATOMIC (7th-review 6R-4): a crash mid-write must never leave a
-/// truncated `.gitattributes` that a later `open` would trust as initialized, so
-/// the new content is staged in a temp file, fsync'd, then renamed into place.
-fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
-    // Read errors must NEVER become "empty" (9th-review 9R-5). `unwrap_or_default`
-    // turned a temporarily-unreadable or non-UTF-8 `.gitignore` into an empty
-    // string, and the rename below then replaced the user's real file with one
-    // containing only VMark's rule — destroying every rule they had written. The
-    // stricter init gate made that previously-dormant path reachable for an
-    // otherwise healthy workspace. Only a genuinely ABSENT file is empty; anything
-    // else fails closed and leaves the file untouched.
-    let existing = match fs::read_to_string(path) {
-        Ok(s) => s,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(e) => {
-            return Err(format!(
-                "init {}: unreadable ({e}) — refusing to overwrite it",
-                path.display()
-            ))
-        }
-    };
-    if existing.lines().any(|l| l.trim() == line) {
-        // The rule is present, but a PREVIOUS call may have returned after a
-        // successful rename whose directory fsync failed (9R-5 retry hole). Re-sync
-        // the directory so a retry actually completes the durability it skipped.
-        if let Some(dir) = path.parent() {
-            if let Ok(d) = fs::File::open(dir) {
-                d.sync_all()
-                    .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))?;
-            }
-        }
-        return Ok(());
-    }
-    let mut content = existing;
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
-    }
-    content.push_str(line);
-    content.push('\n');
-    let dir = path
-        .parent()
-        .ok_or_else(|| format!("init {}: no parent dir", path.display()))?;
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "marker".to_string());
-    // UNIQUE temp name + `create_new` (8th-review 8R-7), matching the
-    // context-manifest writer. A fixed `.<name>.tmp` is predictable: a planted
-    // symlink at that path would be FOLLOWED by `File::create`, truncating an
-    // attacker-chosen file outside the workspace. `create_new` refuses to open an
-    // existing path (symlink included), and the UUID removes collisions between
-    // concurrent initializers.
-    let tmp = dir.join(format!(".{name}.{}.tmp", Uuid::now_v7()));
-    let write = (|| -> std::io::Result<()> {
-        use std::io::Write as _;
-        let mut f = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp)?;
-        f.write_all(content.as_bytes())?;
-        f.sync_all()
-    })();
-    if let Err(e) = write {
-        let _ = fs::remove_file(&tmp); // never leave a stray temp behind
-        return Err(format!("init {}: staging: {e}", path.display()));
-    }
-    if let Err(e) = fs::rename(&tmp, path) {
-        let _ = fs::remove_file(&tmp);
-        return Err(format!("init {}: rename: {e}", path.display()));
-    }
-    // fsync the DIRECTORY so the rename itself is durable (8R-6): without this the
-    // marker can be lost after power loss while the structure it certifies survives.
-    let d = fs::File::open(dir).map_err(|e| format!("init {}: dir open: {e}", path.display()))?;
-    d.sync_all()
-        .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))
-}
-
-/// Per-installation writer identity (spec §2.2) — stored in app data,
-/// never inside a (git-shared) workspace.
-pub fn load_or_create_writer_id(app_data_dir: &Path) -> Result<WriterId, String> {
-    let path = app_data_dir.join("coherence-writer-id");
-    if let Ok(existing) = fs::read_to_string(&path) {
-        if let Ok(id) = Uuid::parse_str(existing.trim()) {
-            return Ok(WriterId(id));
-        }
-    }
-    let id = Uuid::now_v7();
-    fs::create_dir_all(app_data_dir).map_err(|e| format!("writer-id dir: {e}"))?;
-    // Write-then-link (audit A17): the file becomes visible ONLY with its
-    // full content — no window where another process reads it empty. A
-    // link collision means we lost the race: adopt THEIR id.
-    let tmp = app_data_dir.join(format!(".writer-id-{id}"));
-    fs::write(&tmp, id.to_string()).map_err(|e| format!("writer-id tmp write: {e}"))?;
-    let link_result = fs::hard_link(&tmp, &path);
-    let _ = fs::remove_file(&tmp);
-    match link_result.map(|_| ()) {
-        Ok(()) => Ok(WriterId(id)),
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-            let existing = fs::read_to_string(&path).map_err(|e| format!("writer-id read: {e}"))?;
-            match Uuid::parse_str(existing.trim()) {
-                Ok(other) => Ok(WriterId(other)), // lost the race — adopt theirs
-                Err(_) => {
-                    // Corrupt file, not a race: replace it (no healthy
-                    // writer can be relying on unparseable identity).
-                    fs::write(&path, id.to_string())
-                        .map_err(|e| format!("writer-id rewrite: {e}"))?;
-                    Ok(WriterId(id))
-                }
-            }
-        }
-        Err(e) => Err(format!("writer-id create: {e}")),
-    }
-}
+pub(super) const MERGE_UNION_RULE: &str = "ledger/*.jsonl merge=union";
 
 #[cfg(test)]
 #[path = "state.test.rs"]
