@@ -8,10 +8,15 @@
 //! test lock that surface.
 
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::io::{BufReader, Write};
+use std::path::PathBuf;
 
-use super::types::{Envelope, WriterId, FORMAT_VERSION};
+use super::types::{Envelope, WriterId};
+
+// Line framing/parsing moved to `ledger_lines.rs` for the file-size split.
+use super::ledger_lines::{
+    file_ends_with_newline, fsync_dir, parse_line, read_capped_line, CappedLine, LineOutcome,
+};
 
 /// Spec §5.1 rotation threshold.
 const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
@@ -21,7 +26,7 @@ const MAX_SEGMENT_BYTES: u64 = 8 * 1024 * 1024;
 /// past every field cap, or an externally-corrupted ledger) is quarantined
 /// instead of read whole into memory. Above the largest legal line (a
 /// `MAX_PREPARE_BYTES` 4 MiB prepare plus envelope overhead), with margin.
-const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
+pub(super) const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 
 /// I5 tripwire — every public method, mirrored by the test suite.
 pub const PUBLIC_API: [&str; 5] = [
@@ -54,9 +59,12 @@ pub struct LedgerRead {
 }
 
 pub struct Ledger {
-    dir: PathBuf,
-    writer: WriterId,
-    max_segment_bytes: u64,
+    // `pub(super)` because this inherent impl is split across `ledger.rs` and
+    // `ledger_segments.rs` — the same pattern `CoherenceIndex` and
+    // `WorkspaceKernel` already use. Visibility stops at `coherence`.
+    pub(super) dir: PathBuf,
+    pub(super) writer: WriterId,
+    pub(super) max_segment_bytes: u64,
 }
 
 impl Ledger {
@@ -74,55 +82,6 @@ impl Ledger {
             writer,
             max_segment_bytes: max,
         }
-    }
-
-    /// The segment the next append lands in: the HIGHEST existing suffix
-    /// (never an earlier gap — a branch merge can leave holes, and
-    /// reusing one would interleave old and new history in odd file
-    /// order; audit R18), advancing once the size threshold is crossed.
-    fn active_segment(&self) -> PathBuf {
-        let stem = writer_file_stem(&self.writer);
-        // True max-suffix discovery by LISTING (audit A-M8): gaps of any
-        // width (branch-pruned segments) can never cause suffix reuse.
-        let mut highest = 0u32;
-        if let Ok(entries) = fs::read_dir(&self.dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().into_owned();
-                let Some(rest) = name.strip_prefix(&stem) else {
-                    continue;
-                };
-                let n = match rest
-                    .strip_prefix('-')
-                    .and_then(|r| r.strip_suffix(".jsonl"))
-                {
-                    Some(num) => num.parse::<u32>().ok(),
-                    None if rest == ".jsonl" => Some(0),
-                    None => None,
-                };
-                if let Some(n) = n {
-                    highest = highest.max(n);
-                }
-            }
-        }
-        let path = self.segment_path(&stem, highest);
-        match fs::metadata(&path) {
-            Ok(meta) if meta.len() >= self.max_segment_bytes => {
-                self.segment_path(&stem, highest + 1)
-            }
-            _ => path,
-        }
-    }
-
-    fn segment_path(&self, stem: &str, n: u32) -> PathBuf {
-        if n == 0 {
-            self.dir.join(format!("{stem}.jsonl"))
-        } else {
-            self.dir.join(format!("{stem}-{n:03}.jsonl"))
-        }
-    }
-
-    pub fn active_segment_path_for_test(&self) -> PathBuf {
-        self.active_segment()
     }
 
     /// Append one entry: mkdir -p, terminate a torn tail, single write of
@@ -290,132 +249,6 @@ impl Ledger {
                 f.write_all(format!("# line {line_no}, {reason}\n{line_str}\n").as_bytes())
             });
     }
-}
-
-/// Outcome of one bounded line read.
-enum CappedLine {
-    /// A within-cap line (may be empty); its bytes are in `buf` (no trailing `\n`).
-    Line,
-    /// A line exceeded the cap — it was drained to the next boundary, not buffered.
-    Oversized,
-    /// Clean end of file.
-    Eof,
-}
-
-/// Read one newline-terminated line from `reader` into `buf`, bounding memory to
-/// `max` bytes (re-review #3). A line with no early newline is drained to its
-/// boundary WITHOUT being buffered once it passes `max`, so a single huge or
-/// hostile line can never OOM the reader. Consumes the BufReader's own buffer via
-/// `fill_buf`/`consume`, so at most one fill's worth (plus the capped `buf`) is
-/// resident at a time.
-fn read_capped_line<R: BufRead>(
-    reader: &mut R,
-    buf: &mut Vec<u8>,
-    max: usize,
-) -> Result<CappedLine, String> {
-    buf.clear();
-    let mut oversized = false;
-    loop {
-        let available = reader.fill_buf().map_err(|e| format!("read failed: {e}"))?;
-        if available.is_empty() {
-            if !buf.is_empty() {
-                return Ok(CappedLine::Line); // final line, no trailing newline
-            }
-            return Ok(if oversized {
-                CappedLine::Oversized
-            } else {
-                CappedLine::Eof
-            });
-        }
-        match available.iter().position(|&b| b == b'\n') {
-            Some(pos) => {
-                if !oversized && buf.len() + pos > max {
-                    oversized = true;
-                    buf.clear();
-                }
-                if !oversized {
-                    buf.extend_from_slice(&available[..pos]);
-                }
-                reader.consume(pos + 1);
-                return Ok(if oversized {
-                    CappedLine::Oversized
-                } else {
-                    CappedLine::Line
-                });
-            }
-            None => {
-                let n = available.len();
-                if !oversized && buf.len() + n > max {
-                    oversized = true;
-                    buf.clear();
-                }
-                if !oversized {
-                    buf.extend_from_slice(available);
-                }
-                reader.consume(n);
-            }
-        }
-    }
-}
-
-enum LineOutcome {
-    Entry(Envelope),
-    FutureFormat,
-    Malformed(String),
-}
-
-fn parse_line(line: &[u8]) -> LineOutcome {
-    let Ok(text) = std::str::from_utf8(line) else {
-        return LineOutcome::Malformed("invalid UTF-8".into());
-    };
-    let env: Envelope = match serde_json::from_str(text) {
-        Ok(e) => e,
-        Err(e) => return LineOutcome::Malformed(format!("invalid entry: {e}")),
-    };
-    if env.format > FORMAT_VERSION {
-        return LineOutcome::FutureFormat;
-    }
-    if env.sort_key().is_none() {
-        return LineOutcome::Malformed("unparseable time".into());
-    }
-    match env.typed() {
-        Ok(_) => LineOutcome::Entry(env),
-        Err(e) => LineOutcome::Malformed(e),
-    }
-}
-
-/// fsync a directory so a create/rename within it is durable (matches the
-/// `state.rs` 8R-6/9R-5 idiom). A directory `File` opened read-only and
-/// `sync_all()`'d persists its entries; not observable in a unit test, so it is
-/// durability hardening rather than tested behaviour (as with the state.rs
-/// dir-fsyncs). A missing directory is not an error here — the caller only
-/// fsyncs a dir it just created or wrote into.
-fn fsync_dir(dir: &Path) -> Result<(), String> {
-    match fs::File::open(dir) {
-        Ok(d) => d
-            .sync_all()
-            .map_err(|e| format!("ledger dir fsync failed ({}): {e}", dir.display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(format!(
-            "ledger dir open for fsync failed ({}): {e}",
-            dir.display()
-        )),
-    }
-}
-
-fn file_ends_with_newline(path: &Path) -> Result<bool, String> {
-    use std::io::{Read, Seek, SeekFrom};
-    let mut f = fs::File::open(path).map_err(|e| format!("open failed: {e}"))?;
-    let len = f.metadata().map_err(|e| format!("stat failed: {e}"))?.len();
-    if len == 0 {
-        return Ok(true);
-    }
-    f.seek(SeekFrom::End(-1))
-        .map_err(|e| format!("seek failed: {e}"))?;
-    let mut buf = [0u8; 1];
-    f.read_exact(&mut buf)
-        .map_err(|e| format!("read failed: {e}"))?;
-    Ok(buf[0] == b'\n')
 }
 
 #[cfg(test)]
