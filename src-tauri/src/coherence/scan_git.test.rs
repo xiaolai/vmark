@@ -701,3 +701,41 @@ fn a_missing_git_binary_degrades_instead_of_blocking_every_scan() {
         "a working probe keeps observing"
     );
 }
+
+/// The scan must load the revision DAG a BOUNDED number of times — not once
+/// per file.
+///
+/// `CoherenceIndex::heads` is `load_dag()?.heads(object)`: it reads every
+/// revision in the workspace to answer a question about one object. Calling it
+/// inside the per-file loop made a scan O(files x revisions), and a scan runs
+/// on every breakdown/status pull, so opening the panel on a 300-file workspace
+/// took ~380 ms of which ~99% was this.
+///
+/// Pinned structurally rather than by timing: the regression produces IDENTICAL
+/// results and only costs more, so no correctness test can see it, and a
+/// wall-clock assertion would be flaky. The bound is deliberately generous —
+/// this catches "once per file", not a change from one load to two.
+#[test]
+fn scan_loads_the_revision_dag_once_per_scan() {
+    use std::sync::atomic::Ordering;
+
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    let files = 12usize;
+    for d in 0..files {
+        let name = format!("doc{d}.md");
+        write_file(root, &name, "v0\n");
+        captured_doc(&mut kernel, root, &name, "v0\n");
+    }
+
+    kernel.index().load_dag_calls.store(0, Ordering::Relaxed);
+    scan_workspace(&mut kernel).unwrap();
+    let calls = kernel.index().load_dag_calls.load(Ordering::Relaxed);
+
+    assert!(
+        calls < files,
+        "a scan loaded the whole revision DAG {calls} times for {files} files — \
+         that is the per-file load_dag regression (O(files x revisions)); it must \
+         be hoisted out of the walk"
+    );
+}
