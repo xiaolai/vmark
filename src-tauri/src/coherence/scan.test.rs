@@ -691,3 +691,77 @@ fn registered_path_under_ignored_dir_is_never_marked_absent() {
         "an ignored-dir path must never be marked absent"
     );
 }
+
+// ── WI-4.2: the unreliable-observation guard (#1207) ─────────────────────
+
+/// A stub observer standing in for a `git` read that FAILED rather than a
+/// repository that changed: it still reports a repo (`Some`), but cannot
+/// resolve a HEAD. That distinction is the whole point — a bare `None` means
+/// "not a git repo" and classifies as `ExternalUnknown`, which reconciles
+/// normally. Only Some-with-no-HEAD, against a prior observation that HAD one,
+/// is the impossible transition that proves the read broke.
+fn head_unresolvable(_root: &Path) -> Option<crate::coherence::gitops::GitObservation> {
+    Some(crate::coherence::gitops::GitObservation {
+        head_ref: "main".into(),
+        head_sha: None,
+        known_shas: Default::default(),
+        merge_in_progress: false,
+    })
+}
+
+#[test]
+fn a_failed_git_read_is_refused_and_does_not_poison_the_baseline() {
+    // #1207: a repo that HAD a resolvable HEAD now reports none. Reconciling on
+    // that would mint a spurious external-edit revision for what is really a
+    // git mutation. The scan must refuse — AND must not store the bad
+    // observation, or the next scan would compare against it and mint anyway,
+    // turning a one-cycle transient into permanent corruption.
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    write_file(root, "a.md", "hello\n");
+    run_git(root, &["add", "-A"]);
+    run_git(root, &["commit", "-qm", "one"]);
+
+    // A real, healthy baseline observation.
+    let baseline = crate::coherence::gitops::observe(root).expect("a git repo");
+    assert!(
+        baseline.head_sha.is_some(),
+        "precondition: the baseline resolved a HEAD"
+    );
+    kernel.last_git = Some(baseline.clone());
+
+    let report = scan_workspace_with(&mut kernel, head_unresolvable).unwrap();
+
+    assert!(
+        report.git_observation_unreliable,
+        "a failed git read must be reported, not silently reconciled"
+    );
+    assert_eq!(
+        report.external_edits, 0,
+        "no external-edit revision may be minted from an unreliable observation (#1207)"
+    );
+    assert_eq!(
+        kernel.last_git.as_ref().map(|o| o.head_sha.clone()),
+        Some(baseline.head_sha.clone()),
+        "the good baseline must survive: storing the bad observation would make \
+         the NEXT scan reconcile against it, so a transient failure would become \
+         permanent corruption"
+    );
+}
+
+#[test]
+fn a_healthy_observation_still_scans_through_the_same_seam() {
+    // The seam must not change behaviour on the normal path — otherwise the
+    // test above would be proving something about the stub, not about the scan.
+    let (dir, mut kernel) = workspace();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    write_file(root, "a.md", "hello\n");
+    run_git(root, &["add", "-A"]);
+    run_git(root, &["commit", "-qm", "one"]);
+
+    let report = scan_workspace_with(&mut kernel, crate::coherence::gitops::observe).unwrap();
+    assert!(!report.git_observation_unreliable);
+    assert!(report.complete);
+}

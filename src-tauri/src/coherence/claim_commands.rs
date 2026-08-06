@@ -9,11 +9,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
-use super::command_errors::{
-    classify_write, kernel_poisoned, ledger_unavailable, rejected_argument, workspace_unavailable,
-};
-use crate::command_error::CommandError;
-
 use super::claim_entry::{entry_body, maturity_str};
 use super::claims::{ClaimStore, Maturity};
 use super::contexts::{write_manifest, ContextManifest, ContextSet, DEFAULT_CONTEXT_ID};
@@ -245,59 +240,3 @@ pub fn perform_claims_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ClaimRow>
         })
         .collect())
 }
-
-#[tauri::command]
-pub async fn coherence_claim(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    request: ClaimRequest,
-) -> Result<ClaimReceipt, CommandError> {
-    let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state
-        .registry
-        .kernel_for(&root, state.writer)
-        .map_err(workspace_unavailable)?;
-    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
-    let actor = super::commands::actor_identity(&root);
-    // The request carries the claim statement, scope and maturity; a rejection
-    // means one of those was wrong, so the caller must send something different.
-    perform_claim(&mut kernel, &request, &actor)
-        .map_err(|e| classify_write(&kernel, rejected_argument, e))
-}
-
-#[tauri::command]
-pub async fn coherence_claim_scope(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    context: Uuid,
-    claim: Uuid,
-    visible: bool,
-) -> Result<(), CommandError> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)
-        .map_err(workspace_unavailable)?;
-    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
-    // Both `context` and `claim` are caller-supplied ids that may not exist.
-    perform_claim_scope(&mut kernel, context, claim, visible)
-        .map_err(|e| classify_write(&kernel, rejected_argument, e))
-}
-
-#[tauri::command]
-pub async fn coherence_claims(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-) -> Result<Vec<ClaimRow>, CommandError> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)
-        .map_err(workspace_unavailable)?;
-    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
-    // Read-only. NOTE: `perform_claims_list` keeps its String error — the MCP
-    // bridge (coherence_answers.rs) calls it directly and is still String-typed.
-    perform_claims_list(&mut kernel).map_err(ledger_unavailable)
-}
-
-#[cfg(test)]
-#[path = "claim_commands.test.rs"]
-mod tests;
