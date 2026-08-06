@@ -7,6 +7,10 @@
 //! the server recomputes the revision id from the payload (the tamper check), so
 //! there is no server-side candidate session to survive a restart.
 
+use super::command_errors::{
+    kernel_poisoned, ledger_unavailable, state_conflict, workspace_unavailable,
+};
+use crate::command_error::CommandError;
 use serde::{Deserialize, Serialize};
 
 use super::accept::{accept_candidate, AcceptReceipt};
@@ -83,16 +87,25 @@ pub async fn coherence_operator_propose(
     workspace_root: String,
     object: ObjectId,
     content: String,
-) -> Result<Vec<OperatorCandidate>, String> {
+) -> Result<Vec<OperatorCandidate>, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
-    let kernel = kernel_arc
-        .lock()
-        .map_err(|_| "kernel poisoned".to_string())?;
-    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
-    let base = match kernel.index().resolve_live(&object)? {
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
+    let kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+    kernel.ensure_available().map_err(ledger_unavailable)?; // 9R-4: never serve a poisoned, half-rebuilt index
+    let base = match kernel
+        .index()
+        .resolve_live(&object)
+        .map_err(ledger_unavailable)?
+    {
         Resolved::Single(rev) => rev,
-        _ => return Err("object has no single live head to revise".into()),
+        _ => {
+            return Err(state_conflict(
+                "object has no single live head to revise".to_string(),
+            ))
+        }
     };
     Ok(tidy_revise(object, base, &content)
         .iter()
@@ -107,16 +120,18 @@ pub async fn coherence_operator_preview(
     state: tauri::State<'_, super::commands::CoherenceState>,
     workspace_root: String,
     candidate: OperatorCandidate,
-) -> Result<PreviewResult, String> {
+) -> Result<PreviewResult, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
-    let kernel = kernel_arc
-        .lock()
-        .map_err(|_| "kernel poisoned".to_string())?;
-    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
+    let kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+    kernel.ensure_available().map_err(ledger_unavailable)?; // 9R-4: never serve a poisoned, half-rebuilt index
     let preview = kernel
         .index()
-        .project_candidates(&candidate.to_candidate(), &now_rfc3339())?;
+        .project_candidates(&candidate.to_candidate(), &now_rfc3339())
+        .map_err(ledger_unavailable)?;
     Ok(PreviewResult {
         candidate_revision: preview.candidate_revision.as_str().to_string(),
         local_delta: preview.local_delta,
@@ -133,12 +148,13 @@ pub async fn coherence_operator_accept(
     workspace_root: String,
     candidate: OperatorCandidate,
     structural_classes: Vec<(PhysicalEdgeId, StructuralClass)>,
-) -> Result<AcceptReceipt, String> {
+) -> Result<AcceptReceipt, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel_arc
-        .lock()
-        .map_err(|_| "kernel poisoned".to_string())?;
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
+    let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
     let preview_classes = structural_classes.into_iter().collect();
     let candidate = candidate.to_candidate();
     let now = now_rfc3339();
@@ -146,7 +162,13 @@ pub async fn coherence_operator_accept(
     // base-head revalidation, reproject, and append are one atomic critical
     // section, so a concurrent group-commit can't move the head between our
     // validation and our append (which would fork the object with a stale sibling).
-    kernel.with_write_lock(|k| accept_candidate(k, &candidate, &preview_classes, &now))
+    // `conflict`, not `internal`: the dominant failure here is base-head
+    // revalidation losing a race with a concurrent group-commit, and the
+    // caller's remedy is to refresh and re-propose rather than to retry the
+    // identical call (ErrorCode::Conflict is deliberately not retryable).
+    kernel
+        .with_write_lock(|k| accept_candidate(k, &candidate, &preview_classes, &now))
+        .map_err(state_conflict)
 }
 
 #[cfg(test)]

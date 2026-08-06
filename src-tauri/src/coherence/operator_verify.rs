@@ -8,6 +8,8 @@
 //! The prompt-assembly (`build_candidate_prompt`) is unit-tested against a real
 //! kernel + CAS; the provider call is integration (a live provider).
 
+use super::command_errors::{kernel_poisoned, ledger_unavailable, workspace_unavailable};
+use crate::command_error::CommandError;
 use uuid::Uuid;
 
 use super::check_commands::{snapshot_text, CHECK_TIMEOUT_SECS, DEFAULT_TAU};
@@ -95,15 +97,17 @@ pub async fn coherence_operator_verify(
     candidate: OperatorCandidate,
     provider: crate::workflow::genie_step::ProviderConfig,
     model: Option<String>,
-) -> Result<AdvisoryVerdict, String> {
+) -> Result<AdvisoryVerdict, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
     let nonce = Uuid::now_v7().simple().to_string();
     let prompt = {
-        let mut kernel = kernel_arc
-            .lock()
-            .map_err(|_| "kernel poisoned".to_string())?;
-        build_candidate_prompt(&mut kernel, &candidate.to_candidate(), &nonce)?
+        let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+        build_candidate_prompt(&mut kernel, &candidate.to_candidate(), &nonce)
+            .map_err(ledger_unavailable)?
     };
     // Provider call outside the lock — a slow model must not block captures.
     let cancel = tokio_util::sync::CancellationToken::new();

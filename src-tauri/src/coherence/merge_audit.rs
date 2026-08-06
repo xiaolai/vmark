@@ -9,6 +9,8 @@
 //! reusing the Phase-1 `check_sweep` governance) and surfaces contradictions for
 //! human resolution (WI-5.3) — it **never** auto-reconciles (§14).
 
+use super::command_errors::{kernel_poisoned, ledger_unavailable, workspace_unavailable};
+use crate::command_error::CommandError;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -69,14 +71,15 @@ pub struct MergeAffectedEdge {
 pub async fn coherence_merge_audit(
     state: tauri::State<'_, super::commands::CoherenceState>,
     workspace_root: String,
-) -> Result<Vec<MergeAffectedEdge>, String> {
+) -> Result<Vec<MergeAffectedEdge>, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
-    let kernel = kernel_arc
-        .lock()
-        .map_err(|_| "kernel poisoned".to_string())?;
-    kernel.ensure_available()?; // 9R-4: never serve a poisoned, half-rebuilt index
-    let edges = merge_affected_edges(kernel.index(), kernel.root())?;
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
+    let kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+    kernel.ensure_available().map_err(ledger_unavailable)?; // 9R-4: never serve a poisoned, half-rebuilt index
+    let edges = merge_affected_edges(kernel.index(), kernel.root()).map_err(ledger_unavailable)?;
     Ok(edges
         .into_iter()
         .map(|e| MergeAffectedEdge {
