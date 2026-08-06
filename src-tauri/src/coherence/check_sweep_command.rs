@@ -5,6 +5,10 @@
 //! additions here are IO (`prepare_check`, the provider call, `record_check`),
 //! which are integration and exercised by the WI-1.3 dogfood run, not unit tests.
 
+use super::command_errors::{
+    kernel_poisoned, ledger_unavailable, state_conflict, workspace_unavailable,
+};
+use crate::command_error::CommandError;
 use std::time::{Duration, Instant};
 
 use uuid::Uuid;
@@ -41,7 +45,7 @@ pub async fn coherence_check_sweep(
     model: Option<String>,
     ceiling_usd: f64,
     tau: Option<f64>,
-) -> Result<SweepReport, String> {
+) -> Result<SweepReport, CommandError> {
     let tau = super::check_commands::resolve_tau(tau);
     // Refuse a CONCURRENT sweep (dogfood finding, 2026-07-20). The sweep drops the
     // kernel lock across every provider call, so two invocations both snapshot
@@ -52,7 +56,9 @@ pub async fn coherence_check_sweep(
     // including an early `?` return or a panic.
     use std::sync::atomic::Ordering;
     if state.sweep_in_flight.swap(true, Ordering::SeqCst) {
-        return Err("a coherence check sweep is already running — wait for it to finish".into());
+        return Err(state_conflict(
+            "a coherence check sweep is already running — wait for it to finish".to_string(),
+        ));
     }
     struct SweepGuard<'a>(&'a std::sync::atomic::AtomicBool);
     impl Drop for SweepGuard<'_> {
@@ -63,24 +69,31 @@ pub async fn coherence_check_sweep(
     let _sweep_guard = SweepGuard(&state.sweep_in_flight);
 
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
     let model_name = model.clone().unwrap_or_else(|| provider.provider.clone());
 
     // Snapshot the checkable edge set + resume cursor under one lock, then drop it
     // so the provider calls never hold the kernel.
     let (checkable, cursor): (Vec<(Uuid, u32)>, Vec<CheckedKey>) = {
-        let mut kernel = kernel_arc
-            .lock()
-            .map_err(|_| "kernel poisoned".to_string())?;
-        kernel.ensure_available()?; // 9R-4: never serve a poisoned index
-                                    // Go through the ENRICHED breakdown, not the raw index projection: the
-                                    // raw one has no lifecycle or anchor knowledge, so the sweep was paying
-                                    // for real LLM calls on frozen downstreams and on edges whose anchored
-                                    // section had not moved — work `perform_status` already considered
-                                    // non-actionable. `anchor-changed` and `anchor-lost` stay in scope.
-        let rows = super::commands::perform_breakdown_in(&mut kernel, None)?;
+        let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+        kernel.ensure_available().map_err(ledger_unavailable)?; // 9R-4: never serve a poisoned index
+                                                                // Go through the ENRICHED breakdown, not the raw index projection: the
+                                                                // raw one has no lifecycle or anchor knowledge, so the sweep was paying
+                                                                // for real LLM calls on frozen downstreams and on edges whose anchored
+                                                                // section had not moved — work `perform_status` already considered
+                                                                // non-actionable. `anchor-changed` and `anchor-lost` stay in scope.
+        let rows =
+            super::commands::perform_breakdown_in(&mut kernel, None).map_err(ledger_unavailable)?;
         let checkable = select_checkable(&rows);
-        let cursor = cursor_from_index(kernel.index().checked_cursor()?);
+        let cursor = cursor_from_index(
+            kernel
+                .index()
+                .checked_cursor()
+                .map_err(ledger_unavailable)?,
+        );
         (checkable, cursor)
     };
 
@@ -96,9 +109,7 @@ pub async fn coherence_check_sweep(
     for (txf, input) in checkable {
         // Prepare under the lock (loads texts + fed claims), then release.
         let prepared = {
-            let mut kernel = kernel_arc
-                .lock()
-                .map_err(|_| "kernel poisoned".to_string())?;
+            let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
             match prepare_check(&mut kernel, &txf, input) {
                 Ok(p) => p,
                 // A now-unresolvable edge (upstream diverged since breakdown) is
@@ -161,10 +172,9 @@ pub async fn coherence_check_sweep(
 
         // Record the result (so a resume skips this edge) and account for it.
         {
-            let mut kernel = kernel_arc
-                .lock()
-                .map_err(|_| "kernel poisoned".to_string())?;
-            record_check(&mut kernel, &prepared, &parsed, &model_name)?;
+            let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+            record_check(&mut kernel, &prepared, &parsed, &model_name)
+                .map_err(ledger_unavailable)?;
         }
         plan.commit(key, est);
         if errored {

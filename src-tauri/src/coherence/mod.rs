@@ -27,6 +27,7 @@ pub mod check_sweep_run;
 pub mod checker;
 pub mod claim_commands;
 pub mod claims;
+pub mod command_errors;
 pub mod commands;
 pub mod context_commands;
 pub mod contexts;
