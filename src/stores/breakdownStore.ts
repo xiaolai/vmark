@@ -63,8 +63,11 @@ export interface EdgeRow {
   actionable?: boolean;
 }
 
+// Not exported: these three describe the SHAPE of `LogbookView`'s fields and
+// nothing outside this module names them. An export nobody imports is dead
+// code the knip ratchet counts. Export them if a consumer ever needs the name.
 /** Mirror of the Rust `LogCheck` (coherence logbook). */
-export interface LogCheck {
+interface LogCheck {
   time: string;
   verdict: string;
   confidence: number;
@@ -74,14 +77,14 @@ export interface LogCheck {
 }
 
 /** Mirror of the Rust `FlagJudgment` — the owner's M2 datum. */
-export interface FlagJudgment {
+interface FlagJudgment {
   time: string;
   judgment: "relevant" | "noise" | "unsure";
   note: string;
 }
 
 /** Mirror of the Rust `LogEntry` — one edge's whole life. */
-export interface LogEntry {
+interface LogEntry {
   txf: string;
   input: number;
   firstActivity: string;
