@@ -381,3 +381,33 @@ fn append_refuses_an_entry_larger_than_the_read_cap() {
     );
     assert!(read.quarantined.is_empty(), "and nothing to quarantine");
 }
+
+#[test]
+fn a_future_record_is_detected_even_when_this_build_cannot_parse_its_shape() {
+    // Audit finding #2. Version detection used to run AFTER deserializing into
+    // this build's `Envelope`. A real format bump is exactly the thing that
+    // changes required fields — so a v1 record would fail to deserialize, be
+    // reported `Malformed` (quarantined), and leave `future_format` at zero.
+    // The WI-2.2 write gate would then see a fully-read ledger and allow the
+    // write: the precise situation the gate exists to prevent, defeated by the
+    // format bump that should have triggered it.
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    // A well-formed JSON line that is v1 and shares NO required field with the
+    // current envelope beyond `format` itself.
+    let future_line = r#"{"format":1,"entryId":"not-a-uuid","payload":{"whatever":true}}"#;
+    let seg = dir.path().join("ledger");
+    std::fs::create_dir_all(&seg).unwrap();
+    std::fs::write(seg.join("0001.jsonl"), format!("{future_line}\n")).unwrap();
+
+    let read = ledger.read_all().unwrap();
+    assert_eq!(
+        read.future_format, 1,
+        "an unparseable NEWER record must count as future-format, not malformed — \
+         otherwise the write gate never fires"
+    );
+    assert!(
+        read.quarantined.is_empty(),
+        "a newer format is not corruption and must not be quarantined"
+    );
+}

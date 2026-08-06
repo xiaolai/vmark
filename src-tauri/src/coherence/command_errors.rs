@@ -85,8 +85,14 @@ pub(super) fn classify_write(
     fallback: fn(String) -> CommandError,
     detail: String,
 ) -> CommandError {
-    let skipped = kernel.short_read_entries();
-    if skipped > 0 {
+    // `refused_for_short_read`, NOT `short_read_entries() > 0`. The count
+    // describes the last successful reconcile and can be stale in both
+    // directions: a lock-acquisition failure never reaches the reconcile, and a
+    // git operation can remove the offending entry between calls. Either way an
+    // unrelated failure would be reported as "upgrade VMark". The flag is set at
+    // the refusal and cleared at every acquire, so it answers the actual
+    // question: was THIS call refused for that reason?
+    if kernel.refused_for_short_read() {
         return CommandError::unsupported(detail);
     }
     fallback(detail)

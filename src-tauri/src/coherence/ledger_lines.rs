@@ -95,13 +95,28 @@ pub(super) fn parse_line(line: &[u8]) -> LineOutcome {
     let Ok(text) = std::str::from_utf8(line) else {
         return LineOutcome::Malformed("invalid UTF-8".into());
     };
-    let env: Envelope = match serde_json::from_str(text) {
+    // Probe the VERSION before typing the record. Deserializing into this
+    // build's `Envelope` first meant a newer format that renames, removes or
+    // retypes any required field failed to parse and was reported as
+    // `Malformed` — quarantined, with `future_format` left at zero, so the
+    // WI-2.2 write gate saw a fully-read ledger and let the write through. The
+    // version field is the one thing a format bump must keep readable, so it is
+    // read from the untyped value.
+    let value: serde_json::Value = match serde_json::from_str(text) {
+        Ok(v) => v,
+        Err(e) => return LineOutcome::Malformed(format!("invalid entry: {e}")),
+    };
+    if value
+        .get("format")
+        .and_then(serde_json::Value::as_u64)
+        .is_some_and(|f| f > u64::from(FORMAT_VERSION))
+    {
+        return LineOutcome::FutureFormat;
+    }
+    let env: Envelope = match serde_json::from_value(value) {
         Ok(e) => e,
         Err(e) => return LineOutcome::Malformed(format!("invalid entry: {e}")),
     };
-    if env.format > FORMAT_VERSION {
-        return LineOutcome::FutureFormat;
-    }
     if env.sort_key().is_none() {
         return LineOutcome::Malformed("unparseable time".into());
     }

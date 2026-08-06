@@ -110,15 +110,25 @@ impl WorkspaceKernel {
     /// one's work while every local check looked green. Reads deliberately stay
     /// available; only mutation is refused, so the remedy (upgrade VMark) is
     /// reachable from an app that still opens the workspace.
-    fn refuse_if_short_read(skipped: usize) -> Result<(), String> {
+    fn refuse_if_short_read(&mut self, skipped: usize) -> Result<(), String> {
         if skipped == 0 {
             return Ok(());
         }
+        self.refused_for_short_read = true;
         Err(format!(
             "ledger contains {skipped} entr{} in a newer format this build cannot read; \
              refusing to write on top of an incomplete history — upgrade VMark to continue",
             if skipped == 1 { "y" } else { "ies" }
         ))
+    }
+
+    /// Whether the last `with_write_lock` was refused for a short ledger read.
+    ///
+    /// Consumers: `command_errors::classify_write` (to report `unsupported`
+    /// rather than blaming the caller's input) and `scan::scan_workspace_with`
+    /// (to degrade a read-driven scan instead of failing it).
+    pub fn refused_for_short_read(&self) -> bool {
+        self.refused_for_short_read
     }
     /// Open + exclusively `flock` the workspace lock file (re-review #1). The
     /// lock is held for the returned File's lifetime (released on fd close). The
@@ -172,6 +182,13 @@ impl WorkspaceKernel {
         if self.in_write_txn {
             return f(self);
         }
+        // Clear before anything can fail, so the flag describes THIS acquire and
+        // never a previous one. Without this, a lock-acquisition failure — which
+        // happens before the reconcile that would refresh the count — would
+        // still be reported as "upgrade VMark", and a workspace whose future
+        // entries a git operation has since removed would keep reporting the
+        // old verdict forever.
+        self.refused_for_short_read = false;
         let _flock = self.acquire_lock_file()?;
         // Reconcile UNCONDITIONALLY. The previous change-gated version compared a
         // cheap `(name, len, mtime, inode)` ledger fingerprint and rebuilt only on
@@ -198,7 +215,7 @@ impl WorkspaceKernel {
         // poison: the workspace is fine and reads keep working — it is this
         // BINARY that is too old, and the condition clears by upgrading rather
         // than by reopening.
-        Self::refuse_if_short_read(skipped)?;
+        self.refuse_if_short_read(skipped)?;
         self.in_write_txn = true;
         // Run `f` inside catch_unwind so the flag is reset even on a panic
         // (8th-review 8R-10). Relying on the registry `Mutex` poisoning was not

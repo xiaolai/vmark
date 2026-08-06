@@ -52,6 +52,17 @@ pub struct WorkspaceKernel {
     /// binary is too old; upgrade) rather than `invalid-input` (your request was
     /// wrong), and those demand opposite things of the user.
     pub(super) short_read: usize,
+    /// True iff the LAST `with_write_lock` was refused specifically because the
+    /// ledger read was short.
+    ///
+    /// Deliberately distinct from `short_read > 0`. The count is a property of
+    /// the last successful reconcile and can be stale — if lock acquisition
+    /// fails before the reconcile runs, or the offending entry has since been
+    /// removed by a git operation, an unrelated failure would be reported as
+    /// "upgrade VMark". This flag is set at the refusal itself and cleared at
+    /// the start of every non-reentrant acquire, so it answers exactly the
+    /// question its consumers ask: *was this call refused for that reason?*
+    pub(super) refused_for_short_read: bool,
     /// True while a `with_write_lock` scope holds the exclusive workspace `flock`
     /// across its whole read-validate-append span (re-review #1, R1). The `flock`
     /// itself lives in a stack local in `with_write_lock` (so it releases on every
@@ -142,6 +153,7 @@ impl WorkspaceKernel {
             initialized,
             unavailable: None,
             short_read: 0,
+            refused_for_short_read: false,
             in_write_txn: false,
             ignore_rules_unchecked,
             last_git: None,
