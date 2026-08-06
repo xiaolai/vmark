@@ -4,15 +4,23 @@
 //! through managed state (WI-1.10) with no webview hop.
 
 use serde_json::json;
-use uuid::Uuid;
 
-use super::capture::{capture, CaptureReceipt, CaptureRequest};
+use super::command_types::now_rfc3339;
+pub use super::command_types::{actor_identity, CoherenceStatus, ResolveReceipt, ResolveRequest};
 use super::dag::Resolved;
 use super::index_query::EdgeRow;
-use super::scan::{scan_workspace, ScanReport};
+use super::scan::scan_workspace;
 use super::state::{KernelRegistry, WorkspaceKernel};
 use super::types::WriterId;
-use crate::ai_provider::build_command;
+
+// commands.test.rs reaches these through `use super::*`. clippy reports them
+// unused because THIS file no longer names them, and it does not account for a
+// `#[path]`-included child module's glob import — it pruned them once and broke
+// the test build. The allow keeps the next autofix from repeating that.
+#[allow(unused_imports)]
+use super::capture::{capture, CaptureReceipt, CaptureRequest};
+#[allow(unused_imports)]
+use uuid::Uuid;
 
 pub struct CoherenceState {
     pub registry: KernelRegistry,
@@ -26,59 +34,6 @@ pub struct CoherenceState {
     /// cross-process concern (the sweep cannot hold the workspace flock while an
     /// LLM call is outstanding).
     pub sweep_in_flight: std::sync::atomic::AtomicBool,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct ResolveRequest {
-    /// "accept-newer" appends a ratification; "waive" appends a waiver.
-    pub action: String,
-    pub txf: Uuid,
-    pub input: u32,
-    #[serde(default)]
-    pub reason: Option<String>,
-    /// D3.2: optional waiver expiry (RFC 3339); projection treats an
-    /// expired waiver as absent, the record stays in history.
-    #[serde(default)]
-    pub expires: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ResolveReceipt {
-    pub entry_id: Uuid,
-    pub kind: String,
-    pub resolved_against: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CoherenceStatus {
-    pub initialized: bool,
-    pub objects: usize,
-    pub open_items: usize,
-    pub quarantined: usize,
-    pub writer: WriterId,
-}
-
-fn now_rfc3339() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-}
-
-/// v1 actor identity (spec §5.4.3): git user.name, else OS username.
-/// Never blank.
-pub fn actor_identity(root: &std::path::Path) -> String {
-    if let Ok(out) = build_command("git", &["config", "user.name"])
-        .current_dir(root)
-        .output()
-    {
-        if out.status.success() {
-            let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !name.is_empty() {
-                return name;
-            }
-        }
-    }
-    std::env::var("USER")
-        .or_else(|_| std::env::var("USERNAME"))
-        .unwrap_or_else(|_| "unknown-human".to_string())
 }
 
 /// The resolution write path (WI-1.9a): validates the edge, computes a
@@ -280,95 +235,6 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
         quarantined: kernel.quarantined,
         writer: kernel.writer(),
     })
-}
-
-#[tauri::command]
-pub async fn coherence_capture(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    request: CaptureRequest,
-) -> Result<CaptureReceipt, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    capture(&mut kernel, request)
-}
-
-#[tauri::command]
-pub async fn coherence_resolve(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    request: ResolveRequest,
-) -> Result<ResolveReceipt, String> {
-    let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    let actor = actor_identity(&root);
-    perform_resolve(&mut kernel, &request, &actor)
-}
-
-#[tauri::command]
-pub async fn coherence_breakdown(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    context: Option<uuid::Uuid>,
-) -> Result<Vec<EdgeRow>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_breakdown_in(&mut kernel, context)
-}
-
-#[tauri::command]
-pub async fn coherence_status(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-) -> Result<CoherenceStatus, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_status(&mut kernel)
-}
-
-/// Read-time head lookup (audit T5): MCP reads pin the revision that was
-/// actually served, so a later upstream edit cannot be misattributed as
-/// the write's input. Null when the path is not a known single-headed
-/// object.
-#[tauri::command]
-pub async fn coherence_head(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    path: String,
-) -> Result<Option<serde_json::Value>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
-    let registry = kernel.index().registry_state()?;
-    let Some(object) = registry.object_at.get(&path) else {
-        return Ok(None);
-    };
-    let heads = kernel.index().heads(object)?;
-    match heads.as_slice() {
-        [only] => Ok(Some(json!({ "object": object, "revision": only }))),
-        _ => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub async fn coherence_scan(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-) -> Result<ScanReport, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    scan_workspace(&mut kernel)
 }
 
 #[cfg(test)]

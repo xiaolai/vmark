@@ -14,6 +14,7 @@ use super::canonical::text_content_hash;
 use super::capture::{adopt_from_disk, observed_external_entry, register_if_needed};
 use super::frontmatter::read_identity;
 use super::gitops::{classify, observe, GitClass};
+pub use super::scan_report::ScanReport;
 use super::state::WorkspaceKernel;
 use super::types::{Envelope, ObjectId, RevisionId};
 
@@ -46,26 +47,6 @@ pub(super) const IGNORED_REL_PREFIXES: [&str; 1] = [".claude/worktrees"];
 /// reconciliation is skipped.
 pub(super) const MAX_SCAN_FILES: usize = 20_000;
 pub(super) const MAX_SCAN_FILE_BYTES: u64 = 10 * 1024 * 1024;
-
-#[derive(Debug, Default, PartialEq, serde::Serialize)]
-pub struct ScanReport {
-    pub navigations: usize,
-    pub git_mutations: usize,
-    pub external_edits: usize,
-    /// Set when the git observation could not be trusted and reconciliation
-    /// was deferred to the next scan (#1207).
-    pub git_observation_unreliable: bool,
-    pub adopted: usize,
-    pub absent_marked: usize,
-    pub diagnostics: usize,
-    pub merge_deferred: bool,
-    /// D3.3: completed-merge diagnostics appended this scan (deduped by
-    /// merge commit SHA across repeated scans).
-    pub merges: usize,
-    /// False when the walk was truncated or a directory was unreadable —
-    /// deletion reconciliation was skipped for safety.
-    pub complete: bool,
-}
 
 /// One reconciliation pass (spec §9.4). Serialized with captures through
 /// the per-workspace kernel instance.

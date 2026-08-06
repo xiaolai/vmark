@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+use super::claim_entry::{entry_body, maturity_str};
 use super::claims::{ClaimStore, Maturity};
 use super::contexts::{write_manifest, ContextManifest, ContextSet, DEFAULT_CONTEXT_ID};
 use super::state::WorkspaceKernel;
@@ -158,33 +159,6 @@ fn perform_claim_locked(
     Ok(ClaimReceipt {
         claim: claim_id,
         entry_id,
-    })
-}
-
-fn maturity_str(e: &super::claims::ClaimEntry) -> &'static str {
-    match e.maturity {
-        Maturity::Draft => "draft",
-        Maturity::Established => "established",
-    }
-}
-
-fn entry_body(
-    claim: Uuid,
-    statement: &str,
-    maturity: &str,
-    invalid_at: Option<String>,
-    current: &super::claims::ClaimEntry,
-    actor: &str,
-) -> serde_json::Value {
-    json!({
-        "claim": claim.to_string(),
-        "statement": statement,
-        "valid_at": null,
-        "invalid_at": invalid_at,
-        "established_by": [],
-        "supersedes": current.entry_id.to_string(),
-        "maturity": maturity,
-        "actor": { "type": "human", "id": actor },
     })
 }
 
