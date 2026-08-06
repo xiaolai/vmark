@@ -79,6 +79,31 @@
 }
 
 /* Destructive action (delete, deny, stop). */
+/* Chromeless variant: a disclosure/section toggle that must read as a heading,
+   not as an action. No border or fill, so it does not compete with the real
+   buttons beside it — but it is still the canonical primitive, so padding,
+   font and focus behaviour stay in one place instead of being re-invented per
+   panel. Focus is an underline (rule 33: focus must be a shape change, not a
+   colour change alone). */
+.vm-btn--plain {
+  padding: var(--spacing-1) 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.vm-btn--plain:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text-color);
+}
+
+.vm-btn--plain:focus-visible {
+  outline: none;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
 .vm-btn--danger {
   border-color: var(--error-color);
   color: var(--error-color);
