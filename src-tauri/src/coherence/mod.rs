@@ -14,6 +14,8 @@
 
 pub mod accept;
 pub mod accept_group;
+pub mod accept_group_members;
+pub mod accept_group_recover;
 pub mod accept_precondition;
 pub mod adopt;
 pub mod anchors;
