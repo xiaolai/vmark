@@ -4,6 +4,10 @@
 //! genie steps use, and appends a D5.6-complete `check-result`. Pull
 //! only (D5.1) — nothing here runs without an explicit human ask.
 
+use super::command_errors::{
+    classify_write, kernel_poisoned, ledger_unavailable, rejected_argument, workspace_unavailable,
+};
+use crate::command_error::CommandError;
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -216,15 +220,18 @@ pub async fn coherence_check(
     provider: crate::workflow::genie_step::ProviderConfig,
     model: Option<String>,
     tau: Option<f64>,
-) -> Result<CheckReceipt, String> {
+) -> Result<CheckReceipt, CommandError> {
     let tau = resolve_tau(tau);
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel_arc = state.registry.kernel_for(&root, state.writer)?;
+    let kernel_arc = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
     let prepared = {
-        let mut kernel = kernel_arc
-            .lock()
-            .map_err(|_| "kernel poisoned".to_string())?;
-        prepare_check(&mut kernel, &txf, input)?
+        let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+        // `txf`/`input` name an edge the caller chose; it may not exist, and no
+        // retry of the same pair can fix that.
+        prepare_check(&mut kernel, &txf, input).map_err(rejected_argument)?
     };
     // Provider call OUTSIDE the kernel lock — a slow model must never
     // block captures or breakdown pulls.
@@ -254,10 +261,12 @@ pub async fn coherence_check(
         },
     };
     let model_name = model.as_deref().unwrap_or(provider.provider.as_str());
-    let mut kernel = kernel_arc
-        .lock()
-        .map_err(|_| "kernel poisoned".to_string())?;
+    let mut kernel = kernel_arc.lock().map_err(|_| kernel_poisoned())?;
+    // The verdict being recorded was produced here, not supplied by the caller,
+    // so a failure to record it is plumbing — but still route through
+    // classify_write so a short-read refusal reports `unsupported`.
     record_check(&mut kernel, &prepared, &parsed, model_name)
+        .map_err(|e| classify_write(&kernel, ledger_unavailable, e))
 }
 
 #[cfg(test)]

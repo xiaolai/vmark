@@ -16,13 +16,15 @@ import {
   isLatestRefresh,
   takeRefreshTicket,
 } from "@/services/breakdown/breakdownService";
+// This file carried the THIRD copy of `messageOf`. `coherence_claim*` now
+// rejects with a typed CommandError — a plain object, not an Error — so the old
+// `String(error)` fallback would have put the literal "[object Object]" into
+// `useClaimStore.setError`, i.e. in front of the user. One shared definition, so
+// the next command migration cannot resurrect the bug in a fourth place.
+import { messageOf } from "@/services/breakdown/breakdownShared";
 
 /** The implicit default context's fixed id (spec §5.4.4 revision 1). */
 export const DEFAULT_CONTEXT_ID = "00000000-0000-0000-0000-000000000000";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 export async function refreshClaims(workspaceRoot: string): Promise<void> {
   // Never refresh a workspace the user has already left: the synchronous
