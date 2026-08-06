@@ -8,6 +8,7 @@
 //! malformed is `unknown`. `unknown` is first-class and never collapsed
 //! (R25).
 
+use super::checker_format::{fenced, truncate};
 use super::project::CheckVerdict;
 
 /// Bounds keeping prompts and ledger entries finite.
@@ -62,26 +63,6 @@ pub struct CheckPromptInput<'a> {
     /// Fence nonce minted by the caller (H13: document text is data,
     /// never instructions).
     pub nonce: &'a str,
-}
-
-fn truncate(text: &str, limit: usize) -> String {
-    const MARKER: &str = "\n[truncated]";
-    if text.len() <= limit {
-        return text.to_string();
-    }
-    // The marker lives INSIDE the budget so callers can rely on `limit`.
-    let mut cut = limit.saturating_sub(MARKER.len());
-    while !text.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    format!("{}{MARKER}", &text[..cut])
-}
-
-fn fenced(nonce: &str, label: &str, body: &str) -> String {
-    format!(
-        "<data-{nonce} label=\"{label}\">\n{}\n</data-{nonce}>",
-        truncate(body, MAX_TEXT_CHARS)
-    )
 }
 
 /// Build the check prompt: the model compares the downstream document

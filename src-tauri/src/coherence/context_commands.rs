@@ -8,39 +8,12 @@
 use serde::Serialize;
 use uuid::Uuid;
 
+use super::context_types::{contexts_dir, enforcement_str};
+pub use super::context_types::{ContextReceipt, ContextRow};
 use super::contexts::{
     write_manifest, ContextManifest, ContextSet, Enforcement, DEFAULT_CONTEXT_ID,
 };
 use super::state::WorkspaceKernel;
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextRow {
-    pub id: Uuid,
-    pub name: String,
-    pub parent: Option<Uuid>,
-    pub enforcement: String,
-    pub visible_claims: usize,
-    /// Per-file load errors and structural chain errors, surfaced.
-    pub errors: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextReceipt {
-    pub id: Uuid,
-}
-
-fn contexts_dir(kernel: &WorkspaceKernel) -> std::path::PathBuf {
-    kernel.root().join(".vmark").join("contexts")
-}
-
-fn enforcement_str(e: Enforcement) -> &'static str {
-    match e {
-        Enforcement::Enforcing => "enforcing",
-        Enforcement::Greenhouse => "greenhouse",
-    }
-}
 
 pub fn perform_contexts_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ContextRow>, String> {
     let set = ContextSet::load(&contexts_dir(kernel));
