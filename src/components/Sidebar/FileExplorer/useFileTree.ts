@@ -211,7 +211,6 @@ export function useFileTree(
       // keyed on rootPath, not derivable during render (#1063).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTree([]);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(null);
       return;
     }

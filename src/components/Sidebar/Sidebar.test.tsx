@@ -200,6 +200,30 @@ describe("Sidebar — follows the active tab's kind", () => {
     expect(screen.getByTestId("browser-history-view")).toBeInTheDocument();
   });
 
+  // The CONTENT followed the tab's kind, but the HEADER kept rendering from the
+  // remembered DOCUMENT view — so a browser tab could show a "FILES" title and
+  // the whole file toolbar, including a button that mutates workspace config,
+  // above a list of visited pages.
+  it("shows no file actions in the header while a browser tab is active", () => {
+    useUIStore.setState({ sidebarViewMode: "files" });
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    useTabStore.getState().setActiveTab("main", id);
+    render(<Sidebar />);
+
+    expect(screen.queryByRole("button", { name: /new file/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /show all files/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /expand all folders/i })).toBeNull();
+  });
+
+  it("titles the header for the browser sub-view, not the remembered document one", () => {
+    useUIStore.setState({ sidebarViewMode: "files", sidebarBrowserViewMode: "bookmarks" });
+    const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
+    useTabStore.getState().setActiveTab("main", id);
+    render(<Sidebar />);
+
+    expect(screen.queryByText("FILES")).toBeNull();
+  });
+
   it("shows bookmarks when that is the remembered browser sub-view", () => {
     const id = useTabStore.getState().createBrowserTab("main", "https://a.com/", "A");
     useTabStore.getState().setActiveTab("main", id);

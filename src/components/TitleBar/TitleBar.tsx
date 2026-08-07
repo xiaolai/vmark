@@ -126,7 +126,7 @@ function DocumentTitleBar() {
     editOpenedWith.current = { name: displayName, showExtensions, filePath };
     setEditValue(displayName);
     setIsEditing(true);
-  }, [displayName, isUnsaved, showExtensions]);
+  }, [displayName, isUnsaved, showExtensions, filePath]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {

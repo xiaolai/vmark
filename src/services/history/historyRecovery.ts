@@ -32,11 +32,14 @@ import { normalizePath, isWithinRoot } from "@/utils/paths/paths";
 import { getHistoryBaseDir } from "@/services/history/historyOperations";
 
 /**
- * Permanently delete history for a document.
- * Surfaces success/failure to the user — these are explicit user actions
- * from Settings, so silent failure was misleading.
+ * Permanently delete history for a document. Returns whether it succeeded.
+ *
+ * Surfaces success/failure to the user — these are explicit user actions, so
+ * silent failure was misleading. It also RETURNS the outcome: toasting is not
+ * the same as telling the caller, and a caller that cannot tell goes on to
+ * announce a clear that never happened.
  */
-export async function deleteHistory(pathHash: string): Promise<void> {
+export async function deleteHistory(pathHash: string): Promise<boolean> {
   try {
     const baseDir = await getHistoryBaseDir();
     const historyDir = await join(baseDir, pathHash);
@@ -46,9 +49,11 @@ export async function deleteHistory(pathHash: string): Promise<void> {
       historyLog("Deleted history for:", pathHash);
     }
     toast.success(i18n.t("dialog:toast.historyDeleted"));
+    return true;
   } catch (error) {
     historyError("Failed to delete history:", error);
     toast.error(i18n.t("dialog:toast.historyDeleteFailed"));
+    return false;
   }
 }
 
@@ -67,16 +72,21 @@ export async function clearAllHistory(): Promise<void> {
   }
 }
 
-/** Delete all history for a specific document by its file path. */
+/**
+ * Delete all history for a specific document by its file path.
+ * Returns whether the history is actually gone — `deleteHistory` handles its
+ * own errors, so awaiting it proved nothing on its own.
+ */
 export async function deleteDocumentHistory(
   documentPath: string
-): Promise<void> {
+): Promise<boolean> {
   try {
     const hash = await hashPath(documentPath);
-    await deleteHistory(hash);
+    return await deleteHistory(hash);
   } catch (error) {
     historyError("Failed to delete document history:", error);
     toast.error(i18n.t("dialog:toast.historyDeleteFailed"));
+    return false;
   }
 }
 

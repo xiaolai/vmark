@@ -1,12 +1,28 @@
 /**
  * Sidebar Component
  *
- * Navigation sidebar with Files, Outline, and History views.
+ * Purpose: navigation sidebar. Follows the ACTIVE TAB'S KIND (ADR-2, WI-S2.1):
+ * a document tab gets Files / Outline / History, a browser tab gets Browsing
+ * History / Bookmarks / Site Permissions.
+ *
+ * Key decisions:
+ *   - Header and content read the SAME kind. They used to disagree: the
+ *     content followed `sidebar.kind` while the header rendered from the
+ *     remembered document view, so a browser tab could be titled "FILES" and
+ *     carry the whole file toolbar — including a control that writes workspace
+ *     config — above a list of visited pages.
+ *   - Every icon button is a `SidebarActionButton`, so `title` and
+ *     `aria-label` are one string by construction rather than two hand-kept
+ *     copies of the same expression.
+ *
+ * @coordinates-with useSidebarContext.ts — resolves the active kind + sub-view
+ * @coordinates-with SidebarActionButton.tsx — the one header/footer button
+ * @module components/Sidebar/Sidebar
  */
 
 import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown, Files } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown, Files, Bookmark, ShieldCheck } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/services/history/historyRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
@@ -28,6 +44,7 @@ import { BrowserSessionsList } from "@/components/Browser/BrowserSessionsList";
 import type { BrowserSidebarView } from "@/stores/uiStore/types";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useSidebarInstanceSync } from "./useSidebarInstanceSync";
+import { SidebarActionButton } from "./SidebarActionButton";
 
 // Constants
 const TRAFFIC_LIGHTS_SPACER_PX = 28;
@@ -48,6 +65,20 @@ const VIEW_CONFIG: Record<SidebarViewMode, {
   files: { icon: FolderTree, next: "outline" },
   outline: { icon: TableOfContents, next: "history" },
   history: { icon: History, next: "files" },
+};
+
+/** Header chrome for the browser kind. The header used to read VIEW_CONFIG
+ *  unconditionally, so a browser tab could be titled "FILES" and carry the
+ *  whole file toolbar — including a control that writes workspace config —
+ *  above a list of visited pages. (Audit finding, High.) */
+const BROWSER_VIEW_CHROME: Record<BrowserSidebarView, {
+  icon: typeof FolderTree;
+  titleKey: string;
+  showKey: string;
+}> = {
+  "browser-history": { icon: History, titleKey: "viewBrowserHistory", showKey: "showBrowserHistory" },
+  bookmarks: { icon: Bookmark, titleKey: "viewBookmarks", showKey: "showBookmarks" },
+  permissions: { icon: ShieldCheck, titleKey: "viewPermissions", showKey: "showPermissions" },
 };
 
 /** Navigation sidebar with switchable Files, Outline, and History views. */
@@ -72,8 +103,12 @@ export function Sidebar() {
   const filePath = useDocumentFilePath();
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
   const isClearingRef = useRef(false);
+  // The header follows the ACTIVE KIND, exactly as the content does.
+  const isBrowser = sidebar.kind === "browser";
   const config = VIEW_CONFIG[viewMode];
-  const Icon = config.icon;
+  const browserView = sidebar.view as BrowserSidebarView;
+  const browserChrome = BROWSER_VIEW_CHROME[browserView];
+  const Icon = isBrowser ? browserChrome.icon : config.icon;
 
   // Map view mode to translation keys
   const viewTitleKey: Record<SidebarViewMode, string> = {
@@ -87,8 +122,10 @@ export function Sidebar() {
     history: "showHistory",
   };
 
-  const currentTitle = t(viewTitleKey[viewMode]);
-  const nextShowLabel = t(showNextKey[config.next]);
+  const currentTitle = isBrowser ? t(browserChrome.titleKey) : t(viewTitleKey[viewMode]);
+  const nextShowLabel = isBrowser
+    ? t(BROWSER_VIEW_CHROME[BROWSER_VIEW_NEXT[browserView]].showKey)
+    : t(showNextKey[config.next]);
 
   const handleClearDocumentHistory = useCallback(async () => {
     if (!filePath || isClearingRef.current) return;
@@ -98,8 +135,9 @@ export function Sidebar() {
         t("clearHistoryMessage"),
         { title: t("clearDocumentHistory"), kind: "warning" }
       );
-      if (confirmed) {
-        await deleteDocumentHistory(filePath);
+      // The service catches its own failures, so awaiting it proved nothing:
+      // the UI announced a successful clear over history that was still there.
+      if (confirmed && (await deleteDocumentHistory(filePath))) {
         emitHistoryCleared();
       }
     } finally {
@@ -125,73 +163,55 @@ export function Sidebar() {
       {/* Spacer for traffic lights area */}
       <div style={{ height: TRAFFIC_LIGHTS_SPACER_PX, flexShrink: 0, padding: 0, margin: 0 }} />
       <div className="sidebar-header">
-        <button
-          className="sidebar-btn"
+        <SidebarActionButton
+          label={nextShowLabel}
+          icon={Icon}
           onClick={handleToggleView}
-          title={nextShowLabel}
-          aria-label={nextShowLabel}
-        >
-          <Icon size={16} />
-        </button>
+          size={16}
+        />
         <span className="sidebar-title">{currentTitle}</span>
         {/* Action buttons - files view */}
-        {viewMode === "files" && (
+        {!isBrowser && viewMode === "files" && (
           <div className="sidebar-header-actions">
-            <button
-              className="sidebar-btn"
+            <SidebarActionButton
+              label={t("expandAllFolders")}
+              icon={ChevronsUpDown}
               onClick={() => fileExplorerRef.current?.expandAll()}
-              title={t("expandAllFolders")}
-              aria-label={t("expandAllFolders")}
-            >
-              <ChevronsUpDown size={14} />
-            </button>
-            <button
-              className="sidebar-btn"
+            />
+            <SidebarActionButton
+              label={t("collapseAllFolders")}
+              icon={ChevronsDownUp}
               onClick={() => fileExplorerRef.current?.collapseAll()}
-              title={t("collapseAllFolders")}
-              aria-label={t("collapseAllFolders")}
-            >
-              <ChevronsDownUp size={14} />
-            </button>
-            <button
-              className="sidebar-btn"
+            />
+            <SidebarActionButton
+              label={t("showAllFiles")}
+              icon={Files}
+              shortcut={allFilesShortcut}
               onClick={() => void toggleShowAllFiles()}
-              aria-pressed={showAllFiles}
+              pressed={showAllFiles}
               disabled={!isWorkspaceMode}
-              title={tooltipWithShortcut(t("showAllFiles"), formatKeyForDisplay(allFilesShortcut))}
-              aria-label={tooltipWithShortcut(t("showAllFiles"), formatKeyForDisplay(allFilesShortcut))}
-            >
-              <Files size={14} />
-            </button>
-            <button
-              className="sidebar-btn"
+            />
+            <SidebarActionButton
+              label={t("newFile")}
+              icon={FilePlus}
+              shortcut={newFileShortcut}
               onClick={() => fileExplorerRef.current?.createNewFile()}
-              title={tooltipWithShortcut(t("newFile"), formatKeyForDisplay(newFileShortcut))}
-              aria-label={tooltipWithShortcut(t("newFile"), formatKeyForDisplay(newFileShortcut))}
-            >
-              <FilePlus size={14} />
-            </button>
-            <button
-              className="sidebar-btn"
+            />
+            <SidebarActionButton
+              label={t("newFolder")}
+              icon={FolderPlus}
               onClick={() => fileExplorerRef.current?.createNewFolder()}
-              title={t("newFolder")}
-              aria-label={t("newFolder")}
-            >
-              <FolderPlus size={14} />
-            </button>
+            />
           </div>
         )}
         {/* Action buttons - history view */}
-        {viewMode === "history" && filePath && (
+        {!isBrowser && viewMode === "history" && filePath && (
           <div className="sidebar-header-actions">
-            <button
-              className="sidebar-btn"
-              onClick={handleClearDocumentHistory}
-              title={t("clearDocumentHistory")}
-              aria-label={t("clearDocumentHistory")}
-            >
-              <Trash2 size={14} />
-            </button>
+            <SidebarActionButton
+              label={t("clearDocumentHistory")}
+              icon={Trash2}
+              onClick={() => void handleClearDocumentHistory()}
+            />
           </div>
         )}
       </div>
