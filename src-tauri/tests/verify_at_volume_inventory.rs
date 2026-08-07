@@ -66,7 +66,16 @@ enum PathState {
 /// is git-shared, so its paths are untrusted input.
 fn probe(root: &Path, rel: &str) -> PathState {
     let p = Path::new(rel);
-    if p.is_absolute() || p.components().any(|c| matches!(c, Component::ParentDir)) {
+    // Mirror production's rule (`coherence::paths::resolve_workspace_rel`):
+    // EVERY component must be `Normal`. Checking `is_absolute()` + `ParentDir`
+    // was weaker than what ships, and the gap is platform-specific: Windows
+    // does not consider "/etc/passwd" absolute (no drive letter, no UNC
+    // prefix), so it fell through to a plain join and reported `Absent` where
+    // production correctly rejects it on the non-`Normal` `RootDir` component.
+    // Rejecting on components covers RootDir, Prefix, ParentDir and CurDir on
+    // every platform, so the harness can no longer be laxer than the guard it
+    // is meant to model.
+    if p.components().any(|c| !matches!(c, Component::Normal(_))) {
         return PathState::Invalid;
     }
     let joined = root.join(p);
