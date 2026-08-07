@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "Ouvrir le dossier des génies"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "Impossible d'ouvrir l'espace de travail : %{detail}"
+  coherence.kernelPoisoned: "Le suivi de cohérence s'est arrêté après une erreur interne. Rouvrez l'espace de travail pour continuer."
+  coherence.ledgerUnavailable: "Impossible de lire l'historique de cohérence : %{detail}"
+  coherence.rejectedArgument: "La requête a été rejetée : %{detail}"
+  coherence.stateConflict: "L'espace de travail a changé depuis cette requête : %{detail}"
+  coherence.buildTooOld: "Cette version de VMark ne peut pas lire une partie de l'historique de cohérence. Mettez VMark à jour pour continuer : %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "Contenu HTML trop volumineux (>50 Mo)"
   core.pathTraversal: "Traversée de chemin (..) non autorisée"

@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "開啟精靈資料夾"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "無法開啟工作區：%{detail}"
+  coherence.kernelPoisoned: "發生內部錯誤，一致性追蹤已停止。請重新開啟工作區以繼續。"
+  coherence.ledgerUnavailable: "無法讀取一致性歷史記錄：%{detail}"
+  coherence.rejectedArgument: "請求遭到拒絕：%{detail}"
+  coherence.stateConflict: "自本次請求以來工作區已變更：%{detail}"
+  coherence.buildTooOld: "目前版本的 VMark 無法讀取部分一致性歷史記錄。請更新 VMark 後繼續：%{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML 內容過大（超過 50 MB）"
   core.pathTraversal: "不允許使用路徑穿越（..）"

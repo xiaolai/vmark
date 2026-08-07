@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "Apri cartella geni"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "Impossibile aprire lo spazio di lavoro: %{detail}"
+  coherence.kernelPoisoned: "Il tracciamento della coerenza si è interrotto dopo un errore interno. Riapri lo spazio di lavoro per continuare."
+  coherence.ledgerUnavailable: "Impossibile leggere la cronologia di coerenza: %{detail}"
+  coherence.rejectedArgument: "La richiesta è stata rifiutata: %{detail}"
+  coherence.stateConflict: "Lo spazio di lavoro è cambiato dopo questa richiesta: %{detail}"
+  coherence.buildTooOld: "Questa versione di VMark non può leggere parte della cronologia di coerenza. Aggiorna VMark per continuare: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "Contenuto HTML troppo grande (>50 MB)"
   core.pathTraversal: "Traversal del percorso (..) non consentito"
