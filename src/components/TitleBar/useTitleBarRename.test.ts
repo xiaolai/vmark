@@ -34,6 +34,22 @@ describe("useTitleBarRename", () => {
     expect(ok).toBe(true);
     expect(mockRenameService).toHaveBeenCalledWith("/docs/config.yaml", "config2", {
       isFolder: false,
+      preserveExtension: true,
+    });
+  });
+
+  // #1224 — the title bar now shows the extension by default, so what the user
+  // typed is final. Re-attaching there silently undoes a deliberate deletion.
+  it("forwards preserveExtension: false when the editor showed the extension", async () => {
+    const { result } = renderHook(() => useTitleBarRename());
+    await act(async () => {
+      await result.current.renameFile("/docs/config.yaml", "config2", {
+        preserveExtension: false,
+      });
+    });
+    expect(mockRenameService).toHaveBeenCalledWith("/docs/config.yaml", "config2", {
+      isFolder: false,
+      preserveExtension: false,
     });
   });
 

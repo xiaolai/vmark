@@ -22,15 +22,25 @@
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import i18n from "@/i18n";
 import { getFileName } from "@/utils/paths";
-import { stripSupportedExtension } from "@/utils/dropPaths";
+import { tabStoreWarn } from "@/utils/debug";
 import type { Tab, DocumentTab } from "./tabStoreTypes";
 
-/** Generate a process-unique tab id. Shared by the general store and the
- *  browser-workspace actions so the id format cannot drift between them. */
+/** Generate a unique tab id. Shared by the general store and the
+ *  browser-workspace actions so the id format cannot drift between them.
+ *  `randomUUID` rather than time+random: id uniqueness is load-bearing for
+ *  cross-window updates, and two tabs minted in the same millisecond only
+ *  needed a 36^7 collision to make one keyed update hit both. */
 export const generateTabId = (): string =>
-  `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  `tab-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`}`;
 
-/** Tab display title from a file path (or a numbered "Untitled" for null). */
+/**
+ * Tab title from a file path (or a numbered "Untitled" for null).
+ *
+ * The file's REAL name, extension included — every non-display consumer
+ * (MCP session listing, hot-exit snapshot, close-tab dialog) needs a name that
+ * matches the disk. Hiding the extension is the tab strip's decision, applied
+ * at render via `formatFileDisplayName` (#1224).
+ */
 export function getTabTitle(filePath: string | null, untitledNum?: number): string {
   if (!filePath) {
     // Translated "Untitled" — `common:untitled`. The numbered suffix stays a
@@ -38,7 +48,7 @@ export function getTabTitle(filePath: string | null, untitledNum?: number): stri
     const base = i18n.t("common:untitled");
     return untitledNum ? `${base}-${untitledNum}` : base;
   }
-  return stripSupportedExtension(getFileName(filePath) || filePath);
+  return getFileName(filePath) || filePath;
 }
 
 /** Localized display name for a format id, falling back to the id when the
@@ -60,20 +70,22 @@ export function getLocalizedFormatName(formatId: string): string {
 
 /** Derive a tab's format id from its path, defaulting to markdown. */
 export function deriveFormatId(filePath: string | null): string {
-  // dispatchEditor throws only when no formats are registered (test-only edge);
-  // production bootstraps markdown + txt + stubs at app start. Defensive try
-  // keeps the store usable in any code path that runs before bootstrap.
-  /* v8 ignore next 5 -- @preserve defensive fallback for unbootstrapped registry */
   try {
     return dispatchEditor(filePath).id;
-  } catch {
+  } catch (error) {
+    // dispatchEditor throws in exactly one case: NO format is registered — the
+    // pre-bootstrap window (tests, early startup), where "markdown" is a
+    // placeholder rather than a claim. Anything else reaching here is a real
+    // registry defect, and swallowing it turned every affected tab into a
+    // silent markdown tab. Log it; the fallback still keeps the store usable.
+    tabStoreWarn("deriveFormatId: format registry unavailable", error);
     return "markdown";
   }
 }
 
 /**
- * The one immutable cross-window "find the document tab with this id and
- * replace it" primitive. `update` runs on the matching document tab; returning
+ * The one immutable cross-window "find the tab with this id and replace it"
+ * primitive. `update` runs on the matching document tab; returning
  * the same object means "no change".
  *
  * Object identity is preserved wherever nothing changed: untouched windows keep
@@ -82,17 +94,17 @@ export function deriveFormatId(filePath: string | null): string {
  * every `state.tabs` subscriber a fresh reference and re-render the tab strip
  * for nothing.
  */
-function mapDocumentTabById(
+export function mapTabById(
   tabs: Record<string, Tab[]>,
   tabId: string,
-  update: (tab: DocumentTab) => DocumentTab,
+  update: (tab: Tab) => Tab,
 ): Record<string, Tab[]> {
   let changed = false;
   const next: Record<string, Tab[]> = {};
   for (const [windowLabel, windowTabs] of Object.entries(tabs)) {
     let windowChanged = false;
     const mapped = windowTabs.map((t) => {
-      if (t.id !== tabId || t.kind !== "document") return t;
+      if (t.id !== tabId) return t;
       const updated = update(t);
       if (updated === t) return t;
       windowChanged = true;
@@ -102,6 +114,16 @@ function mapDocumentTabById(
     changed ||= windowChanged;
   }
   return changed ? next : tabs;
+}
+
+/** {@link mapTabById} narrowed to document tabs; a browser tab sharing the id
+ *  passes through untouched. */
+function mapDocumentTabById(
+  tabs: Record<string, Tab[]>,
+  tabId: string,
+  update: (tab: DocumentTab) => DocumentTab,
+): Record<string, Tab[]> {
+  return mapTabById(tabs, tabId, (t) => (t.kind === "document" ? update(t) : t));
 }
 
 /**
@@ -138,11 +160,15 @@ export function updateTabById(
  * Re-path a document tab (and re-derive its title + formatId). Browser tabs and
  * non-matching ids pass through untouched. Returns the new tabs map plus the new
  * formatId when it changed (so the caller can fire the one-time format toast).
+ *
+ * `null` clears the path — a document can go back to being untitled. Accepting
+ * only `string` forced the one caller that does this to pass "", which left the
+ * tab claiming a file path the document store said it did not have.
  */
 export function applyPathUpdate(
   tabs: Record<string, Tab[]>,
   tabId: string,
-  filePath: string,
+  filePath: string | null,
 ): { tabs: Record<string, Tab[]>; formatChange: string | null } {
   let formatChange: string | null = null;
   const next = mapDocumentTabById(tabs, tabId, (tab) => {
@@ -174,11 +200,6 @@ type RemovalSlice = {
 };
 
 /**
- * Drop the tab at `index` from `windowLabel` and re-pick the active tab. The one
- * removal implementation — closeTab and detachTab differ only in whether they
- * also record the tab in `closedTabs`, so they cannot drift apart here.
- */
-/**
  * Set a window's active tab, but only to null or an id the window actually contains.
  *
  * A foreign id — a stale reopen, an id from another window mid-drag — would otherwise
@@ -195,6 +216,11 @@ export function setActiveTabGuarded<
   return { ...state, activeTabId: { ...state.activeTabId, [windowLabel]: tabId } };
 }
 
+/**
+ * Drop the tab at `index` from `windowLabel` and re-pick the active tab. The one
+ * removal implementation, shared by closeTab and detachTab so the two cannot
+ * drift; recording the removal in `closedTabs` is the caller's business.
+ */
 export function removeTabAt(state: RemovalSlice, windowLabel: string, index: number): RemovalSlice {
   const windowTabs = state.tabs[windowLabel] ?? [];
   // Out of range (or a missing window) is a no-op, not a crash: `windowTabs[index]` would

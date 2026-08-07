@@ -122,8 +122,14 @@ export function restoreTabMetadata(
 ): void {
   const tabStore = useTabStore.getState();
 
-  // Update tab metadata (title is required string, always set it)
-  tabStore.updateTabTitle(newTabId, tabState.title);
+  // A file-backed tab's title IS its file name (#1224), and `createTab` has
+  // already derived it from the path. Applying the persisted title would
+  // resurrect the pre-#1224 stripped spelling ("README" for README.md) on
+  // every restart of a session written before the change. Untitled tabs have
+  // no path to derive from, so their persisted name is the only record.
+  if (!tabState.file_path) {
+    tabStore.updateTabTitle(newTabId, tabState.title);
+  }
   if (tabState.is_pinned) {
     tabStore.togglePin(windowLabel, newTabId);
   }

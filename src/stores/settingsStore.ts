@@ -223,6 +223,5 @@ export {
   formatKeyForDisplay,
   prosemirrorToTauri,
   type ShortcutCategory,
-  type ShortcutScope,
   type ShortcutDefinition,
 } from "./settingsStore/shortcuts";

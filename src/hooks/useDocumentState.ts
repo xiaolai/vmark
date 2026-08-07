@@ -174,8 +174,9 @@ export function useDocumentActions(ownTabId?: string | null) {
       const tabId = getActiveTabId();
       if (tabId) {
         useDocumentStore.getState().setFilePath(tabId, path);
-        // Also update tab path for title sync
-        useTabStore.getState().updateTabPath(tabId, path ?? "");
+        // Also update tab path for title sync. Pass the null through: coercing
+        // it to "" made the tab claim a path the document store had cleared.
+        useTabStore.getState().updateTabPath(tabId, path);
       }
     },
     [getActiveTabId]

@@ -10,19 +10,33 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { workspaceError } from "@/utils/debug";
+import { imeToast as toast } from "@/services/ime/imeToast";
+import i18n from "@/i18n";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 
-/** Merges partial updates into the workspace config and persists to disk via Rust. */
+/**
+ * Merge partial updates into the workspace config and persist them.
+ * Returns whether the change actually reached disk.
+ *
+ * The store is updated optimistically so the UI responds immediately, but a
+ * failed write is ROLLED BACK: leaving the optimistic value in place made a
+ * toggle look saved and then quietly revert on the next launch, which is worse
+ * than one that refuses. Callers that ignore the result still get the toast.
+ */
 export async function updateWorkspaceConfig(
   updates: Partial<WorkspaceConfig>
-): Promise<void> {
+): Promise<boolean> {
   const { rootPath, config, isWorkspaceMode } = useWorkspaceStore.getState();
 
   if (!isWorkspaceMode || !rootPath || !config) {
-    return;
+    return false;
   }
 
   const updatedConfig = { ...config, ...updates };
+  // Only the touched keys, so a rollback cannot resurrect unrelated stale state.
+  const previous = Object.fromEntries(
+    Object.keys(updates).map((key) => [key, config[key as keyof WorkspaceConfig]]),
+  ) as Partial<WorkspaceConfig>;
   useWorkspaceStore.getState().updateConfig(updates);
 
   try {
@@ -30,21 +44,25 @@ export async function updateWorkspaceConfig(
       rootPath,
       config: updatedConfig,
     });
+    return true;
   } catch (error) {
     workspaceError("Failed to save workspace config:", error);
+    useWorkspaceStore.getState().updateConfig(previous);
+    toast.error(i18n.t("dialog:toast.workspaceConfigSaveFailed"));
+    return false;
   }
 }
 
-/** Toggles the showHiddenFiles workspace config flag and persists the change. */
-export async function toggleShowHiddenFiles(): Promise<void> {
+/** Toggles showHiddenFiles and persists it. Returns whether it stuck. */
+export async function toggleShowHiddenFiles(): Promise<boolean> {
   const config = useWorkspaceStore.getState().config;
   const currentValue = config?.showHiddenFiles ?? false;
-  await updateWorkspaceConfig({ showHiddenFiles: !currentValue });
+  return updateWorkspaceConfig({ showHiddenFiles: !currentValue });
 }
 
-/** Toggles the showAllFiles workspace config flag and persists the change. */
-export async function toggleShowAllFiles(): Promise<void> {
+/** Toggles showAllFiles and persists it. Returns whether it stuck. */
+export async function toggleShowAllFiles(): Promise<boolean> {
   const config = useWorkspaceStore.getState().config;
   const currentValue = config?.showAllFiles ?? false;
-  await updateWorkspaceConfig({ showAllFiles: !currentValue });
+  return updateWorkspaceConfig({ showAllFiles: !currentValue });
 }

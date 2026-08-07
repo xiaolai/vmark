@@ -26,8 +26,15 @@ vi.mock("@/stores/tabStore", () => ({
   useTabStore: () => "notes",
 }));
 
+// Selector-aware: the title bar reads two settings now (filename visibility
+// and, since #1224, extension visibility), so a mock that ignored the selector
+// would answer both with the same boolean.
 vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: () => mocks.showFilename,
+  useSettingsStore: (selector: (s: unknown) => unknown) =>
+    selector({
+      appearance: { showFilenameInTitlebar: mocks.showFilename },
+      general: { showFileExtensions: true },
+    }),
 }));
 
 vi.mock("./useTitleBarRename", () => ({
@@ -52,7 +59,7 @@ describe("TitleBar — banner landmark (RW-15 / L11)", () => {
     render(<TitleBar />);
     const banner = screen.getByRole("banner");
     expect(banner).toHaveAccessibleName("Application title bar");
-    expect(banner).toHaveTextContent("notes");
+    expect(banner).toHaveTextContent("notes.md");
   });
 
   it("has no axe violations (filename shown)", async () => {
@@ -68,7 +75,7 @@ describe("TitleBar — banner landmark (RW-15 / L11)", () => {
     expect(titleBar).toHaveClass("title-bar--browser");
     expect(titleBar).toHaveAttribute("data-tauri-drag-region");
     expect(screen.getByTestId("browser-navigation")).toBeInTheDocument();
-    expect(screen.queryByText("notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("notes.md")).not.toBeInTheDocument();
   });
 
   it("abandons an in-progress rename when browser chrome takes over", () => {
@@ -76,7 +83,7 @@ describe("TitleBar — banner landmark (RW-15 / L11)", () => {
     const { rerender } = render(<TitleBar />);
 
     // Enter rename mode on the document title bar.
-    fireEvent.doubleClick(screen.getByText("notes"));
+    fireEvent.doubleClick(screen.getByText("notes.md"));
     expect(screen.getByRole("textbox")).toBeInTheDocument();
 
     // Browser workspace becomes active on the same instance.
@@ -86,6 +93,6 @@ describe("TitleBar — banner landmark (RW-15 / L11)", () => {
     // Returning to a document must NOT resurrect the stale rename input.
     rerender(<TitleBar />);
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.getByText("notes")).toBeInTheDocument();
+    expect(screen.getByText("notes.md")).toBeInTheDocument();
   });
 });

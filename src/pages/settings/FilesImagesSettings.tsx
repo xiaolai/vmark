@@ -3,26 +3,25 @@
  *
  * File browser, auto-save, document history, image configuration,
  * and document export tools (Pandoc).
+ *
+ * Maintenance boundary: Saving/History and Images remain inline intentionally;
+ * extract the affected group into a sibling component before its next
+ * behaviour change. The File Browser group was extracted first because its
+ * rows were under active change and a focused test of them was mounting this
+ * whole panel — and with it DocumentToolsSettings' `detect_pandoc` probe.
+ * Settled with Codex (thread 019fdb16) rather than deferred on line count:
+ * 300 lines is a tripwire, not a design target.
  */
 
 import { useTranslation } from "react-i18next";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsStore";
-import { updateWorkspaceConfig } from "@/services/workspaces/workspaceConfig";
 import { WorkspaceSettingsGroup } from "./WorkspaceSettingsGroup";
+import { FileBrowserSettingsGroup } from "./FileBrowserSettingsGroup";
 import { DocumentToolsSettings } from "./DocumentToolsSettings";
 
 export function FilesImagesSettings() {
   const { t } = useTranslation("settings");
-  const isWorkspaceMode = useWorkspaceStore((state) => state.isWorkspaceMode);
-  const showHiddenFiles = useWorkspaceStore(
-    (state) => state.config?.showHiddenFiles ?? false
-  );
-  const showAllFiles = useWorkspaceStore(
-    (state) => state.config?.showAllFiles ?? false
-  );
-
   const general = useSettingsStore((state) => state.general);
   const updateGeneralSetting = useSettingsStore((state) => state.updateGeneralSetting);
 
@@ -44,34 +43,7 @@ export function FilesImagesSettings() {
   return (
     <div>
       <WorkspaceSettingsGroup />
-      <SettingsGroup title={t("files.group.fileBrowser")}>
-        <SettingRow
-          label={t("files.showHiddenFiles.label")}
-          description={t("files.showHiddenFiles.description")}
-          disabled={!isWorkspaceMode}
-        >
-          <Toggle
-            checked={showHiddenFiles}
-            onChange={(value) => {
-              void updateWorkspaceConfig({ showHiddenFiles: value });
-            }}
-            disabled={!isWorkspaceMode}
-          />
-        </SettingRow>
-        <SettingRow
-          label={t("files.showAllFiles.label")}
-          description={t("files.showAllFiles.description")}
-          disabled={!isWorkspaceMode}
-        >
-          <Toggle
-            checked={showAllFiles}
-            onChange={(value) => {
-              void updateWorkspaceConfig({ showAllFiles: value });
-            }}
-            disabled={!isWorkspaceMode}
-          />
-        </SettingRow>
-      </SettingsGroup>
+      <FileBrowserSettingsGroup />
 
       <SettingsGroup title={t("files.group.quitBehavior")}>
         <SettingRow

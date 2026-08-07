@@ -157,12 +157,17 @@ File browser, saving, document history, image handling, and document tools.
 
 ### File Browser
 
-These settings only apply when a workspace (folder) is open.
+The first two settings only apply when a workspace (folder) is open, and are saved
+per workspace.
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Show hidden files | Include dotfiles and hidden system items in the file explorer sidebar | Off |
 | Show all files | Show non-markdown files in the file explorer. Non-markdown files open with your system's default application | Off |
+| Show file extensions | Display the full file name — `notes.md`, not `notes` — in the sidebar, tab strip, and title bar. Applies everywhere, workspace or not | On |
+
+Turning **Show file extensions** off hides only extensions VMark recognises. A file
+it cannot open keeps its suffix either way, so the name you see always exists on disk.
 
 ### Quit Behavior
 

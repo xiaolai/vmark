@@ -39,7 +39,7 @@ import { applyPathReconciliation } from "@/services/persistence/applyPathReconci
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
 import { fileExplorerError } from "@/utils/debug";
-import { fileExtensionOf, renameFile } from "@/services/persistence/renameFile";
+import { fileExtensionOf, renameFile, type RenameOptions } from "@/services/persistence/renameFile";
 import { captureExplorerNewFile } from "@/services/coherence/captureFunnel";
 
 const isCreatingRef = { current: false }; // re-entry guards
@@ -104,13 +104,13 @@ export function useExplorerOperations() {
   );
 
   const renameItem = useCallback(
-    async (oldPath: string, newName: string): Promise<string | null> => {
+    async (oldPath: string, newName: string, options?: RenameOptions): Promise<string | null> => {
       if (isRenamingRef.current) return null;
       isRenamingRef.current = true;
 
       try {
         // Shared rename core (preserves the original extension + reconciles open tabs).
-        const outcome = await renameFile(oldPath, newName);
+        const outcome = await renameFile(oldPath, newName, options);
         switch (outcome.status) {
           case "renamed":
             return outcome.newPath;

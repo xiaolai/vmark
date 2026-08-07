@@ -35,7 +35,6 @@ export {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   type ShortcutCategory,
-  type ShortcutScope,
   type ShortcutDefinition,
 } from "./shortcutDefinitions";
 export { prosemirrorToTauri, formatKeyForDisplay } from "./keyFormatting";
@@ -94,7 +93,12 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
 
       getShortcut: (id) => {
         const { customBindings } = get();
-        if (customBindings[id]) return customBindings[id];
+        // Presence, not truthiness: "" is a DELIBERATE unbinding, and treating
+        // it as "no custom value" handed the default back to every keymap
+        // while the settings list and the menu showed it as unbound.
+        // `getAllShortcuts` has always used `??`; these two must agree.
+        const custom = customBindings[id];
+        if (custom !== undefined) return custom;
         const def = shortcutMap.get(id);
         return def ? resolveDefaultKey(def) : "";
       },

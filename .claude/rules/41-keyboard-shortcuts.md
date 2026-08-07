@@ -2,31 +2,44 @@
 
 Rules for adding, changing, or deleting keyboard shortcuts.
 
-## The manifest + drift gate (ADR-018, WI-1.5/Phase 8)
+## The keybinding drift gate (ADR-018, WI-1.5/Phase 8)
 
 For every shortcut that has a **native menu accelerator**, the frontend default,
 the Rust accelerator, and the docs table are now cross-checked automatically. The
-synced subset is named once in `src/services/keybinding/keybindingManifest.ts`
-(`KEYBINDING_MANIFEST`), and `scripts/check-keybinding-manifest.mjs`
+synced subset is DERIVED by the gate from `shortcutDefinitions.ts` — every entry
+carrying a `menuId`, minus the dynamically-bound ones — and
+`scripts/check-keybinding-manifest.mjs`
 (`pnpm lint:keybinding-manifest`, wired into `pnpm check:all`) fails if any of
-these **four** surfaces drift apart from it:
+these **three** surfaces drift apart:
 
-1. `shortcutDefinitions.ts` — frontend defaults,
-2. the Rust accelerator contract mirror (`src-tauri/src/menu/localized.test.rs`),
-3. the **real** Rust menu builder (`src-tauri/src/menu/localized/*.rs` `accel(...)`
-   call sites — so a mirror-vs-real drift is caught here, not only in the
-   macOS-only Rust test), and
-4. the website docs table (`website/guide/shortcuts.md`, matched order-insensitively).
+1. `shortcutDefinitions.ts` — frontend defaults and the source of truth,
+2. the Rust accelerator contract mirror (`src-tauri/src/menu/localized.test.rs`)
+   and the **real** Rust menu builder (`src-tauri/src/menu/localized/*.rs`
+   `accel(...)` call sites — so a mirror-vs-real drift is caught here, not only
+   in the macOS-only Rust test), and
+3. the website docs table (`website/guide/shortcuts.md`, matched order-insensitively).
 
 So a frontend-vs-Rust, mirror-vs-real, or docs accelerator mismatch is caught at
 gate time, not in review.
 
-**When you add or change a menu-backed shortcut**, update its `KEYBINDING_MANIFEST`
-entry AND `website/guide/shortcuts.md`, then run `pnpm lint:keybinding-manifest`.
+**When you add or change a menu-backed shortcut**, update `shortcutDefinitions.ts`,
+the Rust menu builder AND `website/guide/shortcuts.md`, then run
+`pnpm lint:keybinding-manifest`.
+
+A hand-written `keybindingManifest.ts` used to restate each entry's keys as a
+fourth surface. It had no runtime consumer and no independent semantics — the
+gate compared it against the definitions it had been copied from, so it could
+only ever catch a forgotten copy, never real drift. Deriving it deleted 167
+lines of duplication and two tautological test suites while every cross-language
+check survived unchanged. Do not reintroduce it — and that is enforced, not
+merely asked: both the path and `KEYBINDING_MANIFEST` are registered in
+`scripts/check-deleted-names.mjs`, so a file or symbol under either name fails
+CI (settled with Codex, thread 019fdb16).
+
 Allowed exceptions the gate encodes (with reasons): `undo`/`redo`/`quit` bind real
-accelerators but are not customizable shortcuts (not in the manifest); headings 2–5
+accelerators but are not customizable shortcuts (no `menuId` entry); headings 2–5
 are documented as the compressed range "Mod + 1 through Mod + 6" rather than
-individual rows. (`aiPrompts`/`search-genies` is manifest-excluded: its accelerator
+individual rows. (`aiPrompts`/`search-genies` is excluded as dynamic: its accelerator
 is registered dynamically at runtime by `useGenieShortcuts`, not in the static Rust
 contract.)
 
@@ -36,7 +49,6 @@ When modifying shortcuts, update ALL of these files:
 
 | File | Purpose | Format |
 |------|---------|--------|
-| `src/services/keybinding/keybindingManifest.ts` | Manifest entry (menu-backed shortcuts) — enforced by the drift gate | `{ id, defaultKey, menuId }` |
 | `src-tauri/src/menu/localized.rs` | Menu accelerators — single `create_localized_menu` function | `Some("Alt+CmdOrCtrl+L")` |
 | `src/stores/settingsStore/shortcuts.ts` | Frontend defaults | `defaultKey: "Alt-Mod-l"` |
 | `website/guide/shortcuts.md` | Documentation (now covered by the gate) | `Alt + Mod + L` |

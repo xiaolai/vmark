@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "상대 경로 복사에 실패했습니다.",
   "toast.failedToRevealInFileManager": "파일 관리자에서 파일을 표시하지 못했습니다.",
   "toast.pathCopiedExplorer": "경로가 클립보드에 복사되었습니다",
+  "toast.workspaceConfigSaveFailed": "작업 공간 설정을 저장할 수 없습니다",
   "toast.failedToOpenWithDefaultApp": "기본 앱으로 \"{{name}}\"을(를) 열지 못했습니다",
   "toast.terminalNeedsWorkspace": "터미널을 사용하려면 폴더를 열거나 파일을 저장하세요.",
   "toast.noFormattingActions": "사용 가능한 서식 작업이 없습니다",
