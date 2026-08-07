@@ -25,6 +25,8 @@
     "cc-suite@xiaolai": true,
     "tdd-guardian@xiaolai": true,
     "claude-english-buddy@xiaolai": true,
-    "docs-guardian@xiaolai": true
+    "docs-guardian@xiaolai": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "vmark-lsp@vmark-local": true
   }
 }
