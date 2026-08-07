@@ -9,6 +9,7 @@
     "node": ">=22",
     "pnpm": ">=10 <11"
   },
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "prepare": "node scripts/setup-local-git.mjs",
     "dev": "vite",
