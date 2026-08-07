@@ -2,18 +2,24 @@
 /**
  * Keybinding drift gate (WI-1.5 / Phase 8; gap audit #2).
  *
- * A keyboard shortcut with a native menu accelerator lives in FOUR sources that
+ * A keyboard shortcut with a native menu accelerator lives in THREE sources that
  * must agree (`.claude/rules/41-keyboard-shortcuts.md`):
- *   1. `src/services/keybinding/keybindingManifest.ts` — the manifest (source of truth)
- *   2. `src/stores/settingsStore/shortcutDefinitions.ts` — frontend defaults
- *   3. `src-tauri/src/menu/localized/*.rs` — the REAL Rust menu builder
+ *   1. `src/stores/settingsStore/shortcutDefinitions.ts` — frontend defaults,
+ *      the source of truth; the synced subset is DERIVED from it here (every
+ *      entry with a `menuId`, minus the dynamically-bound ones)
+ *   2. `src-tauri/src/menu/localized/*.rs` — the REAL Rust menu builder
  *      (`accel("<menu-id>", "<default-accel>")` call sites), pinned as a contract
  *      mirror in `src-tauri/src/menu/localized.test.rs`
  *      (`DEFAULT_ACCELERATORS` / `PLATFORM_ACCELERATORS`)
- *   4. `website/guide/shortcuts.md` — the human-readable docs table
+ *   3. `website/guide/shortcuts.md` — the human-readable docs table
  *
- * For every manifest entry this gate asserts:
- *   - `defaultKey` / `defaultKeyOther` equal the `shortcutDefinitions.ts` entry,
+ * There used to be a fourth: a hand-written `keybindingManifest.ts` restating
+ * each entry's keys, which this gate then compared against the definitions it
+ * was copied from. That comparison could only fail if someone forgot to copy —
+ * it caught clerical omissions, never drift. Everything that catches real drift
+ * compares ACROSS LANGUAGES, and all of it survives derivation.
+ *
+ * For every synced entry this gate asserts:
  *   - the Rust CONTRACT MIRROR accelerator for the entry's `menuId` equals
  *     `prosemirrorToTauri(defaultKey)` (and `prosemirrorToTauri(defaultKeyOther)`
  *     for platform-conditional entries),
@@ -23,10 +29,9 @@
  *     not only in the macOS-only Rust test), and
  *   - the docs table lists the entry's accelerator (order-insensitively; a
  *     menu-backed shortcut must be documented).
- * It also asserts completeness: every `shortcutDefinitions.ts` entry that has a
- * `menuId` (minus the dynamically-bound `search-genies`) must appear in the
- * manifest, and every non-empty accelerator the real menu builder binds must map
- * to a manifest entry (or an explicit allow-listed non-manifest id).
+ * It also asserts the reverse direction: every non-empty accelerator the real
+ * menu builder binds must map to a synced entry (or an explicit allow-listed id
+ * with a stated reason).
  *
  * Everything is parsed as text (no TS/Rust runtime), so the gate runs under plain
  * `node`. It fails closed: a missing file, unreadable table, or parse error
@@ -38,7 +43,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const MANIFEST_PATH = "src/services/keybinding/keybindingManifest.ts";
 const DEFS_PATH = "src/stores/settingsStore/shortcutDefinitions.ts";
 const RUST_PATH = "src-tauri/src/menu/localized.test.rs";
 const LOCALIZED_DIR = "src-tauri/src/menu/localized";
@@ -565,15 +569,6 @@ function arrayBody(src, name, rel) {
   return src.slice(open, close);
 }
 
-// --- Load manifest ---
-const manifestSrc = readOrDie(MANIFEST_PATH);
-const manifest = parseObjectLiterals(
-  arrayBody(manifestSrc, "KEYBINDING_MANIFEST", MANIFEST_PATH),
-  MANIFEST_PATH,
-  "KEYBINDING_MANIFEST",
-);
-if (manifest.length === 0) fail(`${MANIFEST_PATH}: parsed zero manifest entries`);
-
 // --- Load frontend definitions ---
 const defsSrc = readOrDie(DEFS_PATH);
 const defs = parseObjectLiterals(
@@ -581,6 +576,25 @@ const defs = parseObjectLiterals(
   DEFS_PATH,
   "DEFAULT_SHORTCUTS",
 );
+
+// --- Derive the synced subset ---
+// Every definition carrying a `menuId`, minus the dynamically-bound ones. This
+// used to be a hand-copied file (`keybindingManifest.ts`) that the gate then
+// compared against these same definitions — an equality between two copies of
+// one value, which cannot fail unless someone forgets to copy. What actually
+// catches drift is the comparison against the OTHER languages: the Rust mirror,
+// the real menu builder, and the docs table. Those run against the derived set
+// unchanged.
+const manifest = defs
+  .filter((d) => d.menuId && !DYNAMIC_MENU_IDS.has(d.menuId))
+  .map((d) => ({
+    id: d.id,
+    defaultKey: d.defaultKey,
+    defaultKeyMac: d.defaultKeyMac,
+    defaultKeyOther: d.defaultKeyOther,
+    menuId: d.menuId,
+  }));
+if (manifest.length === 0) fail(`${DEFS_PATH}: derived zero menu-backed shortcuts`);
 if (defs.length === 0) fail(`${DEFS_PATH}: parsed zero shortcut definitions`);
 const defById = new Map(defs.map((d) => [d.id, d]));
 
@@ -632,25 +646,15 @@ for (const entry of manifest) {
     continue;
   }
 
-  // 1. Matches the frontend definition.
   const def = defById.get(id);
   if (!def) {
-    errors.push(`manifest "${id}": no matching entry in ${DEFS_PATH}`);
+    // Unreachable while the set is derived from `defs`; kept as a fail-closed
+    // guard so a future re-plumbing of the source cannot skip entries silently.
+    errors.push(`"${id}": no matching entry in ${DEFS_PATH}`);
     continue;
   }
-  const defKey = def.defaultKey ?? "";
   const manKey = entry.defaultKey ?? "";
-  if (manKey !== defKey) {
-    errors.push(`"${id}": manifest defaultKey "${manKey}" !== ${DEFS_PATH} "${defKey}"`);
-  }
-  const defOther = def.defaultKeyOther;
   const manOther = entry.defaultKeyOther;
-  if (defOther !== manOther) {
-    errors.push(
-      `"${id}": manifest defaultKeyOther ${JSON.stringify(manOther)} !== ` +
-        `${DEFS_PATH} ${JSON.stringify(defOther)}`,
-    );
-  }
   // `defaultKeyMac` is runtime-wired (settingsStore/shortcuts.ts resolves it on
   // macOS) but no entry uses it yet. Still validate it so the day one appears, the
   // gate compares the macOS surfaces against the override rather than defaultKey
@@ -753,8 +757,8 @@ function reportOrphanRealAccel(id, accelDesc) {
   if (NON_MANIFEST_MENU_ACCELS.has(id)) return;
   errors.push(
     `real menu builder binds ${accelDesc} to menu id "${id}", which is absent from ` +
-      `the manifest — add a KEYBINDING_MANIFEST entry (or allow-list it in ` +
-      `NON_MANIFEST_MENU_ACCELS with a reason)`,
+      `the synced set — give it a menuId entry in ${DEFS_PATH} (or allow-list ` +
+      `it in NON_MANIFEST_MENU_ACCELS with a reason)`,
   );
 }
 for (const [id, accel] of realDefault) {
@@ -766,30 +770,18 @@ for (const [id, { mac, other }] of realPlatform) {
   reportOrphanRealAccel(id, `${JSON.stringify(mac)}/${JSON.stringify(other)}`);
 }
 
-// --- Completeness: every synced frontend menuId is covered ---
-for (const def of defs) {
-  if (!def.menuId) continue;
-  if (DYNAMIC_MENU_IDS.has(def.menuId)) continue;
-  if (!seenIds.has(def.id)) {
-    errors.push(
-      `"${def.id}" (${def.menuId}) has a menu accelerator in ${DEFS_PATH} ` +
-        `but is missing from the manifest — add it to KEYBINDING_MANIFEST`,
-    );
-  }
-}
-
 if (errors.length > 0) {
   console.error(`\n❌ Keybinding drift gate found ${errors.length} problem(s):`);
   for (const e of errors) console.error(`  ${e}`);
   console.error(
-    "\n  The manifest, shortcutDefinitions.ts, the real Rust menu builder " +
-      `(${LOCALIZED_DIR}), and the docs table (${DOCS_PATH})\n  have diverged. ` +
-      "Reconcile all four per .claude/rules/41-keyboard-shortcuts.md.",
+    `\n  ${DEFS_PATH}, the real Rust menu builder (${LOCALIZED_DIR}), and the ` +
+      `docs table (${DOCS_PATH})\n  have diverged. ` +
+      "Reconcile all three per .claude/rules/41-keyboard-shortcuts.md.",
   );
   process.exit(1);
 }
 
 console.log(
-  `✅ Keybinding drift gate passed (${manifest.length} synced entries aligned across ` +
-    `manifest, shortcutDefinitions.ts, the real Rust menu builder, and the docs table).`,
+  `✅ Keybinding drift gate passed (${manifest.length} menu-backed shortcuts aligned ` +
+    `across ${DEFS_PATH}, the real Rust menu builder, and the docs table).`,
 );
