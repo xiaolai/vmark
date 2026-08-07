@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "打开 Genies 文件夹"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "无法打开工作区：%{detail}"
+  coherence.kernelPoisoned: "发生内部错误，一致性跟踪已停止。请重新打开工作区以继续。"
+  coherence.ledgerUnavailable: "无法读取一致性历史记录：%{detail}"
+  coherence.rejectedArgument: "请求被拒绝：%{detail}"
+  coherence.stateConflict: "自本次请求以来工作区已发生变化：%{detail}"
+  coherence.buildTooOld: "当前版本的 VMark 无法读取部分一致性历史记录。请升级 VMark 后继续：%{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML 内容过大（超过 50 MB）"
   core.pathTraversal: "不允许使用路径穿越（..）"
