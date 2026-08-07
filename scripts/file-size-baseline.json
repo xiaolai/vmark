@@ -38,7 +38,7 @@
     "src/components/Editor/WorkflowEditor/StepForm.tsx": 547,
     "src/components/Editor/WorkflowEditor/TriggerForm.tsx": 356,
     "src/components/GeniePicker/GeniePicker.tsx": 508,
-    "src/components/Sidebar/FileExplorer/FileExplorer.tsx": 417,
+    "src/components/Sidebar/FileExplorer/FileExplorer.tsx": 387,
     "src/components/Sidebar/FileExplorer/useExplorerOperations.ts": 315,
     "src/components/StatusBar/StatusBar.tsx": 310,
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
