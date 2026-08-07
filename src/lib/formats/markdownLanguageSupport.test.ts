@@ -11,14 +11,39 @@
  */
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree } from "@codemirror/language";
 import { markdown } from "@codemirror/lang-markdown";
 import { markdownLanguageSupport } from "./markdownLanguageSupport";
 
 function nodeTypes(doc: string, extension = markdownLanguageSupport([])): Set<string> {
   const state = EditorState.create({ doc, extensions: [extension] });
+  // `ensureSyntaxTree`, NOT `syntaxTree`. CodeMirror parses under a work
+  // budget, and `syntaxTree(state)` returns whatever has been parsed SO FAR —
+  // a partial tree is a documented, legitimate return value. Asserting
+  // `toContain("Blockquote")` on it therefore asserts that the machine got far
+  // enough, not that the grammar has the node: under a parallel full-suite run
+  // this returned ['Document', 'ATXHeading1', …] and failed on a document
+  // whose blockquote was simply beyond where the parser had reached.
+  //
+  // The 5 s argument is a LIVENESS bound, not a performance assertion — it is
+  // orders of magnitude above the real parse cost for these few-line documents,
+  // so it fires only if parsing has genuinely stalled. A null return is a hard
+  // failure rather than a silent fall back to the partial tree, which would put
+  // the flake straight back.
+  const tree = ensureSyntaxTree(state, doc.length, 5000);
+  if (!tree) throw new Error("parser did not finish within 5s — not a partial-tree fallback");
+  // Encodes the property directly, so a revert to `syntaxTree` fails loudly
+  // here rather than as a mystery "expected [...] to include 'Blockquote'"
+  // somewhere downstream. Measured: on a 72 kB document `syntaxTree` covered
+  // 3,013 chars (4%) while `ensureSyntaxTree` covered all 72,044.
+  if (tree.length !== doc.length) {
+    throw new Error(
+      `syntax tree covers ${tree.length}/${doc.length} chars — a PARTIAL parse; ` +
+        `node-type assertions on it test how far the parser got, not the grammar`,
+    );
+  }
   const seen = new Set<string>();
-  syntaxTree(state).iterate({ enter: (n) => void seen.add(n.name) });
+  tree.iterate({ enter: (n) => void seen.add(n.name) });
   return seen;
 }
 
