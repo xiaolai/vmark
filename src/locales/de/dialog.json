@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "Relativer Pfad konnte nicht kopiert werden.",
   "toast.failedToRevealInFileManager": "Datei konnte im Dateimanager nicht angezeigt werden.",
   "toast.pathCopiedExplorer": "Pfad in Zwischenablage kopiert",
+  "toast.workspaceConfigSaveFailed": "Die Arbeitsbereichseinstellungen konnten nicht gespeichert werden",
   "toast.failedToOpenWithDefaultApp": "\"{{name}}\" konnte nicht mit der Standard-App geöffnet werden",
   "toast.terminalNeedsWorkspace": "Öffnen Sie einen Ordner oder speichern Sie Ihre Datei, um das Terminal zu verwenden.",
   "toast.noFormattingActions": "Keine Formatierungsaktionen verfügbar",

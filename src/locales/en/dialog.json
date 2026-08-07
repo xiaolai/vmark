@@ -135,6 +135,7 @@
   "toast.failedToCopyRelativePath": "Failed to copy relative path.",
   "toast.failedToRevealInFileManager": "Failed to reveal file in file manager.",
   "toast.pathCopiedExplorer": "Path copied to clipboard",
+  "toast.workspaceConfigSaveFailed": "Could not save the workspace settings",
   "toast.failedToOpenWithDefaultApp": "Failed to open \"{{name}}\" with default app",
   "toast.terminalNeedsWorkspace": "Open a folder or save your file to use the terminal.",
   "toast.noFormattingActions": "No formatting actions available",

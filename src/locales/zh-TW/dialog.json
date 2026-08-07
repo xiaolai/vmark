@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "複製相對路徑失敗。",
   "toast.failedToRevealInFileManager": "無法在檔案管理員中顯示檔案。",
   "toast.pathCopiedExplorer": "路徑已複製至剪貼簿",
+  "toast.workspaceConfigSaveFailed": "無法儲存工作區設定",
   "toast.failedToOpenWithDefaultApp": "無法以預設應用程式開啟「{{name}}」",
   "toast.terminalNeedsWorkspace": "請開啟資料夾或儲存檔案以使用終端機。",
   "toast.noFormattingActions": "無可用的格式化動作",
