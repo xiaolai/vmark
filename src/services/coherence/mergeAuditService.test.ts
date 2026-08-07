@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.3 — merge-audit service: the read-only merge-affected edge set.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";

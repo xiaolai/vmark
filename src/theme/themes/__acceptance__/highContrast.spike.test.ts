@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Theme-unification Phase 5 acceptance test.
  *

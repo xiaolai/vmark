@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-N2.3 / WI-N2.6 — browser navigation handlers and bounded wait results.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

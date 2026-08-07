@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2b.6 — claim service: lifecycle IPC with store-surfaced errors.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2/1.3 — the binding registry: resolution, precedence, referential integrity.
 import { describe, it, expect, vi } from "vitest";
 import {

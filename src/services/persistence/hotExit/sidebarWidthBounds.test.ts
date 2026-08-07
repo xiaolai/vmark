@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Restore's sidebar-width validation must agree with the store that clamps it.
  *

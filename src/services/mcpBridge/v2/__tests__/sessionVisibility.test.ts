@@ -1,3 +1,4 @@
+// @vitest-environment node
 // #1208 — `session.get_state` must describe what is ON SCREEN, not merely what
 // exists in the stores.
 //

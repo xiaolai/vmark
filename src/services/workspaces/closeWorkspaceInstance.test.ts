@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for closing a workspace instance from the rail.
  *

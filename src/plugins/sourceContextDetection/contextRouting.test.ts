@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Source Mode Context Routing Tests
  *

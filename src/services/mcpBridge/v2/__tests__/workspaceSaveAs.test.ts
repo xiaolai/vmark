@@ -1,3 +1,4 @@
+// @vitest-environment node
 // vmark.workspace.save_as — edge-case coverage for the dedicated
 // handler module. The happy path, path-scope guard, auto-approve gate,
 // and pending-save ordering are covered in workspace.test.ts; this file

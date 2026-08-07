@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Serializer idempotency and autolink round-trip tests (#1102).
  *

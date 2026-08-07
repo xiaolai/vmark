@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.1 — Mermaid adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

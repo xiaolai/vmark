@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { resolveImageSrc } from "./resolveSrc";
 import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";

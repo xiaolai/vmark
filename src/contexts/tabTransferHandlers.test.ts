@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Destination-side tab-transfer handlers.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for safeStorage.ts — safe localStorage wrapper for Zustand.
  *

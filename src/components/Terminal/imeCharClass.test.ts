@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Character classes for the terminal IME layer.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-0.2 — unit tests for the spec.txt → corpus JSON converter.
  *

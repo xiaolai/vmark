@@ -22,6 +22,7 @@ import { __resetRegistry, dispatchEditor, getFormatById, registerFormat } from "
 import { rebootstrapFormats } from "./registryBootstrap";
 import type { FormatConfig } from "./types";
 import type { ComponentType } from "react";
+import { SURFACE_IMPORT_TEST_TIMEOUT_MS } from "@/test/waitBudget";
 
 /** Deferred promise — lets a test hold a thunk unresolved across two callers. */
 function deferred<T>() {
@@ -113,6 +114,21 @@ describe("registry metadata is synchronous and evaluates no thunk", () => {
 });
 
 // Case 2 — the thunk points at the real module.
+//
+/** These two tests are the heaviest in the app tier by a wide margin: each
+ *  really imports `adapters/markdownSurface`, i.e. the whole Tiptap/ProseMirror
+ *  module graph, and Vite transforms it inside the test. Measured ALONE on an
+ *  idle machine that is ~10.7s, against the suite's ~100ms median — barely 2x
+ *  under the global 20s `testTimeout`, and it does not fit at all once 16
+ *  workers compete for cores with a cold transform cache, which is how a full
+ *  run and every CI shard start.
+ *
+ *  That ~10.7s measurement is what sizes the whole class, so the constant is
+ *  shared rather than declared here: `Editor.test.tsx` waits on the same import
+ *  and was flaking on a locally-invented number. One definition, in
+ *  `src/test/waitBudget.ts`. */
+const SURFACE_IMPORT_TIMEOUT_MS = SURFACE_IMPORT_TEST_TIMEOUT_MS;
+
 describe("surface thunks resolve to the real modules", () => {
   it("markdown's wysiwygComponent thunk yields the markdown surface module export", async () => {
     rebootstrapFormats();
@@ -126,7 +142,7 @@ describe("surface thunks resolve to the real modules", () => {
     // renders nothing rather than throwing.
     expect(viaThunk.default).toBe(direct.MarkdownEditorSurface);
     expect(typeof viaThunk.default).toBe("function");
-  });
+  }, SURFACE_IMPORT_TIMEOUT_MS);
 
   it("markdown's language thunk yields a usable CodeMirror extension", async () => {
     rebootstrapFormats();
@@ -134,7 +150,7 @@ describe("surface thunks resolve to the real modules", () => {
     expect(language).toBeDefined();
     // An Extension is an array/object tree, never a bare undefined/null.
     expect(language === null || language === undefined).toBe(false);
-  });
+  }, SURFACE_IMPORT_TIMEOUT_MS);
 });
 
 // Case 3 — resolution is cached: two mounts, one evaluation.

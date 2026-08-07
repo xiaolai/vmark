@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
 import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent } from "./url";

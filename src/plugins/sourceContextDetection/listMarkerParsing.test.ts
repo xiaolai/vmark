@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * One list-marker grammar — parseListMarker.
  *

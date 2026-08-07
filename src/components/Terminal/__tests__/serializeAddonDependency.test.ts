@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.6 — `@xterm/addon-serialize` is present but deliberately UNWIRED.
 //
 // It is the enabler for scrollback/session persistence (T14), which is

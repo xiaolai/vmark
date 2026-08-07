@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted() so mock variables are available before vi.mock() factories run

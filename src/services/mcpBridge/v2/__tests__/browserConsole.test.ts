@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P7.1 — console read handler (read-class). Reads the shared DOM ring buffer via
 // the isolated-world eval; captured output is untrusted (page-controlled).
 import { describe, it, expect, beforeEach, vi } from "vitest";

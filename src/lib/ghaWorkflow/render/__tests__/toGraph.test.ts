@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.1 — render adapter tests.
 //
 // IR → @xyflow/react { nodes, edges } shape per plan §6 Phase 2.

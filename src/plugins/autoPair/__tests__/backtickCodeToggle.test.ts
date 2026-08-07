@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-1.1 — Backtick Code Mark Toggle Tests (Issue #58 Problem 2), on the
  * PRODUCTION schema.

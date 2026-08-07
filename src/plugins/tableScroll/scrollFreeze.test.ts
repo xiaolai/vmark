@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Plugin } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";

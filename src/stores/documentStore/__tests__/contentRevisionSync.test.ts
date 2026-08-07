@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-1 — every content mutation must invalidate the MCP revision.
  *

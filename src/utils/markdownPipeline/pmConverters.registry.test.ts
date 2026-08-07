@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tier-1 differential test — Phase 2 WI-2.1.
  *

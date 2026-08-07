@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * useWindowTitle — pure function tests
  *

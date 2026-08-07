@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Resilience state-machine tests — T07.
  *

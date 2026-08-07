@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for auto-pair character definitions and lookup functions.
  */

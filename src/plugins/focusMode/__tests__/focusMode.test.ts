@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for focusMode extension — createFocusDecoration logic and extension metadata.
  */

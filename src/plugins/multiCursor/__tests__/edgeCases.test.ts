@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Edge case and boundary tests for multi-cursor plugin.
  *

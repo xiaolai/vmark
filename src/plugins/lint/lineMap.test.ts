@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for buildLineToBlockMap — mapping 1-based source-markdown lines
  * (as reported by the lint engine on the serialized document) to top-level

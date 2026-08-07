@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Multi-cursor undo/redo integration tests with ProseMirror history plugin.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Menu-ID contract rot-proofing (audit 20260612 H1).
  *

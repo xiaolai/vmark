@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-14 — the two questions a browser refusal has to answer, in isolation.
  *

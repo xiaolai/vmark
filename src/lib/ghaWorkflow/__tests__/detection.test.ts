@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.4 — detection heuristic tests.
 //
 // ADR-5: multi-signal detection — path, content shape, info-string,

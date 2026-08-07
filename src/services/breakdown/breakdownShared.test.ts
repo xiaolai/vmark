@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.1 — messageOf must survive the CommandError migration.
 //
 // The coherence commands these services call now reject with a TYPED error

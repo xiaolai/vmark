@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.4 — mapping a right-click's viewport position onto a BUFFER line.
 //
 // Getting this wrong copies a different command's output than the one the

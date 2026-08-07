@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — jobs subparser tests.
 //
 // Plan §4 JobIR + StepIR. Covers:

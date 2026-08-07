@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Contract: the editor parses the same language the document parser does.
  *

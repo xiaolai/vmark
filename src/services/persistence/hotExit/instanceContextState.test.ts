@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-9.4 — hot-exit capture/restore of per-instance context: UI state with
 // outline tab-id remapping, scoped reopen history (verbatim), browser records
 // (validated); missing fields tolerated; malformed entries dropped.

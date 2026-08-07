@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * A serialization sync must never manufacture dirty state.
  *

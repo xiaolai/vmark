@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for revisionStore (per-tab revisions, WI-0.10)
  */

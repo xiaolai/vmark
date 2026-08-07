@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Pure unit tests for the transfer line-metadata helpers.
  *

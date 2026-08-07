@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-0.6 — unify divergent media-extension lists (D3)
 import { describe, it, expect } from "vitest";
 import {

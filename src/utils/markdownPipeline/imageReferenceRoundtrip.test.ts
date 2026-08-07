@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Reference-style IMAGES must survive a save, exactly as reference links do.
  *

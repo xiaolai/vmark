@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * #1176 — what the key handler does while a Chinese IME owns the keyboard.
  *

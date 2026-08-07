@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P5.1/P5.2/P5.3 — scripted power tools: query (read), style (act), and
 // execute_js (eval — per-call approval only, result flagged untrusted).
 import { describe, it, expect, beforeEach, vi } from "vitest";

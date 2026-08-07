@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.5 — Cargo.toml schema detector + dependency-tree renderer.
 //
 // The "differentiator validation" — VMark's claim that being a

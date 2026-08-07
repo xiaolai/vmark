@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { registerMediaFormat, mediaFormat, MEDIA_EXTENSIONS } from "./media";
 import {

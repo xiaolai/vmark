@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for CJK-aware bold/italic input and paste rule regexes.
  *

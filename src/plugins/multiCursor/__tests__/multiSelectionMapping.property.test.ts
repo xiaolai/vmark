@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Property-based invariant tests for MultiSelection — MAPPING.
  *

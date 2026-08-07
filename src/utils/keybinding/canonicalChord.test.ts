@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-0.1 — the canonicalizer identity contract (the registry's foundation).
 /**
  * Canonical chord corpus. The core property: a definition string and the

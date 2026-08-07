@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Cross-language parity proof for the bridge operation manifest (WI-1).
  *

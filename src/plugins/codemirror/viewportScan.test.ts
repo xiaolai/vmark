@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { Text } from "@codemirror/state";
 import { viewportScanWindow, BLOCK_SCAN_MARGIN } from "./viewportScan";

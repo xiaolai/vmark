@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { Root } from "mdast";
 import { createProcessor } from "./processorFactory";

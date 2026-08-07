@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Availability policy tests — command-registry WI-2.2 (Phase 2).
  *

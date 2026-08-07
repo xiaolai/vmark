@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Performance baseline tests for markdown pipeline.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2 — renderXyflowSnapshot: hash-cache dedup, FIFO ordering,
 // canonicalize correctness. Real DOM rendering covered by the live
 // smoke; here we stub the renderer to exercise queue + cache logic.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Cosmetic-pass invariants.
  *

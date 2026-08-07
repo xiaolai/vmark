@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * fontStacks — pure font-stack resolution tests
  *

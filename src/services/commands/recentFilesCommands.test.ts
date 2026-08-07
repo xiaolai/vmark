@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for Open Recent File command branches (ADR-012).
  *

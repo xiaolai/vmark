@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { useMathPopupStore } from "./mathPopupStore";
 import type { AnchorRect } from "@/utils/popupPosition";

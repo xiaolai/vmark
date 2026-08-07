@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.1 — Search must answer "how many, which one, any at all" (T12).
 // WI-3.2 — Case / whole-word / regex toggles feed xterm's ISearchOptions.
 import { describe, it, expect } from "vitest";

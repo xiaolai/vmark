@@ -261,6 +261,8 @@
   font: inherit;
 }
 
+/* focus: caret-only — inline rename field; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2), and the pill must not resize. */
 .tab-title-input:focus {
   outline: none;
   box-shadow: none;

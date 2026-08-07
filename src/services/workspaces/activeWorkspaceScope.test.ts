@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";

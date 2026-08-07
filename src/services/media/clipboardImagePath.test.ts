@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { exists } from "@tauri-apps/plugin-fs";

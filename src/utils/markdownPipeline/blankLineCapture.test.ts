@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Gap-capture edge cases for blank-line preservation (WI-1.2 / ADR-4).
 // convertTopLevelWithBlankLines reads MDAST positions to size the gap before a
 // block; these pin the two ways a bad/absent position must degrade to "no gap"

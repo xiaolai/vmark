@@ -243,6 +243,47 @@ gh api repos/xiaolai/vmark/branches/main/protection
 gh api -X DELETE repos/xiaolai/vmark/branches/main/protection   # removes it entirely
 ```
 
+### Why CI runs when the local gate is green
+
+This gets re-derived every few months, so: the instinct that duplicate
+verification is waste is **correct**, and it has already been acted on — CI used
+to trigger on `push: [main]` as well as `pull_request`, verifying byte-identical
+trees twice at ~57 runner-minutes per change. That was deleted (2026-08-05). The
+remaining CI run is not a second copy of the local one.
+
+**The three-platform local build does not exist on this machine.**
+
+| Platform | What local tooling actually does |
+|---|---|
+| macOS ARM | compiles **and runs** (`cargo test`, `cargo clippy`) |
+| Windows | **cross-compiles only** (`scripts/check-cross-target.sh`) — no tests run |
+| Linux | **nothing** — the script's header says so explicitly |
+
+Also: **`pnpm check:all` never invokes cargo at all** — no npm script mentions
+it. "The local gate is green" means the *frontend* is green, plus whatever Rust
+commands were run by hand, on one platform.
+
+**Compiling is not running, and v0.9.30 paid for the difference.** Local
+`check:all` was green and the Windows cross-check passed; CI's Windows leg then
+found four real defects across four rounds, of which **two were invisible to any
+compile-time check** — a POSIX directory `fsync` that failed 108 tests because
+Windows cannot `File::open()` a directory, and a path probe laxer than
+production. Compilation cannot see either.
+
+The right response to "CI is slow" is to move left what *can* move left, not to
+delete what cannot. That already happened too: `check-cross-target.sh` now runs
+`cargo clippy` with CI's flags instead of `cargo check`, so the third defect's
+class is catchable locally in ~1 minute rather than ~20.
+
+**And CI green is a verifiable fact where local green is a claim.** Nothing
+attaches a local run to a commit, and nobody else can check it.
+`enforce_admins: true` plus the required checks mean nothing reaches `main`
+without CI green on that exact SHA, and `check-tag-green.sh` later *verifies*
+that via `gh api`. v0.9.15 shipped a Windows-only failure through an admin
+bypass, which is why `enforce_admins` was turned on.
+
+Rule of thumb: **move what can move left; never verify identical bytes twice.**
+
 ## 11. Committed baselines are re-checked against the merge base
 
 Every ratcheting gate (`file-size`, `knip`, `bespoke-buttons`,

@@ -76,8 +76,6 @@ jobs:
           restore-keys: rust-tier0-e2e-${{ runner.os }}-
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
-        with:
-          version: 10
 
       - uses: actions/setup-node@v7
         with:

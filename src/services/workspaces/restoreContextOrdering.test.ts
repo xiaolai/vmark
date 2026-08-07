@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-13.2 — restore ordering: while a window's hot-exit restore is in flight,
 // user rail clicks are declined (not queued into a half-built context); the
 // guard always clears, even on restore failure.

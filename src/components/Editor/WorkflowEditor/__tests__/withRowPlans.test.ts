@@ -1,3 +1,4 @@
+// @vitest-environment node
 // withRowPlans — pure patch planning for StepForm's `with:` rows.
 // Codex audit findings: (1) rename chains a→b→c leaked the intermediate
 // set(b) into the queue; (2) two rows committing the same key silently

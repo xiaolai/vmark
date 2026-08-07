@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Shift+Tab Jump — Bracket Pair Left-Skip Tests
  *

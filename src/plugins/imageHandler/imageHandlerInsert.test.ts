@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for imageHandlerInsert — image insertion and text paste operations.
  *

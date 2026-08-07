@@ -1,3 +1,4 @@
+// @vitest-environment node
 // RW-16 (L8) — API-key keychain bridge: command wiring + idempotent,
 // non-destructive migration of plaintext keys into the OS keychain.
 import { describe, it, expect, vi, beforeEach } from "vitest";

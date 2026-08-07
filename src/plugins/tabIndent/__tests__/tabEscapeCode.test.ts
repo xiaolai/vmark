@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tab Escape from Inline Code Tests (Issue #58 Problem 4)
  *

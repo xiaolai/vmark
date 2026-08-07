@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 — palette browse-mode grouping / search-mode flat list.
 /**
  * Tests for buildPaletteSections — the pure sectioning behind the palette's

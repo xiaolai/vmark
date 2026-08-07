@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1A.5 — Bootstrap module tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

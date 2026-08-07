@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The host-popups seam — the one for ACTIONS rather than values.
  *

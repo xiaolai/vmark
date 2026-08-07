@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.5/3.6 — operator service: propose/preview/accept over the coherence IPC.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";

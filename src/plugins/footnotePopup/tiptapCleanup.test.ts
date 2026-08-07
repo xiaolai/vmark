@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Footnote Cleanup and Renumbering Tests
  *

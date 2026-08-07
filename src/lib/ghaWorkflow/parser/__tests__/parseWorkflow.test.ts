@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-21 — parseWorkflow: `positions` reports declared top-level keys only.
 /**
  * `parse` builds `ir.positions` — the click-to-jump map from a top-level

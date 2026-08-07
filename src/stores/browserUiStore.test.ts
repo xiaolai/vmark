@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S1.1 — browserUiStore: transient per-tab browser nav UI state (urlInput, loading)
 import { describe, it, expect, beforeEach } from "vitest";
 import { useBrowserUiStore } from "./browserUiStore";

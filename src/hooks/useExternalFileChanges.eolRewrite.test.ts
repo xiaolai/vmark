@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-1.6 — an EOL-only external rewrite must ADOPT the new convention.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for blockImage tiptap extension — node definition, attributes,
  * parseHTML, renderHTML, keyboard shortcuts, and addNodeView.

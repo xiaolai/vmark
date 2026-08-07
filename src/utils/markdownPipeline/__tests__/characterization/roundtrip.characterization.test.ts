@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Markdown pipeline — corpus characterization harness.
  *
