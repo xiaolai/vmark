@@ -1,0 +1,98 @@
+name: Rust cache warm
+
+# Populates the Rust compiled-artifact cache on the DEFAULT BRANCH so that
+# `ci.yml`'s `rust-test` legs can restore it.
+#
+# This is not an optimisation of an already-working cache — it is what makes
+# the cache work at all. GitHub Actions scopes a cache to the ref that wrote
+# it: a cache written during a `pull_request` run lives on `refs/pull/N/merge`
+# and no other PR can read it. Only caches written on the default branch are
+# readable from every PR. `ci.yml` is deliberately `pull_request`-only
+# (.claude/rules/60-ai-governance.md §10 — the `push: [main]` trigger was
+# deleted because it re-verified byte-identical trees at ~57 runner-minutes a
+# change), so nothing was writing a main-scoped Rust cache.
+#
+# THIS IS NOT A SECOND CI RUN, and it must never become one. It compiles; it
+# asserts nothing. `cargo test --no-run` builds the test binaries — the
+# expensive part, and exactly what `rust-test` needs prebuilt — without
+# executing them. Correctness stays entirely with the required `rust` check on
+# the PR. If this job is ever made to run tests, it becomes the duplicate
+# verification that §10 exists to prevent.
+#
+# Cost: three OS legs on a Rust-touching merge, plus a weekly refresh. Bought
+# with: ~12-16 minutes off the WALL CLOCK of every subsequent Rust PR, on the
+# path that blocks merging. Runner-minutes go up; time-to-merge goes down.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src-tauri/**"
+      - "Cargo.lock"
+  schedule:
+    # Weekly. A cache entry is evicted after 7 days unused, and `main` can go
+    # that long without a Rust change — at which point every PR pays full price
+    # again with nothing to show why.
+    - cron: "43 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Only the newest warm matters; superseded ones are pure waste.
+  group: rust-cache-warm
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      # Same `shared-key` as ci.yml's rust-test — that is the entire point.
+      # If these two ever drift apart, the warm still succeeds and every PR
+      # still misses, silently. `scripts/check-rust-cache-parity.test.mjs`
+      # pins them together.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: "src-tauri -> target"
+          shared-key: "ci-rust-v1"
+          cache-on-failure: "false"
+
+      # The Tauri build script requires the sidecar binary to exist. Mirrors
+      # ci.yml's step; a stub is enough because nothing here runs the app.
+      - name: Create sidecar stub for Tauri build script
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            triple="x86_64-pc-windows-msvc"
+            ext=".exe"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            triple="x86_64-unknown-linux-gnu"
+            ext=""
+          else
+            triple="aarch64-apple-darwin"
+            ext=""
+          fi
+          touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
+
+      # `--no-run` compiles the test harness and stops. `--all-targets` on the
+      # clippy line matches what rust-test lints, so its artifacts are warm too.
+      - name: Build test binaries (compile only, no assertions)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run
+
+      - name: Build clippy artifacts (compile only)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets

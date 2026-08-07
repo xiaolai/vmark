@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S2.2 — browserHistoryStore: a real record schema with reducer rules.
 //
 // "A visited list from nav events" is not a spec — it can mean commit history, finish

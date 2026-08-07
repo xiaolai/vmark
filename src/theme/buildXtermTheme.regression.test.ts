@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * buildXtermTheme regression test — locks the xterm ITheme output per
  * vmark theme. Originally a Phase-0 spike for the theme-unification

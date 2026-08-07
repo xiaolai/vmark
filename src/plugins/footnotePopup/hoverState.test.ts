@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Per-view hover bookkeeping.
  *

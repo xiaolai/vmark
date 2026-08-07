@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Link-check offsets are canonical, or the ref is skipped — never guessed.
  *

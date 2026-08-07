@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-12.2 — ownership-aware user tab activation tests
 // WI-13.1 — activation API separation (plan D6): structural store actions
 // never yank the visible context; semantic switching goes through the

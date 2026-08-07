@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Format-adapter parser robustness gate (exhaustive by enumeration).
 //
 // Sweeps the official parser test suites through the validator seams the

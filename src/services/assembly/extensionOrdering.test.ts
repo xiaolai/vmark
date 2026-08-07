@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.4 — total-order pinning: canonical order → explicit `after` constraints.
 /**
  * The property these tests protect: once every entry carries a derived `after`

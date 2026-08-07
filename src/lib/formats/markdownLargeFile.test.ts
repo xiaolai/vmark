@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1A.6 — markdown-adapter-internal large-file helper tests.
 //
 // Lives outside markdown.tsx to keep the leaf module pure (no React /

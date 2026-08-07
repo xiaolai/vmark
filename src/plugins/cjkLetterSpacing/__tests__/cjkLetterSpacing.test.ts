@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for cjkLetterSpacing — CJK regex detection and extension structure.
  */

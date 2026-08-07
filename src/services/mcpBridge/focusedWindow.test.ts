@@ -1,3 +1,4 @@
+// @vitest-environment node
 // #1208 — resolving which window the USER is looking at, as opposed to which
 // window happens to be answering an MCP request. The distinction only exists
 // in a multi-window session, which is why the bug hid for so long.

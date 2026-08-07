@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-17 — contract tests for the Tier-0 stateful fs fake (matrix cases 10, 11).
 // The four flow suites in src/test/tier0/ are only as trustworthy as this fake:
 // a fake that resolved `undefined` for an unmodelled operation would green

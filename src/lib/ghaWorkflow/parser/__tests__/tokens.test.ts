@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — token helpers for the @actions/workflow-parser AST.
 // Tests use real parser output to verify the helpers walk the tree correctly.
 

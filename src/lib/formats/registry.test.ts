@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1A.2 — Format registry tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

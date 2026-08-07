@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.2 — TOML adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

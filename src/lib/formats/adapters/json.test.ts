@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.1 — JSON / JSONL adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

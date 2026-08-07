@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { testSchema } from "@/utils/markdownPipeline/testSchema";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // T4 (M1) — validate persisted/3rd-party JSON shape at the secure-store
 // migrate boundary instead of a blind `as unknown as` cast.
 // RW-16 (L8) — API keys persist to the OS keychain, not the plaintext store:

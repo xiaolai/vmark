@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tests for the `$$` fence guard (issue #1181).
 //
 // #1181 — an unclosed `$$` opener swallowed every following paragraph
@@ -11,6 +12,7 @@
 // mathGuards.integration.test.ts.
 
 import { describe, it, expect } from "vitest";
+import { expectBoundedTime } from "@/test/timeBudget";
 import { escapeUnclosedMathFences } from "./mathSourceGuards";
 
 describe("escapeUnclosedMathFences (#1181)", () => {
@@ -247,7 +249,10 @@ describe("escapeUnclosedMathFences (#1181)", () => {
     const input = `${flood}\n\nsurvivor paragraph`;
     const started = performance.now();
     const out = escapeUnclosedMathFences(input);
-    expect(performance.now() - started).toBeLessThan(5000);
+    expectBoundedTime(performance.now() - started, {
+      budgetMs: 5000, livenessMs: 15_000,
+      label: "escapeUnclosedMathFences over a 2000-line opener flood",
+    });
     // Every opener-shaped line is escaped — partial healing must not
     // leave an active swallower in front of the paragraph.
     expect(/^\$\$/m.test(out)).toBe(false);

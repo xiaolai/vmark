@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.1 / R1 — patchBrowserTab: canonical url invariant + referential no-ops
 import { describe, it, expect } from "vitest";
 import { patchBrowserTab, makeBrowserTab } from "./tabStoreBrowser";

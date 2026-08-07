@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S2.2 — navIntent: how the user SET OFF, which is what history records.
 import { describe, it, expect, beforeEach } from "vitest";
 import { setNavIntent, takeNavIntent, clearNavIntent } from "./navIntent";

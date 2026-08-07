@@ -1,3 +1,4 @@
+// @vitest-environment node
 // MCP bridge path policy — pure boundary decision for bridge file ops.
 // Security: prevents a prompt-injected agent from reading/writing outside
 // the workspace + open-document tree via workspace.open / save_as.

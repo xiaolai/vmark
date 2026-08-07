@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Window status store (#1057) — snapshot mirror + panel toggle + ranking.
 // Pin + per-window persistence (#1120).
 import { beforeEach, describe, expect, it } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for video provider registry — URL parsing, embed URL generation, iframe detection.
  */

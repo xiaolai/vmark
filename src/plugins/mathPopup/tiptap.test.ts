@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The math-popup extension's wiring.
  *

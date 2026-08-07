@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for remarkTocBlock remark plugin and tocToMarkdown serialization.
  *

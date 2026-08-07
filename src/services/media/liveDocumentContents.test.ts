@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The buffers that keep a neighbour's just-pasted image from being deleted.
  */

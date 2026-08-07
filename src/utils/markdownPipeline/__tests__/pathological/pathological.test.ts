@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-3.1 — pathological-input freeze guards, in a TERMINABLE child process.
  *

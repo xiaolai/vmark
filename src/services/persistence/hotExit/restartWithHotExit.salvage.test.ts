@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3 — corrupt-session flow tests for checkAndRestoreSession: restore never
 // throws, never silently discards the session file, quarantines what fails
 // parsing (preserve, never delete), and is idempotent on re-run (matrix cases

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration: tabStore ⇄ paneStore reconciliation (#1081, WI-2).
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-13 — the markdown WYSIWYG surface as a lazily-imported module.
 //
 // The surface moved out of `markdown.tsx` so the adapter module (evaluated by

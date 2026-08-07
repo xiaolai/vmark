@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1A.3 — Markdown adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

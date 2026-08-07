@@ -1,3 +1,4 @@
+// @vitest-environment node
 // "Markdown is an allowlist, not a default" — routing-brain tests.
 //
 // Covers formatLookupKeys, the strict-markdown guarantee (a non-markdown

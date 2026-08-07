@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * First-install contract: a fresh VMark must not rewrite a file the user
  * did not ask to change. Every save-time / format-time normalization toggle

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Regression cover for #1187 — a brand-new workspace's config was minted with
 // an EMPTY excludeFolders, so the file explorer walked node_modules/.git.
 import { describe, it, expect, vi, beforeEach } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-5 — Formatter-idempotence property slice (D1 follow-on).
  *

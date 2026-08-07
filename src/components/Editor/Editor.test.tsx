@@ -7,6 +7,7 @@ import {
   __resetBootstrap,
 } from "@/lib/formats";
 import { __resetRegistry } from "@/lib/formats/registry";
+import { SURFACE_IMPORT_WAIT, SURFACE_IMPORT_TEST_TIMEOUT_MS } from "@/test/waitBudget";
 
 beforeEach(() => {
   __resetRegistry();
@@ -242,8 +243,21 @@ vi.mock("@/stores/settingsStore", () => {
 });
 
 /** WI-13: the WYSIWYG surface arrives through `import("./markdownSurface")`,
- *  a real module graph vitest transforms on first use. */
-const SURFACE_LOAD_TIMEOUT_MS = 10_000;
+ *  a real module graph vitest transforms on first use — so the wait here is a
+ *  wait on that transform, and its budget belongs to a class rather than to
+ *  this file.
+ *
+ *  History worth keeping, because the first attempt was wrong. It was 10_000
+ *  and failed ~1 run in 5 at the DEFAULT pool width. It was then "fixed" to
+ *  15_000 by matching the nearest similar-looking constant, and failed again in
+ *  a full-suite run. Both numbers were guesses next to the measured cost of the
+ *  thing being awaited: `lazySurfaces.test.ts` clocks that same import at
+ *  ~10.7s ALONE on an idle machine. A 15s budget for a 10.7s import is not
+ *  headroom, it is a coin flip once anything else is running.
+ *
+ *  The budget now lives in `src/test/waitBudget.ts` as one definition for the
+ *  class, paired with the per-test timeout it has to sit inside. */
+const SURFACE_LOAD_TIMEOUT_MS = SURFACE_IMPORT_WAIT.timeout;
 
 function renderWithProvider(ui: React.ReactElement) {
   return render(<WindowProvider>{ui}</WindowProvider>);
@@ -266,7 +280,7 @@ describe("Editor", () => {
       // under a loaded worker the default 1s is not enough to transform it.
       { timeout: SURFACE_LOAD_TIMEOUT_MS },
     );
-  });
+  }, SURFACE_IMPORT_TEST_TIMEOUT_MS);
 
   it("renders the editor content area", async () => {
     renderWithProvider(<Editor />);
@@ -277,7 +291,7 @@ describe("Editor", () => {
       },
       { timeout: SURFACE_LOAD_TIMEOUT_MS },
     );
-  });
+  }, SURFACE_IMPORT_TEST_TIMEOUT_MS);
 
   it("renders the Welcome screen when activeTabId points at a tab that no longer exists", () => {
     // A stale activeTabId (tab transfer, hot-exit restore, workspace switch) used
@@ -400,6 +414,6 @@ describe("Editor", () => {
         { timeout: SURFACE_LOAD_TIMEOUT_MS },
       );
       expect(screen.queryByTestId("split-pane-editor")).not.toBeInTheDocument();
-    });
+    }, SURFACE_IMPORT_TEST_TIMEOUT_MS);
   });
 });

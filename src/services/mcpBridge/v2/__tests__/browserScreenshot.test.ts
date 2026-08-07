@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P1.2 — vmark.browser.screenshot handler: read-class visual capture.
 // Mirrors handleBrowserRead's gate/attachment/redaction contract, but returns
 // {url, image} where image is a base64 JPEG produced by the native command.

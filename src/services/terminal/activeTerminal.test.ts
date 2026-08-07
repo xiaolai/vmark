@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.3 — the registration path that lets document content reach a terminal.
 //
 // `runInTerminal.test.ts` mocks this module wholesale, so without this file the

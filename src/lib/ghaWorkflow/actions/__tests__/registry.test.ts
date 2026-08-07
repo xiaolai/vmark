@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-6.1 — action metadata registry tests.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

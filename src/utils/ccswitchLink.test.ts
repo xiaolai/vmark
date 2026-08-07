@@ -1,3 +1,4 @@
+// @vitest-environment node
 // CC-Switch deep-link builder (issue #1008).
 
 import { describe, it, expect } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-0.1 — the triage dump: measure every divergence the two spec gates
  * would report, and write them to a JSON file for ledger authoring.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.1 — session-name normalization, tested directly.
 //
 // The rename flow is covered end-to-end in TerminalTabBar.test.tsx, but the

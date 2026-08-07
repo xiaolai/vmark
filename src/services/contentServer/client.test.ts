@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Phase 5 — content-server service invoke wrappers.
 // (Moved from index.test.ts when the implementation moved to client.ts;
 // `**/index.ts` is coverage-excluded as a barrel.)

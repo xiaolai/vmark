@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the "Open Workspace" command (#1005).
  *

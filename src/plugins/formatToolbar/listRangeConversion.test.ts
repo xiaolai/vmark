@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Range-aware list conversion — toggle-off across separate lists, wrapping
  * at nested depths, normalize-or-abort for unwrappable blocks, and deep

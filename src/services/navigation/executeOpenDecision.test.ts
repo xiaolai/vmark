@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * A workspace that fails to open must not be silent.
  *

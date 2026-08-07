@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { restoreTransferredTab, transferTabFromDragOut } from "./tabTransferActions";

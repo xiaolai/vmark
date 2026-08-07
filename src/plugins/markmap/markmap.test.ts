@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { DEFAULT_MARKMAP_CONTENT } from "./constants";
 

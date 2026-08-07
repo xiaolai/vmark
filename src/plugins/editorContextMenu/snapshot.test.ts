@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.1 / WI-3.1 — snapshot providers: normalized state capture from the
 // live editor contexts, per-item active/disabled aggregation via the real
 // enable rules, link mapping (WYSIWYG mark range; source syntax parsing),

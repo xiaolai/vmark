@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P6.2/P6.3/P6.6 — session save/load: per-call user approval (op `session`,
 // never grantable, payload-bound to action:handle), handle-only responses.
 import { describe, it, expect, beforeEach, vi } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — edge-derivation tests for the GHA workflow IR.
 //
 // Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §4.1

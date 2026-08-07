@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S1.5 — omnibox: classify an address-bar entry as a URL to navigate or a search query
 import { describe, it, expect } from "vitest";
 import { resolveOmnibox, navigationTarget } from "./omnibox";

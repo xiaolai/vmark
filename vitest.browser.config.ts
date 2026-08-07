@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 import path from "path";
+import { suffixGlob } from "./vitest.shared";
 
 /**
  * Browser test tier — the terminal input gate path cannot be verified in jsdom
@@ -18,7 +19,7 @@ export default defineConfig({
     // `*.webkit.test.ts` = real-WebKit tier. NOT `*.browser.test.ts` — that
     // suffix already means "tests for the embedded-browser FEATURE" and those
     // are ordinary jsdom tests.
-    include: ["src/**/*.webkit.test.{ts,tsx}"],
+    include: [suffixGlob("src", "webkit")],
     browser: {
       enabled: true,
       provider: playwright(),

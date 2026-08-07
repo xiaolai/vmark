@@ -1,3 +1,4 @@
+// @vitest-environment node
 // SH-3 — read-merge-write helpers for multi-window persisted lists.
 import { describe, it, expect, beforeEach } from "vitest";
 import {

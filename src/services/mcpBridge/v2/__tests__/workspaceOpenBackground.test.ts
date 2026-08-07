@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-14 (plan D10) — MCP opens are BACKGROUND: they never change the visible
 // tab or workspace; only an explicit switch_tab performs the full context
 // switch, and its payload discloses what changed. Split from workspace.test.ts

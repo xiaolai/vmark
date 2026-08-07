@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Behavioral parity — COVERAGE CONTRACT.
  *

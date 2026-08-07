@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-3.1 — position propagation, checked against the PARSER.
  *

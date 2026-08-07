@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-N0.4 / WI-N2.2 — navigation ticket correlation and event-before-waiter safety
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BrowserEventBroker, type BrowserNavigationEvent } from "./browserEventBroker";

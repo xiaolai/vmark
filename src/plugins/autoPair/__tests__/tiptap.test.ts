@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for autoPair tiptap extension — extension creation, plugin structure,
  * config reading, IME composition guard.

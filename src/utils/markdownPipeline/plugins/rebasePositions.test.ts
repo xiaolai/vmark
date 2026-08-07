@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The rebase arithmetic, tested directly.
  *

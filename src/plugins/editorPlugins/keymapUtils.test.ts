@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for keymapUtils — toProseMirrorKey, bindIfKey, wrapWithMultiSelectionGuard,
  * escapeMarkBoundary.

@@ -89,6 +89,17 @@ describe("StatusBar accessibility", () => {
     useShortcutsStore.setState({ customBindings: {} });
   });
 
+  it("exposes the contentinfo landmark the shell's landmark test assumes", () => {
+    // `src/shell/AppShell.a11y.test.tsx` asserts exactly one `contentinfo` in
+    // the composed tree — but it feeds AppShell a STUB bearing that role, so it
+    // passes whether or not the real StatusBar has one. Banner, navigation and
+    // complementary each had a production-level assertion backing that stub
+    // (TitleBar, FileExplorer, OutlineView a11y tests); contentinfo had none,
+    // so deleting `role="contentinfo"` from this component broke no test.
+    render(<StatusBar />);
+    expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
+  });
+
   it("exposes aria-expanded=false on the sidebar-toggle button when the sidebar is collapsed", () => {
     render(<StatusBar />);
     const toggle = screen.getByLabelText(/open sidebar/i);

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Direct tests for the Tab discriminated-union guards and accessors.
  *

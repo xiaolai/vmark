@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-19 — the source editor's workflow extension families are gated
 // SEPARATELY: viewer aids vs execution engine.
 //

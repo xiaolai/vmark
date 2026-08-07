@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3 — Zod at the hot-exit/session-state read boundary: pure salvage parser.
 // Posture per decision ledger D5 (.claude/tdd-guardian/decisions-20260803.md):
 // persistence reads are PASSTHROUGH (unknown fields survive; corrupt ≠ unknown),

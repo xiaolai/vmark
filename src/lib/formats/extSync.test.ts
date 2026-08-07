@@ -1,3 +1,4 @@
+// @vitest-environment node
 // ADR-12 / WI-1B.4 — Rust ↔ TS extension-list sync test.
 //
 // Asserts that the Rust SUPPORTED_EXTENSIONS const and the TypeScript

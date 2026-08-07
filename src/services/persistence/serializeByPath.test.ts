@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Ordering guarantees for concurrent writes to one path.
  *

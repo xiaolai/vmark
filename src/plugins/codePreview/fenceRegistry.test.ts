@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Fence extension-point tests — ADR-015 D3, Phase 5 WI-5.1.
  *

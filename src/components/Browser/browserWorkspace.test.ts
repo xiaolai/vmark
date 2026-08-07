@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { Tab } from "@/stores/tabStoreTypes";
 import { getBrowserWorkspaceView } from "./browserWorkspace";

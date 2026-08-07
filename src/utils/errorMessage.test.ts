@@ -1,3 +1,4 @@
+// @vitest-environment node
 // RW-1 (L5) — errorMessage helper unit test
 /**
  * Tests for the errorMessage helper.

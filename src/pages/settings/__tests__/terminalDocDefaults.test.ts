@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.2 — Guard against the doc↔default drift class that produced T9.
 //
 // `website/guide/terminal.md` documented "Mac Option as Meta … Default: Off"

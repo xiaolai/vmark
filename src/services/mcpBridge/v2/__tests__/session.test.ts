@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.4 — vmark.session.get_state shape and tab-kind discrimination.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";

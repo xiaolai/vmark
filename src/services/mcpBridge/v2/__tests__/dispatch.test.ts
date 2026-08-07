@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Routing coverage for dispatchV2 — every vmark.* action must reach its
 // handler exactly once, and unrecognized types must fall through (return
 // false) so the top-level handleRequest can answer with "Unknown request".

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S0.8 — browserOcclusion: the single, reference-counted freeze/thaw authority.
 //
 // Before this, BrowserSurface invoked browser_freeze/browser_thaw directly with no

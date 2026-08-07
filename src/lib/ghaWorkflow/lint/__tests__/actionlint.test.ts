@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.3 — frontend wrapper around the Rust gha_lint command tests.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

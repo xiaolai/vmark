@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for [TOC] node through the full markdown pipeline.
  *

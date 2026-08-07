@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for cjkLetterSpacing plugin behavior — decoration computation across
  * CJK/Latin boundaries, punctuation splits, incremental doc updates, mapping

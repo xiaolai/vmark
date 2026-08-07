@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.9b — breakdown service: refresh/resolve/revise over the coherence IPC.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";

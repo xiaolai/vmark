@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * #1215 / #1200 — mermaid SVGs must carry a resolvable height.
  *

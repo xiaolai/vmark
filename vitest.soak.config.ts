@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
+import { suffixGlob } from "./vitest.shared";
 
 /**
  * Soak tier (WI-5.1, plan ADR-6) — a NAMED tier, not an env-var mode:
@@ -16,7 +17,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.soak.test.{ts,tsx}"],
+    include: [suffixGlob("src", "soak")],
     testTimeout: 600_000,
     hookTimeout: 120_000,
   },

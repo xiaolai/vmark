@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P1.2 (audit #8) — shared read-class executor + human-attachment gate,
 // extracted to a neutral module so `read` and `screenshot` no longer duplicate
 // the flow and browser.ts ↔ browserScreenshot.ts is no longer a dependency cycle.

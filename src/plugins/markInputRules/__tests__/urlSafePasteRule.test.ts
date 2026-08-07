@@ -1,3 +1,4 @@
+// @vitest-environment node
 // URL-aware paste-rule filter. Emphasis paste rules MUST NOT match inside
 // URL substrings (issue #???) — pasted URLs frequently contain underscores
 // (`_drafts/`, `__init__.py`, snake_case query params) and stars

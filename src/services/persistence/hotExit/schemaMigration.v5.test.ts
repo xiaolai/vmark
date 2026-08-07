@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { migrateSession, SCHEMA_VERSION } from "./schemaMigration";
 import type { SessionData, TabState } from "./types";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * commandPaletteStore tests — ADR-012.
  */

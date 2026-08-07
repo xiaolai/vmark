@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-17 — Tier-0 SAVE flow, end to end in jsdom over the REAL composition:
 // real documentStore/tabStore/settingsStore, real saveToPath + normalization +
 // pending-save registry + history snapshot, `@tauri-apps/*` faked statefully

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — matrix expansion tests.
 //
 // Plan §4.3 expansion rules:

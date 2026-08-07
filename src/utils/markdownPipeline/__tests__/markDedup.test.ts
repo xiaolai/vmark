@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Mark-dedup tests for MDAST → PM inline conversion (#1102).
  *

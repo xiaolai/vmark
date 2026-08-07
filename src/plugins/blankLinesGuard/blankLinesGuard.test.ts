@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Edit-propagation guard for blankLinesBefore (plan ADR-5 / WI-1.5).
 // ProseMirror's split copies node attributes to BOTH halves, so a paragraph
 // carrying blankLinesBefore=3 would give the newly-created second paragraph 3

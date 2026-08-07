@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-10.1 — atomic pane replacement (replaceWindowSplit) tests
 import { describe, it, expect, beforeEach } from "vitest";
 import { usePaneStore, DEFAULT_SPLIT, MIN_PANE_FRACTION, MAX_PANE_FRACTION } from "./paneStore";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The host-view-modes seam.
  *

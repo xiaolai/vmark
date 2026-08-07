@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-3.2 — the two-projection parser conformance gate.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.1 — Mermaid export tests.
 //
 // Exercises:

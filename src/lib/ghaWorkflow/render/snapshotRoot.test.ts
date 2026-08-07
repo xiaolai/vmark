@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2 (companion) — snapshotRoot exposes attachTo + captureSnapshot
 // for renderXyflowSnapshot. The actual React/xyflow/html-to-image work
 // is exercised in the live smoke; this test guards the API shape so a
