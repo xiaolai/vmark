@@ -18,7 +18,11 @@
  *     except while renaming (so text selection/caret work).
  *   - Filename is shown as it is on disk, extension included, unless the user
  *     turns `general.showFileExtensions` off (#1224). Rename edits whatever is
- *     displayed; renameFile re-attaches the original extension if it is gone.
+ *     displayed, and says so: the original extension is re-attached only when
+ *     the editor HID it. Otherwise deleting the suffix would be silently
+ *     undone while the rename still reported success. The policy is SNAPSHOT
+ *     when the editor opens, so a cross-window settings flip mid-rename cannot
+ *     reinterpret text the user already typed.
  *   - IME composition is respected — Enter/Escape during composition are ignored.
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
@@ -89,10 +93,14 @@ function DocumentTitleBar() {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // What the editor OPENED with. Settings sync across windows, so reading the
+  // live values at confirm time lets a flip mid-rename change the meaning of
+  // text the user already typed: `notes.md` → `notes` starts as "drop the
+  // extension" and silently becomes "no change".
+  const editOpenedWith = useRef<{ name: string; showExtensions: boolean } | null>(null);
 
   // #1224 — the name as it is on disk by default. This value is also what the
-  // inline rename editor prefills, so you edit exactly what you see; renameFile
-  // re-attaches the original extension if you delete it.
+  // inline rename editor prefills, so you edit exactly what you see.
   const displayName = filePath
     ? formatFileDisplayName(getFileName(filePath), showExtensions)
     : formatFileDisplayName(tabTitle ?? t("untitled"), showExtensions);
@@ -105,9 +113,10 @@ function DocumentTitleBar() {
       emitTo(windowLabel, "menu:save", windowLabel).catch(() => {/* event emission is best-effort */});
       return;
     }
+    editOpenedWith.current = { name: displayName, showExtensions };
     setEditValue(displayName);
     setIsEditing(true);
-  }, [displayName, isUnsaved]);
+  }, [displayName, isUnsaved, showExtensions]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -117,13 +126,16 @@ function DocumentTitleBar() {
   }, [isEditing]);
 
   const handleConfirm = useCallback(async () => {
+    const opened = editOpenedWith.current ?? { name: displayName, showExtensions };
     const trimmed = editValue.trim();
     if (!trimmed || !filePath) { setIsEditing(false); return; }
-    if (trimmed === displayName) { setIsEditing(false); return; }
-    const success = await renameFile(filePath, trimmed);
+    if (trimmed === opened.name) { setIsEditing(false); return; }
+    const success = await renameFile(filePath, trimmed, {
+      preserveExtension: !opened.showExtensions,
+    });
     if (success) setIsEditing(false);
     // Keep editing if rename failed.
-  }, [editValue, filePath, displayName, renameFile]);
+  }, [editValue, filePath, displayName, renameFile, showExtensions]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;

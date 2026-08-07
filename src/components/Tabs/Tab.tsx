@@ -23,6 +23,9 @@
  *   - The label is derived here rather than stored: `tab.title` is the real
  *     file name, and `general.showFileExtensions` decides whether its
  *     extension reaches the eye (#1224), so the toggle relabels open tabs.
+ *     The close button's accessible name stays on the FULL name — hiding
+ *     extensions makes `config.json` and `config.yaml` both read "config",
+ *     which is a legible tab strip but an ambiguous screen-reader target.
  *   - CSS class composition uses cn() for conditional classes including
  *     drag state classes (dragging, reordering, invalid-drop, snapback).
  *   - The tab's key handler only fires for keys aimed at the tab itself. Nested
@@ -211,7 +214,7 @@ export const Tab = memo(function Tab({
             className="tab-close"
             data-tab-close
             onClick={handleClose}
-            aria-label={t("closeTab", { title: label })}
+            aria-label={t("closeTab", { title: tab.title })}
           >
             <X className="w-3 h-3" />
           </button>

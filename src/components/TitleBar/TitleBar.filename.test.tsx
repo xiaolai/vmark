@@ -8,7 +8,8 @@
  * state hook — a hook, not a store — is stubbed, since it reaches into editor
  * state this suite has no reason to bootstrap.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({ filePath: "/tmp/notes.md" as string | null }));
@@ -20,8 +21,9 @@ vi.mock("@/hooks/useDocumentState", () => ({
   useActiveTabId: () => "tab-1",
 }));
 
+const mockRenameFile = vi.fn().mockResolvedValue(true);
 vi.mock("./useTitleBarRename", () => ({
-  useTitleBarRename: () => ({ renameFile: vi.fn(), isRenaming: false }),
+  useTitleBarRename: () => ({ renameFile: mockRenameFile, isRenaming: false }),
 }));
 
 import { TitleBar } from "./TitleBar";
@@ -46,6 +48,11 @@ function setShowExtensions(value: boolean) {
 }
 
 beforeEach(() => {
+  // Without this the rename assertions below match a CALL FROM AN EARLIER
+  // TEST and pass vacuously — which is how the first draft of this suite
+  // "confirmed" a bug it never exercised.
+  vi.clearAllMocks();
+  mockRenameFile.mockResolvedValue(true);
   mocks.filePath = "/tmp/notes.md";
   setShowExtensions(true);
   useTabStore.setState({ tabs: { main: [untitledTab] }, activeTabId: { main: "tab-1" } });
@@ -82,5 +89,57 @@ describe("TitleBar — file name", () => {
     mocks.filePath = null;
     render(<TitleBar />);
     expect(screen.getByText("Untitled-1")).toBeInTheDocument();
+  });
+});
+
+// #1224 round 2 — the rename must obey the setting that was in effect when the
+// editor OPENED, not whatever it reads at confirm time. Settings sync across
+// windows, so a flip mid-rename would otherwise change the meaning of text the
+// user already typed.
+describe("TitleBar — rename honours the extension policy it opened with", () => {
+  async function startRename(user: ReturnType<typeof userEvent.setup>) {
+    render(<TitleBar />);
+    await user.dblClick(screen.getByText(/notes/));
+    return screen.getByRole("textbox");
+  }
+
+  it("does not re-attach when the editor showed the extension", async () => {
+    const user = userEvent.setup();
+    const input = await startRename(user);
+    await user.clear(input);
+    await user.type(input, "notes{Enter}");
+
+    expect(mockRenameFile).toHaveBeenCalledWith("/tmp/notes.md", "notes", {
+      preserveExtension: false,
+    });
+  });
+
+  it("re-attaches when the editor hid the extension", async () => {
+    setShowExtensions(false);
+    const user = userEvent.setup();
+    const input = await startRename(user);
+    await user.clear(input);
+    await user.type(input, "renamed{Enter}");
+
+    expect(mockRenameFile).toHaveBeenCalledWith("/tmp/notes.md", "renamed", {
+      preserveExtension: true,
+    });
+  });
+
+  it("keeps the opening policy when the setting flips mid-rename", async () => {
+    const user = userEvent.setup();
+    const input = await startRename(user); // opened with the extension visible
+    await user.clear(input);
+    await user.type(input, "notes");
+
+    // Another window turns extensions off while this rename is in progress.
+    act(() => setShowExtensions(false));
+    await user.type(input, "{Enter}");
+
+    // Read live, `displayName` would now be "notes" — equal to what was typed —
+    // and the rename would silently cancel instead of dropping the extension.
+    expect(mockRenameFile).toHaveBeenCalledWith("/tmp/notes.md", "notes", {
+      preserveExtension: false,
+    });
   });
 });

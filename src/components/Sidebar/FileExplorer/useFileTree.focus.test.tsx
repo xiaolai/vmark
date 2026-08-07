@@ -241,6 +241,33 @@ describe("useFileTree — directory listing", () => {
     expect(names).not.toContain("image.png");
   });
 
+  // The tree used to keep a registered non-markdown extension once
+  // showAllFiles was on, so it said `requirements.txt` while the tab open on
+  // that file said `requirements`. showAllFiles decides what is LISTED, never
+  // how a listed name is spelled.
+  it("hides a registered non-markdown extension even with all files shown", async () => {
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "list_directory_entries" && (args as { path: string }).path === "/root") {
+        return [
+          { name: "requirements.txt", path: "/root/requirements.txt", isDirectory: false },
+          { name: "App.vue", path: "/root/App.vue", isDirectory: false },
+        ];
+      }
+      return undefined;
+    });
+
+    const { result } = renderHook(() =>
+      useFileTree("/root", { showAllFiles: true, showExtensions: false }),
+    );
+    await waitFor(() => {
+      expect(result.current.tree.length).toBe(2);
+    });
+    const names = result.current.tree.map((n) => n.name);
+    expect(names).toContain("requirements");
+    // Unregistered: VMark cannot open it, so the name stays as it is on disk.
+    expect(names).toContain("App.vue");
+  });
+
   it("hides the extension when the user turns that setting off", async () => {
     const { useSettingsStore } = await import("@/stores/settingsStore");
     const prev = useSettingsStore.getState().general.showFileExtensions;

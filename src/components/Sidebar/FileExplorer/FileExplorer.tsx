@@ -312,9 +312,9 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Handle rename
   const handleRename = useCallback(
     async ({ id, name }: { id: string; name: string }) => {
-      await renameItem(id, name);
+      await renameItem(id, name, { preserveExtension: !showExtensions });
     },
-    [renameItem]
+    [renameItem, showExtensions]
   );
 
   // Handle delete

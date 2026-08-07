@@ -53,7 +53,11 @@ describe("TabRenameInput", () => {
     const input = renderInput();
     await user.clear(input);
     await user.type(input, "renamed{Enter}");
-    expect(mockRenameFile).toHaveBeenCalledWith("/docs/note.md", "renamed");
+    // The input prefills the FULL name, so what the user typed is final —
+    // re-attaching the old extension would undo a deliberate deletion (#1224).
+    expect(mockRenameFile).toHaveBeenCalledWith("/docs/note.md", "renamed", {
+      preserveExtension: false,
+    });
     expect(mockStopRename).toHaveBeenCalled();
   });
 

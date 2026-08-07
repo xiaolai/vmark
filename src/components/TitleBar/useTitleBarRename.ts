@@ -8,10 +8,11 @@
  * Key decisions:
  *   - Re-entry guard (isRenamingRef) prevents duplicate rename operations from
  *     rapid double-clicks or keyboard repeat.
- *   - Delegates to services/persistence/renameFile, which preserves the file's
- *     ORIGINAL extension when the typed name omits one (config.yaml stays
- *     .yaml; a typed extension wins) and refuses to overwrite an existing
- *     target.
+ *   - Delegates to services/persistence/renameFile. Extension preservation is
+ *     the CALLER's call: pass `preserveExtension: false` when the editor
+ *     showed the extension, so deleting it renames the file instead of being
+ *     silently undone (#1224). Either way the service refuses to overwrite an
+ *     existing target.
  *   - The open document (and any other tab at the old path) is re-pointed by
  *     the service's path reconciliation — no direct setFilePath call here.
  *   - Failures return false so the title bar stays in edit mode.
@@ -30,7 +31,11 @@ export function useTitleBarRename() {
   const isRenamingRef = useRef(false);
 
   const renameFile = useCallback(
-    async (oldPath: string, newName: string): Promise<boolean> => {
+    async (
+      oldPath: string,
+      newName: string,
+      options: { preserveExtension?: boolean } = {},
+    ): Promise<boolean> => {
       // Guard against re-entry
       if (isRenamingRef.current) return false;
       isRenamingRef.current = true;
@@ -40,6 +45,7 @@ export function useTitleBarRename() {
         // The title bar only ever renames the open document — always a file.
         const outcome = await renameFileOnDisk(oldPath, newName, {
           isFolder: false,
+          preserveExtension: options.preserveExtension ?? true,
         });
         switch (outcome.status) {
           case "renamed":

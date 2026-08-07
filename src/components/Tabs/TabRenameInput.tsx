@@ -8,7 +8,8 @@
  *
  * Key decisions:
  *   - Prefills from the raw basename (with extension) so the user edits the
- *     real filename; `renameFile` re-applies `.md` if omitted.
+ *     real filename WITH its extension, so what you type is what you get —
+ *     deleting the suffix renames the file rather than being undone (#1224).
  *   - A submit guard prevents Enter + blur double-submitting the same value.
  *   - On success the tab title updates via path reconciliation (renameFile);
  *     failures surface a toast. Either way the editor closes.
@@ -53,7 +54,7 @@ export function TabRenameInput({ filePath, fileName }: TabRenameInputProps) {
         return;
       }
 
-      const outcome = await renameFile(filePath, trimmed);
+      const outcome = await renameFile(filePath, trimmed, { preserveExtension: false });
       if (outcome.status === "exists") {
         await showError(
           outcome.isFile

@@ -704,8 +704,8 @@ describe('restoreHelpers', () => {
       expect(mockCreateTab).toHaveBeenCalledTimes(2);
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/a.md');
       expect(mockCreateTab).toHaveBeenCalledWith('main', '/b.md');
-      expect(mockUpdateTabTitle).toHaveBeenCalledWith('new-1', 'A');
-      expect(mockUpdateTabTitle).toHaveBeenCalledWith('new-2', 'B');
+      // #1224 — a file-backed title is derived from the path by createTab.
+      expect(mockUpdateTabTitle).not.toHaveBeenCalled();
     });
 
     it('should toggle pin for pinned tabs', async () => {
