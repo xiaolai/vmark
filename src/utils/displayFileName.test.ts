@@ -29,6 +29,15 @@ describe("formatFileDisplayName", () => {
     expect(formatFileDisplayName(".gitignore", false)).toBe(".gitignore");
   });
 
+  // `.gitignore` alone does not cover this: its extension is unregistered, so
+  // the stripper never fires. A file named exactly `.md` hits the branch —
+  // and an empty label is worse than the extension it was hiding.
+  it("never returns an empty label for a file named only an extension", () => {
+    expect(formatFileDisplayName(".md", false)).toBe(".md");
+    expect(formatFileDisplayName(".txt", false)).toBe(".txt");
+    expect(formatFileDisplayName(".yaml", false)).toBe(".yaml");
+  });
+
   it("strips only the last extension of a double-barrelled name", () => {
     expect(formatFileDisplayName("notes.md.md", false)).toBe("notes.md");
   });

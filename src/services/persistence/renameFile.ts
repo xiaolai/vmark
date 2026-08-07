@@ -7,8 +7,11 @@
  *
  * Key decisions:
  *   - Preserves the file's ORIGINAL extension when the submitted name omits
- *     one (rename inputs prefill the extensionless name, so "notes.txt" +
- *     "notes2" → "notes2.txt"); an explicitly typed extension wins as-is.
+ *     one (a rename input that prefilled the extensionless name, so
+ *     "notes.txt" + "notes2" → "notes2.txt"); an explicitly typed extension
+ *     wins as-is. Callers whose editor SHOWED the extension pass
+ *     `preserveExtension: false` — otherwise deleting the suffix is silently
+ *     undone and the rename reports success without moving anything (#1224).
  *   - Folder-ness comes from the caller's `isFolder` flag when known, else a
  *     filesystem stat — never from name heuristics (a folder named
  *     "v2.0-drafts" is not a file).
@@ -46,6 +49,15 @@ export interface RenameOptions {
   /** Whether `oldPath` is a folder. Callers that know (e.g. tree nodes carry
    *  `isFolder`) should pass it; when omitted, a filesystem stat decides. */
   isFolder?: boolean;
+  /**
+   * Whether to re-attach the original extension when `newName` omits one.
+   * Defaults to true, which is correct only when the editor HID the extension
+   * and the user was therefore editing a stem. Pass false when the editor
+   * showed the full name (#1224): there, deleting the suffix is a deliberate
+   * rename, and re-attaching silently discards it — the file does not move and
+   * the caller still sees success.
+   */
+  preserveExtension?: boolean;
 }
 
 /**
@@ -97,10 +109,11 @@ export async function renameFile(
     const isFolder = options.isFolder ?? (await stat(oldPath)).isDirectory;
 
     // Preserve the file's original extension when the submitted name has no
-    // extension of its own (rename inputs prefill the extensionless name);
+    // extension of its own AND the editor prefilled an extensionless name;
     // an explicitly typed extension wins. Folders keep the raw name.
+    const preserveExtension = options.preserveExtension ?? true;
     const finalName =
-      !isFolder && fileExtensionOf(newName) === ""
+      preserveExtension && !isFolder && fileExtensionOf(newName) === ""
         ? `${newName}${fileExtensionOf(oldName)}`
         : newName;
 

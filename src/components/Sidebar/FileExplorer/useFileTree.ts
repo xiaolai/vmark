@@ -9,9 +9,11 @@
  *   - By default only includes markdown files (via mdFilter). When showAllFiles
  *     is enabled, all file types are shown — non-markdown files open with the
  *     system default app.
- *   - Node labels come from fileTreeDisplayName: the name on disk by default,
- *     since a hidden extension turned `requirements.txt` into an unexplained
- *     `requirements` (#1224).
+ *   - Node labels come from formatFileDisplayName — the same formatter the tab
+ *     strip uses, so the two never disagree. The name on disk by default, since
+ *     a hidden extension turned `requirements.txt` into an unexplained
+ *     `requirements` (#1224). showAllFiles decides what is LISTED, not how a
+ *     listed name is spelled.
  *   - Request ID pattern (requestIdRef) prevents stale async responses from
  *     overwriting fresher tree data.
  *   - Watch events are scoped by watchId (window label) to prevent cross-window
@@ -41,11 +43,8 @@ import {
   isVMarkFileName,
 } from "@/utils/dropPaths";
 import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
-import {
-  shouldIncludeEntry,
-  fileTreeDisplayName,
-  type FileTreeFilterOptions,
-} from "./fileTreeFilters";
+import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
+import { formatFileDisplayName } from "@/utils/displayFileName";
 import { fileExplorerError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -86,7 +85,7 @@ async function loadDirectoryRecursive(
       } else {
         nodes.push({
           id: fullPath,
-          name: fileTreeDisplayName(name, options),
+          name: formatFileDisplayName(name, options.showExtensions),
           isFolder: false,
         });
       }

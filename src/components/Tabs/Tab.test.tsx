@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Tab as TabType } from "@/stores/tabStore";
 
@@ -30,8 +30,14 @@ vi.mock("@/stores/tabRenameStore", () => ({
   useTabRenameStore: zustandMock(renameState),
 }));
 
+// Interpolation is preserved: the close button's accessible name is built from
+// a `{title}` param, so a mock that dropped params would make any assertion
+// about that name vacuous.
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, params?: Record<string, unknown>) =>
+      params?.title === undefined ? k : `${k}:${String(params.title)}`,
+  }),
 }));
 
 // Stand-in for the real inline rename editor: a nested <input> that, like the
@@ -180,6 +186,30 @@ describe("Tab", () => {
       renderTab();
       const label = screen.getByRole("tab").querySelector(".tab-title");
       expect(label?.textContent).toBe("note");
+    });
+
+    // Setting the store BEFORE render proves nothing about reactivity — a
+    // non-reactive implementation reading the value once would pass. Flip it
+    // on a mounted tab instead: that is the behaviour the design claims.
+    it("relabels an already-open tab when the setting flips", () => {
+      renderTab();
+      const label = () => screen.getByRole("tab").querySelector(".tab-title");
+      expect(label()?.textContent).toBe("note.md");
+
+      act(() => setShowExtensions(false));
+      expect(label()?.textContent).toBe("note");
+
+      act(() => setShowExtensions(true));
+      expect(label()?.textContent).toBe("note.md");
+    });
+
+    // `config.json` and `config.yaml` both collapse to "config" — an
+    // accessible name has to stay unambiguous even when the visible label
+    // cannot be.
+    it("keeps the full name in the close button's accessible name", () => {
+      setShowExtensions(false);
+      renderTab();
+      expect(screen.getByRole("button", { name: "closeTab:note.md" })).toBeInTheDocument();
     });
 
     it("leaves an unsupported extension visible even when hiding", () => {
