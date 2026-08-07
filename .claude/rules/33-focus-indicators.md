@@ -46,6 +46,28 @@ Keyboard focus must ALWAYS be visible. This is a WCAG requirement.
 }
 ```
 
+**Caret-only must be DECLARED.** No CSS analysis can see a caret, so
+`pnpm lint:design-tokens` cannot distinguish this sanctioned pattern from a
+button that simply lost its focus ring. Mark the rule:
+
+```css
+/* focus: caret-only — borderless text input in a popup; the caret is the
+   indicator (.claude/rules/33-focus-indicators.md §2). */
+.popup-input:focus,
+.popup-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+```
+
+The **reason is required** — the gate rejects a bare `/* focus: caret-only */`,
+because a token with no justification is a mute button. Nine such rules exist;
+`grep -rn "focus: caret-only" src` is the audit.
+
+You do not need the marker when a `:focus-visible` rule on the same selector
+paints something (`background`, a real `outline`, `border` or `box-shadow`) —
+the gate reads that as the replacement and stays quiet.
+
 ### 3. Dialog Inputs: Bottom Border Highlight
 
 ```css

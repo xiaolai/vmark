@@ -58,7 +58,8 @@
   min-width: 0;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* focus: caret-only — borderless search field; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2). */
 .find-bar-input:focus,
 .find-bar-input:focus-visible {
   outline: none;

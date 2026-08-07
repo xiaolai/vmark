@@ -40,7 +40,8 @@
   outline: none;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* focus: caret-only — borderless text input in a popup; the caret is the
+   indicator (.claude/rules/33-focus-indicators.md §2). */
 .link-popup-input:focus,
 .link-popup-input:focus-visible {
   border: none;

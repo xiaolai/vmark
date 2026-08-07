@@ -181,7 +181,8 @@
   outline: none;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* focus: caret-only — inline rename field; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2). */
 .file-node-input:focus,
 .file-node-input:focus-visible {
   outline: none;
