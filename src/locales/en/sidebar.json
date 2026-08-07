@@ -12,6 +12,7 @@
   "collapseFolder": "Collapse folder",
   "expandAllFolders": "Expand All Folders",
   "collapseAllFolders": "Collapse All Folders",
+  "showAllFiles": "Show All Files",
   "clearDocumentHistory": "Clear Document History",
   "closeSidebar": "Close Sidebar",
   "clearHistoryMessage": "Delete all history for this document? This cannot be undone.",

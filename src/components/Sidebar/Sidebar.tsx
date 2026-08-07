@@ -6,11 +6,13 @@
 
 import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown, Files } from "lucide-react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/services/history/historyRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { toggleShowAllFiles } from "@/services/workspaces/workspaceConfig";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { useDocumentFilePath } from "@/hooks/useDocumentState";
@@ -55,6 +57,11 @@ export function Sidebar() {
   useSidebarInstanceSync(useWindowLabel());
   const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const newFileShortcut = useShortcutsStore((state) => state.getShortcut("newFile"));
+  const allFilesShortcut = useShortcutsStore((state) => state.getShortcut("toggleAllFiles"));
+  // #1224: a folder of unsupported file types renders as empty folders. The
+  // header owns the way out, because Settings is not where a confused user looks.
+  const showAllFiles = useWorkspaceStore((state) => state.config?.showAllFiles ?? false);
+  const isWorkspaceMode = useWorkspaceStore((state) => state.isWorkspaceMode);
   const viewMode = useUIStore((state) => state.sidebarViewMode);
   const sidebar = useSidebarContext();
   // WI-2.3 — bind aria-expanded on the close-sidebar button to live state
@@ -145,6 +152,16 @@ export function Sidebar() {
               aria-label={t("collapseAllFolders")}
             >
               <ChevronsDownUp size={14} />
+            </button>
+            <button
+              className="sidebar-btn"
+              onClick={() => void toggleShowAllFiles()}
+              aria-pressed={showAllFiles}
+              disabled={!isWorkspaceMode}
+              title={tooltipWithShortcut(t("showAllFiles"), formatKeyForDisplay(allFilesShortcut))}
+              aria-label={tooltipWithShortcut(t("showAllFiles"), formatKeyForDisplay(allFilesShortcut))}
+            >
+              <Files size={14} />
             </button>
             <button
               className="sidebar-btn"

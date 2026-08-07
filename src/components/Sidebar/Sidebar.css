@@ -50,9 +50,21 @@
   cursor: pointer;
 }
 
-.sidebar-btn:hover {
+.sidebar-btn:hover:not(:disabled) {
   background-color: var(--selection-color);
   color: var(--text-color);
+}
+
+.sidebar-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Toggle buttons (show-all-files) advertise their on state — the tree content
+   alone is ambiguous when a folder is genuinely empty (#1224). */
+.sidebar-btn[aria-pressed="true"] {
+  background-color: var(--accent-bg);
+  color: var(--accent-primary);
 }
 
 .sidebar-btn:focus-visible {
