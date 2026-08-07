@@ -17,6 +17,7 @@ import {
 import {
   getCategoryLabel,
   getShortcutLabel,
+  getShortcutDescription,
 } from "@/stores/settingsShortcutLabels";
 import { KeyCapture } from "./KeyCapture";
 import { Button, SearchInput } from "./components";
@@ -59,7 +60,7 @@ export function ShortcutsSettings() {
           s.label.toLowerCase().includes(q) ||
           translatedLabel.includes(q) ||
           s.category.toLowerCase().includes(q) ||
-          (s.description?.toLowerCase().includes(q) ?? false) ||
+          (getShortcutDescription(s)?.toLowerCase().includes(q) ?? false) ||
           effectiveKey.toLowerCase().includes(q) ||
           displayKey.includes(q)
         );
@@ -113,9 +114,9 @@ export function ShortcutsSettings() {
           <div className="text-sm text-[var(--text-color)]">
             {getShortcutLabel(shortcut)}
           </div>
-          {shortcut.description && (
+          {getShortcutDescription(shortcut) && (
             <div className="text-xs text-[var(--text-tertiary)] truncate">
-              {shortcut.description}
+              {getShortcutDescription(shortcut)}
             </div>
           )}
         </div>
