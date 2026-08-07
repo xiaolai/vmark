@@ -77,7 +77,8 @@
   text-decoration: none;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* focus: caret-only — borderless inline math input; the caret is the
+   indicator (.claude/rules/33-focus-indicators.md §2). */
 .math-inline-input:focus,
 .math-inline-input:focus-visible {
   outline: none;
