@@ -57,6 +57,9 @@ impl WorkspaceKernel {
                 ))),
             };
         }
+        // The append is durable from here on, so the post-scope re-verification
+        // has something to check (see `verify_no_concurrent_short_read`).
+        self.appended_in_txn = true;
         if let Err(apply_err) = self.index.apply_entry(env) {
             if let Err(rec_err) = self.reconcile_index_from_ledger() {
                 return Err(self.poison(format!(
@@ -120,6 +123,52 @@ impl WorkspaceKernel {
              refusing to write on top of an incomplete history — upgrade VMark to continue",
             if skipped == 1 { "y" } else { "ies" }
         ))
+    }
+
+    /// Re-check, AFTER a locked scope appended, that the ledger is still one
+    /// this build can read whole.
+    ///
+    /// ## Why this is detection and not prevention
+    ///
+    /// The acquire-time gate refuses to write on a ledger we ALREADY know is
+    /// short. It cannot refuse one that becomes short while we hold the lock:
+    /// the workspace `flock` serializes cooperating VMark processes and has
+    /// never serialized `git`, so a `git pull` or branch switch can land a
+    /// newer-format segment mid-operation. Preventing that is not achievable
+    /// while the ledger is a git-tracked plain file that external tools rewrite
+    /// — which is the ratified architecture (readable JSONL as canonical
+    /// truth), not an oversight.
+    ///
+    /// The two cheap "fixes" are both wrong and were rejected: an O(ledger)
+    /// read before every append, and a `(len, mtime, inode)` fingerprint —
+    /// the exact oracle four prior audits killed for false negatives.
+    ///
+    /// So the achievable property is: an append that landed on a history we
+    /// could not read whole is reported IMMEDIATELY and loudly, instead of
+    /// silently becoming the base for the next decision. The entry itself is
+    /// already durable (the ledger is append-only, and git carries it), so the
+    /// user can recover; what must not happen is compounding it.
+    ///
+    /// Costs one `read_all` per locked scope THAT APPENDED. Read-only scopes —
+    /// the common case, including every breakdown refresh — skip it entirely.
+    fn verify_no_concurrent_short_read(&mut self) -> Result<(), String> {
+        if !self.appended_in_txn {
+            return Ok(());
+        }
+        self.appended_in_txn = false;
+        let read = self.ledger.read_all()?;
+        if read.future_format == 0 {
+            return Ok(());
+        }
+        self.short_read = read.future_format;
+        self.refused_for_short_read = true;
+        Err(self.poison(format!(
+            "the ledger gained {} entr{} in a newer format WHILE this operation held the \
+             workspace lock, so what was just written was decided without them; upgrade VMark \
+             before writing again",
+            read.future_format,
+            if read.future_format == 1 { "y" } else { "ies" }
+        )))
     }
 
     /// Whether the last `with_write_lock` was refused for a short ledger read.
@@ -217,6 +266,7 @@ impl WorkspaceKernel {
         // than by reopening.
         self.refuse_if_short_read(skipped)?;
         self.in_write_txn = true;
+        self.appended_in_txn = false;
         // Run `f` inside catch_unwind so the flag is reset even on a panic
         // (8th-review 8R-10). Relying on the registry `Mutex` poisoning was not
         // enough: a DIRECTLY owned kernel whose panic is caught kept the flag set
@@ -225,7 +275,10 @@ impl WorkspaceKernel {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self)));
         self.in_write_txn = false;
         match result {
-            Ok(r) => r,
+            Ok(r) => {
+                self.verify_no_concurrent_short_read()?;
+                r
+            }
             Err(payload) => {
                 // A panic may have left the ledger ahead of the index (appended
                 // but not applied). Poison so a kernel surviving an outer

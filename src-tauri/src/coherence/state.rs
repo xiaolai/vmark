@@ -63,6 +63,11 @@ pub struct WorkspaceKernel {
     /// the start of every non-reentrant acquire, so it answers exactly the
     /// question its consumers ask: *was this call refused for that reason?*
     pub(super) refused_for_short_read: bool,
+    /// Set by `append_and_apply_inner` when a locked scope actually wrote to the
+    /// ledger. Read once at the end of that scope to decide whether the
+    /// post-append re-verification is needed at all — a read-only locked scope
+    /// (most of them) skips it and pays nothing.
+    pub(super) appended_in_txn: bool,
     /// True while a `with_write_lock` scope holds the exclusive workspace `flock`
     /// across its whole read-validate-append span (re-review #1, R1). The `flock`
     /// itself lives in a stack local in `with_write_lock` (so it releases on every
@@ -154,6 +159,7 @@ impl WorkspaceKernel {
             unavailable: None,
             short_read: 0,
             refused_for_short_read: false,
+            appended_in_txn: false,
             in_write_txn: false,
             ignore_rules_unchecked,
             last_git: None,
