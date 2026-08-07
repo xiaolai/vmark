@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for pdfPresets option builders and detection functions.
  *

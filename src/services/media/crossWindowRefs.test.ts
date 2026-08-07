@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The cross-window bridge (WI-9): another window's unsaved buffer can be the
  * SOLE reference to an image this window is about to trash. Fail-closed at

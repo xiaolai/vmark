@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for media popup store — open/close, state updates, type-specific fields.
  * Covers all 4 media types: image, block_image, block_video, block_audio.

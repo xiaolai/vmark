@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-4.1 — editor-mechanic classification gate. Asserts the approved-mechanic
  * allowlist stays disjoint from the REAL registered commands and the shortcut /

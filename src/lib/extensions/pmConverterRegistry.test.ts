@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Registry 2 dispatch tests — ADR-015 D2, Phase 2.
  *

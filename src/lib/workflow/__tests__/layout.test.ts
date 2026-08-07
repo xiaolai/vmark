@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { layoutWorkflow } from "../layout";
 import { parseWorkflow } from "../parser";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Extra tests for mediaNodeViewHelpers — coverage for mediaBlockKeyboardShortcuts.
  */

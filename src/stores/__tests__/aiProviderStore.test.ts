@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { useAiProviderStore, REST_TYPES, KEY_OPTIONAL_REST } from "../aiStore";

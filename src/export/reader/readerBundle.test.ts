@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for readerBundle — the reader CSS/JS assets that htmlExport.ts
  * embeds into exported HTML. The strings are load-bearing in two ways:

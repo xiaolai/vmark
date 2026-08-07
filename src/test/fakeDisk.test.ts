@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Audit 20260804-F9 — the fake disk must not accept impossible filesystem behavior.
  *

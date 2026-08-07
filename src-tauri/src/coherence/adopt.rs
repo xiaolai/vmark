@@ -20,6 +20,14 @@ pub fn adopt_from_disk(
     kernel: &mut WorkspaceKernel,
     rel_path: &str,
 ) -> Result<(ObjectId, RevisionId), String> {
+    // R1 (7th-review 6R-1): read-heads → build → append atomic under the lock.
+    kernel.with_write_lock(|kernel| adopt_from_disk_locked(kernel, rel_path))
+}
+
+fn adopt_from_disk_locked(
+    kernel: &mut WorkspaceKernel,
+    rel_path: &str,
+) -> Result<(ObjectId, RevisionId), String> {
     kernel.ensure_initialized()?;
     let abs = super::paths::resolve_workspace_rel(kernel.root(), rel_path)?;
     let bytes =
@@ -99,7 +107,44 @@ pub fn register_if_needed(
     path: &str,
     schema: Option<&str>,
 ) -> Result<(), String> {
-    let registry = kernel.index().registry_state()?;
+    // R1 (7th-review 6R-1): registry read + append atomic. Nested inside a wrapped
+    // capture/adopt this is a no-op re-entry (the lock is already held).
+    kernel.with_write_lock(|kernel| {
+        let registry = kernel.index().registry_state()?;
+        register_if_needed_locked(kernel, &registry, object, path, schema)
+    })
+}
+
+/// `register_if_needed` for a caller that ALREADY holds a registry snapshot.
+///
+/// The scan calls this once per file, and the only thing the registry is used
+/// for is two `get`s. Re-reading it per file made the scan O(files × registry):
+/// `registry_state` is `SELECT * FROM registry` with a UUID and a timestamp
+/// parsed per row, so a 300-file workspace parsed ~90,000 rows to answer 300
+/// two-key lookups. That was ~99% of a breakdown refresh.
+///
+/// Safe to pass a pre-walk snapshot: the scan visits each object at most once
+/// (duplicates `continue` before reaching here), so no earlier iteration of the
+/// same walk can have moved the row this call is about. Other objects being
+/// adopted mid-walk do not affect this object's two lookups.
+pub fn register_if_needed_with(
+    kernel: &mut WorkspaceKernel,
+    registry: &super::index_row::RegistryState,
+    object: ObjectId,
+    path: &str,
+    schema: Option<&str>,
+) -> Result<(), String> {
+    kernel
+        .with_write_lock(|kernel| register_if_needed_locked(kernel, registry, object, path, schema))
+}
+
+fn register_if_needed_locked(
+    kernel: &mut WorkspaceKernel,
+    registry: &super::index_row::RegistryState,
+    object: ObjectId,
+    path: &str,
+    schema: Option<&str>,
+) -> Result<(), String> {
     let known_path = registry.path_of.get(&object);
     let known_schema = registry.schema_of.get(&object);
     let unchanged = known_path.map(String::as_str) == Some(path)

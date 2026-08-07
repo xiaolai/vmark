@@ -84,6 +84,31 @@ impl CoherenceIndex {
             .map_err(|e| e.to_string())
     }
 
+    /// The index's canonical `idem → winning entry_id` map. Compared against the
+    /// ledger's deduped winners on open (heal-on-open, design-accept-consistency
+    /// #1/#2): a git branch switch can REPLACE the tracked ledger with a
+    /// same-cardinality-but-different history, and a cross-process double-append
+    /// can leave the index on a non-canonical winner — cardinality can't see
+    /// either, so `open` reconciles on this exact identity map, never on counts.
+    pub fn applied_map(&self) -> Result<std::collections::HashMap<Uuid, Uuid>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT idem, entry_id FROM applied")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (idem, entry_id) = row.map_err(|e| e.to_string())?;
+            map.insert(
+                Uuid::parse_str(&idem).map_err(|e| e.to_string())?,
+                Uuid::parse_str(&entry_id).map_err(|e| e.to_string())?,
+            );
+        }
+        Ok(map)
+    }
+
     /// Mark/unmark an object absent (file deleted; spec §9.4). Scan-owned
     /// derived state — no ledger entry, history stays intact.
     pub fn set_absent(&mut self, object: &ObjectId, absent: bool) -> Result<(), String> {
@@ -96,6 +121,28 @@ impl CoherenceIndex {
             .execute(sql, [object.0.to_string()])
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    /// The entry id an idem first committed as — the accept idem→receipt lookup
+    /// (Phase 3.0, design v4.2). `None` means no entry with that idem has been
+    /// applied. This is the index fast-path; the kernel additionally consults the
+    /// ledger before appending so the append-before-apply torn window is closed.
+    pub fn entry_id_by_idem(&self, idem: &Uuid) -> Result<Option<Uuid>, String> {
+        let found: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT entry_id FROM applied WHERE idem = ?1",
+                [idem.to_string()],
+                |r| r.get(0),
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other.to_string()),
+            })?;
+        found
+            .map(|s| Uuid::parse_str(&s).map_err(|e| e.to_string()))
+            .transpose()
     }
 
     /// Content hash of a specific revision (scan compares disk vs head).
@@ -124,7 +171,7 @@ impl CoherenceIndex {
         let row = self
             .conn
             .query_row(
-                "SELECT upstream, pinned, downstream, downstream_rev, role FROM edges WHERE txf = ?1 AND input_idx = ?2",
+                "SELECT upstream, pinned, downstream, downstream_rev, role, edge_kind FROM edges WHERE txf = ?1 AND input_idx = ?2",
                 rusqlite::params![txf.to_string(), input as i64],
                 |r| {
                     Ok((
@@ -133,6 +180,7 @@ impl CoherenceIndex {
                         r.get::<_, String>(2)?,
                         r.get::<_, String>(3)?,
                         r.get::<_, String>(4)?,
+                        r.get::<_, String>(5)?,
                     ))
                 },
             )
@@ -141,7 +189,7 @@ impl CoherenceIndex {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other.to_string()),
             })?;
-        let Some((up, pinned, down, down_rev, role)) = row else {
+        let Some((up, pinned, down, down_rev, role, kind)) = row else {
             return Ok(None);
         };
         Ok(Some(OriginEdge {
@@ -156,6 +204,7 @@ impl CoherenceIndex {
             } else {
                 InputRole::Contextual
             },
+            kind: super::edge_kind::OriginEdgeKind::parse(&kind),
         }))
     }
 

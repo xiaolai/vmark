@@ -6,6 +6,9 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+// Registers `toHaveNoViolations`. Opt-in: axe-core is too heavy for the
+// global setup, which every app-tier test file loads. See src/test/axeMatchers.
+import "@/test/axeMatchers";
 import { axe } from "vitest-axe";
 
 const AXE_OPTS = { rules: { "color-contrast": { enabled: false } } };

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tab cycling selection (audit 20260612 H27).
 
 import { describe, it, expect } from "vitest";

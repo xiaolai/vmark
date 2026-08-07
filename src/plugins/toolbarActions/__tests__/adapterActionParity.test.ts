@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Adapter action vocabulary parity (WI-4).
  *

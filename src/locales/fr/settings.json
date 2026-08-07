@@ -748,5 +748,12 @@
   "advanced.embeddedBrowser.description": "Active le navigateur web expérimental intégré. Ajoute « Nouvel onglet de navigateur » à la palette de commandes.",
   "files.coherenceCapture.label": "Suivre la provenance des documents",
   "files.coherenceCapture.description": "Enregistrer l'évolution des documents (couche de cohérence). Une fois activé, VMark ajoute un bloc d'id `vmark:` au frontmatter du fichier lors du premier suivi et crée un dossier .vmark dans l'espace de travail.",
-  "shortcuts.capture.unsupported": "Cette combinaison de touches n'est pas prise en charge. Essayez-en une autre."
+  "shortcuts.capture.unsupported": "Cette combinaison de touches n'est pas prise en charge. Essayez-en une autre.",
+  "coherence.group": "Cohérence",
+  "coherence.checkTau.label": "Confiance de la vérification sémantique",
+  "coherence.checkTau.description": "Degré de certitude requis pour qu'une vérification soit enregistrée comme verdict. En dessous, la réponse est conservée mais marquée inconnue.",
+  "coherence.checkTau.option07": "0,7 — plus de verdicts, moins de certitude",
+  "coherence.checkTau.option08": "0,8 — équilibré",
+  "coherence.checkTau.option09": "0,9 — prudent (par défaut)",
+  "coherence.checkTau.option095": "0,95 — uniquement les réponses quasi certaines"
 }

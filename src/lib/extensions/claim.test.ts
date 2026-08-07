@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Claim protocol tests — ADR-015 D2b, WI-1.3.
  *

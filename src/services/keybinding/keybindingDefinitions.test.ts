@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.2 — re-covers useViewShortcuts' behavior after migration onto the registry:
 // the 18 view mappings, input-suppression, and the terminal-toggle exemption.
 import { describe, it, expect } from "vitest";

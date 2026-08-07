@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Diagnostic message translation (audit 20260612 H18).
 //
 // The diagnostics.GHA-* locale keys existed in every locale but were never

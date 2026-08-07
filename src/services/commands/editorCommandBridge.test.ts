@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Editor-command bridge tests — command-registry WI-3.1/3.2/3.4 (Phase 3).
  *

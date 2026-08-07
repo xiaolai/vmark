@@ -8,14 +8,15 @@
 
 use std::collections::{HashMap, HashSet};
 
-use serde_json::json;
-
+use super::adopt::register_if_needed_with;
 use super::canonical::text_content_hash;
-use super::capture::{adopt_from_disk, observed_external_entry, register_if_needed};
+use super::capture::{adopt_from_disk, observed_external_entry};
 use super::frontmatter::read_identity;
-use super::gitops::{classify, observe, GitClass};
+use super::gitops::{observe_outcome, GitClass};
+use super::scan_git::{run_git_phase, GitObserver, GitPhase};
+pub use super::scan_report::ScanReport;
 use super::state::WorkspaceKernel;
-use super::types::{Envelope, ObjectId, RevisionId};
+use super::types::{ObjectId, RevisionId};
 
 /// Directory names never scanned (mirrors the watcher's ignore list).
 pub(super) const IGNORED_DIRS: [&str; 8] = [
@@ -47,29 +48,40 @@ pub(super) const IGNORED_REL_PREFIXES: [&str; 1] = [".claude/worktrees"];
 pub(super) const MAX_SCAN_FILES: usize = 20_000;
 pub(super) const MAX_SCAN_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
-#[derive(Debug, Default, PartialEq, serde::Serialize)]
-pub struct ScanReport {
-    pub navigations: usize,
-    pub git_mutations: usize,
-    pub external_edits: usize,
-    /// Set when the git observation could not be trusted and reconciliation
-    /// was deferred to the next scan (#1207).
-    pub git_observation_unreliable: bool,
-    pub adopted: usize,
-    pub absent_marked: usize,
-    pub diagnostics: usize,
-    pub merge_deferred: bool,
-    /// D3.3: completed-merge diagnostics appended this scan (deduped by
-    /// merge commit SHA across repeated scans).
-    pub merges: usize,
-    /// False when the walk was truncated or a directory was unreadable —
-    /// deletion reconciliation was skipped for safety.
-    pub complete: bool,
-}
-
 /// One reconciliation pass (spec §9.4). Serialized with captures through
 /// the per-workspace kernel instance.
 pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String> {
+    // R1 (7th-review 6R-1, completed): a scan reconciles git observations against
+    // the index and appends observed-external revisions + diagnostics. It read and
+    // BUILT those transformations from an unlocked index while each append locked
+    // only afterwards — the same stale-sibling TOCTOU as capture. The whole span
+    // now runs under the workspace lock.
+    scan_workspace_with(kernel, observe_outcome)
+}
+
+/// `scan_workspace` with the git observation injected. Production always passes
+/// `gitops::observe`; only tests substitute.
+pub(super) fn scan_workspace_with(
+    kernel: &mut WorkspaceKernel,
+    observe_git: GitObserver,
+) -> Result<ScanReport, String> {
+    match kernel.with_write_lock(|k| scan_workspace_locked(k, observe_git)) {
+        Ok(report) => Ok(report),
+        // Declining to reconcile is reported, not thrown, so the read surfaces
+        // above degrade instead of dying — see `ScanReport::ledger_short_read`.
+        Err(_) if kernel.refused_for_short_read() => Ok(ScanReport {
+            ledger_short_read: true,
+            complete: false, // an unreconciled scan must never drive deletions
+            ..Default::default()
+        }),
+        Err(e) => Err(e),
+    }
+}
+
+fn scan_workspace_locked(
+    kernel: &mut WorkspaceKernel,
+    observe_git: GitObserver,
+) -> Result<ScanReport, String> {
     let mut report = ScanReport {
         complete: true,
         ..Default::default()
@@ -86,36 +98,12 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
         }
     }
 
-    // Git first (R18): classify before touching content.
-    let current_git = observe(kernel.root());
-    let class = classify(kernel.last_git.as_ref(), current_git.as_ref());
-    if class == GitClass::MergeInProgress {
-        // Defer: reconcile once the merge concludes.
-        kernel.last_git = current_git;
-        report.merge_deferred = true;
-        return Ok(report);
-    }
-    if class == GitClass::ObservationUnreliable {
-        // A repository that HAD a resolvable HEAD now reports none, so the
-        // `git` read failed rather than the repo changing. Reconciling on it
-        // would mint a spurious external-edit revision for what is really a
-        // git mutation (#1207). Return WITHOUT storing the bad observation,
-        // so the next scan compares against the same good baseline and
-        // reconciles normally — a transient failure costs one cycle.
-        report.git_observation_unreliable = true;
-        return Ok(report);
-    }
-    if let GitClass::Navigation { op, from, to } = &class {
-        if kernel.is_initialized() {
-            let env = Envelope::create(
-                "navigation",
-                kernel.writer(),
-                json!({ "git": { "op": op, "from": from, "to": to } }),
-            );
-            kernel.append_and_apply(&env)?;
-            report.navigations += 1;
-        }
-    }
+    // Git first (R18): classify before touching content. Two of the three
+    // outcomes stop the scan outright — see scan_git.rs.
+    let (class, current_git) = match run_git_phase(kernel, &mut report, observe_git)? {
+        GitPhase::Stop => return Ok(report),
+        GitPhase::Continue { class, observation } => (class, observation),
+    };
 
     let registry = kernel.index().registry_state()?;
     let mut existing_diagnostics = existing_diagnostic_keys(&ledger_read.entries);
@@ -154,6 +142,12 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
     let mut present_paths: HashSet<&str> = files.iter().map(|(rel, _)| rel.as_str()).collect();
     present_paths.extend(skipped_md.iter().map(String::as_str));
 
+    // ONCE for the whole walk — never `index().heads()` per file, which reloads
+    // every revision in the workspace each time (see `load_dag`). Safe as a
+    // snapshot for the same reason the registry snapshot above is: each object
+    // is visited at most once, so no earlier iteration can have changed the
+    // revisions this one asks about.
+    let dag = kernel.index().load_dag()?;
     let mut seen_at: HashMap<ObjectId, String> = HashMap::new();
     let mut duplicates: HashSet<ObjectId> = HashSet::new();
     for (rel_path, text) in &files {
@@ -206,11 +200,13 @@ pub fn scan_workspace(kernel: &mut WorkspaceKernel) -> Result<ScanReport, String
         }
         kernel.index_mut().set_absent(&object, false)?;
         if registry.path_of.get(&object).map(String::as_str) != Some(rel_path.as_str()) {
-            register_if_needed(kernel, object, rel_path, schema.as_deref())?;
+            // Pass the snapshot taken before the walk: re-reading the whole
+            // registry per file was ~99% of a breakdown refresh.
+            register_if_needed_with(kernel, &registry, object, rel_path, schema.as_deref())?;
         }
 
         let disk_hash = text_content_hash(text);
-        let heads = kernel.index().heads(&object)?;
+        let heads = dag.heads(&object);
         let at_head = {
             let mut found = false;
             for h in &heads {
@@ -295,3 +291,10 @@ pub(super) use super::scan_walk::walk_markdown;
 #[cfg(test)]
 #[path = "scan.test.rs"]
 mod tests;
+
+// Split out of `scan.test.rs` for the 800-line test-file limit, but kept a test
+// module OF THIS FILE: these tests drive `scan.rs`'s own surface, so hosting
+// them under `scan_git` would mean re-exporting internals purely to be tested.
+#[cfg(test)]
+#[path = "scan_git.test.rs"]
+mod git_tests;

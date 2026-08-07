@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Executor tests — command-registry WI-1.1..1.5 (Phase 1).
  *

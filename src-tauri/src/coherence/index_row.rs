@@ -26,6 +26,44 @@ pub struct EdgeRow {
     /// D3.4: historical waiver count on this edge — repeat divergence is
     /// visible without nagging ("previously waived ×N").
     pub prior_waivers: usize,
+    /// Origin-edge kind (Phase 2, WI-2.4) — the read model reports it so the
+    /// breakdown can group/label by kind. Serialized as the wire tag
+    /// (`dependency`, `conformance`, …). Read-only (R23 intact).
+    pub kind: String,
+    /// The DOWNSTREAM is a frozen (finished) document, so upstream movement
+    /// cannot invalidate it — design-lifecycle-and-anchors.md §A.
+    ///
+    /// Deliberately ORTHOGONAL to `state` rather than a state variant. `state`
+    /// stays truthful: a frozen document's edge is still whatever it actually
+    /// is, and collapsing that into a "frozen" state would both destroy that
+    /// information and force `structural_class` to invent a class for a display
+    /// concern — the accept precondition asks "did the affected set change
+    /// structurally?", which must not shift because someone marked a document
+    /// finished. The UI collapses rows where this is true; nothing is dropped.
+    #[serde(default)]
+    pub frozen_downstream: bool,
+    /// How this edge's section anchor stands against the CURRENT upstream text
+    /// — `anchor-unchanged` | `anchor-changed` | `anchor-lost`, or `None` when
+    /// the edge is unanchored (whole-file behaviour, the default).
+    /// design-lifecycle-and-anchors.md §B.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_status: Option<String>,
+    /// Does this edge actually ASK the owner for something?
+    ///
+    /// The one field every consumer must use. Suppression was previously left to
+    /// each caller to re-derive from `frozen_downstream` + `anchor_status`, and
+    /// they promptly diverged: `perform_status` filtered while the panel rendered
+    /// everything, so the badge read 0 while the list still interrupted. Deciding
+    /// it once, here, makes that class of drift unrepresentable.
+    ///
+    /// False for a frozen downstream (a finished record upstream edits cannot
+    /// invalidate) and for `anchor-unchanged` (the depended-on section did not
+    /// move). `anchor-changed` and `anchor-lost` remain actionable — a broken
+    /// anchor is evidence the dependency genuinely broke.
+    /// (`EdgeRow` is serialize-only in Rust; the TypeScript mirror supplies its
+    /// own default, which is `true` — degrade toward interrupting, never toward
+    /// silence.)
+    pub actionable: bool,
 }
 
 fn serialize_state<S: serde::Serializer>(state: &EdgeState, s: S) -> Result<S::Ok, S::Error> {

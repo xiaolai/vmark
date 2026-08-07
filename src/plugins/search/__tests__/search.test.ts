@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for search plugin — escapeRegExp contract and findMatchesInDoc.
  *

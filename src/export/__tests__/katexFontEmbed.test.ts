@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for katexFontEmbed — ensures the CSS rewrite replaces every
  * @font-face src with an inlined woff2 data URI and drops the woff/ttf

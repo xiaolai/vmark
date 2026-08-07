@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for footnotePopup/tiptapNodes — footnote_reference and footnote_definition
  * node extension definitions.

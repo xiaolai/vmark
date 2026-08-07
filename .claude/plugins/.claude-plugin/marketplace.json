@@ -1,0 +1,19 @@
+{
+  "name": "vmark-local",
+  "owner": {
+    "name": "VMark"
+  },
+  "metadata": {
+    "description": "Repo-local plugins for VMark. Currently one: language servers for the file types VMark contains that no marketplace covers.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "vmark-lsp",
+      "description": "Language servers for VMark's YAML, CSS and JSON — the three file types with real weight here that neither the official nor the community marketplace serves.",
+      "version": "1.0.0",
+      "source": "./vmark-lsp",
+      "category": "development"
+    }
+  ]
+}

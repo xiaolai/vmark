@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * runWindowCloseFlow — revalidation after EVERY await (review findings): the
  * pin dialog and the cleanup/persist steps inside finalize all yield, and an

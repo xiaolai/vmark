@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Browser commands — the gated "New Browser Tab" entry point (WI-1.10).
 // Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-1.10
 import { beforeEach, describe, expect, it } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-A.3 — cron-readable parser tests. TDD-first per .claude/rules/10-tdd.md.
 
 import { describe, it, expect } from "vitest";

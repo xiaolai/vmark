@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { uint8ArrayToBase64, fontDataToDataUri } from "../fontEmbedder";
 

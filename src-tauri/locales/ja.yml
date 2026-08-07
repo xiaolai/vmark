@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "ジーニーフォルダを開く"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "ワークスペースを開けませんでした: %{detail}"
+  coherence.kernelPoisoned: "内部エラーのため整合性の追跡を停止しました。続行するにはワークスペースを開き直してください。"
+  coherence.ledgerUnavailable: "整合性の履歴を読み取れませんでした: %{detail}"
+  coherence.rejectedArgument: "リクエストは拒否されました: %{detail}"
+  coherence.stateConflict: "このリクエスト以降にワークスペースが変更されました: %{detail}"
+  coherence.buildTooOld: "このバージョンの VMark は整合性履歴の一部を読み取れません。続行するには VMark を更新してください: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML コンテンツが大きすぎます（50 MB 超）"
   core.pathTraversal: "パストラバーサル（..）は許可されていません"

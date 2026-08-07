@@ -42,6 +42,64 @@ export interface EdgeRow {
   state: EdgeStateLabel;
   /** D3.4: historical waiver count on this edge ("previously waived xN"). */
   prior_waivers: number;
+  /**
+   * The downstream is FROZEN history — a finished record that later upstream
+   * edits cannot invalidate, so it must not interrupt. Orthogonal to `state`,
+   * which stays truthful about what the edge actually is.
+   */
+  frozen_downstream?: boolean;
+  /**
+   * How this edge's section anchor stands against the upstream's current text.
+   * Absent when the edge is unanchored (whole-file behaviour, the default).
+   */
+  anchor_status?: "anchor-unchanged" | "anchor-changed" | "anchor-lost";
+  /**
+   * Does this edge actually ASK for something? Computed once in Rust so the
+   * badge and the list cannot disagree — they did, twice, when each consumer
+   * re-derived suppression from `frozen_downstream` + `anchor_status`.
+   * Absent on a legacy row, which is treated as actionable: degrade toward
+   * interrupting, never toward silence.
+   */
+  actionable?: boolean;
+}
+
+// Not exported: these three describe the SHAPE of `LogbookView`'s fields and
+// nothing outside this module names them. An export nobody imports is dead
+// code the knip ratchet counts. Export them if a consumer ever needs the name.
+/** Mirror of the Rust `LogCheck` (coherence logbook). */
+interface LogCheck {
+  time: string;
+  verdict: string;
+  confidence: number;
+  /** What the model actually concluded when tau downgraded it to `unknown`. */
+  downgradedVerdict?: string | null;
+  downgradeReason?: string | null;
+}
+
+/** Mirror of the Rust `FlagJudgment` — the owner's M2 datum. */
+interface FlagJudgment {
+  time: string;
+  judgment: "relevant" | "noise" | "unsure";
+  note: string;
+}
+
+/** Mirror of the Rust `LogEntry` — one edge's whole life. */
+interface LogEntry {
+  txf: string;
+  input: number;
+  firstActivity: string;
+  /** >1 means the edge REOPENED and was paid for again (the churn signal). */
+  resolutions: number;
+  lastResolution?: string | null;
+  checks: LogCheck[];
+  judgment?: FlagJudgment | null;
+}
+
+/** Mirror of the Rust `LogbookView`. */
+export interface LogbookView {
+  rows: LogEntry[];
+  m2: { relevant: number; noise: number; unsure: number; unjudged: number };
+  reopenedEdges: number;
 }
 
 /** Mirror of the Rust `ProvenanceCandidate` (WI-3.2). */

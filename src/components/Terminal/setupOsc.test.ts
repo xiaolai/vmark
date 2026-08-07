@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.1 — OSC 7 cwd parsing + handler registration
 // WI-3.2 — OSC 133 command-boundary tracking
 import { describe, it, expect, vi } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the orphan asset scanner (async, mocked Tauri FS).
  *

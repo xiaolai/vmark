@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Audit F6 — the initial WYSIWYG content-search navigation was dropped when
 // the visibility effect ran before deferred editor initialization. This suite
 // pins the extracted helper: consume-and-jump semantics, preservation when the

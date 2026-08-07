@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Save-dialog filter names must be localized, and their extension lists must
  * come from the registry rather than being retyped per call site.

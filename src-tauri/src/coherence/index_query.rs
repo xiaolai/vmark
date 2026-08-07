@@ -6,7 +6,7 @@
 
 use uuid::Uuid;
 
-use super::dag::{ContextView, RevisionDag};
+use super::dag::ContextView;
 use super::index::CoherenceIndex;
 use super::project::{project_edge, EdgeResolution, EdgeState, OriginEdge, ResolutionKind};
 use super::types::{InputRole, ObjectId, RevisionId};
@@ -59,60 +59,6 @@ impl CoherenceIndex {
         Ok(state)
     }
 
-    pub(super) fn load_dag(&self) -> Result<RevisionDag, String> {
-        let mut dag = RevisionDag::default();
-        let mut stmt = self
-            .conn
-            .prepare("SELECT object, revision, parents FROM revisions")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                ))
-            })
-            .map_err(|e| e.to_string())?;
-        for row in rows {
-            let (obj, rev, parents_json) = row.map_err(|e| e.to_string())?;
-            let object = ObjectId(Uuid::parse_str(&obj).map_err(|e| e.to_string())?);
-            let revision = RevisionId::parse(&rev)?;
-            let parents: Vec<RevisionId> =
-                serde_json::from_str(&parents_json).map_err(|e| e.to_string())?;
-            dag.record_output(object, revision, parents);
-        }
-        Ok(dag)
-    }
-
-    /// Current head set of an object (never a global latest — R10).
-    pub fn heads(&self, object: &ObjectId) -> Result<Vec<RevisionId>, String> {
-        Ok(self.load_dag()?.heads(object))
-    }
-
-    /// Does this object have a revision with this content? Used by scan:
-    /// git navigation restores old content — a match means no new content
-    /// exists and nothing may be minted (R18).
-    pub fn revision_by_content(
-        &self,
-        object: &ObjectId,
-        content_hash: &super::types::ContentHash,
-    ) -> Result<Option<RevisionId>, String> {
-        let rev: Option<String> = self
-            .conn
-            .query_row(
-                "SELECT revision FROM revisions WHERE object = ?1 AND content_hash = ?2 ORDER BY revision LIMIT 1",
-                rusqlite::params![object.0.to_string(), content_hash.as_str()],
-                |r| r.get(0),
-            )
-            .map(Some)
-            .or_else(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                other => Err(other.to_string()),
-            })?;
-        rev.map(|r| RevisionId::parse(&r)).transpose()
-    }
-
     /// Latest path per object — derived from the parsed-time-ordered
     /// registry (audit A-M13: no lexical SQL time ordering anywhere).
     fn latest_paths(&self) -> Result<std::collections::HashMap<String, String>, String> {
@@ -150,7 +96,7 @@ impl CoherenceIndex {
 
         let mut stmt = self
             .conn
-            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence FROM edges")
+            .prepare("SELECT txf, input_idx, upstream, pinned, downstream, downstream_rev, role, confidence, edge_kind FROM edges")
             .map_err(|e| e.to_string())?;
         let edge_rows = stmt
             .query_map([], |r| {
@@ -163,6 +109,7 @@ impl CoherenceIndex {
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
                     r.get::<_, String>(7)?,
+                    r.get::<_, String>(8)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
@@ -170,7 +117,7 @@ impl CoherenceIndex {
         let all_resolutions = self.all_resolutions()?;
         let mut out = Vec::new();
         for row in edge_rows {
-            let (txf, idx, up, pinned, down, down_rev, role, confidence) =
+            let (txf, idx, up, pinned, down, down_rev, role, confidence, kind) =
                 row.map_err(|e| e.to_string())?;
             if absent.contains(&up) || absent.contains(&down) {
                 continue;
@@ -187,6 +134,7 @@ impl CoherenceIndex {
                 } else {
                     InputRole::Contextual
                 },
+                kind: super::edge_kind::OriginEdgeKind::parse(&kind),
             };
             let resolutions = all_resolutions
                 .get(&(edge.txf, edge.input))
@@ -214,7 +162,13 @@ impl CoherenceIndex {
                 downstream: edge.downstream,
                 downstream_rev: edge.downstream_rev,
                 confidence,
+                kind: edge.kind.as_str().into(),
                 state,
+                // Set by the breakdown surface from the lifecycle projection;
+                // the index itself has no lifecycle knowledge.
+                frozen_downstream: false,
+                anchor_status: None,
+                actionable: true,
             });
         }
         out.sort_by(|a, b| {
@@ -224,8 +178,9 @@ impl CoherenceIndex {
     }
 
     /// One query for every resolution, grouped by edge (audit R17: a
-    /// per-edge query is O(edges) round-trips at §10 scale).
-    fn all_resolutions(
+    /// per-edge query is O(edges) round-trips at §10 scale). `pub(super)` so the
+    /// candidate preview (`preview.rs`) can project the affected edges' states.
+    pub(super) fn all_resolutions(
         &self,
     ) -> Result<std::collections::HashMap<(Uuid, u32), Vec<EdgeResolution>>, String> {
         let mut stmt = self

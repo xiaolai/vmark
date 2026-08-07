@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.1 — mirror standing grants into the Rust driver (the authoritative gate).
 import { describe, it, expect, beforeEach, vi } from "vitest";
 

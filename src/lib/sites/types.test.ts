@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Site plugin type contracts (ADR-S1/S2/S3) — the validation vocabulary must be
 // immutable at runtime, not merely `as const` at compile time.
 import { describe, expect, it } from "vitest";

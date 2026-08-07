@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for YouTube URL parser — all URL formats, edge cases, invalid inputs.
  */

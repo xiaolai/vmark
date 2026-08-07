@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Web-workflow file parser (ADR-W1, WI-4.1). Pure: markdown workflow file → typed IR.
 // Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md
 import { describe, expect, it } from "vitest";

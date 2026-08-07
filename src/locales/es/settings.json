@@ -748,5 +748,12 @@
   "advanced.embeddedBrowser.description": "Activa el navegador web experimental integrado. Añade “Nueva pestaña del navegador” a la paleta de comandos.",
   "files.coherenceCapture.label": "Rastrear la procedencia del documento",
   "files.coherenceCapture.description": "Registrar cómo cambian los documentos con el tiempo (capa de coherencia). Al activarlo, VMark añade un bloque de id `vmark:` al frontmatter del archivo la primera vez que lo rastrea y crea una carpeta .vmark en el espacio de trabajo.",
-  "shortcuts.capture.unsupported": "Esta combinación de teclas no es compatible. Prueba con otra."
+  "shortcuts.capture.unsupported": "Esta combinación de teclas no es compatible. Prueba con otra.",
+  "coherence.group": "Coherencia",
+  "coherence.checkTau.label": "Confianza de la comprobación semántica",
+  "coherence.checkTau.description": "Cuánta seguridad necesita una comprobación para que su respuesta cuente como veredicto. Por debajo, la respuesta se guarda pero se marca como desconocida.",
+  "coherence.checkTau.option07": "0,7 — más veredictos, menos certeza",
+  "coherence.checkTau.option08": "0,8 — equilibrado",
+  "coherence.checkTau.option09": "0,9 — prudente (predeterminado)",
+  "coherence.checkTau.option095": "0,95 — solo respuestas casi seguras"
 }

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — trigger normalization tests.
 //
 // Plan §4 TriggerIR.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for imeGuard.ts — IME composition guard utilities.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for useWindowFocus — window label retrieval
  *

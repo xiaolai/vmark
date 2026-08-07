@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Unit tests for tabStore — focused on path deduplication logic.
  */

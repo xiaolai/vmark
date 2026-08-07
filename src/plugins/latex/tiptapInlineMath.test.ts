@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for tiptapInlineMath — inline math extension structure, schema, and rendering.
  */

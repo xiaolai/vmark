@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { resolveSourceFormatShortcut } from "./shortcutUtils";
 import { FORMAT_MARKERS } from "./formatTypes";

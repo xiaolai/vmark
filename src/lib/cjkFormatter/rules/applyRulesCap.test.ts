@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Audit 20260804-F7 — the rule-chain pass cap must not fail silently.
  *

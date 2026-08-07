@@ -748,5 +748,12 @@
   "advanced.embeddedBrowser.description": "Enable the experimental in-app web browser. Adds “New Browser Tab” to the command palette.",
   "files.coherenceCapture.label": "Track document provenance",
   "files.coherenceCapture.description": "Record how documents change over time (the coherence layer). Turning this on lets VMark add a `vmark:` id block to a file's frontmatter when it is first tracked, and create a .vmark folder in the workspace.",
-  "shortcuts.capture.unsupported": "This key combination isn't supported. Try another."
+  "shortcuts.capture.unsupported": "This key combination isn't supported. Try another.",
+  "coherence.group": "Coherence",
+  "coherence.checkTau.label": "Semantic check confidence",
+  "coherence.checkTau.description": "How sure a check must be before its answer is recorded as a verdict. Below this, the answer is kept but marked unknown.",
+  "coherence.checkTau.option07": "0.7 — more verdicts, less certain",
+  "coherence.checkTau.option08": "0.8 — balanced",
+  "coherence.checkTau.option09": "0.9 — cautious (default)",
+  "coherence.checkTau.option095": "0.95 — only near-certain answers"
 }

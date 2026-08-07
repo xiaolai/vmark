@@ -748,5 +748,12 @@
   "advanced.embeddedBrowser.description": "啟用實驗性的應用程式內網頁瀏覽器。在命令面板中新增「新增瀏覽器分頁」。",
   "files.coherenceCapture.label": "追蹤文件來源",
   "files.coherenceCapture.description": "記錄文件隨時間的變化（一致性層）。開啟後，VMark 會在首次追蹤某個檔案時，於其 frontmatter 加入 `vmark:` id 區塊，並在工作區建立 .vmark 資料夾。",
-  "shortcuts.capture.unsupported": "不支援此組合鍵。請換一個。"
+  "shortcuts.capture.unsupported": "不支援此組合鍵。請換一個。",
+  "coherence.group": "一致性",
+  "coherence.checkTau.label": "語意檢查信心度",
+  "coherence.checkTau.description": "檢查結果需要多確定才會記錄為判定。低於此值時答案仍會保留，但標記為未知。",
+  "coherence.checkTau.option07": "0.7 — 判定更多，確定性更低",
+  "coherence.checkTau.option08": "0.8 — 平衡",
+  "coherence.checkTau.option09": "0.9 — 謹慎（預設）",
+  "coherence.checkTau.option095": "0.95 — 僅接受幾乎確定的答案"
 }

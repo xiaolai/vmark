@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Concurrent saves to ONE path must not land out of order.
  *

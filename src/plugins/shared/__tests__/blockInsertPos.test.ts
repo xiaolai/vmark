@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for blockInsertPos — shared insert-position calculation used by the
  * alertBlock and detailsBlock insert commands (Codex audit finding 1).

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * `resolveSrc`'s document lookup, including the failure path.
  *

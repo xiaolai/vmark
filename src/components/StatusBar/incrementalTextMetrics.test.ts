@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the incremental (segment-cached) status-bar text metrics.
  *

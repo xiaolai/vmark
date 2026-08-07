@@ -62,7 +62,8 @@
   outline: none;
 }
 
-/* Input focus: caret is the indicator (per design rules) */
+/* focus: caret-only — borderless textarea in a popup; the caret is the
+   indicator (.claude/rules/33-focus-indicators.md §2). */
 .source-footnote-popup-textarea:focus,
 .source-footnote-popup-textarea:focus-visible {
   outline: none;

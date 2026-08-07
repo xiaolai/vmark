@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Table Detection Tests
  *

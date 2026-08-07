@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-2.1 — the dispatch boundary, as a gate rather than a hand-count.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2b.6 — claim commands: panel toggle + extract-from-selection with
 // provenance (the only claim-creation entry point, D2.2).
 import { beforeEach, describe, expect, it } from "vitest";

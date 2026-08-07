@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.6 — coherence capture funnel: workspace-relative path resolution
 // with prefix-boundary safety, fire-and-forget invoke of
 // coherence_capture, pending-save registration for the kernel's identity

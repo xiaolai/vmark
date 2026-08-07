@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2 — parser orchestrator integration tests.
 //
 // Verifies the orchestrator wires every subparser correctly and that

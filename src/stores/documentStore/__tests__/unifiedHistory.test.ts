@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.2 — Tests for cross-mode undo/redo checkpoint stack (MAX_CHECKPOINTS eviction, undo/redo, per-tab isolation, isRestoring guard, clearDocument)
 
 import { describe, it, expect, beforeEach } from "vitest";

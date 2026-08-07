@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2R — the rail-switch coordinator: stash outgoing (live ownership,
 // closed projection preserved), activate, pane-aware restore of the incoming
 // context, generation-guarded legacy sync. Real stores; Tauri mocked.

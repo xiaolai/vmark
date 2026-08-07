@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.4 / R2 — occlusion controller: freeze the native webview under overlays
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OcclusionController, type OcclusionDriver } from "./occlusion";

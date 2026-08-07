@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.1 — browser tab support in tabStore: create/dedupe/coexist/restore/update
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useTabStore } from "../tabStore";

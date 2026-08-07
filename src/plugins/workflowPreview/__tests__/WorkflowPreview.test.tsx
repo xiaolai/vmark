@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-21 — WorkflowPreview live-status overlay behavior tests.
 /**
  * WorkflowPreview — behavior tests for `applyStepStatuses`.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-9 (plan-20260803-161713) — editorContextMenuStore: open/close/reposition
 // semantics for the editor right-click context menu. Converted from the former
 // merged-store slice test (WI-1.1) when the slice was re-inlined as a

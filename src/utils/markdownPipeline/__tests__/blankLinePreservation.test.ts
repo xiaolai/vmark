@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Blank-line preservation across the WYSIWYG round trip.
 // Plan: dev-docs/plans/20260721-blank-line-preservation.md (WI-1.2, WI-1.3, WI-1.4)
 //

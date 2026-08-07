@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the export command registrar (ADR-012).
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-2.1 — the Tiptap conversion oracle: markdown → ProseMirror JSON pinned
  * by an INDEPENDENT implementation.

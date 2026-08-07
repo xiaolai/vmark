@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Split from tiptap.test.ts per the test-file size gate (WI-7): all paste-
 // handler describes live here. Mocks/helpers replicated (vi.mock is per-module).
 /**

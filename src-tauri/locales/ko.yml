@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "지니 폴더 열기"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "작업 공간을 열 수 없습니다: %{detail}"
+  coherence.kernelPoisoned: "내부 오류로 일관성 추적이 중지되었습니다. 계속하려면 작업 공간을 다시 여세요."
+  coherence.ledgerUnavailable: "일관성 기록을 읽을 수 없습니다: %{detail}"
+  coherence.rejectedArgument: "요청이 거부되었습니다: %{detail}"
+  coherence.stateConflict: "요청 이후 작업 공간이 변경되었습니다: %{detail}"
+  coherence.buildTooOld: "이 VMark 버전은 일관성 기록의 일부를 읽을 수 없습니다. 계속하려면 VMark를 업데이트하세요: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML 콘텐츠가 너무 큽니다 (50MB 초과)"
   core.pathTraversal: "경로 탐색(..)은 허용되지 않습니다"

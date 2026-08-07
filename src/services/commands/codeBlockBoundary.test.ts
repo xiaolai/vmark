@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The executor's code-fence boundary.
  *

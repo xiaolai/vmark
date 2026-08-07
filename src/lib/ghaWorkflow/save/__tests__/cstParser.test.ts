@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Phase 8 WI-8.1 — CST parser + round-trip gate tests.
 //
 // Validates the ADR-11 four-condition gate over the fixture corpus:

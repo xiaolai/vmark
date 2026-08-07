@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.5 — shared toolbar/context-menu dispatch. After the structural merge
 // this is a THIN layer over the executor's guarded mechanics
 // (editorActionDispatch): these tests verify the delegation — origin capture

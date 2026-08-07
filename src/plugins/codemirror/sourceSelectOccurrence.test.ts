@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for Source Mode select-next/all occurrence commands.
  *

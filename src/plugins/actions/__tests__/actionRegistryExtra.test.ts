@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Action Registry Tests — extended coverage
  *

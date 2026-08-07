@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI: issue #1182 — fit-to-width tables must distribute column widths by content
 /**
  * Fit-to-width table layout regression tests (issue #1182)

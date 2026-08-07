@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.3 — tests for the file-link → editor-jump wiring (G5).
 // Verifies the activate callback opens a tab, seeds the doc, and carries the
 // :line nav; plus the oversized-file and stat-failure guards. Link *detection*

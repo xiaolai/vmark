@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the semantic fingerprint backing the fidelity gate.
  *

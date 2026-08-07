@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.4 — menu action routing: adapter actions dispatch to the shared
 // helper and refocus the editor; clipboard routes to the bridge; link
 // commands copy/remove/edit against the snapshot's link state.

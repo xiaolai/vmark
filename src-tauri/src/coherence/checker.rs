@@ -8,6 +8,7 @@
 //! malformed is `unknown`. `unknown` is first-class and never collapsed
 //! (R25).
 
+use super::checker_format::{fenced, truncate};
 use super::project::CheckVerdict;
 
 /// Bounds keeping prompts and ledger entries finite.
@@ -28,6 +29,28 @@ pub struct ParsedCheck {
     pub verdict: CheckVerdict,
     pub confidence: f64,
     pub evidence: Vec<Evidence>,
+    /// What the model ACTUALLY said, when verdict discipline downgraded it to
+    /// `unknown`. Preserved so the τ decision stays auditable and retunable.
+    ///
+    /// Found by dogfooding (2026-07-20): 5 of 21 real checks came back `unknown`
+    /// with empty evidence, and the confidences split perfectly at τ — determinate
+    /// 0.90–0.99, unknown 0.82–0.86, nothing in between. Every one was a τ
+    /// downgrade, NOT a checker failure. The old `unknown()` constructor discarded
+    /// the verdict and its evidence, so the ledger kept nothing: lowering τ later
+    /// could not recover verdicts already paid for — you had to re-run and re-pay.
+    pub downgrade: Option<Downgrade>,
+}
+
+/// A determinate model verdict that verdict discipline refused to record as-is.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Downgrade {
+    /// The model's verdict before discipline — never `Unknown`.
+    pub verdict: CheckVerdict,
+    pub evidence: Vec<Evidence>,
+    /// `below-tau` | `contradiction-without-evidence`.
+    pub reason: String,
+    /// The threshold in force when the decision was made.
+    pub tau: f64,
 }
 
 pub struct CheckPromptInput<'a> {
@@ -40,26 +63,6 @@ pub struct CheckPromptInput<'a> {
     /// Fence nonce minted by the caller (H13: document text is data,
     /// never instructions).
     pub nonce: &'a str,
-}
-
-fn truncate(text: &str, limit: usize) -> String {
-    const MARKER: &str = "\n[truncated]";
-    if text.len() <= limit {
-        return text.to_string();
-    }
-    // The marker lives INSIDE the budget so callers can rely on `limit`.
-    let mut cut = limit.saturating_sub(MARKER.len());
-    while !text.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    format!("{}{MARKER}", &text[..cut])
-}
-
-fn fenced(nonce: &str, label: &str, body: &str) -> String {
-    format!(
-        "<data-{nonce} label=\"{label}\">\n{}\n</data-{nonce}>",
-        truncate(body, MAX_TEXT_CHARS)
-    )
 }
 
 /// Build the check prompt: the model compares the downstream document
@@ -145,7 +148,23 @@ pub fn parse_check_response(raw: &str, tau: f64) -> ParsedCheck {
         verdict: CheckVerdict::Unknown,
         confidence,
         evidence: Vec::new(),
+        downgrade: None,
     };
+    // A downgrade PRESERVES the model's determinate answer instead of dropping it.
+    let downgraded =
+        |confidence: f64, verdict: CheckVerdict, evidence: Vec<Evidence>, reason: &str| {
+            ParsedCheck {
+                verdict: CheckVerdict::Unknown,
+                confidence,
+                evidence: Vec::new(),
+                downgrade: Some(Downgrade {
+                    verdict,
+                    evidence,
+                    reason: reason.to_string(),
+                    tau,
+                }),
+            }
+        };
     let Some(json_str) = extract_json(raw) else {
         return unknown(0.0);
     };
@@ -187,15 +206,21 @@ pub fn parse_check_response(raw: &str, tau: f64) -> ParsedCheck {
         _ => return unknown(confidence),
     };
     if verdict == CheckVerdict::Contradiction && evidence.is_empty() {
-        return unknown(confidence);
+        return downgraded(
+            confidence,
+            verdict,
+            evidence,
+            "contradiction-without-evidence",
+        );
     }
     if confidence < tau {
-        return unknown(confidence);
+        return downgraded(confidence, verdict, evidence, "below-tau");
     }
     ParsedCheck {
         verdict,
         confidence,
         evidence,
+        downgrade: None,
     }
 }
 

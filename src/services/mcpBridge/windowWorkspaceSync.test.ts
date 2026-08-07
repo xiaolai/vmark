@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.5 F5 — window→workspace registration for MCP routing.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { startWindowWorkspaceSync } from "./windowWorkspaceSync";

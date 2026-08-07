@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.1 — versioned session-tab persistence + legacy migration + downgrade tolerance
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {

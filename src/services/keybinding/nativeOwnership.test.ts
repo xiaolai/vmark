@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-5.2 — whole-system exactly-once: a chord whose resolved ownership is
  * native-only must be REJECTED by the window (DOM) adapter, so the native menu

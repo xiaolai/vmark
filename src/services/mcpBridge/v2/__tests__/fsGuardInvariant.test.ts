@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Architecture-fitness test — MCP bridge filesystem path-guard invariant.
 //
 // Why this exists: the fs capability granted to document windows is broad

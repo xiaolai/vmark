@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.3 — tab commands (migrated from useTabShortcuts): behavior re-coverage.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * commands.bounds.test.ts
  *

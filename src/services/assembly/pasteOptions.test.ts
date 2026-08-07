@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The host's mapping from settings to the paste plugins' vocabulary.
  *

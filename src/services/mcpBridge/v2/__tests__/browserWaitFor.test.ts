@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P3.1 — vmark.browser.wait_for: a bounded poll for a page condition
 // (a ref, a role+name, or visible text). Read-class; distinguishes matched vs
 // timeout in the response.

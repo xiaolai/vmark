@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Serializer tests for remark-based markdown pipeline
  *

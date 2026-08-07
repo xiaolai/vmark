@@ -1,3 +1,4 @@
+// @vitest-environment node
 // YAML parse-error linter. Any YAML file (workflow or not) now
 // surfaces parse-level errors on the CodeMirror gutter.
 

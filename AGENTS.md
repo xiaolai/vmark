@@ -4,7 +4,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
 - You are an AI assistant working on the VMark project.
 
-- Use English unless another language is requested.
+- Use English regardless what languages xiaolai uses.
 
 - Follow the VMark working agreement:
 
@@ -50,6 +50,84 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     - Exceptions: CSS-only, docs, config. See `.claude/rules/10-tdd.md` for full scope.
 
   - Run `pnpm check:all` for gates.
+
+  - **`check:all` is the gate, not the loop.** It runs ~1,465 test files, 25
+    lint gates and three builds; measured locally it is a ~15-minute round
+    trip, which makes it useless as feedback while you work. Use
+    `pnpm check:fast` (`typecheck` + cached `lint` + tests related to your
+    changes) as the inner loop, and run `pnpm check:all` once before you push.
+
+    What to run after a change:
+
+    | What you changed | Run |
+    |---|---|
+    | One app `.ts`/`.tsx` | `pnpm test:changed`, or `pnpm vitest related <file>` |
+    | A store/service with many importers | `pnpm test:changed` — the import graph handles the fan-out |
+    | A lint gate under `scripts/` | that gate, plus its own `scripts/*.test.*` file |
+    | Locale JSON | `pnpm lint:i18n && pnpm vitest run src/locales` |
+    | CSS only | Nothing — visual QA instead (`.claude/rules/10-tdd.md` exempts CSS) |
+    | Rust | `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo clippy --all-targets -- -D warnings` |
+    | Anything, before pushing | `pnpm check:all` |
+
+    **What `check:fast` does not see** — it is an incremental loop, and these
+    gaps are why it can never replace `check:all`:
+
+    - `vitest --changed` follows the **static import graph only**. Around 35
+      test files read their subject at runtime with `readFileSync` — the
+      baseline ratchets, the shell-slots identity list, the byte-identity
+      check on `ci.yml` — so editing a baseline JSON or a workflow file
+      changes nothing the graph can see and selects no tests at all.
+    - **Test files are never typechecked, by anything.** `tsconfig.json`
+      excludes `*.test.ts(x)`, `__tests__/**`, `src/test/**` and `src/bench/**`,
+      and ESLint here is not type-aware — so ~388k lines of test code have no
+      type checking. `pnpm typecheck` covers production source only.
+    - It skips coverage thresholds, `check:servers`, `check:build` and
+      size-limit, the WebKit tier, all of Rust, and the soak tier.
+    - `test:changed` runs the app tier's changed set, and adds the WHOLE gate
+      tier when a `scripts/` or `.claude/hooks/` file changed (those gates are
+      exercised through spawned subprocesses, which no import graph can see).
+      It runs both tiers if the base ref cannot be resolved, rather than
+      guessing.
+    - It compares against `origin/main`, so `git fetch` first or it will
+      select against a stale base.
+
+  - **There are FOUR vitest tiers, and they must partition the test files.**
+    `vitest.config.ts` runs the app (`src/**`, jsdom). `vitest.gates.config.ts`
+    runs the gate self-tests (`scripts/**`, `.claude/hooks/**`, node, no
+    `setup.ts`) via `pnpm test:gates`, which lives in `check:static` — so CI's
+    required `frontend` job still blocks on every one of them. They spawn the
+    lint scripts as subprocesses and were the slowest files in the repo (34s,
+    27s, 26s…) against a ~100ms median app file. `vitest.browser.config.ts`
+    (real WebKit) and `vitest.soak.config.ts` are the other two tiers.
+
+    `scripts/check-scripts-parity.test.mjs` asserts the partition in both
+    directions, **repository-wide**: a test file matched by no tier, or by two,
+    fails. That assertion is the point — a dropped test file does not fail, it
+    just stops running, and everything stays green. Roots whose tests belong to
+    another runner (`server/`, `website/`) are exempted by name, and an
+    exemption that no longer covers any test is itself a failure.
+
+    Shared settings — worker count and the test-file extension set — live in
+    `vitest.shared.ts`. Both existed as copies before, and the copies had
+    already drifted: the app include accepted eight extensions while its
+    webkit/soak excludes listed only `ts,tsx`, so a `*.webkit.test.mjs` would
+    have run under jsdom and still looked correctly owned.
+
+  - **jsdom is the default environment, not the rule.** A jsdom document costs
+    ~3.3s of worker time per file and was 60% of the suite's total worker time.
+    Most app-tier files carry `// @vitest-environment node` on line 1 and skip
+    it — 834 of 1,439 at the time of writing, taking the environment phase from
+    5216s to 1904s and the full coverage run from 832s to 536s.
+
+    **Decide this by running the file, never by reading it.** The set was built
+    by running the whole tier under `--environment=node` and marking every file
+    that passed. A directory that reads as DOM-free is not: a 289-file sample
+    chosen that way still had 28 files needing a real document. To mark a new
+    file, add the docblock and run it — if it needs a DOM it fails immediately
+    and says so. `src/test/nodeEnvironmentDirective.test.ts` guards the
+    mechanism itself, because if Vitest ever stops honouring the docblock every
+    marked file falls back to jsdom silently, and the only symptom is a slower
+    run.
 
   - **Pushes to `main` and `v*` tags are gated at push time.** A versioned
     `pre-push` hook (`.githooks/pre-push`) gates release tags by verifying —

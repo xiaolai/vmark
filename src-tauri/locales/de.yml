@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "Genies-Ordner öffnen"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "Der Arbeitsbereich konnte nicht geöffnet werden: %{detail}"
+  coherence.kernelPoisoned: "Die Kohärenzverfolgung wurde nach einem internen Fehler gestoppt. Öffnen Sie den Arbeitsbereich erneut, um fortzufahren."
+  coherence.ledgerUnavailable: "Der Kohärenzverlauf konnte nicht gelesen werden: %{detail}"
+  coherence.rejectedArgument: "Die Anfrage wurde abgelehnt: %{detail}"
+  coherence.stateConflict: "Der Arbeitsbereich hat sich seit dieser Anfrage geändert: %{detail}"
+  coherence.buildTooOld: "Diese VMark-Version kann Teile des Kohärenzverlaufs nicht lesen. Aktualisieren Sie VMark, um fortzufahren: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML-Inhalt zu groß (>50 MB)"
   core.pathTraversal: "Pfad-Traversierung (..) ist nicht erlaubt"
