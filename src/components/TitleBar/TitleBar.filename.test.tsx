@@ -8,11 +8,14 @@
  * state hook — a hook, not a store — is stubbed, since it reaches into editor
  * state this suite has no reason to bootstrap.
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const mocks = vi.hoisted(() => ({ filePath: "/tmp/notes.md" as string | null }));
+const mocks = vi.hoisted(() => ({
+  filePath: "/tmp/notes.md" as string | null,
+  isRenaming: false,
+}));
 
 vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentFilePath: () => mocks.filePath,
@@ -23,7 +26,7 @@ vi.mock("@/hooks/useDocumentState", () => ({
 
 const mockRenameFile = vi.fn().mockResolvedValue(true);
 vi.mock("./useTitleBarRename", () => ({
-  useTitleBarRename: () => ({ renameFile: mockRenameFile, isRenaming: false }),
+  useTitleBarRename: () => ({ renameFile: mockRenameFile, isRenaming: mocks.isRenaming }),
 }));
 
 import { TitleBar } from "./TitleBar";
@@ -54,6 +57,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRenameFile.mockResolvedValue(true);
   mocks.filePath = "/tmp/notes.md";
+  mocks.isRenaming = false;
   setShowExtensions(true);
   useTabStore.setState({ tabs: { main: [untitledTab] }, activeTabId: { main: "tab-1" } });
 });
@@ -124,6 +128,50 @@ describe("TitleBar — rename honours the extension policy it opened with", () =
     expect(mockRenameFile).toHaveBeenCalledWith("/tmp/notes.md", "renamed", {
       preserveExtension: true,
     });
+  });
+
+  it("does not rename a file whose name only has surrounding whitespace", async () => {
+    // Leading/trailing spaces are legal in a file name. Trimming before the
+    // comparison made "unchanged" look like a change, so simply confirming the
+    // name renamed the file out from under the user.
+    mocks.filePath = "/tmp/ spaced .md";
+    const user = userEvent.setup();
+    render(<TitleBar />);
+    await user.dblClick(screen.getByText(/spaced/));
+    await user.type(screen.getByRole("textbox"), "{Enter}");
+
+    expect(mockRenameFile).not.toHaveBeenCalled();
+  });
+
+  it("abandons the edit when another document takes over the title bar", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<TitleBar />);
+    await user.dblClick(screen.getByText(/notes/));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "half-typed");
+
+    // The active tab changes under us — the half-typed name belongs to the
+    // file we just left, and submitting it would rename the NEW one.
+    mocks.filePath = "/tmp/other.md";
+    rerender(<TitleBar />);
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(mockRenameFile).not.toHaveBeenCalled();
+  });
+
+  it("does not let a blur close the editor while a rename is in flight", async () => {
+    // The input is DISABLED during the rename, and disabling a focused element
+    // blurs it. With blur closing unconditionally, a failed rename lost the
+    // editor — contradicting the documented "keep editing on failure".
+    const user = userEvent.setup();
+    const { rerender } = render(<TitleBar />);
+    await user.dblClick(screen.getByText(/notes/));
+
+    mocks.isRenaming = true;
+    rerender(<TitleBar />);
+    fireEvent.blur(screen.getByRole("textbox"));
+
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
   it("keeps the opening policy when the setting flips mid-rename", async () => {
