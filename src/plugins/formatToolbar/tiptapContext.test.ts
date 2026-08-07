@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tiptap Context Extraction Tests
  *

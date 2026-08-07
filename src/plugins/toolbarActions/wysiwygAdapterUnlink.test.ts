@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.1 — WYSIWYG "unlink" adapter action: removes the link mark across
 // the full link range at a caret, or across the selection; no-ops cleanly
 // when there is no link or no link mark in the schema.

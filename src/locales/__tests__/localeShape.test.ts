@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Locale bundles must mirror the English bundle's SHAPE, not just its key set.
 //
 // English stores most keys as flat literals containing dots

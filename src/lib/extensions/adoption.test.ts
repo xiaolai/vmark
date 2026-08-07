@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Resolver adoption gate — ADR-015 D6.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Cross-file `#fragment` navigation — the TIMING is the whole test.
  *

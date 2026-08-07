@@ -1,3 +1,4 @@
+// @vitest-environment node
 vi.mock("@/utils/debug", () => ({
   sourcePeekError: vi.fn(),
 }));

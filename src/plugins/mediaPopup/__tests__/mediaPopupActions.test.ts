@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Media Popup Actions Tests
  *

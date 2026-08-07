@@ -6,6 +6,9 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+// Registers `toHaveNoViolations`. Opt-in: axe-core is too heavy for the
+// global setup, which every app-tier test file loads. See src/test/axeMatchers.
+import "@/test/axeMatchers";
 import { axe } from "vitest-axe";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 

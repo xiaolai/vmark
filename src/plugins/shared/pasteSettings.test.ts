@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The paste plugins' own vocabulary and its standalone default.
  *

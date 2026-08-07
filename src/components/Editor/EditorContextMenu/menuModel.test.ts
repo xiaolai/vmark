@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2 — table-driven tests for the pure editor context-menu model
 // builder: section visibility (hide vs disable policy), clipboard enable
 // states, checkmarks, submenu states, link-aware swap, format-policy and

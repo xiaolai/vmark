@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-19 — the engine flag has to REACH Rust.
 //
 // Settings live in the webview's localStorage, so the Rust runner cannot read

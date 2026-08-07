@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Decoration-building tests for the lint extension.
  *

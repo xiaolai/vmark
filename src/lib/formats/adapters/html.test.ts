@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.3 — HTML adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

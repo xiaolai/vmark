@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for typewriterMode extension — scroll behavior and plugin structure.
  */

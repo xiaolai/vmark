@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.5 — keybinding manifest is the single source of truth for the
 // cross-source-synced shortcut subset; the drift gate
 // (scripts/check-keybinding-manifest.mjs) enforces it against

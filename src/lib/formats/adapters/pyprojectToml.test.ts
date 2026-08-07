@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.2 — pyproject.toml schema detector + dependency-tree renderer tests.
 //
 // Covers PEP 621 [project] (optional-dependencies → groups) and Poetry

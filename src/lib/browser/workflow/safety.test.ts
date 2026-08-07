@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 / R8a — write-safety decision core (never double-post a partial write)
 import { describe, it, expect } from "vitest";
 import {

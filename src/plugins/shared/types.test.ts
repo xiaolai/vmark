@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Type-level tests for EditorViewLike.
  *

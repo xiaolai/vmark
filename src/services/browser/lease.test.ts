@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.9 / R11 — automation lease: AI vs human arbitration
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useBrowserLeaseStore } from "./lease";

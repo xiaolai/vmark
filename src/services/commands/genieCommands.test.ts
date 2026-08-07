@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for genieCommands: detectScope's four-branch return shape and the
  * genies.togglePicker / genies.openPicker command registration + behavior.

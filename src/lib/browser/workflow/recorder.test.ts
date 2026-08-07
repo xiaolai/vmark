@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.3 / R10 — recorder: action trace → parseable workflow, secrets redacted
 import { describe, it, expect } from "vitest";
 import { traceToWorkflow, type RecordedEvent } from "./recorder";

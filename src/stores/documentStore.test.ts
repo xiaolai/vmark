@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { useDocumentStore, setTabExistenceGuard } from "./documentStore";
 import { useTabStore } from "./tabStore";

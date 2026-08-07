@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * One bad tab must cost that tab, not the session.
  *

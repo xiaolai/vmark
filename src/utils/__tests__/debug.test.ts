@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for src/utils/debug.ts — conditional debug loggers.
  *

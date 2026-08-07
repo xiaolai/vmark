@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The store holds CANONICAL editor text.
  *

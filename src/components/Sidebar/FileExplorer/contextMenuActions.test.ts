@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 — the file-explorer context menu's id → operation mapping.
 //
 // Extracted from FileExplorer.tsx when "Open Terminal Here" pushed that file

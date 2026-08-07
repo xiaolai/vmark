@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.5 — vmark.browser MCP handlers: read (snapshot) + act (approval-gated)
 import { describe, it, expect, beforeEach, vi } from "vitest";
 

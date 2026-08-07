@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Audit follow-up — split target for lazy-loading xyflow.
 //
 // WorkflowCanvasInner is the xyflow subtree extracted from WorkflowCanvas.

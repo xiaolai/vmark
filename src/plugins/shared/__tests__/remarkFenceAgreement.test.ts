@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The fence scanner, checked against remark-parse itself.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Audit 20260804-F5 — fullwidth punctuation normalization must be linear-ish.
  *

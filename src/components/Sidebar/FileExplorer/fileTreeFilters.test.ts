@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import type { DirectoryEntry } from "./types";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1R — pure ownership kernel: one partition rule shared by visibility,
 // stash, close, move/duplicate, hot-exit capture, and session persistence.
 import { describe, expect, it } from "vitest";

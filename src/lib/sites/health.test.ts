@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Site plugin health checks — classify probes, run per-plugin, aggregate (WI-3.5).
 // Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-3.5
 import { beforeEach, describe, expect, it, vi } from "vitest";

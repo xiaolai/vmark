@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Window-status panel persistence (#1120) — window-scoped, own key namespace.
 import { beforeEach, describe, expect, it } from "vitest";
 

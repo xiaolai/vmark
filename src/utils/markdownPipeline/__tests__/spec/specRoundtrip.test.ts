@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-0.1/WI-0.2 — the spec round-trip gate: every corpus example through
  * markdown → ProseMirror → markdown, held to two invariants.

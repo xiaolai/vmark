@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for restoreDocumentState — rebuilding ONE document from a hot-exit
  * snapshot: content, line metadata, flags, per-doc mode, cursor, and unified

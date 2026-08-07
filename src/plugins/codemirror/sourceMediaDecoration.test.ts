@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for sourceMediaDecoration — media block detection with bounded lookahead.
  *

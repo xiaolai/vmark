@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Footnote Save — Formatting Preservation Tests
  *

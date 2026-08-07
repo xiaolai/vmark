@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-13.4 — ownership reassignment on deliberate navigation (Save As, rename,
 // cross-root move): atomic reclassification; the visible context follows ONLY
 // when the ACTIVE tab's owner changed and the caller allows it (MCP does not).

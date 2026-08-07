@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for sourcePeekActions — canUseSourcePeek, getMarkdownOptions,
  * openSourcePeekInline, commitSourcePeek, revertAndCloseSourcePeek.

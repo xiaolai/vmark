@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tab Escape Tests for WYSIWYG Mode
  *

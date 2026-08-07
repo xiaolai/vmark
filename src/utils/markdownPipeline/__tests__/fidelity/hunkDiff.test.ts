@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the line-hunk differ backing the fidelity gate.
  *

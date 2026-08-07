@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for wireSessionInput under Channel Ownership (single writer per
  * keystroke). The legacy dual-writer dedup (Path A/B, grace window, echo token)

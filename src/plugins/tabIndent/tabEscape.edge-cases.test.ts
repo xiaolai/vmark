@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Edge Case Tests for Tab Escape in WYSIWYG Mode
  *

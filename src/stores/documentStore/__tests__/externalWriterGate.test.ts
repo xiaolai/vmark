@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Structural gate: WHO may write text into the document store (WI-1.5).
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Toolbar label translation mapping (audit 20260612 H17).
 //
 // Rot-proofing: every group/item id in toolbarGroups must have a mapping,

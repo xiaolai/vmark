@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Round-trip fidelity regressions — the four data-loss/corruption defects the
  * Phase 0A corpus harness surfaced (dev-docs/plans/20260722-extension-architecture.md).

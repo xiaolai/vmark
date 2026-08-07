@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-2.3 — EXPLICIT sanitization assertions over the markdown-it xss corpus.
  *

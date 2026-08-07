@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Behaviour of the `lint.*` command set after its extraction from
 // viewCommands.ts. `lint.next` / `lint.prev` previously had no behavioural
 // test — only their presence in the id list — so a move that swapped the two

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S1.2 — browserNavigation: stateless nav actions shared by the omnibox + surface
 import { describe, it, expect, beforeEach, vi } from "vitest";
 

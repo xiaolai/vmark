@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tests for the shared CommonMark code-fence line tracker.
 
 import { describe, it, expect } from "vitest";

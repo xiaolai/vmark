@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the misc command registrar (ADR-012).
  *

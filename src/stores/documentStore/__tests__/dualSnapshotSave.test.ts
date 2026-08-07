@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The dual-snapshot save contract (WI-1.4).
  *

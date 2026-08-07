@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The two defects this queue was extracted to fix, plus the invariants that
  * keep them fixed.

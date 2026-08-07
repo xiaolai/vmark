@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Contract for the single applicability source (structural merge): the
  * toolbar's enable contexts and the palette's requirements both derive from

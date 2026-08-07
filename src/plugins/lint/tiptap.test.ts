@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the Tiptap lint extension (tiptap.ts).
  *

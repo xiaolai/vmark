@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for caseTransformations — Unicode-aware case transforms.
  * ASCII behavior is also locked in via textTransformations.test.ts

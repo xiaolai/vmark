@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Adapter remark pipeline tests
  *

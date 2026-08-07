@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The ALL-INGRESS MATRIX — Phase 1's closing gate (WI-1.9).
  *

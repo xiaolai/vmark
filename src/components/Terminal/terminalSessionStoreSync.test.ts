@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for buildCdCommand — the shell-quoting helper that wires workspace
  * root changes into live PTYs. Security-adjacent: the output is fed

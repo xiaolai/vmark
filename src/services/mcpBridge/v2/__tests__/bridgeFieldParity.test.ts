@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-15 — field-level parity for the MCP bridge wire contract.
 /**
  * The name-level sibling (`operationManifestParity.test.ts`) proves the same

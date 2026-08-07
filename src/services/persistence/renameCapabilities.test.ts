@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Capability-scope regression guard for the shared rename service (#1146).
  *

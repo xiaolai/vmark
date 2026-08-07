@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Empty-safe tooltip builder: appends "(KEY)" only when a shortcut exists.
 
 import { describe, it, expect } from "vitest";

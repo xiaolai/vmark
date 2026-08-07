@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.5 / ADR-B4 — browser profile: data-store mode by macOS version + stable id
 import { describe, it, expect } from "vitest";
 import {

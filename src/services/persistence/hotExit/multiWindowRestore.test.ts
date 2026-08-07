@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Multi-Window Restore Tests
  *

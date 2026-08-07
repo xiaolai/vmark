@@ -1,3 +1,4 @@
+// @vitest-environment node
 // CommonMark fence-grammar strictness tests for buildCodeMask, split
 // from markdownCodeMask.test.ts (file-size limit). These pin the
 // closer and info-string rules its consumers (link detection, CJK

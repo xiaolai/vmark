@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The last check before an image is trashed (WI-11): does ANY workspace
  * document mention its filename? Fail-closed by design — only a clean

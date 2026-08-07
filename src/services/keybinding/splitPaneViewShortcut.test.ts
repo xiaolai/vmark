@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.2 — F6/Shift+F6 view-mode toggles for split-pane / viewer tabs.
 
 import { describe, it, expect, beforeEach } from "vitest";

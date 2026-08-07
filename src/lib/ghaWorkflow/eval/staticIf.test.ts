@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-#4 — static if-condition evaluator. Subset of GHA expression
 // language: literal comparisons (==, !=), && / ||, !, parens, single-
 // quoted strings, basic property access on a simulated context.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for diagnosticToCM — verifies message translation and offset clamping.
  */

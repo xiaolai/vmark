@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for setupCopyOnSelect — copy-on-select wiring for xterm.js
  * Terminal. Covers debounce coalescing, IME gating, settings gate,

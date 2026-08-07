@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-B.2 — go-to-def for `uses:` lines in workflow YAML.
 // Pure-logic tests; the CM event-handler integration is exercised in
 // the live Tauri smoke (no jsdom mouse-event simulation).

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The footnote extension's store option.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { stripBlockMarkup } from "./lineContent";
 import { fenceRanges, enclosingFence, isDelimiterLine } from "./fenceScanner";

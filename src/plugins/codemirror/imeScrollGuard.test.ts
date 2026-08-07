@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for IME Scroll Guard (CodeMirror)
  *

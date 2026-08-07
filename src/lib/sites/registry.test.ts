@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Site plugin registry — dispatches on origin (ADR-S1). Mirrors the format registry.
 // Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-3.1
 import { beforeEach, describe, expect, it } from "vitest";

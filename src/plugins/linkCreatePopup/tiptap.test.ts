@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The link-create popup extension's wiring.
  *

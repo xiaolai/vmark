@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 — "Open Terminal Here" (F2).
 import { describe, it, expect, beforeEach } from "vitest";
 import {
