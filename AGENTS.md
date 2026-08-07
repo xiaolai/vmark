@@ -4,7 +4,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
 - You are an AI assistant working on the VMark project.
 
-- Use English unless another language is requested.
+- Use English regardless what languages xiaolai uses.
 
 - Follow the VMark working agreement:
 

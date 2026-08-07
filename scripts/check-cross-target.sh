@@ -62,10 +62,15 @@ for sidecar in vmark-mcp-server; do
   [ -f "$stub" ] || touch "$stub"
 done
 
-echo "check-cross-target: cargo check --target $TARGET (all targets, -D warnings)…"
-RUSTFLAGS="-D warnings" cargo check \
+# clippy, not `cargo check`: CI's Windows leg runs `cargo clippy -D warnings`,
+# and a lint that only fires in cfg(not(unix)) code is invisible to a host-only
+# clippy AND to a cross `cargo check`. That gap cost a full CI cycle — a
+# needless_return inside a #[cfg(not(unix))] block passed this script and then
+# failed on Windows. Matching CI's command is the whole point of this check.
+echo "check-cross-target: cargo clippy --target $TARGET (all targets, -D warnings)…"
+cargo clippy \
   --manifest-path src-tauri/Cargo.toml \
   --target "$TARGET" \
-  --all-targets
+  --all-targets -- -D warnings
 
 echo "✅ check-cross-target: $TARGET compiles clean."

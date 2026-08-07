@@ -702,5 +702,12 @@
   "advanced.embeddedBrowser.description": "启用实验性的应用内网页浏览器。在命令面板中添加“新建浏览器标签页”。",
   "files.coherenceCapture.label": "跟踪文档来源",
   "files.coherenceCapture.description": "记录文档随时间的变化（一致性层）。开启后，VMark 会在首次跟踪某个文件时，向其 frontmatter 添加 `vmark:` id 块，并在工作区创建 .vmark 文件夹。",
-  "shortcuts.capture.unsupported": "不支持此组合键。请换一个。"
+  "shortcuts.capture.unsupported": "不支持此组合键。请换一个。",
+  "coherence.group": "一致性",
+  "coherence.checkTau.label": "语义检查置信度",
+  "coherence.checkTau.description": "检查结果需要多确定才会记录为判定。低于此值时答案仍会保留，但标记为未知。",
+  "coherence.checkTau.option07": "0.7 — 判定更多，确定性更低",
+  "coherence.checkTau.option08": "0.8 — 平衡",
+  "coherence.checkTau.option09": "0.9 — 谨慎（默认）",
+  "coherence.checkTau.option095": "0.95 — 仅接受几乎确定的答案"
 }

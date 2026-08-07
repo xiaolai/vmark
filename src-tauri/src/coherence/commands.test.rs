@@ -6,9 +6,10 @@
 // growing). Also covers actor identity fallback.
 
 use super::*;
-use crate::coherence::capture::CaptureInputSpec;
+use crate::coherence::capture::{capture, CaptureInputSpec, CaptureReceipt, CaptureRequest};
 use crate::coherence::project::EdgeState;
 use crate::coherence::types::{Agent, AgentType, Confidence, InputRole, Intent};
+use uuid::Uuid;
 
 fn workspace() -> (tempfile::TempDir, WorkspaceKernel) {
     let dir = tempfile::tempdir().unwrap();
@@ -59,6 +60,7 @@ fn stale_edge(root: &std::path::Path, kernel: &mut WorkspaceKernel) -> (Uuid, u3
                 object_id: Some(elena.object),
                 revision: None,
                 role: InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             }],
             agent: Agent {
                 kind: AgentType::Model,
@@ -339,6 +341,7 @@ fn synthetic_dogfood_session_m1() {
                         object_id: None,
                         revision: None,
                         role: InputRole::Direct,
+                        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
                     })
                     .collect(),
                 agent: Agent {
@@ -374,6 +377,7 @@ fn synthetic_dogfood_session_m1() {
                 object_id: None,
                 revision: None,
                 role: InputRole::Direct,
+                kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
             }],
             agent: Agent {
                 kind: AgentType::Model,
@@ -474,4 +478,136 @@ fn waiver_expiry_is_recorded_and_honored() {
     let entries = kernel.ledger().read_all().unwrap().entries;
     let w = entries.iter().find(|e| e.kind == "waiver").unwrap();
     assert_eq!(w.body["expires"], "2020-01-01T00:00:00Z");
+}
+
+// R3 (audit-fix) — actionability is the one field the badge, the panel, and the
+// sweep all read; before this it was untested, yet it hides owner work and gates
+// paid LLM calls. Every lifecycle/anchor combination, asserted directly.
+#[test]
+fn is_actionable_covers_every_lifecycle_and_anchor_combination() {
+    let cases: &[(bool, Option<&str>, bool, &str)] = &[
+        (false, None, true, "unanchored live edge asks"),
+        (
+            false,
+            Some("anchor-unchanged"),
+            false,
+            "unchanged anchor is suppressed",
+        ),
+        (
+            false,
+            Some("anchor-changed"),
+            true,
+            "changed anchor still asks",
+        ),
+        (
+            false,
+            Some("anchor-lost"),
+            true,
+            "lost anchor asks — the dependency broke",
+        ),
+        (true, None, false, "frozen downstream is suppressed"),
+        (
+            true,
+            Some("anchor-changed"),
+            false,
+            "frozen wins over a changed anchor",
+        ),
+        (
+            true,
+            Some("anchor-unchanged"),
+            false,
+            "frozen and unchanged: doubly suppressed",
+        ),
+    ];
+    for &(frozen, anchor, expected, why) in cases {
+        assert_eq!(is_actionable(frozen, anchor), expected, "{why}");
+    }
+}
+
+// The label the suppression check compares against must match what enrichment
+// actually writes — a drift here would silently make unchanged anchors
+// actionable (nagging) or the reverse.
+#[test]
+fn unchanged_is_the_only_suppressing_anchor_label() {
+    use crate::coherence::anchors::AnchorStatus;
+    assert!(!is_actionable(false, Some(AnchorStatus::Unchanged.label())));
+    assert!(is_actionable(false, Some(AnchorStatus::Changed.label())));
+    assert!(is_actionable(false, Some(AnchorStatus::Lost.label())));
+}
+
+// ── Audit finding #4: reads must survive a future-format ledger ──────────
+
+/// The WI-2.2 gate refuses MUTATION on a ledger this build read incompletely.
+/// It must not take the READ surfaces down with it.
+///
+/// `perform_breakdown_in` — behind both `coherence_breakdown` and
+/// `coherence_status` — begins with `scan_workspace`, which acquires the write
+/// lock. So the gate turned "the breakdown is missing whatever the newer build
+/// wrote" into "the breakdown panel is dead", which is strictly worse for the
+/// user and contradicts the guarantee the gate was introduced with: the remedy
+/// (upgrade VMark) must stay reachable from an app that still opens.
+#[test]
+fn a_future_format_ledger_still_serves_the_breakdown() {
+    let (dir, mut kernel) = workspace();
+    kernel.ensure_initialized().unwrap();
+
+    // Something real to project, captured while the ledger is fully readable.
+    write_file(dir.path(), "a.md", "hello\n");
+    save(&mut kernel, "a.md", "hello\n");
+
+    // Now a newer build appends something this one cannot parse.
+    let mut newer = crate::coherence::types::Envelope::create(
+        "diagnostic",
+        WriterId(uuid::Uuid::from_u128(1)),
+        serde_json::json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    // The READ must still answer.
+    let rows = perform_breakdown_in(&mut kernel, None)
+        .expect("a short ledger read must degrade the breakdown, not kill it");
+    let _ = rows; // content is whatever this build can see; availability is the claim
+
+    // ...while the WRITE stays refused.
+    assert!(
+        kernel.with_write_lock(|_| Ok(())).is_err(),
+        "mutation must still be refused — the read path must not have opened it"
+    );
+}
+
+/// Audit round 2, finding #4 (PARTIAL) — restoring availability must not make
+/// an INCOMPLETE projection look authoritative.
+///
+/// `perform_breakdown_in` discarded the scan report, so `coherence_status`
+/// reported `open_items` from a projection missing whatever the newer build
+/// wrote. Zero open items on a workspace full of them is worse than an error:
+/// the user has no way to know the number is meaningless.
+#[test]
+fn status_admits_when_the_projection_is_incomplete() {
+    let (dir, mut kernel) = workspace();
+    kernel.ensure_initialized().unwrap();
+    write_file(dir.path(), "a.md", "hello\n");
+    save(&mut kernel, "a.md", "hello\n");
+
+    let healthy = perform_status(&mut kernel).unwrap();
+    assert!(
+        !healthy.ledger_short_read,
+        "a fully-read ledger must not claim incompleteness"
+    );
+
+    let mut newer = crate::coherence::types::Envelope::create(
+        "diagnostic",
+        WriterId(uuid::Uuid::from_u128(1)),
+        serde_json::json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    let degraded = perform_status(&mut kernel).expect("status must still answer on a short read");
+    assert!(
+        degraded.ledger_short_read,
+        "status must ADMIT the projection is partial — otherwise open_items \
+         reads as authoritative when it cannot be"
+    );
 }

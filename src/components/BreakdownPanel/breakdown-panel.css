@@ -1,8 +1,12 @@
 /* Breakdown panel (WI-1.9b). Tokens only — see .claude/rules/31-design-tokens.md */
 .breakdown-panel {
-  width: 380px;
+  /* Component-internal one-off dimension — local var per rule 31. */
+  --breakdown-panel-width: 460px;
+  width: var(--breakdown-panel-width);
+  max-width: 100%;
   max-height: 70vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -135,6 +139,9 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
+  /* Let the upstream path ellipsis instead of shoving the badges/actions
+     past the panel edge. */
+  min-width: 0;
 }
 
 .breakdown-row__upstream {
@@ -149,18 +156,23 @@
 .breakdown-row__actions {
   display: flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
+  /* Wrap rather than clip when the row is dense. */
+  flex-wrap: wrap;
 }
 
+/* Discrete bordered chips. As borderless text at this size the actions ran
+   together into one unreadable string ("CheckAccept newerReviseWaive"). */
 .breakdown-row__action {
-  padding: 0 var(--spacing-1);
-  border: none;
+  padding: var(--space-half) var(--spacing-2);
+  border: var(--border-thin) solid var(--border-color);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   position: relative;
+  white-space: nowrap;
 }
 
 .breakdown-row__action:hover:not(:disabled) {
@@ -462,8 +474,16 @@
   flex-wrap: wrap;
 }
 
+/* Grant is the form's primary action: park it at the trailing edge of the
+   second row so it can never be clipped off-panel by the scope toggles. */
+.delegations-section__form > button {
+  margin-left: auto;
+}
+
 .delegations-section__input {
-  flex: 1;
+  /* Own full-width row; the scope toggles, days and Grant wrap beneath it
+     instead of all cramming into one clipped strip. */
+  flex: 1 0 100%;
   min-width: 140px;
   border: none;
   border-bottom: 1px solid var(--border-color);
@@ -549,4 +569,135 @@
   font-size: var(--font-size-xs);
   cursor: pointer;
   text-decoration: underline;
+}
+
+/* Suppressed group — collapsed, de-emphasised, but never hidden. */
+.breakdown-suppressed {
+  margin-top: var(--spacing-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-2);
+}
+
+.breakdown-suppressed__summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) 0;
+}
+
+.breakdown-suppressed__summary:focus-visible {
+  outline: none;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.breakdown-suppressed__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: var(--spacing-1) 0 var(--spacing-2);
+}
+
+.breakdown-suppressed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* The suppression reason rides inside BreakdownRow's own <li> (no nested list).
+   The whole suppressed group is already de-emphasised via reduced opacity. */
+.breakdown-suppressed__list {
+  opacity: var(--opacity-half-faded);
+}
+
+.breakdown-row__annotation {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+/* Lifecycle confirm — the freeze blast radius stated inline, before it applies. */
+.breakdown-lifecycle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+}
+
+.breakdown-lifecycle__warning {
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+}
+
+/* Flag-judgment prompt — no default answer is rendered as selected. */
+.breakdown-judge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+}
+
+.breakdown-judge__prompt {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* Coherence log — collapsed by default; expanding is what reads the ledger. */
+.breakdown-logbook {
+  margin-top: var(--spacing-3);
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--spacing-2);
+}
+
+.breakdown-logbook__m2,
+.breakdown-logbook__churn,
+.breakdown-logbook__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  margin: var(--spacing-1) 0;
+}
+
+.breakdown-logbook__list,
+.breakdown-logbook__checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breakdown-logbook__row {
+  padding: var(--spacing-1) 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.breakdown-logbook__edge {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.breakdown-logbook__resolutions,
+.breakdown-logbook__judgment {
+  margin-left: var(--spacing-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.breakdown-logbook__check {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding-left: var(--spacing-2);
+}
+
+/* Anchor picker — options come from the upstream, so the list can be long. */
+.breakdown-anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.breakdown-anchor__hint {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
 }

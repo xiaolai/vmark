@@ -172,6 +172,16 @@ pub fn perform_delegate(
     actor: &str,
     now: &str,
 ) -> Result<DelegateReceipt, String> {
+    // R1 (7th-review 6R-1): read + build delegation + append atomic under the lock.
+    kernel.with_write_lock(|kernel| perform_delegate_locked(kernel, req, actor, now))
+}
+
+fn perform_delegate_locked(
+    kernel: &mut WorkspaceKernel,
+    req: &DelegateRequest,
+    actor: &str,
+    now: &str,
+) -> Result<DelegateReceipt, String> {
     let expires = chrono::DateTime::parse_from_rfc3339(&req.expires)
         .map_err(|e| format!("expires must be RFC 3339: {e}"))?;
     let now_parsed =

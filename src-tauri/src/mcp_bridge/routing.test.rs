@@ -13,6 +13,7 @@ fn coherence_state() -> CoherenceState {
     CoherenceState {
         registry: crate::coherence::state::KernelRegistry::default(),
         writer: WriterId(uuid::Uuid::from_u128(7)),
+        sweep_in_flight: std::sync::atomic::AtomicBool::new(false),
     }
 }
 
@@ -346,6 +347,7 @@ fn stale_workspace(td: &tempfile::TempDir, state: &CoherenceState) -> (uuid::Uui
             object_id: None,
             revision: None,
             role: InputRole::Direct,
+            kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
         }],
     );
     cap("elena.md", "brown\n", vec![]);

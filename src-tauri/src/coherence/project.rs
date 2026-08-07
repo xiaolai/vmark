@@ -5,6 +5,7 @@
 use uuid::Uuid;
 
 use super::dag::{resolve, ContextView, Resolved, RevisionDag};
+use super::edge_kind::OriginEdgeKind;
 use super::types::{InputRole, ObjectId, RevisionId};
 
 /// One origin edge: transformation `txf` read `upstream@pinned` while
@@ -18,6 +19,8 @@ pub struct OriginEdge {
     pub downstream: ObjectId,
     pub downstream_rev: RevisionId,
     pub role: InputRole,
+    /// Propagation class (Phase 2, ADR-P2). Legacy edges are `Dependency`.
+    pub kind: OriginEdgeKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,6 +150,18 @@ pub fn project_edge(
         Resolved::DivergedHeads => return Some(EdgeState::Diverged { multi_head: true }),
         Resolved::UnknownPin | Resolved::Absent => return Some(EdgeState::Unpinnable),
     };
+
+    // Phase 2 (ADR-P2): an inert kind (part-of/mention) is captured and visible
+    // but never contributes to the stale set — a newer upstream does not restale
+    // it. It is live (structural Diverged/Unpinnable above still surface), so it
+    // reads Fresh in the staleness projection. `Dependency` propagates version,
+    // so this is a no-op for every edge the shipped kernel captures today.
+    if !edge.kind.propagates_version() {
+        return Some(EdgeState::Fresh {
+            ratified: false,
+            ahead: false,
+        });
+    }
 
     if let Some(r) = latest_resolution(resolutions, &sel) {
         match r.kind {

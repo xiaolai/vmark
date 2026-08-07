@@ -702,5 +702,12 @@
   "advanced.embeddedBrowser.description": "실험적인 앱 내 웹 브라우저를 활성화합니다. 명령 팔레트에 '새 브라우저 탭'을 추가합니다.",
   "files.coherenceCapture.label": "문서 출처 추적",
   "files.coherenceCapture.description": "문서가 시간에 따라 어떻게 바뀌는지 기록합니다(일관성 레이어). 켜면 처음 추적할 때 VMark가 파일 프런트매터에 `vmark:` ID 블록을 추가하고 작업 공간에 .vmark 폴더를 만듭니다.",
-  "shortcuts.capture.unsupported": "이 키 조합은 지원되지 않습니다. 다른 조합을 사용해 보세요."
+  "shortcuts.capture.unsupported": "이 키 조합은 지원되지 않습니다. 다른 조합을 사용해 보세요.",
+  "coherence.group": "일관성",
+  "coherence.checkTau.label": "의미 검사 신뢰도",
+  "coherence.checkTau.description": "검사 결과를 판정으로 기록하기 위해 필요한 확신 정도입니다. 이 값 미만이면 답은 보존되지만 알 수 없음으로 표시됩니다.",
+  "coherence.checkTau.option07": "0.7 — 판정은 늘지만 확실성은 낮음",
+  "coherence.checkTau.option08": "0.8 — 균형",
+  "coherence.checkTau.option09": "0.9 — 신중 (기본값)",
+  "coherence.checkTau.option095": "0.95 — 거의 확실한 답만"
 }

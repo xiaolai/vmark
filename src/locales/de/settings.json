@@ -702,5 +702,12 @@
   "advanced.embeddedBrowser.description": "Aktiviert den experimentellen In-App-Webbrowser. Fügt „Neuer Browser-Tab“ zur Befehlspalette hinzu.",
   "files.coherenceCapture.label": "Dokument-Provenienz verfolgen",
   "files.coherenceCapture.description": "Aufzeichnen, wie sich Dokumente im Lauf der Zeit ändern (Kohärenz-Ebene). Wenn aktiviert, fügt VMark beim ersten Erfassen einen `vmark:`-ID-Block in das Frontmatter einer Datei ein und legt einen .vmark-Ordner im Arbeitsbereich an.",
-  "shortcuts.capture.unsupported": "Diese Tastenkombination wird nicht unterstützt. Versuchen Sie eine andere."
+  "shortcuts.capture.unsupported": "Diese Tastenkombination wird nicht unterstützt. Versuchen Sie eine andere.",
+  "coherence.group": "Kohärenz",
+  "coherence.checkTau.label": "Konfidenz der semantischen Prüfung",
+  "coherence.checkTau.description": "Wie sicher eine Prüfung sein muss, damit ihre Antwort als Urteil gilt. Darunter wird die Antwort behalten, aber als unbekannt markiert.",
+  "coherence.checkTau.option07": "0,7 — mehr Urteile, weniger sicher",
+  "coherence.checkTau.option08": "0,8 — ausgewogen",
+  "coherence.checkTau.option09": "0,9 — vorsichtig (Standard)",
+  "coherence.checkTau.option095": "0,95 — nur nahezu sichere Antworten"
 }
