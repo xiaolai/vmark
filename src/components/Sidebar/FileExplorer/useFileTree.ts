@@ -51,55 +51,53 @@ import { errorMessage } from "@/utils/errorMessage";
 type LoadOptions = FileTreeFilterOptions & { showExtensions: boolean };
 
 async function listDirectoryEntries(dirPath: string): Promise<DirectoryEntry[]> {
-  try {
-    return await invoke<DirectoryEntry[]>("list_directory_entries", { path: dirPath });
-  } catch (error) {
-    fileExplorerError(" Failed to read directory:", dirPath, error);
-    return [];
-  }
+  return invoke<DirectoryEntry[]>("list_directory_entries", { path: dirPath });
 }
 
-async function loadDirectoryRecursive(
-  dirPath: string,
-  options: LoadOptions
-): Promise<FileNode[]> {
+/** One directory entry as a tree node; folders carry their loaded children. */
+function toNode(entry: DirectoryEntry, options: LoadOptions, children: FileNode[]): FileNode {
+  return entry.isDirectory
+    ? { id: entry.path, name: entry.name, isFolder: true, children }
+    : {
+        id: entry.path,
+        name: formatFileDisplayName(entry.name, options.showExtensions),
+        isFolder: false,
+      };
+}
+
+/** Folders first, then by name. */
+function byFolderThenName(a: FileNode, b: FileNode): number {
+  if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * List one directory and its descendants. THROWS when this directory cannot be
+ * read — the caller decides what that means.
+ */
+async function loadDirectory(dirPath: string, options: LoadOptions): Promise<FileNode[]> {
+  const entries = await listDirectoryEntries(dirPath);
+  const nodes: FileNode[] = [];
+  for (const entry of entries) {
+    if (!shouldIncludeEntry(entry, options)) continue;
+    // Always include folders so users can right-click to add files into them.
+    const children = entry.isDirectory ? await loadSubtree(entry.path, options) : [];
+    nodes.push(toNode(entry, options, children));
+  }
+  return nodes.sort(byFolderThenName);
+}
+
+/**
+ * A SUBDIRECTORY's subtree: one unreadable folder deep in a workspace must not
+ * blank the whole tree, so its failure is logged and it renders as empty. The
+ * ROOT is different — see loadTree, which surfaces that as an error rather than
+ * telling the user their workspace is empty (the #1224 failure mode).
+ */
+async function loadSubtree(dirPath: string, options: LoadOptions): Promise<FileNode[]> {
   try {
-    const entries = await listDirectoryEntries(dirPath);
-    const nodes: FileNode[] = [];
-
-    for (const entry of entries) {
-      if (!shouldIncludeEntry(entry, options)) continue;
-      const isFolder = entry.isDirectory;
-      const name = entry.name;
-      const fullPath = entry.path;
-
-      if (isFolder) {
-        const children = await loadDirectoryRecursive(fullPath, options);
-        // Always include folders so users can right-click to add files
-        nodes.push({
-          id: fullPath,
-          name,
-          isFolder: true,
-          children,
-        });
-      } else {
-        nodes.push({
-          id: fullPath,
-          name: formatFileDisplayName(name, options.showExtensions),
-          isFolder: false,
-        });
-      }
-    }
-
-    // Sort: folders first, then alphabetically
-    return nodes.sort((a, b) => {
-      if (a.isFolder !== b.isFolder) {
-        return a.isFolder ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    return await loadDirectory(dirPath, options);
   } catch (error) {
-    fileExplorerError(" Failed to load directory:", dirPath, error);
+    fileExplorerError(" Failed to read directory:", dirPath, error);
     return [];
   }
 }
@@ -140,17 +138,33 @@ export function useFileTree(
   } = options;
   const [tree, setTree] = useState<FileNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
-  // Serialize excludeFolders for dependency comparison
-  const excludeFoldersKey = excludeFolders.join(",");
+  // In-flight guard: a focus event and an fs batch arriving together used to
+  // launch two full recursive scans of the same workspace. One runs; a request
+  // that arrives meanwhile sets `rerunPendingRef` and is coalesced into a
+  // single follow-up pass.
+  const inFlightRef = useRef(false);
+  const rerunPendingRef = useRef(false);
+  // JSON, not join(","): ["a,b"] and ["a","b"] flatten to the same comma string,
+  // so a switch between them kept the previous loader and its exclusions.
+  const excludeFoldersKey = JSON.stringify(excludeFolders);
 
   const loadTree = useCallback(async () => {
+    // Bump the request id even when clearing: a listing already in flight must
+    // not repopulate a tree the user just closed (or an unmounted hook).
+    const currentRequestId = ++requestIdRef.current;
     if (!rootPath) {
       setTree([]);
+      setError(null);
+      setIsLoading(false);
       return;
     }
-
-    const currentRequestId = ++requestIdRef.current;
+    if (inFlightRef.current) {
+      rerunPendingRef.current = true;
+      return;
+    }
+    inFlightRef.current = true;
     setIsLoading(true);
 
     try {
@@ -161,18 +175,27 @@ export function useFileTree(
         showAllFiles,
         showExtensions,
       };
-      const nodes = await loadDirectoryRecursive(rootPath, loadOptions);
+      const nodes = await loadDirectory(rootPath, loadOptions);
       if (currentRequestId === requestIdRef.current) {
         setTree(nodes);
+        setError(null);
       }
-    } catch (error) {
-      fileExplorerError(" Failed to load tree:", error);
+    } catch (err) {
+      // The ROOT could not be read. Reporting an empty tree here is the lie
+      // that made #1224 look like a rendering bug.
+      fileExplorerError(" Failed to load tree:", err);
       if (currentRequestId === requestIdRef.current) {
         setTree([]);
+        setError(errorMessage(err));
       }
     } finally {
+      inFlightRef.current = false;
       if (currentRequestId === requestIdRef.current) {
         setIsLoading(false);
+      }
+      if (rerunPendingRef.current) {
+        rerunPendingRef.current = false;
+        void loadTree();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- excludeFoldersKey is stable serialization
@@ -181,10 +204,15 @@ export function useFileTree(
   // Load tree and setup watcher when rootPath changes
   useEffect(() => {
     if (!rootPath) {
+      // Invalidate anything in flight: a listing started for the workspace we
+      // just closed must not repopulate the cleared tree.
+      requestIdRef.current += 1;
       // Legitimate: clears the tree as part of an async load + fs-watcher setup
       // keyed on rootPath, not derivable during render (#1063).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTree([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError(null);
       return;
     }
 
@@ -199,6 +227,8 @@ export function useFileTree(
     });
 
     return () => {
+      // Unmount, or a switch to another workspace: the same invalidation.
+      requestIdRef.current += 1;
       unsubscribe();
     };
   }, [rootPath, loadTree, watchId]);
@@ -231,5 +261,5 @@ export function useFileTree(
     };
   }, [rootPath, loadTree]);
 
-  return { tree, isLoading, refresh: loadTree };
+  return { tree, isLoading, error, refresh: loadTree };
 }

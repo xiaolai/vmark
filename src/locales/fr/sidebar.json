@@ -18,6 +18,7 @@
   "clearHistoryMessage": "Supprimer tout l'historique de ce document ? Cette action est irréversible.",
   "noWorkspace": "Aucun espace de travail ouvert",
   "loading": "Chargement...",
+  "loadFailed": "Impossible de lire ce dossier",
   "defaultFileName": "Sans titre",
   "defaultFolderName": "Nouveau dossier",
   "workspaceFallback": "Espace de travail",

@@ -18,6 +18,7 @@
   "clearHistoryMessage": "删除此文档的所有历史记录？此操作无法撤销。",
   "noWorkspace": "未打开工作区",
   "loading": "加载中...",
+  "loadFailed": "无法读取此文件夹",
   "defaultFileName": "无标题",
   "defaultFolderName": "新建文件夹",
   "workspaceFallback": "工作区",
