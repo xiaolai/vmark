@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Toolbar Navigation - Tests
  *

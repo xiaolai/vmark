@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Unit tests for the native-menu IPC helpers behind the recent-files and
  * recent-workspaces stores.

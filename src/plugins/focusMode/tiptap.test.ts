@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Focus Mode Tiptap Extension Tests
  *

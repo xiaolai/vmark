@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Pipeline integration for both math source guards (issues #1181,
 // #1180): the guards run inside parseMarkdownToMdast, so these tests
 // go through the real parseMarkdown/serializeMarkdown adapter. Unit

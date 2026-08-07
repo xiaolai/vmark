@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-14 — vmark.workspace.open error branches + background-activation
 // restore edge cases (split-enabled restore, no-previous-active).
 import { describe, it, expect, beforeEach, vi } from "vitest";

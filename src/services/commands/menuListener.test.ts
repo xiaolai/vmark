@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * menuListener — payload-shape filter tests (audit #957).
  *

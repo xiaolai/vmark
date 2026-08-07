@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Edge-branch coverage for the jobs subparser: literal-vs-mapping forms of
 // permissions/environment/concurrency/container, secrets inherit, defaults
 // without run, strategy scalars, container details, and degenerate tokens.

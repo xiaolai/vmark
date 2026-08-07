@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { useWikiLinkPopupStore } from "../wikiLinkPopupStore";
 import type { AnchorRect } from "@/utils/popupPosition";
 

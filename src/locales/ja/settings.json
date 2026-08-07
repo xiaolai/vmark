@@ -748,5 +748,12 @@
   "advanced.embeddedBrowser.description": "実験的なアプリ内Webブラウザを有効にします。コマンドパレットに「新しいブラウザタブ」を追加します。",
   "files.coherenceCapture.label": "ドキュメントの来歴を記録",
   "files.coherenceCapture.description": "ドキュメントの変化を記録します（整合性レイヤー）。有効にすると、最初に追跡した時点で VMark がファイルのフロントマターに `vmark:` の ID ブロックを追加し、ワークスペースに .vmark フォルダーを作成します。",
-  "shortcuts.capture.unsupported": "このキーの組み合わせはサポートされていません。別の組み合わせをお試しください。"
+  "shortcuts.capture.unsupported": "このキーの組み合わせはサポートされていません。別の組み合わせをお試しください。",
+  "coherence.group": "整合性",
+  "coherence.checkTau.label": "意味チェックの確信度",
+  "coherence.checkTau.description": "チェックの回答を判定として記録するために必要な確信度。これを下回る回答は保持されますが不明として扱われます。",
+  "coherence.checkTau.option07": "0.7 — 判定は増えるが確実性は低い",
+  "coherence.checkTau.option08": "0.8 — バランス重視",
+  "coherence.checkTau.option09": "0.9 — 慎重（既定）",
+  "coherence.checkTau.option095": "0.95 — ほぼ確実な回答のみ"
 }

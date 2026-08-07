@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.2/3.4 — semanticActs: provenance + delegation refreshes carry the
 // stale-response guard (audit D1–D5), so a late response for a workspace
 // the user already left never overwrites the new workspace's mirror.

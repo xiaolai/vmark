@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-9.1 — per-instance UI state: sidebar, file-tree, and outline
 // presentation state keyed by workspaceInstanceId, with the full lifecycle
 // (copy on duplicate, re-key on identity migration, remove on close).

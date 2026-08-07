@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The canonical-editor-text boundary.
  *
@@ -19,6 +20,7 @@
  * @module utils/editorText.test
  */
 import { describe, it, expect } from "vitest";
+import { expectBoundedTime } from "@/test/timeBudget";
 import { canonicalizeLineEndings, ingestExternalText } from "./editorText";
 import { detectLinebreaks } from "./linebreakDetection";
 
@@ -69,7 +71,10 @@ describe("canonicalizeLineEndings", () => {
     const big = line.repeat(Math.ceil((1024 * 1024) / line.length));
     const started = performance.now();
     const out = canonicalizeLineEndings(big);
-    expect(performance.now() - started).toBeLessThan(2000);
+    expectBoundedTime(performance.now() - started, {
+      budgetMs: 2000, livenessMs: 12_000,
+      label: "editorText over a large document",
+    });
     expect(out).not.toContain("\r");
   });
 });

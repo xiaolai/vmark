@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Security enforcement core for the embedded browser (R4 / I3 / R7a).
 // Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md
 //

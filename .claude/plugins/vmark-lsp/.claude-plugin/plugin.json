@@ -1,0 +1,159 @@
+{
+  "name": "vmark-lsp",
+  "description": "Language servers for VMark's YAML, CSS and JSON.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VMark"
+  },
+  "lspServers": {
+    "yaml": {
+      "command": "yaml-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "extensionToLanguage": {
+        ".yml": "yaml",
+        ".yaml": "yaml"
+      },
+      "settings": {
+        "yaml": {
+          "validate": true,
+          "completion": true,
+          "hover": true,
+          "format": {
+            "enable": false
+          },
+          "schemaStore": {
+            "enable": true
+          },
+          "schemas": {
+            "https://www.schemastore.org/github-workflow.json": [
+              ".github/workflows/*.yml",
+              ".github/workflows/*.yaml",
+              "website/.github/workflows/*.yml"
+            ],
+            "https://www.schemastore.org/github-issue-forms.json": [
+              ".github/ISSUE_TEMPLATE/*.yml"
+            ]
+          },
+          "yamlVersion": "1.2"
+        }
+      }
+    },
+    "css": {
+      "command": "vscode-css-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "extensionToLanguage": {
+        ".css": "css"
+      },
+      "settings": {
+        "css": {
+          "validate": true,
+          "lint": {
+            "unknownProperties": "error",
+            "unknownAtRules": "ignore",
+            "duplicateProperties": "warning",
+            "emptyRules": "warning"
+          }
+        }
+      }
+    },
+    "json": {
+      "command": "vscode-json-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "extensionToLanguage": {
+        ".json": "json",
+        ".jsonc": "jsonc"
+      },
+      "settings": {
+        "json": {
+          "validate": {
+            "enable": true
+          },
+          "schemas": [
+            {
+              "fileMatch": [
+                "command-error-baseline.json"
+              ],
+              "schema": {
+                "type": "object",
+                "description": "Remaining Result<T, String> #[tauri::command] signatures per file.",
+                "required": [
+                  "files"
+                ],
+                "properties": {
+                  "//": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "files": {
+                    "type": "object",
+                    "description": "path -> remaining violation count. Ratchets DOWN only (60-ai-governance.md \u00a711); a raise must be re-checked against the merge base.",
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "fileMatch": [
+                "file-size-baseline.json"
+              ],
+              "schema": {
+                "type": "object",
+                "description": "Frozen pre-existing file-size violations, production and test.",
+                "required": [
+                  "limit",
+                  "files",
+                  "testLimit",
+                  "testFiles"
+                ],
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "testLimit": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "files": {
+                    "type": "object",
+                    "description": "path -> remaining violation count. Ratchets DOWN only (60-ai-governance.md \u00a711); a raise must be re-checked against the merge base.",
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "testFiles": {
+                    "type": "object",
+                    "description": "path -> remaining violation count. Ratchets DOWN only (60-ai-governance.md \u00a711); a raise must be re-checked against the merge base.",
+                    "additionalProperties": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "patternProperties": {
+                  "^_": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

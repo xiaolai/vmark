@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-C0 — preview IR overlay tests.
 
 import { describe, it, expect } from "vitest";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * PM → MDAST media serialization (pmMediaConverters) — the round-trip gate
  * (image syntax only for recognizable media extensions) and the data-alt

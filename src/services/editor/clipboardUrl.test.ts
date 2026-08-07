@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
 // Mock dependencies before imports

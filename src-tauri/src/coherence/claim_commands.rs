@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+use super::claim_entry::{entry_body, maturity_str};
 use super::claims::{ClaimStore, Maturity};
 use super::contexts::{write_manifest, ContextManifest, ContextSet, DEFAULT_CONTEXT_ID};
 use super::state::WorkspaceKernel;
@@ -42,6 +43,15 @@ fn now_rfc3339() -> String {
 }
 
 pub fn perform_claim(
+    kernel: &mut WorkspaceKernel,
+    req: &ClaimRequest,
+    actor: &str,
+) -> Result<ClaimReceipt, String> {
+    // R1 (7th-review 6R-1): resolve source head → build claim → append atomic.
+    kernel.with_write_lock(|kernel| perform_claim_locked(kernel, req, actor))
+}
+
+fn perform_claim_locked(
     kernel: &mut WorkspaceKernel,
     req: &ClaimRequest,
     actor: &str,
@@ -152,36 +162,20 @@ pub fn perform_claim(
     })
 }
 
-fn maturity_str(e: &super::claims::ClaimEntry) -> &'static str {
-    match e.maturity {
-        Maturity::Draft => "draft",
-        Maturity::Established => "established",
-    }
-}
-
-fn entry_body(
-    claim: Uuid,
-    statement: &str,
-    maturity: &str,
-    invalid_at: Option<String>,
-    current: &super::claims::ClaimEntry,
-    actor: &str,
-) -> serde_json::Value {
-    json!({
-        "claim": claim.to_string(),
-        "statement": statement,
-        "valid_at": null,
-        "invalid_at": invalid_at,
-        "established_by": [],
-        "supersedes": current.entry_id.to_string(),
-        "maturity": maturity,
-        "actor": { "type": "human", "id": actor },
-    })
-}
-
 /// D2.4: reversible visibility. Materializes `contexts/default.json`
 /// for the implicit default context; any other context must exist.
 pub fn perform_claim_scope(
+    kernel: &mut WorkspaceKernel,
+    context: Uuid,
+    claim: Uuid,
+    visible: bool,
+) -> Result<(), String> {
+    // R1 (7th-review 6R-1): the context-manifest read-modify-write runs under the
+    // workspace lock so two processes can't lose each other's scope update.
+    kernel.with_write_lock(|kernel| perform_claim_scope_locked(kernel, context, claim, visible))
+}
+
+fn perform_claim_scope_locked(
     kernel: &mut WorkspaceKernel,
     context: Uuid,
     claim: Uuid,
@@ -246,47 +240,3 @@ pub fn perform_claims_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ClaimRow>
         })
         .collect())
 }
-
-#[tauri::command]
-pub async fn coherence_claim(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    request: ClaimRequest,
-) -> Result<ClaimReceipt, String> {
-    let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    let actor = super::commands::actor_identity(&root);
-    perform_claim(&mut kernel, &request, &actor)
-}
-
-#[tauri::command]
-pub async fn coherence_claim_scope(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    context: Uuid,
-    claim: Uuid,
-    visible: bool,
-) -> Result<(), String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_claim_scope(&mut kernel, context, claim, visible)
-}
-
-#[tauri::command]
-pub async fn coherence_claims(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-) -> Result<Vec<ClaimRow>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_claims_list(&mut kernel)
-}
-
-#[cfg(test)]
-#[path = "claim_commands.test.rs"]
-mod tests;

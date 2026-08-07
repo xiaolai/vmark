@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Post-save dirty state across line-ending normalization.
  *

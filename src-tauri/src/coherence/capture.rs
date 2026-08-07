@@ -10,11 +10,11 @@
 use uuid::Uuid;
 
 use super::canonical::text_content_hash;
+use super::capture_input::resolve_input;
 use super::frontmatter::{assign_identity, read_identity};
 use super::state::WorkspaceKernel;
 use super::types::{
-    Agent, Confidence, Envelope, InputRef, InputRole, Intent, ObjectId, OutputRef, RevisionId,
-    Transformation,
+    Agent, Confidence, Envelope, InputRole, Intent, ObjectId, OutputRef, RevisionId, Transformation,
 };
 use crate::atomic_replace::atomic_replace;
 
@@ -27,6 +27,11 @@ pub struct CaptureInputSpec {
     #[serde(default)]
     pub revision: Option<RevisionId>,
     pub role: InputRole,
+    /// Origin-edge kind (Phase 2/4, spec §13.6). Optional — defaults to
+    /// `dependency` (the only kind ordinary capture records; conformance edges
+    /// are minted by the Extract-Canon operator).
+    #[serde(default)]
+    pub kind: super::edge_kind::OriginEdgeKind,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -54,6 +59,14 @@ fn default_rewrite() -> bool {
     true
 }
 
+/// Caps on the request fields that drive the ledger line's serialized size
+/// (8th-review 8R-9). Checked before any side effect, so a capture that could
+/// never be appended fails cleanly instead of leaving a rewritten file, a
+/// registration entry and staged CAS content behind. A real capture is far under
+/// both; these are fail-closed backstops, not working limits.
+const MAX_CAPTURE_INPUTS: usize = 512;
+const MAX_CAPTURE_INTENT_BYTES: usize = 8 * 1024;
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CaptureReceipt {
     pub object: ObjectId,
@@ -71,8 +84,48 @@ pub fn capture(
     kernel: &mut WorkspaceKernel,
     req: CaptureRequest,
 ) -> Result<CaptureReceipt, String> {
+    // R1 (7th-review 6R-1): the whole read-heads → build-transformation → append
+    // runs under the workspace lock, so a concurrent commit that moved this
+    // object's head can't leave us appending a stale-parent sibling.
+    kernel.with_write_lock(|kernel| capture_locked(kernel, req))
+}
+
+fn capture_locked(
+    kernel: &mut WorkspaceKernel,
+    req: CaptureRequest,
+) -> Result<CaptureReceipt, String> {
     if req.confidence == Confidence::Unknown {
         return Err("confidence=unknown is scan-only (spec §8)".into());
+    }
+    // Size preflight BEFORE any side effect (8th-review 8R-9). The document
+    // content lives in the CAS, so what drives the ledger line's size is the input
+    // set and the intent strings. Unchecked, an oversized payload got as far as
+    // rewriting the file, appending a registration and staging CAS content, and
+    // only then failed the 16 MiB line cap — reporting a retryable error that
+    // could never succeed, with those side effects already durable. Reject up
+    // front instead: a bound that can only be violated is checked before the
+    // first side effect, never after.
+    if req.inputs.len() > MAX_CAPTURE_INPUTS {
+        return Err(format!(
+            "capture has {} inputs, over the {MAX_CAPTURE_INPUTS} cap",
+            req.inputs.len()
+        ));
+    }
+    let intent_bytes = req.intent.kind.len() + req.intent.summary.len();
+    if intent_bytes > MAX_CAPTURE_INTENT_BYTES {
+        return Err(format!(
+            "capture intent is {intent_bytes} bytes, over the {MAX_CAPTURE_INTENT_BYTES} cap"
+        ));
+    }
+    // 9th-review 8R-9: `agent.id` was uncapped, so a huge one still reached the
+    // ledger append after the side effects. Bound it, and bound the TOTAL
+    // serialized transformation as the catch-all — no field can now push the line
+    // past what the ledger will accept, so the failure is always preflight.
+    let agent_bytes = req.agent.id.as_deref().map_or(0, str::len);
+    if agent_bytes > MAX_CAPTURE_INTENT_BYTES {
+        return Err(format!(
+            "capture agent id is {agent_bytes} bytes, over the {MAX_CAPTURE_INTENT_BYTES} cap"
+        ));
     }
     // IPC boundary guard (audit R1): reject traversal before any effect.
     super::paths::resolve_workspace_rel(kernel.root(), &req.path)?;
@@ -216,53 +269,6 @@ pub fn capture(
         revision,
         entry_id: Some(entry_id),
         content_with_identity: rewritten,
-    })
-}
-
-/// Resolve one input spec per the plan contract: caller revision wins but
-/// is validated (object membership — reject on mismatch, no fallback);
-/// otherwise current head; uncaptured input files are adopted.
-fn resolve_input(
-    kernel: &mut WorkspaceKernel,
-    spec: &CaptureInputSpec,
-) -> Result<InputRef, String> {
-    let object = match (spec.object_id, &spec.path) {
-        (Some(id), _) => id,
-        (None, Some(path)) => match kernel.index().registry_state()?.object_at.get(path) {
-            Some(id) => *id,
-            None => adopt_from_disk(kernel, path)?.0,
-        },
-        (None, None) => return Err("input needs a path or an object_id".into()),
-    };
-    let revision = match &spec.revision {
-        Some(rev) => {
-            if kernel.index().content_hash_of(&object, rev)?.is_none() {
-                return Err(format!(
-                    "input revision {} does not belong to object {}",
-                    rev.as_str(),
-                    object.0
-                ));
-            }
-            rev.clone()
-        }
-        None => {
-            let heads = kernel.index().heads(&object)?;
-            match heads.as_slice() {
-                [only] => only.clone(),
-                [] => return Err(format!("input object {} has no revisions", object.0)),
-                _ => {
-                    return Err(format!(
-                        "input object {} is diverged (multiple heads) — pass an explicit revision",
-                        object.0
-                    ))
-                }
-            }
-        }
-    };
-    Ok(InputRef {
-        object,
-        revision,
-        role: spec.role,
     })
 }
 

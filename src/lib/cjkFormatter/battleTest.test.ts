@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Battle Test for CJK Typography Rules
  *

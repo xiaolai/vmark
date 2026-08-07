@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { isWorkspaceRailEnabled } from "./workspaceRailFeatureFlag";

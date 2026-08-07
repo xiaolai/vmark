@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 / R8a — workflow execution engine: tiers, retry, write-safety, lease
 import { describe, it, expect, vi } from "vitest";
 import { runWorkflow, type EngineStep } from "./engine";

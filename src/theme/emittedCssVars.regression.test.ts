@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.2 / WI-3.3 — lock the legacy `--*` CSS vars that useTheme.ts emits
 // per theme. The night dark-mode overrides moved out of useTheme.ts into the
 // typed `night` theme; this test is the behavior-preserving contract: every

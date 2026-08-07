@@ -178,3 +178,74 @@ fn oversized_texts_are_truncated_with_marker() {
     assert!(prompt.contains("[truncated]"));
     assert!(prompt.len() < big.len() + 4000);
 }
+
+// WI-3.0d — transient candidate-check prompt (design D3). Proposal-vs-inputs/
+// canon consistency, distinct from the stale-edge drift prompt.
+
+#[test]
+fn candidate_response_parses_with_the_same_discipline() {
+    // Reuses parse_check_response: a contradiction still needs evidence.
+    let p = parse(r#"{"verdict":"contradiction","confidence":0.99,"evidence":[]}"#);
+    assert_eq!(p.verdict, CheckVerdict::Unknown);
+}
+
+#[test]
+fn a_below_tau_verdict_is_downgraded_but_preserved() {
+    // Dogfood 2026-07-20: 5 of 21 real checks returned `unknown` with empty
+    // evidence, and the confidences split PERFECTLY at τ — determinate 0.90–0.99,
+    // unknown 0.82–0.86, nothing between. Every one was a τ downgrade of a verdict
+    // the model had actually reached, and the old code discarded both the verdict
+    // and its evidence. That made the τ choice irreversible: lowering it later
+    // could not recover answers already paid for. Downgrade, but PRESERVE.
+    let p = parse(
+        r#"{"verdict":"no-contradiction","confidence":0.86,
+            "evidence":[{"quote":"the canon says green","loc":"L3"}]}"#,
+    );
+    assert_eq!(
+        p.verdict,
+        CheckVerdict::Unknown,
+        "still disciplined to unknown"
+    );
+    assert!(
+        p.evidence.is_empty(),
+        "the recorded verdict carries no evidence"
+    );
+
+    let d = p.downgrade.expect("the model's actual answer is preserved");
+    assert_eq!(d.verdict, CheckVerdict::NoContradiction);
+    assert_eq!(d.reason, "below-tau");
+    assert_eq!(d.tau, TAU);
+    assert_eq!(d.evidence.len(), 1, "and so is the evidence it cited");
+    assert_eq!(d.evidence[0].quote, "the canon says green");
+}
+
+#[test]
+fn a_contradiction_without_evidence_records_why_it_was_downgraded() {
+    let p = parse(r#"{"verdict":"contradiction","confidence":0.99,"evidence":[]}"#);
+    assert_eq!(p.verdict, CheckVerdict::Unknown);
+    let d = p.downgrade.expect("preserved");
+    assert_eq!(d.verdict, CheckVerdict::Contradiction);
+    assert_eq!(d.reason, "contradiction-without-evidence");
+}
+
+#[test]
+fn an_unparseable_response_has_nothing_to_preserve() {
+    // A malformed response is a real non-answer — distinct from a τ downgrade.
+    // It must NOT masquerade as a preserved verdict.
+    let p = parse("the model said something conversational");
+    assert_eq!(p.verdict, CheckVerdict::Unknown);
+    assert_eq!(p.confidence, 0.0);
+    assert!(p.downgrade.is_none(), "no verdict was ever reached");
+}
+
+#[test]
+fn resolve_tau_clamps_unusable_thresholds() {
+    use crate::coherence::check_commands::{resolve_tau, DEFAULT_TAU};
+    assert_eq!(resolve_tau(Some(0.8)), 0.8, "a usable τ is honoured");
+    assert_eq!(resolve_tau(None), DEFAULT_TAU);
+    // Out of range is not a threshold: τ≤0 would make every verdict determinate
+    // and τ>1 would make every verdict unknown. Fall back rather than do either.
+    assert_eq!(resolve_tau(Some(-0.5)), DEFAULT_TAU);
+    assert_eq!(resolve_tau(Some(1.5)), DEFAULT_TAU);
+    assert_eq!(resolve_tau(Some(f64::NAN)), DEFAULT_TAU);
+}

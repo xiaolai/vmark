@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for markdown URL encoding/decoding utilities
  */

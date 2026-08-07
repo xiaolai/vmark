@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.2 — dagre layout tests.
 //
 // Pure layout function — assigns final x/y to nodes from toGraph().

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration Tests for Tab Escape Across Different Contexts
  *

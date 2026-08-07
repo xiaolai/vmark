@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.1/5.2/5.3 — command-registry Phase 5 gates (ADR-015 D6).
 /**
  * Phase 5 gate suite — the standing contracts that keep the editor→CommandBus

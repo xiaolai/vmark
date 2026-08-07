@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The stale-document defect, and the three branches around it.
  *

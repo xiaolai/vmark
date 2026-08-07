@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.12 — watcher wiring: fs:changed events trigger one debounced
 // kernel scan (bursts collapse), no scan without a workspace, failures
 // stay silent, and the disposer cancels cleanly.

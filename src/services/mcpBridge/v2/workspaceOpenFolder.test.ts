@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 // open_workspace handler — fail-now -> approve -> AI-retry (plan WI-1.5).

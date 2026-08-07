@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for ProseMirror inline content converters (PM -> MDAST).
  *

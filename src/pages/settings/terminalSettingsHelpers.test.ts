@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.2 — Panel Size options must not offer a value the layout silently clamps.
 // WI-1.3 — Font Size options must tolerate a zoomed value outside the presets.
 import { describe, it, expect } from "vitest";

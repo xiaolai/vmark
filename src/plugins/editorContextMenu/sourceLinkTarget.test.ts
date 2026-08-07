@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.2 — bounded source link-target parser: inline links (with titles,
 // angle-bracket targets, CJK/nested-bracket text), reference links
 // (full, collapsed, shortcut) resolved against the document's

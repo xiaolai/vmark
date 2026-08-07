@@ -10,7 +10,10 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::ai_provider::build_command;
+use super::gitops_cmd::git_output;
+pub use super::gitops_cmd::{
+    current_branch, git_run, merge_changed_files, merge_commit_sha, GitRun,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitObservation {
@@ -57,47 +60,85 @@ pub enum GitClass {
     ObservationUnreliable,
 }
 
-fn git_output(root: &Path, args: &[&str]) -> Option<String> {
-    let out = build_command("git", args).current_dir(root).output().ok()?;
-    if !out.status.success() {
-        return None;
+/// Map the `--git-dir` probe to an outcome, or `None` to keep observing.
+///
+/// Pure so the no-git-binary path is testable without uninstalling git.
+pub fn outcome_for_git_dir_probe(probe: &GitRun) -> Option<GitOutcome> {
+    match probe {
+        // No git tooling: fall back to the documented non-git behaviour rather
+        // than blocking the workspace. Treating this as "unreliable" stopped
+        // every scan forever on such a machine.
+        GitRun::Unavailable => Some(GitOutcome::NotGit),
+        // git ran and could not make sense of this directory.
+        GitRun::Failed => Some(GitOutcome::Unreadable),
+        GitRun::Ok(_) => None,
     }
-    Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
-/// Observe the git state of a workspace. `None` = not a git repo (or git
-/// unavailable) — callers then treat every change as an ordinary external
-/// edit, which is the safe fallback.
-/// D3.1 (spec §6 rev 2): the exact current branch name, or None for
-/// detached HEAD / not a git repository. No globs, no normalization.
-pub fn current_branch(root: &Path) -> Option<String> {
-    let name = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
-    if name == "HEAD" {
-        return None; // detached
-    }
-    Some(name)
+/// What an observation attempt actually learned.
+///
+/// `Option<GitObservation>` conflated two opposite situations — "this is not a
+/// repository" and "this IS a repository but git would not answer" — and the
+/// second is precisely the #1207 condition the scan must refuse to reconcile
+/// on. Collapsing them meant a failed `git` read classified as
+/// `ExternalUnknown`, so the scan proceeded and then overwrote its good
+/// baseline with the failure.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GitOutcome {
+    /// No `.git` — not a repository, or it was deliberately removed.
+    NotGit,
+    Observed(GitObservation),
+    /// A valid repository with no commits yet (`git init`, nothing committed).
+    ///
+    /// Its own state, NOT an unreliable read: `rev-parse HEAD` legitimately
+    /// fails here, and treating that as a failed observation would make every
+    /// freshly-initialised workspace refuse to scan.
+    Unborn,
+    /// `.git` is present but git could not answer at all — a broken repository,
+    /// an unreadable object store, or no usable `git` binary.
+    ///
+    /// Unambiguous, which is what makes it actionable: `rev-parse --git-dir`
+    /// succeeds for an unborn repo and fails here, so this state no longer has
+    /// to be disambiguated against a previous observation. That matters because
+    /// the previous-observation test could not cover the FIRST scan — a git
+    /// failure with no baseline yet fell through to ordinary reconciliation and
+    /// could still mint external-edit history.
+    Unreadable,
 }
 
-/// D3.3 (WI-3.7): the current HEAD commit's SHA iff it is a completed
-/// merge (two or more parents). `None` for a linear head, detached HEAD,
-/// or a non-git dir. Mid-conflict merges are handled upstream (the scan
-/// defers on MERGE_HEAD), so reaching here means the merge concluded.
-pub fn merge_commit_sha(root: &Path) -> Option<String> {
-    let line = git_output(root, &["rev-list", "--parents", "-n", "1", "HEAD"])?;
-    // "<commit> <parent1> <parent2> ..." — 3+ tokens ⇒ a merge.
-    let mut tokens = line.split_whitespace();
-    let sha = tokens.next()?.to_string();
-    if tokens.count() >= 2 {
-        Some(sha)
-    } else {
-        None
+/// Observe git state, distinguishing "not a repo", "unborn", and "cannot read".
+pub fn observe_outcome(root: &Path) -> GitOutcome {
+    if !root.join(".git").exists() {
+        return GitOutcome::NotGit; // covers dirs and worktree .git files alike
+    }
+    // Does git work here AT ALL? Succeeds on an unborn repo (prints `.git`),
+    // fails on a broken one, and is UNAVAILABLE when git is not installed —
+    // three cases that must not be collapsed.
+    if let Some(outcome) = outcome_for_git_dir_probe(&git_run(root, &["rev-parse", "--git-dir"])) {
+        return outcome;
+    }
+    if let Some(o) = observe_present_repo(root) {
+        return GitOutcome::Observed(o);
+    }
+    // git works and the directory is a repository, but HEAD would not resolve.
+    // Unborn or corrupt? `symbolic-ref HEAD` still succeeds on an unborn branch
+    // (HEAD points at a ref that has no commits yet) and fails on a corrupt or
+    // unreadable HEAD — so this separates "nothing committed" from "we cannot
+    // read this repository", which the `--git-dir` probe alone cannot.
+    match git_run(root, &["symbolic-ref", "-q", "HEAD"]) {
+        GitRun::Ok(_) => GitOutcome::Unborn,
+        GitRun::Failed | GitRun::Unavailable => GitOutcome::Unreadable,
     }
 }
 
 pub fn observe(root: &Path) -> Option<GitObservation> {
-    if !root.join(".git").exists() {
-        return None; // covers dirs and worktree .git files alike
+    match observe_outcome(root) {
+        GitOutcome::Observed(o) => Some(o),
+        GitOutcome::NotGit | GitOutcome::Unborn | GitOutcome::Unreadable => None,
     }
+}
+
+fn observe_present_repo(root: &Path) -> Option<GitObservation> {
     let head_ref = git_output(root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
     let head_sha = git_output(root, &["rev-parse", "HEAD"]);
     // Include HEAD explicitly: a detached HEAD on an unreachable commit
@@ -117,6 +158,22 @@ pub fn observe(root: &Path) -> Option<GitObservation> {
 }
 
 /// Classify what happened between two observations (G2 matrix).
+/// Classify an observation OUTCOME (preferred over `classify`).
+///
+/// What this adds over `classify`: an `Unreadable` outcome is ALWAYS
+/// `ObservationUnreliable`. Reconciling on a reading we know we could not take
+/// is how #1207 mints spurious external-edit history, and that is true on the
+/// FIRST scan too — which is why the decision does not depend on having a
+/// previous observation to contradict. `Unborn` and `NotGit` are real states,
+/// not failed readings, and keep their existing handling.
+pub fn classify_outcome(before: Option<&GitObservation>, after: &GitOutcome) -> GitClass {
+    match after {
+        GitOutcome::Observed(a) => classify(before, Some(a)),
+        GitOutcome::Unreadable => GitClass::ObservationUnreliable,
+        GitOutcome::Unborn | GitOutcome::NotGit => classify(before, None),
+    }
+}
+
 pub fn classify(before: Option<&GitObservation>, after: Option<&GitObservation>) -> GitClass {
     // A merge in progress must defer regardless of whether we have a
     // prior observation — the FIRST scan of a workspace already mid-merge

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-14 — the TypeScript twin of Rust's `CommandError`.
  *

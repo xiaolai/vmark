@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for blockAudio tiptap extension — node definition, attributes,
  * parseHTML, and renderHTML.

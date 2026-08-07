@@ -34,12 +34,40 @@ import { useMcpStore } from "../stores/mcpStore";
 
 const UPDATE_STATE_EVENT = "update:state-changed";
 
+/**
+ * Echoes only — NOT "no emits at all".
+ *
+ * `useUpdateListener` schedules a real 100 ms `setTimeout` on mount that emits
+ * `update:request-state`. In isolation the assertions run well inside that
+ * window; under full-suite parallel load an `act()` block can exceed 100 ms, the
+ * timer fires between `mockClear()` and the assertion, and a bare
+ * `not.toHaveBeenCalled()` fails on an emit that has nothing to do with echo
+ * suppression. That is a real flake with a real mechanism, not luck.
+ *
+ * Filtering by event name is also what these tests actually mean: the property
+ * is "applying a remote payload must not echo the STATE back", and a genuine
+ * echo of UPDATE_STATE_EVENT still fails here. The assertion got narrower and
+ * more accurate at the same time.
+ */
+function echoEmits() {
+  return emitMock.mock.calls.filter(([event]) => event === UPDATE_STATE_EVENT);
+}
+
+
 function resetStore() {
   useMcpStore.getState().resetUpdate();
 }
 
 describe("useUpdateSync echo suppression", () => {
   beforeEach(() => {
+    // Control the clock. `useUpdateListener` schedules a fire-and-forget
+    // `setTimeout(.., 100)` that emits `update:request-state`; on real timers it
+    // fires whenever an act() block happens to exceed 100 ms, which is a
+    // property of machine load, not of the code. Narrowing the assertions to
+    // echo events (see `echoEmits`) made them immune to THAT emit; faking the
+    // clock removes the nondeterminism itself, so nothing else in this file can
+    // be surprised by it either.
+    vi.useFakeTimers();
     emitMock.mockClear();
     listenCallback = null;
     __resetUpdateSyncStateForTests();
@@ -47,6 +75,7 @@ describe("useUpdateSync echo suppression", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     resetStore();
   });
 
@@ -79,7 +108,7 @@ describe("useUpdateSync echo suppression", () => {
     // The listener applied the payload, the broadcast effect ran, observed
     // that the new state matches what was just applied from a remote, and
     // suppressed the echo. ZERO emits.
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(echoEmits()).toEqual([]);
   });
 
   it("does not echo a remote-applied error payload back to peers", async () => {
@@ -101,7 +130,7 @@ describe("useUpdateSync echo suppression", () => {
       });
     });
 
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(echoEmits()).toEqual([]);
     const state = useMcpStore.getState().update;
     expect(state.status).toBe("error");
     expect(state.error).toBe("Failed to check for updates");
@@ -121,7 +150,7 @@ describe("useUpdateSync echo suppression", () => {
         payload: { status: "checking", updateInfo: null, downloadProgress: null, error: null },
       });
     });
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(echoEmits()).toEqual([]);
 
     // Local code now changes state — must emit.
     await act(async () => {
@@ -157,7 +186,7 @@ describe("useUpdateSync echo suppression", () => {
       });
     });
 
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(echoEmits()).toEqual([]);
     const state = useMcpStore.getState().update;
     expect(state.status).toBe("error");
     expect(state.error).toBe("boom");

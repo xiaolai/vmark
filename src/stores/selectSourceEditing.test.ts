@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/services/persistence/workspaceStorage", () => ({

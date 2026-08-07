@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-6R — ownership-scoped session persistence tests
 // WI-10.3 — per-root split persistence (write side) tests
 import { describe, it, expect, beforeEach, vi } from "vitest";

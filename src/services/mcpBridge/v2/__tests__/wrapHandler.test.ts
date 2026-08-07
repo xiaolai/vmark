@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.2 — wrapHandler centralizes the MCP v2 handler error contract (D2).
 
 import { describe, it, expect, beforeEach, vi } from "vitest";

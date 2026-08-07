@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The store's REMAINING doors canonicalise too.
  *

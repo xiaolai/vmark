@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * closeTab's return value — WI-5.
  *

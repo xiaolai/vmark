@@ -211,6 +211,14 @@ menu:
   genies.openFolder: "Open Genies Folder"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "The workspace could not be opened: %{detail}"
+  coherence.kernelPoisoned: "Coherence tracking stopped after an internal error. Reopen the workspace to continue."
+  coherence.ledgerUnavailable: "The coherence history could not be read: %{detail}"
+  coherence.rejectedArgument: "The request was rejected: %{detail}"
+  coherence.stateConflict: "The workspace has changed since this was requested: %{detail}"
+  coherence.buildTooOld: "This version of VMark cannot read part of the coherence history. Upgrade VMark to continue: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "HTML content too large (>50 MB)"
   core.pathTraversal: "Path traversal (..) not allowed"

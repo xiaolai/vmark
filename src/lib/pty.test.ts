@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Regression test for #974 — VMarkPty.kill() leaked the Rust session map entry
 // because _cleanup() removes the pty:exit listener BEFORE pty_kill, so the
 // exit handler that calls pty_close never runs. kill() must call pty_close

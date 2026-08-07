@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-N3.1 / WI-N4.4 — policy synchronization is fail-closed and tears down
 // browser state when access or the data-store posture changes.
 import { beforeEach, describe, expect, it, vi } from "vitest";

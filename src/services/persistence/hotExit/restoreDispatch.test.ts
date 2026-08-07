@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for hot-exit restore dispatch (#970).
  *

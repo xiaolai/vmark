@@ -201,6 +201,14 @@ fn quarantine_copy_is_not_duplicated_across_reads() {
 fn future_format_entries_are_skipped_not_quarantined() {
     // Spec §1: readers reject newer formats but must preserve them —
     // skipping with a surfaced count, never copying to quarantine.
+    //
+    // This pins the READ half only, and that is deliberate: skipping is the
+    // right behaviour here because a newer format is not corruption. The
+    // consequence — that a skip makes the projection SHORT, so writing on top
+    // of it is unsafe — is enforced one layer up, where the write actually
+    // happens. See `state.test.rs::future_format_ledger_refuses_mutation_but_
+    // still_reads` (WI-2.1). Until that gate existed, `future_format` was
+    // counted here and read by nobody.
     let dir = tmp();
     let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
     let mut e = Envelope::create("diagnostic", writer(1), diag("from the future"));
@@ -272,5 +280,134 @@ fn append_only_api_surface() {
     assert_eq!(
         PUBLIC_API, allowed,
         "new public ledger method: verify it cannot mutate history (I5)"
+    );
+}
+
+#[test]
+fn read_all_quarantines_an_oversized_line_and_keeps_its_neighbours() {
+    // Re-review #3: read_all streams each segment with a per-line memory cap, so a
+    // single line larger than MAX_LINE_BYTES is quarantined (never read whole into
+    // RAM) while the valid entries around it still parse.
+    use std::io::Write;
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("before")))
+        .unwrap();
+    // A pathological > 16 MiB line, appended directly to the segment.
+    let seg = ledger.active_segment_path_for_test();
+    {
+        let mut f = std::fs::OpenOptions::new().append(true).open(&seg).unwrap();
+        f.write_all(&vec![b'x'; 17 * 1024 * 1024]).unwrap();
+        f.write_all(b"\n").unwrap();
+    }
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("after")))
+        .unwrap();
+
+    let read = ledger.read_all().unwrap();
+    assert_eq!(read.entries.len(), 2, "both valid entries survive");
+    assert_eq!(
+        read.quarantined.len(),
+        1,
+        "the oversized line is quarantined"
+    );
+    assert!(
+        read.quarantined[0].reason.contains("cap"),
+        "got: {}",
+        read.quarantined[0].reason
+    );
+}
+
+#[test]
+fn read_all_quarantines_an_oversized_final_line_without_a_trailing_newline() {
+    // read_capped_line EOF branch: an oversized line that ends at EOF with no
+    // trailing newline must still be quarantined (not returned as a giant Line).
+    use std::io::Write;
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    ledger
+        .append(&Envelope::create("diagnostic", writer(1), diag("kept")))
+        .unwrap();
+    let seg = ledger.active_segment_path_for_test();
+    {
+        let mut f = std::fs::OpenOptions::new().append(true).open(&seg).unwrap();
+        f.write_all(&vec![b'y'; 17 * 1024 * 1024]).unwrap(); // > cap, NO trailing '\n'
+    }
+    let read = ledger.read_all().unwrap();
+    assert_eq!(read.entries.len(), 1, "the valid entry survives");
+    assert_eq!(
+        read.quarantined.len(),
+        1,
+        "the oversized unterminated final line is quarantined, not read whole"
+    );
+}
+
+#[test]
+fn read_all_parses_a_valid_final_line_without_a_trailing_newline() {
+    // read_capped_line EOF branch: a complete valid line that ends at EOF with no
+    // trailing newline must parse (parity with the old split() behaviour).
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    std::fs::create_dir_all(dir.path().join("ledger")).unwrap();
+    let seg = ledger.active_segment_path_for_test();
+    let e = Envelope::create("diagnostic", writer(1), diag("unterminated"));
+    std::fs::write(&seg, serde_json::to_string(&e).unwrap()).unwrap(); // no '\n'
+    let read = ledger.read_all().unwrap();
+    assert_eq!(
+        read.entries.len(),
+        1,
+        "a complete final line without a newline parses"
+    );
+    assert_eq!(read.entries[0].idem, e.idem);
+}
+
+#[test]
+fn append_refuses_an_entry_larger_than_the_read_cap() {
+    // 7th-review: the reader quarantines lines over MAX_LINE_BYTES, so writing one
+    // would silently lose an entry the caller was told had succeeded. The writer
+    // cap matches the reader cap and fails LOUDLY instead.
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    let huge = "x".repeat(17 * 1024 * 1024);
+    let e = Envelope::create("diagnostic", writer(1), diag(&huge));
+    let err = ledger.append(&e).unwrap_err();
+    assert!(err.contains("line cap"), "got: {err}");
+    // Nothing was written, so nothing is silently quarantined on the next read.
+    let read = ledger.read_all().unwrap();
+    assert!(
+        read.entries.is_empty(),
+        "the oversized entry was not written"
+    );
+    assert!(read.quarantined.is_empty(), "and nothing to quarantine");
+}
+
+#[test]
+fn a_future_record_is_detected_even_when_this_build_cannot_parse_its_shape() {
+    // Audit finding #2. Version detection used to run AFTER deserializing into
+    // this build's `Envelope`. A real format bump is exactly the thing that
+    // changes required fields — so a v1 record would fail to deserialize, be
+    // reported `Malformed` (quarantined), and leave `future_format` at zero.
+    // The WI-2.2 write gate would then see a fully-read ledger and allow the
+    // write: the precise situation the gate exists to prevent, defeated by the
+    // format bump that should have triggered it.
+    let dir = tmp();
+    let ledger = Ledger::new(dir.path().join("ledger"), writer(1));
+    // A well-formed JSON line that is v1 and shares NO required field with the
+    // current envelope beyond `format` itself.
+    let future_line = r#"{"format":1,"entryId":"not-a-uuid","payload":{"whatever":true}}"#;
+    let seg = dir.path().join("ledger");
+    std::fs::create_dir_all(&seg).unwrap();
+    std::fs::write(seg.join("0001.jsonl"), format!("{future_line}\n")).unwrap();
+
+    let read = ledger.read_all().unwrap();
+    assert_eq!(
+        read.future_format, 1,
+        "an unparseable NEWER record must count as future-format, not malformed — \
+         otherwise the write gate never fires"
+    );
+    assert!(
+        read.quarantined.is_empty(),
+        "a newer format is not corruption and must not be quarantined"
     );
 }

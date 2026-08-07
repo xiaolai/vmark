@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Paragraph claim tests — Phase 2, ADR-015 D2b.
  *

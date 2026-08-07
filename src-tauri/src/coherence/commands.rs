@@ -4,72 +4,32 @@
 //! through managed state (WI-1.10) with no webview hop.
 
 use serde_json::json;
-use uuid::Uuid;
 
-use super::capture::{capture, CaptureReceipt, CaptureRequest};
+use super::command_types::now_rfc3339;
+pub use super::command_types::{actor_identity, CoherenceStatus, ResolveReceipt, ResolveRequest};
 use super::dag::Resolved;
 use super::index_query::EdgeRow;
-use super::scan::{scan_workspace, ScanReport};
+use super::scan::scan_workspace;
 use super::state::{KernelRegistry, WorkspaceKernel};
 use super::types::WriterId;
-use crate::ai_provider::build_command;
+
+// commands.test.rs reaches these through `use super::*`. clippy reports them
+// unused because THIS file no longer names them, and it does not account for a
+// `#[path]`-included child module's glob import — it pruned them once and broke
+// the test build. The allow keeps the next autofix from repeating that.
 
 pub struct CoherenceState {
     pub registry: KernelRegistry,
     pub writer: WriterId,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct ResolveRequest {
-    /// "accept-newer" appends a ratification; "waive" appends a waiver.
-    pub action: String,
-    pub txf: Uuid,
-    pub input: u32,
-    #[serde(default)]
-    pub reason: Option<String>,
-    /// D3.2: optional waiver expiry (RFC 3339); projection treats an
-    /// expired waiver as absent, the record stays in history.
-    #[serde(default)]
-    pub expires: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ResolveReceipt {
-    pub entry_id: Uuid,
-    pub kind: String,
-    pub resolved_against: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct CoherenceStatus {
-    pub initialized: bool,
-    pub objects: usize,
-    pub open_items: usize,
-    pub quarantined: usize,
-    pub writer: WriterId,
-}
-
-fn now_rfc3339() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
-}
-
-/// v1 actor identity (spec §5.4.3): git user.name, else OS username.
-/// Never blank.
-pub fn actor_identity(root: &std::path::Path) -> String {
-    if let Ok(out) = build_command("git", &["config", "user.name"])
-        .current_dir(root)
-        .output()
-    {
-        if out.status.success() {
-            let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !name.is_empty() {
-                return name;
-            }
-        }
-    }
-    std::env::var("USER")
-        .or_else(|_| std::env::var("USERNAME"))
-        .unwrap_or_else(|_| "unknown-human".to_string())
+    /// Guards against a CONCURRENT check sweep (found by dogfooding, 2026-07-20).
+    /// The sweep deliberately drops the kernel lock across its provider calls, so
+    /// two invocations both snapshot "not yet checked" and both spend on the SAME
+    /// edges — observed as 9 check-results for 5 distinct edges, two runs offset
+    /// by ~0.5s. That also fails the Phase-1 gate's "resumes without
+    /// double-checking" metric. In-process only: two app instances are still a
+    /// cross-process concern (the sweep cannot hold the workspace flock while an
+    /// LLM call is outstanding).
+    pub sweep_in_flight: std::sync::atomic::AtomicBool,
 }
 
 /// The resolution write path (WI-1.9a): validates the edge, computes a
@@ -92,6 +52,17 @@ pub fn perform_resolve(
 /// the delegation reference (spec §5.4.3 rev 2 typed validation rejects
 /// them without it).
 pub fn perform_resolve_as(
+    kernel: &mut WorkspaceKernel,
+    req: &ResolveRequest,
+    actor: &serde_json::Value,
+    delegation: Option<uuid::Uuid>,
+) -> Result<ResolveReceipt, String> {
+    // R1 (7th-review 6R-1): read the edge's current resolution state → build the
+    // resolution → append, atomic under the workspace lock.
+    kernel.with_write_lock(|kernel| perform_resolve_as_locked(kernel, req, actor, delegation))
+}
+
+fn perform_resolve_as_locked(
     kernel: &mut WorkspaceKernel,
     req: &ResolveRequest,
     actor: &serde_json::Value,
@@ -148,6 +119,9 @@ pub fn perform_resolve_as(
 
 /// Pull-based breakdown (R15): reconcile, then project.
 pub fn perform_breakdown(kernel: &mut WorkspaceKernel) -> Result<Vec<EdgeRow>, String> {
+    // 8R-5: a poisoned kernel's index may be half-rebuilt — refuse to SERVE it,
+    // not just to write to it.
+    kernel.ensure_available()?;
     perform_breakdown_in(kernel, None)
 }
 
@@ -166,15 +140,92 @@ pub fn perform_breakdown_in(
         super::contexts::ContextSet::load(&kernel.root().join(".vmark").join("contexts"));
     let visible = contexts.effective_claims(context);
     let fingerprint = store.claims_fingerprint(&visible);
-    kernel
-        .index()
-        .breakdown_checked(&now_rfc3339(), &context.to_string(), &fingerprint)
+    let lifecycle = super::lifecycle::LifecycleSet::from_entries(&read.entries);
+    let mut rows =
+        kernel
+            .index()
+            .breakdown_checked(&now_rfc3339(), &context.to_string(), &fingerprint)?;
+    // Document lifecycle (design-lifecycle-and-anchors.md §A): a FROZEN
+    // downstream is a finished record, so upstream movement cannot invalidate
+    // it. Flag it rather than drop it — the edge stays visible in a collapsed
+    // group, so the layer never silently ignores a dependency the owner might
+    // revive, and `state` stays truthful about what the edge actually is.
+    // Applied HERE, at the user-facing breakdown, and deliberately NOT inside
+    // `project_edge`: that path also feeds the accept precondition, which asks
+    // "did the affected set change structurally?" — a different question that
+    // must not shift because someone marked a document finished.
+    for row in &mut rows {
+        row.frozen_downstream = lifecycle.is_frozen(&row.downstream);
+    }
+    // Section anchors (design-lifecycle-and-anchors.md §B): an anchored edge asks
+    // "did the part I depend on change?" instead of "did the file change?". Only
+    // ANCHORED edges cost a CAS read here, and anchoring is opt-in, so the common
+    // path is untouched.
+    let anchors = super::anchors::AnchorSet::from_entries(&read.entries);
+    if !anchors.is_empty() {
+        // Two passes so the row borrow and the kernel borrow never overlap:
+        // compute every status first, then apply.
+        let mut computed: Vec<(usize, String)> = Vec::new();
+        for (i, row) in rows.iter().enumerate() {
+            let Some(anchor) = anchors.get(&row.txf, row.input).cloned() else {
+                continue;
+            };
+            // Compare against the upstream's CURRENT text — that is what the
+            // staleness question is really about.
+            let current = match kernel.index().resolve_live(&row.upstream)? {
+                Resolved::Single(rev) => rev,
+                // No single current revision: the anchor cannot be evaluated, and
+                // guessing would be worse than leaving the edge as projected.
+                _ => continue,
+            };
+            let upstream = row.upstream;
+            let status = match super::check_commands::snapshot_text(kernel, &upstream, &current) {
+                Ok(text) => super::anchors::evaluate(&anchor, &text),
+                // An unreadable snapshot must never read as "unchanged" — that
+                // would silently suppress a real change.
+                Err(_) => super::anchors::AnchorStatus::Lost,
+            };
+            computed.push((i, status.label().to_string()));
+        }
+        for (i, status) in computed {
+            rows[i].anchor_status = Some(status);
+        }
+    }
+    // Decide actionability ONCE, here, so no consumer has to re-derive it.
+    for row in &mut rows {
+        row.actionable = is_actionable(row.frozen_downstream, row.anchor_status.as_deref());
+    }
+    Ok(rows)
+}
+
+/// Does this edge actually ASK for something? The single definition of
+/// actionability, shared by the badge (`perform_status`), the panel, and the
+/// check sweep so none of them can re-derive it and disagree.
+///
+/// Suppressed when the downstream is frozen history, or when the edge is
+/// anchored to a section that has NOT changed. Compares against the typed
+/// `AnchorStatus` label rather than a bare literal, so adding another
+/// suppressing status is a compile-time concern here rather than a silent
+/// behaviour change.
+pub(crate) fn is_actionable(frozen_downstream: bool, anchor_status: Option<&str>) -> bool {
+    !frozen_downstream && anchor_status != Some(super::anchors::AnchorStatus::Unchanged.label())
 }
 
 pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, String> {
+    kernel.ensure_available()?; // 8R-5: never serve a half-rebuilt index
     let objects = kernel.index().registry_state()?.path_of.len();
-    let open_items = if kernel.is_initialized() {
-        kernel.index().breakdown(&now_rfc3339())?.len()
+    // Both the badge and the list read the SAME `actionable` flag, so they
+    // cannot disagree — the inconsistency this feature produced twice.
+    // `scanned` matters for `ledger_short_read` below: the flag is only
+    // meaningful when THIS call actually attempted the lock. On the
+    // uninitialized path no scan runs, so reading it would report a verdict
+    // left over from some earlier refusal.
+    let scanned = kernel.is_initialized();
+    let open_items = if scanned {
+        perform_breakdown_in(kernel, None)?
+            .iter()
+            .filter(|r| r.actionable)
+            .count()
     } else {
         0
     };
@@ -184,95 +235,16 @@ pub fn perform_status(kernel: &mut WorkspaceKernel) -> Result<CoherenceStatus, S
         open_items,
         quarantined: kernel.quarantined,
         writer: kernel.writer(),
+        // Read AFTER the breakdown above: the scan inside it is what discovers
+        // the short read (and then declines to reconcile rather than failing,
+        // so the counts still come back). Without surfacing it here the
+        // degradation is silent, and `open_items: 0` on a workspace full of
+        // them looks exactly like a clean workspace.
+        //
+        // Gated on `scanned`: the flag is cleared per acquire, so with no scan
+        // in this call it would report a stale verdict from an earlier one.
+        ledger_short_read: scanned && kernel.refused_for_short_read(),
     })
-}
-
-#[tauri::command]
-pub async fn coherence_capture(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    request: CaptureRequest,
-) -> Result<CaptureReceipt, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    capture(&mut kernel, request)
-}
-
-#[tauri::command]
-pub async fn coherence_resolve(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    request: ResolveRequest,
-) -> Result<ResolveReceipt, String> {
-    let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    let actor = actor_identity(&root);
-    perform_resolve(&mut kernel, &request, &actor)
-}
-
-#[tauri::command]
-pub async fn coherence_breakdown(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    context: Option<uuid::Uuid>,
-) -> Result<Vec<EdgeRow>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_breakdown_in(&mut kernel, context)
-}
-
-#[tauri::command]
-pub async fn coherence_status(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-) -> Result<CoherenceStatus, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_status(&mut kernel)
-}
-
-/// Read-time head lookup (audit T5): MCP reads pin the revision that was
-/// actually served, so a later upstream edit cannot be misattributed as
-/// the write's input. Null when the path is not a known single-headed
-/// object.
-#[tauri::command]
-pub async fn coherence_head(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-    path: String,
-) -> Result<Option<serde_json::Value>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    let registry = kernel.index().registry_state()?;
-    let Some(object) = registry.object_at.get(&path) else {
-        return Ok(None);
-    };
-    let heads = kernel.index().heads(object)?;
-    match heads.as_slice() {
-        [only] => Ok(Some(json!({ "object": object, "revision": only }))),
-        _ => Ok(None),
-    }
-}
-
-#[tauri::command]
-pub async fn coherence_scan(
-    state: tauri::State<'_, CoherenceState>,
-    workspace_root: String,
-) -> Result<ScanReport, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    scan_workspace(&mut kernel)
 }
 
 #[cfg(test)]

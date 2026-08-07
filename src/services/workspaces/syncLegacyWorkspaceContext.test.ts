@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5R — legacy workspace store follows rail activation: synchronous re-root
 // (tree and tabs switch together), generation-guarded async config refresh,
 // loose AND placeholder clear the legacy root, malformed config → defaults.

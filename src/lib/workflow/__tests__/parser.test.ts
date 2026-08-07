@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseWorkflow, isWorkflowYaml, WorkflowParseError, WorkflowValidationError } from "../parser";
 
 // ============================================================================

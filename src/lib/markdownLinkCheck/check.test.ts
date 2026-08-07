@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Markdown broken-link checker. Validates that local link / image
 // targets referenced from a markdown file actually exist on disk.
 

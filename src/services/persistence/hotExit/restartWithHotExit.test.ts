@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Hot Exit Restart Tests
  *

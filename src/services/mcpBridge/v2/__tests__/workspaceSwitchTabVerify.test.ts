@@ -1,3 +1,4 @@
+// @vitest-environment node
 // #1208 — `workspace.switch_tab` must report the state it can OBSERVE, not the
 // state it intended.
 //

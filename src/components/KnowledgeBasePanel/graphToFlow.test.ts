@@ -1,3 +1,4 @@
+// @vitest-environment node
 // H5 — KB graph → xyflow conversion + layout.
 import { describe, it, expect } from "vitest";
 import { graphToFlow, type KbGraph } from "./graphToFlow";

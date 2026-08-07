@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Serialization completeness for code-block conversion: atoms and leaf
  * blocks (inline math, inline HTML, footnote refs, frontmatter, html_block,

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The injection seam's contract: wired, or a NAMED failure.
  *

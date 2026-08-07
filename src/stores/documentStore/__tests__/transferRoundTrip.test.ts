@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * A file's convention must survive a window-to-window move.
  *

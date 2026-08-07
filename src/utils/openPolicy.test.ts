@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Open Policy Helpers - Tests
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Regression tests for #1112 — the "open-file" event must carry the
 // originating window's label so the listener can drop broadcasts from
 // other windows (Tauri's window.emit() reaches EVERY window; only the

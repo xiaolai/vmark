@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — permissions normalization tests.
 //
 // Per plan §4 PermissionsIR + ADR-7. Source YAML uses kebab-case

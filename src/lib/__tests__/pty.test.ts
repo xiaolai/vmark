@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the custom PTY wrapper (replacement for tauri-pty).
  * Verifies spawn lifecycle, event wiring, flow control, and cleanup.

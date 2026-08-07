@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-17 — Tier-0 OPEN flow over the REAL composition: the Cmd+O entry point
 // (services/navigation/fileOpen handleOpen) through the size router, the real
 // tabStore.createTab, the real disk-open ingest, against the stateful fs fake.

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-0.1/WI-0.2 — the spec parse-conformance gate, exhaustive by enumeration.
  *

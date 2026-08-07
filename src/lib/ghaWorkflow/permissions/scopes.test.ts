@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Codex audit HIGH-2 fix — bidirectional kebab↔camel scope key map.
 
 import { describe, it, expect } from "vitest";

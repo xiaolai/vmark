@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.1 — Code-viewer adapter tests.
 //
 // One adapter per language family. Each registers its extensions,

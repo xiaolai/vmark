@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-12.4 — visible reorder translation tests
 import { describe, expect, it } from "vitest";
 import type { Tab } from "@/stores/tabStore";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S3.1 — bookmark identity.
 //
 // The v2 plan deduped bookmarks with the origin guard's canonicalizeOrigin, which

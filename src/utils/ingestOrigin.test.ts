@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — metadata precedence per ingress origin
 import { describe, it, expect } from "vitest";
 import {

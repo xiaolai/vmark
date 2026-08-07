@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-19 — the workflowEngine → workflowViewer + workflowEngine split.
 import { describe, it, expect } from "vitest";
 import {

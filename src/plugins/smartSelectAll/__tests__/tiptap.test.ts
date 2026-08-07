@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Smart Select-All Extension Tests
  *

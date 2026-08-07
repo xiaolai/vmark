@@ -8,39 +8,12 @@
 use serde::Serialize;
 use uuid::Uuid;
 
+use super::context_types::{contexts_dir, enforcement_str};
+pub use super::context_types::{ContextReceipt, ContextRow};
 use super::contexts::{
     write_manifest, ContextManifest, ContextSet, Enforcement, DEFAULT_CONTEXT_ID,
 };
 use super::state::WorkspaceKernel;
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextRow {
-    pub id: Uuid,
-    pub name: String,
-    pub parent: Option<Uuid>,
-    pub enforcement: String,
-    pub visible_claims: usize,
-    /// Per-file load errors and structural chain errors, surfaced.
-    pub errors: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContextReceipt {
-    pub id: Uuid,
-}
-
-fn contexts_dir(kernel: &WorkspaceKernel) -> std::path::PathBuf {
-    kernel.root().join(".vmark").join("contexts")
-}
-
-fn enforcement_str(e: Enforcement) -> &'static str {
-    match e {
-        Enforcement::Enforcing => "enforcing",
-        Enforcement::Greenhouse => "greenhouse",
-    }
-}
 
 pub fn perform_contexts_list(kernel: &mut WorkspaceKernel) -> Result<Vec<ContextRow>, String> {
     let set = ContextSet::load(&contexts_dir(kernel));
@@ -86,6 +59,16 @@ pub fn perform_context_create(
     name: &str,
     parent: Option<Uuid>,
 ) -> Result<ContextReceipt, String> {
+    // R1 (8th-review 8R-8): the manifest read-modify-write runs under the
+    // workspace lock, so a concurrent locked mutator can't lose this update.
+    kernel.with_write_lock(|kernel| perform_context_create_locked(kernel, name, parent))
+}
+
+fn perform_context_create_locked(
+    kernel: &mut WorkspaceKernel,
+    name: &str,
+    parent: Option<Uuid>,
+) -> Result<ContextReceipt, String> {
     let name = name.trim();
     if name.is_empty() {
         return Err("a context needs a non-empty name".into());
@@ -123,6 +106,16 @@ pub fn perform_context_create(
 }
 
 pub fn perform_context_enforce(
+    kernel: &mut WorkspaceKernel,
+    context: Uuid,
+    enforcing: bool,
+) -> Result<(), String> {
+    // R1 (8th-review 8R-8): an unlocked read-modify-write here silently dropped a
+    // concurrent locked `perform_claim_scope` visibility update.
+    kernel.with_write_lock(|kernel| perform_context_enforce_locked(kernel, context, enforcing))
+}
+
+fn perform_context_enforce_locked(
     kernel: &mut WorkspaceKernel,
     context: Uuid,
     enforcing: bool,
@@ -195,6 +188,13 @@ pub fn perform_branch_candidate(
 pub fn perform_context_create_from_branch(
     kernel: &mut WorkspaceKernel,
 ) -> Result<ContextReceipt, String> {
+    // R1 (8th-review 8R-8): same manifest read-modify-write, same lock.
+    kernel.with_write_lock(perform_context_create_from_branch_locked)
+}
+
+fn perform_context_create_from_branch_locked(
+    kernel: &mut WorkspaceKernel,
+) -> Result<ContextReceipt, String> {
     let Some(branch) = super::gitops::current_branch(kernel.root()) else {
         return Err("no current branch (detached HEAD or not a git repository)".into());
     };
@@ -220,71 +220,3 @@ pub fn perform_context_create_from_branch(
     write_manifest(&dir, &m)?;
     Ok(receipt)
 }
-
-#[tauri::command]
-pub async fn coherence_branch_candidate(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-) -> Result<Option<BranchCandidate>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_branch_candidate(&mut kernel)
-}
-
-#[tauri::command]
-pub async fn coherence_context_from_branch(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-) -> Result<ContextReceipt, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_context_create_from_branch(&mut kernel)
-}
-
-#[tauri::command]
-pub async fn coherence_contexts(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-) -> Result<Vec<ContextRow>, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_contexts_list(&mut kernel)
-}
-
-#[tauri::command]
-pub async fn coherence_context_create(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    name: String,
-    parent: Option<Uuid>,
-) -> Result<ContextReceipt, String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_context_create(&mut kernel, &name, parent)
-}
-
-#[tauri::command]
-pub async fn coherence_context_enforce(
-    state: tauri::State<'_, super::commands::CoherenceState>,
-    workspace_root: String,
-    context: Uuid,
-    enforcing: bool,
-) -> Result<(), String> {
-    let kernel = state
-        .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_context_enforce(&mut kernel, context, enforcing)
-}
-
-#[cfg(test)]
-#[path = "context_commands.test.rs"]
-mod tests;

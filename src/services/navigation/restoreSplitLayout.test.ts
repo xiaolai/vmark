@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { restoreSplitLayout } from "./restoreWorkspaceTabs";
 import { saveSplitLayout } from "@/services/persistence/splitLayoutPersistence";

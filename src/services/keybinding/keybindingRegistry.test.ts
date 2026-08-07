@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — the live registry service: chord resolution, event resolution, rebind reactivity.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

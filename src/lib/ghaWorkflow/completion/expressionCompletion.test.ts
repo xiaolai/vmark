@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-A.1 — expression-context autocomplete tests. TDD-first.
 
 import { describe, it, expect } from "vitest";

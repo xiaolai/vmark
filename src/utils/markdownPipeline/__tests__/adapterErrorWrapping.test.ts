@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for ES2022 error wrapping in the markdown pipeline adapter.
  *

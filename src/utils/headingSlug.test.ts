@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for headingSlug.ts — heading ID generation utilities.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Hot Exit Coordination Tests
  *
@@ -38,31 +39,45 @@ describe('hotExitCoordination', () => {
   });
 
   describe('waitForRestoreComplete', () => {
+    // These two used a STOPWATCH (`Date.now()` deltas with upper bounds) to
+    // assert what are really ORDERING properties. An upper bound on elapsed
+    // wall-clock is a claim about the machine, not the code: `toBeLessThan(200)`
+    // failed at 248 ms during a parallel full-suite run and told us nothing
+    // except that the box was busy. Both are now expressed as what they mean —
+    // "resolves without waiting for anything" and "does not resolve until
+    // notified" — which is exact, instant, and cannot be affected by load.
+
     it('should resolve immediately if restore is not in progress', async () => {
       setRestoreInProgress(false);
-      const start = Date.now();
-      await waitForRestoreComplete();
-      const elapsed = Date.now() - start;
-      expect(elapsed).toBeLessThan(50); // Should be nearly instant
+      // Fake timers make "immediately" checkable rather than merely fast: the
+      // waiting path needs a timeout timer, so if this took it the await would
+      // hang instead of resolving, since no timer is ever advanced here.
+      vi.useFakeTimers();
+      try {
+        await expect(waitForRestoreComplete()).resolves.toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should wait until restore completes', async () => {
       setRestoreInProgress(true);
 
-      // Start waiting
-      const waitPromise = waitForRestoreComplete();
+      let settled = false;
+      const waitPromise = waitForRestoreComplete().then((v) => {
+        settled = true;
+        return v;
+      });
 
-      // Simulate restore completing after 100ms
-      setTimeout(() => {
-        notifyRestoreComplete();
-      }, 100);
+      // Flush the microtask queue. If the promise were already resolved (the
+      // regression this guards — returning before restore finishes) `settled`
+      // would be true here.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(settled).toBe(false);
 
-      const start = Date.now();
-      await waitPromise;
-      const elapsed = Date.now() - start;
-
-      expect(elapsed).toBeGreaterThanOrEqual(90);
-      expect(elapsed).toBeLessThan(200);
+      notifyRestoreComplete();
+      await expect(waitPromise).resolves.toBe(true);
     });
 
     it('should handle timeout gracefully', async () => {

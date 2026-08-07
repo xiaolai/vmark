@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for tiptapTaskListUtils — toggleTaskList and convertSelectionToTaskList.
  */

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.3 — step parsing tests (extracted from jobs.ts to keep both ≤300 LOC).
 //
 // Most step semantics are covered indirectly through jobs.test.ts (which

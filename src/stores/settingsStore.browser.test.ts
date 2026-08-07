@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.10 — embedded-browser feature gate (settings.browser.enabled, default off)
 import { beforeEach, describe, expect, it } from "vitest";
 import { useSettingsStore } from "./settingsStore";

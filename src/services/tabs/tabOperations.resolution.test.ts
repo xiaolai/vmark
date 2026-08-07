@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * closeTabWithDirtyCheck — the close DECISION under concurrency and
  * divergence (WI-2 / WI-5 / WI-6). Own file: useTabOperations.test.ts sits at

@@ -34,6 +34,8 @@ import {
   refreshDelegations,
   refreshProvenance,
 } from "@/services/breakdown/semanticActs";
+import { SuppressedGroup } from "./SuppressedGroup";
+import { LogbookSection } from "./LogbookSection";
 import { DelegationsSection } from "./DelegationsSection";
 import { MergeBanner } from "./MergeBanner";
 import { ProvenanceGroup } from "./ProvenanceGroup";
@@ -118,8 +120,19 @@ export function BreakdownPanel() {
   };
   const close = () => useBreakdownStore.getState().setPanelOpen(false);
 
-  const capped = rows.length > RESULT_CAP;
-  const groups = selectRowsGroupedByArtifact(capped ? rows.slice(0, RESULT_CAP) : rows);
+  // Split on the Rust-computed verdict rather than re-deriving suppression
+  // here — two consumers deriving it independently is exactly how the badge
+  // and this list came to disagree. A row missing the field (written before
+  // the field existed) counts as actionable: degrade toward interrupting.
+  const actionable = rows.filter((r) => r.actionable !== false);
+  const suppressed = rows.filter((r) => r.actionable === false);
+
+  // The cap applies to the actionable list only. Capping the union would let a
+  // pile of frozen edges push real work off the end of the panel.
+  const capped = actionable.length > RESULT_CAP;
+  const groups = selectRowsGroupedByArtifact(
+    capped ? actionable.slice(0, RESULT_CAP) : actionable,
+  );
 
   return (
     <div
@@ -236,7 +249,7 @@ export function BreakdownPanel() {
 
       {loading && rows.length === 0 ? (
         <p className="breakdown-panel__loading">{t("loading")}</p>
-      ) : rows.length === 0 ? (
+      ) : actionable.length === 0 ? (
         error === null && <p className="breakdown-panel__empty">{t("empty")}</p>
       ) : (
         <div className="breakdown-panel__groups">
@@ -261,9 +274,11 @@ export function BreakdownPanel() {
 
       {capped && (
         <p className="breakdown-panel__cap">
-          {t("capNotice", { shown: RESULT_CAP, total: rows.length })}
+          {t("capNotice", { shown: RESULT_CAP, total: actionable.length })}
         </p>
       )}
+      <SuppressedGroup rows={suppressed} workspaceRoot={rootPath} />
+      <LogbookSection workspaceRoot={rootPath} />
       <ProvenanceGroup workspaceRoot={rootPath} />
       <DelegationsSection workspaceRoot={rootPath} />
     </div>

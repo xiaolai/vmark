@@ -2,6 +2,10 @@
 //! human acts only). List + grant/revoke; the confirmation dialog lives
 //! in the UI, this layer records the already-confirmed act.
 
+use super::command_errors::{
+    classify_write, kernel_poisoned, ledger_unavailable, rejected_argument, workspace_unavailable,
+};
+use crate::command_error::CommandError;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -43,12 +47,14 @@ fn now_rfc3339() -> String {
 pub async fn coherence_delegations(
     state: tauri::State<'_, super::commands::CoherenceState>,
     workspace_root: String,
-) -> Result<Vec<DelegationRow>, String> {
+) -> Result<Vec<DelegationRow>, CommandError> {
     let kernel = state
         .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_delegations_list(&mut kernel)
+        .kernel_for(std::path::Path::new(&workspace_root), state.writer)
+        .map_err(workspace_unavailable)?;
+    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
+    // Read-only projection of the live delegations.
+    perform_delegations_list(&mut kernel).map_err(ledger_unavailable)
 }
 
 #[tauri::command]
@@ -56,12 +62,18 @@ pub async fn coherence_delegate(
     state: tauri::State<'_, super::commands::CoherenceState>,
     workspace_root: String,
     request: DelegateRequest,
-) -> Result<DelegateReceipt, String> {
+) -> Result<DelegateReceipt, CommandError> {
     let root = std::path::PathBuf::from(&workspace_root);
-    let kernel = state.registry.kernel_for(&root, state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
+    let kernel = state
+        .registry
+        .kernel_for(&root, state.writer)
+        .map_err(workspace_unavailable)?;
+    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
     let actor = super::commands::actor_identity(&root);
+    // The request names the scope and principal being delegated to; an
+    // unknown scope or malformed principal is the caller's to fix.
     perform_delegate(&mut kernel, &request, &actor, &now_rfc3339())
+        .map_err(|e| classify_write(&kernel, rejected_argument, e))
 }
 
 #[cfg(test)]

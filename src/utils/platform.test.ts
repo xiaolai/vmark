@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, afterEach } from "vitest";
 import { isMacPlatform, isWindowsPlatform, getRuntimePlatform } from "./platform";
 

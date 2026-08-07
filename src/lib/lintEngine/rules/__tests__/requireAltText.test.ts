@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { lintMarkdown } from "../../linter";
 import { requireAltText } from "../requireAltText";

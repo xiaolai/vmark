@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P6.4/P6.5 — the frontend registry of saved sessions + named profiles.
 //
 // The OS keychain (session blobs) and WebKit named stores cannot be enumerated, so

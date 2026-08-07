@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-2 case 3 — the default (rail-off) branch of activateTabWithWorkspaceContext
  * is pane-aware through the centralized activation seam (tabActivationBus), so

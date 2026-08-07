@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The link security chain, end to end.
  *

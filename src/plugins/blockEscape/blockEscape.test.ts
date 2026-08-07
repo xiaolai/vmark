@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for Block Escape TipTap Extension
  *

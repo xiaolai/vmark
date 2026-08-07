@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-8.2 — window-scoped browser-session persistence: restore-human pages
 // round-trip per window; AI pages are transient; restore is once-per-window,
 // never steals activation, and never duplicates open URLs.

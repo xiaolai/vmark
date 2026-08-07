@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.5 / R5 — browser approval store: standing grants + pending approvals
 // WI-S0.8 — dismissForNavigation: authority and prompts lapse when the page changes
 import { describe, it, expect, beforeEach } from "vitest";

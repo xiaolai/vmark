@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * useTheme — pure function tests
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tests for jsonViewStyles — the token-aligned react-json-view-lite style
 // builder shared by the json / yaml / toml tree previews.
 

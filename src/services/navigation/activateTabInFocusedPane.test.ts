@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { activateTabInFocusedPane } from "./activateTabInFocusedPane";
 import { useTabStore } from "@/stores/tabStore";

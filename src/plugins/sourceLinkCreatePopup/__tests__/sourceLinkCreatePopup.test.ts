@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for sourceLinkCreatePopup — plugin structure and store interaction.
  */

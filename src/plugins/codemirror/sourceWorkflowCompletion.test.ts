@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-A.1 — CodeMirror integration tests for workflow expression
 // completion. Tests the wiring (state sync, activation regions),
 // not the inner logic (covered by expressionCompletion.test.ts).

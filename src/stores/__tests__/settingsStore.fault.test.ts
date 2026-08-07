@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Fault Injection Tests for settingsStore
  *

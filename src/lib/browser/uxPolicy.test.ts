@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.7 / R12 — browser UX surface policy: the decided per-surface matrix
 import { describe, it, expect } from "vitest";
 import {

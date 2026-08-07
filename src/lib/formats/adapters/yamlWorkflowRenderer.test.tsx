@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-13 — the GHA workflow schemaRenderer as a lazily-imported module.
 //
 // Split out of `yaml.tsx` because the yaml adapter is ALWAYS registered (the

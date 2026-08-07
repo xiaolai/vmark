@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.3 — Gate against untranslated terminal settings strings (T10).
 //
 // Six terminal settings strings shipped as verbatim English in all nine

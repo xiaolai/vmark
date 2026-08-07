@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Inline Code Boundary Tests (Issue #58 Problem 3)
  *

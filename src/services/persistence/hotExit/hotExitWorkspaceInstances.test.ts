@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type { WindowState } from "./types";
 import {

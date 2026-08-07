@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-19 — the two workflow flags are independent, and the yaml-surface
 // fallback answers to either of them.
 //

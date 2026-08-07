@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Structure-aware line operations — code-fence awareness.
  *
