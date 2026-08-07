@@ -702,5 +702,12 @@
   "advanced.embeddedBrowser.description": "Abilita il browser web sperimentale integrato. Aggiunge “Nuova scheda del browser” alla palette dei comandi.",
   "files.coherenceCapture.label": "Tracciare la provenienza dei documenti",
   "files.coherenceCapture.description": "Registrare come cambiano i documenti nel tempo (livello di coerenza). Attivandolo, VMark aggiunge un blocco id `vmark:` al frontmatter del file al primo tracciamento e crea una cartella .vmark nello spazio di lavoro.",
-  "shortcuts.capture.unsupported": "Questa combinazione di tasti non è supportata. Provane un'altra."
+  "shortcuts.capture.unsupported": "Questa combinazione di tasti non è supportata. Provane un'altra.",
+  "coherence.group": "Coerenza",
+  "coherence.checkTau.label": "Confidenza del controllo semantico",
+  "coherence.checkTau.description": "Quanto deve essere sicuro un controllo perché la sua risposta valga come verdetto. Sotto questa soglia la risposta viene conservata ma segnata come sconosciuta.",
+  "coherence.checkTau.option07": "0,7 — più verdetti, meno certezza",
+  "coherence.checkTau.option08": "0,8 — equilibrato",
+  "coherence.checkTau.option09": "0,9 — prudente (predefinito)",
+  "coherence.checkTau.option095": "0,95 — solo risposte quasi certe"
 }

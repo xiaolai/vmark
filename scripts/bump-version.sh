@@ -33,8 +33,15 @@ sed -i '' "s/const VERSION = '[^']*'/const VERSION = '$VERSION'/" server/mcp/src
 # Derived lockfile: Cargo.lock carries the `vmark` package's own version, so it
 # must move with Cargo.toml. Leaving it behind makes origin/main dirty and
 # breaks `cargo build --locked` / `--frozen` — what CI and the release run.
-cargo update -p vmark --manifest-path src-tauri/Cargo.toml >/dev/null 2>&1 ||
-  echo "WARNING: could not sync src-tauri/Cargo.lock — run cargo update -p vmark manually"
+# The hint quotes the WHOLE command: the crate manifest lives in src-tauri/, so a
+# bare `cargo update -p vmark` from the repo root dies with "could not find
+# `Cargo.toml`" — a failure message handing the reader a command that also fails
+# is worse than no message. Braces are load-bearing: with a bare `||` only the
+# FIRST echo is conditional and the second prints on every successful run.
+cargo update -p vmark --manifest-path src-tauri/Cargo.toml >/dev/null 2>&1 || {
+  echo "WARNING: could not sync src-tauri/Cargo.lock — run it manually:"
+  echo "         cargo update -p vmark --manifest-path src-tauri/Cargo.toml"
+}
 
 echo ""
 echo "Updated:"

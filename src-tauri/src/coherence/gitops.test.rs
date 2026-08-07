@@ -271,3 +271,48 @@ fn unreliable_observation_does_not_mask_a_merge() {
         GitClass::MergeInProgress
     );
 }
+
+#[test]
+fn merge_changed_files_unions_both_parents() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    std::fs::write(root.join("base.md"), "base\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "c1"]);
+
+    // Feature branch adds feat.md.
+    run_git(root, &["checkout", "-q", "-b", "feature"]);
+    std::fs::write(root.join("feat.md"), "feature\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "feat"]);
+
+    // Main adds main.md.
+    run_git(root, &["checkout", "-q", "main"]);
+    std::fs::write(root.join("main.md"), "main\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "main"]);
+
+    // A real merge commit (two parents).
+    run_git(root, &["merge", "-q", "--no-ff", "-m", "merge", "feature"]);
+
+    let sha = merge_commit_sha(root).expect("a completed merge");
+    let mut changed = merge_changed_files(root, &sha);
+    changed.sort();
+    // Union of both parents: feat.md (from feature) + main.md (from main),
+    // base.md unchanged on both sides.
+    assert_eq!(changed, vec!["feat.md".to_string(), "main.md".to_string()]);
+}
+
+#[test]
+fn merge_changed_files_is_empty_for_a_non_merge() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    run_git(root, &["init", "-q", "-b", "main"]);
+    std::fs::write(root.join("a.md"), "x\n").unwrap();
+    run_git(root, &["add", "."]);
+    run_git(root, &["commit", "-q", "-m", "c1"]);
+    let head = observe(root).unwrap().head_sha.unwrap();
+    // A linear commit has one parent → no ^2 → the union is empty.
+    assert!(merge_changed_files(root, &head).is_empty());
+}

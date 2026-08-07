@@ -49,6 +49,7 @@ fn direct(path: &str) -> CaptureInputSpec {
         object_id: None,
         revision: None,
         role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
     }
 }
 

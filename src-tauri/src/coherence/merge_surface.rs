@@ -3,6 +3,8 @@
 //! latest one for the breakdown's dismissible, pull-only banner. Nothing
 //! runs on its own — the read happens only when the UI pulls.
 
+use super::command_errors::{kernel_poisoned, ledger_unavailable, workspace_unavailable};
+use crate::command_error::CommandError;
 use serde::Serialize;
 
 use super::gitops::merge_commit_sha;
@@ -70,12 +72,14 @@ pub fn perform_recent_merge(kernel: &mut WorkspaceKernel) -> Result<Option<Merge
 pub async fn coherence_recent_merge(
     state: tauri::State<'_, super::commands::CoherenceState>,
     workspace_root: String,
-) -> Result<Option<MergeNotice>, String> {
+) -> Result<Option<MergeNotice>, CommandError> {
     let kernel = state
         .registry
-        .kernel_for(std::path::Path::new(&workspace_root), state.writer)?;
-    let mut kernel = kernel.lock().map_err(|_| "kernel poisoned".to_string())?;
-    perform_recent_merge(&mut kernel)
+        .kernel_for(std::path::Path::new(&workspace_root), state.writer)
+        .map_err(workspace_unavailable)?;
+    let mut kernel = kernel.lock().map_err(|_| kernel_poisoned())?;
+    // Read-only: reports the most recent git merge the ledger reflects.
+    perform_recent_merge(&mut kernel).map_err(ledger_unavailable)
 }
 
 #[cfg(test)]

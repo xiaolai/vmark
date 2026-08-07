@@ -702,5 +702,12 @@
   "advanced.embeddedBrowser.description": "Ativa o navegador web experimental no aplicativo. Adiciona “Nova aba do navegador” à paleta de comandos.",
   "files.coherenceCapture.label": "Rastrear a proveniência do documento",
   "files.coherenceCapture.description": "Registrar como os documentos mudam ao longo do tempo (camada de coerência). Ao ativar, o VMark adiciona um bloco de id `vmark:` ao frontmatter do arquivo no primeiro rastreamento e cria uma pasta .vmark no espaço de trabalho.",
-  "shortcuts.capture.unsupported": "Esta combinação de teclas não é compatível. Tente outra."
+  "shortcuts.capture.unsupported": "Esta combinação de teclas não é compatível. Tente outra.",
+  "coherence.group": "Coerência",
+  "coherence.checkTau.label": "Confiança da verificação semântica",
+  "coherence.checkTau.description": "Quanta certeza uma verificação precisa ter para que sua resposta conte como veredito. Abaixo disso, a resposta é mantida mas marcada como desconhecida.",
+  "coherence.checkTau.option07": "0,7 — mais vereditos, menos certeza",
+  "coherence.checkTau.option08": "0,8 — equilibrado",
+  "coherence.checkTau.option09": "0,9 — cauteloso (padrão)",
+  "coherence.checkTau.option095": "0,95 — apenas respostas quase certas"
 }
