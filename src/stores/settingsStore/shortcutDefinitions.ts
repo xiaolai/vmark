@@ -10,17 +10,23 @@
  * @module stores/settingsStore/shortcutDefinitions
  */
 
-/** Shortcut category for grouping in the settings UI. */
-export type ShortcutCategory =
-  | "formatting"  // Bold, Italic, Code, etc.
-  | "blocks"      // Headings, Lists, Quote, Table
-  | "navigation"  // Select, Move, Jump
-  | "editing"     // Clear format, Undo, Redo
-  | "view"        // Sidebar, Outline, Focus mode
-  | "file";       // New, Open, Save, etc.
+/**
+ * Every shortcut category, in the order the settings UI lists them, with its
+ * English label. ONE structure: the id union, `CATEGORY_LABELS` and
+ * `CATEGORY_ORDER` all derive from it, so adding a category is one edit
+ * instead of three that can disagree.
+ */
+const CATEGORIES = [
+  ["formatting", "Formatting"], // Bold, Italic, Code, etc.
+  ["blocks", "Blocks"],         // Headings, Lists, Quote, Table
+  ["navigation", "Navigation"], // Select, Move, Jump
+  ["editing", "Editing"],       // Clear format, Undo, Redo
+  ["view", "View"],             // Sidebar, Outline, Focus mode
+  ["file", "File"],             // New, Open, Save, etc.
+] as const;
 
-/** Shortcut scope: "global" = active everywhere; "editor" (default) = only while the editor is focused. */
-export type ShortcutScope = "global" | "editor";
+/** Shortcut category for grouping in the settings UI. */
+export type ShortcutCategory = (typeof CATEGORIES)[number][0];
 
 /** A single keyboard shortcut entry with ID, label, category, default key, and optional menu binding. */
 export interface ShortcutDefinition {
@@ -33,8 +39,6 @@ export interface ShortcutDefinition {
   description?: string;
   /** Menu item ID in Rust (for menu sync) */
   menuId?: string;
-  /** Shortcut scope - defaults to "editor" if not specified */
-  scope?: ShortcutScope;
 }
 
 /** Complete registry of built-in keyboard shortcuts with default key bindings. */
@@ -104,7 +108,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "pastePlainText", label: "Paste as Plain Text", category: "editing", defaultKey: "Mod-Shift-v", description: "Paste without formatting in WYSIWYG" },
   { id: "toggleComment", label: "Toggle Comment", category: "editing", defaultKey: "Mod-/", description: "Insert HTML comment <!-- -->" },
   { id: "toggleQuoteStyle", label: "Toggle Quote Style", category: "editing", defaultKey: "Shift-Mod-'", menuId: "toggle-quote-style", description: "Toggle quote style at cursor (straight/curly/corner/guillemets)" },
-  { id: "aiPrompts", label: "AI Genies", category: "editing", defaultKey: "Mod-y", menuId: "search-genies", scope: "global", description: "Open AI genie picker" },
+  { id: "aiPrompts", label: "AI Genies", category: "editing", defaultKey: "Mod-y", menuId: "search-genies", description: "Open AI genie picker" },
 
   // === Line Operations ===
   { id: "moveLineUp", label: "Move Line Up", category: "editing", defaultKey: "Alt-Up", menuId: "move-line-up" },
@@ -123,21 +127,21 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "removeBlankLines", label: "Remove Blank Lines", category: "editing", defaultKey: "", menuId: "remove-blank-lines", description: "Remove blank lines from selection" },
 
   // === View ===
-  // toggleSidebar: no menuId (a Rust accel would clash with `paragraph` Mod-Shift-0 on Win/Linux); handled in useViewShortcuts only, never the TipTap keymap, to avoid double-toggle.
-  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-0", scope: "global" },
-  { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline", scope: "global" },
-  { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer", scope: "global" },
-  { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history", scope: "global" },
-  { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", scope: "global", description: "Open the local knowledge-base inspector panel" },
+  // toggleSidebar: no menuId (a Rust accel would clash with `paragraph` Mod-Shift-0 on Win/Linux); owned by the window-scoped KEYBINDINGS registry, never the TipTap keymap, to avoid double-toggle.
+  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-0" },
+  { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline" },
+  { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer" },
+  { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history" },
+  { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", description: "Open the local knowledge-base inspector panel" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode", description: "Show source (markdown WYSIWYG⇄Source; split-pane formats Source⇄Split)" },
-  { id: "markdownSplit", label: "Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", scope: "global", description: "Toggle split view (markdown split; split-pane formats Preview⇄Split)" },
-  { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", scope: "global", description: "Open two different documents side by side (#1081)" },
-  { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar", scope: "global" },
-  { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode", scope: "global" },
-  { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode", scope: "global" },
+  { id: "markdownSplit", label: "Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", description: "Toggle split view (markdown split; split-pane formats Preview⇄Split)" },
+  { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", description: "Open two different documents side by side (#1081)" },
+  { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar" },
+  { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode" },
+  { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode" },
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "Alt-z", menuId: "word-wrap" },
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
-  { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal", scope: "global" },
+  { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal" },
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
   { id: "fitTables", label: "Fit Tables to Width", category: "view", defaultKey: "", menuId: "fit-tables", description: "Force tables to fit editor width with word wrapping" },
   { id: "readOnly", label: "Toggle Read-Only Mode", category: "view", defaultKey: "F10", menuId: "read-only", description: "Lock/unlock document from editing" },
@@ -149,33 +153,33 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // Mod-Shift-A ("A" for all) — the sibling of toggleHiddenFiles above, which
   // already owns Finder's Mod-Shift-. and so cannot be shared (#1224).
   { id: "toggleAllFiles", label: "Toggle All Files", category: "view", defaultKey: "Mod-Shift-a", description: "Show or hide non-markdown files in the file explorer" },
-  { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", scope: "global", description: "Reset font size to default" },
-  { id: "zoomIn", label: "Zoom In", category: "view", defaultKey: "Mod-=", menuId: "zoom-in", scope: "global", description: "Increase font size" },
-  { id: "zoomOut", label: "Zoom Out", category: "view", defaultKey: "Mod--", menuId: "zoom-out", scope: "global", description: "Decrease font size" },
+  { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", description: "Reset font size to default" },
+  { id: "zoomIn", label: "Zoom In", category: "view", defaultKey: "Mod-=", menuId: "zoom-in", description: "Increase font size" },
+  { id: "zoomOut", label: "Zoom Out", category: "view", defaultKey: "Mod--", menuId: "zoom-out", description: "Decrease font size" },
 
   // === File ===
-  { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },
+  { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab" },
   // Native menu item (WI-S0.5), not just a DOM shortcut: once the browser's WKWebView
   // is first responder it eats the key event, so a frontend-only binding cannot fire
   // while you are actually browsing. The item is disabled until `browser.enabled` is on.
-  { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", menuId: "new-browser-tab", scope: "global", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
-  { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab", scope: "global" },
-  { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab", scope: "global" },
-  { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },
-  { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window", scope: "global" },
-  { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open", scope: "global" },
-  { id: "commandPalette", label: "Command Palette", category: "file", defaultKey: "Mod-Shift-p", scope: "global" },
-  { id: "openFile", label: "Open File...", category: "file", defaultKey: "", menuId: "open", scope: "global" },
-  { id: "openFolder", label: "Open Workspace", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder", scope: "global" },
-  { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save", scope: "global" },
-  { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as", scope: "global" },
-  { id: "moveTo", label: "Move to", category: "file", defaultKey: "", menuId: "move-to", scope: "global" },
-  { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close", scope: "global" },
-  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "", menuId: "export-html", scope: "global" },
-  { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf", scope: "global" },
-  { id: "exportPdf", label: "Export PDF", category: "file", defaultKey: "", menuId: "export-pdf-native", scope: "global" },
-  { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences", scope: "global" },
-  { id: "saveAllQuit", label: "Save All and Quit", category: "file", defaultKey: "Alt-Mod-Shift-q", menuId: "save-all-quit", scope: "global" },
+  { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", menuId: "new-browser-tab", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
+  { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab" },
+  { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab" },
+  { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new" },
+  { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window" },
+  { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open" },
+  { id: "commandPalette", label: "Command Palette", category: "file", defaultKey: "Mod-Shift-p" },
+  { id: "openFile", label: "Open File...", category: "file", defaultKey: "", menuId: "open" },
+  { id: "openFolder", label: "Open Workspace", category: "file", defaultKey: "Mod-Shift-o", menuId: "open-folder" },
+  { id: "save", label: "Save", category: "file", defaultKey: "Mod-s", menuId: "save" },
+  { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as" },
+  { id: "moveTo", label: "Move to", category: "file", defaultKey: "", menuId: "move-to" },
+  { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close" },
+  { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "", menuId: "export-html" },
+  { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf" },
+  { id: "exportPdf", label: "Export PDF", category: "file", defaultKey: "", menuId: "export-pdf-native" },
+  { id: "preferences", label: "Settings", category: "file", defaultKey: "Mod-,", menuId: "preferences" },
+  { id: "saveAllQuit", label: "Save All and Quit", category: "file", defaultKey: "Alt-Mod-Shift-q", menuId: "save-all-quit" },
 
   // === Table ===
   // Note: the once-planned cycleEmphasis/cycleList/cycleHeading and
@@ -200,21 +204,9 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
  * Human-readable labels for each shortcut category.
  * These are English fallback strings — the UI should prefer getCategoryLabel().
  */
-export const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
-  formatting: "Formatting",
-  blocks: "Blocks",
-  navigation: "Navigation",
-  editing: "Editing",
-  view: "View",
-  file: "File",
-};
+export const CATEGORY_LABELS: Record<ShortcutCategory, string> = Object.fromEntries(
+  CATEGORIES,
+) as Record<ShortcutCategory, string>;
 
 /** Display order for shortcut categories in the settings UI. */
-export const CATEGORY_ORDER: ShortcutCategory[] = [
-  "formatting",
-  "blocks",
-  "navigation",
-  "editing",
-  "view",
-  "file",
-];
+export const CATEGORY_ORDER: ShortcutCategory[] = CATEGORIES.map(([id]) => id);

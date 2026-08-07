@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "Copia del percorso relativo fallita.",
   "toast.failedToRevealInFileManager": "Visualizzazione del file nel gestore file fallita.",
   "toast.pathCopiedExplorer": "Percorso copiato negli appunti",
+  "toast.workspaceConfigSaveFailed": "Impossibile salvare le impostazioni dello spazio di lavoro",
   "toast.failedToOpenWithDefaultApp": "Apertura di \"{{name}}\" con l'app predefinita fallita",
   "toast.terminalNeedsWorkspace": "Apri una cartella o salva il file per usare il terminale.",
   "toast.noFormattingActions": "Nessuna azione di formattazione disponibile",

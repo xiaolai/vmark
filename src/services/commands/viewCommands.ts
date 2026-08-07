@@ -74,14 +74,14 @@ export function registerViewCommands(): void {
     id: "explorer.toggleHiddenFiles",
     title: () => i18n.t("commands:explorer.toggleHiddenFiles"),
     category: "view",
-    run: () => toggleShowHiddenFiles(),
+    run: async () => { await toggleShowHiddenFiles(); },
   });
 
   registerCommand({
     id: "explorer.toggleAllFiles",
     title: () => i18n.t("commands:explorer.toggleAllFiles"),
     category: "view",
-    run: () => toggleShowAllFiles(),
+    run: async () => { await toggleShowAllFiles(); },
   });
 
   registerCommand({
