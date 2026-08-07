@@ -31,8 +31,10 @@ fourth surface. It had no runtime consumer and no independent semantics — the
 gate compared it against the definitions it had been copied from, so it could
 only ever catch a forgotten copy, never real drift. Deriving it deleted 167
 lines of duplication and two tautological test suites while every cross-language
-check survived unchanged. Do not reintroduce it (settled with Codex, thread
-019fdb16).
+check survived unchanged. Do not reintroduce it — and that is enforced, not
+merely asked: both the path and `KEYBINDING_MANIFEST` are registered in
+`scripts/check-deleted-names.mjs`, so a file or symbol under either name fails
+CI (settled with Codex, thread 019fdb16).
 
 Allowed exceptions the gate encodes (with reasons): `undo`/`redo`/`quit` bind real
 accelerators but are not customizable shortcuts (no `menuId` entry); headings 2–5

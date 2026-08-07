@@ -54,6 +54,25 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REGISTRY = [
   {
     kind: "path",
+    path: "src/services/keybinding/keybindingManifest.ts",
+    deletedBy: "audit-fix #29 (settled with Codex, thread 019fdb16)",
+    reason:
+      "A hand-copied restatement of every menu-backed shortcut's keys, with zero " +
+      "runtime importers. The drift gate compared it against the definitions it " +
+      "was copied FROM, so it could only catch a forgotten copy, never drift. " +
+      "scripts/check-keybinding-manifest.mjs now derives the synced set from " +
+      "DEFAULT_SHORTCUTS; every cross-language check is unchanged. " +
+      "Re-adding it would restore the duplication, not any coverage.",
+  },
+  {
+    kind: "symbol",
+    name: "KEYBINDING_MANIFEST",
+    glob: "src",
+    deletedBy: "audit-fix #29 (settled with Codex, thread 019fdb16)",
+    reason: "The manifest array itself — see the path entry above.",
+  },
+  {
+    kind: "path",
     path: "src/plugins/registry.ts",
     deletedBy: "ADR-015 / WI-3.3",
     reason:
