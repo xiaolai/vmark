@@ -580,3 +580,79 @@ fn an_older_workspace_with_incomplete_ignore_rules_is_still_initialized() {
         "both runtime rules present after the write, got: {ignore:?}"
     );
 }
+
+/// A newer-format entry landing WHILE a locked operation runs must be detected,
+/// not silently written over.
+///
+/// The acquire-time gate only refuses a ledger already known to be short. The
+/// workspace flock serializes cooperating VMark processes and has never
+/// serialized `git`, so a pull or branch switch can land a newer segment
+/// mid-operation — after the gate passed, before the append. That cannot be
+/// PREVENTED while the ledger is a git-tracked plain file; it can be reported
+/// immediately instead of becoming the base for the next decision.
+///
+/// The direct `kernel.ledger().append(..)` inside the scope is the simulation:
+/// it writes to the ledger without going through `append_and_apply`, exactly as
+/// an external tool does.
+#[test]
+fn a_future_entry_arriving_mid_operation_is_detected_after_the_append() {
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+
+    let err = kernel
+        .with_write_lock(|k| {
+            // Our own legitimate write, decided against a ledger that was whole.
+            let mine = Envelope::create(
+                "diagnostic",
+                writer(1),
+                json!({"code":"t","message":"mine"}),
+            );
+            k.append_and_apply(&mine)?;
+            // ...and now "git" lands something this build cannot read.
+            let mut newer = Envelope::create(
+                "diagnostic",
+                writer(1),
+                json!({"code":"t","message":"from the future"}),
+            );
+            newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+            k.ledger().append(&newer)?;
+            Ok(())
+        })
+        .expect_err("an append decided without the newer entries must be reported");
+
+    assert!(
+        err.contains("WHILE this operation held"),
+        "the error must say the ledger changed under the lock; got: {err}"
+    );
+    assert!(
+        kernel.ensure_available().is_err(),
+        "the kernel must refuse further work until reopen, so the bad base cannot compound"
+    );
+}
+
+/// The re-verification must cost nothing on a read-only locked scope — which is
+/// every breakdown refresh. Pinned so the check cannot quietly become a second
+/// full ledger read on the hot path.
+#[test]
+fn a_locked_scope_that_appends_nothing_skips_the_reverification() {
+    let dir = tmp();
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+    kernel.ensure_initialized().unwrap();
+
+    let mut newer = Envelope::create(
+        "diagnostic",
+        writer(1),
+        json!({"code":"t","message":"future"}),
+    );
+    newer.format = crate::coherence::types::FORMAT_VERSION + 1;
+    kernel.ledger().append(&newer).unwrap();
+
+    // The acquire gate refuses first, so we never reach the post-check — but the
+    // point is that a scope which appends nothing is never re-verified at all.
+    assert!(kernel.with_write_lock(|_| Ok(())).is_err());
+    assert!(
+        !kernel.appended_in_txn,
+        "a scope that wrote nothing must not be flagged as having appended"
+    );
+}

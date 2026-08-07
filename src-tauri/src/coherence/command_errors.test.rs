@@ -102,3 +102,46 @@ fn classify_write_defers_to_the_call_sites_fallback_on_a_complete_read() {
         "a read-shaped call site keeps its own fallback"
     );
 }
+
+/// Every classifier must carry an i18n key, not just a code.
+///
+/// The Phase-3 migration typed the CODES and left the MESSAGES as raw English
+/// `format!` output, which `lint:i18n` cannot see — it does not read Rust
+/// strings — so the gap stayed green indefinitely. This is the assertion that
+/// makes a regression loud: a classifier that goes back to
+/// `CommandError::internal(detail)` loses its `i18nKey` and fails here.
+#[test]
+fn every_classifier_carries_an_i18n_key() {
+    let cases: Vec<(&str, CommandError)> = vec![
+        ("workspace_unavailable", workspace_unavailable("x".into())),
+        ("kernel_poisoned", kernel_poisoned()),
+        ("ledger_unavailable", ledger_unavailable("x".into())),
+        ("rejected_argument", rejected_argument("x".into())),
+        ("state_conflict", state_conflict("x".into())),
+    ];
+    for (name, err) in &cases {
+        let key = err
+            .i18n_key()
+            .unwrap_or_else(|| panic!("{name} has no i18nKey — its message is raw English"));
+        assert!(
+            key.starts_with("errors.coherence."),
+            "{name} should use an errors.coherence.* key; got {key}"
+        );
+    }
+}
+
+/// The technical reason must survive localization.
+///
+/// Localizing the frame is only an improvement if it does not throw away the
+/// specific cause — "the request was rejected" alone is less useful than what
+/// it replaced. The `%{detail}` interpolation keeps the edge id / path / parser
+/// message visible inside the translated sentence.
+#[test]
+fn the_specific_reason_survives_into_the_localized_message() {
+    let err = rejected_argument("no such edge: abc#0".into());
+    assert!(
+        err.message().contains("no such edge: abc#0"),
+        "the localized message must still carry the technical reason; got: {}",
+        err.message()
+    );
+}

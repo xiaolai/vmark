@@ -60,41 +60,4 @@ impl CoherenceIndex {
         }
         Ok(out)
     }
-
-    /// Resume cursor for a volume sweep (WI-1.1): every already-recorded
-    /// `(txf, input, checked_against, claims_fingerprint)`. A result without a
-    /// fingerprint (pre-revision-1 history) is skipped — it can't seed a dedup
-    /// key a new fingerprinted check would match. Returns raw tuples; the
-    /// service tier maps them to `check_sweep::CheckedKey` (storage stays
-    /// independent of the service layer).
-    pub fn checked_cursor(&self) -> Result<Vec<(Uuid, u32, String, String)>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT txf, input_idx, checked_against, claims_fingerprint
-                 FROM check_results WHERE claims_fingerprint IS NOT NULL",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, i64>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                ))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
-        for row in rows {
-            let (txf, input, against, fp) = row.map_err(|e| e.to_string())?;
-            out.push((
-                Uuid::parse_str(&txf).map_err(|e| e.to_string())?,
-                input as u32,
-                against,
-                fp,
-            ));
-        }
-        Ok(out)
-    }
 }

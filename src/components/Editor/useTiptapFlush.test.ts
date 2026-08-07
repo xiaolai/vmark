@@ -10,7 +10,7 @@
  * `scheduleFlush` is the only user-edit signal available: the editor's
  * `onUpdate` is its sole caller and already drops programmatic transactions.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
@@ -50,10 +50,20 @@ function setup(setContent: (md: string, opts?: { fromUserEdit?: boolean }) => vo
   );
 }
 
+// rAF is already stubbed below, but the LARGE-document branch takes the other
+// path: a fire-and-forget `window.setTimeout(.., delay)` that calls
+// `flushToStore`. On real timers a pending flush from one test can land during
+// a later one and add a call nobody expects — the same shape that made
+// useUpdateSync flaky. Faking the clock keeps that branch deterministic.
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.clearAllMocks();
   vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
   vi.stubGlobal("cancelAnimationFrame", vi.fn());
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("flushToStore user-edit reporting", () => {
