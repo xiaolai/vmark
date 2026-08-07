@@ -24,6 +24,14 @@
  *     when the editor opens, so a cross-window settings flip mid-rename cannot
  *     reinterpret text the user already typed.
  *   - IME composition is respected — Enter/Escape during composition are ignored.
+ *   - The rename session is a SNAPSHOT taken when the editor opens (name,
+ *     extension policy, path). Everything it needs is captured, so nothing
+ *     that changes underneath — a settings flip synced from another window, a
+ *     tab switch — can reinterpret text the user already typed. A document
+ *     change abandons the edit outright; blur does not close the editor while
+ *     a rename is in flight, because disabling the input blurs it.
+ *   - The typed name is submitted VERBATIM. Trimming first made a file named
+ *     " spaced .md" look changed the instant you confirmed it unedited.
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
  * @module components/TitleBar/TitleBar
@@ -97,7 +105,9 @@ function DocumentTitleBar() {
   // live values at confirm time lets a flip mid-rename change the meaning of
   // text the user already typed: `notes.md` → `notes` starts as "drop the
   // extension" and silently becomes "no change".
-  const editOpenedWith = useRef<{ name: string; showExtensions: boolean } | null>(null);
+  const editOpenedWith = useRef<
+    { name: string; showExtensions: boolean; filePath: string } | null
+  >(null);
 
   // #1224 — the name as it is on disk by default. This value is also what the
   // inline rename editor prefills, so you edit exactly what you see.
@@ -113,7 +123,7 @@ function DocumentTitleBar() {
       emitTo(windowLabel, "menu:save", windowLabel).catch(() => {/* event emission is best-effort */});
       return;
     }
-    editOpenedWith.current = { name: displayName, showExtensions };
+    editOpenedWith.current = { name: displayName, showExtensions, filePath };
     setEditValue(displayName);
     setIsEditing(true);
   }, [displayName, isUnsaved, showExtensions]);
@@ -126,16 +136,19 @@ function DocumentTitleBar() {
   }, [isEditing]);
 
   const handleConfirm = useCallback(async () => {
-    const opened = editOpenedWith.current ?? { name: displayName, showExtensions };
-    const trimmed = editValue.trim();
-    if (!trimmed || !filePath) { setIsEditing(false); return; }
-    if (trimmed === opened.name) { setIsEditing(false); return; }
-    const success = await renameFile(filePath, trimmed, {
+    const opened = editOpenedWith.current;
+    // Whitespace-only is a cancel; otherwise the value goes through EXACTLY as
+    // typed. Trimming before the comparison meant a file legitimately named
+    // " spaced .md" read as changed the moment you confirmed it unedited, and
+    // the trimmed name was then written to disk — a rename nobody asked for.
+    if (!opened || editValue.trim() === "") { setIsEditing(false); return; }
+    if (editValue === opened.name) { setIsEditing(false); return; }
+    const success = await renameFile(opened.filePath, editValue, {
       preserveExtension: !opened.showExtensions,
     });
     if (success) setIsEditing(false);
     // Keep editing if rename failed.
-  }, [editValue, filePath, displayName, renameFile, showExtensions]);
+  }, [editValue, renameFile]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
@@ -143,7 +156,21 @@ function DocumentTitleBar() {
     else if (e.key === "Escape") { e.preventDefault(); setIsEditing(false); }
   }, [handleConfirm]);
 
-  const handleBlur = useCallback(() => setIsEditing(false), []);
+  // A rename in flight disables the input, and disabling a focused element
+  // blurs it — so an unconditional close here contradicted the documented
+  // "keep editing if the rename failed" and swallowed the error.
+  const handleBlur = useCallback(() => {
+    if (!isRenaming) setIsEditing(false);
+  }, [isRenaming]);
+
+  // A different document taking over the title bar abandons the edit: the
+  // half-typed name belongs to the file we just left, and confirming it would
+  // rename the NEW one.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsEditing(false);
+    editOpenedWith.current = null;
+  }, [activeTabId, filePath]);
 
   if (!showFilename) {
     return (
