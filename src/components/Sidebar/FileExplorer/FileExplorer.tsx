@@ -52,6 +52,7 @@ import {
   type ContextMenuActionId,
 } from "./ContextMenu";
 import { useTreeWiring } from "./useTreeWiring";
+import { useExplorerCreateFlow } from "./useExplorerCreateFlow";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
@@ -61,6 +62,7 @@ import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFe
 import { runContextMenuAction } from "./contextMenuActions";
 import { openTerminalHere } from "@/services/terminal/openTerminalHere";
 import { imeToast as toast } from "@/services/ime/imeToast";
+import { fileExplorerError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { useQuickLookHotkey } from "./useQuickLookHotkey";
 import type { FileNode as FileNodeType } from "./types";
@@ -126,9 +128,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const { initialOpenState, handleToggle, collapseAll, expandAll, handleTreeScroll, restoreScroll } =
     useFileExplorerOpenState(treeRef, workspaceInstanceId);
 
-  // Path of a just-created entry awaiting inline rename; see createEntryAndEdit.
-  const [pendingEditPath, setPendingEditPath] = useState<string | null>(null);
-
   const { tree, isLoading, error, refresh } = useFileTree(rootPath, {
     excludeFolders,
     showHidden: showHiddenFiles,
@@ -152,6 +151,10 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     copyPath,
     revealInFinder,
   } = useExplorerOperations();
+
+  // Create → refresh → inline rename, with its workspace-generation and
+  // one-at-a-time guards (see the hook's header).
+  const { createEntryAndEdit } = useExplorerCreateFlow({ rootPath, refresh, treeRef, tree });
 
   // Close context menu
   const closeContextMenu = useCallback(() => {
@@ -197,9 +200,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     []
   );
 
-  // Shared: open supported files in VMark, others with system default app
+  // Shared: open supported files in VMark, others with system default app.
+  // Async on BOTH branches — the supported one used to drop the promise from
+  // `openFile`, whose emitter propagates rejection, so a failed open surfaced
+  // as an unhandled rejection instead of a message.
   const openFileByType = useCallback(
-    (path: string) => {
+    async (path: string): Promise<void> => {
       const fileName = getFileName(path);
       // Phase 1B: any registered format opens in VMark; the workflow/markdown
       // fallback covers the pre-bootstrap edge (see isWorkflowYamlSurfaceEnabled).
@@ -210,54 +216,18 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
             ? isVMarkFileName(fileName)
             : isMarkdownFileName(fileName)));
       if (isSupported) {
-        openFile(path);
+        try {
+          await openFile(path);
+        } catch (error) {
+          fileExplorerError(" Failed to open file:", path, error);
+          toast.error(i18n.t("dialog:toast.failedToOpen", { filename: fileName }));
+        }
       } else {
-        void openWithDefaultApp(path);
+        await openWithDefaultApp(path);
       }
     },
     [openFile, openWithDefaultApp]
   );
-
-  // Create a new file/folder under `parentPath` (or the selected folder / root),
-  // then put it into rename mode once the tree has refreshed.
-  const createEntryAndEdit = useCallback(
-    async (
-      create: (parent: string, name: string) => Promise<string | null>,
-      defaultName: string,
-      parentPath?: string | null,
-    ) => {
-      if (!rootPath) return;
-      let targetPath = parentPath;
-      if (!targetPath) {
-        const selected = treeRef.current?.selectedNodes[0];
-        targetPath = selected?.data.isFolder ? selected.data.id : rootPath;
-      }
-      const path = await create(targetPath, defaultName);
-      if (!path) return;
-      // Record what to edit, then let the effect below start the rename as
-      // soon as the node actually exists. A fixed timer used to guess when
-      // that would be: too short on a slow watcher (rename mode silently never
-      // opened) and still able to fire after unmount or a workspace switch.
-      setPendingEditPath(path);
-      await refresh();
-    },
-    [rootPath, refresh],
-  );
-
-  // Start inline rename once the created node is really in the tree (audit).
-  useEffect(() => {
-    if (!pendingEditPath) return;
-    const node = treeRef.current?.get(pendingEditPath);
-    if (!node) return;
-    setPendingEditPath(null);
-    node.edit();
-  }, [pendingEditPath, tree]);
-
-  // A workspace switch abandons any pending rename — the path belongs to the
-  // tree we just left.
-  useEffect(() => {
-    setPendingEditPath(null);
-  }, [rootPath]);
 
   const handleNewFile = useCallback(
     (parentPath?: string | null) =>
@@ -303,7 +273,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const handleActivate = useCallback(
     (node: { data: FileNodeType }) => {
       if (!node.data.isFolder) {
-        openFileByType(node.data.id);
+        void openFileByType(node.data.id);
       }
     },
     [openFileByType]
