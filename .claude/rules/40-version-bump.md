@@ -147,6 +147,45 @@ align the flagged pair on the same major/minor: bump the npm package in
 `package.json` (then `pnpm install`) or the crate in `src-tauri/Cargo.toml`
 (then `cargo update`).
 
+## There is deliberately no "clean up build artifacts" step here
+
+A release leaves **nothing** on the developer's machine, so a post-release
+cleanup step would clean something the release never made. There is no
+`tauri build` script in this repo at all; `release.yml` builds every platform
+via `tauri-apps/tauri-action`, which is also the only way the Linux `.deb` /
+`.rpm` / `.AppImage` and the Windows `.msi` could exist. Measured 2026-08-07:
+after ~30 releases, neither this repo nor its sibling Tauri project had a
+`src-tauri/target/release/bundle/` directory at all.
+
+Disk pressure is real, but it comes from somewhere else. `src-tauri/target` had
+reached 149 GB, of which:
+
+| Subtree | Size | Share | Produced by |
+|---|---:|---:|---|
+| `debug/` | 137 GB | **92%** | `tauri dev`, `cargo test`, `cargo clippy` |
+| `x86_64-pc-windows-gnu/` | 9.5 GB | 6% | `scripts/check-cross-target.sh` |
+| `release/` | 2.0 GB | 1.3% | occasional local release-profile build |
+
+The mechanism is that **Cargo has no garbage collector**: artifacts from
+superseded dependency versions are never reclaimed, so the tree grows with time
+and Dependabot churn, not with releases. A cleanup tied to releases would fire
+on the wrong signal at the wrong cadence, reclaim ~1–8%, and make every release
+cost a cold rebuild.
+
+What exists instead:
+
+- **`pnpm clean:dev`** (`scripts/clean-dev.sh`) — tiered cleanup. Tier 1 is
+  project-local; tier 2 adds the machine-wide Cargo caches (keeping the registry
+  index); tier 3 adds `pnpm store prune`. It **refuses** when
+  `target/release/bundle/` exists unless given `--include-bundle`, because
+  `cargo clean` cannot spare a subdirectory and a signed-but-unuploaded artifact
+  costs a re-notarization to recreate.
+- **An advisory in `pnpm tauri:dev`** (`scripts/dev-disk.mjs`) — prints the size
+  of `src-tauri/target` once it passes 40 GiB. Strictly non-blocking, and
+  deliberately **not** in `check:all`: the number is meaningless on an ephemeral
+  CI runner, and `check-scripts-parity.test.mjs` requires every `check:all` gate
+  to be reachable from a CI job.
+
 ## Verification
 
 1. Check About VMark dialog shows single version number
