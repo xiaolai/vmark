@@ -152,9 +152,22 @@ pub(super) fn ensure_line(path: &Path, line: &str) -> Result<(), String> {
     }
     // fsync the DIRECTORY so the rename itself is durable (8R-6): without this the
     // marker can be lost after power loss while the structure it certifies survives.
-    let d = fs::File::open(dir).map_err(|e| format!("init {}: dir open: {e}", path.display()))?;
-    d.sync_all()
-        .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))
+    //
+    // UNIX ONLY. Windows cannot open a directory as a `File` — it returns
+    // ERROR_ACCESS_DENIED (os error 5) — so this hard-failed every workspace
+    // init there, taking 108 tests down with it. The parent-dir fsync is a
+    // POSIX idiom with no std equivalent on Windows, where NTFS journals the
+    // rename's metadata itself; skipping it is the correct platform behaviour,
+    // not a durability guarantee quietly dropped. Same guard
+    // `mcp_config::backup_io::sync_parent_dir` already uses.
+    #[cfg(unix)]
+    {
+        let d =
+            fs::File::open(dir).map_err(|e| format!("init {}: dir open: {e}", path.display()))?;
+        d.sync_all()
+            .map_err(|e| format!("init {}: dir fsync: {e}", path.display()))?;
+    }
+    Ok(())
 }
 
 /// Per-installation writer identity (spec §2.2) — stored in app data,

@@ -133,6 +133,15 @@ pub(super) fn parse_line(line: &[u8]) -> LineOutcome {
 /// dir-fsyncs). A missing directory is not an error here — the caller only
 /// fsyncs a dir it just created or wrote into.
 pub(super) fn fsync_dir(dir: &Path) -> Result<(), String> {
+    // UNIX ONLY — see `workspace_files::write_marker_atomically`: opening a
+    // directory as a `File` is ERROR_ACCESS_DENIED on Windows, so this would
+    // hard-fail every ledger append there.
+    #[cfg(not(unix))]
+    {
+        let _ = dir;
+        return Ok(());
+    }
+    #[cfg(unix)]
     match fs::File::open(dir) {
         Ok(d) => d
             .sync_all()
