@@ -76,7 +76,8 @@
     "lint:mcp-contracts": "tsx server/mcp/scripts/gen-mcp-contracts.ts --check",
     "test:gates": "vitest run --config vitest.gates.config.ts",
     "test:soak": "vitest run --config vitest.soak.config.ts",
-    "e2e:ime": "node e2e/run-ime.mjs"
+    "e2e:ime": "node e2e/run-ime.mjs",
+    "clean:dev": "bash scripts/clean-dev.sh"
   },
   "dependencies": {
     "@actions/languageservice": "0.3.60",

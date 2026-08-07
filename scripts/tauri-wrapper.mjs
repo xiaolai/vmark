@@ -35,6 +35,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import { TARGET_MAP } from "../server/mcp/scripts/build-sidecar-core.mjs";
+import { checkDevDisk } from "./dev-disk.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(scriptPath), "..");
@@ -110,15 +111,28 @@ export function parseTauriArgs(args) {
 
 /**
  * Decide and run one wrapper invocation. Everything effectful is injected —
- * `spawnFn(argv)` runs the CLI, `existsFn(name)` probes `src-tauri/binaries/`
- * — so every branch is testable. Returns `{ argv, exitCode, message? }`;
- * `argv` is null when the preflight refused and nothing was spawned.
+ * `spawnFn(argv)` runs the CLI, `existsFn(name)` probes `src-tauri/binaries/`,
+ * `diskFn()` returns a disk advisory or null — so every branch is testable.
+ * Returns `{ argv, exitCode, message?, notice? }`; `argv` is null when the
+ * preflight refused and nothing was spawned.
+ *
+ * `notice` is strictly advisory and never influences `exitCode`.
+ *
+ * @param {{
+ *   args: string[],
+ *   env: { platform: string, arch: string },
+ *   spawnFn: (argv: string[]) => { status?: number | null, error?: Error },
+ *   existsFn: (name: string) => boolean,
+ *   diskFn?: (() => string | null) | null,
+ * }} options
+ * @returns {{ argv: string[] | null, exitCode: number, message?: string, notice?: string }}
  */
-export function runTauri({ args, env, spawnFn, existsFn }) {
+export function runTauri({ args, env, spawnFn, existsFn, diskFn = null }) {
   const { subcommand, hasConfig, target } = parseTauriArgs(args);
   const isDev = subcommand === "dev";
+  const builds = isDev || subcommand === "build";
 
-  if (isDev || subcommand === "build") {
+  if (builds) {
     // A cross-build bundles the REQUESTED target's sidecar, not the host's —
     // preflighting the host binary verified a file Tauri would never bundle.
     // A triple outside TARGET_MAP maps to no key and rides
@@ -127,15 +141,32 @@ export function runTauri({ args, env, spawnFn, existsFn }) {
       ? (TRIPLE_TO_TARGET_KEY[target] ?? `unmapped-triple:${target}`)
       : `${env.platform}-${env.arch}`;
     const check = checkSidecarPresent(targetKey, existsFn);
-    if (!check.ok) return { argv: null, exitCode: 1, message: check.message };
+    if (!check.ok) return { argv: null, exitCode: 1, message: check.message, notice: undefined };
+  }
+
+  // Only after the preflight passes: nothing is built otherwise, so measuring
+  // would be pure latency. Wrapped because a housekeeping advisory must never
+  // be the reason a build did not run.
+  let notice;
+  if (builds && diskFn) {
+    try {
+      notice = diskFn() ?? undefined;
+    } catch {
+      notice = undefined;
+    }
   }
 
   const argv =
     isDev && !hasConfig ? [...args, "--config", "src-tauri/tauri.dev.conf.json"] : [...args];
 
   const result = spawnFn(argv);
-  if (result.error) return { argv, exitCode: 1, message: result.error.message };
-  return { argv, exitCode: typeof result.status === "number" ? result.status : 1 };
+  const exitCode = result.error
+    ? 1
+    : typeof result.status === "number"
+      ? result.status
+      : 1;
+  const message = result.error ? result.error.message : undefined;
+  return { argv, exitCode, ...(message ? { message } : {}), ...(notice ? { notice } : {}) };
 }
 
 function main() {
@@ -153,7 +184,9 @@ function main() {
     env: { platform: process.platform, arch: process.arch },
     existsFn: (name) => existsSync(path.join(projectRoot, "src-tauri", "binaries", name)),
     spawnFn: (argv) => spawnSync(tauriBin, argv, { stdio: "inherit", shell: isWindows }),
+    diskFn: () => checkDevDisk(path.join(projectRoot, "src-tauri", "target")),
   });
+  if (outcome.notice) console.error(outcome.notice);
   if (outcome.message) console.error(outcome.message);
   process.exit(outcome.exitCode);
 }

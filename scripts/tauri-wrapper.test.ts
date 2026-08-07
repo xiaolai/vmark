@@ -243,4 +243,84 @@ describe("runTauri", () => {
     const killed = harness({ status: null });
     expect(runTauri({ args: ["icon"], env: darwinHost, ...killed }).exitCode).toBe(1);
   });
+
+  // The disk advisory (scripts/dev-disk.mjs) rides along here because `dev` is
+  // what grows `src-tauri/target`. It must stay strictly advisory: the whole
+  // point is visibility, and a housekeeping notice that can fail a build would
+  // be worse than the 149 GB it is warning about.
+  describe("disk advisory", () => {
+    it("prints a notice before dev without changing the exit code", () => {
+      const { existsFn, spawnFn } = harness();
+      const outcome = runTauri({
+        args: ["dev"],
+        env: darwinHost,
+        spawnFn,
+        existsFn,
+        diskFn: () => "src-tauri/target is 149.0 GiB.",
+      });
+      expect(outcome.notice).toContain("149.0 GiB");
+      expect(outcome.exitCode).toBe(0);
+      expect(spawnFn, "the advisory must not suppress the build").toHaveBeenCalled();
+    });
+
+    it("says nothing when there is nothing to say", () => {
+      const { existsFn, spawnFn } = harness();
+      const outcome = runTauri({
+        args: ["dev"],
+        env: darwinHost,
+        spawnFn,
+        existsFn,
+        diskFn: () => null,
+      });
+      expect(outcome.notice).toBeUndefined();
+      expect(outcome.exitCode).toBe(0);
+    });
+
+    it("is skipped entirely for subcommands that build nothing", () => {
+      const { existsFn, spawnFn } = harness();
+      const diskFn = vi.fn(() => "should not appear");
+      const outcome = runTauri({
+        args: ["icon", "app-icon.png"],
+        env: darwinHost,
+        spawnFn,
+        existsFn,
+        diskFn,
+      });
+      expect(diskFn, "`tauri icon` does not touch target/").not.toHaveBeenCalled();
+      expect(outcome.notice).toBeUndefined();
+    });
+
+    it("survives a probe that throws", () => {
+      // Fail open. A broken advisory must never be the reason a build did not run.
+      const { existsFn, spawnFn } = harness();
+      const outcome = runTauri({
+        args: ["dev"],
+        env: darwinHost,
+        spawnFn,
+        existsFn,
+        diskFn: () => {
+          throw new Error("du exploded");
+        },
+      });
+      expect(outcome.notice).toBeUndefined();
+      expect(outcome.exitCode).toBe(0);
+      expect(spawnFn).toHaveBeenCalled();
+    });
+
+    it("does not run when the sidecar preflight already refused", () => {
+      // Nothing is going to be built, so measuring is pure latency.
+      const { existsFn, spawnFn } = harness({ sidecarPresent: false });
+      const diskFn = vi.fn(() => "should not appear");
+      const outcome = runTauri({ args: ["dev"], env: darwinHost, spawnFn, existsFn, diskFn });
+      expect(outcome.exitCode).toBe(1);
+      expect(diskFn).not.toHaveBeenCalled();
+    });
+
+    it("defaults to no advisory when no probe is supplied", () => {
+      const { existsFn, spawnFn } = harness();
+      const outcome = runTauri({ args: ["dev"], env: darwinHost, spawnFn, existsFn });
+      expect(outcome.notice).toBeUndefined();
+      expect(outcome.exitCode).toBe(0);
+    });
+  });
 });
