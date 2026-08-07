@@ -132,16 +132,14 @@ pub(super) fn parse_line(line: &[u8]) -> LineOutcome {
 /// durability hardening rather than tested behaviour (as with the state.rs
 /// dir-fsyncs). A missing directory is not an error here — the caller only
 /// fsyncs a dir it just created or wrote into.
+/// Two cfg'd definitions rather than one function with a cfg'd block: a block
+/// carrying `#[cfg]` is a STATEMENT unless it happens to fall last after
+/// cfg-stripping, so the single-function form either discards the `Result` on
+/// one platform or needs a `return` that clippy rejects as needless on the
+/// other. Splitting the definition makes each platform's tail expression
+/// unambiguous.
+#[cfg(unix)]
 pub(super) fn fsync_dir(dir: &Path) -> Result<(), String> {
-    // UNIX ONLY — see `workspace_files::write_marker_atomically`: opening a
-    // directory as a `File` is ERROR_ACCESS_DENIED on Windows, so this would
-    // hard-fail every ledger append there.
-    #[cfg(not(unix))]
-    {
-        let _ = dir;
-        return Ok(());
-    }
-    #[cfg(unix)]
     match fs::File::open(dir) {
         Ok(d) => d
             .sync_all()
@@ -152,6 +150,14 @@ pub(super) fn fsync_dir(dir: &Path) -> Result<(), String> {
             dir.display()
         )),
     }
+}
+
+/// No-op off Unix — see `workspace_files::write_marker_atomically`: opening a
+/// directory as a `File` is ERROR_ACCESS_DENIED on Windows, so the POSIX
+/// parent-dir fsync would hard-fail every ledger append there.
+#[cfg(not(unix))]
+pub(super) fn fsync_dir(_dir: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 pub(super) fn file_ends_with_newline(path: &Path) -> Result<bool, String> {
