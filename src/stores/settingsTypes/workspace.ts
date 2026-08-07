@@ -120,6 +120,11 @@ export interface GeneralSettings {
   openInNewTab: boolean;
   // Workspace rail/window model; default false preserves the classic model.
   workspaceRailMode: boolean;
+  // File-name display
+  // fix(#1224) — when true (default), the file tree and tab strip show the
+  // name as it is on disk. Hiding the extension made `requirements.txt` read
+  // as an extensionless `requirements`, which reads as a rendering bug.
+  showFileExtensions: boolean;
   // i18n
   language: string; // Default: "en" — UI language (BCP 47 tag, e.g. "en", "zh-CN", "zh-TW")
 }

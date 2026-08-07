@@ -20,6 +20,9 @@
  *     plus Arrow/Home/End focus movement in tabKeyboard.ts (audit H27)
  *     (0 for active, -1 for others) enables keyboard navigation.
  *   - Close button is hidden for pinned tabs to prevent accidental closure.
+ *   - The label is derived here rather than stored: `tab.title` is the real
+ *     file name, and `general.showFileExtensions` decides whether its
+ *     extension reaches the eye (#1224), so the toggle relabels open tabs.
  *   - CSS class composition uses cn() for conditional classes including
  *     drag state classes (dragging, reordering, invalid-drop, snapback).
  *   - The tab's key handler only fires for keys aimed at the tab itself. Nested
@@ -42,6 +45,8 @@ import { tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
 import { getFileName } from "@/utils/pathUtils";
+import { formatFileDisplayName } from "@/utils/displayFileName";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { TabRenameInput } from "./TabRenameInput";
 
 interface TabProps {
@@ -91,6 +96,10 @@ export const Tab = memo(function Tab({
   const isRenaming = useTabRenameStore((state) => state.renamingTabId === tab.id);
   const filePath = tabFilePath(tab) ?? docFilePath;
   const showDivergent = isDivergent && !isMissing;
+  // #1224: `tab.title` is the real file name; the extension is hidden here, at
+  // render, so flipping the setting relabels the tabs that are already open.
+  const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
+  const label = formatFileDisplayName(tab.title, showExtensions);
 
   const tooltip = isMissing
     ? t("fileDeleted")
@@ -192,7 +201,7 @@ export const Tab = memo(function Tab({
             fileName={getFileName(filePath) || tab.title}
           />
         ) : (
-          <span className="tab-title">{tab.title}</span>
+          <span className="tab-title">{label}</span>
         )}
 
         {/* Close button (shown on hover for non-pinned) */}
@@ -202,7 +211,7 @@ export const Tab = memo(function Tab({
             className="tab-close"
             data-tab-close
             onClick={handleClose}
-            aria-label={t("closeTab", { title: tab.title })}
+            aria-label={t("closeTab", { title: label })}
           >
             <X className="w-3 h-3" />
           </button>

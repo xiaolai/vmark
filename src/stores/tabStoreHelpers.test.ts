@@ -19,7 +19,7 @@ vi.mock("@/i18n", () => ({
   default: { t: (...args: unknown[]) => t(...args) },
 }));
 
-import { getLocalizedFormatName, updateTabById, removeTabAt } from "./tabStoreHelpers";
+import { getLocalizedFormatName, updateTabById, removeTabAt, getTabTitle } from "./tabStoreHelpers";
 import type { Tab } from "./tabStoreTypes";
 
 beforeEach(() => {
@@ -52,6 +52,32 @@ describe("getLocalizedFormatName", () => {
     getFormatById.mockReturnValue({ nameI18nKey: "format.json" });
     t.mockImplementation((key: string) => key);
     expect(getLocalizedFormatName("json")).toBe("json");
+  });
+});
+
+// #1224 — a tab's stored title is the file's REAL name, extension included.
+// Hiding the extension is a display choice (utils/displayFileName); baking it
+// into the store made `tab.title` disagree with disk for every consumer that
+// is not the tab strip: the MCP session listing, hot-exit snapshots, the
+// close-tab dialog.
+describe("getTabTitle", () => {
+  it("keeps the extension of a supported file", () => {
+    expect(getTabTitle("/w/README.md")).toBe("README.md");
+    expect(getTabTitle("/w/requirements.txt")).toBe("requirements.txt");
+  });
+
+  it("keeps the extension of a file VMark cannot open", () => {
+    expect(getTabTitle("/w/App.vue")).toBe("App.vue");
+  });
+
+  it("falls back to the path itself when it has no file name", () => {
+    expect(getTabTitle("/")).toBe("/");
+  });
+
+  it("numbers an untitled document off the translated base", () => {
+    t.mockReturnValue("Untitled");
+    expect(getTabTitle(null, 3)).toBe("Untitled-3");
+    expect(getTabTitle(null)).toBe("Untitled");
   });
 });
 

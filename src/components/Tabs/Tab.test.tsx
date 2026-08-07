@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Tab as TabType } from "@/stores/tabStore";
@@ -46,6 +46,7 @@ vi.mock("./TabRenameInput", () => ({
 }));
 
 import { Tab } from "./Tab";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 const baseTab: TabType = {
   kind: "document",
@@ -155,6 +156,39 @@ describe("Tab", () => {
       expect(renameProps).toHaveBeenCalledWith(
         expect.objectContaining({ fileName: "note.md" }),
       );
+    });
+  });
+
+  // #1224 — the stored title is the real file name; whether its extension
+  // reaches the eye is this component's call, so the toggle takes effect on
+  // already-open tabs rather than only on the next one.
+  describe("file extensions", () => {
+    const setShowExtensions = (value: boolean) =>
+      useSettingsStore.setState((s) => ({
+        general: { ...s.general, showFileExtensions: value },
+      }));
+
+    afterEach(() => setShowExtensions(true));
+
+    it("shows the extension by default", () => {
+      renderTab();
+      expect(screen.getByRole("tab")).toHaveTextContent("note.md");
+    });
+
+    it("hides it when the setting is off", () => {
+      setShowExtensions(false);
+      renderTab();
+      const label = screen.getByRole("tab").querySelector(".tab-title");
+      expect(label?.textContent).toBe("note");
+    });
+
+    it("leaves an unsupported extension visible even when hiding", () => {
+      setShowExtensions(false);
+      renderTab({
+        tab: { ...baseTab, filePath: "/docs/App.vue", title: "App.vue" } as TabType,
+      });
+      const label = screen.getByRole("tab").querySelector(".tab-title");
+      expect(label?.textContent).toBe("App.vue");
     });
   });
 });

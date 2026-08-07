@@ -16,8 +16,9 @@
  * Key decisions:
  *   - The entire title bar is a Tauri drag region (data-tauri-drag-region)
  *     except while renaming (so text selection/caret work).
- *   - Filename is shown without the .md extension; the extension is
- *     auto-appended during rename.
+ *   - Filename is shown as it is on disk, extension included, unless the user
+ *     turns `general.showFileExtensions` off (#1224). Rename edits whatever is
+ *     displayed; renameFile re-attaches the original extension if it is gone.
  *   - IME composition is respected — Enter/Escape during composition are ignored.
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
@@ -31,7 +32,8 @@ import { useDocumentFilePath, useDocumentIsDirty, useDocumentIsMissing, useActiv
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTitleBarRename } from "./useTitleBarRename";
-import { getFileNameWithoutExtension } from "@/utils/pathUtils";
+import { getFileName } from "@/utils/pathUtils";
+import { formatFileDisplayName } from "@/utils/displayFileName";
 import "./title-bar.css";
 
 interface TitleBarProps {
@@ -76,6 +78,7 @@ function DocumentTitleBar() {
   const activeTabId = useActiveTabId();
   const { renameFile, isRenaming } = useTitleBarRename();
   const showFilename = useSettingsStore((state) => state.appearance.showFilenameInTitlebar ?? false);
+  const showExtensions = useSettingsStore((state) => state.general.showFileExtensions ?? true);
 
   // Active tab's title for unsaved documents. Selector returns a primitive so
   // React only re-renders on title change.
@@ -87,9 +90,12 @@ function DocumentTitleBar() {
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // #1224 — the name as it is on disk by default. This value is also what the
+  // inline rename editor prefills, so you edit exactly what you see; renameFile
+  // re-attaches the original extension if you delete it.
   const displayName = filePath
-    ? getFileNameWithoutExtension(filePath)
-    : tabTitle ?? t("untitled");
+    ? formatFileDisplayName(getFileName(filePath), showExtensions)
+    : formatFileDisplayName(tabTitle ?? t("untitled"), showExtensions);
   const isUnsaved = !filePath;
 
   const handleDoubleClick = useCallback(() => {

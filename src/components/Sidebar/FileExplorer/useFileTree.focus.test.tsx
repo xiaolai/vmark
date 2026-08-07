@@ -235,9 +235,38 @@ describe("useFileTree — directory listing", () => {
 
     const names = result.current.tree.map((n) => n.name);
     expect(names).toContain("drafts");
-    expect(names).toContain("notes");
+    // #1224 — the label is the name on disk, extension included, by default.
+    expect(names).toContain("notes.md");
     // image.png filtered out (no showAllFiles)
     expect(names).not.toContain("image.png");
+  });
+
+  it("hides the extension when the user turns that setting off", async () => {
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const prev = useSettingsStore.getState().general.showFileExtensions;
+    useSettingsStore.setState((s) => ({
+      general: { ...s.general, showFileExtensions: false },
+    }));
+    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "list_directory_entries" && (args as { path: string }).path === "/root") {
+        return [{ name: "notes.md", path: "/root/notes.md", isDirectory: false }];
+      }
+      return undefined;
+    });
+
+    try {
+      const { result } = renderHook(() =>
+        useFileTree("/root", { showExtensions: false }),
+      );
+      await waitFor(() => {
+        expect(result.current.tree.length).toBe(1);
+      });
+      expect(result.current.tree[0].name).toBe("notes");
+    } finally {
+      useSettingsStore.setState((s) => ({
+        general: { ...s.general, showFileExtensions: prev },
+      }));
+    }
   });
 
   it("sorts files before folders correctly regardless of input order", async () => {
@@ -330,6 +359,6 @@ describe("useFileTree — directory listing", () => {
 
     const names = result.current.tree.map((n) => n.name);
     expect(names).toContain("image.png");
-    expect(names).toContain("notes");
+    expect(names).toContain("notes.md");
   });
 });

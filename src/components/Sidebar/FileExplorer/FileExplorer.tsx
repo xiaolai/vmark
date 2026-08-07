@@ -2,8 +2,8 @@
  * FileExplorer
  *
  * Purpose: Workspace file tree panel using react-arborist for virtualized tree rendering.
- * Only available in workspace mode — shows markdown files (and optionally all files via
- * showAllFiles config) with drag-and-drop, rename, delete, and context menu operations.
+ * Only available in workspace mode — shows the file types VMark can open (or every file,
+ * via the header's showAllFiles toggle) with drag-and-drop, rename, delete, context menus.
  * Non-markdown files open with the system default app.
  * User-visible strings are translated via the "sidebar" i18n namespace.
  *
@@ -53,6 +53,7 @@ import {
 } from "./ContextMenu";
 import { useTreeWiring } from "./useTreeWiring";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
 import { isMarkdownFileName, isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
@@ -95,15 +96,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Workspace-only: file tree only shows when in workspace mode
   const workspaceRootPath = useWorkspaceStore((s) => s.rootPath);
   const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
-  const excludeFolders = useWorkspaceStore(
-    (s) => s.config?.excludeFolders ?? EMPTY_FOLDERS
-  );
-  const showHiddenFiles = useWorkspaceStore(
-    (s) => s.config?.showHiddenFiles ?? false
-  );
-  const showAllFiles = useWorkspaceStore(
-    (s) => s.config?.showAllFiles ?? false
-  );
+  const excludeFolders = useWorkspaceStore((s) => s.config?.excludeFolders ?? EMPTY_FOLDERS);
+  const showHiddenFiles = useWorkspaceStore((s) => s.config?.showHiddenFiles ?? false);
+  const showAllFiles = useWorkspaceStore((s) => s.config?.showAllFiles ?? false);
+  // Global, not workspace config: the same preference also drives tab titles.
+  const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
   const windowLabel = useWindowLabel();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -136,6 +133,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     excludeFolders,
     showHidden: showHiddenFiles,
     showAllFiles,
+    showExtensions,
     watchId: windowLabel,
   });
 

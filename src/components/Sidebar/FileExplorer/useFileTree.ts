@@ -7,8 +7,11 @@
  *
  * Key decisions:
  *   - By default only includes markdown files (via mdFilter). When showAllFiles
- *     is enabled, all file types are shown — non-markdown files keep their full
- *     extension and open with the system default app.
+ *     is enabled, all file types are shown — non-markdown files open with the
+ *     system default app.
+ *   - Node labels come from fileTreeDisplayName: the name on disk by default,
+ *     since a hidden extension turned `requirements.txt` into an unexplained
+ *     `requirements` (#1224).
  *   - Request ID pattern (requestIdRef) prevents stale async responses from
  *     overwriting fresher tree data.
  *   - Watch events are scoped by watchId (window label) to prevent cross-window
@@ -36,14 +39,17 @@ import {
   isMarkdownFileName,
   isSupportedFileName,
   isVMarkFileName,
-  stripSupportedExtension,
 } from "@/utils/dropPaths";
 import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
-import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
+import {
+  shouldIncludeEntry,
+  fileTreeDisplayName,
+  type FileTreeFilterOptions,
+} from "./fileTreeFilters";
 import { fileExplorerError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
-type LoadOptions = FileTreeFilterOptions;
+type LoadOptions = FileTreeFilterOptions & { showExtensions: boolean };
 
 async function listDirectoryEntries(dirPath: string): Promise<DirectoryEntry[]> {
   try {
@@ -80,9 +86,7 @@ async function loadDirectoryRecursive(
       } else {
         nodes.push({
           id: fullPath,
-          name: (options.showAllFiles && !isMarkdownFileName(name))
-            ? name
-            : stripSupportedExtension(name),
+          name: fileTreeDisplayName(name, options),
           isFolder: false,
         });
       }
@@ -117,6 +121,8 @@ interface UseFileTreeOptions {
   excludeFolders?: string[];
   showHidden?: boolean;
   showAllFiles?: boolean;
+  /** Show each file's real name, extension included (#1224). Default true. */
+  showExtensions?: boolean;
   /** Window label used as watchId for scoped file system events */
   watchId?: string;
 }
@@ -126,7 +132,13 @@ export function useFileTree(
   rootPath: string | null,
   options: UseFileTreeOptions = {}
 ) {
-  const { excludeFolders = [], showHidden = false, showAllFiles = false, watchId = "main" } = options;
+  const {
+    excludeFolders = [],
+    showHidden = false,
+    showAllFiles = false,
+    showExtensions = true,
+    watchId = "main",
+  } = options;
   const [tree, setTree] = useState<FileNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const requestIdRef = useRef(0);
@@ -148,6 +160,7 @@ export function useFileTree(
         excludeFolders,
         showHidden,
         showAllFiles,
+        showExtensions,
       };
       const nodes = await loadDirectoryRecursive(rootPath, loadOptions);
       if (currentRequestId === requestIdRef.current) {
@@ -164,7 +177,7 @@ export function useFileTree(
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- excludeFoldersKey is stable serialization
-  }, [rootPath, excludeFoldersKey, showHidden, showAllFiles]);
+  }, [rootPath, excludeFoldersKey, showHidden, showAllFiles, showExtensions]);
 
   // Load tree and setup watcher when rootPath changes
   useEffect(() => {

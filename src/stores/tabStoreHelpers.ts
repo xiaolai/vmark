@@ -22,7 +22,6 @@
 import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import i18n from "@/i18n";
 import { getFileName } from "@/utils/paths";
-import { stripSupportedExtension } from "@/utils/dropPaths";
 import type { Tab, DocumentTab } from "./tabStoreTypes";
 
 /** Generate a process-unique tab id. Shared by the general store and the
@@ -30,7 +29,14 @@ import type { Tab, DocumentTab } from "./tabStoreTypes";
 export const generateTabId = (): string =>
   `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-/** Tab display title from a file path (or a numbered "Untitled" for null). */
+/**
+ * Tab title from a file path (or a numbered "Untitled" for null).
+ *
+ * The file's REAL name, extension included — every non-display consumer
+ * (MCP session listing, hot-exit snapshot, close-tab dialog) needs a name that
+ * matches the disk. Hiding the extension is the tab strip's decision, applied
+ * at render via `formatFileDisplayName` (#1224).
+ */
 export function getTabTitle(filePath: string | null, untitledNum?: number): string {
   if (!filePath) {
     // Translated "Untitled" — `common:untitled`. The numbered suffix stays a
@@ -38,7 +44,7 @@ export function getTabTitle(filePath: string | null, untitledNum?: number): stri
     const base = i18n.t("common:untitled");
     return untitledNum ? `${base}-${untitledNum}` : base;
   }
-  return stripSupportedExtension(getFileName(filePath) || filePath);
+  return getFileName(filePath) || filePath;
 }
 
 /** Localized display name for a format id, falling back to the id when the

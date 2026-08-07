@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "Incluir dotfiles e itens ocultos do sistema no explorador de arquivos",
   "files.showAllFiles.label": "Mostrar todos os arquivos",
   "files.showAllFiles.description": "Mostrar arquivos não-markdown no explorador de arquivos (abre com o aplicativo padrão do sistema)",
+  "files.showFileExtensions.label": "Mostrar extensões de arquivo",
+  "files.showFileExtensions.description": "Exibir o nome completo do arquivo na barra lateral, na barra de abas e na barra de título",
   "files.group.quitBehavior": "Comportamento ao sair",
   "files.confirmQuit.label": "Confirmar ao sair",
   "files.confirmQuit.descriptionMac": "Pressione ⌘Q duas vezes para sair — evita saídas acidentais",
