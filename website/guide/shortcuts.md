@@ -237,7 +237,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Previous Tab | `Mod + Shift + [` |
 | Close Tab | `Mod + W` |
 | Toggle Hidden Files | `Mod + Shift + .` |
-| Toggle All Files | _(customizable)_ |
+| Toggle All Files | `Mod + Shift + A` |
 
 ::: tip Windows/Linux Note
 Toggle Hidden Files uses `Ctrl + H` on Windows and Linux.

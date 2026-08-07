@@ -146,7 +146,9 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "lintNext", label: "Next Issue", category: "view", defaultKey: "F2", menuId: "lint-next", description: "Navigate to next lint diagnostic" },
   { id: "lintPrev", label: "Previous Issue", category: "view", defaultKey: "Shift-F2", menuId: "lint-prev", description: "Navigate to previous lint diagnostic" },
   { id: "toggleHiddenFiles", label: "Toggle Hidden Files", category: "view", defaultKey: "Mod-Shift-.", defaultKeyOther: "Ctrl-h", description: "Show or hide hidden files in the file explorer" },
-  { id: "toggleAllFiles", label: "Toggle All Files", category: "view", defaultKey: "", description: "Show or hide non-markdown files in the file explorer" },
+  // Mod-Shift-A ("A" for all) — the sibling of toggleHiddenFiles above, which
+  // already owns Finder's Mod-Shift-. and so cannot be shared (#1224).
+  { id: "toggleAllFiles", label: "Toggle All Files", category: "view", defaultKey: "Mod-Shift-a", description: "Show or hide non-markdown files in the file explorer" },
   { id: "zoomActual", label: "Actual Size", category: "view", defaultKey: "Mod-0", menuId: "zoom-actual", scope: "global", description: "Reset font size to default" },
   { id: "zoomIn", label: "Zoom In", category: "view", defaultKey: "Mod-=", menuId: "zoom-in", scope: "global", description: "Increase font size" },
   { id: "zoomOut", label: "Zoom Out", category: "view", defaultKey: "Mod--", menuId: "zoom-out", scope: "global", description: "Decrease font size" },
