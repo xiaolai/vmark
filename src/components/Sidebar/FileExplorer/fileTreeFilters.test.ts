@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
+import {
+  shouldIncludeEntry,
+  fileTreeDisplayName,
+  type FileTreeFilterOptions,
+} from "./fileTreeFilters";
 import type { DirectoryEntry } from "./types";
 
 const mdFilter = (name: string, isFolder: boolean) =>
@@ -85,5 +89,32 @@ describe("shouldIncludeEntry", () => {
     expect(
       shouldIncludeEntry(entry, { ...baseOptions, showAllFiles: true, excludeFolders: ["node_modules"] })
     ).toBe(false);
+  });
+});
+
+// #1224 — `requirements.txt` displayed as `requirements` read as a broken
+// listing rather than a formatting choice.
+describe("fileTreeDisplayName", () => {
+  const opts = { showExtensions: true, showAllFiles: false };
+
+  it("shows the name on disk when extensions are shown", () => {
+    expect(fileTreeDisplayName("requirements.txt", opts)).toBe("requirements.txt");
+    expect(fileTreeDisplayName("README.md", opts)).toBe("README.md");
+  });
+
+  it("hides a supported extension when the user opts out", () => {
+    expect(fileTreeDisplayName("README.md", { ...opts, showExtensions: false }))
+      .toBe("README");
+  });
+
+  it("keeps a non-markdown name intact with all files shown, extensions hidden", () => {
+    // Legacy behavior: with all files listed, only markdown loses its suffix —
+    // a bare "data" next to "data.json" would be unreadable.
+    expect(
+      fileTreeDisplayName("data.json", { showExtensions: false, showAllFiles: true }),
+    ).toBe("data.json");
+    expect(
+      fileTreeDisplayName("README.md", { showExtensions: false, showAllFiles: true }),
+    ).toBe("README");
   });
 });

@@ -44,14 +44,14 @@ beforeEach(() => {
   resetTabStore();
   __resetRegistry();
   registerMarkdownFormat();
-  // tab titles strip every registered extension; txt must be live so
-  // the legacy "strip .txt" tests stay green.
+  // A .txt tab must resolve to a real format, not the unknown-extension
+  // fallback, so registry-dependent assertions below stay meaningful.
   registerInlineTxt();
 });
 
 describe("tabStore", () => {
   describe("tab titles", () => {
-    it("strips markdown extensions from tab titles", () => {
+    it("keeps the file name intact, extension and all — fix(#1224)", () => {
       const store = useTabStore.getState();
 
       store.createTab("main", "/docs/readme.md");
@@ -61,7 +61,7 @@ describe("tabStore", () => {
       const tabs = store.getTabsByWindow("main");
       const titles = tabs.map((tab) => tab.title);
 
-      expect(titles).toEqual(["readme", "notes", "todo"]);
+      expect(titles).toEqual(["readme.md", "notes.markdown", "todo.txt"]);
     });
   });
 
@@ -496,7 +496,7 @@ describe("tabStore", () => {
 
       const tab = store.getActiveTab("main");
       expect(tab?.filePath).toBe("/saved-file.md");
-      expect(tab?.title).toBe("saved-file");
+      expect(tab?.title).toBe("saved-file.md");
     });
 
     it("updates tab across windows", () => {

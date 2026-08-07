@@ -32,6 +32,8 @@ export const initialState: SettingsState = {
     // fix(#946) — opt-in: open existing files in a new tab (off keeps the legacy "reuse untitled tab" behavior).
     openInNewTab: false,
     workspaceRailMode: false,
+    // fix(#1224) — show the name that is on disk; hiding extensions is opt-in.
+    showFileExtensions: true,
     // First-run default derived from OS locale; persisted value from zustand/persist
     // overrides this via the merge hook below, so existing users are untouched.
     language: resolveInitialLanguage(),

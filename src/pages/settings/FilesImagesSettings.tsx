@@ -71,6 +71,17 @@ export function FilesImagesSettings() {
             disabled={!isWorkspaceMode}
           />
         </SettingRow>
+        {/* Not workspace-scoped, unlike the two above: the same preference also
+            labels the tab strip and title bar, which exist without a workspace. */}
+        <SettingRow
+          label={t("files.showFileExtensions.label")}
+          description={t("files.showFileExtensions.description")}
+        >
+          <Toggle
+            checked={general.showFileExtensions ?? true}
+            onChange={(value) => updateGeneralSetting("showFileExtensions", value)}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       <SettingsGroup title={t("files.group.quitBehavior")}>

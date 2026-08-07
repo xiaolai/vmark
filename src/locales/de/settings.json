@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "Dotfiles und versteckte Systemelemente im Datei-Explorer einschließen",
   "files.showAllFiles.label": "Alle Dateien anzeigen",
   "files.showAllFiles.description": "Nicht-Markdown-Dateien im Datei-Explorer anzeigen (wird mit Standard-App geöffnet)",
+  "files.showFileExtensions.label": "Dateiendungen anzeigen",
+  "files.showFileExtensions.description": "Den vollständigen Dateinamen in Seitenleiste, Tableiste und Titelleiste anzeigen",
   "files.group.quitBehavior": "Beenden-Verhalten",
   "files.confirmQuit.label": "Beenden bestätigen",
   "files.confirmQuit.descriptionMac": "⌘Q zweimal drücken zum Beenden — verhindert versehentliches Schließen",

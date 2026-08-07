@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "在檔案總管中顯示點開頭的檔案和系統隱藏項目",
   "files.showAllFiles.label": "顯示所有檔案",
   "files.showAllFiles.description": "在檔案總管中顯示非 Markdown 檔案（以系統預設應用程式開啟）",
+  "files.showFileExtensions.label": "顯示副檔名",
+  "files.showFileExtensions.description": "在側邊欄、分頁列與標題列中顯示完整檔名",
   "files.group.quitBehavior": "結束行為",
   "files.confirmQuit.label": "確認結束",
   "files.confirmQuit.descriptionMac": "按兩次 ⌘Q 結束 — 防止誤操作",

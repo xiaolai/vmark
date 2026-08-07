@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "Inclure les fichiers point et les éléments système cachés dans l'explorateur de fichiers",
   "files.showAllFiles.label": "Afficher tous les fichiers",
   "files.showAllFiles.description": "Afficher les fichiers non-markdown dans l'explorateur (ouvre avec l'application par défaut du système)",
+  "files.showFileExtensions.label": "Afficher les extensions de fichier",
+  "files.showFileExtensions.description": "Afficher le nom de fichier complet dans la barre latérale, la barre d’onglets et la barre de titre",
   "files.group.quitBehavior": "Comportement à la fermeture",
   "files.confirmQuit.label": "Confirmer la fermeture",
   "files.confirmQuit.descriptionMac": "Appuyez deux fois sur ⌘Q pour quitter — évite les fermetures accidentelles",

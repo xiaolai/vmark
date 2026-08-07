@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "파일 탐색기에 점 파일 및 숨김 시스템 항목 포함",
   "files.showAllFiles.label": "모든 파일 표시",
   "files.showAllFiles.description": "파일 탐색기에 Markdown 이외의 파일 표시 (시스템 기본 앱으로 열림)",
+  "files.showFileExtensions.label": "파일 확장자 표시",
+  "files.showFileExtensions.description": "사이드바, 탭 표시줄, 제목 표시줄에 전체 파일 이름을 표시합니다",
   "files.group.quitBehavior": "종료 동작",
   "files.confirmQuit.label": "종료 확인",
   "files.confirmQuit.descriptionMac": "⌘Q를 두 번 눌러 종료 — 실수로 종료되는 것을 방지합니다",

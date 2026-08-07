@@ -268,6 +268,8 @@
   "files.showHiddenFiles.description": "ファイルエクスプローラーにドットファイルと隠しシステムアイテムを表示する",
   "files.showAllFiles.label": "すべてのファイルを表示",
   "files.showAllFiles.description": "ファイルエクスプローラーにMarkdown以外のファイルも表示する（システムデフォルトアプリで開く）",
+  "files.showFileExtensions.label": "拡張子を表示",
+  "files.showFileExtensions.description": "サイドバー、タブバー、タイトルバーにファイル名を完全な形で表示します",
   "files.group.quitBehavior": "終了動作",
   "files.confirmQuit.label": "終了の確認",
   "files.confirmQuit.descriptionMac": "⌘Q を2回押して終了 — 誤操作を防ぎます",
