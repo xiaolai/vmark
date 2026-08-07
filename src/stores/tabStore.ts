@@ -50,6 +50,7 @@ import {
   deriveFormatId,
   updateTabById,
   getTabTitle,
+  mapTabById,
   getLocalizedFormatName,
   applyPathUpdate,
   removeTabAt,
@@ -112,7 +113,7 @@ interface TabActions {
   setTabViewMode: (tabId: string, mode: SplitViewMode) => void;
   /** Overwrite a tab's format id, used by hot-exit restore. */
   setTabFormatId: (tabId: string, formatId: string) => void;
-  updateTabPath: (tabId: string, filePath: string) => void;
+  updateTabPath: (tabId: string, filePath: string | null) => void;
   updateTabTitle: (tabId: string, title: string) => void;
   togglePin: (windowLabel: string, tabId: string) => void;
   /** Re-resolve document format ids after the format registry changes. */
@@ -354,15 +355,11 @@ export const useTabStore = create<TabState & TabActions>((set, get) => ({
   },
 
   updateTabTitle: (tabId, title) => {
-    set((state) => {
-      const newTabs = { ...state.tabs };
-      for (const windowLabel of Object.keys(newTabs)) {
-        newTabs[windowLabel] = newTabs[windowLabel].map((t) =>
-          t.id === tabId ? { ...t, title } : t
-        );
-      }
-      return { tabs: newTabs };
-    });
+    // Shared keyed-update primitive: identity survives a no-op rename and an
+    // unknown id, so hot-exit restore does not wake every subscriber per tab.
+    set((state) => ({
+      tabs: mapTabById(state.tabs, tabId, (t) => (t.title === title ? t : { ...t, title })),
+    }));
   },
 
   // Both directions land on the pinned/unpinned boundary, so the pinned
