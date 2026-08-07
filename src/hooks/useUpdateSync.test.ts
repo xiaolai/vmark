@@ -60,6 +60,14 @@ function resetStore() {
 
 describe("useUpdateSync echo suppression", () => {
   beforeEach(() => {
+    // Control the clock. `useUpdateListener` schedules a fire-and-forget
+    // `setTimeout(.., 100)` that emits `update:request-state`; on real timers it
+    // fires whenever an act() block happens to exceed 100 ms, which is a
+    // property of machine load, not of the code. Narrowing the assertions to
+    // echo events (see `echoEmits`) made them immune to THAT emit; faking the
+    // clock removes the nondeterminism itself, so nothing else in this file can
+    // be surprised by it either.
+    vi.useFakeTimers();
     emitMock.mockClear();
     listenCallback = null;
     __resetUpdateSyncStateForTests();
@@ -67,6 +75,7 @@ describe("useUpdateSync echo suppression", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     resetStore();
   });
 
