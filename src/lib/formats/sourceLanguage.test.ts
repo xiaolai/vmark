@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Source-pane highlighting layer — detectSourceLanguage maps a file path
 // to a CodeMirror language loader. This is independent of routing: it only
 // decides colors for an already-plain-text source pane.

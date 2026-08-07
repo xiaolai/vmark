@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for imageHandlerToast — toast display for image paste confirmation.
  *

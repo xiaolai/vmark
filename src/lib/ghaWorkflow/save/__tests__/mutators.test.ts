@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Phase 8 WI-8.2 — mutator tests.
 //
 // Each mutator: takes a Document + IRPatch, returns a mutated

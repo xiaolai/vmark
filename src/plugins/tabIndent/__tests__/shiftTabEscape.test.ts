@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Shift+Tab Left-Escape Detection Tests
  *

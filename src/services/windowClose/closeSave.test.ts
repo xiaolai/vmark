@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { message, save, open } from "@tauri-apps/plugin-dialog";
 import { saveToPath } from "@/services/persistence/saveToPath";

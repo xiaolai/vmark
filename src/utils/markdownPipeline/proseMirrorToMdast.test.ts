@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for proseMirrorToMdast — PM document to MDAST tree conversion.
  *

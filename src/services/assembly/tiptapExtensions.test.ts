@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-3.4 — WYSIWYG composition order is pinned by explicit constraints, not by
 // array position. These run the REAL composition and assert the resolved
 // extension-name order equals the canonical list, proving that alphabetizing the

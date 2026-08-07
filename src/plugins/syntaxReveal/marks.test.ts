@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for syntaxReveal/marks — findMarkRange, findAnyMarkRangeAtCursor,
  * findWordAtCursor, addMarkSyntaxDecorations.

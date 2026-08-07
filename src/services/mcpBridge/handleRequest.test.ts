@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Coverage for the top-level MCP request router. Specifically:
 //   - read-only docs reject mutations with a structured READ_ONLY envelope
 //     (the v2 contract — not the legacy plain-string error)

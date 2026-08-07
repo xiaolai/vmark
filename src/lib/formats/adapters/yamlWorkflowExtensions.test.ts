@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Audit 20260804-F8 — a failed GHA source-extension chunk degrades, loudly.
  *

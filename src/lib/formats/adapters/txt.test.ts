@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1A.9 — Plain text adapter tests.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

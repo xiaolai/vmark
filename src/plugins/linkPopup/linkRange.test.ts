@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * linkRangeIsIntact — the guard that stops the link popup from applying a
  * captured range to a document that moved underneath it (audit 20260713).

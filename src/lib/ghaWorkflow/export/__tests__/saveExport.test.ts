@@ -1,3 +1,4 @@
+// @vitest-environment node
 // RW-7 (L3) — wire GHA workflow export to UI
 //
 // Tests the side-effecting export glue: clipboard copy for Mermaid, and

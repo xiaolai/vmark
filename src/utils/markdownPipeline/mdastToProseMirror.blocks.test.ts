@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * MDAST to ProseMirror block conversion tests
  */

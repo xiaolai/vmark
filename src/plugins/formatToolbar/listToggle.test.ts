@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * List toggle strategy tests — the heading-to-list single-transaction path.
  *

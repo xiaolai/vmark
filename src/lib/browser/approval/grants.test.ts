@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-2.6 / R5 — operation-based approval + scoped standing grants
 import { describe, it, expect } from "vitest";
 import { decideApproval, addGrant, revokeOrigin, type StandingGrant } from "./grants";

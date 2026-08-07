@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.1 — package.json schema detector + dependency-tree renderer tests.
 
 import { describe, expect, it } from "vitest";

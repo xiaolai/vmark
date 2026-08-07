@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-4.3 — undo/redo chords single source of truth. Asserts the canonical chord
  * set and the platform-gated redo list (Mod-y off-mac only; reserved for the AI

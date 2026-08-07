@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.4 — bounded LRU cache (R1)
 import { describe, it, expect } from "vitest";
 import { LruCache } from "./lruCache";

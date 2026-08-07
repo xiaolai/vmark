@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Which media edits detach a stored reference identity.
  *

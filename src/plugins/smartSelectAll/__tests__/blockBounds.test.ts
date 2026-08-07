@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Block Bounds Detection Tests
  *

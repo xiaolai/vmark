@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-4.4 — "Copy Command Output" range arithmetic (F4 / D8).
 //
 // The OSC 133 `A` marks sit on PROMPT lines, so "the output of the command I

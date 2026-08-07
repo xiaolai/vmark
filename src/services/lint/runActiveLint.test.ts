@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for runActiveLint — doc-epoch run-start marking (Codex audit finding 5).
  *

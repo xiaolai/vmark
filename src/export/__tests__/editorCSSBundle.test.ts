@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Direct unit tests for stripInteractiveRules — the hand-rolled CSS rule
  * filter on the export path. Documents its behavioral contract: which rule

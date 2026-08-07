@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for block_audio node schema — attrs, defaults, parseHTML, renderHTML.
  */

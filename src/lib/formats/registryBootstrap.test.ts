@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { rebootstrapFormats } from "./registryBootstrap";
 import { dispatchEditor, getFormatById } from "./registry";

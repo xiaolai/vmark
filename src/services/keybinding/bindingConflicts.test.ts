@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-1.4 — scope-aware conflict model. Unit-tests `detectConflicts` (same
  * chord + owner + scope + priority = potential ambiguity; cross-scope /

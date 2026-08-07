@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * `loadFileIntoTab` must not resurrect a tab that closed while its read was in
  * flight.

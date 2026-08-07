@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-4.1 regression — edge whitespace inside emphasis-like marks must be
  * EXPELLED outside the delimiters on serialize.

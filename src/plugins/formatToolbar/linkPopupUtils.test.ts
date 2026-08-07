@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { LinkInfo } from "@/plugins/toolbarContext/types";
 import { resolveLinkPopupPayload } from "./linkPopupUtils";

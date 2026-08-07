@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-5.1 — schema + expression lint tests.
 //
 // Wraps @actions/languageservice's validate() and translates LSP

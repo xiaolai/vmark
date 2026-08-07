@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PTY_RESIZE_DEBOUNCE_MS, fitAndResizePty } from "./fitAndResizePty";
 import type { FitResizeTarget } from "./fitAndResizePty";

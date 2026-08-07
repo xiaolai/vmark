@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Resolver tests — ADR-015 D1, WI-1.2.
  *

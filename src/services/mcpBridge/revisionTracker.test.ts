@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Editor } from "@tiptap/core";
 import type { Transaction } from "@tiptap/pm/state";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Audit fix — one definition of the chrome left of the editor.
 //
 // App.tsx and the terminal's layout maths each derived this number, and the

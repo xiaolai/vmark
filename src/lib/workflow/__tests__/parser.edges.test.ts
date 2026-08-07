@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Edge-branch coverage for the workflow parser: trigger/limit/default field
  * variants, icon derivation, source-range fallbacks, cycle reporting, and the

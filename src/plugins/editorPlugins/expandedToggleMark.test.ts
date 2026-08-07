@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for expandedToggleMark — mark toggling with word expansion,
  * opposing marks, and edge cases.

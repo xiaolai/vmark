@@ -9,6 +9,9 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+// Registers `toHaveNoViolations`. Opt-in: axe-core is too heavy for the
+// global setup, which every app-tier test file loads. See src/test/axeMatchers.
+import "@/test/axeMatchers";
 import { axe } from "vitest-axe";
 import { AppShell } from "./AppShell";
 import { EditorArea } from "./EditorArea";
@@ -71,13 +74,30 @@ describe("AppShell — landmark structure (RW-15 / L11)", () => {
 
   it("distinguishes multiple complementary landmarks by accessible name", () => {
     renderShell();
-    // The AppShell <aside> (name: "Sidebar") plus the outline complementary
-    // (name: "Document outline") — both present, both labeled distinctly.
-    const names = screen
-      .getAllByRole("complementary")
-      .map((el) => el.getAttribute("aria-label"));
-    expect(names).toContain("Document outline");
-    // Distinct accessible names (no duplicate-landmark ambiguity).
+    // This assertion used to read raw `aria-label` attributes into an array and
+    // check only that the set had no duplicates. `[null, "Document outline"]`
+    // satisfied both halves — so deleting AppShell's OWN accessible name, the
+    // one production regression this test exists to catch, left it green.
+    // `null` is not a duplicate of anything.
+    //
+    // Now: every complementary must HAVE a name, and each expected landmark is
+    // queried by that name, so a missing or renamed one fails by absence.
+    const regions = screen.getAllByRole("complementary");
+    expect(regions.length).toBeGreaterThanOrEqual(2);
+    for (const region of regions) {
+      expect(region).toHaveAccessibleName(expect.stringMatching(/\S/));
+    }
+
+    // Queried by name, not filtered from a list: `getByRole` throws when the
+    // named landmark is absent, and throws when it is ambiguous.
+    expect(screen.getByRole("complementary", { name: "Sidebar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Document outline" }),
+    ).toBeInTheDocument();
+
+    // Still no duplicate-landmark ambiguity — but computed over accessible
+    // names that are now guaranteed non-empty.
+    const names = regions.map((el) => el.getAttribute("aria-label"));
     expect(new Set(names).size).toBe(names.length);
   });
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * WI-6.2 — every shipped shortcut definition must produce a valid canonical
  * chord on BOTH platforms, so the KeyCapture-format string a user stores and the

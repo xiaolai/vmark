@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-11.1 — scoped closed-tab history (plan D4): full ClosedTabEntry metadata
 // per scopeKey (workspace instance id, browser-global, or window-all when the
 // rail is off), monotonic close sequence, one cap policy per scope. Replaces

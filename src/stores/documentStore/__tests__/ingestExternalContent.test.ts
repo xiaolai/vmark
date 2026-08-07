@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * EXTERNAL text entering a document, and what it is allowed to decide.
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Audit F10 — exitEditMode must not fall back to "the first registered view":
 // with multiple editors registered (split panes, preview panes, embedded
 // editors), a null-view call could save or revert the edit into the wrong

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for inlineNodeEditing — extension structure and computeState logic.
  */

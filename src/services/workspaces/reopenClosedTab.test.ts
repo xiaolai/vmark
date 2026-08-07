@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-11.2 — context-aware reopen: A/B partition, window-global browser
 // interleave by close sequence, duplicate-path skip, empty histories.
 import { beforeEach, describe, expect, it } from "vitest";

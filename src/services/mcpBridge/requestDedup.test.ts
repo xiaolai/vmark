@@ -1,3 +1,4 @@
+// @vitest-environment node
 // MCP bridge duplicate-delivery guard (audit 20260612 H20 + cross-model
 // review: duplicates of COMPLETED requests must re-send the cached response
 // so the bridge's retry channel is never starved).

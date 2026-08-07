@@ -1,3 +1,4 @@
+// @vitest-environment node
 // MCP bridge path guard — store adapter that assembles allowedRoots and
 // delegates to the pure path policy. Security: confines bridge file ops to
 // the workspace + open-document tree.

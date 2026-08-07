@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * One coverage threshold source, not two.
  *

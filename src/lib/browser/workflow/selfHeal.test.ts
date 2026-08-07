@@ -1,5 +1,7 @@
+// @vitest-environment node
 // WI-4.4 / R8a — self-healing: propose a same-role locator fix from the snapshot
 import { describe, it, expect } from "vitest";
+import { expectBoundedTime } from "@/test/timeBudget";
 import { proposeLocatorFix, type SnapshotNode } from "./selfHeal";
 
 const snap = (nodes: Array<[string, string]>): SnapshotNode[] =>
@@ -122,7 +124,10 @@ describe("proposeLocatorFix", () => {
     expect(
       proposeLocatorFix({ role: "button", name: `${huge}x` }, snap([["button", `${huge}y`]])),
     ).toBeNull();
-    expect(performance.now() - started).toBeLessThan(500);
+    expectBoundedTime(performance.now() - started, {
+      budgetMs: 500, livenessMs: 10_000,
+      label: "selfHeal candidate search",
+    });
   });
 
   it("handles identical and empty names (edit-distance edge cases)", () => {

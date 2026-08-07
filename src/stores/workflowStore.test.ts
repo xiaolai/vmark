@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * workflowStore tests — slice-by-slice coverage of the merged store.
  * Covers the behaviour previously asserted by ghaWorkflowPanelStore.test,

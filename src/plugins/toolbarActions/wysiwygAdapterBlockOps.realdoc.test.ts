@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Real-document tests for the WYSIWYG line operations.
  *

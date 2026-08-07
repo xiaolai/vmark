@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for useReplaceableTab — replaceable tab detection and existing tab lookup
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Workspace open-approval store (plan WI-1.3 / ADR-2).
 // Opening a folder as a workspace grants the AI a new file tree, so it is gated
 // by a one-shot approval: the handler requests approval and fails now; the user

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for the "Set File Type" override commands.
  *

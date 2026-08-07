@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-B0 — workspace-relative path resolution for `uses:` refs.
 
 import { describe, it, expect } from "vitest";

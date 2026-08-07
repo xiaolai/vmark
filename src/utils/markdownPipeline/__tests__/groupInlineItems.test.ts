@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Direct unit tests for groupInlineItems — the recursive mark-factoring
  * pass of PM → MDAST serialization (#1102). Covers shared-mark runs,

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
 import { toggleUniversalToolbar } from "./universalToolbarToggle";
 import { useUIStore } from "@/stores/uiStore";

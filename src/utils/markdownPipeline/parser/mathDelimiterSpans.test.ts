@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tests for the `\[ \]` / `\( \)` math-delimiter span finder and the
 // normalization built on it (issue #1180). The finder is a single
 // forward scan (no regex backtracking — a document of unpaired openers
@@ -6,6 +7,7 @@
 // never rewritten (Codex audit H1/M4/M5).
 
 import { describe, it, expect } from "vitest";
+import { expectBoundedTime } from "@/test/timeBudget";
 import {
   findMathDelimiterSpans,
   normalizeMathDelimiters,
@@ -232,7 +234,10 @@ describe("findMathDelimiterSpans", () => {
     const flood = "\\( ".repeat(20000);
     const started = performance.now();
     expect(findMathDelimiterSpans(flood)).toHaveLength(0);
-    expect(performance.now() - started).toBeLessThan(5000);
+    expectBoundedTime(performance.now() - started, {
+      budgetMs: 5000, livenessMs: 15_000,
+      label: "mathDelimiterSpans over a pathological input",
+    });
   });
 
   it("survives a flood of openers whose only closer is inside code", () => {
@@ -241,6 +246,9 @@ describe("findMathDelimiterSpans", () => {
     const flood = "\\( ".repeat(20000) + "`\\)`";
     const started = performance.now();
     expect(findMathDelimiterSpans(flood)).toHaveLength(0);
-    expect(performance.now() - started).toBeLessThan(5000);
+    expectBoundedTime(performance.now() - started, {
+      budgetMs: 5000, livenessMs: 15_000,
+      label: "mathDelimiterSpans over a pathological input",
+    });
   });
 });

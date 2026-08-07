@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { shouldWriteProgress, INDETERMINATE_STEP_BYTES } from "./updateProgressThrottle";
 

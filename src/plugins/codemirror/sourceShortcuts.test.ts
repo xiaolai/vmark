@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";

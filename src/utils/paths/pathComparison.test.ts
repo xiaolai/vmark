@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-17.1 — platform-aware path comparison: full case folding on Windows
 // (incl. UNC), byte-exact macOS/Linux, separator + trailing normalization.
 import { describe, expect, it } from "vitest";

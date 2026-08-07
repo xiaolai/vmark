@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Custom inline syntax plugin tests
  *

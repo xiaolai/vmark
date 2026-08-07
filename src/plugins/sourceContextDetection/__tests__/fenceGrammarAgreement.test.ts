@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * DRIFT GATE between the two remaining fence parsers.
  *

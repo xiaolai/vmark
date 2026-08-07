@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Coverage for the C-series patches: job CRUD, step CRUD, permissions, concurrency.
 // The original mutators.test.ts covers the A/B series. These are the WI-C.1/C.2/C.3
 // patches added later and were missing direct coverage.

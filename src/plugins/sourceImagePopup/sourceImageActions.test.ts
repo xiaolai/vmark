@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for sourceImageActions — source mode image popup actions
  *

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-10.2 — per-instance pane snapshots: hidden workspaces' split layouts,
 // stashed on switch-out and restored (validated) on switch-in. Pruned when a
 // hidden pane tab closes; full copy/re-key/remove lifecycle.

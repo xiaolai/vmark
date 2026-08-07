@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Multi-Cursor Tab Escape Tests
  *

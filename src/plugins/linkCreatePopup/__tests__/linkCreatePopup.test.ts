@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for linkCreatePopup — store behavior and extension structure.
  */

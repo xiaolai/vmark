@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for block_video node schema — attrs, defaults, parseHTML, renderHTML.
  */

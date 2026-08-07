@@ -1,3 +1,4 @@
+// @vitest-environment node
 // "Copy unwrapped" — joins display-wrapped terminal lines back into logical
 // flow. Opt-in: the user selects what they know is one paragraph; we collapse
 // the hard newlines a program inserted at the terminal width.

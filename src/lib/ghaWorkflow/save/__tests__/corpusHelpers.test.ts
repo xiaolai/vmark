@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Tests for the shared workflow-corpus test helpers.
 //
 // `anchorUsage` exists because the regex it replaces (`&[\w-]+`) did not

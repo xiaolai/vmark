@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Schema coverage gate — WI-0.4.
  *

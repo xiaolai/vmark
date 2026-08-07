@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-1.9b — breakdown store: EdgeRow mirror + panel toggle + artifact grouping.
 import { beforeEach, describe, expect, it } from "vitest";
 import {

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-SOC.1 — every app-level overlay must declare an occlusion policy.
 //
 // This is the gate itself, and it is deliberately not a hand-checked list. The plan's

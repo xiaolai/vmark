@@ -1,3 +1,4 @@
+// @vitest-environment node
 // Shared open-workspace-by-path helper (plan WI-1.1b / ADR-1).
 // Both the "Open Folder" menu command and the open_workspace MCP handler call
 // this, so opening a folder is one code path and can't half-open (store set but

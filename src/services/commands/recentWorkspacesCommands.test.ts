@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for Open Recent Workspace command (ADR-012).
  *

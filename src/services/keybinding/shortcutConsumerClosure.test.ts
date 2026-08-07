@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Reverse-closure gate for the keybinding system (ADR-018 integrity, dual of the
  * forward manifest/drift gate).

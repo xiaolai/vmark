@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-S3.1 — bookmarkStore: persisted, path-preserving, multi-window safe.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useBookmarkStore, BOOKMARKS_SCHEMA_VERSION } from "./bookmarkStore";

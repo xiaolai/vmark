@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-N1.1 — AI browser provenance, mode-aware deduplication, and restore safety
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTabStore } from "../tabStore";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 // YAML-as-LintDiagnostic adapter tests.
 
 import { describe, it, expect } from "vitest";

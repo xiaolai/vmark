@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Tests for footnoteEditOps — pure helpers behind footnote popup save/delete.
  *

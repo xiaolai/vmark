@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { Text } from "@codemirror/state";
 import { getBlockMathContentRange, getBlockMathUnwrapChanges } from "./mathActions";

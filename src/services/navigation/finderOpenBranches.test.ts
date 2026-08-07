@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The three Finder-open defects that came from copying the navigation flows
  * into a hook closure and letting the copies drift.

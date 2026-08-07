@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * CommandBus tests — ADR-012.
  */

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Command-context resolver tests — command-registry WI-2.1 (Phase 2).
  *

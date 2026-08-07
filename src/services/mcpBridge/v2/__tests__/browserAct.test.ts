@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-P4.2 — vmark.browser.act scroll/key (act-class). Extracted with the act
 // handler into browserAct.ts (audit #9). The comprehensive click/type/ref +
 // one-shot coverage lives in browser.test.ts (via the browser.ts re-export);

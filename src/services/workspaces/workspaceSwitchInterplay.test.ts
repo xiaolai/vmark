@@ -1,3 +1,4 @@
+// @vitest-environment node
 // WI-7R — cross-feature regression: the switch coordinator's stashing must
 // not break close, move/duplicate collection, or hot-exit capture, and the
 // exclusive-ownership + browser-exclusion invariants must hold after

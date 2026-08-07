@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Setext headings, and the one document shape that must still refuse them.
  *

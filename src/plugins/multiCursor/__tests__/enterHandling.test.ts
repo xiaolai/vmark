@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { SelectionRange } from "@tiptap/pm/state";
 import { MultiSelection } from "../MultiSelection";

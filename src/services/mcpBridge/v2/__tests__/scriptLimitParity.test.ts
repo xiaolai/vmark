@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Cross-layer parity check for the browser script size limit.
  *

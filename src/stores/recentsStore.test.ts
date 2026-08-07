@@ -1,3 +1,4 @@
+// @vitest-environment node
 // recentsStore — MRU recents behind the native "Open Recent" menus.
 // Codex audit finding: removal merged the cross-window list, CAPPED it,
 // then filtered — removing one of the retained N dropped the candidate

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Regression test (audit round 2): wrapping a multi-paragraph selection into
  * a task list must initialize EVERY new listItem with checked:false — not
