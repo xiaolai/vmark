@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "相対パスのコピーに失敗しました。",
   "toast.failedToRevealInFileManager": "ファイルマネージャーでファイルを表示できませんでした。",
   "toast.pathCopiedExplorer": "パスをクリップボードにコピーしました",
+  "toast.workspaceConfigSaveFailed": "ワークスペースの設定を保存できませんでした",
   "toast.failedToOpenWithDefaultApp": "デフォルトアプリで「{{name}}」を開けませんでした",
   "toast.terminalNeedsWorkspace": "ターミナルを使用するには、フォルダを開くかファイルを保存してください。",
   "toast.noFormattingActions": "利用可能な書式設定アクションがありません",

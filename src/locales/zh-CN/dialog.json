@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "无法复制相对路径。",
   "toast.failedToRevealInFileManager": "无法在文件管理器中显示文件。",
   "toast.pathCopiedExplorer": "路径已复制到剪贴板",
+  "toast.workspaceConfigSaveFailed": "无法保存工作区设置",
   "toast.failedToOpenWithDefaultApp": "无法使用默认应用打开\"{{name}}\"",
   "toast.terminalNeedsWorkspace": "打开文件夹或保存您的文件以使用终端。",
   "toast.noFormattingActions": "没有可用的格式化操作",

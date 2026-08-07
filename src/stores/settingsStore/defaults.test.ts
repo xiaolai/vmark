@@ -28,4 +28,11 @@ describe("first-install defaults are non-destructive", () => {
   it("preserves the file's line endings on save", () => {
     expect(defaultSettings.general.lineEndingsOnSave).toBe("preserve");
   });
+
+  // #1224 — a hidden extension turned `requirements.txt` into a mysterious
+  // `requirements` in the sidebar. Showing the name that is actually on disk
+  // is the honest default; hiding it is the opt-in.
+  it("shows file extensions", () => {
+    expect(defaultSettings.general.showFileExtensions).toBe(true);
+  });
 });

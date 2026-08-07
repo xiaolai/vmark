@@ -2,8 +2,8 @@
  * FileExplorer
  *
  * Purpose: Workspace file tree panel using react-arborist for virtualized tree rendering.
- * Only available in workspace mode — shows markdown files (and optionally all files via
- * showAllFiles config) with drag-and-drop, rename, delete, and context menu operations.
+ * Only available in workspace mode — shows the file types VMark can open (or every file,
+ * via the header's showAllFiles toggle) with drag-and-drop, rename, delete, context menus.
  * Non-markdown files open with the system default app.
  * User-visible strings are translated via the "sidebar" i18n namespace.
  *
@@ -52,7 +52,9 @@ import {
   type ContextMenuActionId,
 } from "./ContextMenu";
 import { useTreeWiring } from "./useTreeWiring";
+import { useExplorerCreateFlow } from "./useExplorerCreateFlow";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { getFileName, getParentDir } from "@/utils/paths";
 import { isMarkdownFileName, isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
@@ -60,6 +62,7 @@ import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFe
 import { runContextMenuAction } from "./contextMenuActions";
 import { openTerminalHere } from "@/services/terminal/openTerminalHere";
 import { imeToast as toast } from "@/services/ime/imeToast";
+import { fileExplorerError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { useQuickLookHotkey } from "./useQuickLookHotkey";
 import type { FileNode as FileNodeType } from "./types";
@@ -95,15 +98,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Workspace-only: file tree only shows when in workspace mode
   const workspaceRootPath = useWorkspaceStore((s) => s.rootPath);
   const isWorkspaceMode = useWorkspaceStore((s) => s.isWorkspaceMode);
-  const excludeFolders = useWorkspaceStore(
-    (s) => s.config?.excludeFolders ?? EMPTY_FOLDERS
-  );
-  const showHiddenFiles = useWorkspaceStore(
-    (s) => s.config?.showHiddenFiles ?? false
-  );
-  const showAllFiles = useWorkspaceStore(
-    (s) => s.config?.showAllFiles ?? false
-  );
+  const excludeFolders = useWorkspaceStore((s) => s.config?.excludeFolders ?? EMPTY_FOLDERS);
+  const showHiddenFiles = useWorkspaceStore((s) => s.config?.showHiddenFiles ?? false);
+  const showAllFiles = useWorkspaceStore((s) => s.config?.showAllFiles ?? false);
+  // Global, not workspace config: the same preference also drives tab titles.
+  const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
   const windowLabel = useWindowLabel();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -129,13 +128,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const { initialOpenState, handleToggle, collapseAll, expandAll, handleTreeScroll, restoreScroll } =
     useFileExplorerOpenState(treeRef, workspaceInstanceId);
 
-  // Path of a just-created entry awaiting inline rename; see createEntryAndEdit.
-  const [pendingEditPath, setPendingEditPath] = useState<string | null>(null);
-
-  const { tree, isLoading, refresh } = useFileTree(rootPath, {
+  const { tree, isLoading, error, refresh } = useFileTree(rootPath, {
     excludeFolders,
     showHidden: showHiddenFiles,
     showAllFiles,
+    showExtensions,
     watchId: windowLabel,
   });
 
@@ -154,6 +151,10 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     copyPath,
     revealInFinder,
   } = useExplorerOperations();
+
+  // Create → refresh → inline rename, with its workspace-generation and
+  // one-at-a-time guards (see the hook's header).
+  const { createEntryAndEdit } = useExplorerCreateFlow({ rootPath, refresh, treeRef, tree });
 
   // Close context menu
   const closeContextMenu = useCallback(() => {
@@ -199,9 +200,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     []
   );
 
-  // Shared: open supported files in VMark, others with system default app
+  // Shared: open supported files in VMark, others with system default app.
+  // Async on BOTH branches — the supported one used to drop the promise from
+  // `openFile`, whose emitter propagates rejection, so a failed open surfaced
+  // as an unhandled rejection instead of a message.
   const openFileByType = useCallback(
-    (path: string) => {
+    async (path: string): Promise<void> => {
       const fileName = getFileName(path);
       // Phase 1B: any registered format opens in VMark; the workflow/markdown
       // fallback covers the pre-bootstrap edge (see isWorkflowYamlSurfaceEnabled).
@@ -212,54 +216,18 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
             ? isVMarkFileName(fileName)
             : isMarkdownFileName(fileName)));
       if (isSupported) {
-        openFile(path);
+        try {
+          await openFile(path);
+        } catch (error) {
+          fileExplorerError(" Failed to open file:", path, error);
+          toast.error(i18n.t("dialog:toast.failedToOpen", { filename: fileName }));
+        }
       } else {
-        void openWithDefaultApp(path);
+        await openWithDefaultApp(path);
       }
     },
     [openFile, openWithDefaultApp]
   );
-
-  // Create a new file/folder under `parentPath` (or the selected folder / root),
-  // then put it into rename mode once the tree has refreshed.
-  const createEntryAndEdit = useCallback(
-    async (
-      create: (parent: string, name: string) => Promise<string | null>,
-      defaultName: string,
-      parentPath?: string | null,
-    ) => {
-      if (!rootPath) return;
-      let targetPath = parentPath;
-      if (!targetPath) {
-        const selected = treeRef.current?.selectedNodes[0];
-        targetPath = selected?.data.isFolder ? selected.data.id : rootPath;
-      }
-      const path = await create(targetPath, defaultName);
-      if (!path) return;
-      // Record what to edit, then let the effect below start the rename as
-      // soon as the node actually exists. A fixed timer used to guess when
-      // that would be: too short on a slow watcher (rename mode silently never
-      // opened) and still able to fire after unmount or a workspace switch.
-      setPendingEditPath(path);
-      await refresh();
-    },
-    [rootPath, refresh],
-  );
-
-  // Start inline rename once the created node is really in the tree (audit).
-  useEffect(() => {
-    if (!pendingEditPath) return;
-    const node = treeRef.current?.get(pendingEditPath);
-    if (!node) return;
-    setPendingEditPath(null);
-    node.edit();
-  }, [pendingEditPath, tree]);
-
-  // A workspace switch abandons any pending rename — the path belongs to the
-  // tree we just left.
-  useEffect(() => {
-    setPendingEditPath(null);
-  }, [rootPath]);
 
   const handleNewFile = useCallback(
     (parentPath?: string | null) =>
@@ -305,7 +273,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const handleActivate = useCallback(
     (node: { data: FileNodeType }) => {
       if (!node.data.isFolder) {
-        openFileByType(node.data.id);
+        void openFileByType(node.data.id);
       }
     },
     [openFileByType]
@@ -314,9 +282,9 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Handle rename
   const handleRename = useCallback(
     async ({ id, name }: { id: string; name: string }) => {
-      await renameItem(id, name);
+      await renameItem(id, name, { preserveExtension: !showExtensions });
     },
-    [renameItem]
+    [renameItem, showExtensions]
   );
 
   // Handle delete
@@ -364,12 +332,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     ? getFileName(workspaceRootPath) || t("workspaceFallback")
     : null;
 
-  // Show empty state if no workspace is open (or while the tree first loads).
+  // Empty state: no workspace, first load, or an UNREADABLE root ("empty" lies).
   if (!rootPath) {
     return <FileExplorerEmptyState label={t("noWorkspace")} ariaLabel={t("aria.fileExplorer")} />;
   }
-  if (isLoading && tree.length === 0) {
-    return <FileExplorerEmptyState label={t("loading")} ariaLabel={t("aria.fileExplorer")} />;
+  if (error || (isLoading && tree.length === 0)) {
+    return <FileExplorerEmptyState label={t(error ? "loadFailed" : "loading")} ariaLabel={t("aria.fileExplorer")} />;
   }
 
   return (

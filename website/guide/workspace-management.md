@@ -34,12 +34,16 @@ The file explorer appears in the sidebar whenever a workspace is open. It shows 
 - Non-markdown files open with your system's default application
 - Folders start collapsed when a workspace is first opened; their open state is preserved while you switch between the Files, Outline, and History views
 
-### Expand / Collapse All
+### Header Buttons
 
-Two buttons in the Files-view header toggle the entire tree at once:
+The Files-view header carries the tree-wide controls:
 
 - **Expand All Folders** — opens every folder in the tree
 - **Collapse All Folders** — closes every folder back to the root
+- **Show All Files** — a toggle; when it is on (highlighted), the tree lists
+  every file rather than only the ones VMark can open
+- **New File** / **New Folder** — create inside the selected folder, or the
+  workspace root when nothing is selected
 
 ### File Operations
 
@@ -61,12 +65,15 @@ You can also **drag and drop** files between folders directly in the tree.
 
 ### Visibility Toggles
 
-By default the explorer shows only markdown files and hides dotfiles. Two toggles change this:
+By default the explorer shows only the file types VMark can open, and hides dotfiles.
+**Folders are listed whether or not they contain anything visible**, so a project of
+unsupported file types looks like a tree of empty folders — that is the filter at work,
+not a failure to read the directory. Two toggles change this:
 
 | Toggle | Shortcut | What it does |
 |--------|----------|-------------|
 | Show Hidden Files | `Mod + Shift + .` (macOS) / `Ctrl + H` (Win/Linux) | Reveals dotfiles and hidden folders |
-| Show All Files | *(Settings or context menu)* | Shows non-markdown files alongside your documents |
+| Show All Files | `Mod + Shift + A` | Shows non-markdown files alongside your documents |
 
 Both settings are saved per-workspace and persist across sessions.
 

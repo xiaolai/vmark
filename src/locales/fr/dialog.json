@@ -112,6 +112,7 @@
   "toast.failedToCopyRelativePath": "Impossible de copier le chemin relatif.",
   "toast.failedToRevealInFileManager": "Impossible d'afficher le fichier dans le gestionnaire de fichiers.",
   "toast.pathCopiedExplorer": "Chemin copié dans le presse-papiers",
+  "toast.workspaceConfigSaveFailed": "Impossible d’enregistrer les paramètres de l’espace de travail",
   "toast.failedToOpenWithDefaultApp": "Impossible d'ouvrir « {{name}} » avec l'application par défaut",
   "toast.terminalNeedsWorkspace": "Ouvrez un dossier ou enregistrez votre fichier pour utiliser le terminal.",
   "toast.noFormattingActions": "Aucune action de mise en forme disponible",

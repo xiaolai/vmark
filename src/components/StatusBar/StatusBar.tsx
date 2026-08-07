@@ -43,12 +43,7 @@ import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
-import {
-  useDocumentLastAutoSave,
-  useDocumentIsMissing,
-  useDocumentIsDivergent,
-} from "@/hooks/useDocumentState";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useDocumentLastAutoSave, useDocumentIsMissing, useDocumentIsDivergent } from "@/hooks/useDocumentState";
 import { useAiInvocationStore } from "@/stores/aiStore";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
@@ -56,8 +51,9 @@ import { FileLoadIndicator } from "./FileLoadIndicator";
 import { StatusBarTabStrip } from "./StatusBarTabStrip";
 import { useAutoSaveDisplay } from "./useAutoSaveDisplay";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { useSettingsStore, useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
+import { formatFileDisplayName } from "@/utils/displayFileName";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
@@ -183,6 +179,7 @@ export function StatusBar() {
   });
 
   const dragTab = dragTabId ? browserWorkspace.documentTabs.find((tab) => tab.id === dragTabId) ?? null : null;
+  const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
 
   const showTabs = isDocumentWindow && (browserWorkspace.documentTabs.length >= 1 || browserWorkspace.browserPages.length >= 1);
   const showNewTabButton = isDocumentWindow;
@@ -291,7 +288,7 @@ export function StatusBar() {
           className={`tab-drag-ghost${isDropInvalid ? " invalid" : ""}`}
           style={{ transform: `translate3d(${dragPoint.clientX + 14}px, ${dragPoint.clientY + 14}px, 0)` }}
         >
-          <span className="tab-drag-ghost-title">{dragTab.title}</span>
+          <span className="tab-drag-ghost-title">{formatFileDisplayName(dragTab.title, showExtensions)}</span>
           <span className="tab-drag-ghost-hint">{dragHint}</span>
         </div>
       )}

@@ -129,6 +129,35 @@ describe("renameFile — extension preservation", () => {
     const result = await renameFile("/docs/.gitignore", ".npmignore");
     expect(result).toEqual({ status: "renamed", newPath: "/docs/.npmignore" });
   });
+
+  // #1224 — re-attaching is right only when the editor HID the extension, so
+  // the user was editing a stem. Once the editor shows `notes.md`, deleting
+  // the suffix is a deliberate rename, and re-attaching silently discards it:
+  // the file does not change and the UI reports success.
+  describe("preserveExtension: false — the editor showed the full name", () => {
+    it("drops the extension when the user deletes it", async () => {
+      const result = await renameFile("/docs/foo.md", "foo", {
+        preserveExtension: false,
+      });
+      expect(result).toEqual({ status: "renamed", newPath: "/docs/foo" });
+      expect(mockRename).toHaveBeenCalledWith("/docs/foo.md", "/docs/foo");
+    });
+
+    it("still honours an explicitly typed extension", async () => {
+      const result = await renameFile("/docs/notes.txt", "notes2.yaml", {
+        preserveExtension: false,
+      });
+      expect(result).toEqual({ status: "renamed", newPath: "/docs/notes2.yaml" });
+    });
+
+    it("leaves folders alone — they never had an extension to preserve", async () => {
+      mockStat.mockResolvedValue({ isDirectory: true });
+      const result = await renameFile("/docs/v2.0-drafts", "v3.0-drafts", {
+        preserveExtension: false,
+      });
+      expect(result).toEqual({ status: "renamed", newPath: "/docs/v3.0-drafts" });
+    });
+  });
 });
 
 describe("renameFile — root-level paths", () => {

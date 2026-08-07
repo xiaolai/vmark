@@ -121,13 +121,39 @@ describe("workspaceConfig", () => {
     vi.mocked(invoke).mockRejectedValueOnce(new Error("write failed"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await updateWorkspaceConfig({ showHiddenFiles: true });
+    const ok = await updateWorkspaceConfig({ showHiddenFiles: true });
 
     expect(consoleSpy).toHaveBeenCalledWith(
       "[Workspace]",
       "Failed to save workspace config:",
       expect.any(Error)
     );
+    // The caller has to be able to tell, and the optimistic value must not
+    // survive: a toggle that looks saved and silently reverts on the next
+    // launch is worse than one that refuses.
+    expect(ok).toBe(false);
+    expect(useWorkspaceStore.getState().config?.showHiddenFiles).toBe(false);
+    consoleSpy.mockRestore();
+  });
+
+  it("leaves untouched keys alone when rolling a failed write back", async () => {
+    const config: WorkspaceConfig = {
+      version: 1,
+      excludeFolders: [".git"],
+      lastOpenTabs: [],
+      showHiddenFiles: true,
+      showAllFiles: false,
+    };
+    useWorkspaceStore.setState({ rootPath: "/project", config, isWorkspaceMode: true });
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("write failed"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await updateWorkspaceConfig({ showAllFiles: true });
+
+    const after = useWorkspaceStore.getState().config;
+    expect(after?.showAllFiles).toBe(false);
+    expect(after?.showHiddenFiles).toBe(true);
+    expect(after?.excludeFolders).toEqual([".git"]);
     consoleSpy.mockRestore();
   });
 
