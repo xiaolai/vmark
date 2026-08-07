@@ -546,10 +546,20 @@ function parseObjectLiterals(region, rel, name) {
 
 /** Narrow source to the body of `const NAME ... = [ ... ];`. */
 function arrayBody(src, name, rel) {
-  const start = src.indexOf(name);
-  if (start === -1) fail(`${rel}: could not find ${name}`);
-  const open = src.indexOf("[", start);
-  if (open === -1) fail(`${rel}: no array opening after ${name}`);
+  // Anchor on the DECLARATION, not the first mention of the name. `indexOf`
+  // matched the name inside the file's header comment and then took whatever
+  // `[` came next — which stayed correct only while no other array happened to
+  // be declared in between. Adding one (the category table) silently made this
+  // parse the wrong array and report zero definitions.
+  // `const`/`let`/`var`/`static` covers both the TS sources and the Rust
+  // contract mirror, whose arrays are `const NAME: &[(&str, &str)] = &[`.
+  // Callers used to pass "const NAME" to dodge the comment-mention problem;
+  // the declaration anchor makes the identifier alone sufficient either way.
+  const ident = name.trim().split(/\s+/).pop();
+  const decl = new RegExp(`(?:const|let|var|static)\\s+${ident}\\b[^=\\n]*=\\s*&?\\s*\\[`);
+  const m = decl.exec(src);
+  if (!m) fail(`${rel}: could not find a declaration of ${ident}`);
+  const open = m.index + m[0].length - 1;
   const close = src.indexOf("];", open);
   if (close === -1) fail(`${rel}: no array closing after ${name}`);
   return src.slice(open, close);
