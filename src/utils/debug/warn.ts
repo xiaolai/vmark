@@ -33,6 +33,9 @@ export const recentWarn = createWarnLogger("[Recent]");
 /** Warn logger for Shortcuts store. */
 export const shortcutsWarn = createWarnLogger("[Shortcuts]");
 
+/** Tab store: a format registry that cannot answer is a real defect, not a silent markdown tab. */
+export const tabStoreWarn = createWarnLogger("[TabStore]");
+
 /** Warn logger for the keybinding registry (ADR-018). */
 export const keybindingWarn = createWarnLogger("[Keybinding]");
 

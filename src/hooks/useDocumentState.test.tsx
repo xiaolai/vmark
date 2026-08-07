@@ -367,6 +367,22 @@ describe("useDocumentActions", () => {
     expect(useDocumentStore.getState().documents[tabId]?.filePath).toBeNull();
   });
 
+  it("clears the TAB's path too, instead of coercing it to an empty string", () => {
+    // `updateTabPath` used to accept only `string`, so this caller passed
+    // `path ?? ""`. The document then said null while the tab said "" — and
+    // hot-exit dedup, session filtering and "is this file-backed?" checks all
+    // key on the tab's path, so the two stores disagreed about the same tab.
+    const tabId = useTabStore.getState().createTab(WINDOW, "/old.md");
+    useDocumentStore.getState().initDocument(tabId, "content", "/old.md");
+    const { result } = renderHook(() => useDocumentActions());
+
+    act(() => {
+      result.current.setFilePath(null);
+    });
+
+    expect(useTabStore.getState().findTabById(tabId)?.filePath).toBeNull();
+  });
+
   it("setFilePath is a no-op when no active tab", () => {
     const { result } = renderHook(() => useDocumentActions());
     act(() => {

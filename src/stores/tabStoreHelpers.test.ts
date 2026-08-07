@@ -19,7 +19,7 @@ vi.mock("@/i18n", () => ({
   default: { t: (...args: unknown[]) => t(...args) },
 }));
 
-import { getLocalizedFormatName, updateTabById, removeTabAt, getTabTitle } from "./tabStoreHelpers";
+import { getLocalizedFormatName, updateTabById, removeTabAt, getTabTitle, applyPathUpdate } from "./tabStoreHelpers";
 import type { Tab } from "./tabStoreTypes";
 
 beforeEach(() => {
@@ -78,6 +78,34 @@ describe("getTabTitle", () => {
     t.mockReturnValue("Untitled");
     expect(getTabTitle(null, 3)).toBe("Untitled-3");
     expect(getTabTitle(null)).toBe("Untitled");
+  });
+});
+
+// A tab can go back to being untitled — `useDocumentState.setFilePath(null)`
+// does exactly that on an unsaved-copy flow. `updateTabPath` only accepted a
+// string, so that caller passed "", and the tab then claimed a file path of ""
+// while its document said null. Hot-exit dedup and filtering key on the path,
+// so the two stores disagreed about which tabs were file-backed.
+describe("applyPathUpdate — clearing a path", () => {
+  const docTab = (id: string): Tab => ({
+    kind: "document",
+    id,
+    filePath: `/${id}.md`,
+    title: `${id}.md`,
+    isPinned: false,
+    formatId: "markdown",
+  });
+
+  it("stores a real null, not an empty string", () => {
+    const { tabs } = applyPathUpdate({ main: [docTab("a")] }, "a", null);
+    const tab = tabs.main[0] as { filePath: string | null };
+    expect(tab.filePath).toBeNull();
+  });
+
+  it("retitles the tab as untitled rather than to an empty label", () => {
+    t.mockReturnValue("Untitled");
+    const { tabs } = applyPathUpdate({ main: [docTab("a")] }, "a", null);
+    expect(tabs.main[0].title).toBe("Untitled");
   });
 });
 
