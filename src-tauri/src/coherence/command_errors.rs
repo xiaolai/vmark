@@ -27,25 +27,34 @@
 //! @coordinates-with src-tauri/src/command_error.rs — CommandError, ErrorCode
 //! @coordinates-with scripts/check-command-error-ratchet.mjs — the gate this satisfies
 
-use crate::command_error::CommandError;
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 
 /// The workspace could not be opened: an inaccessible root, a poisoned
 /// registry, or a kernel that failed to open. All three are environment or
 /// process state the caller cannot fix by changing an argument.
 pub(super) fn workspace_unavailable(detail: String) -> CommandError {
-    CommandError::internal(detail)
+    localized_error!(
+        ErrorCode::Internal,
+        "errors.coherence.workspaceUnavailable",
+        detail = detail
+    )
 }
 
 /// A `Mutex` guarding a kernel was poisoned by a panic in another thread. The
 /// state may be torn, so this is never retryable by repeating the call.
 pub(super) fn kernel_poisoned() -> CommandError {
-    CommandError::internal("coherence kernel lock poisoned")
+    localized_error!(ErrorCode::Internal, "errors.coherence.kernelPoisoned")
 }
 
 /// A ledger/index read failed, or the kernel refused to serve a poisoned
 /// index (9R-4). Plumbing, not an argument problem.
 pub(super) fn ledger_unavailable(detail: String) -> CommandError {
-    CommandError::internal(detail)
+    localized_error!(
+        ErrorCode::Internal,
+        "errors.coherence.ledgerUnavailable",
+        detail = detail
+    )
 }
 
 /// The operation rejected an argument the caller supplied — an edge that does
@@ -53,7 +62,11 @@ pub(super) fn ledger_unavailable(detail: String) -> CommandError {
 /// unknown lifecycle or judgment value. Retrying unchanged cannot succeed;
 /// the caller must send something different.
 pub(super) fn rejected_argument(detail: String) -> CommandError {
-    CommandError::invalid_input(detail)
+    localized_error!(
+        ErrorCode::InvalidInput,
+        "errors.coherence.rejectedArgument",
+        detail = detail
+    )
 }
 
 /// The workspace state does not permit the operation right now — e.g. an
@@ -61,7 +74,11 @@ pub(super) fn rejected_argument(detail: String) -> CommandError {
 /// `rejected_argument`: the same call may succeed once the state changes, so
 /// the frontend should offer a refresh rather than an input correction.
 pub(super) fn state_conflict(detail: String) -> CommandError {
-    CommandError::conflict(detail)
+    localized_error!(
+        ErrorCode::Conflict,
+        "errors.coherence.stateConflict",
+        detail = detail
+    )
 }
 
 /// Classify a failure from a MUTATING kernel call.
@@ -93,7 +110,11 @@ pub(super) fn classify_write(
     // the refusal and cleared at every acquire, so it answers the actual
     // question: was THIS call refused for that reason?
     if kernel.refused_for_short_read() {
-        return CommandError::unsupported(detail);
+        return localized_error!(
+            ErrorCode::Unsupported,
+            "errors.coherence.buildTooOld",
+            detail = detail
+        );
     }
     fallback(detail)
 }

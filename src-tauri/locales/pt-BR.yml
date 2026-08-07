@@ -210,6 +210,14 @@ menu:
   genies.openFolder: "Abrir pasta de assistentes"
 
 errors:
+
+  # === Coherence (coherence/command_errors.rs) ===
+  coherence.workspaceUnavailable: "Não foi possível abrir o espaço de trabalho: %{detail}"
+  coherence.kernelPoisoned: "O rastreamento de coerência parou após um erro interno. Reabra o espaço de trabalho para continuar."
+  coherence.ledgerUnavailable: "Não foi possível ler o histórico de coerência: %{detail}"
+  coherence.rejectedArgument: "A solicitação foi rejeitada: %{detail}"
+  coherence.stateConflict: "O espaço de trabalho mudou desde esta solicitação: %{detail}"
+  coherence.buildTooOld: "Esta versão do VMark não consegue ler parte do histórico de coerência. Atualize o VMark para continuar: %{detail}"
   # === Core (lib.rs) ===
   core.htmlTooLarge: "Conteúdo HTML muito grande (>50 MB)"
   core.pathTraversal: "Travessia de caminho (..) não permitida"

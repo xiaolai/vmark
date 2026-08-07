@@ -79,3 +79,19 @@ suite — every gate was green with it in place.
 
 Findings 2, 3, 4, 5 fixed; the round-2 defect and both round-3 defects fixed;
 finding 1 (TOCTOU) recorded as design scope with reasons.
+
+
+## 2026-08-07 — all three residual items CLOSED
+
+| Item | Close |
+|---|---|
+| **#1 TOCTOU** (was: design scope) | **Detection, not prevention.** `verify_no_concurrent_short_read` re-checks after any locked scope that appended; a newer-format entry arriving mid-operation now poisons the kernel and says so instead of silently becoming the next decision's base. Prevention stays impossible while the ledger is a git-tracked plain file external tools rewrite — that is the ratified architecture. Both cheap "fixes" remain rejected. Read-only scopes skip the check, so the breakdown hot path pays nothing. |
+| **214 raw English error strings** | **Localized at the boundary.** All six classifiers use `localized_error!`; verified total — no coherence command builds a `CommandError` directly and no raw-string constructor remains. The internal `format!` strings survive as `%{detail}` inside translated sentences, keeping the specific cause visible. 60 entries across 10 locales. |
+| **Two dark commands** | **Removed** (−1,281 lines). `check_sweep` spent real money with no surface to see, approve or stop a run; `operator_verify` had no caller either. Wiring a UI is a product decision, not a gap to fill in passing. Recoverable at `07e0fd01`. Also removed the three items the deletion orphaned — `checked_cursor`, `CandidateCheckInput`, `build_candidate_check_prompt` — found by enumeration, since `pub` items are exempt from dead-code analysis. |
+
+Every close is mutation-checked: reverting the fix makes its test fail.
+
+**Residual, and deliberately so:** the `.git`-at-root assumption (a workspace
+opened on a subdirectory of a repo reads as non-git) is unchanged. Correcting
+it is a product decision about what "the workspace's repository" means, not a
+bug fix.

@@ -1,5 +1,5 @@
 // H7 — useContentServer drives the store from the service, per workspace.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
 const startContentServer = vi.fn();
@@ -50,7 +50,15 @@ import {
 import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
+// Control the clock: `stopServer` schedules a fire-and-forget
+// `setTimeout(.., STOP_INTENT_GUARD_MS)` (3 SECONDS) that flips
+// `intentionalStopRef` back to false. On real timers that fires whenever the
+// suite happens to take 3s — which is a coin flip under parallel load, not a
+// property of the code — and it silently changes how a subsequent crash event
+// is classified. Faking the clock makes the guard window deterministic; a test
+// that wants it elapsed advances the timer explicitly.
 beforeEach(() => {
+  vi.useFakeTimers();
   startContentServer.mockReset();
   stopContentServer.mockReset();
   openKbInBrowser.mockReset();
@@ -65,6 +73,10 @@ beforeEach(() => {
   exitHandler = null;
   useContentServerStore.getState().reset();
   useWorkspaceStore.setState({ rootPath: "/ws" });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("useContentServer", () => {
