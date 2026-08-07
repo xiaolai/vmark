@@ -18,6 +18,7 @@
   "clearHistoryMessage": "이 문서의 모든 기록을 삭제할까요? 이 작업은 취소할 수 없습니다.",
   "noWorkspace": "열린 워크스페이스 없음",
   "loading": "불러오는 중...",
+  "loadFailed": "이 폴더를 읽을 수 없습니다",
   "defaultFileName": "제목 없음",
   "defaultFolderName": "새 폴더",
   "workspaceFallback": "워크스페이스",

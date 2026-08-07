@@ -18,6 +18,7 @@
   "clearHistoryMessage": "Gesamten Verlauf für dieses Dokument löschen? Dies kann nicht rückgängig gemacht werden.",
   "noWorkspace": "Kein Arbeitsbereich geöffnet",
   "loading": "Wird geladen...",
+  "loadFailed": "Dieser Ordner konnte nicht gelesen werden",
   "defaultFileName": "Ohne Titel",
   "defaultFolderName": "Neuer Ordner",
   "workspaceFallback": "Arbeitsbereich",

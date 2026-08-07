@@ -129,7 +129,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   // Path of a just-created entry awaiting inline rename; see createEntryAndEdit.
   const [pendingEditPath, setPendingEditPath] = useState<string | null>(null);
 
-  const { tree, isLoading, refresh } = useFileTree(rootPath, {
+  const { tree, isLoading, error, refresh } = useFileTree(rootPath, {
     excludeFolders,
     showHidden: showHiddenFiles,
     showAllFiles,
@@ -362,12 +362,12 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     ? getFileName(workspaceRootPath) || t("workspaceFallback")
     : null;
 
-  // Show empty state if no workspace is open (or while the tree first loads).
+  // Empty state: no workspace, first load, or an UNREADABLE root ("empty" lies).
   if (!rootPath) {
     return <FileExplorerEmptyState label={t("noWorkspace")} ariaLabel={t("aria.fileExplorer")} />;
   }
-  if (isLoading && tree.length === 0) {
-    return <FileExplorerEmptyState label={t("loading")} ariaLabel={t("aria.fileExplorer")} />;
+  if (error || (isLoading && tree.length === 0)) {
+    return <FileExplorerEmptyState label={t(error ? "loadFailed" : "loading")} ariaLabel={t("aria.fileExplorer")} />;
   }
 
   return (

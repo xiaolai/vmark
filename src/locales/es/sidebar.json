@@ -18,6 +18,7 @@
   "clearHistoryMessage": "¿Eliminar todo el historial de este documento? Esta acción no se puede deshacer.",
   "noWorkspace": "No hay espacio de trabajo abierto",
   "loading": "Cargando...",
+  "loadFailed": "No se pudo leer esta carpeta",
   "defaultFileName": "Sin título",
   "defaultFolderName": "Nueva carpeta",
   "workspaceFallback": "Espacio de trabajo",

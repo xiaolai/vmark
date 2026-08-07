@@ -18,6 +18,7 @@
   "clearHistoryMessage": "Excluir todo o histórico deste documento? Esta ação não pode ser desfeita.",
   "noWorkspace": "Nenhum espaço de trabalho aberto",
   "loading": "Carregando...",
+  "loadFailed": "Não foi possível ler esta pasta",
   "defaultFileName": "Sem título",
   "defaultFolderName": "Nova pasta",
   "workspaceFallback": "Espaço de trabalho",

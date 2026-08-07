@@ -18,6 +18,7 @@
   "clearHistoryMessage": "Eliminare tutta la cronologia per questo documento? L'operazione non può essere annullata.",
   "noWorkspace": "Nessun spazio di lavoro aperto",
   "loading": "Caricamento...",
+  "loadFailed": "Impossibile leggere questa cartella",
   "defaultFileName": "Senza titolo",
   "defaultFolderName": "Nuova cartella",
   "workspaceFallback": "Spazio di lavoro",

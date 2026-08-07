@@ -18,6 +18,7 @@
   "clearHistoryMessage": "Delete all history for this document? This cannot be undone.",
   "noWorkspace": "No workspace open",
   "loading": "Loading...",
+  "loadFailed": "Could not read this folder",
   "defaultFileName": "Untitled",
   "defaultFolderName": "New Folder",
   "workspaceFallback": "Workspace",
