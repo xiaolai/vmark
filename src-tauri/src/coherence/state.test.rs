@@ -243,6 +243,13 @@ fn open_reconciles_when_the_ledger_is_replaced_at_equal_count() {
 }
 
 #[test]
+// UNIX-ONLY FIXTURE, not a unix-only behaviour. The property under test —
+// fail closed on an I/O error rather than destroying state — holds on every
+// platform. What is unix-only is the way to PROVOKE it: these force the
+// failure with `chmod 0o000` / a read-only dir, and `PermissionsExt::set_mode`
+// has no std equivalent on Windows (the read-only attribute does not make a
+// directory unreadable). Same guard `scan.test.rs` already uses for symlinks.
+#[cfg(unix)]
 fn an_append_failure_reconciles_and_asks_for_retry_without_losing_state() {
     // Re-review #3: an ambiguous append failure must not leave the index behind
     // the ledger. Force `ledger.append` to fail (read-only ledger dir), and
@@ -333,6 +340,13 @@ fn a_bare_lock_file_is_not_mistaken_for_an_initialized_workspace() {
 }
 
 #[test]
+// UNIX-ONLY FIXTURE, not a unix-only behaviour. The property under test —
+// fail closed on an I/O error rather than destroying state — holds on every
+// platform. What is unix-only is the way to PROVOKE it: these force the
+// failure with `chmod 0o000` / a read-only dir, and `PermissionsExt::set_mode`
+// has no std equivalent on Windows (the read-only attribute does not make a
+// directory unreadable). Same guard `scan.test.rs` already uses for symlinks.
+#[cfg(unix)]
 fn a_reconcile_failure_during_lock_acquire_does_not_leak_the_workspace_lock() {
     // Re-review #5: the flock lives in a stack local and `in_write_txn` is set
     // only AFTER a successful reconcile, so a reconcile error during lock acquire
@@ -489,6 +503,13 @@ fn a_gitattributes_without_the_merge_rule_is_not_initialized() {
 }
 
 #[test]
+// UNIX-ONLY FIXTURE, not a unix-only behaviour. The property under test —
+// fail closed on an I/O error rather than destroying state — holds on every
+// platform. What is unix-only is the way to PROVOKE it: these force the
+// failure with `chmod 0o000` / a read-only dir, and `PermissionsExt::set_mode`
+// has no std equivalent on Windows (the read-only attribute does not make a
+// directory unreadable). Same guard `scan.test.rs` already uses for symlinks.
+#[cfg(unix)]
 fn ensure_line_refuses_to_overwrite_an_unreadable_gitignore() {
     // 9th-review 9R-5 (data loss): `unwrap_or_default` turned a temporarily
     // unreadable .gitignore into an EMPTY string, and the rename then replaced the
