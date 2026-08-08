@@ -33,11 +33,12 @@ builds are incremental and much faster.
 vmark/
 ├── src/                  # React frontend (Vite + React 19)
 │   ├── components/       # UI components
-│   ├── hooks/            # Custom React hooks
 │   ├── plugins/          # Tiptap / ProseMirror plugins
 │   ├── stores/           # Zustand state management
 │   ├── styles/           # Global CSS and design tokens
-│   └── utils/            # Pure helper functions
+│   ├── utils/            # Tier 1 — leaf-pure helpers (stdlib + other utils)
+│   ├── services/         # Tier 2 — may use utils, stores, Tauri APIs
+│   └── hooks/            # Tier 3 — React adapters over services
 ├── src-tauri/            # Rust backend (Tauri v2)
 │   ├── src/              # Commands, menu, MCP bridge, AI providers
 │   └── capabilities/     # Tauri security permissions
@@ -47,6 +48,13 @@ vmark/
 ├── website/              # Documentation site (VitePress)
 └── dev-docs/             # Internal architecture docs (local only)
 ```
+
+`utils/` → `services/` → `hooks/` is the three-tier layout from ADR-013, and the
+direction of the arrow is the rule: `utils/` must stay leaf-pure, so a file there
+that needs `useXStore` or `@tauri-apps/*` belongs in `services/` instead. Only the
+tiers are listed above — `src/` has other directories (`lib/`, `pages/`, `theme/`,
+`locales/`, …) whose names say what they hold. See
+[.claude/rules/00-engineering-principles.md](.claude/rules/00-engineering-principles.md).
 
 ## Development Workflow
 
@@ -134,6 +142,46 @@ For a deeper understanding of the codebase:
   Milkdown, etc.)
 - **Design system:** `.claude/rules/31-design-tokens.md` — complete token
   reference
+
+## AI-Assisted Development
+
+VMark's AI tool configuration is checked into the repo so every contributor
+shares the same context. You do **not** need any AI tool to contribute.
+
+### `AGENTS.md` is the single source of truth
+
+Different tools read different entry points, and maintaining the same
+instructions in each is how they drift apart. So the rules are written once:
+
+| Tool | Reads | How it reaches `AGENTS.md` |
+|------|-------|----------------------------|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `CLAUDE.md` + `.claude/rules/*.md` | `CLAUDE.md` contains `@AGENTS.md`, which inlines it |
+| [Codex CLI](https://github.com/openai/codex) | `AGENTS.md` | directly |
+
+Update `AGENTS.md` and every tool picks up the change.
+
+### Private vs shared
+
+| File | In git? | Purpose |
+|------|---------|---------|
+| `AGENTS.md`, `CLAUDE.md` | Yes | Shared instructions and entry point |
+| `.claude/rules/`, `.claude/agents/`, `.claude/skills/` | Yes | Shared config |
+| `.claude/settings.json` | Yes | Team-shared settings |
+| `CLAUDE.local.md` | **No** | Personal overrides (gitignored) |
+| `.claude/settings.local.json` | **No** | Personal settings (gitignored) |
+| `dev-docs/`, `.vmark/` | **No** | Maintainer-local, not in the public repo |
+
+Personal instructions that shouldn't affect the team go in `CLAUDE.local.md`.
+
+### If you don't use AI tools
+
+`.claude/rules/` doubles as living documentation of project conventions — it is
+the most precise description of how this codebase works. Worth reading before a
+first PR:
+
+1. [AGENTS.md](AGENTS.md) — project overview and conventions
+2. [.claude/rules/10-tdd.md](.claude/rules/10-tdd.md) — testing requirements
+3. [.claude/rules/50-codebase-conventions.md](.claude/rules/50-codebase-conventions.md) — store, hook, plugin, and import patterns
 
 ## Getting Help
 
