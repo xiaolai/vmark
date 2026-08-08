@@ -16,7 +16,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,6 +90,94 @@ describe("bundle guard", () => {
   });
 });
 
+describe("--help", () => {
+  // The help text used to be a hardcoded `sed -n '2,30p'` line range, which
+  // overshot the header and printed four lines of shell (`set -uo pipefail`,
+  // the `cd`, `ROOT=`). A fixed range silently rots every time the header
+  // grows, so the fix is to stop at the first non-comment line instead.
+  it("prints the header without leaking shell code", () => {
+    const r = run(["--help"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("Reclaim dev-box disk");
+    expect(r.stdout).not.toContain("set -uo pipefail");
+    expect(r.stdout).not.toContain("ROOT=");
+    expect(r.stdout).not.toMatch(/^cd /m);
+  });
+
+  it("still documents every tier", () => {
+    const out = run(["--help"]).stdout;
+    for (const tier of ["1", "2", "3"]) expect(out).toMatch(new RegExp(`^\\s*${tier}\\s`, "m"));
+  });
+});
+
+describe("spike probe artifacts", () => {
+  // Spike probes (60-ai-governance.md §7) are separate cargo/npm projects nested
+  // under dev-docs/grills/, so the app's `cargo clean` cannot reach them and
+  // Cargo never GCs. Three had accumulated 818 MB whose probe sources no longer
+  // existed. The sweep must take the artifact dirs and NOTHING else: the spike
+  // reports are the evidence §7 requires.
+  //
+  // dev-docs/ is maintainer-local and gitignored, so on CI it does not exist at
+  // all. Remember the topmost path created, exactly as withBundle does above.
+  const FIXTURE = path.join(REPO, "dev-docs/grills/__clean-dev-fixture__");
+  let fixtureRoot = null;
+
+  function withFixture() {
+    let candidate = FIXTURE;
+    while (!existsSync(path.dirname(candidate)) && path.dirname(candidate) !== REPO) {
+      candidate = path.dirname(candidate);
+    }
+    fixtureRoot = existsSync(FIXTURE) ? null : candidate;
+    mkdirSync(path.join(FIXTURE, "probe/target/debug"), { recursive: true });
+    mkdirSync(path.join(FIXTURE, "probe/node_modules/left-pad"), { recursive: true });
+    mkdirSync(path.join(FIXTURE, "probe/src"), { recursive: true });
+    writeFileSync(path.join(FIXTURE, "spike-report.md"), "# findings\n");
+  }
+
+  afterEach(() => {
+    if (fixtureRoot && existsSync(fixtureRoot)) {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    } else if (existsSync(FIXTURE)) {
+      rmSync(FIXTURE, { recursive: true, force: true });
+    }
+    fixtureRoot = null;
+  });
+
+  const actions = (args) =>
+    run(args)
+      .stdout.split("\n")
+      .filter((l) => l.startsWith("DRY-RUN:"))
+      .join("\n");
+
+  it("tier 1 sweeps orphaned target/ and node_modules/ under dev-docs/grills", () => {
+    withFixture();
+    const out = actions(["1", "--dry-run"]);
+    expect(out).toContain("dev-docs/grills/__clean-dev-fixture__/probe/target");
+    expect(out).toContain("dev-docs/grills/__clean-dev-fixture__/probe/node_modules");
+  });
+
+  it("keeps the spike report and the probe source — they are the evidence", () => {
+    withFixture();
+    const out = actions(["1", "--dry-run"]);
+    expect(out).not.toContain("spike-report.md");
+    expect(out).not.toContain("probe/src");
+  });
+
+  it("does not recurse into a swept directory", () => {
+    // Listing target/debug separately would mean the prune is missing, and the
+    // second rm -rf would operate on an already-deleted path.
+    withFixture();
+    expect(actions(["1", "--dry-run"])).not.toContain("probe/target/debug");
+  });
+
+  it("is a no-op when dev-docs/grills is absent", () => {
+    if (existsSync(path.join(REPO, "dev-docs/grills"))) return;
+    const r = run(["1", "--dry-run"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toContain("dev-docs/grills");
+  });
+});
+
 describe("tiers", () => {
   // Assertions are anchored to the DRY-RUN action lines, not to raw stdout:
   // the BEFORE block runs `du -sh ~/.cargo/registry`, so a bare
@@ -100,6 +188,15 @@ describe("tiers", () => {
       .stdout.split("\n")
       .filter((l) => l.startsWith("DRY-RUN:"))
       .join("\n");
+
+  it("tier 1 removes the regenerable report trees", () => {
+    // coverage/ (52 MB) and reports/ (16 MB) are rebuilt by `pnpm test:coverage`
+    // and `pnpm dup` / `mutation:ts`. They are project-local and need no
+    // network, which is exactly tier 1's remit — dist/ was already here.
+    const out = actions(["1", "--dry-run"]);
+    expect(out).toMatch(/\bcoverage\b/);
+    expect(out).toMatch(/\breports\b/);
+  });
 
   it("tier 1 does not touch machine-wide cargo caches", () => {
     const out = actions(["1", "--dry-run"]);
