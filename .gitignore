@@ -186,12 +186,14 @@ CLAUDE.local.md
 
 # cc-suite-managed symlinks (created by bridge_skills.sh) — derived, not authored
 .claude/skills/cc-suite
-.agents/skills
 
-# Antigravity workspace MCP config is generated from .mcp.json and may contain
-# credentials or machine-specific paths.
-.agents/mcp_config.json
-.agents/.cc-suite-mcp.provenance.json
+# .agents/ is generated in full by cc-suite: a skills symlink into .claude/,
+# the Antigravity workspace MCP config (which may carry credentials and
+# machine-specific paths), and provenance sidecars. Nothing in it is authored,
+# so it is ignored as a DIRECTORY rather than file-by-file — naming the three
+# files individually meant any fourth that cc-suite later wrote showed up as
+# untracked and was one `git add -A` away from being committed.
+.agents/
 
 # cc-suite tool-profile bridge (grok/opencode/qwen) — derived provenance
 # sidecars tracking which MCP servers cc-suite owns. Not authored.
