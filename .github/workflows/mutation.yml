@@ -92,7 +92,7 @@ jobs:
 
       - name: Upload mutants report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutants-report
           path: src-tauri/mutants.out/
@@ -119,7 +119,7 @@ jobs:
 
       - name: Upload Stryker report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stryker-report
           path: reports/mutation/
