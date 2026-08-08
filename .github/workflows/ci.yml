@@ -129,7 +129,7 @@ jobs:
         run: pnpm vitest run --coverage --shard=${{ matrix.shard }}/4 --reporter=blob --reporter=default --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0
 
       # `include-hidden-files` is REQUIRED: vitest writes blobs to
-      # `.vitest-reports/`, a dot-directory, and upload-artifact@v4 treats
+      # `.vitest-reports/`, a dot-directory, and upload-artifact treats
       # everything under one as hidden and skips it by default. The blob was
       # written and then silently not uploaded.
       #
@@ -138,7 +138,7 @@ jobs:
       # `ENOENT: scandir '.vitest-reports'` in fe-coverage — an error message
       # pointing at the consumer instead of the producer. Fail where the file
       # should have been made.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: blob-report-${{ matrix.shard }}
           path: .vitest-reports/*
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-node-pnpm
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: .vitest-reports
           pattern: blob-report-*
