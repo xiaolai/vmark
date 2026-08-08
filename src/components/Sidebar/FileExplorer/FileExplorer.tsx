@@ -138,7 +138,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
 
   // WI-9.2: restore the incoming instance's saved scroll once tree data is in.
   useEffect(() => { if (!isLoading) restoreScroll(treeElRef.current); },
-    [workspaceInstanceId, isLoading, restoreScroll]);
+    [workspaceInstanceId, isLoading, restoreScroll, treeElRef]);
   const {
     createFile,
     createFolder,
