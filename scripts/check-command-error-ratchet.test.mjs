@@ -370,6 +370,145 @@ describe("findStringifiedTypedErrors", () => {
   // which is correct. House pattern for that (i18n allowlist, focus caret-only):
   // a marker carrying a REASON, because an unexplained suppression is a mute
   // button.
+  // Audit 20260809 #1 — `<[^>]*>` stopped at the FIRST `>`, so a nested generic
+  // was invisible. `browserHelpers.ts` uses exactly this form for a typed
+  // command, so the gate had a real false negative on a real file.
+  it("matches invoke with NESTED generics", () => {
+    const file = {
+      path: "src/nested.ts",
+      source: `await invoke<Record<string, unknown>>("hot_exit_capture");
+               } catch (error) { show(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  // Audit 20260809 #4 — only `e`/`err`/`error` were recognised.
+  // Verify round 1 (#1 REGRESSED) — a one-level regex is not "balanced".
+  it.each([
+    ['invoke<Record<string, Array<unknown>>>("hot_exit_capture")', "deep nesting"],
+    ['invoke<(string)>("hot_exit_capture")', "parenthesised type"],
+    ['invoke<Record<string, unknown>>("hot_exit_capture")', "one level"],
+    ['invoke("hot_exit_capture")', "no generic"],
+    ['invoke<string>("hot_exit_capture")', "simple generic"],
+  ])("matches %s (%s)", (call) => {
+    const file = { path: "src/g.ts", source: `${call};\n} catch (error) { show(String(error)); }` };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  // Verify round 1 (#4 REGRESSED) — catch names were collected file-wide, so an
+  // unrelated String(reason) was blamed on a catch(reason) somewhere else.
+  // Verify rounds 1-2 kept finding new lexer edge cases — the mechanism was
+  // hand-rolled lexing, so the class is fixed by parsing a real TS AST (the
+  // house pattern: check-mock-boundaries, check-shell-slots, and
+  // check-hooks-react-purity all do this). Every case below is one the
+  // verifier named.
+  const flagged = (source, path = "src/edge.ts") =>
+    findStringifiedTypedErrors([{ path, source }], typed).length;
+
+  it.each([
+    ['invoke<{ value: string }>("hot_exit_capture")', "object type argument"],
+    ['invoke<(value: string) => Record<string, unknown>>("hot_exit_capture")', "function type"],
+    ['invoke<Record<string, Array<unknown>>>("hot_exit_capture")', "deep nesting"],
+    ['invoke<(string)>("hot_exit_capture")', "parenthesised type"],
+  ])("detects %s (%s)", (call) => {
+    expect(flagged(`${call};\ntry { a(); } catch (error) { show(String(error)); }`)).toBe(1);
+  });
+
+  // `invoke < b > ("x")` is NOT ambiguous once a parser is involved: TypeScript
+  // itself resolves it to a CallExpression with a type argument (verified
+  // against ts.createSourceFile). Agreeing with the language's own parse is the
+  // correct behaviour, so this pins that the gate does — the regex-era worry
+  // about "relational expressions" does not survive contact with the AST.
+  it("follows TypeScript's own parse of the ambiguous `a < b > (c)` form", () => {
+    expect(flagged('const t = invoke < b > ("hot_exit_capture");\ntry{a()}catch(e){show(String(e))}')).toBe(1);
+  });
+
+  it("is not fooled by a brace inside a string in the catch body", () => {
+    expect(flagged('await invoke("hot_exit_capture");\ntry { a(); } catch (e) { log("}"); show(String(e)); }')).toBe(1);
+  });
+
+  it("handles .catch(async (e) => ...)", () => {
+    expect(flagged('await invoke("hot_exit_capture").catch(async (e) => show(String(e)));')).toBe(1);
+  });
+
+  it("respects shadowing by an inner function parameter", () => {
+    expect(
+      flagged(
+        'await invoke("hot_exit_capture");\ntry { a(); } catch (e) { const f = (e) => String(e); f(1); }',
+      ),
+    ).toBe(0);
+  });
+
+  // Verify round 3 — the REAL false negative, not a theoretical one. Command
+  // names reach `invoke()` through a `const … as const` map in
+  // src/services/persistence/hotExit/restartWithHotExit.ts, and that file was
+  // stringifying a rejection from the typed `hot_exit_capture` where the gate
+  // could not see it. Requiring a string LITERAL argument made the gate blind
+  // to exactly the module family an [object Object] bug had already been found in.
+  it("resolves a command name held in a const map, not just a literal argument", () => {
+    const file = {
+      path: "src/consts.ts",
+      source: `const CMDS = { CAPTURE: "hot_exit_capture" } as const;
+               try { await invoke(CMDS.CAPTURE); } catch (error) { show(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  it("resolves a command name held in a plain const", () => {
+    const file = {
+      path: "src/const2.ts",
+      source: `const CMD = "hot_exit_capture";
+               try { await invoke(CMD); } catch (error) { show(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  it("does not invent a typed command from an unrelated literal", () => {
+    const file = {
+      path: "src/unrelated.ts",
+      source: `const LABEL = "hot_exit_capture is the name";
+               try { await invoke(someVar); } catch (error) { show(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("does NOT flag a stringify outside the catch block that binds that name", () => {
+    const file = {
+      path: "src/scoped.ts",
+      source: `await invoke("hot_exit_capture");
+               try { a(); } catch (reason) { logIt(reason); }
+               function unrelated(reason) { return String(reason); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("still flags a stringify INSIDE the catch block", () => {
+    const file = {
+      path: "src/inside.ts",
+      source: `await invoke("hot_exit_capture");
+               try { a(); } catch (reason) { show(String(reason)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  it("detects a catch binding under any name", () => {
+    const file = {
+      path: "src/named.ts",
+      source: `await invoke("hot_exit_capture");
+               } catch (reason) { show(String(reason)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  it("still ignores String() on a non-error value", () => {
+    const file = {
+      path: "src/value.ts",
+      source: `await invoke("hot_exit_capture");
+               const label = String(count) + String(42);`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
   it("honours `command-error-ok:` with a reason", () => {
     const file = {
       path: "src/parse.ts",
@@ -378,6 +517,22 @@ describe("findStringifiedTypedErrors", () => {
                } catch (e) { report(errorMessage(e)); }`,
     };
     expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  // Audit 20260809 #3 — one marker used to suppress the ENTIRE file, so the
+  // shortcuts.ts exemption also hid that file's typed invoke. Scope it to the
+  // marked region: a LATER unmarked violation in the same file must still fail.
+  it("a marker suppresses only its own site, not the whole file", () => {
+    const file = {
+      path: "src/mixed.ts",
+      source: `await invoke("hot_exit_capture");
+               // command-error-ok: this one is a JSON.parse failure
+               } catch (e) { report(errorMessage(e)); }
+               function later() {
+                 try { doThing(); } catch (e2) { report(String(e2)); }
+               }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
   });
 
   it("REJECTS a bare marker with no reason", () => {
@@ -460,6 +615,26 @@ describe("check-command-error-ratchet.mjs — the String() check is actually wir
     expect(status).toBe(1);
     expect(stderr).toContain("bad.ts");
     expect(stderr).toContain("typed_cmd");
+  });
+
+  // Audit 20260809 #2 — the walk only saw .ts/.tsx, yet production JS exists
+  // (src/export/reader/vmark-reader.js). A defect in a .js file was invisible.
+  it("scans production .js as well as .ts", () => {
+    const root = writeCrate({ "a.rs": command("typed_cmd", "Result<(), CommandError>") });
+    writeFrontend(root, {
+      "legacy.js": 'await invoke("typed_cmd");\n} catch (error) { show(String(error)); }',
+    });
+    const { status, stderr } = runGate(root, { files: {} });
+    expect(status).toBe(1);
+    expect(stderr).toContain("legacy.js");
+  });
+
+  it("does not scan .spec files", () => {
+    const root = writeCrate({ "a.rs": command("typed_cmd", "Result<(), CommandError>") });
+    writeFrontend(root, {
+      "thing.spec.ts": 'await invoke("typed_cmd");\n} catch (error) { show(String(error)); }',
+    });
+    expect(runGate(root, { files: {} }).status).toBe(0);
   });
 
   it("stays green when the same file uses commandErrorMessage", () => {
