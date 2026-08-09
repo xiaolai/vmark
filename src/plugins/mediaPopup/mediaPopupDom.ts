@@ -5,6 +5,13 @@
  * popup UI. Handles all 4 media types (image, block_image, block_video, block_audio)
  * with conditional row visibility.
  *
+ * Key decisions:
+ *
+ * - **No `.media-popup-btn` (WI-DP4.1).** `buildPopupIconButton` already gives
+ *   every button the canonical `.popup-icon-btn`; the old class was added on
+ *   top and re-declared the same values, so removing it changed nothing. Only
+ *   `-toggle` / `-delete`, which the view and its tests query by, remain.
+ *
  * @coordinates-with MediaPopupView.ts — consumes these helpers for popup DOM construction
  * @coordinates-with utils/popupComponents.ts — shared popup icon buttons and inputs
  * @module plugins/mediaPopup/mediaPopupDom
