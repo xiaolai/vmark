@@ -6,10 +6,38 @@ multi-phase work. Background and field practices: see
 
 ## 1. Plan files are the contract
 
-Long-running features (>1 day, >5 files) must have a plan in
-`dev-docs/plans/YYYYMMDD-name.md`. Plans contain ADRs, work items
-(`WI-N.M`), and a Definition of Done per phase. Implementation references
-the plan; the plan does not chase implementation.
+Long-running features (>1 day, >5 files) must have a plan named
+`YYYYMMDD-name.md`. Plans contain ADRs, work items (`WI-N.M`), and a
+Definition of Done per phase. Implementation references the plan; the plan
+does not chase implementation.
+
+**There are two plan homes, and the choice is about who must be able to read
+it** (WI-AF5.2, 2026-08-09):
+
+| Home | Tracked? | Use when |
+|---|---|---|
+| `dev-docs/plans/` | **no** — gitignored (`.gitignore:8`) | the plan is maintainer-local: exploration, deferred work, anything a fresh clone need not see |
+| `.claude/tdd-guardian/` | **yes** | the plan must ship with the repo — because CI, a DoD script, or a future reader of the history depends on it |
+
+This rule used to name `dev-docs/plans/` alone, which made the two largest plans
+in this repository permanent violations: `plan-20260803-161713.md` and its
+follow-up are tracked in `.claude/tdd-guardian/` precisely so the reasoning
+behind 652 files of change survives in the repository. "Complying" would have
+meant moving a tracked plan into a gitignored directory — deleting it from the
+repo to satisfy a rule about where plans live. **A rule that would destroy the
+artifact it governs is the thing that is wrong**, so the rule changed.
+
+Note the consequence for §2: `dev-docs/` is gitignored, so a linkage check
+against a plan there can only ever run on a maintainer machine. A plan whose
+work items CI must verify belongs in the tracked home.
+
+**Namespace the work items when a plan will coexist with others.** `WI-1.2` is
+not unique across plans, and §2's test-header linkage searches the whole
+repository — so one plan's `WI-5.2` is "linked" by a test citing a completely
+different plan's `WI-5.2`. Observed live on 2026-08-09: a 19-item plan reported
+every item linked while none were implemented. Use a distinct phase segment
+(`WI-AF1.2`, `WI-VC0.1`, `WI-SOC.2`); the grammar accepts them and this is what
+that support is for.
 
 ## 2. Work items must be linked
 
