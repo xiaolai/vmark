@@ -6,6 +6,20 @@
 use super::*;
 use crate::browser::one_shot::OneShot;
 use crate::browser::registry::AutomationMode;
+use crate::command_error::ErrorCode;
+
+/// The MCP token a refusal carries, so these tests assert on the CLASS and on the
+/// token shipped clients match — not on prose. Before WI-DP2.3 every assertion
+/// here compared an error STRING, which is the wiring-assertion shape
+/// `.claude/rules/10-tdd.md` names an anti-pattern: it passed for any reword and
+/// could not tell `permission-denied` from `conflict`.
+fn mcp_code(err: &crate::command_error::CommandError) -> String {
+    err.detail()
+        .and_then(|d| d.get("mcpCode"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
 
 fn enabled_surface() -> BrowserSurface {
     let surface = BrowserSurface::default();
@@ -31,7 +45,8 @@ fn commit_tab(surface: &BrowserSurface, tab_id: &str, url: &str, mode: Automatio
 fn disabled_browser_refuses_before_touching_the_registry() {
     let surface = BrowserSurface::default(); // policy.enabled defaults to false
     let err = authorize_driver_op(&surface, "no-such-tab", 0, "read", None, None).unwrap_err();
-    assert_eq!(err, "BROWSER_DISABLED");
+    assert_eq!(err.code(), ErrorCode::FeatureDisabled);
+    assert_eq!(mcp_code(&err), "BROWSER_DISABLED");
 }
 
 #[test]
@@ -40,7 +55,8 @@ fn stale_generation_is_refused() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
     // The tab is at generation 0; a command stamped generation 5 is stale.
     let err = authorize_driver_op(&surface, "t", 5, "read", None, None).unwrap_err();
-    assert!(err.contains("stale command"), "got: {err}");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err), "STALE_COMMAND");
 }
 
 #[test]
@@ -55,7 +71,8 @@ fn a_tab_with_no_committed_page_grants_nothing() {
         reg.set_policy_epoch("t", 0).unwrap();
     }
     let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
-    assert!(err.contains("no committed page"), "got: {err}");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err), "NO_COMMITTED_PAGE");
 }
 
 #[test]
@@ -73,7 +90,8 @@ fn ai_sandbox_read_is_refused_when_the_policy_epoch_moved() {
     // old one: its authority is stale.
     surface.ai_policy.lock().unwrap().epoch = 1;
     let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
-    assert_eq!(err, "POLICY_STALE");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err), "POLICY_STALE");
 }
 
 #[test]
@@ -81,7 +99,8 @@ fn a_human_tab_read_requires_an_attachment() {
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
-    assert_eq!(err, "ATTACHMENT_REQUIRED");
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "ATTACHMENT_REQUIRED");
 }
 
 #[test]
@@ -103,7 +122,8 @@ fn an_unknown_operation_is_refused_even_on_an_ai_owned_tab() {
     // Screenshot authorizes as "read"; a bogus operation string has no grant and
     // no one-shot, so it is refused rather than treated as an opaque permission.
     let err = authorize_driver_op(&surface, "t", 0, "frobnicate", None, None).unwrap_err();
-    assert!(err.contains("not granted"), "got: {err}");
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "NOT_GRANTED");
 }
 
 fn grant(surface: &BrowserSurface, pattern: &str, ops: &[&str]) {
@@ -125,7 +145,8 @@ fn a_human_tab_click_needs_an_attachment_even_with_a_standing_grant() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     grant(&surface, "https://ex.com", &["click"]);
     let err = authorize_driver_op(&surface, "t", 0, "click", None, None).unwrap_err();
-    assert_eq!(err, "ATTACHMENT_REQUIRED");
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "ATTACHMENT_REQUIRED");
 }
 
 #[test]
@@ -146,10 +167,9 @@ fn a_single_use_attachment_authorizes_exactly_one_operation() {
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::Human);
     surface.attach_tab("t".into(), 0, true).unwrap();
     assert!(authorize_driver_op(&surface, "t", 0, "read", None, None).is_ok());
-    assert_eq!(
-        authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err(),
-        "ATTACHMENT_REQUIRED"
-    );
+    let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "ATTACHMENT_REQUIRED");
 }
 
 #[test]
@@ -216,7 +236,8 @@ fn a_human_tab_without_attachment_does_not_burn_a_one_shot() {
         payload_hash: None,
     });
     let err = authorize_driver_op(&surface, "t", 0, "click", None, None).unwrap_err();
-    assert_eq!(err, "ATTACHMENT_REQUIRED");
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "ATTACHMENT_REQUIRED");
     assert_eq!(
         surface.one_shots.lock().unwrap().len(),
         1,
@@ -276,7 +297,8 @@ fn a_profile_confined_read_off_origin_is_denied_even_with_a_read_one_shot() {
         payload_hash: None,
     });
     let err = authorize_driver_op(&surface, "t", 0, "read", None, None).unwrap_err();
-    assert_eq!(err, "PROFILE_ORIGIN_CONFINED");
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(mcp_code(&err), "PROFILE_ORIGIN_CONFINED");
     assert_eq!(
         surface.one_shots.lock().unwrap().len(),
         1,
@@ -441,7 +463,8 @@ fn a_stale_generation_never_reaches_the_enqueue() {
     }
     let ran = Cell::new(false);
     let err = submit_if_fresh(&surface, "t", 0, || ran.set(true)).unwrap_err();
-    assert!(err.contains("stale command"), "got: {err}");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err), "STALE_COMMAND");
     assert!(
         !ran.get(),
         "the script ran against a page the command was never authorized for"
@@ -587,6 +610,7 @@ fn submit_if_fresh_refuses_a_stale_command_without_submitting() {
     }
     let submitted = Cell::new(false);
     let err = submit_if_fresh(&surface, "t", 0, || submitted.set(true)).unwrap_err();
-    assert!(err.contains("stale command"), "got: {err}");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err), "STALE_COMMAND");
     assert!(!submitted.get(), "a stale command reached the enqueue");
 }

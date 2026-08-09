@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "Der integrierte Browser ist auf dieser Plattform nicht verfügbar"
   browser.surfaceTimeout: "Der Browser hat nicht rechtzeitig geantwortet"
   browser.surfaceFailed: "Der Browser konnte diese Aktion nicht ausführen"
+  browser.staleCommand: "Der Browser-Tab hat sich geändert, bevor die Aktion ausgeführt werden konnte"
+  browser.noCommittedPage: "Dieser Browser-Tab hat noch keine Seite vollständig geladen"
+  browser.notGranted: "Die KI darf das auf dieser Seite nicht tun"
+  browser.attachmentRequired: "Verbinde die KI mit diesem Tab, bevor sie darauf zugreifen kann"
+  browser.profileOriginConfined: "Die KI darf nur die für dieses Profil freigegebene Seite lesen"
 
   # === Hot exit ===
   hotExit.noWindows: "Keine Dokumentfenster zum Erfassen"

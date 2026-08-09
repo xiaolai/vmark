@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "内蔵ブラウザはこのプラットフォームでは利用できません"
   browser.surfaceTimeout: "ブラウザが時間内に応答しませんでした"
   browser.surfaceFailed: "ブラウザはその操作を完了できませんでした"
+  browser.staleCommand: "操作が実行される前にブラウザータブが変化しました"
+  browser.noCommittedPage: "このブラウザータブはまだページを読み込み終えていません"
+  browser.notGranted: "AI はこのページでその操作を許可されていません"
+  browser.attachmentRequired: "操作する前に AI をこのタブに接続してください"
+  browser.profileOriginConfined: "AI はこのプロファイルで承認されたページのみ読み取れます"
 
   # === Hot exit ===
   hotExit.noWindows: "キャプチャするドキュメントウィンドウがありません"

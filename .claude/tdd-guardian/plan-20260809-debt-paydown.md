@@ -257,7 +257,47 @@ poisoned mutex or tokio join failure. A second `pty_start` on one session became
 reach. ADR-2 forbids it as a shortcut for "unclassified", which is exactly why
 the other three exist.
 
-### WI-DP2.3 … WI-DP2.n — the remaining 77, one module per batch
+### WI-DP2.3 — the driver-authorization gate 10 → 0
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/browser/{authorize,commands_auth,session_commands,eval_macos}.rs,
+authorize.test.rs, all ten `src-tauri/locales/*.yml`, browserFailure.ts, scripts/command-error-baseline.json
+**Verified:** `cargo clippy --all-targets -- -D warnings` exit 0 · `cargo test` exit 0 · `pnpm lint:i18n` 0 untranslated · `pnpm lint:command-errors` held at 67 · merge-base ratchet held · 45 frontend files / 497 tests green · `tsc` exit 0
+**Result:** baseline 77 → 67 (`authorize.rs` gate + `commands_auth.rs` 7 + `session_commands.rs` 3).
+
+**BEHAVIOUR IS PRESERVED EXACTLY, and that constraint chose the codes.** None of
+this gate's refusals raised an approval prompt before: they were bare strings, so
+`parseCommandError` returned null and `needsNavigationApproval` fell through to a
+substring test none of them contained. Mapping `ATTACHMENT_REQUIRED` to
+`approval-required` — which is what it *means* — would have started prompting
+where VMark previously refused outright: a UX change smuggled in under a typing
+change. So the liftable-looking ones are `permission-denied` and the
+world-changed ones are `conflict`, each carrying its original token as
+`detail.mcpCode` so shipped MCP clients match exactly what they did before.
+The day one of them should prompt, that becomes a deliberate edit.
+
+`PROFILE_ORIGIN_CONFINED` is the one that is genuinely hard-denied — the call
+site says not even a one-shot may rescue it — and `permission-denied` is the code
+that says "no approval lifts this".
+
+**Five new i18n keys, translated in all ten bundles** (staleCommand,
+noCommittedPage, notGranted, attachmentRequired, profileOriginConfined).
+
+**The tests got better, not just different.** Every assertion here compared an
+error STRING (`assert_eq!(err, "POLICY_STALE")`, `err.contains("stale command")`)
+— the wiring shape `10-tdd.md` calls an anti-pattern, which passed on any reword
+and could not tell `permission-denied` from `conflict`. They now assert `code()`
+AND `mcpCode`, so both audiences are pinned.
+
+**The substring match is still there, deliberately.** `browserFailure.ts:29`'s
+comment named "the unmigrated `browser_create` path", which is typed as of
+WI-DP2.1, and a sweep finds no remaining bare-token producer. It is kept because
+a grep is weaker evidence than a gate and the cost of being wrong is asymmetric:
+losing that line turns "ask the user" into "fail silently" on a security path.
+The comment now says exactly that, and names the condition that retires it —
+`pnpm lint:command-errors` reporting 0.
+
+### WI-DP2.4 … WI-DP2.n — the remaining 67, one module per batch
 
 **Next, and deliberately not taken at the end of a long session:**
 `commands_auth.rs` (7) plus its `authorize.rs` helper. That pair is where
