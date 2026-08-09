@@ -12,8 +12,14 @@
  * **untrusted** — treat it exactly like a `read` result (never an act target). The
  * buffer is bounded so a chatty/hostile page can't grow the DOM without limit.
  *
- * `installConsoleCapture` is the single source of truth: it is unit-tested directly
- * in jsdom, and `CONSOLE_SHIM` embeds its source for page-world injection.
+ * `installConsoleCapture` is the single source of truth and is unit-tested
+ * directly in jsdom.
+ *
+ * The `CONSOLE_SHIM` injection string that embedded its source was removed
+ * (WI-DP1.2, 2026-08-09): nothing imported it, so the page-world half was never
+ * registered. Rebuild it at the call site when the native `WKUserScript`
+ * registration actually lands, rather than keeping an injection payload that no
+ * code path injects.
  *
  * @coordinates-with services/mcpBridge/v2/browserConsole.ts — the read handler
  * @module lib/browser/agent/consoleShim
