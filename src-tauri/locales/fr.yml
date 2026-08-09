@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "Le navigateur intégré n'est pas disponible sur cette plateforme"
   browser.surfaceTimeout: "Le navigateur n'a pas répondu à temps"
   browser.surfaceFailed: "Le navigateur n'a pas pu effectuer cette action"
+  browser.staleCommand: "L'onglet du navigateur a changé avant que l'action puisse s'exécuter"
+  browser.noCommittedPage: "Cet onglet n'a pas encore fini de charger une page"
+  browser.notGranted: "L'IA n'est pas autorisée à faire cela sur cette page"
+  browser.attachmentRequired: "Attachez l'IA à cet onglet avant qu'elle puisse agir dessus"
+  browser.profileOriginConfined: "L'IA ne peut lire que la page approuvée pour ce profil"
 
   # === Hot exit ===
   hotExit.noWindows: "Aucune fenêtre de document à capturer"

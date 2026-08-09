@@ -9,8 +9,6 @@
   ],
   "files": {
     "src-tauri/src/asset_access.rs": 1,
-    "src-tauri/src/browser/commands_auth.rs": 7,
-    "src-tauri/src/browser/session_commands.rs": 3,
     "src-tauri/src/content_search.rs": 2,
     "src-tauri/src/content_server/commands.rs": 5,
     "src-tauri/src/content_server/slidev_commands.rs": 2,
