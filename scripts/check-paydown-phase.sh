@@ -12,10 +12,15 @@
 #
 # Exit codes: 0 phase complete · 1 incomplete / not started · 64 bad invocation
 #
-# A phase with nothing done reports NOT STARTED, and a skipped REAL-ROOT
-# assertion reports UNVERIFIED. Neither shares an exit code with DONE — the
-# predecessor checker shipped printing DONE over skipped work on its first day,
-# which is the defect this whole line of work exists to delete.
+# A phase with nothing done reports NOT STARTED, which does not share an exit
+# code with DONE.
+#
+# There is deliberately NO ``UNVERIFIED`` state here, unlike the predecessor
+# checker: every assertion reads a file that is always present, so nothing can
+# be skipped. An earlier draft copied that branch across anyway and nothing ever
+# incremented its counter — a contract asserted in a header and unreachable in
+# the code, which is the exact defect this line of work exists to delete, in the
+# file written to police it. Cross-model review 019fe5eb caught it (Dim 1 #5).
 #
 # @coordinates-with .claude/tdd-guardian/plan-20260809-debt-paydown.md
 
@@ -50,7 +55,7 @@ EOF
 case "$PHASE" in 0|1|2|3|4|all) ;; *) echo "unknown phase: $PHASE" >&2; usage; exit 64 ;; esac
 [[ -d "$ROOT" ]] || { echo "--root is not a directory: $ROOT" >&2; exit 64; }
 
-PASS=0; FAIL=0; PRESENT=0; CHECKED=0; SKIPPED=0
+PASS=0; FAIL=0; PRESENT=0; CHECKED=0
 ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }
 bad()  { echo "  ✗ $1"; FAIL=$((FAIL+1)); }
 
@@ -152,16 +157,13 @@ phase_4() {
 }
 
 run_phase() {
-  PASS=0; FAIL=0; PRESENT=0; CHECKED=0; SKIPPED=0
+  PASS=0; FAIL=0; PRESENT=0; CHECKED=0
   "phase_$1"
   if (( PRESENT == 0 )); then
     echo "  → Phase $1: NOT STARTED (0 of $CHECKED deliverables present)"; echo; return 1
   fi
   if (( FAIL > 0 )); then
     echo "  → Phase $1: INCOMPLETE ($PASS passed, $FAIL failed)"; echo; return 1
-  fi
-  if (( SKIPPED > 0 )); then
-    echo "  → Phase $1: UNVERIFIED ($PASS passed, $SKIPPED unverified)"; echo; return 1
   fi
   echo "  → Phase $1: DONE ($PASS passed)"; echo; return 0
 }
