@@ -239,7 +239,35 @@ in `browserFailure.ts:29` stays. Its own comment says it dies with the last
 unmigrated producer, and `authorize.rs` and `commands_auth.rs` still return the
 bare token. Deleting it now would break the human approval path.
 
-### WI-DP2.2 … WI-DP2.n — the remaining 85, one module per batch
+### WI-DP2.2 — `pty.rs` 8 → 0
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/pty.rs, scripts/command-error-baseline.json
+**Verified:** `cargo clippy --all-targets -- -D warnings` exit 0 · `cargo test` exit 0 · `pnpm lint:command-errors` held at 77 · terminal frontend 48 files / 989 tests green · `tsc` exit 0
+**Result:** baseline 85 → 77.
+
+Three classes, each named once in a helper rather than restated per call site:
+`not-found` for an unknown pid (the frontend polls after a `pty:exit` event, so
+"session gone" is an ordinary race and must be distinguishable from a fault),
+`io` for a real device failure on write/resize/kill, and `internal` for a
+poisoned mutex or tokio join failure. A second `pty_start` on one session became
+`conflict` — caller sequencing, not I/O.
+
+`internal` is used only where the process is in a state it should not be able to
+reach. ADR-2 forbids it as a shortcut for "unclassified", which is exactly why
+the other three exist.
+
+### WI-DP2.3 … WI-DP2.n — the remaining 77, one module per batch
+
+**Next, and deliberately not taken at the end of a long session:**
+`commands_auth.rs` (7) plus its `authorize.rs` helper. That pair is where
+`APPROVAL_REQUIRED` is produced, so migrating it is what finally deletes the
+`String(error).includes(...)` in `browserFailure.ts:29`. It is also a security
+DECISION surface: each token maps to a code that determines whether the UI
+raises an approval prompt (`approval-required`) or refuses outright
+(`permission-denied`), and `PROFILE_ORIGIN_CONFINED` vs `ATTACHMENT_REQUIRED`
+are on opposite sides of that line. Getting one wrong changes what the user is
+asked. It needs a focused pass, not a tired one.
 - [ ] Each command returns `Result<T, CommandError>` with a code from the closed
       vocabulary — never `internal` as a shortcut for "I did not classify this"
       (ADR-2).

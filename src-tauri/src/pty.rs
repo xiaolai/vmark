@@ -41,6 +41,7 @@ mod session;
 
 pub use session::{kill_all, PtyState};
 
+use crate::command_error::CommandError;
 use portable_pty::PtySize;
 use session::{get_session, PtyExitEvent};
 use std::collections::BTreeMap;
@@ -48,6 +49,29 @@ use std::io::{Read, Write};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Runtime};
+
+// WI-DP2.2 — the PTY command surface, typed. Three classes, and the reason each
+// is what it is:
+//
+//   not-found  an unknown pid. The frontend polls these after a `pty:exit`
+//              event, so "the session is gone" is an ordinary race, not a fault
+//              — it must be distinguishable from a real failure.
+//   io         the pty write/resize/kill itself failed. A real device error.
+//   internal   a poisoned mutex or a tokio join failure: this process is in a
+//              state it should not be able to reach, and no caller can act on
+//              it. NOT the catch-all — ADR-2 forbids `internal` as a shortcut
+//              for "unclassified", which is why the three above are separate.
+fn session_gone(pid: u32) -> CommandError {
+    CommandError::not_found(format!("unknown PTY session {pid}"))
+}
+
+fn pty_io(error: impl std::fmt::Display) -> CommandError {
+    CommandError::io(error.to_string())
+}
+
+fn pty_internal(what: &str, error: impl std::fmt::Display) -> CommandError {
+    CommandError::internal(format!("{what}: {error}"))
+}
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -68,12 +92,13 @@ pub async fn pty_spawn(
     cwd: Option<String>,
     env: BTreeMap<String, String>,
     state: tauri::State<'_, PtyState>,
-) -> Result<u32, String> {
+) -> Result<u32, CommandError> {
     let session = tokio::task::spawn_blocking(move || {
         session::create_session(file, args, cols, rows, cwd, env)
     })
     .await
-    .map_err(|e| format!("PTY spawn task failed: {e}"))??;
+    .map_err(|e| pty_internal("PTY spawn task failed", e))?
+    .map_err(pty_io)?;
 
     let pid = state.next_id.fetch_add(1, Ordering::Relaxed);
     state.sessions.write().await.insert(pid, Arc::new(session));
@@ -91,20 +116,20 @@ pub async fn pty_start<R: Runtime>(
     on_bytes: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
     state: tauri::State<'_, PtyState>,
     app: AppHandle<R>,
-) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
+) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
     let mut reader = session
         .reader
         .lock()
         .await
         .take()
-        .ok_or("pty_start already called for this session")?;
+        .ok_or_else(|| CommandError::conflict("pty_start already called for this session"))?;
     let mut child = session
         .child
         .lock()
         .await
         .take()
-        .ok_or("pty_start already called for this session")?;
+        .ok_or_else(|| CommandError::conflict("pty_start already called for this session"))?;
     let pause_ctl = session.pause_ctl.clone();
     let shutdown = session.shutdown.clone();
 
@@ -193,7 +218,7 @@ pub async fn pty_start<R: Runtime>(
             let exit_code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
             let _ = app.emit(&exit_event, PtyExitEvent { exit_code });
         })
-        .map_err(|e| format!("Failed to spawn reader thread: {e}"))?;
+        .map_err(|e| pty_internal("failed to spawn PTY reader thread", e))?;
 
     Ok(())
 }
@@ -208,17 +233,18 @@ pub async fn pty_write(
     pid: u32,
     data: String,
     state: tauri::State<'_, PtyState>,
-) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
+) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
     tokio::task::spawn_blocking(move || {
-        let mut writer = session.writer.lock().map_err(|e| e.to_string())?;
-        writer
-            .write_all(data.as_bytes())
-            .map_err(|e| e.to_string())?;
-        writer.flush().map_err(|e| e.to_string())
+        let mut writer = session
+            .writer
+            .lock()
+            .map_err(|e| pty_internal("PTY writer lock poisoned", e))?;
+        writer.write_all(data.as_bytes()).map_err(pty_io)?;
+        writer.flush().map_err(pty_io)
     })
     .await
-    .map_err(|e| format!("PTY write task failed: {e}"))?
+    .map_err(|e| pty_internal("PTY write task failed", e))?
 }
 
 /// Resize the PTY.
@@ -228,9 +254,12 @@ pub async fn pty_resize(
     cols: u16,
     rows: u16,
     state: tauri::State<'_, PtyState>,
-) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
-    let master = session.master.lock().map_err(|e| e.to_string())?;
+) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
+    let master = session
+        .master
+        .lock()
+        .map_err(|e| pty_internal("PTY master lock poisoned", e))?;
     master
         .resize(PtySize {
             rows: rows.max(1),
@@ -238,17 +267,20 @@ pub async fn pty_resize(
             pixel_width: 0,
             pixel_height: 0,
         })
-        .map_err(|e| e.to_string())
+        .map_err(pty_io)
 }
 
 /// Kill the PTY child process.
 #[tauri::command]
-pub async fn pty_kill(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
+pub async fn pty_kill(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
     session.shutdown.store(true, Ordering::Release);
     session.pause_ctl.resume(); // Wake reader if paused
-    let mut killer = session.child_killer.lock().map_err(|e| e.to_string())?;
-    killer.kill().map_err(|e| e.to_string())
+    let mut killer = session
+        .child_killer
+        .lock()
+        .map_err(|e| pty_internal("PTY child-killer lock poisoned", e))?;
+    killer.kill().map_err(pty_io)
 }
 
 /// Remove session from the map, freeing FDs and memory.
@@ -257,27 +289,27 @@ pub async fn pty_kill(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(),
 /// owns the child: no reader thread exists to reap it, so close kills and
 /// reaps it here (a bare map-remove would drop the child unreaped).
 #[tauri::command]
-pub async fn pty_close(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), String> {
+pub async fn pty_close(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), CommandError> {
     let Some(session) = state.sessions.write().await.remove(&pid) else {
         return Ok(());
     };
     tokio::task::spawn_blocking(move || session::kill_and_reap_unstarted(&session))
         .await
-        .map_err(|e| format!("PTY close task failed: {e}"))
+        .map_err(|e| pty_internal("PTY close task failed", e))
 }
 
 /// Pause the PTY reader (flow control).
 #[tauri::command]
-pub async fn pty_pause(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
+pub async fn pty_pause(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
     session.pause_ctl.pause();
     Ok(())
 }
 
 /// Resume the PTY reader (flow control).
 #[tauri::command]
-pub async fn pty_resume(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), String> {
-    let session = get_session(&state, pid).await?;
+pub async fn pty_resume(pid: u32, state: tauri::State<'_, PtyState>) -> Result<(), CommandError> {
+    let session = get_session(&state, pid).await.map_err(|_| session_gone(pid))?;
     session.pause_ctl.resume();
     Ok(())
 }
