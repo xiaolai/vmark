@@ -44,6 +44,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import ts from "typescript";
 
 // ─── Pure, testable core ───
 
@@ -256,45 +257,6 @@ export function countLegacyCommands(source) {
   return count;
 }
 
-/**
- * Blank JS/TS comments, preserving string and template literals — the opposite
- * trade-off from `stripCommentsAndStrings`, because the command name being
- * matched IS a string literal. Skips over quoted spans so a `//` inside a URL
- * is not read as a comment.
- */
-export function stripJsComments(source) {
-  let out = "";
-  for (let i = 0; i < source.length; i++) {
-    const c = source[i];
-    if (c === '"' || c === "'" || c === "`") {
-      const quote = c;
-      out += c;
-      for (i++; i < source.length; i++) {
-        out += source[i];
-        if (source[i] === "\\") {
-          i++;
-          if (i < source.length) out += source[i];
-        } else if (source[i] === quote) break;
-      }
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-      out += "\n";
-      continue;
-    }
-    if (c === "/" && source[i + 1] === "*") {
-      const end = source.indexOf("*/", i + 2);
-      const stop = end === -1 ? source.length : end + 2;
-      for (let j = i; j < stop; j++) out += source[j] === "\n" ? "\n" : " ";
-      i = stop - 1;
-      continue;
-    }
-    out += c;
-  }
-  return out;
-}
-
 /** Names of `#[tauri::command]` fns whose error type is `CommandError`. */
 export function typedCommandNames(source) {
   const text = stripCommentsAndStrings(source);
@@ -313,51 +275,166 @@ export function typedCommandNames(source) {
 }
 
 /**
- * `String(e)` / `String(err)` / `String(error)`, or the `errorMessage()` helper
- * — which is literally `error instanceof Error ? … : String(error)`, so it is
- * the same defect under a second name (rule 50 §10 names it). The `(?<!command)`
- * guard keeps `commandErrorMessage`, the CORRECT helper, from matching.
- */
-const STRINGIFIED_ERROR =
-  /\bString\(\s*(?:e|err|error)\d?\s*\)|(?<!command)\berrorMessage\(\s*(?:e|err|error)\d?\s*\)/;
-const INVOKE_CALL = /\binvoke\s*(?:<[^>]*>)?\s*\(\s*["'`]([a-z_][a-z0-9_]*)["'`]/gi;
-
-/**
- * Frontend files that invoke a TYPED command and render its rejection with
- * `String(...)`. A `CommandError` is a plain object, so that yields the literal
- * "[object Object]" — see WI-DP2.6, which found four such boundaries by hand.
+ * Files that invoke a TYPED command and render its rejection with `String(...)`
+ * or `errorMessage(...)` instead of `commandErrorMessage(...)`.
  *
- * Deliberately silent for files that only invoke LEGACY commands: `String(e)`
+ * **Parsed, not lexed.** Three rounds of hand-rolled scanning each shipped a
+ * fresh false negative — nested, parenthesised, object and function generic
+ * arguments; a `}` inside a string closing a catch block early;
+ * `.catch(async (e) => …)`; a shadowing inner parameter. The MECHANISM was the
+ * defect, so this walks a real TypeScript AST, the way `check-mock-boundaries`,
+ * `check-shell-slots` and `check-hooks-react-purity` already do. Scope and
+ * string contents then come from the parser instead of from another regex.
+ *
+ * Deliberately SILENT for files that only invoke LEGACY commands: `String(e)`
  * is CORRECT while the command still returns `Result<T, String>`, and flagging
  * it would demand a change that is wrong until the conversion lands.
  */
 export function findStringifiedTypedErrors(files, typedCommands) {
   const hits = [];
   for (const { path: file, source } of files) {
-    // NOT `source.includes("commandErrorMessage")` — a file can use the correct
-    // helper at one boundary and `String(e)` at another, which is how
-    // McpConfigInstaller looked mid-fix. Judge the offending call, not the file.
-    // An explicit, REASONED exemption. The check is file-level, so it cannot see
-    // which error a helper was applied to; a file that invokes a typed command
-    // and separately stringifies (say) a JSON.parse failure is correct as
-    // written. The reason is required — a bare marker is a mute button, the same
-    // rule the i18n allowlist and the caret-only focus marker carry.
-    if (/\/\/[^\S\n]*command-error-ok:[^\S\n]*\S/.test(source)) continue;
-    // Comments blanked, strings KEPT — the command name lives inside a string
-    // literal, so the Rust stripper (which blanks both) would erase the very
-    // thing being matched.
-    const code = stripJsComments(source);
-    if (!STRINGIFIED_ERROR.test(code)) continue;
-    INVOKE_CALL.lastIndex = 0;
-    let match;
-    while ((match = INVOKE_CALL.exec(code)) !== null) {
-      if (typedCommands.has(match[1])) {
-        hits.push({ file, command: match[1] });
-        break;
+    const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKindFor(file));
+
+    // Command names are not always literals: `restartWithHotExit.ts` invokes
+    // `HOT_EXIT_COMMANDS.CAPTURE` from a `const … as const` map, and requiring a
+    // literal left the gate blind to a LIVE [object Object] defect there. Bind
+    // simple compile-time constants — a `const X = "cmd"` and the properties of
+    // a `const M = { K: "cmd" }` — which is how every such call in this repo is
+    // written. Anything less tractable stays unresolved rather than guessed.
+    const constStrings = new Map();
+    const collectConsts = (node) => {
+      if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)) {
+        const init = node.initializer;
+        if (ts.isStringLiteralLike(init)) {
+          constStrings.set(node.name.text, init.text);
+        } else if (ts.isAsExpression(init) || ts.isObjectLiteralExpression(init)) {
+          const obj = ts.isAsExpression(init) ? init.expression : init;
+          if (ts.isObjectLiteralExpression(obj)) {
+            for (const prop of obj.properties) {
+              if (
+                ts.isPropertyAssignment(prop) &&
+                (ts.isIdentifier(prop.name) || ts.isStringLiteralLike(prop.name)) &&
+                ts.isStringLiteralLike(prop.initializer)
+              ) {
+                constStrings.set(`${node.name.text}.${prop.name.text}`, prop.initializer.text);
+              }
+            }
+          }
+        }
       }
-    }
+      ts.forEachChild(node, collectConsts);
+    };
+    collectConsts(sf);
+
+    /** The command name an argument denotes, or null when it cannot be resolved. */
+    const commandNameOf = (arg) => {
+      if (!arg) return null;
+      if (ts.isStringLiteralLike(arg)) return arg.text;
+      if (ts.isIdentifier(arg)) return constStrings.get(arg.text) ?? null;
+      if (ts.isPropertyAccessExpression(arg) && ts.isIdentifier(arg.expression)) {
+        return constStrings.get(`${arg.expression.text}.${arg.name.text}`) ?? null;
+      }
+      return null;
+    };
+
+    let command = null;
+    const findInvoke = (node) => {
+      if (command !== null) return;
+      if (ts.isCallExpression(node)) {
+        const callee = node.expression;
+        const name = ts.isIdentifier(callee)
+          ? callee.text
+          : ts.isPropertyAccessExpression(callee)
+            ? callee.name.text
+            : null;
+        if (name === "invoke") {
+          const resolved = commandNameOf(node.arguments[0]);
+          if (resolved !== null && typedCommands.has(resolved)) command = resolved;
+        }
+      }
+      ts.forEachChild(node, findInvoke);
+    };
+    findInvoke(sf);
+    if (command === null) continue;
+
+    // A `// command-error-ok: <reason>` marker suppresses only the site it
+    // precedes, not the whole file. The reason is required — a bare marker is a
+    // mute button, the same rule the i18n allowlist and caret-only marker carry.
+    const markers = new Set();
+    source.split("\n").forEach((line, i) => {
+      if (/\/\/[^\S\n]*command-error-ok:[^\S\n]*\S/.test(line)) markers.add(i);
+      else if (/^\s*\/\/\s*\S/.test(line) && markers.has(i - 1)) markers.add(i);
+    });
+
+    let found = null;
+    // Callbacks whose own parameter IS the caught binding — they must not be
+    // treated as shadowing themselves.
+    const bindingCallbacks = new WeakSet();
+    const walkNode = (node, bound) => {
+      if (found) return;
+      let next = bound;
+
+      if (ts.isCatchClause(node) && node.variableDeclaration) {
+        const nameNode = node.variableDeclaration.name;
+        if (ts.isIdentifier(nameNode)) next = new Set(bound).add(nameNode.text);
+      } else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+        const cb = node.arguments[0];
+        if (
+          node.expression.name.text === "catch" &&
+          cb &&
+          (ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) &&
+          cb.parameters[0] &&
+          ts.isIdentifier(cb.parameters[0].name)
+        ) {
+          next = new Set(bound).add(cb.parameters[0].name.text);
+          bindingCallbacks.add(cb);
+        }
+      }
+
+      if (
+        bound.size > 0 &&
+        !bindingCallbacks.has(node) &&
+        (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node))
+      ) {
+        // An inner parameter of the same name SHADOWS the caught binding.
+        const shadowed = node.parameters
+          .map((param) => param.name)
+          .filter((n) => ts.isIdentifier(n) && next.has(n.text));
+        if (shadowed.length > 0) {
+          next = new Set(next);
+          for (const n of shadowed) next.delete(n.text);
+        }
+      }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+        const fn = node.expression.text;
+        const arg = node.arguments[0];
+        if (
+          (fn === "String" || fn === "errorMessage") &&
+          node.arguments.length === 1 &&
+          arg &&
+          ts.isIdentifier(arg) &&
+          next.has(arg.text)
+        ) {
+          const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+          if (!markers.has(line) && !markers.has(line - 1)) {
+            found = { file, command, line: line + 1 };
+          }
+        }
+      }
+
+      ts.forEachChild(node, (child) => walkNode(child, next));
+    };
+    walkNode(sf, new Set());
+    if (found) hits.push(found);
   }
   return hits;
+}
+
+/** JSX must be parsed as JSX, or `<Foo/>` is a syntax error and the file is skipped. */
+function scriptKindFor(file) {
+  if (file.endsWith("x")) return file.includes(".ts") ? ts.ScriptKind.TSX : ts.ScriptKind.JSX;
+  return file.includes(".ts") ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 
 function walk(dir, rootLen, out) {
@@ -385,6 +462,14 @@ export function scanTree(root) {
   return counts;
 }
 
+/**
+ * Every production JS/TS extension, not just `.ts`/`.tsx`:
+ * `src/export/reader/vmark-reader.js` is real production source and a defect
+ * there was invisible to this gate. `.spec.` is excluded alongside `.test.`.
+ */
+const FRONTEND_SOURCE = /\.(?:[cm]?tsx?|[cm]?jsx?)$/;
+const FRONTEND_TEST = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
+
 /** Frontend sources that could receive a command rejection (tests excluded). */
 function walkFrontend(dir, rootLen, out) {
   if (!existsSync(dir)) return out;
@@ -393,7 +478,7 @@ function walkFrontend(dir, rootLen, out) {
     if (entry.isDirectory()) {
       if (entry.name === "__tests__" || entry.name === "locales") continue;
       walkFrontend(full, rootLen, out);
-    } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+    } else if (FRONTEND_SOURCE.test(entry.name) && !FRONTEND_TEST.test(entry.name)) {
       out.push(full.slice(rootLen).split(path.sep).join("/"));
     }
   }

@@ -22,12 +22,6 @@ export interface ServerHandle {
 
 export type SlidevExportFormat = "pdf" | "png" | "pptx";
 
-// WI-DP2.6: the content_server commands reject with a typed `CommandError`,
-// a plain object — `String(error)` on one yields "[object Object]".
-function toMessage(error: unknown): string {
-  return commandErrorMessage(error);
-}
-
 /** Start (provisioning if needed) the content server for a workspace. */
 export async function startContentServer(workspaceRoot: string): Promise<ServerHandle> {
   return invoke<ServerHandle>("content_server_start", { workspaceRoot });
@@ -88,7 +82,7 @@ export async function exportSlidev(
       outputPath,
     });
   } catch (error) {
-    throw new Error(`Slidev export failed: ${toMessage(error)}`, {
+    throw new Error(`Slidev export failed: ${commandErrorMessage(error)}`, {
       cause: error,
     });
   }

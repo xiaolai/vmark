@@ -17,12 +17,23 @@
 //!     namespace (e.g. `apikey.anthropic`).
 //!   - `get_secret` returns `Ok(None)` for a missing entry (not an error), so
 //!     callers can treat "no key yet" as a normal state.
-//!   - Commands return `Result<_, CommandError>` (rule 50 §10, WI-DP2.9). The
-//!     codes are not decoration: `NoStorageAccess` is the case this module's
-//!     macOS caveat below describes — a re-signed dev build DENIED by the
-//!     keychain ACL — and it is `permission-denied`, because re-granting access
-//!     is something the user can actually do. Everything else from keyring is
-//!     `internal`, and an empty key is `invalid-input` (a caller bug).
+//!   - Commands return `Result<_, CommandError>` (rule 50 §10, WI-DP2.9).
+//!     `NoStorageAccess` is `permission-denied`: on macOS `keyring` 3.6.3 maps
+//!     errSecNotAvailable / errSecReadOnly / errSecNoSuchKeychain /
+//!     errSecInvalidKeychain to it, i.e. the credential store itself cannot be
+//!     reached, and unlocking or repairing the keychain is a thing the user can
+//!     actually do. An empty key is `invalid-input` (a caller bug); everything
+//!     else is `internal`.
+//!
+//!     **Known gap, stated rather than implied.** An earlier revision of this
+//!     comment claimed `NoStorageAccess` covered the ACL denial described in
+//!     the macOS caveat below. It does not: `errSecAuthFailed` (-25293) is NOT
+//!     in keyring's mapping list (`macos.rs::decode_error`) and falls through
+//!     to `PlatformFailure`, so a re-signed dev build denied by the ACL is
+//!     reported as `internal`. Narrowing that needs the concrete OSStatus,
+//!     which keyring hides behind `Box<dyn Error>` — it would mean taking a
+//!     direct `security-framework` dependency to downcast, which is not worth
+//!     it for a dev-build-only case.
 //!   - Tests use the crate's `mock` credential store
 //!     (`set_default_credential_builder(mock::default_credential_builder())`)
 //!     so they never touch the real OS keychain.
@@ -48,10 +59,11 @@ fn entry(key: &str) -> Result<Entry, CommandError> {
         .map_err(|e| CommandError::internal(format!("keychain entry error: {e}")))
 }
 
-/// Classify a keyring failure. `NoStorageAccess` is the OS refusing us the
-/// credential — on macOS, the ACL denial this module's header describes — and
-/// the user can re-grant it, so it is `permission-denied` rather than a fault
-/// they cannot act on.
+/// Classify a keyring failure. `NoStorageAccess` means the credential STORE
+/// could not be reached — on macOS: unavailable, read-only, missing or invalid
+/// keychain — which the user can act on by unlocking or repairing it, so it is
+/// `permission-denied`. See the module header for the one denial this does NOT
+/// catch (`errSecAuthFailed`, which keyring reports as `PlatformFailure`).
 fn keychain_failure(action: &str, error: keyring::Error) -> CommandError {
     let message = format!("failed to {action} secret: {error}");
     match error {
@@ -87,13 +99,20 @@ fn delete_on(entry: &Entry) -> Result<(), CommandError> {
     }
 }
 
-/// Store `value` under `key` in the OS keychain (insert or overwrite).
-#[tauri::command]
-pub fn set_secret(key: String, value: String) -> Result<(), CommandError> {
+/// Validate the key and build its entry. The empty-key check was copy-pasted
+/// into all three commands (audit 20260809 #6); one caller-bug rejection with
+/// one message is easier to keep true than three.
+fn validated_entry(key: &str) -> Result<Entry, CommandError> {
     if key.is_empty() {
         return Err(CommandError::invalid_input("secret key must not be empty"));
     }
-    set_on(&entry(&key)?, &value)
+    entry(key)
+}
+
+/// Store `value` under `key` in the OS keychain (insert or overwrite).
+#[tauri::command]
+pub fn set_secret(key: String, value: String) -> Result<(), CommandError> {
+    set_on(&validated_entry(&key)?, &value)
 }
 
 /// Read the secret stored under `key`. Returns `Ok(None)` when no entry
@@ -101,20 +120,14 @@ pub fn set_secret(key: String, value: String) -> Result<(), CommandError> {
 /// keychain failure.
 #[tauri::command]
 pub fn get_secret(key: String) -> Result<Option<String>, CommandError> {
-    if key.is_empty() {
-        return Err(CommandError::invalid_input("secret key must not be empty"));
-    }
-    get_on(&entry(&key)?)
+    get_on(&validated_entry(&key)?)
 }
 
 /// Delete the secret stored under `key`. Deleting a missing entry is a no-op
 /// (idempotent) so callers can clear keys without first checking existence.
 #[tauri::command]
 pub fn delete_secret(key: String) -> Result<(), CommandError> {
-    if key.is_empty() {
-        return Err(CommandError::invalid_input("secret key must not be empty"));
-    }
-    delete_on(&entry(&key)?)
+    delete_on(&validated_entry(&key)?)
 }
 
 #[cfg(test)]
@@ -184,14 +197,6 @@ mod tests {
     }
 
     #[test]
-    fn empty_key_is_rejected_on_all_ops() {
-        // Command-level validation rejects an empty key before touching the store.
-        assert!(set_secret(String::new(), "x".into()).is_err());
-        assert!(get_secret(String::new()).is_err());
-        assert!(delete_secret(String::new()).is_err());
-    }
-
-    #[test]
     fn handles_unicode_and_long_values() {
         let e = mock_entry("unicode");
         let value = "鍵-🔑-".repeat(50);
@@ -216,10 +221,13 @@ mod tests {
 
     #[test]
     fn a_denied_keychain_is_permission_denied_and_the_rest_internal() {
-        // `NoStorageAccess` is the macOS ACL denial this module's header
-        // describes (a re-signed dev build). Re-granting access is something
-        // the user can do, so reporting it as `internal` would tell them a
-        // fixable problem is VMark's fault.
+        // `NoStorageAccess` means the credential STORE was unreachable —
+        // keychain locked, read-only, missing or invalid — which the user can
+        // act on, so calling it `internal` would blame VMark for something they
+        // can fix. NOTE: this asserts the mapping of a SYNTHETIC variant only.
+        // It does NOT prove what macOS produces for any given OSStatus, and in
+        // particular errSecAuthFailed (the ACL denial in the module header)
+        // arrives as `PlatformFailure`, not this variant.
         let denied = keychain_failure(
             "read",
             keyring::Error::NoStorageAccess(Box::new(std::io::Error::other("denied"))),
