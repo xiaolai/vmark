@@ -9,7 +9,7 @@
  * subsequent editor reads/edits verifiably target the fixture document.
  */
 
-import { emitEvent, getTabs, poll } from "./vmark.mjs";
+import { emitEvent, getTabs, poll, createScratchTab } from "./vmark.mjs";
 import { evalJs } from "./bridge.mjs";
 
 /**
@@ -58,6 +58,25 @@ export async function openFixtureInNewTab(client, { before, track, guardId, file
         "This helper derives the expected title from the filename on disk; " +
         "teach it the stripping rule before running with that setting."
     );
+  }
+
+  // PRECONDITION: more than one tab must be open.
+  //
+  // `findReplaceableTab` (src/utils/openPolicy/replaceableTab.ts) replaces a tab
+  // only when it is the ONLY tab, untitled and clean — and the guard scratch tab
+  // is deliberately all three. So on a window holding just the guard, opening a
+  // file loads INTO it, which is correct app behaviour and makes this journey's
+  // "expected a fresh tab" guard unsatisfiable.
+  //
+  // That precondition was previously inherited by accident: a maintainer's app
+  // restores a session with several tabs, so the guard was never the only one.
+  // CI starts from a fresh profile and has no such session — which is why these
+  // six journeys passed locally forever and failed on their first CI run. An
+  // assumption a test only meets because of the machine it runs on is not a
+  // precondition, it is luck; this makes it explicit and deterministic.
+  const priorTabs = await getTabs(client);
+  if (priorTabs.length <= 1) {
+    track((await createScratchTab(client)).id);
   }
 
   await emitEvent(client, "app:open-file", { path: filePath, workspace_root: null });
