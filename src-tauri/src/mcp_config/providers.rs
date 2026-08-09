@@ -87,9 +87,7 @@ pub(crate) const PROVIDERS: &[ProviderConfig] = &[
     },
 ];
 
-pub(crate) fn get_provider_config(
-    provider: &str,
-) -> Result<&'static ProviderConfig, CommandError> {
+pub(crate) fn get_provider_config(provider: &str) -> Result<&'static ProviderConfig, CommandError> {
     PROVIDERS.iter().find(|p| p.id == provider).ok_or_else(|| {
         localized_error!(
             ErrorCode::NotFound,

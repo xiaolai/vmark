@@ -191,7 +191,7 @@ macro_rules! all_commands {
             content_server::slidev_commands::content_server_slidev_preview,
             content_server::slidev_commands::content_server_slidev_export,
             pty::pty_spawn,
-            pty::pty_start,
+            pty::reader::pty_start,
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,

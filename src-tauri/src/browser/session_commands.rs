@@ -21,11 +21,12 @@
 //! @coordinates-with browser/authorize.rs — the shared driver-authorization gate
 
 use crate::browser::ai_guards::surface_failure;
-use crate::browser::authorize::{authorize_driver_op, command_still_fresh, stale_command};
-use crate::command_error::CommandError;
+use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
 use crate::browser::origin_guard::canonicalize_origin;
+use crate::browser::refusals::stale_command;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
+use crate::command_error::CommandError;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
@@ -261,7 +262,10 @@ pub async fn browser_load_storage_state(
     // before replay (as browser_eval does) and read the CURRENT committed origin —
     // `apply` refuses unless every saved entry's origin matches it. (Sec review P6.)
     if !command_still_fresh(&state, &tab_id, generation) {
-        return Err(stale_command(&tab_id, "before the session could be restored"));
+        return Err(stale_command(
+            &tab_id,
+            "before the session could be restored",
+        ));
     }
     let committed = committed_origin(&state, &tab_id).map_err(CommandError::conflict)?;
     apply(&app, &tab_id, &committed, &blob, generation, &state).map_err(|e| surface_failure(&e))
