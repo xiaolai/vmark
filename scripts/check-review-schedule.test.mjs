@@ -1,5 +1,9 @@
 /**
- * WI-AF3.1 — the baseline review schedule (finding F5).
+ * WI-AF3.1, WI-AF3.2, WI-AF3.3 — the baseline review schedule (finding F5).
+ *
+ * WI-AF3.1 is the spike this grew out of, WI-AF3.2 the schedule file and its
+ * registration in the ratchet, WI-AF3.3 the overdue reporter whose --report
+ * mode is pinned below.
  *
  * Runs the REAL `scripts/check-review-schedule.mjs` against fixture manifests
  * and schedules in tmpdir. The script takes `--manifest` and `--schedule` so
