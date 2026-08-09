@@ -3,6 +3,7 @@
 //! These commands provide session capture, restore, and management for the hot exit feature.
 //! They are used both in production (update restart flow) and for developer testing.
 
+use crate::command_error::CommandError;
 use super::coordinator::{
     capture_session, restore_session, restore_session_multi_window, CaptureResult,
     RestoreMultiWindowResult,
@@ -22,13 +23,13 @@ use tauri::{AppHandle, State};
 pub async fn hot_exit_capture(
     app: AppHandle,
     hot_exit: State<'_, HotExitState>,
-) -> Result<SessionData, String> {
+) -> Result<SessionData, CommandError> {
     // Capture outside the lock — the IPC broadcast can take up to CAPTURE_TIMEOUT_SECS.
     // Only the read-merge-write section needs serialization.
     let CaptureResult {
         session,
         expected_labels,
-    } = capture_session(&app).await?;
+    } = capture_session(&app).await.map_err(CommandError::io)?;
     let _guard = hot_exit.capture_lock().await;
 
     // Merge partial captures (pure logic, table-tested in merge.rs): only
@@ -47,14 +48,14 @@ pub async fn hot_exit_capture(
         chrono::Utc::now().timestamp(),
     );
 
-    write_session_atomic(&app, &session).await?;
+    write_session_atomic(&app, &session).await.map_err(CommandError::io)?;
     Ok(session)
 }
 
 /// Restore session to current window from provided session data
 #[tauri::command]
-pub fn hot_exit_restore(app: AppHandle, session: SessionData) -> Result<(), String> {
-    restore_session(&app, session)
+pub fn hot_exit_restore(app: AppHandle, session: SessionData) -> Result<(), CommandError> {
+    restore_session(&app, session).map_err(CommandError::io)
 }
 
 /// The inspect payload: every `SessionData` field, flattened, plus the
@@ -90,8 +91,11 @@ impl From<LoadedSession> for InspectedSession {
 /// still on disk: the frontend must quarantine it before the restore path
 /// clears the session files.
 #[tauri::command]
-pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<InspectedSession>, String> {
-    Ok(read_session(&app).await?.map(InspectedSession::from))
+pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<InspectedSession>, CommandError> {
+    Ok(read_session(&app)
+        .await
+        .map_err(CommandError::io)?
+        .map(InspectedSession::from))
 }
 
 /// Delete the saved session file
@@ -99,10 +103,10 @@ pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<Inspected
 pub async fn hot_exit_clear_session(
     app: AppHandle,
     hot_exit: State<'_, HotExitState>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     // Also clear pending restore state
     hot_exit.clear();
-    delete_session(&app).await
+    delete_session(&app).await.map_err(CommandError::io)
 }
 
 /// Initialize multi-window restore
@@ -113,8 +117,8 @@ pub async fn hot_exit_clear_session(
 pub fn hot_exit_restore_multi_window(
     app: AppHandle,
     session: SessionData,
-) -> Result<RestoreMultiWindowResult, String> {
-    restore_session_multi_window(&app, session)
+) -> Result<RestoreMultiWindowResult, CommandError> {
+    restore_session_multi_window(&app, session).map_err(CommandError::io)
 }
 
 /// Get pending window state for restoration
