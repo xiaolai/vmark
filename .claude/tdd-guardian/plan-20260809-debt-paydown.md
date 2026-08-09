@@ -1,6 +1,6 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** Phase 0 — revision 2, post-review. **Phase 3 reclassified; not ready to build as written.**
+**Status:** revision 3. Phases 0 and 1 **DONE**; WI-DP3.0 pilot **DONE**. Phases 2, 3, 4 not started.
 **Date:** 2026-08-09
 **Cross-model review (governance §6):** Review thread: `019fe5eb-36fb-7ee2-9f1b-65d8512e84c6`
 · Codex `gpt-5.6-sol`, effort high · **Verdict on revision 1: MAJOR GAPS.**
@@ -34,18 +34,20 @@ The evidence is in the shape of the debt, not in optimism about it:
 
 | Baseline | Units | Shape |
 |---|---:|---|
-| `mock-boundaries-baseline.json` | 274 across 139 files | **NOT mechanical — see Phase 3.** 112 of 139 files assert on call spies |
+| `mock-boundaries-baseline.json` | 268 across 135 files | mixed: ~48 files need assertion rewrites, the rest are substitution (measured by WI-DP3.0) |
 | `bespoke-buttons-baseline.json` | 88 named + 80 styled, **149 unique** | 61 of the 80 are usage-only; 19 overlap the named set |
 | `command-error-baseline.json` | 99 across 36 files | established pattern, 8 `From` impls, coherence migrated as the worked example |
-| `knip-baseline.json` | 75 findings / 6 families | 16 dead exports, 59 dead types |
-| `merge-drop-allowlist.json` | 2 | both already state where the change was re-applied |
+| `knip-baseline.json` | **0** (was 75) | cleared, WI-DP1.2 |
+| `merge-drop-allowlist.json` | **0** (was 2) | both claims verified real, entries removed, WI-DP1.1 |
 
-Revision 1 read that table and concluded the whole set was "one pattern applied
-repeatedly". For `command-error`, `knip` and `merge-drops` that holds. For
-`mock-boundaries` it does not, and the review caught it: 112 of the 139 files
-assert `toHaveBeenCalledWith` on a mocked action, which no real store can
-satisfy. Phase 3 is reclassified below. **The mechanical block is ~176 units
-(knip 75, command-error 99, merge-drops 2), not ~551.**
+Revision 1 called the whole set "one pattern applied repeatedly". For
+`command-error`, `knip` and `merge-drops` that held — both of the latter are now
+zero. For `mock-boundaries` it did not, but revision 2 then over-corrected: it
+claimed 112 of 139 files assert on mocked store actions, from a `grep -c
+toHaveBeenCalled` that also counted local callbacks and `@tauri-apps` boundary
+mocks. **WI-DP3.0 measured it properly: ~48.** Roughly a third need assertion
+rewrites; the rest are substitution. Both earlier numbers were wrong, in
+opposite directions — see WI-DP3.0 for the method and the table.
 
 **What this plan does NOT touch** — the register keeps reporting these, because
 for them a standing report IS the right instrument. They are waiting on
