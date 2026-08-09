@@ -20,7 +20,14 @@ import { evalJs } from "./bridge.mjs";
 import { emitMenu, mcpFire, poll, getPersistedWorkspaceRoot } from "./vmark.mjs";
 
 const APPROVAL_OVERLAY = ".workspace-approval-overlay";
-const APPROVAL_APPROVE = ".workspace-approval-approve";
+// The approve button is the primary action inside the dialog's action row.
+// It was `.workspace-approval-approve` — a class that exists nowhere in src/,
+// so `querySelector(...)?.click()` matched nothing, silently did nothing, and
+// returned true. The journey then waited out its budget for a dialog that had
+// never been told to close. The bespoke button consolidation (rule 32) moved
+// these onto the canonical `.vm-btn` / `.vm-btn--primary` pair and the harness
+// was never updated; nothing noticed, because nothing ran the suite.
+const APPROVAL_APPROVE = ".workspace-approval-actions .vm-btn--primary";
 const APPROVAL_PATH = ".workspace-approval-path";
 
 /** The pending approval prompt, or null when no dialog is up. */
@@ -53,10 +60,25 @@ export async function openWorkspaceViaMcp(client, folderPath, { windowLabel = "m
   }
 
   // 2. Approve through the real button — mints the one-shot grant.
-  await evalJs(
+  // Report whether the button was actually there. `?.click()` returning a bare
+  // `true` is a fail-silent: a missed selector is indistinguishable from a
+  // successful click, and the only symptom is the unrelated-looking timeout
+  // below. A click that hit nothing must say so, at the point it happened.
+  const clicked = await evalJs(
     client,
-    `(() => { document.querySelector(${JSON.stringify(APPROVAL_APPROVE)})?.click(); return true; })()`
+    `(() => {
+       const el = document.querySelector(${JSON.stringify(APPROVAL_APPROVE)});
+       if (!el) return false;
+       el.click();
+       return true;
+     })()`
   );
+  if (!clicked) {
+    throw new Error(
+      `approve button not found (${APPROVAL_APPROVE}) — the dialog is up but the ` +
+        `harness cannot reach its approve action; the selector has gone stale.`
+    );
+  }
   await poll(
     () => getApprovalPrompt(client),
     (p) => p === null,
