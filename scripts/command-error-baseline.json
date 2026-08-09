@@ -19,7 +19,6 @@
     "src-tauri/src/live_docs.rs": 2,
     "src-tauri/src/mcp_bridge/commands.rs": 3,
     "src-tauri/src/mcp_bridge_path_guard.rs": 1,
-    "src-tauri/src/mcp_config/commands.rs": 4,
     "src-tauri/src/menu/browser_menu_item.rs": 2,
     "src-tauri/src/menu/dynamic.rs": 2,
     "src-tauri/src/menu/localized.rs": 1,
