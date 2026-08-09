@@ -300,7 +300,21 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - See `.claude/rules/60-ai-governance.md` for the full rule set; background research in `dev-docs/grills/ai-governance-2026-05.md`.
 
-  - Plans live in `dev-docs/plans/YYYYMMDD-name.md` with WI-IDs (`WI-1.2`). Every WI in a "complete" phase must be linked via commit message or test-file header — checked by `scripts/check-wi-linkage.sh`.
+  - Plans are named `YYYYMMDD-name.md` and live in **one of two homes**: `dev-docs/plans/`
+    (gitignored, maintainer-local) or `.claude/tdd-guardian/` (tracked — for a plan that must
+    ship with the repo, e.g. one whose DoD script CI runs). See `60-ai-governance.md` §1 for
+    which to pick; a rule naming only the gitignored home would have required deleting the two
+    largest plans here to comply.
+
+  - **Namespace a plan's WI-IDs** (`WI-AF1.2`, `WI-VC0.1`) whenever it coexists with other
+    plans. Test-header linkage searches the whole repo, so a bare `WI-5.2` is satisfied by any
+    test citing another plan's `WI-5.2` — a 19-item plan once reported every item linked with
+    nothing implemented.
+
+  - Every WI in a "complete" phase must be linked via a commit-message tag `(WI-1.2)` or a
+    test-file header — checked by `scripts/check-wi-linkage.sh`. A bare mention in prose does
+    not count, on either side: a commit that *describes* a work item is not evidence the work
+    happened.
 
   - Each phase has machine-checkable DoD. For the GHA workflow viewer plan: `bash scripts/check-gha-phase.sh <N>`.
 
