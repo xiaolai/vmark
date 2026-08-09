@@ -1,0 +1,103 @@
+name: Gate liveness
+
+# WI-AF2.4 — does every scheduled gate still produce verdicts?
+#
+# `tier0-e2e.yml` was merged 2026-08-04 and had run ZERO times five days later.
+# It reviewed clean, it was wired correctly, and it protected nothing — the six
+# Tier-0 journeys behind it had in fact been broken since 2026-08-07. A gate that
+# has stopped producing verdicts is indistinguishable, from outside, from a gate
+# that is passing. This job is what tells them apart.
+#
+# Discovery is by the `# liveness-gate: true` marker inside each workflow, so
+# there is no list here to drift out of sync with reality.
+#
+# WHO WATCHES THIS ONE: not itself. A scheduled workflow that stops firing is not
+# there to report its own silence, and a header sentence claiming otherwise would
+# be documentation rather than supervision. `baseline-review.yml` runs
+# `check-gate-liveness.mjs --only gate-liveness.yml` on a DIFFERENT day; this job
+# covers the rest. Mutual watchers, non-identical schedules — and
+# scripts/check-gate-liveness.test.mjs asserts the other half of that pair
+# actually exists.
+#
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+
+on:
+  workflow_dispatch:
+  # Thursday 08:00 UTC — deliberately far from the Monday cluster it watches,
+  # so a gate that failed to fire on Monday is noticed within days rather than
+  # in the same hour it was supposed to run.
+  schedule:
+    - cron: "0 8 * * 4"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-liveness
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      stale: ${{ steps.check.outputs.stale }}
+      body: ${{ steps.check.outputs.body }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check every declared liveness gate
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          out=$(node scripts/check-gate-liveness.mjs 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          {
+            echo "stale=$([ $code -ne 0 ] && echo true || echo false)"
+            echo "body<<REPORT_EOF"
+            echo "## Gate liveness"
+            echo ""
+            echo '```'
+            echo "$out"
+            echo '```'
+            echo ""
+            echo "A gate listed above has stopped producing verdicts. Either it is"
+            echo "broken, or its cadence declaration no longer matches its schedule."
+            echo ""
+            echo "_Filed by [gate-liveness](https://github.com/${GITHUB_REPOSITORY}/actions/workflows/gate-liveness.yml) — run ${GITHUB_RUN_ID}._"
+            echo "REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  report:
+    needs: measure
+    if: needs.measure.outputs.stale == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the rolling issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ needs.measure.outputs.body }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          existing=$(gh issue list --repo "$REPO" --label gate-liveness --state open \
+                       --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" --label gate-liveness \
+              --title "A scheduled gate has stopped producing verdicts" --body "$BODY"
+          fi

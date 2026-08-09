@@ -50,6 +50,17 @@ export const MANIFEST = {
       ],
     },
     {
+      // Which baselines are debt (WI-AF3.2). An IDENTITY list, so a baseline
+      // cannot quietly stop being tracked — dropping a key is the loosening
+      // that matters here. There are no deadlines to ratchet: an earlier
+      // revision carried invented per-baseline dates, and inventing a date is
+      // not made rigorous by policing it. `exempt` carries prose reasons and is
+      // validated for shape by scripts/check-review-schedule.mjs, which also
+      // enforces two-way coverage against THIS manifest.
+      path: "scripts/baseline-review-schedule.json",
+      checks: [{ mode: "identity", at: "tracked", shape: "object-keys", onAdd: "report" }],
+    },
+    {
       // Six warn-tier knip families, each a plain count at the root.
       path: "scripts/knip-baseline.json",
       checks: [{ mode: "per-key-count", at: "" }],

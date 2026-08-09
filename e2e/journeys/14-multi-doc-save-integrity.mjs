@@ -19,7 +19,7 @@
  */
 
 import { writeFile, readFile } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import { makeAppTempDir } from "../lib/fixtures.mjs";
 import { openFixtureInNewTab } from "../lib/disk.mjs";
 import {
@@ -65,8 +65,6 @@ export default {
     const fixture = await makeAppTempDir();
     const fileA = join(fixture.dir, `journey-multi-A-${fixture.stamp}.md`);
     const fileB = join(fixture.dir, `journey-multi-B-${fixture.stamp}.md`);
-    const titleA = basename(fileA, ".md");
-    const titleB = basename(fileB, ".md");
     const markerA = `MARKER-A-${fixture.stamp}`;
     const markerB = `MARKER-B-${fixture.stamp}`;
     await writeFile(fileA, `# Doc A\n\nalpha body ${fixture.stamp}\n`, "utf8");
@@ -83,7 +81,6 @@ export default {
           track,
           guardId: guard.id,
           filePath: fileA,
-          title: titleA,
         });
         await poll(
           () => getEditorText(client),
@@ -97,7 +94,6 @@ export default {
           track,
           guardId: guard.id,
           filePath: fileB,
-          title: titleB,
         });
         await poll(
           () => getEditorText(client),

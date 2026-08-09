@@ -12,6 +12,45 @@ name: Mutation Testing
 # failed invisibly). Jobs now fail loudly and report into a single rolling
 # tracking issue instead — non-blocking for PRs, but never silent.
 #
+# WHY EVERY SCHEDULED RUN BEFORE 2026-08-04 READ AS "cancelled" (WI-AF2.2).
+# Evidence, from `gh api` run history rather than recollection:
+#
+#   run id       created           event       run concl.  wall clock
+#   30792371018  2026-08-03 07:05  schedule    cancelled   61 min
+#   30244907645  2026-07-27 07:06  schedule    cancelled   60 min
+#   29728934205  2026-07-20 08:45  schedule    cancelled   60 min
+#   29237123040  2026-07-13 08:54  schedule    cancelled   61 min
+#   28775220736  2026-07-06 07:30  schedule    cancelled   60 min
+#   28356326301  2026-06-29 07:39  schedule    cancelled   61 min
+#   27938035846  2026-06-22 07:57  schedule    cancelled   60 min
+#   27532109014  2026-06-15 07:55  schedule    SUCCESS      5 min  ← job: failure
+#   27123014078  2026-06-08 07:39  schedule    cancelled   61 min
+#
+# Two distinct causes, neither of them a human and neither the concurrency
+# group (weekly runs never overlap, so `cancel-in-progress` never fired):
+#
+#   1. The seven 60-61 minute "cancellations" are the `mutants` job exceeding
+#      `timeout-minutes: 60` (the value at 66bcf618). GitHub reports a job
+#      killed by its own timeout as CANCELLED, which reads like an operator
+#      action and is why this went unexamined for two months. Root cause: 139
+#      Rust mutants do not fit in 60 minutes on a 2-core runner.
+#   2. The lone "success" is worse than the failures: run conclusion `success`,
+#      its only job `mutants` conclusion `failure`, five minutes end to end.
+#      That is `continue-on-error: true` laundering a failed job into a green
+#      run — the run-level history was not merely unhelpful, it was false.
+#
+# Both are fixed and the fix is measured, not guessed: timeouts are now 240 and
+# 300 minutes, sized from run 30898727907, and the first genuinely green run
+# (30921292001, 2026-08-04) took 95 and 183 minutes — inside the new bounds,
+# far outside the old one. `continue-on-error` is gone.
+#
+# What is NOT yet proven: the SCHEDULE path under those timeouts. Every green
+# run so far has been a `workflow_dispatch`, and a dispatch is not evidence
+# about a cron. The first scheduled run after the fix is 2026-08-10 06:00 UTC;
+# until its verdict is recorded here, this workflow's weekly cadence is
+# untested. `scripts/check-gate-liveness.mjs` (WI-AF2.4) is what will notice if
+# it silently stops producing verdicts again.
+#
 # REPORTING IS ITS OWN JOB, for two reasons:
 #   - Least privilege. `issues: write` used to sit at workflow level, so every
 #     step of both measurement jobs — including `cargo mutants` and Stryker
@@ -26,6 +65,13 @@ name: Mutation Testing
 #     aggregates `needs.*.result` cannot race itself.
 #
 # See dev-docs/testing-hardening.md.
+
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs (WI-AF2.4). Seven scheduled runs
+#     died at their own 60-minute timeout, reported as `cancelled`; that word is
+#     why the checker refuses to count a cancellation as a verdict.
 
 on:
   # Manual trigger from the Actions tab.

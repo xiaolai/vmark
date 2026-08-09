@@ -22,9 +22,40 @@ name: Tier-0 E2E Journeys
 #
 # Headed-runner caveat (e2e/README.md "CI"): GitHub-hosted runners are
 # headless, so the app runs under Xvfb. That is the one part of this workflow
-# no local check can prove — its first live run is a `workflow_dispatch` after
-# merge, verified with `gh run view --json headSha,conclusion,jobs` against the
-# dispatched SHA (never a bare `gh run watch`).
+# no local check can prove.
+#
+# First green run: 31303955024 @ f339798ba549e06c8f00ffc2951e23517218aa50
+# (2026-08-09, workflow_dispatch, job `journeys`: success, 8/8 journeys).
+# Verified with `gh run view --json headSha,conclusion,jobs`, never a bare
+# `gh run watch`.
+#
+# It took EIGHT dispatches, and this workflow had never run once in the five
+# days between being merged and being tried. Each failure was real:
+#   1. the 180s bridge wait expired with cargo at 752/754 crates — `tauri dev`
+#      compiles on startup, and a first run has no cache. It could not have
+#      passed;
+#   2. the readiness probe was a TCP connect, which succeeds when the listener
+#      binds — before the window exists. "bridge up after 1s"; the real number
+#      is 72s;
+#   3. tab titles gained extensions on 2026-08-07 (6848de868) and every
+#      fixture-opening journey had been broken since, invisibly;
+#   4. the journeys assumed a session with >1 tab, which a maintainer's app
+#      restores and a fresh CI profile does not — so the file loaded into the
+#      guard tab, which is correct app behaviour;
+#   5. the approve-button selector had gone stale, and `?.click()` made a miss
+#      indistinguishable from a click;
+#   6-7. two macOS-only process probes (`lsof`, and `ps -o comm=` path vs name)
+#      that returned empty on Linux, presenting a broken harness as an app that
+#      spawns no terminals.
+# None was visible to review. That is what `scripts/check-gate-liveness.mjs`
+# now watches for.
+
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs (WI-AF2.4). This workflow having
+#     never run once, for five days after it was merged, is the finding that
+#     produced that checker.
 
 on:
   workflow_dispatch:
@@ -89,6 +120,26 @@ jobs:
         # journeys exercise a running app rather than a compile.
         run: pnpm --dir server/mcp build:sidecar
 
+      - name: Compile the debug binary
+        shell: bash
+        # SEPARATE from the launch, and this is the whole point: `tauri dev`
+        # compiles the crate on startup, so on a cache-cold runner the app does
+        # not exist yet when the readiness probe starts counting. The first ever
+        # run of this workflow (31298376571, 2026-08-09) died exactly there —
+        # the 180-second bridge wait expired with cargo at 752/754 crates. The
+        # workflow could not have passed its first run, which is precisely the
+        # kind of claim only a live run can falsify.
+        #
+        # Compiling here also makes the two failure modes tell themselves
+        # apart: a broken build fails with a compiler error, and the wait step
+        # below then means only "the app started but never opened its bridge".
+        # Folding them together produces the least useful message available —
+        # a timeout that could mean anything.
+        #
+        # Same manifest and profile `tauri dev` uses, so this populates the
+        # cache it will hit rather than a parallel one.
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
       - name: Launch the debug app under Xvfb
         shell: bash
         env:
@@ -101,21 +152,23 @@ jobs:
             pnpm tauri:dev > e2e/artifacts/app.log 2>&1 &
           echo "APP_PID=$!" >> "$GITHUB_ENV"
 
-      - name: Wait for the automation bridge
+      - name: Wait for the app to become drivable
         shell: bash
-        # Fail loudly with the app log if the bridge never comes up; a silent
-        # skip here would be the same fiction this workflow exists to end.
+        # NOT a TCP probe. `/dev/tcp/127.0.0.1/9323` succeeds the moment the
+        # bridge binds its listener during Tauri setup — before the window
+        # exists and long before the webview runs JS. Run 31298694760
+        # (2026-08-09) reported "bridge up after 1s" and then failed all eight
+        # journeys in 800ms with "Window 'main' not found". The port was a proxy
+        # for readiness; e2e/wait-ready.mjs checks the property — window listed
+        # AND `execute_js` evaluating, which is what every journey needs.
+        #
+        # The binary is already compiled by the step above, so this budget
+        # covers only vite plus app startup, bounded inside the job timeout.
         run: |
-          for i in $(seq 1 180); do
-            if (echo > /dev/tcp/127.0.0.1/9323) >/dev/null 2>&1; then
-              echo "bridge up after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::automation bridge (127.0.0.1:9323) never came up"
-          tail -n 200 e2e/artifacts/app.log || true
-          exit 1
+          if ! node e2e/wait-ready.mjs --timeout-ms 300000; then
+            tail -n 200 e2e/artifacts/app.log || true
+            exit 1
+          fi
 
       - name: Run the Tier-0 journey subset
         shell: bash

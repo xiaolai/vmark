@@ -1,0 +1,38 @@
+{
+  "//": [
+    "Thresholds for scripts/check-change-size.sh (PR tier only — no local entry).",
+    "A PR over EITHER threshold must carry the acknowledgement token in its body.",
+    "",
+    "WHAT THIS IS NOT: enforcement. `main` requires 0 approving reviews, so the author",
+    "adds the token themselves. It buys exactly one thing — size becomes a recorded",
+    "decision instead of an unremarked accident. Calling it a control would be the",
+    "fiction this repo keeps deleting. See .claude/rules/60-ai-governance.md §13.",
+    "",
+    "MEASURED, not guessed: 149 merges into main (git log --merges --first-parent),",
+    "counting the same exclusions this gate applies, on 2026-08-09:",
+    "  p50   10 files /    328 lines",
+    "  p75   48 files /   2161 lines",
+    "  p90  143 files /  10423 lines   <- thresholds sit here",
+    "  p95  284 files /  23458 lines",
+    "  max  899 files / 172120 lines",
+    "",
+    "Set at p90 so roughly one PR in ten is asked to say its size was intended. An",
+    "earlier draft of this file carried invented numbers (80/3500) that read as",
+    "measured; at the real distribution that is about p80, firing on a quarter of all",
+    "work — which is how a gate becomes noise and then gets routed around. Re-measure",
+    "before changing these, and say so here.",
+    "",
+    "Excluded paths are generated, vendored or maintainer-local: their size is not a",
+    "review burden, and counting them would make a lockfile refresh look like a rewrite."
+  ],
+  "maxFiles": 150,
+  "maxLines": 10000,
+  "acknowledgement": "CHANGE-SIZE-ACK",
+  "excludePaths": [
+    "pnpm-lock.yaml",
+    "src-tauri/Cargo.lock",
+    "**/generated/**",
+    "dev-docs/**",
+    "website/public/**"
+  ]
+}
