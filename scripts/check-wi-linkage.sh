@@ -26,8 +26,15 @@
 #  64  bad invocation
 #
 # Notes:
-# - Phase numbering: only checks WIs from phases reported as "complete" in the
-#   plan's Status header. Skips phases not yet started.
+# - Scope: EVERY work item the plan declares is checked. Use `--phase=N` to
+#   check one phase while later ones are still in flight.
+#   (WI-AF1.4, 2026-08-09: this note used to claim the script "only checks WIs
+#   from phases reported as 'complete' in the plan's Status header" and "skips
+#   phases not yet started". No code ever parsed a Status header — the claim was
+#   false in the file whose job is enforcing honesty about linkage. Deleted
+#   rather than implemented: four plans in this repo write their status headers
+#   four different ways, so parsing them would be a guess dressed as a gate,
+#   and `--phase=N` already expresses the same intent explicitly.)
 # - "Current branch" means commits since the merge-base with `main` — keeps
 #   feature branches honest without forcing every WI to land on main.
 #
@@ -45,6 +52,29 @@
 #
 # The fix widens the grammar and makes the zero-match case FAIL CLOSED. A gate
 # that cannot see any work items must never report success.
+#
+# AUTHORIZED CHANGE (2026-08-09) — §9 authorization granted by the maintainer.
+# Plan: .claude/tdd-guardian/plan-20260809-followups.md, Phase 1. Reasons:
+#
+#   3. WI-AF1.2 — the test-header search saw only src/ and src-tauri/src/. This
+#      repo has FOUR test roots: vitest.gates.config.ts owns scripts/ and
+#      .claude/hooks/ (32 files). WI-16's only test lives in scripts/, so a
+#      correctly linked work item reported NOT LINKED.
+#   4. WI-AF1.3 — IDs were grepped from anywhere in the plan, so PROSE created
+#      phantom work items: the 2026-08-03 plan quotes "WI-1.6 live-webview cap
+#      enforced" inside WI-6's description, and the gate then demanded linkage
+#      for an item that does not exist. IDs now come from DECLARATIONS only.
+#      The ID grammar itself (WI_RE) is deliberately UNCHANGED — only the
+#      context it is searched in narrows, which keeps this widening's blast
+#      radius off the namespace the 2026-07-14 change fixed.
+#   5. WI-AF1.5 — commit linkage accepted the ID anywhere in a message, so a
+#      commit that merely DESCRIBED a work item vouched for it. Observed live:
+#      this plan's own first commit explained the WI-16 defect, and the gate
+#      immediately reported WI-16 linked. Linkage now requires the form §2
+#      documents — the ID inside a parenthesised tag, `(WI-1.2)`.
+#
+# All three are pinned by scripts/check-wi-linkage.test.mjs, which landed first
+# (WI-AF1.1) precisely so this widening could not repeat 2026-07-14's false green.
 
 set -uo pipefail
 
@@ -69,19 +99,72 @@ if [[ ! -f "$PLAN" ]]; then
   exit 64
 fi
 
-# Extract WI-IDs from the plan. The convention is **WI-<phase>.<n> — title**.
-# The phase segment is alphanumeric so separate plans can namespace their work
-# items apart (`WI-1.2` in one plan, `WI-S1.2` / `WI-SOC.2` in another) without
-# colliding. A numeric-only grammar here would match zero WIs in such a plan.
-WIS=()
+# Extract WI-IDs from the plan's DECLARATIONS (WI-AF1.3).
+#
+# The ID grammar is unchanged: the phase segment is alphanumeric so separate
+# plans can namespace their work items apart (`WI-1.2` in one plan, `WI-S1.2` /
+# `WI-SOC.2` / `WI-VC0.1` in another) without colliding. A numeric-only grammar
+# would match zero WIs in such a plan.
+#
+# What changed is WHERE it is searched. Four declaration forms are in use across
+# this repo's plans, and all four are accepted:
+#
+#   ## WI-1                        ATX heading, any level, optional bold
+#   - **WI-0.1** title             bold list item, ID closed by **
+#   **WI-1.2 — title**             bold standalone, ID followed by a dash
+#   | WI-VC0.1 | title |           table row
+#
+# Everything else is prose. That distinction is the whole point: a plan's Risks
+# section is full of lines like `- **WI-AF2.1 has unbounded cost.**`, which names
+# a work item without declaring one, and the old any-match grep turned every
+# such mention — including IDs belonging to OTHER plans — into a work item the
+# gate then demanded linkage for.
+#
+# Fenced code blocks are skipped: a plan that shows an example declaration in a
+# ``` block is documenting a form, not declaring an item.
 WI_RE="WI-[A-Z0-9]+(\.[0-9]+)?[a-z]?"
-PATTERN="$WI_RE"
-if [[ -n "$PHASE_FILTER" ]]; then
-  PATTERN="WI-${PHASE_FILTER}(\.[0-9]+)?[a-z]?"
-fi
+
+extract_declared_ids() {
+  awk -v wire="$WI_RE" '
+    /^[ \t]*```/ { fence = !fence; next }
+    fence { next }
+    {
+      decl = 0
+      if ($0 ~ /^#+[ \t]+\*?\*?WI-/)      decl = 1   # ATX heading
+      else if ($0 ~ /^\|[ \t]*WI-/)       decl = 1   # table row
+      else if ($0 ~ /^([-*+][ \t]+)?\*\*WI-/) {      # bold list item / standalone
+        rest = $0
+        sub(/^([-*+][ \t]+)?\*\*/, "", rest)
+        # A declaration closes the bold right after the ID, or separates the ID
+        # from its title with a dash. `**WI-AF2.1 has unbounded cost.**` does
+        # neither, and is prose.
+        if (rest ~ "^" wire "\\*\\*") decl = 1
+        else {
+          tail = rest
+          if (sub("^" wire "[ \t]+", "", tail) &&
+              (index(tail, "—") == 1 || index(tail, "–") == 1 || index(tail, "- ") == 1))
+            decl = 1
+        }
+      }
+      if (!decl) next
+      if (match($0, wire)) print substr($0, RSTART, RLENGTH)
+    }
+  ' "$1"
+}
+
+WIS=()
 while IFS= read -r line; do
-  [[ -n "$line" ]] && WIS+=("$line")
-done < <(grep -E -o "$PATTERN" "$PLAN" | sort -u)
+  [[ -n "$line" ]] || continue
+  # --phase=N narrows to one phase; the ID must START with WI-<phase> followed
+  # by a boundary, so --phase=1 selects WI-1 and WI-1.2 but never WI-12.
+  if [[ -n "$PHASE_FILTER" ]]; then
+    [[ "$line" =~ ^WI-${PHASE_FILTER}(\.[0-9]+)?[a-z]?$ ]] || continue
+  fi
+  WIS+=("$line")
+done < <(extract_declared_ids "$PLAN" | sort -u)
+
+PATTERN="$WI_RE"
+[[ -n "$PHASE_FILTER" ]] && PATTERN="WI-${PHASE_FILTER}(\.[0-9]+)?[a-z]?"
 
 # FAIL CLOSED. A gate that can see no work items must not report success — that
 # is exactly how an unparseable namespace turns into a silent pass.
@@ -110,12 +193,32 @@ RANGE="$BASE..HEAD"
 # Build commit-message blob for the range.
 COMMIT_LOG=$(git log --pretty=format:"%s%n%b" "$RANGE" 2>/dev/null || echo "")
 
+# Commit linkage requires the TAG form §2 documents — the ID inside parentheses,
+# `feat(scope): change (WI-AF1.2)` (WI-AF1.5). Collect the IDs from parenthesised
+# groups only, so a message that merely mentions a work item in prose cannot
+# vouch for it. Extracting groups first (rather than matching around each ID)
+# handles every tag shape the history actually uses in one pass: `(WI-1)`,
+# `(WI-1, WI-2, WI-3)`, and `(WI-AF3.3 … WI-3.7)`.
+COMMIT_TAG_IDS=$(grep -o -E "\([^)]*WI-[^)]*\)" <<<"$COMMIT_LOG" \
+  | grep -E -o "$WI_RE" | sort -u)
+
 # Search test files for WI references in the first 30 lines.
 # Convention: a test file's top-of-file comment cites the WI it covers.
-# Rust test modules (`*.test.rs`, included via #[path]) carry the same headers and
-# are a legitimate linkage source — a Rust-only WI could otherwise never link.
+#
+# ALL FOUR test roots (WI-AF1.2). src/ and src-tauri/src/ are the app and Rust
+# tiers; scripts/ and .claude/hooks/ are the GATES tier, owned by
+# vitest.gates.config.ts and run by `pnpm test:gates` inside check:static. A
+# gate script's only test lives there, so omitting it made every gate-only work
+# item unlinkable — WI-16 was exactly that case.
+#
+# Extensions match vitest.shared.ts's TEST_EXTENSIONS; Rust test modules
+# (`*.test.rs`, included via #[path]) carry the same headers and are a
+# legitimate linkage source — a Rust-only WI could otherwise never link.
 TEST_HEADERS=$( { find src -name "*.test.ts" -o -name "*.test.tsx"; \
-                  find src-tauri/src -name "*.test.rs"; } 2>/dev/null \
+                  find src-tauri/src -name "*.test.rs"; \
+                  find scripts .claude/hooks \
+                       \( -name "*.test.mjs" -o -name "*.test.js" \
+                          -o -name "*.test.cjs" -o -name "*.test.ts" \) ; } 2>/dev/null \
   | xargs head -n 30 2>/dev/null | grep -E -o "$WI_RE" | sort -u)
 
 ok()   { echo "  ✓ $1"; }
@@ -133,8 +236,10 @@ for wi in "${WIS[@]}"; do
   # so commit-based linkage worked until commit messages grew, then quietly stopped.
   # It failed closed (reporting a linked WI as unlinked), which is the safe direction,
   # but a gate that lies in either direction is a gate you stop trusting.
-  grep -F -q -- "$wi" <<<"$COMMIT_LOG" && in_commit=1
-  grep -F -q -- "$wi" <<<"$TEST_HEADERS" && in_test=1
+  # -x (whole line): both blobs are one-ID-per-line sets, so an exact match is
+  # what "this ID is present" means. Without it, WI-1 would match WI-AF1.2's line.
+  grep -F -x -q -- "$wi" <<<"$COMMIT_TAG_IDS" && in_commit=1
+  grep -F -x -q -- "$wi" <<<"$TEST_HEADERS" && in_test=1
   if (( in_commit + in_test > 0 )); then
     LINKED=$((LINKED+1))
     src="commit"

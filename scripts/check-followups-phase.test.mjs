@@ -1,5 +1,5 @@
 /**
- * WI-0.1 — DoD checker for the architecture-review follow-ups plan.
+ * WI-AF0.1 — DoD checker for the architecture-review follow-ups plan.
  *
  * Runs the REAL `scripts/check-followups-phase.sh` as a subprocess against
  * FIXTURE repo trees in tmpdir (house pattern: real script, real fs, no
@@ -78,7 +78,7 @@ const DELIVERABLES = {
     ["scripts/check-followups-phase.test.mjs", "// test\n"],
   ],
   1: [
-    ["scripts/check-wi-linkage.test.mjs", "// WI-1.1\n"],
+    ["scripts/check-wi-linkage.test.mjs", "// WI-AF1.1\n"],
     // F6: the commit half must require the documented trailing-tag form.
     ["scripts/check-wi-linkage.sh", "COMMIT_TAG_RE='\\\\(WI-'\n"],
   ],
