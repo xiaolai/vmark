@@ -20,8 +20,11 @@ use objc2_web_kit::{
     WKContentWorld, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration,
 };
 
-/// The page-world shim. Mirrors `installConsoleCapture` in `consoleShim.ts`; the
-/// TS version is the unit-tested source of truth for this behaviour.
+/// The page-world shim, and the ONLY copy that ships. It mirrors
+/// `installConsoleCapture` in `src/lib/browser/agent/consoleShim.ts`, which is
+/// where the behaviour is unit-tested — but nothing checks the two agree, so
+/// "source of truth" overstates it: the tested copy is not the executed one.
+/// Change one and you must change the other. (Audit 019fe61c, 2026-08-09.)
 const CONSOLE_SHIM_SRC: &str = r#"(function(){
 var ID="__vmark_console_buffer",MAX=2000,CAP=200,buf=[];
 function el(){var e=document.getElementById(ID);if(!e){e=document.createElement("script");e.type="application/json";e.id=ID;e.style.display="none";(document.head||document.documentElement).appendChild(e);}return e;}
