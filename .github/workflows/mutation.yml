@@ -66,6 +66,13 @@ name: Mutation Testing
 #
 # See dev-docs/testing-hardening.md.
 
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs (WI-AF2.4). Seven scheduled runs
+#     died at their own 60-minute timeout, reported as `cancelled`; that word is
+#     why the checker refuses to count a cancellation as a verdict.
+
 on:
   # Manual trigger from the Actions tab.
   workflow_dispatch:

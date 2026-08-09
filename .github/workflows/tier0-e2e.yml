@@ -26,6 +26,13 @@ name: Tier-0 E2E Journeys
 # merge, verified with `gh run view --json headSha,conclusion,jobs` against the
 # dispatched SHA (never a bare `gh run watch`).
 
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs (WI-AF2.4). This workflow having
+#     never run once, for five days after it was merged, is the finding that
+#     produced that checker.
+
 on:
   workflow_dispatch:
   # Weekly cadence: Monday 07:00 UTC (offset from mutation.yml and rust-coverage.yml).

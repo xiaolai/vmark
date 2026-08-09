@@ -153,11 +153,44 @@ async function appPids() {
   return kept;
 }
 
-/** The working directory of `pid`, or null when it can't be read. */
+/**
+ * The working directory of `pid`, or null when the process has none we can see
+ * (it exited, or it is not ours).
+ *
+ * PLATFORM: Linux exposes this as `/proc/<pid>/cwd`, always present, no tools
+ * required. macOS has no procfs, so it needs `lsof`.
+ *
+ * This used to be lsof-only. `lsof` is NOT installed on GitHub's ubuntu
+ * runners, and the `.catch()` turned "the tool is missing" into "this process
+ * has no cwd" — so every shell was dropped, `getAppShellCwds()` returned `[]`,
+ * and both terminal journeys timed out reporting `last observed: []`. The
+ * journeys were macOS-only by accident, and the accident was a silent fallback.
+ * `probeUnavailable` below makes the missing-tool case loud instead.
+ */
 async function cwdOf(pid) {
+  if (process.platform === "linux") {
+    const out = await run("readlink", ["-f", `/proc/${pid}/cwd`]).catch(() => ({ stdout: "" }));
+    const cwd = out.stdout.trim();
+    return cwd || null;
+  }
   const out = await run("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"]).catch(() => ({ stdout: "" }));
   const line = out.stdout.split("\n").find((l) => l.startsWith("n"));
   return line ? line.slice(1).trim() : null;
+}
+
+/**
+ * Is the cwd probe usable at all on this machine? Distinguishes "no shells are
+ * running" from "this harness cannot see shells" — two states that produced an
+ * identical empty array before, and one of which is a broken harness reporting
+ * a broken app.
+ */
+async function probeUnavailable() {
+  const self = String(process.pid);
+  const cwd = await cwdOf(self);
+  if (cwd) return null;
+  return process.platform === "linux"
+    ? "cannot read /proc/<pid>/cwd — is this a Linux container without procfs?"
+    : "`lsof` is unavailable, and this platform has no /proc to fall back on";
 }
 
 /**
@@ -165,6 +198,12 @@ async function cwdOf(pid) {
  * the shells the terminal spawned. Returns `[{pid, comm, cwd}]`.
  */
 export async function getAppShellCwds() {
+  // Assert the instrument before trusting its reading. An empty result must
+  // mean "no shells", never "no way to look" — conflating those is what made a
+  // missing `lsof` present as an app that never spawns a terminal.
+  const broken = await probeUnavailable();
+  if (broken) throw new Error(`cannot observe process working directories: ${broken}`);
+
   const shells = [];
   for (const appPid of await appPids()) {
     const kids = await run("pgrep", ["-P", appPid]).catch(() => ({ stdout: "" }));
