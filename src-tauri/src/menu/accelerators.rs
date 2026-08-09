@@ -21,6 +21,27 @@
 //! loader failure mode `tauri/test` was scoped out of Windows for in
 //! commit cd5f7669). Walking fresh keeps that surface out of the binary.
 //!
+//! Key decisions:
+//!
+//! - **`apply_accelerator_diff` returns `CommandError`, not `String` (WI-DP2.4),
+//!   because this module is the only place the two error classes are
+//!   distinguishable.** `set_accelerator` PARSES the chord the caller supplied,
+//!   so a malformed shortcut is `invalid-input` — the user typed it — and it
+//!   carries the menu id and the offending string in `detail` so the UI can
+//!   point at the field rather than re-derive it from prose. Everything else
+//!   here (no menu installed, a poisoned `ACCEL_CACHE`, a failed tree walk) is
+//!   `internal`: app state the caller neither caused nor can act on.
+//!
+//!   The distinction has to live HERE. One level up in `commands.rs` both
+//!   arrive as one flat error, which is exactly how a first pass came to report
+//!   a mistyped shortcut as an internal VMark failure.
+//!
+//! - **`collect_items_from_menu` deliberately keeps its `String` signature.** It
+//!   is shared with `menu_state.rs` and `browser_menu_item.rs`, neither of which
+//!   is a command boundary, and widening it would have pulled two unrelated
+//!   modules into this change for no gain. It is converted at the one call site
+//!   that needs a typed error.
+//!
 //! @coordinates-with `commands.rs` (exposes `update_menu_accelerators`)
 //! @coordinates-with `localized.rs` (commits the accelerator snapshot post-build)
 //! @coordinates-with `src/stores/shortcutsStore.ts` (calls the differential path)
