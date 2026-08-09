@@ -207,7 +207,39 @@ Order by concentration: `browser/commands.rs` (14), `pty.rs` (8),
 `browser/commands_auth.rs` (7), `content_server/commands.rs` (5),
 `hot_exit/commands.rs` (5), then the tail of 31 files.
 
-### WI-DP2.1 … WI-DP2.n — one batch per module
+### WI-DP2.1 — `browser/commands.rs` 14 → 0
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/browser/commands.rs, scripts/command-error-baseline.json
+**Verified:** `cargo clippy --all-targets -- -D warnings` exit 0 · `cargo test` exit 0 · `pnpm lint:command-errors` held at 85 · merge-base ratchet held · frontend consumers 66 files / 1,314 tests green · `tsc` exit 0
+**Result:** baseline 99 → 85.
+
+**What the module was doing:** flattening every failure through
+`fn err<E: Debug>(e) -> String { format!("{e:?}") }` — a typed error rendered to
+its Debug form, class discarded. And `browser_create` hand-rolled
+`Err("BROWSER_DISABLED".into())` *beside* `ai_guards::require_browser_enabled`,
+a typed helper for the identical condition. Every helper this migration needed
+already existed one file away.
+
+**Classification, per ADR-2 — no `internal` as a shortcut:**
+- policy gate → `require_browser_enabled` (`FeatureDisabled` + mcpCode)
+- poisoned mutex → `lock_failure` (`Internal`; that is what it is)
+- registry failures → the existing `From<BrowserError>` impl
+- native/`surface::*` failures → `surface_failure`, which already classifies
+  window-gone vs. rejected-URL rather than lumping them
+- `validate_bounds` → `CommandError::invalid_input`, **not** localized. A NaN
+  rect comes from a detached node's `getBoundingClientRect`: a caller bug, never
+  user-readable prose. My first pass invented `errors.browser.invalidBounds` and
+  it resolved in **0 of 10** locale bundles — rule 50 §10 reserves `i18nKey` for
+  user-facing text, and ten translations of a programmer error is the wrong
+  artifact.
+
+**Not done, and why:** the transitional `String(error).includes("APPROVAL_REQUIRED")`
+in `browserFailure.ts:29` stays. Its own comment says it dies with the last
+unmigrated producer, and `authorize.rs` and `commands_auth.rs` still return the
+bare token. Deleting it now would break the human approval path.
+
+### WI-DP2.2 … WI-DP2.n — the remaining 85, one module per batch
 - [ ] Each command returns `Result<T, CommandError>` with a code from the closed
       vocabulary — never `internal` as a shortcut for "I did not classify this"
       (ADR-2).
