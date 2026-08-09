@@ -93,6 +93,15 @@ jobs:
           REPO: ${{ github.repository }}
         shell: bash
         run: |
+          # The label must EXIST before it is used: `gh issue create --label`
+          # fails outright on an unknown label, and it did — this workflow's
+          # first real run died with "could not add label: 'gate-liveness' not
+          # found", having produced its whole report and then thrown it away.
+          # Creating it here rather than by hand keeps the workflow
+          # self-contained: a fresh clone or fork has no labels either.
+          # `--force` makes this idempotent.
+          gh label create gate-liveness --repo "$REPO" --force \
+            --color BFD4F2 --description "Rolling issue: a gate declared in a workflow has stopped concluding."
           existing=$(gh issue list --repo "$REPO" --label gate-liveness --state open \
                        --limit 1 --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
