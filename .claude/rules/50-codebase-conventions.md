@@ -348,12 +348,34 @@ same defect under a second name — seven live instances were found the moment t
 gate learned to see it (`close_window`, `pty_close`/`pty_kill`,
 `browser_navigate`, `open_workspace_in_new_window`).
 
-The check is **file-level**: it cannot tell which error a helper was applied to.
-A file that invokes a typed command AND separately stringifies, say, a
-`JSON.parse` failure is correct as written. Mark that line
-`// command-error-ok: <reason>`. The reason is REQUIRED — a bare marker is
-rejected, the same rule the i18n allowlist and the caret-only focus marker
-carry. One exemption exists today, in `settingsStore/shortcuts.ts`.
+**It parses a TypeScript AST; it does not grep.** Three rounds of hand-rolled
+lexing each shipped a fresh FALSE NEGATIVE — a generic argument that nested
+(`invoke<Record<string, unknown>>`), a `}` inside a string closing a catch block
+early, `.catch(async (e) => …)`, a shadowing inner parameter. The mechanism was
+the defect, so the detector walks `ts.createSourceFile` like
+`check-mock-boundaries`, `check-shell-slots` and `check-hooks-react-purity`.
+Scope, shadowing and string contents then come from the parser. Two consequences
+worth knowing:
+
+- **A command name need not be a literal.** `restartWithHotExit.ts` invokes
+  `HOT_EXIT_COMMANDS.CAPTURE` from a `const … as const` map, and requiring a
+  literal left the gate blind to a LIVE `"[object Object]"` defect there — in the
+  same module family one had already been fixed by hand. The detector resolves
+  `const X = "cmd"` and `const M = { K: "cmd" }`; anything less tractable stays
+  unresolved rather than guessed.
+- **Every production JS/TS extension is scanned**, not just `.ts`/`.tsx` —
+  `src/export/reader/vmark-reader.js` is real production source. `.spec.*` is
+  excluded alongside `.test.*`.
+
+**What remains file-level is the INVOKE↔handler association**, not the binding:
+the walker knows exactly which caught name a helper was applied to, but it does
+not prove that name came from *this* command's rejection. So a file that invokes
+a typed command AND separately stringifies, say, a `JSON.parse` failure is
+correct as written. Mark that line `// command-error-ok: <reason>`. The reason is
+REQUIRED — a bare marker is rejected, the same rule the i18n allowlist and the
+caret-only focus marker carry, and the marker scopes to its own site rather than
+the whole file (suppressing a file would hide its other violations). One
+exemption exists today, in `settingsStore/shortcuts.ts`.
 
 
 **During the migration both shapes are live.** A caller that branches on a
