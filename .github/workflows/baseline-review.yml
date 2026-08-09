@@ -137,6 +137,15 @@ jobs:
         # would turn a standing reminder into a backlog of duplicates, which is
         # the failure mode the cost-report workflow already documented.
         run: |
+          # The label must EXIST before it is used: `gh issue create --label`
+          # fails outright on an unknown label, and it did — this workflow's
+          # first real run died with "could not add label: 'baseline-review' not
+          # found", having produced its whole report and then thrown it away.
+          # Creating it here rather than by hand keeps the workflow
+          # self-contained: a fresh clone or fork has no labels either.
+          # `--force` makes this idempotent.
+          gh label create baseline-review --repo "$REPO" --force \
+            --color BFD4F2 --description "Rolling issue: frozen baselines due for review."
           existing=$(gh issue list --repo "$REPO" --label baseline-review --state open \
                        --limit 1 --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
