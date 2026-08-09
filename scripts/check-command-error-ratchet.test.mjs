@@ -17,6 +17,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { invokedScripts } from "./lib/packageScripts.mjs";
+import {
+  findStringifiedTypedErrors,
+  typedCommandNames,
+} from "./check-command-error-ratchet.mjs";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(REPO, "scripts", "check-command-error-ratchet.mjs");
 
@@ -296,5 +300,126 @@ describe("the real repository tree", () => {
     expect(baseline.files["src-tauri/src/file_write.rs"]).toBeUndefined();
     expect(baseline.files["src-tauri/src/browser/ai_commands.rs"]).toBeUndefined();
     expect(Object.keys(baseline.files).length).toBeGreaterThan(0);
+  });
+});
+
+// ─── WI-DP2.7: typed commands must not be stringified in the frontend ───
+//
+// A `CommandError` serialises as a plain OBJECT, so `String(error)` on one
+// renders the literal "[object Object]". This shipped to users at four
+// boundaries before it was caught by hand (WI-DP2.6). With ~49 conversions
+// still to go, every one of them can reintroduce it — so the ratchet that
+// drives those conversions is also the thing that has to assert against it.
+
+describe("typedCommandNames", () => {
+  it("names commands returning CommandError, and not the legacy ones", () => {
+    const source = `
+      #[tauri::command]
+      pub fn typed_one(app: AppHandle) -> Result<(), CommandError> { Ok(()) }
+
+      #[tauri::command]
+      pub async fn legacy_one() -> Result<String, String> { Ok(String::new()) }
+
+      #[tauri::command(rename_all = "snake_case")]
+      pub fn typed_two() -> Result<Vec<u8>, crate::command_error::CommandError> { Ok(vec![]) }
+    `;
+    expect(typedCommandNames(source).sort()).toEqual(["typed_one", "typed_two"]);
+  });
+
+  it("ignores a command name that appears only inside a comment", () => {
+    const source = `
+      // #[tauri::command] pub fn ghost() -> Result<(), CommandError> {}
+      #[tauri::command]
+      pub fn real() -> Result<(), CommandError> { Ok(()) }
+    `;
+    expect(typedCommandNames(source)).toEqual(["real"]);
+  });
+});
+
+describe("findStringifiedTypedErrors", () => {
+  const typed = new Set(["hot_exit_capture"]);
+
+  it("flags a file that invokes a typed command and stringifies its error", () => {
+    const file = {
+      path: "src/pages/settings/X.tsx",
+      source: `const r = await invoke("hot_exit_capture");
+               } catch (error) { setError(String(error)); }`,
+    };
+    const hits = findStringifiedTypedErrors([file], typed);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ file: "src/pages/settings/X.tsx", command: "hot_exit_capture" });
+  });
+
+  it("does NOT flag a file that already routes through commandErrorMessage", () => {
+    const file = {
+      path: "src/ok.ts",
+      source: `import { commandErrorMessage } from "@/services/commands/commandError";
+               await invoke("hot_exit_capture");
+               } catch (error) { setError(commandErrorMessage(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("does NOT flag stringification in a file that only invokes LEGACY commands", () => {
+    // `String(error)` is CORRECT while the command still returns Result<T, String>.
+    // Flagging it would make the gate demand a change that is wrong today.
+    const file = {
+      path: "src/legacy.ts",
+      source: `await invoke("print_document");
+               } catch (error) { fail(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("does NOT flag String() applied to something that is not a caught error", () => {
+    const file = {
+      path: "src/other.ts",
+      source: `await invoke("hot_exit_capture");
+               const label = String(count);`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("treats a typed command named only in a comment as not invoked", () => {
+    const file = {
+      path: "src/commented.ts",
+      source: `// once we call invoke("hot_exit_capture") this will matter
+               } catch (error) { setError(String(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+});
+
+// The wiring, not the pure function. Every unit test above still passes if the
+// `scanStringifiedTypedErrors(root)` call is deleted from main() — which is
+// precisely the "green while doing nothing" failure this pins shut.
+describe("check-command-error-ratchet.mjs — the String() check is actually wired in", () => {
+  function writeFrontend(root, files) {
+    for (const [rel, content] of Object.entries(files)) {
+      const full = path.join(root, "src", rel);
+      mkdirSync(path.dirname(full), { recursive: true });
+      writeFileSync(full, content);
+    }
+  }
+
+  it("fails the whole gate when a frontend file stringifies a typed command's error", () => {
+    const root = writeCrate({ "a.rs": command("typed_cmd", "Result<(), CommandError>") });
+    writeFrontend(root, {
+      "bad.ts": 'const r = await invoke("typed_cmd");\n} catch (error) { show(String(error)); }',
+    });
+    const { status, stderr } = runGate(root, { files: {} });
+    expect(status).toBe(1);
+    expect(stderr).toContain("bad.ts");
+    expect(stderr).toContain("typed_cmd");
+  });
+
+  it("stays green when the same file uses commandErrorMessage", () => {
+    const root = writeCrate({ "a.rs": command("typed_cmd", "Result<(), CommandError>") });
+    writeFrontend(root, {
+      "ok.ts":
+        'import { commandErrorMessage } from "@/services/commands/commandError";\n' +
+        'const r = await invoke("typed_cmd");\n} catch (error) { show(commandErrorMessage(error)); }',
+    });
+    expect(runGate(root, { files: {} }).status).toBe(0);
   });
 });

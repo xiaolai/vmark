@@ -328,6 +328,20 @@ object, and `String(object)` renders as `"[object Object]"`.
 signature fails, and a file that improved fails until its number is lowered.
 Numbers only go down.
 
+**The gate also refuses `String(error)` on a TYPED command (WI-DP2.7).** A
+`CommandError` serialises as a plain OBJECT, so `String(error)` on one renders
+the literal `"[object Object]"` — and that shipped to users at four boundaries
+(`useContentServer.ts`, `contentServer/client.ts`, `HotExitDevTools.tsx`,
+`McpConfigInstaller.tsx`) before it was found by hand. The ratchet now also
+walks `src/`, and fails when a file invokes a command whose Rust signature
+returns `CommandError` while rendering errors through `String(...)` instead of
+`commandErrorMessage`. It is deliberately SILENT for files that only invoke
+legacy commands: `String(e)` is correct while the command still returns
+`Result<T, String>`, and flagging it would demand a change that is wrong until
+the conversion lands. **So converting a command means checking its callers in
+the same change** — which is the point, since the gate that drives the
+conversions is the one asserting against their fallout.
+
 **During the migration both shapes are live.** A caller that branches on a
 typed code keeps its legacy-string branch until the ratchet reaches zero —
 `saveToPath.ts` and `browserNavigation.ts` are the worked examples, each with
