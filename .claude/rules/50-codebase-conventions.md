@@ -342,6 +342,20 @@ the conversion lands. **So converting a command means checking its callers in
 the same change** — which is the point, since the gate that drives the
 conversions is the one asserting against their fallout.
 
+It catches **both spellings**. `errorMessage()` in `src/utils/errorMessage.ts` is
+literally `error instanceof Error ? error.message : String(error)`, so it is the
+same defect under a second name — seven live instances were found the moment the
+gate learned to see it (`close_window`, `pty_close`/`pty_kill`,
+`browser_navigate`, `open_workspace_in_new_window`).
+
+The check is **file-level**: it cannot tell which error a helper was applied to.
+A file that invokes a typed command AND separately stringifies, say, a
+`JSON.parse` failure is correct as written. Mark that line
+`// command-error-ok: <reason>`. The reason is REQUIRED — a bare marker is
+rejected, the same rule the i18n allowlist and the caret-only focus marker
+carry. One exemption exists today, in `settingsStore/shortcuts.ts`.
+
+
 **During the migration both shapes are live.** A caller that branches on a
 typed code keeps its legacy-string branch until the ratchet reaches zero —
 `saveToPath.ts` and `browserNavigation.ts` are the worked examples, each with

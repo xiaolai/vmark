@@ -20,8 +20,8 @@ import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { resolveOmnibox, navigationTarget } from "@/lib/browser/omnibox";
-import { errorMessage } from "@/utils/errorMessage";
 import { setNavIntent } from "./navIntent";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 /** Load an already-resolved URL: show it in the omnibox, mark loading, and drive the
  *  native navigation.
@@ -45,13 +45,13 @@ function loadUrl(tabId: string, url: string): void {
   void invoke("browser_navigate", { tabId, url }).catch((e: unknown) => {
     // Do NOT swallow this (WI-S0.9). A rejected navigate used to leave a spinner and a
     // blank rect, indistinguishable from a slow page.
-    useBrowserUiStore.getState().setError(tabId, errorMessage(e));
+    useBrowserUiStore.getState().setError(tabId, commandErrorMessage(e));
   });
 }
 
 /** Report a failed native command instead of silently dropping it (WI-S0.9). */
 function reportFailure(tabId: string): (e: unknown) => void {
-  return (e: unknown) => useBrowserUiStore.getState().setError(tabId, errorMessage(e));
+  return (e: unknown) => useBrowserUiStore.getState().setError(tabId, commandErrorMessage(e));
 }
 
 /** Submit the omnibox: classify URL-or-search, then navigate. Blank input is ignored. */

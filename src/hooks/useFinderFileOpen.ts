@@ -22,7 +22,7 @@ import {
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 interface OpenFilePayload {
   path: string;
@@ -71,7 +71,7 @@ export function useFinderFileOpen(): void {
      * empty tab or a silent no-op.
      */
     const toastOpenFailure = (error: unknown) => {
-      const msg = errorMessage(error);
+      const msg = commandErrorMessage(error);
       // Pin: error message embeds a system error the user may want to read.
       toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
         pin: true,
