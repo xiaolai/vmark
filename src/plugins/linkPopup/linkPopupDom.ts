@@ -16,7 +16,10 @@ import { popupIcons } from "@/utils/popupComponents";
 function buildButton(iconSvg: string, title: string, className: string): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = `link-popup-btn ${className}`;
+  // WI-DP4.1: the canonical popup button. `.link-popup-btn` was a
+  // byte-identical duplicate of `.popup-icon-btn`; the suffix classes below
+  // stay because the view and its tests query by them.
+  btn.className = `popup-icon-btn ${className}`;
   btn.title = title;
   btn.setAttribute("aria-label", title);
   btn.innerHTML = iconSvg;

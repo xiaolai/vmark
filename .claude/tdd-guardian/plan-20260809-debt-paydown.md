@@ -424,6 +424,48 @@ separately.** Not attempted in this pass.
 88 by name + 80 by usage, 61 of which the name check cannot see.
 
 ### WI-DP4.1 — convert to the canonical components
+
+**Status:** IN PROGRESS — 2026-08-09 · `.link-popup-btn` converted, 88 → 87 by name
+**Changed:** src/plugins/linkPopup/{linkPopupDom.ts,link-popup.css}, scripts/bespoke-buttons-baseline.json
+**Verified:** computed styles diffed in the RUNNING app before/after — all four buttons IDENTICAL across 13 properties plus svg sizing · 6 files / 156 tests green · `pnpm lint:bespoke-buttons` 87/87 · `lint:design-tokens`, `eslint`, `tsc` clean
+
+**THE PHASE SPLITS IN TWO, AND ONLY ONE HALF IS MECHANICAL.** A declaration-set
+comparison against the two canonical surfaces separates them:
+
+- **Exact duplicates — 8 classes** (`link-popup-btn`, `media-popup-btn`,
+  `math-popup-btn`, `footnote-popup-btn`, `image-paste-toast-btn`,
+  `source-link-popup-btn`, `source-image-popup-btn`,
+  `source-footnote-popup-btn`, `source-wiki-link-popup-btn`) re-declare
+  `.popup-icon-btn` with **zero differing declarations** — base rule, hover,
+  active, focus-visible and its `::after` underline, and svg sizing. Converting
+  these is free and provably so.
+- **Deliberately different — the rest.** `.find-bar-nav-btn` is 24px with a 12px
+  icon against the canonical 26/14, and `.find-bar-icon-btn` adds a border the
+  canonical does not have. "Converting" those CHANGES THE UI. That is a design
+  decision about how the find bar should look, not cleanup, and it is not mine
+  to make silently.
+
+So the honest target is not 149 → 0. It is: convert the duplicates, and for each
+remaining class decide whether its difference was intended. The budget can only
+fall by the duplicates without someone ruling on the rest.
+
+**Verification method, which turned out to matter more than screenshots.** The
+first attempt screenshotted the popup and could not even see it — the popup
+renders but was not in frame. Diffing COMPUTED STYLES from the live app is
+stronger evidence for "no visual change" than a picture and my eye: it compares
+13 resolved properties per button plus icon geometry, and it is what "identical"
+actually means. The screenshot remains useful for layout, not for equality.
+
+**Two mechanics worth recording for the next conversion:**
+1. **Vite HMR does not re-run the popup builder.** The class name is assigned in
+   `linkPopupDom.ts`; after editing it the live DOM still carried the old class
+   until a full `location.reload()`. Measuring before the reload would have
+   compared the old build against itself and reported a false pass.
+2. **The canonical is strictly better than what it replaced.** `.popup-icon-btn`
+   guards hover/active with `:not(:disabled)` and defines a `:disabled` rule the
+   duplicate lacked, so a disabled link-popup button used to take hover styling.
+
+Remaining duplicates: 7 classes, same method.
 - [ ] Each bespoke class replaced by `.vm-btn` / `.popup-icon-btn` /
       `.universal-toolbar-btn` per `32-component-patterns.md`.
 - [ ] CSS-only changes are TDD-exempt (`10-tdd.md`) — so **visual QA replaces
