@@ -96,7 +96,7 @@ const DELIVERABLES = {
     ],
   ],
   3: [
-    ["scripts/baseline-review-schedule.json", '{ "reviews": {} }\n'],
+    ["scripts/baseline-review-schedule.json", '{ "tracked": {} }\n'],
     ["scripts/check-review-schedule.mjs", "// validator\n"],
     ["scripts/check-review-schedule.test.mjs", "// test\n"],
     ["scripts/baselineRatchetManifest.mjs", 'path: "scripts/baseline-review-schedule.json"\n'],

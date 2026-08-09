@@ -1,37 +1,43 @@
 #!/usr/bin/env node
 /**
- * Baseline review schedule — validator and overdue reporter (WI-AF3.2/3.3, F5).
+ * Baseline debt register — validator and staleness reporter (WI-AF3.2/3.3, F5).
  *
  * Two modes, deliberately separate because they answer different questions:
  *
- *   (default)  Is every committed baseline either DATED or justifiably EXEMPT,
- *              and does every key here still name a real baseline? Pure
- *              structure, no clock. Safe on the PR tier — it cannot change its
- *              mind overnight on an unchanged tree.
+ *   (default)  Is every committed baseline either TRACKED as debt or
+ *              justifiably EXEMPT, and does every key here still name a real
+ *              baseline? Pure structure, no clock, no network. Safe on the PR
+ *              tier — it cannot change its mind overnight on an unchanged tree.
  *
- *   --report   Which deadlines have passed as of `--today`? Runs on a SCHEDULE
- *              and files a rolling issue. Deliberately not a PR gate: a
- *              calendar-triggered failure reddens an unrelated PR with nothing
- *              its author can do, and a gate like that gets switched off rather
- *              than obeyed.
+ *   --report   How big is each tracked baseline, and how long has it gone
+ *              unchanged? Runs on a schedule and keeps one rolling issue up to
+ *              date.
  *
- * The dates themselves are ratcheted elsewhere — `scripts/baseline-review-schedule.json`
- * is registered in the manifest as `per-key-count`, so pushing a deadline out is
- * numerically a raise and fails against the merge base, with `allowRaise` as the
- * authorized, self-expiring exception. That is why this script never compares
- * against the base ref: the machinery that already does it is better than a
- * second copy.
+ * THERE ARE NO DEADLINES, AND THAT IS THE POINT. An earlier revision of this
+ * script policed a review date per baseline. The dates had been invented by the
+ * agent that wrote them — a fortnightly stagger starting seven weeks out — and
+ * recorded under `owner: maintainer`, which turns a guess into someone else's
+ * commitment. Exactly one tracked baseline has enough history to extrapolate a
+ * rate from (file-size: 153 -> 92 over two months); mock-boundaries has a single
+ * commit, its own creation. Policing a fabricated number does not make it true,
+ * it just makes it load-bearing.
+ *
+ * Staleness IS measurable, needs no one's permission, and answers the question
+ * the deadline was a proxy for: is this debt moving? Debt that stops moving
+ * shows up on its own.
  *
  * Usage:
  *   node scripts/check-review-schedule.mjs [--manifest=<path>] [--schedule=<path>]
- *   node scripts/check-review-schedule.mjs --report [--today=YYYYMMDD]
+ *   node scripts/check-review-schedule.mjs --report [--today=YYYY-MM-DD]
  *
- * Exit codes: 0 clean · 1 validation failure, or overdue entries in --report
+ * Exit codes: 0 clean · 1 validation failure (report mode is informational and
+ * exits 0 unless it cannot measure).
  *
- * @coordinates-with scripts/baselineRatchetManifest.mjs
  * @coordinates-with scripts/baseline-review-schedule.json
+ * @coordinates-with scripts/baselineRatchetManifest.mjs — the entries this covers
  */
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -48,114 +54,156 @@ const SCHEDULE_PATH = flag("schedule", path.join(ROOT, "scripts/baseline-review-
 const { MANIFEST } = await import(pathToFileURL(path.resolve(MANIFEST_PATH)).href);
 const schedule = JSON.parse(readFileSync(path.resolve(SCHEDULE_PATH), "utf8"));
 
-const reviews = schedule.reviews ?? {};
-const targets = schedule.targets ?? {};
+const tracked = schedule.tracked ?? {};
 const exempt = schedule.exempt ?? {};
 const failures = [];
-
-/**
- * A real calendar date, not merely an 8-digit number. `20261301` and `20260231`
- * both sort perfectly well and are both nonsense; a schedule that accepts them
- * has a deadline nobody can act on.
- */
-function invalidDate(n) {
-  if (!Number.isInteger(n) || n < 19700101 || n > 21001231) return "not an 8-digit YYYYMMDD integer";
-  const y = Math.floor(n / 10000);
-  const m = Math.floor(n / 100) % 100;
-  const d = n % 100;
-  if (m < 1 || m > 12) return `month ${m} does not exist`;
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
-    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")} is not a real date`;
-  }
-  return null;
-}
 
 const registered = MANIFEST.entries.map((e) => e.path);
 const registeredSet = new Set(registered);
 
 // Every baseline is covered exactly once.
 for (const p of registered) {
-  const dated = Object.hasOwn(reviews, p);
+  const isTracked = Object.hasOwn(tracked, p);
   const isExempt = Object.hasOwn(exempt, p);
-  if (dated && isExempt) {
-    failures.push(`${p}: listed in BOTH reviews and exempt — it is either debt with a deadline, or not debt`);
-  } else if (!dated && !isExempt) {
+  if (isTracked && isExempt) {
+    failures.push(`${p}: listed in BOTH tracked and exempt — it is either debt, or it is not`);
+  } else if (!isTracked && !isExempt) {
     failures.push(
-      `${p}: has no review date and no exemption. Add a date + target to \`reviews\`/\`targets\`, ` +
-        `or an \`exempt\` entry saying why it is not debt.`,
+      `${p}: is neither tracked as debt nor exempt. Add it to \`tracked\` with what paying ` +
+        `it down means, or to \`exempt\` with why it is not debt.`,
     );
   }
 }
 
 // Every key still names a real baseline (the other direction).
-for (const key of [...Object.keys(reviews), ...Object.keys(exempt)]) {
+for (const key of [...Object.keys(tracked), ...Object.keys(exempt)]) {
   if (!registeredSet.has(key)) {
     failures.push(`${key}: named here but not registered in the ratchet manifest — stale entry`);
   }
 }
 
-// Claims must be justified, and deadlines must mean something.
+// Claims must be justified, and a target must say something.
 for (const [p, reason] of Object.entries(exempt)) {
   if (typeof reason !== "string" || reason.trim().length < 10) {
     failures.push(`${p}: exemption needs a stated reason — "not debt" is a claim, not a fact`);
   }
 }
-for (const [p, when] of Object.entries(reviews)) {
-  const bad = invalidDate(when);
-  if (bad) failures.push(`${p}: review date ${when} is invalid — ${bad}`);
-  const target = targets[p];
+for (const [p, target] of Object.entries(tracked)) {
   if (typeof target !== "string" || target.trim().length < 4) {
-    failures.push(`${p}: dated but has no target — "review it" without a goal is a reminder, not a plan`);
+    failures.push(`${p}: tracked but has no target — debt with no notion of "paid" never is`);
   }
 }
 
 if (failures.length > 0) {
-  console.error("Baseline review schedule is inconsistent:\n");
+  console.error("Baseline debt register is inconsistent:\n");
   for (const f of failures) console.error(`  ✗ ${f}`);
   console.error(`\n${failures.length} problem(s). See ${path.relative(ROOT, SCHEDULE_PATH)}.`);
   process.exit(1);
 }
 
 if (!REPORT) {
-  const dated = Object.keys(reviews).length;
-  console.log(`✅ review schedule covers all ${registered.length} baselines (${dated} dated, ${Object.keys(exempt).length} exempt)`);
+  console.log(
+    `✅ debt register covers all ${registered.length} baselines ` +
+      `(${Object.keys(tracked).length} tracked, ${Object.keys(exempt).length} exempt)`,
+  );
   process.exit(0);
 }
 
 // ---- report mode -----------------------------------------------------------
-// The clock is INJECTED. A comparator that reads the wall clock cannot be
-// tested at a boundary, and "is it overdue" has exactly one interesting
-// boundary: the due day itself.
+
+/** Read a dotted path out of a document; "" is the document itself. */
+function getAt(doc, at) {
+  if (!at) return doc;
+  return at.split(".").reduce((acc, k) => (acc == null ? undefined : acc[k]), doc);
+}
+
+/**
+ * How many entries does this baseline hold right now? Derived from the
+ * manifest's OWN checks, so it counts the things the ratchet counts.
+ *
+ * ENTRIES, not a summed magnitude. A first cut summed per-key VALUES, which is
+ * right for command-error (99 legacy signatures) and nonsense for file-size,
+ * whose values are line counts — it reported 124,778 units of "debt" for 92
+ * oversized files. There is no single definition of size across these
+ * baselines, so this reports the one thing that means the same everywhere: how
+ * many records the baseline is carrying. The `target` column says what paying
+ * it down means; that is where the per-baseline meaning lives.
+ *
+ * Scalar-only baselines (bespoke-buttons) are the exception: their scalar IS
+ * the quantity, so it is reported directly rather than as "no entries".
+ * Custom comparators return null — their identities are computed by
+ * comparator-specific code, and guessing a count would be inventing a number
+ * again, which is the whole reason this file no longer has dates in it.
+ */
+function measure(entryPath) {
+  const entry = MANIFEST.entries.find((e) => e.path === entryPath);
+  const abs = path.join(ROOT, entryPath);
+  if (!entry || !existsSync(abs) || entry.format === "text") return null;
+  let doc;
+  try {
+    doc = JSON.parse(readFileSync(abs, "utf8"));
+  } catch {
+    return null;
+  }
+  const countKeys = (v) => (Array.isArray(v) ? v.length : Object.keys(v).length);
+  let entries = 0;
+  let scalars = 0;
+  let sawRecords = false;
+  let sawScalar = false;
+  for (const check of entry.checks) {
+    const value = getAt(doc, check.at);
+    if (value == null) continue;
+    if (check.mode === "identity" && typeof value === "object") {
+      entries += countKeys(value);
+      sawRecords = true;
+    } else if (check.mode === "per-key-count" && typeof value === "object") {
+      entries += countKeys(value);
+      sawRecords = true;
+    } else if (check.mode === "scalar" && typeof value === "number") {
+      scalars += value;
+      sawScalar = true;
+    }
+  }
+  if (sawRecords) return entries;
+  return sawScalar ? scalars : null;
+}
+
+/** Days since the file last changed in git, or null when it cannot be read. */
+function daysSinceChange(entryPath, now) {
+  const out = spawnSync("git", ["log", "-1", "--format=%ct", "--", entryPath], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  if (out.status !== 0) return null;
+  const ts = Number(out.stdout.trim());
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  return (now - ts * 1000) / 86_400_000;
+}
+
 const todayFlag = flag("today");
-const today = todayFlag
-  ? Number(todayFlag)
-  : Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""));
-if (invalidDate(today)) {
-  console.error(`--today=${todayFlag} is not a valid YYYYMMDD date`);
+const now = todayFlag ? Date.parse(`${todayFlag}T00:00:00Z`) : Date.now();
+if (Number.isNaN(now)) {
+  console.error(`--today=${todayFlag} is not a date`);
   process.exit(1);
 }
 
-// Strictly greater: the due day is the day it is due, not the day it is late.
-const overdue = Object.entries(reviews)
-  .filter(([, when]) => today > when)
-  .sort((a, b) => a[1] - b[1]);
+const rows = Object.keys(tracked)
+  .map((p) => ({ path: p, size: measure(p), stale: daysSinceChange(p, now), target: tracked[p] }))
+  .sort((a, b) => (b.stale ?? -1) - (a.stale ?? -1));
 
-if (overdue.length === 0) {
-  console.log(`✅ no baseline review is overdue as of ${today}`);
-  process.exit(0);
-}
-
-const owner = schedule.owners?.default ?? "unassigned";
-console.log(`## ${overdue.length} baseline review(s) overdue as of ${today}\n`);
-console.log("| Baseline | Due | Owner | Target |");
-console.log("|---|---|---|---|");
-for (const [p, when] of overdue) {
-  console.log(`| \`${p}\` | ${when} | ${owner} | ${targets[p]} |`);
+console.log(`## Baseline debt — ${rows.length} tracked\n`);
+console.log("Stalest first. No deadlines: these are measurements, not commitments.\n");
+console.log("| Baseline | Entries | Unchanged for | Target |");
+console.log("|---|---:|---:|---|");
+for (const r of rows) {
+  const size = r.size == null ? "—" : String(r.size);
+  const stale = r.stale == null ? "unknown" : `${Math.floor(r.stale)}d`;
+  console.log(`| \`${r.path}\` | ${size} | ${stale} | ${r.target} |`);
 }
 console.log(
-  "\nEither pay some of it down and pull the date in, or move the date out with an" +
-    "\n`allowRaise` entry in `scripts/baselineRatchetManifest.mjs` stating why." +
-    "\nMoving it silently is what the merge-base ratchet refuses.",
+  "\nA row that never moves is the finding. `Entries` counts the records the ratchet" +
+    "\nitself compares — not a summed magnitude, because the values mean different" +
+    "\nthings per baseline (file-size holds line counts, command-error holds signature" +
+    "\ncounts). `—` means a custom comparator owns the shape and no honest total exists.",
 );
-process.exit(1);
+process.exit(0);

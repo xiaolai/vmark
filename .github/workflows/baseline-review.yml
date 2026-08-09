@@ -1,18 +1,24 @@
 name: Baseline review
 
-# WI-AF3.3 — the overdue half of the baseline review schedule (finding F5).
+# WI-AF3.3 — the standing report on frozen debt (finding F5).
 #
 # A ratchet stops debt GROWING. It never asks anyone to pay it, which is how
 # ~450 frozen units sat unmoved across 27 baselines with every gate green.
-# scripts/baseline-review-schedule.json gives each one a deadline; this job is
-# what notices when a deadline passes.
 #
-# WHY THIS IS NOT A PR GATE. Overdue-ness is a property of TODAY, not of a diff.
-# A calendar-triggered CI failure reddens someone's unrelated PR with no action
+# THIS REPORTS, IT DOES NOT JUDGE. An earlier revision gave every baseline a
+# review date and failed once one passed. Those dates were invented — a
+# fortnightly stagger picked by the agent writing the file, recorded under
+# `owner: maintainer` — and exactly one tracked baseline has any paydown history
+# to derive a rate from. What is measurable without anyone's say-so is how many
+# entries each baseline holds and how long it has gone unchanged, so that is
+# what lands in the issue. A row that never moves is the finding.
+#
+# WHY NOT A PR GATE. Staleness is a property of TODAY, not of a diff. A
+# calendar-triggered CI failure reddens someone's unrelated PR with no action
 # available to its author, and a gate like that gets switched off rather than
-# obeyed. The PR tier enforces only the thing that IS a property of a diff —
-# that the deadlines were not quietly pushed out — and the merge-base ratchet
-# already does that, because the dates are YYYYMMDD integers.
+# obeyed. The PR tier enforces the part that IS a property of a diff: the
+# merge-base ratchet holds the `tracked` list as an identity set, so a baseline
+# cannot quietly stop being tracked.
 #
 # Reporting is a separate job from measurement for the same least-privilege
 # reason as mutation.yml: only the job that runs no project code holds
@@ -44,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      overdue: ${{ steps.report.outputs.overdue }}
+      hasDebt: ${{ steps.report.outputs.hasDebt }}
       watcherStale: ${{ steps.watcher.outputs.stale }}
       body: ${{ steps.report.outputs.body }}
       watcherDetail: ${{ steps.watcher.outputs.detail }}
@@ -58,9 +64,9 @@ jobs:
           cache: pnpm
 
       # Validation first, and it is a HARD failure: an inconsistent schedule
-      # (a baseline with no deadline, a stale key) means the report below would
+      # (a baseline tracked nowhere, a stale key) means the report below would
       # be measuring an incomplete picture while looking authoritative.
-      - name: Validate the schedule covers every baseline
+      - name: Validate the register covers every baseline
         run: node scripts/check-review-schedule.mjs
 
       # The other half of the mutual watch (WI-AF2.4): gate-liveness.yml cannot
@@ -69,7 +75,7 @@ jobs:
       # Its result is CAPTURED, not swallowed. `continue-on-error: true` here
       # would be the exact pattern WI-4 deleted from mutation.yml after it hid
       # eight consecutive failures; failing the step outright would instead
-      # suppress the overdue report below, since `report` needs this job to
+      # suppress the debt report below, since `report` needs this job to
       # succeed. So the finding becomes an output and lands in the same issue.
       - name: Watch the watcher
         id: watcher
@@ -88,16 +94,13 @@ jobs:
             echo "WATCH_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Report overdue reviews
+      - name: Report debt and staleness
         id: report
         run: |
-          set +e
           out=$(node scripts/check-review-schedule.mjs --report)
-          code=$?
-          set -e
           echo "$out"
           {
-            echo "overdue=$([ $code -ne 0 ] && echo true || echo false)"
+            echo "hasDebt=true"
             echo "body<<REPORT_EOF"
             echo "$out"
             echo ""
@@ -108,8 +111,8 @@ jobs:
   report:
     needs: measure
     # Either signal opens the issue — a silent watcher is as much a finding
-    # as an overdue baseline.
-    if: needs.measure.outputs.overdue == 'true' || needs.measure.outputs.watcherStale == 'true'
+    # as stalled debt.
+    if: needs.measure.outputs.hasDebt == 'true' || needs.measure.outputs.watcherStale == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -141,5 +144,5 @@ jobs:
             echo "updated #$existing"
           else
             gh issue create --repo "$REPO" --label baseline-review \
-              --title "Baseline reviews are overdue" --body "$BODY"
+              --title "Baseline debt — standing report" --body "$BODY"
           fi
