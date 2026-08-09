@@ -112,23 +112,27 @@ cmd_ok() {
 
 phase_0() {
   echo "Phase 0 — Scaffolding and cross-model review"
-  has_file ".claude/tdd-guardian/plan-20260809-followups.md" "plan file (WI-0.1)"
-  has_file "scripts/check-followups-phase.sh"                "DoD checker (WI-0.1)"
-  has_file "scripts/check-followups-phase.test.mjs"          "DoD checker test (WI-0.1)"
+  has_file ".claude/tdd-guardian/plan-20260809-followups.md" "plan file (WI-AF0.1)"
+  has_file "scripts/check-followups-phase.sh"                "DoD checker (WI-AF0.1)"
+  has_file "scripts/check-followups-phase.test.mjs"          "DoD checker test (WI-AF0.1)"
   # Backtick-optional: the plan renders the id as `019fe450-…`.
   has_text ".claude/tdd-guardian/plan-20260809-followups.md" \
-           "Review thread: *\`?0[0-9a-f]{7}" "cross-model review recorded (WI-0.2, governance §6)"
+           "Review thread: *\`?0[0-9a-f]{7}" "cross-model review recorded (WI-AF0.2, governance §6)"
 }
 
 phase_1() {
   echo "Phase 1 — Repair the linkage gate (F3)"
-  has_file "scripts/check-wi-linkage.test.mjs" "linkage gate has a test (WI-1.4)"
+  has_file "scripts/check-wi-linkage.test.mjs" "linkage gate has a test (WI-AF1.1)"
+  # WI-AF1.4: the header claimed it checked only phases marked complete in the
+  # plan's Status header. No code ever parsed one. The claim is deleted.
+  lacks_text "scripts/check-wi-linkage.sh" \
+             "^# - Phase numbering" "no false Status-header claim (WI-AF1.4)"
   # "0 unlinked" is the WEAK assertion and must never be the only one: while
   # this plan's own commit messages DESCRIBE the WI-16 bug, the string "WI-16"
   # appears in the commit log and the gate reports it linked — satisfied by
   # prose about the defect rather than by the fix (observed 2026-08-09, F6).
   # The 21-vs-22 count below is the load-bearing check.
-  cmd_ok "predecessor plan reports 0 unlinked (WI-1.2)" \
+  cmd_ok "predecessor plan reports 0 unlinked (WI-AF1.2)" \
          bash scripts/check-wi-linkage.sh .claude/tdd-guardian/plan-20260803-161713.md
   if (( IS_REAL_ROOT == 1 )); then
     CHECKED=$((CHECKED+1)); PRESENT=$((PRESENT+1))
@@ -136,15 +140,15 @@ phase_1() {
     n=$(cd "$ROOT" && bash scripts/check-wi-linkage.sh \
           .claude/tdd-guardian/plan-20260803-161713.md 2>/dev/null \
         | sed -n 's/^WIs found: *\([0-9]*\).*/\1/p')
-    if [[ "$n" == "21" ]]; then ok "extracts exactly 21 work items (WI-1.3)"
-    else bad "extracts ${n:-?} work items, expected 21 — prose IDs still counted (WI-1.3)"; fi
+    if [[ "$n" == "21" ]]; then ok "extracts exactly 21 work items (WI-AF1.3)"
+    else bad "extracts ${n:-?} work items, expected 21 — prose IDs still counted (WI-AF1.3)"; fi
   else
-    skip "extracts exactly 21 work items (WI-1.3)"
+    skip "extracts exactly 21 work items (WI-AF1.3)"
   fi
   # F6: commit-side linkage must require the documented trailing-tag form, so a
   # commit that merely mentions an ID in prose cannot vouch for it.
   has_text "scripts/check-wi-linkage.sh" \
-           "COMMIT_TAG" "commit linkage requires the tag form (WI-1.5)"
+           "COMMIT_TAG" "commit linkage requires the tag form (WI-AF1.5)"
 }
 
 phase_2() {
@@ -152,31 +156,31 @@ phase_2() {
   # A workflow FILE is not a workflow VERDICT. F1 is closed by a recorded run
   # id + SHA, which is why the assertion reads the header rather than the path.
   has_text ".github/workflows/tier0-e2e.yml" \
-           "First green run: *[0-9]{6,} @ [0-9a-f]{7,}" "tier0-e2e first green run recorded (WI-2.1)"
-  has_file "scripts/check-gate-liveness.mjs"        "gate-liveness checker (WI-2.3)"
-  has_file "scripts/check-gate-liveness.test.mjs"   "gate-liveness test (WI-2.3)"
-  has_file ".github/workflows/gate-liveness.yml"    "gate-liveness schedule (WI-2.3)"
-  cmd_ok "gate-liveness passes against real run history (WI-2.3)" \
+           "First green run: *[0-9]{6,} @ [0-9a-f]{7,}" "tier0-e2e first green run recorded (WI-AF2.1)"
+  has_file "scripts/check-gate-liveness.mjs"        "gate-liveness checker (WI-AF2.3)"
+  has_file "scripts/check-gate-liveness.test.mjs"   "gate-liveness test (WI-AF2.3)"
+  has_file ".github/workflows/gate-liveness.yml"    "gate-liveness schedule (WI-AF2.3)"
+  cmd_ok "gate-liveness passes against real run history (WI-AF2.3)" \
          node scripts/check-gate-liveness.mjs
 }
 
 phase_3() {
   echo "Phase 3 — Frozen debt becomes scheduled debt (F5)"
-  has_text "scripts/baselineRatchetManifest.mjs" "review: *\{" "manifest carries review dates (WI-3.1)"
+  has_text "scripts/baselineRatchetManifest.mjs" "review: *\{" "manifest carries review dates (WI-AF3.1)"
   lacks_text ".claude/rules/00-engineering-principles.md" \
-             "153 pre-existing" "rules no longer quote a live gate count (WI-3.3)"
-  cmd_ok "baseline ratchet green with review dates active (WI-3.2)" \
+             "153 pre-existing" "rules no longer quote a live gate count (WI-AF3.3)"
+  cmd_ok "baseline ratchet green with review dates active (WI-AF3.2)" \
          node scripts/check-baseline-ratchet.mjs origin/main
 }
 
 phase_4() {
   echo "Phase 4 — A control on change size (F4)"
-  has_file "scripts/check-change-size.sh"      "change-size gate (WI-4.1)"
-  has_file "scripts/check-change-size.test.mjs" "change-size gate test (WI-4.2)"
-  has_text ".github/workflows/ci.yml" "check-change-size\.sh" "gate wired into ci.yml PR tier (WI-4.1)"
+  has_file "scripts/check-change-size.sh"      "change-size gate (WI-AF4.1)"
+  has_file "scripts/check-change-size.test.mjs" "change-size gate test (WI-AF4.2)"
+  has_text ".github/workflows/ci.yml" "check-change-size\.sh" "gate wired into ci.yml PR tier (WI-AF4.1)"
   # §13, not §12 — §12 is already taken by the dark-feature verdicts
   # (60-ai-governance.md:326). Caught by review 019fe450, Dim 1 #4.
-  has_text ".claude/rules/60-ai-governance.md" "^## 13\." "governance §13 records the control (WI-4.2)"
+  has_text ".claude/rules/60-ai-governance.md" "^## 13\." "governance §13 records the control (WI-AF4.2)"
 }
 
 phase_5() {
@@ -189,16 +193,16 @@ phase_5() {
   CHECKED=$((CHECKED+1))
   if [[ -d "$ROOT/dev-docs" ]]; then
     PRESENT=$((PRESENT+1))
-    if [[ -f "$ROOT/dev-docs/README.md" ]]; then ok "dev-docs index exists (WI-5.1)"
-    else bad "dev-docs index exists (WI-5.1) — missing: dev-docs/README.md"; fi
+    if [[ -f "$ROOT/dev-docs/README.md" ]]; then ok "dev-docs index exists (WI-AF5.1)"
+    else bad "dev-docs index exists (WI-AF5.1) — missing: dev-docs/README.md"; fi
   else
-    skip "dev-docs index (WI-5.1) — maintainer-local, gitignored"
+    skip "dev-docs index (WI-AF5.1) — maintainer-local, gitignored"
   fi
   # Both authorities, not one: AGENTS.md:303 mandates dev-docs/plans/ too, so
   # amending only the rules file leaves the repo contradicting itself.
   has_text ".claude/rules/60-ai-governance.md" \
-           "\.claude/tdd-guardian" "governance §1 names both plan homes (WI-5.2)"
-  has_text "AGENTS.md" "\.claude/tdd-guardian" "AGENTS.md agrees with §1 (WI-5.2)"
+           "\.claude/tdd-guardian" "governance §1 names both plan homes (WI-AF5.2)"
+  has_text "AGENTS.md" "\.claude/tdd-guardian" "AGENTS.md agrees with §1 (WI-AF5.2)"
 }
 
 run_phase() {
