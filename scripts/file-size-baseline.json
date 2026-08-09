@@ -69,7 +69,7 @@
     "src/plugins/compositionGuard/tiptap.ts": 403,
     "src/plugins/editorPlugins.tiptap.ts": 320,
     "src/plugins/footnotePopup/tiptap.ts": 384,
-    "src/plugins/imagePasteToast/ImagePasteToastView.ts": 306,
+    "src/plugins/imagePasteToast/ImagePasteToastView.ts": 305,
     "src/plugins/latex/MathInlineNodeView.ts": 565,
     "src/plugins/mediaPopup/MediaPopupView.ts": 480,
     "src/plugins/mermaidPreview/MermaidPreviewView.ts": 402,

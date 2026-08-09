@@ -10,6 +10,10 @@
  *   - DOM-based (not React) for consistency with other editor popups
  *   - Escape key dismisses the toast
  *   - Reads state through a PORT it declares, never the app's store (ADR-015)
+ *   - Buttons come from `buildPopupIconButton` on the canonical
+ *     `.popup-icon-btn` surface (WI-DP4.1). `.image-paste-toast-btn` was not
+ *     only styling — the Tab focus trap enumerated its buttons by it — so the
+ *     trap now selects `.popup-icon-btn`, scoped to this container.
  *
  * @coordinates-with imagePasteToast/types.ts — the state PORT the host satisfies
  * @coordinates-with imageHandler/tiptap.ts — triggers the toast on ambiguous image pastes
@@ -76,9 +80,6 @@ class ImagePasteToastView {
     messageEl.className = "image-paste-toast-message";
     messageEl.textContent = i18n.t("editor:plugin.imageDetected");
 
-    // WI-DP4.1: built by the canonical factory. These were 8 hand-written
-    // lines each that re-created exactly what `buildPopupIconButton` does,
-    // down to the aria-label and the `.popup-icon-btn` surface.
     const insertBtn = buildPopupIconButton({
       icon: "save",
       title: i18n.t("editor:plugin.insertAsImage"),
@@ -217,9 +218,7 @@ class ImagePasteToastView {
       } else if (e.key === "Tab") {
         // Trap focus within toast
         e.preventDefault();
-        // WI-DP4.1: canonical class, container-scoped. The retired
-        // `.image-paste-toast-btn` was this trap's button enumerator as well
-        // as a style hook, so dropping it silently broke Tab cycling.
+        // WI-DP4.1: canonical class, container-scoped (see the header).
         const buttons = this.container.querySelectorAll<HTMLButtonElement>(".popup-icon-btn");
         const activeEl = document.activeElement as HTMLElement;
         const currentIndex = Array.from(buttons).indexOf(activeEl as HTMLButtonElement);
