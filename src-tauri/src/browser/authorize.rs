@@ -8,6 +8,8 @@
 //! `authorize_driver_op`; `browser_screenshot` additionally re-checks
 //! `command_still_fresh` after its long capture.
 //!
+//! @coordinates-with browser/refusals.rs — the typed refusal vocabulary this
+//!   gate raises, split out at WI-DP2.5 to keep the security core one screen
 //! @coordinates-with browser/commands_auth.rs — the command entry points
 //! @coordinates-with browser/origin_guard.rs — the per-operation decision
 //! @coordinates-with browser/one_shot.rs — single-use "Allow once" consumption
