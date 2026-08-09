@@ -22,9 +22,9 @@ import {
   saveWikiLinkChanges,
 } from "./sourceWikiLinkActions";
 
-/** Build a source-wiki-link popup icon button with the popup's bespoke styling. */
+/** Build a source-wiki-link popup icon button on the canonical `.popup-icon-btn` surface (WI-DP4.1). */
 function buildSourceWikiLinkBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-wiki-link-popup-btn" });
+  return buildPopupIconButton({ iconSvg, title, onClick });
 }
 
 /**

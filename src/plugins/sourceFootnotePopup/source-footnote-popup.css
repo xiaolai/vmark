@@ -76,66 +76,9 @@
   opacity: var(--opacity-muted);
 }
 
-/* Icon-only buttons */
-.source-footnote-popup-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-  position: relative;
-}
-
-.source-footnote-popup-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.source-footnote-popup-btn:active {
-  opacity: 0.8;
-}
-
-.source-footnote-popup-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* Focus state - U-shaped underline (keyboard focus only) */
-.source-footnote-popup-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.source-footnote-popup-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: var(--border-medium) solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-.source-footnote-popup-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
 /* Delete button - danger color on hover */
+/* Buttons use the canonical `.popup-icon-btn` (WI-DP4.1); this file keeps
+   only the genuinely local part — the delete button's danger accent. */
 .source-footnote-popup-btn-delete:hover {
   color: var(--error-color);
 }

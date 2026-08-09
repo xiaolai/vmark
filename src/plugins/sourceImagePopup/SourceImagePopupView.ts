@@ -12,9 +12,9 @@ import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
 
-/** Build a source-image popup icon button with the popup's bespoke styling. */
+/** Build a source-image popup icon button on the canonical `.popup-icon-btn` surface (WI-DP4.1). */
 function buildSourceImageBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-image-popup-btn" });
+  return buildPopupIconButton({ iconSvg, title, onClick });
 }
 
 /**
