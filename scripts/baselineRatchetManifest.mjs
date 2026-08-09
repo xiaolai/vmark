@@ -50,6 +50,18 @@ export const MANIFEST = {
       ],
     },
     {
+      // The review deadlines themselves (WI-AF3.2). Dates are YYYYMMDD
+      // INTEGERS so that pushing a deadline OUT is numerically a raise and
+      // fails here against the merge base, while pulling one in passes. The
+      // authorized exception is therefore `allowRaise` — one re-measurement, a
+      // mandatory reason, self-expiring — rather than a second bespoke
+      // mechanism invented for dates. `targets` / `exempt` / `owners` carry
+      // prose and are not ratcheted; scripts/check-review-schedule.mjs
+      // validates their shape and the two-way coverage against THIS manifest.
+      path: "scripts/baseline-review-schedule.json",
+      checks: [{ mode: "per-key-count", at: "reviews" }],
+    },
+    {
       // Six warn-tier knip families, each a plain count at the root.
       path: "scripts/knip-baseline.json",
       checks: [{ mode: "per-key-count", at: "" }],
