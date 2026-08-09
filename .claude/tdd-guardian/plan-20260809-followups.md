@@ -1,16 +1,24 @@
 # Architecture-review follow-ups — closing what the 21-WI refactor left open
 
-**Status:** Phase 0 (plan written, cross-model review pending) · **Date:** 2026-08-09
+**Status:** Phase 0 complete (revision 2, post-review) · **Date:** 2026-08-09
 **Branch:** `refactor/architecture-review-followups`
 **Predecessor:** `.claude/tdd-guardian/plan-20260803-161713.md` (21 WIs, landed
 `85dc54405`, 2026-08-04)
 **Origin:** verification pass over that plan's delivered state, 2026-08-09. Every
 finding below was reproduced against the tree, not read off the tracker.
 
+**Cross-model review (governance §6, mandatory — >3 phases):**
+Review thread: `019fe450-545a-7022-b664-d9dfbe71f9df` · Codex `gpt-5.6-sol`,
+effort `high`, 2026-08-09 · **Verdict: MAJOR GAPS** (revision 1).
+Every load-bearing claim was independently verified against the tree before
+adoption; five were checked directly and all five held. Revision 2 below adopts
+them. Deltas are recorded per WI rather than silently patched, because the
+errors are instructive about how this kind of plan goes wrong.
+
 **Verify status at any time:**
 
 ```bash
-bash scripts/check-followups-phase.sh <0-5>   # per-phase DoD, exit 0 = phase complete
+bash scripts/check-followups-phase.sh <0-5>   # per-phase DoD
 bash scripts/check-followups-phase.sh all     # every phase, one report
 ```
 
@@ -33,165 +41,238 @@ This plan does **not** revisit that work. It closes five gaps at its edges.
 
 | # | Finding | Class | Phase |
 |---|---|---|---|
-| F1 | `tier0-e2e.yml` has never run — zero runs, ever | unproven gate | 2 |
-| F2 | Mutation testing is proven by one hand-dispatch; every scheduled run in history was cancelled | unproven gate | 2 |
+| F1 | `tier0-e2e.yml` has never run — zero runs, ever | unproven gate | 2A |
+| F2 | Mutation is proven by one hand-dispatch; every scheduled run was cancelled | unproven gate | 2A |
 | F3 | `check-wi-linkage.sh` cannot see `scripts/*.test.mjs`, and invents phantom WIs from prose | gate defect | 1 |
-| F4 | The refactor landed as one 652-file commit, against its own "no big-bang commit" criterion | no control | 4 |
+| F4 | The refactor landed as one 652-file commit, against its own "no big-bang commit" criterion | no signal | 4 |
 | F5 | ~450 units of frozen debt across 27 baselines, none ratcheting down | invisible debt | 3 |
+| F6 | Commit-side linkage is satisfied by *any* mention of an ID, including prose describing the bug | gate defect | 1 |
 
 Plus two documentation-hygiene items (Phase 5).
 
+**F6 was found by this plan's own first commit.** That commit message describes
+the F3 defect and therefore contains the string `WI-16`; `check-wi-linkage.sh`
+scans commit bodies for the bare ID, so it now reports the predecessor plan as
+"0 unlinked" — satisfied by prose *about* the bug rather than by the fix. It is
+ADR-2's defect on the other side of the gate: the plan-file half invents work
+items from prose, and the commit half accepts prose as proof of work. Both halves
+need the same treatment, and until WI-1.5 lands, "0 unlinked" is a weak signal —
+which is why the DoD's load-bearing Phase-1 assertion is the 21-vs-22 count.
+
+## What revision 1 got wrong
+
+Recorded because the failure modes generalise:
+
+1. **The deferral mechanism could not be built as specified.** ADR-1 said
+   `deferReview` "mirrors `allowRaise`" and fails as stale against the merge base.
+   `allowRaise` works because baseline *values* are read at the base ref;
+   `loadManifest` (`check-baseline-ratchet.mjs:138`) only ever loads the **HEAD**
+   manifest. Review dates living in the manifest are therefore invisible at the
+   base, and the staleness rule was unimplementable. *I asserted a mechanism by
+   analogy without reading the loader.* — ADR-1 rewritten.
+2. **A date that blocks PRs is the flake class the ADR claimed to avoid.** An
+   injected clock makes *tests* deterministic; it does nothing for CI, where the
+   same unchanged PR passes at 23:59 and fails at 00:01. — ADR-1 rewritten.
+3. **`## 12` already exists** (dark-feature verdicts, `60-ai-governance.md:326`).
+   — now §13.
+4. **`AGENTS.md:303` carries the same plan-home mandate as governance §1.**
+   Amending one authority leaves the repo contradicting itself. — WI-5.2 widened.
+5. **The DoD checker printed DONE over skipped assertions.** With only its
+   REAL-ROOT checks skipped, a fixture phase exited 0 — a green verdict over work
+   nobody performed, in the script written to police exactly that. — fixed in
+   revision 2 (ADR-6), and the test that asserted the buggy behaviour was
+   rewritten to forbid it.
+
+Finding 5 is the one worth sitting with: the checker reproduced the *predecessor's*
+fiction class on its first day of life.
+
 ## ADRs
 
-**ADR-1 — A date-triggered gate must offer a re-date, not just a failure.**
-F5's fix makes every frozen baseline carry a review date and fail when it passes.
-A bare date bomb reddens an unrelated PR with no action its author can take, which
-trains people to disable it. So the failure has exactly two remedies, both stated
-in the message: lower the number, or record a `deferReview` entry with a reason —
-one deferral per baseline, expiring by itself, exactly the `allowRaise` idiom the
-manifest already uses and that the codebase has already proven it trusts.
+**ADR-1 (rewritten) — overdue debt REPORTS on a schedule; PR CI enforces only
+transitions.** Two mechanisms, because they answer different questions.
+- *Is this debt overdue?* is a question about **today**, so it belongs to a
+  scheduled job that opens/updates a rolling issue. No PR is blocked by the
+  calendar, which removes the flake class entirely.
+- *Did this PR quietly push a deadline out?* is a question about a **diff**, so it
+  belongs to the merge-base ratchet. For that to be checkable at all, the review
+  schedule moves OUT of `baselineRatchetManifest.mjs` and into
+  `scripts/baseline-review-schedule.json` — a plain JSON baseline the existing
+  base-reading machinery already handles natively, registered in the manifest
+  like any other. A date moved later without an accompanying `deferReview` entry
+  is a loosening and fails; the mechanism is the one already trusted, not a new one.
 
-**ADR-2 — Work-item IDs come from headings, never from prose.**
-F3's phantom-WI class (`WI-1.6`, extracted from a quoted label inside WI-6's
-description) is the third instance of the same defect in this repo: the plugin
-coupling detector counted `@/stores` in comments, and the keybinding gate anchored
-on mentions rather than declarations. Both were fixed by parsing structure instead
-of grepping text. The linkage checker gets the same treatment — a WI-ID is an ID
-only where the plan *declares* it as a work item.
+**ADR-2 — Work-item IDs come from declarations, never from prose.** F3's phantom
+(`WI-1.6`, quoted inside WI-6's description) is the third instance of one defect
+in this repo: the plugin-coupling detector counted `@/stores` in comments, and the
+keybinding gate anchored on mentions rather than declarations. Both were fixed by
+parsing structure. The linkage checker gets the same treatment — and must preserve
+every ID form the current grammar accepts (`WI-1.2`, `WI-S1.3`, `WI-SOC.2`,
+trailing-letter suffixes), which is wider than the two forms revision 1 named.
 
-**ADR-3 — The change-size control gates the PR, not the commit.**
-F4 cannot be fixed retroactively and must not be fixed by banning large changes:
-a genuine 21-WI program legitimately touches 652 files. What was missing is that
-the size was never a *decision*. The gate therefore runs PR-only against the merge
-base (same tier and failure posture as `check-new-deps.sh`), and an oversized PR
-passes as soon as its body carries an explicit acknowledgement. It converts an
-accident into a signature.
+**ADR-3 (revised) — the change-size gate is a FORCING FUNCTION, not a control.**
+With `required_approving_review_count: 0`, an acknowledgement token the PR author
+adds is self-authorized: it cannot prevent anything a determined author wants.
+Calling it a control would be the fiction this program exists to delete. What it
+honestly buys is that size becomes a *recorded decision* rather than an
+unremarked accident, and that the number appears where humans and future audits
+can see it. It is telemetry with a speed bump. The gate reads the PR body through
+`gh api` at run time, not from the event payload, because `pull_request` without
+`types:` does not fire on body edits — a token added after a red check would
+otherwise never take effect.
 
 **ADR-4 — `.claude/tdd-guardian/` is a legitimate plan home; §1 is what is wrong.**
-Governance §1 says plans live in `dev-docs/plans/YYYYMMDD-name.md`. `dev-docs/` is
-gitignored (`.gitignore:8`) and `.claude/tdd-guardian/` is tracked. Moving the
-predecessor plan to satisfy §1 would delete a tracked plan from the repo — strictly
-worse than the deviation. §1 is amended to name both homes and the rule for
-choosing, rather than the plan being moved.
+Governance §1 and `AGENTS.md:303` both say plans live in `dev-docs/plans/`.
+`dev-docs/` is gitignored (`.gitignore:8`); `.claude/tdd-guardian/` is tracked.
+Moving the predecessor plan to comply would delete a tracked plan from the repo.
+Both authorities are amended together.
 
-**ADR-5 — Liveness is a property of a gate, not a property of a workflow file.**
-F1 and F2 are the same defect wearing two faces: a workflow that exists, is wired,
-looks green in review, and has never produced a verdict. A one-off dispatch closes
-F1 today and nothing else. The durable half is WI-2.3 — a scheduled audit that
-asks, of every non-PR gate, "did you produce a verdict recently, and does your
-on-failure path still fire?" That is the deferred item from the predecessor plan
-whose absence is why F1 survived merge.
+**ADR-5 — Liveness is a property of a gate, not of a workflow file.** F1 and F2 are
+one defect with two faces: a workflow that exists, is wired, reviews clean, and has
+never produced a verdict. Discovery is by an explicit `# liveness-gate: true` marker
+so the manifest cannot drift from the workflows, and **no workflow watches itself** —
+a disabled workflow's cron stops firing and it cannot report its own silence. The
+liveness job and one existing scheduled job watch each other on different cadences.
+
+**ADR-6 (new) — UNVERIFIED is a third state, distinct from DONE and FAILED.** A DoD
+assertion that could not be run has not passed. The checker reports UNVERIFIED and
+exits non-zero, and phase 5's gitignored index is UNVERIFIED on a clean checkout
+rather than silently required. Present-on-disk and property-holds are different
+claims; conflating them is how a checker certifies work nobody did.
+
+**ADR-7 (new) — one PR per phase, starting now.** F4's own lesson applies to this
+plan first. Phases land as separate PRs; no phase waits for another to be
+reviewable. This is the part of Phase 4 that costs nothing and starts immediately,
+rather than arriving in Phase 4 after this plan has already accumulated three
+phases in one branch.
 
 ---
 
-## Phase 0 — Scaffolding and review (gate for everything after)
+## Phase 0 — Scaffolding and review ✅
 
-### WI-0.1 — DoD checker
-- **Deliver:** `scripts/check-followups-phase.sh` + `scripts/check-followups-phase.test.mjs`.
-- **Acceptance:**
-  - [ ] Per-phase assertions; `all` runs every phase.
-  - [ ] Unstarted phase reports NOT STARTED and exits non-zero (never a vacuous pass — the `check-wi-linkage.sh` zero-match lesson).
-  - [ ] Test drives the real script as a subprocess over fixture trees, asserting both directions per phase.
-  - [ ] Lands in the gates vitest tier automatically (`scripts/*.test.mjs`); `pnpm test:gates` green.
+### WI-0.1 — DoD checker ✅
+`scripts/check-followups-phase.sh` + `scripts/check-followups-phase.test.mjs`,
+22 tests over fixture trees in both directions. Revision 2 added ADR-6's
+UNVERIFIED state after the review found the checker certifying skipped work.
 
-### WI-0.2 — Cross-model review (governance §6, mandatory: >3 phases)
-- **Deliver:** `/cc-suite:review-plan` against this file; adopted deltas recorded per WI.
-- **Acceptance:**
-  - [ ] Review run, thread ID recorded in this header.
-  - [ ] Every blocker either adopted or refused with a stated reason.
-  - [ ] **No Phase 1 commit lands before this completes.**
+### WI-0.2 — Cross-model review ✅
+Thread `019fe450-545a-7022-b664-d9dfbe71f9df`, verdict MAJOR GAPS, all findings
+adopted or answered above. **No Phase 1 commit lands before this** — satisfied.
 
 ---
 
 ## Phase 1 — Repair the linkage gate (F3)
 
-`scripts/check-wi-linkage.sh` is the governance §2 enforcement mechanism. It has
-three defects and no test.
+> **Governance §9 note.** §9 forbids changing this script without explicit
+> authorization; its header already records one grant (2026-07-14). Authorization
+> for this change was granted by the maintainer on 2026-08-09. Each WI appends its
+> reason to that header, as §9 requires.
 
-> **Governance §9 note.** §9 forbids changing this script without explicit user
-> authorization, and its header already records one such grant from 2026-07-14.
-> Authorization for this change was granted by the maintainer on 2026-08-09
-> ("fix all"). Every WI below appends its reason to that header, as §9 requires.
+**Ordering (review Dim 5 #3): the harness comes first.** Revision 1 demanded
+RED-first tests in WI-1.1/1.2 while putting the test file last — you cannot write
+a failing test in a harness that does not exist.
 
-### WI-1.1 — See the gates tier
-- **Problem:** `TEST_HEADERS` globs `src/**/*.test.ts(x)` and `src-tauri/**/*.test.rs`
-  only. The repo has a fourth test root — `scripts/**` and `.claude/hooks/**`, owned
-  by `vitest.gates.config.ts`, 31 files and 645 tests. WI-16's only test lives there,
-  so a correctly-linked work item reports NOT LINKED.
+### WI-1.1 — Test harness for the linkage gate
+- **Deliver:** `scripts/check-wi-linkage.test.mjs`, real script over fixture plans
+  and fixture test trees in tmpdir.
 - **Acceptance:**
-  - [ ] RED first: a test asserting WI-16 links via `scripts/check-baseline-ratchet.test.mjs` fails before the fix.
-  - [ ] Glob covers every root the tier partition recognises; adding a fifth root fails the checker's test, not silently.
-  - [ ] `bash scripts/check-wi-linkage.sh .claude/tdd-guardian/plan-20260803-161713.md` reports 0 unlinked.
+  - [ ] Covers: linked-via-commit, linked-via-test-header, unlinked, zero-match fail-closed, `--phase` filter, bad path (exit 64).
+  - [ ] The zero-match fail-closed property (2026-07-14) is pinned BEFORE the grammar is touched, so widening it cannot silently undo it.
 
-### WI-1.2 — IDs from declarations, not prose (ADR-2)
-- **Problem:** `grep -E -o "$WI_RE" "$PLAN"` matches every occurrence anywhere in the
-  file. The predecessor plan quotes `"WI-1.6 live-webview cap enforced"` inside WI-6's
-  description, so the gate demands linkage for a work item that does not exist.
+### WI-1.2 — See the gates tier (renumbered from revision 1's WI-1.1)
+- **Problem:** `TEST_HEADERS` globs `src/**/*.test.ts(x)` and `src-tauri/**/*.test.rs`.
+  The repo has a fourth test root — `scripts/**` and `.claude/hooks/**`, owned by
+  `vitest.gates.config.ts`, 32 files. WI-16's only test lives there, so a correctly
+  linked work item reports NOT LINKED.
 - **Acceptance:**
-  - [ ] RED first: fixture plan with a prose mention of a foreign WI-ID → that ID is not extracted.
-  - [ ] A real work item declared in a heading IS extracted, in both `### WI-N:` and `**WI-N.M — title**` forms (both live in this repo).
-  - [ ] Zero-match still FAILS CLOSED (the 2026-07-14 property is preserved and pinned).
+  - [ ] RED first: WI-16 links via `scripts/check-baseline-ratchet.test.mjs`.
+  - [ ] Glob covers every root the tier partition recognises; a fifth root fails the checker's test rather than being silently unsearched.
+
+### WI-1.3 — IDs from declarations, not prose (ADR-2)
+- **Acceptance:**
+  - [ ] RED first: a prose mention of a foreign ID is not extracted; a declared work item is.
+  - [ ] **Every currently-accepted ID form still parses**: `WI-1`, `WI-1.2`, `WI-S1.3`, `WI-SOC.2`, trailing-letter suffixes. Table-driven.
+  - [ ] Declaration forms both live in this repo: `### WI-N: title` and `**WI-N.M — title**`.
+  - [ ] Non-declaration contexts do not count: prose, code fences, blockquotes, tables. Duplicate declarations collapse to one.
+  - [ ] Zero-match still FAILS CLOSED.
   - [ ] Predecessor plan extracts exactly 21 work items, not 22.
 
-### WI-1.3 — Delete or implement the phase claim
-- **Problem:** The header states "only checks WIs from phases reported as 'complete'
-  in the plan's Status header. Skips phases not yet started." No code parses a Status
-  header. The claim is false in the file that enforces honesty elsewhere.
+### WI-1.5 — Commit-side linkage requires the tag form (F6)
+- **Problem:** `grep -F -q -- "$wi" <<<"$COMMIT_LOG"` accepts the ID anywhere in a
+  commit subject or body. A commit that merely *discusses* a work item vouches for
+  it. Governance §2 documents the intended form — `feat(scope): change (WI-1.2)` —
+  and the gate does not require it.
 - **Acceptance:**
-  - [ ] Either implemented and pinned by test, or deleted from the header. Decision recorded in the header with its reason.
-  - [ ] `--phase=N` behaviour (which *is* implemented) documented accurately.
+  - [ ] RED first: a commit whose body mentions `WI-9` in prose does NOT link WI-9; a commit whose subject ends `(WI-9)` does.
+  - [ ] The accepted form matches what §2 documents; §2 is corrected if the two disagree, rather than the gate being bent to fit.
+  - [ ] Trailer form (`WI: 1.2`) either accepted deliberately or rejected deliberately — decided, not left ambiguous.
+  - [ ] Re-running the gate on this branch no longer reports WI-16 linked on the strength of a commit that describes the bug.
 
-### WI-1.4 — First test file for the script
+### WI-1.4 — Delete or implement the phase claim
+- **Problem:** the header says it checks only WIs from phases marked complete in the
+  plan's Status header. No code parses a Status header. A false claim in the file
+  that enforces honesty elsewhere.
 - **Acceptance:**
-  - [ ] `scripts/check-wi-linkage.test.mjs` drives the real script over fixture plans + fixture test trees in tmpdir.
-  - [ ] Covers: linked-via-commit, linked-via-test-header, unlinked, zero-match fail-closed, phantom-prose ID, gates-tier header, `--phase` filter, malformed plan path (exit 64).
-  - [ ] `pnpm test:gates` green.
+  - [ ] Implemented and pinned, or deleted, with the decision and its reason in the header.
+  - [ ] `--phase=N` (which *is* implemented) documented accurately.
 
 **Phase 1 DoD:** `bash scripts/check-followups-phase.sh 1` exits 0.
 
 ---
 
-## Phase 2 — Prove the unproven gates (F1, F2, ADR-5)
+## Phase 2A — Live evidence (F1, F2)
+
+Split from revision 1's single Phase 2 (review Dim 5 #2): getting a real verdict
+out of an existing workflow and *building a supervision system* are different
+risks and should not share a phase gate.
 
 ### WI-2.1 — First live run of `tier0-e2e.yml`
-- **Problem:** Zero runs, ever. The workflow's own header requires its first live run
-  to be a `workflow_dispatch` verified with `gh run view --json headSha,conclusion,jobs`.
-  The predecessor's WI-17 carried that as acceptance and it was never met. Headless
-  WebKitGTK under Xvfb is the one part no local check can prove.
 - **Authorized:** maintainer, 2026-08-09 — dispatch and iterate to green.
 - **Acceptance:**
   - [ ] Dispatched against an explicit `--ref`; run ID captured.
   - [ ] `gh run view <id> --json headSha,conclusion,jobs` shows the dispatched SHA, `conclusion: success`, and per-job success. Never a bare `gh run watch`.
-  - [ ] Any failure found is FIXED, not recorded — the run is the point.
-  - [ ] Result (run ID, SHA, date) written into the workflow header, replacing the "its first live run is…" future tense.
+  - [ ] Any failure is FIXED, not recorded — the run is the point.
+  - [ ] Result recorded in the workflow header, replacing the "its first live run is…" future tense.
+  - [ ] **The record is verified, not trusted** (review Dim 2 #6): a comment is forgeable, so the DoD re-checks the recorded id/SHA through `gh api` — workflow identity, event, head SHA, conclusion, job conclusions.
 
 ### WI-2.2 — Mutation's scheduled lane
-- **Problem:** One success in project history, all `workflow_dispatch`. Every
-  *scheduled* run since June was cancelled. Post-repair, no scheduled run has come due
-  yet (next: Monday 2026-08-10 06:00 UTC), so the schedule path is untested, not broken.
 - **Acceptance:**
-  - [ ] Root cause of the historical cancellations identified and stated (concurrency group vs 6h limit vs manual) — a guess is not an answer.
-  - [ ] If the cause is structural, fixed; if it was pre-repair timeouts, that is recorded with the evidence.
-  - [ ] The 2026-08-10 scheduled run is checked and its verdict recorded here.
+  - [ ] A **structured evidence record** (not narrative): per historical run — id, event, conclusion, timestamps, and cancellation reason where the API exposes it.
+  - [ ] Root cause stated from that evidence: concurrency group, 6-hour limit, or manual. A guess is not an answer, and "probably timeouts" is a guess.
+  - [ ] If structural, fixed. If pre-repair timeouts, that is the recorded conclusion.
+  - [ ] The 2026-08-10 06:00 UTC scheduled run is checked and its verdict recorded. A `workflow_dispatch` is **not** evidence about the schedule path.
 
-### WI-2.3 — Gate-liveness audit (the deferred item that would have caught F1)
-- **Deliver:** `scripts/check-gate-liveness.mjs` + test + a scheduled workflow.
+**Phase 2A DoD:** a verified-green tier0 run record and a mutation evidence record.
+
+---
+
+## Phase 2B — Gate-liveness supervision (ADR-5)
+
+The deferred item from the predecessor plan whose absence is why F1 survived merge.
+**Spike first** (review Dim 5 #2): GitHub run-history semantics, workflow identity
+across renames, pagination, and the supervision topology are all unresolved.
+
+### WI-2.3 — Liveness spike
 - **Acceptance:**
-  - [ ] RED first: fixture with a gate whose last verdict is older than its declared cadence → exit 1 naming the gate.
-  - [ ] A manifest declares each non-PR gate (`mutation`, `tier0-e2e`, `soak`, `rust-coverage`) with its cadence and its expected on-failure path.
-  - [ ] Reads real run history via `gh api`; **fails closed** on unreachable `gh`, malformed JSON, or a workflow with zero runs — never a silent pass. (Zero runs is the F1 state; it must be the loudest case, not the quietest.)
-  - [ ] A gate on disk but missing from the manifest fails, and a manifest entry with no workflow fails — two-way staleness, house standard.
-  - [ ] Reports into a single rolling issue, the `mutation.yml` pattern.
-  - [ ] Registered wherever a scheduled workflow is registered so it cannot itself become the unwatched watcher — state explicitly in its header who watches it.
+  - [ ] A runnable probe answering, against real `gh api` data: what counts as a *verdict* (which conclusions), how cadence grace is computed, how a renamed or disabled workflow is identified, how pagination and rate limits behave.
+  - [ ] Findings recorded before any production script is written.
 
-**Phase 2 DoD:** `bash scripts/check-followups-phase.sh 2` exits 0 — which requires a
-recorded green tier0-e2e run ID, not merely the file's existence.
+### WI-2.4 — `scripts/check-gate-liveness.mjs` + schedule
+- **Acceptance:**
+  - [ ] RED first: fixture gate whose last verdict predates its cadence → exit 1 naming it.
+  - [ ] **Discovery by marker**, not a hand-list: a workflow opts in with `# liveness-gate: true` and declares cadence + expected on-failure path. Two-way staleness — a marked workflow missing from the manifest fails, and vice versa.
+  - [ ] **Zero runs is the loudest case, not the quietest** — it is the F1 state.
+  - [ ] **Fails closed** on unreachable `gh`, malformed JSON, or rate limiting.
+  - [ ] **No self-watching** (ADR-5): the liveness job and one existing scheduled job watch each other on different cadences. The topology is stated in the workflow header, and the mutual arrangement is what enforces it — a header sentence is not supervision.
+  - [ ] Reports into a single rolling issue (the `mutation.yml` pattern).
+  - [ ] Verifies WI-2.1's recorded tier0 run through `gh api`, so Phase 2A's evidence stays true rather than merely having been true once.
+
+**Phase 2B DoD:** `bash scripts/check-followups-phase.sh 2` exits 0.
 
 ---
 
 ## Phase 3 — Frozen debt becomes scheduled debt (F5, ADR-1)
 
-Today's frozen debt, measured 2026-08-09:
+Frozen debt, measured 2026-08-09:
 
 | Baseline | Frozen | Movement since 2026-08-04 |
 |---|---:|---|
@@ -201,53 +282,57 @@ Today's frozen debt, measured 2026-08-09:
 | `plugin-store-coupling-baseline.json` | services/hooks/components channels | none |
 | `file-size-baseline.json` | 92 files | down from 153 ✅ |
 
-The ratchets work — they make the debt visible and monotone. What none of them has
-is a *deadline*. Scope here is the mechanism, not bulk paydown (maintainer decision,
-2026-08-09); paying these down is its own plan.
+Scope is the mechanism, not bulk paydown (maintainer decision, 2026-08-09).
 
-### WI-3.1 — `review` dates in the ratchet manifest
+### WI-3.1 — Spike the schedule mechanism on two baselines
+Review Dim 5 #4: revision 1 went from a loosely specified mechanism straight to
+dating all 27 entries. A wrong transition model blocks CI repo-wide.
 - **Acceptance:**
-  - [ ] RED first: fixture manifest entry with a past `review` date → real script exits 1 naming the baseline.
-  - [ ] Schema extends `MANIFEST` entries with `review: { by: "YYYY-MM-DD", owner, target }`; `target` states what "progress" means for that baseline (a number, or "zero").
-  - [ ] A past date fails with both remedies named: lower the number, or add a `deferReview` entry with a reason.
-  - [ ] `deferReview` mirrors `allowRaise`: one deferral, mandatory reason, **fails as stale** once the review date has moved past it on the base.
-  - [ ] An entry with no `review` field fails — every baseline is dated, no opt-out.
-  - [ ] Dates are read from a real clock injected at the seam, never `Date.now()` inside the comparator, so the tests are deterministic.
+  - [ ] One synthetic baseline + one real debt baseline only.
+  - [ ] All six transitions exercised against scratch git repos: first introduction (absent at base), a brand-new baseline, an earlier date, an unauthorized later date, an authorized deferral, and a stale deferral.
+  - [ ] Migration case settled explicitly: every date is absent from the base on the introducing PR, so "absent at base" must be *allowed once* and never confusable with a silent extension.
 
-### WI-3.2 — Date every one of the 27 baselines
+### WI-3.2 — `scripts/baseline-review-schedule.json` (ADR-1)
 - **Acceptance:**
-  - [ ] All 27 carry `review`, `owner`, `target`; no placeholder dates (a date nobody chose is a date nobody honours).
-  - [ ] Dates are staggered — a single shared date makes one bad Monday redden everything.
+  - [ ] Schedule lives in its own JSON baseline, registered in the manifest — so the merge-base machinery reads it natively and the HEAD-only manifest-loader limitation never applies.
+  - [ ] **Per-check, not per-entry** (review Dim 1 #1): entries like `file-size-baseline.json` carry four independent checks; one `target` cannot describe them.
+  - [ ] `target` semantics defined per comparison mode, with how progress is computed.
+  - [ ] An explicit **exemption class with a stated reason** for baselines that are not debt (immutable corpora, empty invariants). An exemption is a claim, not a convenience — and a stale one fails, like every other allowlist here.
+  - [ ] Strict schema: UTC dates, malformed/impossible dates rejected, due-day equality defined, `deferReview` fields `{path, check, from, to, reason}` with an exact transition rule and a maximum horizon.
+  - [ ] Clock injected at the seam; never `Date.now()` inside a comparator.
+
+### WI-3.3 — Overdue reporter
+- **Acceptance:**
+  - [ ] Scheduled job opens/updates a rolling issue listing overdue baselines with owner and target. **No PR is blocked by the calendar.**
+  - [ ] Registered as a liveness gate under WI-2.4's marker — the reporter must not become the next thing that silently stops running.
+
+### WI-3.4 — Date all 27, and stop quoting live numbers
+- **Acceptance:**
+  - [ ] All 27 carry a schedule entry or a reasoned exemption; no placeholder dates; dates staggered.
+  - [ ] `.claude/rules/00-engineering-principles.md` stops asserting "153 pre-existing violators" (it is 92) and references the baseline file as the authority. Same sweep for any other rule restating a live gate number.
   - [ ] `node scripts/check-baseline-ratchet.mjs origin/main` exits 0.
-
-### WI-3.3 — Rules stop quoting numbers they do not own
-- **Problem:** `.claude/rules/00-engineering-principles.md` says the file-size baseline
-  "freezes the 153 pre-existing violators"; it is 92. The number drifted the moment the
-  gate did its job. Docs that restate a gate's number are drift generators.
-- **Acceptance:**
-  - [ ] Rule text references the baseline file as the authority instead of restating its count. Same sweep for any other rule quoting a live gate number.
-  - [ ] Corrected wherever the count is genuinely load-bearing prose.
 
 **Phase 3 DoD:** `bash scripts/check-followups-phase.sh 3` exits 0.
 
 ---
 
-## Phase 4 — A control on change size (F4, ADR-3)
+## Phase 4 — Make change size a recorded decision (F4, ADR-3)
 
 ### WI-4.1 — `scripts/check-change-size.sh`
 - **Acceptance:**
-  - [ ] RED first: fixture PR diff over threshold without acknowledgement → exit 1; with acknowledgement → exit 0.
-  - [ ] Thresholds committed as data with a stated rationale, not magic numbers in the script.
-  - [ ] Acknowledgement is an explicit token in the PR body; its absence is the failure, its presence is a recorded decision.
-  - [ ] **Fails closed** when the base ref or PR body cannot be resolved — never skips.
-  - [ ] PR-only in `ci.yml`, alongside `check-new-deps.sh` and the baseline ratchet, deliberately absent from `check:all` (a local checkout cannot guarantee a base ref — the documented reason the ratchet is CI-tier).
-  - [ ] The predecessor's own 652-file / +33,935 commit is used as the fixture that must trip it.
+  - [ ] RED first: fixture diff over threshold without acknowledgement → exit 1; with → exit 0.
+  - [ ] **Metrics defined, not implied** (review Dim 4 #3): files vs churn, additions vs deletions, renames, binaries, generated artifacts, locale fan-out, vendored trees — with exclusions and threshold-combination logic committed as data plus the measured PR-size distribution that justifies the numbers.
+  - [ ] PR body read via `gh api` by PR number at run time (ADR-3), never from the event payload; body text passed through env/API data, never shell interpolation.
+  - [ ] **Fails closed** when base ref, PR number, or body cannot be resolved.
+  - [ ] PR-only in `ci.yml` beside `check-new-deps.sh`; deliberately absent from `check:all` (a local checkout cannot guarantee a base ref).
+  - [ ] `85dc54405` (652 files, +33,935) is the fixture that must trip it; a normal PR from the measured distribution must not.
 
-### WI-4.2 — Test + governance text
+### WI-4.2 — Test + governance §13
 - **Acceptance:**
   - [ ] `scripts/check-change-size.test.mjs`, real script over scratch-git fixtures, both directions.
-  - [ ] `.claude/rules/60-ai-governance.md` gains a short §12 stating the control and why the predecessor plan motivated it.
-  - [ ] `check-scripts-parity.test.mjs` still green (new gate has a CI home; `check:all` composition unchanged).
+  - [ ] `.claude/rules/60-ai-governance.md` gains **§13** — §12 is taken by the dark-feature verdicts.
+  - [ ] §13 states what the gate does **and does not** buy: with zero required approvals the token is self-authorized, so this is a forcing function, not enforcement. Overselling it would recreate the class this program deletes.
+  - [ ] `check-scripts-parity.test.mjs` green (new gate has a CI home; `check:all` composition unchanged).
 
 **Phase 4 DoD:** `bash scripts/check-followups-phase.sh 4` exits 0.
 
@@ -255,52 +340,65 @@ is a *deadline*. Scope here is the mechanism, not bulk paydown (maintainer decis
 
 ## Phase 5 — Documentation hygiene
 
-### WI-5.1 — `dev-docs/README.md` exists
-- **Problem:** `.claude/rules/20-logging-and-docs.md` designates it the per-topic index
-  and links target; AGENTS.md tells agents to link finished deep-researches from it.
-  It does not exist. Maintainer-local (gitignored), so it lands unversioned.
+### WI-5.1 — `dev-docs/README.md` (maintainer-local)
 - **Acceptance:**
-  - [ ] Index covering `plans/`, `deep-researches/`, `audit/`, `grills/`, `baselines/`, `e2e/`.
-  - [ ] Every existing deep-research linked (AGENTS.md's archive rule).
+  - [ ] Index covering `plans/`, `deep-researches/`, `audit/`, `grills/`, `baselines/`, `e2e/`; every deep-research linked (AGENTS.md's archive rule).
+  - [ ] Explicitly local-only: `dev-docs/` is gitignored, so a clean checkout reports UNVERIFIED for this assertion rather than failing or silently passing (ADR-6).
 
-### WI-5.2 — Reconcile governance §1 with reality (ADR-4)
+### WI-5.2 — Reconcile BOTH plan-home authorities (ADR-4)
 - **Acceptance:**
-  - [ ] §1 names both plan homes and the rule for choosing: `dev-docs/plans/` for maintainer-local, `.claude/tdd-guardian/` for a plan that must ship with the repo.
-  - [ ] The reason is recorded — a rule that would delete a tracked plan is the rule that is wrong.
-  - [ ] `check-wi-linkage.sh` accepts a plan from either home (it takes a path, so this is a test, not a change).
+  - [ ] Governance §1 **and** `AGENTS.md:303` amended in the same change, naming both homes and the rule for choosing.
+  - [ ] The reason recorded: a rule that would delete a tracked plan is the rule that is wrong.
 
 **Phase 5 DoD:** `bash scripts/check-followups-phase.sh 5` exits 0.
 
 ---
 
+## Sequencing
+
+One PR per phase (ADR-7). The DAG:
+
+```
+Phase 0 ✅
+  ├─ Phase 1  (independent)
+  ├─ Phase 2A (independent, externally blocked on runner + the 08-10 schedule)
+  │    └─ Phase 2B (needs 2A's evidence to have something to supervise)
+  ├─ Phase 3  (WI-3.1 spike gates WI-3.2..3.4; WI-3.3 registers with 2B's marker,
+  │            so it lands after 2B or carries a stated follow-up)
+  ├─ Phase 4  (independent)
+  └─ Phase 5  (independent)
+```
+
+Phases 1, 3, 4, 5 do not wait on 2A. If the live run becomes a multi-day fight,
+everything else still lands.
+
 ## Risks
 
-- **WI-2.1 is the only item with unbounded cost.** A first-ever headless-WebKitGTK run
-  can fail for reasons that have nothing to do with this plan (Xvfb, the 9323 bridge,
-  sidecar spawn, cache-cold Rust build inside 45 min). Mitigation: it is its own phase
-  boundary; if it proves to be a multi-day fight, Phases 3–5 are independent and land
-  first rather than waiting behind it.
-- **WI-3.1 introduces a time-dependent gate.** Wrong, this becomes the flake generator
-  the coverage-floor lesson warns about. Mitigation: injected clock, staggered dates,
-  and a deferral path that a blocked author can actually take (ADR-1).
-- **WI-1.2 changes a §9-protected script's extraction grammar.** Widening it once
-  already produced a false green (2026-07-14). Mitigation: WI-1.4's test lands with it,
-  pinning the fail-closed property in the same commit as the grammar change.
-- **WI-4.1 could annoy more than it protects** if thresholds are set from taste. Mitigation:
-  measure the repo's actual PR size distribution and set the threshold above the
-  legitimate mass, then verify it trips on `85dc54405` and not on a normal PR.
+- **WI-2.1 has unbounded cost.** A first-ever headless-WebKitGTK run can fail for
+  reasons unrelated to this plan (Xvfb, the 9323 bridge, sidecar spawn, a
+  cache-cold Rust build inside 45 min). Mitigation: its own phase; nothing blocks on it.
+- **WI-2.4 is as risky as WI-2.1** (review Dim 5 #2), which revision 1 denied.
+  Mitigation: WI-2.3 spikes the API semantics and supervision topology first.
+- **Phase 3 can block CI repo-wide** if the transition model is wrong. Mitigation:
+  WI-3.1's two-baseline spike, and ADR-1 moving overdue-ness off the PR path entirely.
+- **WI-1.3 changes a §9-protected grammar.** Widening it once already produced a
+  false green (2026-07-14). Mitigation: WI-1.1 lands the harness and pins
+  fail-closed *before* the grammar moves.
+- **ADR-3 is a weak control by construction.** Stated plainly rather than mitigated;
+  strengthening it needs a trusted-actor review requirement, which is a governance
+  change beyond this plan.
 
 ## Deferred / out of scope
 
-- **Bulk paydown of the frozen baselines** — maintainer decision 2026-08-09: this plan
-  makes the debt self-policing; paying it down is a separate program. WI-3.1's review
-  dates are what schedules it.
-- **Retroactively splitting `85dc54405`** — history rewrite on `main`, protected branch,
-  no benefit that the Phase-4 control does not deliver going forward.
+- **Bulk paydown of the frozen baselines** — maintainer decision 2026-08-09. WI-3.2's
+  dates are what schedule it.
+- **Retroactively splitting `85dc54405`** — history rewrite on a protected branch, no
+  benefit Phase 4 does not deliver forward.
+- **Requiring a trusted approver for oversized PRs** — the only thing that would make
+  ADR-3 a real control; a branch-protection change, its own decision.
 - **Migrating `src/test/setup.ts` off its silent-success `invoke` default** — still live
   at `setup.ts:111`, still the false-confidence class, still too much blast radius
-  (predecessor's own deferral, unchanged). WI-3.1 is the mechanism that will eventually
-  put a date on it, once it is baselined at all.
+  (predecessor's deferral, unchanged).
 - **Popup-layer convergence (A1 follow-on)** — unchanged from the predecessor's deferral.
 
 ## Definition of Done (whole plan)
@@ -310,5 +408,6 @@ bash scripts/check-followups-phase.sh all   # exit 0
 pnpm check:all                              # exit 0
 ```
 
-Plus: a recorded green `tier0-e2e.yml` run ID, and `bash scripts/check-wi-linkage.sh
-.claude/tdd-guardian/plan-20260809-followups.md` reporting zero unlinked.
+Plus a `gh api`-verified green `tier0-e2e.yml` run, and
+`bash scripts/check-wi-linkage.sh .claude/tdd-guardian/plan-20260809-followups.md`
+reporting zero unlinked.
