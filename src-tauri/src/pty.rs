@@ -33,7 +33,17 @@
 //!     full (e.g. a large paste into a non-reading foreground process), and a
 //!     blocked tokio worker would starve the runtime.
 //!
+//! Module layout: this file holds the eight short commands (`pty_spawn`,
+//! `pty_write`, `pty_resize`, `pty_kill`, `pty_close`, `pty_pause`,
+//! `pty_resume`) and their shared error helpers. `pty_start` and its reader
+//! thread live in `reader.rs` — it was longer than the other eight together
+//! and pushed this file past the file-size gate (WI-DP2.5). `session.rs` owns
+//! the session map and `PtyExitEvent`.
+//!
 //! @coordinates-with lib.rs — commands registered in generate_handler![]
+//! @coordinates-with pty/reader.rs — `pty_start`; registered as
+//!   `pty::reader::pty_start` because `#[tauri::command]` generates a sibling
+//!   macro that a function-only re-export does not carry
 //! @coordinates-with src/lib/pty.ts — frontend wrapper (output Channel + exit event)
 //! @module pty
 
