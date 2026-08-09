@@ -21,12 +21,7 @@ import { OutboundRequestQueue } from './requestQueue.js';
 import { resolveBridgeConfig, type ResolvedBridgeConfig, type WebSocketBridgeConfig } from './websocketConfig.js';
 import { sendIdentify, type WsMessage } from './wsProtocol.js';
 
-// Re-exported because `src/index.ts` publishes both from this module. The list
-// is exactly the consumed set: `ClientIdentity` and `PortResolver` were in it
-// too, but nothing imports them THROUGH here (`wsProtocol.ts` takes
-// `ClientIdentity` from `websocketConfig.js` directly), and `PortResolver` is
-// not exported there at all.
-export type { Logger, WebSocketBridgeConfig } from './websocketConfig.js';
+export type { Logger, WebSocketBridgeConfig } from './websocketConfig.js'; // src/index.ts publishes both
 
 /**
  * WebSocketBridge connects to VMark via WebSocket.
