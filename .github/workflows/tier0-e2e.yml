@@ -242,3 +242,39 @@ jobs:
           else
             gh issue create --title "$TITLE" --body "$BODY"
           fi
+
+  resolve:
+    # The reporting job above only ever OPENS or comments. Nothing closed the
+    # rolling issue, so a fixed failure stayed open indefinitely and the next
+    # reader re-investigates a solved problem — issue #1243 sat open across the
+    # eight dispatches that fixed it and the green run that proved it. A rolling
+    # issue needs both edges or it is a write-only log with an issue number.
+    #
+    # Same permission split as the reporting job, for the same reason: this job
+    # checks out nothing and runs no project code, so `issues: write` is never
+    # held by the job that compiles the crate and drives a live app.
+    name: Close the tracking issue once journeys pass
+    needs: journeys
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close the rolling issue
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Tier-0 E2E journeys failed"
+          NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ -z "$NUMBER" ]; then
+            echo "No open tracking issue — nothing to close."
+            exit 0
+          fi
+          gh issue close "$NUMBER" --reason completed --comment \
+            "Journeys passed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA}). Closing automatically; a later failure reopens a fresh issue."
