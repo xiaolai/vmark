@@ -49,7 +49,7 @@ Usage: bash scripts/check-followups-phase.sh <0-5|all> [--root=<dir>]
   0    Scaffolding and cross-model review
   1    Repair the linkage gate (F3)
   2    Prove the unproven gates (F1, F2)
-  3    Frozen debt becomes scheduled debt (F5)
+  3    Frozen debt becomes measured debt (F5)
   4    A control on change size (F4)
   5    Documentation hygiene
   all  Every phase, one report
@@ -165,21 +165,22 @@ phase_2() {
 }
 
 phase_3() {
-  echo "Phase 3 — Frozen debt becomes scheduled debt (F5)"
-  # ADR-1 (revised): the deadlines live in their OWN json baseline, not inside
-  # the manifest module. The manifest is loaded from HEAD only and never at the
-  # base ref, so dates kept there could not have been ratcheted at all.
-  has_file "scripts/baseline-review-schedule.json" "review schedule exists (WI-AF3.2)"
-  has_file "scripts/check-review-schedule.mjs"     "schedule validator (WI-AF3.2)"
+  echo "Phase 3 — Frozen debt becomes measured debt (F5)"
+  # ADR-1 (revision 3): there are no deadlines. The register lives in its own
+  # json baseline so the ratchet can hold `tracked` as an identity set at the
+  # merge base; what it records is what each baseline's debt IS and what paying
+  # it down means, not a date somebody invented for when it should be done.
+  has_file "scripts/baseline-review-schedule.json" "debt register exists (WI-AF3.2)"
+  has_file "scripts/check-review-schedule.mjs"     "register validator (WI-AF3.2)"
   has_file "scripts/check-review-schedule.test.mjs" "validator test (WI-AF3.1)"
   has_text "scripts/baselineRatchetManifest.mjs" "baseline-review-schedule\.json" \
-           "schedule registered in the ratchet (WI-AF3.2)"
-  has_file ".github/workflows/baseline-review.yml" "overdue reporter schedule (WI-AF3.3)"
-  cmd_ok "every baseline is dated or justifiably exempt (WI-AF3.4)" \
+           "register registered in the ratchet (WI-AF3.2)"
+  has_file ".github/workflows/baseline-review.yml" "staleness reporter schedule (WI-AF3.3)"
+  cmd_ok "every baseline is tracked or justifiably exempt (WI-AF3.4)" \
          node scripts/check-review-schedule.mjs
   lacks_text ".claude/rules/00-engineering-principles.md" \
              "153 pre-existing" "rules no longer quote a live gate count (WI-AF3.3)"
-  cmd_ok "baseline ratchet green with review dates active (WI-AF3.2)" \
+  cmd_ok "baseline ratchet green with the register registered (WI-AF3.2)" \
          node scripts/check-baseline-ratchet.mjs origin/main
 }
 

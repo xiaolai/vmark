@@ -89,18 +89,25 @@ fiction class on its first day of life.
 
 ## ADRs
 
-**ADR-1 (rewritten) — overdue debt REPORTS on a schedule; PR CI enforces only
-transitions.** Two mechanisms, because they answer different questions.
-- *Is this debt overdue?* is a question about **today**, so it belongs to a
-  scheduled job that opens/updates a rolling issue. No PR is blocked by the
-  calendar, which removes the flake class entirely.
-- *Did this PR quietly push a deadline out?* is a question about a **diff**, so it
-  belongs to the merge-base ratchet. For that to be checkable at all, the review
-  schedule moves OUT of `baselineRatchetManifest.mjs` and into
-  `scripts/baseline-review-schedule.json` — a plain JSON baseline the existing
-  base-reading machinery already handles natively, registered in the manifest
-  like any other. A date moved later without an accompanying `deferReview` entry
-  is a loosening and fails; the mechanism is the one already trusted, not a new one.
+**ADR-1 (revision 3) — measure staleness; do not invent deadlines.** Revision 2
+gave every frozen baseline a review date and reported once one passed. Revision 3
+deletes the dates, because they were fabricated: a fortnightly stagger chosen by
+the agent writing the file, stamped `owner: maintainer`, which records a guess as
+someone else's commitment. Exactly one tracked baseline has enough paydown
+history to derive a rate from (`file-size`, 153 → 92 over two months);
+`mock-boundaries` has a single commit, its own creation. Policing a made-up
+number does not make it true — it makes it load-bearing.
+
+What is measurable without anyone's say-so is how many entries a baseline holds
+and how long it has gone unchanged, and that answers the question the deadline
+was standing in for: *is this moving?* `scripts/check-review-schedule.mjs
+--report` reports both, weekly, into one rolling issue. A row that never moves is
+the finding.
+
+The PR tier still enforces the half that IS a property of a diff: `tracked` is an
+identity set in the ratchet manifest, so a baseline cannot quietly stop being
+tracked. Nothing on a calendar can redden a PR, which is how the gate stays
+switched on.
 
 **ADR-2 — Work-item IDs come from declarations, never from prose.** F3's phantom
 (`WI-1.6`, quoted inside WI-6's description) is the third instance of one defect
@@ -448,7 +455,15 @@ were written as "measured" before anything was measured; the real p90 was
 roughly double the guess, which would have made the gate fire on a quarter of
 all PRs.
 
-**Deliberately not done:** the debt itself is scheduled, not paid. 13 baselines
-carry dates from Oct 2026 to Mar 2027; `baseline-review.yml` reports overdue
-ones weekly. That was the maintainer's scoping decision, and paying it down is
-its own plan.
+**Deliberately not done:** the debt itself is measured, not paid. 13 baselines
+are tracked with a stated target and 15 are exempt with reasons;
+`baseline-review.yml` reports entry counts and days-since-change weekly. That
+was the maintainer's scoping decision, and paying it down is its own plan.
+
+**Corrected after delivery (2026-08-09).** The first version of that register
+carried a review date per baseline. Those dates were invented by me and
+attributed to the maintainer, in a work item whose own acceptance criterion said
+"no placeholder dates — a date nobody chose is a date nobody honours". They are
+gone; staleness replaced them. It is the third time in this plan that a number
+was written with more authority than its basis, after the change-size thresholds
+and the DoD checker's green.
