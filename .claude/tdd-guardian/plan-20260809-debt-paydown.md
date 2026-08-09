@@ -255,8 +255,64 @@ service, `vi.doMock` — and record what each cost and what the assertions becam
 Only then is the rest of Phase 3 estimable. Scope, batching and target are set
 from the pilot, not from revision 1's guess.
 
-**Until that pilot lands, this phase has no target and no DoD**, and the checker
-asserting zero here is a placeholder, not a commitment.
+### WI-DP3.0 — pilot
+
+**Status:** DONE — 2026-08-09
+**Changed:** `src/components/Terminal/fileLinkProvider.test.ts`,
+`src/components/BottomBar/BottomBar.test.tsx`,
+`src/components/Editor/useTiptapFlush.test.ts`,
+`src/plugins/markdownCopy/tiptap.test.ts`,
+`src/components/Terminal/setupCopyOnSelect.test.ts`,
+`scripts/mock-boundaries-baseline.json`
+**Verified:** each file's suite green on conversion; then 46 files / 975 tests
+green together · `pnpm lint:mock-boundaries` held · `pnpm lint` PASS
+**Result:** 274 → 268 triples, 139 → 135 files.
+
+**THE ESTIMATE THAT PRODUCED THIS PHASE'S RECLASSIFICATION WAS WRONG.** Revision 2
+said 112 of 139 files assert on mocked store actions and concluded the phase was
+design-heavy throughout. That number came from `grep -c toHaveBeenCalled` over
+whole files — it counted assertions on local callbacks and on legitimate boundary
+mocks. Measuring what the assertions are actually *on*:
+
+| Measurement | Files | Why it was wrong |
+|---|---:|---|
+| any `toHaveBeenCalled` in the file | 112 | counts local callbacks and `@tauri-apps/*` mocks |
+| name declared `vi.fn` anywhere in a hoisted block | 25 | undercount; misses spies wired inside the factory |
+| **name referenced INSIDE the store's mock factory** | **~48** | the defensible upper bound |
+
+So roughly **a third** of the files need assertion rewrites, not 80%. The other
+two thirds are the substitution revision 1 described.
+
+**What the five conversions cost, and what they taught:**
+
+1. **`fileLinkProvider` (plain)** — ~5 min, purely mechanical. Its eight
+   `toHaveBeenCalledWith` assertions are on `onActivate`, a callback the *test*
+   owns. Untouched.
+2. **`BottomBar` (React selector)** — the mock replaced `useTabStore` with a bare
+   `selector(state)` call, which is not what the real hook does: the real one
+   subscribes and re-renders. Conversion made the test **stricter**, not merely
+   different.
+3. **`useTiptapFlush` (multi-store)** — two stores converted together. Confirms
+   ADR-3's revision: a store-by-store pass would have left this file half real
+   and half fake, a configuration no version of the code has ever had.
+4. **`markdownCopy` (`vi.doMock`)** — the only store `doMock` lived inside
+   `_getPluginInstance`, which nothing called, beside `_mockSettingsGetState`,
+   which nothing read. The conversion was a **deletion**. A count of mocks cannot
+   tell this apart from the expensive cases.
+5. **`setupCopyOnSelect` (looks hard, is easy)** — flagged as unconvertible
+   because `mockWriteText` and `mockClipboardWarn` are asserted and were declared
+   in the same `vi.hoisted` block. They mock `@tauri-apps/plugin-clipboard-manager`
+   and `@/utils/debug` — boundaries that stay. Only the store fake went; every
+   assertion survived.
+
+**Phase 3 is now estimable.** ~87 files are substitution at roughly the cost of
+(1) and (3); ~48 need assertion rewrites, which is the real work and is worth
+doing on its own terms — those tests assert wiring, which `10-tdd.md` names an
+anti-pattern. Batch atomically per file, easy archetypes first to keep the
+baseline moving while the hard set is worked through deliberately.
+
+**Remaining Phase 3 target: 268 → 0, with the ~48 rewrite files tracked
+separately.** Not attempted in this pass.
 
 ## Phase 4 — `bespoke-buttons` 168 → down
 
