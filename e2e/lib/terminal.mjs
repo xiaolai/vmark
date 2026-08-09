@@ -147,8 +147,15 @@ async function appPids() {
   const kept = [];
   for (const pid of pids) {
     const cmd = await run("ps", ["-p", pid, "-o", "comm="]).catch(() => ({ stdout: "" }));
+    // Compare the BASENAME. `ps -o comm=` prints the full executable path on
+    // macOS but only the command NAME on Linux, so the original `/vmark$`
+    // pattern — which requires a leading slash — matched nothing on a runner
+    // and appPids() came back empty. That is the second half of the same
+    // platform assumption as cwdOf: the harness looked, saw nothing, and
+    // reported it as an app that spawns no shells.
+    const name = cmd.stdout.trim().split("/").pop();
     // The app process itself — not the MCP sidecar, not this node runner.
-    if (/\/vmark$|\/VMark$/.test(cmd.stdout.trim())) kept.push(pid);
+    if (name === "vmark" || name === "VMark") kept.push(pid);
   }
   return kept;
 }
@@ -204,8 +211,20 @@ export async function getAppShellCwds() {
   const broken = await probeUnavailable();
   if (broken) throw new Error(`cannot observe process working directories: ${broken}`);
 
+  // The caller reached us over the app's own automation bridge, so the app is
+  // running by construction. Finding no app process means the PROBE is wrong,
+  // not that the app vanished — and an empty shell list would otherwise blame
+  // the app for it.
+  const apps = await appPids();
+  if (apps.length === 0) {
+    throw new Error(
+      "no running app process matched — `pgrep -f vmark` + `ps -o comm=` found nothing, " +
+        "yet the bridge answered. The process-name probe is broken, not the app.",
+    );
+  }
+
   const shells = [];
-  for (const appPid of await appPids()) {
+  for (const appPid of apps) {
     const kids = await run("pgrep", ["-P", appPid]).catch(() => ({ stdout: "" }));
     for (const kid of kids.stdout.split("\n").map((s) => s.trim()).filter(Boolean)) {
       const comm = (await run("ps", ["-p", kid, "-o", "comm="]).catch(() => ({ stdout: "" }))).stdout.trim();
