@@ -105,9 +105,9 @@ const DELIVERABLES = {
     ],
   ],
   4: [
-    ["scripts/check-change-size.sh", "#!/usr/bin/env bash\n"],
+    ["scripts/check-change-size.mjs", "#!/usr/bin/env node\n"],
     ["scripts/check-change-size.test.mjs", "// test\n"],
-    [".github/workflows/ci.yml", "run: bash scripts/check-change-size.sh\n"],
+    [".github/workflows/ci.yml", "run: node scripts/check-change-size.mjs\n"],
     [".claude/rules/60-ai-governance.md", "## 13. Change size is a decision\n"],
   ],
   5: [
@@ -217,7 +217,7 @@ describe("check-followups-phase.sh — a partial phase never rounds up", () => {
 
   it("phase 4 with the script but no CI wiring fails", () => {
     const root = emptyRoot();
-    write(root, "scripts/check-change-size.sh", "#!/usr/bin/env bash\n");
+    write(root, "scripts/check-change-size.mjs", "#!/usr/bin/env node\n");
     write(root, "scripts/check-change-size.test.mjs", "// test\n");
     write(root, ".github/workflows/ci.yml", "name: CI\n"); // present, does not invoke the gate
     const r = run(root, "4");

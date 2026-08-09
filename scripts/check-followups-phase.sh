@@ -175,9 +175,9 @@ phase_3() {
 
 phase_4() {
   echo "Phase 4 — A control on change size (F4)"
-  has_file "scripts/check-change-size.sh"      "change-size gate (WI-AF4.1)"
+  has_file "scripts/check-change-size.mjs"     "change-size gate (WI-AF4.1)"
   has_file "scripts/check-change-size.test.mjs" "change-size gate test (WI-AF4.2)"
-  has_text ".github/workflows/ci.yml" "check-change-size\.sh" "gate wired into ci.yml PR tier (WI-AF4.1)"
+  has_text ".github/workflows/ci.yml" "check-change-size\.mjs" "gate wired into ci.yml PR tier (WI-AF4.1)"
   # §13, not §12 — §12 is already taken by the dark-feature verdicts
   # (60-ai-governance.md:326). Caught by review 019fe450, Dim 1 #4.
   has_text ".claude/rules/60-ai-governance.md" "^## 13\." "governance §13 records the control (WI-AF4.2)"
