@@ -1,6 +1,6 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 45
+**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 35
 legacy signatures; the migration also exposed a red file-size gate and rustfmt
 drift at HEAD, both now fixed). Phase 3 pilot **DONE**, bulk not started.
 Phase 4 **DONE for the exact duplicates** (88 → 80); the remaining 80 are blocked
@@ -387,6 +387,32 @@ Three things made it real rather than decorative:
    file-level false positive (a `JSON.parse` failure in a file that also invokes
    a typed command) and takes a `// command-error-ok: <reason>` marker, with the
    reason REQUIRED and a test pinning that a bare marker is rejected.
+
+### WI-DP2.9 / 2.10 / 2.11 — secure_store, tab_transfer, mcp_bridge
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/{secure_store.rs,tab_transfer.rs,mcp_bridge/commands.rs}, src/components/StatusBar/useStatusBarTabDrag.ts, scripts/command-error-baseline.json
+**Verified:** clippy -D warnings, cargo test (2082), ratchet 45 → 35, tsc, 294 + 415 + 33 frontend tests
+
+These three are where the codes stopped being bookkeeping:
+
+- **secure_store** — the module's own header documents that a re-signed dev
+  build can be DENIED by the macOS keychain ACL. That is the one failure here
+  the user can fix, so `keyring::Error::NoStorageAccess` is `permission-denied`
+  and the rest `internal`. Two tests pin that those two do NOT share a code.
+- **tab_transfer** — the cross-window removal handshake has a genuine
+  `timeout` (the ack never arrived) AND a genuine `conflict` (the destination
+  dropped the request mid-handshake). A `String` had flattened both into the
+  same thing as a malformed phase argument.
+- **mcp_bridge** — `resolve_pending`'s only error is a closed response channel:
+  the waiting request already timed out and dropped its receiver. `conflict`.
+
+**The WI-DP2.7 gate paid for itself on the very next conversion.** Typing
+`focus_existing_window` made `useStatusBarTabDrag.ts` a live "[object Object]"
+site; the gate named the file and the command before anyone thought to look.
+That defect compiles fine, is invisible at the Rust boundary, and only appears
+in front of a user — which is precisely the kind a gate has to catch, because
+review does not.
 
 **Phase 2 DoD:** baseline at 0, entry and file deleted (ADR-5).
 
