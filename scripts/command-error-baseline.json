@@ -23,7 +23,6 @@
     "src-tauri/src/menu/localized.rs": 1,
     "src-tauri/src/menu/menu_state.rs": 1,
     "src-tauri/src/pdf_export/commands.rs": 2,
-    "src-tauri/src/secure_store.rs": 3,
     "src-tauri/src/shell_integration.rs": 1,
     "src-tauri/src/tab_transfer.rs": 4,
     "src-tauri/src/temp_html.rs": 1,
