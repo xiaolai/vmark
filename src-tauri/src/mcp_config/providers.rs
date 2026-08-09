@@ -3,6 +3,8 @@
 //! Defines the supported AI providers, their config file locations,
 //! and the logic to locate the MCP server binary.
 
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use std::path::PathBuf;
 
 /// Provider configuration details
@@ -85,15 +87,21 @@ pub(crate) const PROVIDERS: &[ProviderConfig] = &[
     },
 ];
 
-pub(crate) fn get_provider_config(provider: &str) -> Result<&'static ProviderConfig, String> {
-    PROVIDERS
-        .iter()
-        .find(|p| p.id == provider)
-        .ok_or_else(|| rust_i18n::t!("errors.mcp.unknownProvider", provider = provider).to_string())
+pub(crate) fn get_provider_config(provider: &str) -> Result<&'static ProviderConfig, CommandError> {
+    PROVIDERS.iter().find(|p| p.id == provider).ok_or_else(|| {
+        localized_error!(
+            ErrorCode::NotFound,
+            "errors.mcp.unknownProvider",
+            provider = provider
+        )
+    })
 }
 
-pub(crate) fn get_config_path(provider: &ProviderConfig) -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or_else(|| rust_i18n::t!("errors.mcp.noHomeDir").to_string())?;
+pub(crate) fn get_config_path(provider: &ProviderConfig) -> Result<PathBuf, CommandError> {
+    // No home directory is an environment failure, not something the caller
+    // asked for wrongly.
+    let home = dirs::home_dir()
+        .ok_or_else(|| localized_error!(ErrorCode::Internal, "errors.mcp.noHomeDir"))?;
     Ok(home.join(provider.relative_path))
 }
 
@@ -148,7 +156,7 @@ fn display_path(path: &str) -> String {
     }
 }
 
-pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
+pub(crate) fn get_mcp_binary_path() -> Result<String, CommandError> {
     let binary_name_with_target = format!("vmark-mcp-server-{}", get_target_triple());
     let binary_name_simple = "vmark-mcp-server";
 
@@ -166,11 +174,15 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
 
     // Production: next to main executable
     let exe = std::env::current_exe().map_err(|e| {
-        rust_i18n::t!("errors.mcp.exePathFailed", detail = e.to_string()).to_string()
+        localized_error!(
+            ErrorCode::Internal,
+            "errors.mcp.exePathFailed",
+            detail = e.to_string()
+        )
     })?;
     let exe_dir = exe
         .parent()
-        .ok_or_else(|| rust_i18n::t!("errors.mcp.exeDirFailed").to_string())?;
+        .ok_or_else(|| localized_error!(ErrorCode::Internal, "errors.mcp.exeDirFailed"))?;
 
     // Cross-platform: try simple name first (Tauri bundles without target suffix)
     // On Windows the binary has .exe extension
@@ -209,7 +221,13 @@ pub(crate) fn get_mcp_binary_path() -> Result<String, String> {
         return Ok(display_path(&prod_path.to_string_lossy()));
     }
 
-    Err(rust_i18n::t!("errors.mcp.binaryNotFound", name = binary_name_simple).to_string())
+    // The sidecar binary is missing from the bundle — the install is broken,
+    // which is a not-found the user can act on (reinstall) rather than internal.
+    Err(localized_error!(
+        ErrorCode::NotFound,
+        "errors.mcp.binaryNotFound",
+        name = binary_name_simple
+    ))
 }
 
 #[cfg(test)]

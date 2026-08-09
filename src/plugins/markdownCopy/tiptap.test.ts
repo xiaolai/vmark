@@ -367,34 +367,15 @@ const copyOptions = () => ({
 });
 
 describe("markdownCopyExtension plugin integration", () => {
-  let _mockSettingsGetState: ReturnType<typeof vi.fn>;
-
+  // WI-DP3.0 pilot — archetype "vi.doMock". Nothing called `_getPluginInstance`
+  // and nothing read `_mockSettingsGetState`; both were underscore-prefixed
+  // scaffolding left behind by an earlier approach. The only `vi.doMock` of a
+  // store in this file lived inside that dead helper, so the conversion here is
+  // a deletion — the cheapest archetype, and one a count of mocks cannot
+  // distinguish from the expensive ones.
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-  function _getPluginInstance() {
-    // Reset settings mock for import
-    vi.doMock("@/stores/settingsStore", () => ({
-      useSettingsStore: {
-        getState: () => ({
-          markdown: { copyFormat: "text", copyOnSelect: false },
-        }),
-      },
-    }));
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { markdownCopyExtension } = require("./tiptap");
-    const extensionContext = {
-      name: markdownCopyExtension.name,
-      options: markdownCopyExtension.options,
-      storage: markdownCopyExtension.storage,
-      editor: {} as never,
-      type: null,
-      parent: undefined,
-    };
-    return markdownCopyExtension.config.addProseMirrorPlugins?.call(extensionContext)?.[0];
-  }
 
   it("clipboardTextSerializer returns empty string when copyFormat is not 'markdown'", async () => {
     const { markdownCopyExtension } = await import("./tiptap");

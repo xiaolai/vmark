@@ -53,6 +53,7 @@ pub mod origin_guard;
 pub mod profile_open;
 pub mod recovery;
 pub mod redact;
+pub mod refusals;
 pub mod registry;
 pub mod script_limit;
 pub mod session_commands;

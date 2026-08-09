@@ -19,6 +19,7 @@ import { quarantineSessionEntries } from './sessionQuarantine';
 import { setupRestoreListeners } from './restoreListeners';
 import { restoreMainWindowState } from '../resilience/_hotExitRestore';
 import { hotExitLog, hotExitWarn, hotExitError } from '@/utils/debug';
+import { commandErrorMessage } from '@/services/commands/commandError';
 
 /** Default timeout for restore operation in milliseconds */
 const DEFAULT_RESTORE_TIMEOUT_MS = 15000;
@@ -98,7 +99,9 @@ export async function restartWithHotExit(): Promise<void> {
       version: session.vmark_version,
     });
   } catch (error) {
-    const captureError = error instanceof Error ? error : new Error(String(error));
+    // The hot_exit commands return `Result<_, CommandError>`, which is a plain
+    // OBJECT — `String(error)` on one logs the literal "[object Object]".
+    const captureError = error instanceof Error ? error : new Error(commandErrorMessage(error));
     hotExitError('Failed to capture session before restart:', captureError);
     // Continue to relaunch - user already confirmed restart
   }

@@ -14,7 +14,7 @@
  */
 
 /** Why `parseSvg` rejected the content, or `null` when it is well-formed. */
-export type SvgParseError =
+type SvgParseError =
   | { kind: "empty" }
   | { kind: "not-svg" }
   | { kind: "malformed"; message: string }

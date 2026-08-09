@@ -87,7 +87,7 @@ export const RECOVERY = {
  * A type alias (not an interface) so it is assignable to the
  * `Record<string, unknown>` that `structuredContent` declares.
  */
-export type TruncationEnvelope = {
+type TruncationEnvelope = {
   truncated: true;
   truncation_note: string;
   bytes_total: number;

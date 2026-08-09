@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "내장 브라우저는 이 플랫폼에서 사용할 수 없습니다"
   browser.surfaceTimeout: "브라우저가 제시간에 응답하지 않았습니다"
   browser.surfaceFailed: "브라우저가 해당 작업을 완료하지 못했습니다"
+  browser.staleCommand: "작업이 실행되기 전에 브라우저 탭이 변경되었습니다"
+  browser.noCommittedPage: "이 브라우저 탭은 아직 페이지 로딩을 마치지 않았습니다"
+  browser.notGranted: "AI는 이 페이지에서 해당 작업을 수행할 수 없습니다"
+  browser.attachmentRequired: "AI가 이 탭에서 작업하려면 먼저 연결하세요"
+  browser.profileOriginConfined: "AI는 이 프로필에 승인된 페이지만 읽을 수 있습니다"
 
   # === Hot exit ===
   hotExit.noWindows: "캡처할 문서 창이 없습니다"

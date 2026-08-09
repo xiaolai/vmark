@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "Il browser integrato non è disponibile su questa piattaforma"
   browser.surfaceTimeout: "Il browser non ha risposto in tempo"
   browser.surfaceFailed: "Il browser non è riuscito a completare questa azione"
+  browser.staleCommand: "La scheda del browser è cambiata prima che l'azione potesse essere eseguita"
+  browser.noCommittedPage: "Quella scheda del browser non ha ancora caricato una pagina"
+  browser.notGranted: "L'IA non può farlo su questa pagina"
+  browser.attachmentRequired: "Collega l'IA a questa scheda prima che possa agire su di essa"
+  browser.profileOriginConfined: "L'IA può leggere solo la pagina approvata per questo profilo"
 
   # === Hot exit ===
   hotExit.noWindows: "Nessuna finestra documento da catturare"

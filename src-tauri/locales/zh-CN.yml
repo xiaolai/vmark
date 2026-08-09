@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "内置浏览器在此平台上不可用"
   browser.surfaceTimeout: "浏览器未在规定时间内响应"
   browser.surfaceFailed: "浏览器无法完成该操作"
+  browser.staleCommand: "操作执行前浏览器标签页已发生变化"
+  browser.noCommittedPage: "该浏览器标签页尚未加载完成页面"
+  browser.notGranted: "AI 无权在此页面执行该操作"
+  browser.attachmentRequired: "请先将 AI 连接到此标签页再进行操作"
+  browser.profileOriginConfined: "AI 只能读取此配置文件已批准的页面"
 
   # === Hot exit ===
   hotExit.noWindows: "没有需要捕获的文档窗口"

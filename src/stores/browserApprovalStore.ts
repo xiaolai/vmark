@@ -26,16 +26,14 @@ import type {
 // Re-exported so consumers keep importing these from `@/stores/browserApprovalStore`.
 export type {
   ActionTarget,
-  PendingApproval,
   ApprovalOutcome,
   OneShotApproval,
-  HumanTabAttachment,
   ProfileOpenApproval,
 } from "./browserApprovalStore.types";
 
 /** requestApproval outcome: queued / already-pending id / unknown operation
  *  (`rejected`) / queue full (`overloaded` — untrusted-client flooding). */
-export type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
+type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
 
 /** Closed operation vocabulary; upload is intentionally never grantable. */
 const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);

@@ -43,9 +43,9 @@ import type {
   TabTransferPayload,
 } from "@/types/tabTransfer";
 import { windowCloseWarn } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
 import { resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
 import { pickTransferLineMetadata } from "@/utils/transferLineMetadata";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 const REMOVE_ACK_EVENT = "tab:remove-ack";
 
@@ -140,7 +140,7 @@ async function closeWindowIfEmpty(label: string): Promise<void> {
   const win = getCurrentWebviewWindow();
   await invoke("close_window", { label: win.label }).catch((error: unknown) => {
     /* v8 ignore next -- @preserve String(error) fallback: invoke errors are always Error instances */
-    windowCloseWarn("Failed to close window:", errorMessage(error));
+    windowCloseWarn("Failed to close window:", commandErrorMessage(error));
   });
 }
 

@@ -5,6 +5,7 @@
 
 use super::managed::McpBridgeState;
 use super::types::{ConnectedClientInfo, McpResponse, McpResponsePayload};
+use crate::command_error::CommandError;
 use tauri::State;
 
 /// Tauri command to send a response from the frontend.
@@ -12,7 +13,7 @@ use tauri::State;
 pub async fn mcp_bridge_respond(
     bridge: State<'_, McpBridgeState>,
     payload: McpResponsePayload,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let mut guard = bridge.lock().await;
 
     let response = McpResponse {
@@ -20,7 +21,14 @@ pub async fn mcp_bridge_respond(
         data: payload.data,
         error: payload.error,
     };
-    if super::state::resolve_pending(&mut guard, &payload.id, response)? {
+    // The only error `resolve_pending` returns is a CLOSED response channel,
+    // i.e. the MCP request that was waiting has already timed out or been
+    // cancelled and dropped its receiver. Nothing is broken and nothing the
+    // caller sent was wrong — the waiter simply left. `conflict`, not
+    // `internal`. An unknown/expired id is not an error at all (`false`).
+    let delivered = super::state::resolve_pending(&mut guard, &payload.id, response)
+        .map_err(CommandError::conflict)?;
+    if delivered {
         log::debug!("[MCP Bridge] Response received for {}", payload.id);
     } else {
         log::debug!(
@@ -35,7 +43,7 @@ pub async fn mcp_bridge_respond(
 /// Tauri command to receive a heartbeat from the frontend webview.
 /// Called periodically to confirm the webview is alive and responsive.
 #[tauri::command]
-pub async fn mcp_bridge_heartbeat(bridge: State<'_, McpBridgeState>) -> Result<(), String> {
+pub async fn mcp_bridge_heartbeat(bridge: State<'_, McpBridgeState>) -> Result<(), CommandError> {
     bridge.set_webview_alive(true);
     Ok(())
 }
@@ -69,7 +77,7 @@ pub async fn mcp_bridge_set_window_workspace(
     bridge: State<'_, McpBridgeState>,
     window_label: String,
     workspace_root: Option<String>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let mut guard = bridge.lock().await;
     match workspace_root {
         Some(root) => {

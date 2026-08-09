@@ -285,6 +285,11 @@ errors:
   browser.unsupportedPlatform: "El navegador integrado no está disponible en esta plataforma"
   browser.surfaceTimeout: "El navegador no respondió a tiempo"
   browser.surfaceFailed: "El navegador no pudo completar esa acción"
+  browser.staleCommand: "La pestaña del navegador cambió antes de que la acción pudiera ejecutarse"
+  browser.noCommittedPage: "Esa pestaña del navegador aún no ha terminado de cargar una página"
+  browser.notGranted: "La IA no tiene permiso para hacer eso en esta página"
+  browser.attachmentRequired: "Conecta la IA a esta pestaña antes de que pueda actuar en ella"
+  browser.profileOriginConfined: "La IA solo puede leer la página aprobada para este perfil"
 
   # === Hot exit ===
   hotExit.noWindows: "No hay ventanas de documento para capturar"

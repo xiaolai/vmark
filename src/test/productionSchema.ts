@@ -52,6 +52,6 @@ export function getProductionSchema(): Schema {
 }
 
 /** Test-only reset, for suites that need a fresh build. */
-export function _resetProductionSchema(): void {
+function _resetProductionSchema(): void {
   cached = null;
 }

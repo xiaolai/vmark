@@ -18,13 +18,12 @@ vi.mock("@/utils/markdownPipeline", () => ({
   serializeMarkdown: vi.fn(() => "SERIALIZED"),
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => ({ markdown: { preserveBlankLines: false } }) },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: () => ({ activeTabId: { main: "tab-1" } }) },
-}));
+// WI-DP3.0 pilot — archetype "multi-store service". Both store mocks replaced
+// by the real stores, set up together in beforeEach. Converting them ATOMICALLY
+// matters: a store-by-store migration would have left this file reading one real
+// store and one fake, a configuration that exists in no version of the code.
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
 
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ getDocument: () => ({ hardBreakStyle: "unknown" }) }) },
@@ -38,10 +37,13 @@ const editor = {
   state: { doc: { content: { size: 10 } } },
 } as unknown as TiptapEditor;
 
-function setup(setContent: (md: string, opts?: { fromUserEdit?: boolean }) => void) {
+function setup(
+  setContent: (md: string, opts?: { fromUserEdit?: boolean }) => void,
+  activeTabId: string | undefined = "tab-1",
+) {
   return renderHook(() =>
     useTiptapFlush({
-      activeTabId: "tab-1",
+      activeTabId,
       windowLabel: "main",
       setContent,
       preserveLineBreaksRef: { current: false },
@@ -56,6 +58,10 @@ function setup(setContent: (md: string, opts?: { fromUserEdit?: boolean }) => vo
 // a later one and add a call nobody expects — the same shape that made
 // useUpdateSync flaky. Faking the clock keeps that branch deterministic.
 beforeEach(() => {
+  useSettingsStore.setState({
+    markdown: { ...useSettingsStore.getState().markdown, preserveBlankLines: false },
+  });
+  useTabStore.setState({ activeTabId: { main: "tab-1" } });
   vi.useFakeTimers();
   vi.clearAllMocks();
   vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
@@ -118,5 +124,37 @@ describe("flushToStore user-edit reporting", () => {
     for (const call of setContent.mock.calls) {
       expect(call[1]).toEqual({ fromUserEdit: false });
     }
+  });
+
+  // Audit 019fe61c: the real-store setup above was PRESENT but not OBSERVED —
+  // every hook got `activeTabId: "tab-1"`, so the tabStore fallback at
+  // useTiptapFlush.ts:100 never ran, and the serializer mock discarded its
+  // options, so nothing proved `preserveBlankLines` came from the settings
+  // store. Both paths would have regressed silently. These two watch them.
+  it("reads preserveBlankLines from the real settings store", async () => {
+    const { serializeMarkdown } = await import("@/utils/markdownPipeline");
+    useSettingsStore.setState({
+      markdown: { ...useSettingsStore.getState().markdown, preserveBlankLines: true },
+    });
+    const { result } = setup(vi.fn());
+
+    result.current.flushToStore(editor);
+
+    expect(vi.mocked(serializeMarkdown).mock.calls.at(-1)?.[2]).toMatchObject({
+      preserveBlankLines: true,
+    });
+  });
+
+  it("falls back to the tab store's active tab when no activeTabId is passed", async () => {
+    const { serializeMarkdown } = await import("@/utils/markdownPipeline");
+    useTabStore.setState({ activeTabId: { main: "tab-from-store" } });
+    const { result } = setup(vi.fn(), undefined);
+
+    result.current.flushToStore(editor);
+
+    // The fallback resolved a tab id from the REAL store: serialization ran and
+    // produced a resolved hardBreakStyle rather than bailing on a missing tab.
+    expect(vi.mocked(serializeMarkdown)).toHaveBeenCalled();
+    expect(vi.mocked(serializeMarkdown).mock.calls.at(-1)?.[2]).toHaveProperty("hardBreakStyle");
   });
 });

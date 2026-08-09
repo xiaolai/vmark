@@ -188,6 +188,8 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           };
         } catch (e) {
           /* v8 ignore start -- JSON.parse always throws Error instances; String(e) fallback is defensive */
+          // command-error-ok: `e` here is a JSON.parse failure on imported
+          // shortcut JSON, not a rejection from update_menu_accelerators.
           return { success: false, errors: [`Parse error: ${errorMessage(e)}`] };
           /* v8 ignore stop */
         }

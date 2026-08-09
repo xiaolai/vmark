@@ -30,7 +30,7 @@ import type { Decoration, EditorView } from "@tiptap/pm/view";
 import type { PreviewCache } from "./previewHelpers";
 
 /** Everything a fence renderer needs to build its decoration. */
-export interface FenceRenderContext {
+interface FenceRenderContext {
   nodeEnd: number;
   content: string;
   cacheKey: string;

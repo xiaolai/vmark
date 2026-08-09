@@ -5,7 +5,22 @@
  * Split out of LinkPopupView so the view file carries behavior only.
  * Event listeners are attached by the view, not here.
  *
+ * Key decisions:
+ *
+ * - **Buttons carry `.popup-icon-btn`, the canonical class (WI-DP4.1).** They
+ *   used to carry `.link-popup-btn`, which re-declared that surface with zero
+ *   differing declarations. The per-button suffix classes
+ *   (`link-popup-btn-open`, `-copy`, `-save`, `-delete`) REMAIN: `LinkPopupView`
+ *   and its tests query the DOM by them, and `-save` / `-delete` still carry the
+ *   primary / danger hover accents. So the base surface is shared and only the
+ *   genuinely local part is local.
+ *
+ * - Reach for `buildPopupIconButton` (`@/utils/popupComponents`) for any new
+ *   button here; it already defaults to the canonical class, and overriding
+ *   `baseClass` is how the duplicate arose in the first place.
+ *
  * @coordinates-with LinkPopupView.ts — the sole consumer
+ * @coordinates-with src/styles/popup-shared.css — owns `.popup-icon-btn`
  * @module plugins/linkPopup/linkPopupDom
  */
 
@@ -16,7 +31,10 @@ import { popupIcons } from "@/utils/popupComponents";
 function buildButton(iconSvg: string, title: string, className: string): HTMLButtonElement {
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = `link-popup-btn ${className}`;
+  // WI-DP4.1: the canonical popup button. `.link-popup-btn` was a
+  // byte-identical duplicate of `.popup-icon-btn`; the suffix classes below
+  // stay because the view and its tests query by them.
+  btn.className = `popup-icon-btn ${className}`;
   btn.title = title;
   btn.setAttribute("aria-label", title);
   btn.innerHTML = iconSvg;

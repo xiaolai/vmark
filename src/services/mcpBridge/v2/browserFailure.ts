@@ -24,8 +24,16 @@ import { parseCommandError } from "@/services/commands/commandError";
 export function needsNavigationApproval(error: unknown): boolean {
   const parsed = parseCommandError(error);
   if (parsed) return parsed.code === "approval-required";
-  // Transitional: the unmigrated human `browser_create` path still rejects with
-  // the bare token. Remove with the last entry in the CommandError ratchet.
+  // Transitional, and its stated precondition has now MOVED. The comment here
+  // used to name "the unmigrated human `browser_create` path" — that path is
+  // typed as of WI-DP2.1, and a sweep of `src-tauri/src/browser/` finds no
+  // remaining producer of a bare `APPROVAL_REQUIRED` string.
+  //
+  // It is kept anyway, deliberately: the CommandError ratchet is not at zero, a
+  // grep is weaker evidence than a gate, and the cost of being wrong here is
+  // asymmetric — losing this line turns "ask the user" into "fail silently" on a
+  // security path. Delete it when `pnpm lint:command-errors` reports 0, which is
+  // the condition that makes the sweep an invariant rather than an observation.
   return String(error).includes("APPROVAL_REQUIRED");
 }
 

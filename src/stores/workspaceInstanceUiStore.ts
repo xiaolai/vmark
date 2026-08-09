@@ -25,7 +25,7 @@
 import { create } from "zustand";
 import { onTabRemoved } from "@/stores/tabRemovalBus";
 
-export interface OutlineTabUiState {
+interface OutlineTabUiState {
   collapsedKeys: string[];
   filterQuery: string;
   scrollOffset: number;

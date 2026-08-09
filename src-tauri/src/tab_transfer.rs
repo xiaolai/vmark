@@ -35,6 +35,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use crate::command_error::CommandError;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Listener, Manager};
 use tokio::time::{timeout, Duration};
@@ -87,9 +88,12 @@ fn registry() -> std::sync::MutexGuard<'static, Option<HashMap<String, TabTransf
 /// Create a new window and store transfer data for it.
 /// Returns the new window label.
 #[tauri::command]
-pub fn detach_tab_to_new_window(app: AppHandle, data: TabTransferData) -> Result<String, String> {
-    let label =
-        window_manager::create_document_window_for_transfer(&app).map_err(|e| e.to_string())?;
+pub fn detach_tab_to_new_window(
+    app: AppHandle,
+    data: TabTransferData,
+) -> Result<String, CommandError> {
+    let label = window_manager::create_document_window_for_transfer(&app)
+        .map_err(|e| CommandError::internal(e.to_string()))?;
 
     let mut guard = registry();
     let map = guard.get_or_insert_with(HashMap::new);
@@ -105,14 +109,16 @@ pub fn transfer_tab_to_existing_window(
     app: AppHandle,
     target_window_label: String,
     data: TabTransferData,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let Some(target_window) = app.get_webview_window(&target_window_label) else {
-        return Err(format!("Target window '{}' not found", target_window_label));
+        return Err(CommandError::not_found(format!(
+            "Target window '{target_window_label}' not found"
+        )));
     };
 
     target_window
         .emit("tab:transfer", data)
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Find a document window at the given screen coordinates.
@@ -167,15 +173,19 @@ pub fn find_drop_target_window(
 
 /// Focus an existing window by label (used for spring-loaded drag targeting).
 #[tauri::command]
-pub fn focus_existing_window(app: AppHandle, window_label: String) -> Result<(), String> {
+pub fn focus_existing_window(app: AppHandle, window_label: String) -> Result<(), CommandError> {
     let Some(window) = app.get_webview_window(&window_label) else {
-        return Err(format!("Window '{}' not found", window_label));
+        return Err(CommandError::not_found(format!(
+            "Window '{window_label}' not found"
+        )));
     };
     if window.is_minimized().unwrap_or(false) {
         let _ = window.unminimize();
     }
     let _ = window.show();
-    window.set_focus().map_err(|e| e.to_string())
+    window
+        .set_focus()
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Run one phase of the removal handshake against `target_window_label`.
@@ -189,10 +199,12 @@ pub async fn remove_tab_from_window(
     target_window_label: String,
     tab_id: String,
     phase: String,
-) -> Result<TabRemovalAck, String> {
-    validate_phase(&phase)?;
+) -> Result<TabRemovalAck, CommandError> {
+    validate_phase(&phase).map_err(CommandError::invalid_input)?;
     let Some(window) = app.get_webview_window(&target_window_label) else {
-        return Err(format!("Target window '{}' not found", target_window_label));
+        return Err(CommandError::not_found(format!(
+            "Target window '{target_window_label}' not found"
+        )));
     };
 
     let request_id = format!("tabrm-{}", uuid::Uuid::new_v4());
@@ -217,7 +229,7 @@ pub async fn remove_tab_from_window(
     if let Err(e) = emitted {
         app.unlisten(listener);
         drop_pending_ack(&request_id);
-        return Err(e.to_string());
+        return Err(CommandError::internal(e.to_string()));
     }
 
     let result = timeout(Duration::from_millis(REMOVAL_ACK_TIMEOUT_MS), rx).await;
@@ -226,14 +238,14 @@ pub async fn remove_tab_from_window(
 
     match result {
         Ok(Ok(ack)) => Ok(ack),
-        Ok(Err(_)) => Err(format!(
-            "Window '{}' dropped the tab-removal request",
-            target_window_label
-        )),
-        Err(_) => Err(format!(
-            "Timed out waiting for window '{}' to acknowledge tab removal ({})",
-            target_window_label, phase
-        )),
+        // The destination went away mid-handshake: the world changed, the
+        // caller's request was not wrong. Same class as browser::stale_command.
+        Ok(Err(_)) => Err(CommandError::conflict(format!(
+            "Window '{target_window_label}' dropped the tab-removal request"
+        ))),
+        Err(_) => Err(CommandError::timeout(format!(
+            "Timed out waiting for window '{target_window_label}' to acknowledge tab removal ({phase})"
+        ))),
     }
 }
 

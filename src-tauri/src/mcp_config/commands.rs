@@ -13,6 +13,8 @@ use super::providers::{
 use super::types::{
     ConfigPreview, DiagnosticStatus, InstallResult, ProviderDiagnostic, UninstallResult,
 };
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use std::path::{Path, PathBuf};
 
 /// Do two binary paths name the same file? Canonicalizes where it can, so a
@@ -113,9 +115,16 @@ fn should_list(provider: &ProviderConfig, existing: &ExistingConfig) -> bool {
 /// The panel never offers Install or Preview for one, so reaching this is a
 /// caller bug or a stale UI — either way the config of a discontinued tool
 /// must not gain a fresh vmark entry.
-fn require_active(config: &ProviderConfig) -> Result<(), String> {
+fn require_active(config: &ProviderConfig) -> Result<(), CommandError> {
     if config.legacy {
-        return Err(rust_i18n::t!("errors.mcp.legacyProvider", name = config.name).to_string());
+        // The panel never offers Install or Preview for a legacy provider, so
+        // reaching this means the caller asked for something the UI does not
+        // expose — bad input, not a VMark fault.
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.mcp.legacyProvider",
+            name = config.name
+        ));
     }
     Ok(())
 }
@@ -123,7 +132,7 @@ fn require_active(config: &ProviderConfig) -> Result<(), String> {
 /// Diagnose MCP configuration for all AI providers
 /// Returns detailed diagnostics including path validation
 #[tauri::command]
-pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, String> {
+pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, CommandError> {
     let mut diagnostics = Vec::new();
 
     // Get the expected binary path once (may fail if binary not found)
@@ -133,7 +142,7 @@ pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, String> {
         let path = get_config_path(provider)?;
         // `config_exists` comes out of this read rather than a separate
         // `path.exists()` stat, so it cannot disagree with what was read.
-        let existing = read_existing_config(&path, provider.id)?;
+        let existing = read_existing_config(&path, provider.id).map_err(CommandError::io)?;
         if !should_list(provider, &existing) {
             continue;
         }
@@ -157,13 +166,13 @@ pub fn mcp_config_diagnose() -> Result<Vec<ProviderDiagnostic>, String> {
 /// placeholder when the install will mint one — see
 /// `client_token_field::TOKEN_PLACEHOLDER`.
 #[tauri::command]
-pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, String> {
+pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, CommandError> {
     let config = get_provider_config(&provider)?;
     require_active(config)?;
     let path = get_config_path(config)?;
     let binary_path = get_mcp_binary_path()?;
 
-    let current_content = read_config_for_merge(&path)?;
+    let current_content = read_config_for_merge(&path).map_err(CommandError::io)?;
     let client_token = client_tokens::preview_token(config.id, current_content.as_deref());
 
     let proposed_content = generate_config_content(
@@ -171,7 +180,8 @@ pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, String> {
         &binary_path,
         &client_token,
         current_content.as_deref(),
-    )?;
+    )
+    .map_err(CommandError::io)?;
 
     let backup_path = generate_backup_path(&path);
 
@@ -197,7 +207,7 @@ pub fn mcp_config_preview(provider: String) -> Result<ConfigPreview, String> {
 /// while VMark is running takes effect without a restart. The *client* still
 /// has to restart — MCP servers read their `env` when the client spawns them.
 #[tauri::command]
-pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
+pub fn mcp_config_install(provider: String) -> Result<InstallResult, CommandError> {
     let config = get_provider_config(&provider)?;
     require_active(config)?;
     let path = get_config_path(config)?;
@@ -208,7 +218,8 @@ pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
         config.id,
         &binary_path,
         &TokenPolicy::for_provider(config.id),
-    )?;
+    )
+    .map_err(CommandError::io)?;
     client_tokens::refresh();
 
     Ok(InstallResult {
@@ -231,11 +242,11 @@ pub fn mcp_config_install(provider: String) -> Result<InstallResult, String> {
 /// a sidecar still running with the removed credential connects (the shared
 /// bridge token is what authenticates it) but is no longer identified.
 #[tauri::command]
-pub fn mcp_config_uninstall(provider: String) -> Result<UninstallResult, String> {
+pub fn mcp_config_uninstall(provider: String) -> Result<UninstallResult, CommandError> {
     let config = get_provider_config(&provider)?;
     let path = get_config_path(config)?;
 
-    let mutation = uninstall_config_at(&path, config.id)?;
+    let mutation = uninstall_config_at(&path, config.id).map_err(CommandError::io)?;
     client_tokens::refresh();
 
     Ok(UninstallResult {

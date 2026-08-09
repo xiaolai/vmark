@@ -90,61 +90,6 @@
   opacity: var(--opacity-muted);
 }
 
-/* --- Icon-only buttons --- */
-.media-popup-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-  position: relative;
-}
-
-.media-popup-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.media-popup-btn:active {
-  opacity: 0.8;
-}
-
-/* --- Focus state: U-shaped underline (keyboard only) --- */
-.media-popup-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.media-popup-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: var(--border-medium) solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-/* --- Icon sizing --- */
-.media-popup-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
 /* --- Delete button: danger color on hover --- */
 .media-popup-btn-delete:hover {
   color: var(--error-color);

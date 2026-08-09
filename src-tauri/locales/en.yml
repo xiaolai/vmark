@@ -286,6 +286,11 @@ errors:
   browser.unsupportedPlatform: "The embedded browser is not available on this platform"
   browser.surfaceTimeout: "The browser did not respond in time"
   browser.surfaceFailed: "The browser could not complete that action"
+  browser.staleCommand: "That browser tab moved on before the action could run"
+  browser.noCommittedPage: "That browser tab has not finished loading a page yet"
+  browser.notGranted: "The AI is not allowed to do that on this page"
+  browser.attachmentRequired: "Attach the AI to this tab before it can act on it"
+  browser.profileOriginConfined: "The AI may only read the page this profile was approved for"
 
   # === Hot exit ===
   hotExit.noWindows: "No document windows to capture"

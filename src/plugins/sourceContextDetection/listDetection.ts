@@ -28,7 +28,7 @@ export {
 
 // ListItemInfo lives in listMarkerParsing.ts (the leaf) so mutation and
 // detection can share it without a dependency cycle.
-export type { ListItemInfo, ListType } from "./listMarkerParsing";
+export type { ListItemInfo } from "./listMarkerParsing";
 import type { ListItemInfo } from "./listMarkerParsing";
 
 /**

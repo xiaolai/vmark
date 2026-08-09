@@ -80,6 +80,22 @@ describe("HotExitDevTools — capture", () => {
     });
     expect(mocks.toast.success).not.toHaveBeenCalled();
   });
+
+  // WI-DP2.6 — hot_exit commands return Result<_, CommandError>: a rejection is
+  // a plain OBJECT, so the old `String(error)` put "[object Object]" in the
+  // toast description the moment those commands were typed.
+  it("describes a TYPED CommandError by its message, not [object Object]", async () => {
+    mocks.invoke.mockRejectedValue({ code: "io", message: "disk full" });
+    const user = userEvent.setup();
+    render(<HotExitDevTools />);
+
+    await user.click(screen.getByRole("button", { name: "Test Capture" }));
+
+    await waitFor(() => expect(mocks.toast.error).toHaveBeenCalled());
+    expect(mocks.toast.error).toHaveBeenCalledWith("Capture failed", {
+      description: "disk full",
+    });
+  });
 });
 
 describe("HotExitDevTools — inspect", () => {

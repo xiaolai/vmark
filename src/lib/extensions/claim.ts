@@ -36,7 +36,7 @@
  */
 
 /** How strongly an extension asserts ownership. Ranked, highest first. */
-export type ClaimStrength = "exact" | "semantic" | "fallback";
+type ClaimStrength = "exact" | "semantic" | "fallback";
 
 const STRENGTH_ORDER: readonly ClaimStrength[] = ["exact", "semantic", "fallback"];
 
@@ -75,13 +75,13 @@ export interface Recognizer<TIn, TOut> {
 }
 
 /** A recorded bid. */
-export interface Bid<TOut> {
+interface Bid<TOut> {
   extensionId: string;
   claim: Claim<TOut>;
 }
 
 /** Two or more extensions claimed the same node at the same strength. */
-export interface ClaimConflict {
+interface ClaimConflict {
   message: string;
   nodeType: string;
   strength: ClaimStrength;
@@ -89,7 +89,7 @@ export interface ClaimConflict {
 }
 
 /** A recognizer that threw. */
-export interface RecognizerFailure {
+interface RecognizerFailure {
   extensionId: string;
   nodeType: string;
   error: string;

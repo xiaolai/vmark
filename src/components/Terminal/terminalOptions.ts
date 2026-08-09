@@ -38,7 +38,7 @@ export interface TerminalInstanceSettings {
 }
 
 /** Scrollback lines, coerced into a value xterm will accept. */
-export function clampScrollback(value: number): number {
+function clampScrollback(value: number): number {
   if (!Number.isFinite(value)) return 5000; // matches settings' default
   return Math.min(Math.max(Math.trunc(value), 100), 200_000);
 }

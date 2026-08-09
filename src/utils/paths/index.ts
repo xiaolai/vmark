@@ -13,7 +13,4 @@ export {
   pathSegments,
 } from "./paths";
 export {
-  isWithinRootForCompare,
-  normalizePathForCompare,
-  pathsEqualForCompare,
 } from "./pathComparison";

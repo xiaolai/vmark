@@ -32,7 +32,7 @@ import { workspaceWarn } from "@/utils/debug";
 import { canonicalizeBrowserUrl, urlForPersistence } from "@/lib/browser/url";
 
 /** A persisted document tab: only the path is restorable; content is re-read. */
-export interface PersistedDocumentTab {
+interface PersistedDocumentTab {
   kind: "document";
   path: string | null;
 }

@@ -31,11 +31,11 @@ export const MAX_WORKSPACE_ONE_SHOTS = 8;
 export const WORKSPACE_ONE_SHOT_TTL_MS = 5 * 60_000;
 
 /** Approve mints a one-shot; deny just clears the prompt. */
-export type WorkspaceApprovalOutcome = "approve" | "deny";
+type WorkspaceApprovalOutcome = "approve" | "deny";
 
 /** Outcome of requestApproval: a NEW prompt was queued, an EQUIVALENT one is
  *  already pending (deduped), or the queue is full (untrusted-client flooding). */
-export type RequestApprovalResult = "queued" | "existing" | "overloaded";
+type RequestApprovalResult = "queued" | "existing" | "overloaded";
 
 interface PendingWorkspaceApproval {
   id: string;

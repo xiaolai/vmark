@@ -25,6 +25,7 @@ import { Button, SettingsGroup } from "./components";
 import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
 import { restoreCommandFor } from "@/services/persistence/hotExit/restoreDispatch";
 import type { SessionData } from "@/services/persistence/hotExit/types";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 /** Outcome of a guarded async call — success (with its value, which may
  *  legitimately be `null`) or failure (already reported to the user). */
@@ -39,7 +40,8 @@ async function withErrorHandling<T>(
     return { ok: true, value: await fn() };
   } catch (error) {
     toast.error(errorMessage, {
-      description: error instanceof Error ? error.message : String(error),
+      // WI-DP2.6: hot_exit commands reject with a typed CommandError object.
+      description: commandErrorMessage(error),
     });
     return { ok: false };
   }

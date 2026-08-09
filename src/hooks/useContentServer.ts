@@ -13,6 +13,7 @@
  * @module hooks/useContentServer
  */
 
+import { commandErrorMessage } from "@/services/commands/commandError";
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -33,10 +34,6 @@ import {
   exportSlidev,
   type SlidevExportFormat,
 } from "@/services/contentServer";
-
-function toMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 
 /** Max consecutive auto-restarts after a crash before giving up (WI-1.2). */
 export const MAX_CONTENT_SERVER_RESTARTS = 3;
@@ -120,7 +117,7 @@ export function useContentServer(): ContentServerControls {
         // running (the iframe can retry) — but clear any stale nonce URL so the
         // panel doesn't load a dead `/__auth` link.
         if (started) useContentServerStore.getState().setIframeUrl(null);
-        else useContentServerStore.getState().setError(toMessage(e));
+        else useContentServerStore.getState().setError(commandErrorMessage(e));
       }
     },
     [t],
@@ -153,7 +150,7 @@ export function useContentServer(): ContentServerControls {
     try {
       await openKbInBrowser(root);
     } catch (e) {
-      useContentServerStore.getState().setError(toMessage(e));
+      useContentServerStore.getState().setError(commandErrorMessage(e));
     }
   }, []);
 
@@ -172,7 +169,7 @@ export function useContentServer(): ContentServerControls {
       useContentServerStore.getState().setSlidevDeck(deck);
       await openUrl(url);
     } catch (e) {
-      useContentServerStore.getState().setError(toMessage(e));
+      useContentServerStore.getState().setError(commandErrorMessage(e));
     }
   }, [t]);
 
@@ -198,7 +195,7 @@ export function useContentServer(): ContentServerControls {
       if (!output) return; // user cancelled the save dialog
       await exportSlidev(root, deck, slidevFormatFromPath(output), output);
     } catch (e) {
-      useContentServerStore.getState().setError(toMessage(e));
+      useContentServerStore.getState().setError(commandErrorMessage(e));
     }
   }, [t]);
 

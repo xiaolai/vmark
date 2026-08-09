@@ -150,7 +150,10 @@ pub fn eval(
             &tab_id,
             expected_generation,
             || submit_js(&webview, &script, &world),
-        )?;
+        )
+        // This closure returns String to its own caller; the gate is typed now,
+        // so flatten at the boundary rather than widen the whole eval path.
+        .map_err(|e| e.message().to_string())?;
         Ok(await_js(&run_loop, sink))
     })
 }
