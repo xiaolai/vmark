@@ -438,3 +438,43 @@ the cancel button disappeared and the command started returning
 `feature-disabled`. Only commands that START work are gated; the `false`
 transition of the setter now also asks any in-flight run to stop.
 `workflow/guards.test.rs` pins both halves against the real source.
+
+## 13. Change size is a decision, not an accident
+
+`scripts/check-change-size.mjs` (PR tier, in `ci.yml` beside `check-new-deps.sh`
+and the baseline ratchet) measures the diff against the merge base. Over either
+threshold in `scripts/change-size-policy.json`, the PR body must carry a
+`CHANGE-SIZE-ACK:` line saying why the change is that size.
+
+**Be precise about what this buys, because overselling it would be the exact
+fiction the rest of this file exists to delete.** `main` requires
+`required_approving_review_count: 0`, so the acknowledgement is added by the
+same person who wrote the PR. **It is a forcing function, not a control.** It
+prevents nothing; it converts an unremarked accident into a recorded decision
+and puts the number where a human and a future audit can see it. Anyone
+determined to land a large change still can — and sometimes should.
+
+The thresholds are 150 files / 10,000 lines: the **measured p90** of 149 merges
+into `main` (p50 is 10 files / 328 lines). They are not a taste judgement, and
+an earlier draft that guessed 80/3,500 would have fired on roughly a quarter of
+all work — which is how a gate becomes noise and then gets routed around.
+Re-measure before changing them, and record the new distribution in the policy
+file.
+
+Generated, vendored and maintainer-local paths are excluded, so a lockfile
+refresh cannot look like a rewrite.
+
+It **fails closed**: an unresolvable base ref, a missing PR number, or an
+unreadable body over threshold is exit 64, never a pass. An under-threshold
+change never consults the API at all, so a small PR does not depend on network
+reachability. The body is read live through `gh api` rather than from the event
+payload, because `pull_request` declares no `types:` and therefore does not fire
+on body edits — without that, a token added after a red check would never take
+effect and the documented remedy would not work.
+
+**Why it exists.** The 2026-08-03 architecture review landed as ONE commit of
+652 files (+33,935/−6,466) against its own plan's "no big-bang commit"
+criterion, and nothing objected because nothing was watching. The follow-up plan
+then stacked four phases on one branch before this gate existed to notice —
+which is the same drift at one twentieth the scale, and the reason the rule is
+written as a signal rather than a prohibition.

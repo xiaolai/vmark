@@ -79,6 +79,16 @@ jobs:
         # active "slopsquat" supply-chain attacks. See scripts/check-new-deps.sh.
         run: bash scripts/check-new-deps.sh
 
+      - name: Change size is a decision, not an accident
+        # PR-tier like the two gates around it: needs a base ref and the PR
+        # body, neither of which a local checkout can guarantee. Over the
+        # measured p90 of this repo's own history, the PR body must say the
+        # size was intended. It prevents nothing (0 required approvals) — it
+        # makes the number visible. See .claude/rules/60-ai-governance.md §13.
+        env:
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/check-change-size.mjs "origin/${{ github.base_ref }}"
+
       - name: Baseline ratchet (merge-base, all committed baselines)
         # Every gate compares the tree against its baseline in the SAME commit,
         # so a PR can raise its own floor — edit the offending file and its
