@@ -91,7 +91,7 @@ export function parseListMarker(line: string): ListMarker | null {
 }
 
 /** Discriminated list-item type, task subsuming both bullet and ordered tasks. */
-export type ListType = "bullet" | "ordered" | "task";
+type ListType = "bullet" | "ordered" | "task";
 
 /** A resolved list item at a cursor position. Lives here (the leaf module) so
  *  detection and mutation can both import it without a cycle. */

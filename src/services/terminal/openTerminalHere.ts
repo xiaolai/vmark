@@ -29,7 +29,7 @@ import { useUIStore, MAX_TERMINAL_SESSIONS } from "@/stores/uiStore";
 import { createTerminalSessionAt } from "./revealTerminalSession";
 
 /** Why an "Open Terminal Here" request could not be satisfied. */
-export type OpenTerminalHereFailure = "no-directory" | "max-sessions";
+type OpenTerminalHereFailure = "no-directory" | "max-sessions";
 
 export interface OpenTerminalHereResult {
   ok: boolean;

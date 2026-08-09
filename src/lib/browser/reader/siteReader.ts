@@ -33,33 +33,6 @@ export interface SiteReader {
   read: (html: string, url: string) => ReaderResult;
 }
 
-/** Input to a draft-creating publish operation. */
-export interface PublishInput {
-  title: string;
-  markdown: string;
-  /** Extra site-specific fields (tags, collection, visibility, …). */
-  meta?: Record<string, unknown>;
-}
-
-/** The outcome of a draft-first publish (never a live post in v1). */
-export interface PublishResult {
-  /** Where the created draft can be reviewed. */
-  draftUrl: string | null;
-  /** An idempotency correlation key for the created draft (R8a). */
-  correlationKey: string;
-}
-
-/**
- * A pluggable publisher (WI-3.4 implements one). Draft-first by contract: it
- * creates a reviewable draft via the platform's own web API from a page that
- * already holds the user's session — it never publishes without confirmation.
- */
-export interface SitePublisher {
-  id: string;
-  match: (url: string) => boolean;
-  createDraft: (input: PublishInput, targetUrl: string) => Promise<PublishResult>;
-}
-
 /** The built-in generic reader — matches any navigable http(s) URL, uses `readPage`.
  *  Matching goes through the canonical URL parser, not a string prefix: `https://`
  *  and `https:// not-a-host` look like http(s) but are not pages. */

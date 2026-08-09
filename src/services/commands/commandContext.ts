@@ -31,7 +31,7 @@ import {
 import type { MultiSelectionContext } from "@/plugins/toolbarActions/types";
 import type { CommandContext } from "./CommandBus";
 
-export type EditingSurface = "wysiwyg" | "source";
+type EditingSurface = "wysiwyg" | "source";
 
 /**
  * The resolved, invocation-source-agnostic command context. Extends the bus's

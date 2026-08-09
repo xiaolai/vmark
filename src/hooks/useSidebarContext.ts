@@ -23,8 +23,8 @@ import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import type { SidebarViewMode, BrowserSidebarView } from "@/stores/uiStore/types";
 
-export type SidebarKind = "document" | "browser";
-export type AnySidebarView = SidebarViewMode | BrowserSidebarView;
+type SidebarKind = "document" | "browser";
+type AnySidebarView = SidebarViewMode | BrowserSidebarView;
 
 export interface SidebarContext {
   /** What the active tab IS — which decides which views the sidebar offers. */

@@ -101,9 +101,3 @@ export function buildConsoleReadScript(clear: boolean): string {
   );
 }
 
-/**
- * The page-world injection string: installs the shim on `window.console` with a
- * 200-entry cap. Registered as a page-world `WKUserScript` at AiSandbox tab
- * creation only (the native, live-E2E half of WI-P7.1).
- */
-export const CONSOLE_SHIM = `(${installConsoleCapture.toString()})(window.console, document, 200);`;

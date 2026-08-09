@@ -99,9 +99,6 @@ const ENTRIES: ReadonlyArray<[string, string, (a: A) => MdastToPmResult]> = [
 ];
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-/** mdast types this registry owns. */
-export const MDAST_NODE_TYPES: readonly string[] = ENTRIES.map(([type]) => type);
-
 /** Build the mdast → PM registry. Fresh instance per call. */
 export function createMdastRegistry(): MdastRegistry {
   const registry: MdastRegistry = new PmConverterRegistry();

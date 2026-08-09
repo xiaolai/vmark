@@ -8,7 +8,7 @@ import "./browser-chrome.css";
 
 const EMPTY_TABS: never[] = [];
 
-export type BrowserChromePlacement = "workspace" | "titlebar";
+type BrowserChromePlacement = "workspace" | "titlebar";
 
 interface BrowserChromeProps {
   /** Workspace renders page tabs alone; titlebar combines them with navigation. */

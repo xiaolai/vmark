@@ -26,8 +26,8 @@
  * @module services/mcpBridge/v2/operationManifest
  */
 
-export type OpOwner = "webview" | "rust";
-export type OpEffect = "read" | "write";
+type OpOwner = "webview" | "rust";
+type OpEffect = "read" | "write";
 
 export interface BridgeOperation {
   readonly owner: OpOwner;
@@ -91,12 +91,6 @@ export const BRIDGE_OPERATIONS = Object.freeze({
 // Freeze the descriptors too — the outer freeze alone leaves each
 // { owner, effect } mutable at runtime.
 for (const op of Object.values(BRIDGE_OPERATIONS)) Object.freeze(op);
-
-/**
- * Literal union of every operation name — `Readonly<Record<string, …>>`
- * would erase it and falsely type arbitrary string lookups as present.
- */
-export type BridgeOperationName = keyof typeof BRIDGE_OPERATIONS;
 
 /** Operation names filtered by manifest fields (test + tooling helper). */
 export function operationsWhere(

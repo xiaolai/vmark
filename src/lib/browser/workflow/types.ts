@@ -42,7 +42,7 @@ export interface WebWorkflow {
   readonly steps: readonly WorkflowStep[];
 }
 
-export type DiagnosticSeverity = "error" | "warning";
+type DiagnosticSeverity = "error" | "warning";
 
 /**
  * Stable, language-independent diagnostic codes. Messages here are developer-facing
@@ -66,7 +66,7 @@ export type DiagnosticCode =
 
 /** Severity is a type parameter so a warning list cannot hold an error (and vice
  *  versa) — the `ParseResult` union stays honest by construction. */
-export interface Diagnostic<S extends DiagnosticSeverity = DiagnosticSeverity> {
+interface Diagnostic<S extends DiagnosticSeverity = DiagnosticSeverity> {
   /** 1-based source line. */
   readonly line: number;
   /** Stable code for localization/testing. */
