@@ -53,7 +53,7 @@ declare module "@tiptap/core" {
  * omitted it, so wrapping a selection left the caret in the summary where typing
  * renamed the disclosure instead of editing the content.
  */
-export function detailsBodyCaretOffset(details: PMNode): number {
+function detailsBodyCaretOffset(details: PMNode): number {
   /* v8 ignore next -- @preserve null-coalesce: a details node always has a summary firstChild */
   return 1 + (details.firstChild?.nodeSize ?? 0) + 1;
 }

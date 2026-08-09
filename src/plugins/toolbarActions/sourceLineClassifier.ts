@@ -44,7 +44,7 @@ const THEMATIC_BREAK_RE = /^ {0,3}([-_*])[ \t]*(?:\1[ \t]*){2,}$/;
  * judged AFTER peeling any blockquote prefix, because a quoted list item is
  * still a list item.
  */
-export function isStructuralLine(rawLine: string): boolean {
+function isStructuralLine(rawLine: string): boolean {
   // Four spaces of indentation is indented code BEFORE any other reading.
   if (/^(?: {4}|\t)/.test(rawLine)) return true;
   const line = peelQuote(rawLine);

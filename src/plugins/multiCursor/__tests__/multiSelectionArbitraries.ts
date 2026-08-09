@@ -19,7 +19,7 @@ import { Mapping, ReplaceStep } from "@tiptap/pm/transform";
 import { MultiSelection } from "../MultiSelection";
 
 /** Minimal schema — only what a multi-cursor position needs. */
-export const schema = new Schema({
+const schema = new Schema({
   nodes: {
     doc: { content: "paragraph+" },
     paragraph: { content: "text*" },

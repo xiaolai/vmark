@@ -45,11 +45,7 @@ import { syncNativeTheme } from "@/services/theme/nativeTheme";
 // Pure color computation moved to @/theme/legacyModeColors (ADR-014 home for
 // color values; keeps this file under the size gate). Re-exported here so
 // existing test/consumer imports keep their stable path.
-export {
-  computeCoreColorVars,
-  computeModeColorVars,
-  type ModeColorResult,
-} from "@/theme/legacyModeColors";
+export { computeCoreColorVars, computeModeColorVars } from "@/theme/legacyModeColors";
 
 /** Apply CSS variables from a config object */
 function applyVars(root: HTMLElement, vars: Record<string, string>) {

@@ -37,7 +37,7 @@ import type { DocumentStore } from "./storeContract";
 
 // Re-export for backwards compatibility
 export type { CursorInfo } from "@/types/cursorSync";
-export type { DocumentRestoreState, DocumentState } from "./documentState";
+export type { DocumentState } from "./documentState";
 export type { SetContentOptions } from "./storeContract";
 
 /** Options for {@link DocumentStore.setContent}. */

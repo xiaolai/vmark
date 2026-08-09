@@ -51,7 +51,7 @@ export interface ClientIdentity {
 /**
  * Function to resolve port dynamically (e.g., read from file).
  */
-export type PortResolver = () => number | undefined;
+type PortResolver = () => number | undefined;
 
 /**
  * Configuration for WebSocketBridge.

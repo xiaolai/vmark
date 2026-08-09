@@ -58,7 +58,7 @@ export interface IdentityInputs {
 }
 
 /** Read the inputs from the live process. */
-export function currentIdentityInputs(): IdentityInputs {
+function currentIdentityInputs(): IdentityInputs {
   return {
     env: process.env,
     parentProcess: getParentProcessName(),

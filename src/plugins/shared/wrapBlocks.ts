@@ -36,7 +36,7 @@ import type { Fragment, Node as PMNode } from "@tiptap/pm/model";
  * Outer bounds of the depth-1 blocks the selection spans, or null when the
  * selection is empty or sits at depth 0 (an AllSelection or a top-level node).
  */
-export function spannedBlockRange(state: EditorState): { from: number; to: number } | null {
+function spannedBlockRange(state: EditorState): { from: number; to: number } | null {
   const { $from, $to, empty } = state.selection;
   if (empty) return null;
 

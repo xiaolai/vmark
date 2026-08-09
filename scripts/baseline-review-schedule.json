@@ -33,10 +33,8 @@
     ".dependency-cruiser-known-violations.json": "down — each frozen edge either deleted or re-expressed through a plugins/shared seam",
     "scripts/plugin-store-coupling-baseline.json": "zero on every channel — options and seams, not ambient lookups",
     "scripts/file-size-baseline.json": "down — split files, lower the number; never raise",
-    "scripts/knip-baseline.json": "zero — delete the dead export or justify it at the definition",
     "scripts/bespoke-buttons-baseline.json": "down — each bespoke class converted to .vm-btn / .popup-icon-btn",
     "scripts/extension-budget.json": "down — per-edge licenses retired as plugins decouple",
-    "scripts/merge-drop-allowlist.json": "zero — every allowed drop either fixed or shown to be intended",
     "src/utils/markdownPipeline/__tests__/spec/specDeltas.json": "down — each declared divergence fixed or ruled a deliberate dialect choice",
     "src/utils/markdownPipeline/__tests__/spec/specRoundtripDeltas.json": "down — same",
     "src/utils/markdownPipeline/conformance/expectedDeltas.ts": "down — same",
@@ -57,6 +55,8 @@
     "src/utils/markdownPipeline/__tests__/spec/corpus/markdown-it-extras.json": "Vendored upstream corpus.",
     "src/utils/markdownPipeline/__tests__/spec/corpus/markdown-it-xss.json": "Vendored upstream corpus — XSS payloads that must keep being escaped.",
     "src/utils/markdownPipeline/__tests__/spec/corpus/tiptap-conversion.json": "Vendored corpus for the md→ProseMirror oracle.",
-    "scripts/baseline-review-schedule.json": "The register itself. Its `tracked` list is an identity set the ratchet holds, but a register of registers is bureaucracy, not debt."
+    "scripts/baseline-review-schedule.json": "The register itself. Its `tracked` list is an identity set the ratchet holds, but a register of registers is bureaucracy, not debt.",
+    "scripts/merge-drop-allowlist.json": "Already zero (WI-DP1.1): both claims verified as real relocations and removed. The gate keeps it empty, so there is nothing left to schedule.",
+    "scripts/knip-baseline.json": "Already zero (WI-DP1.2): all 75 warn-tier findings resolved. The gate keeps it at zero, so there is nothing left to schedule."
   }
 }

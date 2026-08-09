@@ -46,7 +46,7 @@ import { browserWarn } from "@/utils/debug";
 export type LeaseHolder = "ai" | "human";
 
 /** Outcome of validating a driver-command envelope against the current lease. */
-export type LeaseValidation = "ok" | "lease-lost" | "stale";
+type LeaseValidation = "ok" | "lease-lost" | "stale";
 
 interface TabLease {
   holder: LeaseHolder | null;

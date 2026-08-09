@@ -16,7 +16,6 @@ import type { AdapterAction } from "@/plugins/toolbarActions/adapterActions";
 // longer declare their own; each item's contexts derive from its ACTION.
 import { enabledInFor, type EnableContext } from "@/plugins/toolbarActions/actionApplicability";
 
-export type { EnableContext };
 
 /** Separator item (visual divider in dropdown) */
 export interface ToolbarSeparator {

@@ -45,7 +45,7 @@ export interface PmConverter<TNode, TCtx, TOut> {
 }
 
 /** Why a lookup failed. */
-export type LookupFailure =
+type LookupFailure =
   | { code: "unknown-node"; nodeName: string; message: string }
   | {
       code: "ambiguous-match";

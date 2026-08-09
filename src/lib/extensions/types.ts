@@ -54,7 +54,7 @@ export const PREC_ORDER: readonly Prec[] = [
  * no-op — a typo'd constraint that quietly does nothing is how ordering bugs
  * survive.
  */
-export interface ExtensionOrdering {
+interface ExtensionOrdering {
   bucket?: Prec;
   before?: readonly ExtensionId[];
   after?: readonly ExtensionId[];
@@ -69,7 +69,7 @@ export interface ExtensionOrdering {
  * collapsing them would re-couple markdown to the editor and break the
  * `nodeSafe.ts` boundary `vmark-content-server` depends on.
  */
-export type Contribution =
+type Contribution =
   | { kind: "tiptap"; factory: () => unknown }
   | { kind: "codemirror"; factory: () => unknown }
   /** Registry 1 — markdown ↔ mdast. Must not reference ProseMirror. */

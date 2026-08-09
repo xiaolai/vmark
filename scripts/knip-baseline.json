@@ -1,8 +1,8 @@
 {
-  "//": "Warn-tier knip findings, frozen. These six families run at `warn` in knip.json, so knip exits 0 and 78 findings were printing inside a green check:all with nothing stopping a 79th. Ratchets DOWN only \u2014 see scripts/check-knip-baseline.mjs. Delete dead code and lower the number; never raise it.",
-  "exports": 16,
+  "//": "Warn-tier knip findings, frozen. These six families run at `warn` in knip.json, so knip exits 0 and 78 findings were printing inside a green check:all with nothing stopping a 79th. Ratchets DOWN only — see scripts/check-knip-baseline.mjs. Delete dead code and lower the number; never raise it. WI-DP1.2 (2026-08-09): driven to ZERO — 75 findings resolved by removing the export where the symbol was still used in its own file, and deleting it outright where it was not. No knip-ignore comments (ADR-2).",
+  "exports": 0,
   "nsExports": 0,
-  "types": 59,
+  "types": 0,
   "nsTypes": 0,
   "duplicates": 0,
   "enumMembers": 0

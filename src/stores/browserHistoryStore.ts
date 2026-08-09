@@ -49,7 +49,7 @@ export interface HistoryEntry {
 const MAX_ENTRIES = 200;
 
 /** What a caller supplies; the store stamps the rest. */
-export interface HistoryCommit {
+interface HistoryCommit {
   tabId: string;
   url: string;
   transitionKind: TransitionKind;

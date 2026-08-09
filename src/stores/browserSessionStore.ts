@@ -15,14 +15,14 @@
 import { create } from "zustand";
 
 /** A saved session — a handle + a value-free summary, never any values. */
-export interface SavedSession {
+interface SavedSession {
   handle: string;
   summary: string;
   savedAt: number;
 }
 
 /** A named persistent profile the user has used. */
-export interface NamedProfile {
+interface NamedProfile {
   name: string;
   usedAt: number;
 }

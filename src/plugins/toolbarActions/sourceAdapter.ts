@@ -42,7 +42,6 @@ import {
 } from "./sourceBlockActions";
 
 // Re-export formatCJKCurrentBlock for external consumers
-export { formatCJKCurrentBlock } from "./sourceCjkActions";
 
 // --- Exported actions ---
 

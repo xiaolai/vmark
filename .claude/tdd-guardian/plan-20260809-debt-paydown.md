@@ -132,6 +132,22 @@ gets exercised — batch size, gate cadence, PR shape — on debt where a mistak
 cheap and obvious.
 
 ### WI-DP1.1 — `merge-drop-allowlist` → zero
+
+**Status:** DONE — 2026-08-09
+**Changed:** scripts/merge-drop-allowlist.json, scripts/baseline-review-schedule.json
+**Verified:** `pnpm lint:merge-drops` PASS · `pnpm lint:review-schedule` (28 baselines, 12 tracked / 16 exempt) · `node scripts/check-baseline-ratchet.mjs origin/main` held
+**Outcome:** both claims verified as REAL relocations, so both entries were removed
+rather than fixed. `resolveSaveFilters` → `saveFiltersForFilePath` at
+`services/windowClose/closeSaveShared.ts:66` (used by `closeSave.ts:98`,
+`closeSaveBatch.ts:76`); disk-open ingest routing at
+`services/mcpBridge/v2/workspaceOpen.ts:137`. Baseline kept at zero per ADR-5 and
+moved `tracked` → `exempt`.
+**Found while verifying:** both allowlist KEYS named `src/hooks/…` paths that
+WI-10 moved to `src/services/…` on 2026-08-04. The entries outlived their files
+by five days and nothing noticed — this gate has no staleness check, unlike every
+other allowlist here. Recorded under Outstanding work; fixing it is outside this
+WI's scope.
+
 - **Problem:** 2 entries, each already naming where the dropped change was
   re-applied. The target says "fixed or shown to be intended", and both appear to
   already be the latter.
@@ -144,6 +160,27 @@ cheap and obvious.
       are true.
 
 ### WI-DP1.2 — `knip` 75 → 0
+
+**Status:** DONE — 2026-08-09
+**Changed:** 55 source files across `src/`, `server/mcp/`, `server/content/`; `scripts/knip-baseline.json`
+**Verified:** `pnpm knip` → zero unused exports/types · `npx tsc -p tsconfig.json --noEmit` exit 0 · `pnpm lint` PASS · `pnpm lint:knip-baseline` held at 0 · **`pnpm test` exit 0 (1,449 files, 34,960 tests)**
+**How:** two distinct fixes, not one. Where the symbol was still used inside its
+own file, the export keyword came off — that is what knip's "unused export"
+actually means, and the symbol stays. Where it was used nowhere, it was deleted
+outright (`CONSOLE_SHIM`, `SitePublisher` and its orphaned `PublishInput` /
+`PublishResult`, `BridgeOperationName`, `MDAST_NODE_TYPES`). No `knip-ignore`
+comments (ADR-2), and no entry-point declarations were needed.
+**Two things worth keeping:**
+1. **A blanket transform was wrong.** Stripping `export ` mangled five type-only
+   re-export statements (`export type { A, B } from "…"`) into invalid syntax,
+   and `tsc` caught every one. knip findings need per-item judgement.
+2. **Four of them had real consumers.** `LineMatch`, `EffectiveTerminalPosition`,
+   `SetContentOptions` and `MAX_TERMINAL_SESSIONS` were flagged at their
+   definition site because only a barrel referenced them; removing both ends
+   broke live imports in `ContentSearch`, `TerminalTabBar` and `useTerminalPosition`.
+   `tsc` caught these too. **Running the full suite was the load-bearing check** —
+   test files are excluded from `tsconfig`, so a test importing a removed export
+   would have survived typecheck.
 
 > **Target frozen at zero**, not "as low as the code allows" (revision 1). A
 > movable target lets the phase redefine success once the hard cases appear. If a

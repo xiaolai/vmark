@@ -48,7 +48,7 @@ export function withSourceLine<T extends ExtendableExtension>(extension: T): T {
  * programmatically, never parsed from or rendered to the DOM. Drives
  * blank-line preservation (dev-docs/plans/20260721-blank-line-preservation.md).
  */
-export const blankLinesAttr = {
+const blankLinesAttr = {
   blankLinesBefore: {
     default: null as number | null,
   },

@@ -53,7 +53,7 @@ export type Validator = (
 ) => ValidationDiagnostic[];
 
 /** One heading in a document outline. `line` is 0-based. */
-export interface OutlineHeading {
+interface OutlineHeading {
   level: number;
   text: string;
   line: number;

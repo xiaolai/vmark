@@ -80,7 +80,7 @@ export interface ContextMenuItemDescriptor {
 
 /** Descriptor whose run is adapter-dispatched — the rules helpers need the
  * action id, so they accept ONLY this narrowing (no runtime fallback). */
-export type AdapterMenuDescriptor = ContextMenuItemDescriptor & {
+type AdapterMenuDescriptor = ContextMenuItemDescriptor & {
   run: { type: "adapter"; action: AdapterAction };
 };
 
