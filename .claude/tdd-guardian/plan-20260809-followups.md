@@ -1,6 +1,7 @@
 # Architecture-review follow-ups — closing what the 21-WI refactor left open
 
-**Status:** Phase 0 complete (revision 2, post-review) · **Date:** 2026-08-09
+**Status:** ALL PHASES COMPLETE (revision 3) · **Date:** 2026-08-09
+**Verify:** `bash scripts/check-followups-phase.sh all` → every phase DONE
 **Branch:** `refactor/architecture-review-followups`
 **Predecessor:** `.claude/tdd-guardian/plan-20260803-161713.md` (21 WIs, landed
 `85dc54405`, 2026-08-04)
@@ -41,12 +42,12 @@ This plan does **not** revisit that work. It closes five gaps at its edges.
 
 | # | Finding | Class | Phase |
 |---|---|---|---|
-| F1 | `tier0-e2e.yml` has never run — zero runs, ever | unproven gate | 2A |
-| F2 | Mutation is proven by one hand-dispatch; every scheduled run was cancelled | unproven gate | 2A |
-| F3 | `check-wi-linkage.sh` cannot see `scripts/*.test.mjs`, and invents phantom WIs from prose | gate defect | 1 |
-| F4 | The refactor landed as one 652-file commit, against its own "no big-bang commit" criterion | no signal | 4 |
-| F5 | ~450 units of frozen debt across 27 baselines, none ratcheting down | invisible debt | 3 |
-| F6 | Commit-side linkage is satisfied by *any* mention of an ID, including prose describing the bug | gate defect | 1 |
+| F1 | `tier0-e2e.yml` has never run — zero runs, ever | unproven gate | 2A ✅ |
+| F2 | Mutation is proven by one hand-dispatch; every scheduled run was cancelled | unproven gate | 2A ✅ |
+| F3 | `check-wi-linkage.sh` cannot see `scripts/*.test.mjs`, and invents phantom WIs from prose | gate defect | 1 ✅ |
+| F4 | The refactor landed as one 652-file commit, against its own "no big-bang commit" criterion | no signal | 4 ✅ |
+| F5 | ~450 units of frozen debt across 27 baselines, none ratcheting down | invisible debt | 3 ✅ |
+| F6 | Commit-side linkage is satisfied by *any* mention of an ID, including prose describing the bug | gate defect | 1 ✅ |
 
 Plus two documentation-hygiene items (Phase 5).
 
@@ -411,3 +412,43 @@ pnpm check:all                              # exit 0
 Plus a `gh api`-verified green `tier0-e2e.yml` run, and
 `bash scripts/check-wi-linkage.sh .claude/tdd-guardian/plan-20260809-followups.md`
 reporting zero unlinked.
+
+---
+
+## Outcome (2026-08-09)
+
+`bash scripts/check-followups-phase.sh all` → **every phase DONE**. All six
+findings closed. What the work actually cost, and what it found:
+
+**F1 took eight dispatches, and every failure was real.** `tier0-e2e.yml` had
+never run once. Getting it green surfaced seven defects, none visible to review:
+a readiness probe that expired during compilation; a TCP check standing in for
+app-readiness (1s vs the real 72s); tab titles that gained extensions on
+2026-08-07 and silently broke every fixture-opening journey; a precondition the
+journeys only met because a maintainer's session restores multiple tabs; a stale
+approve-button selector whose `?.click()` made a miss indistinguishable from a
+click; and TWO macOS-only process probes that returned empty on Linux, so a
+broken harness presented as an app that spawns no terminals.
+
+The six data-integrity journeys — save, autosave, external change, close guard,
+line endings, failed-save preservation — are now verified against the real app
+in CI for the first time. Run 31303955024 @ `f339798b`, 8/8.
+
+**Three of this plan's own instruments were caught lying**, which is the honest
+headline. The DoD checker printed DONE over skipped assertions on day one. The
+linkage gate reported WI-16 "linked" because a commit message *described* the
+bug. Nineteen work items reported linked because bare `WI-N.M` IDs collide
+across plans. Each was found by running the thing rather than reading it, and
+each is now pinned by a test.
+
+**What changed in approach, twice, after being wrong.** ADR-1's deferral
+mechanism could not have been built as specified — cross-model review caught
+that `loadManifest` never reads the base ref. And the change-size thresholds
+were written as "measured" before anything was measured; the real p90 was
+roughly double the guess, which would have made the gate fire on a quarter of
+all PRs.
+
+**Deliberately not done:** the debt itself is scheduled, not paid. 13 baselines
+carry dates from Oct 2026 to Mar 2027; `baseline-review.yml` reports overdue
+ones weekly. That was the maintainer's scoping decision, and paying it down is
+its own plan.

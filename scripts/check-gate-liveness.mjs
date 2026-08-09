@@ -136,6 +136,37 @@ for (const g of gates) {
     { encoding: "utf8" },
   );
   if (gh.error || gh.status !== 0) {
+    // GitHub 404s a workflow it has no record of. For a file that is not yet on
+    // the DEFAULT BRANCH that is expected and temporary — it cannot have run,
+    // because it does not exist anywhere GitHub schedules from. For a file that
+    // IS on the default branch, the same 404 is the F1 state wearing a
+    // different error code, and must be loud.
+    //
+    // Deciding by "is it merged" rather than by the status code keeps this from
+    // becoming an excuse: the exemption evaporates the moment the workflow
+    // lands, with no list to update and nothing to remember.
+    // The exemption is granted only on POSITIVE evidence of absence: this must
+    // be the repo's own workflow directory, a default-branch ref must resolve,
+    // and the file must be missing from it. Anything else — no git, no remote,
+    // a fixture tree — falls through to the failure below, because "I could not
+    // determine whether this is merged" is not a reason to pass. Inverting that
+    // default would let every fail-closed case buy silence by being unreadable.
+    const isRealWfDir = path.resolve(WF_DIR) === path.join(ROOT, ".github/workflows");
+    const baseRef = ["origin/HEAD", "origin/main"].find(
+      (r) => spawnSync("git", ["rev-parse", "--verify", r], { cwd: ROOT }).status === 0,
+    );
+    const pendingRegistration =
+      isRealWfDir &&
+      Boolean(baseRef) &&
+      spawnSync("git", ["cat-file", "-e", `${baseRef}:.github/workflows/${g.file}`], { cwd: ROOT })
+        .status !== 0;
+    if (pendingRegistration) {
+      console.log(
+        `  · ${g.file}: not on the default branch yet — GitHub has no record of it, ` +
+          `which is expected until it merges`,
+      );
+      continue;
+    }
     // FAIL CLOSED. A liveness checker that goes quiet when it cannot see is
     // precisely the condition it exists to detect.
     console.error(`  ✗ ${g.file}: could not read run history (${gh.error ? "gh unavailable" : "gh api failed"})`);

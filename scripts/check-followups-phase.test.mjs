@@ -1,5 +1,9 @@
 /**
- * WI-AF0.1 — DoD checker for the architecture-review follow-ups plan.
+ * WI-AF0.1, WI-AF0.2 — DoD checker for the architecture-review follow-ups plan.
+ *
+ * WI-AF0.2 (the mandatory cross-model review) is asserted here too: phase 0
+ * requires a real Codex thread id recorded in the plan, and the fixture uses a
+ * hex id because the assertion is "a review happened", not "the word appears".
  *
  * Runs the REAL `scripts/check-followups-phase.sh` as a subprocess against
  * FIXTURE repo trees in tmpdir (house pattern: real script, real fs, no
