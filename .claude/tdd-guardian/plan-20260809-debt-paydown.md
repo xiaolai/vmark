@@ -1,6 +1,10 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** Phase 0 (plan written, cross-model review pending) · **Date:** 2026-08-09
+**Status:** Phase 0 — revision 2, post-review. **Phase 3 reclassified; not ready to build as written.**
+**Date:** 2026-08-09
+**Cross-model review (governance §6):** Review thread: `019fe5eb-36fb-7ee2-9f1b-65d8512e84c6`
+· Codex `gpt-5.6-sol`, effort high · **Verdict on revision 1: MAJOR GAPS.**
+Load-bearing claims verified against the tree before adoption.
 **Branch:** `plan/debt-paydown` (stacked on `refactor/architecture-review-followups`,
 which carries the debt register this plan pays down — must merge after it)
 **Predecessor:** `.claude/tdd-guardian/plan-20260809-followups.md` (all phases complete)
@@ -30,14 +34,18 @@ The evidence is in the shape of the debt, not in optimism about it:
 
 | Baseline | Units | Shape |
 |---|---:|---|
-| `mock-boundaries-baseline.json` | 274 across 139 files | 28 distinct targets; **4 stores are 188 of 274**; only 5 files hold >4 |
-| `bespoke-buttons-baseline.json` | 88 named + 80 styled | one conversion to `.vm-btn`, repeated |
+| `mock-boundaries-baseline.json` | 274 across 139 files | **NOT mechanical — see Phase 3.** 112 of 139 files assert on call spies |
+| `bespoke-buttons-baseline.json` | 88 named + 80 styled, **149 unique** | 61 of the 80 are usage-only; 19 overlap the named set |
 | `command-error-baseline.json` | 99 across 36 files | established pattern, 8 `From` impls, coherence migrated as the worked example |
 | `knip-baseline.json` | 75 findings / 6 families | 16 dead exports, 59 dead types |
 | `merge-drop-allowlist.json` | 2 | both already state where the change was re-applied |
 
-Four stores account for 69% of the largest item. That is one pattern applied
-repeatedly across independent files, not a programme of work.
+Revision 1 read that table and concluded the whole set was "one pattern applied
+repeatedly". For `command-error`, `knip` and `merge-drops` that holds. For
+`mock-boundaries` it does not, and the review caught it: 112 of the 139 files
+assert `toHaveBeenCalledWith` on a mocked action, which no real store can
+satisfy. Phase 3 is reclassified below. **The mechanical block is ~176 units
+(knip 75, command-error 99, merge-drops 2), not ~551.**
 
 **What this plan does NOT touch** — the register keeps reporting these, because
 for them a standing report IS the right instrument. They are waiting on
@@ -55,10 +63,14 @@ decisions, and no amount of throughput substitutes:
 
 ## ADRs
 
-**ADR-1 — The existing gate is the DoD. No new measurement.** Each phase is done
-when the baseline number reaches its target and `pnpm lint:<gate>` says so. This
-plan introduces no counter of its own, because a second definition of "how much
-debt is left" can disagree with the first, and then neither is trusted.
+**ADR-1 (amended) — the baseline is a PROGRESS METRIC; the DoD is baseline +
+gate + evidence.** Revision 1 said "the baselines are the DoD", and the checker
+implements that literally: it reads JSON and nothing else. So a hand-lowered
+number passes it while the code got worse, `CommandError::internal` abuse is
+invisible to a signature count, and a deleted test lowers the mock count exactly
+like a converted one. Three things are now required per phase: the baseline
+target, the real gate exiting 0, and phase-specific semantic evidence (named per
+phase). The checker still introduces no counter of its own — that part was right.
 
 **ADR-2 — Never buy green by weakening the check.** The ratchet already forbids
 raising a number. This forbids the subtler purchase: removing a `vi.mock` by
@@ -82,20 +94,27 @@ baseline entry, record the reason in the register's `tracked` target, and move o
 A phase completes at its *revised* target with the exceptions named. Forcing a
 number to zero by reclassifying the hard cases as done is the failure mode.
 
-**ADR-5 — Delete the register entry at zero.** A baseline that reaches its target
-is removed from `tracked` and its file deleted, not left at 0. The two-way
-staleness check then requires the manifest entry to go too. Debt that is paid
-should stop costing attention — an empty baseline is still a file everyone reads.
+**ADR-5 (REVERSED after review) — a zero baseline is kept, permanently.**
+Revision 1 said to delete the file at zero. That is provably wrong here:
+`check-mock-boundaries.mjs` and `check-command-error-ratchet.mjs` both read their
+baseline and fail when it cannot be parsed, so deleting one breaks `check:all` —
+the phase could never complete. It is also wrong in principle. A zero baseline is
+not documentation of paid debt; it is the *expected-set* that makes recurrence
+fail, exactly as `i18n-untranslated-baseline.json` is kept empty on purpose.
+Remove it from the attention REPORT (move it to `exempt` with the reason
+"already zero, the gate keeps it there"), never from enforcement.
 
 ---
 
 ## Phase 0 — Scaffolding and review
 
 ### WI-DP0.1 — DoD checker
-- [ ] `scripts/check-paydown-phase.sh` + `.test.mjs`, same contract as its
-      predecessor: a phase with nothing done reports NOT STARTED, a skipped
-      REAL-ROOT assertion reports UNVERIFIED, and neither shares an exit code
-      with DONE.
+- [x] `scripts/check-paydown-phase.sh` + `.test.mjs`. A phase with nothing done
+      reports NOT STARTED, which does not share an exit code with DONE. There is
+      deliberately no UNVERIFIED state — every assertion reads a file that is
+      always present. Revision 1 copied that branch from the predecessor and
+      nothing incremented its counter: a contract claimed in a header and
+      unreachable in code. Removed.
 - [ ] Per-phase assertions read the REAL baselines, so the DoD cannot drift from
       what the gates measure (ADR-1).
 
@@ -124,7 +143,13 @@ cheap and obvious.
       is the outcome worth looking for; the allowlist is only safe if its claims
       are true.
 
-### WI-DP1.2 — `knip` 75 → as low as the code allows
+### WI-DP1.2 — `knip` 75 → 0
+
+> **Target frozen at zero**, not "as low as the code allows" (revision 1). A
+> movable target lets the phase redefine success once the hard cases appear. If a
+> finding turns out to be a legitimate public export, the fix is to declare it as
+> an entry point in `knip.json` — a reviewed configuration change — not to leave
+> a number and call it done.
 - [ ] 16 dead exports and 59 dead types deleted, or justified AT THE DEFINITION
       (not in the baseline) with the consumer named.
 - [ ] Each deletion is a real deletion — no `knip-ignore` comments (ADR-2).
@@ -158,29 +183,43 @@ Order by concentration: `browser/commands.rs` (14), `pty.rs` (8),
 
 ---
 
-## Phase 3 — `mock-boundaries` 274 → 0
+## Phase 3 — `mock-boundaries` — RECLASSIFIED, not yet plannable
 
-The largest, and the one touching the safety net. Per ADR-3, one store per batch.
+**Revision 1 called this mechanical. It is not, and the number that settles it is
+112 of 139.** That many mocked-store test files assert `toHaveBeenCalledWith` on
+a mocked store action. Those assertions cannot survive the migration: a real
+Zustand action is not a spy, so there is nothing to have been called. Revision 1's
+safeguard — "every test still asserts the same behaviour" — is *impossible* for
+80% of the files, which means it was not a safeguard, it was a sentence.
 
-Order by count: `tabStore` (53), `documentStore` (52), `settingsStore` (52),
-`uiStore` (31) — 188 of 274 — then `workspaceStore` (21), `editorStore` (11),
-then the tail across 22 more targets.
+What this work actually is: converting wiring assertions (`10-tdd.md` Level 6-7,
+which that rule names an anti-pattern and says must never stand alone) into
+behaviour assertions on real state (Level 1/4). That is worth doing and is
+strictly better than the status quo — but it is a per-file design decision about
+what each test is really for, repeated 112 times. It is a test-architecture
+migration wearing a substitution's clothes.
 
-### WI-DP3.1 … WI-DP3.n — one batch per store
-- [ ] Each `vi.mock("@/stores/X")` replaced by the REAL store, reset in
-      `beforeEach` (the sanctioned alternative, per the gate's own header).
-- [ ] Where the real store cannot be used — persistence, a Tauri boundary, a
-      genuine isolation need — an explicit store-factory seam with a recorded
-      reason, NOT a re-mock. If neither works, ADR-4 applies: leave the entry.
-- [ ] Every test still asserts the same behaviour. A test that got *easier* to
-      pass is a test that stopped testing.
-- [ ] Full `pnpm test` green per batch — not `test:changed`. The import graph
-      cannot see what a global mock was hiding.
-- [ ] `scripts/mock-boundaries-baseline.json` entries removed per batch.
+Three further defects in revision 1's approach, all confirmed:
 
-**Phase 3 DoD:** baseline at 0 or at a stated, reasoned floor (ADR-4).
+- **Per-store batching makes it worse, not safer.** Many files mock three to six
+  stores. Store-first batching walks each of those files through hybrid
+  real/fake configurations that never existed before or after, so a regression is
+  attributable to a state no version of the code was ever in. Conversion must be
+  **atomic per test file**, batched by archetype.
+- **No reset harness exists.** Real stores bring persistence middleware,
+  import-time subscriptions, module caches and cross-store invariants. There is
+  no canonical snapshot/teardown, and 274 conversions cannot each invent one.
+- **"Store-factory seam" is four different architectures** — production factory,
+  DI port, test helper, alternate Zustand instance — and revision 1 named none.
 
----
+**WI-DP3.0 (new, blocking): pilot before planning.** Convert one file from each
+archetype — persistence-backed store, React-selector consumer, multi-store
+service, `vi.doMock` — and record what each cost and what the assertions became.
+Only then is the rest of Phase 3 estimable. Scope, batching and target are set
+from the pilot, not from revision 1's guess.
+
+**Until that pilot lands, this phase has no target and no DoD**, and the checker
+asserting zero here is a placeholder, not a commitment.
 
 ## Phase 4 — `bespoke-buttons` 168 → down
 
@@ -226,9 +265,12 @@ alternative is bisecting a regression across 139 test files.
 - **A converted test that passes for the wrong reason.** Removing a mock can make
   a test pass by exercising nothing. Mitigation: the assertion must be unchanged;
   where behaviour genuinely differs, the test is rewritten with the change stated.
-- **Phase 3 discovers the classification was wrong at scale.** If a large fraction
-  needs seams, this stops being mechanical. Mitigation: ADR-4, and `tabStore`
-  first as the largest single sample — if it is ugly, that is the signal to stop.
+- **Phase 3's classification WAS wrong, and the review found it before any code
+  was written.** That is ADR-4 working as intended, one phase earlier than
+  expected. The residual risk is now the pilot's: that converting wiring
+  assertions to behaviour assertions turns out to be genuinely hard per file, in
+  which case this phase is a multi-week programme and should be split out of this
+  plan entirely rather than carried as its bulk.
 - **Phase 4 breaks a selector nobody tests.** Mitigation: the grep above, and the
   Tier-0 e2e suite now actually runs.
 - **Stacked on an unmerged branch.** This plan's Phase 1 cannot land before the
