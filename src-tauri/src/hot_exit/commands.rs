@@ -3,7 +3,6 @@
 //! These commands provide session capture, restore, and management for the hot exit feature.
 //! They are used both in production (update restart flow) and for developer testing.
 
-use crate::command_error::CommandError;
 use super::coordinator::{
     capture_session, restore_session, restore_session_multi_window, CaptureResult,
     RestoreMultiWindowResult,
@@ -12,6 +11,7 @@ use super::merge::merge_partial_capture;
 use super::session::{LoadedSession, SessionData, WindowState};
 use super::state::HotExitState;
 use super::storage::{delete_session, read_session, write_session_atomic};
+use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
 /// Capture session from all windows and persist to disk atomically.
@@ -48,7 +48,9 @@ pub async fn hot_exit_capture(
         chrono::Utc::now().timestamp(),
     );
 
-    write_session_atomic(&app, &session).await.map_err(CommandError::io)?;
+    write_session_atomic(&app, &session)
+        .await
+        .map_err(CommandError::io)?;
     Ok(session)
 }
 
@@ -91,7 +93,9 @@ impl From<LoadedSession> for InspectedSession {
 /// still on disk: the frontend must quarantine it before the restore path
 /// clears the session files.
 #[tauri::command]
-pub async fn hot_exit_inspect_session(app: AppHandle) -> Result<Option<InspectedSession>, CommandError> {
+pub async fn hot_exit_inspect_session(
+    app: AppHandle,
+) -> Result<Option<InspectedSession>, CommandError> {
     Ok(read_session(&app)
         .await
         .map_err(CommandError::io)?

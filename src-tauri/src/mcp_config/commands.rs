@@ -3,8 +3,6 @@
 //! Provides commands for checking provider status, previewing changes,
 //! installing, uninstalling, and diagnosing MCP configurations.
 
-use crate::command_error::{CommandError, ErrorCode};
-use crate::localized_error;
 use super::backup_io::generate_backup_path;
 use super::client_tokens::{self, TokenPolicy};
 use super::config_io::{generate_config_content, read_existing_config, ExistingConfig};
@@ -15,6 +13,8 @@ use super::providers::{
 use super::types::{
     ConfigPreview, DiagnosticStatus, InstallResult, ProviderDiagnostic, UninstallResult,
 };
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use std::path::{Path, PathBuf};
 
 /// Do two binary paths name the same file? Canonicalizes where it can, so a

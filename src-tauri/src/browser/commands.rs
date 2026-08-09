@@ -124,7 +124,11 @@ pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), CommandE
 
 /// Answer a page `confirm()` dialog surfaced via `browser://dialog` (WI-1.7).
 #[tauri::command]
-pub async fn browser_dialog_respond(app: AppHandle, id: u64, accepted: bool) -> Result<(), CommandError> {
+pub async fn browser_dialog_respond(
+    app: AppHandle,
+    id: u64,
+    accepted: bool,
+) -> Result<(), CommandError> {
     surface::dialog_respond(&app, id, accepted).map_err(|e| surface_failure(&e))
 }
 

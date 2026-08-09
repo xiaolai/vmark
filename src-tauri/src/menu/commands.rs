@@ -54,8 +54,12 @@ pub fn update_recent_files(app: AppHandle, files: Vec<String>) -> Result<(), Com
 
 /// Update the Open Recent Workspace submenu with the given workspace paths.
 #[tauri::command]
-pub fn update_recent_workspaces(app: AppHandle, workspaces: Vec<String>) -> Result<(), CommandError> {
-    update_recent_workspaces_menu(&app, workspaces).map_err(|e| CommandError::internal(e.to_string()))
+pub fn update_recent_workspaces(
+    app: AppHandle,
+    workspaces: Vec<String>,
+) -> Result<(), CommandError> {
+    update_recent_workspaces_menu(&app, workspaces)
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Rebuild the application menu with custom keyboard shortcuts.
@@ -65,11 +69,16 @@ pub fn update_recent_workspaces(app: AppHandle, workspaces: Vec<String>) -> Resu
 /// For pure accelerator edits, prefer `update_menu_accelerators` — it skips the
 /// full rebuild and only touches the items whose bindings actually changed.
 #[tauri::command]
-pub fn rebuild_menu(app: AppHandle, shortcuts: HashMap<String, String>) -> Result<(), CommandError> {
+pub fn rebuild_menu(
+    app: AppHandle,
+    shortcuts: HashMap<String, String>,
+) -> Result<(), CommandError> {
     // create_localized_menu commits the full accelerator snapshot to the
     // cache once the menu tree is built, so we don't seed anything here.
-    let menu = create_localized_menu(&app, Some(&shortcuts)).map_err(|e| CommandError::internal(e.to_string()))?;
-    app.set_menu(menu).map_err(|e| CommandError::internal(e.to_string()))?;
+    let menu = create_localized_menu(&app, Some(&shortcuts))
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+    app.set_menu(menu)
+        .map_err(|e| CommandError::internal(e.to_string()))?;
     // The fresh tree has its own `new-browser-tab`, built to its default state, and
     // any stashed handle now points into the discarded tree. Re-apply the desired
     // visibility and drop the stale handle — otherwise a locale switch either

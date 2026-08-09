@@ -13,84 +13,17 @@
 //! @coordinates-with browser/one_shot.rs — single-use "Allow once" consumption
 
 use crate::browser::ai_guards::{
-    lock_failure, require_browser_enabled, require_current_epoch, tab_not_found, with_mcp_code,
+    lock_failure, require_browser_enabled, require_current_epoch, tab_not_found,
 };
 use crate::browser::one_shot::{self, OneShotTarget};
 use crate::browser::origin_guard;
 use crate::browser::redact;
+use crate::browser::refusals::{
+    attachment_required, no_committed_page, not_granted, profile_origin_confined, stale_command,
+};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
-use crate::command_error::{CommandError, ErrorCode};
-use crate::localized_error;
-
-// WI-DP2.3 — the gate's refusal vocabulary, typed.
-//
-// BEHAVIOUR IS PRESERVED EXACTLY, and that constraint drove the codes. None of
-// these refusals raised an approval prompt before: they were bare strings, so
-// `parseCommandError` returned null and `needsNavigationApproval` fell through
-// to a substring test for `APPROVAL_REQUIRED` that none of them contained.
-// Mapping any of them to `approval-required` would therefore START prompting
-// where VMark previously refused outright — a UX change smuggled in under a
-// typing change. So they are `permission-denied` and `conflict`, and the day one
-// of them SHOULD prompt, that becomes a deliberate edit with its own reasoning.
-//
-// The mcpCode on each keeps the token shipped MCP clients already match on.
-
-/// The tab moved on between authorization and execution. A conflict, not a
-/// refusal: nothing is wrong with the caller's authority, the world changed.
-pub(super) fn stale_command(tab_id: &str, when: &str) -> CommandError {
-    with_mcp_code(
-        localized_error!(ErrorCode::Conflict, "errors.browser.staleCommand")
-            .with_detail(serde_json::json!({ "tabId": tab_id, "when": when })),
-        "STALE_COMMAND",
-    )
-}
-
-/// Executable and fresh, but nothing has committed — so there is no origin to
-/// grant anything against yet.
-fn no_committed_page(tab_id: &str) -> CommandError {
-    with_mcp_code(
-        localized_error!(ErrorCode::Conflict, "errors.browser.noCommittedPage")
-            .with_detail(serde_json::json!({ "tabId": tab_id })),
-        "NO_COMMITTED_PAGE",
-    )
-}
-
-/// A profile-backed tab that has left its approved origin. HARD denial — the
-/// page carries the profile's real login, and the comment at the call site is
-/// explicit that not even a one-shot may rescue it. `permission-denied` is the
-/// code that says "no approval lifts this".
-fn profile_origin_confined() -> CommandError {
-    with_mcp_code(
-        localized_error!(
-            ErrorCode::PermissionDenied,
-            "errors.browser.profileOriginConfined"
-        ),
-        "PROFILE_ORIGIN_CONFINED",
-    )
-}
-
-/// A human tab needs an ephemeral attachment for EVERY operation. Semantically
-/// this is user-liftable, but it did not prompt before and does not now — see
-/// the note above.
-fn attachment_required() -> CommandError {
-    with_mcp_code(
-        localized_error!(
-            ErrorCode::PermissionDenied,
-            "errors.browser.attachmentRequired"
-        ),
-        "ATTACHMENT_REQUIRED",
-    )
-}
-
-/// No standing authority and no one-shot matched.
-fn not_granted(operation: &str) -> CommandError {
-    with_mcp_code(
-        localized_error!(ErrorCode::PermissionDenied, "errors.browser.notGranted")
-            .with_detail(serde_json::json!({ "operation": operation })),
-        "NOT_GRANTED",
-    )
-}
+use crate::command_error::CommandError;
 
 /// The full driver authorization gate, shared by every command that drives a
 /// **committed** page (`browser_eval`, `browser_screenshot`).
@@ -151,9 +84,7 @@ pub(crate) fn authorize_driver_op(
         .committed_url(tab_id)
         .ok_or_else(|| no_committed_page(tab_id))?;
 
-    let mode = reg
-        .automation_mode(tab_id)
-        .ok_or_else(tab_not_found)?;
+    let mode = reg.automation_mode(tab_id).ok_or_else(tab_not_found)?;
     if mode != AutomationMode::Human {
         require_current_epoch(reg.policy_epoch(tab_id), policy.epoch)?;
     }
@@ -316,11 +247,7 @@ pub(crate) fn submit_if_fresh<S, H>(
 where
     S: FnOnce() -> H,
 {
-    let policy = state
-        .ai_policy
-        .lock()
-        .map_err(lock_failure)
-        .map(|p| *p)?;
+    let policy = state.ai_policy.lock().map_err(lock_failure).map(|p| *p)?;
     require_browser_enabled(&policy)?;
     let reg = state.registry.lock().map_err(lock_failure)?;
     if !fresh_under_guard(&reg, &policy, tab_id, generation) {

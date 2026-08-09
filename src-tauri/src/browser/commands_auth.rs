@@ -13,7 +13,7 @@
 //! copy of that bound below the Tauri command boundary.
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
-use crate::browser::authorize::{authorize_driver_op, command_still_fresh, stale_command};
+use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
 use crate::browser::mint::{
     attach_ai_tab, mint_one_shot, parse_act_target, script_hash, set_standing_grants,
 };
@@ -21,6 +21,7 @@ use crate::browser::one_shot::OneShotTarget;
 use crate::browser::operation;
 use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::{self, ProfileOpen};
+use crate::browser::refusals::stale_command;
 use crate::browser::script_limit::ensure_script_within_limit;
 use crate::browser::surface::{self, BrowserSurface};
 use crate::command_error::CommandError;
@@ -64,7 +65,8 @@ pub async fn browser_add_one_shot(
     // "never store authority the guard cannot enforce" (`mint.rs`). `None` is passed
     // through untouched: a missing script is `mint_one_shot`'s call to make.
     if let Some(script) = eval_script.as_deref() {
-        ensure_script_within_limit("one-shot eval_script", script).map_err(CommandError::invalid_input)?;
+        ensure_script_within_limit("one-shot eval_script", script)
+            .map_err(CommandError::invalid_input)?;
     }
     mint_one_shot(
         &state,
@@ -74,7 +76,8 @@ pub async fn browser_add_one_shot(
         &operation,
         target,
         eval_script,
-    ).map_err(CommandError::invalid_input)
+    )
+    .map_err(CommandError::invalid_input)
 }
 
 /// Attach AI access to a human-created tab for exactly its current generation.
@@ -146,8 +149,7 @@ pub async fn browser_eval(
     if !command_still_fresh(&state, &tab_id, generation) {
         return Err(stale_command(&tab_id, "before the script could run"));
     }
-    surface::eval(&app, tab_id, script, generation)
-        .map_err(|e| surface_failure(&e))
+    surface::eval(&app, tab_id, script, generation).map_err(|e| surface_failure(&e))
 }
 
 /// Capture the tab's current rendering as a base64 JPEG (WI-P1.1).
