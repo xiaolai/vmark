@@ -312,8 +312,14 @@ export function typedCommandNames(source) {
   return names;
 }
 
-/** `String(e)` / `String(err)` / `String(error)` — a caught error, not a value. */
-const STRINGIFIED_ERROR = /\bString\(\s*(?:e|err|error)\d?\s*\)/;
+/**
+ * `String(e)` / `String(err)` / `String(error)`, or the `errorMessage()` helper
+ * — which is literally `error instanceof Error ? … : String(error)`, so it is
+ * the same defect under a second name (rule 50 §10 names it). The `(?<!command)`
+ * guard keeps `commandErrorMessage`, the CORRECT helper, from matching.
+ */
+const STRINGIFIED_ERROR =
+  /\bString\(\s*(?:e|err|error)\d?\s*\)|(?<!command)\berrorMessage\(\s*(?:e|err|error)\d?\s*\)/;
 const INVOKE_CALL = /\binvoke\s*(?:<[^>]*>)?\s*\(\s*["'`]([a-z_][a-z0-9_]*)["'`]/gi;
 
 /**
@@ -328,7 +334,15 @@ const INVOKE_CALL = /\binvoke\s*(?:<[^>]*>)?\s*\(\s*["'`]([a-z_][a-z0-9_]*)["'`]
 export function findStringifiedTypedErrors(files, typedCommands) {
   const hits = [];
   for (const { path: file, source } of files) {
-    if (source.includes("commandErrorMessage")) continue;
+    // NOT `source.includes("commandErrorMessage")` — a file can use the correct
+    // helper at one boundary and `String(e)` at another, which is how
+    // McpConfigInstaller looked mid-fix. Judge the offending call, not the file.
+    // An explicit, REASONED exemption. The check is file-level, so it cannot see
+    // which error a helper was applied to; a file that invokes a typed command
+    // and separately stringifies (say) a JSON.parse failure is correct as
+    // written. The reason is required — a bare marker is a mute button, the same
+    // rule the i18n allowlist and the caret-only focus marker carry.
+    if (/\/\/[^\S\n]*command-error-ok:[^\S\n]*\S/.test(source)) continue;
     // Comments blanked, strings KEPT — the command name lives inside a string
     // literal, so the Rust stripper (which blanks both) would erase the very
     // thing being matched.

@@ -4,6 +4,8 @@
 
 use tauri::{AppHandle, Manager};
 
+use crate::command_error::CommandError;
+
 use super::document_windows::{
     build_window_url_with_files, create_document_window, create_document_window_with_url,
 };
@@ -11,10 +13,11 @@ use super::path_validation::{validate_openable_path, validate_workspace_root};
 
 /// Open a file in a new window (Tauri command)
 #[tauri::command]
-pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, String> {
-    validate_openable_path(&path)?;
+pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, CommandError> {
+    validate_openable_path(&path).map_err(CommandError::invalid_input)?;
     crate::allow_fs_read(&app, &path);
-    create_document_window(&app, Some(&path), None).map_err(|e| e.to_string())
+    create_document_window(&app, Some(&path), None)
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Open a workspace in a new window with optional file to open (Tauri command)
@@ -26,14 +29,14 @@ pub fn open_workspace_in_new_window(
     app: AppHandle,
     workspace_root: String,
     file_path: Option<String>,
-) -> Result<String, String> {
-    validate_workspace_root(&workspace_root)?;
+) -> Result<String, CommandError> {
+    validate_workspace_root(&workspace_root).map_err(CommandError::invalid_input)?;
     if let Some(ref path) = file_path {
-        validate_openable_path(path)?;
+        validate_openable_path(path).map_err(CommandError::invalid_input)?;
         crate::allow_fs_read(&app, path);
     }
     create_document_window(&app, file_path.as_deref(), Some(&workspace_root))
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Open a workspace in a new window with multiple files.
@@ -42,34 +45,39 @@ pub fn open_workspace_with_files_in_new_window(
     app: AppHandle,
     workspace_root: String,
     file_paths: Vec<String>,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     // Reject a missing / non-directory workspace root before extending any file
     // scopes or creating the window.
-    validate_workspace_root(&workspace_root)?;
+    validate_workspace_root(&workspace_root).map_err(CommandError::invalid_input)?;
     // Validate every path up-front so a single bad entry doesn't leave the
     // scope partially extended for the rest of the batch.
     for path in &file_paths {
-        validate_openable_path(path)?;
+        validate_openable_path(path).map_err(CommandError::invalid_input)?;
     }
     for path in &file_paths {
         crate::allow_fs_read(&app, path);
     }
     let url = build_window_url_with_files(&file_paths, Some(&workspace_root));
-    create_document_window_with_url(&app, url).map_err(|e| e.to_string())
+    create_document_window_with_url(&app, url).map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Close a specific window by label
 #[tauri::command]
-pub fn close_window(app: AppHandle, label: String) -> Result<(), String> {
+pub fn close_window(app: AppHandle, label: String) -> Result<(), CommandError> {
     log::debug!("[Tauri] close_window called for '{}'", label);
 
     if let Some(window) = app.get_webview_window(&label) {
         log::debug!("[Tauri] destroying window '{}'", label);
-        let result = window.destroy().map_err(|e| e.to_string());
+        let result = window
+            .destroy()
+            .map_err(|e| CommandError::internal(e.to_string()));
         log::debug!("[Tauri] window '{}' destroy result: {:?}", label, result);
         result
     } else {
-        Err(format!("Window '{}' not found", label))
+        // The label names no live window: absent, not malformed.
+        Err(CommandError::not_found(format!(
+            "Window '{label}' not found"
+        )))
     }
 }
 

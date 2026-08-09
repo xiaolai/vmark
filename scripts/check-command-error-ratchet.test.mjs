@@ -350,6 +350,55 @@ describe("findStringifiedTypedErrors", () => {
     expect(hits[0]).toMatchObject({ file: "src/pages/settings/X.tsx", command: "hot_exit_capture" });
   });
 
+  // `errorMessage()` is literally `error instanceof Error ? … : String(error)`,
+  // so it carries the identical defect under a different name — and rule 50 §10
+  // names it explicitly. Catching only the `String(...)` spelling would leave
+  // the same bug reachable by import.
+  it("flags the errorMessage() helper too, not just String()", () => {
+    const file = {
+      path: "src/x.ts",
+      source: `import { errorMessage } from "@/utils/errorMessage";
+               await invoke("hot_exit_capture");
+               } catch (error) { warn(errorMessage(error)); }`,
+    };
+    const hits = findStringifiedTypedErrors([file], typed);
+    expect(hits).toHaveLength(1);
+  });
+
+  // The check is FILE-level: it cannot tell which error a helper was applied to.
+  // `shortcuts.ts` invokes a typed command AND stringifies a JSON.parse failure,
+  // which is correct. House pattern for that (i18n allowlist, focus caret-only):
+  // a marker carrying a REASON, because an unexplained suppression is a mute
+  // button.
+  it("honours `command-error-ok:` with a reason", () => {
+    const file = {
+      path: "src/parse.ts",
+      source: `await invoke("hot_exit_capture");
+               // command-error-ok: this is a JSON.parse failure, not the invoke's rejection
+               } catch (e) { report(errorMessage(e)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("REJECTS a bare marker with no reason", () => {
+    const file = {
+      path: "src/bare.ts",
+      source: `await invoke("hot_exit_capture");
+               // command-error-ok:
+               } catch (e) { report(errorMessage(e)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toHaveLength(1);
+  });
+
+  it("does NOT flag commandErrorMessage, whose name contains errorMessage", () => {
+    const file = {
+      path: "src/y.ts",
+      source: `await invoke("hot_exit_capture");
+               } catch (error) { warn(commandErrorMessage(error)); }`,
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
   it("does NOT flag a file that already routes through commandErrorMessage", () => {
     const file = {
       path: "src/ok.ts",

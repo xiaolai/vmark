@@ -28,7 +28,7 @@ import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
 import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import i18n from "@/i18n";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 /** Definition for a single item in the tab context menu. */
 export interface TabMenuItem {
@@ -153,7 +153,7 @@ export function useTabContextMenuActions({
       if (remaining.length === 0 && windowLabel !== "main") {
         const win = getCurrentWebviewWindow();
         void invoke("close_window", { label: win.label }).catch((error: unknown) => {
-          windowCloseWarn("Failed to close window:", errorMessage(error));
+          windowCloseWarn("Failed to close window:", commandErrorMessage(error));
         });
       }
     } catch (error) {
