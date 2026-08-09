@@ -45,7 +45,9 @@ jobs:
     timeout-minutes: 10
     outputs:
       overdue: ${{ steps.report.outputs.overdue }}
+      watcherStale: ${{ steps.watcher.outputs.stale }}
       body: ${{ steps.report.outputs.body }}
+      watcherDetail: ${{ steps.watcher.outputs.detail }}
     steps:
       - uses: actions/checkout@v7
 
@@ -60,6 +62,31 @@ jobs:
       # be measuring an incomplete picture while looking authoritative.
       - name: Validate the schedule covers every baseline
         run: node scripts/check-review-schedule.mjs
+
+      # The other half of the mutual watch (WI-AF2.4): gate-liveness.yml cannot
+      # report its own silence, so this job — on a different day — checks it.
+      #
+      # Its result is CAPTURED, not swallowed. `continue-on-error: true` here
+      # would be the exact pattern WI-4 deleted from mutation.yml after it hid
+      # eight consecutive failures; failing the step outright would instead
+      # suppress the overdue report below, since `report` needs this job to
+      # succeed. So the finding becomes an output and lands in the same issue.
+      - name: Watch the watcher
+        id: watcher
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          out=$(node scripts/check-gate-liveness.mjs --only gate-liveness.yml 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          {
+            echo "stale=$([ $code -ne 0 ] && echo true || echo false)"
+            echo "detail<<WATCH_EOF"
+            echo "$out"
+            echo "WATCH_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Report overdue reviews
         id: report
@@ -80,7 +107,9 @@ jobs:
 
   report:
     needs: measure
-    if: needs.measure.outputs.overdue == 'true'
+    # Either signal opens the issue — a silent watcher is as much a finding
+    # as an overdue baseline.
+    if: needs.measure.outputs.overdue == 'true' || needs.measure.outputs.watcherStale == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -90,7 +119,15 @@ jobs:
       - name: Open or update the rolling issue
         env:
           GH_TOKEN: ${{ github.token }}
-          BODY: ${{ needs.measure.outputs.body }}
+          BODY: |
+            ${{ needs.measure.outputs.body }}
+
+            <details><summary>gate-liveness watcher</summary>
+
+            ```
+            ${{ needs.measure.outputs.watcherDetail }}
+            ```
+            </details>
           REPO: ${{ github.repository }}
         shell: bash
         # ONE rolling issue, found by label. Creating a fresh issue each week
