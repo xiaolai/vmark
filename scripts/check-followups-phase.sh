@@ -66,11 +66,15 @@ esac
 IS_REAL_ROOT=0
 [[ "$(cd "$ROOT" && pwd)" == "$REPO_ROOT" ]] && IS_REAL_ROOT=1
 
-PASS=0; FAIL=0; PRESENT=0; CHECKED=0
+PASS=0; FAIL=0; PRESENT=0; CHECKED=0; SKIPPED=0
 
 ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }
 bad()  { echo "  ✗ $1"; FAIL=$((FAIL+1)); }
-skip() { echo "  · $1 (REAL-ROOT only — skipped)"; }
+# A skipped assertion is UNVERIFIED, never satisfied. Cross-model review
+# (thread 019fe450, Dim 2 #2) caught this file doing the thing it exists to
+# police: with only REAL-ROOT assertions skipped, a fixture phase printed DONE
+# and exited 0 — a green verdict over work nobody checked. Skips now propagate.
+skip() { echo "  · $1 — UNVERIFIED (REAL-ROOT only)"; SKIPPED=$((SKIPPED+1)); }
 
 # Deliverable existence. Counts toward PRESENT so a phase with none can be
 # distinguished from a phase that is merely incomplete.
@@ -111,17 +115,20 @@ phase_0() {
   has_file ".claude/tdd-guardian/plan-20260809-followups.md" "plan file (WI-0.1)"
   has_file "scripts/check-followups-phase.sh"                "DoD checker (WI-0.1)"
   has_file "scripts/check-followups-phase.test.mjs"          "DoD checker test (WI-0.1)"
+  # Backtick-optional: the plan renders the id as `019fe450-…`.
   has_text ".claude/tdd-guardian/plan-20260809-followups.md" \
-           "Review thread: *0[0-9a-f]{7}" "cross-model review recorded (WI-0.2, governance §6)"
+           "Review thread: *\`?0[0-9a-f]{7}" "cross-model review recorded (WI-0.2, governance §6)"
 }
 
 phase_1() {
   echo "Phase 1 — Repair the linkage gate (F3)"
   has_file "scripts/check-wi-linkage.test.mjs" "linkage gate has a test (WI-1.4)"
-  # The property, not the file: the predecessor plan must report zero unlinked
-  # (WI-1.1 gates-tier glob) and extract 21 work items, not 22 (WI-1.2 phantom
-  # prose ID). Both are only checkable against the real tree and real git.
-  cmd_ok "predecessor plan reports 0 unlinked (WI-1.1)" \
+  # "0 unlinked" is the WEAK assertion and must never be the only one: while
+  # this plan's own commit messages DESCRIBE the WI-16 bug, the string "WI-16"
+  # appears in the commit log and the gate reports it linked — satisfied by
+  # prose about the defect rather than by the fix (observed 2026-08-09, F6).
+  # The 21-vs-22 count below is the load-bearing check.
+  cmd_ok "predecessor plan reports 0 unlinked (WI-1.2)" \
          bash scripts/check-wi-linkage.sh .claude/tdd-guardian/plan-20260803-161713.md
   if (( IS_REAL_ROOT == 1 )); then
     CHECKED=$((CHECKED+1)); PRESENT=$((PRESENT+1))
@@ -129,11 +136,15 @@ phase_1() {
     n=$(cd "$ROOT" && bash scripts/check-wi-linkage.sh \
           .claude/tdd-guardian/plan-20260803-161713.md 2>/dev/null \
         | sed -n 's/^WIs found: *\([0-9]*\).*/\1/p')
-    if [[ "$n" == "21" ]]; then ok "extracts exactly 21 work items (WI-1.2)"
-    else bad "extracts ${n:-?} work items, expected 21 — prose IDs still counted (WI-1.2)"; fi
+    if [[ "$n" == "21" ]]; then ok "extracts exactly 21 work items (WI-1.3)"
+    else bad "extracts ${n:-?} work items, expected 21 — prose IDs still counted (WI-1.3)"; fi
   else
-    skip "extracts exactly 21 work items (WI-1.2)"
+    skip "extracts exactly 21 work items (WI-1.3)"
   fi
+  # F6: commit-side linkage must require the documented trailing-tag form, so a
+  # commit that merely mentions an ID in prose cannot vouch for it.
+  has_text "scripts/check-wi-linkage.sh" \
+           "COMMIT_TAG" "commit linkage requires the tag form (WI-1.5)"
 }
 
 phase_2() {
@@ -163,18 +174,35 @@ phase_4() {
   has_file "scripts/check-change-size.sh"      "change-size gate (WI-4.1)"
   has_file "scripts/check-change-size.test.mjs" "change-size gate test (WI-4.2)"
   has_text ".github/workflows/ci.yml" "check-change-size\.sh" "gate wired into ci.yml PR tier (WI-4.1)"
-  has_text ".claude/rules/60-ai-governance.md" "[Cc]hange size" "governance records the control (WI-4.2)"
+  # §13, not §12 — §12 is already taken by the dark-feature verdicts
+  # (60-ai-governance.md:326). Caught by review 019fe450, Dim 1 #4.
+  has_text ".claude/rules/60-ai-governance.md" "^## 13\." "governance §13 records the control (WI-4.2)"
 }
 
 phase_5() {
   echo "Phase 5 — Documentation hygiene"
-  has_file "dev-docs/README.md" "dev-docs index exists (WI-5.1)"
+  # dev-docs/ is gitignored (.gitignore:8), so a clean CI checkout does not have
+  # it and CANNOT satisfy this. Requiring it unconditionally would make the
+  # phase pass only on a maintainer machine — "green on my machine" wearing a
+  # gate's uniform (review 019fe450, Dim 2 #3). Where the tree has no dev-docs/
+  # at all, the assertion is UNVERIFIED, not passed.
+  CHECKED=$((CHECKED+1))
+  if [[ -d "$ROOT/dev-docs" ]]; then
+    PRESENT=$((PRESENT+1))
+    if [[ -f "$ROOT/dev-docs/README.md" ]]; then ok "dev-docs index exists (WI-5.1)"
+    else bad "dev-docs index exists (WI-5.1) — missing: dev-docs/README.md"; fi
+  else
+    skip "dev-docs index (WI-5.1) — maintainer-local, gitignored"
+  fi
+  # Both authorities, not one: AGENTS.md:303 mandates dev-docs/plans/ too, so
+  # amending only the rules file leaves the repo contradicting itself.
   has_text ".claude/rules/60-ai-governance.md" \
            "\.claude/tdd-guardian" "governance §1 names both plan homes (WI-5.2)"
+  has_text "AGENTS.md" "\.claude/tdd-guardian" "AGENTS.md agrees with §1 (WI-5.2)"
 }
 
 run_phase() {
-  PASS=0; FAIL=0; PRESENT=0; CHECKED=0
+  PASS=0; FAIL=0; PRESENT=0; CHECKED=0; SKIPPED=0
   "phase_$1"
   if (( PRESENT == 0 )); then
     echo "  → Phase $1: NOT STARTED (0 of $CHECKED deliverables present)"
@@ -183,6 +211,11 @@ run_phase() {
   fi
   if (( FAIL > 0 )); then
     echo "  → Phase $1: INCOMPLETE ($PASS passed, $FAIL failed)"
+    echo
+    return 1
+  fi
+  if (( SKIPPED > 0 )); then
+    echo "  → Phase $1: UNVERIFIED ($PASS passed, $SKIPPED unverified — run without --root)"
     echo
     return 1
   fi

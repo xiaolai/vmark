@@ -13,9 +13,12 @@
  *     NON-ZERO. This is the `check-wi-linkage.sh` lesson: its zero-match branch
  *     used to exit 0, so a plan whose namespace it could not parse "passed".
  *     An unstarted phase is not a satisfied phase;
- *   - a phase whose deliverables are all present exits 0;
+ *   - a phase whose deliverables are all present AND all verified exits 0;
  *   - a PARTIALLY complete phase exits non-zero and names the missing pieces —
  *     it must never round up to done;
+ *   - a phase whose behavioral assertions were SKIPPED reports UNVERIFIED and
+ *     exits non-zero. Present-on-disk is not the same claim as property-holds,
+ *     and conflating them is how a checker certifies work nobody did;
  *   - `all` is the conjunction: exit 0 only when every phase does;
  *   - an unknown phase argument, or none, exits 64 (bad invocation), distinct
  *     from 1 (assertions failed), so a typo can never read as a failure verdict
@@ -43,7 +46,7 @@ function run(root, phase) {
 
 /**
  * APPENDS when the file already exists. Two phases legitimately deliver into
- * one file (the governance rules gain §12 in phase 4 and a reconciled §1 in
+ * one file (the governance rules gain §13 in phase 4 and a reconciled §1 in
  * phase 5); overwriting would let the later phase silently un-satisfy the
  * earlier one, and the `all` case would then fail for a fixture reason rather
  * than a real one.
@@ -70,11 +73,15 @@ const DELIVERABLES = {
   0: [
     // A real Codex thread id is hex — the fixture uses one, because the
     // assertion is "a review actually happened", not "the word appears".
-    [".claude/tdd-guardian/plan-20260809-followups.md", "Review thread: 019fdb16\n"],
+    [".claude/tdd-guardian/plan-20260809-followups.md", "Review thread: `019fdb16-545a`\n"],
     ["scripts/check-followups-phase.sh", "#!/usr/bin/env bash\n"],
     ["scripts/check-followups-phase.test.mjs", "// test\n"],
   ],
-  1: [["scripts/check-wi-linkage.test.mjs", "// WI-1.4\n"]],
+  1: [
+    ["scripts/check-wi-linkage.test.mjs", "// WI-1.1\n"],
+    // F6: the commit half must require the documented trailing-tag form.
+    ["scripts/check-wi-linkage.sh", "COMMIT_TAG_RE='\\\\(WI-'\n"],
+  ],
   2: [
     ["scripts/check-gate-liveness.mjs", "// liveness\n"],
     ["scripts/check-gate-liveness.test.mjs", "// test\n"],
@@ -101,7 +108,7 @@ const DELIVERABLES = {
     ["scripts/check-change-size.sh", "#!/usr/bin/env bash\n"],
     ["scripts/check-change-size.test.mjs", "// test\n"],
     [".github/workflows/ci.yml", "run: bash scripts/check-change-size.sh\n"],
-    [".claude/rules/60-ai-governance.md", "## 12. Change size is a decision\n"],
+    [".claude/rules/60-ai-governance.md", "## 13. Change size is a decision\n"],
   ],
   5: [
     ["dev-docs/README.md", "# dev-docs index\n"],
@@ -109,6 +116,9 @@ const DELIVERABLES = {
       ".claude/rules/60-ai-governance.md",
       "Plans live in `dev-docs/plans/` or `.claude/tdd-guardian/`.\n",
     ],
+    // AGENTS.md:303 carries the same mandate; amending one authority and not
+    // the other leaves the repo contradicting itself (review 019fe450, Dim 1 #5).
+    ["AGENTS.md", "Plans live in `dev-docs/plans/` or `.claude/tdd-guardian/`.\n"],
   ],
 };
 
@@ -154,12 +164,36 @@ describe("check-followups-phase.sh — an unstarted phase never passes", () => {
   }
 });
 
-describe("check-followups-phase.sh — a complete phase passes", () => {
-  for (const phase of [1, 2, 3, 4, 5]) {
+/**
+ * Phases whose DoD is entirely file/text shaped can reach DONE in a fixture.
+ * Phases carrying REAL-ROOT assertions cannot, and must not — see the
+ * UNVERIFIED suite below. Splitting them is the point: "every deliverable is
+ * present" and "the phase's property holds" are different claims.
+ */
+const FIXTURE_PROVABLE = [0, 4, 5];
+const NEEDS_REAL_ROOT = [1, 2, 3];
+
+describe("check-followups-phase.sh — a fully file-shaped phase passes", () => {
+  for (const phase of FIXTURE_PROVABLE) {
     it(`phase ${phase}: all deliverables present exits 0`, () => {
       const r = run(rootSatisfying([phase]), String(phase));
       expect(r.status, r.stdout + r.stderr).toBe(0);
-      expect(r.stdout).not.toMatch(/NOT STARTED/);
+      expect(r.stdout).not.toMatch(/NOT STARTED|UNVERIFIED/);
+    });
+  }
+});
+
+describe("check-followups-phase.sh — skipped is UNVERIFIED, never DONE", () => {
+  // The defect this suite exists for: with its behavioral assertions skipped,
+  // the checker used to print DONE and exit 0 — a green verdict over work
+  // nobody performed, in the very script written to police that class.
+  // Cross-model review 019fe450 (Dim 2 #2) caught it.
+  for (const phase of NEEDS_REAL_ROOT) {
+    it(`phase ${phase}: every deliverable present but REAL-ROOT skipped → UNVERIFIED, non-zero`, () => {
+      const r = run(rootSatisfying([phase]), String(phase));
+      expect(r.status, r.stdout + r.stderr).not.toBe(0);
+      expect(r.stdout).toMatch(/UNVERIFIED/);
+      expect(r.stdout).not.toMatch(/DONE/);
     });
   }
 });
@@ -215,8 +249,31 @@ describe("check-followups-phase.sh — `all`", () => {
     }
   });
 
-  it("exits 0 only when every phase is satisfied", () => {
+  it("never exits 0 from a fixture root, however complete — REAL-ROOT work is unproven there", () => {
     const r = run(rootSatisfying([0, 1, 2, 3, 4, 5]), "all");
-    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.status, r.stdout + r.stderr).not.toBe(0);
+    expect(r.stdout).toMatch(/UNVERIFIED/);
+  });
+});
+
+describe("check-followups-phase.sh — phase 5 and the gitignored index", () => {
+  it("treats a tree with no dev-docs/ as UNVERIFIED, not satisfied", () => {
+    const root = emptyRoot();
+    write(root, ".claude/rules/60-ai-governance.md", "`.claude/tdd-guardian` is a plan home\n");
+    write(root, "AGENTS.md", "plans may live in `.claude/tdd-guardian/`\n");
+    const r = run(root, "5");
+    expect(r.status).not.toBe(0);
+    expect(r.stdout).toMatch(/UNVERIFIED/);
+  });
+
+  it("fails when dev-docs/ exists but carries no index", () => {
+    const root = emptyRoot();
+    mkdirSync(path.join(root, "dev-docs"), { recursive: true });
+    write(root, "dev-docs/plans/x.md", "a plan\n");
+    write(root, ".claude/rules/60-ai-governance.md", "`.claude/tdd-guardian` is a plan home\n");
+    write(root, "AGENTS.md", "plans may live in `.claude/tdd-guardian/`\n");
+    const r = run(root, "5");
+    expect(r.status).not.toBe(0);
+    expect(r.stdout).toMatch(/README\.md/);
   });
 });
