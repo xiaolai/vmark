@@ -38,7 +38,7 @@ import { handleTabKeyboard } from "./tabKeyboard";
 import { planReorder, planVisibleReorderToFlat } from "./tabDragRules";
 import { transferTabFromDragOut } from "./tabTransferActions";
 import type { TabDropPreviewEvent } from "@/types/tabTransfer";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 const SPRING_LOAD_FOCUS_MS = 420;
 const SNAPBACK_MS = 180;
@@ -205,7 +205,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
             targetWindowLabel,
           } satisfies TabDropPreviewEvent).catch(() => {/* best-effort */});
         }).catch((error) => {
-          statusBarWarn("Failed to probe drop target:", errorMessage(error));
+          statusBarWarn("Failed to probe drop target:", commandErrorMessage(error));
         });
       }, PREVIEW_PROBE_MS);
     },
@@ -246,7 +246,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
         unlisten = fn;
       }
     }).catch((error) => {
-      statusBarWarn("Failed to listen for drop preview events:", errorMessage(error));
+      statusBarWarn("Failed to listen for drop preview events:", commandErrorMessage(error));
     });
 
     return () => {
@@ -276,7 +276,7 @@ export function useStatusBarTabDrag({ tabs, windowLabel, tabBarRef, onActivateTa
       invoke("focus_existing_window", {
         windowLabel: dragTargetWindowLabel,
       }).catch((error) => {
-        statusBarWarn("Failed to focus spring-loaded target:", errorMessage(error));
+        statusBarWarn("Failed to focus spring-loaded target:", commandErrorMessage(error));
       });
     }, SPRING_LOAD_FOCUS_MS);
   }, [dragMode, dragTargetWindowLabel]);

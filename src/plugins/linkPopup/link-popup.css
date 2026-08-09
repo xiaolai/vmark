@@ -56,66 +56,22 @@
 }
 
 /* Icon-only buttons */
-.link-popup-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-}
+/* WI-DP4.1: `.link-popup-btn` was a byte-for-byte duplicate of
+   `.popup-icon-btn` (base, hover, active, focus-visible + its ::after underline,
+   and svg sizing), so it is gone and the buttons carry the canonical class. The
+   canonical is strictly better: it guards hover/active with `:not(:disabled)`
+   and defines a `:disabled` rule this copy lacked.
 
-.link-popup-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.link-popup-btn:active {
-  opacity: 0.8;
-}
-
-/* Focus state for keyboard navigation - U-shaped underline (keyboard focus only) */
-.link-popup-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.link-popup-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: var(--border-medium) solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-.link-popup-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* Save button - primary color on hover */
-.link-popup-btn-save:hover {
+   Only the two hover accents were ever distinct, and they duplicate
+   `.popup-icon-btn--primary` / `--danger`. Kept as suffix selectors rather than
+   swapped to the modifiers because `LinkPopupView` and its tests query by these
+   names; the declarations now match the canonical modifiers exactly. */
+.link-popup-btn-save:hover:not(:disabled) {
   color: var(--primary-color);
 }
 
 /* Delete button - danger color on hover */
-.link-popup-btn-delete:hover {
+.link-popup-btn-delete:hover:not(:disabled) {
   color: var(--error-color);
 }
 

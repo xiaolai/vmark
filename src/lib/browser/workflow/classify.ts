@@ -52,7 +52,7 @@ export function stepWrites(step: WorkflowStep): boolean {
  * A human gate (`confirm`) is a read, but retrying it re-asks a human who already
  * answered — so it blocks instead (plan WI-4.2).
  */
-export function stepRetryable(step: WorkflowStep): boolean {
+function stepRetryable(step: WorkflowStep): boolean {
   return !HUMAN_GATE_KINDS.has(step.kind);
 }
 

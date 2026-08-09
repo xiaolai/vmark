@@ -136,7 +136,7 @@ export function prepareShellBlock(source: string, language: string): string {
 }
 
 /** Why a run request was not delivered. */
-export type RunInTerminalFailure =
+type RunInTerminalFailure =
   | "not-shell"
   | "empty"
   /** Multi-line payload, and the shell has not enabled bracketed paste. */

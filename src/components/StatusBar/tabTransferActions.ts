@@ -42,7 +42,7 @@ import {
 import { windowCloseWarn, tabContextError } from "@/utils/debug";
 import { cleanupTabState } from "@/services/windowClose/tabCleanup";
 import i18n from "@/i18n";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 interface DragOutTransferOptions {
   tabId: string;
@@ -223,7 +223,7 @@ export async function transferTabFromDragOut({
     if (remaining.length === 0 && windowLabel !== "main") {
       const win = getCurrentWebviewWindow();
       invoke("close_window", { label: win.label }).catch((error: unknown) => {
-        windowCloseWarn("Failed to close window:", errorMessage(error));
+        windowCloseWarn("Failed to close window:", commandErrorMessage(error));
       });
     }
   } catch (error) {

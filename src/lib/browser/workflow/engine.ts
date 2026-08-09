@@ -58,7 +58,7 @@ export interface RunOptions {
 /** Stable, language-independent stop code. `reason` is the developer-facing English
  *  detail (for logs/tests); the UI localizes by `reasonCode` — the same convention the
  *  parser uses for its diagnostics, so no `t()` leaks into this pure layer. */
-export type RunStopCode = "lease-lost" | "needs-human" | "retries-exhausted";
+type RunStopCode = "lease-lost" | "needs-human" | "retries-exhausted";
 
 export interface WorkflowRunResult {
   status: "completed" | "paused" | "failed";

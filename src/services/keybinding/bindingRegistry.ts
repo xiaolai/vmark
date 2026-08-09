@@ -55,10 +55,10 @@ const SCOPE_SPECIFICITY: Record<Scope, number> = {
   window: 10,
 };
 
-export type Consumption = "preventDefault" | "preventAndStop" | "passthrough";
-export type Repeat = "deny" | "allow" | "coalesce";
-export type Reentrancy = "drop" | "queue" | "parallel";
-export type Ime = "block" | "chord-exempt" | "editor-local";
+type Consumption = "preventDefault" | "preventAndStop" | "passthrough";
+type Repeat = "deny" | "allow" | "coalesce";
+type Reentrancy = "drop" | "queue" | "parallel";
+type Ime = "block" | "chord-exempt" | "editor-local";
 
 /** Free-form context a capture adapter builds per event. */
 export interface BindingContext {
@@ -86,7 +86,7 @@ interface Policies {
  * (resolved through the shortcut store) or a `fixedChord` for non-configurable
  * browser-default guards (e.g. `useSelectAllScope` → `fixedChord: Mod-a`).
  */
-export type ChordSource = { shortcutId: string } | { fixedChord: CanonicalChord };
+type ChordSource = { shortcutId: string } | { fixedChord: CanonicalChord };
 
 /**
  * `kind: "command"` runs `commandId` through `executeCommand`. `kind:

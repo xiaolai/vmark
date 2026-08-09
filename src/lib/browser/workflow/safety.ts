@@ -27,7 +27,7 @@
  */
 
 /** A step's observed outcome — deliberately three-valued (R8a). */
-export type Outcome = "success" | "failed" | "unknown";
+type Outcome = "success" | "failed" | "unknown";
 
 /** What the engine should do after a step result. Exhaustive — the engine switches
  *  on it with a `never` guard, so adding a member is a compile error there, not a

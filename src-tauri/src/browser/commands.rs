@@ -11,13 +11,22 @@
 //! only these *driver* commands are capability-scoped, and `browser_eval` is where
 //! the origin gate is enforced.
 
+use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
 use crate::browser::registry::{validate_navigation_url, AutomationMode, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
+use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
-fn err<E: std::fmt::Debug>(e: E) -> String {
-    format!("{e:?}")
-}
+// WI-DP2.1: this module used to flatten every failure with
+// `fn err<E: Debug>(e) -> String { format!("{e:?}") }`, which turned a typed
+// error into its Debug rendering and lost the class. The frontend then had no
+// way to tell "the user must approve this" from "no approval can lift this",
+// which is exactly the distinction browserFailure.ts was reconstructing by
+// substring match. Each failure below now carries a code from the closed
+// vocabulary, reusing the helpers ai_guards.rs already had — `require_browser_enabled`
+// for the policy gate (commands.rs was hand-rolling `Err("BROWSER_DISABLED")`
+// beside a typed helper for the identical condition), `lock_failure` for a
+// poisoned mutex, `surface_failure` for native failures.
 
 /// Create a browser tab: register it, construct the native webview, load `url`.
 ///
@@ -32,26 +41,27 @@ pub async fn browser_create(
     state: State<'_, BrowserSurface>,
     tab_id: String,
     url: String,
-) -> Result<(), String> {
-    if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
-        return Err("BROWSER_DISABLED".into());
+) -> Result<(), CommandError> {
+    {
+        let policy = state.ai_policy.lock().map_err(lock_failure)?;
+        require_browser_enabled(&policy)?;
     }
     // The window is the INVOKING one, taken from Tauri — not a caller-supplied
     // label. The old signature trusted a `window_label` argument, and the native
     // layer ignored it anyway and attached to `keyWindow()`, so a browser tab
     // could land in the wrong window. Deriving it here fixes both.
     let window_label = webview.label().to_string();
-    let url = validate_navigation_url(&url).map_err(err)?;
+    let url = validate_navigation_url(&url).map_err(CommandError::from)?;
     {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        reg.create(&tab_id, &window_label).map_err(err)?;
-        reg.begin_navigation(&tab_id, &url).map_err(err)?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
+        reg.create(&tab_id, &window_label)?;
+        reg.begin_navigation(&tab_id, &url)?;
     }
     if let Err(e) = surface::create(&app, tab_id.clone(), window_label, url) {
         // Roll back BOTH halves of the tab's state — registry entry and crash
         // budget — so a retried tab id starts clean (see `forget_tab`).
-        state.forget_tab(&tab_id)?;
-        return Err(e);
+        state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
+        return Err(surface_failure(&e));
     }
     Ok(())
 }
@@ -73,49 +83,53 @@ pub async fn browser_navigate(
     state: State<'_, BrowserSurface>,
     tab_id: String,
     url: String,
-) -> Result<(), String> {
-    if !state.ai_policy.lock().map_err(|e| e.to_string())?.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
-    let url = validate_navigation_url(&url).map_err(err)?;
+) -> Result<(), CommandError> {
     {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
-        reg.begin_navigation(&tab_id, &url).map_err(err)?;
+        let policy = state.ai_policy.lock().map_err(lock_failure)?;
+        require_browser_enabled(&policy)?;
+    }
+    let url = validate_navigation_url(&url).map_err(CommandError::from)?;
+    {
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
+        reg.begin_navigation(&tab_id, &url)?;
         // This command is the user's omnibox path, including when the tab was
         // originally created in shared AI posture. The native delegate must
         // not reinterpret that explicit human navigation as an AI destination
         // requiring a separate approval prompt.
         if reg.automation_mode(&tab_id) == Some(AutomationMode::AiShared) {
-            reg.set_shared_navigation_approval(&tab_id, &url)
-                .map_err(err)?;
+            reg.set_shared_navigation_approval(&tab_id, &url)?;
         }
     }
-    surface::navigate(&app, tab_id, url)
+    surface::navigate(&app, tab_id, url).map_err(|e| surface_failure(&e))
 }
 
 /// Go back in the tab's history. The nav delegate reports the resulting load,
 /// so the address bar and generation stay in step without extra bookkeeping here.
 #[tauri::command]
-pub async fn browser_back(app: AppHandle, tab_id: String) -> Result<(), String> {
-    surface::go_history(&app, tab_id, false)
+pub async fn browser_back(app: AppHandle, tab_id: String) -> Result<(), CommandError> {
+    surface::go_history(&app, tab_id, false).map_err(|e| surface_failure(&e))
 }
 
 /// Go forward in the tab's history.
 #[tauri::command]
-pub async fn browser_forward(app: AppHandle, tab_id: String) -> Result<(), String> {
-    surface::go_history(&app, tab_id, true)
+pub async fn browser_forward(app: AppHandle, tab_id: String) -> Result<(), CommandError> {
+    surface::go_history(&app, tab_id, true).map_err(|e| surface_failure(&e))
 }
 
 /// Stop the tab's current load.
 #[tauri::command]
-pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), String> {
-    surface::stop(&app, tab_id)
+pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), CommandError> {
+    surface::stop(&app, tab_id).map_err(|e| surface_failure(&e))
 }
 
 /// Answer a page `confirm()` dialog surfaced via `browser://dialog` (WI-1.7).
 #[tauri::command]
-pub async fn browser_dialog_respond(app: AppHandle, id: u64, accepted: bool) -> Result<(), String> {
-    surface::dialog_respond(&app, id, accepted)
+pub async fn browser_dialog_respond(
+    app: AppHandle,
+    id: u64,
+    accepted: bool,
+) -> Result<(), CommandError> {
+    surface::dialog_respond(&app, id, accepted).map_err(|e| surface_failure(&e))
 }
 
 /// Reject a rect the native layer cannot honour.
@@ -125,16 +139,21 @@ pub async fn browser_dialog_respond(app: AppHandle, id: u64, accepted: bool) -> 
 /// is not an error to AppKit — it lays the view out at an undefined position, so
 /// the page silently ends up invisible or unclickable with nothing logged. A
 /// negative extent is not a rectangle at all. Both are cheap to refuse here.
-pub(crate) fn validate_bounds(x: f64, y: f64, width: f64, height: f64) -> Result<(), String> {
+pub(crate) fn validate_bounds(x: f64, y: f64, width: f64, height: f64) -> Result<(), CommandError> {
     if !(x.is_finite() && y.is_finite() && width.is_finite() && height.is_finite()) {
-        return Err(format!(
+        // NOT localized: a NaN/∞ rect is a CALLER bug (a detached node's
+        // getBoundingClientRect), never something a user did or can read. Rule
+        // 50 §10 reserves i18nKey for user-facing prose; an internal message
+        // that resolved in ten bundles would be ten translations of a
+        // programmer error.
+        return Err(CommandError::invalid_input(format!(
             "invalid browser bounds: non-finite rect (x={x}, y={y}, w={width}, h={height})"
-        ));
+        )));
     }
     if width < 0.0 || height < 0.0 {
-        return Err(format!(
+        return Err(CommandError::invalid_input(format!(
             "invalid browser bounds: negative extent (w={width}, h={height})"
-        ));
+        )));
     }
     Ok(())
 }
@@ -148,9 +167,9 @@ pub async fn browser_set_bounds(
     y: f64,
     width: f64,
     height: f64,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     validate_bounds(x, y, width, height)?;
-    surface::set_bounds(&app, tab_id, x, y, width, height)
+    surface::set_bounds(&app, tab_id, x, y, width, height).map_err(|e| surface_failure(&e))
 }
 
 /// Destroy a browser tab and tear down its native webview.
@@ -164,29 +183,32 @@ pub async fn browser_destroy(
     app: AppHandle,
     state: State<'_, BrowserSurface>,
     tab_id: String,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     {
-        let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
         match reg.state(&tab_id) {
             // Unknown, or a concurrent destroy already claimed it.
             None => return Ok(()),
             Some(s) if s.is_terminal() => {}
-            Some(_) => reg.transition(&tab_id, Lifecycle::Destroyed).map_err(err)?,
+            Some(_) => reg.transition(&tab_id, Lifecycle::Destroyed)?,
         }
     }
-    let teardown = surface::destroy(&app, tab_id.clone());
+    let teardown = surface::destroy(&app, tab_id.clone()).map_err(|e| surface_failure(&e));
     // The tab is terminal either way, so its state goes regardless of how the
     // native teardown fared: a native failure here means the main thread is gone
     // (app shutting down), and keeping a dead entry would leak it forever.
-    state.forget_tab(&tab_id)?;
+    state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
     teardown
 }
 
 /// Run the SPIKE-1 no-bridge regression check in the browsed page (R3). Returns
 /// a JSON object of booleans that must all be false.
 #[tauri::command]
-pub async fn browser_assert_no_bridge(app: AppHandle, tab_id: String) -> Result<String, String> {
-    surface::assert_no_bridge(&app, tab_id)
+pub async fn browser_assert_no_bridge(
+    app: AppHandle,
+    tab_id: String,
+) -> Result<String, CommandError> {
+    surface::assert_no_bridge(&app, tab_id).map_err(|e| surface_failure(&e))
 }
 
 /// Tab ids holding a live native webview (debug builds only).
@@ -196,8 +218,8 @@ pub async fn browser_assert_no_bridge(app: AppHandle, tab_id: String) -> Result<
 /// the React surface and would pass while the `WKWebView` leaked (matrix B11).
 #[cfg(debug_assertions)]
 #[tauri::command]
-pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>, String> {
-    surface::debug_native_tab_ids(&app)
+pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>, CommandError> {
+    surface::debug_native_tab_ids(&app).map_err(|e| surface_failure(&e))
 }
 
 /// How many `WKWebView`s are attached to the window hierarchy (debug builds only).
@@ -210,8 +232,8 @@ pub async fn browser_debug_native_tab_ids(app: AppHandle) -> Result<Vec<String>,
 pub async fn browser_debug_attached_webviews(
     app: AppHandle,
     window_label: String,
-) -> Result<usize, String> {
-    surface::debug_attached_webviews(&app, window_label)
+) -> Result<usize, CommandError> {
+    surface::debug_attached_webviews(&app, window_label).map_err(|e| surface_failure(&e))
 }
 
 /// Does the tab's native webview occlude a window point? (debug builds only)
@@ -227,22 +249,23 @@ pub async fn browser_debug_hit_test(
     window_label: String,
     x: f64,
     y: f64,
-) -> Result<serde_json::Value, String> {
-    let (occludes, found) = surface::debug_hit_test(&app, tab_id, window_label, x, y)?;
+) -> Result<serde_json::Value, CommandError> {
+    let (occludes, found) = surface::debug_hit_test(&app, tab_id, window_label, x, y)
+        .map_err(|e| surface_failure(&e))?;
     Ok(serde_json::json!({ "occludes": occludes, "found": found }))
 }
 
 /// Freeze the browser tab — hide the native view so a DOM overlay paints over
 /// the rect instead of the live page (R2/WI-1.4 occlusion).
 #[tauri::command]
-pub async fn browser_freeze(app: AppHandle, tab_id: String) -> Result<(), String> {
-    surface::set_hidden(&app, tab_id, true)
+pub async fn browser_freeze(app: AppHandle, tab_id: String) -> Result<(), CommandError> {
+    surface::set_hidden(&app, tab_id, true).map_err(|e| surface_failure(&e))
 }
 
 /// Thaw the browser tab — show the native view again.
 #[tauri::command]
-pub async fn browser_thaw(app: AppHandle, tab_id: String) -> Result<(), String> {
-    surface::set_hidden(&app, tab_id, false)
+pub async fn browser_thaw(app: AppHandle, tab_id: String) -> Result<(), CommandError> {
+    surface::set_hidden(&app, tab_id, false).map_err(|e| surface_failure(&e))
 }
 
 #[cfg(test)]

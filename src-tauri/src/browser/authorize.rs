@@ -8,15 +8,24 @@
 //! `authorize_driver_op`; `browser_screenshot` additionally re-checks
 //! `command_still_fresh` after its long capture.
 //!
+//! @coordinates-with browser/refusals.rs — the typed refusal vocabulary this
+//!   gate raises, split out at WI-DP2.5 to keep the security core one screen
 //! @coordinates-with browser/commands_auth.rs — the command entry points
 //! @coordinates-with browser/origin_guard.rs — the per-operation decision
 //! @coordinates-with browser/one_shot.rs — single-use "Allow once" consumption
 
+use crate::browser::ai_guards::{
+    lock_failure, require_browser_enabled, require_current_epoch, tab_not_found,
+};
 use crate::browser::one_shot::{self, OneShotTarget};
 use crate::browser::origin_guard;
 use crate::browser::redact;
+use crate::browser::refusals::{
+    attachment_required, no_committed_page, not_granted, profile_origin_confined, stale_command,
+};
 use crate::browser::registry::AutomationMode;
 use crate::browser::surface::{self, BrowserSurface};
+use crate::command_error::CommandError;
 
 /// The full driver authorization gate, shared by every command that drives a
 /// **committed** page (`browser_eval`, `browser_screenshot`).
@@ -59,33 +68,27 @@ pub(crate) fn authorize_driver_op(
     // one-shot path binds it so an approved script cannot be swapped for another on
     // the retry. (Security review P5, High #1.)
     payload_hash: Option<&str>,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let policy = state
         .ai_policy
         .lock()
-        .map_err(|e| e.to_string())
+        .map_err(lock_failure)
         .map(|policy| *policy)?;
-    if !policy.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
-    let reg = state.registry.lock().map_err(|e| e.to_string())?;
+    require_browser_enabled(&policy)?;
+    let reg = state.registry.lock().map_err(lock_failure)?;
 
     if !reg.is_command_fresh(tab_id, generation) {
-        return Err(format!(
-            "stale command: tab '{tab_id}' navigated or closed since this operation was authorized"
-        ));
+        return Err(stale_command(tab_id, "since this operation was authorized"));
     }
 
     // The origin comes from the registry's committed URL — NOT from the caller.
     let committed = reg
         .committed_url(tab_id)
-        .ok_or_else(|| format!("tab '{tab_id}' has no committed page; nothing is granted yet"))?;
+        .ok_or_else(|| no_committed_page(tab_id))?;
 
-    let mode = reg
-        .automation_mode(tab_id)
-        .ok_or_else(|| "TAB_NOT_FOUND".to_string())?;
-    if mode != AutomationMode::Human && reg.policy_epoch(tab_id) != Some(policy.epoch) {
-        return Err("POLICY_STALE".into());
+    let mode = reg.automation_mode(tab_id).ok_or_else(tab_not_found)?;
+    if mode != AutomationMode::Human {
+        require_current_epoch(reg.policy_epoch(tab_id), policy.epoch)?;
     }
     let shared_origin_approved =
         mode == AutomationMode::AiShared && reg.shared_navigation_approved(tab_id, committed);
@@ -97,7 +100,7 @@ pub(crate) fn authorize_driver_op(
         _ => true,
     };
     let attached = state.is_tab_attached(tab_id, generation);
-    let grants = state.grants.lock().map_err(|e| e.to_string())?;
+    let grants = state.grants.lock().map_err(lock_failure)?;
     let allowed = origin_guard::is_driver_operation_allowed_for_mode(
         committed,
         operation,
@@ -115,7 +118,7 @@ pub(crate) fn authorize_driver_op(
     // only the approved origin — so a later "read once", or a stale read one-shot, must
     // never expose authenticated off-origin content. (WI-P6.1 H1, re-verify round 2.)
     if operation == "read" && mode == AutomationMode::AiSandbox && !sandbox_read_allowed {
-        return Err("PROFILE_ORIGIN_CONFINED".into());
+        return Err(profile_origin_confined());
     }
 
     // A human tab requires an ephemeral attachment for EVERY operation — read AND
@@ -124,7 +127,7 @@ pub(crate) fn authorize_driver_op(
     // an unattached human tab here is what stops a granted click/type from slipping
     // past on a tab the user never attached (Audit, High).
     if mode == AutomationMode::Human && !attached {
-        return Err("ATTACHMENT_REQUIRED".into());
+        return Err(attachment_required());
     }
     // For a human tab, hold the attachments lock from the presence check THROUGH
     // the consume, so the single-use attachment cannot be raced away in between —
@@ -132,10 +135,10 @@ pub(crate) fn authorize_driver_op(
     // one-shot on an action that never runs (Audit round 2). A non-human tab needs
     // no attachment, so the guard stays None.
     let mut human_attachment = if mode == AutomationMode::Human {
-        let guard = state.attachments.lock().map_err(|e| e.to_string())?;
+        let guard = state.attachments.lock().map_err(lock_failure)?;
         // Re-verify under THIS held lock (the earlier `attached` used a transient one).
         if !surface::attachment_present(&guard, tab_id, generation) {
-            return Err("ATTACHMENT_REQUIRED".into());
+            return Err(attachment_required());
         }
         Some(guard)
     } else {
@@ -148,7 +151,7 @@ pub(crate) fn authorize_driver_op(
         // is actually honored by the authority rather than refused by it). The
         // full descriptor (tab, generation, origin, operation, target) must
         // match, so an approval can't be spent on a different page or element.
-        let mut one_shots = state.one_shots.lock().map_err(|e| e.to_string())?;
+        let mut one_shots = state.one_shots.lock().map_err(lock_failure)?;
         if !one_shot::consume_one_shot(
             &mut one_shots,
             tab_id,
@@ -165,9 +168,7 @@ pub(crate) fn authorize_driver_op(
                 "[browser] REFUSED {operation} on {} (tab {tab_id}): not granted",
                 redact::redact(committed)
             );
-            return Err(format!(
-                "operation '{operation}' is not granted for the current origin"
-            ));
+            return Err(not_granted(operation));
         }
         log::info!(
             "[browser] {operation} on {} (tab {tab_id}): one-shot consumed",
@@ -244,23 +245,15 @@ pub(crate) fn submit_if_fresh<S, H>(
     tab_id: &str,
     generation: u64,
     submit: S,
-) -> Result<H, String>
+) -> Result<H, CommandError>
 where
     S: FnOnce() -> H,
 {
-    let policy = state
-        .ai_policy
-        .lock()
-        .map_err(|e| e.to_string())
-        .map(|p| *p)?;
-    if !policy.enabled {
-        return Err("BROWSER_DISABLED".into());
-    }
-    let reg = state.registry.lock().map_err(|e| e.to_string())?;
+    let policy = state.ai_policy.lock().map_err(lock_failure).map(|p| *p)?;
+    require_browser_enabled(&policy)?;
+    let reg = state.registry.lock().map_err(lock_failure)?;
     if !fresh_under_guard(&reg, &policy, tab_id, generation) {
-        return Err(format!(
-            "stale command: tab '{tab_id}' navigated or closed before the script could run"
-        ));
+        return Err(stale_command(tab_id, "before the script could run"));
     }
     // Enqueue while still holding the guard — this is the atomic step.
     let handle = submit();

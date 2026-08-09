@@ -165,6 +165,15 @@ fn the_diagnostic_carries_the_legacy_flag() {
 #[test]
 fn install_and_preview_refuse_a_legacy_provider() {
     let err = require_active(&LEGACY_PROVIDER).expect_err("legacy providers take no new install");
-    assert!(err.contains("Gemini CLI"), "unexpected error: {err}");
+    // WI-DP2.4: assert the CLASS, not the prose. This compared the rendered
+    // sentence, so it passed on any reword and could not distinguish "you asked
+    // for something invalid" from "VMark failed" — the two the frontend routes
+    // differently.
+    assert_eq!(err.code(), crate::command_error::ErrorCode::InvalidInput);
+    assert!(
+        err.message().contains("Gemini CLI"),
+        "the provider name should still reach the user: {}",
+        err.message()
+    );
     require_active(&PROVIDER).expect("active providers install normally");
 }

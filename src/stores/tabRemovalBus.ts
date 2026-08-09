@@ -24,7 +24,7 @@
  */
 import type { Tab } from "@/stores/tabStoreTypes";
 
-export type TabRemovalReason = "close" | "detach";
+type TabRemovalReason = "close" | "detach";
 
 export interface TabRemovalInfo {
   tab: Tab;

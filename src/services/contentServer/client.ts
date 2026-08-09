@@ -13,6 +13,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 export interface ServerHandle {
   url: string;
@@ -20,10 +21,6 @@ export interface ServerHandle {
 }
 
 export type SlidevExportFormat = "pdf" | "png" | "pptx";
-
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /** Start (provisioning if needed) the content server for a workspace. */
 export async function startContentServer(workspaceRoot: string): Promise<ServerHandle> {
@@ -85,7 +82,7 @@ export async function exportSlidev(
       outputPath,
     });
   } catch (error) {
-    throw new Error(`Slidev export failed: ${toMessage(error)}`, {
+    throw new Error(`Slidev export failed: ${commandErrorMessage(error)}`, {
       cause: error,
     });
   }

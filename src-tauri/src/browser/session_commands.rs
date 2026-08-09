@@ -20,10 +20,13 @@
 //! @coordinates-with browser/session_state.rs — keychain persistence + the model
 //! @coordinates-with browser/authorize.rs — the shared driver-authorization gate
 
+use crate::browser::ai_guards::surface_failure;
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
 use crate::browser::origin_guard::canonicalize_origin;
+use crate::browser::refusals::stale_command;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
+use crate::command_error::CommandError;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
@@ -208,7 +211,7 @@ pub async fn browser_save_storage_state(
     tab_id: String,
     generation: u64,
     handle: String,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let payload_hash = session_payload_hash("save", &handle);
     authorize_driver_op(
         &state,
@@ -218,17 +221,15 @@ pub async fn browser_save_storage_state(
         None,
         Some(&payload_hash),
     )?;
-    let origin = committed_origin(&state, &tab_id)?;
-    let captured = capture(&app, &tab_id, &origin, generation)?;
+    let origin = committed_origin(&state, &tab_id).map_err(CommandError::conflict)?;
+    let captured = capture(&app, &tab_id, &origin, generation).map_err(|e| surface_failure(&e))?;
     // The capture eval could have raced a navigation, leaving `captured` labelled
     // with `origin` but read from a different page. Re-check freshness before
     // persisting so a mislabelled blob never overwrites a good saved session.
     if !command_still_fresh(&state, &tab_id, generation) {
-        return Err(format!(
-            "stale command: tab '{tab_id}' navigated or closed during capture"
-        ));
+        return Err(stale_command(&tab_id, "during capture"));
     }
-    session_state::persist(&handle, &captured)?;
+    session_state::persist(&handle, &captured).map_err(CommandError::io)?;
     // Counts only — never a cookie/localStorage name or value.
     Ok(captured.redacted_summary())
 }
@@ -243,7 +244,7 @@ pub async fn browser_load_storage_state(
     tab_id: String,
     generation: u64,
     handle: String,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     let payload_hash = session_payload_hash("load", &handle);
     authorize_driver_op(
         &state,
@@ -253,26 +254,30 @@ pub async fn browser_load_storage_state(
         None,
         Some(&payload_hash),
     )?;
-    let blob = session_state::load(&handle)?
-        .ok_or_else(|| "no saved session for that handle".to_string())?;
+    let blob = session_state::load(&handle)
+        .map_err(CommandError::io)?
+        .ok_or_else(|| CommandError::not_found("no saved session for that handle"))?;
     // The keychain read + main-thread dispatch open a window in which the page can
     // navigate. A credential write cannot be undone, so re-check freshness right
     // before replay (as browser_eval does) and read the CURRENT committed origin —
     // `apply` refuses unless every saved entry's origin matches it. (Sec review P6.)
     if !command_still_fresh(&state, &tab_id, generation) {
-        return Err(format!(
-            "stale command: tab '{tab_id}' navigated or closed before the session could be restored"
+        return Err(stale_command(
+            &tab_id,
+            "before the session could be restored",
         ));
     }
-    let committed = committed_origin(&state, &tab_id)?;
-    apply(&app, &tab_id, &committed, &blob, generation, &state)
+    let committed = committed_origin(&state, &tab_id).map_err(CommandError::conflict)?;
+    apply(&app, &tab_id, &committed, &blob, generation, &state).map_err(|e| surface_failure(&e))
 }
 
 /// Delete a saved session. User-initiated cleanup (the profile UI / data
 /// management), not an AI operation, so it carries no driver gate.
 #[tauri::command]
-pub async fn browser_forget_storage_state(handle: String) -> Result<(), String> {
-    session_state::forget(&handle)
+pub async fn browser_forget_storage_state(handle: String) -> Result<(), CommandError> {
+    // Deleting a saved session touches the keychain and disk; a failure here is
+    // I/O, not a bad request.
+    session_state::forget(&handle).map_err(CommandError::io)
 }
 
 #[cfg(test)]

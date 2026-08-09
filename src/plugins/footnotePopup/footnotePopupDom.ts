@@ -4,7 +4,16 @@
  * Purpose: Shared DOM construction and layout constants for the footnote hover popup.
  * Extracted from FootnotePopupView to keep the view class focused on behavior.
  *
+ * Key decisions:
+ *
+ * - **Buttons carry `.popup-icon-btn`, the canonical class (WI-DP4.1).** They
+ *   used to carry `.footnote-popup-btn`, which re-declared that surface with no
+ *   differing value. The `-goto` / `-save` / `-delete` suffixes REMAIN — the
+ *   view and its tests query by them, and `-save` / `-delete` still carry the
+ *   local hover accents.
+ *
  * @coordinates-with FootnotePopupView.ts — consumes these helpers for popup construction
+ * @coordinates-with src/styles/popup-shared.css — owns `.popup-icon-btn`
  * @module plugins/footnotePopup/footnotePopupDom
  */
 
@@ -74,7 +83,10 @@ export function createFootnotePopupDom(handlers: FootnotePopupDomHandlers) {
 
 function buildIconButton(svg: string, title: string, onClick: () => void): HTMLButtonElement {
   const btn = document.createElement("button");
-  btn.className = "footnote-popup-btn";
+  // WI-DP4.1: the canonical popup button. `.footnote-popup-btn` re-declared
+  // `.popup-icon-btn` with no differing value; the `-goto`/`-save`/`-delete`
+  // suffixes below stay because the view and its tests query by them.
+  btn.className = "popup-icon-btn";
   btn.type = "button";
   btn.title = title;
   btn.setAttribute("aria-label", title);

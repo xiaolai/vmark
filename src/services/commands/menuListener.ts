@@ -38,7 +38,7 @@ export function dispatchMenuAction(mapping: MenuActionMapping, windowLabel: stri
  * A menu event routed straight to a CommandBus command via `executeCommand`
  * (the palette availability `when()` applies). The default binding kind.
  */
-export interface MenuCommandDispatch {
+interface MenuCommandDispatch {
   kind?: "command";
   /** The Tauri menu event id, with or without the "menu:" prefix. */
   menuEvent: string;
@@ -53,7 +53,7 @@ export interface MenuCommandDispatch {
  * palette's stricter `actionAvailability` `when()`, and they apply the menu-only
  * focus gate (`shouldBlockMenuAction`) that the palette must not (WI-2.1).
  */
-export interface MenuEditorActionDispatch {
+interface MenuEditorActionDispatch {
   kind: "editorAction";
   /** The Tauri menu event id, with or without the "menu:" prefix. */
   menuEvent: string;

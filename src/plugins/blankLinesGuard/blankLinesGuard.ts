@@ -31,7 +31,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Transaction } from "@tiptap/pm/state";
 import type { Node as PMNode } from "@tiptap/pm/model";
 
-export const blankLinesGuardKey = new PluginKey("blankLinesGuard");
+const blankLinesGuardKey = new PluginKey("blankLinesGuard");
 
 /** True if the node type declares the blankLinesBefore attribute. */
 function hasBlankLinesAttr(node: PMNode): boolean {

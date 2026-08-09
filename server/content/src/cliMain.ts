@@ -14,7 +14,7 @@ export interface CliArgs {
   portFile?: string;
 }
 
-export interface CliServer {
+interface CliServer {
   url: string;
   close: () => Promise<void>;
 }

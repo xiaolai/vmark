@@ -6,19 +6,22 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockWriteText, mockClipboardWarn, mockSettings } = vi.hoisted(() => ({
+// WI-DP3.0 pilot — the "looks hard, is easy" case. A first classifier called
+// this file unconvertible because `mockWriteText` and `mockClipboardWarn` are
+// asserted with toHaveBeenCalled and were declared in the same vi.hoisted block
+// as the store fake. They mock `@tauri-apps/plugin-clipboard-manager` and
+// `@/utils/debug` — LEGITIMATE boundaries that stay. Only the settings store
+// fake goes, and every assertion survives untouched.
+const { mockWriteText, mockClipboardWarn } = vi.hoisted(() => ({
   mockWriteText: vi.fn(),
   mockClipboardWarn: vi.fn(),
-  mockSettings: { terminal: { copyOnSelect: true } },
 }));
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: (...args: unknown[]) => mockWriteText(...args),
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => mockSettings },
-}));
+import { useSettingsStore } from "@/stores/settingsStore";
 
 vi.mock("@/utils/debug", () => ({
   clipboardWarn: (...args: unknown[]) => mockClipboardWarn(...args),
@@ -74,7 +77,9 @@ beforeEach(() => {
   mockWriteText.mockReset();
   mockWriteText.mockResolvedValue(undefined);
   mockClipboardWarn.mockReset();
-  mockSettings.terminal.copyOnSelect = true;
+  useSettingsStore.setState({
+    terminal: { ...useSettingsStore.getState().terminal, copyOnSelect: true },
+  });
 });
 
 describe("setupCopyOnSelect", () => {
@@ -116,7 +121,9 @@ describe("setupCopyOnSelect", () => {
   });
 
   it("does NOT write when terminal.copyOnSelect setting is false", () => {
-    mockSettings.terminal.copyOnSelect = false;
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, copyOnSelect: false },
+    });
     const w = setup({ selection: "x", hasSelection: true });
     w.fireSelectionChange();
 

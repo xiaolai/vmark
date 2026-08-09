@@ -8,11 +8,6 @@
   ],
   "entries": [
     {
-      "file": "src/components/BottomBar/BottomBar.test.tsx",
-      "api": "vi.mock",
-      "target": "src/stores/tabStore"
-    },
-    {
       "file": "src/components/Editor/__tests__/HeadingPicker.test.tsx",
       "api": "vi.mock",
       "target": "src/stores/headingPickerStore"
@@ -228,16 +223,6 @@
       "target": "src/stores/documentStore"
     },
     {
-      "file": "src/components/Editor/useTiptapFlush.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/settingsStore"
-    },
-    {
-      "file": "src/components/Editor/useTiptapFlush.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/tabStore"
-    },
-    {
       "file": "src/components/FindBar/FindBar.test.tsx",
       "api": "vi.mock",
       "target": "src/stores/settingsStore"
@@ -418,11 +403,6 @@
       "target": "src/stores/tabStore"
     },
     {
-      "file": "src/components/Terminal/fileLinkProvider.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/workspaceStore"
-    },
-    {
       "file": "src/components/Terminal/imeAsciiHandoff.test.ts",
       "api": "vi.mock",
       "target": "src/stores/settingsStore"
@@ -431,11 +411,6 @@
       "file": "src/components/Terminal/imeAsciiHandoff.test.ts",
       "api": "vi.mock",
       "target": "src/stores/uiStore"
-    },
-    {
-      "file": "src/components/Terminal/setupCopyOnSelect.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/settingsStore"
     },
     {
       "file": "src/components/Terminal/setupFileLinks.test.ts",
@@ -885,11 +860,6 @@
     {
       "file": "src/plugins/latex/MathInlineNodeView.test.ts",
       "api": "vi.mock",
-      "target": "src/stores/settingsStore"
-    },
-    {
-      "file": "src/plugins/markdownCopy/tiptap.test.ts",
-      "api": "vi.doMock",
       "target": "src/stores/settingsStore"
     },
     {

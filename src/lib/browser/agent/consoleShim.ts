@@ -12,8 +12,27 @@
  * **untrusted** — treat it exactly like a `read` result (never an act target). The
  * buffer is bounded so a chatty/hostile page can't grow the DOM without limit.
  *
- * `installConsoleCapture` is the single source of truth: it is unit-tested directly
- * in jsdom, and `CONSOLE_SHIM` embeds its source for page-world injection.
+ * `installConsoleCapture` is unit-tested here in jsdom.
+ *
+ * ⚠️ **IT IS NOT WHAT SHIPS.** The page-world shim that actually runs is a
+ * SEPARATE, hand-maintained JavaScript copy in
+ * `src-tauri/src/browser/console_shim_macos.rs` (`CONSOLE_SHIM_SRC`), injected
+ * as a `WKUserScript` at AiSandbox tab creation. Two implementations of one
+ * behaviour: this one is tested, that one is shipped, and nothing checks they
+ * agree. The bounded buffer, the serialization fallbacks and the transparent
+ * forwarding are therefore verified only in the copy users never execute.
+ *
+ * A `CONSOLE_SHIM` constant here used to embed this file's source for injection,
+ * but nothing imported it — the Rust copy had already superseded it. It was
+ * removed on 2026-08-09 (WI-DP1.2). An earlier version of this note claimed the
+ * page-world half "was never registered", which was simply wrong: it is
+ * registered, from Rust (audit 019fe61c).
+ *
+ * The real fix is one canonical asset — either Rust reads this file's compiled
+ * output, or a parity test executes `CONSOLE_SHIM_SRC` against the same cases.
+ * Until then, treat a change here as requiring the same change there.
+ *
+ * @coordinates-with src-tauri/src/browser/console_shim_macos.rs — the shipped copy
  *
  * @coordinates-with services/mcpBridge/v2/browserConsole.ts — the read handler
  * @module lib/browser/agent/consoleShim
@@ -100,10 +119,3 @@ export function buildConsoleReadScript(clear: boolean): string {
     `return JSON.stringify({entries:b});`
   );
 }
-
-/**
- * The page-world injection string: installs the shim on `window.console` with a
- * 200-entry cap. Registered as a page-world `WKUserScript` at AiSandbox tab
- * creation only (the native, live-E2E half of WI-P7.1).
- */
-export const CONSOLE_SHIM = `(${installConsoleCapture.toString()})(window.console, document, 200);`;

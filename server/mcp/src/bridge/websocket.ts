@@ -21,7 +21,7 @@ import { OutboundRequestQueue } from './requestQueue.js';
 import { resolveBridgeConfig, type ResolvedBridgeConfig, type WebSocketBridgeConfig } from './websocketConfig.js';
 import { sendIdentify, type WsMessage } from './wsProtocol.js';
 
-export type { ClientIdentity, Logger, PortResolver, WebSocketBridgeConfig } from './websocketConfig.js';
+export type { Logger, WebSocketBridgeConfig } from './websocketConfig.js'; // src/index.ts publishes both
 
 /**
  * WebSocketBridge connects to VMark via WebSocket.

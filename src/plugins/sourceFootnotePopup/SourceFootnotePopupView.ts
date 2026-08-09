@@ -18,9 +18,9 @@ import {
 
 const TEXTAREA_MAX_HEIGHT = 120;
 
-/** Build a source-footnote popup icon button with the popup's bespoke styling. */
+/** Build a source-footnote popup icon button on the canonical `.popup-icon-btn` surface (WI-DP4.1). */
 function buildSourceFootnoteBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "source-footnote-popup-btn" });
+  return buildPopupIconButton({ iconSvg, title, onClick });
 }
 
 /**

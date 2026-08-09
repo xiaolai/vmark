@@ -10,6 +10,10 @@
  *   - DOM-based (not React) for consistency with other editor popups
  *   - Escape key dismisses the toast
  *   - Reads state through a PORT it declares, never the app's store (ADR-015)
+ *   - Buttons come from `buildPopupIconButton` on the canonical
+ *     `.popup-icon-btn` surface (WI-DP4.1). `.image-paste-toast-btn` was not
+ *     only styling — the Tab focus trap enumerated its buttons by it — so the
+ *     trap now selects `.popup-icon-btn`, scoped to this container.
  *
  * @coordinates-with imagePasteToast/types.ts — the state PORT the host satisfies
  * @coordinates-with imageHandler/tiptap.ts — triggers the toast on ambiguous image pastes
@@ -25,7 +29,7 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 const AUTO_DISMISS_MS = 5000;
@@ -76,26 +80,18 @@ class ImagePasteToastView {
     messageEl.className = "image-paste-toast-message";
     messageEl.textContent = i18n.t("editor:plugin.imageDetected");
 
-    // Icon buttons (matching link popup style)
-    // Insert button (check mark)
-    const insertBtn = document.createElement("button");
-    insertBtn.type = "button";
-    insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-insert";
-    const insertLabel = i18n.t("editor:plugin.insertAsImage");
-    insertBtn.title = insertLabel;
-    insertBtn.setAttribute("aria-label", insertLabel);
-    insertBtn.innerHTML = popupIcons.save;
-    insertBtn.addEventListener("click", this.handleInsert);
-
-    // Dismiss button (X mark)
-    const dismissBtn = document.createElement("button");
-    dismissBtn.type = "button";
-    dismissBtn.className = "image-paste-toast-btn image-paste-toast-btn-dismiss";
-    const dismissLabel = i18n.t("editor:plugin.pasteAsText");
-    dismissBtn.title = dismissLabel;
-    dismissBtn.setAttribute("aria-label", dismissLabel);
-    dismissBtn.innerHTML = popupIcons.type;
-    dismissBtn.addEventListener("click", this.handleDismiss);
+    const insertBtn = buildPopupIconButton({
+      icon: "save",
+      title: i18n.t("editor:plugin.insertAsImage"),
+      onClick: this.handleInsert,
+      className: "image-paste-toast-btn-insert",
+    });
+    const dismissBtn = buildPopupIconButton({
+      icon: "type",
+      title: i18n.t("editor:plugin.pasteAsText"),
+      onClick: this.handleDismiss,
+      className: "image-paste-toast-btn-dismiss",
+    });
 
     container.appendChild(messageEl);
     container.appendChild(insertBtn);
@@ -222,7 +218,8 @@ class ImagePasteToastView {
       } else if (e.key === "Tab") {
         // Trap focus within toast
         e.preventDefault();
-        const buttons = this.container.querySelectorAll<HTMLButtonElement>(".image-paste-toast-btn");
+        // WI-DP4.1: canonical class, container-scoped (see the header).
+        const buttons = this.container.querySelectorAll<HTMLButtonElement>(".popup-icon-btn");
         const activeEl = document.activeElement as HTMLElement;
         const currentIndex = Array.from(buttons).indexOf(activeEl as HTMLButtonElement);
         const nextIndex = e.shiftKey

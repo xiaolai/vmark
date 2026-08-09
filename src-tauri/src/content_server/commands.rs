@@ -6,6 +6,7 @@
 //! app-data dir, with a `VMARK_CONTENT_SERVER_CLI` env override for dev.
 
 use crate::app_paths::app_data_dir;
+use crate::command_error::CommandError;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -34,9 +35,11 @@ fn workspace_key(root: &str) -> String {
     digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
-fn port_file_path(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
-    let dir = app_data_dir(app)?.join("content-server");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+fn port_file_path(app: &AppHandle, root: &str) -> Result<PathBuf, CommandError> {
+    let dir = app_data_dir(app)
+        .map_err(CommandError::internal)?
+        .join("content-server");
+    std::fs::create_dir_all(&dir).map_err(|e| CommandError::io(e.to_string()))?;
     Ok(dir.join(format!("{}.port.json", workspace_key(root))))
 }
 
@@ -46,7 +49,7 @@ pub async fn content_server_start(
     app: AppHandle,
     mgr: State<'_, ContentServerManager>,
     workspace_root: String,
-) -> Result<ServerHandle, String> {
+) -> Result<ServerHandle, CommandError> {
     if let Some(existing) = mgr.get(&workspace_root) {
         return Ok(ServerHandle {
             url: format!("http://127.0.0.1:{}", existing.port),
@@ -54,8 +57,10 @@ pub async fn content_server_start(
         });
     }
 
-    let node = resolve_node()?;
-    let cli = resolve_cli(&app)?;
+    // A missing Node or CLI is `not-found`: it is absent from the machine and
+    // installing it is the fix — not an internal VMark failure.
+    let node = resolve_node().map_err(CommandError::not_found)?;
+    let cli = resolve_cli(&app).map_err(CommandError::not_found)?;
     let token = uuid::Uuid::new_v4().simple().to_string();
     let port_file = port_file_path(&app, &workspace_root)?;
     let _ = std::fs::remove_file(&port_file);
@@ -72,7 +77,7 @@ pub async fn content_server_start(
         pf_str.as_str(),
     ];
     let mut child = spawn_server(&node, &args, &workspace_root)
-        .map_err(|e| format!("failed to spawn content server: {e}"))?;
+        .map_err(|e| CommandError::internal(format!("failed to spawn content server: {e}")))?;
 
     // Poll the port-file (written after the server binds) up to ~10s.
     let mut port: Option<u16> = None;
@@ -92,7 +97,9 @@ pub async fn content_server_start(
         if matches!(child.try_wait(), Ok(Some(_))) {
             let _ = child.wait();
             let _ = std::fs::remove_file(&port_file);
-            return Err("content server exited before reporting a port".into());
+            return Err(CommandError::internal(
+                "content server exited before reporting a port",
+            ));
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -110,7 +117,11 @@ pub async fn content_server_start(
             });
         }
         let _ = std::fs::remove_file(&port_file);
-        return Err("content server did not report a port in time".into());
+        // The poll loop above ran its full ~10s budget without a matching
+        // port-file: a timeout, not an internal fault.
+        return Err(CommandError::timeout(
+            "content server did not report a port in time",
+        ));
     };
 
     // Atomic register; on a lost concurrent-start race or a shutdown that
@@ -126,7 +137,10 @@ pub async fn content_server_start(
         }
         RegisterOutcome::ShuttingDown => {
             let _ = std::fs::remove_file(&port_file);
-            return Err("app is shutting down; not starting a content server".into());
+            // The app is going away, so the request is moot rather than wrong.
+            return Err(CommandError::cancelled(
+                "app is shutting down; not starting a content server",
+            ));
         }
         RegisterOutcome::Registered => {}
     }
@@ -148,7 +162,7 @@ pub async fn content_server_start(
 pub async fn content_server_stop(
     mgr: State<'_, ContentServerManager>,
     workspace_root: String,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     if let Some((child, port_file)) = mgr.take(&workspace_root) {
         if let Some(mut child) = child {
             let _ = child.kill();
@@ -166,105 +180,11 @@ pub async fn content_server_stop(
 pub async fn content_server_status(
     mgr: State<'_, ContentServerManager>,
     workspace_root: String,
-) -> Result<Option<ServerHandle>, String> {
+) -> Result<Option<ServerHandle>, CommandError> {
     Ok(mgr.get(&workspace_root).map(|s| ServerHandle {
         url: format!("http://127.0.0.1:{}", s.port),
         port: s.port,
     }))
-}
-
-/// Mint a single-use nonce over loopback and return a ready `/__auth?t=` URL so
-/// the browser/webview receives the session cookie (grill VULN-001 / ADR-9).
-#[tauri::command]
-pub async fn content_server_browser_url(
-    mgr: State<'_, ContentServerManager>,
-    workspace_root: String,
-) -> Result<String, String> {
-    let server = mgr
-        .get(&workspace_root)
-        .ok_or_else(|| "content server not running".to_string())?;
-    let token = mgr
-        .token(&workspace_root)
-        .ok_or_else(|| "missing bootstrap token".to_string())?;
-    let base = format!("http://127.0.0.1:{}", server.port);
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(format!("{base}/__mint"))
-        .header("Authorization", format!("Bearer {token}"))
-        .send()
-        .await
-        .map_err(|e| format!("mint request failed: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("mint rejected: {}", resp.status()));
-    }
-    #[derive(Deserialize)]
-    struct Mint {
-        nonce: String,
-    }
-    let mint: Mint = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(format!("{base}/__auth?t={}", mint.nonce))
-}
-
-/// Fetch the relationship graph JSON for the in-app native graph view (grill
-/// H5). Fetched Rust-side (loopback, no CORS) using a one-time session token
-/// extracted from the `/__auth` redirect's `?s=`.
-#[tauri::command]
-pub async fn content_server_graph(
-    mgr: State<'_, ContentServerManager>,
-    workspace_root: String,
-) -> Result<String, String> {
-    let server = mgr
-        .get(&workspace_root)
-        .ok_or_else(|| "content server not running".to_string())?;
-    let token = mgr
-        .token(&workspace_root)
-        .ok_or_else(|| "missing bootstrap token".to_string())?;
-    let base = format!("http://127.0.0.1:{}", server.port);
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    #[derive(Deserialize)]
-    struct Mint {
-        nonce: String,
-    }
-    let mint: Mint = client
-        .get(format!("{base}/__mint"))
-        .header("Authorization", format!("Bearer {token}"))
-        .send()
-        .await
-        .map_err(|e| format!("mint failed: {e}"))?
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let auth = client
-        .get(format!("{base}/__auth?t={}", mint.nonce))
-        .send()
-        .await
-        .map_err(|e| format!("auth failed: {e}"))?;
-    let loc = auth
-        .headers()
-        .get("location")
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| "no auth redirect".to_string())?;
-    let session = loc
-        .split("s=")
-        .nth(1)
-        .ok_or_else(|| "no session token".to_string())?
-        .to_string();
-
-    let resp = client
-        .get(format!("{base}/api/graph?s={session}"))
-        .send()
-        .await
-        .map_err(|e| format!("graph fetch failed: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("graph fetch rejected: {}", resp.status()));
-    }
-    resp.text().await.map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
