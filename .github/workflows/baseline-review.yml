@@ -1,0 +1,108 @@
+name: Baseline review
+
+# WI-AF3.3 — the overdue half of the baseline review schedule (finding F5).
+#
+# A ratchet stops debt GROWING. It never asks anyone to pay it, which is how
+# ~450 frozen units sat unmoved across 27 baselines with every gate green.
+# scripts/baseline-review-schedule.json gives each one a deadline; this job is
+# what notices when a deadline passes.
+#
+# WHY THIS IS NOT A PR GATE. Overdue-ness is a property of TODAY, not of a diff.
+# A calendar-triggered CI failure reddens someone's unrelated PR with no action
+# available to its author, and a gate like that gets switched off rather than
+# obeyed. The PR tier enforces only the thing that IS a property of a diff —
+# that the deadlines were not quietly pushed out — and the merge-base ratchet
+# already does that, because the dates are YYYYMMDD integers.
+#
+# Reporting is a separate job from measurement for the same least-privilege
+# reason as mutation.yml: only the job that runs no project code holds
+# `issues: write`.
+#
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs (WI-AF2.4). This workflow is a
+#     gate that must keep producing verdicts, and it is not exempt from the rule
+#     it exists to enforce.
+
+on:
+  workflow_dispatch:
+  # Weekly, Monday 08:00 UTC — after mutation (06:00), rust-coverage (06:30)
+  # and tier0-e2e (07:00), so the scheduled suites do not contend.
+  schedule:
+    - cron: "0 8 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-review
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      overdue: ${{ steps.report.outputs.overdue }}
+      body: ${{ steps.report.outputs.body }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Validation first, and it is a HARD failure: an inconsistent schedule
+      # (a baseline with no deadline, a stale key) means the report below would
+      # be measuring an incomplete picture while looking authoritative.
+      - name: Validate the schedule covers every baseline
+        run: node scripts/check-review-schedule.mjs
+
+      - name: Report overdue reviews
+        id: report
+        run: |
+          set +e
+          out=$(node scripts/check-review-schedule.mjs --report)
+          code=$?
+          set -e
+          echo "$out"
+          {
+            echo "overdue=$([ $code -ne 0 ] && echo true || echo false)"
+            echo "body<<REPORT_EOF"
+            echo "$out"
+            echo ""
+            echo "_Filed by [baseline-review](https://github.com/${GITHUB_REPOSITORY}/actions/workflows/baseline-review.yml) — run ${GITHUB_RUN_ID}._"
+            echo "REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  report:
+    needs: measure
+    if: needs.measure.outputs.overdue == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the rolling issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ needs.measure.outputs.body }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        # ONE rolling issue, found by label. Creating a fresh issue each week
+        # would turn a standing reminder into a backlog of duplicates, which is
+        # the failure mode the cost-report workflow already documented.
+        run: |
+          existing=$(gh issue list --repo "$REPO" --label baseline-review --state open \
+                       --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$REPO" --body "$BODY"
+            echo "updated #$existing"
+          else
+            gh issue create --repo "$REPO" --label baseline-review \
+              --title "Baseline reviews are overdue" --body "$BODY"
+          fi

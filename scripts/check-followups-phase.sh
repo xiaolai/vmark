@@ -166,7 +166,17 @@ phase_2() {
 
 phase_3() {
   echo "Phase 3 — Frozen debt becomes scheduled debt (F5)"
-  has_text "scripts/baselineRatchetManifest.mjs" "review: *\{" "manifest carries review dates (WI-AF3.1)"
+  # ADR-1 (revised): the deadlines live in their OWN json baseline, not inside
+  # the manifest module. The manifest is loaded from HEAD only and never at the
+  # base ref, so dates kept there could not have been ratcheted at all.
+  has_file "scripts/baseline-review-schedule.json" "review schedule exists (WI-AF3.2)"
+  has_file "scripts/check-review-schedule.mjs"     "schedule validator (WI-AF3.2)"
+  has_file "scripts/check-review-schedule.test.mjs" "validator test (WI-AF3.1)"
+  has_text "scripts/baselineRatchetManifest.mjs" "baseline-review-schedule\.json" \
+           "schedule registered in the ratchet (WI-AF3.2)"
+  has_file ".github/workflows/baseline-review.yml" "overdue reporter schedule (WI-AF3.3)"
+  cmd_ok "every baseline is dated or justifiably exempt (WI-AF3.4)" \
+         node scripts/check-review-schedule.mjs
   lacks_text ".claude/rules/00-engineering-principles.md" \
              "153 pre-existing" "rules no longer quote a live gate count (WI-AF3.3)"
   cmd_ok "baseline ratchet green with review dates active (WI-AF3.2)" \

@@ -79,5 +79,5 @@ Key points:
 - Keep code files under ~300 lines. Enforced by `scripts/check-file-size.mjs`
   (`pnpm lint:file-size`, in `check:all`): it fails on any NEW file over the
   limit or growth of a baselined file. `scripts/file-size-baseline.json` freezes
-  the 153 pre-existing violators — the gate ratchets down only, so split a file
+  the pre-existing violators it lists — the gate ratchets down only, so split a file
   and lower/remove its baseline number; never raise one.

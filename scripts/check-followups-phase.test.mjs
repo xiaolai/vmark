@@ -92,10 +92,11 @@ const DELIVERABLES = {
     ],
   ],
   3: [
-    [
-      "scripts/baselineRatchetManifest.mjs",
-      'review: { by: "2026-11-01", owner: "maintainer", target: 0 }\n',
-    ],
+    ["scripts/baseline-review-schedule.json", '{ "reviews": {} }\n'],
+    ["scripts/check-review-schedule.mjs", "// validator\n"],
+    ["scripts/check-review-schedule.test.mjs", "// test\n"],
+    ["scripts/baselineRatchetManifest.mjs", 'path: "scripts/baseline-review-schedule.json"\n'],
+    [".github/workflows/baseline-review.yml", "name: Baseline review\n"],
     // Present AND free of the stale count. A negative assertion that a MISSING
     // file would satisfy is not an assertion — the file has to exist for
     // "no longer quotes 153" to mean anything.
