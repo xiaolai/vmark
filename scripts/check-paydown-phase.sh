@@ -82,7 +82,7 @@ count() {
     // No top-level `return` — node -e compiles the body as a script, where it is
     // a syntax error. Everything lives in a function that returns a value.
     const fs = require("fs");
-    const isComment = (k) => k.startsWith("//") || k.startsWith("_comment");
+    const isComment = (k) => k.startsWith("//") || k.startsWith("_");
     const compute = () => {
       const doc = JSON.parse(fs.readFileSync(`${process.env.ROOT}/${process.env.REL}`, "utf8"));
       const at = process.env.AT;
