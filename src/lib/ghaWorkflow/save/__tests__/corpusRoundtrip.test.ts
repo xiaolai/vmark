@@ -34,7 +34,11 @@ import { walkWorkflows, commentSet, anchorUsage } from "@/test/ghaCorpusHelpers"
 const CORPUS_ROOTS = ["src/test/fixtures/gha-workflows", ".github/workflows"];
 
 /** Pinned so a file vanishing from either root fails rather than shrinking the sweep. */
-const EXPECTED_FILE_COUNT = 35;
+// 37 since 2026-08-09: gate-liveness.yml and baseline-review.yml (WI-AF2.4,
+// WI-AF3.3) joined the live root. Adding a workflow is meant to require
+// touching this number — that is the pin working, not an obstacle to route
+// around.
+const EXPECTED_FILE_COUNT = 37;
 
 /**
  * Workflows whose no-op round trip is BYTE-identical today. Two-way
