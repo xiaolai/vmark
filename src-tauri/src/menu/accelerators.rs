@@ -25,6 +25,7 @@
 //! @coordinates-with `localized.rs` (commits the accelerator snapshot post-build)
 //! @coordinates-with `src/stores/shortcutsStore.ts` (calls the differential path)
 
+use crate::command_error::CommandError;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -73,15 +74,34 @@ pub fn diff_accelerators(
 /// that were actually mutated. Items whose ID is not present in the live menu
 /// are silently skipped (they may belong to a platform-specific branch the
 /// caller doesn't know about).
+/// WI-DP2.4: typed, because this function has TWO error classes and flattening
+/// them to `String` made the caller guess. `set_accelerator` parses the
+/// accelerator string the CALLER supplied, so a malformed chord is
+/// `invalid-input` — the user typed a bad shortcut, and reporting that as
+/// `internal` would blame VMark for it. Everything else here (no menu
+/// installed, a poisoned cache, a tree walk that fails) is genuinely internal:
+/// app state the caller neither caused nor can act on.
+/// The caller's chord did not parse. `detail` carries the id and the offending
+/// string so the frontend can point at the field the user edited rather than
+/// re-deriving it from prose.
+fn bad_accelerator(id: &str, accel: &str, error: impl std::fmt::Display) -> CommandError {
+    CommandError::invalid_input(format!("invalid accelerator for '{id}': {error}"))
+        .with_detail(serde_json::json!({ "menuId": id, "accelerator": accel }))
+}
+
 pub fn apply_accelerator_diff(
     app: &AppHandle,
     next: &HashMap<String, String>,
-) -> Result<Vec<String>, String> {
-    let menu = app.menu().ok_or_else(|| "No menu".to_string())?;
+) -> Result<Vec<String>, CommandError> {
+    let menu = app
+        .menu()
+        .ok_or_else(|| CommandError::internal("no menu is installed on this app"))?;
     let mut items: HashMap<String, MenuItemKind<Wry>> = HashMap::new();
-    collect_items_from_menu(&menu, &mut items)?;
+    collect_items_from_menu(&menu, &mut items).map_err(CommandError::internal)?;
 
-    let mut accel_guard = ACCEL_CACHE.lock().map_err(|e| e.to_string())?;
+    let mut accel_guard = ACCEL_CACHE
+        .lock()
+        .map_err(|e| CommandError::internal(format!("accelerator cache poisoned: {e}")))?;
     let baseline = accel_guard.get_or_insert_with(HashMap::new);
     let changes = diff_accelerators(baseline, next);
 
@@ -93,12 +113,12 @@ pub fn apply_accelerator_diff(
             // editor-mode trio (#1070) became CheckMenuItem, so we must reach
             // Check items too or their F6 / Shift+F6 would stop updating.
             match kind {
-                MenuItemKind::MenuItem(item) => {
-                    item.set_accelerator(accel_opt).map_err(|e| e.to_string())?
-                }
-                MenuItemKind::Check(item) => {
-                    item.set_accelerator(accel_opt).map_err(|e| e.to_string())?
-                }
+                MenuItemKind::MenuItem(item) => item
+                    .set_accelerator(accel_opt)
+                    .map_err(|e| bad_accelerator(&id, &accel, e))?,
+                MenuItemKind::Check(item) => item
+                    .set_accelerator(accel_opt)
+                    .map_err(|e| bad_accelerator(&id, &accel, e))?,
                 _ => continue,
             }
             baseline.insert(id.clone(), accel);

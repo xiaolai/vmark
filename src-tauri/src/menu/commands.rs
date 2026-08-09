@@ -9,7 +9,32 @@
 //! after `set_menu`, because a rebuild replaces the tree and strands any handle
 //! into the old one.
 //!
+//! Key decisions:
+//!
+//! - **Error contract (WI-DP2.4).** These commands return
+//!   `Result<T, CommandError>` (rule 50 §10). Menu-tree work — building a tree,
+//!   attaching it, walking it, re-applying visibility — is `internal`: the
+//!   caller neither caused it nor can act on it.
+//!
+//! - **`internal` here is a decision, not a default.** `update_menu_accelerators`
+//!   passes a caller-supplied chord map down to `set_accelerator`, which PARSES
+//!   those strings, so a malformed shortcut is the user's input and not VMark's
+//!   fault. `accelerators::apply_accelerator_diff` therefore classifies that one
+//!   case as `invalid-input` (with the menu id and offending chord in `detail`)
+//!   and everything else as `internal`. A first pass blanket-mapped the whole
+//!   module to `internal` and would have reported "a bad shortcut you typed" as
+//!   an internal VMark failure.
+//!
+//! - **One residual, stated rather than papered over.** `rebuild_menu` resolves
+//!   the same caller-supplied chords through `create_localized_menu`, which
+//!   returns a flat `tauri::Error`. A parse failure and a genuine platform
+//!   failure are indistinguishable at that boundary, so both are `internal`.
+//!   Splitting them means typing `create_localized_menu`, which is a larger
+//!   change than this work item; until then, a bad chord reaching `rebuild_menu`
+//!   is misreported, and that is a known gap rather than a claim of correctness.
+//!
 //! @coordinates-with `lib.rs` (registers these commands in `generate_handler!`)
+//! @coordinates-with `accelerators.rs` (owns the invalid-chord classification)
 
 use std::collections::HashMap;
 
@@ -71,7 +96,5 @@ pub fn update_menu_accelerators(
     app: AppHandle,
     shortcuts: HashMap<String, String>,
 ) -> Result<(), CommandError> {
-    apply_accelerator_diff(&app, &shortcuts)
-        .map(|_| ())
-        .map_err(CommandError::internal)
+    apply_accelerator_diff(&app, &shortcuts).map(|_| ())
 }
