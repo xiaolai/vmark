@@ -15,6 +15,7 @@
 //! manager/supervisor code stays warning-checked.
 
 pub mod commands;
+pub mod http;
 pub mod manager;
 #[allow(dead_code)] // ADR-2 runtime-upgrade path — unit-tested, no production caller yet.
 pub mod provision;

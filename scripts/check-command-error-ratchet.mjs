@@ -256,6 +256,96 @@ export function countLegacyCommands(source) {
   return count;
 }
 
+/**
+ * Blank JS/TS comments, preserving string and template literals — the opposite
+ * trade-off from `stripCommentsAndStrings`, because the command name being
+ * matched IS a string literal. Skips over quoted spans so a `//` inside a URL
+ * is not read as a comment.
+ */
+export function stripJsComments(source) {
+  let out = "";
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const quote = c;
+      out += c;
+      for (i++; i < source.length; i++) {
+        out += source[i];
+        if (source[i] === "\\") {
+          i++;
+          if (i < source.length) out += source[i];
+        } else if (source[i] === quote) break;
+      }
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "/") {
+      while (i < source.length && source[i] !== "\n") i++;
+      out += "\n";
+      continue;
+    }
+    if (c === "/" && source[i + 1] === "*") {
+      const end = source.indexOf("*/", i + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      for (let j = i; j < stop; j++) out += source[j] === "\n" ? "\n" : " ";
+      i = stop - 1;
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** Names of `#[tauri::command]` fns whose error type is `CommandError`. */
+export function typedCommandNames(source) {
+  const text = stripCommentsAndStrings(source);
+  const names = [];
+  for (const at of commandAttributeEnds(text)) {
+    const returnType = returnTypeOf(text, at);
+    const match = /^Result\s*<([\s\S]*)>$/.exec(unqualify((returnType ?? "").trim()));
+    if (!match) continue;
+    const args = splitGenericArgs(match[1]);
+    if (args.length !== 2 || unqualify(args[1]) !== "CommandError") continue;
+    // The fn name sits between the attribute and the parameter list.
+    const decl = /\bfn\s+([A-Za-z_]\w*)/.exec(text.slice(at, at + 400));
+    if (decl) names.push(decl[1]);
+  }
+  return names;
+}
+
+/** `String(e)` / `String(err)` / `String(error)` — a caught error, not a value. */
+const STRINGIFIED_ERROR = /\bString\(\s*(?:e|err|error)\d?\s*\)/;
+const INVOKE_CALL = /\binvoke\s*(?:<[^>]*>)?\s*\(\s*["'`]([a-z_][a-z0-9_]*)["'`]/gi;
+
+/**
+ * Frontend files that invoke a TYPED command and render its rejection with
+ * `String(...)`. A `CommandError` is a plain object, so that yields the literal
+ * "[object Object]" — see WI-DP2.6, which found four such boundaries by hand.
+ *
+ * Deliberately silent for files that only invoke LEGACY commands: `String(e)`
+ * is CORRECT while the command still returns `Result<T, String>`, and flagging
+ * it would demand a change that is wrong until the conversion lands.
+ */
+export function findStringifiedTypedErrors(files, typedCommands) {
+  const hits = [];
+  for (const { path: file, source } of files) {
+    if (source.includes("commandErrorMessage")) continue;
+    // Comments blanked, strings KEPT — the command name lives inside a string
+    // literal, so the Rust stripper (which blanks both) would erase the very
+    // thing being matched.
+    const code = stripJsComments(source);
+    if (!STRINGIFIED_ERROR.test(code)) continue;
+    INVOKE_CALL.lastIndex = 0;
+    let match;
+    while ((match = INVOKE_CALL.exec(code)) !== null) {
+      if (typedCommands.has(match[1])) {
+        hits.push({ file, command: match[1] });
+        break;
+      }
+    }
+  }
+  return hits;
+}
+
 function walk(dir, rootLen, out) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -279,6 +369,38 @@ export function scanTree(root) {
     if (count > 0) counts[rel] = count;
   }
   return counts;
+}
+
+/** Frontend sources that could receive a command rejection (tests excluded). */
+function walkFrontend(dir, rootLen, out) {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "__tests__" || entry.name === "locales") continue;
+      walkFrontend(full, rootLen, out);
+    } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+      out.push(full.slice(rootLen).split(path.sep).join("/"));
+    }
+  }
+  return out;
+}
+
+/** Every typed command name in the crate, and the frontend files that stringify one. */
+export function scanStringifiedTypedErrors(root) {
+  const crateDir = path.join(root, ...SCAN_ROOT);
+  if (!existsSync(crateDir)) return [];
+  const typed = new Set();
+  for (const rel of walk(crateDir, root.length + 1, [])) {
+    for (const name of typedCommandNames(readFileSync(path.join(root, rel), "utf8"))) {
+      typed.add(name);
+    }
+  }
+  const files = walkFrontend(path.join(root, "src"), root.length + 1, []).map((rel) => ({
+    path: rel,
+    source: readFileSync(path.join(root, rel), "utf8"),
+  }));
+  return findStringifiedTypedErrors(files, typed);
 }
 
 /** Fail loudly on malformed baseline data — never read a bad file as "empty". */
@@ -373,11 +495,25 @@ function main() {
 
   const { raised, lowered, gone } = compareCounts(actual, baseline);
 
-  if (raised.length === 0 && lowered.length === 0 && gone.length === 0) {
+  const stringified = scanStringifiedTypedErrors(root);
+
+  if (raised.length === 0 && lowered.length === 0 && gone.length === 0 && stringified.length === 0) {
     console.log(
       `✅ CommandError ratchet held (${total} legacy Result<T, String> command(s) remain, none added).`,
     );
     return;
+  }
+
+  if (stringified.length > 0) {
+    console.error(
+      `\n❌ ${stringified.length} frontend file(s) render a TYPED command's error with String():\n`,
+    );
+    for (const { file, command } of stringified) console.error(`   ${file} — invokes ${command}`);
+    console.error(
+      "\n   A CommandError is a plain object, so String(error) renders the literal\n" +
+        '   "[object Object]". Use commandErrorMessage() (rule 50 §10). This shipped\n' +
+        "   to users at four boundaries before WI-DP2.6 caught it by hand.",
+    );
   }
 
   if (raised.length > 0) {
