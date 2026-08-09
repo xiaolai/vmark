@@ -1,6 +1,6 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 54
+**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 45
 legacy signatures; the migration also exposed a red file-size gate and rustfmt
 drift at HEAD, both now fixed). Phase 3 pilot **DONE**, bulk not started.
 Phase 4 **DONE for the exact duplicates** (88 → 80); the remaining 80 are blocked
@@ -321,6 +321,72 @@ asked. It needs a focused pass, not a tired one.
       branch the migration reaches is deleted in the same change.
 - [ ] `cargo test` + `cargo clippy --all-targets -- -D warnings` green per batch.
 - [ ] `scripts/command-error-baseline.json` lowered per batch, never raised.
+
+### WI-DP2.5 — file-size fallout of the migration
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/browser/{authorize.rs,refusals.rs,mod.rs,commands_auth.rs,session_commands.rs}, src-tauri/src/pty.rs, src-tauri/src/pty/reader.rs, src-tauri/src/command_registry.rs, + rustfmt on 5 files
+**Verified:** `cargo clippy --all-targets -- -D warnings` 0 · `cargo test` 2080 passed · `pnpm lint:file-size` green
+
+**The gate was already red at HEAD and nothing had said so.** The typed
+signatures pushed `browser/authorize.rs` to 337 and `pty.rs` to 315; the inner
+loop never runs `check:all`, so it went unreported across several commits.
+Split into `browser/refusals.rs` (the refusal vocabulary) and `pty/reader.rs`
+(`pty_start` + its reader thread, longer alone than the other eight PTY
+commands together) — 270 and 197.
+
+`#[tauri::command]` generates a sibling macro that a function-only `pub use`
+does not carry, so the registry names `pty::reader::pty_start` rather than
+re-exporting. **rustfmt drift had also reached a commit** across five files:
+the typed signatures grew past 100 columns and `check:all` is frontend-only, so
+it never runs `cargo fmt --check` — exactly the class `60-ai-governance.md` §10
+describes.
+
+### WI-DP2.6 — `content_server` 5 → 0, and the `[object Object]` bug it exposed
+
+**Status:** DONE — 2026-08-09
+**Changed:** src-tauri/src/content_server/{commands.rs,http.rs,mod.rs}, src/hooks/useContentServer.ts, src/services/contentServer/client.ts, src/pages/settings/{HotExitDevTools.tsx,McpConfigInstaller.tsx} + 3 test files
+**Verified:** clippy -D warnings, cargo test, tsc, ratchet 54 → 49, 31 frontend tests, all three regression tests RED-checked
+
+Codes are per-case: a missing Node/CLI is `not-found`; the ~10s port-file poll
+expiring is `timeout`; `ShuttingDown` is `cancelled`; loopback transport is
+`network`; our own sidecar returning non-2xx is `internal`.
+
+**The important half is what it exposed.** A `CommandError` is a plain OBJECT,
+so `String(e)` on one renders the literal `"[object Object]"`. Four frontend
+boundaries did exactly that — and **two of them were already shipping it**,
+because the commands behind them had been typed EARLIER in this same plan and
+nobody checked the callers. Typing a command is not done when it compiles.
+
+### WI-DP2.7 / WI-DP2.8 — the assertion, and what it immediately found
+
+**Status:** DONE — 2026-08-09
+**Changed:** scripts/check-command-error-ratchet.{mjs,test.mjs}, src-tauri/src/window_manager/commands.rs, 6 frontend files, src/stores/settingsStore/shortcuts.ts, .claude/rules/50-codebase-conventions.md
+**Verified:** 53 gate self-tests, tsc, eslint, 752 tests across 44 files, clippy -D warnings, ratchet 49 → 45
+
+Fixing four boundaries by hand does not stop the fifth, and **45 conversions
+remain**. So the ratchet that DRIVES the conversions now also asserts against
+their fallout: it collects every command whose Rust error type is
+`CommandError`, walks `src/`, and fails when a caller renders one through
+`String(...)` instead of `commandErrorMessage`.
+
+Three things made it real rather than decorative:
+
+1. **It is silent for LEGACY commands.** `String(e)` is correct while a command
+   still returns `Result<T, String>`; flagging it would demand a change that is
+   wrong until the conversion lands.
+2. **Verified by removal, not by green.** Reverting one fix makes it exit 1
+   naming the file and command; and a subprocess test fails if the call is
+   deleted from `main()` — every unit test still passes in that state, which is
+   the "green while doing nothing" hole.
+3. **It was half-blind at first, and the repo-tree self-test forced that out.**
+   `errorMessage()` is literally `String(error)` for non-Errors, i.e. the same
+   defect under a name the pattern could not see. Teaching it that spelling
+   surfaced **seven** live instances at once — including `browser_navigate`,
+   which feeds a user-visible browser error. Six were real; the seventh is a
+   file-level false positive (a `JSON.parse` failure in a file that also invokes
+   a typed command) and takes a `// command-error-ok: <reason>` marker, with the
+   reason REQUIRED and a test pinning that a bare marker is rejected.
 
 **Phase 2 DoD:** baseline at 0, entry and file deleted (ADR-5).
 
