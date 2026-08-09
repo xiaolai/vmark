@@ -289,9 +289,12 @@ two thirds are the substitution revision 1 described.
    `toHaveBeenCalledWith` assertions are on `onActivate`, a callback the *test*
    owns. Untouched.
 2. **`BottomBar` (React selector)** — the mock replaced `useTabStore` with a bare
-   `selector(state)` call, which is not what the real hook does: the real one
-   subscribes and re-renders. Conversion made the test **stricter**, not merely
-   different.
+   `selector(state)` call; the real hook subscribes. **The first version of this
+   claimed the conversion "exercises the subscription" while every `setActive()`
+   ran BEFORE `render()`** — which only tests the initial snapshot. Audit
+   019fe61c caught it. A mounted document→browser→document transition was added,
+   and that case a `selector(state)` fake could not have covered; the claim is
+   now true rather than asserted.
 3. **`useTiptapFlush` (multi-store)** — two stores converted together. Confirms
    ADR-3's revision: a store-by-store pass would have left this file half real
    and half fake, a configuration no version of the code has ever had.

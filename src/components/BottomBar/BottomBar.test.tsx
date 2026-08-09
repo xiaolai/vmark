@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { BottomBar } from "./BottomBar";
 import { useTabStore } from "@/stores/tabStore";
@@ -16,14 +16,38 @@ vi.mock("@/components/FindBar", () => ({
 }));
 
 // WI-DP3.0 pilot — archetype "React selector consumer". The mock replaced
-// `useTabStore` with a bare `selector(state)` call, which is NOT what the real
-// hook does: the real one subscribes and re-renders. Driving the real store
-// through setState exercises the subscription the component actually depends on,
-// so this conversion makes the test STRICTER, not merely different.
-function setActive(kind: string, id: string | null = "tab-1") {
+// `useTabStore` with a bare `selector(state)` call; the real hook subscribes.
+//
+// Audit 019fe61c corrected an overclaim here: an earlier version of this comment
+// said the conversion "exercises the subscription", while every `setActive()`
+// below ran BEFORE `render()` — which only ever tests the initial snapshot. The
+// mounted-transition test at the bottom is what makes the claim true, and it is
+// the one case a `selector(state)` fake could never have covered.
+//
+// Fixtures are REAL union members, not `as unknown as Tab[]`. The double cast
+// fabricated an object with no `title`, `isPinned`, `filePath`, `formatId`,
+// `automationMode`, `persistPolicy` or `url`, which defeated exactly the type
+// contract that moving to the real store was supposed to buy.
+function documentTab(id: string): Tab {
+  return { id, title: "Doc", isPinned: false, kind: "document", filePath: null, formatId: "markdown" };
+}
+
+function browserTab(id: string): Tab {
+  return {
+    id,
+    title: "Page",
+    isPinned: false,
+    kind: "browser",
+    automationMode: "human",
+    persistPolicy: "persistent",
+    url: "https://example.com",
+  };
+}
+
+function setActive(kind: Tab["kind"], id: string | null = "tab-1") {
   useTabStore.setState({
     activeTabId: { main: id },
-    tabs: { main: id ? ([{ id, kind }] as unknown as Tab[]) : [] },
+    tabs: { main: id ? [kind === "document" ? documentTab(id) : browserTab(id)] : [] },
   });
 }
 
@@ -66,5 +90,28 @@ describe("BottomBar", () => {
     expect(screen.queryByTestId("findbar")).not.toBeInTheDocument();
     // The StatusBar (carrying the omnibox) must remain.
     expect(screen.getByTestId("statusbar")).toBeInTheDocument();
+  });
+
+  // The case that justifies using the real store at all: the store changes while
+  // the component is MOUNTED, so the subscription — not the initial snapshot — is
+  // what has to produce the new chrome. A `selector(state)` fake returns a value
+  // and never notifies, so it could not have covered this.
+  it("swaps chrome on a live document -> browser -> document transition without remounting", async () => {
+    setActive("document");
+    render(<BottomBar />);
+    expect(screen.getByTestId("toolbar")).toBeInTheDocument();
+
+    await act(async () => {
+      setActive("browser", "tab-2");
+    });
+    expect(screen.queryByTestId("toolbar")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("findbar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("statusbar")).toBeInTheDocument();
+
+    await act(async () => {
+      setActive("document", "tab-3");
+    });
+    expect(screen.getByTestId("toolbar")).toBeInTheDocument();
+    expect(screen.getByTestId("findbar")).toBeInTheDocument();
   });
 });
