@@ -1,15 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockGetState } = vi.hoisted(() => ({
-  mockGetState: vi.fn(() => ({ rootPath: "/workspace" })),
-}));
-
-vi.mock("@/stores/workspaceStore", () => ({
-  useWorkspaceStore: { getState: mockGetState },
-}));
-
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { createFileLinkProvider, resolvePath, normalizeBase } from "./fileLinkProvider";
+
+// WI-DP3.0 pilot — archetype "plain / persistence". The real store replaces a
+// hand-built `{ getState }` fake. `rootPath` is the ONLY field this subject
+// reads, so the fake was a two-line stand-in for one string; using the real
+// store removes a contract that could drift from the store's own shape.
+//
+// The eight `toHaveBeenCalledWith` assertions in this file are untouched: they
+// assert on `onActivate`, a callback the TEST owns, not on a store action. That
+// distinction is what the archetype survey missed.
 import type { Terminal, IBufferLine } from "@xterm/xterm";
+
+beforeEach(() => {
+  useWorkspaceStore.setState({ rootPath: "/workspace" });
+});
 
 function makeTerm(lineText: string): Terminal {
   const line: Partial<IBufferLine> = {
@@ -92,7 +98,7 @@ describe("resolvePath (WI-1.5 — root-cwd containment)", () => {
   });
 
   it("returns null for a relative path with no base at all", () => {
-    mockGetState.mockReturnValueOnce({ rootPath: null });
+    useWorkspaceStore.setState({ rootPath: null });
     expect(resolvePath("src/a.ts", () => null)).toBeNull();
   });
 
@@ -394,7 +400,7 @@ describe("createFileLinkProvider", () => {
   });
 
   it("does NOT link a relative path when there is no base (no workspace, no cwd)", () => {
-    mockGetState.mockReturnValueOnce({ rootPath: null });
+    useWorkspaceStore.setState({ rootPath: null });
 
     const term = makeTerm("found ./src/main.ts");
     const provider = createFileLinkProvider(term, onActivate);

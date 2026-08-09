@@ -18,13 +18,12 @@ vi.mock("@/utils/markdownPipeline", () => ({
   serializeMarkdown: vi.fn(() => "SERIALIZED"),
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: { getState: () => ({ markdown: { preserveBlankLines: false } }) },
-}));
-
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: () => ({ activeTabId: { main: "tab-1" } }) },
-}));
+// WI-DP3.0 pilot — archetype "multi-store service". Both store mocks replaced
+// by the real stores, set up together in beforeEach. Converting them ATOMICALLY
+// matters: a store-by-store migration would have left this file reading one real
+// store and one fake, a configuration that exists in no version of the code.
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
 
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ getDocument: () => ({ hardBreakStyle: "unknown" }) }) },
@@ -56,6 +55,10 @@ function setup(setContent: (md: string, opts?: { fromUserEdit?: boolean }) => vo
 // a later one and add a call nobody expects — the same shape that made
 // useUpdateSync flaky. Faking the clock keeps that branch deterministic.
 beforeEach(() => {
+  useSettingsStore.setState({
+    markdown: { ...useSettingsStore.getState().markdown, preserveBlankLines: false },
+  });
+  useTabStore.setState({ activeTabId: { main: "tab-1" } });
   vi.useFakeTimers();
   vi.clearAllMocks();
   vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));

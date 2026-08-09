@@ -1,19 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { BottomBar } from "./BottomBar";
-
-type MockTab = { id: string; kind: string };
-const { state } = vi.hoisted(() => ({
-  state: {
-    activeTabId: { main: "tab-1" as string | null },
-    tabs: { main: [{ id: "tab-1", kind: "document" }] as MockTab[] },
-  },
-}));
+import { useTabStore } from "@/stores/tabStore";
+import type { Tab } from "@/stores/tabStoreTypes";
 
 vi.mock("@/contexts/WindowContext", () => ({ useWindowLabel: () => "main" }));
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: (selector: (s: typeof state) => unknown) => selector(state),
-}));
 vi.mock("@/components/StatusBar", () => ({
   StatusBar: () => <div data-testid="statusbar" />,
 }));
@@ -24,9 +15,16 @@ vi.mock("@/components/FindBar", () => ({
   FindBar: () => <div data-testid="findbar" />,
 }));
 
+// WI-DP3.0 pilot — archetype "React selector consumer". The mock replaced
+// `useTabStore` with a bare `selector(state)` call, which is NOT what the real
+// hook does: the real one subscribes and re-renders. Driving the real store
+// through setState exercises the subscription the component actually depends on,
+// so this conversion makes the test STRICTER, not merely different.
 function setActive(kind: string, id: string | null = "tab-1") {
-  state.activeTabId = { main: id };
-  state.tabs = { main: id ? [{ id, kind }] : [] };
+  useTabStore.setState({
+    activeTabId: { main: id },
+    tabs: { main: id ? ([{ id, kind }] as unknown as Tab[]) : [] },
+  });
 }
 
 describe("BottomBar", () => {
