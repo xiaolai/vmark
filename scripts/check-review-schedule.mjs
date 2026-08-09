@@ -145,7 +145,13 @@ function measure(entryPath) {
   } catch {
     return null;
   }
-  const countKeys = (v) => (Array.isArray(v) ? v.length : Object.keys(v).length);
+  // Comment keys are documentation, not debt. `merge-drop-allowlist.json`
+  // reported 3 entries for 2 real ones because `_comment` was counted, and a
+  // register that miscounts the debt it exists to describe is the same class of
+  // defect as the invented dates it replaced.
+  const isComment = (k) => k.startsWith("//") || k.startsWith("_comment");
+  const countKeys = (v) =>
+    Array.isArray(v) ? v.length : Object.keys(v).filter((k) => !isComment(k)).length;
   let entries = 0;
   let scalars = 0;
   let sawRecords = false;
