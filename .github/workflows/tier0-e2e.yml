@@ -121,34 +121,23 @@ jobs:
             pnpm tauri:dev > e2e/artifacts/app.log 2>&1 &
           echo "APP_PID=$!" >> "$GITHUB_ENV"
 
-      - name: Wait for the automation bridge
+      - name: Wait for the app to become drivable
         shell: bash
-        # Fail loudly with the app log if the bridge never comes up; a silent
-        # skip here would be the same fiction this workflow exists to end.
+        # NOT a TCP probe. `/dev/tcp/127.0.0.1/9323` succeeds the moment the
+        # bridge binds its listener during Tauri setup — before the window
+        # exists and long before the webview runs JS. Run 31298694760
+        # (2026-08-09) reported "bridge up after 1s" and then failed all eight
+        # journeys in 800ms with "Window 'main' not found". The port was a proxy
+        # for readiness; e2e/wait-ready.mjs checks the property — window listed
+        # AND `execute_js` evaluating, which is what every journey needs.
         #
         # The binary is already compiled by the step above, so this budget
-        # covers only vite + app startup on a 2-core runner. 300s is generous
-        # for that and still bounded well inside the job's 45-minute timeout.
-        #
-        # The probe also watches the app PROCESS: if the app dies, waiting the
-        # full budget to report "never came up" is a slower way of saying
-        # something the exit already proved.
+        # covers only vite plus app startup, bounded inside the job timeout.
         run: |
-          for i in $(seq 1 300); do
-            if (echo > /dev/tcp/127.0.0.1/9323) >/dev/null 2>&1; then
-              echo "bridge up after ${i}s"
-              exit 0
-            fi
-            if [ -n "${APP_PID:-}" ] && ! kill -0 "${APP_PID}" 2>/dev/null; then
-              echo "::error::the app exited after ${i}s without opening its bridge"
-              tail -n 200 e2e/artifacts/app.log || true
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "::error::automation bridge (127.0.0.1:9323) never came up in 300s"
-          tail -n 200 e2e/artifacts/app.log || true
-          exit 1
+          if ! node e2e/wait-ready.mjs --timeout-ms 300000; then
+            tail -n 200 e2e/artifacts/app.log || true
+            exit 1
+          fi
 
       - name: Run the Tier-0 journey subset
         shell: bash
