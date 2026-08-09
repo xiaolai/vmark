@@ -13,6 +13,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 export interface ServerHandle {
   url: string;
@@ -21,8 +22,10 @@ export interface ServerHandle {
 
 export type SlidevExportFormat = "pdf" | "png" | "pptx";
 
+// WI-DP2.6: the content_server commands reject with a typed `CommandError`,
+// a plain object — `String(error)` on one yields "[object Object]".
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return commandErrorMessage(error);
 }
 
 /** Start (provisioning if needed) the content server for a workspace. */

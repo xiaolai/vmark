@@ -19,6 +19,7 @@ import {
   type ProviderDiagnostic,
   type UninstallResult,
 } from "./mcpConfigMessages";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 interface ConfigPreview {
   provider: string;
@@ -50,7 +51,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
       setDiagnostics(results);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(commandErrorMessage(err));
     }
   }, []);
 
@@ -70,7 +71,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
       });
       setPreview(previewData);
     } catch (err) {
-      setError(String(err));
+      setError(commandErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         setError(result.message);
       }
     } catch (err) {
-      setError(String(err));
+      setError(commandErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -118,7 +119,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         setError(result.message);
       }
     } catch (err) {
-      setError(String(err));
+      setError(commandErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -144,7 +145,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         setError(result.message);
       }
     } catch (err) {
-      setError(String(err));
+      setError(commandErrorMessage(err));
     } finally {
       setLoading(false);
     }

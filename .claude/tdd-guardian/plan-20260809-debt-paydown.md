@@ -1,6 +1,6 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 67
+**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 54
 legacy signatures; the migration also exposed a red file-size gate and rustfmt
 drift at HEAD, both now fixed). Phase 3 pilot **DONE**, bulk not started.
 Phase 4 **DONE for the exact duplicates** (88 → 80); the remaining 80 are blocked

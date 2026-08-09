@@ -258,3 +258,27 @@ describe("McpConfigInstaller — repair and remove outcomes", () => {
     expect(await screen.findByText(/nothing to remove/i)).toBeInTheDocument();
   });
 });
+
+// WI-DP2.6 — a typed CommandError rejection must surface its message, not "[object Object]"
+describe("McpConfigInstaller — typed CommandError rejections", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it("renders the message of a typed CommandError instead of [object Object]", async () => {
+    // `mcp_config_diagnose` returns Result<_, CommandError>, so a rejection is a
+    // plain OBJECT. `String(err)` on one yields "[object Object]" — which is what
+    // this component used to put on screen the moment the command was typed.
+    invokeMock.mockRejectedValue({
+      code: "permission-denied",
+      message: "cannot read the Claude config",
+    });
+
+    render(<McpConfigInstaller />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/cannot read the Claude config/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/\[object Object\]/)).not.toBeInTheDocument();
+  });
+});
