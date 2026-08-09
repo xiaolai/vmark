@@ -25,7 +25,7 @@ import {
   type AnchorRect,
 } from "@/utils/popupPosition";
 import { isImeKeyEvent } from "@/utils/imeGuard";
-import { popupIcons } from "@/utils/popupComponents";
+import { buildPopupIconButton } from "@/utils/popupComponents";
 import { getPopupHostForDom, toHostCoordsForDom } from "@/plugins/shared/popupHostDom";
 
 const AUTO_DISMISS_MS = 5000;
@@ -76,26 +76,21 @@ class ImagePasteToastView {
     messageEl.className = "image-paste-toast-message";
     messageEl.textContent = i18n.t("editor:plugin.imageDetected");
 
-    // Icon buttons (matching link popup style)
-    // Insert button (check mark)
-    const insertBtn = document.createElement("button");
-    insertBtn.type = "button";
-    insertBtn.className = "image-paste-toast-btn image-paste-toast-btn-insert";
-    const insertLabel = i18n.t("editor:plugin.insertAsImage");
-    insertBtn.title = insertLabel;
-    insertBtn.setAttribute("aria-label", insertLabel);
-    insertBtn.innerHTML = popupIcons.save;
-    insertBtn.addEventListener("click", this.handleInsert);
-
-    // Dismiss button (X mark)
-    const dismissBtn = document.createElement("button");
-    dismissBtn.type = "button";
-    dismissBtn.className = "image-paste-toast-btn image-paste-toast-btn-dismiss";
-    const dismissLabel = i18n.t("editor:plugin.pasteAsText");
-    dismissBtn.title = dismissLabel;
-    dismissBtn.setAttribute("aria-label", dismissLabel);
-    dismissBtn.innerHTML = popupIcons.type;
-    dismissBtn.addEventListener("click", this.handleDismiss);
+    // WI-DP4.1: built by the canonical factory. These were 8 hand-written
+    // lines each that re-created exactly what `buildPopupIconButton` does,
+    // down to the aria-label and the `.popup-icon-btn` surface.
+    const insertBtn = buildPopupIconButton({
+      icon: "save",
+      title: i18n.t("editor:plugin.insertAsImage"),
+      onClick: this.handleInsert,
+      className: "image-paste-toast-btn-insert",
+    });
+    const dismissBtn = buildPopupIconButton({
+      icon: "type",
+      title: i18n.t("editor:plugin.pasteAsText"),
+      onClick: this.handleDismiss,
+      className: "image-paste-toast-btn-dismiss",
+    });
 
     container.appendChild(messageEl);
     container.appendChild(insertBtn);
@@ -222,7 +217,10 @@ class ImagePasteToastView {
       } else if (e.key === "Tab") {
         // Trap focus within toast
         e.preventDefault();
-        const buttons = this.container.querySelectorAll<HTMLButtonElement>(".image-paste-toast-btn");
+        // WI-DP4.1: canonical class, container-scoped. The retired
+        // `.image-paste-toast-btn` was this trap's button enumerator as well
+        // as a style hook, so dropping it silently broke Tab cycling.
+        const buttons = this.container.querySelectorAll<HTMLButtonElement>(".popup-icon-btn");
         const activeEl = document.activeElement as HTMLElement;
         const currentIndex = Array.from(buttons).indexOf(activeEl as HTMLButtonElement);
         const nextIndex = e.shiftKey

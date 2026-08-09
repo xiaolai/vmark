@@ -62,14 +62,12 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
     title: i18n.t("editor:popup.media.browse"),
     onClick: handlers.onBrowse,
   });
-  browseBtn.classList.add("media-popup-btn");
 
   const copyBtn = buildPopupIconButton({
     icon: "copy",
     title: i18n.t("editor:popup.media.copy"),
     onClick: handlers.onCopy,
   });
-  copyBtn.classList.add("media-popup-btn");
 
   // Toggle button (image-only: switch between inline/block)
   const toggleBtn = buildPopupIconButton({
@@ -77,7 +75,7 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
     title: i18n.t("editor:popup.media.toggleBlockInline"),
     onClick: handlers.onToggle,
   });
-  toggleBtn.classList.add("media-popup-btn", "media-popup-btn-toggle");
+  toggleBtn.classList.add("media-popup-btn-toggle");
 
   const deleteBtn = buildPopupIconButton({
     icon: "delete",
@@ -85,7 +83,7 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
     onClick: handlers.onRemove,
     variant: "danger",
   });
-  deleteBtn.classList.add("media-popup-btn", "media-popup-btn-delete");
+  deleteBtn.classList.add("media-popup-btn-delete");
 
   srcRow.appendChild(srcInput);
   srcRow.appendChild(browseBtn);

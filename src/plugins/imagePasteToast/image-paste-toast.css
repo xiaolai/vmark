@@ -35,60 +35,6 @@
   white-space: nowrap;
 }
 
-/* Icon-only buttons - matches link popup */
-.image-paste-toast-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-}
-
-.image-paste-toast-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.image-paste-toast-btn:active {
-  opacity: 0.8;
-}
-
-/* Focus state - U-shaped underline (keyboard focus only) */
-.image-paste-toast-btn:focus-visible {
-  outline: none;
-  color: var(--accent-primary);
-}
-
-.image-paste-toast-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: var(--border-medium) solid var(--accent-primary);
-  border-radius: 0 0 4px 4px;
-}
-
-.image-paste-toast-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
 /* Insert button - primary color on hover */
 .image-paste-toast-btn-insert:hover {
   color: var(--accent-primary);
