@@ -13,6 +13,7 @@
  * @module hooks/useContentServer
  */
 
+import { commandErrorMessage } from "@/services/commands/commandError";
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -34,8 +35,12 @@ import {
   type SlidevExportFormat,
 } from "@/services/contentServer";
 
+// WI-DP2.6: the content_server commands return a typed `CommandError`, which is
+// a plain OBJECT — `String(e)` on one renders "[object Object]". Every rejection
+// from those commands reaches the panel through here, so this must parse the
+// typed shape, not stringify it.
 function toMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return commandErrorMessage(e);
 }
 
 /** Max consecutive auto-restarts after a crash before giving up (WI-1.2). */

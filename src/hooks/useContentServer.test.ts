@@ -113,6 +113,23 @@ describe("useContentServer", () => {
     expect(useContentServerStore.getState().error).toMatch(/spawn boom/);
   });
 
+  // WI-DP2.6 — content_server commands return Result<_, CommandError>, so a
+  // rejection is a plain OBJECT, not an Error. The old `String(e)` rendered it
+  // as "[object Object]" and the panel showed that to the user.
+  it("start failure surfaces a TYPED CommandError's message, not [object Object]", async () => {
+    startContentServer.mockRejectedValue({
+      code: "timeout",
+      message: "content server did not report a port in time",
+    });
+    const { result } = renderHook(() => useContentServer());
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(useContentServerStore.getState().error).toBe(
+      "content server did not report a port in time",
+    );
+  });
+
   it("stop calls the service and resets the store", async () => {
     stopContentServer.mockResolvedValue(undefined);
     useContentServerStore.getState().setRunning("http://127.0.0.1:7", 7);
