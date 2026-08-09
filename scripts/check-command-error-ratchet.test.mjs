@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -645,5 +645,46 @@ describe("check-command-error-ratchet.mjs — the String() check is actually wir
         'const r = await invoke("typed_cmd");\n} catch (error) { show(commandErrorMessage(error)); }',
     });
     expect(runGate(root, { files: {} }).status).toBe(0);
+  });
+});
+
+// A `// command-error-ok:` marker is a SUPPRESSION with no allowlist file to
+// review — nothing stopped a second one appearing quietly, which is the same
+// move as adding a baseline entry, minus the diff a reviewer would see. This
+// freezes the identity list in both directions, the house standard: a new
+// exemption fails, and removing one fails until the win is recorded here.
+describe("command-error-ok exemptions are a frozen identity list", () => {
+  const EXEMPT_FILES = ["src/stores/settingsStore/shortcuts.ts"];
+
+  /** Every non-test file under src/ carrying the marker. */
+  function markedFiles(dir, out = []) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "__tests__") markedFiles(full, out);
+      } else if (
+        /\.(?:[cm]?tsx?|[cm]?jsx?)$/.test(entry.name) &&
+        !/\.(?:test|spec)\./.test(entry.name) &&
+        readFileSync(full, "utf8").includes("command-error-ok:")
+      ) {
+        out.push(path.relative(REPO, full).split(path.sep).join("/"));
+      }
+    }
+    return out;
+  }
+
+  it("matches the documented set exactly", () => {
+    expect(markedFiles(path.join(REPO, "src")).sort()).toEqual([...EXEMPT_FILES].sort());
+  });
+
+  it("every marker states a reason — a bare one is a mute button", () => {
+    for (const rel of EXEMPT_FILES) {
+      const lines = readFileSync(path.join(REPO, rel), "utf8").split("\n");
+      const marked = lines.filter((l) => l.includes("command-error-ok:"));
+      expect(marked.length).toBeGreaterThan(0);
+      for (const line of marked) {
+        expect(line).toMatch(/\/\/[^\S\n]*command-error-ok:[^\S\n]*\S/);
+      }
+    }
   });
 });
