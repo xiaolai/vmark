@@ -1,6 +1,10 @@
 # Baseline debt paydown — the mechanical half
 
-**Status:** revision 3. Phases 0 and 1 **DONE**; WI-DP3.0 pilot **DONE**. Phases 2, 3, 4 not started.
+**Status:** revision 4. Phases 0 and 1 **DONE**. Phase 2 **IN PROGRESS** (99 → 67
+legacy signatures; the migration also exposed a red file-size gate and rustfmt
+drift at HEAD, both now fixed). Phase 3 pilot **DONE**, bulk not started.
+Phase 4 **DONE for the exact duplicates** (88 → 80); the remaining 80 are blocked
+on a design ruling, not on throughput — see WI-DP4.1.
 **Date:** 2026-08-09
 **Cross-model review (governance §6):** Review thread: `019fe5eb-36fb-7ee2-9f1b-65d8512e84c6`
 · Codex `gpt-5.6-sol`, effort high · **Verdict on revision 1: MAJOR GAPS.**
@@ -425,9 +429,49 @@ separately.** Not attempted in this pass.
 
 ### WI-DP4.1 — convert to the canonical components
 
-**Status:** IN PROGRESS — 2026-08-09 · `.link-popup-btn` converted, 88 → 87 by name
-**Changed:** src/plugins/linkPopup/{linkPopupDom.ts,link-popup.css}, scripts/bespoke-buttons-baseline.json
-**Verified:** computed styles diffed in the RUNNING app before/after — all four buttons IDENTICAL across 13 properties plus svg sizing · 6 files / 156 tests green · `pnpm lint:bespoke-buttons` 87/87 · `lint:design-tokens`, `eslint`, `tsc` clean
+**Status:** DONE (duplicates) — 2026-08-09 · all 8 exact duplicates converted, 88 → 80 by name
+**Changed:** src/plugins/{linkPopup,footnotePopup,imagePasteToast,mediaPopup,sourceLinkPopup,sourceImagePopup,sourceWikiLinkPopup,sourceFootnotePopup}/*, src/styles/media-popup-shared.css, scripts/{bespoke-buttons,file-size}-baseline.json
+**Verified:** `pnpm lint:bespoke-buttons` 80/80 both counts · 1006 tests across the nine touched plugins · `tsc`, `lint:design-tokens`, `lint:file-size`, `lint:store-coupling` green
+
+**The remaining 80 are NOT duplicates** — the deliberately-different set below
+still needs a design ruling, which is why this WI is done only for the half it
+could settle on evidence.
+
+**How the last 7 were proven equal — the comparator lied first.** A per-rule
+diff initially reported 6 of the 7 as REVIEW and `.media-popup-btn` as
+DUPLICATE. Both verdicts were artifacts: it captured leading CSS comments into
+the selector key, it did not normalise the canonical's `:hover:not(:disabled)`
+against a bespoke `:hover`, and — the dangerous one — it reported DUPLICATE for
+`.media-popup-btn` because it matched **zero** rules there (wrong path), so an
+empty diff read as identical. A vacuous pass looks exactly like a real one.
+The rebuilt comparator diffs declarations per suffix and reports which side is
+missing a rule, which is what produced the actual finding: **the canonical is a
+strict superset of all seven** — identical base/hover/active/svg, plus
+`flex-shrink: 0`, a real `:disabled` rule, and the `:not(:disabled)` guards.
+
+**Two apparent differences that were aliases, checked rather than assumed:**
+- `--accent-primary` vs `--primary-color` in the image-paste-toast focus ring.
+  A grep for `--token:` assignments was NOT sufficient — a runtime writer using
+  `setProperty` would not match it. `computeCoreColorVars` writes both from the
+  same `colors.link` field, and the committed `emittedCssVars` snapshot has them
+  equal in all six themes. Stronger than a screenshot, and it covers dark mode.
+- `4px` vs `var(--radius-sm)` — the same value.
+
+**A base class can be a BEHAVIOURAL consumer, not just a style hook.**
+`.image-paste-toast-btn` was how the Tab focus trap enumerated its buttons, so
+retiring it broke focus cycling — caught by the plugin's own tests, not by any
+gate. A sweep of all eight retired classes for `querySelector` /
+`classList.contains` / `closest` found no second instance, so this was one case
+rather than a class. **Check for this before retiring any future class.**
+
+**The file-size gate was already red at HEAD, and nothing had said so.** The
+WI-DP2.x migration pushed `browser/authorize.rs` to 337 and `pty.rs` to 315;
+`check:all` had not been run since. Split into `browser/refusals.rs` (the
+refusal vocabulary) and `pty/reader.rs` (`pty_start` + its reader thread) —
+270 and 197. `cargo fmt` also rewrapped five files whose typed signatures had
+grown past 100 columns, i.e. **rustfmt drift had reached a commit**, exactly as
+`60-ai-governance.md` §10 describes: `check:all` is frontend-only and never
+runs `cargo fmt --check`.
 
 **THE PHASE SPLITS IN TWO, AND ONLY ONE HALF IS MECHANICAL.** A declaration-set
 comparison against the two canonical surfaces separates them:
@@ -465,9 +509,14 @@ actually means. The screenshot remains useful for layout, not for equality.
    guards hover/active with `:not(:disabled)` and defines a `:disabled` rule the
    duplicate lacked, so a disabled link-popup button used to take hover styling.
 
-Remaining duplicates: 7 classes, same method.
-- [ ] Each bespoke class replaced by `.vm-btn` / `.popup-icon-btn` /
-      `.universal-toolbar-btn` per `32-component-patterns.md`.
+- [x] Every EXACT duplicate replaced by `.popup-icon-btn` per
+      `32-component-patterns.md`. 8 of 8 done; budget 88 → 80.
+- [ ] **Open, and it is a design call, not cleanup:** the remaining 80 differ
+      on purpose or are unexamined. `.find-bar-nav-btn` is 24px/12px against
+      the canonical 26/14 and `.find-bar-icon-btn` carries a border the
+      canonical lacks — converting those CHANGES THE UI. Someone has to rule
+      on whether the find bar should look like everything else; until then the
+      budget cannot fall further on evidence alone.
 - [ ] CSS-only changes are TDD-exempt (`10-tdd.md`) — so **visual QA replaces
       tests**, in both themes, against `dev-docs/css-reference.md`. Skipping it
       because "no test failed" would be trusting a gate that was never watching.
