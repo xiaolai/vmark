@@ -89,6 +89,26 @@ jobs:
         # journeys exercise a running app rather than a compile.
         run: pnpm --dir server/mcp build:sidecar
 
+      - name: Compile the debug binary
+        shell: bash
+        # SEPARATE from the launch, and this is the whole point: `tauri dev`
+        # compiles the crate on startup, so on a cache-cold runner the app does
+        # not exist yet when the readiness probe starts counting. The first ever
+        # run of this workflow (31298376571, 2026-08-09) died exactly there —
+        # the 180-second bridge wait expired with cargo at 752/754 crates. The
+        # workflow could not have passed its first run, which is precisely the
+        # kind of claim only a live run can falsify.
+        #
+        # Compiling here also makes the two failure modes tell themselves
+        # apart: a broken build fails with a compiler error, and the wait step
+        # below then means only "the app started but never opened its bridge".
+        # Folding them together produces the least useful message available —
+        # a timeout that could mean anything.
+        #
+        # Same manifest and profile `tauri dev` uses, so this populates the
+        # cache it will hit rather than a parallel one.
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
       - name: Launch the debug app under Xvfb
         shell: bash
         env:
@@ -105,15 +125,28 @@ jobs:
         shell: bash
         # Fail loudly with the app log if the bridge never comes up; a silent
         # skip here would be the same fiction this workflow exists to end.
+        #
+        # The binary is already compiled by the step above, so this budget
+        # covers only vite + app startup on a 2-core runner. 300s is generous
+        # for that and still bounded well inside the job's 45-minute timeout.
+        #
+        # The probe also watches the app PROCESS: if the app dies, waiting the
+        # full budget to report "never came up" is a slower way of saying
+        # something the exit already proved.
         run: |
-          for i in $(seq 1 180); do
+          for i in $(seq 1 300); do
             if (echo > /dev/tcp/127.0.0.1/9323) >/dev/null 2>&1; then
               echo "bridge up after ${i}s"
               exit 0
             fi
+            if [ -n "${APP_PID:-}" ] && ! kill -0 "${APP_PID}" 2>/dev/null; then
+              echo "::error::the app exited after ${i}s without opening its bridge"
+              tail -n 200 e2e/artifacts/app.log || true
+              exit 1
+            fi
             sleep 1
           done
-          echo "::error::automation bridge (127.0.0.1:9323) never came up"
+          echo "::error::automation bridge (127.0.0.1:9323) never came up in 300s"
           tail -n 200 e2e/artifacts/app.log || true
           exit 1
 
