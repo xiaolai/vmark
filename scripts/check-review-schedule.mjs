@@ -174,6 +174,36 @@ function measure(entryPath) {
   return sawScalar ? scalars : null;
 }
 
+/**
+ * A shallow clone cannot answer "how long has this gone unchanged".
+ *
+ * `git log -1 -- <path>` in a depth-1 checkout can only ever return the single
+ * fetched commit, so EVERY baseline reports the run's own timestamp — 0d,
+ * forever, sorted meaninglessly. That is exactly what this report existed to
+ * detect ("a row that never moves is the finding"), rendered undetectable.
+ *
+ * It shipped that way: issue #1248 was filed with all 11 rows at 0d while the
+ * same command locally reported 0–8d. `actions/checkout` defaults to
+ * `fetch-depth: 1`, and nothing objected, because zeros look like data.
+ *
+ * Refusing is the documented contract for report mode — informational, "unless
+ * it cannot measure" — and it fails LOUD rather than publishing a table of
+ * zeros that reads as a healthy register.
+ */
+function assertCanMeasureHistory() {
+  const out = spawnSync("git", ["rev-parse", "--is-shallow-repository"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  if (out.status !== 0 || out.stdout.trim() !== "true") return;
+  console.error(
+    "check-review-schedule --report: this is a SHALLOW clone, so every baseline " +
+      "would report 0d and the staleness column would be a lie.\n" +
+      "Fetch full history: `actions/checkout` with `fetch-depth: 0`.",
+  );
+  process.exit(1);
+}
+
 /** Days since the file last changed in git, or null when it cannot be read. */
 function daysSinceChange(entryPath, now) {
   const out = spawnSync("git", ["log", "-1", "--format=%ct", "--", entryPath], {
@@ -192,6 +222,8 @@ if (Number.isNaN(now)) {
   console.error(`--today=${todayFlag} is not a date`);
   process.exit(1);
 }
+
+assertCanMeasureHistory();
 
 const rows = Object.keys(tracked)
   .map((p) => ({ path: p, size: measure(p), stale: daysSinceChange(p, now), target: tracked[p] }))
