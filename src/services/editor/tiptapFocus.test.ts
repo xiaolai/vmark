@@ -2,7 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { EditorView } from "@tiptap/pm/view";
-import { scheduleTiptapFocusAndRestore } from "./tiptapFocus";
+import { Schema } from "@tiptap/pm/model";
+import { PROGRAMMATIC_SELECTION_META, scheduleTiptapFocusAndRestore } from "./tiptapFocus";
+import { clearEditorScrollOffsets, setEditorScrollOffset } from "./scrollPosition";
 
 describe("scheduleTiptapFocusAndRestore", () => {
   it("focuses and restores once the view is connected", () => {
@@ -504,6 +506,154 @@ describe("scheduleTiptapFocusAndRestore", () => {
 
     // view.dom itself was identified as scroll container and scrollTop was set to 0
     expect(scrollTop).toBe(0);
+  });
+
+  it("restores the tab's remembered reading position on a fresh load (#1249)", () => {
+    // The reported bug: a reader who never clicked has no cursorInfo, so this
+    // branch used to hard-scroll them to the top of the document.
+    clearEditorScrollOffsets("tab-read");
+    setEditorScrollOffset("tab-read", "wysiwyg", 900);
+
+    let scrollTop = 0;
+    const scrollContainer = {
+      get scrollTop() { return scrollTop; },
+      set scrollTop(val: number) { scrollTop = val; },
+      style: { overflowY: "auto" },
+      parentElement: null,
+    };
+    const view = {
+      dom: { isConnected: true, parentElement: scrollContainer },
+      focus: vi.fn(),
+      dispatch: vi.fn(),
+      state: {
+        doc: { content: { size: 10 } },
+        tr: { setSelection: vi.fn().mockReturnThis() },
+      },
+    } as unknown as EditorView;
+
+    const raf = vi.fn((cb: FrameRequestCallback) => { cb(0); return 1; });
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = raf;
+
+    scheduleTiptapFocusAndRestore(
+      { isDestroyed: false, view } as TiptapEditor,
+      vi.fn().mockReturnValue(null),
+      vi.fn(),
+      "tab-read",
+    );
+
+    globalThis.requestAnimationFrame = originalRaf;
+    clearEditorScrollOffsets("tab-read");
+
+    expect(scrollTop).toBe(900);
+  });
+
+  it("still starts at the top for a tab with nothing remembered (#1249)", () => {
+    clearEditorScrollOffsets("tab-fresh");
+    let scrollTop = 300;
+    const scrollContainer = {
+      get scrollTop() { return scrollTop; },
+      set scrollTop(val: number) { scrollTop = val; },
+      style: { overflowY: "auto" },
+      parentElement: null,
+    };
+    const view = {
+      dom: { isConnected: true, parentElement: scrollContainer },
+      focus: vi.fn(),
+      dispatch: vi.fn(),
+      state: {
+        doc: { content: { size: 10 } },
+        tr: { setSelection: vi.fn().mockReturnThis() },
+      },
+    } as unknown as EditorView;
+
+    const raf = vi.fn((cb: FrameRequestCallback) => { cb(0); return 1; });
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = raf;
+
+    scheduleTiptapFocusAndRestore(
+      { isDestroyed: false, view } as TiptapEditor,
+      vi.fn().mockReturnValue(null),
+      vi.fn(),
+      "tab-fresh",
+    );
+
+    globalThis.requestAnimationFrame = originalRaf;
+
+    expect(scrollTop).toBe(0);
+  });
+
+  it("leaves the viewport to the cursor restore when a cursor exists (#1249)", () => {
+    // A remembered offset must NOT override cursor restoration: the cursor also
+    // carries the WYSIWYG↔Source position mapping.
+    clearEditorScrollOffsets("tab-clicked");
+    setEditorScrollOffset("tab-clicked", "wysiwyg", 900);
+
+    let scrollTop = 0;
+    const scrollContainer = {
+      get scrollTop() { return scrollTop; },
+      set scrollTop(val: number) { scrollTop = val; },
+      style: { overflowY: "auto" },
+      parentElement: null,
+    };
+    const view = {
+      dom: { isConnected: true, parentElement: scrollContainer },
+      focus: vi.fn(),
+    } as unknown as EditorView;
+
+    const restoreCursor = vi.fn();
+    const raf = vi.fn((cb: FrameRequestCallback) => { cb(0); return 1; });
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = raf;
+
+    scheduleTiptapFocusAndRestore(
+      { isDestroyed: false, view } as TiptapEditor,
+      vi.fn().mockReturnValue({ contentLineIndex: 3 }),
+      restoreCursor,
+      "tab-clicked",
+    );
+
+    globalThis.requestAnimationFrame = originalRaf;
+    clearEditorScrollOffsets("tab-clicked");
+
+    expect(restoreCursor).toHaveBeenCalledTimes(1);
+    expect(scrollTop).toBe(0);
+  });
+
+  it("marks its own caret reset so tracking cannot mistake it for a click (#1249)", () => {
+    // The reported bug's real cause. This branch resets the caret to the
+    // document start; on a document slow enough to parse, that lands after the
+    // 200ms cursor-tracking gate opens and is recorded as the reader placing a
+    // cursor at the first heading — after which every remount "restores" them
+    // to the top. Observed live before the meta existed.
+    // A REAL doc: `Selection.atStart` rejects a stand-in, and the branch
+    // swallows that — which would make this test pass against no meta at all.
+    const schema = new Schema({
+      nodes: { doc: { content: "paragraph+" }, paragraph: { content: "text*" }, text: {} },
+    });
+    const doc = schema.node("doc", null, [schema.node("paragraph", null, [schema.text("hello")])]);
+    const setMeta = vi.fn().mockReturnThis();
+    const tr = { setSelection: vi.fn().mockReturnThis(), setMeta };
+    const view = {
+      dom: { isConnected: true, parentElement: null },
+      focus: vi.fn(),
+      dispatch: vi.fn(),
+      state: { doc, tr },
+    } as unknown as EditorView;
+
+    const raf = vi.fn((cb: FrameRequestCallback) => { cb(0); return 1; });
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = raf;
+
+    scheduleTiptapFocusAndRestore(
+      { isDestroyed: false, view } as TiptapEditor,
+      vi.fn().mockReturnValue(null),
+      vi.fn(),
+    );
+
+    globalThis.requestAnimationFrame = originalRaf;
+
+    expect(setMeta).toHaveBeenCalledWith(PROGRAMMATIC_SELECTION_META, true);
   });
 
   it("handles setSelection throwing an error gracefully", () => {

@@ -31,10 +31,13 @@ vi.mock("@codemirror/state", () => ({
   })),
 }));
 
+const mockScrollDOM = document.createElement("div"); // jsdom pins layout props to 0; make them real
+for (const [k, v] of [["scrollTop", 0], ["scrollHeight", 4000], ["clientHeight", 500]] as const) Object.defineProperty(mockScrollDOM, k, { value: v, writable: true, configurable: true });
 const mockEditorViewInstance = {
   dispatch: mockDispatch,
   destroy: mockDestroy,
   focus: mockFocus,
+  scrollDOM: mockScrollDOM,
   state: {
     doc: { toString: mockDocToString, length: 7 },
     selection: { main: { head: 0, anchor: 0 } },
@@ -246,6 +249,7 @@ vi.mock("@/stores/tabStore", () => {
 });
 
 import { SourceEditor } from "./SourceEditor";
+import { setEditorScrollOffset } from "@/services/editor/scrollPosition";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -453,15 +457,11 @@ describe("SourceEditor", () => {
       expect(mockFocus).not.toHaveBeenCalled();
     });
 
-    it("dispatches anchor:0 when no cursorInfo is available", () => {
+    it("restores the remembered reading position, not the top (#1249)", () => {
+      setEditorScrollOffset("tab-1", "source", 640);
       render(<SourceEditor />);
       vi.advanceTimersByTime(60);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          selection: { anchor: 0 },
-          scrollIntoView: true,
-        })
-      );
+      expect(mockScrollDOM.scrollTop).toBe(640);
     });
 
     it("restores cursor when cursorInfo is available", async () => {

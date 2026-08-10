@@ -31,6 +31,10 @@ vi.mock("@/stores/aiStore", () => ({
 }));
 
 import { cleanupTabState } from "./tabCleanup";
+import {
+  getEditorScrollOffset,
+  setEditorScrollOffset,
+} from "@/services/editor/scrollPosition";
 
 describe("cleanupTabState", () => {
   beforeEach(() => {
@@ -55,5 +59,18 @@ describe("cleanupTabState", () => {
   it("calls clearForTab (ai suggestions) for the tabId", () => {
     cleanupTabState("tab-123");
     expect(mockClearForTab).toHaveBeenCalledWith("tab-123");
+  });
+
+  it("forgets the remembered reading positions for the tabId (#1249)", () => {
+    setEditorScrollOffset("tab-123", "wysiwyg", 400);
+    setEditorScrollOffset("tab-123", "source", 90);
+    setEditorScrollOffset("tab-456", "wysiwyg", 400);
+
+    cleanupTabState("tab-123");
+
+    expect(getEditorScrollOffset("tab-123", "wysiwyg")).toBeUndefined();
+    expect(getEditorScrollOffset("tab-123", "source")).toBeUndefined();
+    // A closing tab must not take another tab's position with it.
+    expect(getEditorScrollOffset("tab-456", "wysiwyg")).toBe(400);
   });
 });

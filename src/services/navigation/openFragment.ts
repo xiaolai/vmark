@@ -20,6 +20,8 @@
  *
  * @coordinates-with services/navigation/openFileEvent.ts — carries the fragment
  * @coordinates-with services/editor/editorActionOwner.ts — the retry timers
+ * @coordinates-with services/editor/scrollPosition.ts — cancels a reading-position
+ *   restore, whose watch window overlaps this one's retries (#1249)
  * @coordinates-with utils/headingSlug.ts — navigateToHeadingById
  * @module services/navigation/openFragment
  */
@@ -27,6 +29,7 @@
 import { useEditorStore } from "@/stores/editorStore";
 import { getEditorActionOwner } from "@/services/editor/editorActionOwner";
 import { navigateToHeadingById } from "@/utils/headingSlug";
+import { cancelEditorScrollRestore } from "@/services/editor/scrollPosition";
 import { fileOpsError } from "@/utils/debug";
 
 /**
@@ -46,6 +49,10 @@ function tryNavigate(fragment: string): boolean {
   const view = useEditorStore.getState().active.activeWysiwygEditor?.view;
   if (!view) return false;
   try {
+    // This jump owns the viewport now. A reading-position restore (#1249) holds
+    // the container for up to ~1.5s after a mount, which overlaps this retry
+    // window, so the handoff is explicit rather than last-writer-wins.
+    cancelEditorScrollRestore();
     return navigateToHeadingById(view, fragment);
   } catch (error) {
     fileOpsError("Fragment navigation failed:", error);
