@@ -13,8 +13,11 @@
  *     keepAlive mode keeps both editors mounted.
  *   - Parent scroll reset on mount fixes a displacement bug where .editor-content retains
  *     scrollTop from WYSIWYG mode.
+ *   - Scroll offset is remembered per tab, so a remount with no cursor to restore
+ *     to comes back to the reading position instead of the top (#1249).
  *
  * @coordinates-with TiptapEditor.tsx — shares document content via documentStore
+ * @coordinates-with sourceFocusRestore.ts — the shared focus/cursor/scroll restore step
  * @coordinates-with utils/cursorSync/codemirror.ts — cursor position extraction/restoration
  * @coordinates-with stores/activeEditorStore.ts — registers as the active source view
  * @module components/Editor/SourceEditor
@@ -35,10 +38,8 @@ import {
 } from "@/hooks/useDocumentState";
 import { useSourceEditorSearch } from "@/hooks/useSourceEditorSearch";
 import { useSourceEditorSync } from "@/hooks/useSourceEditorSync";
-import {
-  getCursorInfoFromCodeMirror,
-  restoreCursorInCodeMirror,
-} from "@/utils/cursorSync/codemirror";
+import { getCursorInfoFromCodeMirror } from "@/utils/cursorSync/codemirror";
+import { trackEditorScroll } from "@/services/editor/scrollPosition";
 import { useEditorStore } from "@/stores/editorStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { buildSourceShortcutKeymap } from "@/plugins/codemirror/sourceShortcuts";
@@ -53,7 +54,7 @@ import {
   shortcutKeymapCompartment,
   readOnlyCompartment,
 } from "@/services/assembly/sourceEditorExtensions";
-import { consumeSourcePendingNav } from "./sourcePendingNav";
+import { focusAndRestoreSource } from "./sourceFocusRestore";
 
 interface SourceEditorProps {
   hidden?: boolean;
@@ -238,24 +239,17 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       view
     );
 
-    // Auto-focus and restore cursor on mount (only when visible)
+    // Remember this tab's reading position while the view lives (#1249).
+    const stopScrollMemory = trackEditorScroll(view.scrollDOM, mountTabId, "source");
+
+    // Auto-focus and restore cursor/scroll on mount (only when visible)
     const initialCursorInfo = cursorInfo;
     let focusTimeoutId: ReturnType<typeof setTimeout> | null = null;
     if (!hiddenRef.current) {
       focusTimeoutId = setTimeout(() => {
         /* v8 ignore next -- @preserve defensive guard: view is cleared by cleanup before timeout fires */
         if (!viewRef.current) return; // Defensive — cleanup clears this timeout
-        view.focus();
-        if (initialCursorInfo) {
-          restoreCursorInCodeMirror(view, initialCursorInfo);
-        } else {
-          view.dispatch({
-            selection: { anchor: 0 },
-            scrollIntoView: true,
-          });
-        }
-        // Consume pending lint-scroll / content-search navigation for this tab
-        consumeSourcePendingNav(view, mountTabId);
+        focusAndRestoreSource(view, mountTabId, initialCursorInfo);
       }, 50);
     }
 
@@ -263,6 +257,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (focusTimeoutId !== null) clearTimeout(focusTimeoutId);
       searchCounter.cancel();
       unsubscribeShortcuts();
+      stopScrollMemory();
       useEditorStore.getState().clearSourceViewIfMatch(view);
       view.destroy();
       viewRef.current = null;
@@ -296,15 +291,10 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     const visibleTabId = tabIds[windowLabel] ?? undefined;
     if (isFocusedPaneRef.current) useEditorStore.getState().setActiveSourceView(view, visibleTabId);
 
-    // Focus and restore cursor
+    // Focus and restore cursor/scroll
     setTimeout(() => {
       if (!viewRef.current || hiddenRef.current) return;
-      view.focus();
-      if (cursorInfoRef.current) {
-        restoreCursorInCodeMirror(view, cursorInfoRef.current);
-      }
-      // Consume pending lint-scroll / content-search navigation for this tab
-      consumeSourcePendingNav(view, visibleTabId);
+      focusAndRestoreSource(view, visibleTabId, cursorInfoRef.current);
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);

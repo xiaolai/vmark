@@ -108,7 +108,8 @@ export function useTiptapContentSync({
       scheduleTiptapFocusAndRestore(
         editor,
         () => cursorInfoRef.current,
-        restoreCursorInTiptap
+        restoreCursorInTiptap,
+        activeTabId,
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
