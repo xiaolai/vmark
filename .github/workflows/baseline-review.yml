@@ -56,6 +56,12 @@ jobs:
       watcherDetail: ${{ steps.watcher.outputs.detail }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Staleness is `git log -1 -- <path>`, which in the default depth-1
+          # checkout sees ONE commit and reports 0d for every baseline — the
+          # shape of a healthy register, and the exact signal this report
+          # exists to surface. Issue #1248 was filed that way.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
       - uses: actions/setup-node@v7

@@ -35,7 +35,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,6 +155,45 @@ describe("--report is a measurement, not a verdict", () => {
   it("validation mode needs no clock at all", () => {
     const r = run({ paths: ["a.json", "b.json"], schedule: sched });
     expect(r.status, r.stdout + r.stderr).toBe(0);
+  });
+});
+
+describe("a shallow clone cannot measure staleness", () => {
+  /** A throwaway repo with the script inside it, so ROOT resolves to it. */
+  function shallowFixture({ shallow }) {
+    const dir = mkdtempSync(path.join(tmpdir(), "review-shallow-"));
+    const git = (...args) =>
+      spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: dir, encoding: "utf8" });
+    git("init", "-q");
+    git("commit", "-q", "--allow-empty", "-m", "one");
+    mkdirSync(path.join(dir, "scripts"));
+    copyFileSync(SCRIPT, path.join(dir, "scripts", "check-review-schedule.mjs"));
+    // `git rev-parse --is-shallow-repository` answers on this file's existence.
+    if (shallow) writeFileSync(path.join(dir, ".git", "shallow"), "");
+    const m = manifestFixture(dir, ["a.json"]);
+    const s = scheduleFixture(dir, { tracked: { "a.json": "zero" }, exempt: {} });
+    return spawnSync(
+      process.execPath,
+      [path.join(dir, "scripts", "check-review-schedule.mjs"), `--manifest=${m}`, `--schedule=${s}`, "--report"],
+      { encoding: "utf8", cwd: dir },
+    );
+  }
+
+  it("refuses instead of publishing a table of zeros (issue #1248)", () => {
+    // Every row read 0d in CI because actions/checkout defaults to depth 1, so
+    // `git log -1 -- <path>` only ever saw the fetched commit. Zeros look like
+    // data, which is why nothing objected for as long as it did.
+    const r = shallowFixture({ shallow: true });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/SHALLOW/);
+    expect(r.stderr).toMatch(/fetch-depth: 0/);
+    expect(r.stdout).not.toMatch(/Unchanged for/);
+  });
+
+  it("reports normally with full history — the check is not just always-fail", () => {
+    const r = shallowFixture({ shallow: false });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).toMatch(/Unchanged for/);
   });
 });
 
