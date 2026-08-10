@@ -6,6 +6,7 @@ import { useAiSuggestionStore } from "@/stores/aiStore";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { clearPendingContentSearchNav } from "@/services/navigation/contentSearchNavigation";
 import { clearPendingLintScroll } from "@/services/lint/lintNavigation";
+import { clearEditorScrollOffsets } from "@/services/editor/scrollPosition";
 
 /**
  * Clean up all per-tab state when a tab is closed or detached.
@@ -20,4 +21,5 @@ export function cleanupTabState(tabId: string): void {
   useLargeFileSessionStore.getState().clearForcedSource(tabId);
   clearPendingContentSearchNav(tabId);
   clearPendingLintScroll(tabId);
+  clearEditorScrollOffsets(tabId);
 }
