@@ -45,7 +45,11 @@ any `cargo build --locked` / `--frozen` (release + CI).
 
    # MCP server files
    sed -i '' 's/"version": "[^"]*"/"version": "'$VERSION'"/' server/mcp/package.json
-   sed -i '' 's/const VERSION = "[^"]*"/const VERSION = "'$VERSION'"/' server/mcp/src/cli.ts
+   # NOTE the quote class: cli.ts declares VERSION with SINGLE quotes. A
+   # double-quote-only pattern matches nothing, exits 0, and leaves the sidecar
+   # reporting the old version — the "forgot the MCP files" mistake below,
+   # produced by the fix for it. Hit live on the 0.9.33 bump.
+   sed -i '' "s/const VERSION = ['\"][^'\"]*['\"]/const VERSION = '$VERSION'/" server/mcp/src/cli.ts
 
    # Sync the derived lockfile so src-tauri/Cargo.lock's `vmark` entry matches
    # Cargo.toml. Locks 0 other packages; any cargo invocation against the

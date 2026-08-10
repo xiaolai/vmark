@@ -52,6 +52,19 @@ always visible and the mutual exclusivity is explicit. **Word Wrap** and
 **Line Numbers** apply to the source editor only, so they are greyed out while
 you are in WYSIWYG mode.
 
+### Reading Position
+
+Your place in a document survives leaving it. Switching to another tab and back,
+toggling Source mode or Split View, or having the file reloaded from disk all
+return you to where you were reading — not to the top.
+
+Each surface remembers its own position, so Rich Text and Source keep separate
+places in the same file. If you have put a cursor in the document, the cursor
+still wins: coming back lands you at the caret, which is also what keeps the
+same paragraph in view when you switch between Rich Text and Source.
+
+Positions are per document and per session — closing a tab forgets it.
+
 ### Large Files
 
 VMark auto-opens files over 1 MB in Source mode for a sub-second open, warns before touching files above 5 MB, and refuses files over 50 MB. See the [Large Files](./large-files.md) guide for thresholds and settings.

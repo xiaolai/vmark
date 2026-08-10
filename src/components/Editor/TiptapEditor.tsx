@@ -18,6 +18,8 @@
  *   - Native spellcheck disabled above 100K chars where rescans block the main thread.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
+ *   - Scroll offset is remembered per tab, so a remount with no cursor to restore
+ *     to comes back to the reading position instead of the top (#1249).
  *   - Flusher registration moved to useEffect (not onCreate) to handle React Strict Mode
  *     double-mount without duplicate registrations.
  *   - Hidden mode skips all store updates and content syncs, deferring to visibility transition.
@@ -42,7 +44,7 @@ import { useTiptapUnmountFlush } from "@/hooks/useTiptapUnmountFlush";
 import { useFileLoadStore } from "@/stores/documentStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
-import { scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
+import { PROGRAMMATIC_SELECTION_META, scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
 import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
 import { useTiptapSettingsSync } from "@/hooks/useTiptapSettingsSync";
 import type { CursorInfo } from "@/stores/documentStore";
@@ -57,6 +59,7 @@ import { consumeWysiwygPendingNav } from "./wysiwygPendingNav";
 import { ImageContextMenu } from "./ImageContextMenu";
 import { useTiptapContentSync } from "./useTiptapContentSync";
 import { useTiptapFlush } from "./useTiptapFlush";
+import { useWysiwygScrollMemory } from "./useWysiwygScrollMemory";
 import {
   applySpellcheckForDocSize,
   buildTiptapEditorProps,
@@ -236,14 +239,8 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
         // restore would clobber its selection, and without this consumption
         // the initial navigation was dropped entirely — the visibility effect
         // runs before this deferred init and never re-fires.
-        if (!hiddenRef.current && !previewRef.current) {
-          if (!consumeWysiwygPendingNav(view, activeTabId)) {
-            scheduleTiptapFocusAndRestore(
-              editor,
-              () => cursorInfoRef.current,
-              restoreCursorInTiptap
-            );
-          }
+        if (!hiddenRef.current && !previewRef.current && !consumeWysiwygPendingNav(view, activeTabId)) {
+          scheduleTiptapFocusAndRestore(editor, () => cursorInfoRef.current, restoreCursorInTiptap, activeTabId);
         }
 
         if (view && !previewRef.current) {
@@ -283,13 +280,13 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       // Debounced serialize-to-store (RAF for small docs, timeout for large).
       scheduleFlush(editor);
     },
-    onSelectionUpdate: ({ editor }) => {
+    onSelectionUpdate: ({ editor, transaction }) => {
       if (hiddenRef.current || previewRef.current) return;
       // Selection text sync runs before the cursor-tracking gate (no feedback
       // loop) so the status bar reflects the active editor after a mode switch.
       const { from, to, empty } = editor.state.selection;
       setSelectedText(empty ? "" : editor.state.doc.textBetween(from, to, "\n", " "));
-      if (!cursorTrackingEnabled.current) return;
+      if (!cursorTrackingEnabled.current || transaction?.getMeta(PROGRAMMATIC_SELECTION_META)) return;
       const view = getTiptapEditorView(editor);
       if (!view) return;
       scheduleCursorUpdate(getCursorInfoFromTiptap(view));
@@ -341,6 +338,8 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
 
   // Register into editorStore — visible + focused pane only (#1081).
   useFocusedPaneTiptapRegistration(editor, { hidden, preview, activeTabId, windowLabel });
+
+  useWysiwygScrollMemory(editorContainerRef, activeTabId, !hidden && !preview);
 
   // Clear shared selectedText when this editor becomes hidden — prevents
   // its last selection from lingering in the status bar while the other
