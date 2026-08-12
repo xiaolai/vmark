@@ -137,4 +137,3 @@ fn partition_multi_workspace_files_feed_grouping() {
     assert_eq!(groups["/ws1"], vec!["/ws1/a.md"]);
     assert_eq!(groups["/ws2"], vec!["/ws2/b.md"]);
 }
-
