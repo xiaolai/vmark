@@ -18,6 +18,7 @@
  * @coordinates-with services/mcpBridge/v2/workspace.ts — open_workspace handler
  * @module services/workspaces/openWorkspaceByPath
  */
+import { invoke } from "@tauri-apps/api/core";
 import { useUIStore } from "@/stores/uiStore";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
@@ -48,6 +49,20 @@ export async function openWorkspaceByPath(
 ): Promise<boolean> {
   const windowLabel = options.windowLabel ?? "main";
   try {
+    // #1252 — extend the fs scope to the workspace tree BEFORE anything reads
+    // from it. Scope grants are in-memory and do not survive a restart, so a
+    // workspace restored from the previous session — or reopened from recents,
+    // or opened over MCP — never passes through the folder picker that would
+    // otherwise have granted it. Off the home drive nothing in the static
+    // scope (`$HOME/**`, `/Volumes/**`, `/mnt/**`, `/media/**`) covers it, and
+    // on Windows `$HOME` is `C:\Users\<name>`, so a workspace on `G:\` is
+    // refused entirely.
+    //
+    // Best-effort: the static scope still covers the common case, so a failed
+    // grant must degrade rather than abort an otherwise working open.
+    await invoke("allow_workspace_access", { path }).catch((error) => {
+      workspaceError("Failed to grant workspace fs scope:", error);
+    });
     const existing = await openWorkspaceWithConfig(path, { windowLabel });
     useUIStore.getState().showSidebarWithView("files");
     useRecentWorkspacesStore.getState().addWorkspace(path);

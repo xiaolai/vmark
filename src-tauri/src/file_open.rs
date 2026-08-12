@@ -51,23 +51,6 @@ pub fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     window_manager::mark_ready_and_drain(&mut state)
 }
 
-/// Runtime-extend the fs + asset read scopes for a path the user asked to open.
-/// The static capability scope (`capabilities/default.json`) covers `$HOME/**`,
-/// `/Volumes/**`, `/mnt/**`, `/media/**`; files from Finder / CLI / "open in new
-/// window" can live anywhere (`/private/tmp`, `/etc`), so `readTextFile` rejects
-/// them until extended here. The asset-protocol scope (cwd-relative) needs the
-/// same per-file grant so `convertFileSrc`/asset:// serves the file (inline
-/// images + media viewer). Best-effort: failures logged, not propagated.
-pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
-    use tauri_plugin_fs::FsExt;
-    if let Err(e) = app.fs_scope().allow_file(path) {
-        log::warn!("[fs-scope] Failed to allow file '{}': {}", path, e);
-    }
-    if let Err(e) = app.asset_protocol_scope().allow_file(path) {
-        log::warn!("[asset-scope] Failed to allow file '{}': {}", path, e);
-    }
-}
-
 /// macOS dock-icon reactivation with no visible windows: recreate a window,
 /// restoring the user's last workspace so they don't land in an orphan doc.
 #[cfg(target_os = "macos")]
@@ -166,7 +149,7 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
     // Extend fs read scope so the webview's readTextFile succeeds for paths
     // outside the static capability scope. See allow_fs_read docs.
     for path in &file_paths {
-        allow_fs_read(app, path);
+        crate::allow_fs_read(app, path);
     }
     log::info!("[Finder] Opening {} file(s)", file_paths.len());
 

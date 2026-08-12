@@ -51,6 +51,7 @@ macro_rules! all_commands {
             coherence::commands_ipc::coherence_scan,
             coherence::commands_ipc::coherence_head,
             file_open::get_pending_file_opens,
+            fs_scope::allow_workspace_access,
             asset_access::grant_asset_access,
             external_editor::open_in_external_editor,
             menu::update_recent_files,

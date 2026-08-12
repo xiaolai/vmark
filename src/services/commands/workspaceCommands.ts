@@ -41,6 +41,17 @@ export function registerWorkspaceCommands(): void {
           const selected = await open({
             directory: true,
             multiple: false,
+            // #1252 — grant the whole tree, not just the top level. The dialog
+            // plugin extends the fs scope with
+            // `allow_directory(path, options.recursive)`, which pushes
+            // `path/*` when false and `path/**` when true. Without this a
+            // workspace's SUBDIRECTORIES are out of scope and every file in
+            // them fails with `forbidden path: …`. It only shows up off the
+            // home drive: capabilities/default.json covers `$HOME/**`,
+            // `/Volumes/**`, `/mnt/**` and `/media/**`, which masks the gap on
+            // macOS and Linux, while on Windows `$HOME` is `C:\Users\<name>`
+            // and a workspace on `G:\` is covered by nothing.
+            recursive: true,
             canCreateDirectories: true,
             title: i18n.t("dialog:openWorkspaceFolder.title"),
           });
