@@ -23,8 +23,14 @@ use crate::window_manager;
 
 #[cfg(target_os = "macos")]
 use crate::supported_files::is_openable_supported;
-// Unconditional: `allow_fs_read` (all platforms) needs Manager for
-// `asset_protocol_scope()` — a cfg(macos) gate here breaks Linux/Windows.
+// macOS-gated since the scope helpers moved to `fs_scope`. This was
+// unconditional because `allow_fs_read` needed `Manager` for
+// `asset_protocol_scope()` on every platform; that consumer now lives in
+// `fs_scope.rs`, leaving `handle_reopen`'s `get_webview_window` as the only
+// user here — and that is macOS-only. Unconditional is now an unused-import
+// ERROR on Linux/Windows, the exact mirror of the hazard this comment used to
+// warn about, and CI caught it on ubuntu and windows while macOS stayed green.
+#[cfg(target_os = "macos")]
 use tauri::Manager;
 
 /// A file open request queued during cold start before the frontend is ready.
