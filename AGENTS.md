@@ -151,6 +151,37 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     command. Bypassing (`git push --no-verify`) requires explicit
     authorization — see `.claude/rules/60-ai-governance.md` §9.
 
+  - **Commit MESSAGES are gated too — never compose one through a shell.**
+    `.githooks/commit-msg` runs `scripts/check-commit-message.mjs` against the
+    final message text and refuses an environment dump or a credential.
+
+    It exists because commit `c506e3ff` put the entire exported environment —
+    ~20 live credentials plus the sudo password — into a commit message that
+    reached the public repo. The cause was **shell command substitution**: the
+    message was built in an UNQUOTED heredoc and contained the markdown code
+    span `` `export` ``, so zsh ran `export` and spliced its stdout into the
+    text before git ever saw it. GitHub secret scanning does not list commit
+    messages among the locations it scans, so nothing downstream caught it.
+
+    **Write the message so no shell parses it**: `git commit -F message.txt`
+    (file written by a file-write tool or an editor), or `<<'EOF'` with the
+    delimiter QUOTED. `-m` is for one-line subjects with no punctuation.
+    Single-quoting `-m` is **not** a fallback — an apostrophe ("the file's
+    name") closes the quote and re-exposes the rest of the line to
+    substitution; with two apostrophes the quotes rebalance and the backtick
+    executes with no error at all.
+
+    The gate is shape-based, not vendor-based, so an unknown provider's token
+    inside a dump still trips it. Thresholds were **measured, not guessed**:
+    replayed over all 4,533 commit messages in this repo's history it flags
+    exactly one — the real leak. Keep it that way; if it ever fires on honest
+    prose, rephrase the line rather than loosening the rule. **Changing a
+    detector means re-measuring**: the module exports `findings(lines)`, so
+    replaying it over `git log --all --format=%B` reproduces the number in
+    seconds — do that instead of reasoning about whether a rule "looks" safe.
+    It fails closed (no node → refuse), and `--no-verify` falls under
+    `.claude/rules/60-ai-governance.md` §9.
+
   - **Real-WebKit tier (`pnpm test:browser`).** `pnpm check:all` is jsdom-only.
     The `*.webkit.test.ts` files run in real WebKit via Playwright and guard the
     CJK IME composition gate, whose premise jsdom cannot reproduce: real WebKit
