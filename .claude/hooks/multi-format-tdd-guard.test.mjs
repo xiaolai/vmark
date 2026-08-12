@@ -84,13 +84,19 @@ describe("multi-format-tdd-guard — Rust scope tracks the decomposed module", (
     expect(runGuard(write("src-tauri/src/window_manager.rs")).status).toBe(0);
   });
 
-  it("blocks an untested submodule (window_manager/commands.rs)", () => {
-    // commands.rs has neither an inline #[cfg(test)] nor a sibling commands.test.rs.
-    expect(runGuard(write("src-tauri/src/window_manager/commands.rs")).status).toBe(2);
+  it("blocks an untested submodule", () => {
+    // A SYNTHETIC path, like the TS case above. This named the real
+    // `commands.rs` until that file gained tests (#1253), at which point the
+    // guard's own test failed — the assertion was pinned to repo state rather
+    // than to guard behaviour, so writing a test made the gate look broken.
+    expect(runGuard(write("src-tauri/src/window_manager/__no_test__.rs")).status).toBe(2);
   });
 
   it("allows a submodule that has a sibling .test.rs", () => {
-    // path_validation.rs ships path_validation.test.rs.
+    // path_validation.rs ships path_validation.test.rs; commands.rs ships
+    // commands.test.rs. Naming real files is fine in THIS direction: a file
+    // losing its tests should fail the gate's test too.
     expect(runGuard(write("src-tauri/src/window_manager/path_validation.rs")).status).toBe(0);
+    expect(runGuard(write("src-tauri/src/window_manager/commands.rs")).status).toBe(0);
   });
 });

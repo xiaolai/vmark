@@ -61,17 +61,29 @@ pub fn open_workspace_with_files_in_new_window(
     create_document_window_with_url(&app, url).map_err(|e| CommandError::internal(e.to_string()))
 }
 
-/// Close a specific window by label
+/// Close a specific window by label.
+///
+/// Generic over the runtime so a mock app can exercise the not-found branch
+/// (`commands.test.rs`); the `#[tauri::command]` macro is unaffected.
+///
+/// Logs at INFO, not debug (#1253). This is the last step of the window-close
+/// flow, and release builds filter `debug!` — so when a close stalled, the log
+/// a user could send us was silent about whether `close_window` was ever
+/// reached, let alone whether `destroy()` returned. The "called" and "destroy
+/// result" pair is what distinguishes a frontend that never got here from a
+/// `destroy()` that never came back.
 #[tauri::command]
-pub fn close_window(app: AppHandle, label: String) -> Result<(), CommandError> {
-    log::debug!("[Tauri] close_window called for '{}'", label);
+pub fn close_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    label: String,
+) -> Result<(), CommandError> {
+    log::info!("[Tauri] close_window called for '{}'", label);
 
     if let Some(window) = app.get_webview_window(&label) {
-        log::debug!("[Tauri] destroying window '{}'", label);
         let result = window
             .destroy()
             .map_err(|e| CommandError::internal(e.to_string()));
-        log::debug!("[Tauri] window '{}' destroy result: {:?}", label, result);
+        log::info!("[Tauri] window '{}' destroy result: {:?}", label, result);
         result
     } else {
         // The label names no live window: absent, not malformed.
@@ -93,3 +105,7 @@ pub fn request_quit(app: AppHandle) {
     use tauri::Emitter;
     let _ = app.emit("app:quit-requested", ());
 }
+
+#[cfg(test)]
+#[path = "commands.test.rs"]
+mod tests;
