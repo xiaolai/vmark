@@ -62,6 +62,13 @@ fn allow_fs_read_extends_scope_so_read_is_permitted() {
 /// `$HOME/**`, `/Volumes/**`, `/mnt/**` and `/media/**`, which masks the gap on
 /// macOS and Linux. On Windows `$HOME` is `C:\Users\<name>`, so a workspace on
 /// `G:\` is covered by nothing at all.
+///
+/// Gated like every other mock-runtime test in this file: `tauri::test::
+/// MockRuntime` crashes the test binary at startup on windows-latest, so the
+/// import and `mock_app_with_fs` are both `cfg(not(windows))` — an ungated test
+/// referencing them does not fail at runtime, it fails to COMPILE, and only on
+/// Windows. The irony is not lost: a fix for a Windows bug, broken on Windows.
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn allow_fs_read_dir_grants_nested_files() {
     let dir = tempfile::tempdir().expect("tempdir");
