@@ -1,8 +1,13 @@
-//! Finder/CLI file-open queueing, fs-scope extension, and macOS reopen.
+//! Finder/CLI file-open queueing and macOS reopen.
 //!
 //! Purpose: Owns the cold-start file-open queue and the macOS
 //! `RunEvent::Opened` / `RunEvent::Reopen` handlers. Extracted verbatim from
 //! `lib.rs` to keep that file under the size gate.
+//!
+//! fs-scope extension used to live here too and now lives in `fs_scope.rs` —
+//! this file consumes it (`crate::allow_fs_read`) rather than owning it. It
+//! moved when adding the recursive workspace grant (#1252) pushed this file
+//! over the 300-line limit, which the size gate correctly refused.
 //!
 //! Key decisions:
 //!   - File opens from Finder are queued in `FILE_OPEN_STATE` until the frontend
