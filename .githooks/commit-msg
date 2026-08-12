@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# commit-msg — refuse a commit whose MESSAGE contains an environment dump or a
+# credential. Runs in well under 100ms; it reads one file and applies regexes.
+#
+# WHY THIS EXISTS. Commit c506e3ff put the whole exported environment — ~20 live
+# credentials plus the sudo password — into a commit message, and it reached a
+# public repo. The cause was shell command substitution: the message was built
+# in an UNQUOTED heredoc and contained the markdown code span `export`, so zsh
+# ran `export` and pasted its stdout into the text before git saw it.
+#
+# The author-side remedies are all habits, and the habit is what failed. This
+# hook inspects the FINAL message, after every quoting decision has been made,
+# which is the only place where how the message was composed stops mattering.
+#
+# FAILS CLOSED. No node on PATH means the check cannot run, and a check that
+# cannot run must not report success — a silent skip here looks identical to a
+# clean message, which is the exact failure mode this hook exists to end.
+# Bypassing is `--no-verify`, which requires authorization
+# (.claude/rules/60-ai-governance.md §9).
+#
+# @coordinates-with scripts/check-commit-message.mjs — the logic and its tests
+set -euo pipefail
+
+MSG_FILE="${1:?commit-msg: no message file argument}"
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+CHECK="$ROOT/scripts/check-commit-message.mjs"
+
+# A missing script means the checkout predates the gate (e.g. an old commit
+# checked out for a bisect). That is not a policy failure, so it does not block.
+[ -f "$CHECK" ] || exit 0
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "commit-msg: node not found on PATH — cannot run the secret gate." >&2
+  echo "  Install node (or run the commit from a shell where mise/nvm is active)." >&2
+  echo "  This hook fails closed: a check that cannot run never reports success." >&2
+  exit 1
+fi
+
+# git strips comment lines using this character; the gate must agree with it, or
+# it would scan text git is about to discard (false refusals) or skip text git
+# is about to keep (a hole).
+COMMENT_CHAR="$(git config --get core.commentChar 2>/dev/null || true)"
+[ -n "$COMMENT_CHAR" ] && [ "$COMMENT_CHAR" != "auto" ] || COMMENT_CHAR="#"
+
+exec node "$CHECK" "$MSG_FILE" "--comment-char=$COMMENT_CHAR"
