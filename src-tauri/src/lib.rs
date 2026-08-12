@@ -30,6 +30,7 @@ mod file_open;
 mod file_ops;
 mod file_tree;
 mod file_write;
+mod fs_scope;
 pub mod genies;
 mod gha_workflow;
 mod hot_exit;
@@ -75,8 +76,8 @@ mod text_substitution;
 mod window_status;
 
 // Crate-wide re-exports: existing `crate::` call sites (post lib.rs split).
-pub(crate) use file_open::allow_fs_read;
 pub use file_open::PendingFileOpen;
+pub(crate) use fs_scope::allow_fs_read;
 pub(crate) use supported_files::is_openable_supported;
 // macOS-gated: sole consumer (quarantine sweep) is macOS-only, so an unconditional re-export is an unused-import error on Linux/Windows CI (guarded by lib.test.rs).
 #[cfg(target_os = "macos")]

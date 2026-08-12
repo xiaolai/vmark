@@ -88,6 +88,28 @@ describe("workspace.openFolder (#1005)", () => {
     expect(mockAsk).not.toHaveBeenCalled();
   });
 
+  // #1252 — the picker must grant the workspace RECURSIVELY.
+  //
+  // tauri-plugin-dialog extends the fs scope for a picked directory with
+  // `allow_directory(&path, options.recursive)`. Without `recursive: true`
+  // only the folder ITSELF enters the scope, so opening any file inside it
+  // fails with `forbidden path: …`.
+  //
+  // It reproduces only off the home drive: the static scope in
+  // capabilities/default.json covers `$HOME/**`, `/Volumes/**`, `/mnt/**` and
+  // `/media/**`, which masks the missing grant on macOS and Linux. On Windows
+  // `$HOME` is `C:\Users\<name>`, so a workspace on `G:\` is covered by
+  // nothing and every file click is refused.
+  it("grants the picked workspace recursively so its files are in scope", async () => {
+    mockOpenPicker.mockResolvedValue("/projects/foo");
+
+    await executeCommand("workspace.openFolder", {}, { windowLabel: "main" });
+
+    expect(mockOpenPicker).toHaveBeenCalledWith(
+      expect.objectContaining({ directory: true, recursive: true })
+    );
+  });
+
   it("does nothing when the folder picker is cancelled", async () => {
     mockOpenPicker.mockResolvedValue(null);
 

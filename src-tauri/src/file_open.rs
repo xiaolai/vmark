@@ -1,8 +1,13 @@
-//! Finder/CLI file-open queueing, fs-scope extension, and macOS reopen.
+//! Finder/CLI file-open queueing and macOS reopen.
 //!
 //! Purpose: Owns the cold-start file-open queue and the macOS
 //! `RunEvent::Opened` / `RunEvent::Reopen` handlers. Extracted verbatim from
 //! `lib.rs` to keep that file under the size gate.
+//!
+//! fs-scope extension used to live here too and now lives in `fs_scope.rs` —
+//! this file consumes it (`crate::allow_fs_read`) rather than owning it. It
+//! moved when adding the recursive workspace grant (#1252) pushed this file
+//! over the 300-line limit, which the size gate correctly refused.
 //!
 //! Key decisions:
 //!   - File opens from Finder are queued in `FILE_OPEN_STATE` until the frontend
@@ -23,8 +28,14 @@ use crate::window_manager;
 
 #[cfg(target_os = "macos")]
 use crate::supported_files::is_openable_supported;
-// Unconditional: `allow_fs_read` (all platforms) needs Manager for
-// `asset_protocol_scope()` — a cfg(macos) gate here breaks Linux/Windows.
+// macOS-gated since the scope helpers moved to `fs_scope`. This was
+// unconditional because `allow_fs_read` needed `Manager` for
+// `asset_protocol_scope()` on every platform; that consumer now lives in
+// `fs_scope.rs`, leaving `handle_reopen`'s `get_webview_window` as the only
+// user here — and that is macOS-only. Unconditional is now an unused-import
+// ERROR on Linux/Windows, the exact mirror of the hazard this comment used to
+// warn about, and CI caught it on ubuntu and windows while macOS stayed green.
+#[cfg(target_os = "macos")]
 use tauri::Manager;
 
 /// A file open request queued during cold start before the frontend is ready.
@@ -49,23 +60,6 @@ pub(crate) static FILE_OPEN_STATE: Mutex<window_manager::FileOpenState> =
 pub fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
     window_manager::mark_ready_and_drain(&mut state)
-}
-
-/// Runtime-extend the fs + asset read scopes for a path the user asked to open.
-/// The static capability scope (`capabilities/default.json`) covers `$HOME/**`,
-/// `/Volumes/**`, `/mnt/**`, `/media/**`; files from Finder / CLI / "open in new
-/// window" can live anywhere (`/private/tmp`, `/etc`), so `readTextFile` rejects
-/// them until extended here. The asset-protocol scope (cwd-relative) needs the
-/// same per-file grant so `convertFileSrc`/asset:// serves the file (inline
-/// images + media viewer). Best-effort: failures logged, not propagated.
-pub(crate) fn allow_fs_read<R: tauri::Runtime>(app: &tauri::AppHandle<R>, path: &str) {
-    use tauri_plugin_fs::FsExt;
-    if let Err(e) = app.fs_scope().allow_file(path) {
-        log::warn!("[fs-scope] Failed to allow file '{}': {}", path, e);
-    }
-    if let Err(e) = app.asset_protocol_scope().allow_file(path) {
-        log::warn!("[asset-scope] Failed to allow file '{}': {}", path, e);
-    }
 }
 
 /// macOS dock-icon reactivation with no visible windows: recreate a window,
@@ -166,7 +160,7 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
     // Extend fs read scope so the webview's readTextFile succeeds for paths
     // outside the static capability scope. See allow_fs_read docs.
     for path in &file_paths {
-        allow_fs_read(app, path);
+        crate::allow_fs_read(app, path);
     }
     log::info!("[Finder] Opening {} file(s)", file_paths.len());
 

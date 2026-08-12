@@ -32,6 +32,14 @@ vi.mock("@/services/persistence/sessionTabs", () => ({
   documentPathsForRestore: () => [],
 }));
 
+const mockInvoke = vi.fn(async () => undefined);
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args: unknown) => {
+    calls.push("scope");
+    return mockInvoke(cmd as never, args as never);
+  },
+}));
+
 import { openWorkspaceByPath, WORKSPACE_TRANSITION_GUARD } from "./openWorkspaceByPath";
 
 beforeEach(() => {
@@ -47,12 +55,33 @@ describe("openWorkspaceByPath", () => {
   it("runs the full open sequence in order", async () => {
     await openWorkspaceByPath("/some/folder", { windowLabel: "doc-1" });
     expect(calls).toEqual([
+      // The scope grant comes FIRST — every step after it may read files.
+      "scope",
       "openWorkspaceWithConfig",
       "sidebar",
       "recents",
       "restoreTabs",
       "restoreSplit",
     ]);
+  });
+
+  // #1252 — fs scope grants are in-memory and do NOT survive a restart, so a
+  // workspace restored from the previous session or reopened from recents
+  // never passes through the folder picker that would have granted it. Off the
+  // home drive (Windows `G:\…`, where the static `$HOME/**` scope reaches
+  // nothing) every file in it is then refused with `forbidden path: …`.
+  it("grants fs scope for the workspace root before reading anything", async () => {
+    await openWorkspaceByPath("/some/folder", { windowLabel: "doc-1" });
+    expect(mockInvoke).toHaveBeenCalledWith("allow_workspace_access", {
+      path: "/some/folder",
+    });
+  });
+
+  it("still opens the workspace when the scope grant fails", async () => {
+    // Best-effort: the static scope already covers the common case, so a failed
+    // grant must not turn a working open into a hard failure.
+    mockInvoke.mockRejectedValueOnce(new Error("no such command"));
+    await expect(openWorkspaceByPath("/f")).resolves.toBe(true);
   });
 
   it("passes the window label through (default main)", async () => {
