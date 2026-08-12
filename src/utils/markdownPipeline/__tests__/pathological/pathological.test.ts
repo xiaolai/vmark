@@ -26,7 +26,6 @@ import { pathologicalCases } from "./pathologicalCases";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../../../..");
-const TSX = join(repoRoot, "node_modules", ".bin", "tsx");
 const ENTRY = join(here, "runCases.ts");
 
 /** Generous: every class together takes well under this on any dev machine
@@ -58,8 +57,21 @@ interface CaseReport {
   done?: boolean;
 }
 
+/** Spawn `node --import tsx` DIRECTLY — never `node_modules/.bin/tsx`.
+ *
+ *  The tsx CLI is a launcher: it spawns the real runner as its own child and
+ *  relays SIGINT/SIGTERM to it. SIGKILL is uncatchable, so the relay never
+ *  runs — `spawnSync`'s timeout kills the launcher and REPARENTS the runner to
+ *  PID 1, where it spins forever. The self-test's deliberate busy loop made
+ *  that leak unconditional: every run of this file abandoned a process pegging
+ *  a full core, and four of them once cost ~3.5 cores for 20 hours.
+ *
+ *  SIGTERM is NOT the fix: tsx would then exit normally with 143, so
+ *  `res.signal` becomes null and the hang detector below silently stops
+ *  detecting hangs. Removing the launcher keeps SIGKILL honest — the direct
+ *  child IS the runner, so killing it kills the code under test. */
 function runChild(env: Record<string, string>, timeoutMs: number) {
-  const res = spawnSync(TSX, [ENTRY], {
+  const res = spawnSync(process.execPath, ["--import", "tsx", ENTRY], {
     cwd: repoRoot,
     encoding: "utf8",
     timeout: timeoutMs,
@@ -71,6 +83,26 @@ function runChild(env: Record<string, string>, timeoutMs: number) {
     .filter((l) => l.startsWith("{"))
     .map((l) => JSON.parse(l) as CaseReport);
   return { res, lines };
+}
+
+/** PIDs still running the child entry. `pgrep -f` matches the whole command
+ *  line, so it finds a runner abandoned at ANY depth — which is the only way
+ *  to observe the leak from in here. */
+function survivingRunners(): string[] {
+  const res = spawnSync("pgrep", ["-f", ENTRY], { encoding: "utf8" });
+  return (res.stdout ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+/** Poll until the kill is reaped, or give up. A leaked runner NEVER clears, so
+ *  a real regression cannot buy a pass by waiting longer. */
+function waitForNoRunners(budgetMs: number): string[] {
+  const deadline = Date.now() + budgetMs;
+  let alive = survivingRunners();
+  while (alive.length > 0 && Date.now() < deadline) {
+    spawnSync("sleep", ["0.25"]);
+    alive = survivingRunners();
+  }
+  return alive;
 }
 
 describe("pathological inputs (killable child process)", () => {
@@ -99,5 +131,17 @@ describe("pathological inputs (killable child process)", () => {
     // The probe announced itself before hanging — the culprit is nameable.
     expect(lines.some((l) => l.name === "hang-probe" && l.starting)).toBe(true);
     expect(lines.some((l) => l.done)).toBe(false);
+
+    // REGRESSION GUARD: the kill must reach the code under test, not just its
+    // launcher. Reintroduce a wrapper between us and the runner (see
+    // runChild) and this probe silently abandons a core-pegging process on
+    // every run — while every assertion above still passes.
+    if (process.platform !== "win32") {
+      expect(
+        waitForNoRunners(5_000),
+        "the killed probe left a process running the child entry: it was " +
+          "reparented to PID 1 and is now spinning on a core forever",
+      ).toEqual([]);
+    }
   }, HANG_PROBE_WINDOW_MS + 30_000);
 });
