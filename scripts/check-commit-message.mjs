@@ -107,6 +107,48 @@ const SECRET_NAME =
 const PLACEHOLDER =
   /^(?:[<{[].*[>}\]]|(.)\1{3,}|.*(?:your|example|placeholder|changeme|redacted|dummy|fake|sample).*)$/i;
 
+/**
+ * Credentials PUBLISHED as documentation examples. These match a real vendor
+ * shape and are not secrets — AWS prints the first two in its own docs — so a
+ * gate that flags them is wrong, not merely noisy.
+ */
+const DOC_EXAMPLES = new Set([
+  "AKIAIOSFODNN7EXAMPLE",
+  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  "AKIAI44QH8DHBEXAMPLE",
+]);
+
+/** Shannon entropy in bits per character. */
+function entropy(s) {
+  const freq = new Map();
+  for (const ch of s) freq.set(ch, (freq.get(ch) || 0) + 1);
+  let h = 0;
+  for (const n of freq.values()) {
+    const p = n / s.length;
+    h -= p * Math.log2(p);
+  }
+  return h;
+}
+
+/**
+ * Under `strictValues`, a secret-NAMED assignment must also look like random
+ * material before it counts. Repos whose subject matter IS credentials — a
+ * redactor, a key manager — legitimately write `client_secret=` and
+ * `--password=` in prose, and flagging those trains the author to reach for
+ * --no-verify, which is worse than no gate.
+ *
+ * Vendor patterns and the dump-shape rules are NOT relaxed by this: a real
+ * environment dump still trips on its layout, which is what caught c506e3ff.
+ */
+function looksRandom(value) {
+  return (
+    value.length >= 20 &&
+    /[0-9]/.test(value) &&
+    /[A-Za-z]/.test(value) &&
+    entropy(value) >= 3.0
+  );
+}
+
 /** Line-start assignment — the SHAPE of a dumped environment. */
 const ASSIGNMENT = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
 /**
@@ -140,7 +182,8 @@ export function committedLines(raw, commentChar) {
  * @param {string[]} lines the committed lines
  * @returns {{rule: string, detail: string}[]}
  */
-export function findings(lines) {
+export function findings(lines, options = {}) {
+  const { strictValues = false } = options;
   const found = [];
 
   let longAssignments = 0;
@@ -160,6 +203,8 @@ export function findings(lines) {
 
   for (const [, name, value] of text.matchAll(INLINE_ASSIGNMENT)) {
     if (!SECRET_NAME.test(name) || PLACEHOLDER.test(value)) continue;
+    if (DOC_EXAMPLES.has(value)) continue;
+    if (strictValues && !looksRandom(value)) continue;
     found.push({
       rule: "credential",
       detail: `\`${name}=…\` — a secret-named variable with a value`,
@@ -180,7 +225,8 @@ export function findings(lines) {
   }
 
   for (const [pattern, label] of CREDENTIAL_PATTERNS) {
-    if (pattern.test(text)) {
+    const m = text.match(pattern);
+    if (m && !DOC_EXAMPLES.has(m[0])) {
       found.push({ rule: "credential", detail: `${label} appears in the message` });
     }
   }
@@ -230,7 +276,8 @@ function main(argv) {
     return EXIT_USAGE;
   }
 
-  const hits = findings(committedLines(raw, commentChar || "#"));
+  const strictValues = argv.includes("--strict-values");
+  const hits = findings(committedLines(raw, commentChar || "#"), { strictValues });
   if (hits.length === 0) return 0;
 
   const seen = new Set();

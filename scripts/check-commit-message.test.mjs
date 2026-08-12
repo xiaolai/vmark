@@ -245,6 +245,61 @@ describe("git's own message scaffolding is ignored", () => {
   });
 });
 
+describe("published documentation examples are not secrets", () => {
+  // AWS prints this key in its own docs. A gate that flags it is wrong, not
+  // merely noisy — found live in claudepot-app's redactor self-test.
+  it("accepts AWS's documented example access key id", () => {
+    const r = check(
+      "fix(web): use a synthetic credential in the redactor self-test\n\n" +
+        "Swapped in AKIAIOSFODNN7EXAMPLE so the fixture is unambiguous.\n",
+    );
+    expect(r.status).toBe(0);
+  });
+
+  it("still refuses a real-shaped AWS key that is not the documented example", () => {
+    const r = check(`fix: x\n\nAKIA${"K".repeat(16)}\n`);
+    expect(r.status).toBe(REFUSED);
+  });
+});
+
+describe("--strict-values raises the bar for credential-domain repos", () => {
+  // A redactor or key manager legitimately writes these in prose. Flagging them
+  // trains the author toward --no-verify, which is worse than no gate.
+  it.each([
+    "The `CLAUDEPOT_CREDENTIAL_BACKEND=keychain` override still works.",
+    "session_live redact missed client_secret=abc123 because of the \\b anchor.",
+    "Use `ANTHROPIC_AUTH_TOKEN=sk-ant-...` instead of the old variable.",
+    "Masked --password=hunter2 in the cookie attrs.",
+  ])("accepts prose about credentials: %s", (line) => {
+    const r = check(`fix: x\n\n${line}\n`, ["--strict-values"]);
+    expect(r.status).toBe(0);
+  });
+
+  it("STILL refuses a high-entropy real credential under --strict-values", () => {
+    const r = check(
+      "fix: x\n\nDEPLOY_TOKEN=k7Fq2mZ9xR4tB8nW1cV6yH3jL5pD0sA2\n",
+      ["--strict-values"],
+    );
+    expect(r.status).toBe(REFUSED);
+  });
+
+  it("STILL refuses an environment dump under --strict-values", () => {
+    // The dump-shape rules are deliberately NOT relaxed — they are what
+    // actually caught c506e3ff, and they are independent of value entropy.
+    const r = check(
+      "fix: x\n\nHOME=/Users/t\nSHELL=/bin/zsh\nPATH=/usr/bin\nLANG=en_US\nTERM=xterm\n",
+      ["--strict-values"],
+    );
+    expect(r.status).toBe(REFUSED);
+    expect(r.out).toMatch(/environment dump/i);
+  });
+
+  it("STILL refuses a vendor token under --strict-values", () => {
+    const r = check(`fix: x\n\nsk-ant-oat01-${"A".repeat(95)}\n`, ["--strict-values"]);
+    expect(r.status).toBe(REFUSED);
+  });
+});
+
 describe("the gate fails closed", () => {
   it("refuses when the message file does not exist", () => {
     const r = spawnSync(
