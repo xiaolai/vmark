@@ -42,20 +42,45 @@ import { runWindowCloseFlow } from "@/services/windowClose/windowCloseFlow";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug";
 
-// Dev-only logging for debugging window close issues
-// Logs to console and Rust debug_log
-/* v8 ignore start -- import.meta.env.DEV=true in vitest; production no-op branch never reached in tests */
-const closeLog = import.meta.env.DEV
-  ? (label: string, ...args: unknown[]) => {
-      const msg = `[WindowClose:${label}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
-      windowCloseLog(msg);
-      // Log to terminal via Rust (fire-and-forget, but log failures in dev)
-      invoke("debug_log", { message: msg }).catch((e) => {
-        windowCloseWarn("debug_log invoke failed:", e);
-      });
+/**
+ * Close-flow milestones — logged in RELEASE builds too (#1253).
+ *
+ * This used to be `import.meta.env.DEV ? … : () => {}`, so a shipped build
+ * recorded nothing about a window close. When a user reported a window that
+ * could not be closed, the log they sent was silent — not because nothing
+ * happened, but because every line describing it had been compiled out. The
+ * Rust side had the same problem (`debug!`, filtered at the release Info
+ * level), so there was no way to tell which await never returned.
+ *
+ * Routes to `window_close_log`, which logs at INFO, rather than `debug_log`,
+ * which is `debug!` and would still vanish. Console output stays dev-only:
+ * `windowCloseLog` is already a no-op in production, and the file log is what
+ * a user can actually send.
+ */
+const closeLog = (label: string, ...args: unknown[]) => {
+  const msg = `[WindowClose:${label}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
+  windowCloseLog(msg);
+  // Fire-and-forget: logging must never be able to fail a close.
+  invoke("window_close_log", { message: msg }).catch((e) => {
+    /* v8 ignore start -- import.meta.env.DEV=true in vitest; production branch never taken */
+    if (import.meta.env.DEV) {
+      windowCloseWarn("window_close_log invoke failed:", e);
     }
-  : () => {};
-/* v8 ignore stop */
+    /* v8 ignore stop */
+  });
+};
+
+/**
+ * How long an in-flight close may sit before a NEW close request is treated as
+ * a retry rather than joined to it (#1253).
+ *
+ * Generous on purpose: the flow legitimately blocks on native save/pin dialogs,
+ * and a user reading one must never be interrupted by a second. Five minutes is
+ * far longer than any real prompt takes to answer and far shorter than "the
+ * window is permanently unclosable", which is what the previous unbounded join
+ * produced.
+ */
+const STALL_RETRY_AFTER_MS = 5 * 60 * 1000;
 
 /**
  * Handle window and tab close events with save confirmation.
@@ -68,6 +93,8 @@ export function useWindowClose() {
   const windowLabel = useWindowLabel();
   /** The in-flight close, shared by every trigger (WI-1/WI-7 shape). */
   const activeCloseRef = useRef<Promise<boolean> | null>(null);
+  /** When that attempt started — the basis for the stall check below. */
+  const activeCloseStartedAtRef = useRef<number>(0);
   /** The close attempt Rust was already answered for — cancel_quit is sent
    *  exactly once per attempt, however many quit events joined it. */
   const answeredQuitForRef = useRef<Promise<boolean> | null>(null);
@@ -79,8 +106,23 @@ export function useWindowClose() {
     // the real outcome to know whether to send cancel_quit.
     const existing = activeCloseRef.current;
     if (existing) {
-      closeLog(windowLabel, "joining in-flight close");
-      return existing;
+      const age = Date.now() - activeCloseStartedAtRef.current;
+      if (age < STALL_RETRY_AFTER_MS) {
+        closeLog(windowLabel, "joining in-flight close");
+        return existing;
+      }
+      // Stalled (#1253). `activeCloseRef` is cleared only when the flow
+      // SETTLES, so a step that never settles made every later close request
+      // join a dead promise — the user clicks the traffic light again and
+      // again and nothing happens, with no way out but killing the process.
+      // Nothing in the flow has a timeout, and every decision point is a
+      // blocking native dialog that can only resolve, never reject.
+      //
+      // A fresh attempt is the conservative recovery: it cancels nothing,
+      // forces nothing, and discards no buffer. It costs at worst a second
+      // prompt for a user who walked away mid-dialog — and that user has just
+      // asked to close again, so acting on the newer request is right.
+      closeLog(windowLabel, `in-flight close stalled for ${age}ms — starting a fresh attempt`);
     }
 
     const run = runWindowCloseFlow(windowLabel, closeLog)
@@ -89,9 +131,13 @@ export function useWindowClose() {
         return false;
       })
       .finally(() => {
-        activeCloseRef.current = null;
+        // Only retire OUR attempt. A stalled flow that finally settles after a
+        // fresh one started would otherwise null the newer attempt's ref,
+        // letting a third request run a third flow concurrently.
+        if (activeCloseRef.current === run) activeCloseRef.current = null;
       });
     activeCloseRef.current = run;
+    activeCloseStartedAtRef.current = Date.now();
     return run;
   }, [windowLabel]);
 

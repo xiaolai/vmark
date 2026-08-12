@@ -123,13 +123,19 @@ pub(crate) fn handle_document_window_close_event(
     use tauri::Emitter;
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
         let label = window.label();
-        log::debug!("[Tauri] WindowEvent::CloseRequested for window '{}'", label);
+        // INFO, not debug (#1253). `prevent_close` below hands the outcome to
+        // the frontend with no timeout and no fallback, so when a close stalls
+        // the only way to tell "Rust never saw the click" from "the frontend
+        // never finished" is a line here — and release builds filter `debug!`,
+        // which is why the first report of a stuck window arrived with a log
+        // that said nothing at all.
+        log::info!("[Tauri] WindowEvent::CloseRequested for window '{}'", label);
         // Only intercept close for document windows
         if label == "main" || label.starts_with("doc-") {
             api.prevent_close();
             // Include target label in payload so frontend can filter
             let _ = window.emit("window:close-requested", label);
-            log::debug!("[Tauri] Emitted window:close-requested to '{}'", label);
+            log::info!("[Tauri] Emitted window:close-requested to '{}'", label);
         }
         // Settings and other non-document windows close normally
     }
@@ -227,4 +233,20 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
 #[tauri::command]
 pub fn debug_log(message: String) {
     log::debug!("[Frontend] {}", message);
+}
+
+/// Window-close milestones from the frontend, at INFO (#1253).
+///
+/// Deliberately separate from `debug_log`: that one is `debug!` and so is
+/// filtered out of release builds, which is exactly why the first report of a
+/// window that would not close arrived with a log containing nothing about the
+/// close at all. The close flow has no timeout and no fallback, so these few
+/// lines are the only way to tell where a stall happened — which await never
+/// returned — from a log a user can actually send.
+///
+/// Kept to state transitions, not per-keystroke noise: a handful of lines per
+/// close attempt.
+#[tauri::command]
+pub fn window_close_log(message: String) {
+    log::info!("[WindowClose] {}", message);
 }

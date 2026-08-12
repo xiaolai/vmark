@@ -81,6 +81,75 @@ function resetStores() {
   );
 }
 
+// #1253 — a close that NEVER settles must not brick the window.
+//
+// `activeCloseRef` is cleared only when the flow settles, so before this a
+// stalled step made every later close request join a dead promise: the user
+// clicks the traffic light repeatedly and nothing happens at all, with no
+// recovery but killing the process. Nothing in the flow has a timeout, and
+// every decision point is a blocking native dialog that can only resolve.
+describe("useWindowClose — a stalled close does not brick the window (#1253)", () => {
+  beforeEach(() => {
+    listeners.clear();
+    resetStores();
+    vi.clearAllMocks();
+    vi.mocked(invoke).mockResolvedValue(undefined);
+  });
+
+  /**
+   * Advance only the clock the stall check reads. Fake timers would also
+   * replace the timers `waitFor` runs on, which deadlocks the test.
+   */
+  function atTime(ms: number) {
+    vi.spyOn(Date, "now").mockReturnValue(ms);
+  }
+
+  /** Set up a dirty tab whose save prompt never settles. */
+  async function renderWithStalledPrompt() {
+    const tabId = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(tabId, "initial", null);
+    useDocumentStore.getState().setContent(tabId, "dirty");
+    // Never resolves — the shape of the observed stall.
+    mockPromptSaveForDirtyDocument.mockImplementation(() => new Promise(() => {}));
+
+    await act(async () => {
+      render(<TestHarness />);
+    });
+    await waitFor(() => expect(listeners.has("window:close-requested")).toBe(true));
+  }
+
+  it("joins a recent in-flight close rather than stacking a second prompt", async () => {
+    atTime(1_000_000);
+    await renderWithStalledPrompt();
+
+    void listeners.get("window:close-requested")!({ payload: WINDOW });
+    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1));
+
+    // A user reading a save dialog must never be interrupted by a second one.
+    atTime(1_000_000 + 60_000);
+    void listeners.get("window:close-requested")!({ payload: WINDOW });
+    await Promise.resolve();
+
+    expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a fresh attempt once the in-flight close has clearly stalled", async () => {
+    atTime(1_000_000);
+    await renderWithStalledPrompt();
+
+    void listeners.get("window:close-requested")!({ payload: WINDOW });
+    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(1));
+
+    // Past the stall threshold the user's renewed request wins: the old
+    // attempt is abandoned in place (cancelling nothing, discarding nothing)
+    // and a new flow runs, so clicking X eventually works again.
+    atTime(1_000_000 + 6 * 60 * 1000);
+    void listeners.get("window:close-requested")!({ payload: WINDOW });
+
+    await waitFor(() => expect(mockPromptSaveForDirtyDocument).toHaveBeenCalledTimes(2));
+  });
+});
+
 describe("useWindowClose — concurrent close requests join (WI-1/WI-7 shape)", () => {
   beforeEach(() => {
     listeners.clear();

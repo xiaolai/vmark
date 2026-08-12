@@ -585,10 +585,16 @@ describe("useWindowClose — closeLog debug_log catch (line 50)", () => {
     vi.clearAllMocks();
   });
 
-  it("catches debug_log invoke failure and warns", async () => {
-    // Make debug_log reject, but all other invokes succeed
+  it("catches window_close_log invoke failure and warns", async () => {
+    // #1253 — close milestones go to `window_close_log` (INFO), not
+    // `debug_log` (debug!, filtered out of release builds). A shipped build
+    // used to record nothing about a close, which is why the first stuck-window
+    // report arrived with a log that said nothing.
+    //
+    // Logging must never be able to fail a close, so the invoke is
+    // fire-and-forget and its rejection only warns.
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
-      if (cmd === "debug_log") throw new Error("debug_log failed");
+      if (cmd === "window_close_log") throw new Error("window_close_log failed");
       return undefined;
     });
 
@@ -606,7 +612,7 @@ describe("useWindowClose — closeLog debug_log catch (line 50)", () => {
 
     expect(warnSpy).toHaveBeenCalledWith(
       "[WindowClose]",
-      "debug_log invoke failed:",
+      "window_close_log invoke failed:",
       expect.any(Error)
     );
     warnSpy.mockRestore();
