@@ -1,8 +1,14 @@
 /**
- * WI-3.1 — the pathological child entry, run under `tsx` by
+ * WI-3.1 — the pathological child entry, run under the `tsx` loader by
  * `pathological.test.ts` so a synchronous parser/serializer hang is
  * KILLABLE. A vitest timeout cannot interrupt a busy loop on its own event
- * loop; a child process can always be terminated from outside.
+ * loop; a child process can be terminated from outside.
+ *
+ * "From outside" only holds while THIS process is the parent's direct child.
+ * The parent must therefore spawn `node --import tsx`, never the `.bin/tsx`
+ * launcher: the launcher cannot relay the SIGKILL that enforces the timeout,
+ * so it dies alone and leaves this process spinning under PID 1. See the
+ * runChild comment in `pathological.test.ts`.
  *
  * Runs the markdown pipeline against a StarterKit-only schema: the pipeline
  * (`src/utils/markdownPipeline/`) is leaf-pure by ADR-013, but the FULL

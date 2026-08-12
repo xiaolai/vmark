@@ -35,6 +35,7 @@
       ],
       "ignoreBinaries": [
         "du",
+        "pgrep",
         "smoke"
       ]
     },
