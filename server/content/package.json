@@ -29,7 +29,7 @@
     "hono": "^4.13.1",
     "ignore": "^7.0.6",
     "jsdom": "^30.0.1",
-    "katex": "^0.18.3",
+    "katex": "^0.18.4",
     "mdast-util-find-and-replace": "^3.0.2",
     "playwright-chromium": "^1.62.1",
     "rehype-katex": "^7.0.1",
