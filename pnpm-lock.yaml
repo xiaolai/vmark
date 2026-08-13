@@ -232,8 +232,8 @@ importers:
         specifier: ^1.2.3
         version: 1.2.3
       katex:
-        specifier: ^0.18.3
-        version: 0.18.3
+        specifier: ^0.18.4
+        version: 0.18.4
       lowlight:
         specifier: ^3.3.0
         version: 3.3.0
@@ -464,8 +464,8 @@ importers:
         specifier: ^30.0.1
         version: 30.0.1
       katex:
-        specifier: ^0.18.3
-        version: 0.18.3
+        specifier: ^0.18.4
+        version: 0.18.4
       mdast-util-find-and-replace:
         specifier: ^3.0.2
         version: 3.0.2
@@ -6700,8 +6700,8 @@ packages:
     resolution: {integrity: sha512-Eeo8Ys1doU1z+x8AZsPpQu+p/QcZBI5PeOo7QGQdy2x2m0MU/hYagBbGOmXwr5KVbEfVuWv9LpnQWeehogurjg==}
     hasBin: true
 
-  katex@0.18.3:
-    resolution: {integrity: sha512-6kbPr8KiYZpRfNNIw+8Td33njnFzK/ELcw6bI9FzIHysYPatAUdepQimfCX1vG2VCD/5Lv+Gu6P5YA58k8HHmw==}
+  katex@0.18.4:
+    resolution: {integrity: sha512-IMPntbRLOU+eu88XDiFKqQ8Akhr9Tv7jDMXqPhjG9SI1JMA4DIgXk4x9k4skJz2NZJXBRbC+2pYBLj9olqcZow==}
     hasBin: true
 
   keyv@4.5.4:
@@ -12289,7 +12289,7 @@ snapshots:
       htmlparser2: 12.0.0
       is-installed-globally: 1.0.0
       jiti: 2.7.0
-      katex: 0.18.3
+      katex: 0.18.4
       local-pkg: 1.2.1
       lz-string: 1.5.0
       magic-string: 1.1.1
@@ -12410,7 +12410,7 @@ snapshots:
       fitty: 2.4.2
       floating-vue: 5.2.2(@nuxt/kit@3.21.11(magicast@0.5.3))(vue@3.5.41(typescript@6.0.3))
       fuse.js: 7.5.0
-      katex: 0.18.3
+      katex: 0.18.4
       lz-string: 1.5.0
       mermaid: 11.16.1
       monaco-editor: 0.56.0
@@ -12502,7 +12502,7 @@ snapshots:
       '@shikijs/markdown-it': 4.4.3
       '@vitejs/plugin-vue': 6.0.8(vite@8.2.1(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.98.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
       '@vitejs/plugin-vue-jsx': 5.1.6(vite@8.2.1(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.98.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))(vue@3.5.41(typescript@6.0.3))
-      katex: 0.18.3
+      katex: 0.18.4
       mermaid: 11.16.1
       monaco-editor: 0.56.0
       shiki: 4.4.3
@@ -16353,7 +16353,7 @@ snapshots:
     dependencies:
       commander: 8.3.0
 
-  katex@0.18.3:
+  katex@0.18.4:
     dependencies:
       commander: 8.3.0
 
