@@ -1,3 +1,12 @@
+# Every npm manifest in this repo is a workspace member, so the root
+# pnpm-lock.yaml is the ONE lockfile and Dependabot's single `/` entry keeps
+# all of them consistent. Do not remove a member to give it a private
+# lockfile: Dependabot cannot update a member manifest and the root lockfile
+# from a per-directory entry, so the member's PRs are then born either
+# unmergeable (workspace member, root lockfile untouched) or silently drifted
+# (standalone, its own lockfile untouched). Both failure modes have happened
+# here — see the rev-3 note in .github/dependabot.yml.
 packages:
   - 'server/mcp'
   - 'server/content'
+  - 'website'

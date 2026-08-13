@@ -12,27 +12,39 @@
 # no grouping and a misleading "security-only" comment that the config
 # never enforced. Grouping fixes both.
 #
-# rev 3 (2026-08-13): DELETED the `/server/mcp` and `/server/content`
-# entries. Both are pnpm WORKSPACE MEMBERS (pnpm-workspace.yaml), so they
-# have no lockfile of their own — the root `pnpm-lock.yaml` is the only one
-# that resolves them. A per-directory entry can only rewrite that member's
-# `package.json`, never the root lockfile, so every PR it opened was born
-# failing `pnpm install --frozen-lockfile` with ERR_PNPM_OUTDATED_LOCKFILE
-# and could not be merged by any means short of a hand-written lockfile
-# commit. Six such PRs were opened and five were closed unmerged (#1259,
-# #1239, #1237, #1189, #1167, #1166) before the mechanism was identified.
+# rev 3 (2026-08-13): there is now exactly ONE npm entry, because there is
+# exactly one npm lockfile. A per-directory entry cannot keep a manifest and
+# its lockfile in step unless BOTH sit in that directory, and this repo had
+# two different ways of getting that wrong at once:
 #
-# The `/` entry above already covers both members — Dependabot resolves the
-# whole workspace from the root manifest and updates member `package.json`
-# files together with the root lockfile in ONE consistent PR. Verified on
-# #1261, whose file list is package.json + pnpm-lock.yaml +
-# server/content/package.json + server/mcp/package.json, and which carried
-# byte-identical (indeed newer) bumps to the two PRs that could not merge.
-# Do not re-add a per-member entry: it cannot produce a mergeable PR.
+#   * `/server/mcp` and `/server/content` are pnpm WORKSPACE MEMBERS, so they
+#     have no lockfile of their own — the root `pnpm-lock.yaml` is the only
+#     one that resolves them. Their entries could rewrite a member
+#     `package.json` but never the root lockfile, so every PR was born
+#     failing `pnpm install --frozen-lockfile` with ERR_PNPM_OUTDATED_LOCKFILE
+#     and was UNMERGEABLE. Six were opened, five closed unmerged (#1259,
+#     #1239, #1237, #1189, #1167, #1166).
+#   * `/website` was standalone with its own `website/pnpm-lock.yaml`, which
+#     Dependabot did not update either — so its PRs merged green and left the
+#     manifest and lockfile SILENTLY DRIFTED (#1238, #1129, #1038). Silent
+#     because deploy-website.yml installed it without --frozen-lockfile. Two
+#     manual repair commits came of it: bfc7d2456, c5486c5e3.
+#
+# Same root cause, opposite symptoms: one fails loudly and cannot land, the
+# other lands and rots. Both are fixed by making every npm manifest in the
+# repo a workspace member of the single root lockfile — see
+# pnpm-workspace.yaml, which now lists website too — so this one `/` entry
+# updates every manifest together with the lockfile in ONE consistent PR.
+# Verified on #1261: package.json + pnpm-lock.yaml + server/content/package.json
+# + server/mcp/package.json in a single green PR.
+#
+# Do not add a per-directory npm entry back. If a new npm package appears in
+# this repo, add it to pnpm-workspace.yaml instead.
 version: 2
 updates:
-  # Root manifest AND every pnpm workspace member (server/mcp, server/content),
-  # because they all resolve through the root pnpm-lock.yaml. See rev-3 note.
+  # The root manifest AND every pnpm workspace member — server/mcp,
+  # server/content, website — because all of them resolve through the root
+  # pnpm-lock.yaml. See the rev-3 note above.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -48,27 +60,6 @@ updates:
       # Applies workspace-wide: server/mcp pins @types/node too.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-
-  # website/ is deliberately OUTSIDE the pnpm workspace (it is absent from
-  # pnpm-workspace.yaml and installs with --ignore-workspace), so it keeps
-  # its own website/pnpm-lock.yaml and needs its own entry — unlike the
-  # workspace members above.
-  #
-  # KNOWN GAP: Dependabot updates website/package.json but NOT
-  # website/pnpm-lock.yaml, so these PRs land a package.json the lockfile
-  # does not match. It is silent rather than red because deploy-website.yml
-  # installs website deps WITHOUT --frozen-lockfile. It has twice needed a
-  # manual repair commit (bfc7d2456, c5486c5e3). Until that is resolved,
-  # re-run `pnpm install --ignore-workspace --lockfile-only` in website/ and
-  # commit the result alongside any Dependabot bump here.
-  - package-ecosystem: npm
-    directory: /website
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      npm-minor-patch:
-        update-types: ["minor", "patch"]
 
   - package-ecosystem: cargo
     directory: /src-tauri

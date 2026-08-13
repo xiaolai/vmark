@@ -44,12 +44,14 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      - name: Install root dependencies (lint tools)
+      # website is a pnpm workspace member, so this single frozen install
+      # covers the lint tools AND the site's own dependencies. It is frozen,
+      # which is the point: the previous split installed website separately
+      # with --ignore-workspace and WITHOUT --frozen-lockfile, so a
+      # website/package.json that had drifted from its lockfile still built
+      # green and the lockfile quietly stopped meaning anything.
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install website dependencies
-        working-directory: website
-        run: pnpm install --ignore-workspace
 
       - name: Lint website markdown
         working-directory: website
