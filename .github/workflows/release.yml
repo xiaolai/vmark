@@ -326,6 +326,12 @@ jobs:
       # dmg changes; the updater path (.app.tar.gz + .sig) is untouched.
       - name: Notarize and staple DMG (macOS)
         if: matrix.platform == 'macos-latest'
+        # Bounded like the tauri-action step above. This is the only step that
+        # blocks on Apple's notary service: `notarytool --wait` has no default
+        # timeout, and the retry wrapper multiplies that by five. build-tauri
+        # sets no job-level timeout, so without this a stalled submission idles
+        # a macOS runner for GitHub's 360-minute default at a 10x billing rate.
+        timeout-minutes: 45
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -338,8 +344,16 @@ jobs:
           set -euo pipefail
 
           # Fail closed. A missing secret must not silently skip notarization
-          # and ship an unnotarized dmg behind a green build.
-          test -n "$APPLE_TEAM_ID" || { echo "FAIL: APPLE_TEAM_ID is empty"; exit 1; }
+          # and ship an unnotarized dmg behind a green build. All three are
+          # required, not just the team id: an empty APPLE_ID or APPLE_PASSWORD
+          # otherwise fails five full dmg uploads deep, behind a generic
+          # notarytool error, instead of here with the name of what is missing.
+          # ${!var-} not ${!var}: indirect expansion of an unset name is an
+          # error under `set -u`, and the point here is to REPORT the missing
+          # secret by name, not to abort with "unbound variable".
+          for var in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            test -n "${!var-}" || { echo "FAIL: $var is empty"; exit 1; }
+          done
 
           TARGET="${MATRIX_ARGS##*--target }"
           DMG=$(ls "src-tauri/target/$TARGET/release/bundle/dmg/"*.dmg | head -1)
