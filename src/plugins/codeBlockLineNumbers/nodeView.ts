@@ -35,6 +35,7 @@ import {
   type CopyFeedback,
 } from "./nodeViewActions";
 import { codeBlockError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 export class CodeBlockNodeView implements NodeView {
   dom: HTMLElement;
@@ -106,7 +107,7 @@ export class CodeBlockNodeView implements NodeView {
     const actions = buildCodeBlockActions({
       chip: this.langSelector,
       onActionMouseDown: this.handleCopyMouseDown,
-      onCopyClick: this.handleCopyClick,
+      onCopyClick: this.copyClickListener,
       onRunClick: this.handleRunClick,
     });
     this.copyBtn = actions.copyBtn;
@@ -149,7 +150,7 @@ export class CodeBlockNodeView implements NodeView {
     this.langSelector.removeEventListener("mousedown", this.handleLangClick, { capture: true });
     this.langSelector.removeEventListener("keydown", this.handleLangKeydown);
     this.copyBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
-    this.copyBtn.removeEventListener("click", this.handleCopyClick);
+    this.copyBtn.removeEventListener("click", this.copyClickListener);
     this.runBtn.removeEventListener("mousedown", this.handleCopyMouseDown);
     this.runBtn.removeEventListener("click", this.handleRunClick);
   }
@@ -219,6 +220,20 @@ export class CodeBlockNodeView implements NodeView {
   };
 
   private copyInFlight = false;
+
+  /**
+   * The void-returning identity handed to add/removeEventListener.
+   *
+   * It must be ONE stable function: wrapping at the add site and removing the
+   * raw handler would silently fail to detach and leak the listener. Declared
+   * as an arrow that calls `handleCopyClick` lazily so class-field
+   * initialisation order is irrelevant, and `handleCopyClick` stays async and
+   * awaitable for its tests.
+   */
+  private copyClickListener = voidAsync(
+    (e: MouseEvent) => this.handleCopyClick(e),
+    (err) => codeBlockError("Copy code failed:", err)
+  );
 
   private handleCopyClick = async (e: MouseEvent): Promise<void> => {
     e.preventDefault();

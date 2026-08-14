@@ -21,6 +21,7 @@
 
 import i18n from "@/i18n";
 import { linkPopupError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 import type { StoreApi } from "zustand";
 import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
@@ -52,7 +53,11 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     this.input.addEventListener("input", this.handleInputChange);
     this.input.addEventListener("keydown", this.handleInputKeydown);
     this.openBtn.addEventListener("click", this.handleOpen);
-    this.copyBtn.addEventListener("click", this.handleCopy);
+    // Adapted at the DOM boundary; `handleCopy` stays async for its tests.
+    this.copyBtn.addEventListener(
+      "click",
+      voidAsync(() => this.handleCopy(), (e) => linkPopupError("Copy link failed:", e))
+    );
     this.saveBtn.addEventListener("click", this.handleSave);
     this.deleteBtn.addEventListener("click", this.handleRemove);
   }

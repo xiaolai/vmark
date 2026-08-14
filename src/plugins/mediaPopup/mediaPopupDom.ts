@@ -24,8 +24,8 @@ import { buildPopupIconButton, buildPopupInput, popupIcons } from "@/utils/popup
 import type { MediaNodeType } from "@/plugins/shared/popupPorts";
 
 interface MediaPopupDomHandlers {
-  onBrowse: () => void;
-  onCopy: () => void;
+  onBrowse: () => void | Promise<void>;
+  onCopy: () => void | Promise<void>;
   onToggle: () => void;
   onRemove: () => void;
   onInputKeydown: (e: KeyboardEvent) => void;

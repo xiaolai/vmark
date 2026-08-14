@@ -21,6 +21,7 @@ import { shouldBlockMenuAction } from "@/utils/focusGuard";
 import { runEditorAction } from "@/services/editor/runEditorAction";
 import { disposeEditorActionOwner } from "@/services/editor/editorActionOwner";
 import type { MenuActionMapping } from "@/plugins/actions/types";
+import { voidAsync } from "@/utils/voidAsync";
 
 /**
  * Dispatch one menu-action mapping through the shared editor executor. This is the
@@ -101,7 +102,10 @@ export async function mountMenuCommands(
   for (const binding of bindings) {
     const event = normalizeMenuEvent(binding.menuEvent);
     try {
-      const off = await currentWindow.listen<string | [unknown, string]>(event, async (e) => {
+      // Tauri's EventCallback returns void, so the listener must too. The body
+      // below already catches its own failures (#957) — this adapter fixes the
+      // CONTRACT, and is a second net if that catch is ever narrowed.
+      const off = await currentWindow.listen<string | [unknown, string]>(event, voidAsync(async (e: { payload: string | [unknown, string] }) => {
         // Window-targeting filter — supports both string payload
         // (single value === windowLabel) and tuple payload (second
         // element is the target window label). Anything else is
@@ -133,7 +137,7 @@ export async function mountMenuCommands(
         } catch (err) {
           menuError(`Command ${binding.commandId} threw:`, err);
         }
-      });
+      }, (err) => menuError(`Menu listener for ${event} failed:`, err)));
       unlisteners.push(off);
     } catch (err) {
       menuError(`Failed to mount listener for ${event}:`, err);

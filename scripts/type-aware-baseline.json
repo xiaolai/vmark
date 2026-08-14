@@ -20,18 +20,6 @@
   "files": {
     "src/hooks/useImageDragDrop.ts": {
       "no-misused-promises": 1
-    },
-    "src/plugins/codeBlockLineNumbers/nodeView.ts": {
-      "no-misused-promises": 2
-    },
-    "src/plugins/linkPopup/LinkPopupView.ts": {
-      "no-misused-promises": 1
-    },
-    "src/plugins/mediaPopup/MediaPopupView.ts": {
-      "no-misused-promises": 2
-    },
-    "src/services/commands/menuListener.ts": {
-      "no-misused-promises": 1
     }
   }
 }
