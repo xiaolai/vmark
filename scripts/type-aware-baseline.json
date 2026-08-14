@@ -17,9 +17,5 @@
     "They are not cosmetic: in an app where every backend call is `invoke()`,",
     "an unawaited promise is a rejection nobody sees."
   ],
-  "files": {
-    "src/hooks/useImageDragDrop.ts": {
-      "no-misused-promises": 1
-    }
-  }
+  "files": {}
 }
