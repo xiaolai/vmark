@@ -1,0 +1,376 @@
+{
+  "//": [
+    "THE FEATURE LEDGER SPINE. This is the ONLY hand-authored input to",
+    "`node scripts/gen-feature-ledger.mjs`. Every other column in the generated",
+    "ledger is JOINED from something already measured in this repo — never typed",
+    "in here, and never invented.",
+    "",
+    "WHAT MAY LIVE IN THIS FILE: the name of a feature, the paths it occupies,",
+    "the setting that gates it, and the website page that documents it. All four",
+    "are CHECKABLE, and the generator checks them: a `paths` entry that matches no",
+    "file on disk is a hard failure, and so is a `doc` naming a page that does not",
+    "exist. Staleness is enforced in both directions, like every other baseline in",
+    "this repo.",
+    "",
+    "WHAT MAY NOT LIVE IN THIS FILE: a score, a grade, a priority, a target, a",
+    "review date, or an owner. `scripts/baseline-review-schedule.json` records what",
+    "happened the last time an agent put dates in a file like this one — a",
+    "fortnightly stagger invented out of nothing and stamped `owner: maintainer`,",
+    "which recorded a guess as somebody else's commitment. The judged half of the",
+    "ledger lives in prose, written by a human, citing the measured cells. Do not",
+    "move it in here because a column would be tidier.",
+    "",
+    "`flag` is the setting key that gates the feature, with the DEFAULT as shipped;",
+    "`null` means always on. `flagDefault` is verified against",
+    "src/stores/settingsStore/defaults.ts by the generator where the key resolves.",
+    "",
+    "GRANULARITY RULE: a row is a thing a user would name. Infrastructure",
+    "(plugins/shared, plugins/actions, services/assembly, command_registry.rs) is",
+    "deliberately absent — it has no user-facing surface to strengthen, and giving",
+    "it a row would dilute every ranking the ledger produces."
+  ],
+  "features": [
+    {
+      "name": "Editor modes (WYSIWYG/Source/Split)",
+      "paths": ["src/components/Editor/Editor.tsx", "src/components/Editor/TiptapEditor.tsx", "src/components/Editor/SourceEditor.tsx", "src/components/Editor/SplitPaneEditor", "src/plugins/codemirror"],
+      "flag": "markdown.splitViewByDefault", "flagDefault": false,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Markdown pipeline (parse/serialize)",
+      "paths": ["src/utils/markdownPipeline"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/formats.md"
+    },
+    {
+      "name": "Multi-cursor editing",
+      "paths": ["src/plugins/multiCursor"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/multi-cursor.md"
+    },
+    {
+      "name": "Find & replace (in-document)",
+      "paths": ["src/components/FindBar", "src/plugins/search"],
+      "flag": "markdown.enableRegexSearch", "flagDefault": true,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Find in files (content search)",
+      "paths": ["src/components/ContentSearch", "src/components/spotlight", "src-tauri/src/content_search.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/workspace-management.md"
+    },
+    {
+      "name": "Quick Open",
+      "paths": ["src/components/QuickOpen"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/workspace-management.md"
+    },
+    {
+      "name": "Command palette",
+      "paths": ["src/components/CommandPalette", "src/services/commands", "src/stores/commandPaletteStore.ts"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/shortcuts.md"
+    },
+    {
+      "name": "Markdown lint engine",
+      "paths": ["src/lib/lintEngine", "src/plugins/lint", "src/services/lint"],
+      "flag": "markdown.lintEnabled", "flagDefault": true,
+      "doc": "website/guide/lint.md"
+    },
+    {
+      "name": "Link check",
+      "paths": ["src/lib/markdownLinkCheck"],
+      "flag": "markdown.lintEnabled", "flagDefault": true,
+      "doc": "website/guide/link-check.md"
+    },
+    {
+      "name": "CJK formatting & IME",
+      "paths": ["src/lib/cjkFormatter", "src/plugins/cjkLetterSpacing", "src/plugins/compositionGuard", "src/services/ime"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/cjk-formatting.md"
+    },
+    {
+      "name": "Inline marks & formatting",
+      "paths": ["src/plugins/highlight", "src/plugins/underline", "src/plugins/subSuperscript", "src/plugins/markInputRules", "src/plugins/inlineCodeBoundary", "src/plugins/syntaxReveal"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Lists, blocks & task items",
+      "paths": ["src/plugins/listBackspace", "src/plugins/listClickFix", "src/plugins/listContinuation", "src/plugins/listEscape", "src/plugins/taskToggle", "src/plugins/blockquoteEscape", "src/plugins/blockEscape", "src/plugins/blankLinesGuard"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Tables",
+      "paths": ["src/plugins/tableUI", "src/plugins/tableScroll"],
+      "flag": "markdown.tableFitToWidth", "flagDefault": false,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Mermaid diagrams",
+      "paths": ["src/plugins/mermaid", "src/plugins/mermaidPreview"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/mermaid.md"
+    },
+    {
+      "name": "Graphviz diagrams",
+      "paths": ["src/plugins/graphviz"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/graphviz.md"
+    },
+    {
+      "name": "Markmap mindmaps",
+      "paths": ["src/plugins/markmap"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/markmap.md"
+    },
+    {
+      "name": "SVG graphics",
+      "paths": ["src/plugins/svg"],
+      "flag": "formats.diagrams", "flagDefault": false,
+      "doc": "website/guide/svg.md"
+    },
+    {
+      "name": "Math / LaTeX",
+      "paths": ["src/plugins/latex", "src/plugins/mathPreview", "src/plugins/mathPopup", "src/plugins/sourceMathPopup", "src/stores/blockMathEditingStore.ts"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Media (image/video/audio)",
+      "paths": ["src/plugins/blockImage", "src/plugins/blockVideo", "src/plugins/blockAudio", "src/plugins/imageHandler", "src/plugins/imageView", "src/plugins/mediaHandler", "src/plugins/videoEmbed", "src/plugins/mediaPopup", "src/plugins/imagePreview", "src-tauri/src/asset_access.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/media-support.md"
+    },
+    {
+      "name": "Inline popups",
+      "paths": ["src/plugins/linkPopup", "src/plugins/linkCreatePopup", "src/plugins/footnotePopup", "src/plugins/wikiLinkPopup", "src/plugins/sourcePopup", "src/plugins/sourceLinkPopup", "src/plugins/sourceLinkCreatePopup", "src/plugins/sourceMathPopup", "src/plugins/sourceFootnotePopup", "src/plugins/sourceImagePopup", "src/plugins/sourceWikiLinkPopup", "src/plugins/sourcePeekInline", "src/plugins/inlineNodeEditing"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/popups.md"
+    },
+    {
+      "name": "Paste & copy pipeline",
+      "paths": ["src/plugins/smartPaste", "src/plugins/htmlPaste", "src/plugins/markdownPaste", "src/plugins/codePaste", "src/plugins/markdownCopy", "src/plugins/markdownArtifacts", "src/plugins/textDragDrop"],
+      "flag": "markdown.pasteMode", "flagDefault": "smart",
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Auto-pair & tab escape",
+      "paths": ["src/plugins/autoPair", "src/plugins/tabIndent"],
+      "flag": "markdown.autoPairEnabled", "flagDefault": true,
+      "doc": "website/guide/tab-navigation.md"
+    },
+    {
+      "name": "Focus / typewriter / view toggles",
+      "paths": ["src/plugins/focusMode", "src/plugins/typewriterMode", "src/plugins/showInvisibles", "src/plugins/codeBlockLineNumbers", "src/plugins/inactiveSelection"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Universal toolbar",
+      "paths": ["src/components/Editor/UniversalToolbar", "src/plugins/formatToolbar", "src/plugins/toolbarActions", "src/plugins/toolbarContext"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Frontmatter panel",
+      "paths": ["src/plugins/frontmatterPanel", "src-tauri/src/coherence/frontmatter.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Sidebar file tree & outline",
+      "paths": ["src/components/Sidebar", "src-tauri/src/file_tree.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/workspace-management.md"
+    },
+    {
+      "name": "Tabs & windows",
+      "paths": ["src/components/Tabs", "src/services/tabs", "src/stores/tabStore.ts", "src-tauri/src/window_manager", "src-tauri/src/tab_transfer.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/tab-navigation.md"
+    },
+    {
+      "name": "Workspace management",
+      "paths": ["src/components/Workspace", "src/services/workspaces", "src-tauri/src/workspace.rs", "src-tauri/src/workspace_transfer.rs", "src-tauri/src/workspace_validation.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/workspace-management.md"
+    },
+    {
+      "name": "Workspace rail (multi-workspace)",
+      "paths": ["src/components/WorkspaceRail", "src/services/featureFlags/workspaceRailFeatureFlag.ts"],
+      "flag": "general.workspaceRailMode", "flagDefault": false,
+      "doc": "website/guide/workspace-rail.md"
+    },
+    {
+      "name": "Document history / snapshots",
+      "paths": ["src/services/history"],
+      "flag": "general.historyEnabled", "flagDefault": true,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Hot exit / session recovery",
+      "paths": ["src/services/persistence/hotExit", "src-tauri/src/hot_exit"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Save pipeline & file watching",
+      "paths": ["src/services/persistence", "src-tauri/src/file_write.rs", "src-tauri/src/atomic_replace.rs", "src-tauri/src/watcher.rs", "src-tauri/src/file_open.rs"],
+      "flag": "general.autoSaveEnabled", "flagDefault": true,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Export & print (HTML/PDF)",
+      "paths": ["src/export", "src/services/commands/exportCommands.ts", "src-tauri/src/pdf_export", "src-tauri/src/temp_html.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/export.md"
+    },
+    {
+      "name": "Pandoc export",
+      "paths": ["src-tauri/src/pandoc"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/export.md"
+    },
+    {
+      "name": "Integrated terminal",
+      "paths": ["src/components/Terminal", "src/services/terminal", "src-tauri/src/pty.rs", "src-tauri/src/pty", "src-tauri/src/shell_env.rs", "src-tauri/src/shell_integration.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/terminal.md"
+    },
+    {
+      "name": "Embedded browser",
+      "paths": ["src/components/Browser", "src/services/browser", "src/lib/browser", "src/lib/sites", "src/stores/browserApprovalStore.ts", "src-tauri/src/browser"],
+      "flag": "browser.enabled", "flagDefault": false,
+      "doc": "website/guide/browser.md"
+    },
+    {
+      "name": "AI Genies",
+      "paths": ["src/components/GeniePicker", "src/stores/aiStore", "src/services/genieInvocation", "src-tauri/src/genies"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/ai-genies.md"
+    },
+    {
+      "name": "AI providers (CLI + REST)",
+      "paths": ["src/services/secrets", "src-tauri/src/ai_provider", "src-tauri/src/secure_store.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/ai-providers.md"
+    },
+    {
+      "name": "MCP server & bridge",
+      "paths": ["src/services/mcpBridge", "src-tauri/src/mcp_server.rs", "src-tauri/src/mcp_bridge", "src-tauri/src/mcp_bridge_path_guard.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/mcp-tools.md"
+    },
+    {
+      "name": "MCP client config installer",
+      "paths": ["src-tauri/src/mcp_config"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/mcp-setup.md"
+    },
+    {
+      "name": "MCP activity history",
+      "paths": ["src/components/McpHistory"],
+      "flag": null, "flagDefault": null,
+      "doc": null
+    },
+    {
+      "name": "Coherence & breakdown",
+      "paths": ["src/components/BreakdownPanel", "src/components/ClaimPanel", "src/services/coherence", "src/services/breakdown", "src/services/claims", "src-tauri/src/coherence"],
+      "flag": "general.coherenceCaptureOnSave", "flagDefault": false,
+      "doc": "website/guide/coherence.md"
+    },
+    {
+      "name": "Knowledge base & Slidev",
+      "paths": ["src/components/KnowledgeBasePanel", "src/services/contentServer", "src-tauri/src/content_server"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/knowledge-base.md"
+    },
+    {
+      "name": "Workflow engine (bespoke YAML)",
+      "paths": ["src/lib/workflow", "src/services/workflow", "src/plugins/workflowPreview", "src/components/WorkflowApproval", "src/stores/workflowStore.ts", "src-tauri/src/workflow"],
+      "flag": "advanced.workflowEngine", "flagDefault": false,
+      "doc": "website/guide/workflows.md"
+    },
+    {
+      "name": "GHA workflow viewer",
+      "paths": ["src/lib/ghaWorkflow", "src/components/Editor/WorkflowPanel", "src/components/Editor/WorkflowEditor", "src-tauri/src/gha_workflow"],
+      "flag": "advanced.workflowViewer", "flagDefault": false,
+      "doc": "website/guide/workflow-viewer.md"
+    },
+    {
+      "name": "Multi-format support",
+      "paths": ["src/lib/formats", "src/lib/yamlValidation", "src/services/formats", "src-tauri/src/supported_files.rs"],
+      "flag": "formats.dataFormats", "flagDefault": false,
+      "doc": "website/guide/formats.md"
+    },
+    {
+      "name": "Themes, fonts & layout",
+      "paths": ["src/theme", "src/services/theme", "src-tauri/src/window_manager/native_theme.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/settings.md"
+    },
+    {
+      "name": "Localization (9 locales)",
+      "paths": ["src/locales", "src-tauri/locales", "src-tauri/src/menu/localized"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/settings.md"
+    },
+    {
+      "name": "Keyboard shortcuts",
+      "paths": ["src/services/keybinding", "src/utils/keybinding", "src/stores/settingsStore/shortcuts.ts", "src-tauri/src/menu/accelerators.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/shortcuts.md"
+    },
+    {
+      "name": "Auto-update",
+      "paths": ["src/services/updates"],
+      "flag": "update.autoCheckEnabled", "flagDefault": true,
+      "doc": "website/guide/features.md"
+    },
+    {
+      "name": "Window status panel",
+      "paths": ["src/components/WindowStatusPanel", "src/stores/windowStatusStore.ts", "src-tauri/src/window_status"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/workspace-management.md"
+    },
+    {
+      "name": "App chrome (titlebar/statusbar/welcome)",
+      "paths": ["src/components/TitleBar", "src/components/StatusBar", "src/components/BottomBar", "src/components/Welcome", "src/components/QuickLook", "src-tauri/src/macos_menu.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": "website/guide/index.md"
+    },
+    {
+      "name": "macOS platform integrations",
+      "paths": ["src/services/macos", "src-tauri/src/quarantine.rs", "src-tauri/src/text_substitution.rs", "src-tauri/src/dock_recent.rs", "src-tauri/src/app_nap.rs", "src-tauri/src/webview_edit.rs"],
+      "flag": null, "flagDefault": null,
+      "doc": null
+    },
+    {
+      "name": "CLI installer",
+      "paths": ["src-tauri/src/cli_install"],
+      "flag": null, "flagDefault": null,
+      "doc": null
+    },
+    {
+      "name": "Quit & save-all behavior",
+      "paths": ["src/services/windowClose", "src-tauri/src/quit.rs"],
+      "flag": "general.confirmQuit", "flagDefault": true,
+      "doc": null
+    },
+    {
+      "name": "Inline AI suggestions",
+      "paths": ["src/plugins/aiSuggestion"],
+      "flag": null, "flagDefault": null,
+      "doc": null
+    },
+    {
+      "name": "Bookmarks",
+      "paths": ["src/stores/bookmarkStore.ts", "src/components/Browser/BookmarksView.tsx"],
+      "flag": null, "flagDefault": null,
+      "doc": null
+    }
+  ]
+}
