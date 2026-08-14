@@ -174,7 +174,7 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
         editor.commands.setContent(doc.toJSON());
 
         // Start stability check
-        waitForStability();
+        void waitForStability().catch((e) => exportError("Export stability check failed:", e));
       } catch (error) {
         exportError("Failed to parse markdown for export surface:", error);
         /* v8 ignore next -- @preserve catch block not triggered in tests; markdown parse errors require malformed input */

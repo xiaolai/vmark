@@ -109,7 +109,7 @@ function handleDrop(view: EditorView, event: DragEvent): boolean {
 
   // Handle each media file
   for (const file of mediaFiles) {
-    handleDroppedMediaFile(view, file);
+    void handleDroppedMediaFile(view, file).catch((e) => mediaHandlerError("Failed to handle dropped media:", e));
   }
 
   return true;

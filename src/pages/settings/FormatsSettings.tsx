@@ -267,7 +267,7 @@ export function FormatsSettings() {
               aria-labelledby={editorLabelId}
               ref={editorInputRef}
             />
-            <Button onClick={browseForEditor} variant="secondary">
+            <Button onClick={() => void browseForEditor()} variant="secondary">
               {t("formats.externalEditor.browse")}
             </Button>
           </div>

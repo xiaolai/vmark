@@ -22,6 +22,7 @@ import { listen } from "@tauri-apps/api/event";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { HOT_EXIT_EVENTS } from "@/services/persistence/hotExit/types";
+import { hotExitError } from "@/utils/debug";
 
 interface PartialCapturePayload {
   captured?: number;
@@ -47,12 +48,12 @@ export function useHotExitCaptureWarning(): void {
     };
 
     const register = (event: string) => {
-      listen<PartialCapturePayload>(event, (e) => warn(e.payload)).then(
+      void listen<PartialCapturePayload>(event, (e) => warn(e.payload)).then(
         (un) => {
           if (cancelled) un();
           else unlisteners.push(un);
         },
-      );
+      ).catch((e) => hotExitError("Failed to register hot-exit capture warning:", e));
     };
 
     register(HOT_EXIT_EVENTS.PARTIAL_CAPTURE);

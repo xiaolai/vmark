@@ -197,7 +197,7 @@ export function HistoryView() {
               <div className="history-item-actions">
                 <button
                   className="history-revert-btn"
-                  onClick={() => handleRevert(snapshot)}
+                  onClick={() => void handleRevert(snapshot)}
                   title={t("history.revertButton")}
                   aria-label={t("history.revertButton")}
                 >
@@ -205,7 +205,7 @@ export function HistoryView() {
                 </button>
                 <button
                   className="history-delete-btn"
-                  onClick={() => handleDeleteSnapshot(snapshot)}
+                  onClick={() => void handleDeleteSnapshot(snapshot)}
                   title={t("history.deleteSnapshot")}
                   aria-label={t("history.deleteSnapshot")}
                 >

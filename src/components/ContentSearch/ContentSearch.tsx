@@ -254,7 +254,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           <ContentSearchResults
             results={results}
             selectedIndex={selectedIndex}
-            onSelectMatch={handleSelectMatch}
+            onSelectMatch={(file, match) => void handleSelectMatch(file, match)}
           />
         </div>
 

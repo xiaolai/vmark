@@ -248,7 +248,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
       runContextMenuAction(action, {
         targetPath: contextMenu.targetPath,
         targetIsFolder: contextMenu.targetIsFolder,
-        openFileByType,
+        openFileByType: (path: string) => void openFileByType(path).catch((e) => fileExplorerError("Failed to open file:", e)),
         editNode: (path) => treeRef.current?.get(path)?.edit(),
         duplicateFile,
         pickMoveDestination: (path) =>
@@ -378,7 +378,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
         <ContextMenu
           type={contextMenu.type}
           position={contextMenu.position}
-          onAction={handleContextMenuAction}
+          onAction={(action) => void handleContextMenuAction(action).catch((e) => fileExplorerError("File explorer action failed:", e))}
           onClose={closeContextMenu}
         />
       )}

@@ -162,10 +162,10 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
           <ProviderRow
             key={diagnostic.provider}
             diagnostic={diagnostic}
-            onPreview={() => handlePreview(diagnostic.provider)}
-            onRepair={() => handleRepair(diagnostic.provider)}
-            onUninstall={() => handleUninstall(diagnostic.provider)}
-            onRecheck={loadDiagnostics}
+            onPreview={() => void handlePreview(diagnostic.provider)}
+            onRepair={() => void handleRepair(diagnostic.provider)}
+            onUninstall={() => void handleUninstall(diagnostic.provider)}
+            onRecheck={() => void loadDiagnostics()}
             loading={loading}
           />
         ))}
@@ -203,7 +203,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
       {preview && (
         <McpConfigPreviewDialog
           preview={preview}
-          onConfirm={handleInstall}
+          onConfirm={() => void handleInstall()}
           onCancel={() => setPreview(null)}
           loading={loading}
         />

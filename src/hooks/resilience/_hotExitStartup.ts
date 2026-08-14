@@ -16,6 +16,7 @@ import {
   notifyRestoreComplete,
 } from '@/services/persistence/hotExit/hotExitCoordination';
 import { hotExitLog } from '@/utils/debug';
+import { hotExitError } from "@/utils/debug";
 
 export function useHotExitStartup() {
   const hasChecked = useRef(false);
@@ -42,6 +43,6 @@ export function useHotExitStartup() {
       }
     };
 
-    checkSession();
+    void checkSession().catch((e) => hotExitError("Hot-exit session check failed:", e));
   }, []);
 }

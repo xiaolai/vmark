@@ -260,7 +260,7 @@ export function CommandPalette() {
           value={query}
           placeholder={t("commands:commandPalette.placeholder")}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => void handleKeyDown(e).catch((err) => menuError("Command palette key handler failed:", err))}
           role="combobox"
           aria-expanded={flat.length > 0}
           aria-controls="command-palette-list"

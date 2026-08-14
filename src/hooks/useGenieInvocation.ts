@@ -156,7 +156,7 @@ export function useGenieInvocation() {
       // `handled` before returning so the MCP bridge can distinguish a real
       // invocation from a dropped one (no listener mounted).
       detail.handled = true;
-      invokeGenieRef.current?.(detail.genie, detail.scopeOverride);
+      void invokeGenieRef.current?.(detail.genie, detail.scopeOverride)?.catch((e) => genieWarn("Genie invocation failed:", e));
     };
     window.addEventListener("mcp:invoke-genie", handler);
     return () => window.removeEventListener("mcp:invoke-genie", handler);

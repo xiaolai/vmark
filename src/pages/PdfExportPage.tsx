@@ -19,6 +19,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { PdfExportContent } from "@/export/PdfExportDialog";
 import { errorMessage } from "@/utils/errorMessage";
+import { pdfError } from "@/utils/debug";
 
 /** Handle Cmd+W to close PDF export window */
 function usePdfExportClose() {
@@ -101,7 +102,7 @@ export function PdfExportPage() {
       <PdfExportContent
         renderedHtml={renderedHtml}
         defaultName={defaultName}
-        onClose={handleClose}
+        onClose={() => void handleClose().catch((e) => pdfError("Failed to close export window:", e))}
       />
 
       {/* Title centered across the full window */}

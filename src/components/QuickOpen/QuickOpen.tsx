@@ -179,7 +179,7 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (selectedIndex < rankedItems.length) {
-          handleSelectItem(rankedItems[selectedIndex].item.path);
+          void handleSelectItem(rankedItems[selectedIndex].item.path);
         } else {
           // Browse row
           void handleBrowse();
@@ -249,8 +249,8 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
             rankedItems={rankedItems}
             selectedIndex={selectedIndex}
             filter={filter}
-            onSelectItem={handleSelectItem}
-            onBrowse={handleBrowse}
+            onSelectItem={(path) => void handleSelectItem(path)}
+            onBrowse={() => void handleBrowse()}
             onHoverIndex={setSelectedIndex}
           />
         </div>

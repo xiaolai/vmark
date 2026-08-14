@@ -241,7 +241,7 @@ export function useFileTree(
     let cancelled = false;
     getCurrentWebviewWindow()
       .onFocusChanged(({ payload: focused }) => {
-        if (focused) loadTree();
+        if (focused) void loadTree();
       })
       .then((u) => {
         if (cancelled) {

@@ -133,7 +133,7 @@ export function IntegrationsSettings() {
             <StatusBadge running={running} loading={loading} />
             <Toggle
               checked={running}
-              onChange={handleToggleServer}
+              onChange={(enabled) => void handleToggleServer(enabled)}
               disabled={loading}
             />
           </div>
@@ -255,7 +255,7 @@ export function IntegrationsSettings() {
       </SettingsGroup>
 
       <div className="mt-6">
-        <McpConfigInstaller onInstallSuccess={handleMcpConfigInstalled} />
+        <McpConfigInstaller onInstallSuccess={() => void handleMcpConfigInstalled()} />
       </div>
 
       <div className="mt-6">

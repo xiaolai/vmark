@@ -37,6 +37,7 @@ import { copyMermaid, saveImage } from "@/lib/ghaWorkflow/export/saveExport";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { errorMessage } from "@/utils/errorMessage";
 import "./workflow-export-control.css";
+import { workflowError } from "@/utils/debug";
 
 const EXPORT_ICON = (
   <svg
@@ -158,7 +159,7 @@ export function WorkflowExportControl({
             role="menuitem"
             className="workflow-export-control__item"
             disabled={exporting}
-            onClick={handleMermaid}
+            onClick={() => void handleMermaid().catch((e) => workflowError("Mermaid export failed:", e))}
           >
             {t("panel.exportMermaid")}
           </button>
@@ -167,7 +168,7 @@ export function WorkflowExportControl({
             role="menuitem"
             className="workflow-export-control__item"
             disabled={exporting}
-            onClick={() => handleImage("svg")}
+            onClick={() => void handleImage("svg")}
           >
             {t("panel.exportSvg")}
           </button>
@@ -176,7 +177,7 @@ export function WorkflowExportControl({
             role="menuitem"
             className="workflow-export-control__item"
             disabled={exporting}
-            onClick={() => handleImage("png")}
+            onClick={() => void handleImage("png")}
           >
             {t("panel.exportPng")}
           </button>

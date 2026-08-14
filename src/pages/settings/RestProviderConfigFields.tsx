@@ -162,7 +162,7 @@ export function RestProviderConfigFields({
         </button>
         <button
           className={iconBtnClass}
-          onClick={handleTest}
+          onClick={() => void handleTest()}
           title={t("integrations.testApiKey")}
           aria-label={t("integrations.testApiKey")}
           tabIndex={-1}
@@ -190,7 +190,7 @@ export function RestProviderConfigFields({
         />
         <button
           className={iconBtnClass}
-          onClick={handleModelTest}
+          onClick={() => void handleModelTest()}
           title={t("integrations.testModel")}
           aria-label={t("integrations.testModel")}
           tabIndex={-1}

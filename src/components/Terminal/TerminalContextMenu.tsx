@@ -242,7 +242,7 @@ export function TerminalContextMenu({
             role="menuitem"
             className="context-menu-item"
             disabled={item.disabled}
-            onClick={() => handleAction(item.id)}
+            onClick={() => void handleAction(item.id)}
             {...itemProps(index)}
           >
             <span className="context-menu-item-icon">{item.icon}</span>

@@ -20,6 +20,7 @@ import {
   scopeClaim,
 } from "@/services/claims/claimService";
 import "./claim-panel.css";
+import { appError } from "@/utils/debug";
 
 function ClaimItem({ row, workspaceRoot }: { row: ClaimRow; workspaceRoot: string }) {
   const { t } = useTranslation("claims");
@@ -211,7 +212,7 @@ export function ClaimPanel() {
           <button
             type="button"
             className="claim-panel__icon-btn"
-            onClick={() => workspaceRoot && refreshClaims(workspaceRoot)}
+            onClick={() => { if (workspaceRoot) void refreshClaims(workspaceRoot).catch((e) => appError("Failed to refresh claims:", e)); }}
             aria-label={t("refresh")}
             title={t("refresh")}
           >

@@ -62,6 +62,7 @@ import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
 import { ARIA_LIVE_STYLE, preventSelectAllOnButtons } from "./statusBarHelpers";
 import "./StatusBar.css";
+import { appError } from "@/utils/debug";
 
 /** Bottom bar combining tab strip, word/char counts, auto-save indicator, AI status, and mode toggle. */
 export function StatusBar() {
@@ -260,7 +261,7 @@ export function StatusBar() {
               mcpLoading={mcpLoading}
               mcpError={mcpError}
               mcpClients={mcpClients}
-              openMcpSettings={openMcpSettings}
+              openMcpSettings={() => void openMcpSettings().catch((e) => appError("Failed to open MCP settings:", e))}
               showAutoSavePaused={showAutoSavePaused}
               isDivergent={isDivergent}
               showAutoSave={showAutoSave}

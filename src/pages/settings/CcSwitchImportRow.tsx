@@ -52,7 +52,7 @@ export function CcSwitchImportRow({ binaryPath, loading }: CcSwitchImportRowProp
         <Button
           size="sm"
           variant="primary"
-          onClick={handleAdd}
+          onClick={() => void handleAdd()}
           disabled={loading || !link}
         >
           {t("integrations.ccSwitch.add")}
