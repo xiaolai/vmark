@@ -30,6 +30,7 @@
   "tracked": {
     "scripts/mock-boundaries-baseline.json": "zero — tests use the real store (setState/reset) or a recorded store-factory seam",
     "scripts/command-error-baseline.json": "zero — every command returns Result<T, CommandError>",
+    "scripts/type-aware-baseline.json": "zero — every awaited promise is awaited and every async callback is passed somewhere that can await it. 152 violations at first measurement (2026-08-14), 132 of them no-floating-promises/no-misused-promises; these are unhandled-rejection defects, not style, so paying this down is bug-fixing rather than tidying",
     ".dependency-cruiser-known-violations.json": "down — each frozen edge either deleted or re-expressed through a plugins/shared seam",
     "scripts/plugin-store-coupling-baseline.json": "zero on every channel — options and seams, not ambient lookups",
     "scripts/file-size-baseline.json": "down — split files, lower the number; never raise",

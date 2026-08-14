@@ -1,0 +1,266 @@
+{
+  "//": [
+    "Frozen type-aware lint violations, per file and per rule. Produced by",
+    "`node scripts/check-type-aware.mjs --write-baseline`; the rules are chosen in",
+    "eslint.typeaware.config.mjs and each one's violations are runtime defects,",
+    "not style. Ratchets DOWN only, in both directions: a new or grown entry",
+    "fails, and so does a file you have since fixed (record the win by",
+    "rewriting this file). Never raise a number.",
+    "",
+    "no-floating-promises and no-misused-promises dominate this set. They are",
+    "not cosmetic: in an app where every backend call is `invoke()`, an",
+    "unawaited promise is a rejection nobody sees."
+  ],
+  "files": {
+    "src/components/BreakdownPanel/useInFlightAction.ts": {
+      "prefer-promise-reject-errors": 1
+    },
+    "src/components/ClaimPanel/ClaimPanel.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/CommandPalette/CommandPalette.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/ContentSearch/ContentSearch.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 1
+    },
+    "src/components/ContentSearch/useContentSearchScheduler.ts": {
+      "no-floating-promises": 1
+    },
+    "src/components/Editor/TiptapEditor.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/Editor/WorkflowEditor/SaveControls.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/Editor/WorkflowEditor/withRowPlans.ts": {
+      "no-base-to-string": 2
+    },
+    "src/components/Editor/WorkflowPanel/WorkflowExportControl.tsx": {
+      "no-misused-promises": 3
+    },
+    "src/components/Editor/WorkflowPanel/WorkflowSidePanel.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/GeniePicker/GeniePicker.tsx": {
+      "no-floating-promises": 3
+    },
+    "src/components/GeniePicker/ProviderSwitcher.tsx": {
+      "no-floating-promises": 2
+    },
+    "src/components/KnowledgeBasePanel/KnowledgeBaseOverlay.tsx": {
+      "no-misused-promises": 5
+    },
+    "src/components/McpHistory/McpHistoryButton.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/QuickOpen/QuickOpen.tsx": {
+      "no-floating-promises": 2,
+      "no-misused-promises": 2
+    },
+    "src/components/Sidebar/FileExplorer/FileExplorer.tsx": {
+      "no-misused-promises": 3
+    },
+    "src/components/Sidebar/FileExplorer/useExplorerCreateFlow.ts": {
+      "no-floating-promises": 1
+    },
+    "src/components/Sidebar/FileExplorer/useFileTree.ts": {
+      "no-floating-promises": 3
+    },
+    "src/components/Sidebar/HistoryView.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 2
+    },
+    "src/components/StatusBar/StatusBar.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 1
+    },
+    "src/components/StatusBar/UpdateIndicator.tsx": {
+      "no-floating-promises": 3
+    },
+    "src/components/Tabs/useTabContextMenuActions.ts": {
+      "no-misused-promises": 8
+    },
+    "src/components/Terminal/TerminalContextMenu.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/components/Terminal/useTerminalSessions.ts": {
+      "no-misused-promises": 2
+    },
+    "src/components/Terminal/useTerminalShellLifecycle.ts": {
+      "no-floating-promises": 1
+    },
+    "src/components/TitleBar/TitleBar.tsx": {
+      "no-floating-promises": 1
+    },
+    "src/contexts/WindowContext.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 1
+    },
+    "src/export/ExportSurface.tsx": {
+      "no-floating-promises": 1
+    },
+    "src/export/PdfExportDialog.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/export/useExportOperations.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/resilience/_hotExitCapture.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/resilience/_hotExitRestore.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/resilience/_hotExitStartup.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useCommandBootstrap.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useDragDropOpen.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/useFinderFileOpen.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useGenieInvocation.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useGenieShortcuts.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/useHotExitCaptureWarning.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useImageDragDrop.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/useLiveDocsResponder.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/useMcpClients.ts": {
+      "no-floating-promises": 2
+    },
+    "src/hooks/useMcpServer.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useOpenFileEvent.ts": {
+      "no-misused-promises": 1
+    },
+    "src/hooks/useSourceOutlineSync.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useUpdateChecker.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useWindowClose.ts": {
+      "no-base-to-string": 1,
+      "no-misused-promises": 2
+    },
+    "src/hooks/useWindowStatus.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useWindowTitle.ts": {
+      "no-floating-promises": 1
+    },
+    "src/hooks/useWorkspaceSync.ts": {
+      "no-floating-promises": 1
+    },
+    "src/i18n.ts": {
+      "no-floating-promises": 1
+    },
+    "src/lib/workflow/parser.ts": {
+      "no-base-to-string": 11
+    },
+    "src/main.tsx": {
+      "no-floating-promises": 1
+    },
+    "src/pages/PdfExportPage.tsx": {
+      "no-misused-promises": 2
+    },
+    "src/pages/Settings.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/pages/settings/AboutSettings.tsx": {
+      "no-misused-promises": 2
+    },
+    "src/pages/settings/CcSwitchImportRow.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/pages/settings/FormatsSettings.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/pages/settings/IntegrationsSettings.tsx": {
+      "no-floating-promises": 3,
+      "no-misused-promises": 3
+    },
+    "src/pages/settings/LanguageSettings.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/pages/settings/McpConfigInstaller.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 5
+    },
+    "src/pages/settings/ModelComboBox.tsx": {
+      "no-floating-promises": 2
+    },
+    "src/pages/settings/RestProviderConfigFields.tsx": {
+      "no-floating-promises": 1,
+      "no-misused-promises": 2
+    },
+    "src/pages/settings/buttons.tsx": {
+      "no-misused-promises": 1
+    },
+    "src/plugins/codeBlockLineNumbers/nodeView.ts": {
+      "no-misused-promises": 2
+    },
+    "src/plugins/latex/latexErrorParser.ts": {
+      "no-base-to-string": 1
+    },
+    "src/plugins/linkPopup/LinkPopupView.ts": {
+      "no-misused-promises": 1
+    },
+    "src/plugins/markmap/plugin.ts": {
+      "no-floating-promises": 4
+    },
+    "src/plugins/mediaHandler/tiptap.ts": {
+      "no-floating-promises": 1
+    },
+    "src/plugins/mediaPopup/MediaPopupView.ts": {
+      "no-misused-promises": 2
+    },
+    "src/plugins/shared/diagramExport.ts": {
+      "no-floating-promises": 2
+    },
+    "src/plugins/sourceImagePopup/SourceImagePopupView.ts": {
+      "no-floating-promises": 2
+    },
+    "src/plugins/sourceLinkPopup/SourceLinkPopupView.ts": {
+      "no-floating-promises": 2
+    },
+    "src/plugins/sourcePeekInline/sourcePeekEditor.ts": {
+      "no-floating-promises": 1
+    },
+    "src/plugins/sourceWikiLinkPopup/SourceWikiLinkPopupView.ts": {
+      "no-floating-promises": 2,
+      "no-misused-promises": 1
+    },
+    "src/services/browser/browserEventBroker.ts": {
+      "await-thenable": 1
+    },
+    "src/services/commands/menuListener.ts": {
+      "no-misused-promises": 1
+    },
+    "src/stores/aiStore/provider.ts": {
+      "no-floating-promises": 2
+    },
+    "src/utils/cursorSync/tiptapAnchors.ts": {
+      "restrict-plus-operands": 2
+    },
+    "src/utils/debug/internals.ts": {
+      "no-base-to-string": 1
+    }
+  }
+}

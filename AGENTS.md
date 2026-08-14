@@ -218,6 +218,62 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
     - **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 
+  - **The IPC seam is checked across languages.** `pnpm lint:ipc-contract`
+    (`scripts/check-ipc-contract.mjs`, in `check:static`) is the only gate that
+    reads TypeScript and Rust together. `invoke("foo")` and `#[command] fn foo`
+    are joined by the Tauri runtime on a STRING, so neither compiler can see the
+    seam: a renamed command, or one dropped from `generate_handler!`, compiles on
+    both sides and fails when a user clicks it. Two properties, both **measured
+    at zero** on adoption (169 invoked commands resolve; 179 defined = 179
+    registered), so it ships zero-tolerance with **no baseline** — do not add
+    one, since a baseline here would list commands known to be broken at runtime.
+
+    It parses a TS AST rather than grepping, for the reason
+    `.claude/rules/50-codebase-conventions.md` already records: `invoke(` has 224
+    call sites, **99 of them generic**, and both a hand-written regex and
+    `ast-grep -p 'invoke($$$)'` find ~112 of 224 because nested generics
+    (`invoke<Record<string, unknown>>(`) defeat them. On the Rust side it strips
+    comments before matching and anchors the attribute to line start — its first
+    run flagged `pty.rs`'s private `session_gone` helper because the string
+    `#[tauri::command]` appears in that file's `//!` module doc. It matches both
+    `#[tauri::command]` and the imported `#[command]`; matching only the
+    qualified form reports 17 phantom findings. All three traps are pinned in
+    `scripts/check-ipc-contract.test.mjs`.
+
+    A command no literal `invoke()` names is **not** a failure — 5 call sites
+    resolve the name from a `const`/`as const` map, and MCP and e2e paths reach
+    others. `--report` lists them as information.
+
+  - **Type-aware lint is a separate, slower gate.** `pnpm lint:type-aware`
+    (`eslint.typeaware.config.mjs` + `scripts/check-type-aware.mjs`) is the only
+    config here that builds a TypeScript `Program`, so it is the only one that
+    can reason across files. It costs ~1–4 min against `pnpm lint`'s seconds, so
+    it lives in `check:static` and deliberately **not** in `check:fast` — a slow
+    inner loop is a disabled gate.
+
+    Rule choice was **measured, not tasteful**: `recommendedTypeChecked` reports
+    420 findings, 183 of them `no-unnecessary-type-assertion`, which would bury
+    the rest. The six enabled rules are the ones whose violations are runtime
+    defects — `no-floating-promises` and `no-misused-promises` dominate at 132 of
+    152, and in an app where every backend call is `invoke()` an unawaited
+    promise is a rejection nobody sees. `no-base-to-string` is the
+    `"[object Object]"` class that already shipped to users four times (see
+    §"Why `CommandError`"); the bespoke ratchet catches it only at command
+    boundaries, this catches it everywhere.
+
+    The baseline is per-file-per-rule and ratchets DOWN two-way, like every other
+    ratchet here. **The gate filters eslint's report to the rules its config
+    exports** (`TYPE_AWARE_RULES`): running that config still reports 76
+    `react-hooks/*` findings at severity 2 that `pnpm lint` already owns, and
+    baselining them would double-count one violation under two gates.
+
+  - **Unused Cargo deps are checked in CI, not `check:all`.** `cargo machete`
+    runs on the Linux leg of `rust-test` (`pnpm lint:rust-deps` locally). It is
+    NOT in `check:all` because `check:all` never invokes cargo at all — the
+    frontend runner has no Rust toolchain, and installing one to lint a TOML
+    file would be minutes for nothing. Measured clean on adoption, so it is a
+    hard failure with no allowlist.
+
   - **i18n gate has two halves.** `pnpm lint:i18n` checks that every key exists in
     every locale AND that values were actually translated. The second half exists
     because the first cannot see a key copied over with its English value — ~1,160

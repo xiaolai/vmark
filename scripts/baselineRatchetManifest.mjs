@@ -90,6 +90,16 @@ export const MANIFEST = {
       checks: [{ mode: "per-key-count", at: "files" }],
     },
     {
+      // file → rule → count, so flattening compares each (file, rule) pair
+      // separately. A single total would let a fixed floating promise pay for
+      // a new one in an unrelated file — the like-for-like swap §11 warns
+      // about. Line-level identity was rejected deliberately: line numbers
+      // move on every unrelated edit, and a baseline that churns is one people
+      // regenerate without reading.
+      path: "scripts/type-aware-baseline.json",
+      checks: [{ mode: "per-key-count", at: "files" }],
+    },
+    {
       // unit → channel → count; flattening compares each channel separately.
       path: "scripts/plugin-store-coupling-baseline.json",
       checks: [{ mode: "per-key-count", at: "units" }],
