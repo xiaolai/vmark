@@ -71,7 +71,7 @@ export function HistoryView() {
       }
     };
 
-    fetchSnapshots();
+    void fetchSnapshots();
   }, [filePath, historyEnabled, refreshKey]);
 
   // Listen for external clear events (menu actions)

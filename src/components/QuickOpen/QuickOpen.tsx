@@ -182,7 +182,7 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
           handleSelectItem(rankedItems[selectedIndex].item.path);
         } else {
           // Browse row
-          handleBrowse();
+          void handleBrowse();
         }
       }
     },

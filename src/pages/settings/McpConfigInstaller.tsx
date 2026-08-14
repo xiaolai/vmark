@@ -57,7 +57,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async provider probe sets diagnostics on mount (#1063)
-    loadDiagnostics();
+    void loadDiagnostics();
   }, [loadDiagnostics]);
 
   const handlePreview = async (providerId: string) => {

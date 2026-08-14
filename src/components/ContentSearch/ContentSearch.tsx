@@ -149,7 +149,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           const { fileIndex, matchIndex } = flatIndex[selectedIndex];
           const file = results[fileIndex];
           const match = file.matches[matchIndex];
-          handleSelectMatch(file, match);
+          void handleSelectMatch(file, match);
         }
       }
     },

@@ -76,7 +76,7 @@ export function IntegrationsSettings() {
       }
     };
 
-    fetchClientCount();
+    void fetchClientCount();
     // Poll every 5 seconds while running
     const interval = setInterval(fetchClientCount, 5000);
     return () => clearInterval(interval);

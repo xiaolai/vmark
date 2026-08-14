@@ -239,7 +239,14 @@ export function useTabContextMenuActions({
     onClose();
   }, [filePath, onClose]);
 
-  return useMemo(() => [
+  // The generic is explicit so `TabMenuItem` contextually types each `action`.
+  // Without it `useMemo` infers its own element type from the literal, the
+  // declared `() => void | Promise<void>` never reaches the property, and every
+  // async handler reads as a promise supplied where void was expected — eight
+  // no-misused-promises reports for a contract that already allows them.
+  // `TabContextMenu.activateItem` awaits each action inside try/catch, so the
+  // rejections were handled all along.
+  return useMemo<TabMenuItem[]>(() => [
     {
       id: "moveToNewWindow",
       label: i18n.t("tabMenu.moveToNewWindow"),

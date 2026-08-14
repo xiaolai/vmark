@@ -134,7 +134,7 @@ export function useSourceOutlineSync(
       }
     };
 
-    setup();
+    void setup();
 
     return () => {
       cancelled = true;

@@ -215,14 +215,14 @@ export function useFileTree(
       return;
     }
 
-    loadTree();
+    void loadTree();
 
     // Subscribe to the shared, already-scoped workspace event stream: any
     // in-scope batch (create / delete / rename / real modify) triggers a
     // reload. Scoping + self-write filtering + no-op suppression are done by
     // the source, so this stays a one-liner.
     const unsubscribe = subscribeWorkspaceEvents(watchId, () => {
-      loadTree();
+      void loadTree();
     });
 
     return () => {

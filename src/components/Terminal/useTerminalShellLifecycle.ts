@@ -255,7 +255,7 @@ export function useTerminalShellLifecycle(
     entry.instance.term.clear();
     entry.instance.term.write(restartingLine());
 
-    startShell(activeId);
+    void startShell(activeId);
   }, [sessionsRef, startShell]);
 
   return { startShell, restartActiveSession };

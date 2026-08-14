@@ -22,7 +22,6 @@
       "no-misused-promises": 1
     },
     "src/components/ContentSearch/ContentSearch.tsx": {
-      "no-floating-promises": 1,
       "no-misused-promises": 1
     },
     "src/components/ContentSearch/useContentSearchScheduler.ts": {
@@ -49,14 +48,11 @@
     "src/components/GeniePicker/ProviderSwitcher.tsx": {
       "no-floating-promises": 2
     },
-    "src/components/KnowledgeBasePanel/KnowledgeBaseOverlay.tsx": {
-      "no-misused-promises": 5
-    },
     "src/components/McpHistory/McpHistoryButton.tsx": {
       "no-misused-promises": 1
     },
     "src/components/QuickOpen/QuickOpen.tsx": {
-      "no-floating-promises": 2,
+      "no-floating-promises": 1,
       "no-misused-promises": 2
     },
     "src/components/Sidebar/FileExplorer/FileExplorer.tsx": {
@@ -66,10 +62,9 @@
       "no-floating-promises": 1
     },
     "src/components/Sidebar/FileExplorer/useFileTree.ts": {
-      "no-floating-promises": 3
+      "no-floating-promises": 1
     },
     "src/components/Sidebar/HistoryView.tsx": {
-      "no-floating-promises": 1,
       "no-misused-promises": 2
     },
     "src/components/StatusBar/StatusBar.tsx": {
@@ -79,17 +74,11 @@
     "src/components/StatusBar/UpdateIndicator.tsx": {
       "no-floating-promises": 3
     },
-    "src/components/Tabs/useTabContextMenuActions.ts": {
-      "no-misused-promises": 8
-    },
     "src/components/Terminal/TerminalContextMenu.tsx": {
       "no-misused-promises": 1
     },
     "src/components/Terminal/useTerminalSessions.ts": {
       "no-misused-promises": 2
-    },
-    "src/components/Terminal/useTerminalShellLifecycle.ts": {
-      "no-floating-promises": 1
     },
     "src/components/TitleBar/TitleBar.tsx": {
       "no-floating-promises": 1
@@ -140,17 +129,8 @@
     "src/hooks/useLiveDocsResponder.ts": {
       "no-misused-promises": 1
     },
-    "src/hooks/useMcpClients.ts": {
-      "no-floating-promises": 2
-    },
-    "src/hooks/useMcpServer.ts": {
-      "no-floating-promises": 1
-    },
     "src/hooks/useOpenFileEvent.ts": {
       "no-misused-promises": 1
-    },
-    "src/hooks/useSourceOutlineSync.ts": {
-      "no-floating-promises": 1
     },
     "src/hooks/useUpdateChecker.ts": {
       "no-floating-promises": 1
@@ -193,18 +173,14 @@
       "no-misused-promises": 1
     },
     "src/pages/settings/IntegrationsSettings.tsx": {
-      "no-floating-promises": 3,
+      "no-floating-promises": 2,
       "no-misused-promises": 3
     },
     "src/pages/settings/LanguageSettings.tsx": {
       "no-misused-promises": 1
     },
     "src/pages/settings/McpConfigInstaller.tsx": {
-      "no-floating-promises": 1,
       "no-misused-promises": 5
-    },
-    "src/pages/settings/ModelComboBox.tsx": {
-      "no-floating-promises": 2
     },
     "src/pages/settings/RestProviderConfigFields.tsx": {
       "no-floating-promises": 1,
