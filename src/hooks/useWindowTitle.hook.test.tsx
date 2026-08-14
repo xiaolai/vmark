@@ -23,16 +23,13 @@ vi.mock("@/utils/debug", async (importOriginal) => ({
   titleBarWarn: (...args: unknown[]) => titleBarWarn(...args),
 }));
 
-const state = { filePath: "/docs/readme.md", isDirty: false, showFilename: true };
+const state = { filePath: "/docs/readme.md", isDirty: false };
 vi.mock("./useDocumentState", () => ({
   useDocumentFilePath: () => state.filePath,
   useDocumentIsDirty: () => state.isDirty,
 }));
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: (sel: (s: unknown) => unknown) =>
-    sel({ appearance: { showFilenameInTitlebar: state.showFilename } }),
-}));
 
+const { useSettingsStore } = await import("@/stores/settingsStore");
 const { useWindowTitle } = await import("./useWindowTitle");
 
 beforeEach(() => {
@@ -40,8 +37,15 @@ beforeEach(() => {
   titleBarWarn.mockReset();
   state.filePath = "/docs/readme.md";
   state.isDirty = false;
-  state.showFilename = true;
+  useSettingsStore.setState((s) => ({
+    appearance: { ...s.appearance, showFilenameInTitlebar: true },
+  }));
 });
+
+const setShowFilename = (show: boolean) =>
+  useSettingsStore.setState((s) => ({
+    appearance: { ...s.appearance, showFilenameInTitlebar: show },
+  }));
 
 describe("useWindowTitle", () => {
   it("sets the native title and the document title from the file path", async () => {
@@ -59,7 +63,7 @@ describe("useWindowTitle", () => {
   });
 
   it("clears the native title when the filename is not shown", async () => {
-    state.showFilename = false;
+    setShowFilename(false);
     renderHook(() => useWindowTitle());
     await waitFor(() => expect(setTitle).toHaveBeenCalledWith(""));
   });

@@ -77,3 +77,61 @@ describe("useWindowStatus", () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 });
+
+describe("useWindowStatus — rehydrate and broadcast plumbing", () => {
+  it("reports a failed rehydrate instead of dropping it", async () => {
+    // Panel prefs come from window-scoped storage; if that read fails the panel
+    // silently opens with defaults, so the failure must reach a log.
+    const debug = await import("@/utils/debug");
+    const warn = vi.spyOn(debug, "statusBarWarn").mockImplementation(() => {});
+    const boom = new Error("storage unreadable");
+    const rehydrate = vi
+      .spyOn(useWindowStatusStore.persist, "rehydrate")
+      .mockRejectedValueOnce(boom);
+
+    renderHook(() => useWindowStatus());
+    await vi.waitFor(() =>
+      expect(warn).toHaveBeenCalledWith("Window-status rehydrate failed:", boom)
+    );
+
+    rehydrate.mockRestore();
+    warn.mockRestore();
+  });
+
+  it("writes a broadcast payload into the store", async () => {
+    const captured: ((e: { payload: unknown }) => void)[] = [];
+    listen.mockImplementation((_event: string, cb: (e: { payload: unknown }) => void) => {
+      captured.push(cb);
+      return Promise.resolve(() => {});
+    });
+
+    renderHook(() => useWindowStatus());
+    await vi.waitFor(() => expect(captured.length).toBeGreaterThan(0));
+
+    const entries = [{ label: "w1", docName: "a.md", ai: "idle", elapsedSeconds: 0 }];
+    captured[0]({ payload: entries });
+    expect(useWindowStatusStore.getState().windows).toEqual(entries);
+  });
+});
+
+describe("useWindowStatus — focus clears attention", () => {
+  it("clears this window's attention flag when it gains focus", async () => {
+    // The attention badge is set by a background window finishing work; focusing
+    // this window is what dismisses it, so this callback is the whole feature.
+    let onFocus: ((e: { payload: boolean }) => void) | null = null;
+    onFocusChanged.mockImplementation((cb: (e: { payload: boolean }) => void) => {
+      onFocus = cb;
+      return Promise.resolve(() => {});
+    });
+
+    renderHook(() => useWindowStatus());
+    await vi.waitFor(() => expect(onFocus).not.toBeNull());
+
+    invoke.mockClear();
+    onFocus!({ payload: false });
+    expect(invoke).not.toHaveBeenCalledWith("clear_window_attention");
+
+    onFocus!({ payload: true });
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("clear_window_attention"));
+  });
+});
