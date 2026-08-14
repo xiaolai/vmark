@@ -23,8 +23,7 @@ import { useTranslation } from "react-i18next";
 import { createPortal } from "react-dom";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useQuickOpenStore } from "@/stores/quickOpenStore";
-import { useAiInvocationStore } from "@/stores/aiStore";
-import { useGeniesStore } from "@/stores/aiStore";
+import { useAiInvocationStore, useGeniesStore } from "@/stores/aiStore";
 import { useGenieInvocation } from "@/hooks/useGenieInvocation";
 import { useAiProviderStore } from "@/stores/aiStore";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
@@ -39,6 +38,7 @@ import { GenieResponseView } from "./GenieResponseView";
 import { PromptHistoryDropdown } from "./PromptHistoryDropdown";
 import { ProviderSwitcher } from "./ProviderSwitcher";
 import "./genie-picker.css";
+import { geniesWarn, genieWarn } from "@/utils/debug";
 
 const SCOPES: GenieScope[] = ["selection", "block", "document"];
 
@@ -91,7 +91,7 @@ export function GeniePicker() {
     if (isOpen) {
       useQuickOpenStore.getState().close();
       previousFocusRef.current = document.activeElement;
-      useGeniesStore.getState().loadGenies();
+      void Promise.resolve(useGeniesStore.getState().loadGenies()).catch((e) => geniesWarn("Failed to load genies:", e));
       setFilter("");
       setSelectedIndex(0);
       setFreeformConfirmed(false);
@@ -188,7 +188,7 @@ export function GeniePicker() {
   const handleSelect = useCallback(
     (genie: GenieDefinition) => {
       handleClose();
-      invokeGenie(genie, activeScope ?? undefined);
+      void Promise.resolve(invokeGenie(genie, activeScope ?? undefined)).catch((e) => genieWarn("Genie invocation failed:", e));
     },
     [handleClose, invokeGenie, activeScope]
   );
@@ -200,7 +200,7 @@ export function GeniePicker() {
     const scope = activeScope ?? "selection";
     promptHistory.recordAndReset(text);
     handleClose();
-    invokeFreeform(text, scope);
+    void Promise.resolve(invokeFreeform(text, scope)).catch((e) => genieWarn("Freeform genie invocation failed:", e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, activeScope, handleClose, invokeFreeform]);
 

@@ -53,6 +53,8 @@ import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SessionEntry } from "./terminalSessionTypes";
 import { fitAndResizePty } from "./fitAndResizePty";
+import { terminalError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 /** Callbacks passed to the terminal sessions hook for panel-level actions. */
 export interface UseTerminalSessionsCallbacks {
@@ -200,7 +202,7 @@ export function useTerminalSessions(
       wireSessionInput({
         sessionId,
         getEntry: (id) => sessionsRef.current.get(id),
-        startShell,
+        startShell: voidAsync(startShell, (e) => terminalError("Failed to start shell:", e)),
       });
     },
     [containerRef, startShell],
@@ -215,7 +217,7 @@ export function useTerminalSessions(
   /** Show active session container, hide others, and lazily spawn its shell. */
   const switchToVisible = useCallback(
     (activeId: string | null) =>
-      switchVisibility(sessionsRef, activeId, startShell),
+      switchVisibility(sessionsRef, activeId, voidAsync(startShell, (e) => terminalError("Failed to start shell:", e))),
     [startShell],
   );
 

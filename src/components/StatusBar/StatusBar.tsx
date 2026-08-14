@@ -134,7 +134,7 @@ export function StatusBar() {
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
-      closeTabWithDirtyCheck(windowLabel, tabId);
+      void closeTabWithDirtyCheck(windowLabel, tabId);
     },
     [windowLabel]
   );
@@ -260,7 +260,7 @@ export function StatusBar() {
               mcpLoading={mcpLoading}
               mcpError={mcpError}
               mcpClients={mcpClients}
-              openMcpSettings={openMcpSettings}
+              openMcpSettings={() => void openMcpSettings()}
               showAutoSavePaused={showAutoSavePaused}
               isDivergent={isDivergent}
               showAutoSave={showAutoSave}

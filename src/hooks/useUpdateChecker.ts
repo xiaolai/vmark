@@ -37,7 +37,7 @@ import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUpdateOperationHandler, clearPendingUpdate } from "./useUpdateOperations";
 import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHotExit";
-import { updateCheckerLog } from "@/utils/debug";
+import { updateCheckerLog, appError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 
@@ -359,7 +359,7 @@ export function useUpdateChecker() {
   // Listen for restart request (from Settings page) - capture session and restart
   useEffect(() => {
     const unlistenPromise = listen(EVENTS.REQUEST_RESTART, () => {
-      (async () => {
+      void (async () => {
         try {
           const dirtyTabs = useDocumentStore.getState().getAllDirtyDocuments();
 
@@ -394,7 +394,7 @@ export function useUpdateChecker() {
             updateCheckerLog("Failed to emit restart-cancelled:", e);
           });
         }
-      })();
+      })().catch((err) => appError("Update check failed:", err));
     });
 
     return () => {

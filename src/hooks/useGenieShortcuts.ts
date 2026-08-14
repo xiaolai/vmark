@@ -25,6 +25,7 @@ import { useGenieInvocation } from "@/hooks/useGenieInvocation";
 import type { GenieDefinition, GenieMetadata } from "@/types/aiGenies";
 import { genieWarn, genieError } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import { voidAsync } from "@/utils/voidAsync";
 
 /** Build menu-id → accelerator map for the genies menu. */
 export function getMenuShortcuts(): Record<string, string> | null {
@@ -70,7 +71,7 @@ export function useGenieShortcuts() {
   useEffect(() => {
     const unlisten = listen<[string, string]>(
       "menu:invoke-genie",
-      async (event) => {
+      voidAsync(async (event) => {
         const [geniePath] = event.payload;
         try {
           const result = await invoke<{ metadata: GenieMetadata; template: string }>(
@@ -95,7 +96,7 @@ export function useGenieShortcuts() {
         } catch (e) {
           genieError("Failed to read genie:", e);
         }
-      }
+      }, (err) => genieWarn("Genie shortcut handler failed:", err))
     );
 
     return () => safeUnlistenAsync(unlisten);

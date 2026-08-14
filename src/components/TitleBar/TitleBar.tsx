@@ -47,6 +47,7 @@ import { useTitleBarRename } from "./useTitleBarRename";
 import { getFileName } from "@/utils/pathUtils";
 import { formatFileDisplayName } from "@/utils/displayFileName";
 import "./title-bar.css";
+import { titleBarWarn } from "@/utils/debug";
 
 interface TitleBarProps {
   /** Browser navigation replaces the filename while preserving the drag region. */
@@ -152,7 +153,7 @@ function DocumentTitleBar() {
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter") { e.preventDefault(); handleConfirm(); }
+    if (e.key === "Enter") { e.preventDefault(); void handleConfirm().catch((err) => titleBarWarn("Rename confirm failed:", err)); }
     else if (e.key === "Escape") { e.preventDefault(); setIsEditing(false); }
   }, [handleConfirm]);
 

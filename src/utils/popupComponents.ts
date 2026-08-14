@@ -17,6 +17,9 @@
  * @module utils/popupComponents
  */
 
+import { voidAsync } from "@/utils/voidAsync";
+import { appError } from "@/utils/debug";
+
 // SVG Icons (feather-style, 24x24 viewBox)
 export const popupIcons = {
   /** Open in external browser or navigate to file */
@@ -60,7 +63,8 @@ export interface PopupIconButtonOptions {
    */
   iconSvg?: string;
   title: string;
-  onClick: () => void;
+  /** May be async: this builder owns the DOM boundary and adapts it. */
+  onClick: () => void | Promise<void>;
   variant?: PopupIconButtonVariant;
   /**
    * Base CSS class for the button. Defaults to `popup-icon-btn`. Source-mode
@@ -100,7 +104,11 @@ export function buildPopupIconButton(
   btn.title = title;
   btn.setAttribute("aria-label", title);
   btn.innerHTML = iconSvg ?? (icon ? popupIcons[icon] : "");
-  btn.addEventListener("click", onClick);
+  // `addEventListener` takes a void-returning listener, so an async onClick
+  // would leave its rejection with nowhere to go. Adapt here, ONCE, at the
+  // boundary where a handler stops being ours and becomes an EventListener —
+  // rather than asking every popup to remember.
+  btn.addEventListener("click", voidAsync(onClick, (e) => appError("Popup button handler failed:", e)));
 
   // Build class list
   const classes = [baseClass];

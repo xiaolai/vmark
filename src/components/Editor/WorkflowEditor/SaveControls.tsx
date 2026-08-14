@@ -24,6 +24,7 @@ import { useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import "./workflow-editor.css";
+import { workflowError } from "@/utils/debug";
 
 interface SaveControlsProps {
   onSave: () => Promise<void> | void;
@@ -79,7 +80,7 @@ export function SaveControls({
         <button
           type="button"
           className="workflow-editor-panel__btn workflow-editor-panel__btn--primary"
-          onClick={handleSave}
+          onClick={() => void handleSave().catch((e) => workflowError("Workflow save failed:", e))}
           disabled={!dirty || saving}
         >
           {t("save.button")}

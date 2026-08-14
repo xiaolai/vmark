@@ -239,7 +239,7 @@ export function useTabContextMenuActions({
     onClose();
   }, [filePath, onClose]);
 
-  return useMemo(() => [
+  return useMemo<TabMenuItem[]>(() => [
     {
       id: "moveToNewWindow",
       label: i18n.t("tabMenu.moveToNewWindow"),

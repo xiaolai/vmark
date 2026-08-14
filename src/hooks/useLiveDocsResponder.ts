@@ -17,7 +17,8 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { localLiveRefKeys } from "@/services/media/crossWindowRefs";
 import { safeUnlisten } from "@/utils/safeUnlisten";
-import { orphanCleanupError } from "@/utils/debug";
+import { orphanCleanupError, appError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 export function useLiveDocsResponder(): void {
   useEffect(() => {
@@ -26,7 +27,7 @@ export function useLiveDocsResponder(): void {
     const webview = getCurrentWebviewWindow();
 
     webview
-      .listen<string>("live-docs:request", async (event) => {
+      .listen<string>("live-docs:request", voidAsync(async (event) => {
         try {
           // The label identifies WHICH window answered: Rust counts answers
           // by distinct expected label, so a duplicate listener (Strict Mode)
@@ -41,7 +42,7 @@ export function useLiveDocsResponder(): void {
           // Not answering makes the requester fail closed — log why.
           orphanCleanupError(" live-docs response failed:", error);
         }
-      })
+      }, (err) => appError("Live-docs request handler failed:", err)))
       .then((unlisten) => {
         if (disposed) safeUnlisten(unlisten);
         else unlisteners.push(unlisten);

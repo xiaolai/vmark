@@ -11,6 +11,7 @@ import { useAiProviderStore, KEY_OPTIONAL_REST } from "@/stores/aiStore";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { Check, Settings } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";
+import { aiProviderWarn, appError } from "@/utils/debug";
 
 interface ProviderSwitcherProps {
   onClose(): void;
@@ -35,7 +36,7 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
   // Trigger CLI provider detection if not yet populated
   useEffect(() => {
     if (cliProviders.length === 0 && !detecting) {
-      useAiProviderStore.getState().detectProviders();
+      void Promise.resolve(useAiProviderStore.getState().detectProviders()).catch((e) => aiProviderWarn("Provider detection failed:", e));
     }
   }, [cliProviders.length, detecting]);
 
@@ -86,7 +87,7 @@ export function ProviderSwitcher({ onClose, onCloseAll }: ProviderSwitcherProps)
 
   const handleOpenSettings = () => {
     onCloseAll();
-    openSettingsWindow("integrations");
+    void Promise.resolve(openSettingsWindow("integrations")).catch((e) => appError("Failed to open settings window:", e));
   };
 
   // Only show available CLIs and API providers with a key (or key-optional)

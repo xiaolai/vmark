@@ -22,6 +22,7 @@ import { dragDropError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { openDroppedFileInNewTab } from "@/services/navigation/dragDropOpenFile";
 import { openDroppedPathsInLegacyWindows } from "@/services/navigation/dragDropLegacyWindows";
+import { voidAsync } from "@/utils/voidAsync";
 
 /** Surface a drag-drop replace-tab read failure (cancellations stay silent). */
 function reportReplaceFailure(result: ReplaceTabResult, path: string): void {
@@ -41,7 +42,7 @@ export function useDragDropOpen(): void {
     const setupDragDrop = async () => {
       const webview = getCurrentWebview();
 
-      const unlisten = await webview.onDragDropEvent(async (event) => {
+      const unlisten = await webview.onDragDropEvent(voidAsync(async (event) => {
         if (cancelled) return;
 
         const { type } = event.payload;
@@ -193,7 +194,7 @@ export function useDragDropOpen(): void {
               break;
           }
         }
-      });
+      }, (err) => dragDropError("Drag-drop open handler failed:", err)));
 
       if (cancelled) {
         safeUnlisten(unlisten);

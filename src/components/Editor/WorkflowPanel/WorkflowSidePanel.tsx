@@ -144,7 +144,7 @@ export function WorkflowSidePanel() {
             <button
               type="button"
               className="workflow-side-panel__btn workflow-side-panel__btn--run"
-              onClick={handleRun}
+              onClick={() => void handleRun()}
               disabled={!canRun}
               aria-label={t("workflow:run.start", "Run workflow")}
               title={t("workflow:run.start", "Run workflow")}

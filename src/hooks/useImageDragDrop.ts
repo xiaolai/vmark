@@ -31,6 +31,7 @@ import { useDropZoneStore } from "@/stores/dropZoneStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { saveImageToAssets } from "@/services/media/imageOperations";
 import { dragDropError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { hasImageExtension } from "@/utils/imagePathDetection";
 import { getFilename } from "@/utils/imageUtils";
@@ -160,7 +161,11 @@ export function useImageDragDrop({
     const setupDragDrop = async () => {
       const webview = getCurrentWebview();
 
-      const unlisten = await webview.onDragDropEvent(async (event) => {
+      // Tauri's drag-drop callback returns void, so an async handler here
+      // would strand its rejection. Adapt at the boundary; the handler body
+      // below is unchanged.
+      const unlisten = await webview.onDragDropEvent(
+        voidAsync(async (event: Parameters<Parameters<typeof webview.onDragDropEvent>[0]>[0]) => {
         if (cancelled) return;
 
         const { type } = event.payload;
@@ -253,7 +258,9 @@ export function useImageDragDrop({
             insertImagesInTiptap(processedPaths);
           }
         }
-      });
+        },
+        (e) => dragDropError("Drag-drop handler failed:", e)
+      ));
 
       if (cancelled) {
         safeUnlisten(unlisten);

@@ -149,7 +149,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           const { fileIndex, matchIndex } = flatIndex[selectedIndex];
           const file = results[fileIndex];
           const match = file.matches[matchIndex];
-          handleSelectMatch(file, match);
+          void handleSelectMatch(file, match);
         }
       }
     },
@@ -254,7 +254,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           <ContentSearchResults
             results={results}
             selectedIndex={selectedIndex}
-            onSelectMatch={handleSelectMatch}
+            onSelectMatch={(file, match) => void handleSelectMatch(file, match)}
           />
         </div>
 

@@ -272,9 +272,17 @@ module.exports = [
     // over the old 101 kB ceiling. Same shape as the 99 → 101 bump above, and
     // the same trade: a size-limit byte cost paid to satisfy the file-size
     // gate. +2 kB restores headroom.
+    // Bumped 103 → 105 kB: the type-aware lint adoption turned every silently
+    // dropped promise on the settings pages into a routed one — `void x()`
+    // became `void x().catch((e) => log(...))`, which costs a logger import and
+    // a message string per site across McpConfigInstaller, IntegrationsSettings,
+    // RestProviderConfigFields, AboutSettings and ModelComboBox. Measured 66 B
+    // over the old 103 kB ceiling. The bytes buy error reports that previously
+    // vanished, so this is a real feature paying a real cost, not drift; +2 kB
+    // restores headroom on the same schedule as the two bumps above.
     name: "LAZY: Settings page",
     path: "dist/assets/SettingsPage-*.js",
-    limit: "103 kB",
+    limit: "105 kB",
     brotli: false,
   },
   {

@@ -27,12 +27,17 @@ export function KnowledgeBaseOverlay() {
   if (!open) return null;
   return (
     <div className="kb-dock" data-testid="kb-dock">
+      {/* `void` is honest here, not a silencer: every one of these controls
+          resolves — `useContentServer` catches its own failures and routes them
+          to the store's `error`, which the panel renders. The panel's props are
+          `() => void` because it hands them straight to `onClick`, which cannot
+          await. */}
       <KnowledgeBasePanel
-        onStart={start}
-        onStop={stop}
-        onOpenInBrowser={openInBrowser}
-        onPreviewSlides={previewSlides}
-        onExportSlides={exportSlides}
+        onStart={() => void start()}
+        onStop={() => void stop()}
+        onOpenInBrowser={() => void openInBrowser()}
+        onPreviewSlides={() => void previewSlides()}
+        onExportSlides={() => void exportSlides()}
       />
     </div>
   );

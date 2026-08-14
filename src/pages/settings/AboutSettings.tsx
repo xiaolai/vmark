@@ -17,6 +17,7 @@ import { Loader2, CheckCircle2, AlertCircle, Download, Globe } from "lucide-reac
 import { GithubMark } from "./GithubMark";
 import { UpdateAvailableCard } from "./UpdateAvailableCard";
 import appIcon from "@/assets/app-icon.png";
+import { appError } from "@/utils/debug";
 
 const WEBSITE_URL = "https://vmark.app";
 const GITHUB_URL = "https://github.com/xiaolai/vmark";
@@ -52,7 +53,7 @@ function Links() {
       {links.map(({ icon: Icon, label, url }) => (
         <li key={label}>
           <button
-            onClick={() => openUrl(url)}
+            onClick={() => void Promise.resolve(openUrl(url)).catch((e) => appError("Failed to open URL:", e))}
             className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--primary-color)] transition-colors"
           >
             <Icon className="w-3.5 h-3.5" />
@@ -212,7 +213,7 @@ export function AboutSettings() {
             <StatusIndicator />
             <Button
               variant="tertiary"
-              onClick={handleCheckNow}
+              onClick={() => void Promise.resolve(handleCheckNow()).catch((e) => appError("Update check failed:", e))}
               disabled={checkDisabled}
             >
               {isChecking || status === "checking" ? t("about.checking") : t("about.checkNow")}

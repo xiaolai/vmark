@@ -1,0 +1,21 @@
+{
+  "//": [
+    "Frozen type-aware lint violations, per file and per rule. Produced by",
+    "`node scripts/check-type-aware.mjs --write-baseline`; the rules are chosen in",
+    "eslint.typeaware.config.mjs and each one's violations are runtime defects,",
+    "not style. Ratchets DOWN only, in both directions: a new or grown entry",
+    "fails, and so does a file you have since fixed (record the win by",
+    "rewriting this file). Never raise a number.",
+    "",
+    "THIS BASELINE IS EMPTY, AND THAT IS THE POINT. It opened at 152 findings",
+    "on 2026-08-14 and was paid down to zero the same day; `files: {}` means",
+    "the gate is effectively zero-tolerance now. A new entry here is a real",
+    "regression, so fix the code rather than re-adding a line — the same rule",
+    "`scripts/i18n-untranslated-baseline.json` carries for the same reason.",
+    "",
+    "no-floating-promises and no-misused-promises were 132 of the original 152.",
+    "They are not cosmetic: in an app where every backend call is `invoke()`,",
+    "an unawaited promise is a rejection nobody sees."
+  ],
+  "files": {}
+}

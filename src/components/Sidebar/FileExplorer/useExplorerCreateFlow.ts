@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TreeApi } from "react-arborist";
 import type { FileNode } from "./types";
+import { fileExplorerError } from "@/utils/debug";
 
 interface CreateFlowOptions {
   rootPath: string | null;
@@ -89,7 +90,7 @@ export function useExplorerCreateFlow({ rootPath, refresh, treeRef, tree }: Crea
     const node = treeRef.current?.get(pendingForCurrentRoot);
     if (!node) return;
     setPendingEditPath(null);
-    node.edit();
+    void Promise.resolve(node.edit()).catch((e) => fileExplorerError("Failed to start inline rename:", e));
   }, [pendingForCurrentRoot, tree, treeRef]);
 
   return { createEntryAndEdit };

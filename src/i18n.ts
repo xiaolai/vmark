@@ -41,7 +41,11 @@ function validateLocale(lang: string): string {
   return SUPPORTED_LOCALES.has(lang) ? lang : "en";
 }
 
-i18n
+// `init` resolves even though `initAsync: false` makes the FIRST pass
+// synchronous: lazy namespace loads still settle later, and a rejected locale
+// import would otherwise surface only as an unhandled rejection with no clue
+// which namespace failed.
+void i18n
   .use(initReactI18next)
   .use(
     resourcesToBackend((lng: string, ns: string) => {
@@ -68,7 +72,8 @@ i18n
     // Resources are still loaded lazily per namespace via the backend callback.
     // (i18next v26 renamed `initImmediate` back to `initAsync` — same semantics.)
     initAsync: false,
-  });
+  })
+  .catch((e) => i18nWarn("i18n initialisation failed:", e));
 
 // Set <html lang> on initial load for accessibility/spellcheck
 document.documentElement.lang = i18n.resolvedLanguage ?? i18n.language ?? "en";

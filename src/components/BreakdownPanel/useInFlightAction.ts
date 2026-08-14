@@ -38,7 +38,7 @@ export function useInFlightAction(): [(fn: () => Promise<unknown>) => void, bool
     try {
       started = Promise.resolve(fn());
     } catch (err) {
-      started = Promise.reject(err);
+      started = Promise.reject(err instanceof Error ? err : new Error(String(err)));
     }
     void started
       .catch(() => {})

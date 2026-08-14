@@ -121,7 +121,7 @@ export async function renderMarkmapToElement(
 
     return {
       fit: () => {
-        mm.fit();
+        void Promise.resolve(mm.fit()).catch((e) => diagramWarn("Markmap fit failed:", e));
       },
     };
   } catch (error) {
@@ -167,7 +167,7 @@ export async function renderMarkmapToSvgString(
     };
 
     const mm = markmapViewModule.Markmap.create(svgEl, options, root);
-    mm.fit();
+    void Promise.resolve(mm.fit()).catch((e) => diagramWarn("Markmap fit failed:", e));
 
     // One frame for D3 synchronous layout to apply
     await new Promise((r) => requestAnimationFrame(r));
@@ -208,8 +208,8 @@ export async function updateMarkmapTheme(isDark: boolean): Promise<boolean> {
       const { root } = transformerInstance.transform(content);
       const options = getColorOptions(isDark);
       mm.setOptions(options);
-      mm.setData(root);
-      mm.fit();
+      void Promise.resolve(mm.setData(root)).catch((e) => diagramWarn("Markmap setData failed:", e));
+      void Promise.resolve(mm.fit()).catch((e) => diagramWarn("Markmap fit failed:", e));
     } catch (error) {
       // Keep the instance so future theme changes can retry
       diagramWarn("Failed to update theme for instance:", error);

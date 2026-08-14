@@ -75,7 +75,7 @@ export function ModelComboBox({
     setFilter(value);
     setHighlightIdx(-1);
     if (provider === "ollama-api" && fetchedModels === null && !fetching) {
-      fetchModels();
+      void fetchModels();
     }
   }, [value, fetchedModels, fetching, provider, fetchModels]);
 
@@ -197,7 +197,7 @@ export function ModelComboBox({
           className="shrink-0 p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--hover-bg)] cursor-pointer focus-visible:outline-none"
           onClick={() => {
             setFetchedModels(null);
-            fetchModels();
+            void fetchModels();
             /* v8 ignore next -- @preserve reason: !open branch opens on refresh when closed; tests click refresh while open */
             if (!open) handleOpen();
           }}

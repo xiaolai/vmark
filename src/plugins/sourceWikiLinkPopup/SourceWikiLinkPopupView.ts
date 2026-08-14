@@ -56,7 +56,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState>
     this.targetInput.addEventListener("input", this.handleTargetInput.bind(this));
 
     // Icon buttons: browse, open, copy, delete
-    const browseBtn = buildSourceWikiLinkBtn(popupIcons.folder, i18n.t("editor:popup.sourceWikiLink.browse"), this.handleBrowse.bind(this));
+    const browseBtn = buildSourceWikiLinkBtn(popupIcons.folder, i18n.t("editor:popup.sourceWikiLink.browse"), () => void Promise.resolve(this.handleBrowse()).catch((e) => sourceActionError("Wiki-link browse failed:", e)));
     this.openBtn = buildSourceWikiLinkBtn(popupIcons.open, i18n.t("editor:popup.sourceWikiLink.open"), this.handleOpen.bind(this));
     this.openBtn.classList.add("source-wiki-link-popup-btn-open");
     const copyBtn = buildSourceWikiLinkBtn(popupIcons.copy, i18n.t("editor:popup.sourceWikiLink.copy"), this.handleCopy.bind(this));
@@ -164,11 +164,11 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState>
   }
 
   private handleOpen(): void {
-    openWikiLink(this.store);
+    void Promise.resolve(openWikiLink(this.store)).catch((e) => sourceActionError("Open wiki link failed:", e));
   }
 
   private handleCopy(): void {
-    copyWikiLinkTarget(this.store);
+    void Promise.resolve(copyWikiLinkTarget(this.store)).catch((e) => sourceActionError("Copy wiki link failed:", e));
   }
 
   private handleRemove(): void {

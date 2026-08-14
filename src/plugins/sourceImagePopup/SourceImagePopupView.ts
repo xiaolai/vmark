@@ -11,6 +11,7 @@ import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import type { MediaPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { browseImage, copyImagePath, removeImage, saveImageChanges } from "./sourceImageActions";
+import { sourceActionError } from "@/utils/debug";
 
 /** Build a source-image popup icon button on the canonical `.popup-icon-btn` surface (WI-DP4.1). */
 function buildSourceImageBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -126,11 +127,11 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupState> {
   }
 
   private handleBrowse(): void {
-    browseImage(this.editorView, this.store);
+    void Promise.resolve(browseImage(this.editorView, this.store)).catch((e) => sourceActionError("Image browse failed:", e));
   }
 
   private handleCopy(): void {
-    copyImagePath(this.store);
+    void Promise.resolve(copyImagePath(this.store)).catch((e) => sourceActionError("Copy image path failed:", e));
   }
 
   private handleRemove(): void {

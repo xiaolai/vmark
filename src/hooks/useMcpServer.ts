@@ -124,7 +124,7 @@ export function useMcpServer(): UseMcpServerResult {
     // running) on mount, then we subscribe to live events — driven by I/O and
     // external events, not derivable during render (#1063).
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh();
+    void refresh();
 
     const unlistenStarted = listen<number>("mcp-server:started", () => {
       setRunning(true);

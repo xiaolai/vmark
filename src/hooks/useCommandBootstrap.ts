@@ -17,7 +17,7 @@
 
 import { useEffect } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { menuError } from "@/utils/debug";
+import { menuError, appError } from "@/utils/debug";
 import { mountMenuCommands, type MenuCommandBinding } from "@/services/commands/menuListener";
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
 import { registerExportCommands, registerPandocFormatCommands } from "@/services/commands/exportCommands";
@@ -188,7 +188,7 @@ export function useCommandBootstrap(): void {
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       const bindings: MenuCommandBinding[] = [
         ...MISC_BINDINGS,
         ...EXPORT_BINDINGS,
@@ -226,7 +226,7 @@ export function useCommandBootstrap(): void {
       } catch (err) {
         menuError("Failed to mount menu commands:", err);
       }
-    })();
+    })().catch((err) => appError("Command bootstrap failed:", err));
 
     return () => {
       cancelled = true;

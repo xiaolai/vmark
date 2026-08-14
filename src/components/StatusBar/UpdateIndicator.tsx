@@ -17,6 +17,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations, recoverFromStall } from "@/hooks/useUpdateOperations";
 import { useUpdateStall } from "@/hooks/useUpdateStall";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
+import { appError } from "@/utils/debug";
 
 /**
  * Get indicator config based on update status (title is a translation key resolved in the component).
@@ -134,11 +135,11 @@ export function UpdateIndicator() {
 
     /* v8 ignore start -- @preserve reason: status branch chain (available/ready/error) not fully exercised in tests */
     if (status === "available") {
-      openSettingsWindow("about");
+      void Promise.resolve(openSettingsWindow("about")).catch((e) => appError("Failed to open settings window:", e));
     } else if (status === "ready") {
-      restartApp();
+      void Promise.resolve(restartApp()).catch((e) => appError("Failed to restart for update:", e));
     } else if (status === "error") {
-      checkForUpdates();
+      void Promise.resolve(checkForUpdates()).catch((e) => appError("Update check failed:", e));
     }
     /* v8 ignore stop */
   };

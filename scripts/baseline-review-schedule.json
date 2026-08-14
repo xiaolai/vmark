@@ -57,6 +57,7 @@
     "src/utils/markdownPipeline/__tests__/spec/corpus/tiptap-conversion.json": "Vendored corpus for the md→ProseMirror oracle.",
     "scripts/baseline-review-schedule.json": "The register itself. Its `tracked` list is an identity set the ratchet holds, but a register of registers is bureaucracy, not debt.",
     "scripts/merge-drop-allowlist.json": "Already zero (WI-DP1.1): both claims verified as real relocations and removed. The gate keeps it empty, so there is nothing left to schedule.",
+    "scripts/type-aware-baseline.json": "Already zero (2026-08-14): opened at 152 findings on adoption and all 152 were paid down the same day — 132 unhandled promises, 16 [object Object] sites, and a never-typed guard that made pointer arithmetic operate on never. The file is empty and the gate keeps it there, so there is nothing left to schedule. A new entry is a real regression, not a number to raise.",
     "scripts/knip-baseline.json": "Already zero (WI-DP1.2): all 75 warn-tier findings resolved. The gate keeps it at zero, so there is nothing left to schedule."
   }
 }

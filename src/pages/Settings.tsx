@@ -36,6 +36,8 @@ import { SettingsSearchResults, type SearchablePanel } from "./settings/Settings
 import { SearchInput } from "./settings/components";
 import { SETTINGS_PANELS, SEARCHABLE_PANEL_IDS, type Section } from "./settings/panels";
 import "./settings/settings-search.css";
+import { appError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 // Hook to handle Cmd+W for settings window
 function useSettingsClose() {
@@ -44,11 +46,11 @@ function useSettingsClose() {
 
     // Note: menu:close now includes target window label in payload
     // Settings window should only close when it's the target
-    const unlistenPromise = listen<string>("menu:close", async (event) => {
+    const unlistenPromise = listen<string>("menu:close", voidAsync(async (event) => {
       if (event.payload === "settings") {
         await currentWindow.close();
       }
-    });
+    }, (err) => appError("menu:close handler failed:", err)));
 
     return () => {
       safeUnlistenAsync(unlistenPromise);

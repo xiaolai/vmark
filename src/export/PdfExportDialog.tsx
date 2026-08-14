@@ -178,7 +178,7 @@ export function PdfExportContent({
       <PdfSettingsSidebar
         options={options}
         onOptionChange={setOption}
-        onExport={handleExport}
+        onExport={() => void handleExport()}
         exporting={exporting}
         exportStage={exportStage}
       />

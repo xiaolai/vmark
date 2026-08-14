@@ -70,7 +70,7 @@ export function useContentSearchScheduler({
     }
 
     debounceRef.current = setTimeout(() => {
-      useUIStore.getState().contentSearchRun(rootPath, excludeFoldersRef.current, windowLabel);
+      void useUIStore.getState().contentSearchRun(rootPath, excludeFoldersRef.current, windowLabel);
     }, DEBOUNCE_MS);
 
     return () => {

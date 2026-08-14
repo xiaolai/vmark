@@ -153,7 +153,9 @@ export class BrowserEventBroker {
   async stop(): Promise<void> {
     this.cancelPending();
     const pending = this.unlisteners.splice(0);
-    await Promise.all(pending.map((unlisten) => unlisten()));
+    // `UnlistenFn` is synchronous and returns void, so aggregating these in
+    // `Promise.all` awaited nothing and only looked like it did.
+    for (const unlisten of pending) unlisten();
     this.startPromise = null;
   }
 

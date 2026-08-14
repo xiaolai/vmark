@@ -5,6 +5,8 @@
  * for common LaTeX syntax errors.
  */
 
+import { stringifyUnknown } from "@/utils/stringifyUnknown";
+
 export interface LatexErrorResult {
   message: string;
   hint?: string;
@@ -72,7 +74,7 @@ export function parseLatexError(error: unknown, content: string): LatexErrorResu
     return { message: "Invalid LaTeX syntax" };
   }
 
-  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorMessage = stringifyUnknown(error);
 
   // Check for unmatched braces
   if (

@@ -383,6 +383,18 @@ jobs:
         if: runner.os == 'Linux'
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
+      # Unused Cargo dependencies. Manifest-only, so like rustfmt it is
+      # platform-independent and one leg is enough. It lives HERE rather than in
+      # `pnpm check:all` because check:all never invokes cargo at all — the
+      # frontend runner has no Rust toolchain, and adding one to it would pay a
+      # multi-minute install to lint a TOML file. Measured clean on adoption
+      # (2026-08-14), so it ships as a hard failure with no allowlist.
+      - name: Unused Cargo dependencies (cargo-machete)
+        if: runner.os == 'Linux'
+        run: |
+          cargo install cargo-machete --locked --version ^0.9 || true
+          cargo machete src-tauri
+
       # Clippy runs per-OS because cfg-gated platform code (Windows/Linux
       # branches) never compiles on the macOS leg. Runs before tests to fail
       # fast; shares the same build cache.

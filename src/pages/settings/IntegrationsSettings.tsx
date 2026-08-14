@@ -76,7 +76,7 @@ export function IntegrationsSettings() {
       }
     };
 
-    fetchClientCount();
+    void fetchClientCount();
     // Poll every 5 seconds while running
     const interval = setInterval(fetchClientCount, 5000);
     return () => clearInterval(interval);
@@ -133,7 +133,7 @@ export function IntegrationsSettings() {
             <StatusBadge running={running} loading={loading} />
             <Toggle
               checked={running}
-              onChange={handleToggleServer}
+              onChange={(enabled) => void handleToggleServer(enabled)}
               disabled={loading}
             />
           </div>
@@ -234,7 +234,7 @@ export function IntegrationsSettings() {
         <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => runHealthCheck()}
+              onClick={() => void runHealthCheck()}
               disabled={isChecking}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
                 bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
@@ -255,7 +255,7 @@ export function IntegrationsSettings() {
       </SettingsGroup>
 
       <div className="mt-6">
-        <McpConfigInstaller onInstallSuccess={handleMcpConfigInstalled} />
+        <McpConfigInstaller onInstallSuccess={() => void handleMcpConfigInstalled()} />
       </div>
 
       <div className="mt-6">
@@ -280,11 +280,11 @@ function AiProviderSettings() {
   // Auto-detect CLI providers when settings page mounts so users
   // immediately see available CLIs without clicking "Detect"
   useEffect(() => {
-    useAiProviderStore.getState().detectProviders();
+    void useAiProviderStore.getState().detectProviders();
   }, []);
 
   const handleDetect = () => {
-    useAiProviderStore.getState().detectProviders();
+    void useAiProviderStore.getState().detectProviders();
   };
 
   const handleActivate = (type: ProviderType) => {

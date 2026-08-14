@@ -122,7 +122,7 @@ export function CopyButton({ text, size = "sm", className = "" }: CopyButtonProp
 
   return (
     <button
-      onClick={handleCopy}
+      onClick={(e) => void handleCopy(e)}
       className={`p-0.5 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
                   hover:text-[var(--text-color)] transition-colors flex-shrink-0
                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1

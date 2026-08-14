@@ -10,7 +10,17 @@ import { renderHook } from "@testing-library/react";
 
 // --- Mocks ---
 
-let dragDropHandler: ((event: unknown) => Promise<void>) | null = null;
+// The listener satisfies Tauri's EventCallback, which returns void — so it
+// CANNOT be awaited to observe completion. Drive it through `drop()`, which
+// lets the handler's microtasks settle. Awaiting the callback directly would
+// assert against a shape the production contract does not have, and every
+// assertion would run before the handler finished.
+let dragDropHandler: ((event: unknown) => void) | null = null;
+
+const drop = async (event: unknown): Promise<void> => {
+  dragDropHandler!(event);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 const { onDragDropImpl } = vi.hoisted(() => {
   const defaultImpl = async (handler) => {
@@ -138,7 +148,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({ payload: { type: "leave" } });
+    await drop({ payload: { type: "leave" } });
     expect(useDropZoneStore.getState().reset).toHaveBeenCalled();
   });
 
@@ -150,7 +160,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({ payload: { type: "enter" } });
+    await drop({ payload: { type: "enter" } });
     expect(useDropZoneStore.getState().setDragging).toHaveBeenCalledWith(true, true, 1);
   });
 
@@ -162,7 +172,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({ payload: { type: "over" } });
+    await drop({ payload: { type: "over" } });
     // Should not reset or setDragging on "over" — just keeps state
     expect(useDropZoneStore.getState().reset).not.toHaveBeenCalled();
   });
@@ -175,7 +185,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/file.txt"] },
     });
 
@@ -190,7 +200,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/file.txt", "/tmp/doc.pdf"] },
     });
 
@@ -220,7 +230,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -242,7 +252,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -263,7 +273,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: null },
     });
 
@@ -278,7 +288,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: [] },
     });
 
@@ -304,7 +314,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -324,7 +334,7 @@ describe("useImageDragDrop", () => {
     );
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -365,7 +375,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -398,7 +408,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/a.png", "/tmp/b.jpg"] },
     });
 
@@ -425,7 +435,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/a.png", "/tmp/b.jpg"] },
     });
 
@@ -456,7 +466,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -471,7 +481,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "unknown" },
     });
 
@@ -500,7 +510,7 @@ describe("useImageDragDrop", () => {
       })
     );
 
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -523,7 +533,7 @@ describe("useImageDragDrop", () => {
 
     // Should not throw — getFilePath catches and returns null
     await expect(
-      dragDropHandler!({ payload: { type: "drop", paths: ["/tmp/photo.png"] } })
+      drop({ payload: { type: "drop", paths: ["/tmp/photo.png"] } })
     ).resolves.not.toThrow();
 
     useTabStore.getState = orig;
@@ -539,7 +549,7 @@ describe("useImageDragDrop", () => {
     );
 
     // Drop with an image — but no tiptapEditor provided, so insertImagesInTiptap returns early
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -559,7 +569,7 @@ describe("useImageDragDrop", () => {
     );
 
     // Drop with an image — but cmViewRef.current is null, so insertImagesInCodeMirror returns early
-    await dragDropHandler!({
+    await drop({
       payload: { type: "drop", paths: ["/tmp/photo.png"] },
     });
 
@@ -580,7 +590,7 @@ describe("useImageDragDrop", () => {
 
     // Handler was captured before unmount, but now cancelled=true
     if (dragDropHandler) {
-      await dragDropHandler({ payload: { type: "drop", paths: ["/tmp/photo.png"] } });
+      await drop({ payload: { type: "drop", paths: ["/tmp/photo.png"] } });
     }
 
     // Since cancelled=true, the handler returns early — no processing

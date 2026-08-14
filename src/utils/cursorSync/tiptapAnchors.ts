@@ -84,27 +84,34 @@ export function restoreCursorInTable(
   anchor: { row: number; col: number; offsetInCell: number }
 ): boolean {
   const { state } = view;
-  let tablePos: number | null = null;
+  // Held on an object, not in a bare `let`: TypeScript narrows a `let`
+  // from its `null` initializer and cannot see the assignment inside the
+  // `descendants` callback, so the guard below narrowed the variable to
+  // `never` and the later arithmetic operated on `never`. A property carries
+  // its declared type through the callback, which is what makes the guard mean
+  // what it reads as.
+  const table = { pos: null as number | null };
 
   // Find table by sourceLine
   state.doc.descendants((node, pos) => {
-    if (tablePos !== null) return false;
+    if (table.pos !== null) return false;
     if (node.type.name === "table" && node.attrs.sourceLine === sourceLine) {
-      tablePos = pos;
+      table.pos = pos;
       return false;
     }
     if (node.type.name === "table") {
       const sl = node.attrs.sourceLine as number | undefined;
       /* v8 ignore start -- sl is always defined for table nodes created via fromMarkdown; undefined is defensive */
       if (sl !== undefined && sl <= sourceLine) {
-        tablePos = pos;
+        table.pos = pos;
       }
       /* v8 ignore stop */
     }
     return true;
   });
 
-  if (tablePos === null) return false;
+  if (table.pos === null) return false;
+  const tablePos = table.pos;
 
   const tableNode = state.doc.nodeAt(tablePos);
   if (!tableNode || tableNode.type.name !== "table") return false;
@@ -154,27 +161,33 @@ export function restoreCursorInCodeBlock(
   anchor: { lineInBlock: number; columnInLine: number }
 ): boolean {
   const { state } = view;
-  let codeBlockPos: number | null = null;
-  let foundNode: PMNode | null = null;
+  // Held on an object, not in a bare `let`: TypeScript narrows a `let`
+  // from its `null` initializer and cannot see the assignment inside the
+  // `descendants` callback, so the guard below narrowed the variable to
+  // `never` and the later arithmetic operated on `never`. A property carries
+  // its declared type through the callback, which is what makes the guard mean
+  // what it reads as.
+  const found = { pos: null as number | null, node: null as PMNode | null };
 
   // Find code block by sourceLine
   state.doc.descendants((node, pos) => {
-    if (codeBlockPos !== null) return false;
+    if (found.pos !== null) return false;
     if (node.type.name === "codeBlock") {
       const sl = node.attrs.sourceLine as number | undefined;
       /* v8 ignore start -- sl is always defined for codeBlock nodes; undefined is a defensive fallback */
       if (sl === sourceLine || (sl !== undefined && sl <= sourceLine)) {
-        codeBlockPos = pos;
-        foundNode = node;
+        found.pos = pos;
+        found.node = node;
       }
       /* v8 ignore stop */
     }
     return true;
   });
 
-  if (codeBlockPos === null || foundNode === null) return false;
+  if (found.pos === null || found.node === null) return false;
 
-  const codeBlockNode = foundNode as PMNode;
+  const codeBlockPos = found.pos;
+  const codeBlockNode = found.node;
   const codeText = codeBlockNode.textContent;
   const lines = codeText.split("\n");
 

@@ -19,16 +19,18 @@ import { useTheme } from "@/hooks/useTheme";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { PdfExportContent } from "@/export/PdfExportDialog";
 import { errorMessage } from "@/utils/errorMessage";
+import { pdfError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 /** Handle Cmd+W to close PDF export window */
 function usePdfExportClose() {
   useEffect(() => {
     const currentWindow = getCurrentWebviewWindow();
-    const unlistenPromise = listen<string>("menu:close", async (event) => {
+    const unlistenPromise = listen<string>("menu:close", voidAsync(async (event) => {
       if (event.payload === "pdf-export") {
         await currentWindow.close();
       }
-    });
+    }, (err) => pdfError("menu:close handler failed:", err)));
 
     return () => {
       safeUnlistenAsync(unlistenPromise);
@@ -101,7 +103,7 @@ export function PdfExportPage() {
       <PdfExportContent
         renderedHtml={renderedHtml}
         defaultName={defaultName}
-        onClose={handleClose}
+        onClose={() => void Promise.resolve(handleClose()).catch((e) => pdfError("Failed to close export window:", e))}
       />
 
       {/* Title centered across the full window */}

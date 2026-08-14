@@ -106,7 +106,7 @@ async function renderMarkdownToHtml(
           ref: surfaceRef,
           markdown,
           lightTheme,
-          onReady: handleReady,
+          onReady: () => void handleReady(),
           onError: handleError,
         })
       );

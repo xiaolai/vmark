@@ -24,7 +24,7 @@ import type {
   WorkflowLimits,
   StepType,
 } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
+import { stringifyUnknown } from "@/utils/stringifyUnknown";
 
 // ============================================================================
 // Error Classes
@@ -163,8 +163,8 @@ function parseTriggers(on: unknown): WorkflowTrigger[] {
     const gh = obj.github as Record<string, unknown>;
     triggers.push({
       type: "github", // throughout this IR, a key the file does not state stays ABSENT
-      ...(gh.event ? { event: String(gh.event) } : {}),
-      ...(gh.action ? { action: String(gh.action) } : {}),
+      ...(gh.event ? { event: stringifyUnknown(gh.event) } : {}),
+      ...(gh.action ? { action: stringifyUnknown(gh.action) } : {}),
       ...(Array.isArray(gh.branches) && { branches: gh.branches.map(String) }),
       ...(Array.isArray(gh.paths) && { paths: gh.paths.map(String) }),
     });
@@ -181,9 +181,9 @@ function parseLimits(raw: unknown): WorkflowLimits | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const obj = raw as Record<string, unknown>;
   return {
-    ...(obj.timeout != null && { timeout: String(obj.timeout) }),
+    ...(obj.timeout != null && { timeout: stringifyUnknown(obj.timeout) }),
     ...(obj.max_tokens != null && { maxTokens: Number(obj.max_tokens) }),
-    ...(obj.max_cost != null && { maxCost: String(obj.max_cost) }),
+    ...(obj.max_cost != null && { maxCost: stringifyUnknown(obj.max_cost) }),
   };
 }
 
@@ -195,7 +195,7 @@ function parseDefaults(raw: unknown): WorkflowDefaults {
   if (!raw || typeof raw !== "object") return {};
   const obj = raw as Record<string, unknown>, limits = parseLimits(obj.limits);
   return {
-    ...(obj.model != null && { model: String(obj.model) }),
+    ...(obj.model != null && { model: stringifyUnknown(obj.model) }),
     ...((obj.approval === "ask" || obj.approval === "auto") && { approval: obj.approval }),
     ...(limits && { limits }),
   };
@@ -256,7 +256,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
         ? (e as { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
         : undefined;
     throw new WorkflowParseError(
-      `Invalid YAML: ${errorMessage(e)}`,
+      `Invalid YAML: ${stringifyUnknown(e)}`,
       linePos?.line,
       linePos?.col,
     );
@@ -295,7 +295,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
 
     const uses = rawStep.uses;
     const type = deriveStepType(uses);
-    const id = rawStep.id ? String(rawStep.id) : uses.split("/").pop()!;
+    const id = rawStep.id ? stringifyUnknown(rawStep.id) : uses.split("/").pop()!;
 
     // Check duplicate IDs
     if (seenIds.has(id)) {
@@ -311,7 +311,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
     if (rawStep.needs != null) {
       needs = Array.isArray(rawStep.needs)
         ? rawStep.needs.map(String)
-        : [String(rawStep.needs)];
+        : [stringifyUnknown(rawStep.needs)];
     }
 
     // Parse with — require scalar values (strings, numbers, booleans)
@@ -324,7 +324,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
             id,
           );
         }
-        withObj[k] = String(v ?? "");
+        withObj[k] = stringifyUnknown(v ?? "");
       }
     }
 
@@ -345,9 +345,9 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
       icon: deriveIcon(uses, type),
       with: withObj,
       needs,
-      ...(rawStep.if ? { condition: String(rawStep.if) } : {}),
+      ...(rawStep.if ? { condition: stringifyUnknown(rawStep.if) } : {}),
       ...(matrix && { matrix }),
-      ...(rawStep.model ? { model: String(rawStep.model) } : {}),
+      ...(rawStep.model ? { model: stringifyUnknown(rawStep.model) } : {}),
       ...(rawStep.approval === "ask" || rawStep.approval === "auto" ? { approval: rawStep.approval } : {}),
       ...(stepLimits && { limits: stepLimits }),
       ...(sourceRanges[i] && { sourceRange: sourceRanges[i] }),
@@ -394,7 +394,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
 
   return {
     name: String(obj.name),
-    ...(obj.description ? { description: String(obj.description) } : {}),
+    ...(obj.description ? { description: stringifyUnknown(obj.description) } : {}),
     triggers: parseTriggers(obj.on),
     env,
     defaults: parseDefaults(obj.defaults),

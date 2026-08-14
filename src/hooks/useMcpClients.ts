@@ -53,10 +53,10 @@ export function useMcpClients(mcpRunning: boolean): McpClient[] {
       }
     };
 
-    fetchClients();
+    void fetchClients();
 
     const unlistenPromise = listen("mcp-bridge:clients-changed", () => {
-      fetchClients();
+      void fetchClients();
     });
 
     return () => {

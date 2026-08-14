@@ -93,7 +93,7 @@ export function LanguageSettings() {
           <Select<LanguageValue>
             value={language}
             options={LANGUAGE_OPTIONS as unknown as { value: LanguageValue; label: string }[]}
-            onChange={handleLanguageChange}
+            onChange={(value) => void handleLanguageChange(value).catch((e) => i18nWarn("Failed to change language:", e))}
           />
         </SettingRow>
       </SettingsGroup>

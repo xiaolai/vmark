@@ -6,6 +6,7 @@
  */
 
 import { codeHighlightStyle } from "@/plugins/codemirror";
+import { sourcePeekError } from "@/utils/debug";
 
 /** Cached CodeMirror modules — loaded once on first activation. */
 let cmModules: Awaited<ReturnType<typeof loadCMModules>> | null = null;
@@ -45,7 +46,9 @@ export function createCodeMirrorEditor(
   container.className = "source-peek-inline-editor";
 
   // Kick off async CM creation
-  initCMEditor(container, markdown, onSave, onCancel, onUpdate);
+  void initCMEditor(container, markdown, onSave, onCancel, onUpdate).catch((e) =>
+    sourcePeekError("Failed to create source-peek editor:", e)
+  );
 
   return container;
 }

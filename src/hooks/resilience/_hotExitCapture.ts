@@ -17,6 +17,7 @@ import { hotExitWarn, hotExitError } from '@/utils/debug';
 import { captureWindowWorkspaceInstances } from '@/services/persistence/hotExit/workspaceInstances';
 import { captureInstanceContextState } from '@/services/persistence/hotExit/instanceContextState';
 import { captureWindowGeometry } from '@/services/persistence/resilience/windowGeometry';
+import { voidAsync } from "@/utils/voidAsync";
 import {
   extractUntitledNumber,
   toHotExitCheckpoint,
@@ -195,7 +196,7 @@ export function captureWindowState(windowLabel: string, isMainWindow: boolean): 
 
 export function useHotExitCapture() {
   useEffect(() => {
-    const unlistenPromise = listen<CaptureRequest>(HOT_EXIT_EVENTS.CAPTURE_REQUEST, async (event) => {
+    const unlistenPromise = listen<CaptureRequest>(HOT_EXIT_EVENTS.CAPTURE_REQUEST, voidAsync(async (event) => {
       // Extract capture_id from request for correlation
       const captureId = event.payload?.capture_id ?? 'unknown';
 
@@ -239,7 +240,7 @@ export function useHotExitCapture() {
         hotExitError('CRITICAL: Failed to emit capture response:', emitError);
         // No fallback possible - coordinator will timeout
       }
-    })
+    }, (err) => hotExitError("Hot-exit capture handler failed:", err)))
       // Handle a failed registration HERE, not at unmount: a rejected listen()
       // silently disables hot-exit capture for this window (the coordinator
       // then times out on quit) and would surface only as an unhandled
@@ -250,7 +251,7 @@ export function useHotExitCapture() {
       });
 
     return () => {
-      void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {
+      void Promise.resolve(unlistenPromise.then((unlisten) => unlisten())).catch((e) => {
         // Log cleanup errors for debugging listener leaks (always log, useful for production debugging)
         hotExitWarn('Cleanup error (may indicate listener leak):', e);
       });

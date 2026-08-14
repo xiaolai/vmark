@@ -36,6 +36,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import "./mcp-history.css";
+import { mcpBridgeError } from "@/utils/debug";
 
 const POPUP_WIDTH = 360;
 const POPUP_MAX_HEIGHT = 420;
@@ -193,7 +194,7 @@ export function McpHistoryButton(): React.ReactElement {
             <button
               type="button"
               className="mcp-history-popover__clear"
-              onClick={onClear}
+              onClick={() => void onClear().catch((e) => mcpBridgeError("Failed to clear MCP history:", e))}
               disabled={visible.length === 0}
               title={t("mcpHistoryClear")}
               aria-label={t("mcpHistoryClear")}

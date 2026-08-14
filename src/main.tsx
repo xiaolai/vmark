@@ -21,6 +21,7 @@ import "./styles/syntax-palette.css";
 // KaTeX fixes must load AFTER KaTeX CSS to restore border-widths reset by Tailwind.
 import "katex/dist/katex.min.css";
 import "./styles/katexFixes.css";
+import { appError } from "@/utils/debug";
 
 // Pre-load secure storage cache BEFORE importing App.
 // App → aiProviderStore → Zustand persist() hydrates at module evaluation time.
@@ -79,4 +80,4 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+void bootstrap().catch((e) => appError("App bootstrap failed:", e));

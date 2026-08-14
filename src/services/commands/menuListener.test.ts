@@ -137,9 +137,13 @@ describe("mountMenuCommands — execution errors are swallowed (#957)", () => {
   it("does not propagate a rejection from executeCommand to the listener", async () => {
     executeCommandMock.mockRejectedValueOnce(new Error("command exploded"));
     const { callback } = await mountSingle("foo");
-    // If the catch were missing, this would throw and the listener would
-    // be torn down with an unhandled rejection.
-    await expect(callback?.({ payload: "main" })).resolves.toBeUndefined();
+    // The listener satisfies Tauri's EventCallback, so it returns void rather
+    // than a promise — awaiting its return would assert the old shape, not the
+    // behaviour. What matters is that the rejection never reaches the caller
+    // and IS reported.
+    expect(() => callback?.({ payload: "main" })).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(menuErrorMock).toHaveBeenCalledTimes(1);
     expect(String(menuErrorMock.mock.calls[0][0])).toContain("threw");
   });

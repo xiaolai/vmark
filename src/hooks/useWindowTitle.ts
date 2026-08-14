@@ -19,6 +19,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useDocumentFilePath, useDocumentIsDirty } from "./useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getFileName } from "@/utils/pathUtils";
+import { titleBarWarn } from "@/utils/debug";
 
 // ---------------------------------------------------------------------------
 // Pure formatting functions — exported for testing, no DOM access
@@ -64,6 +65,6 @@ export function useWindowTitle() {
       await window.setTitle(title);
     };
 
-    updateTitle();
+    void updateTitle().catch((e) => titleBarWarn("Failed to set window title:", e));
   }, [filePath, isDirty, showFilename]);
 }
