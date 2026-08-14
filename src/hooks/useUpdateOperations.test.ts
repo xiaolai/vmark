@@ -27,18 +27,27 @@ vi.mock("@tauri-apps/api/app", () => ({
 }));
 
 import { renderHook, act } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   useUpdateOperations,
   useUpdateOperationHandler,
   clearPendingUpdate,
+  recoverFromStall,
 } from "./useUpdateOperations";
+import { inFlight } from "@/services/updates/updateSingleFlight";
 
 describe("useUpdateOperations", () => {
   beforeEach(() => {
     useMcpStore.getState().resetUpdate();
     mockEmit.mockClear();
+    // The single-flight guards are module state. A test that leaves a promise
+    // deliberately unsettled (see the stall cases below) would otherwise brick
+    // every later test in this file — which is precisely the production defect
+    // being tested, so it must not be allowed to leak between cases.
+    recoverFromStall();
+    vi.mocked(invoke).mockClear();
   });
 
   it("returns all operation functions", () => {
@@ -231,6 +240,104 @@ describe("useUpdateOperations", () => {
     expect(mockDownloadAndInstall).toHaveBeenCalledTimes(1);
     expect(firstDone).toBe(true);
     expect(secondDone).toBe(true);
+  });
+
+  // The check is a network call and had no timeout, so a connection that
+  // STALLED — neither resolving nor rejecting — held the single-flight guard
+  // open forever. Bounding it is what makes `.finally()` a valid place to
+  // clear the guard at all.
+  it("bounds check() with a timeout so a stalled connection cannot hang forever", async () => {
+    mockCheck.mockReset();
+    mockCheck.mockResolvedValue(null);
+    const { result } = renderHook(() => useUpdateOperations());
+
+    await act(async () => {
+      await result.current.checkForUpdates();
+    });
+
+    expect(mockCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ timeout: expect.any(Number) }),
+    );
+    const [{ timeout }] = mockCheck.mock.calls[0] as [{ timeout: number }];
+    expect(timeout).toBeGreaterThan(0);
+  });
+
+  // THE regression assertion for #1270. A promise that never settles leaves
+  // `inFlight.check` non-null forever; every later caller returns that dead
+  // promise, so the feature is bricked for the life of the window and the
+  // StatusBar spinner is permanent. Same mechanism as the #1253 close stall.
+  //
+  // This asserts the release valve exists, not merely that the timeout was
+  // added: a timeout narrows the window, recovery is what escapes it.
+  it("recoverFromStall releases a check that never settles, so a retry reaches the plugin", async () => {
+    mockCheck.mockReset();
+    // A connection that hangs rather than failing — never resolves, never rejects.
+    mockCheck.mockImplementation(() => new Promise(() => {}));
+
+    const { result } = renderHook(() => useUpdateOperations());
+
+    await act(async () => {
+      void result.current.checkForUpdates();
+      await Promise.resolve();
+    });
+    expect(mockCheck).toHaveBeenCalledTimes(1);
+
+    // Without recovery, every retry joins the dead promise — no new call.
+    await act(async () => {
+      void result.current.checkForUpdates();
+      await Promise.resolve();
+    });
+    expect(mockCheck).toHaveBeenCalledTimes(1);
+    expect(inFlight.check).not.toBeNull();
+
+    act(() => {
+      recoverFromStall();
+    });
+    expect(inFlight.check).toBeNull();
+
+    // And now a retry actually reaches the plugin.
+    mockCheck.mockResolvedValue(null);
+    await act(async () => {
+      await result.current.checkForUpdates();
+    });
+    expect(mockCheck).toHaveBeenCalledTimes(2);
+  });
+
+  // Recovery drops pendingUpdate too: re-entering downloadAndInstall on the
+  // same Update resource is not supported by the plugin, so a retry has to
+  // run a fresh check and obtain a new one.
+  it("recoverFromStall clears pendingUpdate and returns the flow to idle", () => {
+    useMcpStore.getState().setPendingUpdate({ downloadAndInstall: vi.fn() } as never);
+    useMcpStore.getState().setUpdateStatus("downloading");
+
+    act(() => {
+      recoverFromStall();
+    });
+
+    expect(useMcpStore.getState().update.pendingUpdate).toBeNull();
+    expect(useMcpStore.getState().update.status).toBe("idle");
+    expect(inFlight.download).toBeNull();
+  });
+
+  // #1270 arrived with no way to tell which step hung, because the update
+  // state machine logged nothing at any tier. These milestones go to `info!`
+  // via a dedicated command so they survive a release build.
+  it("logs check milestones at release level", async () => {
+    mockCheck.mockReset();
+    mockCheck.mockResolvedValue(null);
+    const { result } = renderHook(() => useUpdateOperations());
+
+    await act(async () => {
+      await result.current.checkForUpdates();
+    });
+
+    const logged = vi
+      .mocked(invoke)
+      .mock.calls.filter(([cmd]) => cmd === "update_log")
+      .map(([, args]) => (args as { message: string }).message);
+
+    expect(logged.some((m) => m.includes("check:start"))).toBe(true);
+    expect(logged.some((m) => m.includes("check:returned"))).toBe(true);
   });
 });
 

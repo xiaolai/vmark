@@ -57,6 +57,7 @@
   "updateReady": "Click to restart and update",
   "updateReadyVersion": "v{{version}} ready — click to restart",
   "updateError": "Update check failed — click to retry",
+  "updateStalled": "Update stalled — click to reset",
   "autoSavedAt": "Auto-saved at {{time}}",
   "terminal.search.placeholder": "Search...",
   "terminal.search.label": "Search terminal output",

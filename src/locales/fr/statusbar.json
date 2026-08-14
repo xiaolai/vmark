@@ -57,6 +57,7 @@
   "updateReady": "Cliquez pour redémarrer et mettre à jour",
   "updateReadyVersion": "v{{version}} prête — cliquez pour redémarrer",
   "updateError": "Échec de la vérification des mises à jour — cliquez pour réessayer",
+  "updateStalled": "Mise à jour bloquée — cliquez pour réinitialiser",
   "autoSavedAt": "Enregistré automatiquement à {{time}}",
   "terminal.search.placeholder": "Rechercher...",
   "terminal.search.label": "Rechercher dans la sortie du terminal",

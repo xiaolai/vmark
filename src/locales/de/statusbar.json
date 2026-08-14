@@ -57,6 +57,7 @@
   "updateReady": "Klicken zum Neustart und Aktualisieren",
   "updateReadyVersion": "v{{version}} bereit — klicken zum Neustart",
   "updateError": "Update-Prüfung fehlgeschlagen — klicken zum Wiederholen",
+  "updateStalled": "Update hängt fest — zum Zurücksetzen klicken",
   "autoSavedAt": "Automatisch gespeichert um {{time}}",
   "terminal.search.placeholder": "Suchen...",
   "terminal.search.label": "Terminal-Ausgabe durchsuchen",

@@ -410,6 +410,18 @@ Displays app version, links to the website and GitHub repository, and update man
 
 When an update is available, a card appears showing the new version number, release date, and release notes. You can **Download** the update, **Skip** this version, or — once downloaded — **Restart to Update**.
 
+#### If an update gets stuck
+
+Checking and downloading both go over the network, and a connection that hangs rather than failing outright can leave the status bar indicator spinning indefinitely. If it stops making progress, the indicator becomes clickable and its tooltip reads **Update stalled — click to reset**. Clicking it returns the updater to idle so you can try again; it does not change anything you have already downloaded, and a retry starts from a fresh check.
+
+Update activity is written to the log file, so if the problem repeats, the log is worth attaching to a bug report:
+
+| Platform | Log location |
+|---|---|
+| macOS | `~/Library/Logs/app.vmark/` |
+| Windows | `%LOCALAPPDATA%\app.vmark\logs\` |
+| Linux | `~/.local/share/app.vmark/logs/` |
+
 ### Reset
 
 | Setting | Description |

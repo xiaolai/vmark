@@ -57,6 +57,7 @@
   "updateReady": "Clicca per riavviare e aggiornare",
   "updateReadyVersion": "v{{version}} pronto — clicca per riavviare",
   "updateError": "Verifica aggiornamento fallita — clicca per riprovare",
+  "updateStalled": "Aggiornamento bloccato — clicca per reimpostare",
   "autoSavedAt": "Salvato automaticamente alle {{time}}",
   "terminal.search.placeholder": "Cerca...",
   "terminal.search.label": "Cerca nell'output del terminale",

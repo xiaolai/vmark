@@ -1,46 +1,44 @@
 /**
  * Update Operations Hook
  *
- * Purpose: Provides check/download/install/restart operations for app updates.
- *   The actual check/download work runs in whichever window the user clicked
- *   from — `pendingUpdate` is a Tauri JS resource that can't cross window
- *   boundaries, so the operation must complete in the same window that
- *   created it. Cross-window emit is reserved for restart (no shared state).
+ * Purpose: React adapters over the update flows, plus the cross-window
+ *   restart/state events. The flows themselves live in
+ *   `services/updates/updateFlows.ts` — they have no React dependency, and
+ *   this file outgrew the 300-line limit holding both (ADR-013).
  *
- * Pipeline: User clicks "Check now" in Settings → `checkForUpdates()` calls
- *   Tauri updater `check()` directly → updates local `useMcpStore` →
- *   subsequent `downloadAndInstall()` uses the same window's pendingUpdate.
+ * Pipeline: User clicks "Check now" in Settings → `checkForUpdates()` →
+ *   `runUpdateCheck()` → updates local `useMcpStore` → a subsequent
+ *   `downloadAndInstall()` uses the same window's pendingUpdate.
  *
  * Key decisions:
  *   - Run check/download in the calling window (pendingUpdate is window-local).
  *     The previous "always route to main" design broke when main was destroyed
  *     (closed via traffic light / Cmd+W on macOS) — the cross-window emit went
  *     to nobody and the "Check now" button silently did nothing.
- *   - Per-window single-flight via module-level `inFlight.{check,download}`:
- *     spam-clicks, the auto-retry timer, and the auto-download effect all
- *     share one in-flight promise so the Tauri updater plugin is never
- *     called twice in parallel from the same window.
  *   - Restart still emits cross-window because it needs to coordinate with
  *     dirty-document handling in the main window's useUpdateChecker.
  *   - Settings → Check, Settings → Download is the typical user path; it
  *     all runs in the Settings window with one consistent pendingUpdate ref.
  *   - clearPendingUpdate exported for cleanup after restart.
- *   - Version comparison uses getVersion() from Tauri app API.
+ *   - `recoverFromStall` is the release valve for a flow that stops
+ *     progressing — see its own doc, and `updateSingleFlight.ts` for why a
+ *     `.finally()`-only guard needs one at all (#1270).
  *
+ * @coordinates-with updateFlows.ts — the check/download implementations
+ * @coordinates-with useUpdateStall.ts — decides when recovery is offered
  * @coordinates-with useUpdateChecker.ts — auto-check on startup (main window)
  * @coordinates-with useUpdateSync.ts — broadcasts state across windows
  * @coordinates-with mcpStore.ts — `update` slice holds status, info, progress
- * @coordinates-with updateProgressThrottle.ts — coalesces per-chunk writes
  * @module hooks/useUpdateOperations
  */
 
 import { useCallback } from "react";
-import { check } from "@tauri-apps/plugin-updater";
 import { emit } from "@tauri-apps/api/event";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getVersion } from "@tauri-apps/api/app";
-import { shouldWriteProgress } from "@/services/updates/updateProgressThrottle";
+import { runUpdateCheck, runUpdateDownload } from "@/services/updates/updateFlows";
+import { clearInFlight } from "@/services/updates/updateSingleFlight";
+import { updateFlowLog } from "@/services/updates/updateFlowLog";
 import i18n from "@/i18n";
 
 // Event names for cross-window communication
@@ -50,151 +48,6 @@ const EVENTS = {
   REQUEST_RESTART: "app:restart-for-update",
   REQUEST_STATE: "update:request-state",
 } as const;
-
-// Per-window single-flight gates: spam-clicks, the auto-retry timer, and the
-// auto-download effect all await the same in-flight promise rather than issuing
-// parallel `check()`/`download` calls against the Tauri updater plugin (the
-// parallel-check churn was a contributor to the v0.7.11 freeze). Held in a
-// holder object so the formatter doesn't rewrite the reassignment to `const`.
-const inFlight: { check: Promise<boolean> | null; download: Promise<boolean> | null } = {
-  check: null,
-  download: null,
-};
-
-/**
- * Run the update check inline in the current window. Updates the local
- * `useMcpStore` and stores `pendingUpdate` here so the same window can
- * later call download. Standalone (no React deps) so any caller — manual
- * button, auto-check on startup, the legacy cross-window listener — can
- * share the same code path.
- */
-async function runUpdateCheck(): Promise<boolean> {
-  // Single-flight: if a check is already in progress in this window, every
-  // caller (manual button, auto-check, retry timer, cross-window listener)
-  // shares the same result. Otherwise overlapping callers spawn parallel
-  // `check()` requests, each broadcasting status churn back to the other
-  // window via useUpdateSync — the cascade behind the v0.7.11 freeze.
-  if (inFlight.check) return inFlight.check;
-
-  inFlight.check = (async () => {
-    const store = useMcpStore.getState();
-    const settings = useSettingsStore.getState();
-
-    store.setUpdateStatus("checking");
-
-    try {
-      const update = await check();
-
-      if (update) {
-        store.setPendingUpdate(update);
-        const currentVersion = await getVersion();
-        store.setUpdateInfo({
-          version: update.version,
-          notes: update.body ?? "",
-          pubDate: update.date ?? "",
-          currentVersion,
-        });
-        store.setUpdateStatus("available");
-        // New update — clear any prior dismiss flag so the banner shows.
-        store.clearDismissed();
-        settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
-        return true;
-      }
-
-      store.setUpdateStatus("up-to-date");
-      store.setPendingUpdate(null);
-      settings.updateUpdateSetting("lastCheckTimestamp", Date.now());
-      return false;
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : i18n.t("dialog:toast.updateCheckFailedGeneric");
-      store.setUpdateError(message);
-      // Don't update lastCheckTimestamp on error — the check didn't complete.
-      return false;
-    } finally {
-      inFlight.check = null;
-    }
-  })();
-
-  return inFlight.check;
-}
-
-/**
- * Run download/install inline in the current window using the local
- * `pendingUpdate`. Returns false if no pendingUpdate is held here (caller
- * may decide to re-check or surface an error).
- */
-async function runUpdateDownload(): Promise<boolean> {
-  // Single-flight: prevent two callers (manual click + auto-download effect)
-  // from each invoking pendingUpdate.downloadAndInstall on the same Update
-  // resource — the underlying Tauri resource is not safe to download twice.
-  if (inFlight.download) return inFlight.download;
-
-  const initial = useMcpStore.getState();
-  const pendingUpdate = initial.update.pendingUpdate;
-  if (!pendingUpdate) return false;
-
-  inFlight.download = (async () => {
-    const store = useMcpStore.getState();
-    store.setUpdateStatus("downloading");
-    store.setDownloadProgress({ downloaded: 0, total: null });
-
-    // Track progress in locals (avoids stale-state reads). Store writes are
-    // throttled via shouldWriteProgress so a chunky download doesn't flood
-    // re-renders and the cross-window broadcast.
-    let downloadedBytes = 0;
-    let totalBytes: number | null = null;
-    let lastWritten = -1;
-
-    try {
-      await pendingUpdate.downloadAndInstall((event) => {
-        const live = useMcpStore.getState();
-        switch (event.event) {
-          case "Started":
-            downloadedBytes = 0;
-            totalBytes = event.data.contentLength ?? null;
-            lastWritten = 0;
-            live.setDownloadProgress({ downloaded: 0, total: totalBytes });
-            break;
-          case "Progress":
-            downloadedBytes += event.data.chunkLength;
-            if (shouldWriteProgress(downloadedBytes, lastWritten, totalBytes)) {
-              lastWritten = downloadedBytes;
-              live.setDownloadProgress({ downloaded: downloadedBytes, total: totalBytes });
-            }
-            break;
-          case "Finished":
-            // Bytes are in; the updater now writes/installs them (takes a
-            // moment). Snap to 100% and switch to the install phase instead of
-            // leaving a frozen "Downloading…" with no bar.
-            live.setDownloadProgress({ downloaded: totalBytes ?? downloadedBytes, total: totalBytes });
-            live.setUpdateStatus("installing");
-            break;
-        }
-      });
-
-      const done = useMcpStore.getState();
-      done.setUpdateStatus("ready");
-      done.setDownloadProgress(null);
-      return true;
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : i18n.t("dialog:toast.updateDownloadFailedGeneric");
-      const failed = useMcpStore.getState();
-      failed.setDownloadProgress(null);
-      failed.setUpdateError(message);
-      return false;
-    } finally {
-      inFlight.download = null;
-    }
-  })();
-
-  return inFlight.download;
-}
 
 /**
  * Hook for update operations.
@@ -296,4 +149,28 @@ export function useUpdateOperationHandler() {
  */
 export function clearPendingUpdate() {
   useMcpStore.getState().setPendingUpdate(null);
+}
+
+/**
+ * Release a stalled update flow so the user can try again.
+ *
+ * `checking`, `downloading` and `installing` are all non-interactive states in
+ * the StatusBar indicator, so a flow that stops progressing leaves no way out:
+ * the guard is never cleared, every retry joins a promise that will never
+ * settle, and the spinner is permanent for the life of the window. This is the
+ * release valve for that — the same remedy #1253 needed for window close.
+ *
+ * Resets the store as well as the guards, which drops `pendingUpdate`. That is
+ * deliberate: a retry then runs a fresh `check()` and downloads through a NEW
+ * Update resource, rather than re-entering `downloadAndInstall` on the same
+ * one, which the plugin does not support.
+ *
+ * Whatever stalled underneath is NOT cancelled — the updater exposes no
+ * cancellation. If it ever completes it writes into a store slice that has
+ * moved on, which is harmless; the alternative is a permanently stuck UI.
+ */
+export function recoverFromStall(): void {
+  updateFlowLog("stall:recover", { status: useMcpStore.getState().update.status });
+  clearInFlight();
+  useMcpStore.getState().resetUpdate();
 }
