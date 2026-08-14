@@ -200,7 +200,7 @@ export function useFinderFileOpen(): void {
      * Events that arrive before restore completes are queued and processed
      * after restore finishes, preventing content from being overwritten.
      */
-    (async () => {
+    void (async () => {
       try {
         const listener = await listen<OpenFilePayload>("app:open-file", handleOpenFile);
         // The hook can unmount while listen() is in flight; the cleanup ran with
@@ -255,7 +255,7 @@ export function useFinderFileOpen(): void {
       } catch (error) {
         finderFileOpenError("Init failed:", error);
       }
-    })();
+    })().catch((err) => finderFileOpenError("Finder file-open bootstrap failed:", err));
 
     return () => {
       cancelled = true;

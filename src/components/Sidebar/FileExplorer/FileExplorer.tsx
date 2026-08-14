@@ -248,8 +248,8 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
       runContextMenuAction(action, {
         targetPath: contextMenu.targetPath,
         targetIsFolder: contextMenu.targetIsFolder,
-        openFileByType: (path: string) => void openFileByType(path).catch((e) => fileExplorerError("Failed to open file:", e)),
-        editNode: (path) => treeRef.current?.get(path)?.edit(),
+        openFileByType: (path: string) => void Promise.resolve(openFileByType(path)).catch((e) => fileExplorerError("Failed to open file:", e)),
+        editNode: (path) => void Promise.resolve(treeRef.current?.get(path)?.edit()).catch((e) => fileExplorerError("Inline rename failed:", e)),
         duplicateFile,
         pickMoveDestination: (path) =>
           openDialog({
@@ -378,7 +378,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
         <ContextMenu
           type={contextMenu.type}
           position={contextMenu.position}
-          onAction={(action) => void handleContextMenuAction(action).catch((e) => fileExplorerError("File explorer action failed:", e))}
+          onAction={(action) => void Promise.resolve(handleContextMenuAction(action)).catch((e) => fileExplorerError("File explorer action failed:", e))}
           onClose={closeContextMenu}
         />
       )}

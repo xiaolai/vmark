@@ -255,8 +255,8 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
           // in-memory store. Runs before loadEnvApiKeys so env keys only fill
           // genuinely-empty fields.
           void hydrateAndMigrateApiKeys().finally(() => {
-            useAiProviderStore.getState().loadEnvApiKeys();
-            useAiProviderStore.getState().detectProviders();
+            void Promise.resolve(useAiProviderStore.getState().loadEnvApiKeys()).catch((e) => aiProviderWarn("Failed to load env API keys:", e));
+            void Promise.resolve(useAiProviderStore.getState().detectProviders()).catch((e) => aiProviderWarn("Provider detection failed:", e));
           });
         };
       },

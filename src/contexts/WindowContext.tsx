@@ -62,8 +62,9 @@ import {
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabRemovalRequestEvent, TabTransferPayload } from "@/types/tabTransfer";
-import { windowContextError } from "@/utils/debug";
+import { windowContextError, workspaceWarn, appError } from "@/utils/debug";
 import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
+import { voidAsync } from "@/utils/voidAsync";
 
 /**
  * Delay before emitting "ready" event to Rust.
@@ -122,7 +123,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
 
         // Rehydrate workspace store from window-specific storage key
         // This ensures new windows don't inherit main's workspace
-        useWorkspaceStore.persist.rehydrate();
+        void Promise.resolve(useWorkspaceStore.persist.rehydrate()).catch((e) => workspaceWarn("Workspace rehydrate failed:", e));
 
         setWindowLabel(label);
 
@@ -269,14 +270,14 @@ export function WindowProvider({ children }: WindowProviderProps) {
     let cancelled = false;
     let unlisten: (() => void) | null = null;
 
-    currentWindow.listen<TabTransferPayload>("tab:transfer", async (event) => {
+    currentWindow.listen<TabTransferPayload>("tab:transfer", voidAsync(async (event) => {
       if (cancelled) return;
       try {
         await applyTabTransferData(windowLabel, event.payload);
       } catch (error) {
         windowContextError("Failed to apply runtime tab transfer:", error);
       }
-    }).then((fn) => {
+    }, (err) => appError("Tab transfer listener failed:", err))).then((fn) => {
       if (cancelled) {
         fn();
       } else {

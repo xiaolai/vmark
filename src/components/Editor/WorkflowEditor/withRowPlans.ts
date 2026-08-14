@@ -29,6 +29,7 @@
 
 import type { StepIR } from "@/lib/ghaWorkflow/types";
 import type { IRPatch } from "@/stores/workflowStore";
+import { stringifyUnknown } from "@/utils/stringifyUnknown";
 
 export interface WithRow {
   key: string;
@@ -75,7 +76,7 @@ export function withRowsFromStep(step: StepIR): WithRow[] {
   if (!step.with) return [];
   return Object.entries(step.with).map(([key, value]) => ({
     key,
-    value: value == null ? "" : String(value),
+    value: value == null ? "" : stringifyUnknown(value),
     originalKey: key,
     committedKey: null,
     duplicateKey: false,
@@ -140,7 +141,7 @@ export function planWithRowCommit(
   // Look up the original value via the IR (not stale local state) so blur
   // events without an actual edit don't dirty the queue with no-op patches.
   const originalValue =
-    row.originalKey && stepWith ? String(stepWith[row.originalKey] ?? "") : null;
+    row.originalKey && stepWith ? stringifyUnknown(stepWith[row.originalKey] ?? "") : null;
   const valueChanged = originalValue === null || row.value !== originalValue;
 
   if (!renamed && !valueChanged) {

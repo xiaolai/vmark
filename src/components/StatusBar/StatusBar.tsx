@@ -135,7 +135,7 @@ export function StatusBar() {
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
-      closeTabWithDirtyCheck(windowLabel, tabId);
+      void Promise.resolve(closeTabWithDirtyCheck(windowLabel, tabId)).catch((e) => appError("Failed to close tab:", e));
     },
     [windowLabel]
   );
@@ -261,7 +261,7 @@ export function StatusBar() {
               mcpLoading={mcpLoading}
               mcpError={mcpError}
               mcpClients={mcpClients}
-              openMcpSettings={() => void openMcpSettings().catch((e) => appError("Failed to open MCP settings:", e))}
+              openMcpSettings={() => void Promise.resolve(openMcpSettings()).catch((e) => appError("Failed to open MCP settings:", e))}
               showAutoSavePaused={showAutoSavePaused}
               isDivergent={isDivergent}
               showAutoSave={showAutoSave}

@@ -41,6 +41,8 @@ import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { runWindowCloseFlow } from "@/services/windowClose/windowCloseFlow";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug";
+import { stringifyUnknown } from "@/utils/stringifyUnknown";
+import { voidAsync } from "@/utils/voidAsync";
 
 /**
  * Close-flow milestones — logged in RELEASE builds too (#1253).
@@ -58,7 +60,7 @@ import { windowCloseLog, windowCloseWarn, windowCloseError } from "@/utils/debug
  * a user can actually send.
  */
 const closeLog = (label: string, ...args: unknown[]) => {
-  const msg = `[WindowClose:${label}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
+  const msg = `[WindowClose:${label}] ${args.map(stringifyUnknown).join(" ")}`;
   windowCloseLog(msg);
   // Fire-and-forget: logging must never be able to fail a close.
   invoke("window_close_log", { message: msg }).catch((e) => {
@@ -164,7 +166,7 @@ export function useWindowClose() {
       // handles Cmd+W via keydown; the duplicate invocation joins the shared
       // in-flight close.
       await track(
-        currentWindow.listen<string>("menu:close", async (event) => {
+        currentWindow.listen<string>("menu:close", voidAsync(async (event) => {
           if (event.payload !== windowLabel) return;
           closeLog(windowLabel, "menu:close received");
           const activeTabId = useTabStore.getState().activeTabId[windowLabel];
@@ -178,7 +180,7 @@ export function useWindowClose() {
             // Empty window (Welcome screen): close the window itself.
             void handleCloseRequest();
           }
-        })
+        }, (err) => windowCloseError("menu:close handler failed:", err)))
       );
 
       // window:close-requested (traffic light). Tauri broadcasts to all
@@ -196,7 +198,7 @@ export function useWindowClose() {
       // cancel_quit on failure, a cancelled close left quit_in_progress set
       // and Cmd+Q dead for the rest of the session (WI-1).
       await track(
-        currentWindow.listen<string>("app:quit-requested", async (event) => {
+        currentWindow.listen<string>("app:quit-requested", voidAsync(async (event) => {
           if (event.payload !== windowLabel) return;
           const run = handleCloseRequest();
           const closed = await run;
@@ -214,7 +216,7 @@ export function useWindowClose() {
               /* v8 ignore stop */
             });
           }
-        })
+        }, (err) => windowCloseError("app:quit-requested handler failed:", err)))
       );
 
       closeLog(windowLabel, "event listeners set up");

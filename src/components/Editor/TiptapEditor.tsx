@@ -394,7 +394,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       <div ref={editorContainerRef} className={editorClassName} style={hidden ? { display: "none" } : undefined}>
         <EditorContent editor={editor} />
       </div>
-      {!hidden && <ImageContextMenu onAction={handleImageContextMenuAction} />}
+      {!hidden && <ImageContextMenu onAction={(action) => void handleImageContextMenuAction(action)} />}
     </>
   );
 }

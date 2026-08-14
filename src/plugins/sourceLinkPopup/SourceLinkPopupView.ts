@@ -11,6 +11,7 @@ import { SourcePopupView, type StoreApi } from "@/plugins/sourcePopup";
 import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { buildPopupIconButton, popupIcons } from "@/utils/popupComponents";
 import { copyLinkHref, openLink, removeLink, saveLinkChanges } from "./sourceLinkActions";
+import { sourceActionError } from "@/utils/debug";
 
 /** Build a source-link popup icon button on the canonical `.popup-icon-btn` surface (WI-DP4.1). */
 function buildSourceLinkBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -189,11 +190,11 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
   }
 
   private handleOpen(): void {
-    openLink(this.editorView, this.store);
+    void Promise.resolve(openLink(this.editorView, this.store)).catch((e) => sourceActionError("Open link failed:", e));
   }
 
   private handleCopy(): void {
-    copyLinkHref(this.store);
+    void Promise.resolve(copyLinkHref(this.store)).catch((e) => sourceActionError("Copy link failed:", e));
   }
 
   private handleRemove(): void {

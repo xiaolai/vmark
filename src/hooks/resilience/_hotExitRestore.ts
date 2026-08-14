@@ -13,7 +13,7 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { hotExitLog } from "@/utils/debug";
+import { hotExitLog, hotExitError } from "@/utils/debug";
 import { HOT_EXIT_EVENTS } from "@/services/persistence/hotExit/types";
 import {
   createWindowRestoreCoordinator,
@@ -37,11 +37,11 @@ export function useHotExitRestore() {
     // restore is triggered directly by checkAndRestoreSession(); this listener
     // is guarded against double-restore.
     const unlistenPromise = listen(HOT_EXIT_EVENTS.RESTORE_START, () =>
-      coordinator.onRestoreStart(),
+      void Promise.resolve(coordinator.onRestoreStart()).catch((e) => hotExitError("Hot-exit restore start failed:", e)),
     );
 
     return () => {
-      void unlistenPromise.then((unlisten) => unlisten()).catch((e) => {
+      void Promise.resolve(unlistenPromise.then((unlisten) => unlisten())).catch((e) => {
         hotExitLog("Cleanup error (expected during unmount):", e);
       });
     };

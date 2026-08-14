@@ -16,6 +16,7 @@ import type { RestProviderType } from "@/types/aiGenies";
 import { useAiProviderStore } from "@/stores/aiStore";
 import { ModelComboBox } from "./ModelComboBox";
 import { FieldInput } from "./components";
+import { clipboardWarn } from "@/utils/debug";
 
 const iconBtnClass = `shrink-0 p-1 rounded
   text-[var(--text-secondary)] hover:text-[var(--text-color)]
@@ -63,7 +64,7 @@ export function RestProviderConfigFields({
   const handleCopy = () => {
     /* v8 ignore next -- @preserve reason: empty apiKey guard; copy button is disabled when apiKey is empty so this path is unreachable via UI */
     if (!apiKey) return;
-    navigator.clipboard.writeText(apiKey);
+    void Promise.resolve(navigator.clipboard.writeText(apiKey)).catch((e) => clipboardWarn("Failed to copy API key:", e));
     setCopied(true);
     clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopied(false), 1500);

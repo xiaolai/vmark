@@ -35,7 +35,13 @@ export function formatArgs(tag: string, args: unknown[]): string {
     if (a instanceof Error) {
       parts.push(a.stack ?? a.message);
     } else if (typeof a === "object" && a !== null) {
-      try { parts.push(JSON.stringify(a)); } catch { parts.push(String(a)); }
+      try {
+        parts.push(JSON.stringify(a) ?? Object.prototype.toString.call(a));
+      } catch {
+        // Circular or non-serialisable: name the KIND. `String(a)` here would
+        // push the literal "[object Object]" into a production log line.
+        parts.push(Object.prototype.toString.call(a));
+      }
     } else {
       parts.push(String(a));
     }
@@ -50,7 +56,7 @@ export function prodWarn(tag: string, ...args: unknown[]) {
     console.warn(tag, ...args);
   } else {
     console.warn(tag, ...args);
-    if (_tauriWarn) void _tauriWarn(formatArgs(tag, args)).catch((e) => { console.error("[Log] persist warn failed:", e); });
+    if (_tauriWarn) void Promise.resolve(_tauriWarn(formatArgs(tag, args))).catch((e) => { console.error("[Log] persist warn failed:", e); });
   }
 }
 
@@ -75,6 +81,6 @@ export function prodError(tag: string, ...args: unknown[]) {
     console.error(tag, ...args);
   } else {
     console.error(tag, ...args);
-    if (_tauriError) void _tauriError(formatArgs(tag, args)).catch((e) => { console.error("[Log] persist error failed:", e); });
+    if (_tauriError) void Promise.resolve(_tauriError(formatArgs(tag, args))).catch((e) => { console.error("[Log] persist error failed:", e); });
   }
 }

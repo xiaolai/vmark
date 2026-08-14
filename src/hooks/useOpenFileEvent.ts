@@ -20,7 +20,8 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { handleOpenFile } from "@/services/navigation/fileOpen";
 import { OPEN_FILE_EVENT, type OpenFileEventPayload } from "@/services/navigation/openFileEvent";
 import { navigateToFragmentWhenReady } from "@/services/navigation/openFragment";
-import { fileOpsError } from "@/utils/debug";
+import { fileOpsError, finderFileOpenError } from "@/utils/debug";
+import { voidAsync } from "@/utils/voidAsync";
 
 export function useOpenFileEvent(): void {
   const windowLabel = useWindowLabel();
@@ -30,7 +31,7 @@ export function useOpenFileEvent(): void {
     let unlisten: UnlistenFn | null = null;
 
     void getCurrentWebviewWindow()
-      .listen<OpenFileEventPayload>(OPEN_FILE_EVENT, async (event) => {
+      .listen<OpenFileEventPayload>(OPEN_FILE_EVENT, voidAsync(async (event) => {
         if (event.payload.windowLabel !== windowLabel) return;
         await handleOpenFile(windowLabel, event.payload.path);
         // The file is open; the editor may not have mounted it yet. This
@@ -38,7 +39,7 @@ export function useOpenFileEvent(): void {
         if (event.payload.fragment) {
           navigateToFragmentWhenReady(windowLabel, event.payload.fragment);
         }
-      })
+      }, (err) => finderFileOpenError("Open-file event handler failed:", err)))
       .then((off) => {
         if (cancelled) off();
         else unlisten = off;

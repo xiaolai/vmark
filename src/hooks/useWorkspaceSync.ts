@@ -25,7 +25,7 @@ export function useWorkspaceSync() {
       const expectedKey = getWorkspaceStorageKey(getCurrentWindowLabel());
       if (event.key !== expectedKey) return;
       try {
-        useWorkspaceStore.persist.rehydrate();
+        void Promise.resolve(useWorkspaceStore.persist.rehydrate()).catch((e) => workspaceWarn("Workspace rehydrate failed:", e));
       } catch (e) {
         workspaceWarn("Rehydration failed:", e);
       }
