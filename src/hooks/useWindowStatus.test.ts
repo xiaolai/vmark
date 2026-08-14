@@ -135,3 +135,34 @@ describe("useWindowStatus — focus clears attention", () => {
     await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith("clear_window_attention"));
   });
 });
+
+describe("useWindowStatus — reporting and global pin", () => {
+  it("survives a rejected report_window_status", async () => {
+    // Reporting is best-effort telemetry to the coordinator; a failure must not
+    // take the hook down with an unhandled rejection.
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "report_window_status" ? Promise.reject(new Error("ipc down")) : Promise.resolve([])
+    );
+    useAiInvocationStore.setState({ activeCount: 1 });
+    const { unmount } = renderHook(() => useWindowStatus());
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("report_window_status", expect.any(Object))
+    );
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it("follows the app-global pin broadcast from another window", async () => {
+    const byEvent = new Map<string, (e: { payload: unknown }) => void>();
+    listen.mockImplementation((event: string, cb: (e: { payload: unknown }) => void) => {
+      byEvent.set(event, cb);
+      return Promise.resolve(() => {});
+    });
+    useWindowStatusStore.setState({ globalPin: false });
+
+    renderHook(() => useWindowStatus());
+    await vi.waitFor(() => expect(byEvent.has("window-status:global-pin")).toBe(true));
+
+    byEvent.get("window-status:global-pin")!({ payload: true });
+    expect(useWindowStatusStore.getState().globalPin).toBe(true);
+  });
+});
