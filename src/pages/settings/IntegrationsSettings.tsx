@@ -18,7 +18,6 @@ import { RefreshCw, Users, ExternalLink } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";
 import { RestProviderConfigFields } from "./RestProviderConfigFields";
 import { ProviderRadio } from "./ProviderRadio";
-import { aiProviderWarn } from "@/utils/debug";
 
 function StatusBadge({ running, loading }: { running: boolean; loading: boolean }) {
   const { t } = useTranslation("settings");
@@ -281,11 +280,11 @@ function AiProviderSettings() {
   // Auto-detect CLI providers when settings page mounts so users
   // immediately see available CLIs without clicking "Detect"
   useEffect(() => {
-    void Promise.resolve(useAiProviderStore.getState().detectProviders()).catch((e) => aiProviderWarn("Provider detection failed:", e));
+    void useAiProviderStore.getState().detectProviders();
   }, []);
 
   const handleDetect = () => {
-    void Promise.resolve(useAiProviderStore.getState().detectProviders()).catch((e) => aiProviderWarn("Provider detection failed:", e));
+    void useAiProviderStore.getState().detectProviders();
   };
 
   const handleActivate = (type: ProviderType) => {

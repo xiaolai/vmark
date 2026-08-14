@@ -62,7 +62,6 @@ import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
 import { ARIA_LIVE_STYLE, preventSelectAllOnButtons } from "./statusBarHelpers";
 import "./StatusBar.css";
-import { appError } from "@/utils/debug";
 
 /** Bottom bar combining tab strip, word/char counts, auto-save indicator, AI status, and mode toggle. */
 export function StatusBar() {
@@ -135,7 +134,7 @@ export function StatusBar() {
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
-      void Promise.resolve(closeTabWithDirtyCheck(windowLabel, tabId)).catch((e) => appError("Failed to close tab:", e));
+      void closeTabWithDirtyCheck(windowLabel, tabId);
     },
     [windowLabel]
   );
@@ -261,7 +260,7 @@ export function StatusBar() {
               mcpLoading={mcpLoading}
               mcpError={mcpError}
               mcpClients={mcpClients}
-              openMcpSettings={() => void Promise.resolve(openMcpSettings()).catch((e) => appError("Failed to open MCP settings:", e))}
+              openMcpSettings={() => void openMcpSettings()}
               showAutoSavePaused={showAutoSavePaused}
               isDivergent={isDivergent}
               showAutoSave={showAutoSave}

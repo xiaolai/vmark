@@ -42,8 +42,7 @@ import { createContext, useContext, useEffect, useState, useRef, type ReactNode 
 import { useWorkspaceSync } from "@/hooks/useWorkspaceSync";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useTabStore } from "../stores/tabStore";
-import { useRecentWorkspacesStore } from "../stores/workspaceStore";
-import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useRecentWorkspacesStore, useWorkspaceStore } from "../stores/workspaceStore";
 import { useUIStore } from "../stores/uiStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { restoreWindowBrowserSession } from "@/services/persistence/windowBrowserSession";

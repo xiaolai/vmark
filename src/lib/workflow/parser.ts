@@ -24,7 +24,6 @@ import type {
   WorkflowLimits,
   StepType,
 } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
 import { stringifyUnknown } from "@/utils/stringifyUnknown";
 
 // ============================================================================
@@ -257,7 +256,7 @@ export function parseWorkflow(yaml: string): WorkflowGraph {
         ? (e as { linePos?: Array<{ line: number; col: number }> }).linePos?.[0]
         : undefined;
     throw new WorkflowParseError(
-      `Invalid YAML: ${errorMessage(e)}`,
+      `Invalid YAML: ${stringifyUnknown(e)}`,
       linePos?.line,
       linePos?.col,
     );

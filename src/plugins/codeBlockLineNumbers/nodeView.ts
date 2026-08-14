@@ -221,19 +221,10 @@ export class CodeBlockNodeView implements NodeView {
 
   private copyInFlight = false;
 
-  /**
-   * The void-returning identity handed to add/removeEventListener.
-   *
-   * It must be ONE stable function: wrapping at the add site and removing the
-   * raw handler would silently fail to detach and leak the listener. Declared
-   * as an arrow that calls `handleCopyClick` lazily so class-field
-   * initialisation order is irrelevant, and `handleCopyClick` stays async and
-   * awaitable for its tests.
-   */
-  private copyClickListener = voidAsync(
-    (e: MouseEvent) => this.handleCopyClick(e),
-    (err) => codeBlockError("Copy code failed:", err)
-  );
+  // ONE identity for add/removeEventListener: wrapping at the add site and
+  // removing the raw handler would leak the listener. Calls lazily, so field
+  // init order is irrelevant.
+  private copyClickListener = voidAsync((e: MouseEvent) => this.handleCopyClick(e), (err) => codeBlockError("Copy code failed:", err));
 
   private handleCopyClick = async (e: MouseEvent): Promise<void> => {
     e.preventDefault();
