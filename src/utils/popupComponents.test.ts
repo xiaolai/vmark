@@ -520,3 +520,49 @@ describe("handlePopupTabNavigation", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 });
+
+describe("buildPopupIconButton — async onClick adaptation", () => {
+  // `addEventListener` takes a void-returning listener, so an async onClick's
+  // rejection has nowhere to go. The builder adapts it at that boundary; these
+  // pin that the rejection is REPORTED rather than dropped, and that a
+  // synchronous throw takes the same path.
+  it("reports a rejecting async onClick instead of dropping it", async () => {
+    const { appError } = await import("@/utils/debug");
+    const spy = vi.spyOn(await import("@/utils/debug"), "appError");
+    const boom = new Error("handler exploded");
+    const btn = buildPopupIconButton({
+      icon: "copy",
+      title: "Copy",
+      onClick: async () => { throw boom; },
+    });
+    btn.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(spy).toHaveBeenCalledWith("Popup button handler failed:", boom);
+    expect(typeof appError).toBe("function");
+    spy.mockRestore();
+  });
+
+  it("reports a synchronous throw from onClick", async () => {
+    const spy = vi.spyOn(await import("@/utils/debug"), "appError");
+    const boom = new Error("sync throw");
+    const btn = buildPopupIconButton({
+      icon: "copy",
+      title: "Copy",
+      onClick: () => { throw boom; },
+    });
+    expect(() => btn.click()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(spy).toHaveBeenCalledWith("Popup button handler failed:", boom);
+    spy.mockRestore();
+  });
+
+  it("does not report when onClick resolves", async () => {
+    const spy = vi.spyOn(await import("@/utils/debug"), "appError");
+    const onClick = vi.fn(async () => {});
+    buildPopupIconButton({ icon: "copy", title: "Copy", onClick }).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onClick).toHaveBeenCalled();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
