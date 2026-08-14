@@ -6,6 +6,11 @@ import userEvent from "@testing-library/user-event";
 const mockCheckForUpdates = vi.fn();
 const mockRestartApp = vi.fn();
 const mockOpenSettingsWindow = vi.fn();
+const mockRecoverFromStall = vi.fn();
+// Stall detection is time-based and tested directly in useUpdateStall.test.ts.
+// Here it is a switch, so these cases assert what the indicator DOES about a
+// stall rather than re-testing how one is detected.
+let mockStalled = false;
 
 vi.mock("@/stores/mcpStore", () => ({
   useMcpStore: vi.fn((selector: (state: Record<string, unknown>) => unknown) =>
@@ -27,6 +32,11 @@ vi.mock("@/hooks/useUpdateOperations", () => ({
     skipVersion: vi.fn(),
     requestState: vi.fn(),
   }),
+  recoverFromStall: (...args: unknown[]) => mockRecoverFromStall(...args),
+}));
+
+vi.mock("@/hooks/useUpdateStall", () => ({
+  useUpdateStall: () => mockStalled,
 }));
 
 vi.mock("@/services/navigation/settingsWindow", () => ({
@@ -40,6 +50,7 @@ let mockSettingsState: Record<string, unknown>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockStalled = false;
   mockUpdateState = {
     status: "idle",
     updateInfo: null,
@@ -305,6 +316,71 @@ describe("UpdateIndicator", () => {
       const button = screen.getByTitle("Installing update...");
       expect(button).toBeInTheDocument();
       expect(button.style.cursor).toBe("default");
+    });
+  });
+
+  // #1270: checking/downloading/installing are non-interactive, so a flow that
+  // stops progressing left the user with a permanent spinner and no way out.
+  // A stall makes the indicator clickable regardless of the state's normal
+  // interactivity, and the click resets the flow rather than re-entering it.
+  describe("stalled flow", () => {
+    it.each(["checking", "downloading", "installing"] as const)(
+      "makes a stalled %s state clickable",
+      (status) => {
+        mockUpdateState.status = status;
+        mockStalled = true;
+        render(<UpdateIndicator />);
+
+        const button = screen.getByRole("button");
+        expect(button.style.cursor).toBe("pointer");
+      },
+    );
+
+    it("says the flow is stalled rather than showing the normal label", () => {
+      mockUpdateState.status = "checking";
+      mockStalled = true;
+      render(<UpdateIndicator />);
+
+      expect(screen.queryByTitle("Checking for updates...")).not.toBeInTheDocument();
+      expect(screen.getByRole("button")).toHaveAttribute(
+        "title",
+        "Update stalled — click to reset",
+      );
+    });
+
+    it("recovers the flow when a stalled indicator is clicked", async () => {
+      const user = userEvent.setup();
+      mockUpdateState.status = "downloading";
+      mockStalled = true;
+      render(<UpdateIndicator />);
+
+      await user.click(screen.getByRole("button"));
+
+      expect(mockRecoverFromStall).toHaveBeenCalledTimes(1);
+    });
+
+    // A stalled `error` must reset rather than fire another check into the
+    // same stuck guard — that retry would join the dead promise.
+    it("prefers recovery over retry when an error state is stalled", async () => {
+      const user = userEvent.setup();
+      mockUpdateState.status = "error";
+      mockStalled = true;
+      render(<UpdateIndicator />);
+
+      await user.click(screen.getByRole("button"));
+
+      expect(mockRecoverFromStall).toHaveBeenCalledTimes(1);
+      expect(mockCheckForUpdates).not.toHaveBeenCalled();
+    });
+
+    // The negative that keeps the feature honest: a healthy non-interactive
+    // state must stay non-interactive.
+    it("leaves a healthy downloading state non-clickable", () => {
+      mockUpdateState.status = "downloading";
+      mockStalled = false;
+      render(<UpdateIndicator />);
+
+      expect(screen.getByRole("button").style.cursor).toBe("default");
     });
   });
 });

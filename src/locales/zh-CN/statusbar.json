@@ -57,6 +57,7 @@
   "updateReady": "点击重启并更新",
   "updateReadyVersion": "v{{version}} 已就绪 — 点击重启",
   "updateError": "更新检查失败 — 点击重试",
+  "updateStalled": "更新已停滞，点击重置",
   "autoSavedAt": "自动保存于 {{time}}",
   "terminal.search.placeholder": "搜索...",
   "terminal.search.label": "搜索终端输出",

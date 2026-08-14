@@ -141,6 +141,7 @@ macro_rules! all_commands {
             #[cfg(debug_assertions)]
             app_setup::debug_log,
             app_setup::window_close_log,
+            app_setup::update_log,
             temp_html::write_temp_html,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,

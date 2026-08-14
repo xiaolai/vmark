@@ -57,6 +57,7 @@
   "updateReady": "클릭하여 재시작 및 업데이트",
   "updateReadyVersion": "v{{version}} 준비됨 — 클릭하여 재시작",
   "updateError": "업데이트 확인 실패 — 클릭하여 재시도",
+  "updateStalled": "업데이트가 중단되었습니다. 클릭하여 초기화",
   "autoSavedAt": "{{time}}에 자동 저장됨",
   "terminal.search.placeholder": "검색...",
   "terminal.search.label": "터미널 출력 검색",

@@ -250,3 +250,22 @@ pub fn debug_log(message: String) {
 pub fn window_close_log(message: String) {
     log::info!("[WindowClose] {}", message);
 }
+
+/// Update-flow milestones from the frontend, at INFO (#1270).
+///
+/// Same reasoning as `window_close_log` above, for the other flow that can
+/// stall with no timeout: the update check and download are network calls, and
+/// a connection that stalls never settles. The state machine had no milestone
+/// logging at any tier, so a report of a frozen update arrived with nothing
+/// describing which step hung.
+///
+/// Deliberately a sibling of `window_close_log` rather than a generalisation
+/// of it: that command shipped for a still-open report, and reworking it to
+/// save three lines here would put the diagnostic being used to investigate
+/// this stall at risk. Generalise when a third flow needs it.
+///
+/// Kept to state transitions: download progress events are not logged.
+#[tauri::command]
+pub fn update_log(message: String) {
+    log::info!("[Update] {}", message);
+}

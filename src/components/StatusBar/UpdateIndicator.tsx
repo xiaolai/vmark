@@ -14,7 +14,8 @@ import { useTranslation } from "react-i18next";
 import { RefreshCw, Download, CheckCircle, AlertCircle } from "lucide-react";
 import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useUpdateOperations } from "@/hooks/useUpdateOperations";
+import { useUpdateOperations, recoverFromStall } from "@/hooks/useUpdateOperations";
+import { useUpdateStall } from "@/hooks/useUpdateStall";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 
 /**
@@ -83,6 +84,10 @@ export function UpdateIndicator() {
   const downloadProgress = useMcpStore((state) => state.update.downloadProgress);
   const autoDownload = useSettingsStore((state) => state.update.autoDownload);
   const { checkForUpdates, restartApp } = useUpdateOperations();
+  // `checking`/`downloading`/`installing` are non-interactive, so a flow that
+  // stops progressing has no way out — the guard is never released and every
+  // retry joins a promise that will never settle (#1270).
+  const stalled = useUpdateStall();
 
   const config = getIndicatorConfig(status);
 
@@ -100,9 +105,15 @@ export function UpdateIndicator() {
       ? Math.round((downloadProgress.downloaded / downloadProgress.total) * 100)
       : null;
 
+  // A stalled flow overrides the config: it becomes clickable regardless of
+  // the state's normal interactivity, and says so.
+  const clickable = config.clickable || stalled;
+
   // Build title with additional context
   let title = t(config.titleKey);
-  if (status === "available" && updateInfo) {
+  if (stalled) {
+    title = t("updateStalled");
+  } else if (status === "available" && updateInfo) {
     title = t("updateAvailableVersion", { version: updateInfo.version });
   } else if (status === "downloading") {
     title = downloadPercent !== null ? t("updateDownloadingPercent", { percent: downloadPercent }) : t("updateDownloading");
@@ -111,7 +122,15 @@ export function UpdateIndicator() {
   }
 
   const handleClick = () => {
-    if (!config.clickable) return;
+    if (!clickable) return;
+
+    // Checked before the status chain: a stalled `checking`/`downloading`
+    // matches none of those branches, and a stalled `error` should reset
+    // rather than fire another check into the same stuck guard.
+    if (stalled) {
+      recoverFromStall();
+      return;
+    }
 
     /* v8 ignore start -- @preserve reason: status branch chain (available/ready/error) not fully exercised in tests */
     if (status === "available") {
@@ -130,7 +149,7 @@ export function UpdateIndicator() {
       onClick={handleClick}
       title={title}
       aria-label={title}
-      style={{ cursor: config.clickable ? "pointer" : "default" }}
+      style={{ cursor: clickable ? "pointer" : "default" }}
     >
       <Icon size={12} />
       {config.showDot && <span className="status-update-dot" />}

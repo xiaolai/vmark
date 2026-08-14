@@ -57,6 +57,7 @@
   "updateReady": "點擊以重新啟動並更新",
   "updateReadyVersion": "v{{version}} 已就緒 — 點擊以重新啟動",
   "updateError": "更新檢查失敗 — 點擊重試",
+  "updateStalled": "更新已停滯，點擊重設",
   "autoSavedAt": "自動儲存於 {{time}}",
   "terminal.search.placeholder": "搜尋...",
   "terminal.search.label": "搜尋終端機輸出",

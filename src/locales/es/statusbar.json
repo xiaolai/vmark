@@ -57,6 +57,7 @@
   "updateReady": "Haz clic para reiniciar y actualizar",
   "updateReadyVersion": "v{{version}} listo — haz clic para reiniciar",
   "updateError": "Error al buscar actualizaciones — haz clic para reintentar",
+  "updateStalled": "Actualización detenida: haz clic para reiniciar",
   "autoSavedAt": "Guardado automáticamente a las {{time}}",
   "terminal.search.placeholder": "Buscar...",
   "terminal.search.label": "Buscar en la salida del terminal",
