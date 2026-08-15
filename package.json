@@ -14,7 +14,7 @@
     "prepare": "node scripts/setup-local-git.mjs",
     "dev": "vite",
     "build": "pnpm typecheck && vite build",
-    "typecheck": "tsc --noEmit --incremental",
+    "typecheck": "tsc --noEmit --incremental && tsc -p tsconfig.node.json",
     "preview": "vite preview",
     "tauri": "node scripts/tauri-wrapper.mjs",
     "tauri:dev": "node scripts/tauri-wrapper.mjs dev --config src-tauri/tauri.dev.conf.json",

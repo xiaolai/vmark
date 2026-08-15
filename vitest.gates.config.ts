@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
-import path from "path";
-import { maxWorkers, testGlob } from "./vitest.shared";
+import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
 
 /**
  * Gate self-test tier — the tests OF the lint gates, not of the app.
@@ -61,9 +60,6 @@ export default defineConfig({
     maxWorkers: maxWorkers(),
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./src/shared"),
-    },
+    alias: sourceAliases(import.meta.dirname),
   },
 });

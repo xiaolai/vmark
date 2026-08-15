@@ -4,7 +4,30 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    // Vite's `configLoader: 'native'` (a future default) loads these configs
+    // through Node's own TS support, and Node's ESM resolver requires a real
+    // file extension — so `./scripts/manualChunks.ts` is written with one.
+    // Writing `.ts` in a specifier needs this flag, which in turn requires a
+    // non-emitting project.
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./node_modules/.tmp/tsconfig-node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig-node/.tsbuildinfo",
+    "types": ["node"]
   },
-  "include": ["vite.config.ts"]
+  // A composite project must list every file it pulls in, and this one listed
+  // only `vite.config.ts` — so `manualChunks.ts` and `vitest.shared.ts` were
+  // outside it, and the four vitest configs were type-checked by nothing at all.
+  // That was invisible because `tsc --noEmit` does not build project references;
+  // `pnpm typecheck` now runs this project explicitly as a second step.
+  "include": [
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vitest.browser.config.ts",
+    "vitest.gates.config.ts",
+    "vitest.soak.config.ts",
+    "vitest.shared.ts",
+    "scripts/manualChunks.ts"
+  ]
 }

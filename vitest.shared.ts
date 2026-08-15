@@ -1,4 +1,5 @@
 import { availableParallelism } from "node:os";
+import { resolve } from "node:path";
 
 /**
  * Settings shared by every vitest tier, so the tiers cannot drift apart.
@@ -74,4 +75,25 @@ export function testGlob(root: string): string {
 /** Glob for a named sub-tier's files, e.g. `suffixGlob("src", "webkit")`. */
 export function suffixGlob(root: string, suffix: string): string {
   return `${root}/**/*.${suffix}.test.${TEST_EXTENSIONS}`;
+}
+
+/**
+ * The `@` / `@shared` source aliases, for every root Vite and Vitest config.
+ *
+ * This block was written out verbatim in all five of them. They agreed today,
+ * which is exactly the state in which a duplicate is cheapest to leave and most
+ * expensive to have left: moving `src/shared` would need five identical edits,
+ * and missing one fails only in whichever tier was missed.
+ *
+ * Despite the module's name this also serves `vite.config.ts` — the app build is
+ * not a vitest tier, but it resolves the same two aliases against the same root,
+ * and a second shared-config module to hold one function would be worse.
+ *
+ * @param rootDir the config's own directory (`import.meta.dirname`)
+ */
+export function sourceAliases(rootDir: string): Record<string, string> {
+  return {
+    "@": resolve(rootDir, "./src"),
+    "@shared": resolve(rootDir, "./src/shared"),
+  };
 }
