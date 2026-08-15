@@ -477,12 +477,14 @@ feature surface.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Embedded browser | Enable the experimental in-app web browser (macOS only). When on, **New Browser Tab** appears in the command palette | Off | On / Off |
+| Embedded browser | The in-app web browser (macOS only). While on, **New Browser Tab** is in the File menu and the command palette, and the MCP `browser` tools are available. Turning it off closes open browser tabs and withdraws the AI automation surface | On | On / Off |
 | AI browser session | Choose `Sandbox` (recommended, isolated non-persistent AI cookies) or `Shared profile` (human profile with destination approvals) | Sandbox | Sandbox / Shared |
 | Allow AI loopback access | Allow AI navigation to localhost and loopback addresses. Private LAN, metadata, and link-local ranges remain blocked | Off | On / Off |
 
-This toggle lives under **Developer Tools** (see below) — turn Developer Tools on
-to reveal it. See [Embedded Browser](/guide/browser) for the full feature surface.
+These live under **Advanced → macOS**, and appear on macOS only. The two AI
+posture rows appear only while the browser toggle is on, and are unaffected by
+it being on — they stay at Sandbox / loopback-blocked until you change them.
+See [Embedded Browser](/guide/browser) for the full feature surface.
 
 ### Platform-Specific
 
@@ -494,8 +496,8 @@ to reveal it. See [Embedded Browser](/guide/browser) for the full feature surfac
 ### Developer Tools
 
 **Developer tools** is a persisted master switch for experimental and
-development-only settings. Turning it on reveals the **Embedded browser** and
-**Workflow engine** toggles plus a **Hot Exit Dev Tools** panel (buttons to test
+development-only settings. Turning it on reveals the **Workflow engine** toggle
+plus a **Hot Exit Dev Tools** panel (buttons to test
 session capture, inspection, restoration, clearing, and restart). Because the
 switch persists, an in-progress feature you enable stays reachable across sessions
 and in release builds — you do not need to re-enable Developer tools each time you

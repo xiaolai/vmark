@@ -161,12 +161,26 @@ export const initialState: SettingsState = {
     associations: {},
   },
   browser: {
-    // Embedded browser is off by default until the surface + driver ship (WI-1.10).
-    enabled: false,
+    // Embedded browser ships ON (maintainer decision, 2026-08-15), superseding
+    // the default-off posture of WI-1.10 and the KEEP-DARK recommendation in
+    // .claude/rules/60-ai-governance.md §12, whose 2026-11-01 exit criterion
+    // was resolved early in favour of shipping.
+    //
+    // Consequences a reader should know about, because they are not obvious:
+    // this value is PUSHED to Rust as `browser_ai_policy`, so it also opens the
+    // AI/MCP browser path at bootstrap, not just the UI. The posture defaults
+    // below are what keep that path narrow, and they stay conservative —
+    // sandboxed session, loopback refused.
+    enabled: true,
     aiSession: "sandbox",
     aiAllowLoopback: false,
   },
-  showDevSection: false,
+  // Advanced is visible by default, because it now hosts the OFF switch for a
+  // default-on feature. Truly developer-only content inside it (Experimental,
+  // Hot Exit dev tools) stays behind the Developer-mode toggle, so this reveals
+  // an ordinary Advanced pane rather than a debug surface. The
+  // Ctrl+Option+Cmd+D chord still toggles it.
+  showDevSection: true,
 };
 
 /**

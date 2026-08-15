@@ -363,22 +363,43 @@ ratifies or overrides; until then these are proposals.** Each carries a dated
 exit criterion, because "we'll decide later" is how a dark feature becomes
 permanent.
 
-**Embedded browser — KEEP DARK, exit criterion 2026-11-01.** This is the most
-finished of the three and the only one with real backend enforcement: the AI
-commands are `CommandError`-typed, every refusal has a test naming its `code`
-(`browser/ai_guards.test.rs`), the SSRF/LAN destination policy is adversarially
-tested down to legacy IPv4 spellings, and the approval flow, origin grants and
-policy epochs all exist and are pinned. What is missing is not code but
-evidence: it is macOS-only by construction (every other platform's native
-surface is an explicit unsupported stub), the website already calls it "an
-early, OPT-IN feature", and nothing in the repo records a single user having
-turned it on. The recommendation is therefore to leave `browser.enabled` off,
-keep the guard scope, and set a dated decision point: by **2026-11-01**, either
-a Windows/Linux surface exists (making default-on defensible) or the feature is
+**Embedded browser — SHIPPED ON BY DEFAULT (maintainer decision, 2026-08-15).
+This supersedes the KEEP-DARK recommendation below, which is retained because
+the reasoning it records is still the reasoning a reader needs.**
+
+`browser.enabled` now defaults to `true` (`src/stores/settingsStore/defaults.ts`),
+and `showDevSection` defaults to `true` with it, because Advanced hosts the OFF
+switch and a default-on feature whose only off switch was an undocumented
+`Ctrl+Option+Cmd+D` chord is not switchable in any meaningful sense. The dated
+2026-11-01 criterion below was resolved early, in favour of shipping, without
+the Windows/Linux surface it asked for; the feature therefore ships **macOS-only
+and on**, with every other platform's native surface still an explicit
+unsupported stub.
+
+What did NOT change, and is what keeps the exposure bounded: the AI posture
+defaults (`aiSession: "sandbox"`, `aiAllowLoopback: false`), the SSRF/LAN
+destination policy, the approval flow, the origin grants, the policy epochs, and
+the guard scope in §5. The setting is PUSHED to Rust as `browser_ai_policy`, so
+default-on opens the AI/MCP browser path at bootstrap and not merely the UI —
+that is the substantive consequence of this decision and the thing to re-examine
+first if it is revisited.
+
+The superseded recommendation, for the record: *KEEP DARK, exit criterion
+2026-11-01.* This is the most finished of the three and the only one with real
+backend enforcement: the AI commands are `CommandError`-typed, every refusal has
+a test naming its `code` (`browser/ai_guards.test.rs`), the SSRF/LAN destination
+policy is adversarially tested down to legacy IPv4 spellings, and the approval
+flow, origin grants and policy epochs all exist and are pinned. What is missing
+is not code but evidence: it is macOS-only by construction, the website called
+it "an early, OPT-IN feature", and nothing in the repo recorded a single user
+having turned it on. The recommendation was to leave `browser.enabled` off, keep
+the guard scope, and set a dated decision point: by **2026-11-01**, either a
+Windows/Linux surface exists (making default-on defensible) or the feature is
 extracted behind a cargo feature so a build that does not want it does not pay
-for it. Shipping it on by default today would make the SSRF policy a
+for it. The stated risk of shipping on was that it makes the SSRF policy a
 default-exposed attack surface on the primary platform in exchange for a
-capability no one has asked for.
+capability no one had asked for. **That risk was accepted, not refuted** — if
+this is ever reverted, this paragraph is the argument to re-read.
 
 **Workflow VIEWER — SHIP ON BY DEFAULT (partly already true), exit criterion
 2026-09-15.** The GitHub Actions surface is the healthiest thing in this review:

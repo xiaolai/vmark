@@ -3,24 +3,34 @@
 VMark can host a real web browser **inside** a document window — a web page becomes a first-class tab alongside your markdown documents. It is a genuine native webview (macOS `WKWebView`), not an external Chrome window and not an embedded frame.
 
 ::: warning Experimental
-The embedded browser is an early, opt-in feature and is **macOS-only** in this build. Windows and Linux support comes later.
+The embedded browser is an early feature and is **macOS-only** in this build. Windows and Linux support comes later — on those platforms the settings below do not appear at all.
 :::
+
 
 ::: info Workspace rail
 With the experimental [workspace rail](/guide/workspace-rail) enabled, browser pages are **window-global**: they stay reachable from every workspace in the window and are never tied to a single workspace's tabs.
 :::
 
-## Enabling it
+## Turning it off
 
-The browser is off by default. To turn it on:
+The browser is **on by default** on macOS. **New Browser Tab** is in the **File**
+menu (`Alt + Mod + Shift + B`) and in the command palette — nothing needs
+enabling first.
 
-1. Open **Settings → Advanced**.
-2. Enable **Developer mode** (the switch at the top of the Advanced section).
-3. Under **Experimental**, turn on **Embedded browser**.
+To switch it off, go to **Settings → Advanced → macOS** and turn off
+**Embedded browser**. That also closes any open browser tabs and withdraws the
+AI automation surface described below.
 
-Once enabled, **New Browser Tab** appears in the command palette (open it with your command-palette shortcut and type "browser").
+Two AI posture settings sit directly under the toggle and appear only while it
+is on. Both ship conservative and are unchanged by the browser being enabled:
 
-Once enabled, **New Browser Tab** appears in the **File** menu (`Alt + Mod + Shift + B`) and in the command palette.
+| Setting | Default | Meaning |
+|---|---|---|
+| **AI session** | Sandbox | AI-driven pages get an isolated session rather than sharing your logged-in one |
+| **Allow loopback** | Off | AI navigation to `localhost` / private-network addresses is refused |
+
+Site permissions are not in Settings — they live in the browser sidebar, in the
+window that owns them.
 
 ## Using it
 
