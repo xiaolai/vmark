@@ -2,6 +2,7 @@ import { useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useVisibleWindowTabs } from "@/hooks/useVisibleWindowTabs";
 import { getBrowserWorkspaceView } from "./browserWorkspace";
+import { browserTabIsActive } from "@/services/browser/browserWorkspaceActive";
 
 const EMPTY_TABS: never[] = [];
 
@@ -35,10 +36,6 @@ export function useBrowserWorkspaceActive(): boolean {
   const windowLabel = useWindowLabel();
   return useTabStore((state) => {
     if (!isDocumentWindow) return false;
-    const active = state.activeTabId[windowLabel];
-    return (
-      !!active &&
-      (state.tabs[windowLabel] ?? EMPTY_TABS).some((t) => t.id === active && t.kind === "browser")
-    );
+    return browserTabIsActive(state.tabs[windowLabel] ?? EMPTY_TABS, state.activeTabId[windowLabel]);
   });
 }

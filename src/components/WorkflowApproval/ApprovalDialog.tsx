@@ -115,7 +115,7 @@ export function ApprovalDialog() {
         <div className="approval-dialog__actions">
           <button
             type="button"
-            className="approval-dialog__btn approval-dialog__btn--deny"
+            className="vm-btn"
             onClick={() => void respond(false)}
             disabled={submitting}
           >
@@ -123,7 +123,7 @@ export function ApprovalDialog() {
           </button>
           <button
             type="button"
-            className="approval-dialog__btn approval-dialog__btn--approve"
+            className="vm-btn vm-btn--cta"
             onClick={() => void respond(true)}
             disabled={submitting}
             autoFocus

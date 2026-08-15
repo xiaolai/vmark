@@ -57,6 +57,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // would invite the user to click through a queue.
   const request = useBrowserApprovalStore((s) => s.pending[0] ?? null);
   const denyRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const requestId = request?.id;
 
@@ -75,9 +76,17 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // an asynchronous window with the page visible and a dialog on screen.
   useBrowserOccluder(Boolean(requestId), OCCLUDER.approval);
 
-  // Deny holds focus: a stray Enter must never authorize an action.
+  // Deny holds focus: a stray Enter must never authorize an action. The element
+  // focused BEFORE the prompt is remembered so it can be restored on close —
+  // otherwise resolving a prompt dropped focus to <body> and a keyboard user lost
+  // their place in the app (audit 20260815-163607 #22).
   useEffect(() => {
-    if (requestId) denyRef.current?.focus();
+    if (!requestId) return;
+    const restoreTo = document.activeElement as HTMLElement | null;
+    denyRef.current?.focus();
+    return () => {
+      if (restoreTo?.isConnected) restoreTo.focus();
+    };
   }, [requestId]);
 
   useEffect(() => {
@@ -86,11 +95,43 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
       // Fail closed. Dismissing a security prompt is a denial, never an approval.
       if (e.key === "Escape") {
         e.preventDefault();
+        // EXCLUSIVE: while a security prompt is raised it is the only Escape
+        // handler. There is no modal stack, so a sibling overlay's window-level
+        // listener also saw this keystroke and one Escape resolved two separate
+        // decisions — one of them unseen by the user (audit #23). Capture phase
+        // plus stopImmediatePropagation makes this prompt win deterministically
+        // instead of depending on listener registration order.
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         useBrowserApprovalStore.getState().resolveApproval(requestId, "deny");
+        return;
+      }
+      // Trap Tab inside the dialog. `aria-modal` tells assistive tech the rest of
+      // the app is inert; it does NOT make it inert for the Tab key, so focus
+      // could walk out of a security prompt and into the background UI while the
+      // prompt was still open (audit #22).
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusable = [
+        ...root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((el) => !el.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !root.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !root.contains(active))) {
+        e.preventDefault();
+        first.focus();
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [requestId]);
 
   if (!request) return null;
@@ -101,11 +142,18 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   const origin = displayOrigin(request.targetUrl);
   const operation = t(`browser.approval.operation.${request.operation}`, request.operation);
   const attachment = request.operation === "attach";
-  // `eval` runs a caller-supplied script and `session` names which saved session to
-  // restore — the user MUST see the exact payload they authorize, not just the op
-  // (Security review P5, High #1; WI-P6.3). Both carry a readable `script`.
-  const payloadOps = new Set(["eval", "session"]);
-  const evalScript = payloadOps.has(request.operation) ? request.script : undefined;
+  // The user MUST see the exact payload they authorize, not just the op
+  // (Security review P5, High #1; WI-P6.3).
+  //
+  // Driven by PRESENCE, not by a hardcoded operation list. The list said
+  // ["eval","session"] while the store records a script for `style` too, so an
+  // AI-chosen stylesheet was authorised unseen — a list in the view duplicating
+  // knowledge the store owns, which drifted the moment `style` was added
+  // (audit 20260815-163607 #21). Anything that carries a payload now shows it.
+  const payload = request.script;
+  // A `session` payload is a saved-login HANDLE, not a script; rendering it in a
+  // <pre> under a "Script" heading misdescribed what was being approved.
+  const payloadIsScript = request.operation !== "session";
   // A never-grantable operation (eval) cannot become a standing grant — offering
   // "Allow on this site" would be a button that silently does nothing (the grant is
   // sanitized away), which is misleading security UX (Security review P5, Low #5).
@@ -114,6 +162,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   return (
     <div className="browser-approval-backdrop">
       <div
+        ref={dialogRef}
         className="browser-approval"
         role="alertdialog"
         aria-modal="true"
@@ -149,11 +198,19 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             </>
           )}
 
-          {evalScript !== undefined && (
+          {payload !== undefined && (
             <>
-              <dt>{t("browser.approval.script")}</dt>
+              <dt>
+                {payloadIsScript
+                  ? t("browser.approval.script")
+                  : t("browser.approval.sessionHandle")}
+              </dt>
               <dd>
-                <pre className="browser-approval-script">{evalScript}</pre>
+                {payloadIsScript ? (
+                  <pre className="browser-approval-script">{payload}</pre>
+                ) : (
+                  <span className="browser-approval-name">“{payload}”</span>
+                )}
               </dd>
             </>
           )}
@@ -167,14 +224,14 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           <button
             type="button"
             ref={denyRef}
-            className="browser-approval-btn browser-approval-btn--deny"
+            className="vm-btn"
             onClick={() => resolve("deny")}
           >
             {t("browser.approval.deny")}
           </button>
           <button
             type="button"
-            className="browser-approval-btn"
+            className="vm-btn"
             onClick={() => resolve("once")}
           >
             {t("browser.approval.allowOnce")}
@@ -182,7 +239,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           {grantable && (
             <button
               type="button"
-              className="browser-approval-btn browser-approval-btn--remember"
+              className="vm-btn vm-btn--primary"
               onClick={() => resolve("remember")}
             >
               {t(attachment ? "browser.approval.allowTab" : "browser.approval.allowSite")}

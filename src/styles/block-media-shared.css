@@ -84,7 +84,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 24px;
+  /* Glyph, not UI text: the UI type scale tops out at 16 and this is a decorative
+     warning mark. Rule 31 sanctions a local component var for a one-off dimension. */
+  --media-error-glyph-size: 24px;
+  font-size: var(--media-error-glyph-size);
   color: var(--error-color);
   pointer-events: none;
   z-index: 1;

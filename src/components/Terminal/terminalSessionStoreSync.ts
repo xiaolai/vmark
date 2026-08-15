@@ -25,40 +25,22 @@
  * @module components/Terminal/terminalSessionStoreSync
  */
 import { useEffect } from "react";
-import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSystemAppearanceStore } from "@/stores/systemAppearanceStore";
-import { getEffectiveThemeId } from "@/hooks/useEffectiveTheme";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { buildXtermThemeForId } from "@/theme";
+import { useTabStore } from "@/stores/tabStore";
 import { resolveMonoFontStack } from "@/utils/fontStacks";
-import type { TerminalInstance } from "./createTerminalInstance";
 import { fitAndResizePty } from "./fitAndResizePty";
+// Re-exported so existing importers (and tests) keep one obvious home for it.
+export type { SyncableSessionEntry } from "./terminalSessionTypes";
+import type { SyncableSessionEntry } from "./terminalSessionTypes";
+import { currentTerminalThemeId } from "./terminalThemeId";
+import { useTerminalSettingsSync } from "./terminalSettingsSync";
 
-/**
- * Minimum shape of a session entry that the sync effects need. Kept narrow
- * so the hook's full SessionEntry type remains private to useTerminalSessions.
- */
-export interface SyncableSessionEntry {
-  instance: TerminalInstance;
-  pty: IPty | null;
-  shellExited: boolean;
-  spawnedCwd: string | undefined;
-  /** Set once the session is torn down; suppresses a pending PTY resize. */
-  disposed?: boolean;
-  /** Per-entry debounce handle owned by fitAndResizePty (cleared, not deleted). */
-  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
-  /**
-   * Workspace root that arrived while this session's shell was busy and so
-   * could not be cd'd immediately. Flushed when the shell returns to idle
-   * (OSC 133 done / next prompt) so a session doesn't stay stuck in the old
-   * workspace after a long-running foreground command exits.
-   */
-  pendingRoot?: string | null;
-}
 
 /** Build a `cd` command string for the given path (POSIX-quoted). */
 export function buildCdCommand(path: string): string {
@@ -102,10 +84,15 @@ export function useUIStoreSync(
   // (manual pick, or the paired light/dark theme while follow-system is on),
   // so it must also react to OS flips via systemAppearanceStore (#1125).
   useEffect(() => {
-    let prevTheme = getEffectiveThemeId();
+    // The terminal collapses to a NEUTRAL palette while a browser tab is
+    // focused, because the shell around it already does (see
+    // theme/terminalThemeForBrowser.ts). xterm paints a canvas from this JS
+    // object, so the CSS neutral cannot reach it — without this the chrome went
+    // neutral and the terminal stayed the tinted theme colour.
+    let prevTheme = currentTerminalThemeId();
     let prevMono = useSettingsStore.getState().appearance.monoFont;
     const sync = () => {
-      const themeId = getEffectiveThemeId();
+      const themeId = currentTerminalThemeId();
       const monoFont = useSettingsStore.getState().appearance.monoFont;
       const themeChanged = themeId !== prevTheme;
       const monoChanged = monoFont !== prevMono;
@@ -133,6 +120,10 @@ export function useUIStoreSync(
     const unsubs = [
       useSettingsStore.subscribe(sync),
       useSystemAppearanceStore.subscribe(sync),
+      // Tab focus changes the neutral, so it changes the terminal theme. `sync`
+      // early-returns when nothing it cares about moved, so the extra traffic
+      // from unrelated tab-metadata writes costs a comparison.
+      useTabStore.subscribe(sync),
     ];
     return () => {
       for (const unsub of unsubs) unsub();
@@ -149,7 +140,16 @@ export function useUIStoreSync(
     let prevRoot = currentRoot();
     const syncRoot = () => {
       const newRoot = currentRoot();
-      if (!newRoot || newRoot === prevRoot) {
+      if (!newRoot) {
+        // Leaving workspace mode INVALIDATES any deferred cd. Without this the
+        // early return skipped the loop below, so a root queued while a shell
+        // was busy outlived the workspace, and the next idle event cd'd into a
+        // directory the user had just closed (audit 20260815-163607 #14).
+        prevRoot = newRoot;
+        for (const [, entry] of sessionsRef.current ?? []) entry.pendingRoot = null;
+        return;
+      }
+      if (newRoot === prevRoot) {
         prevRoot = newRoot;
         return;
       }
@@ -190,7 +190,17 @@ export function useUIStoreSync(
     const wireIdleFlush = () => {
       const sessions = sessionsRef.current;
       if (!sessions) return;
-      for (const [, entry] of sessions) {
+      const live = new Set(sessions.values());
+      // RECONCILE, don't just accumulate. `wired` only ever grew, so a closed
+      // session stayed in the set — retaining its disposed xterm instance and
+      // leaving its idle callback installed — until the whole hook unmounted
+      // (audit 20260815-163607 #15).
+      for (const entry of wired) {
+        if (live.has(entry)) continue;
+        entry.instance.setOnShellIdle(null);
+        wired.delete(entry);
+      }
+      for (const entry of live) {
         if (wired.has(entry)) continue;
         wired.add(entry);
         entry.instance.setOnShellIdle(() => flushPendingRoot(entry));
@@ -214,62 +224,6 @@ export function useUIStoreSync(
     };
   }, [sessionsRef]);
 
-  // Terminal-settings sync (font, cursor, macOptionIsMeta)
-  useEffect(() => {
-    // `prev` comes from zustand, not a hand-rolled ref. The previous manual
-    // version carried `if (!curr || !prev) { prev = curr; return; }`, which
-    // could strand the baseline: one falsy `curr` set `prev = undefined`, and
-    // the next fire then took the same branch and swallowed a REAL change —
-    // permanently, since the fire after that compared against the
-    // already-applied value. Letting the store supply prev removes the state
-    // that could get stranded.
-    return useSettingsStore.subscribe((state, prevState) => {
-      const curr = state.terminal;
-      const prev = prevState.terminal;
-      if (!curr || !prev || curr === prev) return;
-      const fontChanged = curr.fontSize !== prev.fontSize || curr.lineHeight !== prev.lineHeight;
-      const cursorChanged = curr.cursorStyle !== prev.cursorStyle || curr.cursorBlink !== prev.cursorBlink;
-      const metaChanged = curr.macOptionIsMeta !== prev.macOptionIsMeta;
-      const screenReaderChanged = curr.screenReaderMode !== prev.screenReaderMode;
-      const scrollbackChanged = curr.scrollback !== prev.scrollback;
-      const contrastChanged = curr.minimumContrastRatio !== prev.minimumContrastRatio;
-      if (!fontChanged && !cursorChanged && !metaChanged && !screenReaderChanged && !scrollbackChanged && !contrastChanged) return;
-
-      const sessions = sessionsRef.current;
-      if (!sessions) return;
-      for (const [, entry] of sessions) {
-        const opts = entry.instance.term.options;
-        if (fontChanged) {
-          opts.fontSize = curr.fontSize;
-          opts.lineHeight = curr.lineHeight;
-        }
-        if (cursorChanged) {
-          opts.cursorStyle = curr.cursorStyle;
-          opts.cursorBlink = curr.cursorBlink;
-        }
-        if (metaChanged) {
-          opts.macOptionIsMeta = curr.macOptionIsMeta;
-        }
-        if (screenReaderChanged) {
-          opts.screenReaderMode = curr.screenReaderMode;
-        }
-        if (scrollbackChanged) {
-          // Clamp like creation does — corrupt persisted state could carry an
-          // extreme value (Codex audit).
-          opts.scrollback = Math.min(Math.max(curr.scrollback, 100), 200_000);
-        }
-        if (contrastChanged) {
-          // xterm accepts 1–21; clamp like creation does.
-          opts.minimumContrastRatio = Math.min(Math.max(curr.minimumContrastRatio, 1), 21);
-        }
-        if (fontChanged) {
-          // Font metrics changed, so cols/rows changed — the PTY must be told,
-          // not just xterm. A bare fitAddon.fit() here left the shell drawing
-          // to the old width until an unrelated panel resize happened to
-          // correct it.
-          fitAndResizePty(entry);
-        }
-      }
-    });
-  }, [sessionsRef]);
+  // Terminal-settings sync lives in its own module (see terminalSettingsSync.ts).
+  useTerminalSettingsSync(sessionsRef);
 }

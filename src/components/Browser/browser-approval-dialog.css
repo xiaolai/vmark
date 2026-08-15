@@ -79,34 +79,17 @@
   gap: var(--spacing-2);
 }
 
-.browser-approval-btn {
-  padding: var(--spacing-1) var(--spacing-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  color: var(--text-color);
-  cursor: pointer;
-}
+/* The action buttons use the canonical `.vm-btn` primitive
+   (src/styles/button-shared.css): Deny and Allow-once are the bare `.vm-btn`,
+   and the remember/grant button is `.vm-btn--primary`, which resolves to the
+   same border-color and color this file used to set by hand.
+   `.vm-btn:focus-visible` is the same 2px outline that was declared here.
 
-.browser-approval-btn:hover {
-  background: var(--bg-tertiary);
-}
-
-.browser-approval-btn:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-/* Deny is the default (it holds focus). It is not styled as the scary option —
-   denying is the safe outcome, and nothing about the UI should nudge toward allow. */
-.browser-approval-btn--deny {
-  border-color: var(--text-secondary);
-}
-
-.browser-approval-btn--remember {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
+   Deny keeps the NEUTRAL treatment deliberately. It is the default (it holds
+   focus) and it is not styled as the scary option — denying is the safe
+   outcome, and nothing about the UI should nudge toward allow. Do not
+   "improve" it into `.vm-btn--danger`; red would misrepresent the safe
+   choice as the dangerous one. */
 
 /* The exact eval script the user is authorizing. Rendered verbatim and
    scrollable — the user must be able to read precisely what runs, and a long or

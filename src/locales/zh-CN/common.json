@@ -137,6 +137,7 @@
   "browser.approval.action": "操作",
   "browser.approval.element": "元素",
   "browser.approval.script": "脚本",
+  "browser.approval.sessionHandle": "已保存的登录",
   "browser.approval.operation.read": "读取页面",
   "browser.approval.operation.attach": "允许 AI 使用此标签页",
   "browser.approval.operation.click": "点击",

@@ -1,5 +1,19 @@
 /* Browser chrome is intentionally light even when the editor uses a colored or
-   dark theme. The native page remains outside this DOM theme scope. */
+   dark theme. The native page remains outside this DOM theme scope.
+ *
+ * THE CONSEQUENCE, stated so nobody "fixes" it by accident: the Browser pane
+ * stays light in Night, Sepia and Solarized while every surface beside it
+ * changes. That is the deliberate trade — neutral chrome around arbitrary web
+ * content — and it is a PRODUCT decision, not an oversight. There is no
+ * `.dark-theme` branch in this file on purpose.
+ *
+ * The twelve declarations below shadow global token names onto the
+ * `--browser-*` family, so descendants such as `.browser-omnibox-input` read as
+ * correctly tokenised while resolving to this local palette. The shadowing is
+ * the right technique; keep it if the decision is ever revisited. Revisiting
+ * means giving the `--browser-*` family dark values so the pane reads as
+ * neutral-for-its-theme rather than neutral-meaning-light — not deleting the
+ * indirection. */
 .browser-chrome {
   --bg-color: var(--browser-bg-color);
   --bg-secondary: var(--browser-bg-secondary);

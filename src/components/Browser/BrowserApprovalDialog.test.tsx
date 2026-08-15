@@ -182,3 +182,80 @@ describe("BrowserApprovalDialog", () => {
     await waitFor(() => expect(screen.getByRole("alertdialog")).toHaveTextContent("Title"));
   });
 });
+
+/** Raise a request that carries a payload script (style/eval) or handle (session). */
+function raisePayload(id: string, operation: string, script: string) {
+  useBrowserApprovalStore
+    .getState()
+    .requestApproval(id, URL, operation, undefined, TAB, 1, script);
+}
+
+describe("BrowserApprovalDialog — audit 20260815-163607", () => {
+  // #21. `style` injects author CSS chosen by the AI and the store records the
+  // exact script for it, but the dialog's hardcoded ["eval","session"] set left
+  // it out — so the user authorised CSS they were never shown.
+  it("shows the exact payload for a style request", () => {
+    raisePayload("s1", "style", "body { display: none }");
+    render(<BrowserApprovalDialog />);
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("body { display: none }");
+  });
+
+  it("still shows the exact payload for an eval request", () => {
+    raisePayload("e1", "eval", "fetch('/drain')");
+    render(<BrowserApprovalDialog />);
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("fetch('/drain')");
+  });
+
+  // #21, second half: a session payload is a saved-session NAME, not a script,
+  // and labelling it "Script" misdescribes what is being approved.
+  it("does not label a session handle as a script", () => {
+    raisePayload("n1", "session", "my-logged-in-session");
+    render(<BrowserApprovalDialog />);
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg).toHaveTextContent("my-logged-in-session");
+    expect(dlg.querySelector("pre")).toBeNull();
+  });
+
+  // #22. Focus started on Deny but nothing kept it inside: Tab could reach
+  // background UI while a security prompt was still open.
+  it("keeps Tab inside the dialog", async () => {
+    const user = userEvent.setup();
+    const outside = document.createElement("button");
+    outside.textContent = "background";
+    document.body.appendChild(outside);
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+
+    for (let i = 0; i < 8; i++) {
+      await user.tab();
+      expect(screen.getByRole("alertdialog").contains(document.activeElement)).toBe(true);
+    }
+    outside.remove();
+  });
+
+  it("restores focus to the previously focused element on close", async () => {
+    const user = userEvent.setup();
+    const before = document.createElement("button");
+    document.body.appendChild(before);
+    before.focus();
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+    await user.click(screen.getByRole("button", { name: /deny/i }));
+    await waitFor(() => expect(document.activeElement).toBe(before));
+    before.remove();
+  });
+
+  // #23. A security prompt must be the EXCLUSIVE Escape handler while raised —
+  // a shared Escape resolves two decisions from one keystroke.
+  it("does not let Escape reach another overlay's listener", async () => {
+    const user = userEvent.setup();
+    const other = vi.fn();
+    window.addEventListener("keydown", other);
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+    await user.keyboard("{Escape}");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+    expect(other, "sibling overlay must not also see Escape").not.toHaveBeenCalled();
+    window.removeEventListener("keydown", other);
+  });
+});

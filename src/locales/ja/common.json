@@ -137,6 +137,7 @@
   "browser.approval.action": "操作",
   "browser.approval.element": "要素",
   "browser.approval.script": "スクリプト",
+  "browser.approval.sessionHandle": "保存済みログイン",
   "browser.approval.operation.read": "ページを読み取る",
   "browser.approval.operation.attach": "AI にこのタブの使用を許可",
   "browser.approval.operation.click": "クリック",

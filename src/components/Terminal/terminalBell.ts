@@ -131,3 +131,28 @@ export function playTerminalBell(): void {
     );
   }
 }
+
+/**
+ * Apply a bell for a session: sound, activity mark, OS notice, window flag.
+ *
+ * Lives here rather than inline in `useTerminalSessions` because it is bell
+ * policy, not session lifecycle — and because that hook was over the 300-line
+ * limit with it inlined. `bellMode` is read LIVE so a settings change takes
+ * effect on already-running sessions (WI-4.3).
+ */
+export function applyTerminalBell(
+  sessionId: string,
+  deps: {
+    bellMode: string;
+    isActive: boolean;
+    markActivity: (id: string) => void;
+    notify: () => void;
+    flagAttention: () => void;
+  },
+): void {
+  const action = resolveBellAction(deps.bellMode as never, deps.isActive);
+  if (action.sound) playTerminalBell();
+  if (action.markActivity) deps.markActivity(sessionId);
+  deps.notify(); // OS notice when an unfocused window rings (#1057)
+  deps.flagAttention(); // mark this window in the cross-window status panel (#1057)
+}

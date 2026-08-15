@@ -40,10 +40,12 @@
 import { useRef, useEffect, useCallback } from "react";
 import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { getEffectiveThemeId } from "@/hooks/useEffectiveTheme";
+import { initialState } from "@/stores/settingsStore/defaults";
+import { currentTerminalThemeId } from "./terminalThemeId";
+import { diffSessionIds } from "./terminalSessionReconcile";
 import { useUIStore } from "@/stores/uiStore";
 import { createTerminalInstance } from "./createTerminalInstance";
-import { resolveBellAction, playTerminalBell } from "./terminalBell";
+import { applyTerminalBell } from "./terminalBell";
 import { maybeNotifyTerminalBell, flagWindowAttentionOnBell } from "@/services/terminalAttention";
 import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
@@ -140,45 +142,49 @@ export function useTerminalSessions(
       // Skip if already exists (guard against double-init)
       if (sessionsRef.current.has(sessionId)) return;
 
-      const termSettings = useSettingsStore.getState().terminal;
-      const fontSize = termSettings?.fontSize ?? 13;
-      const lineHeight = termSettings?.lineHeight ?? 1.2;
-      const cursorStyle = termSettings?.cursorStyle ?? "bar";
-      const cursorBlink = termSettings?.cursorBlink ?? true;
-      const useWebGL = termSettings?.useWebGL ?? true;
-      const macOptionIsMeta = termSettings?.macOptionIsMeta ?? true;
-      const screenReaderMode = termSettings?.screenReaderMode ?? false;
-      const minimumContrastRatio = termSettings?.minimumContrastRatio ?? 4.5;
-      const scrollback = termSettings?.scrollback ?? 5000;
-      const osc52Clipboard = termSettings?.osc52Clipboard ?? true;
-      const themeId = getEffectiveThemeId();
+      // The store's OWN defaults, not ten literals restated here (audit #19).
+      const { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta,
+        screenReaderMode, minimumContrastRatio, scrollback, osc52Clipboard } =
+        { ...initialState.terminal, ...useSettingsStore.getState().terminal };
+      // A session created while a browser tab is focused opens on the neutral palette.
+      const themeId = currentTerminalThemeId();
 
       // Create a shared ptyRef that we'll update as the pty changes
       const ptyRefForKeys: React.RefObject<IPty | null> = { current: null };
 
-      const instance = createTerminalInstance({
+      // Construction can throw (WebGL exhaustion, disposed parent). Uncaught it
+      // propagated out of the INIT EFFECT, which then never registered cleanup —
+      // leaking every session built before the failure (audit #17).
+      let instance;
+      try {
+        instance = createTerminalInstance({
         parentEl: parent,
         settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, osc52Clipboard, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
-        onBell: () => {
-          // Bell mode read live so setting changes affect running sessions (WI-4.3).
-          const bellMode = useSettingsStore.getState().terminal?.bellMode ?? "visual";
-          const isActive = useUIStore.getState().terminal.activeSessionId === sessionId;
-          const action = resolveBellAction(bellMode, isActive);
-          if (action.sound) playTerminalBell();
-          if (action.markActivity) useUIStore.getState().terminalMarkActivity(sessionId);
-          maybeNotifyTerminalBell(); // OS notice when an unfocused window rings (#1057)
-          flagWindowAttentionOnBell(); // mark this window in the cross-window status panel (#1057)
-        },
-      });
+        onBell: () =>
+          applyTerminalBell(sessionId, {
+            bellMode: useSettingsStore.getState().terminal?.bellMode ?? "visual",
+            isActive: useUIStore.getState().terminal.activeSessionId === sessionId,
+            markActivity: (id) => useUIStore.getState().terminalMarkActivity(id),
+            notify: maybeNotifyTerminalBell,
+            flagAttention: flagWindowAttentionOnBell,
+          }),
+        });
+      } catch (error) {
+        terminalError(`Failed to create terminal instance for ${sessionId}:`, error);
+        return;
+      }
 
       // Program title → per-session tab title (G4/WI-3.2). xterm parses OSC
       // 0/2 internally and exposes onTitleChange; registering our own OSC
       // handler would shadow the built-in (LIFO). The returned IDisposable is
       // owned by term.dispose() — no manual cleanup needed.
+      // An EMPTY title is forwarded too: `OSC 2 ; BEL` is how a program clears a
+      // title it set, and swallowing it left a stale tab name forever. The store
+      // trims, so "" lands as "" and the tab falls back to its label (audit #18).
       instance.term.onTitleChange((title) => {
-        if (title) useUIStore.getState().terminalSetProgramTitle(sessionId, title);
+        useUIStore.getState().terminalSetProgramTitle(sessionId, title);
       });
 
       const entry: SessionEntry = {
@@ -252,19 +258,10 @@ export function useTerminalSessions(
     const unsubscribe = useUIStore.subscribe((storeState) => {
       const currentIds = new Set(storeState.terminal.sessions.map((s) => s.id));
 
-      // Detect new sessions
-      for (const id of currentIds) {
-        if (!prevSessionIds.has(id) && !sessionsRef.current.has(id)) {
-          createSession(id);
-        }
-      }
-
-      // Detect removed sessions
-      for (const id of prevSessionIds) {
-        if (!currentIds.has(id)) {
-          removeSession(id);
-        }
-      }
+      const { added, removed } = diffSessionIds(prevSessionIds, currentIds, (id) =>
+        sessionsRef.current.has(id));
+      for (const id of added) createSession(id);
+      for (const id of removed) removeSession(id);
 
       // Detect active session change
       if (storeState.terminal.activeSessionId !== prevActiveId) {

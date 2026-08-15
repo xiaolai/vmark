@@ -258,6 +258,45 @@ applied its override yet.
 | `--outline-width` | Outline panel width | `200px` |
 | `--table-border-color` | Table borders | `#d5d4d4` |
 
+## Browser Chrome Tokens
+
+A browser frame has to be a **true neutral**. A tinted frame around arbitrary web
+content reads as wrong — paper's warm grey `#eeeded`, mint and sepia all do it —
+which is why every real browser uses neutral chrome. So the browser surface does
+not use the theme's colours; it uses this family, which is white in light themes
+and dark in dark ones.
+
+| Token | Light | Dark (`.dark-theme`) |
+|---|---|---|
+| `--browser-bg-color` | `#ffffff` | `#23262b` |
+| `--browser-bg-secondary` | `#f7f7f7` | `#2a2e34` |
+| `--browser-bg-tertiary` | `#f1f3f4` | `#32363d` |
+| `--browser-text-color` | `#202124` | `#d6d9de` |
+| `--browser-text-secondary` | `#5f6368` | `#9aa0a6` |
+| `--browser-text-tertiary` | `#80868b` | `#6b7078` |
+| `--browser-border-color` | `#dadce0` | `#3a3f46` |
+| `--browser-hover-bg` | `rgba(60,64,67,.08)` | `rgba(255,255,255,.08)` |
+| `--browser-hover-bg-strong` | `rgba(60,64,67,.12)` | `rgba(255,255,255,.12)` |
+| `--browser-accent-bg` | `#e8f0fe` | `rgba(88,166,255,.12)` |
+| `--browser-accent-primary` | `#1a73e8` | `#58a6ff` |
+
+**Do not consume these directly.** `shell/app-shell.css` SHADOWS the global names
+onto them under `.browser-workspace-active`, so a descendant writes
+`var(--bg-color)` as usual and resolves to the browser palette when a browser tab
+is focused. That indirection is why 54 consumer sites across four files needed no
+change when the dark branch was added. Adding a `--browser-*` read to a component
+bypasses the scoping and will apply the browser palette everywhere.
+
+**The terminal is the exception, and it is not CSS.** xterm.js paints a canvas
+from a JS `ITheme`, so no custom property reaches it — the chrome went neutral
+while the terminal stayed the tinted theme colour, a seam down the full height of
+the window. `theme/terminalThemeForBrowser.ts` applies the same rule in JS,
+collapsing the terminal to the `white` or `night` theme by `isDark`. The two
+neutrals are chosen so the match is **exact**: `--browser-bg-color` equals
+`white.color.bg.primary` (`#FFFFFF`) and `night.color.bg.primary` (`#23262b`)
+respectively, and `terminalThemeForBrowser.test.ts` pins that equality. Change one
+side and you must change the other.
+
 ## Focus Mode Tokens
 
 | Token | Purpose | Default |

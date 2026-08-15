@@ -1,8 +1,9 @@
 // @vitest-environment node
 // WI-2.5 / R5 — browser approval store: standing grants + pending approvals
 // WI-S0.8 — dismissForNavigation: authority and prompts lapse when the page changes
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useBrowserApprovalStore } from "./browserApprovalStore";
+import { __setAttachInvoker } from "@/services/browser/humanTabAttach";
 
 const URL = "https://blog.example.com/wp-admin/post-new.php";
 
@@ -356,5 +357,51 @@ describe("one-shot target binding", () => {
     expect(
       useBrowserApprovalStore.getState().consumeOneShot("https://blog.example.com", "click", undefined, "tab-1"),
     ).toBe(false);
+  });
+});
+
+// Audit 20260815-163607 #24 — an approved attachment that FAILS must not look
+// like one that succeeded. `attachHumanTab` fired `browser_ai_attach` with
+// `() => {}` as its rejection handler, and `resolveApproval` had already dropped
+// the prompt, so a failed IPC left the user believing they had granted access
+// while nothing was attached and nothing was reported.
+describe("attach approval failure (audit #24)", () => {
+  it("keeps the prompt raised when the attach IPC rejects", async () => {
+    __setAttachInvoker(() => Promise.reject(new Error("ipc down")));
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("a1", URL, "attach", undefined, "tab-1", 1);
+    s.resolveApproval("a1", "once");
+
+    await vi.waitFor(() => {
+      expect(useBrowserApprovalStore.getState().attachments).toHaveLength(0);
+      // Still pending — the user can retry or deny, rather than being told nothing.
+      expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+    });
+  });
+
+  it("records the attachment and clears the prompt when the IPC resolves", async () => {
+    __setAttachInvoker(() => Promise.resolve());
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("a2", URL, "attach", undefined, "tab-1", 1);
+    s.resolveApproval("a2", "once");
+
+    await vi.waitFor(() => {
+      expect(useBrowserApprovalStore.getState().attachments).toHaveLength(1);
+      expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+    });
+  });
+
+  it("denying an attach never calls the IPC and drops the prompt", async () => {
+    const calls: number[] = [];
+    __setAttachInvoker(() => {
+      calls.push(1);
+      return Promise.resolve();
+    });
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("a3", URL, "attach", undefined, "tab-1", 1);
+    s.resolveApproval("a3", "deny");
+
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+    expect(calls).toHaveLength(0);
   });
 });

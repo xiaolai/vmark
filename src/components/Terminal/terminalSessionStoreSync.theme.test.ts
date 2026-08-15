@@ -8,6 +8,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ITheme } from "@xterm/xterm";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useSystemAppearanceStore } from "@/stores/systemAppearanceStore";
+import { useTabStore } from "@/stores/tabStore";
 import { buildXtermThemeForId } from "@/theme";
 import {
   useUIStoreSync,
@@ -32,6 +33,12 @@ vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
 }));
 
 const initialAppearance = useSettingsStore.getState().appearance;
+// Tab state is global, and the browser-neutral cases below mutate it. Without
+// restoring it, a later test mounts with the browser ALREADY active, so its
+// "activate the browser tab" step changes nothing and the assertion sees an
+// untouched `theme` — a false failure that looks exactly like a real one.
+const initialTabs = useTabStore.getState().tabs;
+const initialActiveTabId = useTabStore.getState().activeTabId;
 
 function makeEntry(): SyncableSessionEntry {
   return {
@@ -62,6 +69,7 @@ afterEach(() => {
   act(() => {
     useSettingsStore.setState({ appearance: initialAppearance });
     useSystemAppearanceStore.setState({ prefersDark: false });
+    useTabStore.setState({ tabs: initialTabs, activeTabId: initialActiveTabId } as never);
   });
 });
 
@@ -110,5 +118,65 @@ describe("useUIStoreSync — theme sync", () => {
     });
 
     expect(entry.instance.term.options.theme).toBeUndefined();
+  });
+});
+
+/**
+ * A browser frame has to be a TRUE neutral, so the terminal beside it drops the
+ * tinted theme while a browser tab is focused. The shell already does this in
+ * CSS; xterm paints a canvas from a JS theme object, so it needs the same rule
+ * applied here or the two disagree down the full height of the window.
+ */
+describe("useUIStoreSync — browser-neutral terminal", () => {
+  function setBrowserTabActive(active: boolean): void {
+    act(() => {
+      useTabStore.setState({
+        tabs: {
+          main: [
+            { id: "d1", kind: "document" },
+            { id: "b1", kind: "browser" },
+          ],
+        },
+        activeTabId: { main: active ? "b1" : "d1" },
+      } as never);
+    });
+  }
+
+  it("collapses a tinted LIGHT theme to the white neutral", () => {
+    const entry = makeEntry();
+    const sessionsRef = { current: new Map([["s1", entry]]) };
+    setAppearance({ theme: "paper", followSystemAppearance: false });
+    renderHook(() => useUIStoreSync(sessionsRef));
+
+    setBrowserTabActive(true);
+
+    // paper's #eeeded is the warm grey that looked wrong beside a web page.
+    expect(entry.instance.term.options.theme).toEqual(buildXtermThemeForId("white"));
+  });
+
+  it("collapses a tinted DARK theme to the dark neutral, not to white", () => {
+    const entry = makeEntry();
+    const sessionsRef = { current: new Map([["s1", entry]]) };
+    setAppearance({ theme: "solarized", followSystemAppearance: false });
+    renderHook(() => useUIStoreSync(sessionsRef));
+
+    setBrowserTabActive(true);
+
+    // Forcing white here would put solarized's ANSI palette on a white
+    // background — unreadable. This is why the rule branches on isDark.
+    expect(entry.instance.term.options.theme).toEqual(buildXtermThemeForId("night"));
+  });
+
+  it("restores the user's theme when focus leaves the browser tab", () => {
+    const entry = makeEntry();
+    const sessionsRef = { current: new Map([["s1", entry]]) };
+    setAppearance({ theme: "paper", followSystemAppearance: false });
+    renderHook(() => useUIStoreSync(sessionsRef));
+
+    setBrowserTabActive(true);
+    expect(entry.instance.term.options.theme).toEqual(buildXtermThemeForId("white"));
+
+    setBrowserTabActive(false);
+    expect(entry.instance.term.options.theme).toEqual(buildXtermThemeForId("paper"));
   });
 });

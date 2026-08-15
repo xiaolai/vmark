@@ -78,6 +78,31 @@
   background: var(--accent-bg);
 }
 
+/* Solid call-to-action: the single most prominent control in a dialog.
+ *
+ * Stronger than `--primary` on purpose, and the difference is an accessibility
+ * decision, not a taste one. The workflow approval dialog originally drew its
+ * approve button as `--accent-bg` plus blue text; that fell to ~4.3:1 contrast,
+ * below WCAG AA, and inverted the usual pattern where the CTA is the most
+ * prominent control AT REST rather than on hover. Solid fill fixes both.
+ *
+ * Reach for `--primary` for ordinary emphasis. Reach for this only where one
+ * action is unambiguously the point of the surface. */
+.vm-btn--cta {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+  color: var(--contrast-text);
+  font-weight: 600;
+}
+
+/* Holds the fill on hover — the base `.vm-btn` hover would otherwise swap it
+   for `--hover-bg` and drop the contrast this variant exists to guarantee. */
+.vm-btn--cta:hover:not(:disabled) {
+  background: var(--accent-primary);
+  color: var(--contrast-text);
+  opacity: var(--opacity-mostly-opaque);
+}
+
 /* Destructive action (delete, deny, stop). */
 /* Chromeless variant: a disclosure/section toggle that must read as a heading,
    not as an action. No border or fill, so it does not compete with the real

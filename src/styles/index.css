@@ -291,6 +291,25 @@
 
 /* Dark theme token overrides */
 .dark-theme {
+  /* Browser chrome, dark neutral. The light values above are a pure-white
+     neutral; without these the chrome stayed white in Night and Solarized,
+     which is where the mismatch was worst. `--browser-bg-color` here EQUALS the
+     dark theme's bg.primary (#23262b) on purpose — the terminal collapses to
+     that same dark-neutral palette beside a browser tab, and the two must be the
+     same colour or the seam this exists to remove comes back. The catalog owns
+     both values; src/theme/terminalThemeForBrowser.test.ts pins the equality. */
+  --browser-bg-color: #23262b;
+  --browser-bg-secondary: #2a2e34;
+  --browser-bg-tertiary: #32363d;
+  --browser-text-color: #d6d9de;
+  --browser-text-secondary: #9aa0a6;
+  --browser-text-tertiary: #6b7078;
+  --browser-border-color: #3a3f46;
+  --browser-hover-bg: rgba(255, 255, 255, 0.08);
+  --browser-hover-bg-strong: rgba(255, 255, 255, 0.12);
+  --browser-accent-bg: rgba(88, 166, 255, 0.12);
+  --browser-accent-primary: #58a6ff;
+
   --multi-cursor-color: hsl(217 91% 70%);
   --multi-cursor-selection-bg: hsla(217, 91%, 70%, 0.25);
   --search-match-color: rgba(255, 200, 0, 0.7);

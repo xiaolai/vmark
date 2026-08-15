@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { TerminalSearchBar } from "./TerminalSearchBar";
+import { IME_GRACE_PERIOD_MS } from "@/utils/imeGuard";
 import type { SearchAddon } from "@xterm/addon-search";
 
 /** The options object every find call carries when no toggle is on. */
@@ -129,20 +130,52 @@ describe("TerminalSearchBar", () => {
       expect(addon.findNext).not.toHaveBeenCalled();
     });
 
+    // The guard compares `performance.now()` against IME_GRACE_PERIOD_MS, so with
+    // a REAL clock this test raced the runner against that window: if the machine
+    // was loaded enough that the gap between compositionEnd and keyDown exceeded
+    // the grace period, Enter was correctly allowed and the test failed while the
+    // guard was working exactly as designed. Faking the clock asserts the guard's
+    // LOGIC instead of the scheduler's promptness — and lets us pin both sides of
+    // the boundary, which a real clock cannot do at all.
     it("Enter within grace period after compositionEnd is blocked", () => {
-      render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
-      fireEvent.change(input, { target: { value: "test" } });
+      vi.useFakeTimers({ toFake: ["Date", "performance"] });
+      try {
+        render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
+        const input = screen.getByPlaceholderText("Search...");
+        fireEvent.change(input, { target: { value: "test" } });
 
-      // Simulate composition cycle (compositionEnd triggers search by design)
-      fireEvent.compositionStart(input);
-      fireEvent.compositionEnd(input);
-      vi.clearAllMocks();
+        fireEvent.compositionStart(input);
+        fireEvent.compositionEnd(input);
+        vi.clearAllMocks();
 
-      // Immediate keyDown Enter — should be blocked by grace period
-      fireEvent.keyDown(input, { key: "Enter" });
+        // Inside the window — blocked.
+        vi.advanceTimersByTime(IME_GRACE_PERIOD_MS - 1);
+        fireEvent.keyDown(input, { key: "Enter" });
+        expect(addon.findNext).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
 
-      expect(addon.findNext).not.toHaveBeenCalled();
+    it("Enter after the grace period has elapsed searches normally", () => {
+      vi.useFakeTimers({ toFake: ["Date", "performance"] });
+      try {
+        render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
+        const input = screen.getByPlaceholderText("Search...");
+        fireEvent.change(input, { target: { value: "test" } });
+
+        fireEvent.compositionStart(input);
+        fireEvent.compositionEnd(input);
+        vi.clearAllMocks();
+
+        // Past the window — the guard must stop blocking, or Enter never works
+        // again after any IME use.
+        vi.advanceTimersByTime(IME_GRACE_PERIOD_MS + 1);
+        fireEvent.keyDown(input, { key: "Enter" });
+        expect(addon.findNext).toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("does not double-search when onChange fires after compositionEnd", () => {

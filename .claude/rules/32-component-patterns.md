@@ -6,7 +6,7 @@ Standard patterns for UI components. Follow these for consistency.
 
 | Need | Use | Defined in |
 |---|---|---|
-| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--danger`) | `src/styles/button-shared.css` |
+| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--plain`, `--danger`) | `src/styles/button-shared.css` |
 | Dropdown / `<select>` | `.vm-select` inside a `.vm-select-field` wrapper | `src/styles/select-shared.css` |
 | Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) | `src/styles/popup-shared.css` |
 | Editor toolbar button | `.universal-toolbar-btn` | `universal-toolbar.css` |
@@ -28,6 +28,36 @@ implementations of one control used four paddings, three radii, two font sizes,
 and three spellings of a 1px border — including `--space-px`, a *spacing* token
 misused as a border width. Passing the token gate is not the same as matching
 the design system.
+
+**The gate has THREE budgets, and the third measures a different thing.** The
+first two count controls (by name, and by usage on a literal `<button>`). Those
+cannot see the drift that survives a fully tokenised codebase: `.vm-btn` is
+6/12 + `--radius-sm` + `--font-size-sm`, and `.approval-dialog__btn` was
+6/14 + `--radius-md` + `--font-size-md`. Both were built entirely from tokens.
+Both passed every gate. Side by side they read as two products.
+
+`maxShapeDriftClasses` compares **which token** each button picked against
+`.vm-btn`'s own declarations — read from `button-shared.css`, never hardcoded,
+so a copy here cannot drift — after resolving `var()` through `index.css`, so a
+literal and its token spelling count as equal rather than as a false positive.
+It reports a **diff**, not a count:
+
+```
+.workflow-form__nav-btn  (src/components/.../WorkflowForm.tsx)
+    padding: var(--space-2) var(--space-4)  ≠  var(--space-1-5) var(--space-3)
+    border-radius: var(--radius-md)  ≠  var(--radius-sm)
+```
+
+Three ways to clear an entry, and the middle one is the one people forget:
+migrate to `.vm-btn`; **promote a genuinely-missing variant onto the primitive**
+(`.vm-btn--cta` exists because the approval dialog's solid CTA carried a real
+WCAG-AA decision that deserved to live in one place, not be steamrolled); or
+record `/* button-shape-ok: <reason> */` **in the rule body**. The reason is
+required — a bare marker is rejected, same rule as `focus: caret-only` in rule 33.
+
+Only the **base** rule is read. A `:focus-visible::after` ring legitimately
+carries its own `border-radius`, and folding pseudo-element rules in would
+report every correctly-built button as drift.
 
 ## Panels: dock in-flow, don't float over the editor
 

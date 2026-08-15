@@ -49,5 +49,22 @@ export function selectableThemeIds(isMac: boolean): ThemeId[] {
 export function coerceThemeId(id: ThemeId, isMac: boolean): ThemeId {
   if (isMac) return id;
   if (NON_MAC_THEME_IDS.includes(id)) return id;
+  return neutralThemeId(id);
+}
+
+/**
+ * The neutral counterpart of a theme, by polarity: `white` for a light theme,
+ * `night` for a dark one.
+ *
+ * Two callers want this for different reasons — platform coercion above, and the
+ * browser-chrome neutral in `terminalThemeForBrowser.ts` — and they had it
+ * written out twice. The mapping and the pair are the same fact either way, so
+ * it lives here once, beside `NON_MAC_THEME_IDS` which is that same pair.
+ *
+ * An unknown id resolves to the light neutral rather than throwing: corrupted
+ * persisted settings are a real case, and `themes[id]?.isDark` is also what makes
+ * `"__proto__"` land on the fallback instead of reaching `Object.prototype`.
+ */
+export function neutralThemeId(id: ThemeId): ThemeId {
   return themes[id]?.isDark ? "night" : "white";
 }

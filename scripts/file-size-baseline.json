@@ -172,6 +172,6 @@
     "src/utils/markdownPipeline/mdastBlockConverters.test.ts": 2130,
     "src/utils/markdownPipeline/parser.test.ts": 1438,
     "src/utils/markdownPipeline/pmBlockConverters.test.ts": 1301,
-    "src/utils/sanitize.test.ts": 1108
+    "src/utils/sanitize.test.ts": 1107
   }
 }

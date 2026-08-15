@@ -675,6 +675,39 @@ describe("shipped manifest", () => {
     ]);
   });
 
+  // Audit 20260815-163607 #6. The test above pins ONE file's checks by hand, so
+  // adding a third budget to a two-budget baseline left it unregistered and
+  // every coverage test still green — the ratchet would then never compare it
+  // against the merge base, which is the one thing it exists to do. This asserts
+  // the property for every registered file instead of enumerating one.
+  it("registers a check for every numeric budget in every baseline file", async () => {
+    const { MANIFEST } = await import("./baselineRatchetManifest.mjs");
+    const { readFileSync, existsSync } = await import("node:fs");
+
+    for (const entry of MANIFEST.entries) {
+      if (!existsSync(entry.path)) continue; // absence is the manifest's own staleness check
+      let parsed;
+      try {
+        parsed = JSON.parse(readFileSync(entry.path, "utf8"));
+      } catch {
+        continue; // not JSON (e.g. a .json5/.txt baseline) — nothing to enumerate
+      }
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) continue;
+
+      const checked = new Set(entry.checks.map((c) => c.at));
+      // `at: ""` addresses the ROOT object, so one such check covers every key
+      // in the file — knip-baseline.json is registered exactly that way.
+      if (checked.has("")) continue;
+
+      for (const [key, value] of Object.entries(parsed)) {
+        // `//`-prefixed keys are the house convention for prose in a JSON baseline.
+        if (key.startsWith("//")) continue;
+        if (typeof value !== "number") continue;
+        expect(checked, `${entry.path}: numeric budget \`${key}\` is not registered`).toContain(key);
+      }
+    }
+  });
+
   it("gives every registered baseline at least one well-formed check", async () => {
     const { MANIFEST } = await import("./baselineRatchetManifest.mjs");
     const modes = new Set(["scalar", "per-key-count", "identity", "custom"]);

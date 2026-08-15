@@ -76,6 +76,7 @@ export const MANIFEST = {
       checks: [
         { mode: "scalar", at: "maxBespokeButtonClasses" },
         { mode: "scalar", at: "maxStyledButtonClasses" },
+        { mode: "scalar", at: "maxShapeDriftClasses" },
       ],
     },
     {

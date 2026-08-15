@@ -21,7 +21,11 @@ const { mockResolveMonoFontStack, mockBuildTheme } = vi.hoisted(() => ({
   mockBuildTheme: vi.fn((id: string) => ({ background: `#theme-${id}` })),
 }));
 
-vi.mock("@/theme", () => ({
+// Only `buildXtermThemeForId` is stubbed. `resolveTerminalThemeId` stays REAL so
+// these tests keep exercising the actual browser-neutral rule rather than a
+// stub that would pass no matter what that resolver did.
+vi.mock("@/theme", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/theme")>()),
   buildXtermThemeForId: (...args: unknown[]) => mockBuildTheme(...(args as [string])),
 }));
 
@@ -77,6 +81,35 @@ describe("terminalSessionStoreSync live effects", () => {
 
     useSettingsStore.getState().updateTerminalSetting("scrollback", 50000);
     expect(entry.instance.term.options.scrollback).toBe(50000);
+  });
+
+  // Audit 20260815-163607 #16. Creation normalises through `clampScrollback` /
+  // `clampContrastRatio`; the LIVE path had its own weaker copies, so a value
+  // that terminal creation refuses could still be written into a running xterm.
+  // xterm throws on a NaN scrollback, so this is a crash, not a cosmetic drift.
+  it.each([
+    // Non-finite of any sign falls back to the settings default rather than
+    // clamping to an endpoint — Infinity is not "as much scrollback as
+    // possible", it is a corrupt value.
+    ["NaN", Number.NaN, 5000],
+    ["Infinity", Number.POSITIVE_INFINITY, 5000],
+    ["-Infinity", Number.NEGATIVE_INFINITY, 5000],
+    ["fractional", 1234.7, 1234],
+    ["below the floor", 1, 100],
+  ])("normalises a %s scrollback the same way creation does", (_label, input, expected) => {
+    renderHook(() => useUIStoreSync(sessionsRef));
+    useSettingsStore.getState().updateTerminalSetting("scrollback", input as number);
+    expect(entry.instance.term.options.scrollback).toBe(expected);
+  });
+
+  it.each([
+    ["NaN", Number.NaN, 4.5],
+    ["above the ceiling", 99, 21],
+    ["below the floor", 0, 1],
+  ])("normalises a %s contrast ratio the same way creation does", (_label, input, expected) => {
+    renderHook(() => useUIStoreSync(sessionsRef));
+    useSettingsStore.getState().updateTerminalSetting("minimumContrastRatio", input as number);
+    expect(entry.instance.term.options.minimumContrastRatio).toBe(expected);
   });
 
   it("re-applies fontFamily (from the monoFont setting) on a theme change (G6)", () => {

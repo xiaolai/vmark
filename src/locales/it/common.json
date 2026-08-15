@@ -137,6 +137,7 @@
   "browser.approval.action": "Azione",
   "browser.approval.element": "Elemento",
   "browser.approval.script": "Script",
+  "browser.approval.sessionHandle": "Accesso salvato",
   "browser.approval.operation.read": "Leggere la pagina",
   "browser.approval.operation.attach": "Consenti all'IA di usare questa scheda",
   "browser.approval.operation.click": "Fare clic",

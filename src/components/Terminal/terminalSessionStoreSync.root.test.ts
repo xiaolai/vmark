@@ -27,7 +27,11 @@ vi.mock("@/services/workspaces/activeWorkspaceScope", () => ({
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
-vi.mock("@/theme", () => ({ buildXtermThemeForId: () => ({}) }));
+// `resolveTerminalThemeId` stays real — see the note in the .live test.
+vi.mock("@/theme", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/theme")>()),
+  buildXtermThemeForId: () => ({}),
+}));
 vi.mock("@/utils/fontStacks", () => ({ resolveMonoFontStack: () => "mono" }));
 
 import {
@@ -228,5 +232,64 @@ describe("flushPendingRoot", () => {
     expect(flushPendingRoot(entry)).toBe(false);
     expect(writes).toHaveLength(0);
     expect(entry.pendingRoot).toBeNull();
+  });
+});
+
+/** Leave workspace mode entirely (no root). */
+function leaveWorkspace() {
+  mockScope.mockReturnValue({ isWorkspaceMode: false, rootPath: null });
+  useWorkspaceStore.setState((s) => ({ ...s }));
+}
+
+describe("terminalSessionStoreSync — lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockScope.mockReturnValue({ isWorkspaceMode: true, rootPath: "/root/a" });
+  });
+
+  // Audit 20260815-163607 #14. `if (!newRoot) return` skipped the loop that
+  // clears pendingRoot, so a root queued while the shell was busy survived the
+  // workspace being closed — and the next idle event cd'd into it.
+  it("clears a queued root when the workspace is closed", () => {
+    const { entry, writes, instance } = makeEntry({ busy: true, cwd: "/root/a" });
+    const sessionsRef: RefObject<Map<string, SyncableSessionEntry>> = {
+      current: new Map([["s1", entry]]),
+    };
+    renderHook(() => useUIStoreSync(sessionsRef));
+
+    setRoot("/root/b");
+    expect(entry.pendingRoot).toBe("/root/b");
+
+    leaveWorkspace();
+    expect(entry.pendingRoot).toBeFalsy();
+
+    // The shell going idle afterwards must NOT cd into the closed workspace.
+    instance.busy = false;
+    instance.idleCb?.();
+    expect(writes).toHaveLength(0);
+  });
+
+  // Audit 20260815-163607 #15. `wired` only ever grew, so a removed session's
+  // entry (and its installed idle callback) was retained until the whole hook
+  // unmounted.
+  it("unwires a session that has been removed from the live map", () => {
+    const a = makeEntry({ cwd: "/root/a" });
+    const b = makeEntry({ cwd: "/root/a" });
+    const sessionsRef: RefObject<Map<string, SyncableSessionEntry>> = {
+      current: new Map([
+        ["s1", a.entry],
+        ["s2", b.entry],
+      ]),
+    };
+    renderHook(() => useUIStoreSync(sessionsRef));
+    expect(a.instance.idleCb).not.toBeNull();
+    expect(b.instance.idleCb).not.toBeNull();
+
+    // s2 goes away, then something triggers a sync.
+    sessionsRef.current.delete("s2");
+    setRoot("/root/b");
+
+    expect(b.instance.idleCb, "removed session must be unwired").toBeNull();
+    expect(a.instance.idleCb, "surviving session stays wired").not.toBeNull();
   });
 });
