@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FormatConfig, ValidationDiagnostic } from "@/lib/formats/types";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { SplitPaneEditor } from "./SplitPaneEditor";
 
 // CodeMirror is heavy and requires DOM; mock the source pane.
@@ -465,6 +466,76 @@ describe("SplitPaneEditor", () => {
       useTabStore.getState().setTabActiveSchemaId(id, "schema-gone");
       render(<SplitPaneEditor tabId={id} formatConfig={schemaConfig} />);
       expect(screen.getByTestId("preview-content")).toHaveTextContent("schema-a");
+    });
+  });
+
+  // The preview receives a DEFERRED value (#1273). Rendering it was costing a
+  // full DOMPurify pass and an iframe rebuild per keystroke.
+  //
+  // MEASURED IN JSDOM, not WebKit: ~150 ms p50 / 210 ms p90 for one sanitize of
+  // a 207 KB document, against 0.6 ms at 8 KB. Treat the absolute numbers as an
+  // UPPER BOUND — jsdom's DOM is slower than JavaScriptCore's, and the app runs
+  // in WKWebView. What survives the engine change is the ~250x SCALING with
+  // document size, which is algorithmic (DOMPurify walks the whole tree), and
+  // that is the part this decision rests on.
+  //
+  // Not measured at all: the iframe srcdoc teardown/reparse, which is on top of
+  // the sanitize, and end-to-end input latency. Those need the running app —
+  // same caveat `src/bench/largeFile.bench.ts` carries for the editor stack.
+  //
+  // `useDeferredValue` rather than a debounce, matching OutlineView and
+  // StatusBarCounts, which solve the same problem the same way: no timer to
+  // pick a constant for or isolate in tests, and no fixed lag — a small
+  // document stays effectively synchronous while a burst drops its
+  // intermediate values. Applied at this seam rather than inside each adapter
+  // because none of them debounced — one defect with six faces (html, mermaid,
+  // svg, json, yaml, toml) — and formats.md had claimed this pane was
+  // debounced since before any of them existed.
+  //
+  // Deliberately NOT deferred: `previewDiagnostics`, which annotates the SOURCE
+  // gutter and must track the caret; and the GHA workbench, which binds by
+  // tabId, serializes from useDocumentStore.getState(), and syncs cursor↔canvas
+  // through a source-pane CodeMirror extension — none of that uses this prop.
+  //
+  // Deferral is a scheduling PRIORITY, not a delay, and React only drops
+  // intermediate values when it is actually behind — which never happens in a
+  // test. So what is pinned here is the property the deferral could plausibly
+  // break: that an edit still reaches the preview at all, and that the value
+  // arriving is the current one rather than a stale snapshot.
+  describe("preview content propagation", () => {
+    const previewConfig: FormatConfig = {
+      ...jsonStub,
+      genericPreview: GenericPreview,
+    };
+
+    it("hands the preview the document's current content", async () => {
+      useDocumentStore.getState().initDocument("tab-defer", "first", "/a.json");
+
+      render(<SplitPaneEditor tabId="tab-defer" formatConfig={previewConfig} />);
+
+      await screen.findByText("preview:first");
+    });
+
+    it("propagates a later edit to the preview", async () => {
+      useDocumentStore.getState().initDocument("tab-defer-2", "first", "/b.json");
+      render(<SplitPaneEditor tabId="tab-defer-2" formatConfig={previewConfig} />);
+      await screen.findByText("preview:first");
+
+      useDocumentStore.getState().setContent("tab-defer-2", "second");
+
+      await screen.findByText("preview:second");
+    });
+
+    it("settles on the final value after a burst of edits", async () => {
+      useDocumentStore.getState().initDocument("tab-defer-3", "v0", "/c.json");
+      render(<SplitPaneEditor tabId="tab-defer-3" formatConfig={previewConfig} />);
+
+      for (let i = 1; i <= 10; i++) {
+        useDocumentStore.getState().setContent("tab-defer-3", `v${i}`);
+      }
+
+      // Intermediate values may be skipped — the last one may not be.
+      await screen.findByText("preview:v10");
     });
   });
 });

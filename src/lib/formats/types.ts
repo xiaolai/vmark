@@ -75,7 +75,23 @@ interface SourceExtrasContext {
 }
 
 export interface PreviewRendererProps {
+  /**
+   * What to RENDER. Deferred by SplitPaneEditor, so under fast typing it may
+   * lag the document by a frame or two — that is the point (see the deferral
+   * note there).
+   */
   content: string;
+  /**
+   * What an ACTION must operate on: the document's current content, never
+   * deferred.
+   *
+   * A preview that only draws can ignore this. One that performs a
+   * state-changing action cannot: `HtmlPreview` publishes the document to a
+   * trusted origin when the user clicks Enable or Reload, and publishing the
+   * deferred value meant editing and immediately clicking could execute the
+   * PREVIOUS document. Rendering may lag; executing may not.
+   */
+  liveContent: string;
   path: string | null;
   diagnostics: ValidationDiagnostic[];
   /** The hosting tab. Set by SplitPaneEditor so renderers that write

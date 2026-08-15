@@ -18,10 +18,11 @@
 // gutter rendering lives inside SourcePane in WI-1A.8. The split fraction
 // is held in component state and clamped to [0.2, 0.8].
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { SourcePane } from "./SourcePane";
+import { usePreviewModel } from "./usePreviewModel";
 import { ReadOnlyBanner } from "./ReadOnlyBanner";
 import { ValidationGutter } from "./ValidationGutter";
 import { ViewModeToggle } from "./ViewModeToggle";
@@ -32,7 +33,6 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import {
   isSplitViewMode,
   type FormatConfig,
-  type PreviewRenderer,
   type SplitViewMode,
   type ValidationDiagnostic,
 } from "@/lib/formats/types";
@@ -99,26 +99,15 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
     const found = s.findTabById?.(tabId) ?? null;
     return found?.kind === "document" ? (found.activeSchemaId ?? null) : null;
   });
-  const Preview: PreviewRenderer | undefined = useMemo(() => {
-    const renderers = formatConfig.schemaRenderers;
-    if (renderers) {
-      const chosen = activeSchemaId ? renderers[activeSchemaId] : undefined;
-      if (chosen) return chosen;
-      const detector = formatConfig.schemaDetector;
-      if (detector) {
-        try {
-          const schemaId = detector(filePath ?? "", content);
-          if (schemaId && renderers[schemaId]) {
-            return renderers[schemaId];
-          }
-        } catch {
-          /* detector errors fall through to generic preview */
-        }
-      }
-    }
-    return formatConfig.genericPreview;
-  }, [activeSchemaId, content, filePath, formatConfig]);
-  const hasPreview = Boolean(Preview);
+  // Renderer, preview content and preview diagnostics come from ONE snapshot —
+  // see usePreviewModel for why deriving them separately was a defect.
+  const preview = usePreviewModel({
+    formatConfig,
+    content,
+    filePath,
+    activeSchemaId,
+  });
+  const { Preview, hasPreview } = preview;
 
   // Per-tab view mode (Source/Split/Preview), falling back to the global
   // default setting, then "split". Clamped to "source" for formats without a
@@ -139,20 +128,11 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
   const showPreview = hasPreview && viewMode !== "source";
   const showResizeHandle = showSource && showPreview;
 
-  // In preview-only mode the SourcePane is unmounted, so its `diagnostics`
-  // callback stops firing and the state would go stale. Recompute from the
-  // pure validator for the preview's own hints; when the source pane is
-  // mounted, use its live diagnostics.
-  const previewDiagnostics = useMemo(() => {
-    if (showSource) return diagnostics;
-    // A buggy validator must not crash the preview surface — it runs here
-    // during render (no SourcePane to sandbox it), so guard it.
-    try {
-      return formatConfig.validator?.(content, filePath ?? undefined) ?? [];
-    } catch {
-      return [];
-    }
-  }, [showSource, diagnostics, formatConfig, content, filePath]);
+  // The preview's own hints come from `usePreviewModel`, computed from the
+  // same (deferred) content the renderer draws. They deliberately do NOT come
+  // from the SourcePane's live `diagnostics`, which track the caret: mixing
+  // the two annotated one revision with another's findings, and went stale
+  // outright in preview-only mode where the SourcePane is unmounted.
 
   const handleViewModeChange = useCallback(
     (mode: SplitViewMode) => {
@@ -277,9 +257,10 @@ export function SplitPaneEditor({ tabId, formatConfig }: SplitPaneEditorProps) {
         {showPreview && Preview && (
           <div className="split-pane-editor__preview">
             <Preview
-              content={content}
+              content={preview.content}
+              liveContent={preview.liveContent}
               path={filePath}
-              diagnostics={previewDiagnostics}
+              diagnostics={preview.diagnostics}
               tabId={tabId}
             />
           </div>
