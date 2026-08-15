@@ -33,6 +33,17 @@ vi.mock("@/utils/fontStacks", () => ({
   resolveMonoFontStack: (mono: string) => mockResolveMonoFontStack(mono),
 }));
 
+// Pin the full theme catalog. The G6 case below asserts `#theme-${next}`, and
+// `getEffectiveThemeId` NARROWS to the light/dark pair on Windows and Linux — so
+// on a non-mac runner a `paper` expectation resolves to `white`. It passes there
+// today only because the default theme is `paper`, which makes `next` always
+// `night` (already a neutral); changing that default would have broken this on
+// CI alone. Pinned so the suite tests retheming rather than platform narrowing.
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMacPlatform: () => true,
+}));
+
 import { useUIStoreSync, type SyncableSessionEntry } from "./terminalSessionStoreSync";
 import { useSettingsStore } from "@/stores/settingsStore";
 

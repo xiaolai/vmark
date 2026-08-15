@@ -5,6 +5,19 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
+// `currentTerminalThemeId` resolves through `getEffectiveThemeId`, which NARROWS
+// the theme to the light/dark pair Windows and Linux can draw chrome for
+// (theme/themeAvailability.ts). Without pinning the platform this suite asserted
+// a macOS-only outcome: on the Linux CI runner `paper` coerces to `white` and
+// "returns the user's theme" failed with expected 'white' to be 'paper'. These
+// cases are about the BROWSER-NEUTRAL rule, not platform narrowing, so they pin
+// the full catalog — the same reason and the same mock as
+// terminalSessionStoreSync.theme.test.ts.
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  isMacPlatform: () => true,
+}));
+
 import { currentTerminalThemeId } from "./terminalThemeId";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
