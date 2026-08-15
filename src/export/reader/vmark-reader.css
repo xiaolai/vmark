@@ -11,8 +11,8 @@
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: var(--bg-color, #eeeded);
-  color: var(--text-secondary, #666);
+  background: var(--bg-color);
+  color: var(--text-secondary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   display: flex;
@@ -25,7 +25,7 @@
 .vmark-reader-toggle:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  background: var(--bg-secondary, #e5e4e4);
+  background: var(--bg-secondary);
 }
 
 .vmark-reader-toggle:active {
@@ -43,8 +43,8 @@
   bottom: 76px;
   right: 20px;
   width: 280px;
-  background: var(--bg-color, #eeeded);
-  border: 1px solid var(--border-color, #d5d4d4);
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   opacity: 0;
@@ -68,9 +68,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border-color, #d5d4d4);
+  border-bottom: 1px solid var(--border-color);
   font-weight: 600;
-  color: var(--text-color, #1a1a1a);
+  color: var(--text-color);
 }
 
 .vmark-reader-close {
@@ -79,7 +79,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -90,8 +90,8 @@
 }
 
 .vmark-reader-close:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
-  color: var(--text-color, #1a1a1a);
+  background: var(--hover-bg);
+  color: var(--text-color);
 }
 
 /* Panel Content */
@@ -107,7 +107,7 @@
 .vmark-reader-group label {
   display: block;
   margin-bottom: 6px;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
 }
@@ -125,7 +125,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-color, #1a1a1a);
+  color: var(--text-color);
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
@@ -137,18 +137,18 @@
 }
 
 .vmark-reader-btn:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+  background: var(--hover-bg);
 }
 
 .vmark-reader-btn:active {
-  background: var(--hover-bg-strong, rgba(0, 0, 0, 0.08));
+  background: var(--hover-bg-strong);
 }
 
 .vmark-reader-value {
   flex: 1;
   text-align: center;
   font-weight: 500;
-  color: var(--text-color, #1a1a1a);
+  color: var(--text-color);
   font-variant-numeric: tabular-nums;
 }
 
@@ -176,22 +176,20 @@
 }
 
 .vmark-reader-theme-circle.active {
-  box-shadow: inset 0 0 0 2px var(--primary-color, #0066cc), inset 0 0 0 3px rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 0 0 2px var(--primary-color), inset 0 0 0 3px rgba(255, 255, 255, 0.8);
 }
 
-/* Night theme circle needs inner light ring for active state */
-.vmark-reader-theme-circle.theme-night.active {
-  box-shadow: inset 0 0 0 2px #58a6ff, inset 0 0 0 3px rgba(255, 255, 255, 0.3);
-}
+/* The night swatch's active ring is generated (readerDarkPalette.ts): its
+   colour must be night's even while a light theme is active. */
 
 /* Select Dropdown */
 .vmark-reader-select {
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid var(--border-color, #d5d4d4);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: var(--bg-color, #eeeded);
-  color: var(--text-color, #1a1a1a);
+  background: var(--bg-color);
+  color: var(--text-color);
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
@@ -200,15 +198,15 @@
 }
 
 .vmark-reader-select:hover {
-  border-color: var(--text-secondary, #666);
+  border-color: var(--text-secondary);
 }
 
 .vmark-reader-select:focus {
-  border-color: var(--primary-color, #0066cc);
+  border-color: var(--primary-color);
 }
 
 .dark-theme .vmark-reader-select {
-  background: var(--bg-secondary, #2d2d2d);
+  background: var(--bg-secondary);
 }
 
 /* Checkbox Row */
@@ -218,7 +216,7 @@
   gap: 8px;
   margin-bottom: 0 !important;
   cursor: pointer;
-  color: var(--text-color, #1a1a1a) !important;
+  color: var(--text-color) !important;
   font-size: 13px !important;
   font-weight: normal !important;
 }
@@ -228,14 +226,14 @@
   height: 16px;
   margin: 0;
   cursor: pointer;
-  accent-color: var(--primary-color, #0066cc);
+  accent-color: var(--primary-color);
 }
 
 /* Reset Button */
 .vmark-reader-reset {
   margin-top: 4px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-color, #d5d4d4);
+  border-top: 1px solid var(--border-color);
 }
 
 .vmark-reader-reset-btn {
@@ -244,30 +242,30 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .vmark-reader-reset-btn:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
-  color: var(--text-color, #1a1a1a);
+  background: var(--hover-bg);
+  color: var(--text-color);
 }
 
 /* Dark Theme Adjustments */
 .dark-theme .vmark-reader-toggle {
-  background: var(--bg-color, #1e1e1e);
+  background: var(--bg-color);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .dark-theme .vmark-reader-toggle:hover {
-  background: var(--bg-secondary, #2d2d2d);
+  background: var(--bg-secondary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .dark-theme .vmark-reader-panel {
-  background: var(--bg-color, #1e1e1e);
+  background: var(--bg-color);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
@@ -276,60 +274,13 @@
 }
 
 .dark-theme .vmark-reader-btn:hover {
-  background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  background: var(--hover-bg);
 }
 
-/* Dark Theme Content Styles */
-.dark-theme {
-  /* Core colors (night theme) */
-  --bg-color: #23262b;
-  --text-color: #d6d9de;
-  --text-secondary: #858585;
-  --text-tertiary: #6b7078;
-  /* Tracks night.color.accent.primary in src/theme/themes/night.ts. This block
-     is a hand-copy of the app's night theme and drifted to #5aa8ff — the
-     rgb(90,168,255) of the legacy --accent-bg lineage — against the catalogue's
-     rgb(88,166,255). See dev-docs/plans/20260815-design-system-remediation.md
-     Phase 3: this block should be GENERATED from the typed catalogue. */
-  --primary-color: #58a6ff;
-  --border-color: #3a3f46;
-  --bg-secondary: #2a2e34;
-  --bg-tertiary: #32363d;
-
-  /* Code blocks */
-  --code-bg-color: #2a2e34;
-  --code-text-color: #d6d9de;
-  --code-border-color: #3a3f46;
-
-  /* Syntax */
-  --md-char-color: #6a9955;
-  --strong-color: #569cd6;
-  --emphasis-color: #ce9178;
-
-  /* Selection */
-  --selection-color: rgba(79, 193, 255, 0.2);
-  --accent-bg: rgba(90, 168, 255, 0.12);
-  --accent-primary: #58a6ff;
-
-  /* Alerts */
-  --alert-note: #58a6ff;
-  --alert-tip: #3fb950;
-  --alert-important: #a371f7;
-  --alert-warning: #d29922;
-  --alert-caution: #f85149;
-
-  /* Highlight */
-  --highlight-bg: #5c5c00;
-  --highlight-text: #fff3a3;
-
-  /* Hover */
-  --hover-bg: rgba(255, 255, 255, 0.06);
-  --hover-bg-strong: rgba(255, 255, 255, 0.1);
-
-  /* Errors */
-  --error-color: #f85149;
-  --error-bg: rgba(248, 81, 73, 0.15);
-}
+/* The dark PALETTE is generated from the app's night theme and prepended by
+   readerBundle.getReaderCSS() — see readerDarkPalette.ts. It used to be
+   hand-written here and drifted eight tokens from the app. The component
+   overrides below consume it and stay. */
 
 /* Table of Contents Sidebar */
 .vmark-toc-sidebar {
@@ -338,8 +289,8 @@
   left: 0;
   width: 260px;
   height: 100vh;
-  background: var(--bg-color, #eeeded);
-  border-right: 1px solid var(--border-color, #d5d4d4);
+  background: var(--bg-color);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -362,7 +313,7 @@
   align-items: center;
   justify-content: flex-end;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color, #d5d4d4);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -372,7 +323,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -382,8 +333,8 @@
 }
 
 .vmark-toc-close:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
-  color: var(--text-color, #1a1a1a);
+  background: var(--hover-bg);
+  color: var(--text-color);
 }
 
 .vmark-toc-nav {
@@ -395,7 +346,7 @@
 .vmark-toc-item {
   display: block;
   padding: 8px 20px;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 13px;
   line-height: 1.4;
@@ -404,20 +355,20 @@
 }
 
 .vmark-toc-item:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
-  color: var(--text-color, #1a1a1a);
+  background: var(--hover-bg);
+  color: var(--text-color);
 }
 
 .vmark-toc-item.active {
-  color: var(--primary-color, #0066cc);
-  border-left-color: var(--primary-color, #0066cc);
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+  color: var(--primary-color);
+  border-left-color: var(--primary-color);
+  background: var(--hover-bg);
 }
 
 /* Indentation by heading level */
 .vmark-toc-level-1 {
   font-weight: 600;
-  color: var(--text-color, #1a1a1a);
+  color: var(--text-color);
 }
 
 .vmark-toc-level-2 {
@@ -431,7 +382,7 @@
 
 /* Dark theme TOC sidebar */
 .dark-theme .vmark-toc-sidebar {
-  background: var(--bg-color, #23262b);
+  background: var(--bg-color);
 }
 
 /* TOC Toggle Tab - Hidden by default, shown on hover near edge */
@@ -444,10 +395,10 @@
   height: 48px;
   border: none;
   border-radius: 0 6px 6px 0;
-  background: var(--bg-secondary, #e5e4e4);
-  border: 1px solid var(--border-color, #d5d4d4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-left: none;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -474,8 +425,8 @@
 .vmark-toc-toggle-tab:hover,
 .vmark-toc-toggle-tab:focus-visible {
   opacity: 1;
-  background: var(--bg-color, #eeeded);
-  color: var(--text-color, #1a1a1a);
+  background: var(--bg-color);
+  color: var(--text-color);
 }
 
 .vmark-toc-toggle-tab svg {
@@ -493,12 +444,12 @@
 
 /* Dark theme toggle tab */
 .dark-theme .vmark-toc-toggle-tab {
-  background: var(--bg-secondary, #2a2e34);
+  background: var(--bg-secondary);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
 }
 
 .dark-theme .vmark-toc-toggle-tab:hover {
-  background: var(--bg-color, #23262b);
+  background: var(--bg-color);
 }
 
 /* Mobile: hide toggle tab, use header close button instead */
@@ -573,8 +524,8 @@
   padding: 0;
   border: none;
   border-radius: 4px;
-  background: var(--bg-secondary, #e5e4e4);
-  color: var(--text-secondary, #666);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -583,35 +534,35 @@
 }
 
 .vmark-code-btn:hover {
-  background: var(--bg-tertiary, #d8d8d8);
-  color: var(--text-color, #1a1a1a);
+  background: var(--bg-tertiary);
+  color: var(--text-color);
 }
 
 .vmark-code-btn.active {
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
 }
 
 .vmark-code-btn.copied {
-  color: var(--success-color, #16a34a);
+  color: var(--success-color);
 }
 
 /* Dark theme code buttons */
 .dark-theme .vmark-code-btn {
-  background: var(--bg-tertiary, #32363d);
-  color: var(--text-secondary, #858585);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
 }
 
 .dark-theme .vmark-code-btn:hover {
-  background: var(--hover-bg-strong, rgba(255, 255, 255, 0.1));
-  color: var(--text-color, #d6d9de);
+  background: var(--hover-bg-strong);
+  color: var(--text-color);
 }
 
 .dark-theme .vmark-code-btn.active {
-  color: var(--text-tertiary, #6b7078);
+  color: var(--text-tertiary);
 }
 
 .dark-theme .vmark-code-btn.copied {
-  color: var(--success-color-dark, #4ade80);
+  color: var(--success-color-dark);
 }
 
 /* ============================================
@@ -625,8 +576,8 @@
   height: 40px;
   border: none;
   border-radius: 50%;
-  background: var(--bg-color, #eeeded);
-  color: var(--text-secondary, #666);
+  background: var(--bg-color);
+  color: var(--text-secondary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   display: flex;
@@ -646,17 +597,17 @@
 }
 
 .vmark-back-to-top:hover {
-  background: var(--bg-secondary, #e5e4e4);
-  color: var(--text-color, #1a1a1a);
+  background: var(--bg-secondary);
+  color: var(--text-color);
 }
 
 .dark-theme .vmark-back-to-top {
-  background: var(--bg-color, #23262b);
+  background: var(--bg-color);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .dark-theme .vmark-back-to-top:hover {
-  background: var(--bg-secondary, #2a2e34);
+  background: var(--bg-secondary);
 }
 
 /* ============================================
@@ -668,19 +619,19 @@
   left: 0;
   width: 100%;
   height: 3px;
-  background: var(--border-color, #d5d4d4);
+  background: var(--border-color);
   z-index: 10000;
 }
 
 .vmark-progress-fill {
   height: 100%;
   width: 0;
-  background: var(--primary-color, #0066cc);
+  background: var(--primary-color);
   transition: width 0.1s ease-out;
 }
 
 .dark-theme .vmark-progress-bar {
-  background: var(--border-color, #3a3f46);
+  background: var(--border-color);
 }
 
 /* ============================================
@@ -745,7 +696,7 @@
 
 @keyframes vmark-highlight-pulse {
   0% {
-    background-color: var(--accent-bg, rgba(0, 102, 204, 0.2));
+    background-color: var(--accent-bg);
   }
   100% {
     background-color: transparent;
