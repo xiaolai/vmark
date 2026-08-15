@@ -2,7 +2,7 @@
  * Comprehensive tests for useFinderFileOpen hook
  *
  * Tests: event listener registration, file processing, tab reuse,
- * workspace routing, pending file queue, non-main window skipping.
+ * workspace routing, main-only pending queue, targeted document-window opens.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -10,7 +10,11 @@ import { render, act } from "@testing-library/react";
 
 // --- Mocks ---
 
-type OpenFilePayload = { path: string; workspace_root: string | null };
+type OpenFilePayload = {
+  path: string;
+  workspace_root: string | null;
+  target_window_label?: string;
+};
 type ListenHandler = (event: { payload: OpenFilePayload }) => void;
 
 let listenHandler: ListenHandler | null = null;
@@ -156,14 +160,17 @@ describe("useFinderFileOpen", () => {
     expect(invokeMock).toHaveBeenCalledWith("get_pending_file_opens");
   });
 
-  it("does not register listener on non-main window", async () => {
-    mockWindowLabel = "secondary";
+  it("registers a listener without fetching the pending queue on a document window", async () => {
+    mockWindowLabel = "doc-0";
 
     await act(async () => {
       render(<TestComponent />);
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
-    expect(listenMock).not.toHaveBeenCalled();
+    expect(listenMock).toHaveBeenCalledWith("app:open-file", expect.any(Function));
+    expect(invokeMock).not.toHaveBeenCalledWith("get_pending_file_opens");
   });
 
   it("waits for hot exit restore before processing pending files", async () => {
@@ -178,6 +185,7 @@ describe("useFinderFileOpen", () => {
   });
 
   it("activates existing tab if file already open", async () => {
+    mockWindowLabel = "doc-0";
     mockFindExistingTabForPath.mockReturnValue("existing-tab");
 
     await act(async () => {
@@ -189,13 +197,61 @@ describe("useFinderFileOpen", () => {
 
     // Simulate file open event
     await act(async () => {
-      listenHandler!({ payload: { path: "/docs/file.md", workspace_root: null } });
+      listenHandler!({
+        payload: {
+          path: "/docs/file.md",
+          workspace_root: null,
+          target_window_label: "doc-0",
+        },
+      });
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(mockSetActiveTab).toHaveBeenCalledWith("main", "existing-tab");
+    expect(mockSetActiveTab).toHaveBeenCalledWith("doc-0", "existing-tab");
     expect(mockCreateTab).not.toHaveBeenCalled();
+  });
+
+  it("ignores a hot-open event targeted to another document window", async () => {
+    mockWindowLabel = "doc-1";
+
+    await act(async () => {
+      render(<TestComponent />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      listenHandler!({
+        payload: {
+          path: "/docs/wrong-window.md",
+          workspace_root: null,
+          target_window_label: "doc-0",
+        },
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
+  });
+
+  it("ignores an untargeted event outside the main window", async () => {
+    mockWindowLabel = "doc-0";
+
+    await act(async () => {
+      render(<TestComponent />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      listenHandler!({ payload: { path: "/docs/legacy.md", workspace_root: null } });
+      await Promise.resolve();
+    });
+
+    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
   });
 
   it("replaces empty tab when available", async () => {
@@ -263,22 +319,28 @@ describe("useFinderFileOpen", () => {
     expect(mockLoadContent).toHaveBeenCalled();
   });
 
-  it("processes pending files from cold start", async () => {
-    invokeMock.mockResolvedValue([
-      { path: "/docs/pending1.md", workspace_root: null },
-      { path: "/docs/pending2.md", workspace_root: null },
-    ]);
+  it("finishes a Rust queue batch drained before the hook unmounts", async () => {
+    let resolvePending!: (files: OpenFilePayload[]) => void;
+    invokeMock.mockImplementation((command: string) =>
+      command === "get_pending_file_opens"
+        ? new Promise((resolve) => { resolvePending = resolve; })
+        : command === "get_file_size_bytes" ? Promise.resolve(0) : Promise.resolve()
+    );
 
+    let unmount!: () => void;
     await act(async () => {
-      render(<TestComponent />);
+      ({ unmount } = render(<TestComponent />));
       await Promise.resolve();
-      await Promise.resolve();
+    });
+    unmount();
+    await act(async () => {
+      resolvePending([{ path: "/drained-before-unmount.md", workspace_root: null }]);
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(mockCreateTab).toHaveBeenCalledTimes(2);
+    expect(mockCreateTab).toHaveBeenCalledWith("main", "/drained-before-unmount.md");
   });
 
   it("detaches orphan tab and toasts on readTextFile failure for new tab", async () => {

@@ -1,8 +1,7 @@
 //! Finder/CLI file-open queueing and macOS reopen.
 //!
-//! Purpose: Owns the cold-start file-open queue and the macOS
-//! `RunEvent::Opened` / `RunEvent::Reopen` handlers. Extracted verbatim from
-//! `lib.rs` to keep that file under the size gate.
+//! Purpose: Owns cold-start file-open queueing, hot-open document-window
+//! delivery, and the macOS `RunEvent::Opened` / `RunEvent::Reopen` handlers.
 //!
 //! fs-scope extension used to live here too and now lives in `fs_scope.rs` —
 //! this file consumes it (`crate::allow_fs_read`) rather than owning it. It
@@ -13,10 +12,9 @@
 //!   - File opens from Finder are queued in `FILE_OPEN_STATE` until the frontend
 //!     signals readiness, solving a cold-start race condition. Only files with a
 //!     registered extension are accepted; others are skipped. Hot opens (app
-//!     already running) use `app.emit()` (global broadcast) — NOT `window.emit()`
-//!     — so the frontend's global `listen()` in `useFinderFileOpen` receives
-//!     them. Tauri v2 webview-specific events are not delivered to global
-//!     `listen()`.
+//!     already running) target the last focused document window, attach that
+//!     label to an `app.emit()` global broadcast, and bring the native window
+//!     forward. Each frontend window filters the broadcast by target label.
 //!   - macOS Reopen event (dock click) creates a new main window when none
 //!     visible, restoring the user's most-recent workspace via
 //!     `window_manager::pick_reopen_workspace_root` so closing the last tab and
@@ -35,7 +33,6 @@ use crate::supported_files::is_openable_supported;
 // user here — and that is macOS-only. Unconditional is now an unused-import
 // ERROR on Linux/Windows, the exact mirror of the hazard this comment used to
 // warn about, and CI caught it on ubuntu and windows while macOS stayed green.
-#[cfg(target_os = "macos")]
 use tauri::Manager;
 
 /// A file open request queued during cold start before the frontend is ready.
@@ -60,6 +57,27 @@ pub(crate) static FILE_OPEN_STATE: Mutex<window_manager::FileOpenState> =
 pub fn get_pending_file_opens() -> Vec<PendingFileOpen> {
     let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
     window_manager::mark_ready_and_drain(&mut state)
+}
+
+/// Update Finder's preferred hot-open destination from a native focus event.
+pub(crate) fn record_document_window_focus(label: &str, focused: bool, listener_ready: bool) {
+    let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+    state.record_window_focus(label, focused, listener_ready);
+}
+
+/// Seed focus history when a frontend reports that its listeners are ready.
+pub(crate) fn record_ready_document_window(app: &tauri::AppHandle, label: &str) {
+    let focused = app
+        .get_webview_window(label)
+        .and_then(|window| window.is_focused().ok())
+        .unwrap_or(false);
+    record_document_window_focus(label, focused, true);
+}
+
+/// Remove a destroyed window from Finder's focus history.
+pub(crate) fn remove_document_window(label: &str) {
+    let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
+    state.remove_window(label);
 }
 
 /// macOS dock-icon reactivation with no visible windows: recreate a window,
@@ -176,85 +194,33 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
         // check and any queue insertion happen in a single critical section, so
         // a concurrent get_pending_file_opens can't interleave to drop or
         // double-deliver.
+        let live_labels: Vec<String> = app.webview_windows().keys().cloned().collect();
         let outcome = {
             let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
-            window_manager::decide_file_open_locked(
-                &mut state,
-                app.get_webview_window("main").is_some(),
-                paths,
-                ws,
-            )
+            let has_ready_target = state.finder_window_target(&live_labels).is_some();
+            window_manager::decide_file_open_locked(&mut state, has_ready_target, paths, ws)
         };
 
         match outcome {
             window_manager::FileOpenOutcome::Emit(payloads) => {
-                emit_finder_opens_to_main(app, payloads);
+                window_manager::emit_finder_opens_to_window(app, payloads);
             }
             window_manager::FileOpenOutcome::Queued { create_window } => {
                 if create_window {
-                    log::info!("[Finder] Queueing files, creating main window");
-                    if let Err(e) = window_manager::create_main_window(app, None) {
-                        log::error!(
-                            "[Finder] Failed to create main window for queued opens: {}",
-                            e
-                        );
+                    if app.get_webview_window("main").is_none() {
+                        log::info!("[Finder] Queueing files, creating main window");
+                        if let Err(e) = window_manager::create_main_window(app, None) {
+                            log::error!(
+                                "[Finder] Failed to create main window for queued opens: {}",
+                                e
+                            );
+                        }
+                    } else {
+                        log::info!("[Finder] Queueing files until main window is ready");
                     }
                 } else {
                     log::info!("[Finder] Queueing files (frontend not ready)");
                 }
-            }
-        }
-    }
-}
-
-/// Emit decided Finder opens to the main window, re-queueing if the window
-/// vanished between the decision and the emit (the decision is made under the
-/// lock based on the main window existing THEN; `app.emit` is a global
-/// broadcast that returns Ok even with no listener).
-#[cfg(target_os = "macos")]
-fn emit_finder_opens_to_main(app: &tauri::AppHandle, payloads: Vec<PendingFileOpen>) {
-    use tauri::Emitter;
-    if app.get_webview_window("main").is_none() {
-        log::info!("[Finder] main window vanished before emit — re-queueing");
-        {
-            let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
-            state.frontend_ready = false;
-            state.pending.extend(payloads);
-        }
-        if let Err(e) = window_manager::create_main_window(app, None) {
-            log::error!(
-                "[Finder] Failed to recreate main window for re-queued opens: {}",
-                e
-            );
-        }
-        return;
-    }
-
-    log::info!("[Finder] Emitting to main window");
-    // app.emit() (global broadcast) so the frontend's global listen() in
-    // useFinderFileOpen receives it. window.emit() is webview-specific and is
-    // NOT delivered to @tauri-apps/api/event listen().
-    let mut failed: Vec<PendingFileOpen> = Vec::new();
-    for payload in payloads {
-        if let Err(e) = app.emit("app:open-file", payload.clone()) {
-            log::warn!("[Finder] emit failed, queueing: {e}");
-            failed.push(payload);
-        }
-    }
-    if !failed.is_empty() {
-        // Emit failed mid-flight — re-queue and reset readiness so the open
-        // isn't lost; create a main window if none remains to drain it.
-        {
-            let mut state = FILE_OPEN_STATE.lock().unwrap_or_else(|p| p.into_inner());
-            state.frontend_ready = false;
-            state.pending.extend(failed);
-        }
-        if app.get_webview_window("main").is_none() {
-            if let Err(e) = window_manager::create_main_window(app, None) {
-                log::error!(
-                    "[Finder] Failed to create main window after emit failure: {}",
-                    e
-                );
             }
         }
     }

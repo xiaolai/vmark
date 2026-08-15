@@ -1,8 +1,8 @@
 //! One-time app setup and app-level event dispatch.
 //!
-//! Purpose: Hosts `run()`'s setup closure and the `RunEvent` / window-event
-//! handlers so `lib.rs` stays a declarative composition root. Extracted
-//! verbatim from `lib.rs` to keep that file under the size gate.
+//! Purpose: Coordinates one-time setup and app-level lifecycle dispatch,
+//! including Finder-target focus and destruction tracking, so `lib.rs` stays
+//! a declarative composition root.
 //!
 //! Key decisions:
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
@@ -108,6 +108,7 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
         if let Ok(label) = serde_json::from_str::<String>(event.payload()) {
             log::debug!("[Tauri] Window '{}' is ready", label);
             menu_events::mark_window_ready(&app_handle, &label);
+            crate::file_open::record_ready_document_window(&app_handle, &label);
         }
     });
 
@@ -218,6 +219,7 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             event: tauri::WindowEvent::Destroyed,
             ..
         } => {
+            crate::file_open::remove_document_window(&label);
             quit::handle_window_destroyed(app, &label);
             menu_events::clear_window_ready(&label);
             tab_transfer::clear_unclaimed_transfer(&label);
@@ -231,6 +233,15 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                 log::warn!("[Tauri] Failed to stop watcher for '{}': {}", label, e);
             }
         }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Focused(focused),
+            ..
+        } => crate::file_open::record_document_window_focus(
+            &label,
+            focused,
+            menu_events::is_window_ready(&label),
+        ),
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {
             has_visible_windows,
