@@ -1,6 +1,8 @@
 // WI-4.2 — Read-only banner above the source pane for kind="viewer"
-// formats. Mounts when the active tab's effective read-only state is
-// true; hides itself when editing is enabled (caller toggles `hidden`).
+// formats. The caller MOUNTS it conditionally on the tab's effective
+// read-only state; it has no self-hiding prop. It used to carry a `hidden`
+// prop as a second way to do the same job, which no caller ever passed
+// (audit 20260815-163607 #25).
 //
 // "Enable editing" promotes the tab to read-write via the caller's
 // onEnableEditing handler (WI-4.3). "Open in external editor"
@@ -19,15 +21,12 @@ export interface ReadOnlyBannerProps {
    *  button by omitting this prop — or by passing `undefined`, which React
    *  cannot distinguish from omission (JSX has no conditional attribute). */
   onOpenExternal?: (() => void) | undefined;
-  /** Hide the banner entirely (caller toggles when editing is enabled). */
-  hidden?: boolean | undefined;
 }
 
 export function ReadOnlyBanner({
   formatNameI18nKey,
   onEnableEditing,
   onOpenExternal,
-  hidden = false,
 }: ReadOnlyBannerProps) {
   const { t } = useTranslation("editor");
   // Format names live in the `common` namespace (src/locales/en/common.json
@@ -35,7 +34,6 @@ export function ReadOnlyBanner({
   // to "common" too, but we passed "editor" for the readOnly.* keys; need
   // to resolve format names from common explicitly.
   const { t: tCommon } = useTranslation("common");
-  if (hidden) return null;
   return (
     <div className="read-only-banner" role="status">
       <span className="read-only-banner__label">
@@ -44,7 +42,7 @@ export function ReadOnlyBanner({
       <div className="read-only-banner__actions">
         <button
           type="button"
-          className="read-only-banner__btn"
+          className="vm-btn"
           onClick={onEnableEditing}
         >
           {t("readOnly.enableEditing")}
@@ -52,7 +50,7 @@ export function ReadOnlyBanner({
         {onOpenExternal && (
           <button
             type="button"
-            className="read-only-banner__btn"
+            className="vm-btn"
             onClick={onOpenExternal}
           >
             {t("readOnly.openExternal")}

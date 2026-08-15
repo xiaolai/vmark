@@ -250,4 +250,12 @@ export const terminalError = isDev
   ? (...args: unknown[]) => console.error("[Terminal]", ...args)
   : (...args: unknown[]) => prodError("[Terminal]", ...args);
 
+/** Error logger for the browser security path. Production-persistent for the
+ *  same reason as `terminalError`: an approved AI-tab attachment that FAILED is
+ *  a security-relevant outcome the user was told nothing about, so it must leave
+ *  a trace in the attachable log rather than a dev-only console line. */
+export const browserApprovalError = isDev
+  ? (...args: unknown[]) => console.error("[BrowserApproval]", ...args)
+  : (...args: unknown[]) => prodError("[BrowserApproval]", ...args);
+
 /* v8 ignore stop */

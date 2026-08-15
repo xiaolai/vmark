@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "Pfad-Traversierung (..) ist nicht erlaubt"
   core.pathNotAbsolute: "Pfad muss absolut sein"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "Der Inhalt der vertrauenswürdigen HTML-Vorschau ist zu groß (über %{limit} MB)"
+  trustedHtml.tooMany: "Zu viele vertrauenswürdige HTML-Vorschauen sind geöffnet (Grenze: %{limit}). Widerrufen Sie eine und versuchen Sie es erneut."
+  trustedHtml.budgetExhausted: "Es sind zu viele vertrauenswürdige HTML-Vorschauen geöffnet, um eine weitere hinzuzufügen (Grenze: %{limit} MB Inhalt). Widerrufen Sie eine und versuchen Sie es erneut."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "Pfad-Traversierung im Ausgabepfad nicht erlaubt"
   pandoc.emptySourceDir: "source_dir darf nicht leer sein"

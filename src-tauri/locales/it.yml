@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "Traversal del percorso (..) non consentito"
   core.pathNotAbsolute: "Il percorso deve essere assoluto"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "Il contenuto dell’anteprima HTML attendibile è troppo grande (oltre %{limit} MB)"
+  trustedHtml.tooMany: "Sono aperte troppe anteprime HTML attendibili (limite: %{limit}). Revocane una e riprova."
+  trustedHtml.budgetExhausted: "Sono aperte troppe anteprime HTML attendibili per aggiungerne un’altra (limite: %{limit} MB di contenuto). Revocane una e riprova."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "Traversal del percorso non consentito nel percorso di output"
   pandoc.emptySourceDir: "source_dir non può essere vuoto"

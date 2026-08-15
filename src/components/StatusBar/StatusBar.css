@@ -451,7 +451,9 @@
   .tab-pill {
     height: 28px;
     padding: 0 var(--space-2-5);
-    border-radius: 14px;
+    /* Half the 28px height, i.e. a pill. `--radius-pill` clamps to the same
+       14px here and keeps the intent readable if the height ever changes. */
+    border-radius: var(--radius-pill);
   }
 
   .status-sidebar-toggle,

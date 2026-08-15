@@ -44,3 +44,25 @@ export interface SessionEntry {
 
 /** A ref to the live session map keyed by session id. */
 export type SessionsRef = RefObject<Map<string, SessionEntry>>;
+
+/**
+ * Minimum shape of a session entry that the sync effects need. Kept narrow
+ * so the hook's full SessionEntry type remains private to useTerminalSessions.
+ */
+export interface SyncableSessionEntry {
+  instance: TerminalInstance;
+  pty: IPty | null;
+  shellExited: boolean;
+  spawnedCwd: string | undefined;
+  /** Set once the session is torn down; suppresses a pending PTY resize. */
+  disposed?: boolean;
+  /** Per-entry debounce handle owned by fitAndResizePty (cleared, not deleted). */
+  ptyResizeTimer?: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * Workspace root that arrived while this session's shell was busy and so
+   * could not be cd'd immediately. Flushed when the shell returns to idle
+   * (OSC 133 done / next prompt) so a session doesn't stay stuck in the old
+   * workspace after a long-running foreground command exits.
+   */
+  pendingRoot?: string | null;
+}

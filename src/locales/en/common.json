@@ -137,6 +137,7 @@
   "browser.approval.action": "Action",
   "browser.approval.element": "Element",
   "browser.approval.script": "Script",
+  "browser.approval.sessionHandle": "Saved login",
   "browser.approval.operation.read": "Read the page",
   "browser.approval.operation.attach": "Allow AI to use this tab",
   "browser.approval.operation.click": "Click",

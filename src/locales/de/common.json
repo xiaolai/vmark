@@ -137,6 +137,7 @@
   "browser.approval.action": "Aktion",
   "browser.approval.element": "Element",
   "browser.approval.script": "Skript",
+  "browser.approval.sessionHandle": "Gespeicherter Login",
   "browser.approval.operation.read": "Seite lesen",
   "browser.approval.operation.attach": "KI erlauben, diesen Tab zu verwenden",
   "browser.approval.operation.click": "Klicken",

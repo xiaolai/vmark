@@ -14,14 +14,73 @@
   display: block;
 }
 
-.html-preview__sign-off-pending {
+/* Empty document. Replaces the FRAME only — the trust bar above it stays
+ * mounted, because clearing the buffer must not take the Revoke control away
+ * while a grant is still live. */
+.html-preview__empty-slot {
+  flex: 1 1 0%;
+  background: var(--bg-color);
+}
+
+/* Trust bar (#1273). Sits above the frame in both modes so the security state
+ * of the preview is never something the user has to go looking for. */
+
+.html-preview__trust {
   flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
   padding: var(--space-1) var(--space-2);
-  background: var(--warning-bg);
-  border-bottom: var(--border-thin) solid var(--warning-border);
-  color: var(--warning-color);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-family: var(--font-sans);
   font-size: var(--font-size-sm);
+}
+
+/* Scripts are running: warning colours, not neutral ones. */
+.html-preview__trust--active {
+  background: var(--warning-bg);
+  border-bottom-color: var(--warning-border);
+  color: var(--warning-color);
+}
+
+.html-preview__trust-spacer {
+  flex: 1 1 auto;
+}
+
+.html-preview__trust-badge {
+  font-weight: 600;
+}
+
+.html-preview__trust-stale {
+  font-style: italic;
+}
+
+.html-preview__trust-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+.html-preview__trust-warning {
+  margin: 0;
+  color: var(--warning-color);
+  line-height: var(--line-height-normal);
+}
+
+.html-preview__trust-actions {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: flex-end;
+}
+
+.html-preview__trust-error {
+  width: 100%;
+  margin: 0;
+  color: var(--error-color);
 }
 
 .html-preview__hint {

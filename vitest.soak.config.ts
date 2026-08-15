@@ -1,6 +1,5 @@
 import { defineConfig } from "vitest/config";
-import path from "path";
-import { suffixGlob } from "./vitest.shared";
+import { sourceAliases, suffixGlob } from "./vitest.shared.ts";
 
 /**
  * Soak tier (WI-5.1, plan ADR-6) — a NAMED tier, not an env-var mode:
@@ -22,9 +21,6 @@ export default defineConfig({
     hookTimeout: 120_000,
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./src/shared"),
-    },
+    alias: sourceAliases(import.meta.dirname),
   },
 });

@@ -37,10 +37,30 @@ export interface TerminalInstanceSettings {
   themeId: import("@/theme").ThemeId;
 }
 
-/** Scrollback lines, coerced into a value xterm will accept. */
-function clampScrollback(value: number): number {
+/**
+ * Scrollback lines, coerced into a value xterm will accept.
+ *
+ * EXPORTED because the live-settings path in `terminalSessionStoreSync.ts` needs
+ * the identical rule. It had its own copy, which clamped the range but dropped
+ * the two guards that matter most: a non-finite value and a fractional one. NaN
+ * passes straight through `Math.min`/`Math.max`, and xterm THROWS on a NaN
+ * scrollback — so the weaker copy could crash a running terminal with a value
+ * creation would have refused.
+ */
+export function clampScrollback(value: number): number {
   if (!Number.isFinite(value)) return 5000; // matches settings' default
   return Math.min(Math.max(Math.trunc(value), 100), 200_000);
+}
+
+/**
+ * xterm's foreground-lift floor: 1 = off … 4.5 = WCAG AA … 21 = max.
+ *
+ * Exported for the same reason as `clampScrollback` — the live path re-derived
+ * the range clamp without the finite fallback, so a corrupt `NaN` reached a
+ * running terminal instead of resolving to AA.
+ */
+export function clampContrastRatio(value: number): number {
+  return Math.min(Math.max(Number.isFinite(value) ? value : 4.5, 1), 21);
 }
 
 /** Build the xterm options for a set of user settings. */
@@ -64,15 +84,7 @@ export function buildTerminalOptions(
     // the foreground to meet the configured ratio against the actual
     // background color (default 4.5 = WCAG AA; user-adjustable for a11y).
     // Fall back to 4.5 when unset; clamp to xterm's valid 1–21 range.
-    minimumContrastRatio: Math.min(
-      Math.max(
-        Number.isFinite(settings.minimumContrastRatio)
-          ? settings.minimumContrastRatio
-          : 4.5,
-        1,
-      ),
-      21,
-    ),
+    minimumContrastRatio: clampContrastRatio(settings.minimumContrastRatio),
     allowProposedApi: true,
     // Clamp defensively: the settings UI offers bounded presets, but corrupt
     // persisted state could carry an extreme value that bloats memory (Codex

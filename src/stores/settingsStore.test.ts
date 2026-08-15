@@ -522,22 +522,24 @@ describe("settingsStore update settings", () => {
 });
 
 describe("settingsStore toggleDevSection", () => {
+  // Advanced now ships VISIBLE — it hosts the off switch for the default-on
+  // embedded browser (2026-08-15). The chord therefore hides it first.
   it("toggles dev section visibility", () => {
-    expect(useSettingsStore.getState().showDevSection).toBe(false);
-
-    useSettingsStore.getState().toggleDevSection();
     expect(useSettingsStore.getState().showDevSection).toBe(true);
 
     useSettingsStore.getState().toggleDevSection();
     expect(useSettingsStore.getState().showDevSection).toBe(false);
+
+    useSettingsStore.getState().toggleDevSection();
+    expect(useSettingsStore.getState().showDevSection).toBe(true);
   });
 
   it("resets dev section on resetSettings", () => {
     useSettingsStore.getState().toggleDevSection();
-    expect(useSettingsStore.getState().showDevSection).toBe(true);
+    expect(useSettingsStore.getState().showDevSection).toBe(false);
 
     useSettingsStore.getState().resetSettings();
-    expect(useSettingsStore.getState().showDevSection).toBe(false);
+    expect(useSettingsStore.getState().showDevSection).toBe(true);
   });
 });
 

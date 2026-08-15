@@ -137,6 +137,7 @@
   "browser.approval.action": "작업",
   "browser.approval.element": "요소",
   "browser.approval.script": "스크립트",
+  "browser.approval.sessionHandle": "저장된 로그인",
   "browser.approval.operation.read": "페이지 읽기",
   "browser.approval.operation.attach": "AI가 이 탭을 사용하도록 허용",
   "browser.approval.operation.click": "클릭",

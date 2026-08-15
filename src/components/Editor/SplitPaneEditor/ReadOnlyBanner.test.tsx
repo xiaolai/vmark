@@ -71,18 +71,6 @@ describe("ReadOnlyBanner", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
-  it("can be hidden when editing is enabled (caller controls visibility)", () => {
-    const { container } = render(
-      <ReadOnlyBanner
-        formatNameI18nKey="format.codeRust"
-        onEnableEditing={() => {}}
-        onOpenExternal={() => {}}
-        hidden
-      />,
-    );
-    expect(container.querySelector(".read-only-banner")).toBeNull();
-  });
-
   it("disables the open-external button when onOpenExternal is omitted", () => {
     render(
       <ReadOnlyBanner

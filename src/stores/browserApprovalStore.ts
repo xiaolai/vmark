@@ -1,7 +1,11 @@
 /** Browser approval store — standing grants and page-scoped ephemeral approvals (R5/R7a). */
 
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import {
+  performHumanTabAttach,
+  recordAttachment,
+  consumeOnceAttachment,
+} from "@/services/browser/humanTabAttach";
 import {
   addGrant,
   decideApproval,
@@ -122,7 +126,9 @@ interface BrowserApprovalActions {
   /** Drop approvals that are valid only for the current app/browser session. */
   clearEphemeral: () => void;
   /** Record a successful human-tab attachment for the current generation. */
-  attachHumanTab: (tabId: string, generation: number, once: boolean) => void;
+  /** Record a human-tab attachment. Resolves false if the IPC failed, so the
+   *  caller can keep the prompt raised instead of reporting success. */
+  attachHumanTab: (tabId: string, generation: number, once: boolean) => Promise<boolean>;
   isHumanTabAttached: (tabId: string, generation: number) => boolean;
   consumeHumanTabAttachment: (tabId: string, generation: number) => void;
 }
@@ -182,10 +188,17 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       // remembered nor authorized once. Fail closed.
       const pattern = grantPatternFor(request.targetUrl);
       if (request.operation === "attach") {
-        set((state) => ({ pending: state.pending.filter((p) => p.id !== id) }));
-        if (outcome !== "deny") {
-          get().attachHumanTab(request.tabId, request.generation, outcome === "once");
-        }
+        const drop = () => set((s) => ({ pending: s.pending.filter((p) => p.id !== id) }));
+        // A denial is final and local. An APPROVAL depends on an IPC that can
+        // fail, so the prompt stays raised until the attach is CONFIRMED —
+        // dropping it first left a failure with no prompt, no attachment and no
+        // message (audit 20260815-163607 #24).
+        if (outcome === "deny") return drop();
+        void get()
+          .attachHumanTab(request.tabId, request.generation, outcome === "once")
+          .then((ok) => {
+            if (ok) drop();
+          });
         return;
       }
       // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
@@ -269,30 +282,18 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
 
     clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [], profileOpens: [] }),
 
-    attachHumanTab: (tabId, generation, once) => {
-      void Promise.resolve(invoke("browser_ai_attach", { tabId, generation, once })).then(
-        () => set((state) => ({
-          attachments: [
-            ...state.attachments.filter((a) => a.tabId !== tabId),
-            { tabId, generation, once },
-          ],
-        })),
-        () => {},
-      );
-    },
+    attachHumanTab: (tabId, generation, once) =>
+      performHumanTabAttach(tabId, generation, once).then((ok) => {
+        if (ok) {
+          set((s) => ({ attachments: recordAttachment(s.attachments, { tabId, generation, once }) }));
+        }
+        return ok;
+      }),
 
     isHumanTabAttached: (tabId, generation) =>
       get().attachments.some((a) => a.tabId === tabId && a.generation === generation),
 
-    consumeHumanTabAttachment: (tabId, generation) => {
-      set((state) => ({
-        attachments: state.attachments.filter(
-          (attachment) =>
-            !(attachment.tabId === tabId &&
-              attachment.generation === generation &&
-              attachment.once),
-        ),
-      }));
-    },
+    consumeHumanTabAttachment: (tabId, generation) =>
+      set((s) => ({ attachments: consumeOnceAttachment(s.attachments, tabId, generation) })),
   }),
 );

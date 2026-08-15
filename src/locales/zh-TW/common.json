@@ -137,6 +137,7 @@
   "browser.approval.action": "操作",
   "browser.approval.element": "元素",
   "browser.approval.script": "指令碼",
+  "browser.approval.sessionHandle": "已儲存的登入",
   "browser.approval.operation.read": "讀取頁面",
   "browser.approval.operation.attach": "允許 AI 使用此分頁",
   "browser.approval.operation.click": "點擊",

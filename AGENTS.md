@@ -107,6 +107,20 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     another runner (`server/`, `website/`) are exempted by name, and an
     exemption that no longer covers any test is itself a failure.
 
+    **Every config must stay loadable by Vite's `configLoader: 'native'`**, which
+    is slated to become the default: no CJS `__dirname`/`__filename` (use
+    `import.meta.dirname`), and a real file extension on every relative import
+    (`"./vitest.shared.ts"`, not `"./vitest.shared"`). All five configs violated
+    both, and the only symptom was a warning on every `pnpm dev` / `pnpm test` /
+    `pnpm tauri dev` — read past until the default flips and configs stop
+    loading. `src/test/viteConfigNativeLoader.test.ts` asserts the property
+    (discovering the configs rather than listing them, so a new one is covered
+    on creation). `tsconfig.node.json` carries the matching
+    `allowImportingTsExtensions`; note it is NOT built by `pnpm typecheck`
+    (`tsc --noEmit` does not build project references), so check it directly
+    with `tsc -p tsconfig.node.json` — four real errors had accumulated there
+    unseen.
+
     Shared settings — worker count and the test-file extension set — live in
     `vitest.shared.ts`. Both existed as copies before, and the copies had
     already drifted: the app include accepted eight extensions while its

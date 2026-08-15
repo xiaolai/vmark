@@ -509,20 +509,19 @@ describe("sanitizeSvg", () => {
       expect(typeof result).toBe("string");
     });
 
-    it("handles extremely large SVG without hanging", () => {
+    // Liveness, not performance: "terminates" is what the test timeout asserts.
+    // The `elapsed < 5000` line that used to be here measured the MACHINE — it
+    // failed at 5150ms under concurrent load with sanitizeSvg unchanged.
+    it("handles extremely large SVG without hanging", { timeout: 15_000 }, () => {
       // Generate a large SVG with many elements (10,000 rects)
       const rects = Array.from({ length: 10_000 }, (_, i) =>
         `<rect x="${i}" y="0" width="1" height="1"/>`,
       ).join("");
       const input = `<svg>${rects}</svg>`;
 
-      const start = performance.now();
       const result = sanitizeSvg(input);
-      const elapsed = performance.now() - start;
 
       expect(result).toContain("<rect");
-      // Should complete in reasonable time (under 5 seconds)
-      expect(elapsed).toBeLessThan(5000);
     });
 
     it("handles SVG with CDATA sections", () => {

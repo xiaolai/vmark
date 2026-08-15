@@ -23,36 +23,8 @@
   gap: var(--space-1);
 }
 
-.read-only-banner__btn {
-  position: relative;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-color);
-  color: var(--text-color);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast);
-}
-
-.read-only-banner__btn:hover {
-  background: var(--hover-bg);
-}
-
-/* U-shaped underline focus indicator — matches popup/toolbar button
- * pattern in .claude/rules/33-focus-indicators.md § 1. */
-.read-only-banner__btn:focus-visible {
-  outline: none;
-}
-
-.read-only-banner__btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: var(--space-half);
-  left: var(--space-1);
-  right: var(--space-1);
-  height: var(--space-1);
-  border-bottom: var(--border-medium) solid var(--accent-primary);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
+/* The actions use the canonical `.vm-btn` primitive
+   (src/styles/button-shared.css). Focus moves from the U-shaped underline this
+   file drew to `.vm-btn`'s outline — both are sanctioned by rule 33, and the
+   outline is the one that rule assigns to standalone action buttons, which is
+   what these are. */

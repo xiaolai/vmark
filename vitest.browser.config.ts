@@ -1,7 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
-import path from "path";
-import { suffixGlob } from "./vitest.shared";
+import { sourceAliases, suffixGlob } from "./vitest.shared.ts";
 
 /**
  * Browser test tier — the terminal input gate path cannot be verified in jsdom
@@ -28,9 +27,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./src/shared"),
-    },
+    alias: sourceAliases(import.meta.dirname),
   },
 });

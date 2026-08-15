@@ -16,6 +16,29 @@
  *   - scripts/plugin-store-coupling-baseline.json -> plugin->host coupling
  *   - git log                                -> commits in window, last touch
  *
+ * THERE IS NO ISSUE-COUNT COLUMN, AND ADDING ONE WOULD BE A MISTAKE. It is the
+ * obvious next column — "how much user pain has this feature caused?" — and it
+ * was tried while this ledger was being built. Two things went wrong, and the
+ * second is the one worth remembering.
+ *
+ * The mechanical error: closed issues were classified by keyword-matching their
+ * TITLES, over the most recent 400 of the repository's 789, and the result was
+ * then described as the whole history. A partial sample matched by a crude
+ * regex is not a census, and the browser's two apparent hits turned out to be
+ * accessibility audits of `LinkPopupView` that contained the word incidentally.
+ *
+ * The reasoning error, which no better query would fix: most of the features
+ * worth asking about here are default-OFF. A feature nobody can reach without
+ * flipping a flag produces no issue traffic BY CONSTRUCTION, so a low count
+ * restates the gate column and reads as evidence about the feature. That is how
+ * "the embedded browser has almost no issues" got offered as independent
+ * corroboration that it is unused, when it is a near-tautology.
+ *
+ * If someone still wants demand data, it has to come from something that can
+ * distinguish "nobody hit a bug" from "nobody could reach the code" — telemetry
+ * on the flag, or issues filed by users who had it enabled. Until such a source
+ * exists, the honest ledger is silent here rather than confidently wrong.
+ *
  * THE HONESTY RULE, and it is the whole point of this script: a signal that was
  * not measured for a feature prints `--`, never `0`. Those are different claims.
  * `0` says "measured, and clean"; `--` says "nobody looked". Coverage is the one

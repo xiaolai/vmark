@@ -99,52 +99,9 @@
   margin-top: var(--space-1);
 }
 
-.approval-dialog__btn {
-  padding: var(--space-1-5) var(--space-3-5);
-  border-radius: var(--radius-md);
-  border: var(--border-thin) solid var(--border-color);
-  background: var(--bg-secondary);
-  color: var(--text-color);
-  cursor: pointer;
-  font-size: var(--font-size-md);
-  position: relative;
-}
-
-.approval-dialog__btn:hover {
-  background: var(--bg-tertiary);
-}
-
-.approval-dialog__btn:focus-visible {
-  outline: none;
-}
-
-.approval-dialog__btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: var(--space-half);
-  left: var(--space-1);
-  right: var(--space-1);
-  height: var(--space-1);
-  border-bottom: var(--border-medium) solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-/* Approve: solid primary-CTA pattern. Earlier design used --accent-bg + blue
- * text, which fell to ~4.3:1 contrast (below WCAG AA) and inverted the
- * usual UX where the CTA is the most prominent state at rest. */
-.approval-dialog__btn--approve {
-  border-color: var(--accent-primary);
-  background: var(--accent-primary);
-  color: var(--contrast-text);
-  font-weight: 600;
-}
-
-.approval-dialog__btn--approve:hover {
-  background: var(--accent-primary);
-  color: var(--contrast-text);
-  opacity: var(--opacity-mostly-opaque);
-}
-
-.approval-dialog__btn--deny {
-  color: var(--text-secondary);
-}
+/* The action buttons use the canonical `.vm-btn` primitive
+   (src/styles/button-shared.css). Approve is `.vm-btn--cta`, whose solid fill
+   carries the WCAG-AA reasoning that used to live here: an `--accent-bg` plus
+   blue text approve button measured ~4.3:1 and inverted the usual pattern where
+   the CTA is the most prominent control at rest. That decision now lives on the
+   primitive, so every dialog inherits it instead of re-deriving it. */

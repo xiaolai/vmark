@@ -181,7 +181,7 @@
 
 /* Night theme circle needs inner light ring for active state */
 .vmark-reader-theme-circle.theme-night.active {
-  box-shadow: inset 0 0 0 2px #5aa8ff, inset 0 0 0 3px rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 2px #58a6ff, inset 0 0 0 3px rgba(255, 255, 255, 0.3);
 }
 
 /* Select Dropdown */
@@ -286,7 +286,12 @@
   --text-color: #d6d9de;
   --text-secondary: #858585;
   --text-tertiary: #6b7078;
-  --primary-color: #5aa8ff;
+  /* Tracks night.color.accent.primary in src/theme/themes/night.ts. This block
+     is a hand-copy of the app's night theme and drifted to #5aa8ff — the
+     rgb(90,168,255) of the legacy --accent-bg lineage — against the catalogue's
+     rgb(88,166,255). See dev-docs/plans/20260815-design-system-remediation.md
+     Phase 3: this block should be GENERATED from the typed catalogue. */
+  --primary-color: #58a6ff;
   --border-color: #3a3f46;
   --bg-secondary: #2a2e34;
   --bg-tertiary: #32363d;
@@ -304,7 +309,7 @@
   /* Selection */
   --selection-color: rgba(79, 193, 255, 0.2);
   --accent-bg: rgba(90, 168, 255, 0.12);
-  --accent-primary: #5aa8ff;
+  --accent-primary: #58a6ff;
 
   /* Alerts */
   --alert-note: #58a6ff;

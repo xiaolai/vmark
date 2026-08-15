@@ -3,24 +3,34 @@
 VMark can host a real web browser **inside** a document window — a web page becomes a first-class tab alongside your markdown documents. It is a genuine native webview (macOS `WKWebView`), not an external Chrome window and not an embedded frame.
 
 ::: warning Experimental
-The embedded browser is an early, opt-in feature and is **macOS-only** in this build. Windows and Linux support comes later.
+The embedded browser is an early feature and is **macOS-only** in this build. Windows and Linux support comes later — on those platforms the settings below do not appear at all.
 :::
+
 
 ::: info Workspace rail
 With the experimental [workspace rail](/guide/workspace-rail) enabled, browser pages are **window-global**: they stay reachable from every workspace in the window and are never tied to a single workspace's tabs.
 :::
 
-## Enabling it
+## Turning it off
 
-The browser is off by default. To turn it on:
+The browser is **on by default** on macOS. **New Browser Tab** is in the **File**
+menu (`Alt + Mod + Shift + B`) and in the command palette — nothing needs
+enabling first.
 
-1. Open **Settings → Advanced**.
-2. Enable **Developer mode** (the switch at the top of the Advanced section).
-3. Under **Experimental**, turn on **Embedded browser**.
+To switch it off, go to **Settings → Advanced → macOS** and turn off
+**Embedded browser**. That also closes any open browser tabs and withdraws the
+AI automation surface described below.
 
-Once enabled, **New Browser Tab** appears in the command palette (open it with your command-palette shortcut and type "browser").
+Two AI posture settings sit directly under the toggle and appear only while it
+is on. Both ship conservative and are unchanged by the browser being enabled:
 
-Once enabled, **New Browser Tab** appears in the **File** menu (`Alt + Mod + Shift + B`) and in the command palette.
+| Setting | Default | Meaning |
+|---|---|---|
+| **AI session** | Sandbox | AI-driven pages get an isolated session rather than sharing your logged-in one |
+| **Allow loopback** | Off | AI navigation to `localhost` / private-network addresses is refused |
+
+Site permissions are not in Settings — they live in the browser sidebar, in the
+window that owns them.
 
 ## Using it
 
@@ -42,6 +52,14 @@ When a browser tab is active, the sidebar shows **browsing history** and **bookm
 **History** is per-window and lives only for the session: it is never written to disk. (There is still a **Clear** button — "it goes away when you quit" is not the same as "you can get rid of it now.") A reload does not add a duplicate entry, and a site that redirects you records the page you *meant* to visit rather than every hop along the way.
 
 **Bookmarks** do persist. They are stored under the exact URL you bookmarked — same page, different section (`#install` vs `#usage`) are two bookmarks, and VMark will not quietly "tidy" a URL's query parameters, because a rewritten URL may not take you back to what you saw.
+
+## The window goes neutral around a page
+
+VMark's themes are deliberately tinted — Paper is a warm grey, Mint and Sepia more so. That is pleasant to write in, and wrong to wrap around someone else's web page: a coloured frame shifts how you read every colour inside it, which is why no real browser tints its own chrome.
+
+So when a browser tab is focused, the surrounding window switches to a plain neutral — **white in a light theme, dark in a dark one** — and switches back the moment you return to a document. Your theme is unchanged; only what surrounds a web page is.
+
+**The terminal follows the same rule.** If you have a terminal open beside a browser tab, it takes the matching neutral rather than staying your theme's colour, so the two halves of the window agree instead of meeting at a visible seam. A dark theme gets a dark terminal, not a white one — the colours in a terminal are tuned against its background, and forcing white would make a dark theme's output hard to read.
 
 ### If a page crashes
 

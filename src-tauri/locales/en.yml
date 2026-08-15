@@ -224,6 +224,11 @@ errors:
   core.pathTraversal: "Path traversal (..) not allowed"
   core.pathNotAbsolute: "Path must be absolute"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "Trusted HTML preview content is too large (over %{limit} MB)"
+  trustedHtml.tooMany: "Too many trusted HTML previews are open (limit %{limit}). Revoke one and try again."
+  trustedHtml.budgetExhausted: "Too many trusted HTML previews are open to add another (limit %{limit} MB of content). Revoke one and try again."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "Path traversal not allowed in output path"
   pandoc.emptySourceDir: "source_dir cannot be empty"

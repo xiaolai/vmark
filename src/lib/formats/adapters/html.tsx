@@ -15,131 +15,111 @@
 // renders anything. WI-3.4 (security review) is the gating sign-off
 // before this adapter is considered production-ready; until then the
 // adapter ships in code but is marked UNVERIFIED in the file header.
+//
+// Issue #1273 adds an OPT-IN second mode on top of this one, reached only by
+// an explicit per-file confirmation. The default above is unchanged; see
+// HtmlPreview.tsx for the two-mode renderer and src-tauri/src/trusted_html/
+// for the isolated origin the trusted mode runs in.
 
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
 import type { Extension } from "@codemirror/state";
-import DOMPurify from "dompurify";
 import { registerFormat } from "../registry";
-import "./html-preview.css";
+import { HtmlPreview } from "./HtmlPreview";
 import type {
   FormatConfig,
-  PreviewRendererProps,
   ValidationDiagnostic,
   Validator,
 } from "../types";
 
-const SCRIPT_TAG_RE = /<script\b/i;
-const JS_URL_RE = /\b(href|src)\s*=\s*["']?\s*javascript:/i;
-const INLINE_HANDLER_RE = /\son[a-z]+\s*=/i;
+/**
+ * What the preview refuses to execute, and what to say about it.
+ *
+ * A table rather than three near-identical branches: they differed only by
+ * regex, message and rule id, so every change had to be made three times and
+ * a fourth rule meant a fourth copy.
+ *
+ * Messages are worded for BOTH modes — the default preview blocks these and
+ * trusted preview runs them, so a message naming only the sandbox is wrong for
+ * a document the user has authorized (#1273). They are also FALLBACKS: the
+ * gutter prefers `diagnostic.<ruleId>` from the locale bundles, so any wording
+ * change here has to be made there too or it is invisible.
+ */
+const HTML_RULES: readonly { ruleId: string; pattern: RegExp; message: string }[] = [
+  {
+    ruleId: "html/script-blocked",
+    pattern: /<script\b/gi,
+    message: "Script tag detected — blocked unless trusted preview is enabled.",
+  },
+  {
+    ruleId: "html/javascript-url",
+    // `[\s\S]` rather than `\s`: the whitespace between an attribute name and
+    // its value may include newlines, and a line-at-a-time scan missed those.
+    pattern: /\b(?:href|src)[\s]*=[\s]*["']?[\s]*javascript:/gi,
+    message:
+      "javascript: URL detected — blocked unless trusted preview is enabled.",
+  },
+  {
+    ruleId: "html/inline-handler",
+    pattern: /\son[a-z]+[\s]*=/gi,
+    message:
+      "Inline event handler detected — blocked unless trusted preview is enabled.",
+  },
+];
+
+/**
+ * Offset → 1-based line/column, over the whole source.
+ *
+ * The validator scans the complete document rather than line by line, because
+ * splitting first defeats every pattern that may span a newline and forces
+ * every column to be reported as 1. Line starts are computed once and binary
+ * searched, so the scan stays linear in the document rather than quadratic.
+ */
+function positionResolver(content: string) {
+  const lineStarts = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\n") lineStarts.push(i + 1);
+  }
+  return (offset: number) => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (lineStarts[mid] <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return { line: lo + 1, column: offset - lineStarts[lo] + 1 };
+  };
+}
 
 export const htmlValidator: Validator = (content) => {
   if (content.length === 0) return [];
-  const out: ValidationDiagnostic[] = [];
-  const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (SCRIPT_TAG_RE.test(line)) {
+  const at = positionResolver(content);
+  const out: (ValidationDiagnostic & { offset: number })[] = [];
+
+  for (const rule of HTML_RULES) {
+    // Fresh regex per scan: a module-level /g/ carries `lastIndex` between
+    // calls, so a shared one would skip matches on every second document.
+    const pattern = new RegExp(rule.pattern.source, rule.pattern.flags);
+    for (let m = pattern.exec(content); m !== null; m = pattern.exec(content)) {
+      const { line, column } = at(m.index);
       out.push({
         severity: "warning",
-        line: i + 1,
-        column: 1,
-        message:
-          "Script tag detected — sandboxed preview will block execution.",
-        ruleId: "html/script-blocked",
+        line,
+        column,
+        message: rule.message,
+        ruleId: rule.ruleId,
+        offset: m.index,
       });
-    }
-    if (JS_URL_RE.test(line)) {
-      out.push({
-        severity: "warning",
-        line: i + 1,
-        column: 1,
-        message: "javascript: URL detected — sandboxed preview will block.",
-        ruleId: "html/javascript-url",
-      });
-    }
-    if (INLINE_HANDLER_RE.test(line)) {
-      out.push({
-        severity: "warning",
-        line: i + 1,
-        column: 1,
-        message: "Inline event handler detected — sandboxed preview will block.",
-        ruleId: "html/inline-handler",
-      });
+      // A zero-length match would spin forever; none of the rules can produce
+      // one, but the guard costs nothing and the failure mode is a hang.
+      if (m.index === pattern.lastIndex) pattern.lastIndex++;
     }
   }
-  return out;
+
+  // Document order, so the gutter reads top to bottom rather than grouped by
+  // whichever rule happened to be listed first.
+  out.sort((a, b) => a.offset - b.offset);
+  return out.map(({ offset: _offset, ...diagnostic }) => diagnostic);
 };
-
-const CSP_META =
-  '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; font-src data:; base-uri \'none\';">';
-
-function buildSandboxedSrcdoc(content: string): string {
-  // DOMPurify defense-in-depth — strips script tags, javascript:
-  // URLs, inline event handlers, etc. before the iframe renders.
-  // The empty sandbox is the second line of defense; CSP <meta>
-  // restricts resource loading inside the iframe (third line).
-  const sanitized = DOMPurify.sanitize(content, {
-    WHOLE_DOCUMENT: true,
-    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|#|data:image\/):|[^a-z]|$)/i,
-  });
-  // If sanitization stripped <head> or doctype, re-inject the CSP
-  // meta inside any <head> we can find; otherwise prepend it.
-  if (/<head[\s>]/i.test(sanitized)) {
-    return sanitized.replace(/<head([\s>])/i, `<head$1${CSP_META}`);
-  }
-  return `<!doctype html><html><head>${CSP_META}</head><body>${sanitized}</body></html>`;
-}
-
-function HtmlSandboxPreview({ content, diagnostics }: PreviewRendererProps) {
-  const { t } = useTranslation("editor");
-  // React updates the iframe's srcDoc prop on every change — no
-  // imperative ref+effect duplicate needed. SplitPaneEditor re-renders
-  // on every keystroke, so the iframe rebuilds at typing rhythm. If
-  // perf becomes an issue, debounce `content` upstream rather than
-  // double-writing here.
-  const srcdoc = useMemo(() => buildSandboxedSrcdoc(content), [content]);
-
-  if (!content.trim()) {
-    return <div className="html-preview html-preview--empty" />;
-  }
-
-  return (
-    <div className="html-preview">
-      {/* Phase 3 ships the HTML adapter with iframe-sandbox +
-          DOMPurify defense-in-depth. The OWASP top-20 verification
-          (WI-3.4) is interactive and gates Phase 3 readiness for
-          rebrand. Surface the pending state so users know the
-          preview hasn't been signed off yet. */}
-      <div
-        className="html-preview__sign-off-pending"
-        role="status"
-        data-testid="html-preview-sign-off-pending"
-      >
-        {t("preview.signOffPending")}
-      </div>
-      {diagnostics.length > 0 && (
-        <div className="html-preview__hint" role="status">
-          {t("preview.errorAt", {
-            line: diagnostics[0].line,
-            column: diagnostics[0].column,
-          })}
-        </div>
-      )}
-      <iframe
-        // Empty sandbox: no scripts, no same-origin, no forms, no popups.
-        sandbox=""
-        title={t("preview.htmlIframeTitle")}
-        srcDoc={srcdoc}
-        className="html-preview__iframe"
-        // referrerPolicy is honored by the outer document; the iframe
-        // can't make network requests anyway because of the empty
-        // sandbox + CSP default-src 'none'.
-        referrerPolicy="no-referrer"
-      />
-    </div>
-  );
-}
 
 export const htmlFormat: FormatConfig = {
   id: "html",
@@ -151,7 +131,7 @@ export const htmlFormat: FormatConfig = {
     return html();
   },
   validator: htmlValidator,
-  genericPreview: HtmlSandboxPreview,
+  genericPreview: HtmlPreview,
   adapters: {
     saveDialogFilters: [{ nameI18nKey: "format.html", extensions: ["html", "htm"] }],
     untitledExtension: "html",

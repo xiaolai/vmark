@@ -1,11 +1,10 @@
 import { defineConfig } from "vite";
+import { sourceAliases } from "./vitest.shared.ts";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import path from "path";
 import { readFileSync } from "node:fs";
-import { manualChunks } from "./scripts/manualChunks";
+import { manualChunks } from "./scripts/manualChunks.ts";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 const pkg = JSON.parse(
@@ -13,7 +12,7 @@ const pkg = JSON.parse(
 ) as { version: string };
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
 
   define: {
@@ -21,10 +20,7 @@ export default defineConfig(async () => ({
   },
 
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@shared": path.resolve(__dirname, "./src/shared"),
-    },
+    alias: sourceAliases(import.meta.dirname),
   },
 
   // Pre-bundle heavy dependencies to speed up dev server startup
@@ -125,7 +121,7 @@ export default defineConfig(async () => ({
         // (the exclude matches both cases), and pinning the page in
         // manualChunks drags its transitive deps in (2.8 MB), so rename the
         // EMITTED FILE only — chunk membership is untouched.
-        chunkFileNames: (chunk) =>
+        chunkFileNames: (chunk: { name: string }) =>
           chunk.name === "Settings"
             ? "assets/SettingsPage-[hash].js"
             : "assets/[name]-[hash].js",

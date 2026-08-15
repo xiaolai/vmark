@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "경로 탐색(..)은 허용되지 않습니다"
   core.pathNotAbsolute: "경로는 절대 경로여야 합니다"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "신뢰된 HTML 미리 보기 내용이 너무 큽니다 (%{limit}MB 초과)"
+  trustedHtml.tooMany: "신뢰된 HTML 미리 보기가 너무 많습니다 (최대 %{limit}개). 하나를 취소한 후 다시 시도하세요."
+  trustedHtml.budgetExhausted: "신뢰된 HTML 미리 보기의 총 용량이 한도에 도달했습니다 (최대 %{limit}MB). 하나를 취소한 후 다시 시도하세요."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "출력 경로에 경로 탐색이 허용되지 않습니다"
   pandoc.emptySourceDir: "source_dir은 비워둘 수 없습니다"

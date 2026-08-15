@@ -355,9 +355,11 @@ The **mutating** half of the embedded browser surface — everything that change
 the tab, or a stored login. Read the page first with [`browser_read`](#browser-read):
 every targeting mode here refers to what a read returned.
 
-The browser tools are available only when **Settings → Advanced → Embedded browser** is
-enabled. Every action fails with `BROWSER_DISABLED` while it is off. URLs returned to
-MCP are redacted through the same boundary used by the app's browser session state.
+The browser tools follow **Settings → Advanced → macOS → Embedded browser**, which is
+**on by default** on macOS — so these tools are available to a connected AI client
+unless you turn it off. Every action fails with `BROWSER_DISABLED` while it is off.
+URLs returned to MCP are redacted through the same boundary used by the app's browser
+session state.
 
 Annotated `readOnlyHint: false, destructiveHint: true` — accurate rather than merely
 conservative, because every action here mutates something.
