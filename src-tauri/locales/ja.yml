@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "パストラバーサル（..）は許可されていません"
   core.pathNotAbsolute: "パスは絶対パスである必要があります"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "信頼済み HTML プレビューの内容が大きすぎます（%{limit} MB 超）"
+  trustedHtml.tooMany: "信頼済み HTML プレビューの数が上限に達しています（上限 %{limit}）。いずれかを取り消してからやり直してください。"
+  trustedHtml.budgetExhausted: "信頼済み HTML プレビューの合計サイズが上限に達しています（上限 %{limit} MB）。いずれかを取り消してからやり直してください。"
+
   # === Pandoc export ===
   pandoc.pathTraversal: "出力パスにパストラバーサルは使用できません"
   pandoc.emptySourceDir: "source_dir は空にできません"

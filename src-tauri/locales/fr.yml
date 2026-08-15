@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "Traversée de chemin (..) non autorisée"
   core.pathNotAbsolute: "Le chemin doit être absolu"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "Le contenu de l’aperçu HTML approuvé est trop volumineux (plus de %{limit} Mo)"
+  trustedHtml.tooMany: "Trop d’aperçus HTML approuvés sont ouverts (limite : %{limit}). Révoquez-en un puis réessayez."
+  trustedHtml.budgetExhausted: "Trop d’aperçus HTML approuvés sont ouverts pour en ajouter un autre (limite : %{limit} Mo de contenu). Révoquez-en un puis réessayez."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "Traversée de chemin non autorisée dans le chemin de sortie"
   pandoc.emptySourceDir: "source_dir ne peut pas être vide"

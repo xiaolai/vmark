@@ -143,6 +143,9 @@ macro_rules! all_commands {
             app_setup::window_close_log,
             app_setup::update_log,
             temp_html::write_temp_html,
+            trusted_html::commands::trusted_html_grant,
+            trusted_html::commands::trusted_html_publish,
+            trusted_html::commands::trusted_html_revoke,
             file_write::atomic_write_file,
             webview_edit::trigger_webview_edit,
             #[cfg(debug_assertions)]

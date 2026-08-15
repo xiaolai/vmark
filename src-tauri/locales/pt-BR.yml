@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "Travessia de caminho (..) não permitida"
   core.pathNotAbsolute: "O caminho precisa ser absoluto"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "O conteúdo da pré-visualização HTML confiável é muito grande (acima de %{limit} MB)"
+  trustedHtml.tooMany: "Há pré-visualizações HTML confiáveis demais abertas (limite: %{limit}). Revogue uma e tente novamente."
+  trustedHtml.budgetExhausted: "Há pré-visualizações HTML confiáveis demais abertas para adicionar outra (limite: %{limit} MB de conteúdo). Revogue uma e tente novamente."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "Travessia de caminho não permitida no caminho de saída"
   pandoc.emptySourceDir: "source_dir não pode estar vazio"

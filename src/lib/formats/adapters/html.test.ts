@@ -85,5 +85,58 @@ describe("html adapter", () => {
       );
       expect(diags.length).toBeGreaterThanOrEqual(3);
     });
+
+    // The validator used to split into lines and match each one, which threw
+    // away two things: any construct spanning a newline, and the column of
+    // every match (all were reported as 1).
+
+    it("reports the real column, not 1", () => {
+      const [diag] = htmlValidator('<p>hi</p><script>x</script>');
+      expect(diag.ruleId).toBe("html/script-blocked");
+      expect(diag.column).toBe(10);
+    });
+
+    it("reports the real line", () => {
+      const [diag] = htmlValidator("<p>a</p>\n<p>b</p>\n<script>x</script>");
+      expect(diag.line).toBe(3);
+      expect(diag.column).toBe(1);
+    });
+
+    it("finds a javascript: URL whose attribute spans a newline", () => {
+      const diags = htmlValidator('<a href =\n  "javascript:alert(1)">x</a>');
+      expect(diags.map((d) => d.ruleId)).toContain("html/javascript-url");
+    });
+
+    it("finds an inline handler whose attribute spans a newline", () => {
+      const diags = htmlValidator('<button\n  onclick = "evil()">x</button>');
+      expect(diags.map((d) => d.ruleId)).toContain("html/inline-handler");
+    });
+
+    it("reports every occurrence, not just the first per line", () => {
+      const diags = htmlValidator("<script>a</script><script>b</script>");
+      expect(diags.filter((d) => d.ruleId === "html/script-blocked")).toHaveLength(2);
+    });
+
+    it("orders diagnostics by position in the document", () => {
+      const diags = htmlValidator('<b onclick="x">y</b>\n<script>z</script>');
+      expect(diags[0].ruleId).toBe("html/inline-handler");
+      expect(diags[0].line).toBe(1);
+      expect(diags[1].ruleId).toBe("html/script-blocked");
+      expect(diags[1].line).toBe(2);
+    });
+
+    it("handles CRLF line endings", () => {
+      const [diag] = htmlValidator("<p>a</p>\r\n<script>x</script>");
+      expect(diag.line).toBe(2);
+      expect(diag.column).toBe(1);
+    });
+
+    // Columns are UTF-16 code units, matching CodeMirror's own positions —
+    // a BMP CJK character is one unit, so `<p>` + 6 chars + `</p>` puts the
+    // script tag at column 14.
+    it("counts a CJK character as one column", () => {
+      const [diag] = htmlValidator('<p>用普通温度计</p><script>x</script>');
+      expect(diag.column).toBe(14);
+    });
   });
 });

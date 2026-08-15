@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "No se permite el recorrido de rutas (..)"
   core.pathNotAbsolute: "La ruta debe ser absoluta"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "El contenido de la vista previa HTML de confianza es demasiado grande (más de %{limit} MB)"
+  trustedHtml.tooMany: "Hay demasiadas vistas previas HTML de confianza abiertas (límite: %{limit}). Revoca una e inténtalo de nuevo."
+  trustedHtml.budgetExhausted: "Hay demasiadas vistas previas HTML de confianza abiertas para añadir otra (límite: %{limit} MB de contenido). Revoca una e inténtalo de nuevo."
+
   # === Pandoc export ===
   pandoc.pathTraversal: "No se permite el recorrido de rutas en la ruta de salida"
   pandoc.emptySourceDir: "source_dir no puede estar vacío"

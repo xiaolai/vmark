@@ -149,7 +149,24 @@ pub(crate) fn handle_document_window_close_event(
     // left that could reach them. The native side does not have that problem, so it does
     // the job here.
     if let tauri::WindowEvent::Destroyed = event {
-        crate::browser::teardown::destroy_window(&window.app_handle().clone(), window.label());
+        let app = window.app_handle().clone();
+        crate::browser::teardown::destroy_window(&app, window.label());
+
+        // Trusted-HTML grants owned by this window die with it (#1273). Same
+        // reasoning as the browser teardown above: the frontend's own cleanup
+        // races the webview it runs in, so the native side does it. Scoped to
+        // this label — a process-global sweep here would revoke every other
+        // window's trusted previews.
+        if let Some(trusted) = app.try_state::<crate::trusted_html::TrustedHtmlState>() {
+            let revoked = trusted.revoke_window(window.label());
+            if revoked > 0 {
+                log::info!(
+                    "[Tauri] revoked {} trusted-HTML grant(s) for window '{}'",
+                    revoked,
+                    window.label()
+                );
+            }
+        }
     }
 }
 

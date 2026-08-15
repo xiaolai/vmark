@@ -30,7 +30,7 @@ On the first launch after upgrading to multi-format support, VMark surfaces a on
 | Data — TOML | `.toml` | requires **Data formats** toggle | source + tree | navigable tree, schema-aware (`Cargo.toml`, `pyproject.toml`) |
 | Diagrams | `.mmd` | requires **Diagrams & SVG** toggle | source + render | live Mermaid diagram |
 | Vector | `.svg` | requires **Diagrams & SVG** toggle | source + render | sanitized inline render |
-| Web | `.html`, `.htm` | requires **HTML preview** toggle | source + render | sandboxed iframe (empty `sandbox=""`, DOMPurify, CSP) |
+| Web | `.html`, `.htm` | requires **HTML preview** toggle | source + render | sandboxed iframe (empty `sandbox=""`, DOMPurify, CSP); [trusted mode](#trusted-html-preview-opt-in) is opt-in per file |
 | Code (read-only) | `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua` | requires **Code viewers** toggle | viewer (toggle to edit) | — |
 | Media | images (`.png`, `.jpg`, `.gif`, `.webp`, `.heic`, `.tiff`, …), video (`.mp4`, `.webm`, `.mov`, …), audio (`.mp3`, `.wav`, `.flac`, …) | always on | viewer (read-only) | native image / `<video>` / `<audio>` |
 
@@ -115,7 +115,7 @@ Opens with a Python dependency tree — both PEP 621 (`[project]` + `[project.op
 
 - **Markdown** ships the full toolbar, paragraph formatting, CJK rules, math, mermaid, footnotes — every existing markdown feature.
 - **Data formats** (JSON, YAML, TOML) ship in the source pane with parse-error gutter markers; the tree preview updates as you type. Markdown-only menu actions are disabled (CJK formatting, insert-block, paragraph formatting); mode-relevant controls remain active. The right-click context menu is reduced to clipboard actions (Cut/Copy/Paste/Select All).
-- **Visual formats** (Mermaid, SVG, HTML) ship in the source pane with the rendered view in the right pane (debounced).
+- **Visual formats** (Mermaid, SVG, HTML) ship in the source pane with the rendered view in the right pane. The preview renders at lower priority than your typing, so on a large document it catches up a beat behind the caret rather than re-rendering on every keystroke.
 - **Code formats** open as syntax-highlighted viewers; toggle to edit in place or open in your external editor (see below).
 
 ## How VMark decides a file's type
@@ -161,6 +161,52 @@ Per ADR-4 in the multi-format plan, HTML preview rests on three independent laye
 
 The validator surfaces script tags, `javascript:` URLs, and inline event handlers as warnings so you can see what's being blocked.
 
+### Trusted HTML preview (opt-in)
+
+The safe preview above is the default and never changes. For a document you
+wrote yourself — an interactive lab, a local dashboard, a self-contained demo —
+you can authorize script execution for **that one file, for this session**.
+
+Use **Enable trusted preview…** in the bar above the preview. You get a warning
+first; nothing runs until you confirm. While it is active the bar stays visible
+and says **Trusted — scripts enabled**, and **Revoke trust** is one click away.
+
+What trusted mode grants, and what it does not:
+
+| | Trusted preview |
+|---|---|
+| JavaScript, DOM, pointer events, `requestAnimationFrame`, Web Audio | ✅ runs |
+| Network (`fetch`, `XMLHttpRequest`, WebSocket, remote images/scripts) | ❌ blocked by `default-src 'none'` |
+| VMark's own page, Tauri commands, your filesystem | ❌ unreachable — the document runs in an opaque origin of its own |
+| Top-level navigation, popups, form submission, downloads, modals | ❌ not granted (`sandbox="allow-scripts"` and nothing else) |
+| Camera, microphone, geolocation, clipboard | ❌ no feature is delegated to the frame |
+| `localStorage` / `sessionStorage` | ❌ unavailable — an opaque origin has no same-origin storage |
+| `eval` / `new Function` | ❌ not permitted |
+
+Three properties worth knowing:
+
+- **Trust is never inferred.** Not from the `.html` extension, not from where
+  the file came from, not from a sibling file you already trusted. Only the
+  confirmation grants it.
+- **Trust is never persisted.** Close VMark and every grant is gone. It is also
+  unavailable for an unsaved document, which has no identity to attach a grant
+  to — save the file first.
+- **A trusted preview never re-runs itself.** Editing the source marks it
+  *Source changed* and waits for **Reload**, so a running simulation is not
+  reset by every keystroke.
+
+::: warning macOS and Linux only
+Trusted preview is unavailable on Windows in this build. Tauri exposes a custom
+protocol under a different URL form there, which this feature does not yet
+handle. The safe preview works on every platform.
+:::
+
+Trusted content is served from a `vmark-trusted://` origin with its own
+restrictive CSP. That indirection is required rather than decorative: a
+`srcdoc`, `blob:` or `data:` frame inherits VMark's own `script-src 'self'`
+policy, and a CSP inside the frame can only tighten an inherited one, never
+relax it — so no iframe attribute alone can make an inline script run.
+
 ## Open in external editor
 
 For code files, the read-only banner's **Open in external editor** button launches your editor of choice. Resolution order:
@@ -192,7 +238,8 @@ Per the plan's non-goals:
 
 - **Not a code editor.** No LSP, no autocomplete, no refactoring, no debugger, no git gutters.
 - **Not "every plain-text format."** Bounded scope — see the table above.
-- **No HTML script execution.** Sandboxed render only.
+- **No HTML script execution by default.** Sandboxed render only, unless you
+  explicitly authorize one file via [Trusted HTML preview](#trusted-html-preview-opt-in).
 - **No print / export / copy-as-HTML for non-markdown formats** in v1.
 - **Not yet supported as code viewers**: Zig, Swift, Kotlin, Java, Elixir, OCaml, and other languages outside the 12-extension set. The decision rule is "languages we ourselves use" — file an issue if you'd like one added.
 

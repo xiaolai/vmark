@@ -53,6 +53,7 @@ mod supported_files;
 mod tab_transfer;
 mod task;
 mod temp_html;
+mod trusted_html; // #1273 opt-in origin-isolated execution for standalone HTML
 mod watcher;
 mod webview_edit;
 mod window_manager;
@@ -159,6 +160,26 @@ pub fn run() {
         .manage(content_server::ContentServerManager::new())
         .manage(browser::surface::BrowserSurface::default())
         .manage(window_status::WindowStatusRegistry::default())
+        // #1273: documents the user explicitly authorized to execute. Memory
+        // only — a grant never survives the process.
+        .manage(trusted_html::TrustedHtmlState::default())
+        // Serves those grants under their OWN CSP. A srcdoc/blob/data frame
+        // inherits the app's `script-src 'self'` and can never run a script,
+        // so trusted content needs an origin of its own.
+        .register_uri_scheme_protocol(trusted_html::protocol::SCHEME, |ctx, request| {
+            use tauri::Manager;
+            // try_state, not state: this runs on the webview's protocol thread,
+            // where a panic takes the app down. A missing registry should be
+            // impossible — it is managed two lines above — and if it ever
+            // happens, a 404 is the fail-closed answer.
+            match ctx
+                .app_handle()
+                .try_state::<trusted_html::TrustedHtmlState>()
+            {
+                Some(state) => trusted_html::protocol::handle(&state, &request),
+                None => trusted_html::protocol::refuse(),
+            }
+        })
         .invoke_handler(crate::all_commands!())
         .setup(app_setup::setup_app)
         .on_menu_event(menu_events::handle_menu_event)

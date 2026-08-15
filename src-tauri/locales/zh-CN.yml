@@ -223,6 +223,11 @@ errors:
   core.pathTraversal: "不允许使用路径穿越（..）"
   core.pathNotAbsolute: "路径必须是绝对路径"
 
+  # === Trusted HTML preview (trusted_html/state.rs) ===
+  trustedHtml.tooLarge: "受信任的 HTML 预览内容过大（超过 %{limit} MB）"
+  trustedHtml.tooMany: "打开的受信任 HTML 预览过多（上限 %{limit} 个）。请先撤销一个再试。"
+  trustedHtml.budgetExhausted: "已打开的受信任 HTML 预览内容总量达到上限（上限 %{limit} MB）。请先撤销一个再试。"
+
   # === Pandoc export ===
   pandoc.pathTraversal: "输出路径中不允许路径穿越"
   pandoc.emptySourceDir: "source_dir 不能为空"
