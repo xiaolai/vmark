@@ -142,7 +142,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
         /editor\.css$/,          // Syntax highlighting (GitHub theme)
         /printStyles\.css$/,     // Print overrides (forces light theme)
         /exportStyles\.css$/,    // Export embeds standalone colors
-        /vmark-reader\.css$/,    // Export reader bundle defines its own tokens
         /hljs-syntax\.css$/,     // Syntax-highlight palette (GitHub theme)
         /source-syntax\.css$/,   // Syntax-highlight palette (CodeMirror)
         /styles\/syntax-palette\.css$/, // Shared syntax palette (source + data trees)
