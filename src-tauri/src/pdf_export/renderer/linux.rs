@@ -212,24 +212,47 @@ fn start_print(
         .build()
         .map_err(|e| window_error(&e.to_string()))?;
 
+    let app_cb = app.clone();
+    let label_cb = label.clone();
+
     window
         .with_webview(move |pw| {
             let view = pw.inner();
+
+            // A failed load still reaches `Finished`, so without this the
+            // dialog would come up over WebKit's error page and print it.
+            let sink_fail = sink.clone();
+            let app_fail = app_cb.clone();
+            let label_fail = label_cb.clone();
+            view.connect_load_failed(move |_, _, _, _| {
+                sink_fail.settle(Err(localized_error!(
+                    ErrorCode::Io,
+                    "errors.pdf.loadFailed"
+                )));
+                close(&app_fail, &label_fail);
+                true // handled — suppress WebKit's own error page
+            });
+
             let sink_load = sink.clone();
+            let app_load = app_cb.clone();
+            let label_load = label_cb.clone();
             view.connect_load_changed(move |view, event| {
                 if event != webkit2gtk::LoadEvent::Finished {
                     return;
                 }
                 let op = PrintOperation::new(view);
-                // No parent window: the operation owns its own dialog, and
-                // passing the render window would tie the dialog's lifetime to
-                // a window the user may close underneath it.
+                // No parent window: passing the render window would tie the
+                // dialog's lifetime to a window the user may close under it.
                 // Turbofish: `None` alone is ambiguous — the parameter is
-                // generic over `IsA<gtk::Window>` and there is nothing to
-                // infer from.
+                // generic over `IsA<gtk::Window>` with nothing to infer from.
                 op.run_dialog(None::<&gtk::Window>);
+                // `run_dialog` returns once the user has responded, so unlike
+                // Windows' asynchronous ShowPrintUI this path CAN tear its own
+                // window down rather than stranding it.
                 sink_load.settle(Ok(()));
+                close(&app_load, &label_load);
             });
+
             view.load_uri(&file_url);
         })
         .map_err(|e| window_error(&e.to_string()))?;
