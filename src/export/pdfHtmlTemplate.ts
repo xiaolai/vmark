@@ -209,14 +209,42 @@ function buildFitCSS(options: PdfOptions): string {
   const landscape = options.orientation === "landscape";
   const heightPt = landscape ? paper.width : paper.height;
   const heightMm = (heightPt * 25.4) / 72;
-  // Leave a little room: a block sitting exactly at the content height still
-  // pushes to a second page once its own margin is added.
+  // The bound applies to the IMAGE, but what has to fit on the page is the
+  // image PLUS its wrapper's margin. Editor blocks carry a bottom margin of
+  // `--editor-block-spacing`, an em value the export cannot convert to
+  // millimetres — so the wrapper is given an explicit margin here and exactly
+  // that much is subtracted. Measured before this: the figure rendered 249.9mm
+  // against a 246.2mm content area, over by precisely the margin it added, so
+  // it could never fit on any page however tight the image bound was.
+  const WRAPPER_MM = 3;
+  // What decides whether a figure survives is that a replaced element is
+  // ATOMIC: if it FITS it relocates to the next page whole, with or without a
+  // break-inside rule (measured — an isolated probe had no such rule and still
+  // moved it). If it fits nowhere, it must be split.
+  //
+  // KNOWN LIMIT: this bound is honoured by Chromium and by WebKit ON SCREEN,
+  // but NOT by WebKit's print pipeline in a full export — measured, a tall
+  // figure rendered ~480mm there against a 220mm bound, while the same CSS
+  // computed to exactly 220mm in a live WebKit iframe and bound correctly in a
+  // minimal print probe. The mechanism is not identified, and no print-media
+  // rule, competing max-height or brace imbalance explains it. So tall images
+  // still straddle a page break on macOS and Linux. Do not add a fudge factor
+  // to paper over it: a 0.92 multiplier was tried, changed the WebKit output
+  // not at all, and cost Chromium 8% of every tall image for nothing.
   const usableMm = Math.max(
     20,
-    heightMm - options.marginTop - options.marginBottom - 4,
+    heightMm - options.marginTop - options.marginBottom - WRAPPER_MM - 4,
   );
 
   return `
+figure,
+.block-image,
+.code-block-preview {
+  margin-top: 0;
+  margin-bottom: ${WRAPPER_MM}mm;
+  max-height: ${(usableMm + WRAPPER_MM).toFixed(2)}mm;
+}
+
 img,
 svg,
 .block-image img,

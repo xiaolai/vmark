@@ -163,16 +163,56 @@ describe("pdfHtmlTemplate buildPdfExportHtml — typography scaling", () => {
  * reader never sees it whole. These bound it to the printable height instead.
  */
 describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () => {
+  /** All emitted bounds, in source order: [wrapper, image]. */
+  function bounds(html: string): number[] {
+    const all = [...html.matchAll(/max-height:\s*([\d.]+)mm/g)].map((m) =>
+      Number.parseFloat(m[1]!),
+    );
+    if (all.length < 2) throw new Error(`expected wrapper + image bounds, got ${all.length}`);
+    return all;
+  }
+  /** The IMAGE bound — the smaller one, and the one that must leave room. */
   function maxHeightMm(html: string): number {
-    const m = html.match(/max-height:\s*([\d.]+)mm/);
-    if (!m) throw new Error("no max-height rule emitted");
-    return Number.parseFloat(m[1]!);
+    return Math.min(...bounds(html));
   }
 
   it("bounds images to the printable height, not the paper height", () => {
-    // A4 is 297mm tall; 25.4mm margins leave ~246mm, minus a 4mm allowance.
+    // A4 is 297mm tall; 25.4mm margins leave 246.2mm, minus the wrapper's own
+    // margin and a small allowance.
     const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
-    expect(maxHeightMm(html)).toBeCloseTo(297 - 25.4 - 25.4 - 4, 0);
+    expect(maxHeightMm(html)).toBeCloseTo(297 - 25.4 - 25.4 - 3 - 4, 1);
+  });
+
+  /**
+   * The invariant that actually decides whether a figure can EVER fit: what
+   * must land on the page is the image PLUS its wrapper's margin. Bounding only
+   * the image left the block 3.7mm over the content area, so it straddled two
+   * pages on WebKit no matter how the bound was written.
+   */
+  it("leaves room for the wrapper, so image + margin fits the content area", () => {
+    // Only the four sizes PdfOptions actually accepts. An invalid one falls
+    // back to A4 silently, which would make this assertion pass for the wrong
+    // reason — it did, on a first draft that used "a5".
+    const MM: Record<string, [number, number]> = {
+      a4: [210, 297],
+      letter: [215.9, 279.4],
+      a3: [297, 420],
+      legal: [215.9, 355.6],
+    };
+    for (const pageSize of Object.keys(MM)) {
+      for (const orientation of ["portrait", "landscape"]) {
+        for (const margin of [25.4, 10]) {
+          const opts = baseOptions({
+            pageSize, orientation, marginTop: margin, marginBottom: margin,
+          } as Partial<PdfOptions>);
+          const html = buildPdfExportHtml("<p>x</p>", "", "", opts, false);
+          const [shortMm, longMm] = MM[pageSize]!;
+          const heightMm = orientation === "landscape" ? shortMm : longMm;
+          const contentMm = heightMm - margin - margin;
+          expect(maxHeightMm(html) + 3).toBeLessThanOrEqual(contentMm + 0.01);
+        }
+      }
+    }
   });
 
   it("shrinks the bound when margins grow", () => {
@@ -189,7 +229,7 @@ describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () 
       buildPdfExportHtml("<p>x</p>", "", "", baseOptions({ orientation: "landscape" }), false),
     );
     expect(landscape).toBeLessThan(portrait);
-    expect(landscape).toBeCloseTo(210 - 25.4 - 25.4 - 4, 0);
+    expect(landscape).toBeCloseTo(210 - 25.4 - 25.4 - 3 - 4, 1);
   });
 
   it("never emits a negative or absurdly small bound", () => {
