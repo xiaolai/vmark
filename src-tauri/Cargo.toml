@@ -126,8 +126,12 @@ objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFOutline", "PDF
 objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] }
 
 # RW-16 (L8): Windows Credential Manager backend (best-effort platform).
-# The PDF smoke harness is a BIN, not an example, and gated behind a feature so
-# it is never part of a normal build or bundle.
+# The PDF smoke harness lives in src/bin/ and is gated behind a feature, so it
+# is never part of a normal build or bundle.
+#
+# It is not in examples/: a file there is auto-discovered as an `example`
+# target, and declaring it as a bin too made cargo build it twice and warn
+# about one file in multiple targets.
 #
 # It has to be a bin: as an `--example` it links but dies at startup on Windows
 # with STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) — the same code this file
@@ -137,7 +141,6 @@ objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] 
 # resolve an import. The shipped bin has always worked, which is the clue.
 [[bin]]
 name = "pdf_smoke"
-path = "examples/pdf_smoke.rs"
 required-features = ["pdf-smoke"]
 
 [features]

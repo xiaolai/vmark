@@ -8,7 +8,7 @@
 //! where it links. Only a genuine event loop exercises the code that ships.
 //!
 //! Run:
-//!   cargo run --example pdf_smoke -- <out-dir>
+//!   cargo run --bin pdf_smoke --features pdf-smoke -- <out-dir>
 //!
 //! It exits non-zero on the first failure and prints one `SMOKE ...` line per
 //! case, so a caller can assert on the transcript rather than on a exit code
@@ -33,7 +33,7 @@
 //! - `concurrent` — 2 at once do not collide on a window label.
 //!
 //! @coordinates-with pdf_export/renderer — the code under test
-//! @module examples/pdf_smoke
+//! @module bin/pdf_smoke
 
 use std::path::{Path, PathBuf};
 
