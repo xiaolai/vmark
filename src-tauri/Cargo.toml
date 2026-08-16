@@ -128,6 +128,16 @@ objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] 
 # RW-16 (L8): Windows Credential Manager backend (best-effort platform).
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# WI-PDF2.1: PDF export via ICoreWebView2_7::PrintToPdf.
+#
+# These are already in the tree through wry, but a transitive crate cannot be
+# imported — and the versions must match wry's EXACTLY. A different major here
+# makes ICoreWebView2* a distinct Rust type, so `cast()` stops compiling
+# against the controller Tauri hands us. Verified with
+# `cargo tree --target x86_64-pc-windows-msvc`; re-check on any wry bump.
+webview2-com = "=0.38.2"
+windows-core = "=0.61.2"
+windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
 
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]

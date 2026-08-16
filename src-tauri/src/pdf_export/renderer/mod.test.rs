@@ -13,7 +13,15 @@ fn sink_with_temp() -> (
     oneshot::Receiver<Result<(), CommandError>>,
 ) {
     let dir = std::env::temp_dir();
-    let path = dir.join(format!("vmark-sink-test-{}.html", std::process::id()));
+    // A UNIQUE path per call. Keying on `process::id()` alone gave all four
+    // tests ONE path: each passed alone and they raced when run together,
+    // because one test's settle/Drop removed the file another had just
+    // written. Passing-in-isolation is the worst way for a test to be wrong.
+    let path = dir.join(format!(
+        "vmark-sink-test-{}-{}.html",
+        std::process::id(),
+        uuid::Uuid::new_v4().simple()
+    ));
     std::fs::write(&path, b"<p>x</p>").expect("write temp");
     let (tx, rx) = oneshot::channel();
     (RenderSink::new(tx, path.clone()), path, rx)
