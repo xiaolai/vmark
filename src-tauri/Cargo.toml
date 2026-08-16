@@ -5,6 +5,13 @@ description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
 edition = "2021"
+# Required since `pdf_smoke` was added: a second [[bin]] makes bare `cargo run`
+# ambiguous, and `tauri dev` runs exactly that — so without this, `pnpm
+# tauri:dev` dies with "could not determine which binary to run" before the app
+# ever starts. `required-features` does NOT exempt a binary from that count.
+# No frontend gate can see this: `pnpm check:all` never invokes cargo, and the
+# cross-target check runs `clippy`, not `run`.
+default-run = "vmark"
 
 [lib]
 name = "vmark_lib"
