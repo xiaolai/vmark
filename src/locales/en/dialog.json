@@ -108,8 +108,6 @@
   "toast.exportHtmlResourceWarning_other": "{{count}} resources could not be included",
   "toast.exportImageWarning_one": "1 image could not be embedded and is missing from the output",
   "toast.exportImageWarning_other": "{{count}} images could not be embedded and are missing from the output",
-  "toast.printRequiresMac": "Print requires macOS.",
-  "toast.nativePdfRequiresMac": "Native PDF export requires macOS. Use Print instead.",
   "toast.failedToPreparePdf": "Failed to prepare PDF export",
   "toast.noEditorContentToPrint": "No editor content to print",
   "toast.failedToOpenPrintDialog": "Failed to open print dialog",

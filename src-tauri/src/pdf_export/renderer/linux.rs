@@ -173,7 +173,11 @@ fn path_to_file_url(path: &str) -> Result<String, CommandError> {
     url::Url::from_file_path(path)
         .map(|u| u.to_string())
         .map_err(|()| {
-            localized_error!(ErrorCode::InvalidInput, "errors.pdf.badTempPath", path = path)
+            localized_error!(
+                ErrorCode::InvalidInput,
+                "errors.pdf.badTempPath",
+                path = path
+            )
         })
 }
 
@@ -193,7 +197,11 @@ pub(super) fn print_on_main_thread(
     }
 }
 
-fn start_print(app: &AppHandle, html_path: &str, sink: Arc<RenderSink>) -> Result<(), CommandError> {
+fn start_print(
+    app: &AppHandle,
+    html_path: &str,
+    sink: Arc<RenderSink>,
+) -> Result<(), CommandError> {
     let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
     let file_url = path_to_file_url(html_path)?;
     let blank = "about:blank".parse().expect("about:blank parses");

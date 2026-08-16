@@ -192,6 +192,32 @@ Notes worth keeping:
   is progress to report. Annotated so the attribute goes inert — rather than
   wrong — once WI-PDF2.1 calls them.
 
+### WI-PDF4.1 — print dialogs / WI-PDF5.1 — ungating
+
+**Status:** DONE — 2026-08-16
+**Changed:** `renderer/{mod.rs,macos_ops.rs,windows.rs,linux.rs}`,
+`menu/localized/{file_menu.rs,export_menu.rs}`,
+`src/export/useExportOperations.ts`, `capabilities/pdf-export.json`,
+`website/guide/export.md`, ten `src/locales/*/dialog.json`
+**Verified:** clippy `-D warnings`, `cargo test --lib` 2159, cross-target,
+`pnpm vitest run src/export` 403, `pnpm lint:i18n`, website build — all green
+
+Print now exists on all three: `ShowPrintUI` on Windows,
+`webkit_print_operation_run_dialog` on Linux. All three settle once the dialog
+is SHOWN — none can report what the user then does with it, which has always
+been the documented contract on macOS.
+
+**Everything Codex flagged in the first review is closed:**
+- Both frontend guards removed — `useExportOperations.ts` no longer bails with
+  a "requires Mac" toast in either path.
+- **Both** menu gates removed. `file_menu.rs` hid Print separately from
+  `export_menu.rs`; ungating only the latter would have recreated #929, which
+  is exactly how #929 was closed in the first place.
+- `opener:allow-open-path` granted. `PdfExportDialog.tsx` has been calling
+  `openPath()` without it and swallowing the failure — a live shipped bug,
+  found by review rather than by a user.
+- The two now-dead toast strings deleted from all ten locales.
+
 ### WI-PDF3.1 — Linux renderer
 
 **Status:** DONE — 2026-08-16

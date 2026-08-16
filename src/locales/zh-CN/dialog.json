@@ -86,8 +86,6 @@
   "toast.exportHtmlResourceWarning_other": "{{count}} 个资源无法包含",
   "toast.exportImageWarning_one": "1 张图片无法嵌入，输出中将缺失",
   "toast.exportImageWarning_other": "{{count}} 张图片无法嵌入，输出中将缺失",
-  "toast.printRequiresMac": "打印需要 macOS。",
-  "toast.nativePdfRequiresMac": "原生 PDF 导出需要 macOS。请改用打印。",
   "toast.failedToPreparePdf": "无法准备 PDF 导出",
   "toast.noEditorContentToPrint": "没有要打印的编辑器内容",
   "toast.failedToOpenPrintDialog": "无法打开打印对话框",

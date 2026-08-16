@@ -44,8 +44,29 @@ All images are embedded as data URIs, making it completely portable but larger i
 
 ### Print / Export PDF
 
-1. Press `Cmd/Ctrl + P` or use **File → Print**
-2. Use the system print dialog to print or save as PDF
+Available on macOS, Windows and Linux.
+
+**Export PDF** (**File → Export → PDF**) writes a PDF directly, using the page
+size, orientation, margins and typography you choose in the export dialog.
+
+**Print** (`Cmd/Ctrl + P`, or **File → Print**) opens the system print dialog
+instead, so you can send the document to a printer or use your operating
+system's own "save as PDF".
+
+::: info Page size on macOS
+Until this release, the Page Size and Orientation controls had no effect on
+macOS — every export came out at whatever paper size your system was set to.
+If your Mac defaults to Letter and you had chosen A4, you were getting Letter.
+
+That is fixed, so your exports may now differ from what the same document
+produced before. They will match what the dialog says.
+:::
+
+::: info Bookmarks are macOS-only
+Exported PDFs get a heading outline — a clickable table of contents in the PDF
+viewer's sidebar — on macOS only. Windows and Linux produce the same document
+without that outline. Everything else, including page geometry, is identical.
+:::
 
 ### Export via Pandoc
 

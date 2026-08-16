@@ -284,13 +284,11 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
             ErrorCode::Internal,
             "errors.pdf.channelClosed"
         )),
-        Err(_) => {
-            Err(localized_error!(
-                ErrorCode::Timeout,
-                "errors.pdf.printTimeoutSecs",
-                seconds = PDF_OPERATION_TIMEOUT.as_secs()
-            ))
-        }
+        Err(_) => Err(localized_error!(
+            ErrorCode::Timeout,
+            "errors.pdf.printTimeoutSecs",
+            seconds = PDF_OPERATION_TIMEOUT.as_secs()
+        )),
     }
 }
 
