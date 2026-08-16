@@ -153,10 +153,11 @@ figure,
 .alert-block,
 .details-block,
 blockquote {
-  /* BOTH spellings, deliberately. WebKit honours the LEGACY property and
-     ignores the modern one, so a rule carrying only break-inside is silently
-     inert there — measured: Chromium moved a near-full-page image to a fresh
-     page while WebKit straddled it across two. */
+  /* Both spellings for coverage across engine versions. Note what this does
+     NOT buy: WebKit ignores break-inside in its print pipeline under EITHER
+     name — measured, a near-full-page image straddled two pages on macOS and
+     Linux while Chromium moved it to a fresh page. Do not read these two lines
+     as a guarantee; on WebKit they are inert. */
   page-break-inside: avoid;
   break-inside: avoid;
 }
