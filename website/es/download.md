@@ -8,9 +8,15 @@ import DownloadButton from '../.vitepress/components/DownloadButton.vue'
 
 ## Requisitos del Sistema
 
-- macOS 10.15 (Catalina) o posterior
+- macOS 13.4 (Ventura) o posterior
 - Procesador Apple Silicon (M1/M2/M3) o Intel
 - 200 MB de espacio en disco
+
+::: info ¿Por qué macOS 13.4?
+VMark dibuja su interfaz con el motor WebKit que viene incluido en macOS, así que la versión de macOS determina qué funciones web están disponibles. macOS 13.4 es la versión más antigua cuyo WebKit integrado puede ejecutar la compilación actual.
+
+Antes esta página decía 10.15. Nunca fue exacto: era un valor predeterminado que nadie había comprobado, y en sistemas antiguos VMark abría una ventana en blanco en lugar de negarse a arrancar. Por debajo de 13.4, ahora es el propio macOS el que se niega a abrir VMark y explica por qué, en lugar de dejarte con una ventana en blanco.
+:::
 
 ## Instalación
 

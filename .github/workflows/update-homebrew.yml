@@ -147,7 +147,13 @@ jobs:
               strategy :github_latest
             end
 
-            depends_on macos: :catalina
+            # Homebrew can only express a MAJOR macOS version here, so this is
+            # :ventura (13.0) while the real floor is 13.4 — see
+            # scripts/check-webview-floor.mjs. The precise gate stays
+            # LSMinimumSystemVersion from tauri.conf.json, which refuses to
+            # open with a readable message; this line keeps `brew install` from
+            # cheerfully installing onto Catalina, which it did until #1278.
+            depends_on macos: :ventura
 
             app "VMark.app"
 

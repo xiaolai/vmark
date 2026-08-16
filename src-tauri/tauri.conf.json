@@ -104,7 +104,7 @@
     ],
     "macOS": {
       "entitlements": "sidecar-entitlements.plist",
-      "minimumSystemVersion": "10.15",
+      "minimumSystemVersion": "13.4",
       "files": {}
     },
     "windows": {
