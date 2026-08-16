@@ -31,7 +31,6 @@
 
 use std::sync::Arc;
 
-use gtk::prelude::*;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use webkit2gtk::{PrintOperation, PrintOperationExt, WebViewExt};
 

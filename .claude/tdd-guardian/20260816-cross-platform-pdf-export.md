@@ -192,6 +192,28 @@ Notes worth keeping:
   is progress to report. Annotated so the attribute goes inert — rather than
   wrong — once WI-PDF2.1 calls them.
 
+### WI-PDF3.1 — Linux renderer
+
+**Status:** DONE — 2026-08-16
+**Changed:** `pdf_export/renderer/linux.rs`, `src-tauri/Cargo.toml`
+(pinned `webkit2gtk = "=2.0.2"`, `gtk = "=0.18.2"` to wry's resolution)
+**Verified:** built and run in **x86_64 WSL2 Ubuntu 22.04** — the shipped Linux
+triple — all sixteen smoke cases green, `RUN_EXIT=0`, first run. Page geometry
+correct for all eight dialog combinations; >2 MiB document rendered;
+bad path refused up front; 20 sequential exports leaked no window.
+
+Notes:
+- **No Xvfb needed.** WSLg supplies a real display (`DISPLAY=:0`), so the
+  install the plan budgeted for never happened. CI will still need
+  `xvfb-run` — GitHub's ubuntu runners have no display.
+- **The build stalled on network, not code.** That WSL cannot reach crates.io
+  directly and mihomo binds to Windows' localhost, so cargo sat retrying with
+  `transfer too slow`. Seeding WSL's registry cache from the WINDOWS side's
+  (same index hash, plain file copy, 509 → 777 crates) took the build from
+  stalled to `Finished` in 82 seconds.
+- ADR-PDF2's recipe held exactly as measured in Phase 0: `output-uri` **and**
+  `set_printer("Print to File")`, both required, for two different reasons.
+
 ### WI-PDF2.1 — Windows renderer
 
 **Status:** DONE — 2026-08-16
