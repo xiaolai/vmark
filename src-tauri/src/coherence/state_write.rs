@@ -17,7 +17,7 @@ use std::fs;
 
 use super::state::WorkspaceKernel;
 use super::types::Envelope;
-use super::workspace_files::flock_exclusive;
+use super::workspace_files::{ensure_lock_ignore_rules, flock_exclusive};
 
 impl WorkspaceKernel {
     /// The single write path: durable ledger append, then index apply
@@ -187,6 +187,10 @@ impl WorkspaceKernel {
     fn acquire_lock_file(&self) -> Result<fs::File, String> {
         let vmark = self.root.join(".vmark");
         fs::create_dir_all(&vmark).map_err(|e| format!("group lock dir: {e}"))?;
+        // The ignore rules land with the LOCK, not with initialization (#1285)
+        // — this path creates `.vmark/` before the op is adjudicated, and a
+        // rejected op leaves it behind.
+        ensure_lock_ignore_rules(&vmark)?;
         flock_exclusive(&vmark)
     }
     /// Run `f` holding the exclusive cross-process workspace lock across its WHOLE

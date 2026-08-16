@@ -47,6 +47,31 @@ pub(super) fn flock_exclusive(vmark: &Path) -> Result<fs::File, String> {
     Ok(file)
 }
 
+/// Give `.vmark/.gitignore` its runtime-file rules if the file is absent.
+///
+/// Called by `acquire_lock_file`, which creates `.vmark/` purely to hold
+/// `group.lock` BEFORE the operation is adjudicated (#1285). An op that is then
+/// rejected leaves that directory behind, and without these rules it holds one
+/// binary runtime file and nothing else — which `git add .` duly stages, in
+/// every repository a failed coherence action touched.
+///
+/// This is NOT initialization. The completion marker is `.gitattributes`,
+/// written last by `ensure_initialized`, so `is_fully_initialized` still
+/// reports false for a bare lock and 6R-4 holds unchanged.
+///
+/// Gated on the file being ABSENT rather than on having just created the
+/// directory, so a bare `.vmark` left by an older build is repaired on its next
+/// write too — one `is_file` per acquire, against the O(ledger) reconcile the
+/// caller performs on the same path.
+pub(super) fn ensure_lock_ignore_rules(vmark: &Path) -> Result<(), String> {
+    let ignore = vmark.join(".gitignore");
+    if ignore.is_file() {
+        return Ok(());
+    }
+    ensure_line(&ignore, "index.db*")?;
+    ensure_line(&ignore, "group.lock")
+}
+
 /// Is `.vmark` fully initialized? The marker rule alone is NOT a completion
 /// protocol (8th-review 8R-6): a checkout or hand-made workspace can carry
 /// `.gitattributes` while `.gitignore` and the ledger/snapshot dirs are missing,
