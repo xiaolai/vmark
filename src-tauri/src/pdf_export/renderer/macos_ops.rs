@@ -31,10 +31,16 @@ pub(super) fn render_on_main_thread(
     output_path: &str,
     // macOS geometry is CSS-driven (ADR-PDF1a); the spec is accepted for a
     // uniform contract and deliberately unused here.
-    _page: PageSpec,
+    page: PageSpec,
     sink: Arc<RenderSink>,
 ) {
-    sink.settle(render_inner(app, html_path, read_access_dir, output_path));
+    sink.settle(render_inner(
+        app,
+        html_path,
+        read_access_dir,
+        output_path,
+        page,
+    ));
 }
 
 /// The synchronous body. macOS can produce its result inside the UI closure
@@ -44,6 +50,7 @@ fn render_inner(
     html_path: &str,
     read_access_dir: &str,
     output_path: &str,
+    page: PageSpec,
 ) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
 
@@ -61,7 +68,7 @@ fn render_inner(
     log::debug!("[PDF] creating PDF via print operation...");
     emit_progress(app, "rendering");
     let pdf_start = std::time::Instant::now();
-    let result = print_to_pdf(mtm, &ov.webview, &ov.window, output_path);
+    let result = print_to_pdf(mtm, &ov.webview, &ov.window, output_path, page);
     log::debug!(
         "[PDF] print operation done in {:.2}s",
         pdf_start.elapsed().as_secs_f64()
@@ -85,13 +92,14 @@ fn print_to_pdf(
     webview: &objc2_web_kit::WKWebView,
     window: &objc2_app_kit::NSWindow,
     output_path: &str,
+    page: PageSpec,
 ) -> Result<(), CommandError> {
     use objc2_app_kit::{NSPrintJobSavingURL, NSPrintSaveJob};
     use objc2_foundation::NSURL;
 
     log::debug!("[PDF] configuring NSPrintInfo...");
 
-    let print_info = configure_print_info(mtm);
+    let print_info = configure_print_info(mtm, Some(page));
 
     // Configure save-to-PDF disposition
     // SAFETY: print_info is a valid NSPrintInfo copy from configure_print_info().
@@ -238,7 +246,8 @@ pub(super) fn print_on_main_thread(
 
     load_html_and_wait(mtm, &ov.webview, html_path, read_access_dir)?;
 
-    let print_info = configure_print_info(mtm);
+    // None: the Print DIALOG stays under AppKit's and the user's control.
+    let print_info = configure_print_info(mtm, None);
 
     // Show the print panel (unlike PDF export which hides it)
     // SAFETY: ov.webview is a valid WKWebView created on this main thread.

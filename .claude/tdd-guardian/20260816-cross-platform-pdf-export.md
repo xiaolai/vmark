@@ -390,12 +390,50 @@ This contradicts `pdfHtmlTemplate.ts`'s header, which states that WebKit's
 there records a previous landscape fix made by switching to the keyword form.
 The keyword form is what was measured above.
 
-**Deliberately not fixed in this plan.** Changing it alters the output of
-every macOS export, which is a product decision rather than a mechanical fix,
-and this plan's remit is the two platforms that have no export at all. Also
-unmeasured: whether the *content* is being scaled to the default paper by
-`NSPrintingPaginationMode::Fit`, which would make this a scaling bug rather
-than a paper-selection one. Worth its own issue.
+**Mechanism resolved 2026-08-16.** The open question was whether `@page`
+affected layout while only the paper was wrong (which would implicate
+`NSPrintingPaginationMode::Fit` scaling) or whether it was ignored outright.
+Identical content rendered at `@page{size:A4}` and `@page{size:A5}` produced
+**the same page count (3) and the same MediaBox (595×842)** — so `@page` has
+no effect on layout either. It is ignored outright and the paper comes wholly
+from `NSPrintInfo::sharedPrintInfo()`. That makes the candidate fix a
+straightforward one: set the paper size on the copied `NSPrintInfo` from the
+`PageSpec` the renderer already receives and currently ignores.
+
+### WI-PDF1.4 — macOS PageSpec authority (FIXES THE ABOVE)
+
+**Status:** DONE — 2026-08-16
+**Decision:** delegated by the maintainer to Codex, which ruled *fix it now,
+before this work merges* — the scope exclusion rested on "macOS ships and
+works", and that premise is falsified, so keeping it would knowingly ship
+controls that lie.
+**Changed:** `renderer/macos.rs` (`configure_print_info` takes
+`Option<PageSpec>`), `renderer/macos_ops.rs` (threads it through),
+`examples/pdf_smoke.rs` (8-combination matrix)
+**Verified:** all eight UI combinations produce the requested paper on **both**
+macOS and Windows — A4, Letter, A3, Legal × portrait/landscape.
+
+Two constraints from the ruling, both load-bearing:
+
+- **`configure_print_info` is shared with the interactive Print dialog**
+  (`macos_ops.rs:244`). Only the silent export may change; the dialog stays
+  under AppKit and the user's print panel. Hence `Option<PageSpec>` —
+  `Some` for export, `None` for the dialog — rather than setting the paper
+  unconditionally.
+- **A4-on-A4 must be behaviourally unchanged**, or the implementation is
+  wrong. It is: 595×842 before and after.
+
+**Scaling was the real risk and it is measured, not assumed.** Setting the
+paper could have made `NSPrintingPaginationMode::Fit` shrink content onto the
+new page, silently changing everyone's text size. Identical content needs 3
+pages on A4 and **4 on A5** — more pages on smaller paper means content
+reflows at true physical size rather than being squashed.
+
+**Not measured:** an A4 request under a *Letter* system default. A5, Legal and
+A3 all come out correct while this machine defaults to A4, so output
+demonstrably no longer follows `sharedPrintInfo` — but that specific pairing
+is reasoned rather than tested, because testing it means changing the
+machine's printer settings.
 
 ## Also found — an unwritable path PRINTS on macOS (fixed here)
 

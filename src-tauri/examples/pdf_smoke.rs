@@ -115,6 +115,45 @@ fn main() {
 async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
     let mut failures = 0usize;
 
+    // All eight UI combinations. The dialog offers four sizes and two
+    // orientations, and until WI-PDF1.4 every one of them produced the system
+    // default paper on macOS — so this asserts the whole surface, not a
+    // sample. Points are the portrait dimensions; landscape is the swap.
+    const SIZES: [(&str, f64, f64); 4] = [
+        ("A4", 595.28, 841.89),
+        ("letter", 612.0, 792.0),
+        ("A3", 841.89, 1190.55),
+        ("legal", 612.0, 1008.0),
+    ];
+    for (css, w, h) in SIZES {
+        for landscape in [false, true] {
+            let spec = if landscape {
+                PageSpec {
+                    width_pt: h,
+                    height_pt: w,
+                }
+            } else {
+                PageSpec {
+                    width_pt: w,
+                    height_pt: h,
+                }
+            };
+            let name = format!("{css}{}", if landscape { "-landscape" } else { "" });
+            let css_size = if landscape {
+                format!("{css} landscape")
+            } else {
+                css.to_string()
+            };
+            let path = out.join(format!("matrix-{name}.pdf"));
+            failures += check(
+                &name,
+                render(app, &doc_for(&css_size, "<p>matrix</p>"), &path, spec).await,
+                &path,
+                Some((spec.width_pt.round() as u32, spec.height_pt.round() as u32)),
+            );
+        }
+    }
+
     failures += check(
         "basic",
         render(

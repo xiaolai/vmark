@@ -13,6 +13,8 @@
 
 use objc2::MainThreadOnly;
 
+use crate::pdf_export::page_spec::PageSpec;
+
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use objc2_foundation::NSString;
@@ -127,18 +129,37 @@ pub(super) fn load_html_and_wait(
 ///
 /// `_mtm` proves we're on the main thread — `NSPrintInfo::sharedPrintInfo()`
 /// is main-thread-only.
+/// `paper` sets the physical page size, and is `None` for the interactive
+/// Print dialog — that path must stay under AppKit's and the user's control
+/// via the print panel, so it keeps taking the system default.
 pub(super) fn configure_print_info(
     _mtm: objc2::MainThreadMarker,
+    paper: Option<PageSpec>,
 ) -> objc2::rc::Retained<objc2_app_kit::NSPrintInfo> {
     use objc2_app_kit::{NSPrintInfo, NSPrintingPaginationMode};
-    use objc2_foundation::NSCopying;
+    use objc2_foundation::{NSCopying, NSSize};
 
     let print_info = NSPrintInfo::sharedPrintInfo().copy();
     print_info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
     print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
 
+    // WI-PDF1.4: the paper comes from the caller, not from the system default.
+    //
+    // Measured 2026-08-16: `@page { size }` is ignored ENTIRELY here — the
+    // same content at `size:A4` and `size:A5` produced the same page count AND
+    // the same MediaBox, so it affects neither paper nor layout. Every export
+    // therefore came out at whatever paper the machine happened to default to,
+    // which made the dialog's Page Size and Orientation controls decorative.
+    //
+    // `PageSpec` already carries orientation as a width/height swap, so
+    // landscape needs nothing extra.
+    if let Some(p) = paper {
+        print_info.setPaperSize(NSSize::new(p.width_pt, p.height_pt));
+    }
+
     // Set margins to 0 — let @page CSS rules control margins.
-    // WebKit's print pipeline applies @page margins internally.
+    // WebKit's print pipeline applies @page margins internally, and margins
+    // ARE honoured there (unlike size), so this stays as it was.
     print_info.setTopMargin(0.0);
     print_info.setBottomMargin(0.0);
     print_info.setLeftMargin(0.0);
