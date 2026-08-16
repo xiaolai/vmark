@@ -56,35 +56,6 @@ const A4_LANDSCAPE: PageSpec = PageSpec {
     height_pt: 595.28,
 };
 
-/// Build the document the way production does: an `@page` rule carrying the
-/// geometry AND the same geometry sent as `PageSpec`.
-///
-/// Both are required because the three platforms read different ones. macOS is
-/// CSS-driven and ignores the spec; Windows and Linux ignore the CSS and read
-/// the spec (ADR-PDF1a). A fixture with only one of them passes on some
-/// platforms and fails on others for reasons that have nothing to do with the
-/// code — which is exactly what the first run of this harness did.
-fn doc_for(css_size: &str, body: &str) -> String {
-    format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><style>\
-         @page{{size:{css_size};margin:0}}\
-         body{{font-family:serif;margin:0}}.b{{height:180mm}}</style></head>\
-         <body>{body}</body></html>"
-    )
-}
-
-/// A document guaranteed to exceed 2 MiB, with a sentinel AFTER the boundary
-/// so a truncated load is distinguishable from a short one.
-fn large_doc(css_size: &str) -> String {
-    let filler = "x".repeat(2 * 1024 * 1024 + 64 * 1024);
-    doc_for(
-        css_size,
-        &format!(
-            "<p>start</p><div style=\"display:none\">{filler}</div><h1>SENTINEL-PAST-2MIB</h1>"
-        ),
-    )
-}
-
 fn main() {
     let out_dir = std::env::args()
         .nth(1)
@@ -311,74 +282,7 @@ async fn render(
     .map_err(|e| format!("{:?}: {}", e.code(), e.message()))
 }
 
-/// Verify the artifact, not the return value. Page size is extracted from the
-/// PDF because a backend that ignores `PageSpec` still returns `Ok`.
-fn check(
-    name: &str,
-    result: Result<(), String>,
-    path: &Path,
-    expect_pt: Option<(u32, u32)>,
-) -> usize {
-    if let Err(e) = result {
-        println!("SMOKE {name} FAIL render error: {e}");
-        return 1;
-    }
-    let bytes = match std::fs::read(path) {
-        Ok(b) => b,
-        Err(e) => {
-            println!("SMOKE {name} FAIL no artifact: {e}");
-            return 1;
-        }
-    };
-    if !bytes.starts_with(b"%PDF") {
-        println!("SMOKE {name} FAIL not a PDF ({} bytes)", bytes.len());
-        return 1;
-    }
-    let pages = count(&bytes, b"/Type /Page").max(count(&bytes, b"/Type/Page"));
-    let size = media_box(&bytes);
-    match (expect_pt, size) {
-        (Some((w, h)), Some((gw, gh))) if gw.abs_diff(w) <= 2 && gh.abs_diff(h) <= 2 => {
-            println!(
-                "SMOKE {name} PASS {} bytes, pages~{pages}, {gw}x{gh}pt",
-                bytes.len()
-            );
-            0
-        }
-        (Some((w, h)), Some((gw, gh))) => {
-            println!("SMOKE {name} FAIL page size {gw}x{gh}pt, expected {w}x{h}pt");
-            1
-        }
-        (Some(_), None) => {
-            println!("SMOKE {name} FAIL no MediaBox found");
-            1
-        }
-        (None, _) => {
-            println!("SMOKE {name} PASS {} bytes", bytes.len());
-            0
-        }
-    }
-}
-
-fn count(hay: &[u8], needle: &[u8]) -> usize {
-    hay.windows(needle.len()).filter(|w| *w == needle).count()
-}
-
-/// First `/MediaBox [a b c d]`, rounded to whole points.
-fn media_box(bytes: &[u8]) -> Option<(u32, u32)> {
-    let tag = b"/MediaBox";
-    let at = bytes.windows(tag.len()).position(|w| w == tag)?;
-    let open = bytes[at..].iter().position(|&c| c == b'[')? + at + 1;
-    let close = bytes[open..].iter().position(|&c| c == b']')? + open;
-    let text = std::str::from_utf8(&bytes[open..close]).ok()?;
-    let v: Vec<f64> = text
-        .split_whitespace()
-        .filter_map(|t| t.parse().ok())
-        .collect();
-    if v.len() != 4 {
-        return None;
-    }
-    Some((
-        ((v[2] - v[0]).round()) as u32,
-        ((v[3] - v[1]).round()) as u32,
-    ))
-}
+mod fixtures;
+mod verify;
+use fixtures::{doc_for, large_doc};
+use verify::{check, count, media_box};

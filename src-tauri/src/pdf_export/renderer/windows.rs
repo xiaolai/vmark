@@ -31,8 +31,8 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2, ICoreWebView2Environment6, ICoreWebView2PrintSettings, ICoreWebView2_16,
-    ICoreWebView2_2, ICoreWebView2_7, COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER,
+    ICoreWebView2, ICoreWebView2Environment6, ICoreWebView2PrintSettings, ICoreWebView2_2,
+    ICoreWebView2_7,
 };
 use webview2_com::{NavigationCompletedEventHandler, PrintToPdfCompletedHandler};
 use windows_core::{Interface, BOOL, HSTRING, PCWSTR};
@@ -45,7 +45,7 @@ use super::RenderSink;
 
 /// Label prefix for the throwaway render window. Unique per render so two
 /// concurrent exports cannot collide on a label Tauri treats as a key.
-const LABEL_PREFIX: &str = "pdf-render-";
+pub(super) const LABEL_PREFIX: &str = "pdf-render-";
 
 /// Render `html_path` to `output_path`, settling `sink` when the print
 /// completes, fails, or cannot be started.
@@ -207,13 +207,13 @@ fn print_to_pdf(
 /// Tear the render window down. Teardown is explicit because a timeout is not
 /// cancellation (ADR-PDF7): without it an abandoned render leaks a hidden
 /// window and its Edge process for the life of the app.
-fn close(app: &AppHandle, label: &str) {
+pub(super) fn close(app: &AppHandle, label: &str) {
     if let Some(w) = app.get_webview_window(label) {
         let _ = w.close();
     }
 }
 
-fn window_error(detail: &str) -> CommandError {
+pub(super) fn window_error(detail: &str) -> CommandError {
     localized_error!(
         ErrorCode::Internal,
         "errors.pdf.renderWindowFailed",
@@ -221,7 +221,7 @@ fn window_error(detail: &str) -> CommandError {
     )
 }
 
-fn com_error(stage: &str, e: &windows_core::Error) -> CommandError {
+pub(super) fn com_error(stage: &str, e: &windows_core::Error) -> CommandError {
     localized_error!(
         ErrorCode::Internal,
         "errors.pdf.comFailed",
@@ -235,7 +235,7 @@ fn com_error(stage: &str, e: &windows_core::Error) -> CommandError {
 /// Naive concatenation breaks on spaces, `#`, `%` and every non-ASCII path,
 /// and a malformed URL navigates nowhere — which surfaces as an empty PDF
 /// rather than as an error.
-fn path_to_file_url(path: &str) -> Result<String, CommandError> {
+pub(super) fn path_to_file_url(path: &str) -> Result<String, CommandError> {
     url::Url::from_file_path(path)
         .map(|u| u.to_string())
         .map_err(|()| {
@@ -245,93 +245,6 @@ fn path_to_file_url(path: &str) -> Result<String, CommandError> {
                 path = path
             )
         })
-}
-
-/// Show the system print dialog for the rendered document.
-///
-/// Like macOS, this settles once the dialog has been SHOWN. Neither platform
-/// can tell what the user then does with it — WebView2 reports no completion
-/// for the print UI, exactly as `NSPrintOperation` reports none for its panel.
-pub(super) fn print_on_main_thread(
-    app: &AppHandle,
-    html_path: &str,
-    _read_access_dir: &str,
-    sink: Arc<RenderSink>,
-) {
-    if let Err(e) = start_print(app, html_path, sink.clone()) {
-        sink.settle(Err(e));
-    }
-}
-
-fn start_print(
-    app: &AppHandle,
-    html_path: &str,
-    sink: Arc<RenderSink>,
-) -> Result<(), CommandError> {
-    let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
-    let file_url = path_to_file_url(html_path)?;
-    let blank = "about:blank".parse().expect("about:blank parses");
-    // Visible: a print dialog with no window behind it is disorienting, and
-    // the user needs somewhere to see what they are printing.
-    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
-        .visible(true)
-        .title("VMark Print")
-        .build()
-        .map_err(|e| window_error(&e.to_string()))?;
-
-    let app_cb = app.clone();
-    let label_cb = label.clone();
-    window
-        .with_webview(move |pw| {
-            let core = match unsafe { pw.controller().CoreWebView2() } {
-                Ok(c) => c,
-                Err(e) => {
-                    sink.settle(Err(com_error("core", &e)));
-                    close(&app_cb, &label_cb);
-                    return;
-                }
-            };
-            let sink_nav = sink.clone();
-            let core_nav = core.clone();
-            let handler =
-                NavigationCompletedEventHandler::create(Box::new(move |_sender, args| {
-                    let ok = args
-                        .as_ref()
-                        .map(|a| {
-                            let mut success = BOOL::default();
-                            unsafe { a.IsSuccess(&mut success) }.is_ok() && success.as_bool()
-                        })
-                        .unwrap_or(false);
-                    if !ok {
-                        sink_nav.settle(Err(localized_error!(
-                            ErrorCode::Io,
-                            "errors.pdf.loadFailed"
-                        )));
-                        return Ok(());
-                    }
-                    let outcome = core_nav
-                        .cast::<ICoreWebView2_16>()
-                        .and_then(|v| unsafe {
-                            v.ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER)
-                        })
-                        .map_err(|e| com_error("ShowPrintUI", &e));
-                    sink_nav.settle(outcome);
-                    Ok(())
-                }));
-            let mut token = Default::default();
-            if let Err(e) = unsafe { core.add_NavigationCompleted(&handler, &mut token) } {
-                sink.settle(Err(com_error("navigation handler", &e)));
-                close(&app_cb, &label_cb);
-                return;
-            }
-            let url = HSTRING::from(file_url.as_str());
-            if let Err(e) = unsafe { core.Navigate(PCWSTR(url.as_ptr())) } {
-                sink.settle(Err(com_error("navigate", &e)));
-                close(&app_cb, &label_cb);
-            }
-        })
-        .map_err(|e| window_error(&e.to_string()))?;
-    Ok(())
 }
 
 #[cfg(test)]

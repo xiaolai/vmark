@@ -47,7 +47,7 @@
     "src/export/PdfSettingsSidebar.tsx": 345,
     "src/export/reader/vmark-reader.js": 1343,
     "src/export/resourceResolver.ts": 445,
-    "src/export/useExportOperations.ts": 457,
+    "src/export/useExportOperations.ts": 446,
     "src/hooks/useTabDragOut.ts": 356,
     "src/hooks/useUpdateChecker.ts": 407,
     "src/lib/cjkFormatter/markdownParser.ts": 321,
