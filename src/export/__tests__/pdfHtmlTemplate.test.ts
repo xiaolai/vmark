@@ -156,3 +156,65 @@ describe("pdfHtmlTemplate buildPdfExportHtml — typography scaling", () => {
     );
   });
 });
+
+/**
+ * `break-inside: avoid` only relocates a block that FITS somewhere. A figure
+ * taller than the content area fits nowhere, so the engine splits it and the
+ * reader never sees it whole. These bound it to the printable height instead.
+ */
+describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () => {
+  function maxHeightMm(html: string): number {
+    const m = html.match(/max-height:\s*([\d.]+)mm/);
+    if (!m) throw new Error("no max-height rule emitted");
+    return Number.parseFloat(m[1]!);
+  }
+
+  it("bounds images to the printable height, not the paper height", () => {
+    // A4 is 297mm tall; 25.4mm margins leave ~246mm, minus a 4mm allowance.
+    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
+    expect(maxHeightMm(html)).toBeCloseTo(297 - 25.4 - 25.4 - 4, 0);
+  });
+
+  it("shrinks the bound when margins grow", () => {
+    const normal = maxHeightMm(buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false));
+    const wide = maxHeightMm(
+      buildPdfExportHtml("<p>x</p>", "", "", baseOptions({ marginTop: 50, marginBottom: 50 }), false),
+    );
+    expect(wide).toBeLessThan(normal);
+  });
+
+  it("uses the SHORT edge in landscape", () => {
+    const portrait = maxHeightMm(buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false));
+    const landscape = maxHeightMm(
+      buildPdfExportHtml("<p>x</p>", "", "", baseOptions({ orientation: "landscape" }), false),
+    );
+    expect(landscape).toBeLessThan(portrait);
+    expect(landscape).toBeCloseTo(210 - 25.4 - 25.4 - 4, 0);
+  });
+
+  it("never emits a negative or absurdly small bound", () => {
+    const html = buildPdfExportHtml(
+      "<p>x</p>", "", "",
+      baseOptions({ marginTop: 200, marginBottom: 200 }),
+      false,
+    );
+    expect(maxHeightMm(html)).toBeGreaterThanOrEqual(20);
+  });
+
+  it("wraps long code lines — paper cannot scroll", () => {
+    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
+    expect(html).toMatch(/pre[^{]*\{[^}]*white-space:\s*pre-wrap/);
+    expect(html).toContain("overflow-wrap: anywhere");
+  });
+
+  it("forces a collapsed details block open, so its body is not lost", () => {
+    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
+    expect(html).toMatch(/details\s*>\s*\*:not\(summary\)/);
+  });
+
+  it("keeps alert and details blocks off page boundaries", () => {
+    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
+    const rule = html.match(/[^}]*\.alert-block[^{]*\{[^}]*\}/)?.[0] ?? "";
+    expect(rule).toContain("break-inside: avoid");
+  });
+});

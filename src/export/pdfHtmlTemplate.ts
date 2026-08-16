@@ -20,6 +20,7 @@
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
 import { getPrimitiveTokenCSS } from "./primitiveTokens";
+import { PAGE_SIZE_PT } from "./pageSpec";
 
 // Embed KaTeX woff2 fonts as data URIs so math renders offline, without CDN access.
 const katexCSS = embedKatexFonts(_katexCSSRaw);
@@ -148,11 +149,73 @@ svg,
 figure,
 .block-image,
 .code-block-preview,
-.katex-display {
+.katex-display,
+.alert-block,
+.details-block,
+blockquote {
   break-inside: avoid;
 }
 h1, h2, h3, h4, h5, h6 {
   break-after: avoid;
+}
+
+/*
+ * Paper does not scroll. In the editor a long code line sits in a
+ * horizontally scrollable box; printed, the overflow is simply CLIPPED and the
+ * text is GONE — measured on the showcase, where uuid::Uuid::n and
+ * errors.pdf.tempWriteFa ended at the page edge mid-identifier. Wrapping is
+ * the only lossless option in a fixed-width medium.
+ */
+pre, pre code, .code-block-wrapper pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: visible;
+}
+
+/*
+ * A details element exports COLLAPSED, so its body is missing from the PDF entirely.
+ * A reader cannot click paper open, which makes the closed state pure data
+ * loss. The UA hides non-summary children of a closed <details>; override it.
+ */
+details > *:not(summary),
+.details-block > *:not(summary) {
+  display: block !important;
+}`;
+}
+
+/**
+ * Constrain oversized blocks to the printable area.
+ *
+ * `break-inside: avoid` moves a block to the next page only if it FITS there.
+ * An image taller than the content area fits nowhere, so the engine must split
+ * it — the top half on one page, the rest on the next, with no way to read it
+ * whole. Scaling it down is the only thing that keeps it intact.
+ *
+ * The bound is computed, not guessed: the same page size and margins that
+ * generate the `@page` rule give the exact content height.
+ */
+function buildFitCSS(options: PdfOptions): string {
+  const paper = PAGE_SIZE_PT[options.pageSize] ?? PAGE_SIZE_PT.a4!;
+  const landscape = options.orientation === "landscape";
+  const heightPt = landscape ? paper.width : paper.height;
+  const heightMm = (heightPt * 25.4) / 72;
+  // Leave a little room: a block sitting exactly at the content height still
+  // pushes to a second page once its own margin is added.
+  const usableMm = Math.max(
+    20,
+    heightMm - options.marginTop - options.marginBottom - 4,
+  );
+
+  return `
+img,
+svg,
+.block-image img,
+.code-block-preview svg,
+.code-block-preview img {
+  max-height: ${usableMm.toFixed(2)}mm;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }`;
 }
 
@@ -273,6 +336,7 @@ export function buildPdfExportHtml(
 ): string {
   const pageCSS = buildPageCSS(options);
   const typographyCSS = buildTypographyCSS(options, themeCSS);
+  const fitCSS = buildFitCSS(options);
   const lightOverrides = options.useEditorTheme ? "" : forceLightThemeCSS();
   const htmlClass = options.useEditorTheme && isDark ? "dark-theme" : "";
 
@@ -294,6 +358,7 @@ ${lightOverrides}
 ${typographyCSS}
 ${pageCSS}
 ${contentCSS}
+${fitCSS}
 
 body {
   background: var(--bg-color);
