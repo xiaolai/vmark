@@ -24,9 +24,11 @@ import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { commandErrorMessage } from "@/services/commands/commandError";
 
-interface OpenFilePayload {
+export interface OpenFilePayload {
   path: string;
   workspace_root: string | null;
+  /** Present for hot opens; omitted for the main-window cold-start queue. */
+  target_window_label?: string;
 }
 
 /** Payload from Rust's pending file queue (uses snake_case) */
@@ -45,7 +47,8 @@ interface PendingFileOpen {
  * 3. If same workspace -> creates new tab in the current window
  * 4. Otherwise -> opens file in a new window (different workspace)
  *
- * Also fetches any pending files queued during cold start.
+ * Every document window listens for targeted hot opens. The main window alone
+ * fetches pending files queued during cold start.
  */
 export function useFinderFileOpen(): void {
   const windowLabel = useWindowLabel();
@@ -59,12 +62,6 @@ export function useFinderFileOpen(): void {
   const processingChainRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    // Only the main window handles Finder file opens initially
-    // (Rust emits to main window specifically)
-    if (windowLabel !== "main") {
-      return;
-    }
-
     /**
      * Toast a localized "failed to open file" error — used by every
      * read-failure branch so users always see the cause instead of an
@@ -112,7 +109,14 @@ export function useFinderFileOpen(): void {
      * pure resolveFinderOpenBranch(); this function owns only the async
      * size-gate, indicator lifecycle, and branch EXECUTION.
      */
-    const processFileOpen = async (path: string, workspaceRoot: string | null) => {
+    const processFileOpen = async (
+      path: string,
+      workspaceRoot: string | null,
+      finishDrainedBatch = false,
+    ) => {
+      const currentBranchCtx = finishDrainedBatch
+        ? { ...branchCtx, isCancelled: () => false }
+        : branchCtx;
       // Pre-read size check: applies to every non-activate branch below.
       // Refused files never create a tab or open a window; huge files confirm.
       // (Existing-tab activation skips the read, so resolve the branch first.)
@@ -126,31 +130,36 @@ export function useFinderFileOpen(): void {
       });
 
       if (branch.kind === "activate") {
-        activateExistingTab(branchCtx, branch.tabId);
+        activateExistingTab(currentBranchCtx, branch.tabId);
         return;
       }
 
       switch (branch.kind) {
         case "replace": {
-          await withSizeGateAndIndicator(branchCtx, path, async () => {
+          await withSizeGateAndIndicator(currentBranchCtx, path, async () => {
             // Re-check: the replaceable tab could have been claimed during the
             // awaited size route. Fall back to a new tab if it is gone.
             const tab = getReplaceableTab(windowLabel);
             if (!tab) {
               return createNewTabForFile(
-                branchCtx,
+                currentBranchCtx,
                 path,
                 workspaceRoot,
                 !useWorkspaceStore.getState().rootPath,
               );
             }
-            return replaceTabWithFile(branchCtx, tab, path, workspaceRoot);
+            return replaceTabWithFile(currentBranchCtx, tab, path, workspaceRoot);
           });
           return;
         }
         case "create": {
-          await withSizeGateAndIndicator(branchCtx, path, () =>
-            createNewTabForFile(branchCtx, path, workspaceRoot, branch.adoptWorkspace),
+          await withSizeGateAndIndicator(currentBranchCtx, path, () =>
+            createNewTabForFile(
+              currentBranchCtx,
+              path,
+              workspaceRoot,
+              branch.adoptWorkspace,
+            ),
           );
           return;
         }
@@ -158,7 +167,7 @@ export function useFinderFileOpen(): void {
           // The remote window runs its own size route when its cold-start queue
           // drains, so no tab is marked here — none exists in this window.
           const route = await routeOpenBySize(path);
-          if (!route.proceed || cancelled) return;
+          if (!route.proceed || (cancelled && !finishDrainedBatch)) return;
           await openFileInNewWindow(path, workspaceRoot);
           return;
         }
@@ -166,9 +175,13 @@ export function useFinderFileOpen(): void {
     };
 
     /** Enqueue a file open, serialized to prevent concurrent tab races */
-    const enqueueFileOpen = (path: string, workspaceRoot: string | null) => {
+    const enqueueFileOpen = (
+      path: string,
+      workspaceRoot: string | null,
+      finishDrainedBatch = false,
+    ) => {
       processingChainRef.current = processingChainRef.current
-        .then(() => processFileOpen(path, workspaceRoot))
+        .then(() => processFileOpen(path, workspaceRoot, finishDrainedBatch))
         .catch((error) => {
           finderFileOpenError("Failed to open file:", path, error);
         });
@@ -180,6 +193,13 @@ export function useFinderFileOpen(): void {
      * where content could be loaded then cleared by hot exit restore.
      */
     const handleOpenFile = (event: { payload: OpenFilePayload }) => {
+      const target = event.payload.target_window_label;
+      // Hot opens are global broadcasts tagged for exactly one document
+      // window. Untargeted payloads are the legacy/cold-start shape and remain
+      // main-only so multiple windows can never open the same file.
+      if (target ? target !== windowLabel : windowLabel !== "main") {
+        return;
+      }
       if (!restoreCompleteRef.current) {
         pendingEventsRef.current.push(event.payload);
         return;
@@ -195,7 +215,8 @@ export function useFinderFileOpen(): void {
      * 1. Register the event listener FIRST
      * 2. Wait for hot exit restore to complete (prevents race condition)
      * 3. Process any queued events (arrived during restore)
-     * 4. Then call get_pending_file_opens (which flips Rust's FRONTEND_READY flag)
+     * 4. In main only, call get_pending_file_opens (which flips Rust's
+     *    FRONTEND_READY flag)
      *
      * Events that arrive before restore completes are queued and processed
      * after restore finishes, preventing content from being overwritten.
@@ -236,19 +257,24 @@ export function useFinderFileOpen(): void {
         // Mark restore as complete so future events are processed immediately
         restoreCompleteRef.current = true;
 
-        // Fetch and process any files queued during cold start.
-        // This handles the race condition where Finder opens a file before React mounts.
+        // Main alone fetches and processes files queued during cold start.
+        // This handles the race where Finder opens a file before React mounts
+        // without letting multiple document windows compete for one queue.
         /* v8 ignore start -- pendingFetchedRef already-fetched guard not exercised in tests */
-        if (!pendingFetchedRef.current) {
+        if (windowLabel === "main" && !pendingFetchedRef.current) {
+          if (cancelled) return;
           // Flip only AFTER the invoke resolves. Setting it first meant a
           // rejected fetch left the flag true, so the cold-start queue was
           // never retried for the life of this mount and files opened from
           // Finder before React mounted simply never appeared.
           const pending = await invoke<PendingFileOpen[]>("get_pending_file_opens");
           pendingFetchedRef.current = true;
+          // The Rust command has destructively drained this batch. Finish
+          // handing it to the process-wide stores even if React unmounted the
+          // listener while the invoke was in flight; returning here would lose
+          // files that a replacement mount can no longer fetch.
           for (const file of pending) {
-            if (cancelled) return;
-            enqueueFileOpen(file.path, file.workspace_root);
+            enqueueFileOpen(file.path, file.workspace_root, true);
           }
         }
         /* v8 ignore stop */

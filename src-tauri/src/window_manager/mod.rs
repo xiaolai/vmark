@@ -1,7 +1,7 @@
 //! # Window Manager
 //!
-//! Purpose: Creates and manages Tauri webview windows (document, settings,
-//! transfer) and owns the Finder/CLI file-open decision state.
+//! Purpose: Owns Tauri webview-window creation and lifecycle for document,
+//! settings, and transfer windows plus Finder/CLI targeting and delivery.
 //!
 //! Pipeline: Menu/dock/CLI/Finder actions → functions here → `WebviewWindowBuilder` →
 //! new OS window with the React frontend.
@@ -11,6 +11,7 @@
 //! | Module | Owns |
 //! |---|---|
 //! | `file_open_state` | Finder/CLI open decisions, pending queue, workspace grouping |
+//! | `finder_open_delivery` | macOS hot-open focus, targeted emit, and retry fallback |
 //! | `document_windows` | Document/main window construction, URLs, labels, dock-reopen pick |
 //! | `path_validation` | Security gates for frontend-supplied paths / workspace roots |
 //! | `commands` | `open_*_in_new_window`, `close_window`, quit commands |
@@ -31,6 +32,8 @@
 mod commands;
 mod document_windows;
 mod file_open_state;
+#[cfg(target_os = "macos")]
+mod finder_open_delivery;
 mod native_theme;
 mod path_validation;
 mod settings_window;
@@ -38,6 +41,8 @@ mod settings_window;
 pub use commands::*;
 pub use document_windows::*;
 pub use file_open_state::*;
+#[cfg(target_os = "macos")]
+pub(crate) use finder_open_delivery::*;
 pub use native_theme::*;
 pub use settings_window::*;
 

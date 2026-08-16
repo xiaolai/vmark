@@ -162,7 +162,7 @@ vi.mock("@/utils/debug", () => ({
   finderFileOpenError: vi.fn(),
 }));
 
-import { useFinderFileOpen } from "./useFinderFileOpen";
+import { useFinderFileOpen, type OpenFilePayload } from "./useFinderFileOpen";
 
 describe("useFinderFileOpen", () => {
   beforeEach(() => {
@@ -184,16 +184,16 @@ describe("useFinderFileOpen", () => {
 
   it("registers event listener on mount", async () => {
     renderHook(() => useFinderFileOpen());
-
     await vi.waitFor(() => {
       expect(mockListen).toHaveBeenCalledWith("app:open-file", expect.any(Function));
     });
   });
 
-  it("does nothing for non-main windows", () => {
+  it("listens without draining the pending queue in document windows", async () => {
     mockUseWindowLabel.mockReturnValue("doc-0");
     renderHook(() => useFinderFileOpen());
-    expect(mockListen).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(mockListen).toHaveBeenCalled());
+    expect(mockInvoke).not.toHaveBeenCalledWith("get_pending_file_opens");
   });
 
   it("cleans up listener on unmount", async () => {

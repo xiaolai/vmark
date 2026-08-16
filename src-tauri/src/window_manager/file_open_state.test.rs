@@ -37,7 +37,7 @@ fn workspace_root_empty_string() {
 fn action_ready_with_window() {
     assert_eq!(
         determine_file_open_action(true, true),
-        FileOpenAction::EmitToMainWindow,
+        FileOpenAction::EmitToDocumentWindow,
     );
 }
 
@@ -97,6 +97,9 @@ fn decide_queues_and_requests_window_when_ready_without_window() {
     ));
     assert_eq!(state.pending.len(), 1);
     assert_eq!(state.pending[0].workspace_root.as_deref(), Some("/ws"));
+    // The replacement window has not mounted yet. Keeping readiness true
+    // would let a rapid second Finder open emit into a window with no listener.
+    assert!(!state.frontend_ready);
 }
 
 #[test]
@@ -139,6 +142,110 @@ fn drain_during_cold_start_then_emit_after_ready_no_drop_no_double() {
         _ => panic!("expected Emit"),
     }
     assert!(state.pending.is_empty());
+}
+
+// -- Finder hot-open target tracking ---------------------------------------
+
+fn labels(v: &[&str]) -> Vec<String> {
+    v.iter().map(|s| s.to_string()).collect()
+}
+
+#[test]
+fn finder_target_retains_last_focused_document_after_focus_loss() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("main", true, true);
+    state.record_window_focus("doc-7", true, true);
+    state.record_window_focus("doc-7", false, true);
+
+    assert_eq!(
+        state.finder_window_target(&labels(&["main", "doc-7"])),
+        Some("doc-7".to_string())
+    );
+}
+
+#[test]
+fn finder_target_ignores_non_document_window_focus() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("doc-3", true, true);
+    state.record_window_focus("settings", true, true);
+
+    assert_eq!(
+        state.finder_window_target(&labels(&["main", "doc-3", "settings"])),
+        Some("doc-3".to_string())
+    );
+}
+
+#[test]
+fn finder_target_forgets_destroyed_document_window() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("main", false, true);
+    state.record_window_focus("doc-2", true, true);
+    state.remove_window("doc-2");
+
+    // Include doc-2 in the supplied labels to prove removal clears the
+    // remembered preference instead of merely relying on app enumeration.
+    assert_eq!(
+        state.finder_window_target(&labels(&["doc-2", "main"])),
+        Some("main".to_string())
+    );
+}
+
+#[test]
+fn finder_target_prefers_remembered_live_document_window() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("doc-9", true, true);
+
+    assert_eq!(
+        state.finder_window_target(&labels(&["main", "doc-2", "doc-9"])),
+        Some("doc-9".to_string())
+    );
+}
+
+#[test]
+fn finder_target_falls_back_to_main_then_sorted_document_then_none() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("doc-9", true, true);
+    state.record_window_focus("main", false, true);
+
+    assert_eq!(
+        state.finder_window_target(&labels(&["doc-2", "main"])),
+        Some("main".to_string())
+    );
+
+    state.remove_window("main");
+    state.record_window_focus("doc-4", false, true);
+    state.record_window_focus("doc-2", false, true);
+    assert_eq!(
+        state.finder_window_target(&labels(&["doc-4", "doc-2"])),
+        Some("doc-2".to_string())
+    );
+    assert_eq!(state.finder_window_target(&[]), None);
+}
+
+#[test]
+fn finder_target_ignores_focus_before_window_listener_is_ready() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("main", false, true);
+    state.record_window_focus("doc-5", true, false);
+
+    assert_eq!(
+        state.finder_window_target(&labels(&["main", "doc-5"])),
+        Some("main".to_string())
+    );
+
+    state.record_window_focus("doc-5", true, true);
+    assert_eq!(
+        state.finder_window_target(&labels(&["main", "doc-5"])),
+        Some("doc-5".to_string())
+    );
+}
+
+#[test]
+fn finder_target_never_falls_back_to_a_window_without_a_ready_listener() {
+    let mut state = FileOpenState::new();
+    state.record_window_focus("doc-5", true, false);
+
+    assert_eq!(state.finder_window_target(&labels(&["doc-5"])), None);
 }
 
 // -- group_paths_by_workspace ----------------------------------------------

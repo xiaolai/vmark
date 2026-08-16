@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render } from "@testing-library/react";
 
 const calls = vi.hoisted(() => [] as string[]);
+const mockUseWindowLabel = vi.hoisted(() => vi.fn(() => "main"));
 
 vi.mock("../useDocumentLifecycle", () => ({
   useDocumentLifecycle: () => calls.push("documentLifecycle"),
@@ -12,11 +13,18 @@ vi.mock("../useDocumentLifecycle", () => ({
 vi.mock("../useWindowLifecycle", () => ({
   useWindowLifecycle: () => calls.push("windowLifecycle"),
 }));
+vi.mock("@/contexts/WindowContext", () => ({
+  useWindowLabel: () => mockUseWindowLabel(),
+}));
+vi.mock("@/hooks/useFinderFileOpen", () => ({
+  useFinderFileOpen: () => calls.push("finderFileOpen"),
+}));
 
 import { DocumentWindowMount } from "../DocumentWindowMount";
 
 beforeEach(() => {
   calls.length = 0;
+  mockUseWindowLabel.mockReturnValue("main");
 });
 
 describe("DocumentWindowMount", () => {
@@ -34,5 +42,17 @@ describe("DocumentWindowMount", () => {
     const { unmount } = render(<DocumentWindowMount />);
     unmount();
     expect(calls).toEqual(["documentLifecycle", "windowLifecycle"]);
+  });
+
+  it("mounts the Finder listener in a secondary document window", () => {
+    mockUseWindowLabel.mockReturnValue("doc-0");
+
+    render(<DocumentWindowMount />);
+
+    expect(calls).toEqual([
+      "documentLifecycle",
+      "windowLifecycle",
+      "finderFileOpen",
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 //! # Menu Event Dispatcher
 //!
-//! Purpose: Routes native menu clicks to the correct frontend window via Tauri events.
+//! Purpose: Routes native menu clicks to the correct frontend window and uses
+//! listener readiness to seed Finder hot-open target selection.
 //!
 //! Pipeline: User clicks menu item → `handle_menu_event` (in
 //! `menu_events_dispatch.rs`) → emits `menu:{id}` to focused window.
@@ -110,6 +111,14 @@ pub fn clear_window_ready(label: &str) {
         s.ready_windows.remove(label);
         s.pending_events.remove(label);
     }
+}
+
+/// Whether a window has emitted `ready` after mounting its frontend listeners.
+pub fn is_window_ready(label: &str) -> bool {
+    let state = get_state();
+    state
+        .as_ref()
+        .is_some_and(|s| s.ready_windows.contains(label))
 }
 
 /// Atomically check if window is ready and either return true (emit now) or queue the event.

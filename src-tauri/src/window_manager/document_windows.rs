@@ -4,8 +4,8 @@
 //! Key decisions:
 //!   - Windows start hidden and are shown only after the frontend emits "ready",
 //!     preventing flash-of-unstyled-content on slow machines.
-//!   - "main" label is preferred for the first document window so Finder file-open
-//!     events (which target "main") work correctly.
+//!   - "main" remains the first document-window label and cold-start queue owner;
+//!     hot Finder opens can target any last-focused document window.
 //!   - macOS dock-icon reactivation restores the user's most-recent workspace via
 //!     `pick_reopen_workspace_root` (validated against the live filesystem) instead
 //!     of opening an unscoped untitled doc.
@@ -206,8 +206,8 @@ pub fn create_document_window(
 }
 
 /// Create a new "main" window (used when the original main window was destroyed
-/// and a file is opened from Finder, requiring useFinderFileOpen to handle it).
-/// The main window label is special: useFinderFileOpen only runs for "main".
+/// and a file is opened from Finder). The main label owns the process-wide
+/// cold-start queue; every document window can receive targeted hot opens.
 ///
 /// `workspace_root` lets the dock-icon-reopen path restore the user's last
 /// workspace — without it the new window's WindowContext would explicitly
