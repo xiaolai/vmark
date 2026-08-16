@@ -8,9 +8,15 @@ import DownloadButton from '../.vitepress/components/DownloadButton.vue'
 
 ## 시스템 요구 사항
 
-- macOS 10.15 (Catalina) 이상
+- macOS 13.4 (Ventura) 이상
 - Apple Silicon (M1/M2/M3) 또는 Intel 프로세서
 - 200MB 디스크 공간
+
+::: info 왜 macOS 13.4인가요?
+VMark는 macOS에 기본 포함된 WebKit 엔진으로 화면을 그립니다. 따라서 사용할 수 있는 웹 기능은 macOS 버전이 결정합니다. 현재 빌드를 실행할 수 있는 WebKit을 내장한 가장 오래된 릴리스가 macOS 13.4입니다.
+
+이 페이지는 이전에 10.15라고 적혀 있었지만 정확한 값이 아니었습니다. 아무도 확인하지 않은 기본값이 남아 있었고, 오래된 시스템에서 VMark는 실행을 거부하는 대신 빈 창을 띄웠습니다. 13.4 미만에서는 이제 macOS가 직접 VMark 실행을 거부하고 그 이유를 알려줍니다. 빈 창만 남는 일은 더 이상 없습니다.
+:::
 
 ## 설치
 

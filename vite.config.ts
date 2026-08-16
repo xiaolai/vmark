@@ -103,6 +103,36 @@ export default defineConfig(() => ({
   },
 
   build: {
+    // The ONLY engine this bundle ever runs in is the macOS WKWebView, so the
+    // target names one Safari version rather than a browser matrix.
+    //
+    // Set explicitly because the default is not a constant: Vite's
+    // `baseline-widely-available` resolves to a set pinned to a date fixed per
+    // Vite MAJOR, so upgrading Vite silently raises the oldest macOS that can
+    // run VMark. Left unset, it did exactly that — the app claimed macOS 10.15
+    // while emitting Safari-16.4 syntax, and a macOS 12 user got a window that
+    // rendered nothing, because the bundle failed to PARSE before any of our
+    // code, error handling or logging could run (issue #1278).
+    //
+    // This is NOT a no-op pin of the previous behaviour. The default was the
+    // five-entry list `[chrome111, edge111, firefox114, safari16.4, ios16.4]`,
+    // and esbuild downlevels to satisfy ALL of them — so the app was carrying
+    // transforms for three engines it never runs in. Measured: 35,724 KB →
+    // 35,716 KB of `dist`. Small, because Safari is nearly always the binding
+    // constraint, which is also why nobody noticed the other four were there.
+    //
+    // The browser-facing artifact is unaffected: `src/export/reader/` reaches
+    // exported HTML through a `?raw` import, so Vite ships it verbatim and no
+    // target applies to it. Its compatibility is a property of how it is
+    // written, not of this line.
+    //
+    // `pnpm lint:webview-floor` ties this to tauri.conf.json's
+    // minimumSystemVersion and website/download.md. Lowering it to widen
+    // support is a real project, not a one-line edit: our own source needs
+    // only Safari 15.4 (structuredClone, Object.hasOwn), but 54 `color-mix()`
+    // declarations across 20 stylesheets need 16.2, dependencies are unaudited,
+    // and no runner in this CI can execute an older WebKit to prove any of it.
+    target: "safari16.4",
     // Vendor chunks (mermaid ~1.7MB, codemirror ~1MB, index ~2.5MB) exceed
     // default 500kB limit. These are already manually chunked — suppress noise.
     chunkSizeWarningLimit: 2500,
