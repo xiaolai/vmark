@@ -73,6 +73,8 @@ fn start_print(
             };
             let sink_nav = sink.clone();
             let core_nav = core.clone();
+            let app_nav = app_cb.clone();
+            let label_nav = label_cb.clone();
             let handler =
                 NavigationCompletedEventHandler::create(Box::new(move |_sender, args| {
                     let ok = args
@@ -83,10 +85,14 @@ fn start_print(
                         })
                         .unwrap_or(false);
                     if !ok {
+                        // Close: nothing loaded, so there is no dialog and
+                        // nothing for the user to look at. Leaving it would
+                        // strand an empty window with no way to reclaim it.
                         sink_nav.settle(Err(localized_error!(
                             ErrorCode::Io,
                             "errors.pdf.loadFailed"
                         )));
+                        close(&app_nav, &label_nav);
                         return Ok(());
                     }
                     let outcome = core_nav
@@ -95,6 +101,14 @@ fn start_print(
                             v.ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER)
                         })
                         .map_err(|e| com_error("ShowPrintUI", &e));
+                    // On FAILURE close; on success deliberately do not. The
+                    // window is visible and the user is now looking at a print
+                    // dialog over it — closing it from under them would take
+                    // the dialog with it. They dismiss it themselves, which is
+                    // ordinary window behaviour.
+                    if outcome.is_err() {
+                        close(&app_nav, &label_nav);
+                    }
                     sink_nav.settle(outcome);
                     Ok(())
                 }));
