@@ -47,6 +47,49 @@ const SIZES: [(&str, f64, f64); 3] = [
     ("a5", 419.53, 595.28),
 ];
 
+/// Rewrite the captured document's `@page { size: ... }` to match `page`.
+///
+/// Production regenerates that rule and the `PageSpec` from the SAME options
+/// (`PdfExportDialog`), so the two always agree. A captured document carries
+/// whatever it was exported as — reusing it at another geometry without this
+/// creates a disagreement the app cannot produce.
+///
+/// That disagreement is not benign, which is why this is a rewrite and not a
+/// convenience: measured on Windows, a document declaring `size: A4 portrait`
+/// rendered 595x842 even though the API was given 842x595. The CSS page box
+/// owns ORIENTATION (Chromium documents `landscape` as ignored whenever `@page`
+/// is present); the API owns the paper. Explicit `pt` lengths encode both, so
+/// after this the two cannot disagree.
+fn retarget(html: &str, page: PageSpec) -> String {
+    let Some(start) = html.find("@page") else {
+        return html.to_string();
+    };
+    let Some(open) = html[start..].find('{').map(|i| start + i) else {
+        return html.to_string();
+    };
+    let Some(close) = html[open..].find('}').map(|i| open + i) else {
+        return html.to_string();
+    };
+    let block = &html[open + 1..close];
+    let rewritten: Vec<String> = block
+        .split(';')
+        .filter(|d| !d.trim().is_empty())
+        .map(|d| {
+            if d.trim_start().starts_with("size") {
+                format!("size: {}pt {}pt", page.width_pt, page.height_pt)
+            } else {
+                d.trim().to_string()
+            }
+        })
+        .collect();
+    format!(
+        "{}{{{}}}{}",
+        &html[..open],
+        rewritten.join("; "),
+        &html[close + 1..]
+    )
+}
+
 /// Render `html_path` once per geometry into `out`. Returns the failure count.
 pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize {
     let html = match std::fs::read_to_string(html_path) {
@@ -75,7 +118,7 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
             };
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
-            let result = super::render(app, &html, &path, page).await;
+            let result = super::render(app, &retarget(&html, page), &path, page).await;
             failures += super::verify::check(
                 &label,
                 result,
