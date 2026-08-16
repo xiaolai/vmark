@@ -66,6 +66,10 @@ const EXPORT_CSS_VARS = [
   "--warning-bg",
   "--warning-border",
   "--success-color",
+  // The reader stylesheet reads this one, and it was the ONE token in that file
+  // whose `var(--x, #hex)` fallback was load-bearing rather than dead — omitted
+  // here, so the literal was what shipped (WI-DS3).
+  "--success-color-dark",
 
   // Hover states
   "--hover-bg",
