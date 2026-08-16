@@ -243,6 +243,11 @@ errors:
   pandoc.waitFailed: "Pandoc 대기 실패: %{detail}"
 
   # === PDF export ===
+  pdf.tempWriteFailed: "임시 HTML 쓰기에 실패했습니다: %{detail}"
+  pdf.dispatchFailed: "메인 스레드로 전달하지 못했습니다: %{detail}"
+  pdf.channelClosed: "PDF 작업이 결과를 알리지 않고 종료되었습니다"
+  pdf.exportTimeout: "PDF 내보내기가 %{seconds}초 후 시간 초과되었습니다"
+  pdf.printTimeoutSecs: "인쇄가 %{seconds}초 후 시간 초과되었습니다"
   pdf.unsupportedPlatform: "PDF 내보내기는 이 플랫폼에서 아직 사용할 수 없습니다"
   pdf.invalidExtension: "출력 경로는 .pdf 확장자를 사용해야 합니다"
   pdf.dirNotFound: "출력 디렉터리가 존재하지 않습니다"

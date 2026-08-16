@@ -244,6 +244,11 @@ errors:
   pandoc.waitFailed: "Failed to wait for Pandoc: %{detail}"
 
   # === PDF export ===
+  pdf.tempWriteFailed: "Failed to write temporary HTML: %{detail}"
+  pdf.dispatchFailed: "Failed to dispatch to the main thread: %{detail}"
+  pdf.channelClosed: "The PDF operation ended without reporting a result"
+  pdf.exportTimeout: "PDF export timed out after %{seconds} seconds"
+  pdf.printTimeoutSecs: "Print timed out after %{seconds} seconds"
   pdf.unsupportedPlatform: "PDF export is not yet available on this platform"
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"

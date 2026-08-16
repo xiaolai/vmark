@@ -12,3 +12,7 @@ mod bookmarks;
 pub mod commands;
 pub(crate) mod heading;
 mod renderer;
+
+#[cfg(test)]
+#[path = "commands.test.rs"]
+mod commands_tests;

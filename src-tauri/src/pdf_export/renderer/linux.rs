@@ -22,17 +22,29 @@
 
 use tauri::AppHandle;
 
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
+
 /// Refuse a PDF render on Linux until WI-PDF2.1 lands.
 pub(super) fn render_on_main_thread(
     _app: &AppHandle,
     _html_path: &str,
     _read_access_dir: &str,
     _output_path: &str,
-) -> Result<(), String> {
-    Err(rust_i18n::t!("errors.pdf.unsupportedPlatform").to_string())
+) -> Result<(), CommandError> {
+    Err(localized_error!(
+        ErrorCode::Unsupported,
+        "errors.pdf.unsupportedPlatform"
+    ))
 }
 
 /// Refuse a native print on Linux until WI-PDF4.1 lands.
-pub(super) fn print_on_main_thread(_html_path: &str, _read_access_dir: &str) -> Result<(), String> {
-    Err(rust_i18n::t!("errors.pdf.unsupportedPlatform").to_string())
+pub(super) fn print_on_main_thread(
+    _html_path: &str,
+    _read_access_dir: &str,
+) -> Result<(), CommandError> {
+    Err(localized_error!(
+        ErrorCode::Unsupported,
+        "errors.pdf.unsupportedPlatform"
+    ))
 }

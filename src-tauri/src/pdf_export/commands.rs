@@ -1,10 +1,44 @@
 //! Tauri commands for PDF export and native printing.
 
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
+
 use super::heading::Heading;
 use super::renderer;
 use std::path::Path;
 
-/// Export HTML content to a PDF file using WKWebView.
+/// Reject an output path before any rendering starts.
+///
+/// Extracted from the command so it is testable without a Tauri runtime:
+/// `export_pdf` takes a concrete `AppHandle`, so a test that went through the
+/// command would need a real webview to check a string.
+///
+/// The two failures carry DIFFERENT codes on purpose — a frontend that cannot
+/// tell "wrong extension" from "directory gone" is back to matching message
+/// text, which is what `CommandError` exists to end (rule 50).
+pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError> {
+    let path = Path::new(output_path);
+
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    if !ext.eq_ignore_ascii_case("pdf") {
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.pdf.invalidExtension"
+        ));
+    }
+
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            return Err(localized_error!(
+                ErrorCode::NotFound,
+                "errors.pdf.dirNotFound"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Export HTML content to a PDF file using the platform's native webview.
 ///
 /// Emits `pdf-export-progress` events to the `pdf-export` window
 /// with status updates: "loading", "rendering", "done".
@@ -16,20 +50,8 @@ pub async fn export_pdf(
     html: String,
     output_path: String,
     headings: Option<Vec<Heading>>,
-) -> Result<(), String> {
-    // Validate output path
-    let path = Path::new(&output_path);
-
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    if !ext.eq_ignore_ascii_case("pdf") {
-        return Err(rust_i18n::t!("errors.pdf.invalidExtension").to_string());
-    }
-
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() && !parent.exists() {
-            return Err(rust_i18n::t!("errors.pdf.dirNotFound").to_string());
-        }
-    }
+) -> Result<(), CommandError> {
+    validate_output_path(&output_path)?;
 
     renderer::render_pdf(app, html, output_path.clone()).await?;
 
@@ -56,6 +78,6 @@ pub async fn export_pdf(
 /// Creates an off-screen WKWebView, loads the HTML, and shows the
 /// system print dialog. The user selects a printer and prints directly.
 #[tauri::command]
-pub async fn print_document(app: tauri::AppHandle, html: String) -> Result<(), String> {
+pub async fn print_document(app: tauri::AppHandle, html: String) -> Result<(), CommandError> {
     renderer::print_document(app, html).await
 }

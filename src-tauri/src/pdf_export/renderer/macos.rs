@@ -12,6 +12,9 @@
 //! @module pdf_export/renderer/macos
 
 use objc2::MainThreadOnly;
+
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use objc2_foundation::NSString;
 
 // ============================================================================
@@ -70,7 +73,7 @@ pub(super) fn load_html_and_wait(
     webview: &objc2_web_kit::WKWebView,
     html_path: &str,
     read_access_dir: &str,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     use objc2_foundation::NSURL;
 
     let file_url = NSURL::fileURLWithPath(&NSString::from_str(html_path));
@@ -107,7 +110,10 @@ pub(super) fn load_html_and_wait(
             "[PDF] load TIMEOUT after {:.2}s",
             load_start.elapsed().as_secs_f64()
         );
-        return Err(rust_i18n::t!("errors.pdf.loadTimeout").to_string());
+        return Err(localized_error!(
+            ErrorCode::Timeout,
+            "errors.pdf.loadTimeout"
+        ));
     }
 
     // Extra settle time for CSS parsing, layout, font loading

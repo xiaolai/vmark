@@ -243,6 +243,11 @@ errors:
   pandoc.waitFailed: "Falha ao aguardar o Pandoc: %{detail}"
 
   # === PDF export ===
+  pdf.tempWriteFailed: "Falha ao gravar o HTML temporário: %{detail}"
+  pdf.dispatchFailed: "Falha ao despachar para a thread principal: %{detail}"
+  pdf.channelClosed: "A operação de PDF terminou sem informar um resultado"
+  pdf.exportTimeout: "A exportação de PDF expirou após %{seconds} segundos"
+  pdf.printTimeoutSecs: "A impressão expirou após %{seconds} segundos"
   pdf.unsupportedPlatform: "A exportação para PDF ainda não está disponível nesta plataforma"
   pdf.invalidExtension: "O caminho de saída precisa ter a extensão .pdf"
   pdf.dirNotFound: "O diretório de saída não existe"

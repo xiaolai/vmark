@@ -243,6 +243,11 @@ errors:
   pandoc.waitFailed: "Pandoc の待機に失敗しました: %{detail}"
 
   # === PDF export ===
+  pdf.tempWriteFailed: "一時 HTML の書き込みに失敗しました: %{detail}"
+  pdf.dispatchFailed: "メインスレッドへのディスパッチに失敗しました: %{detail}"
+  pdf.channelClosed: "PDF 処理は結果を返さずに終了しました"
+  pdf.exportTimeout: "PDF 書き出しが %{seconds} 秒でタイムアウトしました"
+  pdf.printTimeoutSecs: "印刷が %{seconds} 秒でタイムアウトしました"
   pdf.unsupportedPlatform: "PDF 書き出しはこのプラットフォームではまだ利用できません"
   pdf.invalidExtension: "出力パスは .pdf 拡張子である必要があります"
   pdf.dirNotFound: "出力ディレクトリが存在しません"

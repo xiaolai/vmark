@@ -192,6 +192,32 @@ Notes worth keeping:
   is progress to report. Annotated so the attribute goes inert — rather than
   wrong — once WI-PDF2.1 calls them.
 
+### WI-PDF1.2 — typed errors end to end
+
+**Status:** DONE — 2026-08-16
+**Changed:** `pdf_export/{commands.rs,commands.test.rs}`,
+`pdf_export/renderer/{mod.rs,macos.rs,macos_ops.rs,windows.rs,linux.rs}`,
+`src/export/{PdfExportDialog.tsx,useExportOperations.ts,pdfExportError.test.ts}`,
+`src/utils/errorMessage.ts`, `scripts/command-error-baseline.json`,
+all ten `src-tauri/locales/*.yml` (5 new keys)
+**Verified:** `cargo test --lib` 2148 passed (6 new, each pinning a CODE);
+`pnpm vitest run src/export` 396 passed; `pnpm lint:command-errors` — ratchet
+held and **dropped by 2**; clippy, cross-target, file-size, typecheck green
+
+Notes worth keeping:
+- The renderer contract returns `CommandError` all the way down, not just at
+  the command boundary. Converting only the boundary would have meant
+  string-matching the timeout to give it a code — the exact anti-pattern the
+  type exists to end.
+- Validation was extracted to `validate_output_path`. `export_pdf` takes a
+  concrete `AppHandle`, so a test going through the command would have needed
+  a real webview to check a string.
+- The two validation failures carry **different** codes, and a test asserts
+  they differ — same code would put the frontend back on message text.
+- The `command-error-ok` markers I first added pushed a baselined file over
+  its cap. The better fix removed the need for them: `toError()` names the
+  normalise-to-Error idiom, so no `String(error)` remains in that file at all.
+
 ```
 pdf_export/                  ← unconditional
   commands.rs                ← validation, i18n errors, progress, bookmarks

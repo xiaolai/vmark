@@ -25,6 +25,9 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 use tokio::sync::oneshot;
 
 #[cfg(target_os = "macos")]
@@ -74,7 +77,11 @@ pub(super) fn emit_progress(app: &AppHandle, stage: &'static str) {
 ///
 /// Writes HTML to a temp file, then dispatches to the main thread via
 /// Tauri's event loop to create a WKWebView and generate the PDF.
-pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Result<(), String> {
+pub async fn render_pdf(
+    app: AppHandle,
+    html: String,
+    output_path: String,
+) -> Result<(), CommandError> {
     // Write HTML to temp file on the async thread (no main thread needed)
     let temp_dir = std::env::temp_dir();
     let unique_id = std::time::SystemTime::now()
@@ -86,7 +93,13 @@ pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Re
         std::process::id(),
         unique_id
     ));
-    std::fs::write(&temp_html, &html).map_err(|e| format!("Failed to write temp HTML: {}", e))?;
+    std::fs::write(&temp_html, &html).map_err(|e| {
+        localized_error!(
+            ErrorCode::Io,
+            "errors.pdf.tempWriteFailed",
+            detail = e.to_string()
+        )
+    })?;
 
     log::debug!(
         "[PDF] render_pdf: wrote {} bytes to {}, output: {}",
@@ -95,7 +108,7 @@ pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Re
         output_path
     );
 
-    let (tx, rx) = oneshot::channel::<Result<(), String>>();
+    let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
     let tx = Arc::new(Mutex::new(Some(tx)));
 
     let tx_clone = tx.clone();
@@ -121,7 +134,13 @@ pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Re
             let _ = sender.send(result);
         }
     })
-    .map_err(|e| format!("Failed to dispatch to main thread: {}", e))?;
+    .map_err(|e| {
+        localized_error!(
+            ErrorCode::Internal,
+            "errors.pdf.dispatchFailed",
+            detail = e.to_string()
+        )
+    })?;
 
     // Bound the wait. If the main-thread dispatch panics or never runs the
     // sender (e.g. because the run_on_main_thread closure unwound before
@@ -130,13 +149,20 @@ pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Re
     let temp_html_for_cleanup = temp_html.clone();
     match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
         Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err("PDF render channel closed".to_string()),
+        Ok(Err(_)) => Err(localized_error!(
+            ErrorCode::Internal,
+            "errors.pdf.channelClosed"
+        )),
         Err(_) => {
             // Timed out — clean up the temp file the main thread never reached.
             let _ = std::fs::remove_file(&temp_html_for_cleanup);
-            Err(format!(
-                "PDF export timed out after {} seconds",
-                PDF_OPERATION_TIMEOUT.as_secs()
+            // A distinct CODE, not a recognisable message: the frontend must
+            // be able to tell a timeout from an I/O failure without matching
+            // text (rule 50).
+            Err(localized_error!(
+                ErrorCode::Timeout,
+                "errors.pdf.exportTimeout",
+                seconds = PDF_OPERATION_TIMEOUT.as_secs()
             ))
         }
     }
@@ -146,7 +172,7 @@ pub async fn render_pdf(app: AppHandle, html: String, output_path: String) -> Re
 ///
 /// Same pipeline as `render_pdf` but shows the print panel instead of
 /// silently saving to a file. The user selects a printer and prints.
-pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> {
+pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandError> {
     let temp_dir = std::env::temp_dir();
     let unique_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -157,9 +183,15 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
         std::process::id(),
         unique_id
     ));
-    std::fs::write(&temp_html, &html).map_err(|e| format!("Failed to write temp HTML: {}", e))?;
+    std::fs::write(&temp_html, &html).map_err(|e| {
+        localized_error!(
+            ErrorCode::Io,
+            "errors.pdf.tempWriteFailed",
+            detail = e.to_string()
+        )
+    })?;
 
-    let (tx, rx) = oneshot::channel::<Result<(), String>>();
+    let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
     let tx = Arc::new(Mutex::new(Some(tx)));
     let tx_clone = tx.clone();
     let temp_html_str = temp_html.to_string_lossy().to_string();
@@ -172,17 +204,27 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), String> 
             let _ = sender.send(result);
         }
     })
-    .map_err(|e| format!("Failed to dispatch to main thread: {}", e))?;
+    .map_err(|e| {
+        localized_error!(
+            ErrorCode::Internal,
+            "errors.pdf.dispatchFailed",
+            detail = e.to_string()
+        )
+    })?;
 
     let temp_html_for_cleanup = temp_html.clone();
     match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
         Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err("Print channel closed".to_string()),
+        Ok(Err(_)) => Err(localized_error!(
+            ErrorCode::Internal,
+            "errors.pdf.channelClosed"
+        )),
         Err(_) => {
             let _ = std::fs::remove_file(&temp_html_for_cleanup);
-            Err(format!(
-                "Print operation timed out after {} seconds",
-                PDF_OPERATION_TIMEOUT.as_secs()
+            Err(localized_error!(
+                ErrorCode::Timeout,
+                "errors.pdf.printTimeoutSecs",
+                seconds = PDF_OPERATION_TIMEOUT.as_secs()
             ))
         }
     }

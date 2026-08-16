@@ -243,6 +243,11 @@ errors:
   pandoc.waitFailed: "等待 Pandoc 失败：%{detail}"
 
   # === PDF export ===
+  pdf.tempWriteFailed: "写入临时 HTML 失败：%{detail}"
+  pdf.dispatchFailed: "分发到主线程失败：%{detail}"
+  pdf.channelClosed: "PDF 操作结束但未返回结果"
+  pdf.exportTimeout: "PDF 导出在 %{seconds} 秒后超时"
+  pdf.printTimeoutSecs: "打印在 %{seconds} 秒后超时"
   pdf.unsupportedPlatform: "此平台尚不支持导出 PDF"
   pdf.invalidExtension: "输出路径必须使用 .pdf 扩展名"
   pdf.dirNotFound: "输出目录不存在"

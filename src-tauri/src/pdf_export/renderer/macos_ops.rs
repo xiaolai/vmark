@@ -12,6 +12,9 @@
 use objc2_foundation::NSString;
 use tauri::AppHandle;
 
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
+
 use super::emit_progress;
 use super::macos::{
     configure_print_info, create_offscreen_webview, load_html_and_wait, run_loop_tick,
@@ -23,10 +26,11 @@ pub(super) fn render_on_main_thread(
     html_path: &str,
     read_access_dir: &str,
     output_path: &str,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
 
-    let mtm = MainThreadMarker::new().ok_or("PDF export must run on the main thread")?;
+    let mtm = MainThreadMarker::new()
+        .ok_or_else(|| CommandError::internal("PDF export must run on the main thread"))?;
 
     emit_progress(app, "loading");
     log::debug!("[PDF] creating hidden window + WKWebView...");
@@ -63,7 +67,7 @@ fn print_to_pdf(
     webview: &objc2_web_kit::WKWebView,
     window: &objc2_app_kit::NSWindow,
     output_path: &str,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     use objc2_app_kit::{NSPrintJobSavingURL, NSPrintSaveJob};
     use objc2_foundation::NSURL;
 
@@ -182,10 +186,13 @@ fn print_to_pdf(
         }
         log::debug!("[PDF] file exists but is empty (0 bytes)");
         let _ = std::fs::remove_file(output_path);
-        return Err(rust_i18n::t!("errors.pdf.emptyOutput").to_string());
+        return Err(localized_error!(ErrorCode::Io, "errors.pdf.emptyOutput"));
     }
 
-    Err(rust_i18n::t!("errors.pdf.printTimeout").to_string())
+    Err(localized_error!(
+        ErrorCode::Timeout,
+        "errors.pdf.printTimeout"
+    ))
 }
 
 // ============================================================================
@@ -199,11 +206,15 @@ fn print_to_pdf(
 ///
 /// Note: We cannot reliably detect print cancellation from NSPrintOperation
 /// when used with WKWebView (no delegate callback fires). We always return Ok
-pub(super) fn print_on_main_thread(html_path: &str, read_access_dir: &str) -> Result<(), String> {
+pub(super) fn print_on_main_thread(
+    html_path: &str,
+    read_access_dir: &str,
+) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
 
-    let mtm = MainThreadMarker::new().ok_or("Print must run on the main thread")?;
+    let mtm = MainThreadMarker::new()
+        .ok_or_else(|| CommandError::internal("Print must run on the main thread"))?;
 
     let ov = create_offscreen_webview(mtm);
 
