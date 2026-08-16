@@ -153,9 +153,15 @@ figure,
 .alert-block,
 .details-block,
 blockquote {
+  /* BOTH spellings, deliberately. WebKit honours the LEGACY property and
+     ignores the modern one, so a rule carrying only break-inside is silently
+     inert there — measured: Chromium moved a near-full-page image to a fresh
+     page while WebKit straddled it across two. */
+  page-break-inside: avoid;
   break-inside: avoid;
 }
 h1, h2, h3, h4, h5, h6 {
+  page-break-after: avoid;
   break-after: avoid;
 }
 
@@ -175,9 +181,12 @@ pre, pre code, .code-block-wrapper pre {
 /*
  * A details element exports COLLAPSED, so its body is missing from the PDF entirely.
  * A reader cannot click paper open, which makes the closed state pure data
- * loss. The UA hides non-summary children of a closed <details>; override it.
+ * loss. Done in the MARKUP by expandDetails(), not here: Chromium hides the
+ * contents with content-visibility rather than display, so a display override
+ * alone changed nothing — measured, the body was still absent from the Windows
+ * PDF. The open attribute is the one mechanism both engines agree on.
  */
-details > *:not(summary),
+details[open] > *:not(summary),
 .details-block > *:not(summary) {
   display: block !important;
 }`;
@@ -327,6 +336,16 @@ function forceLightThemeCSS(): string {
  *
  * @coordinates-with renderer.rs — loads HTML via WKWebView, uses printOperationWithPrintInfo
  */
+/**
+ * Force every details element open for print.
+ *
+ * A collapsed one exports with its body ABSENT, and a reader cannot click paper
+ * open. Already-open elements are left untouched.
+ */
+export function expandDetails(html: string): string {
+  return html.replace(/<details(?![^>]*\bopen\b)([^>]*)>/gi, "<details open$1>");
+}
+
 export function buildPdfExportHtml(
   content: string,
   themeCSS: string,
@@ -339,6 +358,8 @@ export function buildPdfExportHtml(
   const fitCSS = buildFitCSS(options);
   const lightOverrides = options.useEditorTheme ? "" : forceLightThemeCSS();
   const htmlClass = options.useEditorTheme && isDark ? "dark-theme" : "";
+
+  const printableContent = expandDetails(content);
 
   return `<!DOCTYPE html>
 <html lang="en" class="${htmlClass}">
@@ -372,7 +393,7 @@ ${sharedContentCSS()}
 <body>
   <div class="export-surface">
     <div class="export-surface-editor tiptap-editor">
-${content}
+${printableContent}
     </div>
   </div>
 </body>

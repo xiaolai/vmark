@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildPdfExportHtml, getSharedContentCSS, type PdfOptions } from "../pdfHtmlTemplate";
+import { buildPdfExportHtml, expandDetails, getSharedContentCSS, type PdfOptions } from "../pdfHtmlTemplate";
 
 function baseOptions(overrides: Partial<PdfOptions> = {}): PdfOptions {
   return {
@@ -208,13 +208,47 @@ describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () 
   });
 
   it("forces a collapsed details block open, so its body is not lost", () => {
-    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
-    expect(html).toMatch(/details\s*>\s*\*:not\(summary\)/);
+    // Asserted on the MARKUP, because that is where the fix lives: CSS alone
+    // cannot do it (Chromium hides the body with content-visibility).
+    const html = buildPdfExportHtml(
+      "<details><summary>s</summary><p>body</p></details>", "", "", baseOptions(), false,
+    );
+    expect(html).toContain("<details open>");
   });
 
   it("keeps alert and details blocks off page boundaries", () => {
     const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
     const rule = html.match(/[^}]*\.alert-block[^{]*\{[^}]*\}/)?.[0] ?? "";
     expect(rule).toContain("break-inside: avoid");
+  });
+});
+
+describe("pdfHtmlTemplate expandDetails", () => {
+  it("opens a collapsed details element", () => {
+    expect(expandDetails('<details class="x"><summary>s</summary><p>body</p></details>'))
+      .toContain('<details open class="x">');
+  });
+
+  it("leaves an already-open one alone", () => {
+    const html = '<details open class="x"><summary>s</summary></details>';
+    expect(expandDetails(html)).toBe(html);
+  });
+
+  it("is not fooled by an attribute merely containing the letters 'open'", () => {
+    const out = expandDetails('<details data-reopened="1"><summary>s</summary></details>');
+    expect(out).toContain("<details open data-reopened");
+  });
+
+  it("opens every details element, not just the first", () => {
+    const out = expandDetails("<details><summary>a</summary></details><details><summary>b</summary></details>");
+    expect([...out.matchAll(/<details open/g)]).toHaveLength(2);
+  });
+
+  it("reaches the exported document", () => {
+    const html = buildPdfExportHtml(
+      "<details><summary>s</summary><p>hidden body</p></details>", "", "", baseOptions(), false,
+    );
+    expect(html).toContain("<details open>");
+    expect(html).toContain("hidden body");
   });
 });
