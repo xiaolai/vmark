@@ -233,9 +233,15 @@ fn print_to_pdf(
 /// Note: We cannot reliably detect print cancellation from NSPrintOperation
 /// when used with WKWebView (no delegate callback fires). We always return Ok
 pub(super) fn print_on_main_thread(
+    _app: &AppHandle,
     html_path: &str,
     read_access_dir: &str,
-) -> Result<(), CommandError> {
+    sink: Arc<RenderSink>,
+) {
+    sink.settle(print_inner(html_path, read_access_dir));
+}
+
+fn print_inner(html_path: &str, read_access_dir: &str) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
 

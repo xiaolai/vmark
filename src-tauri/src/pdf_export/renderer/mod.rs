@@ -256,18 +256,19 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
     })?;
 
     let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
-    let tx = Arc::new(Mutex::new(Some(tx)));
-    let tx_clone = tx.clone();
-    let temp_html_for_cleanup = temp_html.clone();
+    let sink = RenderSink::new(tx, temp_html.clone());
+    let sink_clone = sink.clone();
+    let app_clone = app.clone();
     let temp_html_str = temp_html.to_string_lossy().to_string();
     let temp_dir_str = temp_dir.to_string_lossy().to_string();
 
     app.run_on_main_thread(move || {
-        let result = platform::print_on_main_thread(&temp_html_str, &temp_dir_str);
+        // Same sink contract as render: macOS settles synchronously because
+        // its panel is modal, while Windows and Linux settle once the dialog
+        // has been SHOWN. None of the three can detect what the user then does
+        // with it — that has always been the documented contract here.
+        platform::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
         let _ = std::fs::remove_file(&temp_html_str);
-        if let Some(sender) = tx_clone.lock().unwrap_or_else(|p| p.into_inner()).take() {
-            let _ = sender.send(result);
-        }
     })
     .map_err(|e| {
         localized_error!(
@@ -284,7 +285,6 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
             "errors.pdf.channelClosed"
         )),
         Err(_) => {
-            let _ = std::fs::remove_file(&temp_html_for_cleanup);
             Err(localized_error!(
                 ErrorCode::Timeout,
                 "errors.pdf.printTimeoutSecs",

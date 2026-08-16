@@ -177,13 +177,50 @@ fn path_to_file_url(path: &str) -> Result<String, CommandError> {
         })
 }
 
-/// Refuse a native print on Linux until WI-PDF4.1 lands.
+/// Show the system print dialog for the rendered document.
+///
+/// Settles once the dialog has been SHOWN. `webkit_print_operation_run_dialog`
+/// is where the user takes over, and like the other two platforms we cannot
+/// report what they choose to do there.
 pub(super) fn print_on_main_thread(
-    _html_path: &str,
+    app: &AppHandle,
+    html_path: &str,
     _read_access_dir: &str,
-) -> Result<(), CommandError> {
-    Err(localized_error!(
-        ErrorCode::Unsupported,
-        "errors.pdf.unsupportedPlatform"
-    ))
+    sink: Arc<RenderSink>,
+) {
+    if let Err(e) = start_print(app, html_path, sink.clone()) {
+        sink.settle(Err(e));
+    }
+}
+
+fn start_print(app: &AppHandle, html_path: &str, sink: Arc<RenderSink>) -> Result<(), CommandError> {
+    let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
+    let file_url = path_to_file_url(html_path)?;
+    let blank = "about:blank".parse().expect("about:blank parses");
+    // Visible: a print dialog floating over nothing is disorienting.
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
+        .visible(true)
+        .title("VMark Print")
+        .build()
+        .map_err(|e| window_error(&e.to_string()))?;
+
+    window
+        .with_webview(move |pw| {
+            let view = pw.inner();
+            let sink_load = sink.clone();
+            view.connect_load_changed(move |view, event| {
+                if event != webkit2gtk::LoadEvent::Finished {
+                    return;
+                }
+                let op = PrintOperation::new(view);
+                // No parent window: the operation owns its own dialog, and
+                // passing the render window would tie the dialog's lifetime to
+                // a window the user may close underneath it.
+                op.run_dialog(None);
+                sink_load.settle(Ok(()));
+            });
+            view.load_uri(&file_url);
+        })
+        .map_err(|e| window_error(&e.to_string()))?;
+    Ok(())
 }
