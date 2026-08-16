@@ -49,6 +49,112 @@ describe("customInline remark plugin", () => {
     });
   });
 
+  // Pandoc's rule for `~sub~` / `^sup^`: the span may not contain unescaped
+  // whitespace. Without it, two numeric ranges in one paragraph pair with each
+  // other and swallow everything between them (#1280).
+  describe("whitespace rejects a single-character mark pair", () => {
+    it("leaves two numeric ranges literal instead of pairing them (#1280)", () => {
+      const mdast = parseMarkdownToMdast(
+        "Recommended sample: 4~6 files, including 1~2 difficult cases."
+      );
+
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+      expect(
+        children.find((c) => (c as { type?: string }).type === "subscript")
+      ).toBeUndefined();
+      expect(children.map((c) => (c as { value?: string }).value).join("")).toBe(
+        "Recommended sample: 4~6 files, including 1~2 difficult cases."
+      );
+    });
+
+    it("does not pair across a soft line break (#1280)", () => {
+      const mdast = parseMarkdownToMdast("- sample: 4~6 files:\n  one typical, and 1~2 hard.");
+
+      const listItem = (mdast.children[0] as { children?: unknown[] }).children?.[0];
+      const para = (listItem as { children?: unknown[] }).children?.[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+      expect(
+        children.find((c) => (c as { type?: string }).type === "subscript")
+      ).toBeUndefined();
+    });
+
+    it("rejects the same shape for superscript", () => {
+      const mdast = parseMarkdownToMdast("the 2^nd draft and the 3^rd review");
+
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+      expect(
+        children.find((c) => (c as { type?: string }).type === "superscript")
+      ).toBeUndefined();
+    });
+
+    it("still parses compact H~2~O and x^2^", () => {
+      const sub = parseMarkdownToMdast("H~2~O is water");
+      const sup = parseMarkdownToMdast("E=mc^2^ holds");
+
+      const subChildren = (sub.children[0] as { children?: unknown[] }).children ?? [];
+      const supChildren = (sup.children[0] as { children?: unknown[] }).children ?? [];
+      expect(
+        subChildren.find((c) => (c as { type?: string }).type === "subscript")
+      ).toBeDefined();
+      expect(
+        supChildren.find((c) => (c as { type?: string }).type === "superscript")
+      ).toBeDefined();
+    });
+
+    it("does not constrain the two-character marks", () => {
+      const mdast = parseMarkdownToMdast("==a highlighted phrase== and ++an underlined one++");
+
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+      expect(
+        children.find((c) => (c as { type?: string }).type === "highlight")
+      ).toBeDefined();
+      expect(
+        children.find((c) => (c as { type?: string }).type === "underline")
+      ).toBeDefined();
+    });
+
+    it("round-trips a subscript the editor applied to a phrase", () => {
+      // The toolbar/shortcut can mark a multi-word selection. Serializing it as
+      // a bare `~a b~` would no longer re-parse, silently losing the mark.
+      const md = serializeMdastToMarkdown({
+        type: "root",
+        children: [
+          {
+            type: "paragraph",
+            children: [
+              { type: "subscript", children: [{ type: "text", value: "two words" }] },
+            ],
+          },
+        ],
+      } as never);
+
+      expect(md.trim()).toBe("~two\\ words~");
+
+      const reparsed = parseMarkdownToMdast(md);
+      const children = (reparsed.children[0] as { children?: unknown[] }).children ?? [];
+      const subNode = children.find((c) => (c as { type?: string }).type === "subscript");
+      expect(subNode).toBeDefined();
+      expect(
+        ((subNode as { children?: unknown[] }).children?.[0] as { value?: string }).value
+      ).toBe("two words");
+    });
+
+    it("skips a whitespace-bearing candidate and still finds a later valid pair", () => {
+      const mdast = parseMarkdownToMdast("range 4~6 then H~2~O");
+
+      const para = mdast.children[0];
+      const children = (para as { children?: unknown[] })?.children ?? [];
+      const subNode = children.find((c) => (c as { type?: string }).type === "subscript");
+      expect(subNode).toBeDefined();
+      expect(
+        ((subNode as { children?: unknown[] }).children?.[0] as { value?: string }).value
+      ).toBe("2");
+    });
+  });
+
   describe("superscript ^text^", () => {
     it("parses superscript syntax", () => {
       const mdast = parseMarkdownToMdast("E=mc^2^");

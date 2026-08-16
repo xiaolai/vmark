@@ -10,32 +10,33 @@
  * (`parseMarksAcrossChildren`) for pairs remark split by parsing an inner mark
  * (e.g. `**bold**`) first.
  *
+ * Key decisions:
+ *   - Which markers form a pair is `markPairing.ts`'s question, not this one's.
+ *     BOTH passes here must ask it: applying the whitespace rule only in the
+ *     per-text-node scan let a `strong` node between two numeric ranges re-form
+ *     in the cross-node pass the very pair the first pass had refused (#1280).
+ *
+ * @coordinates-with markPairing.ts — MARKS, findMarkPair, the whitespace rule
  * @coordinates-with customInline.ts — the plugin + serialize handlers
  * @coordinates-with types.ts — Subscript, Superscript, Highlight, Underline
  * @module utils/markdownPipeline/plugins/customInlineTransform
  */
 import type { Root, PhrasingContent, Text } from "mdast";
 import type { Subscript, Superscript, Highlight, Underline } from "../types";
+import {
+  MARKS,
+  findMarkPair,
+  findMarkerIn,
+  spanIsPairable,
+  unescapeWhitespace,
+  type MarkDefinition,
+} from "./markPairing";
 
 export interface FromMarkdownExtension {
   transforms?: Array<(tree: Root) => void>;
 }
 
-interface MarkDefinition {
-  readonly name: "highlight" | "underline" | "superscript" | "subscript";
-  readonly marker: string;
-  readonly markerLen: number;
-  readonly skipDouble?: boolean;
-}
-
 const SKIP_NODE_TYPES = new Set(["inlineCode", "code", "math", "inlineMath", "html", "yaml"]);
-
-const MARKS: readonly MarkDefinition[] = [
-  { name: "highlight", marker: "==", markerLen: 2 },
-  { name: "underline", marker: "++", markerLen: 2 },
-  { name: "superscript", marker: "^", markerLen: 1 },
-  { name: "subscript", marker: "~", markerLen: 1, skipDouble: true },
-];
 
 type MarkName = "subscript" | "superscript" | "highlight" | "underline";
 
@@ -102,20 +103,6 @@ function parseMarksAcrossChildren(children: unknown[]): unknown[] {
   }
 }
 
-/** Index of the first usable marker in `text`, respecting `skipDouble`, or -1. */
-function findMarkerIn(text: string, mark: MarkDefinition, from: number): number {
-  let at = from;
-  while (at < text.length) {
-    const found = text.indexOf(mark.marker, at);
-    if (found === -1) return -1;
-    if (mark.skipDouble && mark.markerLen === 1 && text[found + 1] === mark.marker) {
-      at = found + 2;
-      continue;
-    }
-    return found;
-  }
-  return -1;
-}
 
 /** Wrap the first cross-node pair for `mark`, or null if none exists. */
 function tryWrapAcross(children: unknown[], mark: MarkDefinition): unknown[] | null {
@@ -125,6 +112,10 @@ function tryWrapAcross(children: unknown[], mark: MarkDefinition): unknown[] | n
     const openAt = findMarkerIn(open.value, mark, 0);
     if (openAt === -1) continue;
 
+    // The span can only grow as `j` advances, so whitespace already present in
+    // the opening node's tail rules out every closing candidate at once.
+    if (!spanIsPairable(open.value.slice(openAt + mark.markerLen), mark)) continue;
+
     for (let j = i + 1; j < children.length; j++) {
       const between = children[j];
       // A marker pair must not span code/math/raw-HTML — abort this opening.
@@ -132,10 +123,30 @@ function tryWrapAcross(children: unknown[], mark: MarkDefinition): unknown[] | n
       if (!isTextNode(between)) continue;
       const closeAt = findMarkerIn(between.value, mark, 0);
       if (closeAt === -1) continue;
+      // Same rule as the single-node scan, applied to everything the span
+      // would swallow — otherwise `4~6 **bold** and 1~2` pairs across the
+      // bold node that the per-text-node pass could not see (#1280).
+      const swallowed =
+        collectText(children.slice(i + 1, j)) + between.value.slice(0, closeAt);
+      if (!spanIsPairable(swallowed, mark)) break;
       return buildSpan(children, i, openAt, j, closeAt, mark);
     }
   }
   return null;
+}
+
+/** All text a candidate span would swallow, however deeply nested. */
+function collectText(nodes: unknown[]): string {
+  let out = "";
+  for (const node of nodes) {
+    if (isTextNode(node)) {
+      out += node.value;
+    } else if (node && typeof node === "object") {
+      const children = (node as { children?: unknown[] }).children;
+      if (Array.isArray(children)) out += collectText(children);
+    }
+  }
+  return out;
 }
 
 /** Build the children array with [i..j] wrapped into a `mark` node. */
@@ -183,48 +194,6 @@ function isSkippableNode(node: unknown): boolean {
   return typeof type === "string" && SKIP_NODE_TYPES.has(type);
 }
 
-function findMarkPair(
-  text: string,
-  mark: MarkDefinition,
-  fromIndex: number
-): { start: number; end: number } | null {
-  let startIdx = fromIndex;
-
-  while (startIdx < text.length) {
-    const foundStart = text.indexOf(mark.marker, startIdx);
-    if (foundStart === -1) return null;
-
-    // Skip if this is a double marker when skipDouble is set
-    if (mark.skipDouble && mark.markerLen === 1 && text[foundStart + 1] === mark.marker) {
-      startIdx = foundStart + 2;
-      continue;
-    }
-
-    // Find closing marker
-    let searchPos = foundStart + mark.markerLen;
-    while (searchPos < text.length) {
-      const closeIdx = text.indexOf(mark.marker, searchPos);
-      if (closeIdx === -1) break;
-
-      // Skip double markers when configured
-      if (mark.skipDouble && mark.markerLen === 1 && text[closeIdx + 1] === mark.marker) {
-        searchPos = closeIdx + 2;
-        continue;
-      }
-
-      // Valid closing marker found
-      if (closeIdx > foundStart + mark.markerLen) {
-        return { start: foundStart, end: closeIdx };
-      }
-      break;
-    }
-
-    // No valid closing marker, try next occurrence
-    startIdx = foundStart + 1;
-  }
-
-  return null;
-}
 
 function parseMarksInText(text: string): PhrasingContent[] {
   const result: PhrasingContent[] = [];
@@ -259,8 +228,12 @@ function parseMarksInText(text: string): PhrasingContent[] {
       result.push({ type: "text", value: text.slice(position, earliestStart) });
     }
 
-    // Add the mark node
-    const content = text.slice(earliestStart + earliestMark.markerLen, earliestEnd);
+    // Add the mark node. `\ ` inside a sub/superscript is Pandoc's way to write
+    // a deliberate space; the backslash is syntax, not content.
+    const rawContent = text.slice(earliestStart + earliestMark.markerLen, earliestEnd);
+    const content = earliestMark.noUnescapedWhitespace
+      ? unescapeWhitespace(rawContent)
+      : rawContent;
     const markNode = createMarkNode(earliestMark.name as MarkName, content);
     result.push(markNode);
 

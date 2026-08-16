@@ -58,7 +58,7 @@
       "inputValue": "shortcut",
       "outputValue": "full",
       "verdict": "normalization",
-      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES \u2014 main's fix stopped the old flattening that rewrote it inline and orphaned its definition \u2014 and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
+      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES — main's fix stopped the old flattening that rewrote it inline and orphaned its definition — and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
     },
     {
       "exampleId": "cm-300",
@@ -328,7 +328,7 @@
       "inputValue": 1,
       "outputValue": 2,
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-39",
@@ -338,7 +338,7 @@
       "inputValue": "foo\n\nbar",
       "outputValue": "foo",
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-39",
@@ -348,7 +348,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-407",
@@ -838,7 +838,7 @@
       "inputValue": 1,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-484",
@@ -848,7 +848,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-487",
@@ -858,7 +858,7 @@
       "inputValue": 1,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-487",
@@ -868,7 +868,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-517",
@@ -928,7 +928,7 @@
       "inputValue": "shortcut",
       "outputValue": "full",
       "verdict": "normalization",
-      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES \u2014 main's fix stopped the old flattening that rewrote it inline and orphaned its definition \u2014 and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
+      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES — main's fix stopped the old flattening that rewrote it inline and orphaned its definition — and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
     },
     {
       "exampleId": "cm-576",
@@ -938,7 +938,7 @@
       "inputValue": "collapsed",
       "outputValue": "full",
       "verdict": "normalization",
-      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES \u2014 main's fix stopped the old flattening that rewrote it inline and orphaned its definition \u2014 and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
+      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES — main's fix stopped the old flattening that rewrote it inline and orphaned its definition — and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
     },
     {
       "exampleId": "cm-585",
@@ -948,7 +948,7 @@
       "inputValue": "collapsed",
       "outputValue": "full",
       "verdict": "normalization",
-      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES \u2014 main's fix stopped the old flattening that rewrote it inline and orphaned its definition \u2014 and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
+      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES — main's fix stopped the old flattening that rewrote it inline and orphaned its definition — and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
     },
     {
       "exampleId": "cm-589",
@@ -958,7 +958,7 @@
       "inputValue": "shortcut",
       "outputValue": "full",
       "verdict": "normalization",
-      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES \u2014 main's fix stopped the old flattening that rewrote it inline and orphaned its definition \u2014 and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
+      "reason": "Reference SPELLING widens on save: a shortcut/collapsed image or link reference is re-emitted in full form (`![alt][id]`). The reference itself now SURVIVES — main's fix stopped the old flattening that rewrote it inline and orphaned its definition — and mdast-util-to-markdown must use the full form whenever the label and the rendered alt text differ, which is exactly these examples. The rendered document and the resolved destination are unchanged; only the reference's spelling widens."
     },
     {
       "exampleId": "cm-638",
@@ -1289,13 +1289,53 @@
     },
     {
       "exampleId": "gfmext-18",
+      "path": "root.children[2]",
+      "kind": "child-count",
+      "detail": "3 vs 1",
+      "inputValue": 3,
+      "outputValue": 1,
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
+    },
+    {
+      "exampleId": "gfmext-18",
+      "path": "root.children[2].children[0]",
+      "kind": "attribute",
+      "detail": "value",
+      "inputValue": "This ",
+      "outputValue": "This ~is ~ legit~ isn't ~ legit.",
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
+    },
+    {
+      "exampleId": "gfmext-18",
+      "path": "root.children[2].children[1]",
+      "kind": "missing",
+      "detail": "absent in source-position",
+      "inputValue": "delete",
+      "outputValue": "__undefined__",
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
+    },
+    {
+      "exampleId": "gfmext-18",
+      "path": "root.children[2].children[2]",
+      "kind": "missing",
+      "detail": "absent in source-position",
+      "inputValue": "text",
+      "outputValue": "__undefined__",
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
+    },
+    {
+      "exampleId": "gfmext-18",
       "path": "root.children[3]",
       "kind": "child-count",
       "detail": "1 vs 3",
       "inputValue": 1,
       "outputValue": 3,
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1304,8 +1344,8 @@
       "detail": "value",
       "inputValue": "This is not ~~~~~one~~~~~ huge strikethrough.",
       "outputValue": "This is not ~~~~",
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1314,8 +1354,8 @@
       "detail": "absent in document",
       "inputValue": "__undefined__",
       "outputValue": "delete",
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1324,8 +1364,8 @@
       "detail": "absent in document",
       "inputValue": "__undefined__",
       "outputValue": "text",
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1334,8 +1374,8 @@
       "detail": "4 vs 5",
       "inputValue": 4,
       "outputValue": 5,
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1344,8 +1384,8 @@
       "detail": "value",
       "inputValue": " ~~~three~~~",
       "outputValue": " ~~",
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-18",
@@ -1354,8 +1394,8 @@
       "detail": "absent in document",
       "inputValue": "__undefined__",
       "outputValue": "delete",
-      "verdict": "model-limit",
-      "reason": "Delimiter-run pathology (regression corpora): adversarial nested/unbalanced emphasis, strikethrough and tilde runs cannot be represented as distinct ProseMirror marks; the serializer emits its closest escaped spelling, whose re-parse differs at the boundaries. The text content survives; the adversarial delimiter structure does not."
+      "verdict": "extension",
+      "reason": "Tilde dialect: VMark does not implement GFM's single-tilde strikethrough — `~` opens a subscript, and since #1280 only when the span carries no unescaped whitespace. Tildes VMark reads as literal are escaped on output (`\\~`) so the document renders the same in VMark and in GFM; the stock ruler therefore reads a `delete` in the input where it reads plain text in the output. Double-tilde strikethrough is unaffected."
     },
     {
       "exampleId": "gfmext-20",
@@ -1855,7 +1895,7 @@
       "inputValue": "$$a$$$$b$$",
       "outputValue": "$a$$$$b$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-17",
@@ -1865,7 +1905,7 @@
       "inputValue": "$$ Display ",
       "outputValue": "$Display ",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-17",
@@ -1875,7 +1915,7 @@
       "inputValue": "first $$ then",
       "outputValue": "first$ then",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -1885,7 +1925,7 @@
       "inputValue": 4,
       "outputValue": 5,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -1895,7 +1935,7 @@
       "inputValue": "math\n$$",
       "outputValue": "math",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -1905,7 +1945,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-2",
@@ -1915,7 +1955,7 @@
       "inputValue": "$$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right) \\left( \\sum_{k=1}^n b_k^2 \\right)$$",
       "outputValue": "$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right) \\left( \\sum_{k=1}^n b_k^2 \\right)$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -1925,7 +1965,7 @@
       "inputValue": 1,
       "outputValue": 3,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -1935,7 +1975,7 @@
       "inputValue": "This is display math:\n$$\n\\text{Hello $x^2$}\n$$\nAnd this is inline math:\n$\\text{Hello $x$ there!}$",
       "outputValue": "This is display math:",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -1945,7 +1985,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -1955,7 +1995,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-22",
@@ -1965,7 +2005,7 @@
       "inputValue": "Math environment contains y: $x {$ $ } $y$",
       "outputValue": "Math environment contains y: $x {$ $}$y$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -1975,7 +2015,7 @@
       "inputValue": "$$\\text{first $$ second}$",
       "outputValue": "$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -1985,7 +2025,7 @@
       "inputValue": "$$\\text{first $$ second}$$",
       "outputValue": "$\\text{first $ second}$$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -1995,7 +2035,7 @@
       "inputValue": "$$$\\text{first $$ second}$$",
       "outputValue": "$$$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -2005,7 +2045,7 @@
       "inputValue": "$$$$\\text{first $$ second}$$",
       "outputValue": "$$$$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-28",
@@ -2035,7 +2075,7 @@
       "inputValue": "$$$$",
       "outputValue": "$$\n$$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-31",
@@ -2265,7 +2305,7 @@
       "inputValue": "$$x$$$$$$y$$",
       "outputValue": "$x$$$$$$y$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-43",
@@ -2532,7 +2572,7 @@
       "inputValue": "$${a",
       "outputValue": "${a",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-5",
@@ -2542,7 +2582,7 @@
       "inputValue": " d$$",
       "outputValue": " d$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "mdx-1",
@@ -2602,7 +2642,7 @@
       "inputValue": 3,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -2612,7 +2652,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -2622,7 +2662,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -2632,7 +2672,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-13",
@@ -2722,7 +2762,7 @@
       "inputValue": 2,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-28",
@@ -2732,7 +2772,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-28",
@@ -2742,7 +2782,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-31",
@@ -2762,7 +2802,7 @@
       "inputValue": 1,
       "outputValue": 2,
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     },
     {
       "exampleId": "vmark-alert-note",
@@ -2772,7 +2812,7 @@
       "inputValue": "[!NOTE]\nSomething.",
       "outputValue": "[!NOTE]",
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     },
     {
       "exampleId": "vmark-alert-note",
@@ -2782,7 +2822,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     },
     {
       "exampleId": "vmark-cm-bare-list-marker",
@@ -2792,7 +2832,7 @@
       "inputValue": 1,
       "outputValue": 2,
       "verdict": "defect",
-      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list \u2014 the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
     },
     {
       "exampleId": "vmark-cm-bare-list-marker",
@@ -2802,7 +2842,7 @@
       "inputValue": "heading",
       "outputValue": "paragraph",
       "verdict": "defect",
-      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list \u2014 the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
     },
     {
       "exampleId": "vmark-cm-bare-list-marker",
@@ -2812,7 +2852,7 @@
       "inputValue": "__undefined__",
       "outputValue": "list",
       "verdict": "defect",
-      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list \u2014 the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
+      "reason": "Bare list marker through the ruler's eyes: stock remark reads the input as a setext heading and the serialized output as a paragraph plus an empty list — the rendered meaning changed across the roundtrip. Same defect family as the fidelity leg's bare-marker entry; fixable, ratcheted."
     },
     {
       "exampleId": "vmark-details-simple",
@@ -2822,7 +2862,7 @@
       "inputValue": "<details><summary>S</summary>",
       "outputValue": "<details>\n<summary>S</summary>",
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     },
     {
       "exampleId": "vmark-nesting-details-in-list",
@@ -2832,7 +2872,7 @@
       "inputValue": "<details><summary>S</summary>",
       "outputValue": "<details>\n<summary>S</summary>",
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     },
     {
       "exampleId": "vmark-toc-block",
@@ -2842,7 +2882,7 @@
       "inputValue": "[toc]",
       "outputValue": "[TOC]",
       "verdict": "normalization",
-      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark \u2014 which lacks the dialect \u2014 reads the spelling difference as a value change. VMark renders both identically."
+      "reason": "Dialect canonical spelling: VMark re-emits its dialect constructs in canonical form ([TOC] casing, <details> with newline-separated summary, alert marker on its own quote line); stock remark — which lacks the dialect — reads the spelling difference as a value change. VMark renders both identically."
     }
   ],
   "stability": [
@@ -2850,43 +2890,43 @@
       "exampleId": "cmreg-14",
       "pass1Sha256": "0287879e70ddc3dea8cbacc2e2b6c5fdb1af71f5294b04c425acbe5335a5fe8f",
       "pass2Sha256": "543a6931f0689714a3f062351d4abfa02b90dea346afff275cce6818b699d798",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "gfmext-20",
       "pass1Sha256": "f0cb4b8d38329b96ceb51088a1261a283b2faf5229dad1590978fbc60e3baa22",
       "pass2Sha256": "1a4412bb4ddbedfec4a6131de210d9458380c855948bf1385b09dac44f3be699",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "mdx-10",
       "pass1Sha256": "8a5fe0e2bf0147fa4a9d0f394ddc1a46e71539e1eb37cde64c8e01e52fefd977",
       "pass2Sha256": "30a12cbf9135fc30f3852c887c750a0d467e0e1e51e091dd77863804839ba780",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "mdx-12",
       "pass1Sha256": "545c38b0922de19734fbffde62792c37c2aef6a3216cfa472449173165220f7d",
       "pass2Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "mdx-13",
       "pass1Sha256": "cf3aca25260402f8ebbef37cdcb530338f33d23479f14313638a764543a49d42",
       "pass2Sha256": "538b7f4abb555f04486a35cbdedcb5bb46ff3b94b85e20ee0cd1f5800129c805",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "mdx-27",
       "pass1Sha256": "ab520acc88337e6af1ea91544c7cfe1e278beae4fafac740e5cf11bb64b03124",
       "pass2Sha256": "14077a5501f7db1670d172bcfa613c69fc3b64eccd7d466a4abe5237e02307d0",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     },
     {
       "exampleId": "mdx-28",
       "pass1Sha256": "75a11da44c802486bc6f65640aa48a730f0f684c5c07a42ba3cd1735eb3fb070",
       "pass2Sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth \u2014 unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
+      "reason": "Serializer DEFECT (ratcheted for fixing): bracket-escape growth — unresolvable or escape-heavy link/reference brackets gain another escape layer on the second pass instead of reaching a fixed point. Real bug; fixing it deletes this entry."
     }
   ],
   "fidelity": [
@@ -2898,7 +2938,7 @@
       "inputValue": 1,
       "outputValue": 2,
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-39",
@@ -2908,7 +2948,7 @@
       "inputValue": "foo\n\nbar",
       "outputValue": "foo",
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-39",
@@ -2918,7 +2958,7 @@
       "inputValue": "__undefined__",
       "outputValue": "paragraph",
       "verdict": "defect",
-      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks \u2014 fixable corruption of the author's structure; ratcheted."
+      "reason": "Entity-newline injection: numeric entities for newlines (&#10;) serialize as REAL newlines, so one paragraph reparses as two blocks — fixable corruption of the author's structure; ratcheted."
     },
     {
       "exampleId": "cm-109",
@@ -3718,7 +3758,7 @@
       "inputValue": 1,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-484",
@@ -3728,7 +3768,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-487",
@@ -3738,7 +3778,7 @@
       "inputValue": 1,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-487",
@@ -3748,7 +3788,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "cm-517",
@@ -3798,7 +3838,7 @@
       "inputValue": 1,
       "outputValue": 3,
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-638",
@@ -3808,7 +3848,7 @@
       "inputValue": 3,
       "outputValue": 1,
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-638",
@@ -3818,7 +3858,7 @@
       "inputValue": "break",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-638",
@@ -3828,7 +3868,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-638",
@@ -3838,7 +3878,7 @@
       "inputValue": "__undefined__",
       "outputValue": "break",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-638",
@@ -3848,7 +3888,7 @@
       "inputValue": "__undefined__",
       "outputValue": "emphasis",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3858,7 +3898,7 @@
       "inputValue": 1,
       "outputValue": 3,
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3868,7 +3908,7 @@
       "inputValue": 3,
       "outputValue": 1,
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3878,7 +3918,7 @@
       "inputValue": "break",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3888,7 +3928,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3898,7 +3938,7 @@
       "inputValue": "__undefined__",
       "outputValue": "break",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cm-639",
@@ -3908,7 +3948,7 @@
       "inputValue": "__undefined__",
       "outputValue": "emphasis",
       "verdict": "model-limit",
-      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* \u2014 the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
+      "reason": "Emphasis spanning a hard line break: ProseMirror marks split at the break node, so *foo(break)bar* serializes as *foo*\\ then *bar* — the re-parse reads three inline nodes where the input had one emphasis span. The emphasized text survives; the single-span structure does not."
     },
     {
       "exampleId": "cmreg-8",
@@ -4575,7 +4615,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-10",
@@ -4585,7 +4625,7 @@
       "inputValue": "$x $",
       "outputValue": "$x $ x$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-10",
@@ -4595,7 +4635,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4605,7 +4645,7 @@
       "inputValue": 8,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4615,7 +4655,7 @@
       "inputValue": "these are not math texts: ",
       "outputValue": "these are not math texts: $ y=x$, $y=x $, $\ny=x$ and $y=x\n$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4625,7 +4665,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4635,7 +4675,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4645,7 +4685,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4655,7 +4695,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4665,7 +4705,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4675,7 +4715,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4685,7 +4725,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4695,7 +4735,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4705,7 +4745,7 @@
       "inputValue": "The start of a line counts as whitespace ",
       "outputValue": "The start of a line counts as whitespace $2 +\n$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4715,7 +4755,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4725,7 +4765,7 @@
       "inputValue": 3,
       "outputValue": 2,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4735,7 +4775,7 @@
       "inputValue": "While displays can start with whitespace, {",
       "outputValue": "While displays can start with whitespace, {${\nthey should not allow inlines to do that $$2 +\n",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4745,7 +4785,7 @@
       "inputValue": "text",
       "outputValue": "inlineMath",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-12",
@@ -4755,7 +4795,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-18",
@@ -4765,7 +4805,7 @@
       "inputValue": "> z $$",
       "outputValue": "\n> z $$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -4775,7 +4815,7 @@
       "inputValue": 3,
       "outputValue": 4,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -4785,7 +4825,7 @@
       "inputValue": "not\n\nmath",
       "outputValue": "not\n\nmath\n",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-19",
@@ -4795,7 +4835,7 @@
       "inputValue": "__undefined__",
       "outputValue": "math",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -4805,7 +4845,7 @@
       "inputValue": 4,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -4815,7 +4855,7 @@
       "inputValue": "And this is inline math:\n",
       "outputValue": "And this is inline math:\n$\\text{Hello $x$ there!}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -4825,7 +4865,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -4835,7 +4875,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-21",
@@ -4845,7 +4885,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4855,7 +4895,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4865,7 +4905,7 @@
       "inputValue": "$\\text{first $",
       "outputValue": "$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4875,7 +4915,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4885,7 +4925,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4895,7 +4935,7 @@
       "inputValue": "$\\text{first $",
       "outputValue": "$\\text{first $ second}$$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4905,7 +4945,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4915,7 +4955,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4925,7 +4965,7 @@
       "inputValue": "$$$\\text{first ",
       "outputValue": "$$$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4935,7 +4975,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4945,7 +4985,7 @@
       "inputValue": 2,
       "outputValue": 1,
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4955,7 +4995,7 @@
       "inputValue": "$$$$\\text{first ",
       "outputValue": "$$$$\\text{first $ second}$",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-23",
@@ -4965,7 +5005,7 @@
       "inputValue": "text",
       "outputValue": "__undefined__",
       "verdict": "normalization",
-      "reason": "Math delimiter canonicalization: $$\u2026$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
+      "reason": "Math delimiter canonicalization: $$…$$ inline math re-emits with VMark's canonical dollar delimiters and pathological dollar runs re-delimit; the math VALUE the renderer typesets is unchanged."
     },
     {
       "exampleId": "math-31",
@@ -5572,7 +5612,7 @@
       "inputValue": 3,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -5582,7 +5622,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -5592,7 +5632,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-12",
@@ -5602,7 +5642,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-13",
@@ -5692,7 +5732,7 @@
       "inputValue": 2,
       "outputValue": 0,
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-28",
@@ -5702,7 +5742,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-28",
@@ -5712,7 +5752,7 @@
       "inputValue": "paragraph",
       "outputValue": "__undefined__",
       "verdict": "model-limit",
-      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct \u2014 URL included \u2014 is dropped on serialize. Honest, pinned data loss."
+      "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
       "exampleId": "mdx-31",
@@ -5783,16 +5823,6 @@
       "outputValue": "list",
       "verdict": "defect",
       "reason": "Bare list marker: serializing the repaired paragraph puts the lone '-' on its own line without escaping it, so the re-parse reads a paragraph plus an empty list where the input had one paragraph. Fixable serializer corruption; ratcheted."
-    },
-    {
-      "exampleId": "vmark-malformed-unterminated-math",
-      "path": "root.children[0]",
-      "kind": "attribute",
-      "detail": "value",
-      "inputValue": "\\int_0^1",
-      "outputValue": "\\int_0\\^1",
-      "verdict": "defect",
-      "reason": "Caret escape asymmetry: the serializer escapes ^ (VMark's superscript marker) in plain text as \\^, but the parser does not read \\^ as an escape, so a literal backslash accretes in the author's text on every roundtrip. Fixable escape asymmetry; ratcheted."
     }
   ]
 }
