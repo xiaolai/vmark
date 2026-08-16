@@ -246,6 +246,7 @@ errors:
   # === PDF export ===
   pdf.tempWriteFailed: "Failed to write temporary HTML: %{detail}"
   pdf.dispatchFailed: "Failed to dispatch to the main thread: %{detail}"
+  pdf.abandoned: "The PDF operation was abandoned before it reported a result"
   pdf.channelClosed: "The PDF operation ended without reporting a result"
   pdf.exportTimeout: "PDF export timed out after %{seconds} seconds"
   pdf.printTimeoutSecs: "Print timed out after %{seconds} seconds"

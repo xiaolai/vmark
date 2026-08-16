@@ -245,6 +245,7 @@ errors:
   # === PDF export ===
   pdf.tempWriteFailed: "Échec de l'écriture du HTML temporaire : %{detail}"
   pdf.dispatchFailed: "Échec de l'envoi au thread principal : %{detail}"
+  pdf.abandoned: "L'opération PDF a été abandonnée avant de produire un résultat"
   pdf.channelClosed: "L'opération PDF s'est terminée sans résultat"
   pdf.exportTimeout: "L'export PDF a expiré après %{seconds} secondes"
   pdf.printTimeoutSecs: "L'impression a expiré après %{seconds} secondes"

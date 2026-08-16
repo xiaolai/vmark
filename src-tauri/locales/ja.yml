@@ -245,6 +245,7 @@ errors:
   # === PDF export ===
   pdf.tempWriteFailed: "一時 HTML の書き込みに失敗しました: %{detail}"
   pdf.dispatchFailed: "メインスレッドへのディスパッチに失敗しました: %{detail}"
+  pdf.abandoned: "PDF 処理は結果を返す前に中断されました"
   pdf.channelClosed: "PDF 処理は結果を返さずに終了しました"
   pdf.exportTimeout: "PDF 書き出しが %{seconds} 秒でタイムアウトしました"
   pdf.printTimeoutSecs: "印刷が %{seconds} 秒でタイムアウトしました"

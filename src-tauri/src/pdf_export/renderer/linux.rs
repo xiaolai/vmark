@@ -20,11 +20,15 @@
 //! @coordinates-with mod.rs — dispatches here on Linux and other unix
 //! @module pdf_export/renderer/linux
 
+use std::sync::Arc;
+
 use tauri::AppHandle;
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use crate::pdf_export::page_spec::PageSpec;
+
+use super::RenderSink;
 
 /// Refuse a PDF render on Linux until WI-PDF2.1 lands.
 pub(super) fn render_on_main_thread(
@@ -33,11 +37,12 @@ pub(super) fn render_on_main_thread(
     _read_access_dir: &str,
     _output_path: &str,
     _page: PageSpec,
-) -> Result<(), CommandError> {
-    Err(localized_error!(
+    sink: Arc<RenderSink>,
+) {
+    sink.settle(Err(localized_error!(
         ErrorCode::Unsupported,
         "errors.pdf.unsupportedPlatform"
-    ))
+    )));
 }
 
 /// Refuse a native print on Linux until WI-PDF4.1 lands.

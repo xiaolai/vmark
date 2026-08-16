@@ -16,10 +16,12 @@ use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use crate::pdf_export::page_spec::PageSpec;
 
-use super::emit_progress;
+use std::sync::Arc;
+
 use super::macos::{
     configure_print_info, create_offscreen_webview, load_html_and_wait, run_loop_tick,
 };
+use super::{emit_progress, RenderSink};
 
 /// Main-thread PDF rendering logic.
 pub(super) fn render_on_main_thread(
@@ -30,6 +32,18 @@ pub(super) fn render_on_main_thread(
     // macOS geometry is CSS-driven (ADR-PDF1a); the spec is accepted for a
     // uniform contract and deliberately unused here.
     _page: PageSpec,
+    sink: Arc<RenderSink>,
+) {
+    sink.settle(render_inner(app, html_path, read_access_dir, output_path));
+}
+
+/// The synchronous body. macOS can produce its result inside the UI closure
+/// because it spins the run loop itself; the other two platforms cannot.
+fn render_inner(
+    app: &AppHandle,
+    html_path: &str,
+    read_access_dir: &str,
+    output_path: &str,
 ) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
 

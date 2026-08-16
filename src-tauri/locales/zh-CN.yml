@@ -245,6 +245,7 @@ errors:
   # === PDF export ===
   pdf.tempWriteFailed: "写入临时 HTML 失败：%{detail}"
   pdf.dispatchFailed: "分发到主线程失败：%{detail}"
+  pdf.abandoned: "PDF 操作在返回结果前被中断"
   pdf.channelClosed: "PDF 操作结束但未返回结果"
   pdf.exportTimeout: "PDF 导出在 %{seconds} 秒后超时"
   pdf.printTimeoutSecs: "打印在 %{seconds} 秒后超时"

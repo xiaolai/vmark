@@ -22,6 +22,7 @@
 //! @coordinates-with commands.rs — the only caller
 //! @module pdf_export/renderer
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
@@ -52,6 +53,57 @@ use linux as platform;
 /// up to ~60s of run-loop ticks; double that to give the dispatcher headroom
 /// without leaving the user staring at a frozen export forever.
 const PDF_OPERATION_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// The outcome channel a platform body must settle exactly once.
+///
+/// Passed IN rather than returned, because two of the three platforms cannot
+/// produce a result before the UI closure must return (ADR-PDF6): WebView2
+/// posts its completion to the creating thread's message pump and WebKitGTK
+/// emits a signal on the owning GLib context. Blocking the closure to wait for
+/// either one deadlocks the loop that would deliver it.
+///
+/// The sink also owns the temp HTML file, because it must outlive NAVIGATION,
+/// not the dispatch that started it (ADR-PDF4).
+pub(super) struct RenderSink {
+    tx: Mutex<Option<oneshot::Sender<Result<(), CommandError>>>>,
+    temp_html: PathBuf,
+}
+
+impl RenderSink {
+    fn new(tx: oneshot::Sender<Result<(), CommandError>>, temp_html: PathBuf) -> Arc<Self> {
+        Arc::new(Self {
+            tx: Mutex::new(Some(tx)),
+            temp_html,
+        })
+    }
+
+    /// Deliver the outcome and drop the temp file. A second call is ignored,
+    /// so a platform that both returns an error and fires its callback cannot
+    /// panic or double-report.
+    pub(super) fn settle(&self, result: Result<(), CommandError>) {
+        let taken = self.tx.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some(tx) = taken {
+            let _ = std::fs::remove_file(&self.temp_html);
+            let _ = tx.send(result);
+        }
+    }
+}
+
+/// If a platform body is dropped without settling — an unwind, or a callback
+/// that never fires and is released — report it immediately instead of making
+/// the caller wait out the full timeout for a result that can never arrive.
+impl Drop for RenderSink {
+    fn drop(&mut self) {
+        let taken = self.tx.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some(tx) = taken {
+            let _ = std::fs::remove_file(&self.temp_html);
+            let _ = tx.send(Err(localized_error!(
+                ErrorCode::Internal,
+                "errors.pdf.abandoned"
+            )));
+        }
+    }
+}
 
 /// Progress event payload.
 ///
@@ -111,9 +163,9 @@ pub async fn render_pdf(
     );
 
     let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
-    let tx = Arc::new(Mutex::new(Some(tx)));
+    let sink = RenderSink::new(tx, temp_html.clone());
 
-    let tx_clone = tx.clone();
+    let sink_clone = sink.clone();
     let app_clone = app.clone();
     let temp_html_str = temp_html.to_string_lossy().to_string();
     let temp_dir_str = temp_dir.to_string_lossy().to_string();
@@ -123,19 +175,17 @@ pub async fn render_pdf(
     // GCD dispatch causes WKWebView callback deadlock when spinning NSRunLoop.
     app.run_on_main_thread(move || {
         log::debug!("[PDF] main thread (tao event loop) entered");
-        let result = platform::render_on_main_thread(
+        // The platform settles the sink — synchronously on macOS, from a
+        // native callback on Windows and Linux. The temp file is dropped by
+        // the sink, not here: on the async platforms it is still being read.
+        platform::render_on_main_thread(
             &app_clone,
             &temp_html_str,
             &temp_dir_str,
             &output_path_clone,
             page,
+            sink_clone,
         );
-        log::debug!("[PDF] done, result: {:?}", result.as_ref().map(|_| "ok"));
-        // Clean up temp file
-        let _ = std::fs::remove_file(&temp_html_str);
-        if let Some(sender) = tx_clone.lock().unwrap_or_else(|p| p.into_inner()).take() {
-            let _ = sender.send(result);
-        }
     })
     .map_err(|e| {
         localized_error!(
@@ -149,7 +199,6 @@ pub async fn render_pdf(
     // sender (e.g. because the run_on_main_thread closure unwound before
     // reaching the `sender.send(...)` line), the receiver would otherwise
     // wait forever and freeze the calling async task.
-    let temp_html_for_cleanup = temp_html.clone();
     match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
         Ok(Ok(result)) => result,
         Ok(Err(_)) => Err(localized_error!(
@@ -157,8 +206,9 @@ pub async fn render_pdf(
             "errors.pdf.channelClosed"
         )),
         Err(_) => {
-            // Timed out — clean up the temp file the main thread never reached.
-            let _ = std::fs::remove_file(&temp_html_for_cleanup);
+            // The sink still owns the temp file and drops it when the platform
+            // releases it. Removing it here could pull the document out from
+            // under a render that is merely slow rather than dead.
             // A distinct CODE, not a recognisable message: the frontend must
             // be able to tell a timeout from an I/O failure without matching
             // text (rule 50).
@@ -197,6 +247,7 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
     let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
     let tx = Arc::new(Mutex::new(Some(tx)));
     let tx_clone = tx.clone();
+    let temp_html_for_cleanup = temp_html.clone();
     let temp_html_str = temp_html.to_string_lossy().to_string();
     let temp_dir_str = temp_dir.to_string_lossy().to_string();
 
@@ -215,7 +266,6 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
         )
     })?;
 
-    let temp_html_for_cleanup = temp_html.clone();
     match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
         Ok(Ok(result)) => result,
         Ok(Err(_)) => Err(localized_error!(
@@ -232,3 +282,7 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mod.test.rs"]
+mod tests;

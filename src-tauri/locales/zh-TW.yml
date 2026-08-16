@@ -245,6 +245,7 @@ errors:
   # === PDF export ===
   pdf.tempWriteFailed: "寫入暫存 HTML 失敗：%{detail}"
   pdf.dispatchFailed: "派送到主執行緒失敗：%{detail}"
+  pdf.abandoned: "PDF 作業在回報結果前被中斷"
   pdf.channelClosed: "PDF 作業結束但未回報結果"
   pdf.exportTimeout: "PDF 匯出在 %{seconds} 秒後逾時"
   pdf.printTimeoutSecs: "列印在 %{seconds} 秒後逾時"
