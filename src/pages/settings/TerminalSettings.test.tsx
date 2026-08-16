@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TerminalSettings } from "./TerminalSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { TERMINAL_MAX_RATIO } from "@/stores/uiStore";
 
 // list_available_shells / get_default_shell are invoked on mount.
 vi.mock("@tauri-apps/api/core", () => ({
@@ -159,21 +160,25 @@ describe("TerminalSettings panel size (WI-1.2)", () => {
     });
   });
 
-  it("offers nothing above 50%", () => {
+  it("offers the cap and nothing above it", () => {
+    // Derived from TERMINAL_MAX_RATIO, not spelled out: as literals ("not 60/70/80,
+    // yes 50") this test asserted the OLD ceiling and would have gone on passing
+    // while the dropdown silently lost every option #1279 added.
     render(<TerminalSettings />);
     const labels = Array.from(panelSizeSelect().options).map((o) => o.textContent);
-    expect(labels).not.toContain("60%");
-    expect(labels).not.toContain("70%");
-    expect(labels).not.toContain("80%");
-    expect(labels).toContain("50%");
+    expect(labels).toContain(`${Math.round(TERMINAL_MAX_RATIO * 100)}%`);
+    expect(labels).not.toContain(`${Math.round((TERMINAL_MAX_RATIO + 0.05) * 100)}%`);
   });
 
-  it("displays a legacy over-cap ratio as the cap, not as the stored number", () => {
+  it("displays an over-cap ratio as the cap, not as the stored number", () => {
     useSettingsStore.setState({
-      terminal: { ...useSettingsStore.getState().terminal, panelRatio: 0.8 },
+      terminal: {
+        ...useSettingsStore.getState().terminal,
+        panelRatio: TERMINAL_MAX_RATIO + 0.15,
+      },
     });
     render(<TerminalSettings />);
-    // The panel was already rendering at 50%; the dropdown now agrees.
-    expect(panelSizeSelect().value).toBe("0.5");
+    // The panel is already rendering at the cap; the dropdown must agree.
+    expect(panelSizeSelect().value).toBe(String(TERMINAL_MAX_RATIO));
   });
 });

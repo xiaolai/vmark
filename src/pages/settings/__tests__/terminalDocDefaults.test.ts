@@ -58,7 +58,7 @@ const DOCUMENTED_RANGES: Array<{
   documented: [number, number];
   actual: () => number[];
 }> = [
-  { row: "Panel Size", documented: [0.1, 0.5], actual: () => panelSizeOptions.map((o) => Number(o.value)) },
+  { row: "Panel Size", documented: [0.1, 0.8], actual: () => panelSizeOptions.map((o) => Number(o.value)) },
   { row: "Font Size", documented: [10, 24], actual: () => fontSizeOptions.map((o) => Number(o.value)) },
   { row: "Line Height", documented: [1.0, 2.0], actual: () => [...lineHeightValues] },
   { row: "Scrollback", documented: [1000, 50000], actual: () => scrollbackOptions.map((o) => Number(o.value)) },

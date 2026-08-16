@@ -14,6 +14,7 @@ import {
 } from "./terminalSettingsHelpers";
 import { ratioToPixels } from "@/components/Terminal/useTerminalPosition";
 import { TERMINAL_MAX_RATIO, TERMINAL_MIN_HEIGHT } from "@/stores/uiStore";
+import { CLAMP_RANGES } from "@/stores/settingsStore/clamp";
 
 describe("panelSizeOptions (WI-1.2)", () => {
   it("no option is silently clamped", () => {
@@ -48,13 +49,26 @@ describe("panelSizeOptions (WI-1.2)", () => {
     }
   });
 
-  it("snapToOption maps a legacy over-cap ratio to the cap", () => {
-    // A build before WI-1.2 could persist 0.6/0.7/0.8. The panel was ALWAYS
-    // rendering at the cap for those; the dropdown must now say so rather than
-    // display a number the layout never honored.
-    expect(snapToOption(0.8)).toBe(String(TERMINAL_MAX_RATIO));
-    expect(snapToOption(0.7)).toBe(String(TERMINAL_MAX_RATIO));
-    expect(snapToOption(0.6)).toBe(String(TERMINAL_MAX_RATIO));
+  it("snapToOption maps an over-cap ratio to the cap", () => {
+    // The panel ALWAYS renders at the cap for these; the dropdown must say so
+    // rather than display a number the layout never honored. Stated relative to
+    // the cap so raising it (#1279) does not quietly turn this into a no-op.
+    expect(snapToOption(TERMINAL_MAX_RATIO + 0.1)).toBe(String(TERMINAL_MAX_RATIO));
+    expect(snapToOption(0.95)).toBe(String(TERMINAL_MAX_RATIO));
+    expect(snapToOption(1)).toBe(String(TERMINAL_MAX_RATIO));
+  });
+
+  // #1279 — the persisted range and the layout cap disagreed: clamp.ts accepted
+  // panelRatio up to 0.8 while the layout, the drag and the dropdown all
+  // stopped at 0.5, so a stored 0.8 could never take effect. Whatever the cap
+  // is, these two must name the same number.
+  it("the layout cap equals the persisted panelRatio maximum", () => {
+    expect(TERMINAL_MAX_RATIO).toBe(CLAMP_RANGES.terminal?.panelRatio?.[1]);
+  });
+
+  it("the smallest offered option equals the persisted panelRatio minimum", () => {
+    const values = panelSizeOptions.map((o) => Number(o.value));
+    expect(Math.min(...values)).toBe(CLAMP_RANGES.terminal?.panelRatio?.[0]);
   });
 
   it("snapToOption still returns an exact preset unchanged", () => {

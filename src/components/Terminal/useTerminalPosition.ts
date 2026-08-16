@@ -10,7 +10,7 @@
  *
  * Pixel dimensions are derived from `settingsStore.terminal.panelRatio`
  * multiplied by the available container dimension, clamped to the absolute
- * pixel floor and a proportional ceiling of TERMINAL_MAX_RATIO (50%). The
+ * pixel floor and a proportional ceiling of TERMINAL_MAX_RATIO (80%). The
  * available dimension subtracts the shell's whole side chrome — workspace rail
  * INCLUDED; omitting it sized the panel against 30px the editor did not have.
  *
@@ -79,7 +79,7 @@ export function computeTerminalPosition(
 
 /**
  * Compute pixel dimension from ratio, clamped to the absolute pixel floor and
- * a proportional ceiling of TERMINAL_MAX_RATIO (50% of the available space).
+ * a proportional ceiling of TERMINAL_MAX_RATIO (80% of the available space).
  * Exported so the settings dropdown's options can be proven un-clamped
  * (WI-1.2) against the real layout function rather than a restatement of it.
  */
@@ -97,7 +97,7 @@ export function ratioToPixels(
  */
 export function pixelsToRatio(pixels: number, availableDimension: number): number {
   if (availableDimension <= 0) return 0.4;
-  // Clamp ratio to 0.1–0.5 (TERMINAL_MAX_RATIO)
+  // Clamp ratio to 0.1–0.8 (TERMINAL_MAX_RATIO)
   return Math.min(TERMINAL_MAX_RATIO, Math.max(0.1, pixels / availableDimension));
 }
 
@@ -118,7 +118,7 @@ export function getAvailableDimension(
     // Takes the ALREADY-COMBINED width rather than re-deriving it from
     // sidebar state: this function used to add up its own answer and forgot
     // the 30px workspace rail, so a rail-enabled window sized the panel (and
-    // its 50% cap) against 30px it did not have.
+    // its ratio cap) against 30px it did not have.
     return windowW - sideWidth;
   }
   return windowH - TITLEBAR_HEIGHT - STATUSBAR_HEIGHT;

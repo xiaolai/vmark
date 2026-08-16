@@ -58,13 +58,21 @@ const TERMINAL_DEFAULT_WIDTH = 400;
 
 /**
  * Maximum share of the available dimension the terminal panel may occupy.
- * There is no fixed pixel ceiling — the cap is proportional (50% of the
+ * There is no fixed pixel ceiling — the cap is proportional (80% of the
  * window's available width/height). This is enforced by the viewport-aware
  * layers (useTerminalPosition for layout, useTerminalResize for drag), since
  * the store itself does not know the window size. The store setters below
  * only enforce the absolute pixel floor.
+ *
+ * This MUST equal `CLAMP_RANGES.terminal.panelRatio`'s maximum in
+ * `settingsStore/clamp.ts`, and `terminalSettingsHelpers.test.ts` pins that.
+ * They disagreed until #1279: the setting persisted up to 0.8 while these
+ * three layers clamped back to 0.5, so a stored 0.8 could never take effect
+ * and the dropdown offering it was a dead control. The editor side stays
+ * protected by TERMINAL_MIN_HEIGHT / TERMINAL_MIN_WIDTH, which are absolute
+ * pixel floors and bind before this ratio does on a small window.
  */
-export const TERMINAL_MAX_RATIO = 0.5;
+export const TERMINAL_MAX_RATIO = 0.8;
 
 /* ──────────────────────────── store factory ───────────────────────────── */
 

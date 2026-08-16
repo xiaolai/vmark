@@ -24,7 +24,7 @@ When you close the last session the panel hides but the session stays alive — 
 
 Each tab reflects the running program's title (set by tools that emit a terminal title, such as `vim` or `ssh`) unless you have manually renamed the session — a manual rename always wins. To rename, **double-click the tab**: `Enter` commits, `Escape` discards, and clicking away keeps what you typed. An empty name is ignored.
 
-**Maximizing:** the panel's persistent size stops at 50 % so the editor stays usable, but a **double-click on the resize handle** snaps it to that cap and a second double-click returns it to your saved size. This is a view toggle — it never changes the size you configured.
+**Maximizing:** the panel's size stops at 80 % of the available space so the editor stays reachable, and a **double-click on the resize handle** snaps it to that cap. A second double-click returns it to your saved size. This is a view toggle — it never changes the size you configured.
 
 **Open Terminal Here:** right-click any folder in the file explorer and choose **Open Terminal Here** to start a session in that directory. The new session opens there regardless of where your other sessions happen to be. At five sessions the item is greyed out.
 
@@ -180,7 +180,7 @@ Open **Settings → Terminal** to configure:
 
 | Setting | Range | Default | Platforms |
 |---------|-------|---------|-----------|
-| Panel Size | 10 % – 50 % of the available space, in 5 % steps | 40 % | All |
+| Panel Size | 10 % – 80 % of the available space, in 5 % steps | 40 % | All |
 | Font Size | 10 – 24 px | 13 px | All |
 | Line Height | 1.0 – 2.0 | 1.2 | All |
 | Copy on Select | On / Off | Off | All |
@@ -197,7 +197,7 @@ Open **Settings → Terminal** to configure:
 | Terminal bell | Off / Visual / Audible | Visual |
 | Minimum contrast | Off / WCAG AA (4.5:1) / WCAG AAA (7:1) / Maximum | WCAG AA (4.5:1) |
 
-Changes apply immediately to all open sessions. **Panel Size** stops at 50 % on purpose: the terminal shares its axis with the editor, and a larger persistent share would squeeze the document below a usable width. For a temporary full-height look, double-click the resize handle to maximize instead. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts (macOS only); it is on by default, so Option+Arrow does word movement rather than inserting accented characters. **Shell Integration** is available on macOS and Linux (hidden on Windows). **Remote Clipboard** is described below. **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance. **Terminal bell** chooses how a bell (BEL) is signalled — a visual background-activity mark on the session tab, a soft audible beep (which also flags a background session's tab so you can find it), or nothing. **Minimum contrast** lifts faint terminal text to a readable contrast ratio against its background; raise it for accessibility or set it to Off to disable the lift.
+Changes apply immediately to all open sessions. **Panel Size** goes up to 80 % of the available space. The editor keeps a minimum size in pixels, so it never disappears entirely no matter how large the terminal gets. Double-click the resize handle to jump straight to the maximum and back again without changing the stored size. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts (macOS only); it is on by default, so Option+Arrow does word movement rather than inserting accented characters. **Shell Integration** is available on macOS and Linux (hidden on Windows). **Remote Clipboard** is described below. **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance. **Terminal bell** chooses how a bell (BEL) is signalled — a visual background-activity mark on the session tab, a soft audible beep (which also flags a background session's tab so you can find it), or nothing. **Minimum contrast** lifts faint terminal text to a readable contrast ratio against its background; raise it for accessibility or set it to Off to disable the lift.
 
 ::: tip Font size and zoom
 `Mod + =` / `Mod + -` zoom in steps of 2 px, so the terminal font can land on a

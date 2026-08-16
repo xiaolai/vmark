@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useTerminalResize } from "./useTerminalResize";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore, TERMINAL_MAX_RATIO } from "@/stores/uiStore";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
 
 // Persisting the ratio on mouseup is a side effect the drag tests don't care
@@ -113,7 +113,7 @@ describe("toggleMaximize (WI-4.5 / F6)", () => {
 
     result.current.toggleMaximize();
 
-    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * TERMINAL_MAX_RATIO));
   });
 
   it("restores the STORED ratio on a second toggle", () => {
@@ -157,7 +157,7 @@ describe("toggleMaximize (WI-4.5 / F6)", () => {
     const { result } = mount("right");
 
     result.current.toggleMaximize();
-    expect(useUIStore.getState().terminalWidth).toBe(Math.round(AVAILABLE_H * 0.5));
+    expect(useUIStore.getState().terminalWidth).toBe(Math.round(AVAILABLE_H * TERMINAL_MAX_RATIO));
 
     result.current.toggleMaximize();
     expect(useUIStore.getState().terminalWidth).toBe(Math.round(AVAILABLE_H * 0.4));
@@ -187,20 +187,21 @@ describe("toggleMaximize (WI-4.5 / F6)", () => {
 
     expect(onResize).not.toHaveBeenCalled();
     // …but the geometry really did change, so the effect has something to react to.
-    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * TERMINAL_MAX_RATIO));
   });
 
   it("clamps a legacy over-cap stored ratio when restoring", () => {
-    // A ratio persisted before WI-1.2 could be 0.8; restoring to it would
-    // exceed the cap the layout enforces everywhere else.
-    settingsState.terminal.panelRatio = 0.8;
-    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * 0.5));
+    // Restoring to a ratio above the cap would exceed what the layout enforces
+    // everywhere else. Stated relative to the cap: written as the literal 0.8
+    // it silently became a no-op the moment #1279 raised the cap to 0.8.
+    settingsState.terminal.panelRatio = TERMINAL_MAX_RATIO + 0.15;
+    useUIStore.getState().setTerminalHeight(Math.round(AVAILABLE_V * TERMINAL_MAX_RATIO));
     const { result } = mount("bottom");
 
     // Already at the cap → this toggle RESTORES.
     result.current.toggleMaximize();
 
-    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * 0.5));
+    expect(useUIStore.getState().terminalHeight).toBe(Math.round(AVAILABLE_V * TERMINAL_MAX_RATIO));
   });
 
   it("does nothing when the available dimension is zero", () => {
@@ -252,7 +253,7 @@ describe("double-click maximize through the real DOM event sequence (WI-4.5)", (
   it("survives a full double-click → maximize → double-click → restore cycle", () => {
     const { result } = renderHook(() => useTerminalResize("bottom"));
     const stored = Math.round(AVAILABLE_V * 0.4);
-    const capped = Math.round(AVAILABLE_V * 0.5);
+    const capped = Math.round(AVAILABLE_V * TERMINAL_MAX_RATIO);
 
     // First double-click: two clicks, then the dblclick handler.
     click(result);
