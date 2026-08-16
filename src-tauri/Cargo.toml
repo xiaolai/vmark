@@ -159,6 +159,14 @@ windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service"] }
+# WI-PDF3.1: PDF export via webkit_print_operation_print().
+#
+# Pinned to what wry resolves for this target. Tauri hands back a
+# `webkit2gtk::WebView` from `PlatformWebview::inner()`; a different version
+# here is a different Rust type and the print operation cannot be built from
+# it. Verified with `cargo tree --target x86_64-unknown-linux-gnu`.
+webkit2gtk = "=2.0.2"
+gtk = "=0.18.2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }

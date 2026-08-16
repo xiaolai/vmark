@@ -1,28 +1,39 @@
-//! Linux PDF renderer — not yet implemented (WI-PDF3.1).
+//! Linux PDF renderer — `webkit_print_operation_print()`.
 //!
-//! Purpose: keep `pdf_export` compiling and its two commands REACHABLE on
-//! Linux, so the module can stop being `#[cfg(target_os = "macos")]` before
-//! the native backend lands. Both entry points refuse with a typed
-//! `unsupported`, which the frontend can render as a real message.
+//! Purpose: render the frontend's HTML to a paginated PDF with no print
+//! dialog, honouring the page size the user picked.
 //!
-//! This is deliberately a refusal rather than a missing command. A command
-//! absent from `generate_handler!` fails at the IPC boundary with a string
-//! Tauri invents; a present command returning `unsupported` fails with a
-//! reason we wrote, in the user's language.
+//! Key decisions:
+//!   - **The webview is a hidden Tauri `WebviewWindow`.** Same reasoning as
+//!     Windows: the one Tauri already runs is configured correctly, and
+//!     building a second by hand invites a mismatch (ADR-PDF5).
+//!   - **The document arrives by NAVIGATION to a `file://` URL**, never
+//!     `load_html`. VMark inlines images as data URIs and real exports exceed
+//!     any string ceiling (ADR-PDF4).
+//!   - **BOTH print-settings keys are required, for two different reasons**
+//!     (ADR-PDF2, measured). Without `printer` set to `"Print to File"` the
+//!     operation fails outright with `WebKitPrintError` 500 "Printer not
+//!     found". Without `output-uri` it reports **success** and writes
+//!     `output.pdf` into the process's working directory — or, where that path
+//!     is not writable, raises a filesystem error naming a path nobody chose.
+//!     Which of those two you get is decided by the environment, not the code,
+//!     which is why this stalled upstream for months.
+//!   - **The URI is built with `Url::from_file_path`**, never string
+//!     concatenation: spaces, `#`, `%` and non-ASCII all produce a URI that
+//!     navigates nowhere, and that surfaces as a silent empty PDF.
+//!   - **Nothing blocks the UI thread.** Handlers are registered and the
+//!     closure returns; GLib delivers `finished`/`failed` on the owning
+//!     context and the sink is settled there (ADR-PDF6).
 //!
-//! The spike established the mechanism this file will use:
-//! `webkit_print_operation_print()` with print settings carrying BOTH
-//! `output-uri` and the `"Print to File"` printer — omitting the printer
-//! refuses outright, and omitting `output-uri` reports success while writing
-//! `output.pdf` into the working directory (ADR-PDF2). Page size comes from
-//! `GtkPageSetup`; margins are left to CSS (ADR-PDF1a).
-//!
-//! @coordinates-with mod.rs — dispatches here on Linux and other unix
+//! @coordinates-with mod.rs — dispatches here and awaits the sink
+//! @coordinates-with page_spec.rs — supplies the geometry, in points
 //! @module pdf_export/renderer/linux
 
 use std::sync::Arc;
 
-use tauri::AppHandle;
+use gtk::prelude::*;
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use webkit2gtk::{PrintOperation, PrintOperationExt, WebViewExt};
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
@@ -30,19 +41,141 @@ use crate::pdf_export::page_spec::PageSpec;
 
 use super::RenderSink;
 
-/// Refuse a PDF render on Linux until WI-PDF2.1 lands.
+/// Unique per render, so two concurrent exports cannot collide on a label.
+const LABEL_PREFIX: &str = "pdf-render-";
+
+/// The virtual printer GTK's file backend provides. Naming it is mandatory —
+/// see ADR-PDF2.
+const FILE_PRINTER: &str = "Print to File";
+
 pub(super) fn render_on_main_thread(
-    _app: &AppHandle,
-    _html_path: &str,
+    app: &AppHandle,
+    html_path: &str,
     _read_access_dir: &str,
-    _output_path: &str,
-    _page: PageSpec,
+    output_path: &str,
+    page: PageSpec,
     sink: Arc<RenderSink>,
 ) {
-    sink.settle(Err(localized_error!(
-        ErrorCode::Unsupported,
-        "errors.pdf.unsupportedPlatform"
-    )));
+    if let Err(e) = start(app, html_path, output_path, page, sink.clone()) {
+        // Reached only when setup failed, i.e. no signal can ever fire.
+        sink.settle(Err(e));
+    }
+}
+
+fn start(
+    app: &AppHandle,
+    html_path: &str,
+    output_path: &str,
+    page: PageSpec,
+    sink: Arc<RenderSink>,
+) -> Result<(), CommandError> {
+    let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
+    let file_url = path_to_file_url(html_path)?;
+    let out_uri = path_to_file_url(output_path)?;
+
+    let blank = "about:blank".parse().expect("about:blank parses");
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
+        .visible(false)
+        .title("VMark PDF render")
+        .build()
+        .map_err(|e| window_error(&e.to_string()))?;
+
+    let app_cb = app.clone();
+    let label_cb = label.clone();
+
+    window
+        .with_webview(move |pw| {
+            let view = pw.inner();
+            let sink_load = sink.clone();
+            let app_load = app_cb.clone();
+            let label_load = label_cb.clone();
+            let out_uri = out_uri.clone();
+
+            view.connect_load_changed(move |view, event| {
+                if event != webkit2gtk::LoadEvent::Finished {
+                    return;
+                }
+                let op = PrintOperation::new(view);
+                let settings = gtk::PrintSettings::new();
+                // Both keys. Either one alone fails, in opposite ways.
+                settings.set(gtk::PRINT_SETTINGS_OUTPUT_URI, Some(&out_uri));
+                settings.set(gtk::PRINT_SETTINGS_OUTPUT_FILE_FORMAT, Some("pdf"));
+                settings.set_printer(FILE_PRINTER);
+
+                // Geometry: size only. Orientation is already applied as a
+                // swap, and margins belong to the CSS (ADR-PDF1a).
+                let paper = gtk::PaperSize::new_custom(
+                    "vmark-page",
+                    "VMark page",
+                    page.width_pt,
+                    page.height_pt,
+                    gtk::Unit::Points,
+                );
+                let setup = gtk::PageSetup::new();
+                setup.set_paper_size_and_default_margins(&paper);
+                setup.set_top_margin(0.0, gtk::Unit::Points);
+                setup.set_bottom_margin(0.0, gtk::Unit::Points);
+                setup.set_left_margin(0.0, gtk::Unit::Points);
+                setup.set_right_margin(0.0, gtk::Unit::Points);
+
+                op.set_print_settings(&settings);
+                op.set_page_setup(&setup);
+
+                let sink_fail = sink_load.clone();
+                let app_fail = app_load.clone();
+                let label_fail = label_load.clone();
+                op.connect_failed(move |_, err| {
+                    sink_fail.settle(Err(localized_error!(
+                        ErrorCode::Io,
+                        "errors.pdf.comFailed",
+                        stage = "print",
+                        detail = err.to_string()
+                    )));
+                    close(&app_fail, &label_fail);
+                });
+
+                let sink_done = sink_load.clone();
+                let app_done = app_load.clone();
+                let label_done = label_load.clone();
+                op.connect_finished(move |_| {
+                    // `finished` fires after `failed` too, so settle() being
+                    // idempotent is what keeps a failure from reading green.
+                    sink_done.settle(Ok(()));
+                    close(&app_done, &label_done);
+                });
+
+                op.print();
+            });
+
+            view.load_uri(&file_url);
+        })
+        .map_err(|e| window_error(&e.to_string()))?;
+
+    Ok(())
+}
+
+/// Tear the render window down — a timeout is not cancellation (ADR-PDF7).
+fn close(app: &AppHandle, label: &str) {
+    if let Some(w) = app.get_webview_window(label) {
+        let _ = w.close();
+    }
+}
+
+fn window_error(detail: &str) -> CommandError {
+    localized_error!(
+        ErrorCode::Internal,
+        "errors.pdf.renderWindowFailed",
+        detail = detail
+    )
+}
+
+/// `file://` URI, percent-encoding whatever must be encoded.
+fn path_to_file_url(path: &str) -> Result<String, CommandError> {
+    url::Url::from_file_path(path)
+        .map(|u| u.to_string())
+        .map_err(|()| {
+            localized_error!(ErrorCode::InvalidInput, "errors.pdf.badTempPath", path = path)
+        })
 }
 
 /// Refuse a native print on Linux until WI-PDF4.1 lands.
