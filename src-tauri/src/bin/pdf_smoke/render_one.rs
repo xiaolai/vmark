@@ -51,6 +51,42 @@ const SIZES: [(&str, f64, f64); 3] = [
     ("a5", 419.53, 595.28),
 ];
 
+/// Rewrite the export's `max-height` bound to match `page`.
+///
+/// Production computes that bound from the SAME options that build the
+/// `PageSpec`, so it is always right there. A captured document carries the
+/// bound for the size it was exported at, and reusing it at another geometry
+/// leaves an A4 bound on an A5 sheet — which is not a harmless mismatch: the
+/// image then exceeds the content area and spans three or four pages, making
+/// the harness look like a product bug. Observed exactly that before this
+/// existed.
+fn retarget_fit(html: &str, page: PageSpec) -> String {
+    let usable_mm = (page.height_pt * 25.4 / 72.0)
+        - (page.margin_top_pt.unwrap_or(0.0) + page.margin_bottom_pt.unwrap_or(0.0)) * 25.4 / 72.0
+        - 4.0;
+    let usable_mm = usable_mm.max(20.0);
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(i) = rest.find("max-height: ") {
+        let after = &rest[i + "max-height: ".len()..];
+        let Some(end) = after.find("mm") else {
+            out.push_str(&rest[..i + "max-height: ".len()]);
+            rest = after;
+            continue;
+        };
+        if after[..end].parse::<f64>().is_ok() {
+            out.push_str(&rest[..i]);
+            out.push_str(&format!("max-height: {usable_mm:.2}mm"));
+            rest = &after[end + 2..];
+        } else {
+            out.push_str(&rest[..i + "max-height: ".len()]);
+            rest = after;
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Rewrite the captured document's `@page { size: ... }` to match `page`.
 ///
 /// Production regenerates that rule and the `PageSpec` from the SAME options
@@ -65,6 +101,7 @@ const SIZES: [(&str, f64, f64); 3] = [
 /// is present); the API owns the paper. Explicit `pt` lengths encode both, so
 /// after this the two cannot disagree.
 fn retarget(html: &str, page: PageSpec) -> String {
+    let html = &retarget_fit(html, page);
     let Some(start) = html.find("@page") else {
         return html.to_string();
     };
