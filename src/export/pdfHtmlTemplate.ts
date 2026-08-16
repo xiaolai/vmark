@@ -147,20 +147,59 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /** Build typography CSS overrides from options. */
-function buildTypographyCSS(options: PdfOptions): string {
+/**
+ * Read the editor's block-size RATIO out of the captured theme snapshot.
+ *
+ * `--editor-font-size-block` is a user setting (`blockFontSize`) multiplied by
+ * the editor's base size, stored as an absolute px value so that nesting a list
+ * inside a blockquote does not compound. `PdfOptions` has no field for it, so
+ * the ratio has to come from the snapshot or it would be silently flattened.
+ *
+ * Falls back to 1 — blocks the same size as body, which is the app's default —
+ * whenever either value is missing or unparseable.
+ */
+function blockSizeRatio(themeCSS: string): number {
+  const px = (name: string): number | null => {
+    const m = themeCSS.match(new RegExp(`${name}:\\s*([\\d.]+)px`));
+    const n = m ? Number.parseFloat(m[1]!) : Number.NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const base = px("--editor-font-size");
+  const block = px("--editor-font-size-block");
+  return base && block ? block / base : 1;
+}
+
+/**
+ * Typography overrides for the exported document.
+ *
+ * **Every px value in the snapshot that `useTheme.computeTypographyVars`
+ * derives from the editor font size must be overridden here.** The snapshot
+ * carries ON-SCREEN pixels; body text switches to the chosen pt size, so any
+ * variable left behind keeps its screen value and the element renders larger in
+ * the PDF than it does in the editor.
+ *
+ * That is not hypothetical: `--editor-font-size-block` was missing, and since
+ * it drives lists, blockquotes and tables (`editor.css`) plus alert and details
+ * blocks (their plugin CSS), all five rendered at the editor's 20px against
+ * 11pt body text — about 36% oversized — in every PDF VMark has ever exported.
+ */
+function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
   const latin = resolveFontFamily(options.latinFont, "system-ui");
   const cjk = resolveFontFamily(options.cjkFont, "system-ui");
   const fontStack = `${latin}, ${cjk}, system-ui, -apple-system, sans-serif`;
   const fs = options.fontSize;
   const lh = options.lineHeight;
+  const blockRatio = blockSizeRatio(themeCSS);
 
   return `
 :root {
   --editor-font-size: ${fs}pt;
   --editor-font-size-sm: ${fs * 0.9}pt;
   --editor-font-size-mono: ${fs * 0.85}pt;
+  --editor-font-size-block: ${fs * blockRatio}pt;
   --editor-line-height: ${lh};
   --editor-line-height-px: ${fs * lh}pt;
+  --code-padding: ${fs}pt;
   --cjk-letter-spacing: ${options.cjkLetterSpacing};
   --font-sans: ${fontStack};
 }`;
@@ -223,7 +262,7 @@ export function buildPdfExportHtml(
   isDark?: boolean,
 ): string {
   const pageCSS = buildPageCSS(options);
-  const typographyCSS = buildTypographyCSS(options);
+  const typographyCSS = buildTypographyCSS(options, themeCSS);
   const lightOverrides = options.useEditorTheme ? "" : forceLightThemeCSS();
   const htmlClass = options.useEditorTheme && isDark ? "dark-theme" : "";
 

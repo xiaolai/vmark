@@ -97,3 +97,62 @@ describe("pdfHtmlTemplate shared content CSS — table fit-to-page", () => {
 // woff2 inputs. A template-level assertion can't run here because Vitest's
 // transformer returns an empty string for `?raw` imports of katex.min.css
 // (a Vite/vitest-specific quirk; the production Vite build loads it correctly).
+
+/**
+ * The captured theme CSS carries the ON-SCREEN pixel sizes, and the export's
+ * typography block overrides only some of them. Any size variable it forgets
+ * keeps the editor's px value while body text switches to the chosen pt size —
+ * so the element renders larger in the PDF than it does in the editor.
+ *
+ * `--editor-font-size-block` drives lists, blockquotes and tables
+ * (`editor.css`) plus alert and details blocks (their plugin CSS). It is
+ * deliberately an ABSOLUTE value rather than an `em`, so that nesting does not
+ * compound — which is exactly why it cannot be left to inherit.
+ */
+describe("pdfHtmlTemplate buildPdfExportHtml — typography scaling", () => {
+  const THEME_CSS = ":root { --editor-font-size: 20px; --editor-font-size-block: 20px; }";
+
+  /** Last wins in CSS, so the effective value is the final declaration. */
+  function effective(html: string, varName: string): string | undefined {
+    const all = [...html.matchAll(new RegExp(`${varName}:\\s*([^;\n}]+)`, "g"))];
+    return all.at(-1)?.[1]?.trim();
+  }
+
+  it("overrides every font-size variable the theme snapshot supplies in px", () => {
+    const html = buildPdfExportHtml("<p>x</p>", THEME_CSS, "", baseOptions({ fontSize: 11 }), false);
+    expect(effective(html, "--editor-font-size")).toBe("11pt");
+    expect(effective(html, "--editor-font-size-block")).toBe("11pt");
+  });
+
+  it("keeps block text the same size as body text, as the editor does", () => {
+    const html = buildPdfExportHtml("<p>x</p>", THEME_CSS, "", baseOptions({ fontSize: 9 }), false);
+    const body = effective(html, "--editor-font-size");
+    expect(body).toBe("9pt");
+    expect(effective(html, "--editor-font-size-block")).toBe(body);
+  });
+
+  it("preserves the editor's block-size ratio rather than flattening it", () => {
+    // blockFontSize 0.9 in the editor: 18px block against a 20px base.
+    const themed = ":root { --editor-font-size: 20px; --editor-font-size-block: 18px; }";
+    const html = buildPdfExportHtml("<p>x</p>", themed, "", baseOptions({ fontSize: 10 }), false);
+    expect(effective(html, "--editor-font-size-block")).toBe("9pt");
+  });
+
+  it("falls back to body size when the snapshot lacks the block variable", () => {
+    const html = buildPdfExportHtml("<p>x</p>", ":root { --color: red; }", "", baseOptions({ fontSize: 12 }), false);
+    expect(effective(html, "--editor-font-size-block")).toBe("12pt");
+  });
+
+  it("scales code-block padding with the export font size, not the screen size", () => {
+    const themed = ":root { --editor-font-size: 20px; --code-padding: 20px; }";
+    const html = buildPdfExportHtml("<p>x</p>", themed, "", baseOptions({ fontSize: 11 }), false);
+    expect(effective(html, "--code-padding")).toBe("11pt");
+  });
+
+  it("emits the typography block after the captured theme, so it wins", () => {
+    const html = buildPdfExportHtml("<p>x</p>", THEME_CSS, "", baseOptions(), false);
+    expect(html.indexOf("--editor-font-size-block: 11pt")).toBeGreaterThan(
+      html.indexOf("--editor-font-size-block: 20px"),
+    );
+  });
+});
