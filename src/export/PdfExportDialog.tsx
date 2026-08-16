@@ -149,7 +149,12 @@ export function PdfExportContent({
       // Same `options` that generated the @page CSS above, so the stylesheet
       // and the backend geometry cannot disagree. Windows and Linux ignore
       // `@page { size }` entirely (ADR-PDF1), which is why this is sent at all.
-      const page = buildPageSpec(options.pageSize, options.orientation);
+      const page = buildPageSpec(options.pageSize, options.orientation, {
+        top: options.marginTop,
+        right: options.marginRight,
+        bottom: options.marginBottom,
+        left: options.marginLeft,
+      });
       await invoke("export_pdf", { html, outputPath, headings, page });
       toast.success(tDialog("toast.pdfExportSuccess"));
 

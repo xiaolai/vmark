@@ -12,10 +12,14 @@
  *     `COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE` while explicit width and
  *     height were set, and its MediaBox stayed portrait. Swapping is correct
  *     on both platforms.
- *   - **No margins.** Also measured: setting API margins changed the page
- *     count not at all on either platform, while CSS margins changed it on
- *     both. Margins are CSS-driven; putting them here would have dropped the
- *     user's choice silently, behind a valid PDF at the right paper size.
+ *   - **Margins travel too, and only Linux reads them.** The original decision
+ *     was "no margins", from a probe that measured margins by PAGE COUNT. That
+ *     signal is blind to the horizontal axis: left and right margins do not
+ *     change how many pages a document needs. Measuring the ink box of a real
+ *     export instead showed Linux printing edge to edge on ALL FOUR sides
+ *     (0/4/4/0 pt where macOS and Windows both gave 72), because WebKitGTK
+ *     takes its page box from the GtkPageSetup and ignores `@page { margin }`.
+ *     macOS and Windows continue to honour the CSS and ignore these fields.
  *   - **One source, two derivations.** The CSS keeps using CSS keywords
  *     (`A4 landscape`) because `pdfHtmlTemplate.ts` records that an explicit
  *     length pair plus an orientation keyword is invalid and silently ignored
@@ -40,6 +44,15 @@ export const PAGE_SIZE_PT: Record<string, { width: number; height: number }> = {
 export interface PageSpec {
   widthPt: number;
   heightPt: number;
+  marginTopPt: number;
+  marginRightPt: number;
+  marginBottomPt: number;
+  marginLeftPt: number;
+}
+
+/** Millimetres to PostScript points. The dialog stores margins in mm. */
+export function mmToPt(mm: number): number {
+  return (mm * 72) / 25.4;
 }
 
 /**
@@ -49,9 +62,21 @@ export interface PageSpec {
  * must degrade the same way or a bad preset would produce a document whose CSS
  * and paper disagree.
  */
-export function buildPageSpec(pageSize: string, orientation: string): PageSpec {
+export function buildPageSpec(
+  pageSize: string,
+  orientation: string,
+  margins?: { top: number; right: number; bottom: number; left: number },
+): PageSpec {
   const paper = PAGE_SIZE_PT[pageSize] ?? PAGE_SIZE_PT.a4;
-  return orientation === "landscape"
-    ? { widthPt: paper.height, heightPt: paper.width }
-    : { widthPt: paper.width, heightPt: paper.height };
+  const landscape = orientation === "landscape";
+  // Margins are NOT swapped with the page. A left margin stays on the left
+  // when the sheet turns; only the paper's width and height trade places.
+  return {
+    widthPt: landscape ? paper.height : paper.width,
+    heightPt: landscape ? paper.width : paper.height,
+    marginTopPt: mmToPt(margins?.top ?? 0),
+    marginRightPt: mmToPt(margins?.right ?? 0),
+    marginBottomPt: mmToPt(margins?.bottom ?? 0),
+    marginLeftPt: mmToPt(margins?.left ?? 0),
+  };
 }

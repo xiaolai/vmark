@@ -48,18 +48,9 @@ use tauri::Manager;
 use vmark_lib::pdf_export::page_spec::PageSpec;
 
 /// A4 and A5 in points, portrait.
-const A4: PageSpec = PageSpec {
-    width_pt: 595.28,
-    height_pt: 841.89,
-};
-const A5: PageSpec = PageSpec {
-    width_pt: 419.53,
-    height_pt: 595.28,
-};
-const A4_LANDSCAPE: PageSpec = PageSpec {
-    width_pt: 841.89,
-    height_pt: 595.28,
-};
+const A4: PageSpec = PageSpec::new(595.28, 841.89);
+const A5: PageSpec = PageSpec::new(419.53, 595.28);
+const A4_LANDSCAPE: PageSpec = PageSpec::new(841.89, 595.28);
 
 fn main() {
     // `--html <file> <out-dir>` renders a supplied document — see render_one.rs.
@@ -105,15 +96,9 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
     for (css, w, h) in SIZES {
         for landscape in [false, true] {
             let spec = if landscape {
-                PageSpec {
-                    width_pt: h,
-                    height_pt: w,
-                }
+                PageSpec::new(h, w)
             } else {
-                PageSpec {
-                    width_pt: w,
-                    height_pt: h,
-                }
+                PageSpec::new(w, h)
             };
             let name = format!("{css}{}", if landscape { "-landscape" } else { "" });
             let css_size = if landscape {
@@ -146,10 +131,7 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
 
     // Legal is 612x1008 — nothing like A4, so "the default came out" cannot be
     // mistaken for "the request was honoured".
-    const LEGAL: PageSpec = PageSpec {
-        width_pt: 612.0,
-        height_pt: 1008.0,
-    };
+    const LEGAL: PageSpec = PageSpec::new(612.0, 1008.0);
     failures += check(
         "legal",
         render(

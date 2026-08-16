@@ -101,8 +101,14 @@ fn start(
                 settings.set(gtk::PRINT_SETTINGS_OUTPUT_FILE_FORMAT, Some("pdf"));
                 settings.set_printer(FILE_PRINTER);
 
-                // Geometry: size only. Orientation is already applied as a
-                // swap, and margins belong to the CSS (ADR-PDF1a).
+                // Geometry: size, plus margins. Orientation is already applied
+                // as a swap (ADR-PDF1a).
+                //
+                // Margins are NOT left to the CSS here, unlike macOS and
+                // Windows. WebKitGTK takes its page box from the GtkPageSetup,
+                // so zeroing these printed the document edge to edge whatever
+                // `@page { margin }` said — measured on the real showcase at
+                // 0/4/4/0 pt where macOS and Windows both gave 72.
                 let paper = gtk::PaperSize::new_custom(
                     "vmark-page",
                     "VMark page",
@@ -112,10 +118,10 @@ fn start(
                 );
                 let setup = gtk::PageSetup::new();
                 setup.set_paper_size_and_default_margins(&paper);
-                setup.set_top_margin(0.0, gtk::Unit::Points);
-                setup.set_bottom_margin(0.0, gtk::Unit::Points);
-                setup.set_left_margin(0.0, gtk::Unit::Points);
-                setup.set_right_margin(0.0, gtk::Unit::Points);
+                setup.set_top_margin(page.margin_top_pt.unwrap_or(0.0), gtk::Unit::Points);
+                setup.set_bottom_margin(page.margin_bottom_pt.unwrap_or(0.0), gtk::Unit::Points);
+                setup.set_left_margin(page.margin_left_pt.unwrap_or(0.0), gtk::Unit::Points);
+                setup.set_right_margin(page.margin_right_pt.unwrap_or(0.0), gtk::Unit::Points);
 
                 op.set_print_settings(&settings);
                 op.set_page_setup(&setup);

@@ -38,16 +38,10 @@ fn every_shipped_page_size_validates() {
         (841.89, 1190.55),
         (612.0, 1008.0),
     ] {
-        PageSpec {
-            width_pt: w,
-            height_pt: h,
-        }
+        PageSpec::new(w, h)
         .validate()
         .expect("portrait");
-        PageSpec {
-            width_pt: h,
-            height_pt: w,
-        }
+        PageSpec::new(h, w)
         .validate()
         .expect("landscape");
     }
@@ -58,19 +52,11 @@ fn non_finite_values_are_refused() {
     // The load-bearing case: NaN fails every comparison, so a range test that
     // forgot `is_finite` would pass it straight through to the print API.
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-        let err = PageSpec {
-            width_pt: bad,
-            height_pt: 841.89,
-        }
-        .validate()
-        .expect_err("non-finite width");
+        let err = PageSpec::new(bad, 841.89)
+            .validate()
+            .expect_err("non-finite width");
         assert_eq!(err.code(), ErrorCode::InvalidInput);
-        assert!(PageSpec {
-            width_pt: 595.28,
-            height_pt: bad
-        }
-        .validate()
-        .is_err());
+        assert!(PageSpec::new(595.28, bad).validate().is_err());
     }
 }
 
@@ -82,10 +68,7 @@ fn absurd_dimensions_are_refused_at_both_ends() {
         (1.0, 841.89),
         (100_000.0, 841.89),
     ] {
-        let err = PageSpec {
-            width_pt: w,
-            height_pt: h,
-        }
+        let err = PageSpec::new(w, h)
         .validate()
         .expect_err(&format!("{w}x{h} must be refused"));
         assert_eq!(err.code(), ErrorCode::InvalidInput);
@@ -94,11 +77,60 @@ fn absurd_dimensions_are_refused_at_both_ends() {
 
 #[test]
 fn inches_converts_from_points() {
-    let (w, h) = PageSpec {
-        width_pt: 612.0,
-        height_pt: 792.0,
-    }
+    let (w, h) = PageSpec::new(612.0, 792.0)
     .inches();
     assert!((w - 8.5).abs() < 1e-9, "612pt = 8.5in, got {w}");
     assert!((h - 11.0).abs() < 1e-9, "792pt = 11in, got {h}");
+}
+
+// --- Margins (Linux reads these; macOS and Windows take theirs from CSS) ---
+
+#[test]
+fn margins_are_optional_and_default_to_none() {
+    let p = PageSpec::new(595.28, 841.89);
+    assert!(p.margin_top_pt.is_none());
+    assert!(p.validate().is_ok());
+}
+
+#[test]
+fn a_sane_margin_set_is_accepted() {
+    let mut p = PageSpec::new(595.28, 841.89);
+    p.margin_top_pt = Some(72.0);
+    p.margin_bottom_pt = Some(72.0);
+    p.margin_left_pt = Some(72.0);
+    p.margin_right_pt = Some(72.0);
+    assert!(p.validate().is_ok());
+}
+
+#[test]
+fn a_negative_or_non_finite_margin_is_refused() {
+    for bad in [-1.0, f64::NAN, f64::INFINITY] {
+        let mut p = PageSpec::new(595.28, 841.89);
+        p.margin_left_pt = Some(bad);
+        let err = p.validate().expect_err("bad margin");
+        assert_eq!(err.code(), ErrorCode::InvalidInput);
+    }
+}
+
+#[test]
+fn margins_wider_than_the_page_are_refused() {
+    // Individually sane, jointly impossible — the pair check is what catches
+    // this, and without it GTK gets a negative content width.
+    let mut p = PageSpec::new(595.28, 841.89);
+    p.margin_left_pt = Some(300.0);
+    p.margin_right_pt = Some(300.0);
+    let err = p.validate().expect_err("margins exceed width");
+    assert_eq!(err.code(), ErrorCode::InvalidInput);
+
+    let mut q = PageSpec::new(595.28, 841.89);
+    q.margin_top_pt = Some(500.0);
+    q.margin_bottom_pt = Some(400.0);
+    assert!(q.validate().is_err());
+}
+
+#[test]
+fn a_margin_equal_to_the_page_extent_is_refused() {
+    let mut p = PageSpec::new(595.28, 841.89);
+    p.margin_left_pt = Some(595.28);
+    assert!(p.validate().is_err());
 }

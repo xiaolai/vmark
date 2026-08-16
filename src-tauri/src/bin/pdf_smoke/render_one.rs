@@ -40,6 +40,9 @@ pub fn parse_args(args: Vec<String>) -> (Option<PathBuf>, PathBuf) {
     (one_shot, out_dir)
 }
 
+/// The dialog's default margin, 25.4mm in points.
+const MARGIN_PT: f64 = 72.0;
+
 /// Portrait geometries in points, matching the dialog's page-size list.
 const SIZES: [(&str, f64, f64); 3] = [
     ("a4", 595.28, 841.89),
@@ -105,17 +108,17 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
     for (name, w, h) in SIZES {
         for landscape in [false, true] {
             // Landscape is a width/height swap, never a flag — ADR-PDF1a.
-            let page = if landscape {
-                PageSpec {
-                    width_pt: h,
-                    height_pt: w,
-                }
+            // Match the captured document's CSS margins (25.4mm = 72pt), so
+            // the artifact shows what a real export produces on each platform.
+            let mut page = if landscape {
+                PageSpec::new(h, w)
             } else {
-                PageSpec {
-                    width_pt: w,
-                    height_pt: h,
-                }
+                PageSpec::new(w, h)
             };
+            page.margin_top_pt = Some(MARGIN_PT);
+            page.margin_right_pt = Some(MARGIN_PT);
+            page.margin_bottom_pt = Some(MARGIN_PT);
+            page.margin_left_pt = Some(MARGIN_PT);
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
             let result = super::render(app, &retarget(&html, page), &path, page).await;

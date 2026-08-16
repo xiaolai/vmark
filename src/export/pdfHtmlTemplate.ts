@@ -19,6 +19,7 @@
 
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
+import { getPrimitiveTokenCSS } from "./primitiveTokens";
 
 // Embed KaTeX woff2 fonts as data URIs so math renders offline, without CDN access.
 const katexCSS = embedKatexFonts(_katexCSSRaw);
@@ -138,7 +139,16 @@ function sharedContentCSS(): string {
 pre, .code-block-wrapper {
   break-inside: avoid;
 }
-img {
+/* An <img> is atomic, but the things that actually straddled a page boundary
+   are not images: a Mermaid diagram is an inline <svg> inside
+   .code-block-preview, display math is .katex-display, and a block image is
+   wrapped in .block-image. A rule naming only the img element covered none of them. */
+img,
+svg,
+figure,
+.block-image,
+.code-block-preview,
+.katex-display {
   break-inside: avoid;
 }
 h1, h2, h3, h4, h5, h6 {
@@ -276,6 +286,9 @@ export function buildPdfExportHtml(
 ${katexCSS}
   </style>
   <style>
+/* Primitive tokens first — the snapshot below overrides what it defines,
+   exactly as useTheme's inline styles override index.css in the app. */
+${getPrimitiveTokenCSS()}
 ${themeCSS}
 ${lightOverrides}
 ${typographyCSS}
