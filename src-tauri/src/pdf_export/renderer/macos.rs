@@ -5,7 +5,7 @@
 //! operations that use them so each file stays under the size limit.
 //!
 //! `configure_print_info` deliberately zeroes all four margins and never sets
-//! a paper size: on macOS the `@page` CSS rules drive both, which is the
+//! a page size: on macOS the `@page` CSS rules drive both, which is the
 //! opposite of the other two platforms (ADR-PDF1a).
 //!
 //! @coordinates-with macos_ops.rs — the only consumer
@@ -129,12 +129,12 @@ pub(super) fn load_html_and_wait(
 ///
 /// `_mtm` proves we're on the main thread — `NSPrintInfo::sharedPrintInfo()`
 /// is main-thread-only.
-/// `paper` sets the physical page size, and is `None` for the interactive
+/// `page` sets the physical page size, and is `None` for the interactive
 /// Print dialog — that path must stay under AppKit's and the user's control
 /// via the print panel, so it keeps taking the system default.
 pub(super) fn configure_print_info(
     _mtm: objc2::MainThreadMarker,
-    paper: Option<PageSpec>,
+    page: Option<PageSpec>,
 ) -> objc2::rc::Retained<objc2_app_kit::NSPrintInfo> {
     use objc2_app_kit::{NSPrintInfo, NSPrintingPaginationMode};
     use objc2_foundation::{NSCopying, NSSize};
@@ -143,17 +143,17 @@ pub(super) fn configure_print_info(
     print_info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
     print_info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
 
-    // WI-PDF1.4: the paper comes from the caller, not from the system default.
+    // WI-PDF1.4: the page size comes from the caller, not the system default.
     //
     // Measured 2026-08-16: `@page { size }` is ignored ENTIRELY here — the
     // same content at `size:A4` and `size:A5` produced the same page count AND
-    // the same MediaBox, so it affects neither paper nor layout. Every export
-    // therefore came out at whatever paper the machine happened to default to,
+    // the same MediaBox, so it affects neither size nor layout. Every export
+    // therefore came out at whatever size the machine happened to default to,
     // which made the dialog's Page Size and Orientation controls decorative.
     //
     // `PageSpec` already carries orientation as a width/height swap, so
     // landscape needs nothing extra.
-    if let Some(p) = paper {
+    if let Some(p) = page {
         print_info.setPaperSize(NSSize::new(p.width_pt, p.height_pt));
     }
 

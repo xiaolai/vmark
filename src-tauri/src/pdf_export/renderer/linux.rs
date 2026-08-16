@@ -224,7 +224,10 @@ fn start_print(
                 // No parent window: the operation owns its own dialog, and
                 // passing the render window would tie the dialog's lifetime to
                 // a window the user may close underneath it.
-                op.run_dialog(None);
+                // Turbofish: `None` alone is ambiguous — the parameter is
+                // generic over `IsA<gtk::Window>` and there is nothing to
+                // infer from.
+                op.run_dialog(None::<&gtk::Window>);
                 sink_load.settle(Ok(()));
             });
             view.load_uri(&file_url);
