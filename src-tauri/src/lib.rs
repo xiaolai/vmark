@@ -70,7 +70,11 @@ mod cli_install;
 mod dock_recent;
 #[cfg(target_os = "macos")]
 mod macos_menu;
-mod pdf_export;
+// `pub` for the `pdf_smoke` example, which is the only harness that can
+// exercise the native renderers: `cargo test` cannot host them on Windows
+// (Tauri's test feature is excluded there) and MockRuntime makes
+// `with_webview` a no-op, so it would prove nothing where it does link.
+pub mod pdf_export;
 #[cfg(target_os = "macos")]
 mod text_substitution;
 mod window_status;

@@ -136,6 +136,17 @@ pub async fn render_pdf(
     output_path: String,
     page: PageSpec,
 ) -> Result<(), CommandError> {
+    // Re-validate here, not only in the command. On macOS an NSPrintOperation
+    // whose NSPrintJobSavingURL points at a directory that does not exist does
+    // NOT fail — AppKit falls back to SPOOLING the document to the default
+    // printer. Observed live: four blank pages came out of a real printer
+    // while a harness called this function directly with a bad path.
+    //
+    // The command validates too, so this is defence in depth rather than a
+    // duplicate: any caller of the renderer must be unable to print paper by
+    // accident, and a wrong path is the single most likely caller mistake.
+    super::commands::validate_output_path(&output_path)?;
+
     // Write HTML to temp file on the async thread (no main thread needed)
     let temp_dir = std::env::temp_dir();
     let unique_id = std::time::SystemTime::now()

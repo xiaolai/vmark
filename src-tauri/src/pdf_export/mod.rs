@@ -11,8 +11,8 @@
 mod bookmarks;
 pub mod commands;
 pub(crate) mod heading;
-pub(crate) mod page_spec;
-mod renderer;
+pub mod page_spec;
+pub mod renderer;
 
 #[cfg(test)]
 #[path = "commands.test.rs"]
