@@ -15,6 +15,14 @@ PDF export and Print exist only on macOS. Windows and Linux users have none;
 
 ## Phase 0 — spike (COMPLETE, measured 2026-08-16)
 
+### WI-PDF0.1 — finish the geometry matrix
+
+**Status:** DONE — 2026-08-16
+**Changed:** this plan (ADR-PDF1 `no_api` row, new ADR-PDF1a, `PageSpec` contract)
+**Verified:** probes on real Windows and Linux (WSL x86_64); 5 Windows variants
+and 4 Linux variants, page count + MediaBox extracted from each artifact
+
+
 Both platforms produce valid PDFs from the webview they already have. No
 bundled renderer, no external binary, no new bindings to author.
 
@@ -32,7 +40,7 @@ A4 = 595×842 pt, A5 = 420×595 pt.
 | `css_only` | A5 | A4 | A4 | A4 |
 | `api_only` | *(none)* | A5 | A5 | A5 |
 | `conflict` | A4 | A5 | A5 | A5 |
-| `no_api` | A5 | **omitted entirely** | *(pending)* | **A4 — the GTK default** |
+| `no_api` | A5 | **omitted entirely** | **Letter (612×792)** | **A4 — the GTK default** |
 
 **The `no_api` row is load-bearing and the first draft did not have it.** Codex
 correctly observed that the first three rows only prove *an explicit API value
@@ -42,8 +50,9 @@ With no page setup at all, Linux emits the GTK default and ignores `@page`
 outright. **A CSS-only contract cannot work.**
 
 The conclusion survived; the evidence for it did not, and was replaced.
-`no_api` on Windows is still **pending** and must be run before WI-PDF1.3 —
-if Windows behaves differently the two platforms need different handling.
+`no_api` measured on **both**: Windows with NULL print settings emits US
+Letter, Linux with no page setup emits A4. Each falls back to its own platform
+default and neither reads `@page`. The conclusion holds on both.
 
 **macOS is the exception and it is the shipped behaviour.**
 `renderer.rs::configure_print_info` copies `NSPrintInfo::sharedPrintInfo()`,
@@ -52,11 +61,33 @@ zeroes all four margins, and never sets a paper size, because
 `printOperationWithPrintInfo` pipeline honours `@page`. macOS is CSS-driven;
 the other two are API-driven.
 
-**Not yet proven, and required before WI-PDF1.3:** the matrix measures
-**MediaBox only**. Orientation and the four margins are extrapolated. Margins
-may override, combine, or *double* against the CSS the same HTML still
-carries. Probe with asymmetric margins and a marker at body origin, extracting
-its PDF coordinates.
+### ADR-PDF1a — the three properties have three different authorities
+
+Measured (WI-PDF0.1), page **count** as the margin signal — a smaller
+printable area fits less of a fixed-height document:
+
+| Property | Windows | Linux |
+|---|---|---|
+| Page **size** | API (`SetPageWidth/Height`) | API (`GtkPageSetup` paper) |
+| **Margins** | **CSS** — API margins measurably ignored | **CSS** — same |
+| **Orientation** | **width/height swap**; the orientation *enum* had no effect while w/h were set | API enum (MediaBox flips) |
+
+Margin control, both platforms (`margin_none` is the zero/zero baseline):
+
+| Variant | CSS | API | Windows pages | Linux pages |
+|---|---|---|---|---|
+| `margin_none` | 0 | 0 | 4 | 4 |
+| `margin_api` | 0 | 40 mm | **4 — no change** | **4 — no change** |
+| `margin_css` | 40 mm | 0 | 5 | 6 |
+
+**This is why `PageSpec` must not carry margins.** Passing them only through
+the API would have dropped the user's margin choice silently on both
+platforms, behind a valid `%PDF` at the right page size — the exact shape of
+failure a magic-byte assertion cannot see.
+
+**And orientation must be expressed as a width/height swap**, not as an enum:
+Windows ignored `COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE` while explicit
+width/height were set. Swapping is correct on both.
 
 ### ADR-PDF2 — the Linux settings object needs both keys, for two reasons
 
@@ -155,14 +186,18 @@ async fn render_pdf(app, html, output, page: PageSpec) -> Result<(), CommandErro
 async fn print_document(app, html) -> Result<(), CommandError>;
 ```
 
-`PageSpec` is built **once** on the frontend and used for both the CSS and the
-IPC payload, so the two authorities cannot disagree.
+`PageSpec` carries **width and height in points, orientation already applied**
+by the caller (landscape = swapped). It carries **no margins** — ADR-PDF1a
+measured those as CSS-driven on both platforms. It is built **once** on the
+frontend and feeds both the CSS and the IPC payload, so the two authorities
+cannot disagree.
 
 ## Phases
 
 | WI | Work | Definition of Done |
 |---|---|---|
 | `WI-PDF0.1` | Finish the matrix: `no_api` on Windows; margins/orientation both platforms | the two pending cells above filled with measurements |
+
 | `WI-PDF1.1` | `pdf_export` unconditional; `renderer/` split; **non-macOS stubs returning typed `unsupported`** for both contracts | `cargo clippy` green on all three targets; `pnpm lint:file-size` green |
 | `WI-PDF1.2` | Both commands → `CommandError`; `PdfExportDialog.tsx:159` → `commandErrorMessage` | table test mapping `invalid-input`/`not-found`/`io`/`timeout`; frontend test asserts the message text, never `[object Object]` |
 | `WI-PDF1.3` | `PageSpec` from one source → CSS **and** IPC | Rust deserialization test against the exact frontend JSON incl. camelCase; non-finite and impossible-margin rejection |
