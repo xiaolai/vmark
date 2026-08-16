@@ -89,6 +89,46 @@ failure a magic-byte assertion cannot see.
 Windows ignored `COREWEBVIEW2_PRINT_ORIENTATION_LANDSCAPE` while explicit
 width/height were set. Swapping is correct on both.
 
+#### Why — one mechanism, not three quirks (vendor docs, 2026-08-16)
+
+The table above is what was measured; this is what causes it. Both engine
+families are documented, and together they collapse the three rows into a
+single rule: **`@page { size }` is honoured by no engine here, `@page { margin }`
+is honoured by all of them, and a declared `@page` disables Chromium's
+orientation enum.**
+
+| Engine | `@page { size }` | `@page { margin }` | Source |
+|---|---|---|---|
+| WebKit (macOS, WebKitGTK) | **not implemented** — WebKit never shipped CSS Paged Media in full | honoured | [wkhtmltopdf/WebKit paged-media gap](https://pdf.funbrew.cloud/en/blog/wkhtmltopdf-css-page-guide) |
+| Chromium (WebView2) | honoured **only** under `preferCSSPageSize`, which `ICoreWebView2PrintSettings` does not expose | honoured, and **beats** the API margins | [ICoreWebView2PrintSettings](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2printsettings), [Electron `printToPDF`](https://www.electronjs.org/docs/latest/api/web-contents) |
+
+Three consequences, each matching a measured row:
+
+1. **Size via API** — the only channel that exists. WebKit cannot read
+   `@page { size }`; Chromium can, but only through a flag WebView2 never
+   surfaced. `ICoreWebView2PrintSettings`' full member list has no
+   `preferCSSPageSize`, so the Chromium default (API wins, content scaled to
+   fit) is the *only* behaviour reachable from WebView2. This is ADR-PDF1's
+   `no_api` row from the other direction: not "CSS loses", but "no engine here
+   can read it".
+2. **Margins via CSS** — not a workaround for a broken API, but the one channel
+   all three honour. Chromium's precedence is documented as CSS-over-API, and
+   WebKit implements `@page { margin }` even though it skipped `size`. The API
+   margins are not "ignored"; they are *overridden*, which is why they measured
+   as inert while `@page` was present.
+3. **Orientation as a swap** — Electron documents the Chromium rule outright:
+   *"The `landscape` will be ignored if `@page` CSS at-rule is used in the web
+   page."* VMark always emits `@page` (for margins, per row 2), so the enum is
+   dead by construction on Windows. The swap is the only channel left there, it
+   works everywhere else, so it is the uniform one.
+
+The design was measured before it was explained, and the explanation did not
+change it — but it converts "these three properties happen to behave
+differently" into a rule that predicts the next case. The falsifiable form:
+**remove the `@page` rule and Chromium's orientation enum should start
+working.** Not worth acting on — emitting `@page` is required for margins — but
+it is the check that would refute this.
+
 ### ADR-PDF2 — the Linux settings object needs both keys, for two reasons
 
 | Print settings | Result |
