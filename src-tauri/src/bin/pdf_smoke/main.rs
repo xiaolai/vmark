@@ -10,6 +10,11 @@
 //! Run:
 //!   cargo run --bin pdf_smoke --features pdf-smoke -- <out-dir>
 //!
+//! Or, for visual QA on a real document rather than the fixtures:
+//!   cargo run --bin pdf_smoke --features pdf-smoke -- --html <file> <out-dir>
+//! See `render_one.rs` — that mode asserts the same geometry, but its point is
+//! an artifact a human can look at.
+//!
 //! It exits non-zero on the first failure and prints one `SMOKE ...` line per
 //! case, so a caller can assert on the transcript rather than on a exit code
 //! alone.
@@ -35,7 +40,7 @@
 //! @coordinates-with pdf_export/renderer — the code under test
 //! @module bin/pdf_smoke
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use std::time::Duration;
 use tauri::Manager;
@@ -57,10 +62,8 @@ const A4_LANDSCAPE: PageSpec = PageSpec {
 };
 
 fn main() {
-    let out_dir = std::env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
+    // `--html <file> <out-dir>` renders a supplied document — see render_one.rs.
+    let (one_shot, out_dir) = render_one::parse_args(std::env::args().collect());
     std::fs::create_dir_all(&out_dir).expect("create out dir");
 
     let app = tauri::Builder::default()
@@ -72,7 +75,10 @@ fn main() {
 
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-        let failures = rt.block_on(run_cases(&handle, &out));
+        let failures = match one_shot {
+            Some(html) => rt.block_on(render_one::run(&handle, &html, &out)),
+            None => rt.block_on(run_cases(&handle, &out)),
+        };
         // Give the loop a moment to drain window closes before exiting, so a
         // leak check sees the steady state rather than teardown in flight.
         std::thread::sleep(Duration::from_millis(500));
@@ -283,6 +289,7 @@ async fn render(
 }
 
 mod fixtures;
+mod render_one;
 mod verify;
 use fixtures::{doc_for, large_doc};
-use verify::{check, count, media_box};
+use verify::check;
