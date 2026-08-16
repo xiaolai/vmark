@@ -219,9 +219,22 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
             break;
         }
     }
-    let after = app.webview_windows().len();
+    // The renderer settles the sink and THEN closes its window, so the caller
+    // resumes before the close has been processed — counting immediately
+    // measures a close in flight, not a leak. The contract is that windows
+    // return to baseline promptly, so poll for that with a bound: if they
+    // never do, it is a real leak and this still fails.
+    let mut after = app.webview_windows().len();
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while after > before && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        after = app.webview_windows().len();
+    }
     if after > before {
-        println!("SMOKE sequential FAIL leaked {} window(s)", after - before);
+        println!(
+            "SMOKE sequential FAIL leaked {} window(s) after 10s",
+            after - before
+        );
         failures += 1;
     } else {
         println!("SMOKE sequential PASS 20 exports, windows {before} -> {after}");

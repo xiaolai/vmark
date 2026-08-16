@@ -192,6 +192,45 @@ Notes worth keeping:
   is progress to report. Annotated so the attribute goes inert — rather than
   wrong — once WI-PDF2.1 calls them.
 
+### WI-PDF2.1 — Windows renderer
+
+**Status:** DONE — 2026-08-16
+**Changed:** `pdf_export/renderer/windows.rs`, `pdf_export/renderer/mod.rs`
+(output-path guard), `examples/pdf_smoke.rs`, `src-tauri/Cargo.toml`
+(pinned COM deps + feature-gated `pdf_smoke` bin), all ten locales (5 keys)
+**Verified:** built and run on **real Windows hardware** (msvc), all eight
+smoke cases green, `SMOKE_EXIT=0`:
+
+| Case | Result |
+|---|---|
+| `basic` | A4 595×842, 3 pages |
+| `legal` | **612×1008** — `PageSpec` honoured |
+| `a5` | **420×595** |
+| `landscape` | **842×595** — the width/height swap works |
+| `large` | **>2 MiB document rendered** — no `.with_html` ceiling |
+| `badpath` | refused up front, `code=NotFound` |
+| `sequential` | 20 exports, windows 1 → 1 |
+| `concurrent` | 2 at once, no label collision |
+
+Three things the local gates could not have told me:
+
+- **`--example` does not work for a Tauri app on Windows.** It links and then
+  dies at startup with `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139) — the same
+  code this crate's `Cargo.toml` already records for the MockRuntime test
+  binary. `tauri-build` embeds the Windows app manifest and forces a static
+  CRT for the crate's BINARIES; examples and tests get neither. The harness is
+  a feature-gated `[[bin]]` for that reason. The shipped bin always worked,
+  which is what pointed at target kind rather than code.
+- **The cross-compile proves cfg-gating and types, not linkage or runtime.**
+  It caught the `IsSuccess` out-parameter in seconds and saved a round trip,
+  and it was silent about the loader failure above.
+- **The first `sequential` run reported a leaked window, and it was the
+  test's fault.** The renderer settles the sink and then closes, so the caller
+  resumes a moment before the close is processed. The assertion now polls for
+  a return to baseline with a 10s bound — a real leak still fails it. The
+  renderer was NOT reordered to close first: destroying a webview from inside
+  its own completion callback trades a cosmetic failure for a use-after-free.
+
 ### WI-PDF1.3 — one geometry source, two derivations
 
 **Status:** DONE — 2026-08-16
