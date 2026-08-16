@@ -7,6 +7,7 @@ import {
   oppositeTerminalPosition,
 } from "../useTerminalPosition";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
+import { TERMINAL_MAX_RATIO } from "@/stores/uiStore";
 
 describe("computeTerminalPosition", () => {
   it.each([
@@ -72,9 +73,9 @@ describe("pixelsToRatio", () => {
     expect(pixelsToRatio(0, 1000)).toBe(0.1);
   });
 
-  it("clamps to 0.5 maximum", () => {
-    expect(pixelsToRatio(900, 1000)).toBe(0.5);
-    expect(pixelsToRatio(1000, 1000)).toBe(0.5);
+  it("clamps to the TERMINAL_MAX_RATIO maximum", () => {
+    expect(pixelsToRatio(900, 1000)).toBe(TERMINAL_MAX_RATIO);
+    expect(pixelsToRatio(1000, 1000)).toBe(TERMINAL_MAX_RATIO);
   });
 
   it("returns 0.4 when available dimension is 0", () => {
@@ -139,16 +140,18 @@ describe("pixelsToRatio — edge cases", () => {
   it("handles exact boundary values", () => {
     // 100/1000 = 0.1 (minimum)
     expect(pixelsToRatio(100, 1000)).toBeCloseTo(0.1);
-    // 500/1000 = 0.5 (maximum)
-    expect(pixelsToRatio(500, 1000)).toBeCloseTo(0.5);
-    // 800/1000 = 0.8 → clamped down to the 0.5 maximum
-    expect(pixelsToRatio(800, 1000)).toBeCloseTo(0.5);
+    // The cap itself, expressed in pixels, survives the round trip.
+    expect(pixelsToRatio(TERMINAL_MAX_RATIO * 1000, 1000)).toBeCloseTo(TERMINAL_MAX_RATIO);
+    // Anything above it is clamped down to the cap.
+    expect(pixelsToRatio((TERMINAL_MAX_RATIO + 0.1) * 1000, 1000)).toBeCloseTo(
+      TERMINAL_MAX_RATIO,
+    );
   });
 });
 
 describe("pixelsToRatio — additional precision", () => {
   it("handles very large pixel values", () => {
-    expect(pixelsToRatio(10000, 1000)).toBe(0.5);
+    expect(pixelsToRatio(10000, 1000)).toBe(TERMINAL_MAX_RATIO);
   });
 
   it("handles negative pixel values (clamped to 0.1)", () => {
@@ -156,7 +159,7 @@ describe("pixelsToRatio — additional precision", () => {
   });
 
   it("returns exact mid-range ratio", () => {
-    expect(pixelsToRatio(500, 1000)).toBeCloseTo(0.5);
+    expect(pixelsToRatio(400, 1000)).toBeCloseTo(0.4);
   });
 });
 
@@ -274,7 +277,13 @@ vi.mock("@/stores/settingsStore", () => {
   return { useSettingsStore: store };
 });
 
-vi.mock("@/stores/uiStore", () => {
+vi.mock("@/stores/uiStore", async () => {
+  // Take the geometry constants from the real module rather than restating
+  // them. Copied literals here read as production values while tracking
+  // nothing: this mock still said 0.5 after #1279 raised the cap to 0.8, so
+  // every assertion below was measuring a ceiling the app no longer has.
+  const actual =
+    await vi.importActual<typeof import("@/stores/uiStore")>("@/stores/uiStore");
   const sidebarVisible = false;
   const sidebarWidth = 260;
   const subscribers: ((s: unknown) => unknown)[] = [];
@@ -310,9 +319,9 @@ vi.mock("@/stores/uiStore", () => {
 
   return {
     useUIStore: store,
-    TERMINAL_MIN_HEIGHT: 100,
-    TERMINAL_MIN_WIDTH: 200,
-    TERMINAL_MAX_RATIO: 0.5,
+    TERMINAL_MIN_HEIGHT: actual.TERMINAL_MIN_HEIGHT,
+    TERMINAL_MIN_WIDTH: actual.TERMINAL_MIN_WIDTH,
+    TERMINAL_MAX_RATIO: actual.TERMINAL_MAX_RATIO,
   };
 });
 

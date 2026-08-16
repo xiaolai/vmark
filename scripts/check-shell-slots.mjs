@@ -40,7 +40,12 @@
  *        that must provide it: `EditorArea` from `@/shell` (ADR-007's shell
  *        layer IS the frame, and a frame is not a surface), and
  *        `DocumentWindowMount` + `MainWindowRunners` from `@/hooks/lifecycle`
- *        (both `return null`; they run effects and mount no UI).
+ *        (both run effects and mount no UI of their own). Stated as WHAT THEY
+ *        MOUNT, not as "both `return null`" — that wording was already false
+ *        for `MainWindowRunners`, which returns a `React.ReactElement`, and a
+ *        justification that is wrong about its own subject is worse than none.
+ *        The exclusion has never keyed on the return type; it keys on the name
+ *        and the module that must supply it.
  *
  *        This used to be "any binding imported from `@/shell` or `@/hooks`",
  *        which is a standing pre-approval for every future export of two large
@@ -87,8 +92,8 @@ const TRANSPARENT_WRAPPERS = new Set(["Suspense", "FeatureErrorBoundary", "React
  */
 const NON_SURFACE_BINDINGS = new Map([
   ["EditorArea", { module: "@/shell", why: "ADR-007 shell frame — a frame is not a surface" }],
-  ["DocumentWindowMount", { module: "@/hooks/lifecycle", why: "returns null; effects only" }],
-  ["MainWindowRunners", { module: "@/hooks/lifecycle", why: "returns null; effects only" }],
+  ["DocumentWindowMount", { module: "@/hooks/lifecycle", why: "runs effects; mounts no UI" }],
+  ["MainWindowRunners", { module: "@/hooks/lifecycle", why: "runs effects; mounts no UI" }],
 ]);
 
 /** Dotted name of a JSX tag, or null for namespaced/exotic tags. */

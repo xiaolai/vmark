@@ -11,15 +11,20 @@
  *   - Grow sign flips per side: right/bottom grow on negative client delta;
  *     left/top grow on positive (their handle is on the far edge).
  *   - Sets document.body cursor during drag and disables text selection.
- *   - Caps the live size at 50% of available space (TERMINAL_MAX_RATIO); the
+ *   - Caps the live size at 80% of available space (TERMINAL_MAX_RATIO); the
  *     store setters only enforce the absolute pixel floor.
  *   - Calls onResize callback on every move to let the parent refit xterm.
  *   - On drag end, computes the ratio from final pixel / available dimension
  *     and persists it to settingsStore.
  *   - `toggleMaximize` (WI-4.5/F6) snaps the panel to the cap and back to the
- *     STORED ratio, without rewriting that ratio. The persisted size stops at
- *     50% on purpose (the editor must stay usable); the real need behind
- *     "I want 80%" is temporary, so this is a view toggle, not a setting.
+ *     STORED ratio, without rewriting that ratio.
+ *   - The cap was 50%, on the reasoning that a bigger panel is a temporary
+ *     need the maximize toggle covers. That reasoning did not survive contact:
+ *     the toggle snaps to the SAME constant, so "temporarily bigger" also
+ *     stopped at 50% and the escape hatch it justified never existed. Raised
+ *     to 80% in #1279, matching the range `clamp.ts` had been persisting all
+ *     along. The editor stays usable via TERMINAL_MIN_HEIGHT/WIDTH, which are
+ *     absolute pixel floors and bind first on a small window.
  *
  * @coordinates-with TerminalPanel.tsx — attaches handleResizeStart to the resize handle
  * @coordinates-with uiStore — updates terminalHeight / terminalWidth during drag
@@ -113,7 +118,7 @@ export function useTerminalResize(
         if (!isResizing.current) return;
 
         const ui = useUIStore.getState();
-        // Cap live drag at 50% of available space (TERMINAL_MAX_RATIO); the
+        // Cap live drag at 80% of available space (TERMINAL_MAX_RATIO); the
         // store setters only enforce the pixel floor.
         const available = getAvailableDimension(
           ui.effectiveTerminalPosition,

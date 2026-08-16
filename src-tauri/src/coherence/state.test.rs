@@ -340,6 +340,48 @@ fn a_bare_lock_file_is_not_mistaken_for_an_initialized_workspace() {
 }
 
 #[test]
+fn taking_the_lock_on_a_pristine_workspace_leaves_nothing_git_would_commit() {
+    // #1285: `acquire_lock_file` creates `.vmark/` to hold `group.lock`, and a
+    // write that is then REJECTED leaves that directory behind. It used to
+    // contain the lock and nothing else — so `git add .` staged a binary
+    // runtime file in every repository where a coherence action had failed.
+    // Deliberately NOT fixed by refusing to create the dir: the lock must exist
+    // before the op is adjudicated. The ignore rules are what has to arrive
+    // with it.
+    let dir = tmp();
+    let vmark = dir.path().join(".vmark");
+    let mut kernel = WorkspaceKernel::open(dir.path(), writer(1)).unwrap();
+
+    // A no-op under the write lock: acquires and releases, appends nothing.
+    kernel.with_write_lock(|_| Ok(())).unwrap();
+
+    assert!(
+        vmark.join("group.lock").is_file(),
+        "precondition: the lock file was created",
+    );
+    let ignore = std::fs::read_to_string(vmark.join(".gitignore"))
+        .expect(".vmark/.gitignore must exist beside a lock file git would otherwise see");
+    assert!(
+        ignore.lines().any(|l| l.trim() == "group.lock"),
+        "the lock must be ignored, got: {ignore:?}",
+    );
+    assert!(
+        ignore.lines().any(|l| l.trim() == "index.db*"),
+        "the index must be ignored too, got: {ignore:?}",
+    );
+    // The 6R-4 property is unchanged: ignore rules are not the completion
+    // marker, so a rejected op still does not fully initialize the workspace.
+    assert!(
+        !kernel.is_initialized(),
+        "writing ignore rules must not mark the workspace initialized",
+    );
+    assert!(
+        !vmark.join(".gitattributes").is_file(),
+        "no completion marker from a lock acquire alone",
+    );
+}
+
+#[test]
 // UNIX-ONLY FIXTURE, not a unix-only behaviour. The property under test —
 // fail closed on an I/O error rather than destroying state — holds on every
 // platform. What is unix-only is the way to PROVOKE it: these force the

@@ -1064,61 +1064,41 @@
    "exampleId": "gfmext-18",
    "path": "root.children[2]",
    "kind": "child-count",
-   "detail": "5 vs 3",
-   "vmarkValue": 5,
+   "detail": "1 vs 3",
+   "vmarkValue": 1,
    "referenceValue": 3,
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
+  },
+  {
+   "exampleId": "gfmext-18",
+   "path": "root.children[2].children[0]",
+   "kind": "attribute",
+   "detail": "value",
+   "vmarkValue": "This ~is ~ legit~ isn't ~ legit.",
+   "referenceValue": "This ",
+   "verdict": "extension",
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
    "path": "root.children[2].children[1]",
-   "kind": "type",
-   "detail": "subscript vs delete",
-   "vmarkValue": "subscript",
+   "kind": "missing",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
    "referenceValue": "delete",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
-  },
-  {
-   "exampleId": "gfmext-18",
-   "path": "root.children[2].children[1].children[0]",
-   "kind": "attribute",
-   "detail": "value",
-   "vmarkValue": "is ",
-   "referenceValue": "is ~ legit",
-   "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
    "path": "root.children[2].children[2]",
-   "kind": "attribute",
-   "detail": "value",
-   "vmarkValue": " legit",
-   "referenceValue": " isn't ~ legit.",
-   "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
-  },
-  {
-   "exampleId": "gfmext-18",
-   "path": "root.children[2].children[3]",
    "kind": "missing",
-   "detail": "absent in source-position",
-   "vmarkValue": "subscript",
-   "referenceValue": "__undefined__",
+   "detail": "absent in document",
+   "vmarkValue": "__undefined__",
+   "referenceValue": "text",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
-  },
-  {
-   "exampleId": "gfmext-18",
-   "path": "root.children[2].children[4]",
-   "kind": "missing",
-   "detail": "absent in source-position",
-   "vmarkValue": "text",
-   "referenceValue": "__undefined__",
-   "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1128,7 +1108,7 @@
    "vmarkValue": 3,
    "referenceValue": 1,
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1138,7 +1118,7 @@
    "vmarkValue": "This is not ~~~~",
    "referenceValue": "This is not ~~~~~one~~~~~ huge strikethrough.",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1148,7 +1128,7 @@
    "vmarkValue": "subscript",
    "referenceValue": "__undefined__",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1158,7 +1138,7 @@
    "vmarkValue": "text",
    "referenceValue": "__undefined__",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1168,7 +1148,7 @@
    "vmarkValue": 5,
    "referenceValue": 4,
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1178,7 +1158,7 @@
    "vmarkValue": "subscript",
    "referenceValue": "delete",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1188,7 +1168,7 @@
    "vmarkValue": " ~~",
    "referenceValue": " ~~~three~~~",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmext-18",
@@ -1198,7 +1178,7 @@
    "vmarkValue": "subscript",
    "referenceValue": "__undefined__",
    "verdict": "extension",
-   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected."
+   "reason": "Tilde dialect: VMark reads single-tilde ~x~ as subscript (and ^x^ superscript); GFM's reference reads strikethrough (delete). Double-tilde strikethrough is unaffected. Since #1280 a ~ pair also requires no unescaped whitespace (Pandoc's rule), so `~is ~ legit~` stays plain text here where GFM makes it a delete."
   },
   {
    "exampleId": "gfmreg-10",
