@@ -1,5 +1,6 @@
-//! One-shot mode: render a SUPPLIED HTML file at the four page geometries the
-//! export dialog offers, for visual QA.
+//! One-shot mode: render a SUPPLIED HTML file at six page geometries (three
+//! paper sizes, portrait and landscape), with the dialog's default margins, for
+//! visual QA.
 //!
 //! Purpose: the matrix cases in `main.rs` assert geometry on trivial documents,
 //! which proves the plumbing and says nothing about how a real document LOOKS.
