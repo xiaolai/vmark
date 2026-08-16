@@ -61,25 +61,33 @@ const SIZES: [(&str, f64, f64); 3] = [
 /// the harness look like a product bug. Observed exactly that before this
 /// existed.
 fn retarget_fit(html: &str, page: PageSpec) -> String {
+    // Both spellings: WebKit honours max-block-size and ignores max-height, so
+    // rewriting only the physical one leaves the logical bound at the captured
+    // geometry and the figure overflows a smaller sheet.
+    let html = &retarget_prop(html, page, "max-block-size: ");
+    retarget_prop(html, page, "max-height: ")
+}
+
+fn retarget_prop(html: &str, page: PageSpec, prop: &str) -> String {
     let usable_mm = (page.height_pt * 25.4 / 72.0)
         - (page.margin_top_pt.unwrap_or(0.0) + page.margin_bottom_pt.unwrap_or(0.0)) * 25.4 / 72.0
         - 4.0;
-    let usable_mm = usable_mm.max(20.0);
+    let usable_mm = (usable_mm * 0.92).max(20.0);
     let mut out = String::with_capacity(html.len());
     let mut rest = html;
-    while let Some(i) = rest.find("max-height: ") {
-        let after = &rest[i + "max-height: ".len()..];
+    while let Some(i) = rest.find(prop) {
+        let after = &rest[i + prop.len()..];
         let Some(end) = after.find("mm") else {
-            out.push_str(&rest[..i + "max-height: ".len()]);
+            out.push_str(&rest[..i + prop.len()]);
             rest = after;
             continue;
         };
         if after[..end].parse::<f64>().is_ok() {
             out.push_str(&rest[..i]);
-            out.push_str(&format!("max-height: {usable_mm:.2}mm"));
+            out.push_str(&format!("{prop}{usable_mm:.2}mm"));
             rest = &after[end + 2..];
         } else {
-            out.push_str(&rest[..i + "max-height: ".len()]);
+            out.push_str(&rest[..i + prop.len()]);
             rest = after;
         }
     }

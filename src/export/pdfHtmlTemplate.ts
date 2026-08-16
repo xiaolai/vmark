@@ -222,18 +222,37 @@ function buildFitCSS(options: PdfOptions): string {
   // break-inside rule (measured — an isolated probe had no such rule and still
   // moved it). If it fits nowhere, it must be split.
   //
-  // KNOWN LIMIT: this bound is honoured by Chromium and by WebKit ON SCREEN,
-  // but NOT by WebKit's print pipeline in a full export — measured, a tall
-  // figure rendered ~480mm there against a 220mm bound, while the same CSS
-  // computed to exactly 220mm in a live WebKit iframe and bound correctly in a
-  // minimal print probe. The mechanism is not identified, and no print-media
-  // rule, competing max-height or brace imbalance explains it. So tall images
-  // still straddle a page break on macOS and Linux. Do not add a fudge factor
-  // to paper over it: a 0.92 multiplier was tried, changed the WebKit output
-  // not at all, and cost Chromium 8% of every tall image for nothing.
+  // **WebKit's print pipeline DROPS `max-height` and honours `max-block-size`.**
+  // The two are the same property in horizontal writing mode, but they take
+  // different code paths there. Measured on the real export, all asking 150mm:
+  //
+  //     max-height: 150mm       -> 258.1mm   ignored
+  //     max-block-size: 150mm   -> 159.5mm   honoured
+  //     height: 150mm           -> 159.5mm   honoured
+  //
+  // 258.1mm is what an unbounded figure happens to render at, so `max-height`
+  // alone did nothing at all — which is why a tall image straddled a page break
+  // on macOS and Linux while Chromium, which honours both, kept it whole. Emit
+  // BOTH: neither engine minds the other's spelling.
+  //
+  // WebKit then renders ~6% ABOVE whatever bound it is given — measured twice
+  // on the real export: ask 100mm, get 105.7mm; ask 239.2mm, get 255.0mm. That
+  // is enough to push a near-full-page figure past the content area, and it
+  // straddles even when a forced `break-before: page` starts it at the very top
+  // of a fresh page (tested). So the bound is set below the content area by
+  // more than the overshoot.
+  //
+  // An earlier version of this multiplier was added, seen to change nothing,
+  // and reverted — correctly at the time, because `max-height` alone was inert
+  // so NO bound had any effect. It only becomes meaningful once the logical
+  // property above actually binds. Chromium honours the bound exactly and pays
+  // 8% of image height for this; that is the price of one rule that works on
+  // all three engines.
+  const WEBKIT_OVERSHOOT = 0.92;
   const usableMm = Math.max(
     20,
-    heightMm - options.marginTop - options.marginBottom - WRAPPER_MM - 4,
+    (heightMm - options.marginTop - options.marginBottom - WRAPPER_MM - 4) *
+      WEBKIT_OVERSHOOT,
   );
 
   return `
@@ -243,6 +262,7 @@ figure,
   margin-top: 0;
   margin-bottom: ${WRAPPER_MM}mm;
   max-height: ${(usableMm + WRAPPER_MM).toFixed(2)}mm;
+  max-block-size: ${(usableMm + WRAPPER_MM).toFixed(2)}mm;
 }
 
 img,
@@ -251,6 +271,7 @@ svg,
 .code-block-preview svg,
 .code-block-preview img {
   max-height: ${usableMm.toFixed(2)}mm;
+  max-block-size: ${usableMm.toFixed(2)}mm;
   max-width: 100%;
   height: auto;
   object-fit: contain;

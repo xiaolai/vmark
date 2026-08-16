@@ -180,7 +180,7 @@ describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () 
     // A4 is 297mm tall; 25.4mm margins leave 246.2mm, minus the wrapper's own
     // margin and a small allowance.
     const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
-    expect(maxHeightMm(html)).toBeCloseTo(297 - 25.4 - 25.4 - 3 - 4, 1);
+    expect(maxHeightMm(html)).toBeCloseTo((297 - 25.4 - 25.4 - 3 - 4) * 0.92, 1);
   });
 
   /**
@@ -229,7 +229,7 @@ describe("pdfHtmlTemplate buildPdfExportHtml — fitting oversized content", () 
       buildPdfExportHtml("<p>x</p>", "", "", baseOptions({ orientation: "landscape" }), false),
     );
     expect(landscape).toBeLessThan(portrait);
-    expect(landscape).toBeCloseTo(210 - 25.4 - 25.4 - 3 - 4, 1);
+    expect(landscape).toBeCloseTo((210 - 25.4 - 25.4 - 3 - 4) * 0.92, 1);
   });
 
   it("never emits a negative or absurdly small bound", () => {
@@ -290,5 +290,22 @@ describe("pdfHtmlTemplate expandDetails", () => {
     );
     expect(html).toContain("<details open>");
     expect(html).toContain("hidden body");
+  });
+});
+
+/**
+ * WebKit's print pipeline DROPS `max-height` and honours `max-block-size`.
+ * Measured on a real export, every variant asking 150mm: max-height rendered
+ * 258.1mm (i.e. unbounded), max-block-size and height both rendered 159.5mm.
+ * Emitting only the physical property is why tall images straddled a page break
+ * on macOS and Linux while Chromium kept them whole.
+ */
+describe("pdfHtmlTemplate — WebKit needs the logical sizing property", () => {
+  it("emits max-block-size beside every max-height bound", () => {
+    const html = buildPdfExportHtml("<p>x</p>", "", "", baseOptions(), false);
+    const physical = [...html.matchAll(/max-height:\s*([\d.]+)mm/g)].map((m) => m[1]);
+    const logical = [...html.matchAll(/max-block-size:\s*([\d.]+)mm/g)].map((m) => m[1]);
+    expect(physical.length).toBeGreaterThan(0);
+    expect(logical).toEqual(physical);
   });
 });
