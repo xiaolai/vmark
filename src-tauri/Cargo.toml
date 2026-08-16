@@ -126,6 +126,23 @@ objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFOutline", "PDF
 objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] }
 
 # RW-16 (L8): Windows Credential Manager backend (best-effort platform).
+# The PDF smoke harness is a BIN, not an example, and gated behind a feature so
+# it is never part of a normal build or bundle.
+#
+# It has to be a bin: as an `--example` it links but dies at startup on Windows
+# with STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) — the same code this file
+# already records for the MockRuntime test binary. `tauri-build` embeds the
+# Windows app manifest and forces a static CRT for the crate's binaries;
+# examples and tests do not get the same treatment, and the loader then cannot
+# resolve an import. The shipped bin has always worked, which is the clue.
+[[bin]]
+name = "pdf_smoke"
+path = "examples/pdf_smoke.rs"
+required-features = ["pdf-smoke"]
+
+[features]
+pdf-smoke = []
+
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 # WI-PDF2.1: PDF export via ICoreWebView2_7::PrintToPdf.

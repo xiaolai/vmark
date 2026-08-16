@@ -328,8 +328,51 @@ differ byte-for-byte. Compare *parsed* page boxes, page count, extracted text
 and outline destinations instead — plus a plain source diff of the moved
 function bodies for the mechanical part.
 
+## Finding — macOS appears to ignore the user's page size (NOT fixed here)
+
+Measured 2026-08-16 with the `pdf_smoke` harness, on the shipped macOS
+renderer. Every request produced **595 × 842 pt**:
+
+| Requested | CSS sent | Produced |
+|---|---|---|
+| A4 portrait | `@page{size:A4}` | 595 × 842 |
+| A5 portrait | `@page{size:A5}` | **595 × 842** |
+| Legal | `@page{size:legal}` | **595 × 842** |
+| A4 landscape | `@page{size:A4 landscape}` | **595 × 842** |
+
+595 × 842 pt is A4, and this machine's default paper is `iso_a4_210x297mm`.
+`renderer/macos.rs` never sets a paper size — `configure_print_info` copies
+`NSPrintInfo::sharedPrintInfo()` and only zeroes the margins. So the output
+takes the SYSTEM DEFAULT paper and the Page Size and Orientation controls in
+the export dialog appear to do nothing on macOS.
+
+This contradicts `pdfHtmlTemplate.ts`'s header, which states that WebKit's
+`printOperationWithPrintInfo` pipeline respects `@page` size — and a comment
+there records a previous landscape fix made by switching to the keyword form.
+The keyword form is what was measured above.
+
+**Deliberately not fixed in this plan.** Changing it alters the output of
+every macOS export, which is a product decision rather than a mechanical fix,
+and this plan's remit is the two platforms that have no export at all. Also
+unmeasured: whether the *content* is being scaled to the default paper by
+`NSPrintingPaginationMode::Fit`, which would make this a scaling bug rather
+than a paper-selection one. Worth its own issue.
+
+## Also found — an unwritable path PRINTS on macOS (fixed here)
+
+`NSPrintOperation` with `NSPrintJobSavingURL` pointing at a directory that
+does not exist does not fail: AppKit falls back to spooling the document to
+the default printer. Four blank pages reached a real printer during this work,
+one per harness run.
+
+`export_pdf` validated the directory already, so shipped users were protected
+by layering. The renderer did not, so any other caller could print paper by
+accident — it validates now (`renderer/mod.rs`), and the harness asserts the
+refusal arrives *up front* rather than late, because late means the print
+operation already started.
+
 ## Out of scope
 
 - Cross-platform outline (`lopdf`) — ADR-PDF3
 - `@page` margin boxes — unsupported by WebKit print
-- Changing macOS geometry handling — it ships and it works
+- Fixing the macOS page-size finding above — recorded, not actioned
