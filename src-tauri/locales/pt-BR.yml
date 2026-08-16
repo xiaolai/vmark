@@ -243,6 +243,7 @@ errors:
   pandoc.waitFailed: "Falha ao aguardar o Pandoc: %{detail}"
 
   # === PDF export ===
+  pdf.unsupportedPlatform: "A exportação para PDF ainda não está disponível nesta plataforma"
   pdf.invalidExtension: "O caminho de saída precisa ter a extensão .pdf"
   pdf.dirNotFound: "O diretório de saída não existe"
   pdf.loadTimeout: "Tempo esgotado ao carregar HTML (10 s)"

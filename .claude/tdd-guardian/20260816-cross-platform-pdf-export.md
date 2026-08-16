@@ -168,6 +168,30 @@ Each renderer owns explicit teardown on the timeout path.
 
 ## Design
 
+### WI-PDF1.1 — restructure, split, non-macOS stubs
+
+**Status:** DONE — 2026-08-16
+**Changed:** `src-tauri/src/pdf_export/{mod.rs,commands.rs,bookmarks.rs,heading.rs}`,
+`src-tauri/src/pdf_export/renderer/{mod.rs,macos.rs,macos_ops.rs,windows.rs,linux.rs}`
+(replacing `renderer.rs`), `src-tauri/src/lib.rs`,
+`src-tauri/src/command_registry.rs`, `scripts/file-size-baseline.json`,
+all ten `src-tauri/locales/*.yml`
+**Verified:** `cargo clippy --all-targets -- -D warnings` clean;
+`cargo test --lib` 2142 passed; `pnpm lint:file-size` green;
+`scripts/check-cross-target.sh` — **x86_64-pc-windows-gnu compiles clean**,
+which is the actual point: the stubs make a non-macOS build real
+
+Notes worth keeping:
+- `Heading` moved to its own `heading.rs`. It is in the `export_pdf`
+  signature, so leaving it inside the PDFKit module made the whole command
+  macOS-only by transitivity.
+- The file-size gate fired exactly as ADR predicted — a stale `renderer.rs`
+  entry *and* `bookmarks.rs` shrinking 394 → 389. Both ratcheted down.
+- The cross-compile caught what the macOS build could not: `PdfProgress` and
+  `emit_progress` are unused on Windows because the stub refuses before there
+  is progress to report. Annotated so the attribute goes inert — rather than
+  wrong — once WI-PDF2.1 calls them.
+
 ```
 pdf_export/                  ← unconditional
   commands.rs                ← validation, i18n errors, progress, bookmarks

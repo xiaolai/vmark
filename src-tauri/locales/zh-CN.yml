@@ -243,6 +243,7 @@ errors:
   pandoc.waitFailed: "等待 Pandoc 失败：%{detail}"
 
   # === PDF export ===
+  pdf.unsupportedPlatform: "此平台尚不支持导出 PDF"
   pdf.invalidExtension: "输出路径必须使用 .pdf 扩展名"
   pdf.dirNotFound: "输出目录不存在"
   pdf.loadTimeout: "HTML 加载超时（10 秒）"

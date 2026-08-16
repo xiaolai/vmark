@@ -1,6 +1,7 @@
 //! Tauri commands for PDF export and native printing.
 
-use super::{bookmarks, renderer};
+use super::heading::Heading;
+use super::renderer;
 use std::path::Path;
 
 /// Export HTML content to a PDF file using WKWebView.
@@ -14,7 +15,7 @@ pub async fn export_pdf(
     app: tauri::AppHandle,
     html: String,
     output_path: String,
-    headings: Option<Vec<bookmarks::Heading>>,
+    headings: Option<Vec<Heading>>,
 ) -> Result<(), String> {
     // Validate output path
     let path = Path::new(&output_path);
@@ -32,15 +33,20 @@ pub async fn export_pdf(
 
     renderer::render_pdf(app, html, output_path.clone()).await?;
 
-    // Add bookmarks if headings were provided
+    // Add bookmarks if headings were provided. macOS only: the injector is
+    // PDFKit (ADR-PDF3). Elsewhere the PDF ships without an outline, which is
+    // a documented gap rather than a failure — so this is not an error path.
+    #[cfg(target_os = "macos")]
     if let Some(ref headings) = headings {
         if !headings.is_empty() {
-            if let Err(e) = bookmarks::add_bookmarks(&output_path, headings) {
+            if let Err(e) = super::bookmarks::add_bookmarks(&output_path, headings) {
                 log::warn!("[PDF] bookmark injection failed (PDF still valid): {}", e);
                 // Don't fail the export — PDF is still valid without bookmarks
             }
         }
     }
+    #[cfg(not(target_os = "macos"))]
+    let _ = &headings;
 
     Ok(())
 }

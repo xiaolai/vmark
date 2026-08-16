@@ -70,7 +70,6 @@ mod cli_install;
 mod dock_recent;
 #[cfg(target_os = "macos")]
 mod macos_menu;
-#[cfg(target_os = "macos")]
 mod pdf_export;
 #[cfg(target_os = "macos")]
 mod text_substitution;

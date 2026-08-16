@@ -244,6 +244,7 @@ errors:
   pandoc.waitFailed: "Failed to wait for Pandoc: %{detail}"
 
   # === PDF export ===
+  pdf.unsupportedPlatform: "PDF export is not yet available on this platform"
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"
   pdf.loadTimeout: "HTML load timeout (10s)"
