@@ -14,6 +14,7 @@ use tauri::AppHandle;
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
+use crate::pdf_export::page_spec::PageSpec;
 
 use super::emit_progress;
 use super::macos::{
@@ -26,6 +27,9 @@ pub(super) fn render_on_main_thread(
     html_path: &str,
     read_access_dir: &str,
     output_path: &str,
+    // macOS geometry is CSS-driven (ADR-PDF1a); the spec is accepted for a
+    // uniform contract and deliberately unused here.
+    _page: PageSpec,
 ) -> Result<(), CommandError> {
     use objc2::MainThreadMarker;
 

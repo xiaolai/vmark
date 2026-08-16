@@ -66,7 +66,7 @@ export const MARGIN_PRESETS: Record<string, { top: number; right: number; bottom
 // orientation keyword (e.g. `A4 landscape`). Mixing explicit <length> pairs with
 // an orientation keyword (`210mm 297mm landscape`) is invalid and silently
 // ignored by WebKit, which is why the previous landscape mode produced portrait PDFs.
-const PAGE_SIZE_KEYWORDS: Record<string, string> = {
+export const PAGE_SIZE_KEYWORDS: Record<string, string> = {
   a4: "A4",
   letter: "letter",
   a3: "A3",

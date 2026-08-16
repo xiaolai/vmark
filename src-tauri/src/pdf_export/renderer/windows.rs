@@ -22,6 +22,7 @@ use tauri::AppHandle;
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
+use crate::pdf_export::page_spec::PageSpec;
 
 /// Refuse a PDF render on Windows until WI-PDF2.1 lands.
 pub(super) fn render_on_main_thread(
@@ -29,6 +30,7 @@ pub(super) fn render_on_main_thread(
     _html_path: &str,
     _read_access_dir: &str,
     _output_path: &str,
+    _page: PageSpec,
 ) -> Result<(), CommandError> {
     Err(localized_error!(
         ErrorCode::Unsupported,

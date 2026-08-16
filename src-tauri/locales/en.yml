@@ -250,6 +250,7 @@ errors:
   pdf.exportTimeout: "PDF export timed out after %{seconds} seconds"
   pdf.printTimeoutSecs: "Print timed out after %{seconds} seconds"
   pdf.unsupportedPlatform: "PDF export is not yet available on this platform"
+  pdf.invalidPageSize: "Invalid page %{axis}: %{value}"
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"
   pdf.loadTimeout: "HTML load timeout (10s)"

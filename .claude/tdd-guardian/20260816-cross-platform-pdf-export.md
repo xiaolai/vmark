@@ -192,6 +192,37 @@ Notes worth keeping:
   is progress to report. Annotated so the attribute goes inert — rather than
   wrong — once WI-PDF2.1 calls them.
 
+### WI-PDF1.3 — one geometry source, two derivations
+
+**Status:** DONE — 2026-08-16
+**Changed:** `src/export/{pageSpec.ts,pageSpec.test.ts,PdfExportDialog.tsx,pdfHtmlTemplate.ts}`,
+`src-tauri/src/pdf_export/{page_spec.rs,page_spec.test.rs,mod.rs,commands.rs}`,
+`src-tauri/src/pdf_export/renderer/{mod.rs,macos_ops.rs,windows.rs,linux.rs}`,
+all ten `src-tauri/locales/*.yml`
+**Verified:** `cargo test --lib` 2155 passed (7 new for `PageSpec`);
+`pnpm vitest run src/export` 403 passed (7 new); clippy, **cross-target**,
+`lint:ipc-contract` (172 invoked commands resolve), file-size, typecheck green
+
+**DoD amended, and why:** the row above originally required
+"impossible-margin rejection". That predates ADR-PDF1a, which *measured*
+margins as CSS-driven — so `PageSpec` carries none and there is no margin to
+reject. Validating a field the type does not have would have been theatre.
+Replaced with out-of-range rejection, which is the real risk.
+
+Notes worth keeping:
+- The CSS keeps using CSS **keywords** (`A4 landscape`) because
+  `pdfHtmlTemplate.ts` records that an explicit length pair plus an
+  orientation keyword is invalid and silently ignored by WebKit. So there are
+  necessarily two tables; `pageSpec.test.ts` fails if one gains an entry the
+  other lacks, which is the drift that would matter.
+- A test asserts snake_case is **rejected**, so a casing regression cannot
+  pass silently — the fixture is the literal payload the dialog sends.
+- `is_finite` is load-bearing in `validate`: `NaN` fails every comparison, so
+  a range check alone would hand `NaN` to a native print API.
+- The cross-compile caught `inches()` as dead on the Windows *target* — the
+  conditional allow I wrote applies everywhere except the one platform that
+  will use it.
+
 ### WI-PDF1.2 — typed errors end to end
 
 **Status:** DONE — 2026-08-16
@@ -250,7 +281,7 @@ cannot disagree.
 
 | `WI-PDF1.1` | `pdf_export` unconditional; `renderer/` split; **non-macOS stubs returning typed `unsupported`** for both contracts | `cargo clippy` green on all three targets; `pnpm lint:file-size` green |
 | `WI-PDF1.2` | Both commands → `CommandError`; `PdfExportDialog.tsx:159` → `commandErrorMessage` | table test mapping `invalid-input`/`not-found`/`io`/`timeout`; frontend test asserts the message text, never `[object Object]` |
-| `WI-PDF1.3` | `PageSpec` from one source → CSS **and** IPC | Rust deserialization test against the exact frontend JSON incl. camelCase; non-finite and impossible-margin rejection |
+| `WI-PDF1.3` | `PageSpec` from one source → CSS **and** IPC | Rust deserialization test against the exact frontend JSON incl. camelCase; non-finite and out-of-range rejection |
 | `WI-PDF2.1` | Windows renderer + **direct Cargo deps** | see harness note below; >2 MiB fixture; 20 sequential + 2 concurrent exports leave no orphan |
 | `WI-PDF3.1` | Linux renderer + direct Cargo deps | same, under `xvfb-run`; Unicode path test (`PDF #测试 100%.pdf`) |
 | `WI-PDF4.1` | `print_document` for both | manual — it is a dialog |

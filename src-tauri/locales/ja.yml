@@ -249,6 +249,7 @@ errors:
   pdf.exportTimeout: "PDF 書き出しが %{seconds} 秒でタイムアウトしました"
   pdf.printTimeoutSecs: "印刷が %{seconds} 秒でタイムアウトしました"
   pdf.unsupportedPlatform: "PDF 書き出しはこのプラットフォームではまだ利用できません"
+  pdf.invalidPageSize: "ページの%{axis}が不正です: %{value}"
   pdf.invalidExtension: "出力パスは .pdf 拡張子である必要があります"
   pdf.dirNotFound: "出力ディレクトリが存在しません"
   pdf.loadTimeout: "HTML の読み込みがタイムアウトしました（10 秒）"

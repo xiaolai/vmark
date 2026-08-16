@@ -249,6 +249,7 @@ errors:
   pdf.exportTimeout: "La exportación a PDF expiró tras %{seconds} segundos"
   pdf.printTimeoutSecs: "La impresión expiró tras %{seconds} segundos"
   pdf.unsupportedPlatform: "La exportación a PDF aún no está disponible en esta plataforma"
+  pdf.invalidPageSize: "%{axis} de página no válido: %{value}"
   pdf.invalidExtension: "La ruta de salida debe tener la extensión .pdf"
   pdf.dirNotFound: "El directorio de salida no existe"
   pdf.loadTimeout: "Tiempo de espera de carga HTML (10 s)"

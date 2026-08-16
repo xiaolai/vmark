@@ -4,6 +4,7 @@ use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 
 use super::heading::Heading;
+use super::page_spec::PageSpec;
 use super::renderer;
 use std::path::Path;
 
@@ -50,10 +51,12 @@ pub async fn export_pdf(
     html: String,
     output_path: String,
     headings: Option<Vec<Heading>>,
+    page: PageSpec,
 ) -> Result<(), CommandError> {
     validate_output_path(&output_path)?;
+    page.validate()?;
 
-    renderer::render_pdf(app, html, output_path.clone()).await?;
+    renderer::render_pdf(app, html, output_path.clone(), page).await?;
 
     // Add bookmarks if headings were provided. macOS only: the injector is
     // PDFKit (ADR-PDF3). Elsewhere the PDF ships without an outline, which is

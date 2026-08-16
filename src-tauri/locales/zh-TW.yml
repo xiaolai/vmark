@@ -249,6 +249,7 @@ errors:
   pdf.exportTimeout: "PDF 匯出在 %{seconds} 秒後逾時"
   pdf.printTimeoutSecs: "列印在 %{seconds} 秒後逾時"
   pdf.unsupportedPlatform: "此平台尚不支援匯出 PDF"
+  pdf.invalidPageSize: "頁面%{axis}無效：%{value}"
   pdf.invalidExtension: "輸出路徑必須使用 .pdf 副檔名"
   pdf.dirNotFound: "輸出目錄不存在"
   pdf.loadTimeout: "HTML 載入逾時（10 秒）"

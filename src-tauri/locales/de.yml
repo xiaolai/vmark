@@ -249,6 +249,7 @@ errors:
   pdf.exportTimeout: "PDF-Export nach %{seconds} Sekunden abgelaufen"
   pdf.printTimeoutSecs: "Druckvorgang nach %{seconds} Sekunden abgelaufen"
   pdf.unsupportedPlatform: "PDF-Export ist auf dieser Plattform noch nicht verfügbar"
+  pdf.invalidPageSize: "Ungültige Seiten-%{axis}: %{value}"
   pdf.invalidExtension: "Ausgabepfad muss die Endung .pdf haben"
   pdf.dirNotFound: "Ausgabeverzeichnis existiert nicht"
   pdf.loadTimeout: "HTML-Ladezeitüberschreitung (10 s)"

@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+use super::page_spec::PageSpec;
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use tokio::sync::oneshot;
@@ -81,6 +82,7 @@ pub async fn render_pdf(
     app: AppHandle,
     html: String,
     output_path: String,
+    page: PageSpec,
 ) -> Result<(), CommandError> {
     // Write HTML to temp file on the async thread (no main thread needed)
     let temp_dir = std::env::temp_dir();
@@ -126,6 +128,7 @@ pub async fn render_pdf(
             &temp_html_str,
             &temp_dir_str,
             &output_path_clone,
+            page,
         );
         log::debug!("[PDF] done, result: {:?}", result.as_ref().map(|_| "ok"));
         // Clean up temp file

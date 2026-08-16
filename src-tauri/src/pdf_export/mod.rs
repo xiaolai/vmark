@@ -11,6 +11,7 @@
 mod bookmarks;
 pub mod commands;
 pub(crate) mod heading;
+pub(crate) mod page_spec;
 mod renderer;
 
 #[cfg(test)]
