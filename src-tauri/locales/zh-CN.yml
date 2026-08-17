@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "临时文档路径无效：%{path}"
   pdf.invalidExtension: "输出路径必须使用 .pdf 扩展名"
   pdf.dirNotFound: "输出目录不存在"
+  pdf.pathNotAbsolute: "输出路径必须是绝对路径"
+  pdf.outputIsDirectory: "输出路径是一个目录"
   pdf.loadTimeout: "HTML 加载超时（10 秒）"
   pdf.emptyOutput: "打印操作生成了空 PDF"
   pdf.printTimeout: "打印操作超时（60 秒）"

@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "임시 문서 경로가 잘못되었습니다: %{path}"
   pdf.invalidExtension: "출력 경로는 .pdf 확장자를 사용해야 합니다"
   pdf.dirNotFound: "출력 디렉터리가 존재하지 않습니다"
+  pdf.pathNotAbsolute: "출력 경로는 절대 경로여야 합니다"
+  pdf.outputIsDirectory: "출력 경로가 디렉터리입니다"
   pdf.loadTimeout: "HTML 로드 시간 초과 (10초)"
   pdf.emptyOutput: "인쇄 작업이 빈 PDF를 생성했습니다"
   pdf.printTimeout: "인쇄 작업 시간 초과 (60초)"

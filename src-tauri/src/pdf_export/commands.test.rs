@@ -60,3 +60,47 @@ fn a_writable_directory_with_a_pdf_extension_passes() {
     let out = dir.path().join("fine.pdf");
     assert!(validate_output_path(&out.to_string_lossy()).is_ok());
 }
+
+// --- Destination shapes that used to pass validation and fail natively ---
+
+#[test]
+fn a_relative_path_is_refused() {
+    // WebView2's PrintToPdf requires an absolute result path and returns
+    // E_INVALIDARG otherwise; on macOS a relative path resolves against the
+    // process CWD rather than the directory the user chose in the save panel.
+    let err = validate_output_path("out.pdf").expect_err("a relative path must be refused");
+    assert_eq!(err.code(), ErrorCode::InvalidInput);
+    assert_eq!(err.i18n_key(), Some("errors.pdf.pathNotAbsolute"));
+}
+
+#[test]
+fn a_directory_named_like_a_pdf_is_refused() {
+    // Passes an extension check and a parent-exists check, then fails deep
+    // inside a native print API with an error the user cannot act on.
+    let dir = std::env::temp_dir().join("vmark-validate-dir-test.pdf");
+    std::fs::create_dir_all(&dir).expect("create test dir");
+    let err = validate_output_path(&dir.to_string_lossy())
+        .expect_err("an existing directory must be refused");
+    assert_eq!(err.code(), ErrorCode::InvalidInput);
+    assert_eq!(err.i18n_key(), Some("errors.pdf.outputIsDirectory"));
+    let _ = std::fs::remove_dir(&dir);
+}
+
+#[test]
+fn a_parent_that_is_a_regular_file_is_refused() {
+    // `parent.exists()` is true for a FILE, so the render used to start against
+    // a destination that could never be written.
+    let file = std::env::temp_dir().join("vmark-validate-parent-test");
+    std::fs::write(&file, b"x").expect("create test file");
+    let target = file.join("out.pdf");
+    let err = validate_output_path(&target.to_string_lossy())
+        .expect_err("a file as parent must be refused");
+    assert_eq!(err.code(), ErrorCode::InvalidInput);
+    let _ = std::fs::remove_file(&file);
+}
+
+#[test]
+fn a_sane_absolute_path_is_accepted() {
+    let ok = std::env::temp_dir().join("vmark-validate-ok.pdf");
+    validate_output_path(&ok.to_string_lossy()).expect("a normal destination must pass");
+}

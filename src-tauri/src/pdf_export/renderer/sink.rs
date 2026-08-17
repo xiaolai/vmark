@@ -57,9 +57,22 @@ impl RenderSink {
     pub(super) fn settle(&self, result: Result<(), CommandError>) {
         let taken = self.tx.lock().unwrap_or_else(|p| p.into_inner()).take();
         if let Some(tx) = taken {
-            let _ = std::fs::remove_file(&self.temp_html);
+            remove_temp(&self.temp_html);
             let _ = tx.send(result);
         }
+    }
+}
+
+/// Delete the render's temp HTML, logging a failure rather than swallowing it.
+///
+/// The file holds the user's entire document. A silent `let _ =` meant a
+/// failure to remove it left that content on disk with no diagnostic anywhere —
+/// the deletion looked done because nothing said otherwise.
+fn remove_temp(path: &std::path::Path) {
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => log::warn!("[PDF] could not remove temp file {}: {e}", path.display()),
     }
 }
 
@@ -70,7 +83,7 @@ impl Drop for RenderSink {
     fn drop(&mut self) {
         let taken = self.tx.lock().unwrap_or_else(|p| p.into_inner()).take();
         if let Some(tx) = taken {
-            let _ = std::fs::remove_file(&self.temp_html);
+            remove_temp(&self.temp_html);
             let _ = tx.send(Err(localized_error!(
                 ErrorCode::Internal,
                 "errors.pdf.abandoned"

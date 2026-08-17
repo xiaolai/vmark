@@ -20,6 +20,7 @@
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
 import { getPrimitiveTokenCSS } from "./primitiveTokens";
+import { buildFontStack } from "@/utils/fontStacks";
 import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
 import { buildFitCSS } from "./pdfFitToPage";
 import { type PdfOptions, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
@@ -47,14 +48,6 @@ export function getSharedContentCSS(): string {
 }
 
 /** Configuration for PDF page layout and typography. */
-/** Resolve font name to a CSS font-family value. */
-function resolveFontFamily(font: string, fallback: string): string {
-  if (!font || font === "system" || font === "System Default") {
-    return fallback;
-  }
-  return font.includes(" ") ? `"${font}"` : font;
-}
-
 /** Build @page CSS rules (size + margins only — WebKit print ignores margin boxes). */
 function buildPageCSS(options: PdfOptions): string {
   const sizeKeyword = PAGE_SIZE_KEYWORDS[options.pageSize] ?? PAGE_SIZE_KEYWORDS.a4;
@@ -108,9 +101,16 @@ function blockSizeRatio(themeCSS: string): number {
  * 11pt body text — about 36% oversized — in every PDF VMark has ever exported.
  */
 function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
-  const latin = resolveFontFamily(options.latinFont, "system-ui");
-  const cjk = resolveFontFamily(options.cjkFont, "system-ui");
-  const fontStack = `${latin}, ${cjk}, system-ui, -apple-system, sans-serif`;
+  // The dialog stores font KEYS ("pingfang", "songti"), not CSS family names.
+  // Emitting the key verbatim produced `font-family: pingfang, ...`, which
+  // matches no installed family, so every non-system choice silently fell back
+  // — and the leading `system-ui` meant the CJK stack was never reached either.
+  // buildFontStack is the app's own resolver and already handles both.
+  const { sans: fontStack } = buildFontStack(
+    options.latinFont,
+    options.cjkFont,
+    "system",
+  );
   const fs = options.fontSize;
   const lh = options.lineHeight;
   const blockRatio = blockSizeRatio(themeCSS);
@@ -146,7 +146,16 @@ function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
  * open. Already-open elements are left untouched.
  */
 export function expandDetails(html: string): string {
-  return html.replace(/<details(?![^>]*\bopen\b)([^>]*)>/gi, "<details open$1>");
+  // Attribute-aware, because a naive /\bopen\b/ lookahead matches the wrong
+  // things: `data-open="false"` and `title="open"` both contain the token, so a
+  // collapsed block stayed collapsed and its body was absent from the PDF —
+  // the same data loss this function exists to prevent. A quoted `>` inside an
+  // attribute value also truncated the tag.
+  return html.replace(/<details\b([^>]*(?:"[^"]*"[^>]*|'[^']*'[^>]*)*)>/gi, (tag, attrs: string) => {
+    // Strip quoted values before looking for a bare `open` attribute.
+    const bare = attrs.replace(/=\s*"[^"]*"/g, "=").replace(/=\s*'[^']*'/g, "=");
+    return /(^|\s)open(\s|=|$)/i.test(bare) ? tag : `<details open${attrs}>`;
+  });
 }
 
 export function buildPdfExportHtml(

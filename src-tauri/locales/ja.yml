@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "一時ドキュメントのパスが不正です: %{path}"
   pdf.invalidExtension: "出力パスは .pdf 拡張子である必要があります"
   pdf.dirNotFound: "出力ディレクトリが存在しません"
+  pdf.pathNotAbsolute: "出力パスは絶対パスである必要があります"
+  pdf.outputIsDirectory: "出力パスがディレクトリです"
   pdf.loadTimeout: "HTML の読み込みがタイムアウトしました（10 秒）"
   pdf.emptyOutput: "印刷操作で空の PDF が生成されました"
   pdf.printTimeout: "印刷操作がタイムアウトしました（60 秒）"

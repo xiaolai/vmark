@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "Ungültiger Pfad zum temporären Dokument: %{path}"
   pdf.invalidExtension: "Ausgabepfad muss die Endung .pdf haben"
   pdf.dirNotFound: "Ausgabeverzeichnis existiert nicht"
+  pdf.pathNotAbsolute: "Der Ausgabepfad muss absolut sein"
+  pdf.outputIsDirectory: "Der Ausgabepfad ist ein Verzeichnis"
   pdf.loadTimeout: "HTML-Ladezeitüberschreitung (10 s)"
   pdf.emptyOutput: "Druckvorgang erzeugte leere PDF"
   pdf.printTimeout: "Druckvorgang-Zeitüberschreitung (60 s)"

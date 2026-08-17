@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "Ruta de documento temporal no válida: %{path}"
   pdf.invalidExtension: "La ruta de salida debe tener la extensión .pdf"
   pdf.dirNotFound: "El directorio de salida no existe"
+  pdf.pathNotAbsolute: "La ruta de salida debe ser absoluta"
+  pdf.outputIsDirectory: "La ruta de salida es un directorio"
   pdf.loadTimeout: "Tiempo de espera de carga HTML (10 s)"
   pdf.emptyOutput: "La operación de impresión generó un PDF vacío"
   pdf.printTimeout: "Tiempo de espera de impresión (60 s)"

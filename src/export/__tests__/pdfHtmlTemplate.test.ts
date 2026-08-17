@@ -279,6 +279,31 @@ describe("pdfHtmlTemplate expandDetails", () => {
     expect(out).toContain("<details open data-reopened");
   });
 
+  /**
+   * A naive /\bopen\b/ lookahead matches these and leaves the block closed, so
+   * its body is absent from the PDF — the exact data loss expandDetails exists
+   * to prevent.
+   */
+  it.each([
+    ['<details data-open="false"><summary>s</summary></details>', "data-open"],
+    ['<details title="open"><summary>s</summary></details>', "title"],
+    ['<details data-state="reopened"><summary>s</summary></details>', "data-state"],
+  ])("opens a tag whose ATTRIBUTE VALUE contains 'open' (%s)", (html) => {
+    expect(expandDetails(html)).toContain("<details open ");
+  });
+
+  it("survives a quoted '>' inside an attribute value", () => {
+    const out = expandDetails('<details title="a>b"><summary>s</summary><p>body</p></details>');
+    expect(out).toContain("<details open ");
+    expect(out).toContain("body");
+  });
+
+  it("treats a bare OPEN in any case as already open", () => {
+    expect(expandDetails("<details OPEN><summary>s</summary></details>")).toBe(
+      "<details OPEN><summary>s</summary></details>",
+    );
+  });
+
   it("opens every details element, not just the first", () => {
     const out = expandDetails("<details><summary>a</summary></details><details><summary>b</summary></details>");
     expect([...out.matchAll(/<details open/g)]).toHaveLength(2);

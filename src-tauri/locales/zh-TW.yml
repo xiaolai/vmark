@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "暫存文件路徑無效：%{path}"
   pdf.invalidExtension: "輸出路徑必須使用 .pdf 副檔名"
   pdf.dirNotFound: "輸出目錄不存在"
+  pdf.pathNotAbsolute: "輸出路徑必須是絕對路徑"
+  pdf.outputIsDirectory: "輸出路徑是一個目錄"
   pdf.loadTimeout: "HTML 載入逾時（10 秒）"
   pdf.emptyOutput: "列印操作產生了空白 PDF"
   pdf.printTimeout: "列印操作逾時（60 秒）"

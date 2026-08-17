@@ -28,13 +28,44 @@ pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError
         ));
     }
 
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() && !parent.exists() {
-            return Err(localized_error!(
-                ErrorCode::NotFound,
-                "errors.pdf.dirNotFound"
-            ));
+    // A relative path is not merely untidy: WebView2's PrintToPdf requires an
+    // absolute result path and returns E_INVALIDARG otherwise, and on macOS the
+    // save destination would resolve against the process CWD rather than the
+    // directory the user picked.
+    if !path.is_absolute() {
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.pdf.pathNotAbsolute"
+        ));
+    }
+
+    // An existing DIRECTORY named `x.pdf` passes an extension check and a
+    // parent-exists check, then fails deep inside a native print API.
+    if path.is_dir() {
+        return Err(localized_error!(
+            ErrorCode::InvalidInput,
+            "errors.pdf.outputIsDirectory"
+        ));
+    }
+
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => {
+            if !parent.exists() {
+                return Err(localized_error!(
+                    ErrorCode::NotFound,
+                    "errors.pdf.dirNotFound"
+                ));
+            }
+            // `parent.exists()` is true for a regular FILE too, and the render
+            // then starts against a destination that can never be written.
+            if !parent.is_dir() {
+                return Err(localized_error!(
+                    ErrorCode::InvalidInput,
+                    "errors.pdf.dirNotFound"
+                ));
+            }
         }
+        _ => {}
     }
     Ok(())
 }

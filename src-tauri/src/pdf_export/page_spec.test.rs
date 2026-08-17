@@ -38,12 +38,8 @@ fn every_shipped_page_size_validates() {
         (841.89, 1190.55),
         (612.0, 1008.0),
     ] {
-        PageSpec::new(w, h)
-        .validate()
-        .expect("portrait");
-        PageSpec::new(h, w)
-        .validate()
-        .expect("landscape");
+        PageSpec::new(w, h).validate().expect("portrait");
+        PageSpec::new(h, w).validate().expect("landscape");
     }
 }
 
@@ -69,16 +65,15 @@ fn absurd_dimensions_are_refused_at_both_ends() {
         (100_000.0, 841.89),
     ] {
         let err = PageSpec::new(w, h)
-        .validate()
-        .expect_err(&format!("{w}x{h} must be refused"));
+            .validate()
+            .expect_err(&format!("{w}x{h} must be refused"));
         assert_eq!(err.code(), ErrorCode::InvalidInput);
     }
 }
 
 #[test]
 fn inches_converts_from_points() {
-    let (w, h) = PageSpec::new(612.0, 792.0)
-    .inches();
+    let (w, h) = PageSpec::new(612.0, 792.0).inches();
     assert!((w - 8.5).abs() < 1e-9, "612pt = 8.5in, got {w}");
     assert!((h - 11.0).abs() < 1e-9, "792pt = 11in, got {h}");
 }

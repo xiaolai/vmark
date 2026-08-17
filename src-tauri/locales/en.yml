@@ -259,6 +259,8 @@ errors:
   pdf.badTempPath: "Invalid temporary document path: %{path}"
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"
+  pdf.pathNotAbsolute: "Output path must be absolute"
+  pdf.outputIsDirectory: "Output path is a directory"
   pdf.loadTimeout: "HTML load timeout (10s)"
   pdf.emptyOutput: "Print operation produced empty PDF"
   pdf.printTimeout: "Print operation timeout (60s)"

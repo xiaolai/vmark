@@ -258,6 +258,8 @@ errors:
   pdf.badTempPath: "Caminho de documento temporário inválido: %{path}"
   pdf.invalidExtension: "O caminho de saída precisa ter a extensão .pdf"
   pdf.dirNotFound: "O diretório de saída não existe"
+  pdf.pathNotAbsolute: "O caminho de saída deve ser absoluto"
+  pdf.outputIsDirectory: "O caminho de saída é um diretório"
   pdf.loadTimeout: "Tempo esgotado ao carregar HTML (10 s)"
   pdf.emptyOutput: "A operação de impressão gerou um PDF vazio"
   pdf.printTimeout: "Tempo esgotado na operação de impressão (60 s)"

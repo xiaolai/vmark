@@ -53,16 +53,20 @@ mod linux;
 use linux as platform;
 
 /// Hard ceiling on a single PDF render. The internal print pipeline can wait
-/// up to ~60s of run-loop ticks; double that to give the dispatcher headroom
-/// without leaving the user staring at a frozen export forever.
+/// up to ~60s of run-loop ticks; this is three times that, so a slow render
+/// still completes while a wedged one does not leave the user staring at a
+/// frozen export forever. (The comment previously said "double", which did not
+/// match the value.)
 const PDF_OPERATION_TIMEOUT: Duration = Duration::from_secs(180);
 
 /// Progress event payload.
 ///
-/// Only the macOS backend reports progress so far; the Windows and Linux
-/// stubs refuse before there is any progress to report. The allow disappears
-/// on its own once those backends call `emit_progress` (WI-PDF2.1/3.1) —
-/// it is inert rather than wrong in the meantime.
+/// Only the macOS backend emits progress. Windows and Linux are fully
+/// implemented (WI-PDF2.1/3.1) but report nothing between navigation and
+/// completion, so the payload is dead code there and the allow is still
+/// required. It is a gap in those backends, not a stub — an earlier version of
+/// this comment claimed they "refuse before there is any progress to report",
+/// which stopped being true when they shipped.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Clone, serde::Serialize)]
 struct PdfProgress {
@@ -99,24 +103,55 @@ pub async fn render_pdf(
     // accident, and a wrong path is the single most likely caller mistake.
     super::commands::validate_output_path(&output_path)?;
 
-    // Write HTML to temp file on the async thread (no main thread needed)
+    // The document is written to a temp file rather than passed inline because
+    // wry's `.with_html` caps at 2 MiB and a real export routinely exceeds it
+    // (ADR-PDF4).
+    //
+    // `tempfile` creates with O_EXCL and 0600, which a pid+clock filename plus
+    // `fs::write` does not: that name is predictable, so a symlink planted at
+    // the path would have been followed, and the document — which can contain
+    // the user's entire private note — was written world-readable on a shared
+    // /tmp. `into_temp_path()` keeps the file after the handle closes, since
+    // the webview opens it by path; RenderSink still owns the deletion.
     let temp_dir = std::env::temp_dir();
-    let unique_id = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let temp_html = temp_dir.join(format!(
-        "vmark-pdf-export-{}-{}.html",
-        std::process::id(),
-        unique_id
-    ));
-    std::fs::write(&temp_html, &html).map_err(|e| {
+    let temp_file = tempfile::Builder::new()
+        .prefix("vmark-pdf-export-")
+        .suffix(".html")
+        .tempfile()
+        .map_err(|e| {
+            localized_error!(
+                ErrorCode::Io,
+                "errors.pdf.tempWriteFailed",
+                detail = e.to_string()
+            )
+        })?;
+    let temp_html = temp_file.into_temp_path().keep().map_err(|e| {
         localized_error!(
             ErrorCode::Io,
             "errors.pdf.tempWriteFailed",
             detail = e.to_string()
         )
     })?;
+    // Blocking I/O for a multi-megabyte document would hold a Tokio worker for
+    // the whole write; this command is async precisely so it does not.
+    let html_bytes = html.clone();
+    let temp_for_write = temp_html.clone();
+    tokio::task::spawn_blocking(move || std::fs::write(&temp_for_write, html_bytes))
+        .await
+        .map_err(|e| {
+            localized_error!(
+                ErrorCode::Io,
+                "errors.pdf.tempWriteFailed",
+                detail = e.to_string()
+            )
+        })?
+        .map_err(|e| {
+            localized_error!(
+                ErrorCode::Io,
+                "errors.pdf.tempWriteFailed",
+                detail = e.to_string()
+            )
+        })?;
 
     log::debug!(
         "[PDF] render_pdf: wrote {} bytes to {}, output: {}",
