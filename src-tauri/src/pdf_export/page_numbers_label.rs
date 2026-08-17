@@ -162,10 +162,16 @@ pub(super) fn render_label(spec: &PageNumberSpec, n: usize, total: usize) -> (St
     let label = match spec.format {
         Format::Plain => n.to_string(),
         Format::WithTotal => numeric.clone(),
-        Format::Verbose => spec
+        // A template with no `{n}` cannot produce a page NUMBER — it would
+        // stamp the same static text on all of them, or nothing at all if it is
+        // empty. Treated as unusable for the same reason a CJK one is, rather
+        // than rejected: refusing the whole export over a translation typo
+        // would lose the document the user just waited for.
+        Format::Verbose if spec.verbose_template.contains("{n}") => spec
             .verbose_template
             .replace("{n}", &n.to_string())
             .replace("{total}", &total.to_string()),
+        Format::Verbose => return (numeric, true),
     };
     if is_winansi(&label) {
         (label, false)

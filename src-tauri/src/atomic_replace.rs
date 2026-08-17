@@ -83,14 +83,37 @@ pub(crate) fn atomic_replace(
     parent: &Path,
     contents: &[u8],
 ) -> Result<(), AtomicReplaceError> {
+    atomic_replace_with(target, parent, |w| w.write_all(contents))
+}
+
+/// Atomically replace `target` with whatever `write` emits.
+///
+/// The streaming form. `atomic_replace` is this with a slice, and everything
+/// below the closure — permission preservation, fsync, the Windows
+/// remove-then-retry, RAII cleanup on any early return — is shared.
+///
+/// It exists for a producer that can write incrementally but would otherwise
+/// have to materialize its whole output first: `lopdf`'s `Document::save_to`
+/// takes a `Write`, so serializing a PDF through the byte form would hold a
+/// second full copy of the document in memory purely to hand it over.
+pub(crate) fn atomic_replace_with<F>(
+    target: &Path,
+    parent: &Path,
+    write: F,
+) -> Result<(), AtomicReplaceError>
+where
+    F: FnOnce(&mut NamedTempFile) -> std::io::Result<()>,
+{
     let mut temp =
         NamedTempFile::new_in(parent).map_err(|source| AtomicReplaceError::CreateTemp {
             parent: parent.to_path_buf(),
             source,
         })?;
 
-    temp.write_all(contents)
-        .map_err(AtomicReplaceError::WriteTemp)?;
+    // Written through the STILL-OPEN handle. Handing out the path instead — for
+    // the producer to reopen by name — is a window in which the path can be
+    // swapped for a symlink, which is what this API exists to avoid.
+    write(&mut temp).map_err(AtomicReplaceError::WriteTemp)?;
 
     temp.flush().map_err(AtomicReplaceError::FlushTemp)?;
 

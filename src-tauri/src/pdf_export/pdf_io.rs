@@ -20,8 +20,10 @@
 //! closes that window. `atomic_replace` also carries the Windows
 //! remove-then-retry fallback, which is deliberately NOT applied on Unix.
 //!
-//! The cost is holding the serialized PDF in memory. These are single documents
-//! the user just exported, and the renderer already held the whole thing.
+//! It uses the STREAMING form (`atomic_replace_with`), so the PDF is written
+//! straight into the temp file rather than serialized to a buffer first — a
+//! document embedding every image in the export should not need a second full
+//! copy in memory just to be handed to the writer.
 //!
 //! @coordinates-with atomic_replace.rs — the shared temp-file/fsync/rename core
 //! @coordinates-with outline.rs, page_numbers.rs — the two post-processors
@@ -29,7 +31,7 @@
 
 use lopdf::Document;
 
-use crate::atomic_replace::{atomic_replace, AtomicReplaceError};
+use crate::atomic_replace::{atomic_replace_with, AtomicReplaceError};
 
 /// Serialize `doc` over `pdf_path`, atomically.
 pub(super) fn save_atomically(doc: &mut Document, pdf_path: &str) -> Result<(), String> {
@@ -41,11 +43,15 @@ pub(super) fn save_atomically(doc: &mut Document, pdf_path: &str) -> Result<(), 
         .filter(|d| !d.as_os_str().is_empty())
         .unwrap_or_else(|| std::path::Path::new("."));
 
-    let mut bytes = Vec::new();
-    doc.save_to(&mut bytes)
-        .map_err(|e| format!("serialize PDF: {e}"))?;
-
-    atomic_replace(target, parent, &bytes).map_err(describe)
+    // STREAMED into the temp file, not serialized to a `Vec` first. `save_to`
+    // takes a `Write`, so buffering the whole PDF only to hand it over would
+    // hold a second full copy of a document that can carry every image in the
+    // export as an embedded object.
+    atomic_replace_with(target, parent, |temp| {
+        doc.save_to(temp)
+            .map_err(|e| std::io::Error::other(format!("serialize PDF: {e}")))
+    })
+    .map_err(describe)
 }
 
 /// Name the stage that failed, so the caller's warning says which one.

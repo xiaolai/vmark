@@ -15,7 +15,7 @@
  * @coordinates-with pageSpec.ts — the page dimensions this is derived from
  */
 
-import type { PdfOptions } from "./pdfOptions";
+import { type PdfOptions, effectiveBottomMarginMm } from "./pdfOptions";
 import { PAGE_SIZE_PT } from "./pageSpec";
 
 /**
@@ -74,9 +74,14 @@ function buildFitCSS(options: PdfOptions): string {
   // 8% of image height for this; that is the price of one rule that works on
   // all three engines.
   const WEBKIT_OVERSHOOT = 0.92;
+  // The RESERVED bottom margin, not the requested one. Page numbers are stamped
+  // inside that band, so with numbering on the content area is shorter than
+  // `marginBottom` implies — and an image sized against the raw value is then
+  // taller than the page leaves it, which is the straddling this whole file
+  // exists to prevent.
   const usableMm = Math.max(
     20,
-    (heightMm - options.marginTop - options.marginBottom - WRAPPER_MM - 4) *
+    (heightMm - options.marginTop - effectiveBottomMarginMm(options) - WRAPPER_MM - 4) *
       WEBKIT_OVERSHOOT,
   );
 

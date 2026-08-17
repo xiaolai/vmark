@@ -87,6 +87,12 @@ jobs:
           fi
           touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
 
+      # The harness's own pure helpers — argument parsing, HTML entity decoding.
+      # They live in a feature-gated bin, so `cargo test` in ci.yml never
+      # compiles them; without this step they would be tests nothing runs.
+      - name: Unit-test the harness helpers
+        run: cargo test --manifest-path src-tauri/Cargo.toml --features pdf-smoke --bin pdf_smoke
+
       # WebKitGTK needs a display even to print off-screen; a headless runner
       # has none, and the renderer would hang until the harness timed out rather
       # than failing with something readable.

@@ -249,3 +249,43 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
     }
     failures
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(args: &[&str]) -> Vec<String> {
+        std::iter::once("pdf_smoke")
+            .chain(args.iter().copied())
+            .map(String::from)
+            .collect()
+    }
+
+    #[test]
+    fn the_out_dir_is_not_confused_with_the_html_value() {
+        let (html, out) = parse_args(argv(&["--html", "doc.html", "out"])).unwrap();
+        assert_eq!(html.unwrap().to_string_lossy(), "doc.html");
+        assert_eq!(out.to_string_lossy(), "out");
+    }
+
+    #[test]
+    fn a_bare_html_flag_is_refused_rather_than_running_the_matrix() {
+        // THE REGRESSION. A missing value used to leave `one_shot` as None, so
+        // the harness quietly ran the fixture matrix instead — a green
+        // transcript for a run that never opened the document asked about.
+        assert!(parse_args(argv(&["--html"])).is_err());
+        assert!(parse_args(argv(&["--html", "--other"])).is_err());
+    }
+
+    #[test]
+    fn an_unknown_flag_is_refused() {
+        assert!(parse_args(argv(&["--nope", "out"])).is_err());
+    }
+
+    #[test]
+    fn matrix_mode_needs_no_flags() {
+        let (html, out) = parse_args(argv(&["out"])).unwrap();
+        assert!(html.is_none());
+        assert_eq!(out.to_string_lossy(), "out");
+    }
+}

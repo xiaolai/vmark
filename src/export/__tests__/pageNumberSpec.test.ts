@@ -132,6 +132,23 @@ describe("buildPageNumberSpec", () => {
   });
 });
 
+describe("the shipped verbose templates", () => {
+  const LOCALES = ["en", "de", "es", "fr", "it", "ja", "ko", "pt-BR", "zh-CN", "zh-TW"];
+
+  it.each(LOCALES)("%s carries the page placeholder", async (loc) => {
+    // Without `{n}` the template cannot produce a page NUMBER — the backend
+    // falls back to the numeric form rather than stamping the same static text
+    // on every page, so the failure is graceful but silent. This is where a
+    // translation that dropped the placeholder should be caught.
+    const bundle = (await import(`../../locales/${loc}/export.json`)) as {
+      default: Record<string, string>;
+    };
+    const template = bundle.default["pdf.pageNumbers.verboseTemplate"];
+    expect(template, `${loc} is missing the key`).toBeDefined();
+    expect(template, `${loc}: ${template}`).toContain("{n}");
+  });
+});
+
 describe("effectiveBottomMarginMm", () => {
   it("leaves a generous margin alone", () => {
     // Every shipped preset is already wide enough; the reservation must not

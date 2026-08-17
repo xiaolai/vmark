@@ -35,3 +35,21 @@
 | 26 | src-tauri/src/bin/pdf_smoke/render_one.rs | 34 | Medium | Logic | A bare `--html` silently falls back to matrix mode | Reject malformed invocations | fixed | 1 |
 | 27 | src-tauri/src/bin/pdf_smoke/render_one.rs | 181 | Medium | Logic | `strip_tags` does not decode HTML entities, unlike the frontend's `textContent` | Decode entities | fixed | 1 |
 | 28 | src-tauri/src/bin/pdf_smoke/main.rs | 83 | Medium | Refactoring | `run_cases` is a ~189-line coordinator mixing every scenario | Extract per-scenario functions | fixed | 1 |
+
+## Round 2 — independent verify (thread `01a00fde-910f-70f0-982a-ba14428def3c`)
+
+23 FIXED, 2 PARTIAL, 3 REGRESSED, 0 NOT FIXED. All five resolved in round 2:
+
+| # | Verify verdict | Resolution | Status |
+|---|---|---|---|
+| 5 | REGRESSED — the symlink window closed, but the PDF was serialized into an unbounded `Vec` first | Added `atomic_replace_with`, a writer-closure form of the shared core — which is what finding #6 originally suggested. The PDF streams straight into the still-open temp file: no second copy, no reopen-by-name. | fixed | 2 |
+| 6 | REGRESSED — same unbounded buffer | Same fix; `pdf_io` uses the streaming form. | fixed | 2 |
+| 9 | PARTIAL — `validate()` did not check `verbose_template` | Handled in `render_label`, NOT `validate()`: a template with no `{n}` falls back to the numeric form like a CJK one. Rejecting would have failed the whole export over a translation typo. A frontend test asserts all ten shipped templates carry `{n}`, so a regression is caught at gate time instead. | fixed | 2 |
+| 14 | REGRESSED — `pdfFitToPage` still sized images from the raw `marginBottom` | It reads `effectiveBottomMarginMm` now. Three consumers, one helper. | fixed | 2 |
+| 27 | PARTIAL — only core entities decoded | Added the common named entities. An unknown one is still left literal on purpose: a wrong substitution breaks the match as badly as a missed one and is harder to see. | fixed | 2 |
+
+Also closed the verifier's test-gap note: the harness's pure helpers (argument
+parsing, entity decoding, heading extraction) now have 10 unit tests, and
+`pdf-smoke.yml` runs them — they sit in a feature-gated bin that `cargo test` in
+`ci.yml` never compiles, so without that step they would have been tests nothing
+runs.

@@ -52,6 +52,18 @@ fn a_label_helvetica_cannot_draw_falls_back_to_numbers() {
 }
 
 #[test]
+fn a_template_with_no_page_placeholder_falls_back_too() {
+    // It cannot produce a page NUMBER — every page would carry the same static
+    // text, or nothing if the template is empty. Both look like a working
+    // footer to a structural check.
+    let mut s = spec(Position::BottomCenter, Format::Verbose);
+    s.verbose_template = "Printed by VMark".to_string();
+    assert_eq!(render_label(&s, 4, 9), ("4 / 9".to_string(), true));
+    s.verbose_template = String::new();
+    assert_eq!(render_label(&s, 4, 9), ("4 / 9".to_string(), true));
+}
+
+#[test]
 fn the_numeric_forms_can_never_need_a_fallback() {
     // They are digits, spaces and a slash whatever the locale, so the fallback
     // flag must stay false — otherwise every export would log a warning.
