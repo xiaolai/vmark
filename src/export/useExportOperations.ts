@@ -20,8 +20,8 @@ import { captureThemeCSS } from "./themeSnapshot";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
-import { isMacPlatform } from "@/utils/shortcutMatch";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
+import { toError } from "@/utils/errorMessage";
 import { warnMissingResources } from "./exportResourceWarnings";
 
 /** Timeout for waiting on assets (fonts, images, math, diagrams) */
@@ -90,7 +90,7 @@ async function renderMarkdownToHtml(
         const html = surfaceRef.current?.getHTML() ?? "";
         complete(html);
       } catch (error) {
-        fail(error instanceof Error ? error : new Error(String(error)));
+        fail(toError(error));
       }
     };
 
@@ -112,7 +112,7 @@ async function renderMarkdownToHtml(
       );
     } catch (error) {
       cleanup();
-      reject(error instanceof Error ? error : new Error(String(error)));
+      reject(toError(error));
       return;
     }
 
@@ -220,8 +220,7 @@ export async function exportToHtml(
     return true;
   } catch (error) {
     exportError("Failed to export HTML:", error);
-    const detail = errorMessage(error);
-    await showError(FileErrors.exportFailed("HTML"), detail);
+    await showError(FileErrors.exportFailed("HTML"), commandErrorMessage(error));
     return false;
   }
 }
@@ -249,11 +248,6 @@ export async function exportToPdf(options: ExportToPdfOptions): Promise<void> {
     return;
   }
 
-  if (!isMacPlatform()) {
-    toast.error(i18n.t("dialog:toast.printRequiresMac"));
-    return;
-  }
-
   await exportToPdfBrowser(markdown, sourceFilePath ?? null);
 }
 
@@ -267,11 +261,6 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
   const trimmedContent = markdown.trim();
   if (!trimmedContent) {
     toast.error(i18n.t("dialog:toast.exportNoContent"));
-    return;
-  }
-
-  if (!isMacPlatform()) {
-    toast.error(i18n.t("dialog:toast.nativePdfRequiresMac"));
     return;
   }
 

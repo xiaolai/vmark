@@ -86,8 +86,6 @@
   "toast.exportHtmlResourceWarning_other": "{{count}} risorse non sono state incluse",
   "toast.exportImageWarning_one": "Impossibile incorporare 1 immagine, che risulta assente dall'output",
   "toast.exportImageWarning_other": "Impossibile incorporare {{count}} immagini, che risultano assenti dall'output",
-  "toast.printRequiresMac": "La stampa richiede macOS.",
-  "toast.nativePdfRequiresMac": "L'esportazione PDF nativa richiede macOS. Usa Stampa.",
   "toast.failedToPreparePdf": "Preparazione esportazione PDF fallita",
   "toast.noEditorContentToPrint": "Nessun contenuto dell'editor da stampare",
   "toast.failedToOpenPrintDialog": "Apertura della finestra di dialogo di stampa fallita",

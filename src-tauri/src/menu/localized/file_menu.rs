@@ -115,8 +115,9 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
         Box::new(export_submenu),
     ];
 
-    // macOS tail: Print (native PDF export backend is macOS-only), then
-    // Document History.
+    // Print, then Document History. Print is no longer macOS-only: WI-PDF4.1
+    // implemented `print_document` on Windows (`ShowPrintUI`) and Linux
+    // (`webkit_print_operation_run_dialog`), so the command exists everywhere.
     #[cfg(target_os = "macos")]
     {
         items.push(Box::new(MenuItem::with_id(
@@ -130,15 +131,19 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
         items.push(Box::new(history_submenu));
     }
 
-    // Non-macOS tail. `export-pdf` (Print) is omitted on Windows/Linux: the
-    // underlying Rust command (pdf_export::commands::print_document) is gated
-    // to macOS because it uses NSPrintOperation against a WKWebView, and
-    // neither the command nor a cross-platform equivalent exists on other
-    // targets. Cross-platform alternative: Export → HTML, then print to PDF
-    // from the system browser. Issue #929. Settings and Exit live here
-    // because there is no App menu.
+    // Non-macOS tail. Print is now present here too (WI-PDF4.1) — it was
+    // omitted while `print_document` existed only on macOS, which is what
+    // closed #929 without solving it. Settings and Exit live here because
+    // there is no App menu.
     #[cfg(not(target_os = "macos"))]
     {
+        items.push(Box::new(MenuItem::with_id(
+            app,
+            "export-pdf",
+            &t!("menu.file.print"),
+            true,
+            accel("export-pdf", "CmdOrCtrl+P"),
+        )?));
         items.push(Box::new(PredefinedMenuItem::separator(app)?));
         items.push(Box::new(history_submenu));
         items.push(Box::new(PredefinedMenuItem::separator(app)?));

@@ -86,8 +86,6 @@
   "toast.exportHtmlResourceWarning_other": "리소스 {{count}}개를 포함할 수 없습니다",
   "toast.exportImageWarning_one": "이미지 1개를 포함하지 못해 출력에서 누락되었습니다",
   "toast.exportImageWarning_other": "이미지 {{count}}개를 포함하지 못해 출력에서 누락되었습니다",
-  "toast.printRequiresMac": "인쇄 기능은 macOS가 필요합니다.",
-  "toast.nativePdfRequiresMac": "네이티브 PDF 내보내기는 macOS가 필요합니다. 인쇄를 사용하세요.",
   "toast.failedToPreparePdf": "PDF 내보내기 준비에 실패했습니다",
   "toast.noEditorContentToPrint": "인쇄할 편집기 콘텐츠가 없습니다",
   "toast.failedToOpenPrintDialog": "인쇄 대화 상자를 열지 못했습니다",

@@ -86,8 +86,6 @@
   "toast.exportHtmlResourceWarning_other": "{{count}} recursos no pudieron incluirse",
   "toast.exportImageWarning_one": "No se pudo incrustar 1 imagen y falta en el resultado",
   "toast.exportImageWarning_other": "No se pudieron incrustar {{count}} imágenes y faltan en el resultado",
-  "toast.printRequiresMac": "La impresión requiere macOS.",
-  "toast.nativePdfRequiresMac": "La exportación nativa a PDF requiere macOS. Usa Imprimir en su lugar.",
   "toast.failedToPreparePdf": "Error al preparar la exportación a PDF",
   "toast.noEditorContentToPrint": "No hay contenido del editor para imprimir",
   "toast.failedToOpenPrintDialog": "Error al abrir el cuadro de diálogo de impresión",

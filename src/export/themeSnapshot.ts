@@ -9,7 +9,12 @@
  * CSS variables to capture for export.
  * These are the variables that affect content rendering.
  */
-const EXPORT_CSS_VARS = [
+/**
+ * The variables the snapshot captures. Exported so a test can assert that the
+ * export defines everything the bundled editor CSS consumes — an undefined
+ * `var()` deletes its whole declaration silently.
+ */
+export const EXPORT_CSS_VARS = [
   // Core colors
   "--bg-color",
   "--text-color",

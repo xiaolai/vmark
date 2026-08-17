@@ -19,6 +19,15 @@
 
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
+import { getPrimitiveTokenCSS } from "./primitiveTokens";
+import { buildFontStack } from "@/utils/fontStacks";
+import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
+import { buildFitCSS } from "./pdfFitToPage";
+import { type PdfOptions, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
+
+// Re-exported so existing importers keep one entry point for the export API.
+export { MARGIN_PRESETS, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
+export type { PdfOptions } from "./pdfOptions";
 
 // Embed KaTeX woff2 fonts as data URIs so math renders offline, without CDN access.
 const katexCSS = embedKatexFonts(_katexCSSRaw);
@@ -39,48 +48,6 @@ export function getSharedContentCSS(): string {
 }
 
 /** Configuration for PDF page layout and typography. */
-export interface PdfOptions {
-  pageSize: "a4" | "letter" | "a3" | "legal";
-  orientation: "portrait" | "landscape";
-  marginTop: number;    // mm
-  marginRight: number;
-  marginBottom: number;
-  marginLeft: number;
-  fontSize: number;
-  lineHeight: number;
-  cjkLetterSpacing: string;
-  latinFont: string;
-  cjkFont: string;
-  /** When true, use the editor's current theme instead of forcing light. */
-  useEditorTheme: boolean;
-}
-
-/** Named margin presets (values in mm). */
-export const MARGIN_PRESETS: Record<string, { top: number; right: number; bottom: number; left: number }> = {
-  normal: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
-  narrow: { top: 12.7, right: 12.7, bottom: 12.7, left: 12.7 },
-  wide:   { top: 25.4, right: 38.1, bottom: 25.4, left: 38.1 },
-};
-
-// CSS Paged Media `@page size` accepts a named page-size keyword followed by an
-// orientation keyword (e.g. `A4 landscape`). Mixing explicit <length> pairs with
-// an orientation keyword (`210mm 297mm landscape`) is invalid and silently
-// ignored by WebKit, which is why the previous landscape mode produced portrait PDFs.
-const PAGE_SIZE_KEYWORDS: Record<string, string> = {
-  a4: "A4",
-  letter: "letter",
-  a3: "A3",
-  legal: "legal",
-};
-
-/** Resolve font name to a CSS font-family value. */
-function resolveFontFamily(font: string, fallback: string): string {
-  if (!font || font === "system" || font === "System Default") {
-    return fallback;
-  }
-  return font.includes(" ") ? `"${font}"` : font;
-}
-
 /** Build @page CSS rules (size + margins only — WebKit print ignores margin boxes). */
 function buildPageCSS(options: PdfOptions): string {
   const sizeKeyword = PAGE_SIZE_KEYWORDS[options.pageSize] ?? PAGE_SIZE_KEYWORDS.a4;
@@ -94,117 +61,74 @@ function buildPageCSS(options: PdfOptions): string {
 }`;
 }
 
-/** Shared CSS for table layout, page breaks, and content surface. */
-function sharedContentCSS(): string {
-  return `
-.export-surface {
-  max-width: none;
-  padding: 0;
-}
 
-.export-surface-editor .table-scroll-wrapper {
-  overflow-x: visible;
-}
-/*
- * Fit every table to the fixed printable page width (issue #1087). Editor
- * "fit to width" is ephemeral DOM state with no markdown representation, so it
- * never survives the fresh re-render into export HTML; and stored ProseMirror
- * colwidth (<col style="width:Npx">) plus resized-cell inline widths would
- * otherwise force the table past the @page box, where WebKit's print pipeline
- * clips the overflow. Neutralize all fixed pixel sizing so columns reflow.
- */
-.export-surface-editor table {
-  width: 100% !important;
-  max-width: 100% !important;
-  table-layout: auto !important;
-}
-.export-surface-editor colgroup,
-.export-surface-editor col {
-  width: auto !important;
-}
-.export-surface-editor td,
-.export-surface-editor th {
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-.export-surface-editor td img {
-  max-width: 100%;
-  height: auto;
-}
-
-pre, .code-block-wrapper {
-  break-inside: avoid;
-}
-img {
-  break-inside: avoid;
-}
-h1, h2, h3, h4, h5, h6 {
-  break-after: avoid;
-}`;
-}
 
 /** Build typography CSS overrides from options. */
-function buildTypographyCSS(options: PdfOptions): string {
-  const latin = resolveFontFamily(options.latinFont, "system-ui");
-  const cjk = resolveFontFamily(options.cjkFont, "system-ui");
-  const fontStack = `${latin}, ${cjk}, system-ui, -apple-system, sans-serif`;
+/**
+ * Read the editor's block-size RATIO out of the captured theme snapshot.
+ *
+ * `--editor-font-size-block` is a user setting (`blockFontSize`) multiplied by
+ * the editor's base size, stored as an absolute px value so that nesting a list
+ * inside a blockquote does not compound. `PdfOptions` has no field for it, so
+ * the ratio has to come from the snapshot or it would be silently flattened.
+ *
+ * Falls back to 1 — blocks the same size as body, which is the app's default —
+ * whenever either value is missing or unparseable.
+ */
+function blockSizeRatio(themeCSS: string): number {
+  const px = (name: string): number | null => {
+    const m = themeCSS.match(new RegExp(`${name}:\\s*([\\d.]+)px`));
+    const n = m ? Number.parseFloat(m[1]!) : Number.NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const base = px("--editor-font-size");
+  const block = px("--editor-font-size-block");
+  return base && block ? block / base : 1;
+}
+
+/**
+ * Typography overrides for the exported document.
+ *
+ * **Every px value in the snapshot that `useTheme.computeTypographyVars`
+ * derives from the editor font size must be overridden here.** The snapshot
+ * carries ON-SCREEN pixels; body text switches to the chosen pt size, so any
+ * variable left behind keeps its screen value and the element renders larger in
+ * the PDF than it does in the editor.
+ *
+ * That is not hypothetical: `--editor-font-size-block` was missing, and since
+ * it drives lists, blockquotes and tables (`editor.css`) plus alert and details
+ * blocks (their plugin CSS), all five rendered at the editor's 20px against
+ * 11pt body text — about 36% oversized — in every PDF VMark has ever exported.
+ */
+function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
+  // The dialog stores font KEYS ("pingfang", "songti"), not CSS family names.
+  // Emitting the key verbatim produced `font-family: pingfang, ...`, which
+  // matches no installed family, so every non-system choice silently fell back
+  // — and the leading `system-ui` meant the CJK stack was never reached either.
+  // buildFontStack is the app's own resolver and already handles both.
+  const { sans: fontStack } = buildFontStack(
+    options.latinFont,
+    options.cjkFont,
+    "system",
+  );
   const fs = options.fontSize;
   const lh = options.lineHeight;
+  const blockRatio = blockSizeRatio(themeCSS);
 
   return `
 :root {
   --editor-font-size: ${fs}pt;
   --editor-font-size-sm: ${fs * 0.9}pt;
   --editor-font-size-mono: ${fs * 0.85}pt;
+  --editor-font-size-block: ${fs * blockRatio}pt;
   --editor-line-height: ${lh};
   --editor-line-height-px: ${fs * lh}pt;
+  --code-padding: ${fs}pt;
   --cjk-letter-spacing: ${options.cjkLetterSpacing};
   --font-sans: ${fontStack};
 }`;
 }
 
-/**
- * Force light theme CSS variables for PDF output.
- * Ensures readable output even when the app is in dark theme,
- * because captureThemeCSS() captures the current (possibly dark) computed values.
- */
-function forceLightThemeCSS(): string {
-  return `
-:root {
-  --bg-color: #ffffff;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --bg-tertiary: #f0f0f0;
-  --text-color: #1a1a1a;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --text-tertiary: #999999;
-  --primary-color: #0066cc;
-  --border-color: #d5d4d4;
-  --code-bg-color: #f5f5f5;
-  --code-text-color: #1a1a1a;
-  --code-border-color: #d5d4d4;
-  --strong-color: rgb(63,86,99);
-  --emphasis-color: rgb(91,4,17);
-  --md-char-color: #777777;
-  --table-border-color: #d5d4d4;
-  --highlight-bg: #fff3a3;
-  --highlight-text: inherit;
-  --accent-primary: #0066cc;
-  --accent-bg: rgba(0,102,204,0.1);
-  --error-color: #cf222e;
-  --warning-color: #9a6700;
-  --success-color: #16a34a;
-  --alert-note: #0969da;
-  --alert-tip: #1a7f37;
-  --alert-important: #8250df;
-  --alert-warning: #9a6700;
-  --alert-caution: #cf222e;
-}`;
-}
 
 /**
  * Build HTML for the Rust WKWebView PDF renderer.
@@ -215,6 +139,31 @@ function forceLightThemeCSS(): string {
  *
  * @coordinates-with renderer.rs — loads HTML via WKWebView, uses printOperationWithPrintInfo
  */
+/**
+ * Force every details element open for print.
+ *
+ * A collapsed one exports with its body ABSENT, and a reader cannot click paper
+ * open. Already-open elements are left untouched.
+ */
+export function expandDetails(html: string): string {
+  // Attribute-aware, because a naive /\bopen\b/ lookahead matches the wrong
+  // things: `data-open="false"` and `title="open"` both contain the token, so a
+  // collapsed block stayed collapsed and its body was absent from the PDF —
+  // the same data loss this function exists to prevent. A quoted `>` inside an
+  // attribute value also truncated the tag.
+  return html.replace(/<details\b([^>]*(?:"[^"]*"[^>]*|'[^']*'[^>]*)*)>/gi, (tag, attrs: string) => {
+    // Strip every attribute VALUE — quoted or bare — before looking for a
+    // standalone `open`. Quoted alone was not enough: `title = open` has an
+    // unquoted value, and treating that as the boolean attribute left the block
+    // collapsed and its body out of the PDF.
+    const bare = attrs
+      .replace(/=\s*"[^"]*"/g, "")
+      .replace(/=\s*'[^']*'/g, "")
+      .replace(/=\s*[^\s>]+/g, "");
+    return /(^|\s)open(\s|$)/i.test(bare) ? tag : `<details open${attrs}>`;
+  });
+}
+
 export function buildPdfExportHtml(
   content: string,
   themeCSS: string,
@@ -223,9 +172,12 @@ export function buildPdfExportHtml(
   isDark?: boolean,
 ): string {
   const pageCSS = buildPageCSS(options);
-  const typographyCSS = buildTypographyCSS(options);
+  const typographyCSS = buildTypographyCSS(options, themeCSS);
+  const fitCSS = buildFitCSS(options);
   const lightOverrides = options.useEditorTheme ? "" : forceLightThemeCSS();
   const htmlClass = options.useEditorTheme && isDark ? "dark-theme" : "";
+
+  const printableContent = expandDetails(content);
 
   return `<!DOCTYPE html>
 <html lang="en" class="${htmlClass}">
@@ -237,11 +189,15 @@ export function buildPdfExportHtml(
 ${katexCSS}
   </style>
   <style>
+/* Primitive tokens first — the snapshot below overrides what it defines,
+   exactly as useTheme's inline styles override index.css in the app. */
+${getPrimitiveTokenCSS()}
 ${themeCSS}
 ${lightOverrides}
 ${typographyCSS}
 ${pageCSS}
 ${contentCSS}
+${fitCSS}
 
 body {
   background: var(--bg-color);
@@ -255,7 +211,7 @@ ${sharedContentCSS()}
 <body>
   <div class="export-surface">
     <div class="export-surface-editor tiptap-editor">
-${content}
+${printableContent}
     </div>
   </div>
 </body>

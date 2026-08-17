@@ -1,10 +1,17 @@
 [package]
 name = "vmark"
-version = "0.9.39"
+version = "0.9.40"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
 edition = "2021"
+# Required since `pdf_smoke` was added: a second [[bin]] makes bare `cargo run`
+# ambiguous, and `tauri dev` runs exactly that — so without this, `pnpm
+# tauri:dev` dies with "could not determine which binary to run" before the app
+# ever starts. `required-features` does NOT exempt a binary from that count.
+# No frontend gate can see this: `pnpm check:all` never invokes cargo, and the
+# cross-target check runs `clippy`, not `run`.
+default-run = "vmark"
 
 [lib]
 name = "vmark_lib"
@@ -126,12 +133,50 @@ objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFOutline", "PDF
 objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] }
 
 # RW-16 (L8): Windows Credential Manager backend (best-effort platform).
+# The PDF smoke harness lives in src/bin/ and is gated behind a feature, so it
+# is never part of a normal build or bundle.
+#
+# It is not in examples/: a file there is auto-discovered as an `example`
+# target, and declaring it as a bin too made cargo build it twice and warn
+# about one file in multiple targets.
+#
+# It has to be a bin: as an `--example` it links but dies at startup on Windows
+# with STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) — the same code this file
+# already records for the MockRuntime test binary. `tauri-build` embeds the
+# Windows app manifest and forces a static CRT for the crate's binaries;
+# examples and tests do not get the same treatment, and the loader then cannot
+# resolve an import. The shipped bin has always worked, which is the clue.
+[[bin]]
+name = "pdf_smoke"
+required-features = ["pdf-smoke"]
+
+[features]
+pdf-smoke = []
+
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# WI-PDF2.1: PDF export via ICoreWebView2_7::PrintToPdf.
+#
+# These are already in the tree through wry, but a transitive crate cannot be
+# imported — and the versions must match wry's EXACTLY. A different major here
+# makes ICoreWebView2* a distinct Rust type, so `cast()` stops compiling
+# against the controller Tauri hands us. Verified with
+# `cargo tree --target x86_64-pc-windows-msvc`; re-check on any wry bump.
+webview2-com = "=0.38.2"
+windows-core = "=0.61.2"
+windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
 
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service"] }
+# WI-PDF3.1: PDF export via webkit_print_operation_print().
+#
+# Pinned to what wry resolves for this target. Tauri hands back a
+# `webkit2gtk::WebView` from `PlatformWebview::inner()`; a different version
+# here is a different Rust type and the print operation cannot be built from
+# it. Verified with `cargo tree --target x86_64-unknown-linux-gnu`.
+webkit2gtk = "=2.0.2"
+gtk = "=0.18.2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }

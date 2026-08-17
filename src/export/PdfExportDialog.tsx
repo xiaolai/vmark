@@ -31,7 +31,8 @@ import { PdfSettingsSidebar } from "./PdfSettingsSidebar";
 import { pdfError } from "@/utils/debug";
 
 import "./pdf-export-dialog.css";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
+import { buildPageSpec } from "./pageSpec";
 
 interface PdfExportContentProps {
   renderedHtml: string;
@@ -145,7 +146,16 @@ export function PdfExportContent({
         isDark,
       );
       const headings = extractHeadings();
-      await invoke("export_pdf", { html, outputPath, headings });
+      // Same `options` that generated the @page CSS above, so the stylesheet
+      // and the backend geometry cannot disagree. Windows and Linux ignore
+      // `@page { size }` entirely (ADR-PDF1), which is why this is sent at all.
+      const page = buildPageSpec(options.pageSize, options.orientation, {
+        top: options.marginTop,
+        right: options.marginRight,
+        bottom: options.marginBottom,
+        left: options.marginLeft,
+      });
+      await invoke("export_pdf", { html, outputPath, headings, page });
       toast.success(tDialog("toast.pdfExportSuccess"));
 
       // Open in default viewer (Preview.app on macOS). Non-fatal if it fails.
@@ -157,7 +167,7 @@ export function PdfExportContent({
 
       onClose();
     } catch (error) {
-      const msg = errorMessage(error);
+      const msg = commandErrorMessage(error);
       // Pin: PDF export errors (Paged.js / WKWebView) include details users
       // want to read carefully (asset paths, render failures).
       toast.error(tDialog("toast.pdfExportFailed", { error: msg }), { pin: true });

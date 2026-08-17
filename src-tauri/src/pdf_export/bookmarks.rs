@@ -9,12 +9,7 @@ use objc2::AnyThread;
 use objc2_foundation::{NSPoint, NSString};
 use objc2_pdf_kit::{PDFDestination, PDFDocument, PDFOutline};
 
-/// A heading extracted from the document for PDF bookmark (outline) injection.
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct Heading {
-    pub level: u32,
-    pub text: String,
-}
+use super::heading::Heading;
 
 /// Add bookmark outlines to an existing PDF file.
 ///

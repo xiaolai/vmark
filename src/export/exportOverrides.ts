@@ -110,8 +110,18 @@ h1, h2, h3, h4, h5, h6 {
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
+  /*
+   * No word-break here. It behaves like overflow-wrap: anywhere and collapses
+   * a cell's min-content width to a SINGLE CHARACTER, which let table-layout
+   * squeeze columns arbitrarily narrow and printed headers as Prop erty.
+   *
+   * This rule is a near-duplicate of the one pdfHtmlTemplate emits for
+   * .export-surface-editor cells, at the SAME specificity. Dropping the
+   * declaration from only one of them changed nothing, because the other still
+   * declared it and last-one-wins applied it — a removal only takes effect when
+   * no sibling rule sets the property. Keep the two in step.
+   */
   overflow-wrap: break-word;
-  word-break: break-word;
 }
 .export-surface td img {
   max-width: 100%;

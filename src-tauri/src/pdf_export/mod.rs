@@ -1,10 +1,19 @@
 //! PDF Export
 //!
-//! Native PDF generation using WKWebView + NSPrintOperation (macOS only).
-//! The frontend sends fully rendered HTML and this module creates a
-//! paginated PDF via WebKit's print pipeline, then adds bookmarks
-//! using PDFKit.
+//! Paginated PDF generation from fully rendered HTML supplied by the frontend.
+//! The platform-neutral shell lives in `renderer/`; each platform implements
+//! only the part that must touch a native webview.
+//!
+//! macOS additionally injects a heading outline via PDFKit. Windows and Linux
+//! ship without one — a stated gap, not a silent one (ADR-PDF3).
 
+#[cfg(target_os = "macos")]
 mod bookmarks;
 pub mod commands;
-mod renderer;
+pub(crate) mod heading;
+pub mod page_spec;
+pub mod renderer;
+
+#[cfg(test)]
+#[path = "commands.test.rs"]
+mod commands_tests;

@@ -39,13 +39,14 @@ pub(super) const PANDOC_FORMATS: &[(&str, &str)] = &[
 #[cfg(test)]
 pub(super) const PANDOC_HINT: (&str, &str) = ("export-pandoc-hint", "menu.file.export.pandocHint");
 
-/// Build the Export submenu with platform-aware item set. `export-pdf-native`
-/// is the native PDF export path backed by WKWebView + NSPrintOperation;
-/// the entire `pdf_export` Rust module is `#[cfg(target_os = "macos")]`
-/// and the corresponding Tauri command is not registered on Windows/Linux,
-/// so the menu item must be hidden there. Issue #929 reported the menu
-/// leaking through and showing a "macOS only" toast — fixed by omitting
-/// the item from the submenu entirely on non-macOS.
+/// Build the Export submenu. The item set is the same on every platform.
+///
+/// `export-pdf-native` used to be macOS-only, because `pdf_export` was — which
+/// is how #929 was closed: by hiding the item rather than implementing the
+/// backend. #1284 asked for the backend, and WI-PDF2.1/3.1 delivered it
+/// (`ICoreWebView2_7::PrintToPdf` on Windows,
+/// `webkit_print_operation_print()` on Linux), so the item belongs everywhere
+/// now. Bookmarks remain macOS-only — a stated gap, see ADR-PDF3.
 pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Submenu<tauri::Wry>> {
     let other_formats_submenu = {
         let items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> =
@@ -129,31 +130,15 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
     )?;
     let separator = PredefinedMenuItem::separator(app)?;
 
-    #[cfg(target_os = "macos")]
-    let export_submenu = {
-        let pdf_item = MenuItem::with_id(
-            app,
-            "export-pdf-native",
-            &t!("menu.file.export.pdf"),
-            true,
-            accel("export-pdf-native", ""),
-        )?;
-        Submenu::with_id_and_items(
-            app,
-            "export-submenu",
-            &t!("menu.file.export"),
-            true,
-            &[
-                &html_item,
-                &pdf_item,
-                &other_formats_submenu,
-                &separator,
-                &copy_html_item,
-            ],
-        )?
-    };
-
-    #[cfg(not(target_os = "macos"))]
+    // One item set on every platform now (WI-PDF2.1/3.1). The two branches
+    // that used to live here existed because `pdf_export` was macOS-only.
+    let pdf_item = MenuItem::with_id(
+        app,
+        "export-pdf-native",
+        &t!("menu.file.export.pdf"),
+        true,
+        accel("export-pdf-native", ""),
+    )?;
     let export_submenu = Submenu::with_id_and_items(
         app,
         "export-submenu",
@@ -161,6 +146,7 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
         true,
         &[
             &html_item,
+            &pdf_item,
             &other_formats_submenu,
             &separator,
             &copy_html_item,
