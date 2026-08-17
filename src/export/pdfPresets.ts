@@ -15,6 +15,7 @@
 
 import type { PdfOptions } from "./pdfHtmlTemplate";
 import { MARGIN_PRESETS } from "./pdfHtmlTemplate";
+import type { PageNumberFormat, PageNumberPosition } from "./pdfOptions";
 
 /** Translation function signature (matches react-i18next `t`). */
 type TFn = (key: string) => string;
@@ -114,24 +115,36 @@ export const PAGE_SIZE_OPTIONS = [
 ];
 
 /**
- * Page-number position options.
+ * Page-number dropdowns, keyed by the union rather than listed.
+ *
+ * `Record<PageNumberPosition, …>` is exhaustive: adding a position to the type
+ * fails to compile until this map gains its label. A plain array of
+ * `{ value: "…" as const }` rows — which is what these were — cannot do that.
+ * A bad value is caught at the `set()` call site either way, but a MISSING one
+ * is silent, and the symptom is a setting that exists with no way to choose it.
  *
  * Label KEYS rather than resolved strings, so the sidebar translates at render
- * time and the array stays a plain constant — the same shape the orientation
- * builder produces, without needing a `t` to construct it.
+ * time and these stay plain constants needing no `t` to construct.
  */
-export const PAGE_NUMBER_POSITION_OPTIONS = [
-  { value: "none" as const, labelKey: "pdf.pageNumbers.position.none" },
-  { value: "bottom-center" as const, labelKey: "pdf.pageNumbers.position.bottomCenter" },
-  { value: "bottom-right" as const, labelKey: "pdf.pageNumbers.position.bottomRight" },
-];
+const POSITION_LABEL_KEYS: Record<PageNumberPosition, string> = {
+  none: "pdf.pageNumbers.position.none",
+  "bottom-center": "pdf.pageNumbers.position.bottomCenter",
+  "bottom-right": "pdf.pageNumbers.position.bottomRight",
+};
 
-/** Page-number format options. */
-export const PAGE_NUMBER_FORMAT_OPTIONS = [
-  { value: "plain" as const, labelKey: "pdf.pageNumbers.format.plain" },
-  { value: "with-total" as const, labelKey: "pdf.pageNumbers.format.withTotal" },
-  { value: "verbose" as const, labelKey: "pdf.pageNumbers.format.verbose" },
-];
+const FORMAT_LABEL_KEYS: Record<PageNumberFormat, string> = {
+  plain: "pdf.pageNumbers.format.plain",
+  "with-total": "pdf.pageNumbers.format.withTotal",
+  verbose: "pdf.pageNumbers.format.verbose",
+};
+
+/** Select options, in declaration order (string keys preserve insertion order). */
+function optionsOf<K extends string>(labels: Record<K, string>) {
+  return (Object.keys(labels) as K[]).map((value) => ({ value, labelKey: labels[value] }));
+}
+
+export const PAGE_NUMBER_POSITION_OPTIONS = optionsOf(POSITION_LABEL_KEYS);
+export const PAGE_NUMBER_FORMAT_OPTIONS = optionsOf(FORMAT_LABEL_KEYS);
 
 /** Build select options for page orientation. */
 export function buildOrientationOptions(t: TFn) {

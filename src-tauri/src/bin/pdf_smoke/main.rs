@@ -183,10 +183,25 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
     // spools the document to the DEFAULT PRINTER. An earlier version of this
     // harness put four blank pages through a real one. The assertion is now
     // that the refusal happens up front, with a code that says so.
+    //
+    // The path must be ABSOLUTE-but-missing, and a POSIX literal is not
+    // absolute on Windows: a leading separator with no drive letter is
+    // root-RELATIVE, so `validate_output_path` refused it at the is_absolute
+    // check and returned InvalidInput, never reaching the missing-directory
+    // guard this case exists to exercise. The harness reported a Windows-only
+    // failure for a fixture bug — the noise that gets a cross-platform job
+    // ignored. `commands.test.rs` had already hit and documented this exact
+    // trap; deriving from `temp_dir()` is its answer, so use the same one
+    // rather than a second idiom that can drift.
+    let missing_dir_pdf = std::env::temp_dir()
+        .join("vmark-definitely-not-here")
+        .join("x.pdf")
+        .to_string_lossy()
+        .into_owned();
     match vmark_lib::pdf_export::renderer::render_pdf(
         app.clone(),
         String::new(),
-        "/nonexistent-dir-for-smoke/x.pdf".into(),
+        missing_dir_pdf,
         A4,
     )
     .await
