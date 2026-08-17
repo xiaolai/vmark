@@ -12,6 +12,7 @@
  * @coordinates-with PdfExportDialog.tsx — parent component
  * @coordinates-with pdfPresets.ts — style presets and option definitions
  * @coordinates-with pdfHtmlTemplate.ts — PdfOptions type, MARGIN_PRESETS
+ * @coordinates-with PdfSidebarPrimitives.tsx — the layout components below
  */
 
 import { useState, useCallback, useMemo } from "react";
@@ -22,123 +23,25 @@ import {
   buildStylePresetOptions,
   detectMarginPreset, detectStylePreset,
   PAGE_SIZE_OPTIONS,
+  PAGE_NUMBER_POSITION_OPTIONS,
+  PAGE_NUMBER_FORMAT_OPTIONS,
   buildOrientationOptions, buildMarginPresetOptions,
   FONT_SIZE_OPTIONS, LINE_HEIGHT_OPTIONS,
   buildCjkSpacingOptions, buildLatinFontOptions, buildCjkFontOptions,
 } from "./pdfPresets";
-import { ChevronRight, FileText, Type, Palette } from "lucide-react";
+import { FileText, Type, Palette, Hash } from "lucide-react";
 import {
   SettingRow,
   Select,
   Toggle,
   Button,
 } from "@/pages/settings/components";
-
-import "./pdf-margin-layout.css";
-
-// --- Components ---
-
-function PdfSettingsGroup({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="pdf-settings-group">
-      <div className="pdf-settings-group-icon">{icon}</div>
-      <div className="pdf-settings-group-items">{children}</div>
-    </div>
-  );
-}
-
-/** Collapsible section for the sidebar. */
-function CollapsibleSection({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{ marginBottom: "0.5rem" }}>
-      <button
-        className="pdf-collapsible-header"
-        data-open={open}
-        onClick={() => setOpen(!open)}
-      >
-        <ChevronRight />
-        {title}
-      </button>
-      {open && children}
-    </div>
-  );
-}
-
-/** Visual page margin diagram with editable mm inputs on all 4 sides. */
-function MarginLayoutDiagram({
-  top, right, bottom, left, landscape, unitLabel, onChange,
-}: {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-  landscape: boolean;
-  unitLabel: string;
-  onChange: (side: "marginTop" | "marginRight" | "marginBottom" | "marginLeft", value: number) => void;
-}) {
-  const handleChange = (side: "marginTop" | "marginRight" | "marginBottom" | "marginLeft", raw: string) => {
-    const v = parseFloat(raw);
-    if (!Number.isNaN(v) && v >= 0 && v <= 100) {
-      onChange(side, Math.round(v * 10) / 10);
-    }
-  };
-
-  return (
-    <div className="margin-layout">
-      <div className="margin-layout-top">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={top}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginTop", e.target.value)}
-        />
-      </div>
-      <div className="margin-layout-middle">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={left}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginLeft", e.target.value)}
-        />
-        <div className={`margin-layout-page ${landscape ? "margin-layout-page--landscape" : ""}`} />
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={right}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginRight", e.target.value)}
-        />
-      </div>
-      <div className="margin-layout-bottom">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={bottom}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginBottom", e.target.value)}
-        />
-      </div>
-      <span className="margin-layout-unit">{unitLabel}</span>
-    </div>
-  );
-}
+import {
+  PdfSettingsGroup,
+  CollapsibleSection,
+  MarginLayoutDiagram,
+  type MarginSide,
+} from "./PdfSidebarPrimitives";
 
 // --- Main sidebar ---
 
@@ -209,7 +112,7 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
   }, [set, options]);
 
   const handleMarginChange = useCallback(
-    (side: "marginTop" | "marginRight" | "marginBottom" | "marginLeft", value: number) => {
+    (side: MarginSide, value: number) => {
       set(side, value);
       const next = { ...options, [side]: value };
       // Re-detect margin preset
@@ -327,6 +230,44 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
                 onChange={(v) => set("useEditorTheme", v)}
               />
             </SettingRow>
+          </PdfSettingsGroup>
+        </CollapsibleSection>
+
+        {/* Page numbers — collapsible */}
+        <CollapsibleSection title={t("pdf.pageNumbers")}>
+          <PdfSettingsGroup icon={<Hash className="w-3.5 h-3.5" />}>
+            <SettingRow label={t("pdf.pageNumbers.position")}>
+              <Select
+                value={options.pageNumberPosition}
+                options={PAGE_NUMBER_POSITION_OPTIONS.map((o) => ({
+                  value: o.value,
+                  label: t(o.labelKey),
+                }))}
+                onChange={(v) => set("pageNumberPosition", v)}
+              />
+            </SettingRow>
+            {/* The format and skip controls do nothing while position is
+                "none", so they are hidden rather than shown disabled. */}
+            {options.pageNumberPosition !== "none" && (
+              <>
+                <SettingRow label={t("pdf.pageNumbers.format")}>
+                  <Select
+                    value={options.pageNumberFormat}
+                    options={PAGE_NUMBER_FORMAT_OPTIONS.map((o) => ({
+                      value: o.value,
+                      label: t(o.labelKey),
+                    }))}
+                    onChange={(v) => set("pageNumberFormat", v)}
+                  />
+                </SettingRow>
+                <SettingRow label={t("pdf.pageNumbers.skipFirst")}>
+                  <Toggle
+                    checked={options.pageNumberSkipFirst}
+                    onChange={(v) => set("pageNumberSkipFirst", v)}
+                  />
+                </SettingRow>
+              </>
+            )}
           </PdfSettingsGroup>
         </CollapsibleSection>
       </div>

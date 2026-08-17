@@ -21,6 +21,7 @@
 use std::path::{Path, PathBuf};
 
 use vmark_lib::pdf_export::heading::Heading;
+use vmark_lib::pdf_export::page_numbers::{Format, PageNumberSpec, Position};
 use vmark_lib::pdf_export::page_spec::PageSpec;
 
 /// Split argv into the optional `--html <file>` source and the out-dir.
@@ -191,6 +192,35 @@ fn strip_tags(s: &str) -> String {
     out
 }
 
+/// The page-number request for one geometry.
+///
+/// Portrait sheets get the shipping default (bottom-centre, plain). Landscape
+/// gets the other position and format plus `skip_first`, so the artifact set
+/// exercises every branch rather than proving one path six times — and each
+/// file's variant is implied by its name, which is what makes the three
+/// platforms' outputs comparable side by side.
+fn page_number_spec(landscape: bool) -> PageNumberSpec {
+    PageNumberSpec {
+        position: if landscape {
+            Position::BottomRight
+        } else {
+            Position::BottomCenter
+        },
+        format: if landscape {
+            Format::WithTotal
+        } else {
+            Format::Plain
+        },
+        skip_first: landscape,
+        // The dialog's defaults: max(7, fontSize 11 * 0.85), and the same 72pt
+        // margins this harness renders at.
+        font_size_pt: 9.35,
+        bottom_margin_pt: MARGIN_PT,
+        side_margin_pt: MARGIN_PT,
+        verbose_template: "Page {n} of {total}".to_string(),
+    }
+}
+
 /// Render `html_path` once per geometry into `out`. Returns the failure count.
 pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize {
     let html = match std::fs::read_to_string(html_path) {
@@ -220,8 +250,11 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
             let mut result = super::render(app, &retarget(&html, page), &path, page).await;
-            // Inject the outline exactly as the command layer does, so the
-            // artifact a human opens has the sidebar the shipped export gives.
+            // Inject the outline and stamp the page numbers exactly as the
+            // command layer does, and in the same order — so the artifact a
+            // human opens is the one the shipped export gives, sidebar and
+            // footer included.
+            let spec = page_number_spec(landscape);
             if result.is_ok() {
                 let headings = headings_of(&html);
                 if let Err(e) =
@@ -230,12 +263,24 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
                     result = Err(format!("outline: {e}"));
                 }
             }
+            if result.is_ok() {
+                if let Err(e) = vmark_lib::pdf_export::page_numbers::stamp_page_numbers(
+                    &path.to_string_lossy(),
+                    &spec,
+                ) {
+                    result = Err(format!("page numbers: {e}"));
+                }
+            }
+            let rendered = result.is_ok();
             failures += super::verify::check(
                 &label,
                 result,
                 &path,
                 Some((page.width_pt.round() as u32, page.height_pt.round() as u32)),
             );
+            if rendered {
+                failures += super::verify::check_stamped(&label, &path, spec.skip_first);
+            }
         }
     }
     failures

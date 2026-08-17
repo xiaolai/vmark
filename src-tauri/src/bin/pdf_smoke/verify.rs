@@ -61,6 +61,45 @@ pub fn check(
     }
 }
 
+/// Verify the page numbers actually landed on the pages.
+///
+/// Reads the content streams rather than trusting `stamp_page_numbers`' return:
+/// the stamp writes an extra content stream and a font resource per page, and a
+/// PDF that dropped either still loads, still has the right MediaBox, and shows
+/// nothing in the footer. That is precisely the failure a human skimming an
+/// artifact does not notice on page 14 of 20.
+///
+/// Returns the failure count, and prints the number of stamped pages so the
+/// three platforms' transcripts can be diffed directly.
+pub fn check_stamped(name: &str, path: &Path, skip_first: bool) -> usize {
+    let doc = match lopdf::Document::load(path) {
+        Ok(d) => d,
+        Err(e) => {
+            println!("SMOKE {name} pageno FAIL cannot reload: {e}");
+            return 1;
+        }
+    };
+    let pages: Vec<_> = doc.get_pages().into_iter().collect();
+    let total = pages.len();
+    let stamped = pages
+        .iter()
+        .filter(|(_, id)| {
+            let content = doc.get_page_content(*id);
+            // The font name is distinctive, so this cannot match a renderer's
+            // own /F1 — see add_font_resource.
+            count(&content, b"/VMarkPageNo") > 0
+        })
+        .count();
+    let expected = total.saturating_sub(usize::from(skip_first));
+    if stamped == expected && total > 0 {
+        println!("SMOKE {name} pageno PASS {stamped}/{total} pages stamped");
+        0
+    } else {
+        println!("SMOKE {name} pageno FAIL {stamped}/{total} stamped, expected {expected}");
+        1
+    }
+}
+
 pub fn count(hay: &[u8], needle: &[u8]) -> usize {
     hay.windows(needle.len()).filter(|w| *w == needle).count()
 }

@@ -75,7 +75,8 @@ pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError
 /// Emits `pdf-export-progress` events to the `pdf-export` window
 /// with status updates: "loading", "rendering", "done".
 ///
-/// After PDF generation, injects heading-based bookmarks using PDFKit.
+/// After the render, post-processes the file: heading bookmarks, then page
+/// numbers. Both are cross-platform (lopdf) and both are best-effort.
 #[tauri::command]
 pub async fn export_pdf(
     app: tauri::AppHandle,
@@ -83,6 +84,7 @@ pub async fn export_pdf(
     output_path: String,
     headings: Option<Vec<Heading>>,
     page: PageSpec,
+    page_numbers: Option<super::page_numbers::PageNumberSpec>,
 ) -> Result<(), CommandError> {
     validate_output_path(&output_path)?;
     page.validate()?;
@@ -101,6 +103,16 @@ pub async fn export_pdf(
             if let Err(e) = super::outline::add_outline(&output_path, headings) {
                 log::warn!("[PDF] outline injection failed (PDF still valid): {}", e);
             }
+        }
+    }
+
+    // Page numbers, after the outline so the two post-processors compose in a
+    // fixed order and each sees a complete file. Same best-effort policy, and
+    // the same reason it is honest: the write is atomic, so a failure leaves
+    // the rendered PDF exactly as it was.
+    if let Some(ref spec) = page_numbers {
+        if let Err(e) = super::page_numbers::stamp_page_numbers(&output_path, spec) {
+            log::warn!("[PDF] page numbering failed (PDF still valid): {}", e);
         }
     }
 

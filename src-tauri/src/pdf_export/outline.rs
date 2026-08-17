@@ -219,39 +219,10 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     // outline looks absent even though it is there.
     catalog.set("PageMode", Object::Name(b"UseOutlines".to_vec()));
 
-    // Write beside the target and rename over it. `Document::save` truncates
-    // its path before serializing, so saving in place would destroy a PDF the
-    // renderer had already produced correctly if anything failed mid-write —
-    // and the caller deliberately downgrades an outline failure to a warning,
-    // which is only honest while a failure leaves the original intact.
-    //
-    // The temp file comes from `tempfile`, not a derived name like
-    // `x.outline.tmp`. A deterministic name is the same defect this crate's own
-    // renderer already had once: it can be pre-created as a symlink, which
-    // `File::create` follows straight back onto the target, and two concurrent
-    // exports of the same document would share it. `tempfile` creates with
-    // O_EXCL and 0600, and `TempPath` deletes on drop, so an error path cannot
-    // leave the scratch file behind.
-    //
-    // Same directory, so `persist` is a same-filesystem rename rather than a
-    // copy across devices that can itself fail halfway.
-    let target = std::path::Path::new(pdf_path);
-    let dir = target.parent().filter(|d| !d.as_os_str().is_empty());
-    let mut builder = tempfile::Builder::new();
-    builder.prefix(".vmark-outline-").suffix(".pdf");
-    let tmp = match dir {
-        Some(d) => builder.tempfile_in(d),
-        None => builder.tempfile(),
-    }
-    .map_err(|e| format!("create temp PDF: {e}"))?;
-    // Close our handle before lopdf opens the path itself; Windows refuses a
-    // rename over a file that still has an open handle.
-    let tmp_path = tmp.into_temp_path();
-
-    doc.save(&tmp_path).map_err(|e| format!("save PDF: {e}"))?;
-    tmp_path
-        .persist(target)
-        .map_err(|e| format!("replace PDF: {e}"))?;
+    // Atomic replace, shared with the page-number stamper: both rewrite a PDF
+    // the renderer already produced, and both callers downgrade failure to a
+    // warning, which is only honest while the original survives.
+    super::pdf_io::save_atomically(&mut doc, pdf_path, ".vmark-outline-")?;
 
     log::info!("[PDF] outline written with {} headings", headings.len());
     Ok(())

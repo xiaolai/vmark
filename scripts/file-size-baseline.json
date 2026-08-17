@@ -41,7 +41,6 @@
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
     "src/components/Tabs/useTabContextMenuActions.ts": 349,
     "src/contexts/WindowContext.tsx": 348,
-    "src/export/PdfSettingsSidebar.tsx": 345,
     "src/export/htmlExport.ts": 331,
     "src/export/reader/vmark-reader.js": 1343,
     "src/export/resourceResolver.ts": 445,

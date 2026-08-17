@@ -113,6 +113,26 @@ export const PAGE_SIZE_OPTIONS = [
   { value: "legal" as const, label: "Legal" },
 ];
 
+/**
+ * Page-number position options.
+ *
+ * Label KEYS rather than resolved strings, so the sidebar translates at render
+ * time and the array stays a plain constant — the same shape the orientation
+ * builder produces, without needing a `t` to construct it.
+ */
+export const PAGE_NUMBER_POSITION_OPTIONS = [
+  { value: "none" as const, labelKey: "pdf.pageNumbers.position.none" },
+  { value: "bottom-center" as const, labelKey: "pdf.pageNumbers.position.bottomCenter" },
+  { value: "bottom-right" as const, labelKey: "pdf.pageNumbers.position.bottomRight" },
+];
+
+/** Page-number format options. */
+export const PAGE_NUMBER_FORMAT_OPTIONS = [
+  { value: "plain" as const, labelKey: "pdf.pageNumbers.format.plain" },
+  { value: "with-total" as const, labelKey: "pdf.pageNumbers.format.withTotal" },
+  { value: "verbose" as const, labelKey: "pdf.pageNumbers.format.verbose" },
+];
+
 /** Build select options for page orientation. */
 export function buildOrientationOptions(t: TFn) {
   return [

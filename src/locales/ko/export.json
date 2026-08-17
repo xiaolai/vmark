@@ -31,5 +31,16 @@
   "pdf.progress.rendering": "PDF 생성 중…",
   "pdf.progress.done": "완료",
   "pdf.saveDialog.title": "PDF 내보내기",
-  "pdf.defaultTitle": "문서"
+  "pdf.defaultTitle": "문서",
+  "pdf.pageNumbers": "페이지 번호",
+  "pdf.pageNumbers.position": "위치",
+  "pdf.pageNumbers.format": "형식",
+  "pdf.pageNumbers.skipFirst": "첫 페이지 건너뛰기",
+  "pdf.pageNumbers.position.none": "없음",
+  "pdf.pageNumbers.position.bottomCenter": "아래 가운데",
+  "pdf.pageNumbers.position.bottomRight": "아래 오른쪽",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "12페이지 중 7페이지",
+  "pdf.pageNumbers.verboseTemplate": "{total}페이지 중 {n}페이지"
 }

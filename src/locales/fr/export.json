@@ -31,5 +31,16 @@
   "pdf.progress.rendering": "Génération du PDF…",
   "pdf.progress.done": "Terminé",
   "pdf.saveDialog.title": "Exporter en PDF",
-  "pdf.defaultTitle": "Document"
+  "pdf.defaultTitle": "Document",
+  "pdf.pageNumbers": "Numéros de page",
+  "pdf.pageNumbers.position": "Position",
+  "pdf.pageNumbers.format": "Format",
+  "pdf.pageNumbers.skipFirst": "Ignorer la première page",
+  "pdf.pageNumbers.position.none": "Aucun",
+  "pdf.pageNumbers.position.bottomCenter": "En bas au centre",
+  "pdf.pageNumbers.position.bottomRight": "En bas à droite",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "Page 7 sur 12",
+  "pdf.pageNumbers.verboseTemplate": "Page {n} sur {total}"
 }

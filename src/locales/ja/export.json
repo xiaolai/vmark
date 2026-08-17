@@ -31,5 +31,16 @@
   "pdf.progress.rendering": "PDF を生成中…",
   "pdf.progress.done": "完了",
   "pdf.saveDialog.title": "PDF をエクスポート",
-  "pdf.defaultTitle": "ドキュメント"
+  "pdf.defaultTitle": "ドキュメント",
+  "pdf.pageNumbers": "ページ番号",
+  "pdf.pageNumbers.position": "位置",
+  "pdf.pageNumbers.format": "形式",
+  "pdf.pageNumbers.skipFirst": "最初のページを除く",
+  "pdf.pageNumbers.position.none": "なし",
+  "pdf.pageNumbers.position.bottomCenter": "下中央",
+  "pdf.pageNumbers.position.bottomRight": "右下",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "12 ページ中 7 ページ目",
+  "pdf.pageNumbers.verboseTemplate": "{total} ページ中 {n} ページ目"
 }

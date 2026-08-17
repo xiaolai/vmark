@@ -174,6 +174,8 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
         Some((595, 842)),
     );
 
+    failures += page_numbers_case::run(app, out).await;
+
     // A bad output path must be REFUSED before any print operation starts.
     //
     // This case is why the renderer validates the path itself. On macOS an
@@ -271,6 +273,7 @@ async fn render(
 }
 
 mod fixtures;
+mod page_numbers_case;
 mod render_one;
 mod verify;
 use fixtures::{doc_for, large_doc};

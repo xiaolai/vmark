@@ -33,6 +33,7 @@ import { pdfError } from "@/utils/debug";
 import "./pdf-export-dialog.css";
 import { commandErrorMessage } from "@/services/commands/commandError";
 import { buildPageSpec } from "./pageSpec";
+import { buildPageNumberSpec } from "./pdfOptions";
 
 interface PdfExportContentProps {
   renderedHtml: string;
@@ -80,6 +81,11 @@ export function PdfExportContent({
     latinFont: appearance.latinFont,
     cjkFont: appearance.cjkFont,
     useEditorTheme: false,
+    // On by default: a printed document is expected to carry page numbers, and
+    // the control to turn them off is right there in this dialog.
+    pageNumberPosition: "bottom-center",
+    pageNumberFormat: "plain",
+    pageNumberSkipFirst: false,
   });
 
   const [exporting, setExporting] = useState(false);
@@ -155,7 +161,13 @@ export function PdfExportContent({
         bottom: options.marginBottom,
         left: options.marginLeft,
       });
-      await invoke("export_pdf", { html, outputPath, headings, page });
+      // The template is localized HERE and substituted backend-side, because the
+      // page count is not known until the render finishes.
+      const pageNumbers = buildPageNumberSpec(
+        options,
+        tDialog("pdf.pageNumbers.verboseTemplate"),
+      );
+      await invoke("export_pdf", { html, outputPath, headings, page, pageNumbers });
       toast.success(tDialog("toast.pdfExportSuccess"));
 
       // Open in default viewer (Preview.app on macOS). Non-fatal if it fails.
