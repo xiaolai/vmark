@@ -19,42 +19,47 @@
 //! case, so a caller can assert on the transcript rather than on a exit code
 //! alone.
 //!
-//! Cases, and why each exists:
+//! Cases, and why each exists — the bodies live in `scenarios.rs`:
 //!
-//! - `basic` — does it produce a PDF at all.
-//! - `legal` / `a5` — is `PageSpec` honoured, or is the platform default
-//!   silently used? A valid `%PDF` at the wrong size is the failure a
-//!   magic-byte assertion cannot see (ADR-PDF1).
-//! - `landscape` — orientation, which is a width/height swap rather than a
-//!   flag (ADR-PDF1a).
-//! - `large` — a document over 2 MiB. wry's `.with_html` caps there, so this
-//!   proves navigation is used (ADR-PDF4); VMark inlines images as data URIs,
-//!   so real exports routinely exceed it.
+//! - `geometry_matrix` — all four paper sizes × both orientations. Is
+//!   `PageSpec` honoured, or is the platform default silently used? A valid
+//!   `%PDF` at the wrong size is the failure a magic-byte assertion cannot see
+//!   (ADR-PDF1), and orientation is a width/height swap rather than a flag
+//!   (ADR-PDF1a).
+//! - `pagination` — `basic` (does it produce a PDF at all), `a5` (the one size
+//!   the matrix does not carry), and `large`: a document over 2 MiB, since
+//!   wry's `.with_html` caps there and VMark inlines images as data URIs. That
+//!   one asserts a SENTINEL past the boundary, because truncation still yields
+//!   a valid A4 PDF.
+//! - `page_numbers_case` — the stamp survives each engine's own page tree.
 //! - `badpath` — an unwritable destination must be refused UP FRONT. On macOS
 //!   an NSPrintOperation pointed at a missing directory does not fail, it
 //!   spools to the default printer; an earlier version of this harness put
 //!   four blank pages through a real one.
 //! - `sequential` — 20 exports in a row leak no window.
-//! - `concurrent` — 2 at once do not collide on a window label.
+//! - `concurrent` — 2 at once collide on neither a window label nor each
+//!   other's output, checked by distinct content sentinels.
 //!
 //! @coordinates-with pdf_export/renderer — the code under test
 //! @module bin/pdf_smoke
 
 use std::path::Path;
-
 use std::time::Duration;
-use tauri::Manager;
 
 use vmark_lib::pdf_export::page_spec::PageSpec;
 
-/// A4 and A5 in points, portrait.
-const A4: PageSpec = PageSpec::new(595.28, 841.89);
-const A5: PageSpec = PageSpec::new(419.53, 595.28);
-const A4_LANDSCAPE: PageSpec = PageSpec::new(841.89, 595.28);
-
 fn main() {
     // `--html <file> <out-dir>` renders a supplied document — see render_one.rs.
-    let (one_shot, out_dir) = render_one::parse_args(std::env::args().collect());
+    // Refuse a malformed invocation rather than silently running the fixture
+    // matrix instead of the document the caller named.
+    let (one_shot, out_dir) = match render_one::parse_args(std::env::args().collect()) {
+        Ok(parsed) => parsed,
+        Err(e) => {
+            eprintln!("pdf_smoke: {e}");
+            eprintln!("usage: pdf_smoke [--html <file>] <out-dir>");
+            std::process::exit(2);
+        }
+    };
     std::fs::create_dir_all(&out_dir).expect("create out dir");
 
     let app = tauri::Builder::default()
@@ -80,177 +85,20 @@ fn main() {
     app.run(|_, _| {});
 }
 
+/// Run every scenario, in order, and return the total failure count.
+///
+/// A flat list on purpose: each scenario owns its own counter, so one cannot
+/// report on another's work. That is not tidiness — the shared counter this
+/// replaced let the sequential case print "PASS 20 exports" for a run that had
+/// broken out after the first failure.
 async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
     let mut failures = 0usize;
-
-    // All eight UI combinations. The dialog offers four sizes and two
-    // orientations, and until WI-PDF1.4 every one of them produced the system
-    // default paper on macOS — so this asserts the whole surface, not a
-    // sample. Points are the portrait dimensions; landscape is the swap.
-    const SIZES: [(&str, f64, f64); 4] = [
-        ("A4", 595.28, 841.89),
-        ("letter", 612.0, 792.0),
-        ("A3", 841.89, 1190.55),
-        ("legal", 612.0, 1008.0),
-    ];
-    for (css, w, h) in SIZES {
-        for landscape in [false, true] {
-            let spec = if landscape {
-                PageSpec::new(h, w)
-            } else {
-                PageSpec::new(w, h)
-            };
-            let name = format!("{css}{}", if landscape { "-landscape" } else { "" });
-            let css_size = if landscape {
-                format!("{css} landscape")
-            } else {
-                css.to_string()
-            };
-            let path = out.join(format!("matrix-{name}.pdf"));
-            failures += check(
-                &name,
-                render(app, &doc_for(&css_size, "<p>matrix</p>"), &path, spec).await,
-                &path,
-                Some((spec.width_pt.round() as u32, spec.height_pt.round() as u32)),
-            );
-        }
-    }
-
-    failures += check(
-        "basic",
-        render(
-            app,
-            &doc_for("A4", "<div class='b'>one</div><div class='b'>two</div>"),
-            &out.join("basic.pdf"),
-            A4,
-        )
-        .await,
-        &out.join("basic.pdf"),
-        Some((595, 842)),
-    );
-
-    // Legal is 612x1008 — nothing like A4, so "the default came out" cannot be
-    // mistaken for "the request was honoured".
-    const LEGAL: PageSpec = PageSpec::new(612.0, 1008.0);
-    failures += check(
-        "legal",
-        render(
-            app,
-            &doc_for("legal", "<p>legal</p>"),
-            &out.join("legal.pdf"),
-            LEGAL,
-        )
-        .await,
-        &out.join("legal.pdf"),
-        Some((612, 1008)),
-    );
-
-    failures += check(
-        "a5",
-        render(app, &doc_for("A5", "<p>a5</p>"), &out.join("a5.pdf"), A5).await,
-        &out.join("a5.pdf"),
-        // The whole point: a backend ignoring PageSpec still emits a valid
-        // PDF, just at the platform default.
-        Some((420, 595)),
-    );
-
-    failures += check(
-        "landscape",
-        render(
-            app,
-            &doc_for("A4 landscape", "<p>wide</p>"),
-            &out.join("landscape.pdf"),
-            A4_LANDSCAPE,
-        )
-        .await,
-        &out.join("landscape.pdf"),
-        Some((842, 595)),
-    );
-
-    failures += check(
-        "large",
-        render(app, &large_doc("A4"), &out.join("large.pdf"), A4).await,
-        &out.join("large.pdf"),
-        Some((595, 842)),
-    );
-
-    // A bad output path must be REFUSED before any print operation starts.
-    //
-    // This case is why the renderer validates the path itself. On macOS an
-    // NSPrintOperation pointed at a nonexistent directory does not fail — it
-    // spools the document to the DEFAULT PRINTER. An earlier version of this
-    // harness put four blank pages through a real one. The assertion is now
-    // that the refusal happens up front, with a code that says so.
-    match vmark_lib::pdf_export::renderer::render_pdf(
-        app.clone(),
-        String::new(),
-        "/nonexistent-dir-for-smoke/x.pdf".into(),
-        A4,
-    )
-    .await
-    {
-        Err(e) if e.code() == vmark_lib::command_error::ErrorCode::NotFound => {
-            println!("SMOKE badpath PASS refused up front, code=NotFound")
-        }
-        Err(e) => {
-            // Refused, but not by the guard — a timeout here means the print
-            // operation STARTED, which is the dangerous path.
-            println!("SMOKE badpath FAIL refused late, code={:?}", e.code());
-            failures += 1;
-        }
-        Ok(()) => {
-            println!("SMOKE badpath FAIL accepted an impossible path");
-            failures += 1;
-        }
-    }
-
-    // 20 in a row: a leaked render window would accumulate here.
-    let before = app.webview_windows().len();
-    for i in 0..20 {
-        let p = out.join(format!("seq-{i}.pdf"));
-        if render(app, &doc_for("A4", "<p>seq</p>"), &p, A4)
-            .await
-            .is_err()
-        {
-            println!("SMOKE sequential FAIL at {i}");
-            failures += 1;
-            break;
-        }
-    }
-    // The renderer settles the sink and THEN closes its window, so the caller
-    // resumes before the close has been processed — counting immediately
-    // measures a close in flight, not a leak. The contract is that windows
-    // return to baseline promptly, so poll for that with a bound: if they
-    // never do, it is a real leak and this still fails.
-    let mut after = app.webview_windows().len();
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
-    while after > before && std::time::Instant::now() < deadline {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        after = app.webview_windows().len();
-    }
-    if after > before {
-        println!(
-            "SMOKE sequential FAIL leaked {} window(s) after 10s",
-            after - before
-        );
-        failures += 1;
-    } else {
-        println!("SMOKE sequential PASS 20 exports, windows {before} -> {after}");
-    }
-
-    // Two at once must not collide on a window label. The docs and paths are
-    // bound first: `tokio::join!` borrows across an await point, so temporaries
-    // created inside it do not live long enough.
-    let (d1, d2) = (doc_for("A4", "<p>c1</p>"), doc_for("A4", "<p>c2</p>"));
-    let (p1, p2) = (out.join("con-1.pdf"), out.join("con-2.pdf"));
-    let (a, b) = tokio::join!(render(app, &d1, &p1, A4), render(app, &d2, &p2, A4),);
-    if a.is_ok() && b.is_ok() {
-        println!("SMOKE concurrent PASS");
-    } else {
-        println!("SMOKE concurrent FAIL a={a:?} b={b:?}");
-        failures += 1;
-    }
-
+    failures += scenarios::geometry_matrix(app, out).await;
+    failures += scenarios::pagination(app, out).await;
+    failures += page_numbers_case::run(app, out).await;
+    failures += scenarios::bad_path(app).await;
+    failures += scenarios::sequential(app, out).await;
+    failures += scenarios::concurrent(app, out).await;
     failures
 }
 
@@ -271,7 +119,9 @@ async fn render(
 }
 
 mod fixtures;
+mod html_text;
+mod page_number_fixture;
+mod page_numbers_case;
 mod render_one;
+mod scenarios;
 mod verify;
-use fixtures::{doc_for, large_doc};
-use verify::check;

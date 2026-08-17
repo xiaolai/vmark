@@ -15,6 +15,7 @@
 
 import type { PdfOptions } from "./pdfHtmlTemplate";
 import { MARGIN_PRESETS } from "./pdfHtmlTemplate";
+import type { PageNumberFormat, PageNumberPosition } from "./pdfOptions";
 
 /** Translation function signature (matches react-i18next `t`). */
 type TFn = (key: string) => string;
@@ -35,31 +36,51 @@ export interface StylePreset {
   marginLeft: number;
 }
 
+/**
+ * Spread a named margin preset into the four fields a `StylePreset` carries.
+ *
+ * Every style preset's margins were previously written out as four literals
+ * that happened to equal a `MARGIN_PRESETS` entry — two independently editable
+ * sources for one set of numbers. Retuning `wide` then silently left `academic`
+ * on the old values, and `detectMarginPreset` would report "custom" for a
+ * preset the user had just chosen.
+ */
+function margins(preset: keyof typeof MARGIN_PRESETS | string) {
+  const p = MARGIN_PRESETS[preset];
+  if (!p) throw new Error(`unknown margin preset: ${preset}`);
+  return {
+    marginTop: p.top,
+    marginRight: p.right,
+    marginBottom: p.bottom,
+    marginLeft: p.left,
+  };
+}
+
 /** Built-in style presets: Default, Academic, Compact, and Elegant. */
 export const STYLE_PRESETS: Record<string, StylePreset> = {
   default: {
     labelKey: "pdf.preset.default",
     fontSize: 11, lineHeight: 1.6,
     latinFont: "system", cjkFont: "system",
-    marginTop: 25.4, marginRight: 25.4, marginBottom: 25.4, marginLeft: 25.4,
+    ...margins("normal"),
   },
   academic: {
     labelKey: "pdf.preset.academic",
     fontSize: 12, lineHeight: 2.0,
     latinFont: "palatino", cjkFont: "songti",
-    marginTop: 25.4, marginRight: 38.1, marginBottom: 25.4, marginLeft: 38.1,
+    ...margins("wide"),
   },
   compact: {
     labelKey: "pdf.preset.compact",
     fontSize: 10, lineHeight: 1.4,
     latinFont: "system", cjkFont: "system",
-    marginTop: 12.7, marginRight: 12.7, marginBottom: 12.7, marginLeft: 12.7,
+    ...margins("narrow"),
   },
   elegant: {
     labelKey: "pdf.preset.elegant",
     fontSize: 12, lineHeight: 1.8,
     latinFont: "athelas", cjkFont: "kaiti",
-    marginTop: 25.4, marginRight: 25.4, marginBottom: 25.4, marginLeft: 25.4,
+    ...margins("normal"),
   },
 };
 
@@ -112,6 +133,38 @@ export const PAGE_SIZE_OPTIONS = [
   { value: "a3" as const, label: "A3" },
   { value: "legal" as const, label: "Legal" },
 ];
+
+/**
+ * Page-number dropdowns, keyed by the union rather than listed.
+ *
+ * `Record<PageNumberPosition, …>` is exhaustive: adding a position to the type
+ * fails to compile until this map gains its label. A plain array of
+ * `{ value: "…" as const }` rows — which is what these were — cannot do that.
+ * A bad value is caught at the `set()` call site either way, but a MISSING one
+ * is silent, and the symptom is a setting that exists with no way to choose it.
+ *
+ * Label KEYS rather than resolved strings, so the sidebar translates at render
+ * time and these stay plain constants needing no `t` to construct.
+ */
+const POSITION_LABEL_KEYS: Record<PageNumberPosition, string> = {
+  none: "pdf.pageNumbers.position.none",
+  "bottom-center": "pdf.pageNumbers.position.bottomCenter",
+  "bottom-right": "pdf.pageNumbers.position.bottomRight",
+};
+
+const FORMAT_LABEL_KEYS: Record<PageNumberFormat, string> = {
+  plain: "pdf.pageNumbers.format.plain",
+  "with-total": "pdf.pageNumbers.format.withTotal",
+  verbose: "pdf.pageNumbers.format.verbose",
+};
+
+/** Select options, in declaration order (string keys preserve insertion order). */
+function optionsOf<K extends string>(labels: Record<K, string>) {
+  return (Object.keys(labels) as K[]).map((value) => ({ value, labelKey: labels[value] }));
+}
+
+export const PAGE_NUMBER_POSITION_OPTIONS = optionsOf(POSITION_LABEL_KEYS);
+export const PAGE_NUMBER_FORMAT_OPTIONS = optionsOf(FORMAT_LABEL_KEYS);
 
 /** Build select options for page orientation. */
 export function buildOrientationOptions(t: TFn) {

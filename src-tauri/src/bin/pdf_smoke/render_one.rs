@@ -20,8 +20,11 @@
 
 use std::path::{Path, PathBuf};
 
-use vmark_lib::pdf_export::heading::Heading;
+use vmark_lib::pdf_export::page_numbers::{Format, PageNumberSpec, Position};
 use vmark_lib::pdf_export::page_spec::PageSpec;
+
+use super::html_text::headings_of;
+use super::page_number_fixture::{spec, with_default_margins};
 
 /// Split argv into the optional `--html <file>` source and the out-dir.
 ///
@@ -29,8 +32,30 @@ use vmark_lib::pdf_export::page_spec::PageSpec;
 /// consumed by `--html`; without that second condition `--html x.html out/`
 /// would take `x.html` as the out-dir and silently render into a directory
 /// named after the source.
-pub fn parse_args(args: Vec<String>) -> (Option<PathBuf>, PathBuf) {
-    let html_idx = args.iter().position(|a| a == "--html").map(|i| i + 1);
+///
+/// A malformed invocation is an ERROR, not a fallback. A bare `--html` with no
+/// value used to leave `one_shot` as `None`, so the harness quietly ran the
+/// fixture matrix instead — a green transcript for a run that never opened the
+/// document the caller asked about.
+pub fn parse_args(args: Vec<String>) -> Result<(Option<PathBuf>, PathBuf), String> {
+    let flag_idx = args.iter().position(|a| a == "--html");
+    let html_idx = flag_idx.map(|i| i + 1);
+    if let Some(i) = html_idx {
+        match args.get(i) {
+            None => return Err("--html needs a file path".into()),
+            Some(v) if v.starts_with("--") => {
+                return Err(format!("--html needs a file path, got the flag {v:?}"))
+            }
+            Some(_) => {}
+        }
+    }
+    if let Some(unknown) = args
+        .iter()
+        .skip(1)
+        .find(|a| a.starts_with("--") && a.as_str() != "--html")
+    {
+        return Err(format!("unknown flag {unknown:?}"));
+    }
     let one_shot = html_idx.and_then(|i| args.get(i)).map(PathBuf::from);
     let out_dir = args
         .iter()
@@ -39,11 +64,8 @@ pub fn parse_args(args: Vec<String>) -> (Option<PathBuf>, PathBuf) {
         .find(|(i, a)| !a.starts_with("--") && Some(*i) != html_idx)
         .map(|(_, a)| PathBuf::from(a))
         .unwrap_or_else(std::env::temp_dir);
-    (one_shot, out_dir)
+    Ok((one_shot, out_dir))
 }
-
-/// The dialog's default margin, 25.4mm in points.
-const MARGIN_PT: f64 = 72.0;
 
 /// Portrait geometries in points, matching the dialog's page-size list.
 const SIZES: [(&str, f64, f64); 3] = [
@@ -140,55 +162,31 @@ fn retarget(html: &str, page: PageSpec) -> String {
     )
 }
 
-/// Pull headings out of the export HTML, the way the dialog does from the DOM.
+/// The page-number request for one geometry.
 ///
-/// The harness calls the renderer directly, below the command layer where the
-/// outline is injected — so without this the artifacts could never show whether
-/// the sidebar works, which is exactly how the macOS-only gap went unnoticed.
-fn headings_of(html: &str) -> Vec<Heading> {
-    let mut out = Vec::new();
-    let body = html.find("<body").map(|i| &html[i..]).unwrap_or(html);
-    let mut rest = body;
-    while let Some(i) = rest.find("<h") {
-        let after = &rest[i + 2..];
-        let level = match after.as_bytes().first() {
-            Some(c @ b'1'..=b'6') => u32::from(c - b'0'),
-            _ => {
-                rest = &rest[i + 2..];
-                continue;
-            }
-        };
-        let Some(open_end) = after.find('>') else {
-            break;
-        };
-        let tail = &after[open_end + 1..];
-        let Some(close) = tail.find("</h") else { break };
-        let text: String = strip_tags(&tail[..close]);
-        if !text.trim().is_empty() {
-            out.push(Heading {
-                level,
-                text: text.trim().to_string(),
-            });
-        }
-        rest = &tail[close..];
-    }
-    out
-}
-
-/// Drop nested markup so a heading with inline code or a link still matches the
-/// plain text the PDF carries.
-fn strip_tags(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut depth = 0usize;
-    for ch in s.chars() {
-        match ch {
-            '<' => depth += 1,
-            '>' => depth = depth.saturating_sub(1),
-            c if depth == 0 => out.push(c),
-            _ => {}
-        }
-    }
-    out
+/// Portrait sheets get the shipping default (bottom-centre, plain). Landscape
+/// gets the other position and format plus `skip_first`, so the artifact set
+/// exercises every branch rather than proving one path six times — and each
+/// file's variant is implied by its name, which is what makes the three
+/// platforms' outputs comparable side by side.
+///
+/// The VALUES come from `page_number_fixture`, shared with the fixture matrix:
+/// duplicating the dialog's defaults in two harness modes is how one of them
+/// silently stops matching the app.
+fn page_number_spec(landscape: bool) -> PageNumberSpec {
+    spec(
+        if landscape {
+            Position::BottomRight
+        } else {
+            Position::BottomCenter
+        },
+        if landscape {
+            Format::WithTotal
+        } else {
+            Format::Plain
+        },
+        landscape,
+    )
 }
 
 /// Render `html_path` once per geometry into `out`. Returns the failure count.
@@ -208,20 +206,19 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
             // Landscape is a width/height swap, never a flag — ADR-PDF1a.
             // Match the captured document's CSS margins (25.4mm = 72pt), so
             // the artifact shows what a real export produces on each platform.
-            let mut page = if landscape {
-                PageSpec::new(h, w)
+            let page = if landscape {
+                with_default_margins(h, w)
             } else {
-                PageSpec::new(w, h)
+                with_default_margins(w, h)
             };
-            page.margin_top_pt = Some(MARGIN_PT);
-            page.margin_right_pt = Some(MARGIN_PT);
-            page.margin_bottom_pt = Some(MARGIN_PT);
-            page.margin_left_pt = Some(MARGIN_PT);
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
             let mut result = super::render(app, &retarget(&html, page), &path, page).await;
-            // Inject the outline exactly as the command layer does, so the
-            // artifact a human opens has the sidebar the shipped export gives.
+            // Inject the outline and stamp the page numbers exactly as the
+            // command layer does, and in the same order — so the artifact a
+            // human opens is the one the shipped export gives, sidebar and
+            // footer included.
+            let spec = page_number_spec(landscape);
             if result.is_ok() {
                 let headings = headings_of(&html);
                 if let Err(e) =
@@ -230,13 +227,65 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
                     result = Err(format!("outline: {e}"));
                 }
             }
+            if result.is_ok() {
+                if let Err(e) = vmark_lib::pdf_export::page_numbers::stamp_page_numbers(
+                    &path.to_string_lossy(),
+                    &spec,
+                ) {
+                    result = Err(format!("page numbers: {e}"));
+                }
+            }
+            let rendered = result.is_ok();
             failures += super::verify::check(
                 &label,
                 result,
                 &path,
                 Some((page.width_pt.round() as u32, page.height_pt.round() as u32)),
             );
+            if rendered {
+                failures += super::verify::check_stamped(&label, &path, spec.skip_first);
+            }
         }
     }
     failures
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(args: &[&str]) -> Vec<String> {
+        std::iter::once("pdf_smoke")
+            .chain(args.iter().copied())
+            .map(String::from)
+            .collect()
+    }
+
+    #[test]
+    fn the_out_dir_is_not_confused_with_the_html_value() {
+        let (html, out) = parse_args(argv(&["--html", "doc.html", "out"])).unwrap();
+        assert_eq!(html.unwrap().to_string_lossy(), "doc.html");
+        assert_eq!(out.to_string_lossy(), "out");
+    }
+
+    #[test]
+    fn a_bare_html_flag_is_refused_rather_than_running_the_matrix() {
+        // THE REGRESSION. A missing value used to leave `one_shot` as None, so
+        // the harness quietly ran the fixture matrix instead — a green
+        // transcript for a run that never opened the document asked about.
+        assert!(parse_args(argv(&["--html"])).is_err());
+        assert!(parse_args(argv(&["--html", "--other"])).is_err());
+    }
+
+    #[test]
+    fn an_unknown_flag_is_refused() {
+        assert!(parse_args(argv(&["--nope", "out"])).is_err());
+    }
+
+    #[test]
+    fn matrix_mode_needs_no_flags() {
+        let (html, out) = parse_args(argv(&["out"])).unwrap();
+        assert!(html.is_none());
+        assert_eq!(out.to_string_lossy(), "out");
+    }
 }

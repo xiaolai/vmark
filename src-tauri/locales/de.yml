@@ -251,6 +251,8 @@ errors:
   pdf.printTimeoutSecs: "Druckvorgang nach %{seconds} Sekunden abgelaufen"
   pdf.unsupportedPlatform: "PDF-Export ist auf dieser Plattform noch nicht verfügbar"
   pdf.invalidPageSize: "Ungültige Seiten-%{axis}: %{value}"
+  pdf.invalidPageNumberSpec: "Ungültige Seitenzahl-Einstellung %{field}: %{value}"
+  pdf.postProcessPanicked: "PDF-Nachbearbeitung unerwartet fehlgeschlagen: %{detail}"
   pdf.renderWindowFailed: "Renderfenster konnte nicht erstellt werden: %{detail}"
   pdf.loadFailed: "Das Dokument konnte zum Drucken nicht geladen werden"
   pdf.printRefused: "Die Druck-Engine hat kein PDF erzeugt"

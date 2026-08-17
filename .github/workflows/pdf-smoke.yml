@@ -1,0 +1,124 @@
+name: PDF smoke
+
+# The PDF exporter is the one subsystem here with THREE separate native
+# backends — WKWebView, WebView2, WebKitGTK — and nothing in the required checks
+# runs any of them. `cargo test` cannot: Tauri's MockRuntime does not link on
+# Windows in this crate, and where it does link it runs `with_webview` as a
+# no-op, so it would prove nothing. Only a real event loop exercises the code
+# that ships.
+#
+# So this is the harness's home. It renders the fixture matrix on each OS and
+# READS THE ARTIFACTS BACK — page box, page count, and (since page numbers
+# landed) the stamped footer — because a backend that ignores its input still
+# returns Ok and still writes a valid %PDF.
+#
+# PATH-FILTERED, and NOT a required check. It runs on pull requests that touch
+# the exporter and nowhere else, because that is the only time it can find
+# anything — and because the class it catches has already bitten this subsystem
+# twice: the heading outline shipped macOS-only for months, and page numbers
+# would have too. Neither was visible from a macOS desk.
+#
+# It stays out of branch protection deliberately. It costs three runners and
+# several minutes of native webview work behind a full Rust compile, and it
+# depends on a display; a slow, display-dependent job in front of every merge is
+# how a check gets routed around rather than obeyed. Red here means read the
+# artifacts, not "cannot merge".
+#
+# It is not a liveness gate either (no `liveness-gate:` marker) — it has no
+# cadence to be silent against, since it only fires on relevant diffs.
+
+on:
+  pull_request:
+    paths:
+      - "src-tauri/src/pdf_export/**"
+      - "src-tauri/src/bin/pdf_smoke/**"
+      - ".github/workflows/pdf-smoke.yml"
+  # No `ref` input: workflow_dispatch already takes the branch to run from, so
+  # one would only be a second, unvalidated way to say the same thing — and an
+  # attacker-settable string reaching `actions/checkout`'s `ref:` is the ref
+  # injection class outright.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdf-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: "src-tauri -> target"
+          shared-key: "ci-rust-v1"
+          cache-on-failure: "false"
+
+      # The Tauri build script resolves the sidecar by target triple and fails
+      # if it is absent. Same stub `ci.yml`'s rust-test creates — this harness
+      # never launches the sidecar.
+      - name: Create sidecar stub for Tauri build script
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            triple="x86_64-pc-windows-msvc"
+            ext=".exe"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            triple="x86_64-unknown-linux-gnu"
+            ext=""
+          else
+            triple="aarch64-apple-darwin"
+            ext=""
+          fi
+          touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
+
+      # The harness's own pure helpers — argument parsing, HTML entity decoding.
+      # They live in a feature-gated bin, so `cargo test` in ci.yml never
+      # compiles them; without this step they would be tests nothing runs.
+      - name: Unit-test the harness helpers
+        run: cargo test --manifest-path src-tauri/Cargo.toml --features pdf-smoke --bin pdf_smoke
+
+      # WebKitGTK needs a display even to print off-screen; a headless runner
+      # has none, and the renderer would hang until the harness timed out rather
+      # than failing with something readable.
+      - name: Run the smoke harness (Linux, under Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y xvfb
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
+            cargo run --manifest-path src-tauri/Cargo.toml \
+              --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out"
+
+      - name: Run the smoke harness
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          cargo run --manifest-path src-tauri/Cargo.toml \
+            --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out"
+
+      # `error`, not `warn`: the harness exiting 0 having written nothing looks
+      # exactly like a pass, and an empty artifact would be read as "rendered
+      # fine". Uploaded on failure too — the broken PDF is the evidence.
+      - name: Upload the rendered PDFs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: pdf-smoke-${{ matrix.os }}
+          path: pdf-smoke-out/*.pdf
+          if-no-files-found: error
+          retention-days: 7

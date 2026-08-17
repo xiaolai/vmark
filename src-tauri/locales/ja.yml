@@ -251,6 +251,8 @@ errors:
   pdf.printTimeoutSecs: "印刷が %{seconds} 秒でタイムアウトしました"
   pdf.unsupportedPlatform: "PDF 書き出しはこのプラットフォームではまだ利用できません"
   pdf.invalidPageSize: "ページの%{axis}が不正です: %{value}"
+  pdf.invalidPageNumberSpec: "ページ番号の設定が不正です %{field}: %{value}"
+  pdf.postProcessPanicked: "PDF の後処理が予期せず失敗しました: %{detail}"
   pdf.renderWindowFailed: "レンダリング用ウィンドウを作成できませんでした: %{detail}"
   pdf.loadFailed: "印刷用のドキュメントを読み込めませんでした"
   pdf.printRefused: "印刷エンジンが PDF を生成しませんでした"

@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "Impossible d'ouvrir la boîte de dialogue d'impression",
   "toast.htmlCopied": "HTML copié dans le presse-papiers",
   "toast.pdfExportSuccess": "PDF exporté avec succès",
+  "toast.pdfExportPartial": "PDF exporté, mais {{what}} n'a pas pu être ajouté.",
   "toast.pdfExportFailed": "Échec de l'exportation PDF : {{error}}",
   "toast.cannotMoveTabNoDoc": "Impossible de déplacer l'onglet : le document n'est pas chargé.",
   "toast.cannotMoveLastTab": "Impossible de déplacer le dernier onglet de la fenêtre principale.",

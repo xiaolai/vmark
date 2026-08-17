@@ -28,8 +28,22 @@
   "pdf.exporting": "Exportiert…",
   "pdf.progress.preparing": "Vorbereitung…",
   "pdf.progress.loading": "Inhalt wird geladen…",
+  "pdf.progress.finishing": "Wird abgeschlossen…",
   "pdf.progress.rendering": "PDF wird erstellt…",
   "pdf.progress.done": "Fertig",
   "pdf.saveDialog.title": "Als PDF exportieren",
-  "pdf.defaultTitle": "Dokument"
+  "pdf.defaultTitle": "Dokument",
+  "pdf.pageNumbers": "Seitenzahlen",
+  "pdf.pageNumbers.position": "Position",
+  "pdf.pageNumbers.format": "Format",
+  "pdf.pageNumbers.skipFirst": "Erste Seite überspringen",
+  "pdf.pageNumbers.position.none": "Keine",
+  "pdf.pageNumbers.position.bottomCenter": "Unten mittig",
+  "pdf.pageNumbers.position.bottomRight": "Unten rechts",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "Seite 7 von 12",
+  "pdf.warning.outline-failed": "die Seitenleisten-Gliederung",
+  "pdf.warning.page-numbers-failed": "Seitenzahlen",
+  "pdf.pageNumbers.verboseTemplate": "Seite {n} von {total}"
 }

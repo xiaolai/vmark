@@ -33,6 +33,7 @@ import { pdfError } from "@/utils/debug";
 import "./pdf-export-dialog.css";
 import { commandErrorMessage } from "@/services/commands/commandError";
 import { buildPageSpec } from "./pageSpec";
+import { buildPageNumberSpec, effectiveBottomMarginMm } from "./pdfOptions";
 
 interface PdfExportContentProps {
   renderedHtml: string;
@@ -80,6 +81,11 @@ export function PdfExportContent({
     latinFont: appearance.latinFont,
     cjkFont: appearance.cjkFont,
     useEditorTheme: false,
+    // On by default: a printed document is expected to carry page numbers, and
+    // the control to turn them off is right there in this dialog.
+    pageNumberPosition: "bottom-center",
+    pageNumberFormat: "plain",
+    pageNumberSkipFirst: false,
   });
 
   const [exporting, setExporting] = useState(false);
@@ -95,6 +101,9 @@ export function PdfExportContent({
     const stageKeys: Record<string, string> = {
       loading: "pdf.progress.loading",
       rendering: "pdf.progress.rendering",
+      // The renderer emits this when the PDF exists but the outline and page
+      // numbers are still being written; `export_pdf` emits "done" after.
+      finishing: "pdf.progress.finishing",
       done: "pdf.progress.done",
     };
     const unlisten = listen<{ stage: string }>(
@@ -152,11 +161,42 @@ export function PdfExportContent({
       const page = buildPageSpec(options.pageSize, options.orientation, {
         top: options.marginTop,
         right: options.marginRight,
-        bottom: options.marginBottom,
+        // Reserved, not requested — see effectiveBottomMarginMm. Windows and
+        // Linux take their page box from here rather than from the CSS, so
+        // passing the raw value would leave the footer overlapping there while
+        // macOS was correct.
+        bottom: effectiveBottomMarginMm(options),
         left: options.marginLeft,
       });
-      await invoke("export_pdf", { html, outputPath, headings, page });
-      toast.success(tDialog("toast.pdfExportSuccess"));
+      // The template is localized HERE and substituted backend-side, because the
+      // page count is not known until the render finishes.
+      //
+      // `t`, NOT `tDialog`: the key lives in export.json. i18next returns the
+      // KEY when it misses, and that key is pure ASCII — so the backend would
+      // have accepted it and stamped the literal "pdf.pageNumbers.verboseTemplate"
+      // on every page rather than failing.
+      const pageNumbers = buildPageNumberSpec(
+        options,
+        t("pdf.pageNumbers.verboseTemplate"),
+        isDark,
+      );
+      // Post-processing is best-effort, so the command can succeed with the
+      // outline or the page numbers missing. Saying "exported" flatly in that
+      // case tells the user a setting they turned on worked when it did not.
+      const outcome = await invoke<{ warnings?: string[] }>("export_pdf", {
+        html, outputPath, headings, page, pageNumbers,
+      });
+      const warnings = outcome?.warnings ?? [];
+      if (warnings.length > 0) {
+        toast.warning(
+          tDialog("toast.pdfExportPartial", {
+            what: warnings.map((w) => t(`pdf.warning.${w}`)).join(", "),
+          }),
+          { pin: true },
+        );
+      } else {
+        toast.success(tDialog("toast.pdfExportSuccess"));
+      }
 
       // Open in default viewer (Preview.app on macOS). Non-fatal if it fails.
       try {

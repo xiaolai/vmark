@@ -62,10 +62,33 @@ That is fixed, so your exports may now differ from what the same document
 produced before. They will match what the dialog says.
 :::
 
-::: info Bookmarks are macOS-only
-Exported PDFs get a heading outline — a clickable table of contents in the PDF
-viewer's sidebar — on macOS only. Windows and Linux produce the same document
-without that outline. Everything else, including page geometry, is identical.
+**Sidebar outline.** Exported PDFs carry a heading outline — the clickable
+table of contents your PDF viewer shows in its sidebar — on all three
+platforms. It used to be macOS-only; Windows and Linux got the same document
+with an empty sidebar.
+
+#### Page numbers
+
+The dialog's **Page numbers** section adds a number to each page. It is on by
+default, centred at the bottom.
+
+| Setting | Options |
+|---------|---------|
+| Position | Bottom centre, bottom right, or off |
+| Format | `7`, `7 / 12`, or `Page 7 of 12` |
+| Skip first page | Leaves page 1 unnumbered, the usual treatment for a title page |
+
+The number sits inside the bottom margin you chose, and scales with your body
+font size. Numbering always reflects the real page, so skipping the first page
+gives you 2, 3, 4… on the pages that follow rather than renumbering them.
+
+::: info Page numbers use a Latin alphabet
+The number is drawn with a standard PDF font that no viewer has to download,
+which is what keeps exports fast and self-contained — but that font cannot
+render Chinese, Japanese, Korean or Cyrillic. The two numeric formats work in
+every language. If your interface language writes `Page 7 of 12` in a script
+that font cannot draw, VMark leaves those pages unnumbered rather than printing
+blanks or wrong characters; choose `7` or `7 / 12` instead.
 :::
 
 ### Export via Pandoc

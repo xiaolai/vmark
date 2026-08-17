@@ -70,12 +70,30 @@ pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError
     Ok(())
 }
 
+/// What the export produced, beyond "it did not fail".
+///
+/// Post-processing is best-effort — a PDF missing its sidebar or its footer is
+/// a worse PDF, not a failed export, and refusing the whole job over one would
+/// throw away the document the user just waited for. But returning a bare `Ok`
+/// made the UI claim unqualified success while a setting the user explicitly
+/// turned on had silently not happened. So the steps that failed are NAMED and
+/// the dialog says so.
+///
+/// Stable slugs, not prose: the frontend maps them to its own translations.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportOutcome {
+    pub warnings: Vec<&'static str>,
+}
+
 /// Export HTML content to a PDF file using the platform's native webview.
 ///
 /// Emits `pdf-export-progress` events to the `pdf-export` window
 /// with status updates: "loading", "rendering", "done".
 ///
-/// After PDF generation, injects heading-based bookmarks using PDFKit.
+/// After the render, post-processes the file: heading bookmarks, then page
+/// numbers. Both are cross-platform (lopdf) and both are best-effort — see
+/// `ExportOutcome`.
 #[tauri::command]
 pub async fn export_pdf(
     app: tauri::AppHandle,
@@ -83,28 +101,73 @@ pub async fn export_pdf(
     output_path: String,
     headings: Option<Vec<Heading>>,
     page: PageSpec,
-) -> Result<(), CommandError> {
+    page_numbers: Option<super::page_numbers::PageNumberSpec>,
+) -> Result<ExportOutcome, CommandError> {
     validate_output_path(&output_path)?;
     page.validate()?;
+    // Validated for the same reason `page` is: this arrives as JSON over IPC,
+    // so a NaN font size would reach the `Tf` operator as the literal "NaN" and
+    // produce a corrupt content stream.
+    if let Some(ref spec) = page_numbers {
+        spec.validate()?;
+    }
 
+    let app_for_progress = app.clone();
     renderer::render_pdf(app, html, output_path.clone(), page).await?;
 
-    // Add the outline if headings were provided. Cross-platform since the
-    // injector became lopdf rather than PDFKit — Windows and Linux used to ship
-    // outline-less PDFs (ADR-PDF3).
-    //
-    // Still not an error path: a PDF without a sidebar is a worse PDF, not a
-    // failed export, and refusing the whole job over it would lose the document
-    // the user just waited for.
-    if let Some(ref headings) = headings {
-        if !headings.is_empty() {
-            if let Err(e) = super::outline::add_outline(&output_path, headings) {
-                log::warn!("[PDF] outline injection failed (PDF still valid): {}", e);
-            }
+    // Post-processing is synchronous, CPU-bound and reads/serializes the whole
+    // file, so it does not belong on a Tokio worker: a large export would
+    // occupy one for the duration and starve unrelated async work in the same
+    // runtime. `spawn_blocking` is the thread pool meant for exactly this.
+    let outcome = tokio::task::spawn_blocking(move || {
+        post_process(&output_path, headings.as_deref(), page_numbers.as_ref())
+    })
+    .await
+    .map_err(|e| {
+        localized_error!(
+            ErrorCode::Internal,
+            "errors.pdf.postProcessPanicked",
+            detail = e.to_string()
+        )
+    })?;
+
+    // Completion is emitted HERE, after the outline and the page numbers, so
+    // the stage the user sees matches what the file has.
+    renderer::emit_progress(&app_for_progress, "done");
+
+    Ok(outcome)
+}
+
+/// Inject the outline, then stamp page numbers. Never fails the export.
+///
+/// The order is fixed so the two composers each see a complete file, and so a
+/// change to one cannot silently reorder the other.
+fn post_process(
+    output_path: &str,
+    headings: Option<&[Heading]>,
+    page_numbers: Option<&super::page_numbers::PageNumberSpec>,
+) -> ExportOutcome {
+    let mut outcome = ExportOutcome::default();
+
+    // Cross-platform since the injector became lopdf rather than PDFKit —
+    // Windows and Linux used to ship outline-less PDFs (ADR-PDF3).
+    if let Some(headings) = headings.filter(|h| !h.is_empty()) {
+        if let Err(e) = super::outline::add_outline(output_path, headings) {
+            log::warn!("[PDF] outline injection failed (PDF still valid): {}", e);
+            outcome.warnings.push("outline-failed");
         }
     }
 
-    Ok(())
+    // The write is atomic, so a failure here leaves the rendered PDF exactly as
+    // it was — which is what makes "warn and continue" honest rather than lossy.
+    if let Some(spec) = page_numbers {
+        if let Err(e) = super::page_numbers::stamp_page_numbers(output_path, spec) {
+            log::warn!("[PDF] page numbering failed (PDF still valid): {}", e);
+            outcome.warnings.push("page-numbers-failed");
+        }
+    }
+
+    outcome
 }
 
 /// Print HTML content via native macOS print dialog.

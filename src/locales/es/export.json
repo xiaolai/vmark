@@ -28,8 +28,22 @@
   "pdf.exporting": "Exportando…",
   "pdf.progress.preparing": "Preparando…",
   "pdf.progress.loading": "Cargando contenido…",
+  "pdf.progress.finishing": "Finalizando…",
   "pdf.progress.rendering": "Generando PDF…",
   "pdf.progress.done": "Listo",
   "pdf.saveDialog.title": "Exportar PDF",
-  "pdf.defaultTitle": "Documento"
+  "pdf.defaultTitle": "Documento",
+  "pdf.pageNumbers": "Números de página",
+  "pdf.pageNumbers.position": "Posición",
+  "pdf.pageNumbers.format": "Formato",
+  "pdf.pageNumbers.skipFirst": "Omitir la primera página",
+  "pdf.pageNumbers.position.none": "Ninguno",
+  "pdf.pageNumbers.position.bottomCenter": "Abajo centrado",
+  "pdf.pageNumbers.position.bottomRight": "Abajo a la derecha",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "Página 7 de 12",
+  "pdf.warning.outline-failed": "el esquema de la barra lateral",
+  "pdf.warning.page-numbers-failed": "los números de página",
+  "pdf.pageNumbers.verboseTemplate": "Página {n} de {total}"
 }

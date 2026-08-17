@@ -75,7 +75,12 @@ fn render_inner(
     );
 
     if result.is_ok() {
-        emit_progress(app, "done");
+        // "finishing", not "done": the RENDER is finished, but `export_pdf`
+        // still has the outline and the page numbers to add, and on a long
+        // document that is visible time. Claiming completion here told the user
+        // the export was over while it was still writing to the file.
+        // `export_pdf` emits "done" once post-processing returns.
+        emit_progress(app, "finishing");
     }
     result
 }

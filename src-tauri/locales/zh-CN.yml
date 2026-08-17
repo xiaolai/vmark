@@ -251,6 +251,8 @@ errors:
   pdf.printTimeoutSecs: "打印在 %{seconds} 秒后超时"
   pdf.unsupportedPlatform: "此平台尚不支持导出 PDF"
   pdf.invalidPageSize: "页面%{axis}无效：%{value}"
+  pdf.invalidPageNumberSpec: "页码设置无效 %{field}：%{value}"
+  pdf.postProcessPanicked: "PDF 后处理意外失败：%{detail}"
   pdf.renderWindowFailed: "无法创建渲染窗口：%{detail}"
   pdf.loadFailed: "用于打印的文档加载失败"
   pdf.printRefused: "打印引擎未能生成 PDF"

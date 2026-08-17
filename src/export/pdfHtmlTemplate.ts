@@ -9,7 +9,9 @@
  *
  * WebKit's native print pipeline (printOperationWithPrintInfo) respects @page
  * size/margin rules but does NOT implement @page margin boxes (@top-center etc.),
- * so headers/footers/page-number settings are intentionally absent from PdfOptions.
+ * so nothing in this file can draw a running header or footer. Page numbers are
+ * therefore not CSS at all: `PdfOptions` carries the request, and Rust STAMPS
+ * the finished PDF (`pdf_export/page_numbers.rs`) so all three engines agree.
  *
  * @module export/pdfHtmlTemplate
  * @coordinates-with pdf_export/renderer.rs — WKWebView loads this HTML and prints to PDF
@@ -23,7 +25,7 @@ import { getPrimitiveTokenCSS } from "./primitiveTokens";
 import { buildFontStack } from "@/utils/fontStacks";
 import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
 import { buildFitCSS } from "./pdfFitToPage";
-import { type PdfOptions, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
+import { type PdfOptions, PAGE_SIZE_KEYWORDS, effectiveBottomMarginMm } from "./pdfOptions";
 
 // Re-exported so existing importers keep one entry point for the export API.
 export { MARGIN_PRESETS, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
@@ -52,7 +54,11 @@ export function getSharedContentCSS(): string {
 function buildPageCSS(options: PdfOptions): string {
   const sizeKeyword = PAGE_SIZE_KEYWORDS[options.pageSize] ?? PAGE_SIZE_KEYWORDS.a4;
   const size = `${sizeKeyword} ${options.orientation}`;
-  const margin = `${options.marginTop}mm ${options.marginRight}mm ${options.marginBottom}mm ${options.marginLeft}mm`;
+  // The bottom uses the RESERVED margin: page numbers are stamped inside that
+  // band, so the content area has to stop short of them or the footer prints
+  // over the last line. Identical to what `buildPageNumberSpec` is told.
+  const bottom = effectiveBottomMarginMm(options);
+  const margin = `${options.marginTop}mm ${options.marginRight}mm ${bottom}mm ${options.marginLeft}mm`;
 
   return `
 @page {

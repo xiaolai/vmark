@@ -28,8 +28,22 @@
   "pdf.exporting": "导出中…",
   "pdf.progress.preparing": "准备中…",
   "pdf.progress.loading": "正在加载内容…",
+  "pdf.progress.finishing": "正在完成…",
   "pdf.progress.rendering": "正在生成 PDF…",
   "pdf.progress.done": "完成",
   "pdf.saveDialog.title": "导出 PDF",
-  "pdf.defaultTitle": "文档"
+  "pdf.defaultTitle": "文档",
+  "pdf.pageNumbers": "页码",
+  "pdf.pageNumbers.position": "位置",
+  "pdf.pageNumbers.format": "格式",
+  "pdf.pageNumbers.skipFirst": "跳过首页",
+  "pdf.pageNumbers.position.none": "无",
+  "pdf.pageNumbers.position.bottomCenter": "底部居中",
+  "pdf.pageNumbers.position.bottomRight": "底部右侧",
+  "pdf.pageNumbers.format.plain": "7",
+  "pdf.pageNumbers.format.withTotal": "7 / 12",
+  "pdf.pageNumbers.format.verbose": "第 7 页，共 12 页",
+  "pdf.warning.outline-failed": "侧边栏目录",
+  "pdf.warning.page-numbers-failed": "页码",
+  "pdf.pageNumbers.verboseTemplate": "第 {n} 页，共 {total} 页"
 }

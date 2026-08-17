@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "Druckdialog konnte nicht geöffnet werden",
   "toast.htmlCopied": "HTML in Zwischenablage kopiert",
   "toast.pdfExportSuccess": "PDF erfolgreich exportiert",
+  "toast.pdfExportPartial": "PDF exportiert, aber {{what}} konnte nicht hinzugefügt werden.",
   "toast.pdfExportFailed": "PDF-Export fehlgeschlagen: {{error}}",
   "toast.cannotMoveTabNoDoc": "Tab kann nicht verschoben werden: Dokument ist nicht geladen.",
   "toast.cannotMoveLastTab": "Der letzte Tab im Hauptfenster kann nicht verschoben werden.",
