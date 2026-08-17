@@ -20,7 +20,6 @@
     "src-tauri/src/hot_exit/migration_v5_tests.rs": 306,
     "src-tauri/src/mcp_bridge/server.rs": 497,
     "src-tauri/src/menu/dynamic.rs": 378,
-    "src-tauri/src/pdf_export/bookmarks.rs": 389,
     "src-tauri/src/workflow/commands.rs": 354,
     "src-tauri/src/workflow/condition.rs": 345,
     "src-tauri/src/workflow/expressions.rs": 359,

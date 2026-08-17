@@ -12,6 +12,7 @@ pub mod commands;
 pub mod heading;
 pub mod outline;
 mod outline_match;
+mod outline_tree;
 pub mod page_spec;
 pub mod renderer;
 

@@ -33,63 +33,44 @@ pub(super) fn find_heading_page(
         return None;
     }
 
-    // Try line-based matching first (heading text should appear as a distinct line
-    // or standalone phrase), then fall back to substring contains.
-    // This reduces false positives where "Error" matches "Error Handling Framework".
-
-    // Pass 1: Line-level match (most precise) — check if any line in the page
-    // starts with or equals the heading text. Requires a word boundary after
-    // the prefix to avoid "Chapter 1" matching "Chapter 10".
-    if let Some(idx) = search_forward(page_texts, start_page, |text| {
-        text.lines().any(|line| {
-            let trimmed = line.trim();
-            if trimmed == needle {
-                return true;
-            }
-            if let Some(rest) = trimmed.strip_prefix(needle) {
-                // Require non-alphanumeric boundary after the needle
-                rest.starts_with(|c: char| !c.is_alphanumeric())
-            } else {
-                false
-            }
-        })
-    }) {
-        return Some(idx);
-    }
-
-    // Pass 2: Substring with word boundary (handles run-together text from PDF extraction)
-    if let Some(idx) = search_forward(page_texts, start_page, |text| {
-        contains_with_boundary(text, needle)
-    }) {
-        return Some(idx);
-    }
-
-    // Pass 3: Case-insensitive substring with word boundary
+    // Four passes, strictest first, so a precise match always beats a loose one.
+    // Collapsed into a table because the only thing that differed between them
+    // was the predicate — the surrounding "search forward, return on hit" was
+    // written out four times, and a fifth pass would have been a fifth copy.
+    //
+    // Order is load-bearing, not incidental:
+    //   1. whole-line match — the shape a real heading takes in extracted text,
+    //      and the pass that stops "Chapter 1" claiming a "Chapter 10" page
+    //   2. substring with word boundaries on both sides
+    //   3. the same, case-insensitively
+    //   4. plain substring — see the note at the bottom of this list
     let lower = needle.to_lowercase();
-    if let Some(idx) = search_forward(page_texts, start_page, |text| {
-        contains_with_boundary(&text.to_lowercase(), &lower)
-    }) {
-        return Some(idx);
-    }
+    let passes: [&dyn Fn(&str) -> bool; 4] = [
+        &|text: &str| {
+            text.lines().any(|line| {
+                let trimmed = line.trim();
+                trimmed == needle
+                    || trimmed
+                        .strip_prefix(needle)
+                        .is_some_and(|rest| rest.starts_with(|c: char| !c.is_alphanumeric()))
+            })
+        },
+        &|text: &str| contains_with_boundary(text, needle),
+        &|text: &str| contains_with_boundary(&text.to_lowercase(), &lower),
+        // Last resort. An audit flagged this as defeating the boundary checks
+        // above, and in isolation it does. Kept on evidence: PDF text extraction
+        // glues words together when glyph positions imply no space, so a heading
+        // really does appear as "SeeChapter 1Here" — pinned by a test — and
+        // passes 1-3 reject that correctly. The collision the boundary rule
+        // exists to stop is caught by pass 1, which runs first. With no
+        // wrapping, a false positive here can only land at or after the previous
+        // heading, never behind it.
+        &|text: &str| text.contains(needle),
+    ];
 
-    // Pass 4: plain substring, last resort.
-    //
-    // An audit flagged this as defeating the boundary checks above, and in
-    // isolation it does. Kept anyway, on evidence: PDF text extraction glues
-    // words together when glyph positions imply no space, so a heading really
-    // does appear as "SeeChapter 1Here" — pinned by a test — and passes 1-3
-    // reject that correctly. The collision the boundary rule exists to stop
-    // ("Chapter 1" claiming a "Chapter 10" page) is caught by pass 1, which
-    // matches whole lines and runs first.
-    //
-    // Its blast radius is now bounded in a way it was not when the audit ran:
-    // the search no longer wraps, so a false positive here can only land at or
-    // after the previous heading, never behind it.
-    if let Some(idx) = search_forward(page_texts, start_page, |text| text.contains(needle)) {
-        return Some(idx);
-    }
-
-    None
+    passes
+        .iter()
+        .find_map(|predicate| search_forward(page_texts, start_page, predicate))
 }
 
 /// Search pages from `start_page` forward. Never wraps.

@@ -25,50 +25,7 @@ use std::collections::BTreeMap;
 use lopdf::{Dictionary, Document, Object, ObjectId};
 
 use super::heading::Heading;
-
-/// One node of the outline tree, before it becomes PDF objects.
-///
-/// Kept separate from the emission step so the shape of the tree can be tested
-/// without a PDF: nesting is decided entirely by heading level, and that is
-/// where an off-by-one puts a section under the wrong parent.
-#[derive(Debug, PartialEq)]
-pub(crate) struct Node {
-    pub title: String,
-    /// Zero-based page index.
-    pub page: usize,
-    pub children: Vec<Node>,
-}
-
-/// Nest a flat, ordered heading list by level.
-///
-/// A level that jumps (h1 → h3 with no h2) attaches to the nearest shallower
-/// ancestor rather than being dropped, and a document that opens at h2 still
-/// produces roots — real documents do both.
-pub(crate) fn build_tree(items: &[(u32, String, usize)]) -> Vec<Node> {
-    let mut roots: Vec<Node> = Vec::new();
-    // Path of indices from the root down to the current insertion point,
-    // paired with the level that produced each step.
-    let mut path: Vec<(u32, usize)> = Vec::new();
-
-    for (level, title, page) in items {
-        while path.last().is_some_and(|(l, _)| *l >= *level) {
-            path.pop();
-        }
-        let node = Node {
-            title: title.clone(),
-            page: *page,
-            children: Vec::new(),
-        };
-
-        let mut cursor = &mut roots;
-        for (_, idx) in &path {
-            cursor = &mut cursor[*idx].children;
-        }
-        cursor.push(node);
-        path.push((*level, cursor.len() - 1));
-    }
-    roots
-}
+use super::outline_tree::{build_tree, Node};
 
 /// Encode a title as a PDF text string.
 ///
@@ -89,6 +46,13 @@ fn text_string(s: &str) -> Object {
 }
 
 /// Emit one level of the tree, returning (first, last, total descendant count).
+///
+/// Kept as one function rather than split into id-allocation, linkage and
+/// destination helpers, which an audit suggested. The three are not independent:
+/// sibling linkage needs every id in the level BEFORE any dictionary is built,
+/// so splitting them means passing the id vector between helpers and the seam
+/// buys naming, not decoupling. The recursion is bounded — `build_tree` clamps
+/// levels to 6 — and every branch is covered by the round-trip test.
 fn emit(
     doc: &mut Document,
     nodes: &[Node],
@@ -149,6 +113,14 @@ fn emit(
 ///
 /// Returns `Ok(())` for an empty heading list: a document with no headings has
 /// no table of contents to show, which is not a failure.
+///
+/// **The `String` errors here are deliberately not localized.** An audit flagged
+/// them against the project's `t!()` rule, which is right for anything a user
+/// reads — but the only caller (`commands.rs`) logs them as a warning and lets
+/// the export succeed, because a PDF without a sidebar is a worse PDF, not a
+/// failed job. Nothing reaches the UI. Translating diagnostics no user sees
+/// would put ten bundles of work on strings that only ever land in a log file,
+/// and would make the real user-facing set harder to audit.
 pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     if headings.is_empty() {
         return Ok(());
@@ -190,10 +162,22 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     let mut located: Vec<(u32, String, usize)> = Vec::with_capacity(headings.len());
     let mut cursor = 0usize;
     let mut unplaced = 0usize;
+    // Where each distinct heading TEXT was last placed. Searching forward from
+    // the cursor is not enough on its own: the search starts AT the cursor, so a
+    // heading repeated later in the document ("Overview" under two different
+    // parents) matched the first occurrence twice and both bookmarks pointed at
+    // the same page. Only a repeat of the same text needs to skip past its own
+    // previous hit — two DIFFERENT headings frequently share one page.
+    let mut placed: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for h in headings {
-        match super::outline_match::find_heading_page(&page_texts, &h.text, cursor) {
+        let from = match placed.get(h.text.as_str()) {
+            Some(prev) => cursor.max(prev.saturating_add(1)),
+            None => cursor,
+        };
+        match super::outline_match::find_heading_page(&page_texts, &h.text, from) {
             Some(page) => {
                 cursor = page;
+                placed.insert(h.text.as_str(), page);
                 located.push((h.level, h.text.clone(), page));
             }
             None => {

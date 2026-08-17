@@ -188,3 +188,13 @@ fn a_start_page_past_the_end_matches_nothing() {
     let p = pages(&["A", "B"]);
     assert_eq!(find_heading_page(&p, "A", 99), None);
 }
+
+#[test]
+fn a_repeated_heading_text_does_not_claim_the_same_page_twice() {
+    // The caller skips past a repeat's own previous hit; this documents the
+    // search behaviour that makes it work — starting one page on finds the
+    // second occurrence rather than the first again.
+    let p = pages(&["Overview\nbody", "middle", "Overview\nbody again"]);
+    assert_eq!(find_heading_page(&p, "Overview", 0), Some(0));
+    assert_eq!(find_heading_page(&p, "Overview", 1), Some(2));
+}
