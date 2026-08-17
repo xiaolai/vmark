@@ -298,6 +298,14 @@ describe("pdfHtmlTemplate expandDetails", () => {
     expect(out).toContain("body");
   });
 
+  it.each([
+    '<details title = open><summary>s</summary></details>',
+    '<details data-x= open><summary>s</summary></details>',
+  ])("opens a tag whose UNQUOTED attribute value is the word open (%s)", (html) => {
+    // Stripping only QUOTED values missed these, so the block stayed collapsed.
+    expect(expandDetails(html)).toContain("<details open ");
+  });
+
   it("treats a bare OPEN in any case as already open", () => {
     expect(expandDetails("<details OPEN><summary>s</summary></details>")).toBe(
       "<details OPEN><summary>s</summary></details>",

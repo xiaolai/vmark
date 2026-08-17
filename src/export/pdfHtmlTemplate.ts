@@ -152,9 +152,15 @@ export function expandDetails(html: string): string {
   // the same data loss this function exists to prevent. A quoted `>` inside an
   // attribute value also truncated the tag.
   return html.replace(/<details\b([^>]*(?:"[^"]*"[^>]*|'[^']*'[^>]*)*)>/gi, (tag, attrs: string) => {
-    // Strip quoted values before looking for a bare `open` attribute.
-    const bare = attrs.replace(/=\s*"[^"]*"/g, "=").replace(/=\s*'[^']*'/g, "=");
-    return /(^|\s)open(\s|=|$)/i.test(bare) ? tag : `<details open${attrs}>`;
+    // Strip every attribute VALUE — quoted or bare — before looking for a
+    // standalone `open`. Quoted alone was not enough: `title = open` has an
+    // unquoted value, and treating that as the boolean attribute left the block
+    // collapsed and its body out of the PDF.
+    const bare = attrs
+      .replace(/=\s*"[^"]*"/g, "")
+      .replace(/=\s*'[^']*'/g, "")
+      .replace(/=\s*[^\s>]+/g, "");
+    return /(^|\s)open(\s|$)/i.test(bare) ? tag : `<details open${attrs}>`;
   });
 }
 
