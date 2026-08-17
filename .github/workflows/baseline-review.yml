@@ -63,11 +63,17 @@ jobs:
           # exists to surface. Issue #1248 was filed that way.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      # NO `cache: pnpm` here, and no pnpm setup — deliberately. Every step
+      # below runs `node scripts/*.mjs` straight off the checkout; nothing in
+      # this job installs dependencies. Asking setup-node to cache a pnpm store
+      # that is never created makes its POST step fail with "Path Validation
+      # Error: Path(s) specified in the action for caching do(es) not exist",
+      # which reddens `measure` after it has already produced its outputs — and
+      # `report` needs `measure` to succeed, so the weekly issue silently stops
+      # being filed while the measurement itself was fine. Observed 2026-08-17.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
 
       # Validation first, and it is a HARD failure: an inconsistent schedule
       # (a baseline tracked nowhere, a stale key) means the report below would
