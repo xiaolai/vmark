@@ -4,13 +4,15 @@
 //! The platform-neutral shell lives in `renderer/`; each platform implements
 //! only the part that must touch a native webview.
 //!
-//! macOS additionally injects a heading outline via PDFKit. Windows and Linux
-//! ship without one — a stated gap, not a silent one (ADR-PDF3).
+//! A heading outline is injected on EVERY platform, via lopdf. It was PDFKit
+//! and therefore macOS-only until now, so Windows and Linux shipped PDFs with
+//! no sidebar table of contents (ADR-PDF3, now closed).
 
-#[cfg(target_os = "macos")]
-mod bookmarks;
 pub mod commands;
-pub(crate) mod heading;
+pub mod heading;
+pub mod outline;
+mod outline_match;
+mod outline_tree;
 pub mod page_spec;
 pub mod renderer;
 

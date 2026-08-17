@@ -89,20 +89,20 @@ pub async fn export_pdf(
 
     renderer::render_pdf(app, html, output_path.clone(), page).await?;
 
-    // Add bookmarks if headings were provided. macOS only: the injector is
-    // PDFKit (ADR-PDF3). Elsewhere the PDF ships without an outline, which is
-    // a documented gap rather than a failure — so this is not an error path.
-    #[cfg(target_os = "macos")]
+    // Add the outline if headings were provided. Cross-platform since the
+    // injector became lopdf rather than PDFKit — Windows and Linux used to ship
+    // outline-less PDFs (ADR-PDF3).
+    //
+    // Still not an error path: a PDF without a sidebar is a worse PDF, not a
+    // failed export, and refusing the whole job over it would lose the document
+    // the user just waited for.
     if let Some(ref headings) = headings {
         if !headings.is_empty() {
-            if let Err(e) = super::bookmarks::add_bookmarks(&output_path, headings) {
-                log::warn!("[PDF] bookmark injection failed (PDF still valid): {}", e);
-                // Don't fail the export — PDF is still valid without bookmarks
+            if let Err(e) = super::outline::add_outline(&output_path, headings) {
+                log::warn!("[PDF] outline injection failed (PDF still valid): {}", e);
             }
         }
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = &headings;
 
     Ok(())
 }

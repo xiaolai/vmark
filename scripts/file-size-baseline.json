@@ -1,9 +1,8 @@
 {
-  "_comment": "Frozen baseline of files exceeding the ~300-line rule (initial audit 20260612). scripts/check-file-size.mjs fails CI on NEW violators or growth of these. Burn entries down (split the file, lower or remove its number); never raise a number for logic growth. Rust entries were re-baselined 2026-07-02 to post-rustfmt line counts when `cargo fmt` became a CI gate \u2014 formatting normalization, zero logic change (see commit for the clippy/fmt pass); the ratchet direction still applies from these new values.",
-  "_note_browser_fmt_20260716": "browser/ai_commands.rs (302) and browser/origin_guard.rs (303) crossed 300 purely from `cargo fmt` line-wrapping when the fmt check was added to the pre-push gate (they were <300 pre-fmt; ai_commands.rs also took a mechanical clippy manual_map fix that removed lines). Formatting normalization, zero logic change \u2014 same case as the 2026-07-02 re-baseline noted above. Ratchet down from here (split or trim), never raise.",
+  "_comment": "Frozen baseline of files exceeding the ~300-line rule (initial audit 20260612). scripts/check-file-size.mjs fails CI on NEW violators or growth of these. Burn entries down (split the file, lower or remove its number); never raise a number for logic growth. Rust entries were re-baselined 2026-07-02 to post-rustfmt line counts when `cargo fmt` became a CI gate — formatting normalization, zero logic change (see commit for the clippy/fmt pass); the ratchet direction still applies from these new values.",
+  "_note_browser_fmt_20260716": "browser/ai_commands.rs (302) and browser/origin_guard.rs (303) crossed 300 purely from `cargo fmt` line-wrapping when the fmt check was added to the pre-push gate (they were <300 pre-fmt; ai_commands.rs also took a mechanical clippy manual_map fix that removed lines). Formatting normalization, zero logic change — same case as the 2026-07-02 re-baseline noted above. Ratchet down from here (split or trim), never raise.",
   "_note_embedded_browser_20260712": "WI-1.1: workspace.rs baseline ratcheted 632->385 by splitting its test module out to workspace.test.rs (a pure move; *.test.rs is excluded from the size count, so it is not baselined). WI-1.2: the Phase-0 spike_embed.rs probe was retired (recipe preserved in git cd162e02) and its baseline entry removed; lib.rs ratcheted 308->301 as those spike registrations left it, then grows ~1 line per registered browser command (WI-1.2/2.1/1.4 surface + driver + freeze/thaw = 310; WI-1.7 back/forward history = 312; WI-1.7 stop = 313; WI-1.7 confirm-dialog respond = 314). lib.rs is the app composition root (a command registry); this is registration growth, not logic bloat. surface.rs's macOS impl was split to surface_macos.rs (#[path]) to keep both under the 300 limit; the nav/UI delegate (WI-1.7/1.8) is a further #[path] split (nav_delegate_macos.rs); the run-loop pump/drive_load helpers split to driver_loop_macos.rs so surface_macos.rs stays under 300 as native rows are added.",
-  "_note_mcp_sidecar_20260728": "WI-7 (MCP audit remediation): scripts/check-file-size.mjs ROOTS gained server/mcp/src, which the gate had never scanned (audit 20260728 \u00a74). Four entries froze the sidecar files that already exceeded 300 at their PRE-CHANGE sizes. Three have since ratcheted: server.ts left the baseline entirely (302 -> 160, after the eight unused arg extractors and the resource registry went), cli.ts 322 -> 317 (the dead resource-registration loop, minus the VERSION/capabilities comments that replaced it), and bridge/websocket.ts left it too (831 -> 299) when the audit's named seams were extracted into siblings \u2014 websocketConfig, connection, authHandshake, reconnect, pendingRequests, requestQueue, rateLimiter, wsProtocol \u2014 a pure refactor with the test file untouched. cli.ts then left the baseline too (317 -> 269) when detectClientIdentity moved to the new utils/clientIdentity.ts alongside the per-client credential reader \u2014 the extraction this note had already named. No sidecar file is baselined now. Never raise.",
-  "limit": 300,
+  "_note_mcp_sidecar_20260728": "WI-7 (MCP audit remediation): scripts/check-file-size.mjs ROOTS gained server/mcp/src, which the gate had never scanned (audit 20260728 §4). Four entries froze the sidecar files that already exceeded 300 at their PRE-CHANGE sizes. Three have since ratcheted: server.ts left the baseline entirely (302 -> 160, after the eight unused arg extractors and the resource registry went), cli.ts 322 -> 317 (the dead resource-registration loop, minus the VERSION/capabilities comments that replaced it), and bridge/websocket.ts left it too (831 -> 299) when the audit's named seams were extracted into siblings — websocketConfig, connection, authHandshake, reconnect, pendingRequests, requestQueue, rateLimiter, wsProtocol — a pure refactor with the test file untouched. cli.ts then left the baseline too (317 -> 269) when detectClientIdentity moved to the new utils/clientIdentity.ts alongside the per-client credential reader — the extraction this note had already named. No sidecar file is baselined now. Never raise.",
   "files": {
     "server/content/src/server/createServer.ts": 411,
     "server/mcp/src/tools/browser.ts": 336,
@@ -21,7 +20,6 @@
     "src-tauri/src/hot_exit/migration_v5_tests.rs": 306,
     "src-tauri/src/mcp_bridge/server.rs": 497,
     "src-tauri/src/menu/dynamic.rs": 378,
-    "src-tauri/src/pdf_export/bookmarks.rs": 389,
     "src-tauri/src/workflow/commands.rs": 354,
     "src-tauri/src/workflow/condition.rs": 345,
     "src-tauri/src/workflow/expressions.rs": 359,
@@ -43,8 +41,8 @@
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
     "src/components/Tabs/useTabContextMenuActions.ts": 349,
     "src/contexts/WindowContext.tsx": 348,
-    "src/export/htmlExport.ts": 331,
     "src/export/PdfSettingsSidebar.tsx": 345,
+    "src/export/htmlExport.ts": 331,
     "src/export/reader/vmark-reader.js": 1343,
     "src/export/resourceResolver.ts": 445,
     "src/export/useExportOperations.ts": 446,
@@ -75,8 +73,8 @@
     "src/plugins/multiCursor/inputHandling.ts": 354,
     "src/plugins/search/tiptap.ts": 337,
     "src/plugins/sourceContextDetection/footnoteActions.ts": 436,
-    "src/plugins/sourcePopup/createSourcePopupPlugin.ts": 344,
     "src/plugins/sourcePopup/SourcePopupView.ts": 358,
+    "src/plugins/sourcePopup/createSourcePopupPlugin.ts": 344,
     "src/plugins/tabIndent/tabEscape.ts": 301,
     "src/plugins/tableUI/tableActions.tiptap.ts": 343,
     "src/plugins/toolbarActions/enableRules.ts": 319,
@@ -97,7 +95,7 @@
     "src/utils/exportNaming.ts": 327,
     "src/utils/textTransformations.ts": 335
   },
-  "testLimit": 800,
+  "limit": 300,
   "testFiles": {
     "src-tauri/src/mcp_config/config_io.test.rs": 832,
     "src/components/Editor/SourceEditor.test.tsx": 937,
@@ -108,9 +106,9 @@
     "src/components/GeniePicker/GeniePicker.test.tsx": 1278,
     "src/components/Tabs/TabContextMenu.test.tsx": 1480,
     "src/components/Tabs/useTabContextMenuActions.test.ts": 842,
+    "src/components/Terminal/TerminalContextMenu.test.tsx": 889,
     "src/components/Terminal/createTerminalInstance.test.ts": 1116,
     "src/components/Terminal/spawnPty.test.ts": 832,
-    "src/components/Terminal/TerminalContextMenu.test.tsx": 889,
     "src/components/Terminal/terminalKeyHandler.test.ts": 862,
     "src/contexts/WindowContext.test.tsx": 1573,
     "src/export/resourceResolver.test.ts": 1084,
@@ -141,8 +139,8 @@
     "src/plugins/linkPopup/tiptap.test.ts": 845,
     "src/plugins/markdownCopy/tiptap.test.ts": 1134,
     "src/plugins/mediaHandler/__tests__/mediaHandler.test.ts": 949,
-    "src/plugins/mediaPopup/__tests__/MediaPopupView.test.ts": 1499,
     "src/plugins/mediaPopup/MediaPopupView.test.ts": 1455,
+    "src/plugins/mediaPopup/__tests__/MediaPopupView.test.ts": 1499,
     "src/plugins/mermaidPreview/__tests__/MermaidPreviewView.test.ts": 1035,
     "src/plugins/multiCursor/__tests__/commands.test.ts": 1074,
     "src/plugins/multiCursor/__tests__/feature-complete.test.ts": 2132,
@@ -172,5 +170,6 @@
     "src/utils/markdownPipeline/parser.test.ts": 1438,
     "src/utils/markdownPipeline/pmBlockConverters.test.ts": 1301,
     "src/utils/sanitize.test.ts": 1107
-  }
+  },
+  "testLimit": 800
 }

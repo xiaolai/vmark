@@ -20,6 +20,7 @@
 
 use std::path::{Path, PathBuf};
 
+use vmark_lib::pdf_export::heading::Heading;
 use vmark_lib::pdf_export::page_spec::PageSpec;
 
 /// Split argv into the optional `--html <file>` source and the out-dir.
@@ -139,6 +140,57 @@ fn retarget(html: &str, page: PageSpec) -> String {
     )
 }
 
+/// Pull headings out of the export HTML, the way the dialog does from the DOM.
+///
+/// The harness calls the renderer directly, below the command layer where the
+/// outline is injected — so without this the artifacts could never show whether
+/// the sidebar works, which is exactly how the macOS-only gap went unnoticed.
+fn headings_of(html: &str) -> Vec<Heading> {
+    let mut out = Vec::new();
+    let body = html.find("<body").map(|i| &html[i..]).unwrap_or(html);
+    let mut rest = body;
+    while let Some(i) = rest.find("<h") {
+        let after = &rest[i + 2..];
+        let level = match after.as_bytes().first() {
+            Some(c @ b'1'..=b'6') => u32::from(c - b'0'),
+            _ => {
+                rest = &rest[i + 2..];
+                continue;
+            }
+        };
+        let Some(open_end) = after.find('>') else {
+            break;
+        };
+        let tail = &after[open_end + 1..];
+        let Some(close) = tail.find("</h") else { break };
+        let text: String = strip_tags(&tail[..close]);
+        if !text.trim().is_empty() {
+            out.push(Heading {
+                level,
+                text: text.trim().to_string(),
+            });
+        }
+        rest = &tail[close..];
+    }
+    out
+}
+
+/// Drop nested markup so a heading with inline code or a link still matches the
+/// plain text the PDF carries.
+fn strip_tags(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut depth = 0usize;
+    for ch in s.chars() {
+        match ch {
+            '<' => depth += 1,
+            '>' => depth = depth.saturating_sub(1),
+            c if depth == 0 => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Render `html_path` once per geometry into `out`. Returns the failure count.
 pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize {
     let html = match std::fs::read_to_string(html_path) {
@@ -167,7 +219,17 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
             page.margin_left_pt = Some(MARGIN_PT);
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
-            let result = super::render(app, &retarget(&html, page), &path, page).await;
+            let mut result = super::render(app, &retarget(&html, page), &path, page).await;
+            // Inject the outline exactly as the command layer does, so the
+            // artifact a human opens has the sidebar the shipped export gives.
+            if result.is_ok() {
+                let headings = headings_of(&html);
+                if let Err(e) =
+                    vmark_lib::pdf_export::outline::add_outline(&path.to_string_lossy(), &headings)
+                {
+                    result = Err(format!("outline: {e}"));
+                }
+            }
             failures += super::verify::check(
                 &label,
                 result,
