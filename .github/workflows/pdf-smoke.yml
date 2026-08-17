@@ -12,17 +12,27 @@ name: PDF smoke
 # landed) the stamped footer — because a backend that ignores its input still
 # returns Ok and still writes a valid %PDF.
 #
-# MANUAL, not required. It costs three runners and several minutes of native
-# webview work, and every defect it has caught was caught while changing the
-# exporter. Run it when you touch `src-tauri/src/pdf_export/**`, and attach the
-# artifacts to the PR. It is deliberately not a gate: making it one would put a
-# slow, display-dependent job in front of every unrelated change, which is how
-# a check gets routed around.
+# PATH-FILTERED, and NOT a required check. It runs on pull requests that touch
+# the exporter and nowhere else, because that is the only time it can find
+# anything — and because the class it catches has already bitten this subsystem
+# twice: the heading outline shipped macOS-only for months, and page numbers
+# would have too. Neither was visible from a macOS desk.
 #
-# It is not a liveness gate either (no `liveness-gate:` marker) — a
-# dispatch-only workflow has no cadence to be silent against.
+# It stays out of branch protection deliberately. It costs three runners and
+# several minutes of native webview work behind a full Rust compile, and it
+# depends on a display; a slow, display-dependent job in front of every merge is
+# how a check gets routed around rather than obeyed. Red here means read the
+# artifacts, not "cannot merge".
+#
+# It is not a liveness gate either (no `liveness-gate:` marker) — it has no
+# cadence to be silent against, since it only fires on relevant diffs.
 
 on:
+  pull_request:
+    paths:
+      - "src-tauri/src/pdf_export/**"
+      - "src-tauri/src/bin/pdf_smoke/**"
+      - ".github/workflows/pdf-smoke.yml"
   # No `ref` input: workflow_dispatch already takes the branch to run from, so
   # one would only be a second, unvalidated way to say the same thing — and an
   # attacker-settable string reaching `actions/checkout`'s `ref:` is the ref
