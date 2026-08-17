@@ -16,14 +16,21 @@
 /// Searches forward from `start_page` to handle duplicate heading texts correctly.
 /// Falls back to searching from page 0 if not found after start_page.
 /// Returns 0 (first page) if not found anywhere.
+/// The page a heading appears on, if it can be located.
+///
+/// Returns `None` rather than a page number when nothing matches. The previous
+/// sentinel was `0`, which is indistinguishable from a genuine first-page hit —
+/// and because the caller fed the result back as the next search's start page, a
+/// single unmatched heading rewound the cursor to the top of the document and
+/// every later heading re-matched against pages it had already passed.
 pub(super) fn find_heading_page(
     page_texts: &[String],
     heading_text: &str,
     start_page: usize,
-) -> usize {
+) -> Option<usize> {
     let needle = heading_text.trim();
     if needle.is_empty() {
-        return start_page.min(page_texts.len().saturating_sub(1));
+        return None;
     }
 
     // Try line-based matching first (heading text should appear as a distinct line
@@ -33,7 +40,7 @@ pub(super) fn find_heading_page(
     // Pass 1: Line-level match (most precise) — check if any line in the page
     // starts with or equals the heading text. Requires a word boundary after
     // the prefix to avoid "Chapter 1" matching "Chapter 10".
-    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+    if let Some(idx) = search_forward(page_texts, start_page, |text| {
         text.lines().any(|line| {
             let trimmed = line.trim();
             if trimmed == needle {
@@ -47,51 +54,61 @@ pub(super) fn find_heading_page(
             }
         })
     }) {
-        return idx;
+        return Some(idx);
     }
 
     // Pass 2: Substring with word boundary (handles run-together text from PDF extraction)
-    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+    if let Some(idx) = search_forward(page_texts, start_page, |text| {
         contains_with_boundary(text, needle)
     }) {
-        return idx;
+        return Some(idx);
     }
 
     // Pass 3: Case-insensitive substring with word boundary
     let lower = needle.to_lowercase();
-    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+    if let Some(idx) = search_forward(page_texts, start_page, |text| {
         contains_with_boundary(&text.to_lowercase(), &lower)
     }) {
-        return idx;
+        return Some(idx);
     }
 
-    // Pass 4: Plain substring (last resort — accepts partial matches)
-    if let Some(idx) = search_pages_with(page_texts, start_page, |text| text.contains(needle)) {
-        return idx;
+    // Pass 4: plain substring, last resort.
+    //
+    // An audit flagged this as defeating the boundary checks above, and in
+    // isolation it does. Kept anyway, on evidence: PDF text extraction glues
+    // words together when glyph positions imply no space, so a heading really
+    // does appear as "SeeChapter 1Here" — pinned by a test — and passes 1-3
+    // reject that correctly. The collision the boundary rule exists to stop
+    // ("Chapter 1" claiming a "Chapter 10" page) is caught by pass 1, which
+    // matches whole lines and runs first.
+    //
+    // Its blast radius is now bounded in a way it was not when the audit ran:
+    // the search no longer wraps, so a false positive here can only land at or
+    // after the previous heading, never behind it.
+    if let Some(idx) = search_forward(page_texts, start_page, |text| text.contains(needle)) {
+        return Some(idx);
     }
 
-    0
+    None
 }
 
-/// Search pages starting from `start_page`, wrapping around to the beginning.
-/// Returns the first page index where `predicate` returns true.
-fn search_pages_with<F>(page_texts: &[String], start_page: usize, predicate: F) -> Option<usize>
+/// Search pages from `start_page` forward. Never wraps.
+///
+/// Wrapping used to let a bookmark point BACKWARD past the previous heading,
+/// which in a document with a table of contents reliably selected the TOC's own
+/// mention of a section instead of the section itself. Headings appear in
+/// document order, so a match behind the cursor is a false positive by
+/// construction.
+fn search_forward<F>(page_texts: &[String], start_page: usize, predicate: F) -> Option<usize>
 where
     F: Fn(&str) -> bool,
 {
-    // Search forward from start_page
-    for (i, text) in page_texts.iter().enumerate().skip(start_page) {
-        if predicate(text) {
-            return Some(i);
-        }
-    }
-    // Wrap around: search from beginning up to start_page
-    for (i, text) in page_texts.iter().enumerate().take(start_page) {
-        if predicate(text) {
-            return Some(i);
-        }
-    }
-    None
+    page_texts
+        .iter()
+        .enumerate()
+        .skip(start_page)
+        .find(|(_, text)| predicate(text))
+        .map(|(i, _)| i)
 }
 
 /// Check if `haystack` contains `needle` with a non-alphanumeric boundary

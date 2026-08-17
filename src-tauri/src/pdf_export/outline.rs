@@ -115,7 +115,9 @@ fn emit(
 
         // 1-based page numbers; clamp rather than drop, so a heading whose text
         // could not be located still yields a usable bookmark.
-        let page_no = (node.page as u32).saturating_add(1);
+        let page_no = u32::try_from(node.page)
+            .unwrap_or(u32::MAX)
+            .saturating_add(1);
         if let Some(page_id) = pages.get(&page_no).or_else(|| pages.values().next()) {
             dict.set(
                 "Dest",
@@ -158,17 +160,57 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
         return Err(rust_i18n::t!("errors.pdf.noPages").to_string());
     }
 
+    // A page whose text cannot be extracted yields an empty string, which makes
+    // every heading miss it. Silently that reads as "the heading is not in this
+    // document" and lands the bookmark on the wrong page, so count the failures
+    // and say so — the outline is still worth writing, just less reliable.
+    let mut unreadable = 0usize;
     let page_texts: Vec<String> = pages
         .keys()
-        .map(|n| doc.extract_text(&[*n]).unwrap_or_default())
+        .map(|n| match doc.extract_text(&[*n]) {
+            Ok(t) => t,
+            Err(e) => {
+                log::debug!("[PDF] page {n} text extraction failed: {e}");
+                unreadable += 1;
+                String::new()
+            }
+        })
         .collect();
+    if unreadable > 0 {
+        log::warn!(
+            "[PDF] {unreadable}/{} pages had no extractable text; some bookmarks may point at the wrong page",
+            page_texts.len()
+        );
+    }
 
+    // Matching is monotonic: the cursor only advances, and a heading that cannot
+    // be located does NOT move it. Feeding a miss back as the next start page is
+    // what used to rewind the search to page 0 and let later bookmarks land on
+    // earlier pages than their predecessors.
     let mut located: Vec<(u32, String, usize)> = Vec::with_capacity(headings.len());
-    let mut last_page = 0usize;
+    let mut cursor = 0usize;
+    let mut unplaced = 0usize;
     for h in headings {
-        let page = super::outline_match::find_heading_page(&page_texts, &h.text, last_page);
-        last_page = page;
-        located.push((h.level, h.text.clone(), page));
+        match super::outline_match::find_heading_page(&page_texts, &h.text, cursor) {
+            Some(page) => {
+                cursor = page;
+                located.push((h.level, h.text.clone(), page));
+            }
+            None => {
+                // Keep the heading — losing it from the sidebar is worse than a
+                // destination one section early — but point it at the last page
+                // we are sure about rather than guessing forward.
+                unplaced += 1;
+                located.push((h.level, h.text.clone(), cursor));
+            }
+        }
+    }
+    if unplaced > 0 {
+        log::warn!(
+            "[PDF] {unplaced}/{} headings could not be located in the rendered text; \
+             their bookmarks point at the preceding section",
+            headings.len()
+        );
     }
 
     let tree = build_tree(&located);
@@ -177,6 +219,7 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
 
     let mut root = Dictionary::new();
     root.set("Type", Object::Name(b"Outlines".to_vec()));
+    root.set("Count", Object::Integer(0));
     if let Some((first, last, count)) = emitted {
         root.set("First", Object::Reference(first));
         root.set("Last", Object::Reference(last));
@@ -192,7 +235,25 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     // outline looks absent even though it is there.
     catalog.set("PageMode", Object::Name(b"UseOutlines".to_vec()));
 
-    doc.save(pdf_path).map_err(|e| format!("save PDF: {e}"))?;
+    // Write beside the target and rename over it. `Document::save` truncates
+    // its path before serializing, so saving in place would destroy a PDF the
+    // renderer had already produced correctly if anything failed mid-write —
+    // and the caller deliberately downgrades an outline failure to a warning,
+    // which is only honest while a failure leaves the original intact.
+    //
+    // Same directory, so the rename is a same-filesystem operation rather than
+    // a copy across devices that can itself fail halfway.
+    let target = std::path::Path::new(pdf_path);
+    let tmp = target.with_extension("outline.tmp");
+    doc.save(&tmp).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("save PDF: {e}")
+    })?;
+    std::fs::rename(&tmp, target).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("replace PDF: {e}")
+    })?;
+
     log::info!("[PDF] outline written with {} headings", headings.len());
     Ok(())
 }
