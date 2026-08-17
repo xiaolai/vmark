@@ -112,3 +112,70 @@ describe("exported CSS variable coverage", () => {
     expect(extractRootBlocks(".foo { color: red }")).toBe("");
   });
 });
+
+/**
+ * The CSS builders return template literals, so a backtick anywhere inside one —
+ * including inside a CSS comment — terminates the literal and breaks the build.
+ * That happened three times while writing these rules, each time costing a
+ * verification cycle. The transform error is loud, but only once someone runs
+ * the suite; this makes the same mistake fail on the rule itself, and also
+ * catches the quieter variant where a PAIR of backticks balances and silently
+ * injects an interpolation into the stylesheet.
+ */
+describe("generated stylesheets are well-formed", () => {
+  const sheets: Array<[string, string]> = [
+    ["sharedContentCSS", getSharedContentCSS()],
+    ["forceLightThemeCSS", getForceLightThemeCSS()],
+    ["exportOverrides", getExportOverrides()],
+  ];
+
+  it.each(sheets)("%s contains no backtick", (_name, css) => {
+    expect(css).not.toContain("`");
+  });
+
+  it.each(sheets)("%s has balanced braces", (_name, css) => {
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    let depth = 0;
+    let min = 0;
+    for (const ch of stripped) {
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        min = Math.min(min, depth);
+      }
+    }
+    expect({ depth, min }).toEqual({ depth: 0, min: 0 });
+  });
+});
+
+/**
+ * `word-break: break-word` collapses a cell's min-content width to one
+ * character, so `table-layout: auto` may squeeze any column arbitrarily narrow
+ * and break ordinary words — printed headers came out as "Prop erty".
+ *
+ * The rule is declared TWICE at equal specificity (exportOverrides and
+ * sharedContentCSS), so removing it from one had no effect: the other still
+ * declared it and last-one-wins applied it. This asserts on the COMBINED
+ * stylesheet, which is the only level at which the property is really absent.
+ */
+describe("table cells do not collapse to one-character columns", () => {
+  const combined = [getSharedContentCSS(), getExportOverrides()].join("\n");
+
+  it("declares no word-break on table cells anywhere in the export CSS", () => {
+    const offenders: string[] = [];
+    const noComments = combined.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of noComments.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      const sel = m[1]!;
+      const decls = m[2]!;
+      if (/\b(td|th)\b/.test(sel) && !/\b(code|kbd)\b/.test(sel) && /word-break/.test(decls)) {
+        offenders.push(sel.trim().replace(/\s+/g, " "));
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("still lets a long code token break, so one cell cannot overflow the page", () => {
+    const noComments = combined.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(noComments).toMatch(/(td|th)\s+code[^{]*\{[^}]*overflow-wrap:\s*anywhere/);
+  });
+});

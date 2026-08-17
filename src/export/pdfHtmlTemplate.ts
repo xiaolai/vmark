@@ -129,8 +129,38 @@ function sharedContentCSS(): string {
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
+  /*
+   * overflow-wrap: break-word breaks a word ONLY when it cannot fit a line by
+   * itself, and leaves min-content width alone. word-break: break-word, which
+   * used to sit here, behaves like overflow-wrap: anywhere and collapses
+   * min-content to a SINGLE CHARACTER — so table-layout: auto was free to
+   * squeeze any column arbitrarily narrow, and a six-column table rendered its
+   * headers as "Prop erty" and "brea k-insid e". Dropping it restores
+   * longest-word column sizing while still preventing one long token from
+   * overflowing the page box (issue #1087).
+   *
+   * hyphens: auto is deliberately NOT set: it re-opens the same hole from the
+   * other side, since a hyphenation opportunity inside a word also lowers
+   * min-content. It turned the headers into Au-thori-ty and Ori-enta-tion.
+   */
   overflow-wrap: break-word;
-  word-break: break-word;
+}
+
+/*
+ * When a table's min-content width genuinely exceeds the printable width, the
+ * browser must shrink columns below their longest word and starts breaking
+ * ordinary prose — the six-column table rendered its headers as Prop erty and
+ * Autho rity. The excess is almost always long unbreakable CODE tokens
+ * (ShouldPrintBackgrounds, print-color-adjust) monopolising width, so the break
+ * is aimed at THEM: anywhere lowers min-content for code spans only, freeing
+ * the layout to give prose columns their whole words.
+ */
+.export-surface-editor td code,
+.export-surface-editor th code,
+.export-surface-editor td kbd,
+.export-surface-editor th kbd {
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .export-surface-editor td img {
   max-width: 100%;
@@ -164,6 +194,29 @@ blockquote {
 h1, h2, h3, h4, h5, h6 {
   page-break-after: avoid;
   break-after: avoid;
+}
+
+/*
+ * The code-block chrome OVERLAYS the block on screen: .code-block-actions is
+ * absolutely positioned at top 4px, which is right for a hover affordance and
+ * wrong for paper, where it printed the language chip on top of the block's
+ * first line and border. On paper there is no hover, so it goes back in flow —
+ * it precedes the <pre> in the DOM, so it lands above the code where a listing
+ * label belongs. The copy and run buttons are dropped outright: they are
+ * actions, and paper has none.
+ */
+.export-surface .code-copy-btn {
+  display: none !important;
+}
+.export-surface .code-block-wrapper {
+  flex-wrap: wrap;
+}
+.export-surface .code-block-actions {
+  position: static;
+  order: -1;
+  flex: 0 0 100%;
+  justify-content: flex-end;
+  padding-bottom: 2px;
 }
 
 /*
