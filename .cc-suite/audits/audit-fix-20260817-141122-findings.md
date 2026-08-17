@@ -11,11 +11,11 @@
 | 3 | src-tauri/src/pdf_export/outline.rs | 163 | High | Logic | `extract_text(..).unwrap_or_default()` turns parser/font errors into empty pages; headings then get false destinations with no diagnostic | Record failures; log degraded extraction | fixed | 1 |
 | 4 | src-tauri/src/pdf_export/outline_match.rs | 73 | High | Logic | "Not found" is page 0, indistinguishable from a real first-page hit; it also resets `last_page`, so one miss rewinds all later matching | Return Option; preserve the last confirmed page | fixed | 1 |
 | 5 | src-tauri/src/pdf_export/outline_match.rs | 89 | High | Logic | Wrap-around lets a destination move backward, usually onto an earlier TOC mention rather than the real heading | Search monotonically forward | fixed | 1 |
-| 6 | src-tauri/src/pdf_export/outline_match.rs | 83 | High | Logic | Search starts inclusively at the previous page, so two identical headings both match the first occurrence | Advance past the consumed occurrence | not-fixed | - |
-| 7 | src-tauri/src/pdf_export/outline_match.rs | 69 | High | Logic | The final unrestricted substring pass defeats the boundary protection of the earlier passes | Drop it or bound it | not-fixed | - |
-| 8 | src-tauri/src/pdf_export/outline.rs | 129 | High | Logic | `emit` recurses per nesting level without a depth bound | Bound the depth | open | - |
+| 6 | src-tauri/src/pdf_export/outline_match.rs | 83 | High | Logic | Search starts inclusively at the previous page, so two identical headings both match the first occurrence | Advance past the consumed occurrence | fixed | 3 |
+| 7 | src-tauri/src/pdf_export/outline_match.rs | 69 | High | Logic | The final unrestricted substring pass defeats the boundary protection of the earlier passes | Drop it or bound it | closed (overruled) | 3 |
+| 8 | src-tauri/src/pdf_export/outline.rs | 129 | High | Logic | `emit` recurses per nesting level without a depth bound | Bound the depth | fixed | 3 |
 | 9 | src-tauri/src/pdf_export/outline.rs | 91 | High | Logic | `node.page as u32` can wrap on a pathological index | Use try_from | fixed | 1 |
-| 10 | src-tauri/src/pdf_export/outline.rs | 92 | High | Refactor | `emit` is long and does id allocation, linkage, destination and recursion together | Split | open | - |
-| 11 | src-tauri/src/pdf_export/outline_match.rs | 36 | High | Duplication | Four near-identical search passes | Table-drive them | open | - |
-| 12 | src-tauri/src/pdf_export/outline.rs | 150 | Medium | Shortcut | Error strings are raw English, not localized | Use t!() | open | - |
+| 10 | src-tauri/src/pdf_export/outline.rs | 92 | High | Refactor | `emit` is long and does id allocation, linkage, destination and recursion together | Split | closed (reason recorded) | 3 |
+| 11 | src-tauri/src/pdf_export/outline_match.rs | 36 | High | Duplication | Four near-identical search passes | Table-drive them | fixed | 3 |
+| 12 | src-tauri/src/pdf_export/outline.rs | 150 | Medium | Shortcut | Error strings are raw English, not localized | Use t!() | closed (reason recorded) | 3 |
 | 13 | src-tauri/src/pdf_export/outline.rs | 176 | Low | Dead | `/Count` on an empty root omitted rather than 0 | Set 0 | fixed | 1 |

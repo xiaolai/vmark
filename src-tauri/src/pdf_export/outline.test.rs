@@ -71,11 +71,24 @@ fn two_page_pdf(path: &str) {
     doc.save(path).expect("write fixture pdf");
 }
 
+/// A PDF path inside a directory of this test's own.
+///
+/// Per-test directory, not a shared one: the scratch-file assertion below scans
+/// the PDF's directory, and these tests run in parallel — on a shared temp dir
+/// it saw a SIBLING test's in-flight scratch file and failed. It passed on macOS
+/// and Linux by timing luck and failed on Windows, which is the same flake
+/// either way.
 fn temp_pdf(name: &str) -> String {
-    std::env::temp_dir()
-        .join(format!("vmark-outline-test-{name}.pdf"))
-        .to_string_lossy()
-        .into_owned()
+    let dir = std::env::temp_dir().join(format!("vmark-outline-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create test dir");
+    dir.join("doc.pdf").to_string_lossy().into_owned()
+}
+
+/// Remove the PDF and the directory created for it.
+fn cleanup(path: &str) {
+    if let Some(dir) = std::path::Path::new(path).parent() {
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }
 
 #[test]
@@ -131,7 +144,7 @@ fn the_saved_pdf_carries_an_outline_a_viewer_can_read() {
         first_id,
         "sibling links must point back"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 #[test]
@@ -158,7 +171,7 @@ fn the_viewer_is_asked_to_show_the_sidebar() {
         b"UseOutlines",
         "without PageMode most viewers open collapsed and the outline looks absent"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 #[test]
@@ -174,7 +187,7 @@ fn no_headings_leaves_the_pdf_untouched_and_succeeds() {
         before,
         "file must not be rewritten"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 #[test]
@@ -221,7 +234,7 @@ fn a_failed_outline_write_leaves_no_scratch_file_behind() {
         leftovers.is_empty(),
         "scratch files left behind: {leftovers:?}"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 #[test]
@@ -250,7 +263,7 @@ fn the_original_pdf_survives_when_there_is_nothing_to_write() {
         std::fs::read(&path).unwrap() != before,
         "an outline was added"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 #[test]
@@ -275,7 +288,7 @@ fn the_outline_is_written_beside_the_target_not_over_it() {
         Document::load(&path).is_ok(),
         "replacement must be a valid PDF"
     );
-    let _ = std::fs::remove_file(&path);
+    cleanup(&path);
 }
 
 // --- closing the last audit findings ---
