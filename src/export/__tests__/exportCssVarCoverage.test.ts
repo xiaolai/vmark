@@ -22,7 +22,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
-import { extractRootBlocks } from "../primitiveTokens";
+import { extractRootBlocks, getPrimitiveTokenCSS } from "../primitiveTokens";
 import { getSharedContentCSS, getForceLightThemeCSS } from "../pdfHtmlTemplate";
 import { getExportOverrides } from "../exportOverrides";
 import { EXPORT_CSS_VARS } from "../themeSnapshot";
@@ -65,7 +65,7 @@ const RUNTIME_VARS = [
 describe("exported CSS variable coverage", () => {
   const sheets = bundledStylesheets();
   const bundledCSS = sheets.map((p) => readFileSync(p, "utf8")).join("\n");
-  const primitives = extractRootBlocks(readFileSync(INDEX_CSS, "utf8"));
+  const primitives = getPrimitiveTokenCSS();
 
   it("reads a non-empty bundle — guards against the vacuous version", () => {
     expect(sheets.length).toBeGreaterThan(15);
@@ -92,7 +92,31 @@ describe("exported CSS variable coverage", () => {
   });
 
   it("ships the primitive that every table border depends on", () => {
-    expect(primitives).toMatch(/--border-thin:\s*1px/);
+    expect(getPrimitiveTokenCSS()).toMatch(/--border-thin:\s*1px/);
+  });
+
+  /**
+   * The shipped primitives are INLINED rather than imported from index.css,
+   * because a raw import puts the whole 12.8 kB stylesheet into the export
+   * chunk and blows the size-limit budget for ~2.1 kB of usable content. That
+   * is only safe while a gate pins the copy to the original — otherwise the
+   * values drift silently and the PDF renders with stale tokens.
+   */
+  it("pins every shipped primitive to its value in index.css", () => {
+    const authority = new Map<string, string>();
+    for (const m of extractRootBlocks(readFileSync(INDEX_CSS, "utf8"))
+      .matchAll(/(--[a-zA-Z0-9-]+)\s*:\s*([^;]+);/g)) {
+      authority.set(m[1]!, m[2]!.trim());
+    }
+    const drifted: string[] = [];
+    for (const m of getPrimitiveTokenCSS().matchAll(/(--[a-zA-Z0-9-]+)\s*:\s*([^;]+);/g)) {
+      const name = m[1]!;
+      const mine = m[2]!.trim();
+      const theirs = authority.get(name);
+      if (theirs === undefined) drifted.push(`${name}: not in index.css`);
+      else if (theirs !== mine) drifted.push(`${name}: ${mine} != ${theirs}`);
+    }
+    expect(drifted).toEqual([]);
   });
 
   it("takes :root only — a themed override must not leak into the export", () => {
