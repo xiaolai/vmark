@@ -51,7 +51,7 @@ export interface PageSpec {
 }
 
 /** Millimetres to PostScript points. The dialog stores margins in mm. */
-export function mmToPt(mm: number): number {
+function mmToPt(mm: number): number {
   return (mm * 72) / 25.4;
 }
 
