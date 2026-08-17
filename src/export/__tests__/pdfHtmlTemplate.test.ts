@@ -309,3 +309,19 @@ describe("pdfHtmlTemplate — WebKit needs the logical sizing property", () => {
     expect(logical).toEqual(physical);
   });
 });
+
+/**
+ * WebKit ignores break-inside in print, so a block that must stay whole has to
+ * be made ATOMIC instead. A replaced element already is; an inline SVG inside a
+ * div is not, which is why Mermaid diagrams fragmented on macOS and Linux while
+ * Chromium relocated them.
+ */
+describe("pdfHtmlTemplate — diagram previews survive a page boundary", () => {
+  it("makes the preview box atomic rather than relying on break-inside", () => {
+    const css = getSharedContentCSS();
+    const rule = css.slice(css.indexOf(".export-surface .code-block-preview"));
+    const decls = rule.slice(0, rule.indexOf("}"));
+    expect(decls).toContain("display: inline-block");
+    expect(decls).toContain("width: 100%");
+  });
+});

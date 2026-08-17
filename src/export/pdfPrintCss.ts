@@ -134,6 +134,28 @@ h1, h2, h3, h4, h5, h6 {
 .export-surface .code-block-wrapper {
   flex-wrap: wrap;
 }
+
+/*
+ * Keep a rendered diagram whole.
+ *
+ * break-inside: avoid does not do this on WebKit, which ignores it in print.
+ * The tall <img> survives anyway because a replaced element is ATOMIC: it
+ * relocates to the next page rather than fragmenting. A Mermaid diagram is an
+ * inline <svg> inside a block div, which is NOT atomic, so WebKit split it —
+ * measured on a4-landscape, the flowchart lost its PDF node to the next page
+ * and the sequence diagram lost its closing participant row, while Chromium
+ * honoured break-inside and moved each one whole.
+ *
+ * display: inline-block makes the box atomic, which both engines respect
+ * without being asked. width: 100% keeps the previous full-width layout, and
+ * vertical-align: top stops the inline box sitting on the text baseline and
+ * adding a descender gap.
+ */
+.export-surface .code-block-preview {
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
+}
 .export-surface .code-block-actions {
   position: static;
   order: -1;
