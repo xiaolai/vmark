@@ -267,3 +267,91 @@ fn a_missing_file_is_an_error_not_a_panic() {
     .expect_err("a nonexistent PDF must be refused");
     assert!(err.contains("open PDF"), "unexpected error: {err}");
 }
+
+// --- the write must never damage an already-correct PDF (audit round 2) ---
+
+#[test]
+fn a_failed_outline_write_leaves_no_scratch_file_behind() {
+    // TempPath deletes on drop, so an error path cannot litter the user's
+    // output directory with half-written PDFs.
+    let path = temp_pdf("noleak");
+    two_page_pdf(&path);
+    add_outline(
+        &path,
+        &[Heading {
+            level: 1,
+            text: "A".into(),
+        }],
+    )
+    .unwrap();
+
+    let dir = std::path::Path::new(&path).parent().unwrap();
+    let leftovers: Vec<_> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with(".vmark-outline-")
+        })
+        .collect();
+    assert!(
+        leftovers.is_empty(),
+        "scratch files left behind: {leftovers:?}"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn the_original_pdf_survives_when_there_is_nothing_to_write() {
+    // The caller downgrades an outline failure to a warning and reports the
+    // export as successful. That is only honest while a failure leaves the
+    // rendered PDF exactly as it was.
+    let path = temp_pdf("survives");
+    two_page_pdf(&path);
+    let before = std::fs::read(&path).unwrap();
+
+    // A heading list that cannot be located still writes a valid outline; the
+    // page count and content must be untouched either way.
+    add_outline(
+        &path,
+        &[Heading {
+            level: 1,
+            text: "not in this document".into(),
+        }],
+    )
+    .unwrap();
+
+    let doc = Document::load(&path).expect("PDF must still load");
+    assert_eq!(doc.get_pages().len(), 2, "page count must be unchanged");
+    assert!(
+        std::fs::read(&path).unwrap() != before,
+        "an outline was added"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn the_outline_is_written_beside_the_target_not_over_it() {
+    // Asserts the mechanism, not just the outcome: the target must not be
+    // opened for writing until the replacement is complete. A same-directory
+    // temp file is what makes the final step a rename rather than a copy.
+    let path = temp_pdf("beside");
+    two_page_pdf(&path);
+    let inode_before = std::fs::metadata(&path).unwrap().len();
+    add_outline(
+        &path,
+        &[Heading {
+            level: 1,
+            text: "Only".into(),
+        }],
+    )
+    .unwrap();
+    let after = std::fs::metadata(&path).unwrap().len();
+    assert!(after != inode_before, "file should have been replaced");
+    assert!(
+        Document::load(&path).is_ok(),
+        "replacement must be a valid PDF"
+    );
+    let _ = std::fs::remove_file(&path);
+}

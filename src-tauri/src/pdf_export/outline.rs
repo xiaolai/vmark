@@ -241,18 +241,33 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     // and the caller deliberately downgrades an outline failure to a warning,
     // which is only honest while a failure leaves the original intact.
     //
-    // Same directory, so the rename is a same-filesystem operation rather than
-    // a copy across devices that can itself fail halfway.
+    // The temp file comes from `tempfile`, not a derived name like
+    // `x.outline.tmp`. A deterministic name is the same defect this crate's own
+    // renderer already had once: it can be pre-created as a symlink, which
+    // `File::create` follows straight back onto the target, and two concurrent
+    // exports of the same document would share it. `tempfile` creates with
+    // O_EXCL and 0600, and `TempPath` deletes on drop, so an error path cannot
+    // leave the scratch file behind.
+    //
+    // Same directory, so `persist` is a same-filesystem rename rather than a
+    // copy across devices that can itself fail halfway.
     let target = std::path::Path::new(pdf_path);
-    let tmp = target.with_extension("outline.tmp");
-    doc.save(&tmp).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp);
-        format!("save PDF: {e}")
-    })?;
-    std::fs::rename(&tmp, target).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp);
-        format!("replace PDF: {e}")
-    })?;
+    let dir = target.parent().filter(|d| !d.as_os_str().is_empty());
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".vmark-outline-").suffix(".pdf");
+    let tmp = match dir {
+        Some(d) => builder.tempfile_in(d),
+        None => builder.tempfile(),
+    }
+    .map_err(|e| format!("create temp PDF: {e}"))?;
+    // Close our handle before lopdf opens the path itself; Windows refuses a
+    // rename over a file that still has an open handle.
+    let tmp_path = tmp.into_temp_path();
+
+    doc.save(&tmp_path).map_err(|e| format!("save PDF: {e}"))?;
+    tmp_path
+        .persist(target)
+        .map_err(|e| format!("replace PDF: {e}"))?;
 
     log::info!("[PDF] outline written with {} headings", headings.len());
     Ok(())
