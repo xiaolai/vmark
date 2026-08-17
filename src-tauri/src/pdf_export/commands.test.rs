@@ -24,19 +24,24 @@ fn missing_dir_path(name: &str) -> String {
 
 /// An absolute path in a directory that DOES exist, for extension tests.
 fn existing_dir_path(name: &str) -> String {
-    std::env::temp_dir().join(name).to_string_lossy().into_owned()
+    std::env::temp_dir()
+        .join(name)
+        .to_string_lossy()
+        .into_owned()
 }
 
 #[test]
 fn a_non_pdf_extension_is_invalid_input() {
-    let err = validate_output_path(&existing_dir_path("out.txt")).expect_err("a .txt path must be refused");
+    let err = validate_output_path(&existing_dir_path("out.txt"))
+        .expect_err("a .txt path must be refused");
     assert_eq!(err.code(), ErrorCode::InvalidInput);
     assert_eq!(err.i18n_key(), Some("errors.pdf.invalidExtension"));
 }
 
 #[test]
 fn a_missing_extension_is_refused_too() {
-    let err = validate_output_path(&existing_dir_path("no-extension")).expect_err("a bare name must be refused");
+    let err = validate_output_path(&existing_dir_path("no-extension"))
+        .expect_err("a bare name must be refused");
     assert_eq!(err.code(), ErrorCode::InvalidInput);
 }
 
