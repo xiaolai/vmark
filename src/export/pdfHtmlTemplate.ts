@@ -25,7 +25,7 @@ import { getPrimitiveTokenCSS } from "./primitiveTokens";
 import { buildFontStack } from "@/utils/fontStacks";
 import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
 import { buildFitCSS } from "./pdfFitToPage";
-import { type PdfOptions, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
+import { type PdfOptions, PAGE_SIZE_KEYWORDS, effectiveBottomMarginMm } from "./pdfOptions";
 
 // Re-exported so existing importers keep one entry point for the export API.
 export { MARGIN_PRESETS, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
@@ -54,7 +54,11 @@ export function getSharedContentCSS(): string {
 function buildPageCSS(options: PdfOptions): string {
   const sizeKeyword = PAGE_SIZE_KEYWORDS[options.pageSize] ?? PAGE_SIZE_KEYWORDS.a4;
   const size = `${sizeKeyword} ${options.orientation}`;
-  const margin = `${options.marginTop}mm ${options.marginRight}mm ${options.marginBottom}mm ${options.marginLeft}mm`;
+  // The bottom uses the RESERVED margin: page numbers are stamped inside that
+  // band, so the content area has to stop short of them or the footer prints
+  // over the last line. Identical to what `buildPageNumberSpec` is told.
+  const bottom = effectiveBottomMarginMm(options);
+  const margin = `${options.marginTop}mm ${options.marginRight}mm ${bottom}mm ${options.marginLeft}mm`;
 
   return `
 @page {

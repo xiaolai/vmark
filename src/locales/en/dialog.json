@@ -113,6 +113,7 @@
   "toast.failedToOpenPrintDialog": "Failed to open print dialog",
   "toast.htmlCopied": "HTML copied to clipboard",
   "toast.pdfExportSuccess": "PDF exported successfully",
+  "toast.pdfExportPartial": "PDF exported, but {{what}} could not be added.",
   "toast.pdfExportFailed": "PDF export failed: {{error}}",
   "toast.cannotMoveTabNoDoc": "Cannot move tab: document is not loaded.",
   "toast.cannotMoveLastTab": "Cannot move the last tab in the main window.",

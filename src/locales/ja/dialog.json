@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "印刷ダイアログを開けませんでした",
   "toast.htmlCopied": "HTMLをクリップボードにコピーしました",
   "toast.pdfExportSuccess": "PDFのエクスポートに成功しました",
+  "toast.pdfExportPartial": "PDF を書き出しましたが、{{what}}を追加できませんでした。",
   "toast.pdfExportFailed": "PDFエクスポートが失敗しました: {{error}}",
   "toast.cannotMoveTabNoDoc": "タブを移動できません: ドキュメントが読み込まれていません。",
   "toast.cannotMoveLastTab": "メインウィンドウの最後のタブは移動できません。",

@@ -251,6 +251,8 @@ errors:
   pdf.printTimeoutSecs: "列印在 %{seconds} 秒後逾時"
   pdf.unsupportedPlatform: "此平台尚不支援匯出 PDF"
   pdf.invalidPageSize: "頁面%{axis}無效：%{value}"
+  pdf.invalidPageNumberSpec: "頁碼設定無效 %{field}：%{value}"
+  pdf.postProcessPanicked: "PDF 後處理意外失敗：%{detail}"
   pdf.renderWindowFailed: "無法建立算繪視窗：%{detail}"
   pdf.loadFailed: "用於列印的文件載入失敗"
   pdf.printRefused: "列印引擎未能產生 PDF"

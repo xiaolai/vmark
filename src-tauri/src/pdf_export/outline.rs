@@ -169,15 +169,38 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     // the same page. Only a repeat of the same text needs to skip past its own
     // previous hit — two DIFFERENT headings frequently share one page.
     let mut placed: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    // How many bookmarks this exact text has already consumed on a given page.
+    // Skipping to `prev + 1` unconditionally — which is what this replaces —
+    // made two identically-named sections on ONE page unplaceable: the second
+    // was pushed to wherever the text next appeared, or fell back to the cursor.
+    let mut consumed: std::collections::HashMap<(&str, usize), usize> =
+        std::collections::HashMap::new();
     for h in headings {
         let from = match placed.get(h.text.as_str()) {
-            Some(prev) => cursor.max(prev.saturating_add(1)),
+            Some(prev) => {
+                let used = consumed
+                    .get(&(h.text.as_str(), *prev))
+                    .copied()
+                    .unwrap_or(1);
+                let available = page_texts
+                    .get(*prev)
+                    .map(|t| super::outline_match::occurrences_on_page(t, &h.text))
+                    .unwrap_or(0);
+                // Stay on the page only while it genuinely carries another
+                // occurrence; otherwise move past it as before.
+                if available > used {
+                    cursor.max(*prev)
+                } else {
+                    cursor.max(prev.saturating_add(1))
+                }
+            }
             None => cursor,
         };
         match super::outline_match::find_heading_page(&page_texts, &h.text, from) {
             Some(page) => {
                 cursor = page;
                 placed.insert(h.text.as_str(), page);
+                *consumed.entry((h.text.as_str(), page)).or_insert(0) += 1;
                 located.push((h.level, h.text.clone(), page));
             }
             None => {
@@ -222,7 +245,7 @@ pub fn add_outline(pdf_path: &str, headings: &[Heading]) -> Result<(), String> {
     // Atomic replace, shared with the page-number stamper: both rewrite a PDF
     // the renderer already produced, and both callers downgrade failure to a
     // warning, which is only honest while the original survives.
-    super::pdf_io::save_atomically(&mut doc, pdf_path, ".vmark-outline-")?;
+    super::pdf_io::save_atomically(&mut doc, pdf_path)?;
 
     log::info!("[PDF] outline written with {} headings", headings.len());
     Ok(())

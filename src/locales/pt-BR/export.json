@@ -28,6 +28,7 @@
   "pdf.exporting": "Exportando…",
   "pdf.progress.preparing": "Preparando…",
   "pdf.progress.loading": "Carregando conteúdo…",
+  "pdf.progress.finishing": "Finalizando…",
   "pdf.progress.rendering": "Gerando PDF…",
   "pdf.progress.done": "Concluído",
   "pdf.saveDialog.title": "Exportar PDF",
@@ -42,5 +43,7 @@
   "pdf.pageNumbers.format.plain": "7",
   "pdf.pageNumbers.format.withTotal": "7 / 12",
   "pdf.pageNumbers.format.verbose": "Página 7 de 12",
+  "pdf.warning.outline-failed": "o sumário lateral",
+  "pdf.warning.page-numbers-failed": "os números de página",
   "pdf.pageNumbers.verboseTemplate": "Página {n} de {total}"
 }

@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "Error al abrir el cuadro de diálogo de impresión",
   "toast.htmlCopied": "HTML copiado al portapapeles",
   "toast.pdfExportSuccess": "PDF exportado correctamente",
+  "toast.pdfExportPartial": "PDF exportado, pero no se pudo añadir {{what}}.",
   "toast.pdfExportFailed": "Error al exportar PDF: {{error}}",
   "toast.cannotMoveTabNoDoc": "No se puede mover la pestaña: el documento no está cargado.",
   "toast.cannotMoveLastTab": "No se puede mover la última pestaña de la ventana principal.",

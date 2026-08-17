@@ -36,31 +36,51 @@ export interface StylePreset {
   marginLeft: number;
 }
 
+/**
+ * Spread a named margin preset into the four fields a `StylePreset` carries.
+ *
+ * Every style preset's margins were previously written out as four literals
+ * that happened to equal a `MARGIN_PRESETS` entry — two independently editable
+ * sources for one set of numbers. Retuning `wide` then silently left `academic`
+ * on the old values, and `detectMarginPreset` would report "custom" for a
+ * preset the user had just chosen.
+ */
+function margins(preset: keyof typeof MARGIN_PRESETS | string) {
+  const p = MARGIN_PRESETS[preset];
+  if (!p) throw new Error(`unknown margin preset: ${preset}`);
+  return {
+    marginTop: p.top,
+    marginRight: p.right,
+    marginBottom: p.bottom,
+    marginLeft: p.left,
+  };
+}
+
 /** Built-in style presets: Default, Academic, Compact, and Elegant. */
 export const STYLE_PRESETS: Record<string, StylePreset> = {
   default: {
     labelKey: "pdf.preset.default",
     fontSize: 11, lineHeight: 1.6,
     latinFont: "system", cjkFont: "system",
-    marginTop: 25.4, marginRight: 25.4, marginBottom: 25.4, marginLeft: 25.4,
+    ...margins("normal"),
   },
   academic: {
     labelKey: "pdf.preset.academic",
     fontSize: 12, lineHeight: 2.0,
     latinFont: "palatino", cjkFont: "songti",
-    marginTop: 25.4, marginRight: 38.1, marginBottom: 25.4, marginLeft: 38.1,
+    ...margins("wide"),
   },
   compact: {
     labelKey: "pdf.preset.compact",
     fontSize: 10, lineHeight: 1.4,
     latinFont: "system", cjkFont: "system",
-    marginTop: 12.7, marginRight: 12.7, marginBottom: 12.7, marginLeft: 12.7,
+    ...margins("narrow"),
   },
   elegant: {
     labelKey: "pdf.preset.elegant",
     fontSize: 12, lineHeight: 1.8,
     latinFont: "athelas", cjkFont: "kaiti",
-    marginTop: 25.4, marginRight: 25.4, marginBottom: 25.4, marginLeft: 25.4,
+    ...margins("normal"),
   },
 };
 

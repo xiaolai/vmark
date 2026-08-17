@@ -73,6 +73,35 @@ pub(super) fn find_heading_page(
         .find_map(|predicate| search_forward(page_texts, start_page, predicate))
 }
 
+/// How many times `heading_text` appears as a heading-shaped line on `page`.
+///
+/// Used to decide whether a REPEATED heading can resolve to the page its
+/// previous occurrence took. The caller used to force a repeat to start one page
+/// later unconditionally, which made two identically-named sections on a single
+/// page impossible to place — the second bookmark jumped forward to wherever the
+/// text next appeared, or fell back to the cursor. Counting lets the repeat stay
+/// put when the page really does carry it twice, while a page carrying it once
+/// still pushes the repeat forward, which is what the original guard was for.
+///
+/// Deliberately uses only the strict whole-line shape. The looser substring
+/// passes exist to rescue mangled extraction, and counting with them would let
+/// one visual heading plus a body mention read as two headings.
+pub(super) fn occurrences_on_page(page: &str, heading_text: &str) -> usize {
+    let needle = heading_text.trim();
+    if needle.is_empty() {
+        return 0;
+    }
+    page.lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            trimmed == needle
+                || trimmed
+                    .strip_prefix(needle)
+                    .is_some_and(|rest| rest.starts_with(|c: char| !c.is_alphanumeric()))
+        })
+        .count()
+}
+
 /// Search pages from `start_page` forward. Never wraps.
 ///
 /// Wrapping used to let a bookmark point BACKWARD past the previous heading,

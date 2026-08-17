@@ -115,17 +115,10 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
     (side: MarginSide, value: number) => {
       set(side, value);
       const next = { ...options, [side]: value };
-      // Re-detect margin preset
-      let found = false;
-      for (const [name, p] of Object.entries(MARGIN_PRESETS)) {
-        if (next.marginTop === p.top && next.marginRight === p.right &&
-            next.marginBottom === p.bottom && next.marginLeft === p.left) {
-          setMarginPreset(name);
-          found = true;
-          break;
-        }
-      }
-      if (!found) setMarginPreset("custom");
+      // `detectMarginPreset`, not a second copy of its loop — the copy that was
+      // here matched the same four fields against the same table, so the two
+      // could only ever disagree after someone edited one of them.
+      setMarginPreset(detectMarginPreset(next));
       setStylePreset(detectStylePreset(next));
     },
     [set, options],

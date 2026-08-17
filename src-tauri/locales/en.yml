@@ -252,6 +252,8 @@ errors:
   pdf.printTimeoutSecs: "Print timed out after %{seconds} seconds"
   pdf.unsupportedPlatform: "PDF export is not yet available on this platform"
   pdf.invalidPageSize: "Invalid page %{axis}: %{value}"
+  pdf.invalidPageNumberSpec: "Invalid page-number setting %{field}: %{value}"
+  pdf.postProcessPanicked: "PDF post-processing failed unexpectedly: %{detail}"
   pdf.renderWindowFailed: "Could not create the render window: %{detail}"
   pdf.loadFailed: "The document failed to load for printing"
   pdf.printRefused: "The print engine declined to produce a PDF"

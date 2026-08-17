@@ -60,6 +60,43 @@ export function CollapsibleSection({
 
 export type MarginSide = "marginTop" | "marginRight" | "marginBottom" | "marginLeft";
 
+/**
+ * One margin field.
+ *
+ * Extracted because the same input existed four times, differing only by side
+ * and value — and the duplication had already propagated a defect: every copy
+ * declared `step={1}` while the shipped presets are 25.4, 12.7 and 38.1mm, so
+ * the field was step-mismatched and the spinner snapped away the fraction.
+ * Fixing that once meant fixing it four times, which is the argument.
+ *
+ * The rounding to one decimal matches `step` deliberately: A4's 25.4mm is an
+ * inch, and letting it become 25 silently changes the page geometry.
+ */
+function MarginInput({
+  side, value, onChange,
+}: {
+  side: MarginSide;
+  value: number;
+  onChange: (side: MarginSide, value: number) => void;
+}) {
+  return (
+    <input
+      type="number"
+      className="margin-layout-input"
+      value={value}
+      min={0}
+      max={100}
+      step={0.1}
+      onChange={(e) => {
+        const v = parseFloat(e.target.value);
+        if (!Number.isNaN(v) && v >= 0 && v <= 100) {
+          onChange(side, Math.round(v * 10) / 10);
+        }
+      }}
+    />
+  );
+}
+
 /** Visual page margin diagram with editable mm inputs on all 4 sides. */
 export function MarginLayoutDiagram({
   top, right, bottom, left, landscape, unitLabel, onChange,
@@ -72,49 +109,18 @@ export function MarginLayoutDiagram({
   unitLabel: string;
   onChange: (side: MarginSide, value: number) => void;
 }) {
-  const handleChange = (side: MarginSide, raw: string) => {
-    const v = parseFloat(raw);
-    if (!Number.isNaN(v) && v >= 0 && v <= 100) {
-      onChange(side, Math.round(v * 10) / 10);
-    }
-  };
-
   return (
     <div className="margin-layout">
       <div className="margin-layout-top">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={top}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginTop", e.target.value)}
-        />
+        <MarginInput side="marginTop" value={top} onChange={onChange} />
       </div>
       <div className="margin-layout-middle">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={left}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginLeft", e.target.value)}
-        />
+        <MarginInput side="marginLeft" value={left} onChange={onChange} />
         <div className={`margin-layout-page ${landscape ? "margin-layout-page--landscape" : ""}`} />
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={right}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginRight", e.target.value)}
-        />
+        <MarginInput side="marginRight" value={right} onChange={onChange} />
       </div>
       <div className="margin-layout-bottom">
-        <input
-          type="number"
-          className="margin-layout-input"
-          value={bottom}
-          min={0} max={100} step={1}
-          onChange={(e) => handleChange("marginBottom", e.target.value)}
-        />
+        <MarginInput side="marginBottom" value={bottom} onChange={onChange} />
       </div>
       <span className="margin-layout-unit">{unitLabel}</span>
     </div>

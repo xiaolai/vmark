@@ -20,9 +20,11 @@
 
 use std::path::{Path, PathBuf};
 
-use vmark_lib::pdf_export::heading::Heading;
 use vmark_lib::pdf_export::page_numbers::{Format, PageNumberSpec, Position};
 use vmark_lib::pdf_export::page_spec::PageSpec;
+
+use super::html_text::headings_of;
+use super::page_number_fixture::{spec, with_default_margins};
 
 /// Split argv into the optional `--html <file>` source and the out-dir.
 ///
@@ -30,8 +32,30 @@ use vmark_lib::pdf_export::page_spec::PageSpec;
 /// consumed by `--html`; without that second condition `--html x.html out/`
 /// would take `x.html` as the out-dir and silently render into a directory
 /// named after the source.
-pub fn parse_args(args: Vec<String>) -> (Option<PathBuf>, PathBuf) {
-    let html_idx = args.iter().position(|a| a == "--html").map(|i| i + 1);
+///
+/// A malformed invocation is an ERROR, not a fallback. A bare `--html` with no
+/// value used to leave `one_shot` as `None`, so the harness quietly ran the
+/// fixture matrix instead — a green transcript for a run that never opened the
+/// document the caller asked about.
+pub fn parse_args(args: Vec<String>) -> Result<(Option<PathBuf>, PathBuf), String> {
+    let flag_idx = args.iter().position(|a| a == "--html");
+    let html_idx = flag_idx.map(|i| i + 1);
+    if let Some(i) = html_idx {
+        match args.get(i) {
+            None => return Err("--html needs a file path".into()),
+            Some(v) if v.starts_with("--") => {
+                return Err(format!("--html needs a file path, got the flag {v:?}"))
+            }
+            Some(_) => {}
+        }
+    }
+    if let Some(unknown) = args
+        .iter()
+        .skip(1)
+        .find(|a| a.starts_with("--") && a.as_str() != "--html")
+    {
+        return Err(format!("unknown flag {unknown:?}"));
+    }
     let one_shot = html_idx.and_then(|i| args.get(i)).map(PathBuf::from);
     let out_dir = args
         .iter()
@@ -40,11 +64,8 @@ pub fn parse_args(args: Vec<String>) -> (Option<PathBuf>, PathBuf) {
         .find(|(i, a)| !a.starts_with("--") && Some(*i) != html_idx)
         .map(|(_, a)| PathBuf::from(a))
         .unwrap_or_else(std::env::temp_dir);
-    (one_shot, out_dir)
+    Ok((one_shot, out_dir))
 }
-
-/// The dialog's default margin, 25.4mm in points.
-const MARGIN_PT: f64 = 72.0;
 
 /// Portrait geometries in points, matching the dialog's page-size list.
 const SIZES: [(&str, f64, f64); 3] = [
@@ -141,57 +162,6 @@ fn retarget(html: &str, page: PageSpec) -> String {
     )
 }
 
-/// Pull headings out of the export HTML, the way the dialog does from the DOM.
-///
-/// The harness calls the renderer directly, below the command layer where the
-/// outline is injected — so without this the artifacts could never show whether
-/// the sidebar works, which is exactly how the macOS-only gap went unnoticed.
-fn headings_of(html: &str) -> Vec<Heading> {
-    let mut out = Vec::new();
-    let body = html.find("<body").map(|i| &html[i..]).unwrap_or(html);
-    let mut rest = body;
-    while let Some(i) = rest.find("<h") {
-        let after = &rest[i + 2..];
-        let level = match after.as_bytes().first() {
-            Some(c @ b'1'..=b'6') => u32::from(c - b'0'),
-            _ => {
-                rest = &rest[i + 2..];
-                continue;
-            }
-        };
-        let Some(open_end) = after.find('>') else {
-            break;
-        };
-        let tail = &after[open_end + 1..];
-        let Some(close) = tail.find("</h") else { break };
-        let text: String = strip_tags(&tail[..close]);
-        if !text.trim().is_empty() {
-            out.push(Heading {
-                level,
-                text: text.trim().to_string(),
-            });
-        }
-        rest = &tail[close..];
-    }
-    out
-}
-
-/// Drop nested markup so a heading with inline code or a link still matches the
-/// plain text the PDF carries.
-fn strip_tags(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut depth = 0usize;
-    for ch in s.chars() {
-        match ch {
-            '<' => depth += 1,
-            '>' => depth = depth.saturating_sub(1),
-            c if depth == 0 => out.push(c),
-            _ => {}
-        }
-    }
-    out
-}
-
 /// The page-number request for one geometry.
 ///
 /// Portrait sheets get the shipping default (bottom-centre, plain). Landscape
@@ -199,26 +169,24 @@ fn strip_tags(s: &str) -> String {
 /// exercises every branch rather than proving one path six times — and each
 /// file's variant is implied by its name, which is what makes the three
 /// platforms' outputs comparable side by side.
+///
+/// The VALUES come from `page_number_fixture`, shared with the fixture matrix:
+/// duplicating the dialog's defaults in two harness modes is how one of them
+/// silently stops matching the app.
 fn page_number_spec(landscape: bool) -> PageNumberSpec {
-    PageNumberSpec {
-        position: if landscape {
+    spec(
+        if landscape {
             Position::BottomRight
         } else {
             Position::BottomCenter
         },
-        format: if landscape {
+        if landscape {
             Format::WithTotal
         } else {
             Format::Plain
         },
-        skip_first: landscape,
-        // The dialog's defaults: max(7, fontSize 11 * 0.85), and the same 72pt
-        // margins this harness renders at.
-        font_size_pt: 9.35,
-        bottom_margin_pt: MARGIN_PT,
-        side_margin_pt: MARGIN_PT,
-        verbose_template: "Page {n} of {total}".to_string(),
-    }
+        landscape,
+    )
 }
 
 /// Render `html_path` once per geometry into `out`. Returns the failure count.
@@ -238,15 +206,11 @@ pub async fn run(app: &tauri::AppHandle, html_path: &Path, out: &Path) -> usize 
             // Landscape is a width/height swap, never a flag — ADR-PDF1a.
             // Match the captured document's CSS margins (25.4mm = 72pt), so
             // the artifact shows what a real export produces on each platform.
-            let mut page = if landscape {
-                PageSpec::new(h, w)
+            let page = if landscape {
+                with_default_margins(h, w)
             } else {
-                PageSpec::new(w, h)
+                with_default_margins(w, h)
             };
-            page.margin_top_pt = Some(MARGIN_PT);
-            page.margin_right_pt = Some(MARGIN_PT);
-            page.margin_bottom_pt = Some(MARGIN_PT);
-            page.margin_left_pt = Some(MARGIN_PT);
             let label = format!("{name}{}", if landscape { "-landscape" } else { "" });
             let path = out.join(format!("showcase-{label}.pdf"));
             let mut result = super::render(app, &retarget(&html, page), &path, page).await;

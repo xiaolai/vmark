@@ -198,3 +198,37 @@ fn a_repeated_heading_text_does_not_claim_the_same_page_twice() {
     assert_eq!(find_heading_page(&p, "Overview", 0), Some(0));
     assert_eq!(find_heading_page(&p, "Overview", 1), Some(2));
 }
+
+// --- occurrences_on_page: how many bookmarks one page can absorb ---
+
+#[test]
+fn a_page_carrying_the_heading_twice_reports_two() {
+    // This is what lets two identically-named sections on ONE page both keep
+    // their own bookmark. Skipping to the next page unconditionally — the rule
+    // this count replaced — made the second unplaceable.
+    let page = "Overview\nsome body\nOverview\nmore body";
+    assert_eq!(occurrences_on_page(page, "Overview"), 2);
+}
+
+#[test]
+fn a_body_mention_is_not_counted_as_a_heading() {
+    // Only the whole-line shape counts. The looser passes in `find_heading_page`
+    // exist to rescue mangled extraction; counting with them would read one
+    // visible heading plus a sentence about it as two sections, and push the
+    // second bookmark onto a page that has no such heading.
+    let page = "Overview\nsee the Overview section for details";
+    assert_eq!(occurrences_on_page(page, "Overview"), 1);
+}
+
+#[test]
+fn a_trailing_punctuation_variant_still_counts() {
+    // Extraction routinely glues a number or a separator onto the heading line.
+    assert_eq!(occurrences_on_page("Overview:\nbody", "Overview"), 1);
+    // But a longer word starting with the needle is a different heading.
+    assert_eq!(occurrences_on_page("Overviewing\nbody", "Overview"), 0);
+}
+
+#[test]
+fn an_empty_needle_counts_nothing() {
+    assert_eq!(occurrences_on_page("anything", "   "), 0);
+}

@@ -9,6 +9,7 @@ fn spec(position: Position, format: Format) -> PageNumberSpec {
         bottom_margin_pt: 72.0,
         side_margin_pt: 72.0,
         verbose_template: "Page {n} of {total}".to_string(),
+        ink_rgb: Default::default(),
     }
 }
 
@@ -169,6 +170,84 @@ fn skip_first_leaves_the_title_page_unnumbered() {
 }
 
 #[test]
+fn the_ink_colour_reaches_the_content_stream() {
+    // Black on a dark-theme export is invisible, so the frontend sends the ink
+    // it wants. A hardcoded `0 0 0 rg` would pass every other test here.
+    let dir = test_dir("ink");
+    let path = dir.join("doc.pdf");
+    blank_pdf(&path, 1);
+    let mut s = spec(Position::BottomCenter, Format::Plain);
+    s.ink_rgb = InkRgb([0.78, 0.78, 0.78]);
+    stamp_page_numbers(&path.to_string_lossy(), &s).unwrap();
+
+    let doc = Document::load(&path).unwrap();
+    let (_, page_id) = doc.get_pages().into_iter().next().unwrap();
+    let text = page_text(&doc, page_id);
+    assert!(text.contains("0.780 0.780 0.780 rg"), "got: {text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_mediabox_with_a_non_zero_origin_still_lands_on_the_paper() {
+    // A cropped or imposed PDF can start at e.g. [20 20 615 862]. Ignoring the
+    // origin shifts the number off both edges — and off the sheet entirely once
+    // the origin exceeds the margin.
+    let dir = test_dir("origin");
+    let path = dir.join("doc.pdf");
+    offset_pdf(&path, 100.0);
+    stamp_page_numbers(
+        &path.to_string_lossy(),
+        &spec(Position::BottomCenter, Format::Plain),
+    )
+    .unwrap();
+
+    let doc = Document::load(&path).unwrap();
+    let (_, page_id) = doc.get_pages().into_iter().next().unwrap();
+    let text = page_text(&doc, page_id);
+    let td = text
+        .lines()
+        .find(|l| l.ends_with(" Td"))
+        .expect("a Td line must exist");
+    let coords: Vec<f64> = td
+        .split_whitespace()
+        .take(2)
+        .map(|t| t.parse().unwrap())
+        .collect();
+    assert!(
+        coords[0] >= 100.0 && coords[1] >= 100.0,
+        "baseline {coords:?} must be inside a box starting at (100,100)"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A one-page fixture whose MediaBox starts at `(offset, offset)`.
+fn offset_pdf(path: &std::path::Path, offset: f64) {
+    let mut doc = Document::with_version("1.5");
+    let pages_id = doc.new_object_id();
+    let stream = doc.add_object(Stream::new(Dictionary::new(), Vec::new()));
+    let page = doc.add_object(dictionary! {
+        "Type" => "Page",
+        "Parent" => pages_id,
+        "Contents" => stream,
+    });
+    doc.set_object(
+        pages_id,
+        dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![Object::Reference(page)],
+            "Count" => 1_i64,
+            "MediaBox" => vec![
+                offset.into(), offset.into(),
+                (offset + 595.0).into(), (offset + 842.0).into(),
+            ],
+        },
+    );
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    doc.trailer.set("Root", catalog);
+    doc.save(path).expect("write fixture");
+}
+
+#[test]
 fn position_none_leaves_the_file_byte_identical() {
     let dir = test_dir("none");
     let path = dir.join("doc.pdf");
@@ -193,11 +272,12 @@ fn an_inherited_mediabox_is_found_rather_than_defaulted() {
     blank_pdf(&path, 1);
     let doc = Document::load(&path).unwrap();
     let (_, page_id) = doc.get_pages().into_iter().next().unwrap();
-    let (w, h) = page_size(&doc, page_id);
+    let (x0, y0, w, h) = page_box(&doc, page_id);
     assert!(
         (w - 595.0).abs() < 0.01 && (h - 842.0).abs() < 0.01,
         "got {w}x{h}"
     );
+    assert_eq!((x0, y0), (0.0, 0.0), "this fixture starts at the origin");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

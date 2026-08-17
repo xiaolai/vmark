@@ -28,6 +28,7 @@
   "pdf.exporting": "匯出中…",
   "pdf.progress.preparing": "準備中…",
   "pdf.progress.loading": "正在載入內容…",
+  "pdf.progress.finishing": "正在完成…",
   "pdf.progress.rendering": "正在產生 PDF…",
   "pdf.progress.done": "完成",
   "pdf.saveDialog.title": "匯出 PDF",
@@ -42,5 +43,7 @@
   "pdf.pageNumbers.format.plain": "7",
   "pdf.pageNumbers.format.withTotal": "7 / 12",
   "pdf.pageNumbers.format.verbose": "第 7 頁，共 12 頁",
+  "pdf.warning.outline-failed": "側邊欄目錄",
+  "pdf.warning.page-numbers-failed": "頁碼",
   "pdf.pageNumbers.verboseTemplate": "第 {n} 頁，共 {total} 頁"
 }

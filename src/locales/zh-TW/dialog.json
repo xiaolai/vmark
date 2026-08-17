@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "無法開啟列印對話框",
   "toast.htmlCopied": "HTML 已複製至剪貼簿",
   "toast.pdfExportSuccess": "PDF 匯出成功",
+  "toast.pdfExportPartial": "已匯出 PDF，但無法加入{{what}}。",
   "toast.pdfExportFailed": "PDF 匯出失敗：{{error}}",
   "toast.cannotMoveTabNoDoc": "無法移動標籤頁：文件未載入。",
   "toast.cannotMoveLastTab": "無法移動主視窗中最後一個標籤頁。",

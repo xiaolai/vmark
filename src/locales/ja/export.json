@@ -28,6 +28,7 @@
   "pdf.exporting": "エクスポート中…",
   "pdf.progress.preparing": "準備中…",
   "pdf.progress.loading": "コンテンツを読み込み中…",
+  "pdf.progress.finishing": "仕上げ中…",
   "pdf.progress.rendering": "PDF を生成中…",
   "pdf.progress.done": "完了",
   "pdf.saveDialog.title": "PDF をエクスポート",
@@ -42,5 +43,7 @@
   "pdf.pageNumbers.format.plain": "7",
   "pdf.pageNumbers.format.withTotal": "7 / 12",
   "pdf.pageNumbers.format.verbose": "12 ページ中 7 ページ目",
+  "pdf.warning.outline-failed": "サイドバーの目次",
+  "pdf.warning.page-numbers-failed": "ページ番号",
   "pdf.pageNumbers.verboseTemplate": "{total} ページ中 {n} ページ目"
 }

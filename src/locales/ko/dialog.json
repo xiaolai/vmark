@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "인쇄 대화 상자를 열지 못했습니다",
   "toast.htmlCopied": "HTML이 클립보드에 복사되었습니다",
   "toast.pdfExportSuccess": "PDF 내보내기가 완료되었습니다",
+  "toast.pdfExportPartial": "PDF를 내보냈지만 {{what}}을(를) 추가하지 못했습니다.",
   "toast.pdfExportFailed": "PDF 내보내기 실패: {{error}}",
   "toast.cannotMoveTabNoDoc": "탭을 이동할 수 없습니다: 문서가 로드되지 않았습니다.",
   "toast.cannotMoveLastTab": "메인 창의 마지막 탭은 이동할 수 없습니다.",

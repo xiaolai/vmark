@@ -9,7 +9,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildPageNumberSpec, type PdfOptions } from "../pdfOptions";
+import {
+  buildPageNumberSpec,
+  effectiveBottomMarginMm,
+  type PdfOptions,
+} from "../pdfOptions";
 
 function options(overrides: Partial<PdfOptions> = {}): PdfOptions {
   return {
@@ -102,10 +106,68 @@ describe("buildPageNumberSpec", () => {
       "bottomMarginPt",
       "fontSizePt",
       "format",
+      "inkRgb",
       "position",
       "sideMarginPt",
       "skipFirst",
       "verboseTemplate",
     ]);
+  });
+
+  it("draws black on a light page and light ink on a dark one", () => {
+    // Black on a dark-theme export is invisible, and the backend cannot know
+    // which theme the document was rendered with.
+    expect(buildPageNumberSpec(options(), TEMPLATE, true)!.inkRgb).toEqual([0, 0, 0]);
+    const dark = buildPageNumberSpec(
+      options({ useEditorTheme: true }),
+      TEMPLATE,
+      true,
+    )!;
+    expect(dark.inkRgb.every((c) => c > 0.5)).toBe(true);
+  });
+
+  it("keeps black when the editor is dark but the export forces light", () => {
+    // `useEditorTheme: false` forces a white page whatever the app looks like.
+    expect(buildPageNumberSpec(options(), TEMPLATE, true)!.inkRgb).toEqual([0, 0, 0]);
+  });
+});
+
+describe("effectiveBottomMarginMm", () => {
+  it("leaves a generous margin alone", () => {
+    // Every shipped preset is already wide enough; the reservation must not
+    // quietly change the geometry of a normal export.
+    expect(effectiveBottomMarginMm(options())).toBe(25.4);
+    expect(effectiveBottomMarginMm(options({ marginBottom: 12.7 }))).toBe(12.7);
+  });
+
+  it("reserves room for the footer when the margin cannot hold it", () => {
+    // The number is drawn INSIDE the bottom margin. At 0mm the baseline floor
+    // keeps it on the paper but puts it straight over the last line of text.
+    const reserved = effectiveBottomMarginMm(options({ marginBottom: 0 }));
+    expect(reserved).toBeGreaterThan(0);
+    // Twice the number's height: 11pt body → 9.35pt number → 18.7pt ≈ 6.6mm.
+    expect(reserved).toBeCloseTo((9.35 * 2 * 25.4) / 72, 5);
+  });
+
+  it("reserves nothing when page numbers are off", () => {
+    // No footer, no reason to move the user's margin.
+    expect(
+      effectiveBottomMarginMm(options({ marginBottom: 0, pageNumberPosition: "none" })),
+    ).toBe(0);
+  });
+
+  it("scales the reservation with body size", () => {
+    const small = effectiveBottomMarginMm(options({ marginBottom: 0, fontSize: 8 }));
+    const large = effectiveBottomMarginMm(options({ marginBottom: 0, fontSize: 24 }));
+    expect(large).toBeGreaterThan(small);
+  });
+
+  it("is what the spec is told, so CSS and stamp agree", () => {
+    // Two layout paths read this: the @page rule and the PageSpec. If the spec
+    // received the RAW margin instead, the stamp would be placed in a band the
+    // page did not reserve.
+    const opts = options({ marginBottom: 0 });
+    const spec = buildPageNumberSpec(opts, TEMPLATE)!;
+    expect(spec.bottomMarginPt).toBeCloseTo((effectiveBottomMarginMm(opts) * 72) / 25.4, 5);
   });
 });

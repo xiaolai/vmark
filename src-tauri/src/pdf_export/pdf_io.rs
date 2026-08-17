@@ -6,50 +6,57 @@
 //! downgrade is only honest while a failure leaves the original intact.
 //!
 //! `Document::save` truncates its path before serializing, so saving in place
-//! would destroy the rendered PDF if anything failed mid-write. This writes
-//! beside the target and renames over it.
+//! would destroy the rendered PDF if anything failed mid-write.
 //!
-//! Shared rather than copied: the two callers had identical needs, and a second
-//! copy of a security-relevant file dance is how one of them ends up fixed and
-//! the other does not.
+//! **This delegates to `crate::atomic_replace` rather than doing its own
+//! temp-file dance**, and that is the whole point of the module. The hand-rolled
+//! version was missing three things the shared core already had, each fixed
+//! once before elsewhere: it did not preserve the target's permission bits (so
+//! replacing a PDF reset it to the temp file's 0600 on Unix), it did not
+//! `sync_all` before the rename (so a crash could expose an unsynced file), and
+//! it called `into_temp_path()` — closing the securely created handle and
+//! letting `Document::save` REOPEN that path by name, a window in which the
+//! path can be swapped for a symlink. Writing through the still-open handle
+//! closes that window. `atomic_replace` also carries the Windows
+//! remove-then-retry fallback, which is deliberately NOT applied on Unix.
 //!
+//! The cost is holding the serialized PDF in memory. These are single documents
+//! the user just exported, and the renderer already held the whole thing.
+//!
+//! @coordinates-with atomic_replace.rs — the shared temp-file/fsync/rename core
 //! @coordinates-with outline.rs, page_numbers.rs — the two post-processors
 //! @module pdf_export/pdf_io
 
 use lopdf::Document;
 
+use crate::atomic_replace::{atomic_replace, AtomicReplaceError};
+
 /// Serialize `doc` over `pdf_path`, atomically.
-///
-/// `prefix` only distinguishes the scratch file in a directory listing while it
-/// briefly exists; the name itself is random.
-pub(super) fn save_atomically(
-    doc: &mut Document,
-    pdf_path: &str,
-    prefix: &str,
-) -> Result<(), String> {
+pub(super) fn save_atomically(doc: &mut Document, pdf_path: &str) -> Result<(), String> {
     let target = std::path::Path::new(pdf_path);
-    // Same directory, so `persist` is a same-filesystem rename rather than a
-    // copy across devices that can itself fail halfway.
-    let dir = target.parent().filter(|d| !d.as_os_str().is_empty());
+    // The target was just written by the renderer, so its parent exists. A path
+    // with no parent component means the current directory, not an error.
+    let parent = target
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
 
-    // `tempfile`, not a derived name like `x.tmp`. A deterministic name can be
-    // pre-created as a symlink, which `File::create` follows straight back onto
-    // the target, and two concurrent exports of one document would share it.
-    // O_EXCL + 0600, and `TempPath` deletes on drop so no error path leaks it.
-    let mut builder = tempfile::Builder::new();
-    builder.prefix(prefix).suffix(".pdf");
-    let tmp = match dir {
-        Some(d) => builder.tempfile_in(d),
-        None => builder.tempfile(),
+    let mut bytes = Vec::new();
+    doc.save_to(&mut bytes)
+        .map_err(|e| format!("serialize PDF: {e}"))?;
+
+    atomic_replace(target, parent, &bytes).map_err(describe)
+}
+
+/// Name the stage that failed, so the caller's warning says which one.
+fn describe(e: AtomicReplaceError) -> String {
+    match e {
+        AtomicReplaceError::CreateTemp { parent, source } => {
+            format!("create temp PDF in {}: {source}", parent.display())
+        }
+        AtomicReplaceError::WriteTemp(e) => format!("write temp PDF: {e}"),
+        AtomicReplaceError::FlushTemp(e) => format!("flush temp PDF: {e}"),
+        AtomicReplaceError::SyncTemp(e) => format!("sync temp PDF: {e}"),
+        AtomicReplaceError::Persist(e) => format!("replace PDF: {e}"),
     }
-    .map_err(|e| format!("create temp PDF: {e}"))?;
-
-    // Close our handle before lopdf opens the path itself; Windows refuses a
-    // rename over a file that still has an open handle.
-    let tmp_path = tmp.into_temp_path();
-    doc.save(&tmp_path).map_err(|e| format!("save PDF: {e}"))?;
-    tmp_path
-        .persist(target)
-        .map_err(|e| format!("replace PDF: {e}"))?;
-    Ok(())
 }

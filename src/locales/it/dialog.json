@@ -91,6 +91,7 @@
   "toast.failedToOpenPrintDialog": "Apertura della finestra di dialogo di stampa fallita",
   "toast.htmlCopied": "HTML copiato negli appunti",
   "toast.pdfExportSuccess": "PDF esportato con successo",
+  "toast.pdfExportPartial": "PDF esportato, ma non è stato possibile aggiungere {{what}}.",
   "toast.pdfExportFailed": "Esportazione PDF fallita: {{error}}",
   "toast.cannotMoveTabNoDoc": "Impossibile spostare la scheda: il documento non è caricato.",
   "toast.cannotMoveLastTab": "Impossibile spostare l'ultima scheda nella finestra principale.",

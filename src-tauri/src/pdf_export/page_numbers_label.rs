@@ -9,11 +9,14 @@
 //! **Base-14 fonts are Latin-1 only.** Helvetica is guaranteed present in every
 //! PDF viewer with no embedding, which is what keeps this cheap — but it cannot
 //! render CJK at all. A localized "第 7 頁，共 12 頁" would come out blank or as
-//! mojibake, so a label that will not encode is refused here rather than drawn
-//! wrong. See `render_label`.
+//! mojibake, so a label that will not encode falls back to the numeric form,
+//! which is ASCII and always drawable. See `render_label`.
 //!
 //! @coordinates-with page_numbers.rs — the stamping that consumes all of this
 //! @module pdf_export/page_numbers_label
+
+use crate::command_error::{CommandError, ErrorCode};
+use crate::localized_error;
 
 /// Where the number sits on the page.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
@@ -54,6 +57,71 @@ pub struct PageNumberSpec {
     /// Substituted here rather than per-page in the frontend, which cannot know
     /// the page count until the render is done.
     pub verbose_template: String,
+    /// Ink colour as three 0–1 components.
+    ///
+    /// Sent by the frontend rather than assumed here: `useEditorTheme` lets a
+    /// dark theme reach the PDF, and a hardcoded black number on a dark page is
+    /// invisible. Defaults to black so an older caller — or a test — that omits
+    /// it keeps the previous behaviour.
+    #[serde(default)]
+    pub ink_rgb: InkRgb,
+}
+
+/// Three 0–1 colour components.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub struct InkRgb(pub [f64; 3]);
+
+impl Default for InkRgb {
+    fn default() -> Self {
+        InkRgb([0.0, 0.0, 0.0])
+    }
+}
+
+impl PageNumberSpec {
+    /// Reject a spec that cannot produce a sane stamp.
+    ///
+    /// This crosses the IPC boundary as JSON, so the values are whatever the
+    /// caller sent — `PageSpec` beside it is validated for exactly that reason.
+    /// A NaN font size formats as the literal `NaN` in the `Tf` operator and
+    /// yields a corrupt content stream; a negative one is accepted by some
+    /// viewers and mirrors the text. The upper bounds are generous — this is a
+    /// guard against nonsense, not a style policy.
+    pub fn validate(&self) -> Result<(), CommandError> {
+        if !self.font_size_pt.is_finite() || !(1.0..=200.0).contains(&self.font_size_pt) {
+            return Err(localized_error!(
+                ErrorCode::InvalidInput,
+                "errors.pdf.invalidPageNumberSpec",
+                field = "fontSizePt",
+                value = format!("{}", self.font_size_pt)
+            ));
+        }
+        for (i, c) in self.ink_rgb.0.iter().enumerate() {
+            if !c.is_finite() || !(0.0..=1.0).contains(c) {
+                return Err(localized_error!(
+                    ErrorCode::InvalidInput,
+                    "errors.pdf.invalidPageNumberSpec",
+                    field = format!("inkRgb[{i}]"),
+                    value = format!("{c}")
+                ));
+            }
+        }
+        for (field, v) in [
+            ("bottomMarginPt", self.bottom_margin_pt),
+            ("sideMarginPt", self.side_margin_pt),
+        ] {
+            // Zero is legitimate — `baseline` has a floor for exactly that — but
+            // negative or non-finite is not.
+            if !v.is_finite() || !(0.0..=10_000.0).contains(&v) {
+                return Err(localized_error!(
+                    ErrorCode::InvalidInput,
+                    "errors.pdf.invalidPageNumberSpec",
+                    field = field,
+                    value = format!("{v}")
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Helvetica advance widths, in 1/1000 em, for the characters a page number can
@@ -78,26 +146,39 @@ pub(super) fn text_width(s: &str, size: f64) -> f64 {
     s.chars().map(advance).sum::<f64>() / 1000.0 * size
 }
 
-/// The label for one page, and whether it can be drawn at all.
+/// The label for one page, and whether the requested form had to be replaced.
 ///
-/// Returns `None` for a label Helvetica cannot represent. WinAnsi covers
-/// Latin-1; anything beyond it — a CJK or Cyrillic template — would draw as
-/// blanks or wrong glyphs, and a silently wrong footer on every page is worse
-/// than leaving those pages unnumbered, which the caller reports.
-pub(super) fn render_label(spec: &PageNumberSpec, n: usize, total: usize) -> Option<String> {
+/// WinAnsi covers Latin-1; anything beyond it — a CJK or Cyrillic verbose
+/// template — would draw as blanks or wrong glyphs. Such a label is replaced by
+/// the numeric form, which is ASCII and therefore always drawable, so a reader
+/// in those languages still gets page numbers.
+///
+/// Leaving the page BARE was the first attempt and it was worse: a Chinese,
+/// Japanese or Korean user who chose the verbose format got a PDF with no page
+/// numbers anywhere and an export that reported success. Numbers in a plainer
+/// form beat no numbers.
+pub(super) fn render_label(spec: &PageNumberSpec, n: usize, total: usize) -> (String, bool) {
+    let numeric = format!("{n} / {total}");
     let label = match spec.format {
         Format::Plain => n.to_string(),
-        Format::WithTotal => format!("{n} / {total}"),
+        Format::WithTotal => numeric.clone(),
         Format::Verbose => spec
             .verbose_template
             .replace("{n}", &n.to_string())
             .replace("{total}", &total.to_string()),
     };
-    if label.chars().all(|c| (c as u32) <= 0xFF) {
-        Some(label)
+    if is_winansi(&label) {
+        (label, false)
     } else {
-        None
+        // Only the verbose form can reach here — the other two are digits,
+        // spaces and a slash.
+        (numeric, true)
     }
+}
+
+/// Can the base-14 Helvetica WinAnsi encoding represent every character?
+fn is_winansi(s: &str) -> bool {
+    s.chars().all(|c| (c as u32) <= 0xFF)
 }
 
 /// Escape a PDF literal string.

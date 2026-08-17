@@ -90,6 +90,7 @@ pub fn check_stamped(name: &str, path: &Path, skip_first: bool) -> usize {
     let total = pages.len();
     let mut stamped = 0usize;
     let mut unfenced = 0usize;
+    let mut unresolved = 0usize;
     for (_, id) in &pages {
         let content = doc.get_page_content(*id);
         // The font name is distinctive, so this cannot match a renderer's own
@@ -101,18 +102,99 @@ pub fn check_stamped(name: &str, path: &Path, skip_first: bool) -> usize {
         if !fenced(&doc, *id) {
             unfenced += 1;
         }
+        if !font_resolves(&doc, *id) {
+            unresolved += 1;
+        }
     }
     let expected = total.saturating_sub(usize::from(skip_first));
-    if total > 0 && stamped == expected && unfenced == 0 {
-        println!("SMOKE {name} pageno PASS {stamped}/{total} pages stamped, all fenced");
+    if total > 0 && stamped == expected && unfenced == 0 && unresolved == 0 {
+        println!(
+            "SMOKE {name} pageno PASS {stamped}/{total} pages stamped, all fenced and resolved"
+        );
         0
     } else {
         println!(
             "SMOKE {name} pageno FAIL {stamped}/{total} stamped (expected {expected}), \
-             {unfenced} drawn in the renderer's leftover graphics state"
+             {unfenced} drawn in the renderer's leftover graphics state, \
+             {unresolved} selecting a font the page's resources do not define"
         );
         1
     }
+}
+
+/// Does `/VMarkPageNo` actually resolve to a font for this page?
+///
+/// Selecting an undefined font name is not an error a PDF reader reports — it
+/// draws nothing, or substitutes. `add_font_resource` has three branches for
+/// where `/Resources` lives (direct, indirect, inherited from the page tree)
+/// and each renderer takes a different one, so "the operator is present" says
+/// nothing about whether the branch for THIS engine worked.
+fn font_resolves(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> bool {
+    let Ok(page) = doc.get_object(page_id).and_then(|o| o.as_dict()) else {
+        return false;
+    };
+    let resources = match page.get(b"Resources") {
+        Ok(lopdf::Object::Dictionary(d)) => d.clone(),
+        Ok(lopdf::Object::Reference(r)) => match doc.get_object(*r).and_then(|o| o.as_dict()) {
+            Ok(d) => d.clone(),
+            Err(_) => return false,
+        },
+        _ => return false,
+    };
+    let fonts = match resources.get(b"Font") {
+        Ok(lopdf::Object::Dictionary(d)) => d.clone(),
+        Ok(lopdf::Object::Reference(r)) => match doc.get_object(*r).and_then(|o| o.as_dict()) {
+            Ok(d) => d.clone(),
+            Err(_) => return false,
+        },
+        _ => return false,
+    };
+    // Present AND dereferenceable to a real font dictionary.
+    match fonts.get(b"VMarkPageNo") {
+        Ok(lopdf::Object::Reference(r)) => doc
+            .get_object(*r)
+            .and_then(|o| o.as_dict())
+            .map(|d| d.has(b"BaseFont"))
+            .unwrap_or(false),
+        Ok(lopdf::Object::Dictionary(d)) => d.has(b"BaseFont"),
+        _ => false,
+    }
+}
+
+/// Does the PDF's extracted text contain `needle`?
+///
+/// A geometry check cannot see content: a truncated load, or two concurrent
+/// renders writing each other's document, both produce a valid PDF at the right
+/// size. Only reading the text back distinguishes them.
+pub fn contains_text(name: &str, path: &Path, needle: &str) -> usize {
+    let doc = match lopdf::Document::load(path) {
+        Ok(d) => d,
+        Err(e) => {
+            println!("SMOKE {name} content FAIL cannot reload: {e}");
+            return 1;
+        }
+    };
+    let pages: Vec<u32> = doc.get_pages().keys().copied().collect();
+    match doc.extract_text(&pages) {
+        // Whitespace is not preserved faithfully by extraction, so compare with
+        // it removed rather than pretending the layout round-trips.
+        Ok(text) if squeeze(&text).contains(&squeeze(needle)) => {
+            println!("SMOKE {name} content PASS found {needle:?}");
+            0
+        }
+        Ok(_) => {
+            println!("SMOKE {name} content FAIL {needle:?} missing from the text");
+            1
+        }
+        Err(e) => {
+            println!("SMOKE {name} content FAIL cannot extract text: {e}");
+            1
+        }
+    }
+}
+
+fn squeeze(s: &str) -> String {
+    s.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
 /// Is this page's own content fenced off from the stamp?

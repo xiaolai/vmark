@@ -251,6 +251,8 @@ errors:
   pdf.printTimeoutSecs: "L'impression a expiré après %{seconds} secondes"
   pdf.unsupportedPlatform: "L'export PDF n'est pas encore disponible sur cette plateforme"
   pdf.invalidPageSize: "%{axis} de page invalide : %{value}"
+  pdf.invalidPageNumberSpec: "Paramètre de numérotation des pages invalide %{field} : %{value}"
+  pdf.postProcessPanicked: "Le post-traitement du PDF a échoué de manière inattendue : %{detail}"
   pdf.renderWindowFailed: "Impossible de créer la fenêtre de rendu : %{detail}"
   pdf.loadFailed: "Le document n'a pas pu être chargé pour l'impression"
   pdf.printRefused: "Le moteur d'impression n'a pas produit de PDF"

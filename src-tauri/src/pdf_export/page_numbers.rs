@@ -21,7 +21,7 @@ use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream};
 use super::page_numbers_label::{baseline, escape, render_label, text_width};
 // The feature's public vocabulary. Re-exported so callers say
 // `page_numbers::PageNumberSpec` rather than reaching into the private half.
-pub use super::page_numbers_label::{Format, PageNumberSpec, Position};
+pub use super::page_numbers_label::{Format, InkRgb, PageNumberSpec, Position};
 
 /// Stamp page numbers onto an existing PDF, in place.
 pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), String> {
@@ -61,25 +61,33 @@ pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), S
     let push_state = doc.add_object(Stream::new(Dictionary::new(), b"q\n".to_vec()));
     let pop_state = doc.add_object(Stream::new(Dictionary::new(), b"Q\n".to_vec()));
 
-    let mut unrenderable = 0usize;
+    let mut downgraded = 0usize;
     for (page_no, page_id) in pages {
         let n = page_no as usize;
         if spec.skip_first && n == 1 {
             continue;
         }
-        let Some(label) = render_label(spec, n, total) else {
-            unrenderable += 1;
-            continue;
-        };
+        let (label, fell_back) = render_label(spec, n, total);
+        if fell_back {
+            downgraded += 1;
+        }
 
-        let (page_width, _) = page_size(&doc, page_id);
+        let (origin_x, origin_y, page_width, _) = page_box(&doc, page_id);
         let width = text_width(&label, spec.font_size_pt);
-        let (x, y) = baseline(spec, page_width, width);
+        // `baseline` works in a page-relative space starting at (0,0); a
+        // MediaBox need not start there, and a cropped or imposed PDF that
+        // begins at, say, [20 20 615 862] would take the number 20pt off both
+        // edges — or off the sheet entirely for a large origin.
+        let (rel_x, rel_y) = baseline(spec, page_width, width);
+        let (x, y) = (origin_x + rel_x, origin_y + rel_y);
 
         // q/Q around our own drawing too, so the colour and font selection do
         // not leak onto anything appended after us.
+        let [r, g, b] = spec.ink_rgb.0;
         let mut ops = Vec::new();
-        ops.extend_from_slice(b"q\nBT\n0 0 0 rg\n/VMarkPageNo ");
+        ops.extend_from_slice(b"q\nBT\n");
+        ops.extend_from_slice(format!("{r:.3} {g:.3} {b:.3} rg\n").as_bytes());
+        ops.extend_from_slice(b"/VMarkPageNo ");
         ops.extend_from_slice(format!("{:.2}", spec.font_size_pt).as_bytes());
         ops.extend_from_slice(b" Tf\n");
         ops.extend_from_slice(format!("{x:.2} {y:.2} Td\n").as_bytes());
@@ -92,21 +100,24 @@ pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), S
         add_font_resource(&mut doc, page_id, font_id)?;
     }
 
-    if unrenderable > 0 {
+    if downgraded > 0 {
         log::warn!(
-            "[PDF] page-number label is not Latin-1 and Helvetica cannot draw it; \
-             {unrenderable} page(s) left unnumbered"
+            "[PDF] the localized page-number template is not Latin-1 and the base-14 \
+             font cannot draw it; {downgraded} page(s) numbered as \"n / total\" instead"
         );
     }
 
-    super::pdf_io::save_atomically(&mut doc, pdf_path, ".vmark-pageno-")?;
+    super::pdf_io::save_atomically(&mut doc, pdf_path)?;
     log::info!("[PDF] stamped page numbers on {total} page(s)");
     Ok(())
 }
 
-/// A page's width and height from its MediaBox, defaulting to A4.
-fn page_size(doc: &Document, page_id: ObjectId) -> (f64, f64) {
-    let fallback = (595.28, 841.89);
+/// A page's MediaBox as `(origin_x, origin_y, width, height)`, defaulting to A4.
+///
+/// The origin is returned rather than discarded: a MediaBox is not required to
+/// start at `[0 0 …]`, and the stamp coordinates are absolute.
+fn page_box(doc: &Document, page_id: ObjectId) -> (f64, f64, f64, f64) {
+    let fallback = (0.0, 0.0, 595.28, 841.89);
     let Ok(page) = doc.get_object(page_id).and_then(|o| o.as_dict()) else {
         return fallback;
     };
@@ -140,7 +151,11 @@ fn page_size(doc: &Document, page_id: ObjectId) -> (f64, f64) {
             .or_else(|_| mb[i].as_i64().map(|v| v as f64))
     };
     match (num(0), num(1), num(2), num(3)) {
-        (Ok(x0), Ok(y0), Ok(x1), Ok(y1)) => ((x1 - x0).abs(), (y1 - y0).abs()),
+        // A MediaBox may list its corners in either order, so normalise to the
+        // lower-left corner plus a positive extent.
+        (Ok(x0), Ok(y0), Ok(x1), Ok(y1)) => {
+            (x0.min(x1), y0.min(y1), (x1 - x0).abs(), (y1 - y0).abs())
+        }
         _ => fallback,
     }
 }

@@ -16,34 +16,11 @@
 
 use std::path::Path;
 
-use vmark_lib::pdf_export::page_numbers::{Format, PageNumberSpec, Position};
-use vmark_lib::pdf_export::page_spec::PageSpec;
+use vmark_lib::pdf_export::page_numbers::{Format, Position};
 
 use super::fixtures::doc_for;
+use super::page_number_fixture::{spec, with_default_margins};
 use super::verify::{check, check_stamped};
-
-/// A4 with the dialog's default 25.4mm margins, so the number has a band to sit
-/// in rather than landing on the content.
-fn a4_with_margins() -> PageSpec {
-    let mut page = PageSpec::new(595.28, 841.89);
-    page.margin_top_pt = Some(72.0);
-    page.margin_right_pt = Some(72.0);
-    page.margin_bottom_pt = Some(72.0);
-    page.margin_left_pt = Some(72.0);
-    page
-}
-
-fn spec(position: Position, format: Format, skip_first: bool) -> PageNumberSpec {
-    PageNumberSpec {
-        position,
-        format,
-        skip_first,
-        font_size_pt: 9.35, // the dialog's default: max(7, 11 * 0.85)
-        bottom_margin_pt: 72.0,
-        side_margin_pt: 72.0,
-        verbose_template: "Page {n} of {total}".to_string(),
-    }
-}
 
 /// Render a multi-page document, stamp it, and read the numbers back.
 /// Returns the failure count.
@@ -53,7 +30,7 @@ pub async fn run(app: &tauri::AppHandle, out: &Path) -> usize {
     // pass even if the loop stamped only the first.
     let body = "<div class='b'>one</div><div class='b'>two</div>\
                 <div class='b'>three</div><div class='b'>four</div>";
-    let page = a4_with_margins();
+    let page = with_default_margins(595.28, 841.89);
 
     let mut failures = 0usize;
     for (label, position, format, skip_first) in [
