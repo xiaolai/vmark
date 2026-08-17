@@ -20,11 +20,8 @@
 import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
 import { getPrimitiveTokenCSS } from "./primitiveTokens";
-import {
-  sharedContentCSS,
-  buildFitCSS,
-  forceLightThemeCSS,
-} from "./pdfPrintCss";
+import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
+import { buildFitCSS } from "./pdfFitToPage";
 import { type PdfOptions, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
 
 // Re-exported so existing importers keep one entry point for the export API.
