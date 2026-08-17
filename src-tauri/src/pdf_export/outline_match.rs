@@ -1,0 +1,130 @@
+//! Locating a heading's page in an already-rendered PDF.
+//!
+//! Purpose: the outline needs a page number per heading, and the only thing the
+//! rendered PDF carries is text. This matches heading text against extracted
+//! page text in four passes of decreasing strictness, so a precise match wins
+//! before a loose one can claim the wrong page.
+//!
+//! Pure and platform-neutral by design: it was the only part of the former
+//! PDFKit injector that did not depend on macOS, and keeping it intact is what
+//! let the outline go cross-platform without rewriting the matching.
+//!
+//! @coordinates-with outline.rs — the only consumer
+//! @module pdf_export/outline_match
+
+/// Find which page contains a heading by searching page text.
+/// Searches forward from `start_page` to handle duplicate heading texts correctly.
+/// Falls back to searching from page 0 if not found after start_page.
+/// Returns 0 (first page) if not found anywhere.
+pub(super) fn find_heading_page(
+    page_texts: &[String],
+    heading_text: &str,
+    start_page: usize,
+) -> usize {
+    let needle = heading_text.trim();
+    if needle.is_empty() {
+        return start_page.min(page_texts.len().saturating_sub(1));
+    }
+
+    // Try line-based matching first (heading text should appear as a distinct line
+    // or standalone phrase), then fall back to substring contains.
+    // This reduces false positives where "Error" matches "Error Handling Framework".
+
+    // Pass 1: Line-level match (most precise) — check if any line in the page
+    // starts with or equals the heading text. Requires a word boundary after
+    // the prefix to avoid "Chapter 1" matching "Chapter 10".
+    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+        text.lines().any(|line| {
+            let trimmed = line.trim();
+            if trimmed == needle {
+                return true;
+            }
+            if let Some(rest) = trimmed.strip_prefix(needle) {
+                // Require non-alphanumeric boundary after the needle
+                rest.starts_with(|c: char| !c.is_alphanumeric())
+            } else {
+                false
+            }
+        })
+    }) {
+        return idx;
+    }
+
+    // Pass 2: Substring with word boundary (handles run-together text from PDF extraction)
+    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+        contains_with_boundary(text, needle)
+    }) {
+        return idx;
+    }
+
+    // Pass 3: Case-insensitive substring with word boundary
+    let lower = needle.to_lowercase();
+    if let Some(idx) = search_pages_with(page_texts, start_page, |text| {
+        contains_with_boundary(&text.to_lowercase(), &lower)
+    }) {
+        return idx;
+    }
+
+    // Pass 4: Plain substring (last resort — accepts partial matches)
+    if let Some(idx) = search_pages_with(page_texts, start_page, |text| text.contains(needle)) {
+        return idx;
+    }
+
+    0
+}
+
+/// Search pages starting from `start_page`, wrapping around to the beginning.
+/// Returns the first page index where `predicate` returns true.
+fn search_pages_with<F>(page_texts: &[String], start_page: usize, predicate: F) -> Option<usize>
+where
+    F: Fn(&str) -> bool,
+{
+    // Search forward from start_page
+    for (i, text) in page_texts.iter().enumerate().skip(start_page) {
+        if predicate(text) {
+            return Some(i);
+        }
+    }
+    // Wrap around: search from beginning up to start_page
+    for (i, text) in page_texts.iter().enumerate().take(start_page) {
+        if predicate(text) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// Check if `haystack` contains `needle` with a non-alphanumeric boundary
+/// (or string boundary) on both sides. Prevents "Chapter 1" matching "Chapter 10".
+fn contains_with_boundary(haystack: &str, needle: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    let nlen = needle.len();
+    let mut start = 0;
+    while let Some(pos) = haystack[start..].find(needle) {
+        let abs = start + pos;
+        let before_ok = abs == 0
+            || !haystack[..abs]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric());
+        let after_ok = abs + nlen >= bytes.len()
+            || !haystack[abs + nlen..]
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_alphanumeric());
+        if before_ok && after_ok {
+            return true;
+        }
+        // Advance past the whole match (a char boundary, since `needle` is a
+        // substring), not by one byte — `abs + 1` can land mid-character and
+        // panic when slicing a multibyte (CJK/emoji) heading. Headings don't
+        // overlap, so skipping the whole match cannot skip a distinct heading.
+        // `.max(1)` guards the degenerate empty-needle case against an infinite loop.
+        start = abs + nlen.max(1);
+    }
+    false
+}
+
+#[cfg(test)]
+#[path = "outline_match.test.rs"]
+mod tests;

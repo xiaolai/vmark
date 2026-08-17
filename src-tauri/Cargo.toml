@@ -117,6 +117,7 @@ serde_yaml_ng = "0.10"
 # canonicalization per spec §3.1 needs the real Unicode tables.
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
+lopdf = { version = "0.44.0", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
