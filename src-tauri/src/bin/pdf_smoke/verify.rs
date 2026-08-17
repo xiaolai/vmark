@@ -61,7 +61,7 @@ pub fn check(
     }
 }
 
-/// Verify the page numbers actually landed on the pages.
+/// Verify the page numbers actually landed on the pages, the right way up.
 ///
 /// Reads the content streams rather than trusting `stamp_page_numbers`' return:
 /// the stamp writes an extra content stream and a font resource per page, and a
@@ -69,8 +69,15 @@ pub fn check(
 /// nothing in the footer. That is precisely the failure a human skimming an
 /// artifact does not notice on page 14 of 20.
 ///
-/// Returns the failure count, and prints the number of stamped pages so the
-/// three platforms' transcripts can be diffed directly.
+/// PRESENCE IS NOT ENOUGH, and this function learned that the hard way: it
+/// passed on Windows and Linux while the number was drawing at the top of the
+/// page and mirrored, because the renderer's unbalanced y-flip was still in
+/// effect. So it also checks the fence — the page's own content wrapped in q/Q
+/// before the stamp — which is what makes the coordinates mean what
+/// `baseline()` computed.
+///
+/// Returns the failure count, and prints the counts so the three platforms'
+/// transcripts can be diffed directly.
 pub fn check_stamped(name: &str, path: &Path, skip_first: bool) -> usize {
     let doc = match lopdf::Document::load(path) {
         Ok(d) => d,
@@ -81,23 +88,67 @@ pub fn check_stamped(name: &str, path: &Path, skip_first: bool) -> usize {
     };
     let pages: Vec<_> = doc.get_pages().into_iter().collect();
     let total = pages.len();
-    let stamped = pages
-        .iter()
-        .filter(|(_, id)| {
-            let content = doc.get_page_content(*id);
-            // The font name is distinctive, so this cannot match a renderer's
-            // own /F1 — see add_font_resource.
-            count(&content, b"/VMarkPageNo") > 0
-        })
-        .count();
+    let mut stamped = 0usize;
+    let mut unfenced = 0usize;
+    for (_, id) in &pages {
+        let content = doc.get_page_content(*id);
+        // The font name is distinctive, so this cannot match a renderer's own
+        // /F1 — see add_font_resource.
+        if count(&content, b"/VMarkPageNo") == 0 {
+            continue;
+        }
+        stamped += 1;
+        if !fenced(&doc, *id) {
+            unfenced += 1;
+        }
+    }
     let expected = total.saturating_sub(usize::from(skip_first));
-    if stamped == expected && total > 0 {
-        println!("SMOKE {name} pageno PASS {stamped}/{total} pages stamped");
+    if total > 0 && stamped == expected && unfenced == 0 {
+        println!("SMOKE {name} pageno PASS {stamped}/{total} pages stamped, all fenced");
         0
     } else {
-        println!("SMOKE {name} pageno FAIL {stamped}/{total} stamped, expected {expected}");
+        println!(
+            "SMOKE {name} pageno FAIL {stamped}/{total} stamped (expected {expected}), \
+             {unfenced} drawn in the renderer's leftover graphics state"
+        );
         1
     }
+}
+
+/// Is this page's own content fenced off from the stamp?
+///
+/// The array must be `[q, original…, Q, stamp]`: anything else means the stamp
+/// inherits whatever CTM the renderer left behind.
+fn fenced(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> bool {
+    let Ok(lopdf::Object::Array(contents)) = doc
+        .get_object(page_id)
+        .and_then(|o| o.as_dict())
+        .and_then(|d| d.get(b"Contents"))
+    else {
+        return false;
+    };
+    let body_of = |o: &lopdf::Object| -> Vec<u8> {
+        match o {
+            lopdf::Object::Reference(r) => doc
+                .get_object(*r)
+                .and_then(|o| o.as_stream())
+                .map(|s| s.content.clone())
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        }
+    };
+    let Some(first) = contents.first() else {
+        return false;
+    };
+    let Some(stamp_at) = contents
+        .iter()
+        .position(|o| count(&body_of(o), b"/VMarkPageNo") > 0)
+    else {
+        return false;
+    };
+    body_of(first).trim_ascii() == b"q"
+        && stamp_at > 0
+        && body_of(&contents[stamp_at - 1]).trim_ascii() == b"Q"
 }
 
 pub fn count(hay: &[u8], needle: &[u8]) -> usize {

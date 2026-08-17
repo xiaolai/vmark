@@ -21,15 +21,20 @@ fn test_dir(name: &str) -> std::path::PathBuf {
 }
 
 fn blank_pdf(path: &std::path::Path, pages: usize) {
-    use lopdf::content::Content;
+    content_pdf(path, pages, b"")
+}
+
+/// A fixture whose pages carry `body` as their content stream.
+///
+/// `body` is raw operators rather than an encoded `Content`, because the case
+/// that matters is an UNBALANCED graphics state — which a well-formed operation
+/// list is awkward to express and which every real renderer here produces.
+fn content_pdf(path: &std::path::Path, pages: usize, body: &[u8]) {
     let mut doc = Document::with_version("1.5");
     let pages_id = doc.new_object_id();
     let mut kids = Vec::new();
     for _ in 0..pages {
-        let stream = doc.add_object(Stream::new(
-            Dictionary::new(),
-            Content::encode(&Content { operations: vec![] }).unwrap(),
-        ));
+        let stream = doc.add_object(Stream::new(Dictionary::new(), body.to_vec()));
         let page = doc.add_object(dictionary! {
             "Type" => "Page",
             "Parent" => pages_id,
@@ -58,6 +63,60 @@ fn blank_pdf(path: &std::path::Path, pages: usize) {
 fn page_text(doc: &Document, page_id: ObjectId) -> String {
     let bytes = doc.get_page_content(page_id);
     String::from_utf8_lossy(&bytes).into_owned()
+}
+
+#[test]
+fn the_renderers_unbalanced_flip_cannot_reach_the_stamp() {
+    // THE REGRESSION THIS FILE EXISTS FOR. Content streams are concatenated,
+    // so a top-level `cm` the renderer never undoes is still in effect when the
+    // stamp begins — and `q` saves the CURRENT state rather than resetting to
+    // identity, so wrapping only our own drawing does nothing. Both WebView2
+    // and WebKitGTK emit exactly this y-flip: the number drew at the TOP of the
+    // page, mirrored, on two platforms out of three, while the label was
+    // present, the font was registered, and the text extracted cleanly.
+    //
+    // The fix fences the page's own content in q/Q. Assert the shape, because
+    // it is the shape that makes the coordinates mean what `baseline()` says.
+    let dir = test_dir("flipctm");
+    let path = dir.join("doc.pdf");
+    content_pdf(&path, 2, b"1 0 0 -1 0 842 cm\n");
+    stamp_page_numbers(
+        &path.to_string_lossy(),
+        &spec(Position::BottomCenter, Format::Plain),
+    )
+    .unwrap();
+
+    let doc = Document::load(&path).unwrap();
+    for (_, page_id) in doc.get_pages() {
+        let Ok(Object::Array(contents)) = doc
+            .get_object(page_id)
+            .and_then(|o| o.as_dict())
+            .and_then(|d| d.get(b"Contents"))
+        else {
+            panic!("Contents must be an array after stamping");
+        };
+        let stream = |i: usize| -> Vec<u8> {
+            let Object::Reference(r) = contents[i] else {
+                panic!("Contents entries must be references")
+            };
+            doc.get_object(r)
+                .and_then(|o| o.as_stream())
+                .map(|s| s.content.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(contents.len(), 4, "expected [q, original, Q, stamp]");
+        assert_eq!(stream(0), b"q\n".to_vec(), "must push before page content");
+        assert!(
+            String::from_utf8_lossy(&stream(1)).contains("cm"),
+            "the original content must survive untouched"
+        );
+        assert_eq!(stream(2), b"Q\n".to_vec(), "must pop before the stamp");
+        assert!(
+            String::from_utf8_lossy(&stream(3)).contains("/VMarkPageNo"),
+            "the stamp comes last"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

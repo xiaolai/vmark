@@ -44,6 +44,23 @@ pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), S
         "Encoding" => "WinAnsiEncoding",
     });
 
+    // A page's content streams are CONCATENATED into one stream, so anything
+    // the renderer left in the graphics state is still in effect when our
+    // stamp begins. Both WebView2 and WebKitGTK emit a top-level
+    // `1 0 0 -1 0 <height> cm` — a y-flip they never undo — and our own `q`/`Q`
+    // does not help, because `q` saves the CURRENT state rather than resetting
+    // to the identity CTM. The number then drew at the TOP of the page and
+    // mirrored, on two platforms out of three, while every structural check
+    // passed and the text still extracted cleanly.
+    //
+    // Wrapping the ORIGINAL content in its own q/Q discards whatever it leaves,
+    // so the stamp starts from the page's default space where (0,0) is the
+    // bottom-left corner — which is the space `baseline()` computes in. One
+    // pair of streams shared by every page; they are indirect objects, so
+    // several Contents arrays may reference them.
+    let push_state = doc.add_object(Stream::new(Dictionary::new(), b"q\n".to_vec()));
+    let pop_state = doc.add_object(Stream::new(Dictionary::new(), b"Q\n".to_vec()));
+
     let mut unrenderable = 0usize;
     for (page_no, page_id) in pages {
         let n = page_no as usize;
@@ -59,9 +76,8 @@ pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), S
         let width = text_width(&label, spec.font_size_pt);
         let (x, y) = baseline(spec, page_width, width);
 
-        // q/Q around the whole thing: the page's own content stream may leave
-        // an arbitrary graphics state, and inheriting it would tint or clip the
-        // number unpredictably.
+        // q/Q around our own drawing too, so the colour and font selection do
+        // not leak onto anything appended after us.
         let mut ops = Vec::new();
         ops.extend_from_slice(b"q\nBT\n0 0 0 rg\n/VMarkPageNo ");
         ops.extend_from_slice(format!("{:.2}", spec.font_size_pt).as_bytes());
@@ -72,7 +88,7 @@ pub fn stamp_page_numbers(pdf_path: &str, spec: &PageNumberSpec) -> Result<(), S
         ops.extend_from_slice(b") Tj\nET\nQ\n");
 
         let stamp_id = doc.add_object(Stream::new(Dictionary::new(), ops));
-        append_content(&mut doc, page_id, stamp_id)?;
+        append_content(&mut doc, page_id, stamp_id, push_state, pop_state)?;
         add_font_resource(&mut doc, page_id, font_id)?;
     }
 
@@ -129,25 +145,32 @@ fn page_size(doc: &Document, page_id: ObjectId) -> (f64, f64) {
     }
 }
 
-/// Append a content stream to a page, promoting a single stream to an array.
-fn append_content(doc: &mut Document, page_id: ObjectId, stamp: ObjectId) -> Result<(), String> {
+/// Append the stamp to a page, with the page's own content fenced off.
+///
+/// The result is always `[q, <original…>, Q, stamp]`. The fence is not
+/// decoration: see `stamp_page_numbers` — without it the stamp inherits the
+/// renderer's unbalanced y-flip and draws upside-down at the top of the page.
+fn append_content(
+    doc: &mut Document,
+    page_id: ObjectId,
+    stamp: ObjectId,
+    push_state: ObjectId,
+    pop_state: ObjectId,
+) -> Result<(), String> {
     let page = doc
         .get_object_mut(page_id)
         .and_then(|o| o.as_dict_mut())
         .map_err(|e| format!("page dictionary: {e}"))?;
+    let mut contents = vec![Object::Reference(push_state)];
     match page.get(b"Contents").cloned() {
-        Ok(Object::Array(mut a)) => {
-            a.push(Object::Reference(stamp));
-            page.set("Contents", Object::Array(a));
-        }
-        Ok(Object::Reference(r)) => {
-            page.set(
-                "Contents",
-                Object::Array(vec![Object::Reference(r), Object::Reference(stamp)]),
-            );
-        }
-        _ => page.set("Contents", Object::Array(vec![Object::Reference(stamp)])),
+        Ok(Object::Array(a)) => contents.extend(a),
+        Ok(Object::Reference(r)) => contents.push(Object::Reference(r)),
+        // A page with no content at all is still stampable.
+        _ => {}
     }
+    contents.push(Object::Reference(pop_state));
+    contents.push(Object::Reference(stamp));
+    page.set("Contents", Object::Array(contents));
     Ok(())
 }
 
