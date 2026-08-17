@@ -27,9 +27,23 @@ describe("getExportOverrides", () => {
     expect(css).toContain("overflow-x: visible");
   });
 
-  it("enables word wrapping in table cells", () => {
+  it("wraps long content in table cells without collapsing column widths", () => {
+    // `overflow-wrap: break-word` breaks a word only when it cannot fit a line
+    // by itself, and leaves min-content at the longest word.
     expect(css).toContain("overflow-wrap: break-word");
-    expect(css).toContain("word-break: break-word");
+  });
+
+  it("declares no word-break on cells — it collapses min-content to one char", () => {
+    // This assertion is the inverse of the one it replaces. `word-break:
+    // break-word` behaves like `overflow-wrap: anywhere`, dropping a cell's
+    // min-content width to a SINGLE CHARACTER, so `table-layout: auto` could
+    // squeeze any column arbitrarily narrow — printed table headers came out as
+    // "Prop erty" and "Autho rity". The property was declared here AND in
+    // sharedContentCSS at equal specificity, so removing it from one alone
+    // changed nothing; both had to go.
+    const cellRule = css.slice(css.indexOf(".export-surface td,"));
+    const decls = cellRule.slice(0, cellRule.indexOf("}")).replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(decls).not.toContain("word-break");
   });
 
   it("constrains images in table cells", () => {
