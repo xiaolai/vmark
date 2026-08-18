@@ -90,13 +90,11 @@ pnpm check:all        # Lint + test + build
 
 ## Star History
 
-<!-- Self-hosted: api.star-history.com's server-render has been failing
-     service-wide since 2026-07-01. The weekly star-history.yml workflow
-     regenerates the chart (scripts/gen-star-history.mjs) and publishes it to
-     the unprotected `star-history` branch — main's branch protection rejects
-     bot pushes. Click through for the live, client-rendered version. -->
-<a href="https://www.star-history.com/?repos=xiaolai%2Fvmark&type=date&legend=top-left">
-  <img alt="Star History Chart" src="https://raw.githubusercontent.com/xiaolai/vmark/star-history/star-history.svg" width="800" />
+<!-- star-history.dera.page keeps star history alive from a different data
+     source after GitHub's Stargazer API shutdown. Click through for the
+     live, client-rendered version. -->
+<a href="https://star-history.dera.page/#xiaolai/vmark&type=date&legend=top-left">
+  <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=xiaolai/vmark&type=date" width="800" />
 </a>
 
 ---
