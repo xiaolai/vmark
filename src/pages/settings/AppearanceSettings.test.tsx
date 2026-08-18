@@ -8,10 +8,14 @@ import { FOCUS_DIM_OPACITY } from "@/hooks/useTheme";
 // match (theme/themeAvailability.ts), so the platform is pinned rather than
 // inherited from jsdom. Defaults to macOS — the full catalog — with the
 // narrowed Windows/Linux picker covered in its own describe below.
+// `usesOverlayTitleBar` is mocked alongside it rather than left to delegate:
+// a module mock does not intercept the module's own internal calls, so the real
+// implementation would read jsdom's `navigator.platform` and ignore this flag.
 const platform = vi.hoisted(() => ({ isMac: true }));
 vi.mock("@/utils/platform", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/platform")>()),
   isMacPlatform: () => platform.isMac,
+  usesOverlayTitleBar: () => platform.isMac,
 }));
 
 beforeEach(() => {
@@ -131,6 +135,36 @@ describe("AppearanceSettings — follow system appearance (#1125)", () => {
     render(<AppearanceSettings />);
     fireEvent.click(screen.getByRole("button", { name: /night/i }));
     expect(useSettingsStore.getState().appearance.theme).toBe("night");
+  });
+});
+
+// #1296 — the toggle only ever governed the app's own chrome strip, which is
+// drawn on macOS alone. On Windows/Linux it offered to fill a redundant bar
+// while the real title bar stayed blank, so the platform that cannot use it
+// must not be offered it.
+describe("AppearanceSettings — the titlebar filename toggle is macOS-only", () => {
+  it("offers the toggle on macOS", () => {
+    render(<AppearanceSettings />);
+    expect(
+      screen.getByRole("switch", { name: /show filename in titlebar/i })
+    ).toBeInTheDocument();
+  });
+
+  it("hides the toggle off macOS", () => {
+    platform.isMac = false;
+    render(<AppearanceSettings />);
+    expect(
+      screen.queryByRole("switch", { name: /show filename in titlebar/i })
+    ).toBeNull();
+  });
+
+  it("keeps the rest of the Window group off macOS", () => {
+    // The gate must take one row, not the group around it.
+    platform.isMac = false;
+    render(<AppearanceSettings />);
+    expect(
+      screen.getByRole("switch", { name: /auto-?hide status bar/i })
+    ).toBeInTheDocument();
   });
 });
 

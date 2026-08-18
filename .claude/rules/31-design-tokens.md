@@ -244,17 +244,27 @@ Icon SVG sizes (conventions, not tokens):
 | `--sidebar-bg` | Sidebar background | `#e5e4e4` |
 | `--sidebar-width` | Sidebar width | `260px` |
 | `--workspace-rail-width` | Workspace rail column width | `30px` |
+| `--traffic-lights-inset` | Top inset clearing the macOS traffic lights | `0px` |
 
-**`--workspace-rail-width` has two writers.** The `:root` value is a static
-default; `App.tsx` overrides it on the shell root from `WORKSPACE_RAIL_WIDTH`
-(`src/shell/shellChrome.ts`, re-exported by `components/WorkspaceRail`), which
-stays the source of truth because the same number also feeds layout arithmetic
-in TS — `shellSideWidth()` in that module is the one definition of the chrome
-left of the editor, shared by `App.tsx` and the terminal's sizing.
+**Both are written by `shellChromeVars()`, not by CSS.** The `:root` values are
+static defaults; `App.tsx` overrides both on the shell root from
+`src/shell/shellChrome.ts` (`WORKSPACE_RAIL_WIDTH`, re-exported by
+`components/WorkspaceRail`, and `TRAFFIC_LIGHTS_INSET`), which stays the source
+of truth because the same numbers also feed layout arithmetic in TS —
+`shellSideWidth()` in that module is the one definition of the chrome left of
+the editor, shared by `App.tsx` and the terminal's sizing.
 Change the TS constant, not the CSS.
 The `:root` declaration exists so consumers that use the var **without a
 fallback** — `title-bar.css` does — still resolve if the shell root has not
 applied its override yet.
+
+**`--traffic-lights-inset` is `0px` off macOS, and that is the point (#1296).**
+The traffic lights sit inside the webview only where the app overlays the native
+title bar (`usesOverlayTitleBar()`, true on macOS alone). The sidebar spacer and
+the workspace rail's top padding each hardcoded `28px`, so on Windows and Linux
+both opened with a gap clearing buttons that are not there — most visible once
+the app's own 40px chrome strip stopped rendering on those platforms. Consume
+the var; never write `28px` again.
 | `--outline-width` | Outline panel width | `200px` |
 | `--table-border-color` | Table borders | `#d5d4d4` |
 

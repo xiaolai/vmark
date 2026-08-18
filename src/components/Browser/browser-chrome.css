@@ -39,7 +39,10 @@
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
-/* The page tabs stay in the workspace below the title bar. */
+/* Inside the pane, above the page: the arrangement used where the OS draws the
+   title bar itself and the app has no strip of its own (#1296). Tabs on top,
+   omnibox below — the base `.browser-chrome` column plus the omnibox's own
+   `border-top` already describe it. */
 .browser-chrome--workspace {
   width: 100%;
 }

@@ -10,6 +10,13 @@
   padding-right: 0;
 }
 
+/* Clears the macOS traffic lights, which sit inside the webview only where the
+   app overlays the native title bar. --traffic-lights-inset is 0 elsewhere. */
+.sidebar-traffic-lights-spacer {
+  height: var(--traffic-lights-inset, 0px);
+  flex-shrink: 0;
+}
+
 /* Resize handle - positioned at right edge of sidebar */
 .sidebar-resize-handle {
   position: absolute;

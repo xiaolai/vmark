@@ -2,8 +2,15 @@
 //! label allocation, and the macOS dock-reopen workspace pick.
 //!
 //! Key decisions:
-//!   - Windows start hidden and are shown only after the frontend emits "ready",
-//!     preventing flash-of-unstyled-content on slow machines.
+//!   - Windows are created VISIBLE. This module and `lib.rs` both used to claim
+//!     they "start hidden and are shown after the frontend emits `ready`",
+//!     preventing flash-of-unstyled-content — no builder here calls
+//!     `.visible(false)`, `tauri.conf.json` sets no `visible` key (so Tauri's
+//!     default `true` applies), and `menu_events::mark_window_ready` flushes
+//!     queued menu events without ever calling `.show()`. The lifecycle was
+//!     never implemented; the claim is removed rather than left to mislead.
+//!     Implementing it is a real option, but it must come with a failure path —
+//!     a window that never receives `ready` would stay invisible forever.
 //!   - "main" remains the first document-window label and cold-start queue owner;
 //!     hot Finder opens can target any last-focused document window.
 //!   - macOS dock-icon reactivation restores the user's most-recent workspace via
@@ -22,7 +29,12 @@ const BASE_X: f64 = 100.0;
 const BASE_Y: f64 = 100.0;
 /// Max cascade steps before wrapping
 const MAX_CASCADE: u32 = 10;
-/// Minimum window size (also used as default)
+/// Size a new document window opens at.
+const DEFAULT_WIDTH: f64 = 800.0;
+const DEFAULT_HEIGHT: f64 = 600.0;
+/// Smallest size the user can drag a document window to. Equal to the default
+/// today, so a window opens at its minimum — stated as two constants because
+/// they answer different questions and only one of them may move.
 const MIN_WIDTH: f64 = 800.0;
 const MIN_HEIGHT: f64 = 600.0;
 
@@ -78,6 +90,22 @@ pub(super) fn build_window_url_with_files(
     }
 }
 
+/// The native title a window starts with, before the frontend replaces it with
+/// the document's filename.
+///
+/// macOS hides the native title (`TitleBarStyle::Overlay` + `hidden_title`
+/// below) and the app draws its own strip, so an empty string is right there —
+/// anything else would surface only in the Window menu, naming something the
+/// title bar never shows. Every other platform draws a real, visible title bar,
+/// where an empty string is a blank window until the first title update (#1296).
+fn initial_window_title(app_name: &str) -> String {
+    if cfg!(target_os = "macos") {
+        String::new()
+    } else {
+        app_name.to_string()
+    }
+}
+
 /// Build a document window with the shared document-window configuration.
 ///
 /// All document-window entry points (cascade-positioned doc windows, the
@@ -91,12 +119,12 @@ fn build_document_window(
     url: String,
     position: Option<(f64, f64)>,
 ) -> Result<(), tauri::Error> {
-    let title = String::new();
+    let title = initial_window_title(&app.package_info().name);
 
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
         .title(&title)
-        .inner_size(MIN_WIDTH, MIN_HEIGHT)
-        .min_inner_size(800.0, 600.0)
+        .inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+        .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
         .resizable(true)
         .fullscreen(false)
         // Match OS-drawn chrome (title bar, and the Windows menu bar) to the

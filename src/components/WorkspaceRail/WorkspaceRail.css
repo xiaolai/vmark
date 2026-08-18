@@ -1,7 +1,10 @@
+/* The top padding clears the macOS traffic lights, which sit inside the webview
+   only where the app overlays the native title bar. --traffic-lights-inset is 0
+   elsewhere, so the rail starts at the top of the window like the sidebar. */
 .workspace-rail {
   width: 100%;
   height: 100%;
-  padding: calc(28px + var(--space-2)) var(--space-px) var(--space-2);
+  padding: calc(var(--traffic-lights-inset, 0px) + var(--space-2)) var(--space-px) var(--space-2);
   background: var(--sidebar-bg);
 }
 

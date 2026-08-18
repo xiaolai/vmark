@@ -8,9 +8,11 @@
  * overlay z-stacking, chrome region reservation.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { AppShell } from "./AppShell";
+import { AppShell, CHROME_HEIGHT } from "./AppShell";
 
 const TEST_SIDEBAR_WIDTH = 280;
 
@@ -87,6 +89,64 @@ describe("AppShell", () => {
     );
     const aside = screen.getByRole("complementary");
     expect(aside.style.width).toBe(`${TEST_SIDEBAR_WIDTH}px`);
+  });
+
+  // #1296 — the reserved strip and the thing that fills it must be one decision.
+  // The shell reserved 40px unconditionally, so on Windows/Linux — where the OS
+  // draws its own title bar and no chrome is passed — the top of every window
+  // was an empty band.
+  it("reserves the chrome height when a chrome slot is filled", () => {
+    render(
+      <AppShell chrome={<div>title</div>} primary={<div data-testid="primary">main</div>} />
+    );
+    const primary = screen.getByTestId("primary").parentElement as HTMLElement;
+    expect(primary.style.paddingTop).toBe(`${CHROME_HEIGHT}px`);
+  });
+
+  it("reserves nothing when there is no chrome to reserve it for", () => {
+    render(<AppShell primary={<div data-testid="primary">main</div>} />);
+    const primary = screen.getByTestId("primary").parentElement as HTMLElement;
+    expect(primary.style.paddingTop).toBe("0px");
+  });
+
+  it("reserves nothing when chrome is explicitly null", () => {
+    render(<AppShell chrome={null} primary={<div data-testid="primary">main</div>} />);
+    const primary = screen.getByTestId("primary").parentElement as HTMLElement;
+    expect(primary.style.paddingTop).toBe("0px");
+  });
+
+  // The strip's own stylesheet needs the same height, and a second literal there
+  // could drift with nothing to catch it — `.title-bar` reads this variable.
+  it("publishes the chrome height for the chrome's stylesheet", () => {
+    const { container } = render(<AppShell primary={<div>main</div>} />);
+    const root = container.firstChild as HTMLElement;
+    expect(root.style.getPropertyValue("--chrome-height")).toBe(`${CHROME_HEIGHT}px`);
+  });
+
+  // Publishing the variable is only half the fix: nothing in jsdom loads the
+  // stylesheet, so without reading it, `.title-bar` could go back to a literal
+  // and every test here would still pass. This asserts the consumer.
+  it("is the ONLY definition of the strip's height — title-bar.css reads the var", () => {
+    const css = readFileSync(
+      resolve(__dirname, "../components/TitleBar/title-bar.css"),
+      "utf8"
+    );
+    const titleBarRule = css.slice(css.indexOf(".title-bar {"), css.indexOf("}", css.indexOf(".title-bar {")));
+    expect(titleBarRule).toContain("height: var(--chrome-height)");
+    // No fallback literal either — that is the drift this replaced.
+    expect(titleBarRule).not.toMatch(/height:\s*\d/);
+  });
+
+  it("does not let the published height clobber the caller's own vars", () => {
+    const { container } = render(
+      <AppShell
+        style={{ ["--workspace-rail-width" as string]: "30px" }}
+        primary={<div>main</div>}
+      />
+    );
+    const root = container.firstChild as HTMLElement;
+    expect(root.style.getPropertyValue("--workspace-rail-width")).toBe("30px");
+    expect(root.style.getPropertyValue("--chrome-height")).toBe(`${CHROME_HEIGHT}px`);
   });
 
   it("module loads without store side-effects (purity gate)", async () => {

@@ -11,30 +11,56 @@ const EMPTY_TABS: never[] = [];
 type BrowserChromePlacement = "workspace" | "titlebar";
 
 interface BrowserChromeProps {
-  /** Workspace renders page tabs alone; titlebar combines them with navigation. */
+  /**
+   * Where this chrome is mounted. `titlebar` is the macOS arrangement — the app
+   * draws its own strip over the native title bar, so tabs and omnibox sit
+   * side by side in it. `workspace` is the arrangement everywhere else: the OS
+   * owns the title bar, so the chrome stacks inside the pane above the page,
+   * like every other desktop browser (#1296).
+   */
   placement?: BrowserChromePlacement;
+  /**
+   * The page this chrome addresses. The workspace placement is mounted PER PANE,
+   * and in a split the pane's page is not the window's active tab — pointing the
+   * omnibox at the window's would navigate a page the user cannot see. Omitting
+   * it falls back to the window's active page, which is what the window-level
+   * title bar wants.
+   */
+  activePageId?: string;
 }
 
 /**
  * Browser-specific chrome for the active browser workspace.
  *
  * A thin placement wrapper: it resolves the workspace projection and renders the
- * webpage tablist (BrowserPageTabs) either alone (workspace placement) or next
- * to the omnibox in the title bar. Page ids are the existing browser tab ids, so
- * native WebKit and MCP keep the same per-page identity and approval bindings.
+ * webpage tablist (BrowserPageTabs) plus the omnibox, stacked inside the pane or
+ * side by side in the title bar. The two placements are mutually exclusive by
+ * platform, so the omnibox is never mounted twice. Page ids are the existing
+ * browser tab ids, so native WebKit and MCP keep the same per-page identity and
+ * approval bindings.
  *
  * @coordinates-with BrowserPageTabs.tsx — the nested webpage tablist
+ * @coordinates-with BrowserWorkspaceSurface.tsx — mounts the workspace placement off macOS
  */
-export function BrowserChrome({ placement = "workspace" }: BrowserChromeProps): React.ReactElement | null {
+export function BrowserChrome({
+  placement = "workspace",
+  activePageId: requestedPageId,
+}: BrowserChromeProps): React.ReactElement | null {
   const { t } = useTranslation("common");
   const windowLabel = useWindowLabel();
   const tabs = useTabStore((s) => s.tabs[windowLabel] ?? EMPTY_TABS);
   const activeTabId = useTabStore((s) => s.activeTabId[windowLabel] ?? null);
   const view = getBrowserWorkspaceView(tabs, activeTabId);
 
-  if (!view.browserWorkspaceActive || !view.activeBrowserPageId) return null;
+  // A named page wins; otherwise fall back to the window's active one. Either
+  // way it must name a page that still EXISTS: the omnibox drives navigation, so
+  // a stale or wrong id would aim `browser_navigate` at nothing, and the tablist
+  // would show no selection while looking perfectly normal.
+  const requested = requestedPageId ?? (view.browserWorkspaceActive ? view.activeBrowserPageId : null);
+  const activePageId = view.browserPages.some((page) => page.id === requested) ? requested : null;
 
-  const activePageId = view.activeBrowserPageId;
+  if (!activePageId) return null;
+
   const pageTabs = (
     <BrowserPageTabs pages={view.browserPages} activePageId={activePageId} windowLabel={windowLabel} />
   );
@@ -54,6 +80,7 @@ export function BrowserChrome({ placement = "workspace" }: BrowserChromeProps): 
   return (
     <div className="browser-chrome browser-chrome--workspace" aria-label={t("browser.toolbar")}>
       {pageTabs}
+      <BrowserOmnibox tabId={activePageId} />
     </div>
   );
 }

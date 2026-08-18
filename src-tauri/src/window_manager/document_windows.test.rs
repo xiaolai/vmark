@@ -176,3 +176,29 @@ fn pick_reopen_rejects_path_that_is_a_regular_file() {
         None,
     );
 }
+
+// -- initial_window_title -------------------------------------------------
+//
+// Issue #1296. The title was unconditionally empty because the builder assumes
+// macOS's overlay title bar, where the native title text is hidden and an empty
+// string is the only correct value. Off macOS the OS draws a REAL title bar, so
+// an empty string is a blank strip until the frontend's first title update —
+// and a blank one is what the reporter saw. Both legs are asserted per target,
+// which the 3-OS CI matrix exercises.
+
+#[cfg(target_os = "macos")]
+#[test]
+fn initial_title_is_empty_where_the_native_title_is_hidden() {
+    // TitleBarStyle::Overlay + hidden_title(true): the app draws its own strip,
+    // so a non-empty title would only ever surface in the Window menu.
+    assert_eq!(initial_window_title("VMark"), "");
+}
+
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn initial_title_names_the_app_where_the_title_bar_is_visible() {
+    // Whatever the app is called — the point is that the visible title bar gets
+    // that name and not a blank strip.
+    assert_eq!(initial_window_title("VMark"), "VMark");
+    assert_eq!(initial_window_title("Renamed"), "Renamed");
+}

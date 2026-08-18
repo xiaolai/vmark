@@ -143,9 +143,13 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_denylist(&["settings", "pdf-export"])
-                // Exclude VISIBLE from state restoration to prevent flash.
-                // Windows start hidden (visible: false) and are shown only
-                // after frontend emits "ready" event in mark_window_ready().
+                // Exclude VISIBLE from state restoration: a window saved while
+                // hidden must not be restored hidden, with no way to reach it.
+                // NOTE: windows are NOT created hidden — this comment used to
+                // say they were, and that they are shown on the frontend's
+                // "ready" event. Neither is true (see window_manager::
+                // document_windows' module doc); dropping the flag is still
+                // correct, but it is not part of an anti-flash mechanism.
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
                         - tauri_plugin_window_state::StateFlags::VISIBLE,
