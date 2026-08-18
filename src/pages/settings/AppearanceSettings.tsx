@@ -15,7 +15,7 @@ import {
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Toggle, Select } from "./components";
 import { selectableThemeIds } from "@/theme/themeAvailability";
-import { isMacPlatform } from "@/utils/platform";
+import { isMacPlatform, usesOverlayTitleBar } from "@/utils/platform";
 
 /** One row of theme swatches. `selected` gets the ring indicator. */
 function ThemeSwatchRow({
@@ -112,15 +112,21 @@ export function AppearanceSettings() {
 
       {/* Window */}
       <SettingsGroup title={t("appearance.group.window")}>
-        <SettingRow
-          label={t("appearance.showFilenameInTitlebar.label")}
-          description={t("appearance.showFilenameInTitlebar.description")}
-        >
-          <Toggle
-            checked={appearance.showFilenameInTitlebar ?? false}
-            onChange={(v) => updateSetting("showFilenameInTitlebar", v)}
-          />
-        </SettingRow>
+        {/* The toggle governs the app's own title-bar strip, which is drawn
+            only where it covers the native one. Off macOS the filename goes in
+            the native title bar unconditionally, so there is nothing to choose
+            (#1296). */}
+        {usesOverlayTitleBar() && (
+          <SettingRow
+            label={t("appearance.showFilenameInTitlebar.label")}
+            description={t("appearance.showFilenameInTitlebar.description")}
+          >
+            <Toggle
+              checked={appearance.showFilenameInTitlebar ?? false}
+              onChange={(v) => updateSetting("showFilenameInTitlebar", v)}
+            />
+          </SettingRow>
+        )}
         <SettingRow
           label={t("appearance.autoHideStatusBar.label")}
           description={t("appearance.autoHideStatusBar.description")}

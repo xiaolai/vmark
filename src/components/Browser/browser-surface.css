@@ -1,8 +1,13 @@
 /* BrowserSurface (WI-1.3) — reserved viewport + full-cover overlays for the native
    webview. BrowserChrome owns the page tabs and navigation controls. */
 
+/* A column, because off macOS this surface hosts the browser chrome above the
+   page (#1296). On macOS the chrome is in the title bar and this is a column of
+   one — the same layout either way, so there is no platform branch in the CSS. */
 .browser-workspace-surface {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -10,11 +15,15 @@
   background: var(--bg-color);
 }
 
+/* `flex: 1` rather than `height: 100%`: with chrome above it, a full-height
+   surface would overflow by exactly the chrome's height and push the viewport
+   rect — and with it the native webview — off the bottom of the window. */
 .browser-surface {
   display: flex;
   flex-direction: column;
+  flex: 1;
   width: 100%;
-  height: 100%;
+  min-height: 0;
   background: var(--bg-color);
 }
 

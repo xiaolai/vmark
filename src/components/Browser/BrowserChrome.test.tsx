@@ -21,7 +21,7 @@ describe("BrowserChrome", () => {
     });
   });
 
-  it("renders webpage tabs without duplicating the title-bar navigation", () => {
+  it("renders webpage tabs and the address bar in the workspace", () => {
     const first = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
     useTabStore.getState().createBrowserPage("main", "https://two.example", "Two");
 
@@ -30,13 +30,81 @@ describe("BrowserChrome", () => {
     expect(screen.getByRole("tablist", { name: "Webpages" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /One/ })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tab", { name: /Two/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
+    // Off macOS this placement IS the browser's only chrome, so it carries the
+    // omnibox too — the title-bar strip it used to live in is not rendered there
+    // (#1296). The two placements are mutually exclusive by platform, so this
+    // cannot double up with the title bar's copy.
+    expect(screen.getByTestId("omnibox")).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("tab", { name: /One/ }), { key: "Enter" });
     expect(useTabStore.getState().activeTabId.main).toBe(first);
 
     fireEvent.click(screen.getByRole("tab", { name: /One/ }));
     expect(useTabStore.getState().activeTabId.main).toBe(first);
+  });
+
+  it("addresses the window's active page when the caller names none", () => {
+    useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    const two = useTabStore.getState().createBrowserPage("main", "https://two.example", "Two");
+
+    render(<BrowserChrome />);
+
+    expect(screen.getByTestId("omnibox")).toHaveTextContent(two);
+  });
+
+  it("addresses the page it is GIVEN — the pane's, not the window's (split view)", () => {
+    const one = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    useTabStore.getState().createBrowserPage("main", "https://two.example", "Two"); // window-active
+
+    render(<BrowserChrome activePageId={one} />);
+
+    // A pane showing page One must not hand its address bar to page Two: the
+    // omnibox drives navigation, so aiming it elsewhere would navigate a page
+    // the user cannot see.
+    expect(screen.getByTestId("omnibox")).toHaveTextContent(one);
+  });
+
+  it("renders nothing when the window has no browser page at all", () => {
+    render(<BrowserChrome />);
+
+    expect(screen.queryByRole("tablist", { name: "Webpages" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
+  });
+
+  it("renders nothing for an id that was never a page", () => {
+    useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+
+    render(<BrowserChrome activePageId="tab-does-not-exist" />);
+
+    // Binding the omnibox to a dead id would point navigation at nothing while
+    // the chrome looked normal — no tab selected, submit silently misfiring.
+    expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
+  });
+
+  it("drops the chrome when the page it addresses is CLOSED", () => {
+    // The reactive path, not a synthetic bad id: the page exists, the chrome
+    // renders, then the page goes away underneath it. This is how a stale id
+    // actually arises in the app.
+    const one = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    useTabStore.getState().createBrowserPage("main", "https://two.example", "Two");
+
+    const { rerender } = render(<BrowserChrome activePageId={one} />);
+    expect(screen.getByTestId("omnibox")).toHaveTextContent(one);
+
+    useTabStore.getState().closeTab("main", one);
+    rerender(<BrowserChrome activePageId={one} />);
+
+    expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "Webpages" })).not.toBeInTheDocument();
+  });
+
+  it("renders nothing for a DOCUMENT tab id", () => {
+    useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    const doc = useTabStore.getState().createTab("main");
+
+    render(<BrowserChrome activePageId={doc} />);
+
+    expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
   });
 
   it("does not activate a page when Enter bubbles from its close button", () => {

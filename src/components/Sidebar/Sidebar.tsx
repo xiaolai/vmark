@@ -46,9 +46,6 @@ import { useWindowLabel } from "@/contexts/WindowContext";
 import { useSidebarInstanceSync } from "./useSidebarInstanceSync";
 import { SidebarActionButton } from "./SidebarActionButton";
 
-// Constants
-const TRAFFIC_LIGHTS_SPACER_PX = 28;
-
 // View mode configuration - single source of truth (icon and next only; titles come from t())
 /** The browser kind's own cycle. Its views are a separate union from the document ones,
  *  so it needs its own ring — reusing VIEW_CONFIG is what caused the bug. */
@@ -160,8 +157,9 @@ export function Sidebar() {
 
   return (
     <div className="sidebar" style={{ width: "100%", height: "100%" }}>
-      {/* Spacer for traffic lights area */}
-      <div style={{ height: TRAFFIC_LIGHTS_SPACER_PX, flexShrink: 0, padding: 0, margin: 0 }} />
+      {/* Spacer for the macOS traffic lights; collapses to nothing where the OS
+          draws its own title bar (shellChrome.ts publishes the inset). */}
+      <div className="sidebar-traffic-lights-spacer" />
       <div className="sidebar-header">
         <SidebarActionButton
           label={nextShowLabel}

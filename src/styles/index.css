@@ -43,12 +43,17 @@
   /* UI chrome */
   --sidebar-bg: #e5e4e4;
   --outline-width: 200px;
-  /* Static default; App.tsx overrides it on the shell root from
-     WORKSPACE_RAIL_WIDTH, which stays the source of truth because the rail's
-     width also feeds layout arithmetic in TS. Declared here so consumers that
-     use it WITHOUT a fallback (title-bar.css) still resolve, and so the value is
-     visible to anyone reading the token file. */
+  /* Static default; App.tsx overrides it on the shell root via shellChromeVars()
+     from WORKSPACE_RAIL_WIDTH, which stays the source of truth because the
+     rail's width also feeds layout arithmetic in TS. Declared here so consumers
+     that use it WITHOUT a fallback (title-bar.css) still resolve, and so the
+     value is visible to anyone reading the token file. */
   --workspace-rail-width: 30px;
+  /* Vertical space the macOS traffic lights need at the top of a full-height
+     column (sidebar, workspace rail). Static default of 0 — the shell root sets
+     the real value from shellChrome.ts, and only macOS puts the lights inside
+     the webview, so 0 is the correct fallback for every other platform. */
+  --traffic-lights-inset: 0px;
   --border-color: #d5d4d4;
   --table-border-color: #d5d4d4;
   --selection-color: rgba(0, 102, 204, 0.2);

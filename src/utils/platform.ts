@@ -14,9 +14,38 @@ export function isMacPlatform(): boolean {
   return /mac/i.test(navigator.platform);
 }
 
-/** True on Windows. */
+/**
+ * True on Windows.
+ *
+ * Anchored, because `"Darwin"` CONTAINS "win": an unanchored `/win/i` reported
+ * macOS as Windows, and `getRuntimePlatform()` would then have applied
+ * case-insensitive path identity to it — two files differing only in case would
+ * have counted as one. Every real value is a prefix match (`Win32`, `Win64`,
+ * `WinCE`, `Windows`).
+ */
 export function isWindowsPlatform(): boolean {
-  return /win/i.test(navigator.platform);
+  return /^win/i.test(navigator.platform);
+}
+
+/**
+ * True where the app draws its own chrome OVER the native title bar.
+ *
+ * The window builder asks for that mode under `#[cfg(target_os = "macos")]`
+ * only (`TitleBarStyle::Overlay` + `hidden_title`), so everywhere else the OS
+ * draws a real, visible title bar above the webview. Two things follow, and
+ * both were wrong before #1296: the app's own 40px chrome strip is a second,
+ * redundant title bar off macOS, and the native title text — which macOS hides
+ * — is the only place a filename can appear there.
+ *
+ * Named for the property rather than the OS because that is what every call
+ * site actually depends on. Note a module mock of `isMacPlatform` does NOT
+ * reach this function's internal call; tests that need to steer it must mock
+ * this export directly.
+ *
+ * @coordinates-with src-tauri/src/window_manager/document_windows.rs — the cfg that must agree
+ */
+export function usesOverlayTitleBar(): boolean {
+  return isMacPlatform();
 }
 
 /** Platform identifiers used for path identity / root normalization. */

@@ -41,8 +41,13 @@ When enabled, the single theme row is replaced by two rows — **Light theme** (
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Show filename in titlebar | Display the current file name in the macOS window title bar | Off |
+| Show filename in titlebar | Display the current file name in the macOS window title bar. **macOS only** — this setting is hidden elsewhere, because Windows and Linux always show the filename in the system title bar | Off |
 | Auto-hide status bar | Automatically hide the status bar when you are not interacting with it | Off |
+
+On macOS, VMark draws its own title bar over the system one, so the filename is
+an opt-in element of that strip. On Windows and Linux the system draws a real
+title bar above the window: the filename (with a `•` while there are unsaved
+changes) always appears there, and VMark adds no title strip of its own.
 
 ### Focus Mode
 

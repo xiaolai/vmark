@@ -34,7 +34,7 @@ window that owns them.
 
 ## Using it
 
-A browser tab opens in the editor area, alongside your documents — the sidebar, tab strip, terminal, and status bar all stay where they are. Its controls live in the **bottom bar**, in the same place VMark keeps the editor's own tools:
+A browser tab opens in the editor area, alongside your documents — the sidebar, tab strip, terminal, and status bar all stay where they are. Its controls sit **above the page**: on macOS they share the window's title bar, since VMark draws that itself. Where the system draws the title bar instead (Windows, Linux), they sit inside the window above the page, the way every other desktop browser arranges them.
 
 | Control | Action |
 |---------|--------|

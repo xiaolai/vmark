@@ -23,10 +23,21 @@ vi.mock("@/utils/debug", async (importOriginal) => ({
   titleBarWarn: (...args: unknown[]) => titleBarWarn(...args),
 }));
 
-const state = { filePath: "/docs/readme.md", isDirty: false };
+const state: { filePath: string | null; isDirty: boolean } = {
+  filePath: "/docs/readme.md",
+  isDirty: false,
+};
 vi.mock("./useDocumentState", () => ({
   useDocumentFilePath: () => state.filePath,
   useDocumentIsDirty: () => state.isDirty,
+}));
+
+// The native title's audience is platform-dependent (#1296): on macOS it is
+// hidden behind the app's own chrome strip, everywhere else it IS the title bar.
+const platform = vi.hoisted(() => ({ overlayTitleBar: true }));
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  usesOverlayTitleBar: () => platform.overlayTitleBar,
 }));
 
 const { useSettingsStore } = await import("@/stores/settingsStore");
@@ -35,6 +46,7 @@ const { useWindowTitle } = await import("./useWindowTitle");
 beforeEach(() => {
   setTitle.mockReset().mockResolvedValue(undefined);
   titleBarWarn.mockReset();
+  platform.overlayTitleBar = true;
   state.filePath = "/docs/readme.md";
   state.isDirty = false;
   useSettingsStore.setState((s) => ({
@@ -75,5 +87,49 @@ describe("useWindowTitle", () => {
     await waitFor(() =>
       expect(titleBarWarn).toHaveBeenCalledWith("Failed to set window title:", boom)
     );
+  });
+
+  it("localises the fallback name for an unsaved document", async () => {
+    state.filePath = null;
+    renderHook(() => useWindowTitle());
+    // The literal used to be hardcoded English. It reached the native title bar
+    // on every locale — and off macOS that title bar is always visible (#1296).
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("Untitled"));
+  });
+});
+
+// #1296 — the setting exists because macOS HIDES the native title behind the
+// app's own chrome. Off macOS the native title bar is the only place a filename
+// can appear, so the preference has no meaning there and must not be honoured.
+describe("useWindowTitle — off macOS the native title is not optional", () => {
+  beforeEach(() => {
+    platform.overlayTitleBar = false;
+  });
+
+  it("shows the filename even with the macOS-only setting off", async () => {
+    setShowFilename(false);
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("readme.md"));
+  });
+
+  it("never clears the native title", async () => {
+    setShowFilename(false);
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalled());
+    expect(setTitle).not.toHaveBeenCalledWith("");
+  });
+
+  it("still carries the dirty indicator", async () => {
+    setShowFilename(false);
+    state.isDirty = true;
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("• readme.md"));
+  });
+
+  it("falls back to the localised untitled name with no file", async () => {
+    setShowFilename(false);
+    state.filePath = null;
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("Untitled"));
   });
 });

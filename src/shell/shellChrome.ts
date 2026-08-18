@@ -11,6 +11,11 @@
  * editor actually had. Two derivations of one quantity is the bug; this is the
  * fix.
  *
+ * It also owns the one VERTICAL number the same story applies to: the space the
+ * macOS traffic lights need at the top of a full-height column. The sidebar and
+ * the workspace rail each hardcoded 28px, and off macOS — where there are no
+ * traffic lights — both were an unexplained gap (#1296).
+ *
  * @coordinates-with App.tsx — lays the shell out with this width
  * @coordinates-with components/Terminal/useTerminalPosition.ts — sizes the panel against it
  * @module shell/shellChrome
@@ -38,4 +43,33 @@ export function shellSideWidth(state: ShellChromeState): number {
   const rail = state.workspaceRailVisible ? WORKSPACE_RAIL_WIDTH : 0;
   const sidebar = state.sidebarVisible ? state.sidebarWidth : 0;
   return rail + sidebar;
+}
+
+/**
+ * Vertical space the macOS traffic lights need at the top of a column that runs
+ * to the window's top edge (the sidebar, the workspace rail). Zero elsewhere —
+ * see `shellChromeVars`.
+ */
+export const TRAFFIC_LIGHTS_INSET = 28;
+
+/** CSS custom properties the shell root publishes to every descendant. */
+export interface ShellChromeVars {
+  "--workspace-rail-width": string;
+  "--traffic-lights-inset": string;
+}
+
+/**
+ * The shell root's CSS variables, so descendants read ONE value defined here
+ * rather than each restating a number. `index.css` declares both in `:root` as
+ * static defaults, for consumers that resolve before the shell has mounted.
+ *
+ * @param overlayTitleBar `usesOverlayTitleBar()` — true where the app's own
+ *   chrome covers the native title bar, which is also the only place the
+ *   traffic lights sit inside the webview.
+ */
+export function shellChromeVars(overlayTitleBar: boolean): ShellChromeVars {
+  return {
+    "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px`,
+    "--traffic-lights-inset": `${overlayTitleBar ? TRAFFIC_LIGHTS_INSET : 0}px`,
+  };
 }

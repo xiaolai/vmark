@@ -7,8 +7,9 @@ import { TOAST_ICONS } from "@/components/toastIcons";
 import { DocumentSplitContainer } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
-import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
-import { shellSideWidth } from "@/shell/shellChrome";
+import { WorkspaceRail } from "@/components/WorkspaceRail";
+import { shellSideWidth, shellChromeVars } from "@/shell/shellChrome";
+import { usesOverlayTitleBar } from "@/utils/platform";
 import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { AppShell, EditorArea } from "@/shell";
 import { appShellClassName } from "@/shell/appShellClassName";
@@ -147,7 +148,8 @@ function DropOverlay() {
   );
 }
 
-function MainLayout() {
+/** Exported for the composition-root test — see App.chrome.test.tsx. */
+export function MainLayout() {
   const { t } = useTranslation("dialog");
   // Window context + store selectors. State reads only, not lifecycle hooks.
   const isDocumentWindow = useIsDocumentWindow();
@@ -165,6 +167,7 @@ function MainLayout() {
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
   // One definition, shared with the terminal's layout maths (see shellChrome).
   const sideWidth = shellSideWidth({ workspaceRailVisible: showWorkspaceRail, sidebarVisible, sidebarWidth });
+  const overlayTitleBar = usesOverlayTitleBar();
 
   // T03 lifecycle composites — every per-document/per-window hook now
   // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook
@@ -181,10 +184,13 @@ function MainLayout() {
   return (
     <AppShell
       className={className}
-      // Single source for the rail width: descendants (incl. the browser-active
-      // layout offsets) inherit it from here instead of a hardcoded CSS value.
-      style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
-      chrome={<AppTitleBar />}
+      // Single source for the shell's chrome geometry: descendants inherit
+      // these instead of restating the numbers in CSS (see shellChrome).
+      style={shellChromeVars(overlayTitleBar) as CSSProperties}
+      // Only macOS overlays the native title bar, so only macOS needs the app
+      // to draw one. Elsewhere the OS already did, and a second strip below the
+      // menu bar is the empty band reported in #1296.
+      chrome={overlayTitleBar ? <AppTitleBar /> : null}
       sidebar={
         showWorkspaceRail || sidebarVisible ? (
           <div className="app-sidebar-stack">

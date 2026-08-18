@@ -1,9 +1,16 @@
+/* The height must equal the space AppShell reserves for this strip, so it comes
+   from there: --chrome-height is published on the shell root from CHROME_HEIGHT
+   (src/shell/AppShell.tsx). Deliberately NO fallback — this strip is only ever
+   mounted in AppShell's chrome slot, so a `40px` fallback would be a second
+   literal that no longer tracks the constant and could never be exercised to
+   reveal it. If the variable is ever missing the height collapses, which is
+   visible at once, rather than silently freezing at a stale number. */
 .title-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: var(--chrome-height);
   display: flex;
   align-items: flex-start;
   justify-content: center;
