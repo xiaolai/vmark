@@ -153,3 +153,47 @@ describe("BrowserChrome", () => {
     expect(screen.queryByRole("tab", { name: /two\.example/ })).not.toBeInTheDocument();
   });
 });
+
+// WI-NB5.1 — the "AI is controlling" indicator + chrome-interaction reclaim.
+// The chrome is the one place React CAN see human input (the page itself is a
+// native sibling view), so any interaction here while the AI holds the lease is
+// a takeover.
+describe("AI lease indicator (WI-NB5.1)", () => {
+  async function leaseStore() {
+    const { useBrowserLeaseStore } = await import("@/services/browser/lease");
+    return useBrowserLeaseStore;
+  }
+
+  beforeEach(async () => {
+    (await leaseStore()).setState({ leases: {}, inflightCancel: {} });
+  });
+
+  it("shows a takeover button while the AI holds the active page's lease", async () => {
+    const store = await leaseStore();
+    const id = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    store.getState().acquireForAi(id);
+
+    render(<BrowserChrome />);
+    const takeover = screen.getByRole("button", { name: /AI is controlling/i });
+    expect(takeover).toBeInTheDocument();
+
+    fireEvent.click(takeover);
+    expect(store.getState().currentHolder(id)).toBe("human");
+  });
+
+  it("renders no indicator when nobody holds a lease", () => {
+    useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    render(<BrowserChrome />);
+    expect(screen.queryByRole("button", { name: /AI is controlling/i })).toBeNull();
+  });
+
+  it("any chrome interaction reclaims an AI-held lease (capture phase)", async () => {
+    const store = await leaseStore();
+    const id = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
+    store.getState().acquireForAi(id);
+
+    render(<BrowserChrome />);
+    fireEvent.mouseDown(screen.getByTestId("omnibox"));
+    expect(store.getState().currentHolder(id)).toBe("human");
+  });
+});

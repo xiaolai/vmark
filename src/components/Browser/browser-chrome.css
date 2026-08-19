@@ -237,3 +237,25 @@
     max-width: 160px;
   }
 }
+
+/* WI-NB5.1 — the "AI is controlling" takeover pill. Accent tokens per rule 31
+   (selection/active state); visible focus per rule 33 §4 (standalone button). */
+.browser-ai-lease {
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) var(--spacing-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.browser-ai-lease:hover {
+  background: var(--hover-bg-strong);
+}
+
+.browser-ai-lease:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}

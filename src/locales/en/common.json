@@ -178,5 +178,6 @@
   "workspaceRail.menu.close": "Close",
   "workspaceRail.menu.duplicate": "Duplicate",
   "workspaceRail.menu.moveToNewWindow": "Move to New Window",
-  "sites.wikipedia.name": "Wikipedia"
+  "sites.wikipedia.name": "Wikipedia",
+  "browser.aiControlling": "AI is controlling — click to take over"
 }

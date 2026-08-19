@@ -178,5 +178,6 @@
   "workspaceRail.menu.close": "关闭",
   "workspaceRail.menu.duplicate": "复制",
   "workspaceRail.menu.moveToNewWindow": "移到新窗口",
-  "sites.wikipedia.name": "维基百科"
+  "sites.wikipedia.name": "维基百科",
+  "browser.aiControlling": "AI 正在控制 — 点击接管"
 }

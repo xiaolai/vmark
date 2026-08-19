@@ -178,5 +178,6 @@
   "workspaceRail.menu.close": "Fermer",
   "workspaceRail.menu.duplicate": "Dupliquer",
   "workspaceRail.menu.moveToNewWindow": "Déplacer vers une nouvelle fenêtre",
-  "sites.wikipedia.name": "Wikipédia"
+  "sites.wikipedia.name": "Wikipédia",
+  "browser.aiControlling": "L'IA contrôle — cliquez pour reprendre la main"
 }

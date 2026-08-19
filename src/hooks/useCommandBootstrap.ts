@@ -36,6 +36,7 @@ import { registerGenieCommands } from "@/services/commands/genieCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
+import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
@@ -161,6 +162,9 @@ export function useCommandBootstrap(): void {
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
     // default-deny — safe, but the user's approvals would never take effect.
     const stopGrantSync = startGrantSync();
+    // Lease event sources (WI-NB5.1): native page input reclaims an AI-held
+    // tab; tab close drops lease state.
+    const stopLeaseWiring = startBrowserLeaseWiring();
     const stopCoherenceScan = startCoherenceScanOnChange();
     const stopWindowWorkspaceSync = startWindowWorkspaceSync();
     const stopBrowserAiPolicySync = startBrowserAiPolicySync();
@@ -233,6 +237,7 @@ export function useCommandBootstrap(): void {
       if (unlisten) unlisten();
       disposeEditorCommands();
       stopGrantSync();
+      stopLeaseWiring();
       stopCoherenceScan();
       stopWindowWorkspaceSync();
       stopBrowserAiPolicySync();
