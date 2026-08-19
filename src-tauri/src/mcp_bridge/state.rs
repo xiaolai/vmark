@@ -210,11 +210,11 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "vmark.browser.screenshot"
             | "vmark.browser.extract"
             | "vmark.browser.workflow_status" // Coherence ops are deliberately ABSENT: they are Rust-answered in
-                                      // `answer_rust_side` BEFORE this classifier runs, and
-                                      // `routing::answer_coherence_async` applies its own lock policy
-                                      // (edges/resolve take the write lock; status/claims/contexts do not).
-                                      // An entry here would be unreachable dead weight (WI-1 manifest
-                                      // parity: src/hooks/mcpBridge/v2/operationManifest.ts).
+                                              // `answer_rust_side` BEFORE this classifier runs, and
+                                              // `routing::answer_coherence_async` applies its own lock policy
+                                              // (edges/resolve take the write lock; status/claims/contexts do not).
+                                              // An entry here would be unreachable dead weight (WI-1 manifest
+                                              // parity: src/hooks/mcpBridge/v2/operationManifest.ts).
     )
 }
 
