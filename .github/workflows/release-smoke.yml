@@ -1,0 +1,127 @@
+name: Release smoke
+
+# Runs against a PUBLISHED release, on macOS, driving the artefact the way a new
+# user does (WI-NB9.2, borrowed from pitiflautico/neobrowser's release-smoke).
+#
+# release.yml compiles, signs, notarizes and uploads — but it never runs what it
+# uploads. So a DMG that fails Gatekeeper, or a bundled sidecar that does not
+# start, looks identical to a working one until a user opens an issue. This gap
+# closes it: download what the world downloads, and make it prove it works.
+#
+# Fires automatically once a release is published, and can be run by hand
+# against any tag via workflow_dispatch.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to smoke-test (defaults to the latest release)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  artefact:
+    name: macOS DMG
+    runs-on: macos-latest
+    # A gate that hangs is worse than no gate: it burns runner minutes and
+    # reports nothing. Every step here is seconds of work; cap it well below the
+    # 6h default (the neobrowser lesson).
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the tag under test
+        id: tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Event-supplied values go through env, never interpolated into the
+          # shell body (workflow-injection safety).
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          TAG="${INPUT_TAG:-$RELEASE_TAG}"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release view --json tagName -q .tagName)"
+          fi
+          # A tag name is constrained, but validate before it reaches any other
+          # shell command.
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::unexpected tag '$TAG'"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "resolved tag: $TAG"
+
+      - name: Download the published macOS DMG
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p dl
+          # The Apple-Silicon DMG is the primary macOS artefact. Fail loudly if
+          # the release published no DMG at all — a silent skip would let a
+          # DMG-less release pass this gate.
+          gh release download "$TAG" --dir dl --pattern '*aarch64*.dmg' \
+            || gh release download "$TAG" --dir dl --pattern '*.dmg'
+          DMG="$(ls dl/*.dmg | head -1)"
+          [ -n "$DMG" ] || { echo "::error::no .dmg published for $TAG"; exit 1; }
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+          ls -la dl
+
+      - name: The DMG passes Gatekeeper (signed + notarized)
+        shell: bash
+        run: |
+          # spctl on the DMG itself checks the notarization stapled to it; a
+          # release that shipped an unsigned or un-notarized DMG fails here —
+          # exactly the "app is damaged / unidentified developer" a user hits.
+          spctl --assess --type open --context context:primary-signature -v "$DMG"
+
+      - name: Mount, and assess the .app inside
+        id: mount
+        shell: bash
+        run: |
+          MOUNT="$(hdiutil attach "$DMG" -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)"
+          echo "mount=$MOUNT" >> "$GITHUB_OUTPUT"
+          APP="$(ls -d "$MOUNT"/*.app | head -1)"
+          [ -n "$APP" ] || { echo "::error::no .app inside the DMG"; exit 1; }
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
+          echo "app: $APP"
+          # Gatekeeper accepts the launchable bundle — the exact check macOS runs
+          # on first open.
+          spctl --assess --type execute -v "$APP"
+
+      - name: The bundled MCP sidecar reports its version
+        shell: bash
+        # The sidecar is a Tauri externalBin (Contents/MacOS/vmark-mcp-server*),
+        # a CLI — so unlike the GUI app it can prove itself in headless CI. Its
+        # --version must match the tag, and --health-check must pass: each has
+        # failed silently in a shipped binary before elsewhere, and each looks
+        # identical to success until someone runs it.
+        timeout-minutes: 3
+        env:
+          APP: ${{ steps.mount.outputs.app }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          SIDECAR="$(ls "$APP/Contents/MacOS/"vmark-mcp-server* | head -1)"
+          [ -n "$SIDECAR" ] || { echo "::error::no vmark-mcp-server in the bundle"; exit 1; }
+          VER="$("$SIDECAR" --version)"
+          echo "sidecar version: $VER"
+          WANT="${TAG#v}"
+          echo "$VER" | grep -qF "$WANT" || {
+            echo "::error::sidecar reports '$VER' but the release is '$WANT'"
+            exit 1
+          }
+          "$SIDECAR" --health-check
+
+      - name: Unmount
+        if: always() && steps.mount.outputs.mount != ''
+        shell: bash
+        env:
+          MOUNT: ${{ steps.mount.outputs.mount }}
+        run: hdiutil detach "$MOUNT" || true
