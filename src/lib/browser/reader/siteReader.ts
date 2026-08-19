@@ -6,7 +6,15 @@
  * chosen by URL match; the built-in `genericReader` matches any http(s) page.
  * This keeps the common case zero-config and the special cases (a site whose DOM
  * the generic heuristic mangles) a small, isolated plugin — hardened against a
- * fixture corpus in WI-3.2.
+ * fixture corpus.
+ *
+ * WIRED (WI-NB4.1/4.2): `browser_read.extract` is the production consumer.
+ * Readers register ATOMICALLY with their manifest (`registerSite(manifest,
+ * reader)`), and `registry.readerForUrl` is the dispatch point — origin
+ * security from `dispatchSite`, URL refinement from the reader's own `match`,
+ * `genericReader` as the fallback. `health.ts` was deleted in the same pass
+ * (WI-NB4.4): its probe contract had no honest consumer without the
+ * credentialed site flows that left with `SitePublisher`.
  *
  * PUBLISHING WAS REMOVED (WI-DP1.2, 2026-08-09). `SitePublisher`, `PublishInput`
  * and `PublishResult` were declared here "for symmetry" against an

@@ -6,7 +6,7 @@ import { SITE_CAPABILITIES } from "./types";
 
 describe("SITE_CAPABILITIES", () => {
   it("lists exactly the supported capabilities", () => {
-    expect([...SITE_CAPABILITIES]).toEqual(["read", "publish"]);
+    expect([...SITE_CAPABILITIES]).toEqual(["read"]);
   });
 
   it("is frozen so the validation vocabulary cannot be mutated before registry init", () => {
@@ -14,6 +14,6 @@ describe("SITE_CAPABILITIES", () => {
     expect(() => {
       (SITE_CAPABILITIES as unknown as string[]).push("delete");
     }).toThrow(TypeError);
-    expect([...SITE_CAPABILITIES]).toEqual(["read", "publish"]);
+    expect([...SITE_CAPABILITIES]).toEqual(["read"]);
   });
 });
