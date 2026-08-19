@@ -177,5 +177,6 @@
   "browser.bookmarks.remove": "ブックマークを削除",
   "workspaceRail.menu.close": "閉じる",
   "workspaceRail.menu.duplicate": "複製",
-  "workspaceRail.menu.moveToNewWindow": "新しいウィンドウに移動"
+  "workspaceRail.menu.moveToNewWindow": "新しいウィンドウに移動",
+  "sites.wikipedia.name": "ウィキペディア"
 }

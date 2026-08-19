@@ -177,5 +177,6 @@
   "browser.bookmarks.remove": "Remover favorito",
   "workspaceRail.menu.close": "Fechar",
   "workspaceRail.menu.duplicate": "Duplicar",
-  "workspaceRail.menu.moveToNewWindow": "Mover para nova janela"
+  "workspaceRail.menu.moveToNewWindow": "Mover para nova janela",
+  "sites.wikipedia.name": "Wikipédia"
 }

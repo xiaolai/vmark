@@ -41,6 +41,9 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "script", optional: false, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
   ],
+  "vmark.browser.extract": [
+    { name: "tabId", optional: true, kind: "string" },
+  ],
   "vmark.browser.navigate": [
     { name: "tabId", optional: true, kind: "string" },
     { name: "timeoutMs", optional: true, kind: "number" },
@@ -180,6 +183,7 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.act": "reject",
   "vmark.browser.console": "reject",
   "vmark.browser.execute_js": "reject",
+  "vmark.browser.extract": "reject",
   "vmark.browser.navigate": "reject",
   "vmark.browser.open": "reject",
   "vmark.browser.query": "reject",
@@ -232,6 +236,9 @@ export interface BridgeOperationArgs {
   };
   "vmark.browser.execute_js": {
     script: string;
+    tabId?: string;
+  };
+  "vmark.browser.extract": {
     tabId?: string;
   };
   "vmark.browser.navigate": {

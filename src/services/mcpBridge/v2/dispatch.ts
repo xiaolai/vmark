@@ -50,6 +50,7 @@ import {
   handleBrowserSessionSave,
   handleBrowserSessionLoad,
   handleBrowserConsole,
+  handleBrowserExtract,
 } from "./browser";
 
 /**
@@ -154,6 +155,9 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.query":
       await handleBrowserQuery(id, args);
+      return true;
+    case "vmark.browser.extract":
+      await handleBrowserExtract(id, args);
       return true;
     case "vmark.browser.style":
       await handleBrowserStyle(id, args);

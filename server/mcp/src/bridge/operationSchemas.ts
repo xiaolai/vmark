@@ -22,6 +22,7 @@
  */
 
 import { z } from 'zod';
+import { BROWSER_OPERATION_SCHEMAS } from './operationSchemas.browser';
 
 /**
  * What an operation does with a field its schema does not declare.
@@ -86,7 +87,6 @@ export function postureFor(operation: string): UnknownFieldPosture {
 const id = z.string();
 const revision = z.string().optional();
 const optionalTabId = z.string().optional();
-const timeoutMs = z.number().optional();
 
 /**
  * Every `vmark.*` operation and the fields its payload carries.
@@ -153,68 +153,8 @@ export const BRIDGE_OPERATION_SCHEMAS = {
     expected_revision: revision,
   }),
 
-  // ── Browser ──
-  'vmark.browser.read': z.object({ tabId: optionalTabId }),
-  // `act` targets EITHER a precise `ref` OR an ARIA `role`+`name`, and for
-  // scroll/key carries `dy`/`key`/`modifiers` — so every target field is
-  // optional here and the handler validates the combination.
-  'vmark.browser.act': z.object({
-    tabId: optionalTabId,
-    operation: z.string(),
-    role: z.string().optional(),
-    name: z.string().optional(),
-    text: z.string().optional(),
-    ref: z.string().optional(),
-    dy: z.number().optional(),
-    key: z.string().optional(),
-    modifiers: z
-      .object({
-        ctrl: z.boolean().optional(),
-        shift: z.boolean().optional(),
-        alt: z.boolean().optional(),
-        meta: z.boolean().optional(),
-      })
-      .optional(),
-  }),
-  'vmark.browser.open': z.object({
-    url: id,
-    timeoutMs,
-    profile: z.string().optional(),
-  }),
-  'vmark.browser.navigate': z.object({ tabId: optionalTabId, url: id, timeoutMs }),
-  'vmark.browser.wait': z.object({
-    tabId: optionalTabId,
-    navigationId: z.string().optional(),
-    timeoutMs,
-  }),
-  'vmark.browser.wait_for': z.object({
-    tabId: optionalTabId,
-    ref: z.string().optional(),
-    role: z.string().optional(),
-    name: z.string().optional(),
-    text: z.string().optional(),
-    urlContains: z.string().optional(),
-    timeoutMs,
-  }),
-  'vmark.browser.screenshot': z.object({ tabId: optionalTabId }),
-  'vmark.browser.query': z.object({
-    tabId: optionalTabId,
-    selector: id,
-    fields: z.unknown().optional(),
-  }),
-  'vmark.browser.style': z.object({
-    tabId: optionalTabId,
-    ref: z.string().optional(),
-    selector: z.string().optional(),
-    set: z.record(z.string(), z.string()).optional(),
-    addClasses: z.array(z.string()).optional(),
-    removeClasses: z.array(z.string()).optional(),
-    injectCss: z.string().optional(),
-  }),
-  'vmark.browser.execute_js': z.object({ tabId: optionalTabId, script: id }),
-  'vmark.browser.session.save': z.object({ tabId: optionalTabId, handle: id }),
-  'vmark.browser.session.load': z.object({ tabId: optionalTabId, handle: id }),
-  'vmark.browser.console': z.object({ tabId: optionalTabId, clear: z.boolean().optional() }),
+  // ── Browser (split for the file-size gate) ──
+  ...BROWSER_OPERATION_SCHEMAS,
 
   // ── Coherence (answered entirely in Rust; no webview hop) ──
   'vmark.coherence.status': z.object({ workspace_root: id }),

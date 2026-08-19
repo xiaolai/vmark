@@ -485,6 +485,17 @@ Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, s
 Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
 cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
 
+### `extract`
+
+Arguments: `tabId?`. Returns `{title, byline, url, markdown, textLength, truncated}` — the
+page as **reader-mode Markdown**, for pages the AI wants to *read* rather than operate.
+One capped capture exports the page's HTML; the extraction itself runs in VMark, never in
+the page: a **site plugin** registered for the origin gets first claim (the built-in
+Wikipedia plugin strips wiki chrome — infoboxes, navboxes, hatnotes, edit links — by
+name), and a generic density-heuristic reader is the fallback for every other site.
+`truncated: true` means the page exceeded the capture cap and the tail went unread.
+**Read-class.** Everything returned is page-derived and untrusted.
+
 ### `console`
 
 Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` — the page's captured

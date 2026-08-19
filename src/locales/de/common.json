@@ -177,5 +177,6 @@
   "browser.bookmarks.remove": "Lesezeichen entfernen",
   "workspaceRail.menu.close": "Schließen",
   "workspaceRail.menu.duplicate": "Duplizieren",
-  "workspaceRail.menu.moveToNewWindow": "In neues Fenster verschieben"
+  "workspaceRail.menu.moveToNewWindow": "In neues Fenster verschieben",
+  "sites.wikipedia.name": "Wikipedia"
 }

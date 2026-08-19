@@ -75,6 +75,8 @@ export const RECOVERY = {
     'the ARIA snapshot of this page exceeds the output budget — use `browser.query` with a CSS selector to fetch only the elements you need.',
   browserQuery:
     'tighten the CSS `selector` so it matches fewer elements, and drop any `fields` (attributes/box/styles) you do not need.',
+  browserExtract:
+    'the extracted article exceeds the output budget — use `browser.query` with a CSS selector for the specific part you need, or `browser_read` action `read` for the structural snapshot.',
   browserConsole:
     'the captured console buffer is bigger than one response and `console` has no pagination, so there is no way to page to the rest. DO NOT pass `clear: true` to get it: that returns the same oversized response AND discards every entry you never saw. Narrow the problem instead — reproduce the step you are debugging in a fresh tab so the buffer is small, or read the specific page state you need with `browser.query`. Use `clear: true` only once you have decided the unread entries do not matter and you want the next call to show only new output.',
   coherenceEdges:

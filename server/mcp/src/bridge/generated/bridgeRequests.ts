@@ -32,6 +32,10 @@ export type BridgeRequest =
       tabId?: string;
     }
   | {
+      type: 'vmark.browser.extract';
+      tabId?: string;
+    }
+  | {
       type: 'vmark.browser.navigate';
       tabId?: string;
       timeoutMs?: number;

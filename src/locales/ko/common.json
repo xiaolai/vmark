@@ -177,5 +177,6 @@
   "browser.bookmarks.remove": "북마크 제거",
   "workspaceRail.menu.close": "닫기",
   "workspaceRail.menu.duplicate": "복제",
-  "workspaceRail.menu.moveToNewWindow": "새 창으로 이동"
+  "workspaceRail.menu.moveToNewWindow": "새 창으로 이동",
+  "sites.wikipedia.name": "위키백과"
 }

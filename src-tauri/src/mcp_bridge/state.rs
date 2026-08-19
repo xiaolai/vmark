@@ -207,7 +207,8 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             | "vmark.browser.read"
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
-            | "vmark.browser.screenshot" // Coherence ops are deliberately ABSENT: they are Rust-answered in
+            | "vmark.browser.screenshot"
+            | "vmark.browser.extract" // Coherence ops are deliberately ABSENT: they are Rust-answered in
                                          // `answer_rust_side` BEFORE this classifier runs, and
                                          // `routing::answer_coherence_async` applies its own lock policy
                                          // (edges/resolve take the write lock; status/claims/contexts do not).

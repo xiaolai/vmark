@@ -58,6 +58,7 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         'without checking it yourself.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab.\n" +
+        '- extract: The page as reader-mode MARKDOWN — {title, byline, url, markdown, textLength, truncated} — for pages you want to READ rather than operate. Site-aware (a Wikipedia article gets its wiki chrome stripped by name); boilerplate (nav/footer) is removed. `truncated: true` means the page HTML exceeded the capture cap and the tail was not read. Args {tabId?}.\n' +
         "- screenshot: Return a JPEG image of the tab's current rendering, so you can see layout and rendered state the ARIA tree does not name. Allowed on an AI-owned tab; a human tab requires attachment.\n" +
         '- query: Structured DOM detection the ARIA snapshot cannot name (tables, JSON blobs, computed values). Args {tabId?, selector, fields?:{attributes,box,styles:[...]}}. Returns {count, elements:[{ref,tag,text,...}]}.\n' +
         "- console: Read the page's captured console.* output (log/info/warn/error/debug) — plus uncaught errors and unhandled promise rejections, recorded as level \"error\" entries prefixed `Uncaught`/`Unhandled rejection:` — for debugging a page you are driving. Args {tabId?}. Returns {entries:[{level,text}], url}. The buffer is a bounded ring, so repeated reads overlap — use `browser` action `console_clear` to drain it. (Sandbox tabs only; requires the console shim to be injected.)\n" +
@@ -65,7 +66,7 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, {text} (a substring of visible text), or {urlContains} (a substring of the tab URL — confirms a navigation landed). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.',
       inputSchema: {
         action: z
-          .enum(['read', 'screenshot', 'query', 'console', 'wait', 'wait_for'])
+          .enum(['read', 'screenshot', 'query', 'extract', 'console', 'wait', 'wait_for'])
           .describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target browser tab id (from session.get_state). Omit to use the focused tab.',
@@ -120,6 +121,13 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         if (args.action === 'read') {
           const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
           return VMarkMcpServer.successJsonResult(data, RECOVERY.browserRead);
+        }
+        if (args.action === 'extract') {
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.extract',
+            ...(tabId === undefined ? {} : { tabId }),
+          });
+          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserExtract);
         }
         if (args.action === 'query') {
           const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : '';

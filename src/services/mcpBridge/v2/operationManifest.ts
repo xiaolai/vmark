@@ -69,6 +69,7 @@ export const BRIDGE_OPERATIONS = Object.freeze({
   "vmark.browser.wait_for": { owner: "webview", effect: "read" },
   "vmark.browser.query": { owner: "webview", effect: "read" },
   "vmark.browser.screenshot": { owner: "webview", effect: "read" },
+  "vmark.browser.extract": { owner: "webview", effect: "read" },
   "vmark.browser.act": { owner: "webview", effect: "write" },
   "vmark.browser.open": { owner: "webview", effect: "write" },
   "vmark.browser.navigate": { owner: "webview", effect: "write" },

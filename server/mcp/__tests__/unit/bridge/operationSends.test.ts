@@ -65,6 +65,7 @@ const CALLS: ReadonlyArray<readonly [tool: string, args: Record<string, unknown>
   ['browser_read', { action: 'wait_for', tabId: 'b1', role: 'button', name: 'OK' }],
   ['browser_read', { action: 'wait_for', tabId: 'b1', text: 'hello' }],
   ['browser_read', { action: 'wait_for', tabId: 'b1', urlContains: '/done', timeoutMs: 100 }],
+  ['browser_read', { action: 'extract', tabId: 'b1' }],
   ['browser_read', { action: 'screenshot', tabId: 'b1' }],
 
   ['browser', { action: 'act', operation: 'scroll', tabId: 'b1', dy: 100 }],
