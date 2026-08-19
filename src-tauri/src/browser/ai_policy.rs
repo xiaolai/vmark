@@ -152,18 +152,50 @@ fn lan_facing_suffix(host: &str) -> bool {
     })
 }
 
+/// The IPv4 address a transition-prefix IPv6 address EMBEDS, if any — such an
+/// address is exactly as reachable as its payload, so it must be exactly as
+/// blocked (WI-NB3.2; the disguise classes NeoBrowser's guard covered):
+/// IPv4-mapped/compatible (`::ffff:a.b.c.d`, `::a.b.c.d`), 6to4 (`2002:VVVV:WWWW::/16`,
+/// v4 in bits 16–47), and the NAT64 well-known prefix (`64:ff9b::/96`, v4 in the
+/// last 32 bits).
+fn embedded_ipv4(v6: Ipv6Addr) -> Option<Ipv4Addr> {
+    // Covers both IPv4-mapped and the deprecated IPv4-compatible form.
+    if let Some(v4) = v6.to_ipv4() {
+        // `to_ipv4` maps `::` and `::1` too; those are already handled as v6.
+        if !v6.is_unspecified() && !v6.is_loopback() {
+            return Some(v4);
+        }
+    }
+    let seg = v6.segments();
+    if seg[0] == 0x2002 {
+        return Some(Ipv4Addr::from(((seg[1] as u32) << 16) | seg[2] as u32));
+    }
+    if seg[0] == 0x64
+        && seg[1] == 0xff9b
+        && seg[2] == 0
+        && seg[3] == 0
+        && seg[4] == 0
+        && seg[5] == 0
+    {
+        return Some(Ipv4Addr::from(((seg[6] as u32) << 16) | seg[7] as u32));
+    }
+    None
+}
+
 fn blocked_ip(address: IpAddr, allow_loopback: bool) -> bool {
     match address {
         IpAddr::V4(v4) => blocked_ipv4(v4, allow_loopback),
         IpAddr::V6(v6) => {
-            if let Some(mapped) = v6.to_ipv4_mapped() {
-                return blocked_ipv4(mapped, allow_loopback);
+            if let Some(embedded) = embedded_ipv4(v6) {
+                return blocked_ipv4(embedded, allow_loopback);
             }
             v6.is_unspecified()
                 || v6.is_loopback() && !allow_loopback
                 || v6.is_multicast()
                 || in_ipv6_range(v6, Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 0), 7)
                 || in_ipv6_range(v6, Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0), 10)
+                // Deprecated site-local — still routable on legacy LANs.
+                || in_ipv6_range(v6, Ipv6Addr::new(0xfec0, 0, 0, 0, 0, 0, 0, 0), 10)
                 || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0), 32)
                 || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 0, 0, 0, 0, 0, 0, 0), 32)
                 || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 2, 0, 0, 0, 0, 0, 0), 48)
