@@ -18,6 +18,7 @@
  */
 
 import { describeOriginPattern, isOriginGranted } from "../origin/originGuard";
+import { aiMayChooseUploadFile } from "../uxPolicy";
 
 /** Every operation the AI can ask to perform in the browser. An operation string
  *  is an authorization token, so the vocabulary is closed: anything outside this
@@ -32,8 +33,14 @@ const KNOWN_OPERATIONS: ReadonlySet<string> = new Set(BROWSER_OPERATIONS);
 
 /** Operations the AI may NEVER perform autonomously, even with a grant. An
  *  AI-chosen file upload is an exfiltration path — upload targets are always
- *  human-chosen (WI-1.7). */
-const NEVER_AUTOMATED: ReadonlySet<string> = new Set<BrowserOperation>(["upload"]);
+ *  human-chosen (WI-1.7). The `upload` membership is SOURCED from the UX policy
+ *  (WI-NB8.1): `uxPolicy.aiMayChooseUploadFile()` is the security decision, so
+ *  this set defers to it rather than hardcoding the answer a second time —
+ *  which makes `uxPolicy` load-bearing in production instead of a dormant
+ *  decision record. */
+const NEVER_AUTOMATED: ReadonlySet<string> = new Set<BrowserOperation>([
+  ...(aiMayChooseUploadFile() ? [] : (["upload"] as const)),
+]);
 
 /** Operations that are known and one-shot-able (approved per call) but can NEVER
  *  become a standing grant — an origin can't be "remembered" for them. Raw

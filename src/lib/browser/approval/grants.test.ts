@@ -221,3 +221,20 @@ describe("eval is never grantable (per-call approval only)", () => {
     expect(decideApproval(URL, "style", grants)).toBe("allowed");
   });
 });
+
+// WI-NB8.1 — the upload prohibition is DERIVED from uxPolicy, making that
+// module load-bearing in production rather than a decision record nothing reads.
+describe("upload prohibition is sourced from uxPolicy (WI-NB8.1)", () => {
+  it("upload is denied outright — never allowed, never grantable", () => {
+    expect(decideApproval(URL, "upload", [{ originPattern: "https://blog.example.com", operations: ["upload"] }])).toBe(
+      "denied",
+    );
+  });
+
+  it("upload is stripped from a grant, exactly like eval — it can never be stored", () => {
+    const grants = addGrant([], { originPattern: "https://blog.example.com", operations: ["click", "upload"] });
+    expect(grants).toHaveLength(1);
+    expect(grants[0].operations).toContain("click");
+    expect(grants[0].operations).not.toContain("upload");
+  });
+});

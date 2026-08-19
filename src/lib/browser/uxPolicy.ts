@@ -1,10 +1,14 @@
 /**
  * Browser UX surface policy — the decided R12 per-surface matrix (WI-1.7).
  *
- * ⚠️ **NOT WIRED. This module has no production importers.** It is a decision record, not
- * an enforcement point: the native delegates implement their dispositions independently,
- * and nothing reads this matrix at runtime. Treat it as the spec it is — a divergence
- * between it and the native code will not be caught by anything here.
+ * WIRED (WI-NB8): `aiMayChooseUploadFile()` is the source for `grants.ts`'s
+ * `NEVER_AUTOMATED` upload prohibition — a real production consumer, not a
+ * dormant record. And `uxPolicyLedger.ts` states the shipped conformance of
+ * each surface against these decisions, with a two-way identity test, so a new
+ * surface / a removed one / a retint cannot land without a conformance
+ * decision. The native delegates still implement their dispositions
+ * independently; the ledger is where that agreement is now asserted rather than
+ * assumed.
  *
  * Purpose: the single source of truth for how the embedded browser handles every
  * UX surface a real browser must — JS dialogs, popups, downloads, uploads, auth,
