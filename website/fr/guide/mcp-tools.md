@@ -400,9 +400,9 @@ option absente est refusée comme `no-such-option`), et les régions `contentedi
 
 `workflow_run` exécute un workflow que vous fournissez sous forme de texte `source` sur un
 onglet appartenant à l'IA. Arguments&nbsp;: `tabId?`, `source` (le texte du workflow — une
-petite grammaire orientée lignes&nbsp;; dans cette version, c'est vous ou l'IA qui
-l'écrivez, et c'est aussi le format qu'un enregistreur intégré produirait une fois
-celui-ci disponible), `inputs?` (une table `{name: value}` substituée dans les références
+petite grammaire orientée lignes&nbsp;; c'est vous qui l'écrivez, l'IA qui le fait, ou
+[`workflow_record`](#workflow-record) qui le capture à partir de vos propres actions),
+`inputs?` (une table `{name: value}` substituée dans les références
 `{name}`), `allowRepeat?`. Il retourne `{runId, steps}` **immédiatement** — l'exécution se
 déroule de manière **asynchrone**, car une exécution à plusieurs étapes peut survivre à une
 seule requête. Interrogez le `workflow_status` de [`browser_read`](#browser-read) pour
@@ -425,6 +425,32 @@ contrôle du navigateur (toute interaction avec la page ou son interface reprend
 
 Les exécutions sont bornées (≤ 25 étapes, ≤ 120 s, source ≤ 64 Kio) et une à la fois par
 onglet.
+
+### `workflow_record`
+
+Enregistre **vos propres actions** sur un onglet appartenant à l'IA sous forme de workflow
+rejouable. Arguments&nbsp;: `tabId?`, `recordOp` (`"start"` ou `"stop"`) et `site?`
+(l'identifiant de site du frontmatter du workflow enregistré&nbsp;; `recording` par défaut).
+
+`start` est **soumis au consentement** via la permission `record` qui — comme `execute_js`
+et `session` — n'est **jamais une autorisation permanente**&nbsp;: chaque enregistrement vous
+le redemande, de sorte que l'IA ne peut jamais vous enregistrer en silence. Tant que vous ne
+l'autorisez pas, `start` retourne `needsApproval`&nbsp;; une fois que vous l'avez fait, VMark
+arme un shim de capture dormant du monde de la page et commence à enregistrer les **clics et
+saisies de champ** que vous effectuez. `stop` retourne `{source, inputs, eventCount}` — le
+`source` est un texte de workflow que vous pouvez enregistrer ou passer directement à
+[`workflow_run`](#workflow-run).
+
+L'enregistrement est **sans valeurs par construction**, et il ne s'agit pas d'un filtre qui
+fait confiance à la page&nbsp;: rien de ce que vous saisissez n'est jamais capturé. Chaque
+champ de texte devient une variable `{input}` nommée (la valeur est fournie au moment de la
+relecture, jamais enregistrée)&nbsp;; un **champ de mot de passe ou de code à usage unique**
+devient une étape `confirm:` — une barrière humaine que vous franchissez à la main lors de la
+relecture — de sorte qu'un secret n'est même jamais paramétré&nbsp;; et chaque URL est
+réduite à l'origine + le chemin, de sorte qu'un jeton présent dans une chaîne de requête ne
+peut pas survivre. Ce qui est enregistré, ce sont les **localisateurs** que vous avez touchés
+(rôle ARIA + nom accessible), jamais leurs données. L'enregistrement vous suit à travers les
+navigations de page et est borné (200 événements par page, 1 000 par session).
 
 ### `open`
 

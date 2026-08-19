@@ -343,13 +343,21 @@ VMark 對 AI 助理開放**九個複合 MCP 工具**：`session`、`workspace`�
 
 ### `workflow_run` / `workflow_cancel`
 
-`workflow_run` 會在 AI 擁有的分頁上執行一個你以 `source` 文字提供的工作流程。參數：`tabId?`、`source`（工作流程文字——一種以行為單位的小型語法；在此版本中由你撰寫，或由 AI 撰寫，它同時也是應用程式內錄製器日後推出時會產生的格式）、`inputs?`（一個 `{name: value}` 映射，會代入 `{name}` 參照）、`allowRepeat?`。它會**立即**回傳 `{runId, steps}`——這次執行是**非同步**進行的，因為多步驟的執行可能比單一請求存活得更久。輪詢 [`browser_read`](#browser-read) 的 `workflow_status` 以取得進度。
+`workflow_run` 會在 AI 擁有的分頁上執行一個你以 `source` 文字提供的工作流程。參數：`tabId?`、`source`（工作流程文字——一種以行為單位的小型語法；由你撰寫、由 AI 撰寫，或由 [`workflow_record`](#workflow-record) 從你自己的操作中擷取）、`inputs?`（一個 `{name: value}` 映射，會代入 `{name}` 參照）、`allowRepeat?`。它會**立即**回傳 `{runId, steps}`——這次執行是**非同步**進行的，因為多步驟的執行可能比單一請求存活得更久。輪詢 [`browser_read`](#browser-read) 的 `workflow_status` 以取得進度。
 
 確定性步驟——該語法中的 `click` / `type` / `navigate`，以及 `extract`——會在 VMark 內執行，並且是**逐一經過核准**的，就像手動發出的 `act` 一樣：這次執行會各別為每一步授權，因此工作流程並不是繞過核准提示的途徑。`goal`、`confirm`、`api` 以及任何自由敘述的步驟會**暫停**執行，交由 AI 手動處理。除非設定了 `allowRepeat`，否則重新執行會**略過本工作階段中已經成功的寫入步驟**（已完成寫入的帳本）——因此在暫停之後重新執行不會重複送出。
 
 `workflow_cancel {tabId?, runId}` 會停止一次執行。它**從不需要核准**——停止一律被允許——並且會撤回該次執行尚待處理的提示，把分頁交還給你。此外，只要你接手瀏覽器（任何對頁面或其外框的互動都會收回控制權），執行也會立即停止。
 
 每次執行都有上限（≤ 25 步、≤ 120 秒、source ≤ 64 KiB），且每個分頁一次只能有一個。
+
+### `workflow_record`
+
+在 AI 擁有的分頁上，把**你自己的操作**記錄成可重播的工作流程。參數：`tabId?`、`recordOp`（`"start"` 或 `"stop"`），以及 `site?`（所記錄工作流程的 front-matter 網站 id；預設為 `recording`）。
+
+`start` 受 `record` 權限的**同意把關**，而該權限——與 `execute_js` 和 `session` 一樣——**絕非常駐授權**：每一次記錄都會重新徵求你的同意，因此 AI 永遠無法在你不知情下記錄你。在你允許之前，`start` 會回傳 `needsApproval`；一旦你允許，VMark 就會啟用一段休眠的 page-world 擷取墊片，並開始記錄你執行的**點擊與欄位編輯**。`stop` 會回傳 `{source, inputs, eventCount}`——其中 `source` 是工作流程文字，你可以將它儲存，或直接交給 [`workflow_run`](#workflow-run)。
+
+這份記錄**在設計上即不含任何值**，而且這並不是一道信任頁面的過濾器：你所輸入的任何內容都絕不會被擷取。每個文字欄位都會變成一個具名的 `{input}` 變數（其值在重播時才提供，絕不記錄）；而**密碼或一次性驗證碼欄位**則會變成一個 `confirm:` 步驟——一道你在重播時親手完成的人工關卡——因此祕密甚至不會被參數化；而且每個 URL 都會被削減到只剩 origin + path，讓查詢字串中的權杖無法留存。所記錄的是你所碰觸的**定位器**（ARIA role + accessible name），絕非它們的資料。記錄會跟著你跨越頁面導覽，並且有其上限（每頁 200 個事件、每個工作階段 1,000 個）。
 
 ### `open`
 

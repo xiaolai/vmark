@@ -395,8 +395,7 @@ valore dell'opzione; un'opzione mancante viene rifiutata come `no-such-option`) 
 
 `workflow_run` esegue un workflow che fornisci come testo `source` su una scheda di proprietà
 dell'IA. Argomenti: `tabId?`, `source` (il testo del workflow — una piccola grammatica orientata
-alle righe; in questa build lo scrivi tu, o lo fa l'IA, ed è anche il formato che un registratore
-integrato produrrebbe una volta rilasciato), `inputs?` (una mappa `{name: value}` sostituita nei
+alle righe; lo scrivi tu, lo fa l'IA, o [`workflow_record`](#workflow-record) lo cattura dalle tue stesse azioni), `inputs?` (una mappa `{name: value}` sostituita nei
 riferimenti `{name}`), `allowRepeat?`. Restituisce `{runId, steps}` **immediatamente** —
 l'esecuzione avviene in modo **asincrono**, perché un'esecuzione multi-step può sopravvivere a una
 singola richiesta. Interroga il `workflow_status` di [`browser_read`](#browser-read) per il progresso.
@@ -416,6 +415,30 @@ L'esecuzione si ferma anche nel momento in cui prendi il controllo del browser (
 con la pagina o la sua interfaccia riprende il controllo).
 
 Le esecuzioni sono limitate (≤ 25 step, ≤ 120 s, source ≤ 64 KiB) e una alla volta per scheda.
+
+### `workflow_record`
+
+Registra le **tue stesse azioni** su una scheda di proprietà dell'IA in un workflow riproducibile.
+Argomenti: `tabId?`, `recordOp` (`"start"` o `"stop"`) e `site?` (l'id del sito nel front-matter
+del workflow registrato; il valore predefinito è `recording`).
+
+`start` è **soggetto a consenso** tramite il permesso `record` che — come `execute_js` e
+`session` — **non è mai una concessione permanente**: ogni registrazione ti chiede il permesso da
+capo, così l'IA non può mai registrarti in silenzio. Finché non lo consenti, `start` restituisce
+`needsApproval`; una volta fatto, VMark arma uno shim di cattura dormiente nel mondo della pagina e
+inizia a registrare i **clic e le modifiche ai campi** che esegui. `stop` restituisce
+`{source, inputs, eventCount}` — il `source` è testo del workflow che puoi salvare o passare
+direttamente a [`workflow_run`](#workflow-run).
+
+La registrazione è **priva di valori per costruzione**, e non è un filtro che si fida della pagina:
+nulla di ciò che digiti viene mai catturato. Ogni campo di testo diventa una variabile `{input}` con
+nome (il valore è fornito durante la riproduzione, mai registrato); un **campo password o di codice
+monouso** diventa un passaggio `confirm:` — un cancello umano che completi a mano durante la
+riproduzione — così un segreto non viene mai nemmeno parametrizzato; e ogni URL viene ridotto a
+origine + percorso, così un token in una stringa di query non può sopravvivere. Ciò che viene
+registrato sono i **localizzatori** che hai toccato (ruolo ARIA + nome accessibile), mai i loro dati.
+La registrazione ti segue attraverso le navigazioni tra pagine ed è limitata (200 eventi per pagina,
+1.000 per sessione).
 
 ### `open`
 

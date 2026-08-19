@@ -343,13 +343,21 @@ VMark 向 AI 助手暴露 **九个复合 MCP 工具**：`session`、`workspace`�
 
 ### `workflow_run` / `workflow_cancel`
 
-`workflow_run` 在一个 AI 拥有的标签页上运行你以 `source` 文本提供的工作流。参数：`tabId?`、`source`（工作流文本 —— 一套小巧的、以行为单位的语法；在当前构建中由你或 AI 编写，它同时也是应用内录制器将来上线后会产出的格式）、`inputs?`（一个 `{name: value}` 映射，会代入到 `{name}` 引用中）、`allowRepeat?`。它会**立即**返回 `{runId, steps}` —— 运行本身是**异步**执行的，因为一次多步运行可能比单次请求活得更久。轮询 [`browser_read`](#browser-read) 的 `workflow_status` 以获取进度。
+`workflow_run` 在一个 AI 拥有的标签页上运行你以 `source` 文本提供的工作流。参数：`tabId?`、`source`（工作流文本 —— 一套小巧的、以行为单位的语法；由你编写、AI 编写，或由 [`workflow_record`](#workflow-record) 从你自己的操作中捕获）、`inputs?`（一个 `{name: value}` 映射，会代入到 `{name}` 引用中）、`allowRepeat?`。它会**立即**返回 `{runId, steps}` —— 运行本身是**异步**执行的，因为一次多步运行可能比单次请求活得更久。轮询 [`browser_read`](#browser-read) 的 `workflow_status` 以获取进度。
 
 确定性步骤 —— 该语法中的 `click` / `type` / `navigate`，以及 `extract` —— 在 VMark 内部运行，并**逐个受批准门控**，与手动发出的 `act` 完全一样：运行会为每一步单独取得授权，因此工作流并不是绕开批准提示的途径。`goal`、`confirm`、`api` 以及任何自由文本步骤会**暂停**运行，交给 AI 手动处理。除非设置了 `allowRepeat`，否则重新运行会**跳过本会话中已经成功的写入步骤**（依据已完成写入的账本）—— 这样在暂停后重新运行不会重复提交。
 
 `workflow_cancel {tabId?, runId}` 停止一次运行。它**从不受批准门控** —— 停止总是被允许的 —— 并会撤回该运行待处理的提示，把标签页交还给你。此外，一旦你接管浏览器（与页面或其外壳的任何交互都会重新夺回控制权），运行也会立刻停止。
 
 运行是有上界的（≤ 25 步、≤ 120 秒、source ≤ 64 KiB），且每个标签页同一时间只能有一个。
+
+### `workflow_record`
+
+将你在一个 AI 拥有的标签页上**自己的操作**录制为一个可回放的工作流。参数：`tabId?`、`recordOp`（`"start"` 或 `"stop"`），以及 `site?`（录制所得工作流的 front-matter 站点 id；默认为 `recording`）。
+
+`start` 受 `record` 权限的**同意门控**，该权限 —— 与 `execute_js` 和 `session` 一样 —— **绝无长期授权**：每次录制都会重新征询你，因此 AI 永远无法悄悄录制你。在你允许之前，`start` 会返回 `needsApproval`；一旦你允许，VMark 便会激活一个休眠的页面世界（page-world）捕获垫片，并开始录制你执行的**点击和字段编辑**。`stop` 会返回 `{source, inputs, eventCount}` —— 其中 `source` 即工作流文本，你可以将其保存，或直接交给 [`workflow_run`](#workflow-run)。
+
+这份录制在**构造上就不含任何值**，而且这并不是一个信任页面的过滤器：你键入的任何内容都绝不会被捕获。每个文本字段都会变成一个具名的 `{input}` 变量（其值在回放时提供，绝不被录制）；**密码或一次性验证码字段**会变成一个 `confirm:` 步骤 —— 一道由你在回放时手动完成的人工关卡 —— 因此机密连被参数化的机会都没有；而每个 URL 都会被剥离到仅剩来源（origin）+ 路径，因此查询字符串里的令牌无法幸存。被录制下来的是你触碰过的**定位符**（ARIA role + 可访问名称），而绝非它们的数据。录制会随你跨页面导航持续进行，并且是有上界的（每页 200 个事件，每会话 1,000 个）。
 
 ### `open`
 

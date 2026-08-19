@@ -349,13 +349,21 @@ Argumente: `tabId?`, `operation: "click" | "type" | "scroll" | "key"` und operat
 
 ### `workflow_run` / `workflow_cancel`
 
-`workflow_run` führt einen Workflow aus, den Sie als `source`-Text auf einem KI-eigenen Tab übergeben. Argumente: `tabId?`, `source` (der Workflow-Text — eine kleine zeilenorientierte Grammatik; in diesem Build schreiben Sie ihn, oder die KI tut es, und es ist auch das Format, das ein In-App-Rekorder erzeugen würde, sobald dieser ausgeliefert wird), `inputs?` (eine `{name: value}`-Zuordnung, die in `{name}`-Referenzen eingesetzt wird), `allowRepeat?`. Es gibt **sofort** `{runId, steps}` zurück — der Lauf wird **asynchron** ausgeführt, weil ein mehrstufiger Lauf eine einzelne Anfrage überdauern kann. Fragen Sie `workflow_status` von [`browser_read`](#browser-read) für den Fortschritt ab.
+`workflow_run` führt einen Workflow aus, den Sie als `source`-Text auf einem KI-eigenen Tab übergeben. Argumente: `tabId?`, `source` (der Workflow-Text — eine kleine zeilenorientierte Grammatik; Sie schreiben ihn, die KI tut es, oder [`workflow_record`](#workflow-record) erfasst ihn aus Ihren eigenen Aktionen), `inputs?` (eine `{name: value}`-Zuordnung, die in `{name}`-Referenzen eingesetzt wird), `allowRepeat?`. Es gibt **sofort** `{runId, steps}` zurück — der Lauf wird **asynchron** ausgeführt, weil ein mehrstufiger Lauf eine einzelne Anfrage überdauern kann. Fragen Sie `workflow_status` von [`browser_read`](#browser-read) für den Fortschritt ab.
 
 Deterministische Schritte — `click` / `type` / `navigate` in dieser Grammatik sowie `extract` — laufen innerhalb von VMark und sind **einzeln freigabepflichtig**, genau wie ein von Hand ausgelöstes `act`: Der Lauf autorisiert jeden Schritt einzeln, sodass ein Workflow kein Weg an den Freigabedialogen vorbei ist. `goal`, `confirm`, `api` und jeder Freitext-Schritt **pausieren** den Lauf, damit die KI ihn von Hand erledigt. Ein erneuter Lauf **überspringt Schreibschritte, die in dieser Sitzung bereits erfolgreich waren** (das Verzeichnis abgeschlossener Schreibvorgänge), sofern `allowRepeat` nicht gesetzt ist — sodass ein erneuter Lauf nach einer Pause nicht doppelt absendet.
 
 `workflow_cancel {tabId?, runId}` stoppt einen Lauf. Es ist **nie freigabepflichtig** — Stoppen ist immer erlaubt — und es zieht die ausstehenden Dialoge des Laufs zurück und gibt Ihnen den Tab zurück. Der Lauf stoppt außerdem in dem Moment, in dem Sie den Browser übernehmen (jede Interaktion mit der Seite oder ihrer Chrome-Leiste holt die Kontrolle zurück).
 
 Läufe sind begrenzt (≤ 25 Schritte, ≤ 120 s, Quelle ≤ 64 KiB) und laufen pro Tab einzeln nacheinander.
+
+### `workflow_record`
+
+Zeichnet **Ihre eigenen Aktionen** auf einem KI-eigenen Tab in einen abspielbaren Workflow auf. Argumente: `tabId?`, `recordOp` (`"start"` oder `"stop"`) und `site?` (die Site-ID im Front-Matter des aufgezeichneten Workflows; Standardwert ist `recording`).
+
+`start` ist durch die `record`-Berechtigung **einwilligungspflichtig**, die — wie `execute_js` und `session` — **nie ein dauerhaftes Recht** ist: Jede Aufzeichnung fragt Sie erneut, sodass die KI Sie niemals heimlich aufzeichnen kann. Bis Sie es erlauben, gibt `start` `needsApproval` zurück; sobald Sie es tun, aktiviert VMark einen ruhenden Erfassungs-Shim in der Seiten-World und beginnt, die **Klicks und Feldeingaben** aufzuzeichnen, die Sie ausführen. `stop` gibt `{source, inputs, eventCount}` zurück — die `source` ist Workflow-Text, den Sie speichern oder direkt an [`workflow_run`](#workflow-run) übergeben können.
+
+Die Aufzeichnung ist **von Grund auf wertfrei**, und dies ist kein Filter, der der Seite vertraut: Nichts, was Sie eingeben, wird jemals erfasst. Jedes Textfeld wird zu einer benannten `{input}`-Variablen (der Wert wird beim Abspielen bereitgestellt, nie aufgezeichnet); ein **Passwort- oder Einmalcode-Feld** wird zu einem `confirm:`-Schritt — einem menschlichen Gate, das Sie beim Abspielen von Hand abschließen — sodass ein Geheimnis nicht einmal parametrisiert wird; und jede URL wird auf Origin + Pfad reduziert, sodass ein Token in einer Query-Zeichenkette nicht überleben kann. Aufgezeichnet werden die **Locators**, die Sie berührt haben (ARIA-Rolle + zugänglicher Name), nie deren Daten. Die Aufzeichnung folgt Ihnen über Seitennavigationen hinweg und ist begrenzt (200 Ereignisse pro Seite, 1.000 pro Sitzung).
 
 ### `open`
 
