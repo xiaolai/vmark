@@ -33,6 +33,8 @@ use lifecycle::evict_existing;
 mod browser_store;
 #[path = "console_shim_macos.rs"]
 mod console_shim;
+#[path = "user_input_monitor_macos.rs"]
+mod user_input_monitor;
 
 #[path = "surface_create_macos.rs"]
 mod creation;
@@ -50,6 +52,10 @@ thread_local! {
     /// stop all lifecycle/crash callbacks. Cleared in `destroy`.
     static DELEGATES: RefCell<HashMap<String, Retained<NavDelegate>>> = RefCell::new(HashMap::new());
 }
+
+#[path = "user_input_resolve_macos.rs"]
+mod user_input_resolve;
+use user_input_resolve::{tab_id_at_window_point, tab_id_for_responder};
 
 /// Run `f` on the main thread and return its result (20s cap).
 fn on_main<T, F>(app: &AppHandle, f: F) -> Result<T, String>
