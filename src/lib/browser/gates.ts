@@ -42,7 +42,7 @@ export interface GateSignals {
   passwordField: boolean;
 }
 
-export type GateKind = "challenge" | "consent" | "login-required" | "rate-limited";
+type GateKind = "challenge" | "consent" | "login-required" | "rate-limited";
 
 export interface GateVerdict {
   kind: GateKind;

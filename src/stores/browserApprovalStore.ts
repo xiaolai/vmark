@@ -31,7 +31,6 @@ import type {
 
 // Re-exported so consumers keep importing these from `@/stores/browserApprovalStore`.
 export type {
-  ActionTarget,
   ApprovalOutcome,
   OneShotApproval,
   ProfileOpenApproval,
