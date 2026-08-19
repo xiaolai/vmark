@@ -65,6 +65,7 @@
     "check:build": "pnpm build && pnpm lint:eager && pnpm size",
     "check:all": "pnpm check:static && pnpm test:coverage && pnpm check:servers && pnpm check:build",
     "check:fast": "pnpm typecheck && pnpm lint && pnpm test:changed",
+    "check:predelta": "node scripts/check-predelta.mjs",
     "lint:extension-budget": "node scripts/check-extension-budget.mjs",
     "lint:knip-baseline": "node scripts/check-knip-baseline.mjs",
     "lint:store-coupling": "node scripts/check-plugin-store-coupling.mjs",
