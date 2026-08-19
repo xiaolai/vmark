@@ -22,10 +22,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { wrapHandler } from "./wrapHandler";
 import { buildExtractHtmlScript } from "@/lib/browser/agent/extractScript";
-import { ensureBuiltinSitesRegistered } from "@/lib/sites/builtins";
-import { readerForUrl } from "@/lib/sites/registry";
 import { urlForAgent } from "@/lib/browser/url";
 import { runReadClass, parseEvalResult } from "./browserReadClass";
+
+// Lazy-loaded: the reader-mode extractor pulls in the site registry, the
+// Readability-style reader and the site plugins — only needed when the AI calls
+// `extract`, so kept out of the eager app bundle every user loads.
+const sitesRegistry = () => import("@/lib/sites/registry");
+const sitesBuiltins = () => import("@/lib/sites/builtins");
 
 function isCapture(v: unknown): v is { html: string; truncated: boolean } {
   return (
@@ -39,6 +43,10 @@ function isCapture(v: unknown): v is { html: string; truncated: boolean } {
 /** `vmark.browser.extract` — the current page as reader-mode Markdown. */
 export async function handleBrowserExtract(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
+    const [{ ensureBuiltinSitesRegistered }, { readerForUrl }] = await Promise.all([
+      sitesBuiltins(),
+      sitesRegistry(),
+    ]);
     ensureBuiltinSitesRegistered();
     await runReadClass(id, args, {
       invoke: async (tab) => {

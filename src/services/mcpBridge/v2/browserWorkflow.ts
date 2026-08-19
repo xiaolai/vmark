@@ -16,11 +16,12 @@ import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
 import { urlForAgent } from "@/lib/browser/url";
-import {
-  startWorkflowRun,
-  workflowRunStatus,
-  cancelWorkflowRun,
-} from "@/services/workflow/workflowRunService";
+
+// Lazy-loaded: the workflow run engine (executor, registry, reader, sites,
+// selfHeal, …) is only reached when the AI drives a workflow, so it is a
+// dynamic import — it must not weigh down the eager app bundle that every user
+// loads whether or not they ever touch the AI browser.
+const workflowService = () => import("@/services/workflow/workflowRunService");
 
 function readInputs(raw: unknown): Record<string, string> | null {
   if (raw === undefined) return {};
@@ -63,6 +64,7 @@ export async function handleBrowserWorkflowRun(id: string, args: Record<string, 
       await respond({ id, success: false, error: "TAB_NOT_AI_OWNED" });
       return;
     }
+    const { startWorkflowRun } = await workflowService();
     const result = startWorkflowRun(args.source, {
       tabId: tab.tabId,
       resolveTab: () => {
@@ -91,6 +93,7 @@ export async function handleBrowserWorkflowStatus(id: string, args: Record<strin
       await respond({ id, success: false, error: "workflow_status requires a `runId`" });
       return;
     }
+    const { workflowRunStatus } = await workflowService();
     const state = workflowRunStatus(args.runId);
     if (state === null) {
       await respond({ id, success: false, error: "unknown runId" });
@@ -125,6 +128,7 @@ export async function handleBrowserWorkflowCancel(id: string, args: Record<strin
       await respond({ id, success: false, error: "workflow_cancel requires a `runId`" });
       return;
     }
+    const { cancelWorkflowRun } = await workflowService();
     cancelWorkflowRun(args.runId);
     await respond({ id, success: true, data: { runId: args.runId, status: "cancelled" } });
   });
