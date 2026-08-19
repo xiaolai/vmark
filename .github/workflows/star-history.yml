@@ -5,8 +5,10 @@ name: Refresh Star History chart
 # (enforce_admins + required checks, .claude/rules/60-ai-governance.md §10)
 # rejects direct bot pushes there (GH006), which froze the README chart after
 # 2026-07-22. README.md embeds the branch's raw URL. The chart is self-hosted
-# because api.star-history.com's server-render has been failing service-wide
-# since 2026-07-01 (see scripts/gen-star-history.mjs).
+# because GitHub restricted the stargazers API to a repo's own admins and
+# collaborators on 2026-06-30, so no third-party renderer can read this data
+# at all any more — `gh` authenticated as the owner is the one path that still
+# works (see scripts/gen-star-history.mjs).
 
 on:
   schedule:

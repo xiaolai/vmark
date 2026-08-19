@@ -2,15 +2,38 @@
 /**
  * Generate a self-hosted Star History chart as a static, theme-neutral SVG,
  * in the hand-drawn (chart.xkcd) style of star-history.com's own charts:
- * wobbly line, handwriting font stack, dots on data points.
+ * wobbly line, handwriting font, dots on data points.
  *
- * Why: the live star-history.com embed (api.star-history.com/chart) server-renders
- * the SVG and consistently times out for this repo, so the README image 404/500s.
- * This fetches the real stargazer timestamps via the authenticated `gh` CLI and
- * renders a committed SVG that always loads and never depends on that service.
+ * Why self-hosted — and it is now the ONLY way this can work, not a workaround
+ * for a flaky service. On 2026-06-30 GitHub restricted the stargazers API
+ * (`/repos/{owner}/{repo}/stargazers`) to a repository's own admins and
+ * collaborators, because the data was being harvested to spam users. Verified:
+ * that endpoint returns 404 for any repo you don't own. star-history.com's
+ * servers aren't a collaborator on anyone's repo, so api.star-history.com now
+ * serves a byte-identical "GitHub restricted access to star data" notice for
+ * EVERY repo — including nonexistent ones — under `x-chart-status: restricted`.
+ * There is no chart there to link to. This script authenticates as the repo
+ * owner via `gh`, which is exactly the case GitHub still permits.
  *
  * Run: node scripts/gen-star-history.mjs   (requires `gh auth login`)
  * Output: .github/star-history.svg
+ *
+ * Why the font is EMBEDDED rather than named: this SVG is served through an
+ * <img> tag, and in that context nothing but the file itself is available.
+ * Naming a stack ('Comic Sans MS', 'Chalkboard SE', cursive) renders correctly
+ * only on machines that happen to have one installed — measured in headless
+ * Chromium, a named-only stack falls back to TIMES. The same SVG with a
+ * `data:` URI @font-face renders hand-drawn everywhere. `assets/` carries a
+ * Comic Neue subset (ASCII printable + em dash) and its OFL license.
+ *
+ * star-history.com's own charts embed `xkcd Script`, which is CC BY-NC 3.0 and
+ * therefore cannot ship inside an ISC repository: ISC grants downstream users
+ * "any purpose", including commercial, which is precisely the right the NC
+ * clause withholds. Comic Neue is OFL 1.1 with no Reserved Font Name.
+ *
+ * `★` (U+2605) is in NO candidate handwriting font — not even xkcd Script — so
+ * it is drawn as a path. A literal ★ in a <text> node would fall back to a
+ * system font and undo the embedding.
  *
  * Colors are mid-tone so the chart reads on both light and dark GitHub themes
  * (GitHub sanitizes SVG <style>/prefers-color-scheme, so a single neutral asset
@@ -19,12 +42,17 @@
  * refresh workflow commits only when the file changed.
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = "xiaolai/vmark";
-const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".github", "star-history.svg");
+const OUT = resolve(HERE, "..", ".github", "star-history.svg");
+
+/** Family name written into the SVG. Matches the subset's own `name` table. */
+export const FONT_FAMILY = "Comic Neue";
+const FONT_FILE = resolve(HERE, "assets", "comic-neue-subset.woff2");
 
 // --- fetch all stargazers with timestamps (paginated) ---
 function fetchStarredAt() {
@@ -42,7 +70,7 @@ function fetchStarredAt() {
 }
 
 // --- build a cumulative (t, count) series, downsampled for a clean line ---
-function buildSeries(times, maxPoints = 30) {
+export function buildSeries(times, maxPoints = 30) {
   const n = times.length;
   const pts = times.map((t, i) => [t, i + 1]); // (timestamp, cumulative count)
   if (n <= maxPoints) return pts;
@@ -62,9 +90,18 @@ function fmtDate(ms) {
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 
+/**
+ * Smallest "round" value at or above `v`, for the y-axis top.
+ *
+ * The mantissa ladder is deliberately fine-grained. A coarse [1, 2, 2.5, 5, 10]
+ * ladder jumps 500 → 1000, so the day this repo crossed 500 stars the curve
+ * collapsed into the bottom half of the plot with the whole upper half blank.
+ * Every step here is within 1.25x of the one below it, which bounds the wasted
+ * headroom; `gen-star-history.test.mjs` pins that bound.
+ */
 function niceMax(v) {
   const pow = Math.pow(10, Math.floor(Math.log10(v)));
-  for (const m of [1, 2, 2.5, 5, 10]) if (m * pow >= v) return m * pow;
+  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * pow >= v) return m * pow;
   return 10 * pow;
 }
 
@@ -87,7 +124,7 @@ function mulberry32(seed) {
  * (feTurbulence inside <img> is spotty in some renderers). First and last
  * points stay exact so the line lands on the real values.
  */
-function roughPoints(pts, rng, { step = 14, mag = 1.6 } = {}) {
+function roughPoints(pts, rng, { step = 11, mag = 4.0 } = {}) {
   const sub = [pts[0]];
   const normals = [[0, 0]];
   for (let i = 1; i < pts.length; i++) {
@@ -112,7 +149,28 @@ function roughPoints(pts, rng, { step = 14, mag = 1.6 } = {}) {
 
 const toPath = (pts) => pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
-function render(series) {
+/**
+ * Five-pointed star as geometry. U+2605 is absent from every handwriting font
+ * considered here (including star-history.com's own xkcd Script), so drawing it
+ * is the only way to keep the SVG free of un-embedded glyphs.
+ */
+function starPath(cx, cy, R) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = (-90 + i * 36) * (Math.PI / 180);
+    const r = i % 2 === 0 ? R : R * 0.42;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return `${toPath(pts)} Z`;
+}
+
+/** The subset font, inlined — see the header for why naming it is not enough. */
+function fontFaceStyle() {
+  const b64 = readFileSync(FONT_FILE).toString("base64");
+  return `<style>@font-face{font-family:'${FONT_FAMILY}';font-style:normal;font-weight:400;src:url(data:font/woff2;base64,${b64}) format('woff2');}</style>`;
+}
+
+export function render(series) {
   const W = 800, H = 400;
   const M = { top: 48, right: 28, bottom: 48, left: 56 };
   const iw = W - M.left - M.right, ih = H - M.top - M.bottom;
@@ -128,7 +186,7 @@ function render(series) {
   const area = `${line} L${x(t1).toFixed(1)},${(M.top + ih).toFixed(1)} L${x(t0).toFixed(1)},${(M.top + ih).toFixed(1)} Z`;
 
   // hand-drawn axes with tick marks (no gridlines — matches the xkcd look)
-  const axis = (x1, y1, x2, y2) => toPath(roughPoints([[x1, y1], [x2, y2]], rng, { step: 26, mag: 1.1 }));
+  const axis = (x1, y1, x2, y2) => toPath(roughPoints([[x1, y1], [x2, y2]], rng, { step: 22, mag: 1.8 }));
   const xAxisY = M.top + ih;
   const axes = [
     `<path d="${axis(M.left, M.top - 8, M.left, xAxisY)}" fill="none" stroke="#888" stroke-width="1.75" stroke-linecap="round"/>`,
@@ -154,15 +212,22 @@ function render(series) {
     .join("\n  ");
 
   const total = series[series.length - 1][1];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'xkcd Script','Comic Sans MS','Comic Neue','Chalkboard SE',cursive">
+  // The count is right-aligned, so the star sits at an ESTIMATED text width to
+  // its left — an SVG has no text metrics, and ~8.6px/digit measures right for
+  // Comic Neue at 15px. Being a pixel off is invisible; a missing glyph is not.
+  const countRight = W - M.right;
+  const starCx = countRight - String(total).length * 8.6 - 11;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'${FONT_FAMILY}','Comic Sans MS',cursive">
   <defs>
+    ${fontFaceStyle()}
     <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${ACCENT}" stop-opacity="0.22"/>
       <stop offset="100%" stop-color="${ACCENT}" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <text x="${M.left}" y="28" font-size="17" font-weight="600" fill="#888">${REPO} — Star History</text>
-  <text x="${(W - M.right).toFixed(1)}" y="28" text-anchor="end" font-size="15" fill="${ACCENT}" font-weight="600">★ ${total}</text>
+  <text x="${M.left}" y="28" font-size="17" fill="#888">${REPO} — Star History</text>
+  <path d="${starPath(starCx, 22.5, 7.5)}" fill="${ACCENT}" class="star"/>
+  <text x="${countRight.toFixed(1)}" y="28" text-anchor="end" font-size="15" fill="${ACCENT}">${total}</text>
   <path d="${area}" fill="url(#fill)"/>
   <path d="${line}" fill="none" stroke="${ACCENT}" stroke-width="2.75" stroke-linejoin="round" stroke-linecap="round"/>
   ${dots}
@@ -176,12 +241,19 @@ function render(series) {
 
 const ACCENT = "#3b82f6"; // blue — pops on light and dark
 
-const times = fetchStarredAt();
-if (!times.length) {
-  console.error("No stargazers fetched — is `gh` authenticated?");
-  process.exit(1);
+// Only fetch when RUN, never when imported: the test suite drives `render()`
+// directly, and an unguarded top-level `gh` call would make importing this
+// module hit the network.
+const isEntryPoint = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isEntryPoint) {
+  const times = fetchStarredAt();
+  if (!times.length) {
+    console.error("No stargazers fetched — is `gh` authenticated?");
+    process.exit(1);
+  }
+  const svg = render(buildSeries(times));
+  mkdirSync(dirname(OUT), { recursive: true });
+  writeFileSync(OUT, svg);
+  console.log(`Wrote ${OUT} — ${times.length} stars, ${fmtDate(times[0])} → ${fmtDate(times[times.length - 1])}`);
 }
-const svg = render(buildSeries(times));
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, svg);
-console.log(`Wrote ${OUT} — ${times.length} stars, ${fmtDate(times[0])} → ${fmtDate(times[times.length - 1])}`);
