@@ -119,6 +119,34 @@ function pushOneShot(shot: OneShotApproval): void {
   });
 }
 
+/**
+ * Mint a one-shot and AWAIT the driver's confirmation (WI-NB5.3).
+ *
+ * The subscription path (`pushOneShot`) is fire-and-forget, which is correct for
+ * a one-off act: the handler is about to return anyway. A workflow run is
+ * different — if it consumes its frontend one-shot and calls `browser_eval`
+ * before Rust has recorded the mint, the driver refuses the act as unauthorized
+ * (Codex review F4). So the run path calls this and only proceeds on `true`.
+ * A rejected mint (a stale generation, a missing script) resolves `false`: the
+ * step must fail, not act unauthorized.
+ */
+export async function mintOneShotConfirmed(shot: OneShotApproval): Promise<boolean> {
+  try {
+    await invoke("browser_add_one_shot", {
+      tabId: shot.tabId,
+      generation: shot.generation,
+      originPattern: shot.originPattern,
+      operation: shot.operation,
+      target: shot.target,
+      evalScript: shot.script,
+    });
+    return true;
+  } catch (error) {
+    browserWarn("one-shot mint refused by the driver; the run step will not proceed", error);
+    return false;
+  }
+}
+
 /** Send a newly minted profile-open grant (WI-P6.1 H1) to the driver, which is the
  *  authority: `browser_ai_create` consumes a matching (profile, origin) before it
  *  applies a named profile. Without this leg, an approved profile-open authorizes the
