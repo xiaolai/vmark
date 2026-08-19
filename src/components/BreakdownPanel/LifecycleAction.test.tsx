@@ -32,7 +32,9 @@ function row(over: Partial<EdgeRow> = {}): EdgeRow {
   } as EdgeRow;
 }
 
-beforeEach(() => setDocumentLifecycle.mockReset().mockResolvedValue(undefined));
+beforeEach(() => {
+  setDocumentLifecycle.mockReset().mockResolvedValue(undefined);
+});
 
 describe("LifecycleAction", () => {
   it("offers to finish a live document", () => {
