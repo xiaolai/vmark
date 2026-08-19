@@ -393,13 +393,15 @@ includes the tab's current `url` and `generation`. `type` handles text fields,
 
 ### `workflow_run` / `workflow_cancel`
 
-`workflow_run` starts a recorded workflow on an AI-owned tab. Arguments: `tabId?`, `source`
-(the workflow text), `inputs?` (a `{name: value}` map substituted into `{name}` references),
+`workflow_run` runs a workflow you supply as `source` text on an AI-owned tab. Arguments:
+`tabId?`, `source` (the workflow text — a small line-oriented grammar; in this build you
+write it, or the AI does, and it is also the format an in-app recorder would produce once
+that ships), `inputs?` (a `{name: value}` map substituted into `{name}` references),
 `allowRepeat?`. It returns `{runId, steps}` **immediately** — the run executes
 **asynchronously**, because a multi-step run can outlive a single request. Poll
 [`browser_read`](#browser-read)'s `workflow_status` for progress.
 
-Deterministic steps — `click` / `type` / `navigate` in the recorded grammar, and `extract`
+Deterministic steps — `click` / `type` / `navigate` in that grammar, and `extract`
 — run inside VMark and are **individually approval-gated**, exactly like a hand-issued
 `act`: the run authorizes each one on its own, so a workflow is not a way around the
 approval prompts. `goal`, `confirm`, `api`, and any free-prose step **pause** the run for
