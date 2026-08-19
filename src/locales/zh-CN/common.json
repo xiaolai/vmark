@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "点击",
   "browser.approval.operation.type": "输入到",
   "browser.approval.operation.navigate": "导航",
+  "browser.approval.operation.record": "记录你的操作",
   "browser.approval.note": "这是 AI 请求的操作。除非你允许，否则不会执行任何操作。",
   "browser.approval.deny": "拒绝",
   "browser.approval.allowOnce": "允许一次",
@@ -177,5 +178,7 @@
   "browser.bookmarks.remove": "移除书签",
   "workspaceRail.menu.close": "关闭",
   "workspaceRail.menu.duplicate": "复制",
-  "workspaceRail.menu.moveToNewWindow": "移到新窗口"
+  "workspaceRail.menu.moveToNewWindow": "移到新窗口",
+  "sites.wikipedia.name": "维基百科",
+  "browser.aiControlling": "AI 正在控制 — 点击接管"
 }

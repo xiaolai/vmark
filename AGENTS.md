@@ -57,6 +57,23 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     `pnpm check:fast` (`typecheck` + cached `lint` + tests related to your
     changes) as the inner loop, and run `pnpm check:all` once before you push.
 
+  - **`pnpm check:predelta` bridges the two — run it before the confirming
+    `check:all`.** `check:all` exits on the FIRST failure, so a batch of
+    independent `check:all`-only problems surfaces one per 15-minute run — using
+    a slow gate for discovery, which this file forbids ("never use a slow gate as
+    an instrument of discovery"). `check:predelta` runs exactly the gates
+    `check:fast` cannot see — every `check:static` leaf but `lint`, plus
+    `check:servers` and `check:build` and the runtime-file app tests — **in
+    parallel, collecting EVERY failure at once**, and skips only the full
+    instrumented app suite. Measured ~40s vs ~15min, and it finds the whole batch
+    in one pass (the six issues the "does not see" list below can produce: a
+    baseline ratchet, a knip finding, a corpus-enumerating test, a sidecar
+    ESM/coverage break, a `size-limit` overflow). The gate list is DERIVED from
+    `package.json`, so it cannot drift; `scripts/check-predelta.test.mjs` pins the
+    derivation, the collect-all behaviour, and that it stays out of `check:all`
+    (it is a pre-push helper, not a CI gate). It does NOT replace `check:all` —
+    the full app coverage suite still runs there.
+
     What to run after a change:
 
     | What you changed | Run |
@@ -67,7 +84,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     | Locale JSON | `pnpm lint:i18n && pnpm vitest run src/locales` |
     | CSS only | Nothing — visual QA instead (`.claude/rules/10-tdd.md` exempts CSS) |
     | Rust | `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo clippy --all-targets -- -D warnings` |
-    | Anything, before pushing | `pnpm check:all` |
+    | Anything, before pushing | `pnpm check:predelta` (finds the batch in ~40s), then one `pnpm check:all` |
 
     **What `check:fast` does not see** — it is an incremental loop, and these
     gaps are why it can never replace `check:all`:

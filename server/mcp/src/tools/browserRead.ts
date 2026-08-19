@@ -58,14 +58,16 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         'without checking it yourself.\n\n' +
         'Actions:\n' +
         "- read: Return {url, snapshot} where snapshot is a flat ARIA tree [{role,name}] of the page's interactive/structural elements. Pass `tabId` to target a specific browser tab; omit to use the focused tab.\n" +
+        '- extract: The page as reader-mode MARKDOWN — {title, byline, url, markdown, textLength, truncated} — for pages you want to READ rather than operate. Site-aware (a Wikipedia article gets its wiki chrome stripped by name); boilerplate (nav/footer) is removed. `truncated: true` means the page HTML exceeded the capture cap and the tail was not read. Args {tabId?}.\n' +
+        '- workflow_status: The state of a workflow started with `browser` action workflow_run. Args {tabId?, runId}. Returns {status: running|paused|completed|failed|cancelled, completedSteps, stepCount, pausedAt?, reasonCode?, reason?, stepResults}. Poll this after workflow_run; a `paused` status names the step (pausedAt) that needs you.\n' +
         "- screenshot: Return a JPEG image of the tab's current rendering, so you can see layout and rendered state the ARIA tree does not name. Allowed on an AI-owned tab; a human tab requires attachment.\n" +
         '- query: Structured DOM detection the ARIA snapshot cannot name (tables, JSON blobs, computed values). Args {tabId?, selector, fields?:{attributes,box,styles:[...]}}. Returns {count, elements:[{ref,tag,text,...}]}.\n' +
-        "- console: Read the page's captured console.* output (log/info/warn/error/debug) for debugging a page you are driving. Args {tabId?}. Returns {entries:[{level,text}], url}. The buffer is a bounded ring, so repeated reads overlap — use `browser` action `console_clear` to drain it. (Sandbox tabs only; requires the console shim to be injected.)\n" +
+        "- console: Read the page's captured console.* output (log/info/warn/error/debug) — plus uncaught errors and unhandled promise rejections, recorded as level \"error\" entries prefixed `Uncaught`/`Unhandled rejection:` — for debugging a page you are driving. Args {tabId?}. Returns {entries:[{level,text}], url}. The buffer is a bounded ring, so repeated reads overlap — use `browser` action `console_clear` to drain it. (Sandbox tabs only; requires the console shim to be injected.)\n" +
         '- wait: Wait for an existing navigation ticket (from `browser` open/navigate) without starting a new navigation. Bounded to 12 seconds.\n' +
-        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.',
+        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, {text} (a substring of visible text), or {urlContains} (a substring of the tab URL — confirms a navigation landed). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.',
       inputSchema: {
         action: z
-          .enum(['read', 'screenshot', 'query', 'console', 'wait', 'wait_for'])
+          .enum(['read', 'screenshot', 'query', 'extract', 'console', 'wait', 'wait_for', 'workflow_status'])
           .describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target browser tab id (from session.get_state). Omit to use the focused tab.',
@@ -91,10 +93,18 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe('Substring of visible page text to wait for (wait_for only).'),
+        urlContains: z
+          .string()
+          .optional()
+          .describe('Substring the tab URL must contain (wait_for only) — confirms a navigation landed.'),
         navigationId: z
           .string()
           .optional()
           .describe('Existing navigation ticket from browser open/navigate (wait only).'),
+        runId: z
+          .string()
+          .optional()
+          .describe('A run id from `browser` action workflow_run (workflow_status only).'),
         timeoutMs: z
           .number()
           .int()
@@ -116,6 +126,24 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         if (args.action === 'read') {
           const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
           return VMarkMcpServer.successJsonResult(data, RECOVERY.browserRead);
+        }
+        if (args.action === 'extract') {
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.extract',
+            ...(tabId === undefined ? {} : { tabId }),
+          });
+          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserExtract);
+        }
+        if (args.action === 'workflow_status') {
+          if (typeof args.runId !== 'string' || args.runId === '') {
+            return VMarkMcpServer.errorResult('workflow_status requires a `runId`');
+          }
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.browser.workflow_status',
+            ...(tabId === undefined ? {} : { tabId }),
+            runId: args.runId,
+          });
+          return VMarkMcpServer.successJsonResult(data);
         }
         if (args.action === 'query') {
           const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : '';
@@ -161,10 +189,14 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
           const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
           const role = typeof args.role === 'string' && args.role.trim() ? args.role : undefined;
           const text = typeof args.text === 'string' && args.text.length > 0 ? args.text : undefined;
-          const modes = [ref, role, text].filter((v) => v !== undefined).length;
+          const urlContains =
+            typeof args.urlContains === 'string' && args.urlContains.length > 0
+              ? args.urlContains
+              : undefined;
+          const modes = [ref, role, text, urlContains].filter((v) => v !== undefined).length;
           if (modes !== 1) {
             return VMarkMcpServer.errorResult(
-              'wait_for needs exactly one of: ref, role (+optional name), or text',
+              'wait_for needs exactly one of: ref, role (+optional name), text, or urlContains',
             );
           }
           const name = typeof args.name === 'string' ? args.name : undefined;
@@ -173,7 +205,9 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
               ? { ref }
               : role !== undefined
                 ? { role, ...(name !== undefined ? { name } : {}) }
-                : { text };
+                : text !== undefined
+                  ? { text }
+                  : { urlContains };
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.wait_for',
             ...(tabId === undefined ? {} : { tabId }),

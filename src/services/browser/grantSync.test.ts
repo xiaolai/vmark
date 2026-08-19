@@ -287,3 +287,47 @@ describe("one-shot generation — authority cannot drift onto a page nobody appr
     expect(call?.[1]).toMatchObject({ tabId: "t1", generation: 5 });
   });
 });
+
+// WI-NB5.3 — the awaitable mint. The subscription pushes one-shots fire-and-forget
+// (fine for a one-off act), but a workflow run must not consume its frontend mirror
+// and call the driver BEFORE Rust has recorded the one-shot (Codex review F4). This
+// path awaits the Rust confirmation.
+describe("mintOneShotConfirmed (awaitable)", () => {
+  it("resolves true only after browser_add_one_shot settles", async () => {
+    const { mintOneShotConfirmed } = await import("./grantSync");
+    let release: () => void = () => {};
+    invoke.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = () => resolve();
+        }),
+    );
+    const p = mintOneShotConfirmed({
+      originPattern: "https://a.com",
+      operation: "click",
+      tabId: "t1",
+      generation: 1,
+      target: { role: "button", name: "OK" },
+    });
+    let settled = false;
+    void p.then(() => (settled = true));
+    await flush();
+    expect(settled).toBe(false); // still awaiting the driver
+    release();
+    await expect(p).resolves.toBe(true);
+  });
+
+  it("resolves false when the driver rejects the mint (run must not proceed)", async () => {
+    const { mintOneShotConfirmed } = await import("./grantSync");
+    invoke.mockRejectedValue(new Error("stale generation"));
+    await expect(
+      mintOneShotConfirmed({
+        originPattern: "https://a.com",
+        operation: "eval",
+        tabId: "t1",
+        generation: 2,
+        script: "1+1",
+      }),
+    ).resolves.toBe(false);
+  });
+});

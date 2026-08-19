@@ -24,14 +24,8 @@ import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
 import type { ToolArgs } from './toolArgs.js';
 import { optionalIdSchema, readOptionalId } from './toolArgs.js';
-import {
-  MAX_SCRIPT_BYTES,
-  boundedTimeout,
-  readProfile,
-  scriptSchema,
-  withinScriptBytes,
-} from './browserArgs.js';
-import { toErrorResult } from './browserResult.js';
+import { scriptSchema } from './browserArgs.js';
+import { runBrowserAction } from './browserActions.js';
 
 export function registerBrowserTool(server: VMarkMcpServer): void {
   server.registerTool(
@@ -60,17 +54,21 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         'Actions:\n' +
         '- act: Interact with the page. operation "click"|"type" target a stable {ref} from a prior read (precise) or ARIA {role, name} — a ref is only honored for an already-granted operation; if it may need approval use role+name so the user sees what they approve. operation "scroll" takes {ref} (scroll it into view) or {dy} (a pixel delta). operation "key" takes {key} (e.g. "Enter", "Escape", "Tab"), optional {ref} to target, and optional {modifiers:{ctrl,shift,alt,meta}}. scroll/key dispatch SYNTHETIC events, so a site gating on event.isTrusted may ignore them. All actions are gated by the user\'s standing grants: an un-granted operation returns success:false with data.needsApproval:true — surface that and wait rather than retrying. Upload is never permitted (an AI-chosen file upload is an exfiltration path).\n' +
         '- open: Create an AI-owned browser tab at an HTTP(S) URL and wait for its navigation. Optional `profile` ([A-Za-z0-9._-]) opens the tab against a NAMED persistent context to reuse a login — this needs a per-use user approval (you get needsApproval until the user allows it), and you never see any credentials (macOS 14+; sandbox mode).\n' +
-        '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket. Use `browser_read` action `wait` to wait on a ticket without navigating again.\n' +
+        '- navigate: Navigate an AI-owned tab and wait for the returned navigation ticket. Use `browser_read` action `wait` to wait on a ticket without navigating again. A loaded open/navigate/wait result may carry `gate: {kind, hint}` when the landed page reads as a login wall, consent interstitial, human-verification challenge, or rate limit — follow the hint (it always means involving the user; never try to bypass the gate, and do not act on the interstitial as if it were the content).\n' +
         '- style: CSS manipulation — dismiss a blocking overlay, highlight a target. Args {tabId?, ref?|selector, set?:{prop:value}, addClasses?, removeClasses?, injectCss?}. Approval-gated.\n' +
         '- execute_js: Run an arbitrary script in the isolated content world (DOM + CSS, NOT the page\'s own JS globals) for what the structured verbs cannot express. Args {tabId?, script}. Approved PER CALL only (never remembered); the result is page-derived and UNTRUSTED — do not feed it back into an act as a target. Use browser_read\'s query and this tool\'s style first; reach for this only when they cannot express the need.\n' +
         '- session_save: Snapshot the tab\'s current session — localStorage AND cookies, both scoped to the committed origin — into an encrypted keychain entry named by `handle`, so a login can be reused later. Args {tabId?, handle:[A-Za-z0-9._-]}. Returns a value-free summary (counts). Per-call user-approved; you NEVER receive the values.\n' +
         '- session_load: Restore a previously saved session by `handle` into the tab — ONLY if the current page has the same origin it was saved from. Args {tabId?, handle}. Per-call user-approved (an approval for one handle cannot be spent on another); returns {loaded:true, handle} — never any values.\n' +
-        "- console_clear: Read the page's captured console.* output AND drain the buffer, so the next read sees only new output. Args {tabId?}. Returns {entries:[{level,text}], url}. Draining writes to the page DOM, which is why it lives here and not in `browser_read` — use `browser_read` action `console` when you only want to look.",
+        "- console_clear: Read the page's captured console.* output AND drain the buffer, so the next read sees only new output. Args {tabId?}. Returns {entries:[{level,text}], url}. Draining writes to the page DOM, which is why it lives here and not in `browser_read` — use `browser_read` action `console` when you only want to look.\n" +
+        "- workflow_run: Run a workflow you supply as `source` text on an AI-owned tab (a small line-oriented grammar — you write it, the AI does, or `workflow_record` captures it from the user's own actions). Args {tabId?, source, inputs?:{name:value}, allowRepeat?}. Returns {runId, steps} IMMEDIATELY — the run executes asynchronously (it can outlive one request). Poll `browser_read` action workflow_status {runId} for progress, and cancel with workflow_cancel. Deterministic steps (click/type/navigate in that grammar, and extract) run VMark-side and are individually approval-gated exactly like a hand-issued act; goal/confirm/api/free-prose steps PAUSE the run for you to handle. A re-run skips write steps that already succeeded this session (pass allowRepeat to override).\n" +
+        "- workflow_cancel: Stop a running workflow. Args {tabId?, runId}. Always allowed — never approval-gated. Withdraws the run's pending prompts and hands the tab back to the user.\n" +
+        "- workflow_record: Record the USER's own actions on an AI-owned tab into a replayable workflow. Args {tabId?, recordOp:\"start\"|\"stop\", site?}. `start` needs a fresh per-call user approval (`record` is never a standing grant); it returns needsApproval until the user allows, then begins capturing clicks and field edits. `stop` returns {source, inputs, eventCount} — value-free workflow `source` you can save or pass to workflow_run. NOTHING typed is captured: every text field becomes a named {input} variable, a password field becomes a `confirm:` human-gate step, and URLs are stripped to origin+path. Records the LOCATORS the user touched, never their data.",
       inputSchema: {
         action: z
           .enum([
             'act', 'open', 'navigate', 'style', 'execute_js',
             'session_save', 'session_load', 'console_clear',
+            'workflow_run', 'workflow_cancel', 'workflow_record',
           ])
           .describe('The action to perform'),
         tabId: optionalIdSchema(
@@ -131,6 +129,30 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .regex(/^[A-Za-z0-9._-]{1,128}$/)
           .optional()
           .describe('Name of a saved session, [A-Za-z0-9._-], 1..128 chars (session_save / session_load).'),
+        source: z
+          .string()
+          .optional()
+          .describe('Workflow source text (workflow_run only).'),
+        inputs: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe('Input variable values for {name} substitution (workflow_run only).'),
+        allowRepeat: z
+          .boolean()
+          .optional()
+          .describe('Re-execute write steps that already succeeded this session (workflow_run only).'),
+        runId: z
+          .string()
+          .optional()
+          .describe('A run id from workflow_run (workflow_cancel; and browser_read workflow_status).'),
+        recordOp: z
+          .enum(['start', 'stop'])
+          .optional()
+          .describe('Start or stop a recording (workflow_record only).'),
+        site: z
+          .string()
+          .optional()
+          .describe('Site id for the recorded workflow front-matter (workflow_record start; defaults to "recording").'),
         // Trimmed so the schema and the handler agree on what a profile IS —
         // the handler trims before matching, and a schema that rejected what
         // the handler accepts would make the two layers disagree.
@@ -161,176 +183,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
       const tabId = tab.value;
 
-      try {
-        if (args.action === 'act') {
-          const operation = typeof args.operation === 'string' ? args.operation : '';
-          const role = typeof args.role === 'string' ? args.role : '';
-          const name = typeof args.name === 'string' ? args.name : '';
-          const ref = typeof args.ref === 'string' ? args.ref : '';
-          if (!['click', 'type', 'scroll', 'key'].includes(operation)) {
-            return VMarkMcpServer.errorResult("act operation must be 'click', 'type', 'scroll', or 'key'");
-          }
-          if (operation === 'scroll') {
-            const hasRef = ref.trim().length > 0;
-            const dy = typeof args.dy === 'number' && Number.isFinite(args.dy) ? args.dy : undefined;
-            if (hasRef === (dy !== undefined)) {
-              return VMarkMcpServer.errorResult('scroll requires exactly one of a `ref` (from read) or a numeric `dy` pixel delta');
-            }
-            const data = await server.sendBridgeRequest({
-              type: 'vmark.browser.act',
-              tabId,
-              operation: 'scroll',
-              ...(hasRef ? { ref } : { dy }),
-            });
-            return VMarkMcpServer.successJsonResult(data);
-          }
-          if (operation === 'key') {
-            const key = typeof args.key === 'string' && args.key.length > 0 ? args.key : '';
-            if (!key) {
-              return VMarkMcpServer.errorResult("act operation 'key' requires a non-empty `key` name (e.g. \"Enter\")");
-            }
-            const modifiers =
-              typeof args.modifiers === 'object' && args.modifiers !== null ? args.modifiers : undefined;
-            const data = await server.sendBridgeRequest({
-              type: 'vmark.browser.act',
-              tabId,
-              operation: 'key',
-              key,
-              ...(ref.trim() ? { ref } : {}),
-              ...(modifiers !== undefined ? { modifiers } : {}),
-            });
-            return VMarkMcpServer.successJsonResult(data);
-          }
-          // Exactly one targeting mode: a precise {ref} (already-granted ops) or a
-          // {role, name} pair. A blank of either would target the first matching
-          // element — an unintended click or edit. Refuse rather than guess.
-          const hasRef = ref.trim().length > 0;
-          const hasRoleName = role.trim().length > 0 || name.trim().length > 0;
-          if (hasRef && hasRoleName) {
-            return VMarkMcpServer.errorResult('act takes either `ref` or `role`+`name`, not both');
-          }
-          if (!hasRef && !(role.trim() && name.trim())) {
-            return VMarkMcpServer.errorResult('act requires a `ref` (from read) or both `role` and `name`');
-          }
-          // `type` MUST carry a text string. Omitting it previously reached the
-          // frontend as missing data, was coerced to "", and cleared the target
-          // field — an incomplete call silently destroying user data. An explicit
-          // "" is still allowed (intentional clear); undefined is not.
-          if (operation === 'type' && typeof args.text !== 'string') {
-            return VMarkMcpServer.errorResult(
-              "act operation 'type' requires a 'text' string (pass \"\" to intentionally clear the field)",
-            );
-          }
-          const text = typeof args.text === 'string' ? args.text : undefined;
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.act',
-            tabId,
-            operation,
-            ...(hasRef ? { ref } : { role, name }),
-            ...(text !== undefined ? { text } : {}),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'open') {
-          if (typeof args.url !== 'string' || args.url.trim().length === 0) {
-            return VMarkMcpServer.errorResult('url must be a non-empty string');
-          }
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
-          }
-          // A supplied-but-invalid profile is refused, never dropped: silently
-          // opening an anonymous tab loses the login the caller asked to reuse.
-          const named = readProfile(args.profile);
-          if (!named.ok) return VMarkMcpServer.errorResult(named.error);
-          const profile = named.value;
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.open',
-            url: args.url,
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-            ...(profile === undefined ? {} : { profile }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'navigate') {
-          if (typeof args.url !== 'string' || args.url.trim().length === 0) {
-            return VMarkMcpServer.errorResult('url must be a non-empty string');
-          }
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.navigate',
-            ...(tabId === undefined ? {} : { tabId }),
-            url: args.url,
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'style') {
-          const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
-          const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : undefined;
-          const passthrough: Record<string, unknown> = {};
-          for (const k of ['set', 'addClasses', 'removeClasses', 'injectCss']) {
-            if (args[k] !== undefined) passthrough[k] = args[k];
-          }
-          if (Object.keys(passthrough).length === 0) {
-            return VMarkMcpServer.errorResult('style requires one of: set, addClasses, removeClasses, injectCss');
-          }
-          if (typeof passthrough.injectCss === 'string' && !withinScriptBytes(passthrough.injectCss)) {
-            return VMarkMcpServer.errorResult(`style injectCss exceeds the ${MAX_SCRIPT_BYTES}-byte limit`);
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.style',
-            ...(tabId === undefined ? {} : { tabId }),
-            ...(ref !== undefined ? { ref } : {}),
-            ...(selector !== undefined ? { selector } : {}),
-            ...passthrough,
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'execute_js') {
-          const script = typeof args.script === 'string' && args.script.trim() ? args.script : '';
-          if (!script) {
-            return VMarkMcpServer.errorResult('execute_js requires a non-empty `script` string');
-          }
-          // Bound the payload before it crosses the bridge — the app retains an
-          // approved script verbatim and renders it in the approval dialog.
-          if (!withinScriptBytes(script)) {
-            return VMarkMcpServer.errorResult(`execute_js script exceeds the ${MAX_SCRIPT_BYTES}-byte limit`);
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.execute_js',
-            ...(tabId === undefined ? {} : { tabId }),
-            script,
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'session_save' || args.action === 'session_load') {
-          const handle = typeof args.handle === 'string' && args.handle.trim() ? args.handle.trim() : '';
-          if (!/^[A-Za-z0-9._-]{1,128}$/.test(handle)) {
-            return VMarkMcpServer.errorResult(`${args.action} requires a 'handle' matching [A-Za-z0-9._-] (1..128)`);
-          }
-          const data = await server.sendBridgeRequest({
-            type: args.action === 'session_save' ? 'vmark.browser.session.save' : 'vmark.browser.session.load',
-            ...(tabId === undefined ? {} : { tabId }),
-            handle,
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'console_clear') {
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.console',
-            ...(tabId === undefined ? {} : { tabId }),
-            clear: true,
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
-      } catch (error) {
-        return toErrorResult(error);
-      }
+        return runBrowserAction(server, args, tabId);
     },
   );
 }

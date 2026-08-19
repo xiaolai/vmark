@@ -360,3 +360,60 @@ describe("wait", () => {
     expect(mocks.invoke).not.toHaveBeenCalledWith("browser_ai_state", expect.anything());
   });
 });
+
+// WI-NB2.2 — gate detection on navigation results. A loaded navigation runs one
+// best-effort read-class signals eval; a classified gate rides the result as
+// `data.gate {kind, hint}`. Advisory only: probe failure or an ordinary page
+// changes nothing about the navigation result.
+describe("gate detection on loaded results (WI-NB2.2)", () => {
+  function withEvalSignals(signals: Record<string, unknown> | Error): void {
+    mocks.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command === "browser_ai_navigate") return { tabId: args?.tabId, navigationId: "nav-1" };
+      if (command === "browser_ai_state") {
+        return { tabId: args?.tabId, url: URL, generation: 1, loading: false, navigationId: "nav-1" };
+      }
+      if (command === "browser_eval") {
+        if (signals instanceof Error) throw signals;
+        return JSON.stringify(signals);
+      }
+      return undefined;
+    });
+  }
+
+  it("attaches a login-required gate when the landed page signals one", async () => {
+    const tabId = seed();
+    withEvalSignals({
+      url: "https://example.com/login",
+      title: "Sign in — Example",
+      textHead: "Username. Password.",
+      challengeWidget: false,
+      passwordField: true,
+    });
+    await handleBrowserNavigate("g-1", { tabId, url: URL, timeoutMs: 1000 });
+    const data = lastResponse().data as { gate?: { kind: string; hint: string } };
+    expect(data.gate?.kind).toBe("login-required");
+    expect(data.gate?.hint).toContain("user");
+  });
+
+  it("attaches no gate for an ordinary page", async () => {
+    const tabId = seed();
+    withEvalSignals({
+      url: URL,
+      title: "Example",
+      textHead: "Ordinary content.",
+      challengeWidget: false,
+      passwordField: false,
+    });
+    await handleBrowserNavigate("g-2", { tabId, url: URL, timeoutMs: 1000 });
+    expect(lastResponse()).toMatchObject({ success: true });
+    expect("gate" in (lastResponse().data as Record<string, unknown>)).toBe(false);
+  });
+
+  it("a failing probe never degrades the navigation result", async () => {
+    const tabId = seed();
+    withEvalSignals(new Error("stale generation"));
+    await handleBrowserNavigate("g-3", { tabId, url: URL, timeoutMs: 1000 });
+    expect(lastResponse()).toMatchObject({ id: "g-3", success: true });
+    expect("gate" in (lastResponse().data as Record<string, unknown>)).toBe(false);
+  });
+});

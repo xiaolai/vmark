@@ -101,6 +101,61 @@ fn rejects_loopback_and_private_literal_addresses() {
     }
 }
 
+// WI-NB3.2 — transition/translation prefixes that EMBED an IPv4 address, and
+// the deprecated ranges NeoBrowser's guard covered while this one did not
+// (prior-art report 20260819 §B8). Each embedded-v4 spelling of a private
+// address must be exactly as blocked as the address it embeds.
+#[test]
+fn rejects_ipv6_disguises_of_private_ipv4_addresses() {
+    for url in [
+        // 6to4: 2002:<v4>::/16 — 2002:7f00:0001 embeds 127.0.0.1; c0a8:0101 is 192.168.1.1.
+        "http://[2002:7f00:1::1]/",
+        "http://[2002:c0a8:101::1]/",
+        "http://[2002:a9fe:a9fe::1]/", // 169.254.169.254
+        // NAT64 well-known prefix 64:ff9b::/96 — last 32 bits are the v4.
+        "http://[64:ff9b::127.0.0.1]/",
+        "http://[64:ff9b::7f00:1]/",
+        "http://[64:ff9b::c0a8:101]/",
+        // Deprecated IPv4-COMPATIBLE (::a.b.c.d) — ::7f00:1 is 127.0.0.1.
+        "http://[::127.0.0.1]/",
+        "http://[::c0a8:101]/",
+        // Deprecated site-local fec0::/10.
+        "http://[fec0::1]/",
+        "http://[feff::1]/",
+    ] {
+        assert_eq!(
+            validate_ai_navigation_url(url, false),
+            Err(AiUrlError::Blocked),
+            "{url}"
+        );
+    }
+}
+
+#[test]
+fn public_addresses_inside_transition_prefixes_stay_navigable() {
+    // 6to4/NAT64 embedding a PUBLIC v4 is ordinary reachability, not a dodge:
+    // 2002:0102:0304 embeds 1.2.3.4; the NAT64 form embeds 8.8.8.8.
+    assert!(validate_ai_navigation_url("http://[2002:102:304::1]/", false).is_ok());
+    assert!(validate_ai_navigation_url("http://[64:ff9b::8.8.8.8]/", false).is_ok());
+}
+
+#[test]
+fn loopback_opt_in_covers_its_disguises_but_nothing_else() {
+    // With loopback allowed, the loopback DISGUISES follow (same address), but
+    // private ranges inside the same prefixes stay blocked.
+    assert!(validate_ai_navigation_url("http://[64:ff9b::127.0.0.1]/", true).is_ok());
+    assert!(validate_ai_navigation_url("http://[::127.0.0.1]/", true).is_ok());
+    assert!(validate_ai_navigation_url("http://[2002:7f00:1::1]/", true).is_ok());
+    assert_eq!(
+        validate_ai_navigation_url("http://[64:ff9b::c0a8:101]/", true),
+        Err(AiUrlError::Blocked)
+    );
+    assert_eq!(
+        validate_ai_navigation_url("http://[fec0::1]/", true),
+        Err(AiUrlError::Blocked)
+    );
+}
+
 #[test]
 fn loopback_can_be_explicitly_enabled_without_opening_private_ranges() {
     assert!(validate_ai_navigation_url("http://127.0.0.1:8080/", true).is_ok());

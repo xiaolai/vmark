@@ -43,7 +43,9 @@ const VIEW: LogbookView = {
   reopenedEdges: 1,
 };
 
-beforeEach(() => fetchLogbook.mockReset().mockResolvedValue(VIEW));
+beforeEach(() => {
+  fetchLogbook.mockReset().mockResolvedValue(VIEW);
+});
 
 describe("LogbookSection", () => {
   it("does not read the ledger until asked", () => {

@@ -47,6 +47,10 @@ export interface PendingApproval {
    *  open. Present only for that approval kind; on "Allow once" it mints a
    *  ProfileOpenApproval instead of a tab-bound one-shot. */
   profile?: string;
+  /** The workflow run that raised this prompt (WI-NB5.3). Present only for a
+   *  run's prompts, so `withdrawByRun` can drop exactly them when the run ends,
+   *  closing the late-Allow race. Absent for a one-off act's prompt. */
+  runId?: string;
 }
 
 /** How the user (or a policy) resolved a pending approval. */

@@ -23,7 +23,7 @@
  * lockstep with the app is the five-file `sed` in the bump procedure
  * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
  */
-const VERSION = '0.9.43';
+const VERSION = '0.9.44';
 
 /**
  * Handle --version flag.
@@ -108,6 +108,7 @@ async function runHealthCheck(): Promise<void> {
 }
 
 import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from './index.js';
+import { SERVER_INSTRUCTIONS } from './instructions.js';
 import { WebSocketBridge } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -207,6 +208,9 @@ async function main(): Promise<void> {
   // clients previously saw a stale hardcoded '0.1.0'.
   // `tools` only. Declaring `resources: {}` advertised resources/list and
   // resources/read on a server that registers none (audit 20260728 §4).
+  // `instructions` is the initialize-time primer (WI-NB2.1) — the operational
+  // core loop the model reads before any tool call; pinned by
+  // instructions.test.ts and end-to-end by sdkBoundary.test.ts.
   const mcpServer = new McpServer(
     {
       name: 'vmark-mcp-server',
@@ -216,6 +220,7 @@ async function main(): Promise<void> {
       capabilities: {
         tools: {},
       },
+      instructions: SERVER_INSTRUCTIONS,
     }
   );
 

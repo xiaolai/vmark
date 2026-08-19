@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "Clicar",
   "browser.approval.operation.type": "Digitar em",
   "browser.approval.operation.navigate": "Navegar",
+  "browser.approval.operation.record": "Gravar suas ações",
   "browser.approval.note": "A IA solicitou isso. Nada acontece a menos que você permita.",
   "browser.approval.deny": "Negar",
   "browser.approval.allowOnce": "Permitir uma vez",
@@ -177,5 +178,7 @@
   "browser.bookmarks.remove": "Remover favorito",
   "workspaceRail.menu.close": "Fechar",
   "workspaceRail.menu.duplicate": "Duplicar",
-  "workspaceRail.menu.moveToNewWindow": "Mover para nova janela"
+  "workspaceRail.menu.moveToNewWindow": "Mover para nova janela",
+  "sites.wikipedia.name": "Wikipédia",
+  "browser.aiControlling": "A IA está no controle — clique para assumir"
 }

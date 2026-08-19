@@ -32,6 +32,13 @@ export { handleBrowserAct } from "./browserAct";
 export { handleBrowserQuery, handleBrowserStyle, handleBrowserExecuteJs } from "./browserPower";
 export { handleBrowserSessionSave, handleBrowserSessionLoad } from "./browserSession";
 export { handleBrowserConsole } from "./browserConsole";
+export { handleBrowserExtract } from "./browserExtract";
+export {
+  handleBrowserWorkflowRun,
+  handleBrowserWorkflowStatus,
+  handleBrowserWorkflowCancel,
+} from "./browserWorkflow";
+export { handleBrowserWorkflowRecord } from "./browserRecord";
 
 /**
  * `vmark.browser.read` — ARIA snapshot (with a stable `ref` per node) of the

@@ -265,6 +265,64 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.console')).toHaveLength(2);
   });
 
+  it('workflow_run: forwards source/inputs/allowRepeat; rejects a blank source', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.workflow_run': () => ({ success: true, data: { runId: 'wfrun-1', steps: 2 } }),
+    });
+    await server.callTool('browser', {
+      action: 'workflow_run',
+      source: '1. action: click "OK"',
+      inputs: { a: 'b' },
+      allowRepeat: true,
+    });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_run')[0].request).toEqual({
+      type: 'vmark.browser.workflow_run',
+      source: '1. action: click "OK"',
+      inputs: { a: 'b' },
+      allowRepeat: true,
+    });
+    const blank = await server.callTool('browser', { action: 'workflow_run', source: '   ' });
+    expect(blank.isError).toBe(true);
+    const none = await server.callTool('browser', { action: 'workflow_run' });
+    expect(none.isError).toBe(true);
+  });
+
+  it('workflow_cancel: forwards the runId; rejects a missing one', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.workflow_cancel': () => ({ success: true, data: { runId: 'wfrun-1', status: 'cancelled' } }),
+    });
+    await server.callTool('browser', { action: 'workflow_cancel', runId: 'wfrun-1' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_cancel')[0].request).toEqual({
+      type: 'vmark.browser.workflow_cancel',
+      runId: 'wfrun-1',
+    });
+    const bad = await server.callTool('browser', { action: 'workflow_cancel' });
+    expect(bad.isError).toBe(true);
+  });
+
+  it('workflow_record: forwards recordOp + optional site; rejects a missing recordOp', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.workflow_record': () => ({ success: true, data: { status: 'recording', tabId: 'b1' } }),
+    });
+    // With a site.
+    await server.callTool('browser', { action: 'workflow_record', tabId: 'b1', recordOp: 'start', site: 'blog' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_record')[0].request).toEqual({
+      type: 'vmark.browser.workflow_record',
+      tabId: 'b1',
+      recordOp: 'start',
+      site: 'blog',
+    });
+    // Without a tabId or a site (the tabId-absent and site-absent branches).
+    await server.callTool('browser', { action: 'workflow_record', recordOp: 'stop' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_record')[1].request).toEqual({
+      type: 'vmark.browser.workflow_record',
+      recordOp: 'stop',
+    });
+    // A missing/invalid recordOp is rejected before touching the bridge.
+    const bad = await server.callTool('browser', { action: 'workflow_record' });
+    expect(bad.isError).toBe(true);
+  });
+
   it('session_save / session_load: forward the handle; reject a bad one', async () => {
     const { server, bridge } = harness({
       'vmark.browser.session.save': () => ({ success: true, data: { handle: 'work', summary: '0 cookie(s)' } }),

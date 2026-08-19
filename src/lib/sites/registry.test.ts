@@ -1,21 +1,35 @@
 // @vitest-environment node
 // Site plugin registry — dispatches on origin (ADR-S1). Mirrors the format registry.
-// Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-3.1
+// Wiring plan: dev-docs/plans/20260819-browser-wire-and-borrows.md WI-NB4.2
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SiteManifest } from "./types";
+import type { SiteReader } from "@/lib/browser/reader/siteReader";
 import {
   registerSite,
   dispatchSite,
   getSiteById,
   listSites,
+  siteReaderById,
+  readerForUrl,
   __resetSiteRegistry,
 } from "./registry";
+
+/** A minimal well-formed reader paired to a manifest under test. */
+function stubReader(id: string): SiteReader {
+  return {
+    id,
+    match: () => true,
+    read: (html, url) => ({ title: "stub", byline: "", url, markdown: html.slice(0, 10), textLength: 0 }),
+  };
+}
+/** Register with an auto-paired stub reader — the shape most tests need. */
+const register = (m: SiteManifest): void => registerSite(m, stubReader(m.id));
 
 const zhihu: SiteManifest = {
   id: "zhihu",
   nameI18nKey: "sites.zhihu.name",
   origins: ["https://zhihu.com", "https://*.zhihu.com"],
-  capabilities: ["read", "publish"],
+  capabilities: ["read"],
   minAgentApi: 1,
 };
 
@@ -23,7 +37,7 @@ beforeEach(() => __resetSiteRegistry());
 
 describe("registerSite validation", () => {
   it("registers a valid manifest", () => {
-    registerSite(zhihu);
+    register(zhihu);
     expect(getSiteById("zhihu")).toEqual(zhihu);
     expect(listSites()).toHaveLength(1);
   });
@@ -34,91 +48,91 @@ describe("registerSite validation", () => {
     ["zh hu", "space"],
     ["", "empty id"],
   ])("rejects invalid id %s (%s)", (id) => {
-    expect(() => registerSite({ ...zhihu, id })).toThrow();
+    expect(() => register({ ...zhihu, id })).toThrow();
   });
 
   it("rejects an empty origins list", () => {
-    expect(() => registerSite({ ...zhihu, origins: [] })).toThrow();
+    expect(() => register({ ...zhihu, origins: [] })).toThrow();
   });
 
   it("rejects an un-canonicalizable origin pattern", () => {
-    expect(() => registerSite({ ...zhihu, origins: ["not-a-url"] })).toThrow();
-    expect(() => registerSite({ ...zhihu, origins: ["about:blank"] })).toThrow();
-    expect(() => registerSite({ ...zhihu, origins: ["https://*"] })).toThrow();
+    expect(() => register({ ...zhihu, origins: ["not-a-url"] })).toThrow();
+    expect(() => register({ ...zhihu, origins: ["about:blank"] })).toThrow();
+    expect(() => register({ ...zhihu, origins: ["https://*"] })).toThrow();
   });
 
   it("rejects an empty capabilities list", () => {
-    expect(() => registerSite({ ...zhihu, capabilities: [] })).toThrow();
+    expect(() => register({ ...zhihu, capabilities: [] })).toThrow();
   });
 
   it("rejects a plugin requiring a newer agent API than the host provides", () => {
-    expect(() => registerSite({ ...zhihu, minAgentApi: 999 })).toThrow();
+    expect(() => register({ ...zhihu, minAgentApi: 999 })).toThrow();
   });
 
   it("rejects a duplicate id", () => {
-    registerSite(zhihu);
-    expect(() => registerSite(zhihu)).toThrow();
+    register(zhihu);
+    expect(() => register(zhihu)).toThrow();
   });
 
   it("rejects an exact-origin collision across plugins", () => {
-    registerSite(zhihu);
+    register(zhihu);
     const clash: SiteManifest = { ...zhihu, id: "zhihu-clone", origins: ["https://zhihu.com"] };
-    expect(() => registerSite(clash)).toThrow();
+    expect(() => register(clash)).toThrow();
   });
 
   it("rejects duplicate exact origins WITHIN one manifest", () => {
     expect(() =>
-      registerSite({ ...zhihu, origins: ["https://a.com", "https://a.com"] }),
+      register({ ...zhihu, origins: ["https://a.com", "https://a.com"] }),
     ).toThrow();
   });
 
   it("rejects duplicate WILDCARD origins within one manifest", () => {
     expect(() =>
-      registerSite({ ...zhihu, origins: ["https://*.a.com", "https://*.a.com"] }),
+      register({ ...zhihu, origins: ["https://*.a.com", "https://*.a.com"] }),
     ).toThrow();
   });
 
   it("rejects a WILDCARD-origin collision ACROSS plugins (dispatch would be order-dependent)", () => {
-    registerSite({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
+    register({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
     expect(() =>
-      registerSite({ ...zhihu, id: "second", origins: ["https://*.shared.com"] }),
+      register({ ...zhihu, id: "second", origins: ["https://*.shared.com"] }),
     ).toThrow();
   });
 
   it("rejects a canonically-equivalent wildcard collision across plugins (case)", () => {
-    registerSite({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
+    register({ ...zhihu, id: "first", origins: ["https://*.shared.com"] });
     expect(() =>
-      registerSite({ ...zhihu, id: "second", origins: ["https://*.SHARED.com"] }),
+      register({ ...zhihu, id: "second", origins: ["https://*.SHARED.com"] }),
     ).toThrow();
   });
 
   it("rejects canonically-equivalent duplicate origins (case / trailing slash / default port)", () => {
     expect(() =>
-      registerSite({ ...zhihu, origins: ["https://a.com", "https://A.com/"] }),
+      register({ ...zhihu, origins: ["https://a.com", "https://A.com/"] }),
     ).toThrow();
     expect(() =>
-      registerSite({ ...zhihu, origins: ["https://a.com", "https://a.com:443"] }),
+      register({ ...zhihu, origins: ["https://a.com", "https://a.com:443"] }),
     ).toThrow();
   });
 
   it("rejects a non-string id from a malformed runtime manifest", () => {
-    expect(() => registerSite({ ...zhihu, id: 123 as unknown as string })).toThrow();
+    expect(() => register({ ...zhihu, id: 123 as unknown as string })).toThrow();
     expect(getSiteById(123 as unknown as string)).toBeUndefined();
   });
 
   it("rejects a non-string nameI18nKey / origin pattern from a malformed runtime manifest", () => {
     expect(() =>
-      registerSite({ ...zhihu, nameI18nKey: 7 as unknown as string }),
+      register({ ...zhihu, nameI18nKey: 7 as unknown as string }),
     ).toThrow();
-    expect(() => registerSite({ ...zhihu, origins: [7 as unknown as string] })).toThrow();
+    expect(() => register({ ...zhihu, origins: [7 as unknown as string] })).toThrow();
   });
 
   it("rejects non-array origins / capabilities from a malformed runtime manifest", () => {
     expect(() =>
-      registerSite({ ...zhihu, origins: "https://a.com" as unknown as string[] }),
+      register({ ...zhihu, origins: "https://a.com" as unknown as string[] }),
     ).toThrow();
     expect(() =>
-      registerSite({ ...zhihu, capabilities: "read" as unknown as SiteManifest["capabilities"] }),
+      register({ ...zhihu, capabilities: "read" as unknown as SiteManifest["capabilities"] }),
     ).toThrow();
   });
 
@@ -135,7 +149,7 @@ describe("registerSite validation", () => {
       },
     } as unknown as SiteManifest;
 
-    registerSite(sneaky);
+    register(sneaky);
     // Whatever was validated is what got committed — only ONE read of the field.
     expect(getSiteById("sneaky")?.origins).toEqual(["https://a.example"]);
     expect(dispatchSite("https://a.example")?.id).toBe("sneaky");
@@ -145,12 +159,12 @@ describe("registerSite validation", () => {
 
   it("rejects an unknown or duplicated capability value", () => {
     // @ts-expect-error — exercising runtime validation of a bad capability
-    expect(() => registerSite({ ...zhihu, capabilities: ["read", "delete"] })).toThrow();
-    expect(() => registerSite({ ...zhihu, capabilities: ["read", "read"] })).toThrow();
+    expect(() => register({ ...zhihu, capabilities: ["read", "delete"] })).toThrow();
+    expect(() => register({ ...zhihu, capabilities: ["read", "read"] })).toThrow();
   });
 
   it("rejects an empty nameI18nKey", () => {
-    expect(() => registerSite({ ...zhihu, nameI18nKey: "" })).toThrow();
+    expect(() => register({ ...zhihu, nameI18nKey: "" })).toThrow();
   });
 
   it.each([
@@ -158,11 +172,11 @@ describe("registerSite validation", () => {
     [-1, "negative"],
     [Number.NaN, "NaN"],
   ])("rejects a non-integer/negative minAgentApi (%s, %s)", (minAgentApi) => {
-    expect(() => registerSite({ ...zhihu, minAgentApi })).toThrow();
+    expect(() => register({ ...zhihu, minAgentApi })).toThrow();
   });
 
   it("SECURITY: mutating the array returned by listSites does not change the registry", () => {
-    registerSite(zhihu);
+    register(zhihu);
     const snapshot = listSites() as SiteManifest[];
     expect(() => snapshot.push({ ...zhihu, id: "injected" })).toThrow(); // frozen snapshot
     expect(getSiteById("injected")).toBeUndefined();
@@ -177,7 +191,7 @@ describe("registerSite validation", () => {
       capabilities: ["read"],
       minAgentApi: 1,
     };
-    registerSite(m);
+    register(m);
     // Attempt to widen the grant after the fact (cast past `readonly` — the type
     // contract forbids this, but a runtime caller can still try).
     try {
@@ -191,22 +205,22 @@ describe("registerSite validation", () => {
 
 describe("dispatchSite", () => {
   it("returns null when no plugin matches", () => {
-    registerSite(zhihu);
+    register(zhihu);
     expect(dispatchSite("https://weibo.com")).toBeNull();
   });
 
   it("returns null for an un-navigable URL", () => {
-    registerSite(zhihu);
+    register(zhihu);
     expect(dispatchSite("about:blank")).toBeNull();
   });
 
   it("matches an exact origin", () => {
-    registerSite(zhihu);
+    register(zhihu);
     expect(dispatchSite("https://zhihu.com/question/1")?.id).toBe("zhihu");
   });
 
   it("matches a subdomain via wildcard", () => {
-    registerSite(zhihu);
+    register(zhihu);
     expect(dispatchSite("https://zhuanlan.zhihu.com/p/1")?.id).toBe("zhihu");
   });
 
@@ -222,11 +236,11 @@ describe("dispatchSite", () => {
       id: "zhihu-column",
       nameI18nKey: "sites.zhihuColumn.name",
       origins: ["https://zhuanlan.zhihu.com"],
-      capabilities: ["read", "publish"],
+      capabilities: ["read"],
       minAgentApi: 1,
     };
-    registerSite(wildcardOwner);
-    registerSite(exactOwner);
+    register(wildcardOwner);
+    register(exactOwner);
     // zhuanlan.zhihu.com is claimed exactly by one and by-wildcard by the other.
     expect(dispatchSite("https://zhuanlan.zhihu.com/p/1")?.id).toBe("zhihu-column");
     // A different subdomain still resolves to the wildcard owner.
@@ -249,10 +263,70 @@ describe("dispatchSite", () => {
       minAgentApi: 1,
     };
     // Register broad FIRST so registration order would pick the wrong one.
-    registerSite(broad);
-    registerSite(narrow);
+    register(broad);
+    register(narrow);
     expect(dispatchSite("https://x.sub.example.com/p")?.id).toBe("narrow");
     // A host only the broad pattern covers still resolves to broad.
     expect(dispatchSite("https://other.example.com/p")?.id).toBe("broad");
+  });
+});
+
+// WI-NB4.2 — registration is atomic with the plugin's reader: a manifest cannot
+// exist without a working implementation, so "registered but unreadable" is
+// unrepresentable. WI-NB4.1 consumes the pairing through readerForUrl.
+describe("manifest ↔ reader pairing (WI-NB4.2)", () => {
+  it("stores the paired reader, retrievable by id", () => {
+    const reader = stubReader("zhihu");
+    registerSite(zhihu, reader);
+    expect(siteReaderById("zhihu")).toBe(reader);
+  });
+
+  it("rejects a reader whose id does not match the manifest", () => {
+    expect(() => registerSite(zhihu, stubReader("other"))).toThrow(/reader/i);
+    expect(getSiteById("zhihu")).toBeUndefined();
+  });
+
+  it.each([
+    ["missing match", { id: "zhihu", read: stubReader("zhihu").read }],
+    ["missing read", { id: "zhihu", match: () => true }],
+    ["not an object", null],
+  ])("rejects a malformed reader (%s) without committing the manifest", (_label, bad) => {
+    expect(() => registerSite(zhihu, bad as unknown as SiteReader)).toThrow();
+    expect(getSiteById("zhihu")).toBeUndefined();
+    expect(listSites()).toHaveLength(0);
+  });
+});
+
+describe("readerForUrl (WI-NB4.1 dispatch)", () => {
+  it("routes a dispatched site's URL to its paired reader", () => {
+    register(zhihu);
+    const reader = readerForUrl("https://www.zhihu.com/question/1");
+    expect(reader?.id).toBe("zhihu");
+  });
+
+  it("falls back to the generic reader when no site claims the origin", () => {
+    register(zhihu);
+    expect(readerForUrl("https://example.com/article")?.id).toBe("generic");
+  });
+
+  it("falls back to generic when the site's reader declines the specific URL", () => {
+    registerSite(zhihu, { ...stubReader("zhihu"), match: (url) => url.includes("/question/") });
+    expect(readerForUrl("https://zhihu.com/question/42")?.id).toBe("zhihu");
+    expect(readerForUrl("https://zhihu.com/settings")?.id).toBe("generic");
+  });
+
+  it("returns null for a URL nothing can read", () => {
+    expect(readerForUrl("file:///etc/passwd")).toBeNull();
+    expect(readerForUrl("not a url")).toBeNull();
+  });
+
+  it("a throwing site matcher is contained — generic still reads the page", () => {
+    registerSite(zhihu, {
+      ...stubReader("zhihu"),
+      match: () => {
+        throw new Error("plugin bug");
+      },
+    });
+    expect(readerForUrl("https://zhihu.com/x")?.id).toBe("generic");
   });
 });

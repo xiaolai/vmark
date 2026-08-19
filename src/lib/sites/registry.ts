@@ -1,14 +1,22 @@
 /**
  * Purpose: Site plugin registry — a module-singleton that dispatches on origin,
  * mirroring `src/lib/formats/registry.ts` (which dispatches on extension).
- * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-3.1 (ADR-S1).
+ * Wiring plan: dev-docs/plans/20260819-browser-wire-and-borrows.md WI-NB4.2 (ADR-S1).
  *
  * Validation is hand-rolled (the repo does not use zod; the format registry sets the
  * precedent). Pattern parsing is delegated to the origin module so wildcard semantics
  * cannot drift, and registered manifests are frozen so a post-registration mutation
  * cannot silently widen the origin-to-plugin security boundary.
  *
+ * Registration is ATOMIC with the plugin's reader (WI-NB4.2): `registerSite`
+ * takes the pair, so a manifest without a working implementation — "registered
+ * but unreadable" — is unrepresentable. `readerForUrl` is the production
+ * dispatch point: origin security comes from `dispatchSite` (this registry),
+ * URL-level refinement from the reader's own `match`, and the generic reader is
+ * the always-present fallback.
+ *
  * @coordinates-with lib/browser/origin/originGuard.ts — pattern parsing + matching
+ * @coordinates-with lib/browser/reader/siteReader.ts — the SiteReader contract + fallback
  */
 import {
   canonicalizeOrigin,
@@ -17,6 +25,7 @@ import {
   originMatchesPattern,
   type OriginPatternInfo,
 } from "@/lib/browser/origin/originGuard";
+import { pickReader, type SiteReader } from "@/lib/browser/reader/siteReader";
 import {
   CURRENT_AGENT_API,
   SITE_CAPABILITIES,
@@ -29,6 +38,7 @@ const VALID_CAPABILITIES: ReadonlySet<string> = new Set(SITE_CAPABILITIES);
 
 const sites: SiteManifest[] = [];
 const byId = new Map<string, SiteManifest>();
+const readers = new Map<string, SiteReader>();
 /** Exact (non-wildcard) origin key → owning plugin id, for collision detection + precedence. */
 const exactOrigin = new Map<string, string>();
 /** Canonical wildcard identity (`*.host:port`) → owning plugin id. Two plugins claiming
@@ -147,11 +157,29 @@ function validateOrigins(manifest: SiteManifest): void {
   }
 }
 
-/** Register a site plugin manifest. Throws on any validation failure (fail loud). */
-export function registerSite(manifest: SiteManifest): void {
+/** The paired reader must be a working implementation OF THIS SITE — checked
+ *  before anything is committed, so a failed pairing leaves no partial state. */
+function validateReader(manifest: SiteManifest, reader: SiteReader): void {
+  if (typeof reader !== "object" || reader === null) {
+    throw new Error(`Site "${manifest.id}" was registered without a reader.`);
+  }
+  if (reader.id !== manifest.id) {
+    throw new Error(
+      `Site "${manifest.id}" was paired with reader "${String(reader.id)}" — the reader's id must match its manifest.`,
+    );
+  }
+  if (typeof reader.match !== "function" || typeof reader.read !== "function") {
+    throw new Error(`Site "${manifest.id}"'s reader must implement match(url) and read(html, url).`);
+  }
+}
+
+/** Register a site plugin — manifest and reader as one atomic pair (WI-NB4.2).
+ *  Throws on any validation failure (fail loud), committing nothing. */
+export function registerSite(manifest: SiteManifest, reader: SiteReader): void {
   // Snapshot FIRST: what gets validated is exactly what gets committed.
   const snapshot = snapshotManifest(manifest);
   validateManifest(snapshot);
+  validateReader(snapshot, reader);
 
   // Commit a frozen copy so a later mutation of the caller's object cannot change
   // dispatch (the origins list IS the security boundary).
@@ -171,6 +199,23 @@ export function registerSite(manifest: SiteManifest): void {
   }
   sites.push(frozen);
   byId.set(frozen.id, frozen);
+  readers.set(frozen.id, reader);
+}
+
+/** The reader paired at registration, by site id. */
+export function siteReaderById(id: string): SiteReader | undefined {
+  return readers.get(id);
+}
+
+/**
+ * The reader for `url` — the production dispatch point (WI-NB4.1). Origin
+ * security first (`dispatchSite`), then the site reader's own URL refinement,
+ * then the generic fallback; null when nothing can read the URL at all.
+ */
+export function readerForUrl(url: string): SiteReader | null {
+  const site = dispatchSite(url);
+  const siteReader = site !== null ? readers.get(site.id) : undefined;
+  return pickReader(url, siteReader !== undefined ? [siteReader] : []);
 }
 
 /**
@@ -214,6 +259,7 @@ export function listSites(): readonly SiteManifest[] {
 export function __resetSiteRegistry(): void {
   sites.length = 0;
   byId.clear();
+  readers.clear();
   exactOrigin.clear();
   wildcardOrigin.clear();
 }

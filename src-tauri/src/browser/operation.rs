@@ -24,8 +24,9 @@ pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 ///
 /// `session` joins `eval` here (WI-P6.3): loading a saved credential blob into a
 /// context is user-gated per call and must never become a standing "this site may
-/// restore sessions" grant.
-pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session"];
+/// restore sessions" grant. `record` joins them (WI-NB7.3): starting a recording of
+/// the user's own actions is a per-use consent, never a standing permission.
+pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session", "record"];
 
 /// Operations whose one-shot must bind the exact PAYLOAD that will run, not merely
 /// `(origin, operation)`. `style` and `eval` carry a caller-supplied script/CSS, so
@@ -57,6 +58,7 @@ pub enum BrowserOperation {
     Upload,
     Eval,
     Session,
+    Record,
 }
 
 impl BrowserOperation {
@@ -75,6 +77,7 @@ impl BrowserOperation {
             "upload" => Some(Self::Upload),
             "eval" => Some(Self::Eval),
             "session" => Some(Self::Session),
+            "record" => Some(Self::Record),
             _ => None,
         }
     }

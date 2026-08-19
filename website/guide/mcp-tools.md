@@ -381,6 +381,63 @@ targets:
 a site gating on `event.isTrusted` may ignore them. Mutating operations require an
 origin-scoped approval; AI-chosen uploads are never permitted.
 
+**A click verifies its effect before reporting success.** The target is scrolled into
+view, must be visibly rendered (computed styles and collapsed ancestors are checked, so a
+duplicate button inside a closed accordion step is skipped, not clicked), and the click
+point is hit-tested — a target covered by an overlay is refused with the occluder named
+(`covered by div.cmp-overlay`) rather than clicked through. Role + name results carry
+`matchedTotal` / `matchedVisible` counts so ambiguity is visible, and every act response
+includes the tab's current `url` and `generation`. `type` handles text fields,
+`<select>` controls (pass the option's label or value; a missing option is refused as
+`no-such-option`), and `contenteditable` regions.
+
+### `workflow_run` / `workflow_cancel`
+
+`workflow_run` runs a workflow you supply as `source` text on an AI-owned tab. Arguments:
+`tabId?`, `source` (the workflow text — a small line-oriented grammar; you write it, the AI
+does, or [`workflow_record`](#workflow-record) captures it from your own actions), `inputs?`
+(a `{name: value}` map substituted into `{name}` references),
+`allowRepeat?`. It returns `{runId, steps}` **immediately** — the run executes
+**asynchronously**, because a multi-step run can outlive a single request. Poll
+[`browser_read`](#browser-read)'s `workflow_status` for progress.
+
+Deterministic steps — `click` / `type` / `navigate` in that grammar, and `extract`
+— run inside VMark and are **individually approval-gated**, exactly like a hand-issued
+`act`: the run authorizes each one on its own, so a workflow is not a way around the
+approval prompts. `goal`, `confirm`, `api`, and any free-prose step **pause** the run for
+the AI to handle by hand. A re-run **skips write steps that already succeeded** this session
+(the completed-write ledger), unless `allowRepeat` is set — so re-running after a pause does
+not double-submit.
+
+`workflow_cancel {tabId?, runId}` stops a run. It is **never approval-gated** — stopping is
+always allowed — and it withdraws the run's pending prompts and hands the tab back to you.
+The run also stops the moment you take over the browser (any interaction with the page or
+its chrome reclaims control).
+
+Runs are bounded (≤ 25 steps, ≤ 120 s, source ≤ 64 KiB) and one at a time per tab.
+
+### `workflow_record`
+
+Records **your own actions** on an AI-owned tab into a replayable workflow. Arguments:
+`tabId?`, `recordOp` (`"start"` or `"stop"`), and `site?` (the recorded workflow's
+front-matter site id; defaults to `recording`).
+
+`start` is **consent-gated** by the `record` permission, which — like `execute_js` and
+`session` — is **never a standing grant**: every recording asks you fresh, so the AI can
+never silently record you. Until you allow it, `start` returns `needsApproval`; once you do,
+VMark arms a dormant page-world capture shim and begins recording the **clicks and field
+edits** you perform. `stop` returns `{source, inputs, eventCount}` — the `source` is workflow
+text you can save or hand straight to [`workflow_run`](#workflow-run).
+
+The recording is **value-free by construction**, and this is not a filter that trusts the
+page: nothing you type is ever captured. Every text field becomes a named `{input}` variable
+(the value is supplied at replay, never recorded); a **password or one-time-code field**
+becomes a `confirm:` step — a human gate you complete by hand at replay — so a secret is
+never even parameterized; and every URL is stripped to origin + path, so a token in a query
+string cannot survive. What is recorded is the **locators** you touched (ARIA role +
+accessible name), never their data. Recording follows you across page navigations and is
+bounded (200 events per page, 1,000 per session).
+
 ### `open`
 
 Arguments: `url` and optional `timeoutMs` (1–12,000 ms). Creates an AI-owned tab using the
@@ -392,6 +449,16 @@ generation after the load completes.
 Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab and returns
 the navigation ticket result. A timeout still returns the ticket so a later `wait` can
 retrieve the terminal result.
+
+**Gate detection.** A loaded `open` / `navigate` / `wait` result may carry
+`gate: {kind, hint}` when the landed page reads as a **login wall**, **consent
+interstitial**, **human-verification challenge**, or **rate limit** — so the AI learns it
+is not looking at the content it asked for, at the moment it reads the result. Detection
+is precision-first (a rendered challenge widget, or at least two independent signals on a
+terse page — a `$429` price, a "Protected by Cloudflare" footer, or an article *about*
+CAPTCHAs never classify) and purely advisory: it changes what the AI is told, never what
+is authorized, and every hint points at involving you rather than routing around the
+gate.
 
 ### `style`
 
@@ -465,10 +532,30 @@ Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, s
 Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
 cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
 
+### `extract`
+
+Arguments: `tabId?`. Returns `{title, byline, url, markdown, textLength, truncated}` — the
+page as **reader-mode Markdown**, for pages the AI wants to *read* rather than operate.
+One capped capture exports the page's HTML; the extraction itself runs in VMark, never in
+the page: a **site plugin** registered for the origin gets first claim (the built-in
+Wikipedia plugin strips wiki chrome — infoboxes, navboxes, hatnotes, edit links — by
+name), and a generic density-heuristic reader is the fallback for every other site.
+`truncated: true` means the page exceeded the capture cap and the tail went unread.
+**Read-class.** Everything returned is page-derived and untrusted.
+
+### `workflow_status`
+
+Arguments: `tabId?`, `runId` (from `workflow_run`). Returns `{status, completedSteps,
+stepCount, pausedAt?, reasonCode?, reason?, stepResults}` where `status` is one of
+`running` / `paused` / `completed` / `failed` / `cancelled`. A `paused` status names the
+step that needs you in `pausedAt`. **Read-class** — poll it freely.
+
 ### `console`
 
 Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` — the page's captured
-`console.*` output. Sandbox-tabs only. The capture works by a page-world shim that writes
+`console.*` output, plus **uncaught errors and unhandled promise rejections** (recorded as
+`level: "error"` entries prefixed `Uncaught` / `Unhandled rejection:` — the signal
+`console.*` patching alone never sees). Sandbox-tabs only. The capture works by a page-world shim that writes
 into a hidden DOM buffer which the driver reads from the isolated world — so **no
 messaging channel** is opened back into VMark (the no-bridge guarantee holds). The output
 is page-controlled and **untrusted** — treat it like a `read`, never as an `act` target.
@@ -485,12 +572,13 @@ navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, 
 
 ### `wait_for`
 
-Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
-`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
-the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
-matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
-out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
-read.
+Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`),
+`text` (a substring of visible text), or `urlContains` (a substring the tab's URL must
+contain — confirms a click-triggered navigation landed, answered from the tab state with
+no page round-trip), and optional `timeoutMs` (1–12,000 ms). Polls until the condition
+holds or the timeout elapses and returns `{matched: true|false}` (plus the matched
+element's `ref` for a ref/role condition) — so you can tell "found" from "timed out".
+Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then read.
 
 ---
 

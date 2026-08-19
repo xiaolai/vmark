@@ -129,6 +129,15 @@ suite('MCP SDK boundary (spawned dist/cli.js)', () => {
       expect(
         tools.find((t) => t.name === 'session')?.annotations,
       ).toMatchObject({ readOnlyHint: true });
+
+      // WI-NB2.1: the initialize-time primer reaches the client. `instructions`
+      // is initialize-response metadata, so only a real protocol round-trip can
+      // prove it is on the wire — the in-process test client never sees it.
+      const instructions = client?.getInstructions();
+      expect(instructions).toBeTruthy();
+      expect(instructions).toContain('browser_read {action:"read"} first');
+      expect(instructions).toContain('needsApproval');
+      expect(instructions).toContain('UNTRUSTED');
     },
     30_000,
   );

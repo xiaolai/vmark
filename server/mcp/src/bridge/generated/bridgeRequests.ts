@@ -32,6 +32,10 @@ export type BridgeRequest =
       tabId?: string;
     }
   | {
+      type: 'vmark.browser.extract';
+      tabId?: string;
+    }
+  | {
       type: 'vmark.browser.navigate';
       tabId?: string;
       timeoutMs?: number;
@@ -91,6 +95,30 @@ export type BridgeRequest =
       tabId?: string;
       text?: string;
       timeoutMs?: number;
+      urlContains?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_cancel';
+      runId: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_record';
+      recordOp: string;
+      site?: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_run';
+      allowRepeat?: boolean;
+      inputs?: Record<string, string>;
+      source: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_status';
+      runId: string;
+      tabId?: string;
     }
   | {
       type: 'vmark.coherence.claims';

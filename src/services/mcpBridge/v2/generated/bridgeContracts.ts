@@ -41,6 +41,9 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "script", optional: false, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
   ],
+  "vmark.browser.extract": [
+    { name: "tabId", optional: true, kind: "string" },
+  ],
   "vmark.browser.navigate": [
     { name: "tabId", optional: true, kind: "string" },
     { name: "timeoutMs", optional: true, kind: "number" },
@@ -91,6 +94,26 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "tabId", optional: true, kind: "string" },
     { name: "text", optional: true, kind: "string" },
     { name: "timeoutMs", optional: true, kind: "number" },
+    { name: "urlContains", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_cancel": [
+    { name: "runId", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_record": [
+    { name: "recordOp", optional: false, kind: "string" },
+    { name: "site", optional: true, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_run": [
+    { name: "allowRepeat", optional: true, kind: "boolean" },
+    { name: "inputs", optional: true, kind: "object" },
+    { name: "source", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_status": [
+    { name: "runId", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
   ],
   "vmark.coherence.claims": [
     { name: "workspace_root", optional: false, kind: "string" },
@@ -179,6 +202,7 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.act": "reject",
   "vmark.browser.console": "reject",
   "vmark.browser.execute_js": "reject",
+  "vmark.browser.extract": "reject",
   "vmark.browser.navigate": "reject",
   "vmark.browser.open": "reject",
   "vmark.browser.query": "reject",
@@ -189,6 +213,10 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.style": "reject",
   "vmark.browser.wait": "reject",
   "vmark.browser.wait_for": "reject",
+  "vmark.browser.workflow_cancel": "reject",
+  "vmark.browser.workflow_record": "reject",
+  "vmark.browser.workflow_run": "reject",
+  "vmark.browser.workflow_status": "reject",
   "vmark.coherence.claims": "reject",
   "vmark.coherence.contexts": "reject",
   "vmark.coherence.edges": "reject",
@@ -231,6 +259,9 @@ export interface BridgeOperationArgs {
   };
   "vmark.browser.execute_js": {
     script: string;
+    tabId?: string;
+  };
+  "vmark.browser.extract": {
     tabId?: string;
   };
   "vmark.browser.navigate": {
@@ -283,6 +314,26 @@ export interface BridgeOperationArgs {
     tabId?: string;
     text?: string;
     timeoutMs?: number;
+    urlContains?: string;
+  };
+  "vmark.browser.workflow_cancel": {
+    runId: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_record": {
+    recordOp: string;
+    site?: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_run": {
+    allowRepeat?: boolean;
+    inputs?: Record<string, string>;
+    source: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_status": {
+    runId: string;
+    tabId?: string;
   };
   "vmark.coherence.claims": {
     workspace_root: string;

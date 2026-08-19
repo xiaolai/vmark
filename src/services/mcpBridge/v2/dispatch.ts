@@ -50,6 +50,11 @@ import {
   handleBrowserSessionSave,
   handleBrowserSessionLoad,
   handleBrowserConsole,
+  handleBrowserExtract,
+  handleBrowserWorkflowRun,
+  handleBrowserWorkflowStatus,
+  handleBrowserWorkflowCancel,
+  handleBrowserWorkflowRecord,
 } from "./browser";
 
 /**
@@ -154,6 +159,21 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.query":
       await handleBrowserQuery(id, args);
+      return true;
+    case "vmark.browser.extract":
+      await handleBrowserExtract(id, args);
+      return true;
+    case "vmark.browser.workflow_run":
+      await handleBrowserWorkflowRun(id, args);
+      return true;
+    case "vmark.browser.workflow_status":
+      await handleBrowserWorkflowStatus(id, args);
+      return true;
+    case "vmark.browser.workflow_cancel":
+      await handleBrowserWorkflowCancel(id, args);
+      return true;
+    case "vmark.browser.workflow_record":
+      await handleBrowserWorkflowRecord(id, args);
       return true;
     case "vmark.browser.style":
       await handleBrowserStyle(id, args);

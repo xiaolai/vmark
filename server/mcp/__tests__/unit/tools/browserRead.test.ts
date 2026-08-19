@@ -172,6 +172,29 @@ describe('browser_read tool — integration via server.callTool', () => {
     });
   });
 
+  it('extract: forwards to the reader-mode bridge op', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.extract': () => ({ success: true, data: { title: 'T', markdown: '# T', truncated: false } }),
+    });
+    await server.callTool('browser_read', { action: 'extract', tabId: 'b1' });
+    expect(bridge.getRequestsOfType('vmark.browser.extract')[0].request).toEqual({
+      type: 'vmark.browser.extract', tabId: 'b1',
+    });
+  });
+
+  it('workflow_status: forwards the runId; rejects a missing one', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.workflow_status': () => ({ success: true, data: { status: 'running', completedSteps: 0 } }),
+    });
+    await server.callTool('browser_read', { action: 'workflow_status', runId: 'wfrun-1' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_status')[0].request).toEqual({
+      type: 'vmark.browser.workflow_status', runId: 'wfrun-1',
+    });
+    const bad = await server.callTool('browser_read', { action: 'workflow_status' });
+    expect(bad.isError).toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_status')).toHaveLength(1);
+  });
+
   it('query: refuses a missing selector', async () => {
     const { server, bridge } = harness({ 'vmark.browser.query': () => ({ success: true, data: {} }) });
     expect((await server.callTool('browser_read', { action: 'query' })).isError).toBe(true);

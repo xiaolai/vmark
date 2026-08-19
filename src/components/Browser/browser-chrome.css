@@ -237,3 +237,13 @@
     max-width: 160px;
   }
 }
+
+/* WI-NB5.1 — the "AI is controlling" takeover control. The button SHAPE comes
+   from the canonical `.vm-btn` primitive (rule 32); this class only retints it
+   to the active-state accent tokens (rule 31 selection/active state), so it
+   carries no padding/border of its own and is not a bespoke button. */
+.browser-ai-lease {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+  white-space: nowrap;
+}

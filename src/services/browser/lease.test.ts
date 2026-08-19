@@ -1,5 +1,9 @@
 // @vitest-environment node
-// WI-1.9 / R11 — automation lease: AI vs human arbitration
+// WI-1.9 / R11 / WI-NB5.1 — automation lease: AI vs human arbitration.
+// The epoch is the TAKEOVER clock: it moves only when authority changes
+// (reclaim, release) — never on navigation, so a workflow's own navigate
+// steps cannot self-cancel the run (Codex review C3). Per-page staleness
+// is the driver's navigation-generation check, a different clock.
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useBrowserLeaseStore } from "./lease";
 
@@ -12,10 +16,10 @@ function reset() {
 beforeEach(reset);
 
 describe("acquireForAi", () => {
-  it("grants the lease on a free tab (holder=ai, generation starts at 0)", () => {
+  it("grants the lease on a free tab (holder=ai, epoch starts at 0)", () => {
     expect(useBrowserLeaseStore.getState().acquireForAi(TAB)).toBe(true);
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("ai");
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(0);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(0);
   });
 
   it("is idempotent when the AI already holds the lease", () => {
@@ -32,16 +36,16 @@ describe("acquireForAi", () => {
 });
 
 describe("reclaimForHuman", () => {
-  it("always takes the lease, bumps the generation, and cancels the AI's in-flight step", () => {
+  it("always takes the lease, bumps the epoch, and cancels the AI's in-flight step", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
     const cancel = vi.fn();
     useBrowserLeaseStore.getState().setInflightCancel(TAB, cancel);
-    const genBefore = useBrowserLeaseStore.getState().generationOf(TAB);
+    const genBefore = useBrowserLeaseStore.getState().epochOf(TAB);
 
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
 
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(genBefore + 1);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(genBefore + 1);
     expect(cancel).toHaveBeenCalledTimes(1);
     // The canceller is cleared after firing (no double-cancel on a later reclaim).
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
@@ -57,26 +61,28 @@ describe("reclaimForHuman", () => {
 describe("validate (driver command envelope)", () => {
   it("accepts an AI command tagged with the current holder and generation", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
-    const gen = useBrowserLeaseStore.getState().generationOf(TAB);
+    const gen = useBrowserLeaseStore.getState().epochOf(TAB);
     expect(useBrowserLeaseStore.getState().validate(TAB, "ai", gen)).toBe("ok");
   });
 
   it("rejects an AI command as lease-lost after a human reclaim", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
-    const staleGen = useBrowserLeaseStore.getState().generationOf(TAB);
+    const staleGen = useBrowserLeaseStore.getState().epochOf(TAB);
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
     // Lease holder is now human → an "ai"-tagged command is lease-lost, not stale.
     expect(useBrowserLeaseStore.getState().validate(TAB, "ai", staleGen)).toBe("lease-lost");
   });
 
-  it("rejects an AI command as stale after the page navigated (generation bumped)", () => {
+  it("rejects an AI command as stale after a reclaim/release cycle moved the epoch", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
-    const oldGen = useBrowserLeaseStore.getState().generationOf(TAB);
-    useBrowserLeaseStore.getState().bumpGeneration(TAB); // navigation
+    const oldGen = useBrowserLeaseStore.getState().epochOf(TAB);
+    useBrowserLeaseStore.getState().reclaimForHuman(TAB);
+    useBrowserLeaseStore.getState().release(TAB, "human");
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
     expect(useBrowserLeaseStore.getState().validate(TAB, "ai", oldGen)).toBe("stale");
-    // A command tagged with the NEW generation is accepted again.
-    const newGen = useBrowserLeaseStore.getState().generationOf(TAB);
-    expect(useBrowserLeaseStore.getState().validate(TAB, "ai", newGen)).toBe("ok");
+    // A command tagged with the CURRENT epoch is accepted again.
+    const newEpoch = useBrowserLeaseStore.getState().epochOf(TAB);
+    expect(useBrowserLeaseStore.getState().validate(TAB, "ai", newEpoch)).toBe("ok");
   });
 
   it("treats a command for an unknown tab as lease-lost", () => {
@@ -84,14 +90,32 @@ describe("validate (driver command envelope)", () => {
   });
 });
 
-describe("bumpGeneration (navigation)", () => {
-  it("invalidates the AI's in-flight step (a late result must not apply to a navigated page)", () => {
+describe("epoch semantics (WI-NB5.1)", () => {
+  it("release bumps the epoch, so a pre-release envelope cannot validate after re-acquire", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
-    const cancel = vi.fn();
-    useBrowserLeaseStore.getState().setInflightCancel(TAB, cancel);
-    useBrowserLeaseStore.getState().bumpGeneration(TAB);
-    expect(cancel).toHaveBeenCalledTimes(1);
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(1);
+    const epoch = useBrowserLeaseStore.getState().epochOf(TAB);
+    useBrowserLeaseStore.getState().release(TAB, "ai");
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    expect(useBrowserLeaseStore.getState().validate(TAB, "ai", epoch)).toBe("stale");
+    expect(useBrowserLeaseStore.getState().validate(TAB, "ai", useBrowserLeaseStore.getState().epochOf(TAB))).toBe("ok");
+  });
+
+  it("reclaim-then-release-then-reacquire never resurrects an old envelope", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    const epoch = useBrowserLeaseStore.getState().epochOf(TAB);
+    useBrowserLeaseStore.getState().reclaimForHuman(TAB);
+    useBrowserLeaseStore.getState().release(TAB, "human");
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    expect(useBrowserLeaseStore.getState().validate(TAB, "ai", epoch)).toBe("stale");
+  });
+
+  it("there is no navigation clock here: nothing but authority transitions moves the epoch", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    const epoch = useBrowserLeaseStore.getState().epochOf(TAB);
+    // Simulated long tenure: acquire is idempotent and moves nothing.
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(epoch);
+    expect((useBrowserLeaseStore.getState() as unknown as Record<string, unknown>).bumpGeneration).toBeUndefined();
   });
 });
 
@@ -115,7 +139,7 @@ describe("removeTab", () => {
     useBrowserLeaseStore.getState().setInflightCancel(TAB, vi.fn());
     useBrowserLeaseStore.getState().removeTab(TAB);
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBeNull();
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(0);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(0);
   });
 
   it("cancels the AI's in-flight step (never leave it running against a destroyed surface)", () => {
@@ -188,19 +212,19 @@ describe("a misbehaving canceller cannot block a lease transition", () => {
 
     expect(() => useBrowserLeaseStore.getState().reclaimForHuman(TAB)).not.toThrow();
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(1);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(1);
     expect(useBrowserLeaseStore.getState().inflightCancel[TAB]).toBeUndefined();
   });
 
-  it("navigation still bumps the generation when the canceller throws", () => {
+  it("a reclaim still lands (and bumps the epoch) when the canceller throws", () => {
     useBrowserLeaseStore.getState().acquireForAi(TAB);
     useBrowserLeaseStore.getState().setInflightCancel(TAB, () => {
       throw new Error("cancel exploded");
     });
 
-    expect(() => useBrowserLeaseStore.getState().bumpGeneration(TAB)).not.toThrow();
-    expect(useBrowserLeaseStore.getState().generationOf(TAB)).toBe(1);
-    expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("ai");
+    expect(() => useBrowserLeaseStore.getState().reclaimForHuman(TAB)).not.toThrow();
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(1);
+    expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
   });
 
   it("a re-entrant canceller cannot resurrect the AI's lease or its in-flight step", () => {

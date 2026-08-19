@@ -13,11 +13,13 @@ import {
   type ApprovalDecision,
   type StandingGrant,
 } from "@/lib/browser/approval/grants";
+import { isOriginGranted, isOriginPattern } from "@/lib/browser/origin/originGuard";
 import {
-  canonicalizeOrigin,
-  isOriginGranted,
-  isOriginPattern,
-} from "@/lib/browser/origin/originGuard";
+  KNOWN_OPERATIONS,
+  approvalBindings,
+  sameTarget,
+  grantPatternFor,
+} from "./browserApprovalStore.helpers";
 import type {
   ActionTarget,
   PendingApproval,
@@ -29,7 +31,6 @@ import type {
 
 // Re-exported so consumers keep importing these from `@/stores/browserApprovalStore`.
 export type {
-  ActionTarget,
   ApprovalOutcome,
   OneShotApproval,
   ProfileOpenApproval,
@@ -39,23 +40,10 @@ export type {
  *  (`rejected`) / queue full (`overloaded` — untrusted-client flooding). */
 type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
 
-/** Closed operation vocabulary; upload is intentionally never grantable. */
-const KNOWN_OPERATIONS = new Set(["read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "eval", "session"]);
-
 /** Cap on queued approval prompts. The AI client is untrusted and each pending
  *  entry may hold a full script; beyond this a further request is dropped rather
  *  than growing the store unbounded. Only one prompt shows at a time anyway. */
 export const MAX_PENDING_APPROVALS = 64;
-
-/** Same element? Both target-less (a read), or both naming the same role+name. */
-/** Approval bindings, ABSENT for kinds that don't bind them (a click binds role+name). */
-const approvalBindings = (target: ActionTarget | undefined, script: string | undefined) =>
-  ({ ...(target !== undefined && { target }), ...(script !== undefined && { script }) });
-
-function sameTarget(a: ActionTarget | undefined, b: ActionTarget | undefined): boolean {
-  if (a === undefined || b === undefined) return a === b;
-  return a.role === b.role && a.name === b.name;
-}
 
 interface BrowserApprovalState {
   grants: StandingGrant[];
@@ -90,7 +78,13 @@ interface BrowserApprovalActions {
     /** The exact script (for `style`/`eval`) the user is approving — shown in the
      *  prompt and bound into the one-shot. Omit for target-based ops. */
     script?: string,
+    /** The workflow run that raised this prompt (WI-NB5.3), so ending the run
+     *  can withdraw it. Omit for a one-off act's prompt. */
+    runId?: string,
   ) => BrowserRequestApprovalResult;
+  /** Withdraw every pending prompt raised by `runId` (WI-NB5.3) — end-of-run
+   *  cleanup that closes the late-Allow race. No-op for runless prompts. */
+  withdrawByRun: (runId: string) => void;
   /** Resolve a pending request: `remember` promotes it to a standing grant scoped
    *  to the target's origin; `once` mints a single-use authorization for that
    *  (origin, operation); `deny` just clears it. No-op if the id is unknown. */
@@ -133,16 +127,6 @@ interface BrowserApprovalActions {
   consumeHumanTabAttachment: (tabId: string, generation: number) => void;
 }
 
-/** Bare origin pattern (`scheme://host[:port]`) for a URL, or null if opaque. */
-function grantPatternFor(url: string): string | null {
-  const origin = canonicalizeOrigin(url);
-  if (!origin) return null;
-  const defaultPort = origin.scheme === "https" ? 443 : 80;
-  return origin.port === defaultPort
-    ? `${origin.scheme}://${origin.host}`
-    : `${origin.scheme}://${origin.host}:${origin.port}`;
-}
-
 /** Standing grants + pending approvals for AI browser actions (R5). Use selectors. */
 export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserApprovalActions>(
   (set, get) => ({
@@ -169,17 +153,31 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({ grants: revokeOrigin(state.grants, originPattern) }));
     },
 
-    requestApproval: (id, targetUrl, operation, target, tabId, generation, script) => {
+    requestApproval: (id, targetUrl, operation, target, tabId, generation, script, runId) => {
       if (!KNOWN_OPERATIONS.has(operation)) return "rejected";
       // Duplicate ids would let `resolveApproval` authorize one action while
       // dropping the other; and the UNTRUSTED client must not grow the queue
       // unboundedly (each pending may retain a full script). (Sec review P5.)
       if (get().pending.some((p) => p.id === id)) return "existing";
       if (get().pending.length >= MAX_PENDING_APPROVALS) return "overloaded";
-      const req = { id, targetUrl, operation, tabId, generation, ...approvalBindings(target, script) };
+      const req = {
+        id,
+        targetUrl,
+        operation,
+        tabId,
+        generation,
+        ...(runId !== undefined ? { runId } : {}),
+        ...approvalBindings(target, script),
+      };
       set((state) => ({ pending: [...state.pending, req] }));
       return "queued";
     },
+
+    // WI-NB5.3: end-of-run cleanup. A workflow run ending (completed, cancelled,
+    // lease-lost) withdraws its own pending prompts, so a "Allow" clicked after
+    // the run is gone cannot mint a one-shot for a run that will never use it.
+    withdrawByRun: (runId) =>
+      set((state) => ({ pending: state.pending.filter((p) => p.runId !== runId) })),
 
     resolveApproval: (id, outcome) => {
       const request = get().pending.find((p) => p.id === id);

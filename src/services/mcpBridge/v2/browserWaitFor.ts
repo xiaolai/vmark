@@ -4,8 +4,10 @@
  * Purpose: make a multi-step flow deterministic — "click → wait_for the
  * destination heading → read" — instead of "click → guess → re-read → retry".
  * Blocks until a page condition holds (an element by `ref`, by `role` +optional
- * `name`, or a substring of visible `text`) or a bounded timeout elapses,
- * reporting `matched: true|false` so the caller can tell "found" from "timed out".
+ * `name`, a substring of visible `text`, or `urlContains` — a substring of the
+ * tab URL, answered from the webview mirror with no eval round-trip, WI-NB1.4)
+ * or a bounded timeout elapses, reporting `matched: true|false` so the caller
+ * can tell "found" from "timed out".
  *
  * Read-class: each check is a fast SYNCHRONOUS `browser_eval` authorized as
  * `read`. It POLLS rather than blocking one long eval, because the driver's
@@ -30,19 +32,26 @@ import { requireHumanAttachment } from "./browserReadClass";
 const POLL_INTERVAL_MS = 200;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+/** A wait mode: a page condition checked by eval, or a URL check answered from
+ *  the webview mirror without touching the page (WI-NB1.4). */
+type WaitMode = { kind: "script"; condition: WaitCondition } | { kind: "url"; needle: string };
+
 /** Parse exactly one condition from the args, or null if zero or more than one. */
-function readCondition(args: Record<string, unknown>): WaitCondition | null {
+function readCondition(args: Record<string, unknown>): WaitMode | null {
   const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : undefined;
   const role = typeof args.role === "string" && args.role.trim() ? args.role : undefined;
   const name = typeof args.name === "string" ? args.name : undefined;
   const text = typeof args.text === "string" && args.text.length > 0 ? args.text : undefined;
-  const modes = [ref !== undefined, role !== undefined, text !== undefined].filter(Boolean).length;
+  const urlContains =
+    typeof args.urlContains === "string" && args.urlContains.length > 0 ? args.urlContains : undefined;
+  const modes = [ref, role, text, urlContains].filter((m) => m !== undefined).length;
   if (modes !== 1) return null;
-  if (ref !== undefined) return { ref };
-  if (role !== undefined) return name !== undefined ? { role, name } : { role };
-  // `modes === 1` and neither ref nor role means text is the mode; the guard
-  // states that rather than building a condition whose only key is undefined.
-  if (text !== undefined) return { text };
+  if (ref !== undefined) return { kind: "script", condition: { ref } };
+  if (role !== undefined) {
+    return { kind: "script", condition: name !== undefined ? { role, name } : { role } };
+  }
+  if (text !== undefined) return { kind: "script", condition: { text } };
+  if (urlContains !== undefined) return { kind: "url", needle: urlContains };
   return null;
 }
 
@@ -63,12 +72,12 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
       await respond({ id, success: false, error: "INVALID_TIMEOUT" });
       return;
     }
-    const condition = readCondition(args);
-    if (!condition) {
+    const mode = readCondition(args);
+    if (!mode) {
       await respond({
         id,
         success: false,
-        error: "wait_for needs exactly one of: ref, role (+optional name), or text",
+        error: "wait_for needs exactly one of: ref, role (+optional name), text, or urlContains",
       });
       return;
     }
@@ -89,10 +98,25 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
       }
       let matched: boolean;
       let matchedRef: string | undefined;
+      if (mode.kind === "url") {
+        // Answered from the webview mirror: the same redacted URL the model
+        // already sees on every navigation result. No eval round-trip.
+        matched = urlForAgent(tab.url).includes(mode.needle);
+        if (matched) {
+          await respond({ id, success: true, data: { matched: true, url: urlForAgent(tab.url) } });
+          return;
+        }
+        if (Date.now() >= deadline) {
+          await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url) } });
+          return;
+        }
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
       try {
         const raw = await invoke<string>("browser_eval", {
           tabId: tab.tabId,
-          script: buildWaitConditionScript(condition, tab.generation),
+          script: buildWaitConditionScript(mode.condition, tab.generation),
           operation: "read",
           generation: tab.generation,
         });

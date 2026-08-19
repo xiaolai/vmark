@@ -87,6 +87,9 @@ jobs:
         # makes the number visible. See .claude/rules/60-ai-governance.md §13.
         env:
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          # gh api needs a token; the step subprocess does not inherit one otherwise,
+          # so the body read failed closed on the first over-threshold PR (#1299).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-change-size.mjs "origin/${{ github.base_ref }}"
 
       - name: Baseline ratchet (merge-base, all committed baselines)

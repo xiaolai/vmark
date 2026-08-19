@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
+import { useBrowserLeaseStore } from "@/services/browser/lease";
 import { BrowserOmnibox } from "./BrowserOmnibox";
 import { BrowserPageTabs } from "./BrowserPageTabs";
 import { getBrowserWorkspaceView } from "./browserWorkspace";
@@ -59,7 +60,27 @@ export function BrowserChrome({
   const requested = requestedPageId ?? (view.browserWorkspaceActive ? view.activeBrowserPageId : null);
   const activePageId = view.browserPages.some((page) => page.id === requested) ? requested : null;
 
+  // WI-NB5.1: the chrome is the one place React can see human input (the page
+  // itself is a native sibling view), so any interaction here while the AI
+  // holds the lease is a human takeover. Subscribed, so the indicator appears
+  // the moment a workflow run acquires the lease and vanishes on release.
+  const aiHolds = useBrowserLeaseStore((s) =>
+    activePageId !== null ? s.leases[activePageId]?.holder === "ai" : false,
+  );
+
   if (!activePageId) return null;
+
+  const reclaim = (): void => {
+    if (useBrowserLeaseStore.getState().currentHolder(activePageId) === "ai") {
+      useBrowserLeaseStore.getState().reclaimForHuman(activePageId);
+    }
+  };
+
+  const leaseIndicator = aiHolds ? (
+    <button type="button" className="vm-btn browser-ai-lease" onClick={reclaim}>
+      {t("browser.aiControlling")}
+    </button>
+  ) : null;
 
   const pageTabs = (
     <BrowserPageTabs pages={view.browserPages} activePageId={activePageId} windowLabel={windowLabel} />
@@ -67,10 +88,16 @@ export function BrowserChrome({
 
   if (placement === "titlebar") {
     return (
-      <div className="browser-chrome browser-chrome--titlebar" aria-label={t("browser.toolbar")}>
+      <div
+        className="browser-chrome browser-chrome--titlebar"
+        aria-label={t("browser.toolbar")}
+        onMouseDownCapture={reclaim}
+        onKeyDownCapture={reclaim}
+      >
         <div className="browser-titlebar-navigation">
           <BrowserOmnibox tabId={activePageId} />
         </div>
+        {leaseIndicator}
         <div className="browser-titlebar-tabs">{pageTabs}</div>
         <div className="browser-titlebar-drag-space" data-tauri-drag-region />
       </div>
@@ -78,8 +105,14 @@ export function BrowserChrome({
   }
 
   return (
-    <div className="browser-chrome browser-chrome--workspace" aria-label={t("browser.toolbar")}>
+    <div
+      className="browser-chrome browser-chrome--workspace"
+      aria-label={t("browser.toolbar")}
+      onMouseDownCapture={reclaim}
+      onKeyDownCapture={reclaim}
+    >
       {pageTabs}
+      {leaseIndicator}
       <BrowserOmnibox tabId={activePageId} />
     </div>
   );

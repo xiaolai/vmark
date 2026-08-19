@@ -161,11 +161,12 @@ describe('client-visible input schemas', () => {
     ]);
     // The split runs along one line: does the action modify anything?
     expect(actions('browser_read')).toEqual([
-      'read', 'screenshot', 'query', 'console', 'wait', 'wait_for',
+      'read', 'screenshot', 'query', 'extract', 'console', 'wait', 'wait_for', 'workflow_status',
     ]);
     expect(actions('browser')).toEqual([
       'act', 'open', 'navigate', 'style', 'execute_js',
       'session_save', 'session_load', 'console_clear',
+      'workflow_run', 'workflow_cancel', 'workflow_record',
     ]);
   });
 

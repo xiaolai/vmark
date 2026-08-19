@@ -1,41 +1,34 @@
 /**
- * Browser automation lease — AI vs human arbitration (WI-1.9 / R11).
+ * Browser automation lease — AI vs human arbitration (WI-1.9 / R11 / WI-NB5.1).
  *
- * Purpose: a single lease per browser tab that decides who is allowed to drive
- * the page — the AI or the human — plus a per-tab navigation generation used to
- * reject stale driver commands. This is the correctness rule that separates "the
- * AI clicked Publish" from "the AI clicked Publish on a page the human had
- * already navigated away from" (Codex D2-8).
+ * Purpose: a single lease per browser tab deciding who drives the page — the AI
+ * (a multi-step workflow run) or the human. WIRED as of WI-NB5: the workflow
+ * runner acquires/releases it around a run, browser-chrome interaction and the
+ * native page-input signal (`browser://user-input`) reclaim it for the human,
+ * tab close clears it via `tabRemovalBus`, and the tab chrome renders the
+ * "AI is controlling" state from `currentHolder`.
  *
- * ⚠️ **NOT WIRED. This module has no production importers.** `browser.ts` (the MCP bridge)
- * neither acquires nor validates a lease, and nothing calls `reclaimForHuman`, so none of
- * the guarantees below are in force today. The rules are correct and unit-tested; they are
- * simply not connected to anything, which makes this a specification, not a control.
+ * The `epoch` is the TAKEOVER clock, and it moves ONLY on authority
+ * transitions — reclaim and release — never on navigation. v1 of this module
+ * bumped it on every navigation, which would have cancelled a workflow's own
+ * `navigate to` steps (Codex review C3): per-page staleness is a DIFFERENT
+ * clock, the driver's navigation generation, checked per act in Rust
+ * (`authorize.rs`). One clock per question.
  *
- * That distinction is the point. A security control that is written, tested and documented
- * but never called reads as done and protects nothing — the same failure as the R7a
- * same-document callback that named a selector WebKit never invokes (WI-S0.11). Wiring it
- * is tracked in the plan; until then, do not cite this file as a reason an action is safe.
+ * Rules (all unit-tested):
+ *   - Human input ALWAYS reclaims the lease, immediately and unconditionally —
+ *     the AI can only acquire a *free* tab.
+ *   - A run's envelope carries `{holder, epoch}`. `validate` rejects it as
+ *     `lease-lost` when the holder changed, `stale` when the epoch moved (the
+ *     authority was reclaimed/released and re-granted since).
+ *   - Every transition that ends the AI's authority — reclaim, release, tab
+ *     close — cancels its in-flight step via the registered canceller, which
+ *     fires at most once. A canceller may only be registered while the AI holds
+ *     the lease, so a late registration cannot re-install an operation a
+ *     reclaim just cancelled.
  *
- * Rules encoded here (all unit-tested; the native side wires the real event
- * sources in WI-1.2/1.8):
- *   - Human input ALWAYS reclaims the lease (`reclaimForHuman`), immediately and
- *     unconditionally — the AI can only acquire a *free* tab.
- *   - Every driver command carries an envelope `{holder, generation}`. `validate`
- *     rejects it as `lease-lost` if the tab's holder changed, or `stale` if the
- *     page navigated since the command was issued (generation bumped).
- *   - Every transition that ends the AI's authority over the current page —
- *     reclaim, navigation, release, tab close — cancels its in-flight step via
- *     the registered canceller, which fires at most once. A canceller may only
- *     be registered while the AI holds the lease, so a late registration cannot
- *     re-install an operation a reclaim just cancelled.
- *
- * The watchdog rule this supports (WI-1.8): an eval timeout abandons the *result*;
- * a late result must never be applied to a page that has since navigated — the
- * generation check is what enforces that.
- *
- * @coordinates-with (future) src-tauri driver command envelope — carries holder+generation
- * @coordinates-with (future) browser tab chrome — subscribes to render the "AI is controlling" state
+ * @coordinates-with services/browser/browserLeaseWiring.ts — event sources (chrome, native input, tab close)
+ * @coordinates-with components/Browser/BrowserChrome.tsx — renders the AI-control state
  * @module services/browser/lease
  */
 
@@ -50,8 +43,8 @@ type LeaseValidation = "ok" | "lease-lost" | "stale";
 
 interface TabLease {
   holder: LeaseHolder | null;
-  /** Navigation generation; bumped on navigation and on human reclaim. */
-  generation: number;
+  /** Takeover epoch; bumped on reclaim and release — never on navigation. */
+  epoch: number;
 }
 
 interface LeaseState {
@@ -65,27 +58,25 @@ interface LeaseActions {
   /** AI requests control. Succeeds only if the tab is free or already AI-held
    *  (a human holder always wins). Returns whether the AI now holds the lease. */
   acquireForAi: (tabId: string) => boolean;
-  /** Human input reclaims the lease unconditionally: bumps the generation and
+  /** Human input reclaims the lease unconditionally: bumps the epoch and
    *  cancels the AI's in-flight step. Always succeeds. */
   reclaimForHuman: (tabId: string) => void;
-  /** Release the lease if (and only if) `holder` currently holds it. */
+  /** Release the lease if (and only if) `holder` currently holds it — bumps the
+   *  epoch, so envelopes from the ended tenure cannot validate again. */
   release: (tabId: string, holder: LeaseHolder) => void;
-  /** A navigation occurred: bump the generation (invalidating in-flight AI
-   *  commands) and cancel the AI's in-flight step. */
-  bumpGeneration: (tabId: string) => void;
   /** Register (or clear, with `null`) the canceller for the AI's in-flight step. */
   setInflightCancel: (tabId: string, cancel: (() => void) | null) => void;
-  /** Validate a driver-command envelope against the current lease. */
-  validate: (tabId: string, holder: LeaseHolder, generation: number) => LeaseValidation;
+  /** Validate a run envelope against the current lease. */
+  validate: (tabId: string, holder: LeaseHolder, epoch: number) => LeaseValidation;
   /** Current lease holder for `tabId`, or null when free/unknown. */
   currentHolder: (tabId: string) => LeaseHolder | null;
-  /** Current navigation generation for `tabId` (0 when unknown). */
-  generationOf: (tabId: string) => number;
+  /** Current takeover epoch for `tabId` (0 when unknown). */
+  epochOf: (tabId: string) => number;
   /** Drop all lease + in-flight state for a closed tab. */
   removeTab: (tabId: string) => void;
 }
 
-const EMPTY_LEASE: TabLease = { holder: null, generation: 0 };
+const EMPTY_LEASE: TabLease = { holder: null, epoch: 0 };
 
 /**
  * Run a canceller. Called only OUTSIDE a `set` updater: a canceller is foreign
@@ -119,22 +110,19 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
   };
 
   /**
-   * The one invalidation transition shared by human reclaim and navigation:
-   * detach the in-flight canceller, bump the generation (invalidating every
-   * outstanding AI envelope), optionally move the holder, then fire the
-   * canceller against the already-committed state.
+   * The one authority transition shared by reclaim and release: detach the
+   * in-flight canceller, bump the epoch (invalidating every outstanding run
+   * envelope), move the holder, then fire the canceller against the
+   * already-committed state.
    */
-  const invalidate = (tabId: string, holder: LeaseHolder | "keep"): void => {
+  const invalidate = (tabId: string, holder: LeaseHolder | null): void => {
     const cancel = detachCancel(tabId);
     set((state) => {
       const lease = state.leases[tabId] ?? EMPTY_LEASE;
       return {
         leases: {
           ...state.leases,
-          [tabId]: {
-            holder: holder === "keep" ? lease.holder : holder,
-            generation: lease.generation + 1,
-          },
+          [tabId]: { holder, epoch: lease.epoch + 1 },
         },
       };
     });
@@ -156,20 +144,14 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
 
     reclaimForHuman: (tabId) => invalidate(tabId, "human"),
 
-    bumpGeneration: (tabId) => invalidate(tabId, "keep"),
-
     release: (tabId, holder) => {
       const lease = get().leases[tabId];
       if (!lease || lease.holder !== holder) return;
-      // No lease → no in-flight AI step: releasing must not leave a driver
-      // operation running (or a stale canceller a later reclaim would fire).
-      const cancel = detachCancel(tabId);
-      set((state) => {
-        const current = state.leases[tabId];
-        if (!current || current.holder !== holder) return state;
-        return { leases: { ...state.leases, [tabId]: { ...current, holder: null } } };
-      });
-      runCancel(cancel);
+      // An authority transition like reclaim: the epoch moves so envelopes
+      // from the ended tenure cannot validate after a re-acquire, and the
+      // in-flight step is never left running (or a stale canceller left for a
+      // later reclaim to fire).
+      invalidate(tabId, null);
     },
 
     setInflightCancel: (tabId, cancel) => {
@@ -192,16 +174,16 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
       if (cancel && previous && previous !== cancel) runCancel(previous);
     },
 
-    validate: (tabId, holder, generation) => {
+    validate: (tabId, holder, epoch) => {
       const lease = get().leases[tabId];
       if (!lease || lease.holder !== holder) return "lease-lost";
-      if (lease.generation !== generation) return "stale";
+      if (lease.epoch !== epoch) return "stale";
       return "ok";
     },
 
     currentHolder: (tabId) => get().leases[tabId]?.holder ?? null,
 
-    generationOf: (tabId) => get().leases[tabId]?.generation ?? 0,
+    epochOf: (tabId) => get().leases[tabId]?.epoch ?? 0,
 
     removeTab: (tabId) => {
       // The surface is gone: an in-flight step would act on a destroyed webview

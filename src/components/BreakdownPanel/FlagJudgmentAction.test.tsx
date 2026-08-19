@@ -29,7 +29,9 @@ function row(over: Partial<EdgeRow> = {}): EdgeRow {
   } as EdgeRow;
 }
 
-beforeEach(() => judgeFlag.mockReset().mockResolvedValue(undefined));
+beforeEach(() => {
+  judgeFlag.mockReset().mockResolvedValue(undefined);
+});
 
 describe("FlagJudgmentAction", () => {
   it("records nothing until the owner actually answers", async () => {
