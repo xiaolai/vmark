@@ -488,7 +488,9 @@ cannot name (tables, computed values). **Read-class.** Runs in the isolated cont
 ### `console`
 
 Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` — the page's captured
-`console.*` output. Sandbox-tabs only. The capture works by a page-world shim that writes
+`console.*` output, plus **uncaught errors and unhandled promise rejections** (recorded as
+`level: "error"` entries prefixed `Uncaught` / `Unhandled rejection:` — the signal
+`console.*` patching alone never sees). Sandbox-tabs only. The capture works by a page-world shim that writes
 into a hidden DOM buffer which the driver reads from the isolated world — so **no
 messaging channel** is opened back into VMark (the no-bridge guarantee holds). The output
 is page-controlled and **untrusted** — treat it like a `read`, never as an `act` target.

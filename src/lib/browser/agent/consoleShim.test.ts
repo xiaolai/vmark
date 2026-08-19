@@ -1,79 +1,138 @@
-// WI-P7.1 — console capture shim (Option C: page-world override → shared DOM ring
-// buffer → isolated-world reader). No message handler, so the no-bridge invariant
-// holds. Captured output is page-controlled and UNTRUSTED (treated like a read).
-import { describe, it, expect, beforeEach } from "vitest";
-import { installConsoleCapture, buildConsoleReadScript, CONSOLE_BUFFER_ID } from "./consoleShim";
+// WI-P7.1 / WI-NB3.1 — console capture, executed as THE SHIPPED BYTES: these
+// tests run `consoleShim.src.js` (the exact asset Rust injects) in jsdom, so
+// the tested copy and the executed copy cannot drift — the defect the old
+// hand-maintained duplicate carried (audit 019fe61c).
+import { describe, it, expect } from "vitest";
+import { CONSOLE_SHIM_SRC, CONSOLE_BUFFER_ID, buildConsoleReadScript } from "./consoleShim";
 
-function fakeConsole() {
-  const calls: string[] = [];
-  const rec = (l: string) => (...a: unknown[]) => calls.push(`${l}:${a.join(",")}`);
-  return { calls, obj: { log: rec("log"), info: rec("info"), warn: rec("warn"), error: rec("error"), debug: rec("debug") } };
+type Entry = { level: string; text: string };
+
+interface Harness {
+  console: Record<string, (...args: unknown[]) => void>;
+  listeners: Map<string, (ev: unknown) => void>;
+  read(): Entry[];
 }
-function readBuffer(): Array<{ level: string; text: string }> {
-  const el = document.getElementById(CONSOLE_BUFFER_ID);
-  return el ? JSON.parse(el.textContent || "[]") : [];
+
+/** Execute the shipped shim bytes against a fresh jsdom document + fake window. */
+function install(originals: Record<string, (...args: unknown[]) => void> = {}): Harness {
+  const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+  const consoleObj: Harness["console"] = { ...originals };
+  const listeners = new Map<string, (ev: unknown) => void>();
+  const windowObj = {
+    addEventListener: (type: string, fn: (ev: unknown) => void) => listeners.set(type, fn),
+  };
+  new Function("document", "console", "window", CONSOLE_SHIM_SRC)(doc, consoleObj, windowObj);
+  return {
+    console: consoleObj,
+    listeners,
+    read: () => JSON.parse(doc.getElementById(CONSOLE_BUFFER_ID)?.textContent ?? "[]") as Entry[],
+  };
 }
 
-beforeEach(() => {
-  document.getElementById(CONSOLE_BUFFER_ID)?.remove();
-});
-
-describe("installConsoleCapture", () => {
+describe("the shipped shim bytes", () => {
   it("records each console.* call into the shared DOM buffer with its level", () => {
-    const { obj } = fakeConsole();
-    installConsoleCapture(obj, document, 200);
-    obj.log("hello", "world");
-    obj.error("boom");
-    const buf = readBuffer();
-    expect(buf).toEqual([
+    const h = install();
+    h.console.log("hello", "world");
+    h.console.warn("careful");
+    h.console.error("boom");
+    expect(h.read()).toEqual([
       { level: "log", text: "hello world" },
+      { level: "warn", text: "careful" },
       { level: "error", text: "boom" },
     ]);
   });
 
   it("still calls the original console (capture is transparent)", () => {
-    const { calls, obj } = fakeConsole();
-    installConsoleCapture(obj, document, 200);
-    obj.warn("x");
-    expect(calls).toContain("warn:x");
+    const seen: unknown[][] = [];
+    const h = install({ log: (...a: unknown[]) => void seen.push(a) });
+    h.console.log("passthrough", 1);
+    expect(seen).toEqual([["passthrough", 1]]);
   });
 
   it("JSON-stringifies non-string args and caps very long text", () => {
-    const { obj } = fakeConsole();
-    installConsoleCapture(obj, document, 200);
-    obj.log({ a: 1 }, "z".repeat(5000));
-    const [entry] = readBuffer();
-    expect(entry.text).toContain('{"a":1}');
-    expect(entry.text.length).toBeLessThanOrEqual(2100); // capped, not unbounded
+    const h = install();
+    h.console.log({ a: 1 }, "x".repeat(5000));
+    const [entry] = h.read();
+    expect(entry.text.startsWith('{"a":1} xxx')).toBe(true);
+    expect(entry.text.length).toBeLessThanOrEqual(2000);
   });
 
-  it("is a bounded ring buffer — old entries drop past the cap", () => {
-    const { obj } = fakeConsole();
-    installConsoleCapture(obj, document, 3);
-    for (let i = 0; i < 10; i++) obj.log(`m${i}`);
-    const buf = readBuffer();
-    expect(buf).toHaveLength(3);
-    expect(buf.map((e) => e.text)).toEqual(["m7", "m8", "m9"]);
+  it("is a bounded ring buffer — old entries drop past the cap (200)", () => {
+    const h = install();
+    for (let i = 0; i < 210; i++) h.console.log(`m${i}`);
+    const entries = h.read();
+    expect(entries).toHaveLength(200);
+    expect(entries[0].text).toBe("m10");
+    expect(entries[199].text).toBe("m209");
   });
 
   it("never throws even if an argument is not serializable", () => {
-    const { obj } = fakeConsole();
-    installConsoleCapture(obj, document, 200);
+    const h = install();
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
-    expect(() => obj.log(cyclic)).not.toThrow();
-    expect(readBuffer().length).toBe(1);
+    expect(() => h.console.log(cyclic)).not.toThrow();
+    expect(h.read()).toHaveLength(1);
+  });
+
+  it("captures uncaught errors with location (WI-NB3.1)", () => {
+    const h = install();
+    h.listeners.get("error")!({ message: "x is not a function", filename: "https://site/app.js", lineno: 12 });
+    expect(h.read()).toEqual([
+      { level: "error", text: "Uncaught x is not a function (https://site/app.js:12)" },
+    ]);
+  });
+
+  it("captures unhandled rejections, preferring the reason's message", () => {
+    const h = install();
+    h.listeners.get("unhandledrejection")!({ reason: new Error("fetch failed") });
+    h.listeners.get("unhandledrejection")!({ reason: { code: 42 } });
+    expect(h.read()).toEqual([
+      { level: "error", text: "Unhandled rejection: fetch failed" },
+      { level: "error", text: 'Unhandled rejection: {"code":42}' },
+    ]);
+  });
+
+  it("error capture never throws on a hostile event shape", () => {
+    const h = install();
+    expect(() => h.listeners.get("error")!(null)).not.toThrow();
+    expect(() => h.listeners.get("unhandledrejection")!(null)).not.toThrow();
   });
 });
 
 describe("buildConsoleReadScript", () => {
+  function runRead(doc: Document, clear: boolean): { entries: Entry[] } {
+    const fn = new Function("document", buildConsoleReadScript(clear));
+    return JSON.parse(fn(doc) as string) as { entries: Entry[] };
+  }
+
   it("reads the buffer element and returns entries", () => {
-    expect(buildConsoleReadScript(false)).toContain(CONSOLE_BUFFER_ID);
-    expect(buildConsoleReadScript(false)).toContain("entries");
+    const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+    const consoleObj: Record<string, (...a: unknown[]) => void> = {};
+    new Function("document", "console", "window", CONSOLE_SHIM_SRC)(doc, consoleObj, {
+      addEventListener: () => {},
+    });
+    consoleObj.log("captured");
+    expect(runRead(doc, false).entries).toEqual([{ level: "log", text: "captured" }]);
+    // non-clearing read leaves the buffer
+    expect(runRead(doc, false).entries).toHaveLength(1);
   });
 
   it("the clear variant also empties the buffer", () => {
-    expect(buildConsoleReadScript(true)).toContain('textContent="[]"');
-    expect(buildConsoleReadScript(false)).not.toContain('textContent="[]"');
+    const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+    const consoleObj: Record<string, (...a: unknown[]) => void> = {};
+    new Function("document", "console", "window", CONSOLE_SHIM_SRC)(doc, consoleObj, {
+      addEventListener: () => {},
+    });
+    consoleObj.log("draining");
+    expect(runRead(doc, true).entries).toHaveLength(1);
+    expect(runRead(doc, false).entries).toHaveLength(0);
+  });
+
+  it("a corrupted buffer yields [] rather than a throw", () => {
+    const doc = new DOMParser().parseFromString(
+      `<body><script type="application/json" id="${CONSOLE_BUFFER_ID}">not json</script></body>`,
+      "text/html",
+    );
+    expect(runRead(doc, false).entries).toEqual([]);
   });
 });
