@@ -96,6 +96,20 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "timeoutMs", optional: true, kind: "number" },
     { name: "urlContains", optional: true, kind: "string" },
   ],
+  "vmark.browser.workflow_cancel": [
+    { name: "runId", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_run": [
+    { name: "allowRepeat", optional: true, kind: "boolean" },
+    { name: "inputs", optional: true, kind: "object" },
+    { name: "source", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.browser.workflow_status": [
+    { name: "runId", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
   "vmark.coherence.claims": [
     { name: "workspace_root", optional: false, kind: "string" },
   ],
@@ -194,6 +208,9 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.style": "reject",
   "vmark.browser.wait": "reject",
   "vmark.browser.wait_for": "reject",
+  "vmark.browser.workflow_cancel": "reject",
+  "vmark.browser.workflow_run": "reject",
+  "vmark.browser.workflow_status": "reject",
   "vmark.coherence.claims": "reject",
   "vmark.coherence.contexts": "reject",
   "vmark.coherence.edges": "reject",
@@ -292,6 +309,20 @@ export interface BridgeOperationArgs {
     text?: string;
     timeoutMs?: number;
     urlContains?: string;
+  };
+  "vmark.browser.workflow_cancel": {
+    runId: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_run": {
+    allowRepeat?: boolean;
+    inputs?: Record<string, string>;
+    source: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_status": {
+    runId: string;
+    tabId?: string;
   };
   "vmark.coherence.claims": {
     workspace_root: string;

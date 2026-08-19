@@ -66,6 +66,7 @@ const CALLS: ReadonlyArray<readonly [tool: string, args: Record<string, unknown>
   ['browser_read', { action: 'wait_for', tabId: 'b1', text: 'hello' }],
   ['browser_read', { action: 'wait_for', tabId: 'b1', urlContains: '/done', timeoutMs: 100 }],
   ['browser_read', { action: 'extract', tabId: 'b1' }],
+  ['browser_read', { action: 'workflow_status', tabId: 'b1', runId: 'wfrun-1' }],
   ['browser_read', { action: 'screenshot', tabId: 'b1' }],
 
   ['browser', { action: 'act', operation: 'scroll', tabId: 'b1', dy: 100 }],
@@ -92,6 +93,8 @@ const CALLS: ReadonlyArray<readonly [tool: string, args: Record<string, unknown>
   ['browser', { action: 'session_save', tabId: 'b1', handle: 'h1' }],
   ['browser', { action: 'session_load', tabId: 'b1', handle: 'h1' }],
   ['browser', { action: 'console_clear', tabId: 'b1' }],
+  ['browser', { action: 'workflow_run', tabId: 'b1', source: 's', inputs: { a: 'b' }, allowRepeat: true }],
+  ['browser', { action: 'workflow_cancel', tabId: 'b1', runId: 'wfrun-1' }],
 
   ['coherence', { action: 'status', workspace_root: '/w' }],
   ['coherence', { action: 'edges', workspace_root: '/w' }],

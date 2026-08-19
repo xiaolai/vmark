@@ -78,4 +78,12 @@ export const BROWSER_OPERATION_SCHEMAS = {
   'vmark.browser.session.load': z.object({ tabId: optionalTabId, handle: id }),
   'vmark.browser.console': z.object({ tabId: optionalTabId, clear: z.boolean().optional() }),
   'vmark.browser.extract': z.object({ tabId: optionalTabId }),
+  'vmark.browser.workflow_run': z.object({
+    tabId: optionalTabId,
+    source: id,
+    inputs: z.record(z.string(), z.string()).optional(),
+    allowRepeat: z.boolean().optional(),
+  }),
+  'vmark.browser.workflow_status': z.object({ tabId: optionalTabId, runId: id }),
+  'vmark.browser.workflow_cancel': z.object({ tabId: optionalTabId, runId: id }),
 } as const;

@@ -391,6 +391,29 @@ includes the tab's current `url` and `generation`. `type` handles text fields,
 `<select>` controls (pass the option's label or value; a missing option is refused as
 `no-such-option`), and `contenteditable` regions.
 
+### `workflow_run` / `workflow_cancel`
+
+`workflow_run` starts a recorded workflow on an AI-owned tab. Arguments: `tabId?`, `source`
+(the workflow text), `inputs?` (a `{name: value}` map substituted into `{name}` references),
+`allowRepeat?`. It returns `{runId, steps}` **immediately** — the run executes
+**asynchronously**, because a multi-step run can outlive a single request. Poll
+[`browser_read`](#browser-read)'s `workflow_status` for progress.
+
+Deterministic steps — `click` / `type` / `navigate` in the recorded grammar, and `extract`
+— run inside VMark and are **individually approval-gated**, exactly like a hand-issued
+`act`: the run authorizes each one on its own, so a workflow is not a way around the
+approval prompts. `goal`, `confirm`, `api`, and any free-prose step **pause** the run for
+the AI to handle by hand. A re-run **skips write steps that already succeeded** this session
+(the completed-write ledger), unless `allowRepeat` is set — so re-running after a pause does
+not double-submit.
+
+`workflow_cancel {tabId?, runId}` stops a run. It is **never approval-gated** — stopping is
+always allowed — and it withdraws the run's pending prompts and hands the tab back to you.
+The run also stops the moment you take over the browser (any interaction with the page or
+its chrome reclaims control).
+
+Runs are bounded (≤ 25 steps, ≤ 120 s, source ≤ 64 KiB) and one at a time per tab.
+
 ### `open`
 
 Arguments: `url` and optional `timeoutMs` (1–12,000 ms). Creates an AI-owned tab using the
@@ -495,6 +518,13 @@ Wikipedia plugin strips wiki chrome — infoboxes, navboxes, hatnotes, edit link
 name), and a generic density-heuristic reader is the fallback for every other site.
 `truncated: true` means the page exceeded the capture cap and the tail went unread.
 **Read-class.** Everything returned is page-derived and untrusted.
+
+### `workflow_status`
+
+Arguments: `tabId?`, `runId` (from `workflow_run`). Returns `{status, completedSteps,
+stepCount, pausedAt?, reasonCode?, reason?, stepResults}` where `status` is one of
+`running` / `paused` / `completed` / `failed` / `cancelled`. A `paused` status names the
+step that needs you in `pausedAt`. **Read-class** — poll it freely.
 
 ### `console`
 

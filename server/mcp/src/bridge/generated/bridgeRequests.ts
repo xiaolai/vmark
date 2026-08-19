@@ -98,6 +98,23 @@ export type BridgeRequest =
       urlContains?: string;
     }
   | {
+      type: 'vmark.browser.workflow_cancel';
+      runId: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_run';
+      allowRepeat?: boolean;
+      inputs?: Record<string, string>;
+      source: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.browser.workflow_status';
+      runId: string;
+      tabId?: string;
+    }
+  | {
       type: 'vmark.coherence.claims';
       workspace_root: string;
     }

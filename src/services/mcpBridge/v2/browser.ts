@@ -33,6 +33,11 @@ export { handleBrowserQuery, handleBrowserStyle, handleBrowserExecuteJs } from "
 export { handleBrowserSessionSave, handleBrowserSessionLoad } from "./browserSession";
 export { handleBrowserConsole } from "./browserConsole";
 export { handleBrowserExtract } from "./browserExtract";
+export {
+  handleBrowserWorkflowRun,
+  handleBrowserWorkflowStatus,
+  handleBrowserWorkflowCancel,
+} from "./browserWorkflow";
 
 /**
  * `vmark.browser.read` — ARIA snapshot (with a stable `ref` per node) of the
