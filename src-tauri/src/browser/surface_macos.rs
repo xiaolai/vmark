@@ -33,6 +33,8 @@ use lifecycle::evict_existing;
 mod browser_store;
 #[path = "console_shim_macos.rs"]
 mod console_shim;
+#[path = "recorder_shim_macos.rs"]
+mod recorder_shim;
 #[path = "user_input_monitor_macos.rs"]
 mod user_input_monitor;
 

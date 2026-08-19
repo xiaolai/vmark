@@ -7,7 +7,7 @@ use super::*;
 fn known_operations_are_exactly_the_ts_vocabulary() {
     for op in [
         "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish",
-        "upload", "eval",
+        "upload", "eval", "session", "record",
     ] {
         assert!(is_known_operation(op), "{op} is a known operation");
     }
@@ -29,7 +29,7 @@ fn unknown_and_case_variant_spellings_are_not_known() {
 fn deserialize_rejects_unknown_variants_at_the_wire_boundary() {
     for ok in [
         "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish",
-        "upload", "eval",
+        "upload", "eval", "session", "record",
     ] {
         assert!(
             serde_json::from_value::<BrowserOperation>(serde_json::json!(ok)).is_ok(),

@@ -37,6 +37,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
 import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
+import { startRecorderWiring } from "@/services/browser/recorderWiring";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
@@ -165,6 +166,9 @@ export function useCommandBootstrap(): void {
     // Lease event sources (WI-NB5.1): native page input reclaims an AI-held
     // tab; tab close drops lease state.
     const stopLeaseWiring = startBrowserLeaseWiring();
+    // Recorder event sources (WI-NB7.1): a navigation re-arms the capture shim in
+    // the new document; tab close discards the recording.
+    const stopRecorderWiring = startRecorderWiring();
     const stopCoherenceScan = startCoherenceScanOnChange();
     const stopWindowWorkspaceSync = startWindowWorkspaceSync();
     const stopBrowserAiPolicySync = startBrowserAiPolicySync();
@@ -238,6 +242,7 @@ export function useCommandBootstrap(): void {
       disposeEditorCommands();
       stopGrantSync();
       stopLeaseWiring();
+      stopRecorderWiring();
       stopCoherenceScan();
       stopWindowWorkspaceSync();
       stopBrowserAiPolicySync();

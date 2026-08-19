@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "Hacer clic",
   "browser.approval.operation.type": "Escribir en",
   "browser.approval.operation.navigate": "Navegar",
+  "browser.approval.operation.record": "Grabar tus acciones",
   "browser.approval.note": "La IA lo ha solicitado. No ocurrirá nada a menos que lo permitas.",
   "browser.approval.deny": "Denegar",
   "browser.approval.allowOnce": "Permitir una vez",

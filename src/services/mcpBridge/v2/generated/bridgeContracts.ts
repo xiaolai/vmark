@@ -100,6 +100,11 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "runId", optional: false, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
   ],
+  "vmark.browser.workflow_record": [
+    { name: "recordOp", optional: false, kind: "string" },
+    { name: "site", optional: true, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
   "vmark.browser.workflow_run": [
     { name: "allowRepeat", optional: true, kind: "boolean" },
     { name: "inputs", optional: true, kind: "object" },
@@ -209,6 +214,7 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.wait": "reject",
   "vmark.browser.wait_for": "reject",
   "vmark.browser.workflow_cancel": "reject",
+  "vmark.browser.workflow_record": "reject",
   "vmark.browser.workflow_run": "reject",
   "vmark.browser.workflow_status": "reject",
   "vmark.coherence.claims": "reject",
@@ -312,6 +318,11 @@ export interface BridgeOperationArgs {
   };
   "vmark.browser.workflow_cancel": {
     runId: string;
+    tabId?: string;
+  };
+  "vmark.browser.workflow_record": {
+    recordOp: string;
+    site?: string;
     tabId?: string;
   };
   "vmark.browser.workflow_run": {

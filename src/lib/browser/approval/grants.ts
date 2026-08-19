@@ -24,7 +24,7 @@ import { aiMayChooseUploadFile } from "../uxPolicy";
  *  is an authorization token, so the vocabulary is closed: anything outside this
  *  list is rejected rather than silently becoming a standing permission. */
 const BROWSER_OPERATIONS = [
-  "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "upload", "eval", "session",
+  "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "upload", "eval", "session", "record",
 ] as const;
 
 type BrowserOperation = (typeof BROWSER_OPERATIONS)[number];
@@ -45,8 +45,10 @@ const NEVER_AUTOMATED: ReadonlySet<string> = new Set<BrowserOperation>([
 /** Operations that are known and one-shot-able (approved per call) but can NEVER
  *  become a standing grant — an origin can't be "remembered" for them. Raw
  *  isolated-world `eval` (`execute_js`) is too powerful to grant once and reuse
- *  silently; every call raises a fresh approval showing the script (ADR-A6). */
-export const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["eval", "session"]);
+ *  silently; every call raises a fresh approval showing the script (ADR-A6).
+ *  `record` (WI-NB7.3) joins them: starting a recording of the user's own actions
+ *  is a per-use consent, never a standing "this site may be recorded" permission. */
+export const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["eval", "session", "record"]);
 
 /** Is `operation` a known browser operation? Misspellings and case variants
  *  (`"Upload"`) are NOT — treating them as opaque strings is how a hard denial

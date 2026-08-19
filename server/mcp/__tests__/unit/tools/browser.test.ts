@@ -300,6 +300,29 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bad.isError).toBe(true);
   });
 
+  it('workflow_record: forwards recordOp + optional site; rejects a missing recordOp', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.workflow_record': () => ({ success: true, data: { status: 'recording', tabId: 'b1' } }),
+    });
+    // With a site.
+    await server.callTool('browser', { action: 'workflow_record', tabId: 'b1', recordOp: 'start', site: 'blog' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_record')[0].request).toEqual({
+      type: 'vmark.browser.workflow_record',
+      tabId: 'b1',
+      recordOp: 'start',
+      site: 'blog',
+    });
+    // Without a tabId or a site (the tabId-absent and site-absent branches).
+    await server.callTool('browser', { action: 'workflow_record', recordOp: 'stop' });
+    expect(bridge.getRequestsOfType('vmark.browser.workflow_record')[1].request).toEqual({
+      type: 'vmark.browser.workflow_record',
+      recordOp: 'stop',
+    });
+    // A missing/invalid recordOp is rejected before touching the bridge.
+    const bad = await server.callTool('browser', { action: 'workflow_record' });
+    expect(bad.isError).toBe(true);
+  });
+
   it('session_save / session_load: forward the handle; reject a bad one', async () => {
     const { server, bridge } = harness({
       'vmark.browser.session.save': () => ({ success: true, data: { handle: 'work', summary: '0 cookie(s)' } }),

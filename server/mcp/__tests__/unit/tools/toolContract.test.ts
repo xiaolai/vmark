@@ -166,7 +166,7 @@ describe('client-visible input schemas', () => {
     expect(actions('browser')).toEqual([
       'act', 'open', 'navigate', 'style', 'execute_js',
       'session_save', 'session_load', 'console_clear',
-      'workflow_run', 'workflow_cancel',
+      'workflow_run', 'workflow_cancel', 'workflow_record',
     ]);
   });
 

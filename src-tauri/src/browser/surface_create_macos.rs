@@ -49,6 +49,9 @@ pub fn create_with_mode(
         super::browser_store::configure(&config, mtm, mode, profile.as_deref())?;
         // Page-world console-capture shim (WI-P7.1) — AiSandbox only; no message handler.
         super::console_shim::configure(&config, mtm, mode);
+        // Dormant page-world recorder-capture shim (WI-NB7.1) — AiSandbox only; armed at
+        // runtime by the isolated-world driver, no message handler.
+        super::recorder_shim::configure(&config, mtm, mode);
         // Native takeover signal (WI-NB5.2): installed once, at the first browser
         // surface creation — before that no browser view exists to click into.
         super::user_input_monitor::ensure_installed(&app_handle, mtm);

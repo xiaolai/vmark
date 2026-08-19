@@ -103,6 +103,12 @@ export type BridgeRequest =
       tabId?: string;
     }
   | {
+      type: 'vmark.browser.workflow_record';
+      recordOp: string;
+      site?: string;
+      tabId?: string;
+    }
+  | {
       type: 'vmark.browser.workflow_run';
       allowRepeat?: boolean;
       inputs?: Record<string, string>;

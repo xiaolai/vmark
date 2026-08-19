@@ -1,0 +1,144 @@
+// @vitest-environment node
+// WI-NB7.3 — the workflow_record MCP handler: consent-gated start, drain-and-
+// finalize stop. Mocks the approval store, the recorder session, and the bridge.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const respondMock = vi.fn(async () => {});
+const invokeMock = vi.fn(async () => "ok");
+
+vi.mock("@/services/mcpBridge/utils", () => ({ respond: (...a: unknown[]) => respondMock(...a) }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...a) }));
+
+// The REAL approval store — record is NEVER_GRANTABLE, so decide() always returns
+// needs-approval; seeding a one-shot models the user having approved once.
+import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+
+function resetApprovals(): void {
+  useBrowserApprovalStore.setState({ grants: [], oneShots: [], pending: [], attachments: [], profileOpens: [] });
+}
+function seedRecordOneShot(): void {
+  // Mint through the store's OWN flow so the one-shot's origin/target shape matches
+  // exactly what the handler's consumeOneShot will look for.
+  const store = useBrowserApprovalStore.getState();
+  store.requestApproval("seed-record", "https://x.test/app", "record", undefined, "t1", 5);
+  useBrowserApprovalStore.getState().resolveApproval("seed-record", "once");
+}
+
+let enabled = true;
+let tab: Record<string, unknown> | null = {
+  tabId: "t1",
+  url: "https://x.test/app",
+  generation: 5,
+  automationMode: "ai-sandbox",
+};
+vi.mock("./browserHelpers", () => ({
+  browserEnabled: () => enabled,
+  readTabIdArg: (a: Record<string, unknown>) =>
+    a.tabId === undefined ? "" : typeof a.tabId === "string" && a.tabId ? a.tabId : null,
+  resolveBrowserTab: () => tab,
+}));
+
+const isRecording = vi.fn(() => false);
+const startRecorderSession = vi.fn(() => ({ ok: true }));
+const stopRecorderSession = vi.fn(async () => ({ source: "SRC", inputs: ["a"], eventCount: 3, capped: false }));
+vi.mock("@/services/workflow/recorderSession", () => ({
+  isRecording: (...a: unknown[]) => isRecording(...a),
+  startRecorderSession: (...a: unknown[]) => startRecorderSession(...a),
+  stopRecorderSession: (...a: unknown[]) => stopRecorderSession(...a),
+}));
+
+import { handleBrowserWorkflowRecord } from "./browserRecord";
+
+function lastRespond(): { success?: boolean; error?: string; data?: Record<string, unknown> } {
+  return respondMock.mock.calls.at(-1)?.[0] as never;
+}
+
+beforeEach(() => {
+  enabled = true;
+  tab = { tabId: "t1", url: "https://x.test/app", generation: 5, automationMode: "ai-sandbox" };
+  resetApprovals();
+  isRecording.mockReturnValue(false);
+  startRecorderSession.mockReturnValue({ ok: true });
+});
+afterEach(() => {
+  vi.clearAllMocks();
+  resetApprovals();
+});
+
+describe("workflow_record — guards", () => {
+  it("refuses when the browser is disabled", async () => {
+    enabled = false;
+    await handleBrowserWorkflowRecord("1", { recordOp: "start" });
+    expect(lastRespond()).toMatchObject({ success: false, error: "BROWSER_DISABLED" });
+  });
+
+  it("rejects an unknown recordOp", async () => {
+    await handleBrowserWorkflowRecord("1", { recordOp: "pause" });
+    expect(lastRespond().success).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to record a human tab", async () => {
+    tab = { ...(tab as object), automationMode: "human" };
+    await handleBrowserWorkflowRecord("1", { recordOp: "start" });
+    expect(lastRespond()).toMatchObject({ success: false, error: "TAB_NOT_AI_OWNED" });
+  });
+});
+
+describe("workflow_record — start (consent-gated)", () => {
+  it("returns needsApproval and does NOT arm when no consent yet", async () => {
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(lastRespond().data).toMatchObject({ needsApproval: true, operation: "record" });
+    expect(invokeMock).not.toHaveBeenCalled(); // never armed without consent
+    expect(startRecorderSession).not.toHaveBeenCalled();
+    // A real pending approval was raised for the record op.
+    expect(useBrowserApprovalStore.getState().pending.some((p) => p.operation === "record")).toBe(true);
+  });
+
+  it("arms with the record op and starts the session once consent exists", async () => {
+    seedRecordOneShot();
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    // Armed via a gated `record` eval, not a read.
+    expect(invokeMock).toHaveBeenCalledWith(
+      "browser_eval",
+      expect.objectContaining({ tabId: "t1", operation: "record", generation: 5 }),
+    );
+    expect(startRecorderSession).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "t1", site: "blog", generation: 5 }),
+    );
+    expect(lastRespond()).toMatchObject({ success: true, data: { status: "recording", tabId: "t1" } });
+  });
+
+  it("refuses a duplicate start before arming", async () => {
+    seedRecordOneShot();
+    isRecording.mockReturnValue(true);
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(lastRespond()).toMatchObject({ success: false, error: "recording-already-active" });
+  });
+
+  it("reports a driver refusal to arm without leaving a session", async () => {
+    seedRecordOneShot();
+    invokeMock.mockRejectedValueOnce(new Error("driver refused"));
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(startRecorderSession).not.toHaveBeenCalled();
+    expect(lastRespond().success).toBe(false);
+  });
+});
+
+describe("workflow_record — stop", () => {
+  it("finalizes and returns the recorded workflow source", async () => {
+    await handleBrowserWorkflowRecord("1", { recordOp: "stop" });
+    expect(stopRecorderSession).toHaveBeenCalledWith("t1");
+    expect(lastRespond()).toMatchObject({
+      success: true,
+      data: { source: "SRC", inputs: ["a"], eventCount: 3 },
+    });
+  });
+
+  it("errors when the tab was not recording", async () => {
+    stopRecorderSession.mockResolvedValueOnce(null);
+    await handleBrowserWorkflowRecord("1", { recordOp: "stop" });
+    expect(lastRespond().success).toBe(false);
+  });
+});

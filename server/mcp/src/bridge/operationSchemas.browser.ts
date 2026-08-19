@@ -86,4 +86,11 @@ export const BROWSER_OPERATION_SCHEMAS = {
   }),
   'vmark.browser.workflow_status': z.object({ tabId: optionalTabId, runId: id }),
   'vmark.browser.workflow_cancel': z.object({ tabId: optionalTabId, runId: id }),
+  // `recordOp` is "start" | "stop" — kept a plain string here (the bridge-contract
+  // generator has no enum form); the handler validates the two values.
+  'vmark.browser.workflow_record': z.object({
+    tabId: optionalTabId,
+    recordOp: id,
+    site: z.string().optional(),
+  }),
 } as const;

@@ -60,14 +60,15 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         '- session_save: Snapshot the tab\'s current session — localStorage AND cookies, both scoped to the committed origin — into an encrypted keychain entry named by `handle`, so a login can be reused later. Args {tabId?, handle:[A-Za-z0-9._-]}. Returns a value-free summary (counts). Per-call user-approved; you NEVER receive the values.\n' +
         '- session_load: Restore a previously saved session by `handle` into the tab — ONLY if the current page has the same origin it was saved from. Args {tabId?, handle}. Per-call user-approved (an approval for one handle cannot be spent on another); returns {loaded:true, handle} — never any values.\n' +
         "- console_clear: Read the page's captured console.* output AND drain the buffer, so the next read sees only new output. Args {tabId?}. Returns {entries:[{level,text}], url}. Draining writes to the page DOM, which is why it lives here and not in `browser_read` — use `browser_read` action `console` when you only want to look.\n" +
-        "- workflow_run: Run a workflow you supply as `source` text on an AI-owned tab (a small line-oriented grammar — you write it, or the AI does; there is no in-app recorder in this build). Args {tabId?, source, inputs?:{name:value}, allowRepeat?}. Returns {runId, steps} IMMEDIATELY — the run executes asynchronously (it can outlive one request). Poll `browser_read` action workflow_status {runId} for progress, and cancel with workflow_cancel. Deterministic steps (click/type/navigate in that grammar, and extract) run VMark-side and are individually approval-gated exactly like a hand-issued act; goal/confirm/api/free-prose steps PAUSE the run for you to handle. A re-run skips write steps that already succeeded this session (pass allowRepeat to override).\n" +
-        "- workflow_cancel: Stop a running workflow. Args {tabId?, runId}. Always allowed — never approval-gated. Withdraws the run's pending prompts and hands the tab back to the user.",
+        "- workflow_run: Run a workflow you supply as `source` text on an AI-owned tab (a small line-oriented grammar — you write it, the AI does, or `workflow_record` captures it from the user's own actions). Args {tabId?, source, inputs?:{name:value}, allowRepeat?}. Returns {runId, steps} IMMEDIATELY — the run executes asynchronously (it can outlive one request). Poll `browser_read` action workflow_status {runId} for progress, and cancel with workflow_cancel. Deterministic steps (click/type/navigate in that grammar, and extract) run VMark-side and are individually approval-gated exactly like a hand-issued act; goal/confirm/api/free-prose steps PAUSE the run for you to handle. A re-run skips write steps that already succeeded this session (pass allowRepeat to override).\n" +
+        "- workflow_cancel: Stop a running workflow. Args {tabId?, runId}. Always allowed — never approval-gated. Withdraws the run's pending prompts and hands the tab back to the user.\n" +
+        "- workflow_record: Record the USER's own actions on an AI-owned tab into a replayable workflow. Args {tabId?, recordOp:\"start\"|\"stop\", site?}. `start` needs a fresh per-call user approval (`record` is never a standing grant); it returns needsApproval until the user allows, then begins capturing clicks and field edits. `stop` returns {source, inputs, eventCount} — value-free workflow `source` you can save or pass to workflow_run. NOTHING typed is captured: every text field becomes a named {input} variable, a password field becomes a `confirm:` human-gate step, and URLs are stripped to origin+path. Records the LOCATORS the user touched, never their data.",
       inputSchema: {
         action: z
           .enum([
             'act', 'open', 'navigate', 'style', 'execute_js',
             'session_save', 'session_load', 'console_clear',
-            'workflow_run', 'workflow_cancel',
+            'workflow_run', 'workflow_cancel', 'workflow_record',
           ])
           .describe('The action to perform'),
         tabId: optionalIdSchema(
@@ -144,6 +145,14 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe('A run id from workflow_run (workflow_cancel; and browser_read workflow_status).'),
+        recordOp: z
+          .enum(['start', 'stop'])
+          .optional()
+          .describe('Start or stop a recording (workflow_record only).'),
+        site: z
+          .string()
+          .optional()
+          .describe('Site id for the recorded workflow front-matter (workflow_record start; defaults to "recording").'),
         // Trimmed so the schema and the handler agree on what a profile IS —
         // the handler trims before matching, and a schema that rejected what
         // the handler accepts would make the two layers disagree.

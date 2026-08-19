@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "Klicken",
   "browser.approval.operation.type": "Eingeben in",
   "browser.approval.operation.navigate": "Navigieren",
+  "browser.approval.operation.record": "Aktionen aufzeichnen",
   "browser.approval.note": "Die KI hat dies angefordert. Es geschieht nichts, solange Sie es nicht zulassen.",
   "browser.approval.deny": "Ablehnen",
   "browser.approval.allowOnce": "Einmal zulassen",

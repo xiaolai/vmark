@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "클릭",
   "browser.approval.operation.type": "입력",
   "browser.approval.operation.navigate": "탐색",
+  "browser.approval.operation.record": "동작 기록",
   "browser.approval.note": "AI가 요청했습니다. 허용하지 않으면 아무 일도 일어나지 않습니다.",
   "browser.approval.deny": "거부",
   "browser.approval.allowOnce": "한 번만 허용",

@@ -54,6 +54,7 @@ import {
   handleBrowserWorkflowRun,
   handleBrowserWorkflowStatus,
   handleBrowserWorkflowCancel,
+  handleBrowserWorkflowRecord,
 } from "./browser";
 
 /**
@@ -170,6 +171,9 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.browser.workflow_cancel":
       await handleBrowserWorkflowCancel(id, args);
+      return true;
+    case "vmark.browser.workflow_record":
+      await handleBrowserWorkflowRecord(id, args);
       return true;
     case "vmark.browser.style":
       await handleBrowserStyle(id, args);

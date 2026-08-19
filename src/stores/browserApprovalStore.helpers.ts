@@ -23,6 +23,7 @@ export const KNOWN_OPERATIONS = new Set([
   "publish",
   "eval",
   "session",
+  "record",
 ]);
 
 /** The optional (target, script) bindings an approval/one-shot carries. */

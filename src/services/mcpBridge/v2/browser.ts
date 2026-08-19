@@ -38,6 +38,7 @@ export {
   handleBrowserWorkflowStatus,
   handleBrowserWorkflowCancel,
 } from "./browserWorkflow";
+export { handleBrowserWorkflowRecord } from "./browserRecord";
 
 /**
  * `vmark.browser.read` — ARIA snapshot (with a stable `ref` per node) of the

@@ -74,6 +74,7 @@ export const BRIDGE_OPERATIONS = Object.freeze({
   "vmark.browser.act": { owner: "webview", effect: "write" },
   "vmark.browser.workflow_run": { owner: "webview", effect: "write" },
   "vmark.browser.workflow_cancel": { owner: "webview", effect: "write" },
+  "vmark.browser.workflow_record": { owner: "webview", effect: "write" },
   "vmark.browser.open": { owner: "webview", effect: "write" },
   "vmark.browser.navigate": { owner: "webview", effect: "write" },
   "vmark.browser.wait": { owner: "webview", effect: "write" },

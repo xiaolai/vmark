@@ -212,6 +212,18 @@ export async function runBrowserAction(
         });
         return VMarkMcpServer.successJsonResult(data);
       }
+      if (args.action === 'workflow_record') {
+        if (args.recordOp !== 'start' && args.recordOp !== 'stop') {
+          return VMarkMcpServer.errorResult("workflow_record requires recordOp 'start' or 'stop'");
+        }
+        const data = await server.sendBridgeRequest({
+          type: 'vmark.browser.workflow_record',
+          ...(tabId === undefined ? {} : { tabId }),
+          recordOp: args.recordOp,
+          ...(typeof args.site === 'string' ? { site: args.site } : {}),
+        });
+        return VMarkMcpServer.successJsonResult(data);
+      }
       return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
     } catch (error) {
       return toErrorResult(error);

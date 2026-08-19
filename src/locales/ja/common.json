@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "クリック",
   "browser.approval.operation.type": "入力する",
   "browser.approval.operation.navigate": "移動",
+  "browser.approval.operation.record": "操作を記録",
   "browser.approval.note": "AI がこの操作を要求しています。許可しない限り、何も実行されません。",
   "browser.approval.deny": "拒否",
   "browser.approval.allowOnce": "1 回だけ許可",

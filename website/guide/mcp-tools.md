@@ -394,9 +394,9 @@ includes the tab's current `url` and `generation`. `type` handles text fields,
 ### `workflow_run` / `workflow_cancel`
 
 `workflow_run` runs a workflow you supply as `source` text on an AI-owned tab. Arguments:
-`tabId?`, `source` (the workflow text — a small line-oriented grammar; in this build you
-write it, or the AI does, and it is also the format an in-app recorder would produce once
-that ships), `inputs?` (a `{name: value}` map substituted into `{name}` references),
+`tabId?`, `source` (the workflow text — a small line-oriented grammar; you write it, the AI
+does, or [`workflow_record`](#workflow-record) captures it from your own actions), `inputs?`
+(a `{name: value}` map substituted into `{name}` references),
 `allowRepeat?`. It returns `{runId, steps}` **immediately** — the run executes
 **asynchronously**, because a multi-step run can outlive a single request. Poll
 [`browser_read`](#browser-read)'s `workflow_status` for progress.
@@ -415,6 +415,28 @@ The run also stops the moment you take over the browser (any interaction with th
 its chrome reclaims control).
 
 Runs are bounded (≤ 25 steps, ≤ 120 s, source ≤ 64 KiB) and one at a time per tab.
+
+### `workflow_record`
+
+Records **your own actions** on an AI-owned tab into a replayable workflow. Arguments:
+`tabId?`, `recordOp` (`"start"` or `"stop"`), and `site?` (the recorded workflow's
+front-matter site id; defaults to `recording`).
+
+`start` is **consent-gated** by the `record` permission, which — like `execute_js` and
+`session` — is **never a standing grant**: every recording asks you fresh, so the AI can
+never silently record you. Until you allow it, `start` returns `needsApproval`; once you do,
+VMark arms a dormant page-world capture shim and begins recording the **clicks and field
+edits** you perform. `stop` returns `{source, inputs, eventCount}` — the `source` is workflow
+text you can save or hand straight to [`workflow_run`](#workflow-run).
+
+The recording is **value-free by construction**, and this is not a filter that trusts the
+page: nothing you type is ever captured. Every text field becomes a named `{input}` variable
+(the value is supplied at replay, never recorded); a **password or one-time-code field**
+becomes a `confirm:` step — a human gate you complete by hand at replay — so a secret is
+never even parameterized; and every URL is stripped to origin + path, so a token in a query
+string cannot survive. What is recorded is the **locators** you touched (ARIA role +
+accessible name), never their data. Recording follows you across page navigations and is
+bounded (200 events per page, 1,000 per session).
 
 ### `open`
 

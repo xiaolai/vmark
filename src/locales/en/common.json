@@ -143,6 +143,7 @@
   "browser.approval.operation.click": "Click",
   "browser.approval.operation.type": "Type into",
   "browser.approval.operation.navigate": "Navigate",
+  "browser.approval.operation.record": "Record your actions",
   "browser.approval.note": "The AI requested this. Nothing happens unless you allow it.",
   "browser.approval.deny": "Deny",
   "browser.approval.allowOnce": "Allow once",
