@@ -19,6 +19,15 @@
  * an act that could not be performed reports `{clicked:false, reason}` rather than
  * a false success.
  *
+ * Acts verify their EFFECT before reporting it (WI-NB1.1): the target is scrolled
+ * into view, must be visibly rendered (computed styles + a collapsed-ancestor walk
+ * stopping before `<body>`), and the click point is hit-tested via
+ * `elementFromPoint` with `contains()` relatedness — an occluded target reports
+ * `{reason:'obscured', by}` instead of clicking through. Role/name results carry
+ * `matchedTotal`/`matchedVisible`. The layout-dependent checks self-disable where
+ * no layout engine exists (jsdom), leaving the attribute tier;
+ * `actScript.webkit.test.ts` exercises the rendered tier in real WebKit.
+ *
  * The snapshot also stamps each node with a stable `ref` (WI-P2.1); the injected
  * ref store (`LIB_REFS`) mirrors `refs.ts` on the same `document.__vmarkRefStore`,
  * so the two agree and `actScript.test.ts` keeps them from drifting.
@@ -157,6 +166,47 @@ function __vmarkQuery(role,name){
   }
   return out;
 }
+function __vmarkQueryAll(role,name){
+  var all=document.querySelectorAll('*'),out=[];
+  for(var i=0;i<all.length;i++){
+    var el=all[i];
+    if(__vmarkRole(el)!==role)continue;
+    if(name!=null&&__vmarkName(el)!==name)continue;
+    out.push(el);
+  }
+  return out;
+}
+function __vmarkHasLayout(){
+  var d=document.documentElement;
+  if(!d||!d.getBoundingClientRect)return false;
+  var r=d.getBoundingClientRect();
+  return r.width>0||r.height>0;
+}
+function __vmarkRendered(el){
+  if(!__vmarkHasLayout())return true;
+  var r=el.getBoundingClientRect();
+  if(r.width===0||r.height===0)return false;
+  var cs=getComputedStyle(el);
+  if(cs.visibility==='hidden'||cs.display==='none'||cs.opacity==='0')return false;
+  for(var p=el.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){
+    var pr=p.getBoundingClientRect();
+    if(pr.height===0&&getComputedStyle(p).overflow!=='visible')return false;
+  }
+  return true;
+}
+function __vmarkActable(el){return !__vmarkHidden(el)&&__vmarkRendered(el);}
+function __vmarkDescribe(el){
+  var t=el.tagName.toLowerCase();
+  var c=(typeof el.className==='string')?el.className.trim().split(/\\s+/).slice(0,2).join('.'):'';
+  return c?t+'.'+c:t;
+}
+function __vmarkObscuredBy(el){
+  if(!__vmarkHasLayout()||!document.elementFromPoint)return null;
+  var r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  var hit=document.elementFromPoint(cx,cy);
+  if(!hit||hit===el||el.contains(hit)||hit.contains(el))return null;
+  return __vmarkDescribe(hit);
+}
 var __vmarkLevels={H1:1,H2:2,H3:3,H4:4,H5:5,H6:6};
 function __vmarkSnapshot(gen){
   var all=document.querySelectorAll('*'),out=[];
@@ -172,14 +222,33 @@ function __vmarkSnapshot(gen){
   return out;
 }`;
 
-/** Acting — click/type. Both refuse what they cannot actually do and say why. */
+/** Acting — click/type. Both refuse what they cannot actually do and say why
+ *  (WI-NB1.1): a click scrolls its target into view, refuses hidden and occluded
+ *  targets, and role/name results carry matchedTotal/matchedVisible so ambiguity
+ *  is visible to the model (the accordion-form failure class: N same-name
+ *  matches, only the rendered one may be acted on). Layout checks self-disable
+ *  where no layout engine exists (jsdom), leaving the attribute tier. */
 const LIB_ACT = `
-function __vmarkClick(role,name){
-  var m=__vmarkQuery(role,name); if(!m.length)return {found:false,clicked:false};
-  var el=m[0];
-  if(__vmarkDisabled(el))return {found:true,clicked:false,reason:'disabled'};
+function __vmarkAssign(base,extra){
+  if(extra)for(var k in extra)if(Object.prototype.hasOwnProperty.call(extra,k))base[k]=extra[k];
+  return base;
+}
+function __vmarkDoClick(el,extra){
+  if(__vmarkDisabled(el))return __vmarkAssign({found:true,clicked:false,reason:'disabled'},extra);
+  if(el.scrollIntoView&&__vmarkHasLayout())el.scrollIntoView({block:'center',inline:'center'});
+  var by=__vmarkObscuredBy(el);
+  if(by)return __vmarkAssign({found:true,clicked:false,reason:'obscured',by:by},extra);
   el.click();
-  return {found:true,clicked:true};
+  return __vmarkAssign({found:true,clicked:true},extra);
+}
+function __vmarkClick(role,name){
+  var all=__vmarkQueryAll(role,name);
+  if(!all.length)return {found:false,clicked:false,matchedTotal:0,matchedVisible:0};
+  var vis=[];
+  for(var i=0;i<all.length;i++)if(__vmarkActable(all[i]))vis.push(all[i]);
+  var counts={matchedTotal:all.length,matchedVisible:vis.length};
+  if(!vis.length)return __vmarkAssign({found:true,clicked:false,reason:'hidden'},counts);
+  return __vmarkDoClick(vis[0],counts);
 }
 function __vmarkSetValue(el,text){
   // A framework (React) installs its own \`value\` setter on the NODE to track
@@ -190,43 +259,61 @@ function __vmarkSetValue(el,text){
   if(desc&&desc.set){desc.set.call(el,text);return;}
   el.value=text;
 }
-function __vmarkType(role,name,text){
-  var m=__vmarkQuery(role,name); if(!m.length)return {found:false,typed:false};
-  var el=m[0],tag=el.tagName.toLowerCase();
-  if(__vmarkDisabled(el))return {found:true,typed:false,reason:'disabled'};
-  if(tag!=='input'&&tag!=='textarea')return {found:true,typed:false,reason:'not-editable'};
-  if(el.readOnly)return {found:true,typed:false,reason:'readonly'};
+function __vmarkFireEdit(el){
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function __vmarkDoType(el,text,extra){
+  var tag=el.tagName.toLowerCase();
+  if(__vmarkDisabled(el))return __vmarkAssign({found:true,typed:false,reason:'disabled'},extra);
   try{
-    if(el.focus)el.focus();
-    __vmarkSetValue(el,text);
-    el.dispatchEvent(new Event('input',{bubbles:true}));
-    el.dispatchEvent(new Event('change',{bubbles:true}));
+    if(tag==='select'){
+      var opts=el.options||[],pick=null;
+      for(var i=0;i<opts.length;i++){
+        if(__vmarkNorm(opts[i].textContent)===text||opts[i].value===text){pick=opts[i];break;}
+      }
+      if(!pick)return __vmarkAssign({found:true,typed:false,reason:'no-such-option'},extra);
+      if(el.focus)el.focus();
+      __vmarkSetValue(el,pick.value);
+      __vmarkFireEdit(el);
+      return __vmarkAssign({found:true,typed:true},extra);
+    }
+    if(tag==='input'||tag==='textarea'){
+      if(el.readOnly)return __vmarkAssign({found:true,typed:false,reason:'readonly'},extra);
+      if(el.focus)el.focus();
+      __vmarkSetValue(el,text);
+      __vmarkFireEdit(el);
+      return __vmarkAssign({found:true,typed:true},extra);
+    }
+    if(el.isContentEditable){
+      if(el.focus)el.focus();
+      el.textContent=text;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      return __vmarkAssign({found:true,typed:true},extra);
+    }
+    return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
   }catch(e){
-    return {found:true,typed:false,reason:String((e&&e.message)||e)};
+    return __vmarkAssign({found:true,typed:false,reason:String((e&&e.message)||e)},extra);
   }
-  return {found:true,typed:true};
+}
+function __vmarkType(role,name,text){
+  var all=__vmarkQueryAll(role,name);
+  if(!all.length)return {found:false,typed:false,matchedTotal:0,matchedVisible:0};
+  var vis=[];
+  for(var i=0;i<all.length;i++)if(__vmarkActable(all[i]))vis.push(all[i]);
+  var counts={matchedTotal:all.length,matchedVisible:vis.length};
+  if(!vis.length)return __vmarkAssign({found:true,typed:false,reason:'hidden'},counts);
+  return __vmarkDoType(vis[0],text,counts);
 }
 function __vmarkClickRef(ref,gen){
   var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
-  if(__vmarkDisabled(el))return {found:true,clicked:false,reason:'disabled'};
-  el.click();
-  return {found:true,clicked:true};
+  if(!__vmarkActable(el))return {found:true,clicked:false,reason:'hidden'};
+  return __vmarkDoClick(el,null);
 }
 function __vmarkTypeRef(ref,gen,text){
   var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};
-  var tag=el.tagName.toLowerCase();
-  if(__vmarkDisabled(el))return {found:true,typed:false,reason:'disabled'};
-  if(tag!=='input'&&tag!=='textarea')return {found:true,typed:false,reason:'not-editable'};
-  if(el.readOnly)return {found:true,typed:false,reason:'readonly'};
-  try{
-    if(el.focus)el.focus();
-    __vmarkSetValue(el,text);
-    el.dispatchEvent(new Event('input',{bubbles:true}));
-    el.dispatchEvent(new Event('change',{bubbles:true}));
-  }catch(e){
-    return {found:true,typed:false,reason:String((e&&e.message)||e)};
-  }
-  return {found:true,typed:true};
+  if(!__vmarkActable(el))return {found:true,typed:false,reason:'hidden'};
+  return __vmarkDoType(el,text,null);
 }`;
 
 /** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim.

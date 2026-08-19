@@ -32,6 +32,9 @@ interface ActResult {
   clicked?: boolean;
   typed?: boolean;
   reason?: string;
+  by?: string;
+  matchedTotal?: number;
+  matchedVisible?: number;
 }
 
 describe("buildSnapshotScript", () => {
@@ -224,7 +227,13 @@ describe("buildClickScript", () => {
     doc.querySelector("button, [role=button]")!.addEventListener("click", () => (clicked = true));
     const role = html.includes("role=") ? "button" : "button";
     const res = exec(doc, buildClickScript(role, "Publish")) as ActResult;
-    expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
+    expect(res).toEqual({
+      found: true,
+      clicked: false,
+      reason: "disabled",
+      matchedTotal: 1,
+      matchedVisible: 1,
+    });
     expect(clicked).toBe(false);
   });
 
@@ -238,6 +247,84 @@ describe("buildClickScript", () => {
     const res = exec(doc, buildClickScript("button", "Publish")) as ActResult;
     expect(res.clicked).toBe(true);
     expect(hits).toEqual(["real"]);
+  });
+});
+
+// WI-NB1.1 — act truthfulness: a click result must report what actually happened,
+// never merely that a dispatch occurred. Counts expose ambiguity (NeoBrowser's
+// accordion-form failure class: N same-name matches, the visible one must win and
+// the model must be able to see that N > 1 existed). The layout-dependent checks
+// (getBoundingClientRect, computed styles, elementFromPoint occlusion) are guarded
+// by a runtime layout probe, so in jsdom — no layout engine — these tests exercise
+// the attribute tier; actScript.webkit.test.ts exercises the rendered tier against
+// the same shipped bytes.
+describe("act truthfulness (WI-NB1.1)", () => {
+  it("reports matchedTotal/matchedVisible on a role+name click", () => {
+    const doc = parse(`
+      <div hidden><button id="h1">Continue</button></div>
+      <button id="real">Continue</button>`);
+    const hits: string[] = [];
+    doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => hits.push(b.id)));
+    const res = exec(doc, buildClickScript("button", "Continue")) as ActResult;
+    expect(res).toEqual({ found: true, clicked: true, matchedTotal: 2, matchedVisible: 1 });
+    expect(hits).toEqual(["real"]);
+  });
+
+  it("reports reason 'hidden' with counts when every match is hidden — and clicks nothing", () => {
+    const doc = parse(`
+      <div hidden><button id="a">Continue</button></div>
+      <div aria-hidden="true"><button id="b">Continue</button></div>`);
+    const hits: string[] = [];
+    doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => hits.push(b.id)));
+    const res = exec(doc, buildClickScript("button", "Continue")) as ActResult;
+    expect(res).toEqual({
+      found: true,
+      clicked: false,
+      reason: "hidden",
+      matchedTotal: 2,
+      matchedVisible: 0,
+    });
+    expect(hits).toEqual([]);
+  });
+
+  it("reports zero counts when nothing matches at all", () => {
+    const res = run(`<button>Cancel</button>`, buildClickScript("button", "Publish")) as ActResult;
+    expect(res).toEqual({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 });
+  });
+
+  it("refuses to click a ref target that is attribute-hidden since it was read", () => {
+    const doc = parse(`<button id="a">Go</button>`);
+    const ref = (exec(doc, buildSnapshotScript(3)) as Array<{ ref: string }>)[0].ref;
+    doc.getElementById("a")!.setAttribute("hidden", "");
+    let clicked = false;
+    doc.getElementById("a")!.addEventListener("click", () => (clicked = true));
+    const res = exec(doc, buildClickByRefScript(ref, 3)) as ActResult;
+    expect(res).toEqual({ found: true, clicked: false, reason: "hidden" });
+    expect(clicked).toBe(false);
+  });
+
+  it("type also picks the visible match and reports counts", () => {
+    const doc = parse(`
+      <div hidden><input aria-label="Email" id="ghost"></div>
+      <input aria-label="Email" id="real" type="text">`);
+    const res = exec(doc, buildTypeScript("textbox", "Email", "x@y.z")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(res.matchedTotal).toBe(2);
+    expect(res.matchedVisible).toBe(1);
+    expect((doc.getElementById("real") as HTMLInputElement).value).toBe("x@y.z");
+    expect((doc.getElementById("ghost") as HTMLInputElement).value).toBe("");
+  });
+
+  it("type reports 'hidden' when every match is hidden", () => {
+    const doc = parse(`<div hidden><input aria-label="Email"></div>`);
+    const res = exec(doc, buildTypeScript("textbox", "Email", "x")) as ActResult;
+    expect(res).toEqual({
+      found: true,
+      typed: false,
+      reason: "hidden",
+      matchedTotal: 1,
+      matchedVisible: 0,
+    });
   });
 });
 
@@ -268,20 +355,20 @@ describe("buildTypeScript", () => {
   it("refuses a readonly field and reports why (never a silent synthetic mutation)", () => {
     const doc = parse(`<input type="text" aria-label="Slug" readonly value="fixed">`);
     const res = exec(doc, buildTypeScript("textbox", "Slug", "new")) as ActResult;
-    expect(res).toEqual({ found: true, typed: false, reason: "readonly" });
+    expect(res).toEqual({ found: true, typed: false, reason: "readonly", matchedTotal: 1, matchedVisible: 1 });
     expect(doc.querySelector("input")!.value).toBe("fixed");
   });
 
   it("refuses a disabled field", () => {
     const doc = parse(`<input type="text" aria-label="Slug" disabled>`);
     const res = exec(doc, buildTypeScript("textbox", "Slug", "new")) as ActResult;
-    expect(res).toEqual({ found: true, typed: false, reason: "disabled" });
+    expect(res).toEqual({ found: true, typed: false, reason: "disabled", matchedTotal: 1, matchedVisible: 1 });
   });
 
   it("refuses a non-editable target (an explicit-role textbox that is not a field)", () => {
     const doc = parse(`<div role="textbox" aria-label="Fake">x</div>`);
     const res = exec(doc, buildTypeScript("textbox", "Fake", "new")) as ActResult;
-    expect(res).toEqual({ found: true, typed: false, reason: "not-editable" });
+    expect(res).toEqual({ found: true, typed: false, reason: "not-editable", matchedTotal: 1, matchedVisible: 1 });
     // and no expando value property was smuggled onto the element
     expect((doc.querySelector("div") as unknown as { value?: string }).value).toBeUndefined();
   });
@@ -301,6 +388,52 @@ describe("buildTypeScript", () => {
       expect(doc.querySelector("textarea")!.value).toBe(text);
     },
   );
+
+  it("types into a <select> by option label and fires input/change (WI-NB1.2)", () => {
+    const doc = parse(
+      `<label for="c">Country</label>
+       <select id="c"><option value="">—</option><option value="jp">Japan</option><option value="es">Spain</option></select>`,
+    );
+    const select = doc.getElementById("c") as HTMLSelectElement;
+    let changes = 0;
+    select.addEventListener("change", () => (changes += 1));
+    const res = exec(doc, buildTypeScript("combobox", "Country", "Japan")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(select.value).toBe("jp");
+    expect(changes).toBeGreaterThan(0);
+  });
+
+  it("types into a <select> by option value when no label matches", () => {
+    const doc = parse(
+      `<select aria-label="Country"><option value="jp">Japan</option><option value="es">Spain</option></select>`,
+    );
+    const res = exec(doc, buildTypeScript("combobox", "Country", "es")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect((doc.querySelector("select") as HTMLSelectElement).value).toBe("es");
+  });
+
+  it("refuses a <select> option that does not exist rather than silently picking one", () => {
+    const doc = parse(`<select aria-label="Country"><option value="jp">Japan</option></select>`);
+    const res = exec(doc, buildTypeScript("combobox", "Country", "Atlantis")) as ActResult;
+    expect(res.typed).toBe(false);
+    expect(res.reason).toBe("no-such-option");
+    expect((doc.querySelector("select") as HTMLSelectElement).value).toBe("jp");
+  });
+
+  it("types into a contenteditable region (WI-NB1.2)", () => {
+    const doc = parse(`<div role="textbox" aria-label="Body" contenteditable="true">old</div>`);
+    // jsdom does not compute isContentEditable from the attribute; mirror the real value.
+    const el = doc.querySelector("div") as HTMLElement;
+    if (!el.isContentEditable) {
+      Object.defineProperty(el, "isContentEditable", { configurable: true, get: () => true });
+    }
+    let inputs = 0;
+    el.addEventListener("input", () => (inputs += 1));
+    const res = exec(doc, buildTypeScript("textbox", "Body", "new text")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(el.textContent).toBe("new text");
+    expect(inputs).toBeGreaterThan(0);
+  });
 
   it("drives a React-style controlled input: the framework's value tracker must see a change", () => {
     const doc = parse(`<label for="e">Email</label><input id="e" type="text">`);
