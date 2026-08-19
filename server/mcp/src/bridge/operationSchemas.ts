@@ -22,7 +22,7 @@
  */
 
 import { z } from 'zod';
-import { BROWSER_OPERATION_SCHEMAS } from './operationSchemas.browser';
+import { BROWSER_OPERATION_SCHEMAS } from './operationSchemas.browser.js';
 
 /**
  * What an operation does with a field its schema does not declare.
