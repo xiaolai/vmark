@@ -62,7 +62,7 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         '- query: Structured DOM detection the ARIA snapshot cannot name (tables, JSON blobs, computed values). Args {tabId?, selector, fields?:{attributes,box,styles:[...]}}. Returns {count, elements:[{ref,tag,text,...}]}.\n' +
         "- console: Read the page's captured console.* output (log/info/warn/error/debug) for debugging a page you are driving. Args {tabId?}. Returns {entries:[{level,text}], url}. The buffer is a bounded ring, so repeated reads overlap — use `browser` action `console_clear` to drain it. (Sandbox tabs only; requires the console shim to be injected.)\n" +
         '- wait: Wait for an existing navigation ticket (from `browser` open/navigate) without starting a new navigation. Bounded to 12 seconds.\n' +
-        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, or {text} (a substring of visible text). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.',
+        '- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, {text} (a substring of visible text), or {urlContains} (a substring of the tab URL — confirms a navigation landed). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. Bounded to 12 seconds.',
       inputSchema: {
         action: z
           .enum(['read', 'screenshot', 'query', 'console', 'wait', 'wait_for'])
@@ -91,6 +91,10 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe('Substring of visible page text to wait for (wait_for only).'),
+        urlContains: z
+          .string()
+          .optional()
+          .describe('Substring the tab URL must contain (wait_for only) — confirms a navigation landed.'),
         navigationId: z
           .string()
           .optional()
@@ -161,10 +165,14 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
           const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
           const role = typeof args.role === 'string' && args.role.trim() ? args.role : undefined;
           const text = typeof args.text === 'string' && args.text.length > 0 ? args.text : undefined;
-          const modes = [ref, role, text].filter((v) => v !== undefined).length;
+          const urlContains =
+            typeof args.urlContains === 'string' && args.urlContains.length > 0
+              ? args.urlContains
+              : undefined;
+          const modes = [ref, role, text, urlContains].filter((v) => v !== undefined).length;
           if (modes !== 1) {
             return VMarkMcpServer.errorResult(
-              'wait_for needs exactly one of: ref, role (+optional name), or text',
+              'wait_for needs exactly one of: ref, role (+optional name), text, or urlContains',
             );
           }
           const name = typeof args.name === 'string' ? args.name : undefined;
@@ -173,7 +181,9 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
               ? { ref }
               : role !== undefined
                 ? { role, ...(name !== undefined ? { name } : {}) }
-                : { text };
+                : text !== undefined
+                  ? { text }
+                  : { urlContains };
           const data = await server.sendBridgeRequest({
             type: 'vmark.browser.wait_for',
             ...(tabId === undefined ? {} : { tabId }),

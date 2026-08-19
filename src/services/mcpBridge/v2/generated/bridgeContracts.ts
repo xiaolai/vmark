@@ -91,6 +91,7 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "tabId", optional: true, kind: "string" },
     { name: "text", optional: true, kind: "string" },
     { name: "timeoutMs", optional: true, kind: "number" },
+    { name: "urlContains", optional: true, kind: "string" },
   ],
   "vmark.coherence.claims": [
     { name: "workspace_root", optional: false, kind: "string" },
@@ -283,6 +284,7 @@ export interface BridgeOperationArgs {
     tabId?: string;
     text?: string;
     timeoutMs?: number;
+    urlContains?: string;
   };
   "vmark.coherence.claims": {
     workspace_root: string;

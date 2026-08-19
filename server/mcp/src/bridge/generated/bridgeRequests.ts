@@ -91,6 +91,7 @@ export type BridgeRequest =
       tabId?: string;
       text?: string;
       timeoutMs?: number;
+      urlContains?: string;
     }
   | {
       type: 'vmark.coherence.claims';

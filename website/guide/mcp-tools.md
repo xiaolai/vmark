@@ -381,6 +381,16 @@ targets:
 a site gating on `event.isTrusted` may ignore them. Mutating operations require an
 origin-scoped approval; AI-chosen uploads are never permitted.
 
+**A click verifies its effect before reporting success.** The target is scrolled into
+view, must be visibly rendered (computed styles and collapsed ancestors are checked, so a
+duplicate button inside a closed accordion step is skipped, not clicked), and the click
+point is hit-tested — a target covered by an overlay is refused with the occluder named
+(`covered by div.cmp-overlay`) rather than clicked through. Role + name results carry
+`matchedTotal` / `matchedVisible` counts so ambiguity is visible, and every act response
+includes the tab's current `url` and `generation`. `type` handles text fields,
+`<select>` controls (pass the option's label or value; a missing option is refused as
+`no-such-option`), and `contenteditable` regions.
+
 ### `open`
 
 Arguments: `url` and optional `timeoutMs` (1–12,000 ms). Creates an AI-owned tab using the
@@ -485,12 +495,13 @@ navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, 
 
 ### `wait_for`
 
-Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`), or
-`text` (a substring of visible text), and optional `timeoutMs` (1–12,000 ms). Polls until
-the condition holds or the timeout elapses and returns `{matched: true|false}` (plus the
-matched element's `ref` for a ref/role condition) — so you can tell "found" from "timed
-out". Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then
-read.
+Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`),
+`text` (a substring of visible text), or `urlContains` (a substring the tab's URL must
+contain — confirms a click-triggered navigation landed, answered from the tab state with
+no page round-trip), and optional `timeoutMs` (1–12,000 ms). Polls until the condition
+holds or the timeout elapses and returns `{matched: true|false}` (plus the matched
+element's `ref` for a ref/role condition) — so you can tell "found" from "timed out".
+Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then read.
 
 ---
 

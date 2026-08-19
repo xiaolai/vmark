@@ -85,3 +85,37 @@ describe("handleBrowserWaitFor", () => {
     expect(lastResponse()).toMatchObject({ error: "ATTACHMENT_REQUIRED" });
   });
 });
+
+// WI-NB1.4 — a fourth condition: the tab's (agent-redacted) URL contains a
+// substring. Checked handler-side against the webview mirror — no eval round-trip
+// — so a click that navigates can be confirmed without touching the page.
+describe("wait_for urlContains (WI-NB1.4)", () => {
+  it("matches immediately when the tab URL already contains the needle — with no eval", async () => {
+    const id = seed();
+    await handleBrowserWaitFor("u1", { tabId: id, urlContains: "x.example.com", timeoutMs: 5000 });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "u1", success: true, data: { matched: true } });
+  });
+
+  it("matches once a navigation lands mid-wait", async () => {
+    const id = seed();
+    setTimeout(() => {
+      useTabStore.getState().updateBrowserTab(id, { url: "https://x.example.com/orders/done" });
+    }, 250);
+    await handleBrowserWaitFor("u2", { tabId: id, urlContains: "/orders/done", timeoutMs: 5000 });
+    expect(lastResponse()).toMatchObject({ success: true, data: { matched: true } });
+  });
+
+  it("returns matched:false on timeout", async () => {
+    const id = seed();
+    await handleBrowserWaitFor("u3", { tabId: id, urlContains: "/never", timeoutMs: 1 });
+    expect(lastResponse()).toMatchObject({ success: true, data: { matched: false } });
+  });
+
+  it("is exclusive with the other conditions", async () => {
+    const id = seed();
+    await handleBrowserWaitFor("u4", { tabId: id, urlContains: "/a", text: "b" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false });
+  });
+});

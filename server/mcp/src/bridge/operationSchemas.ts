@@ -193,6 +193,7 @@ export const BRIDGE_OPERATION_SCHEMAS = {
     role: z.string().optional(),
     name: z.string().optional(),
     text: z.string().optional(),
+    urlContains: z.string().optional(),
     timeoutMs,
   }),
   'vmark.browser.screenshot': z.object({ tabId: optionalTabId }),
