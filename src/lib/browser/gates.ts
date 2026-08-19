@@ -73,12 +73,13 @@ export function classifyGate(s: GateSignals): GateVerdict | null {
   const text = s.textHead.toLowerCase();
   const terse = s.textHead.trim().length < TERSE_LIMIT;
 
-  let url: URL | null = null;
-  try {
-    url = new URL(s.url);
-  } catch {
-    url = null;
-  }
+  const url = ((): URL | null => {
+    try {
+      return new URL(s.url);
+    } catch {
+      return null;
+    }
+  })();
 
   // challenge — the rendered widget is definitive; text-only needs title AND
   // body phrases AND a terse page.
