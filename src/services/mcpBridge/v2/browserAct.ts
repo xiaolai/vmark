@@ -32,7 +32,7 @@ import {
   buildKeyScript,
   type KeyModifiers,
 } from "@/lib/browser/agent/interactScript";
-import { originForAgent } from "@/lib/browser/url";
+import { originForAgent, urlForAgent } from "@/lib/browser/url";
 import {
   browserEnabled,
   readTabIdArg,
@@ -76,11 +76,38 @@ async function finishAct(
     tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation);
   if (humanAct) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
   const result = parseEvalResult(raw);
+  // Re-resolve AFTER the act (WI-NB1.3): a click that navigated may already have
+  // bumped the webview mirror, and the model needs the freshest page state it can
+  // get without a second round-trip. (A navigation landing later is still possible
+  // — that is what wait_for is for; the primer says so.)
+  const fresh = resolveBrowserTab(tab.tabId) ?? tab;
+  const page = { url: urlForAgent(fresh.url), generation: fresh.generation };
   if (!actionSucceeded(operation, result)) {
-    await respond({ id, success: false, error: `${operation} did not affect the target`, data: { result } });
+    await respond({
+      id,
+      success: false,
+      error: `${operation} did not affect the target${failureHint(result)}`,
+      data: { result, ...page },
+    });
     return;
   }
-  await respond({ id, success: true, data: { result } });
+  await respond({ id, success: true, data: { result, ...page } });
+}
+
+/** Turn a structured act failure into prose that names the next tool — the
+ *  NeoBrowser lesson: a refusal the model can act on beats a bare false. */
+function failureHint(result: unknown): string {
+  if (typeof result !== "object" || result === null) return "";
+  const r = result as { reason?: string; by?: string; matchedTotal?: number };
+  if (r.reason === "obscured" && r.by) {
+    return `: covered by \`${r.by}\` — dismiss or hide the overlay (browser.style), then retry`;
+  }
+  if (r.reason === "hidden") {
+    const n = typeof r.matchedTotal === "number" ? r.matchedTotal : 0;
+    return `: matched ${n} element(s), none visibly rendered — the page may still be loading (browser_read wait_for), or the control lives in a collapsed section`;
+  }
+  if (r.reason === "disabled") return ": the target is disabled";
+  return "";
 }
 
 /** Run the approval flow (grant → one-shot → needs-approval), then act. `target`

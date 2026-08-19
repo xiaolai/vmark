@@ -59,6 +59,69 @@ describe("act smoke (via browserAct.ts directly)", () => {
   });
 });
 
+// WI-NB1.3 — act responses carry page state, and failures name the next tool.
+describe("act truthfulness in responses (WI-NB1.3)", () => {
+  it("a successful act reports the tab's current url and generation", async () => {
+    const id = seed();
+    grant("click");
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
+    await handleBrowserAct("ok", { tabId: id, operation: "click", role: "button", name: "Publish" });
+    const r = lastResponse() as { success: boolean; data: { url?: string; generation?: number } };
+    expect(r.success).toBe(true);
+    expect(r.data.url).toContain("blog.example.com");
+    expect(r.data.generation).toBe(1);
+  });
+
+  it("reports the POST-act generation when the click navigated (store already updated)", async () => {
+    const id = seed();
+    grant("click");
+    invoke.mockImplementation(() => {
+      // The click triggers a navigation: the webview mirror updates before respond.
+      useTabStore.getState().updateBrowserTab(id, { generation: 2, url: "https://blog.example.com/next" });
+      return Promise.resolve(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
+    });
+    await handleBrowserAct("nav", { tabId: id, operation: "click", role: "link", name: "Next" });
+    const r = lastResponse() as { data: { url?: string; generation?: number } };
+    expect(r.data.generation).toBe(2);
+    expect(r.data.url).toContain("/next");
+  });
+
+  it("an obscured click fails with prose naming browser.style, plus the result and page state", async () => {
+    const id = seed();
+    grant("click");
+    invoke.mockResolvedValue(
+      JSON.stringify({
+        found: true,
+        clicked: false,
+        reason: "obscured",
+        by: "div.cmp-overlay",
+        matchedTotal: 1,
+        matchedVisible: 1,
+      }),
+    );
+    await handleBrowserAct("blocked", { tabId: id, operation: "click", role: "button", name: "Accept" });
+    const r = lastResponse() as { success: boolean; error?: string; data: Record<string, unknown> };
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("div.cmp-overlay");
+    expect(r.error).toContain("browser.style");
+    expect(r.data.result).toMatchObject({ reason: "obscured" });
+    expect(r.data.url).toContain("blog.example.com");
+  });
+
+  it("an all-hidden click failure surfaces the match counts in prose", async () => {
+    const id = seed();
+    grant("click");
+    invoke.mockResolvedValue(
+      JSON.stringify({ found: true, clicked: false, reason: "hidden", matchedTotal: 3, matchedVisible: 0 }),
+    );
+    await handleBrowserAct("hidden", { tabId: id, operation: "click", role: "button", name: "Continue" });
+    const r = lastResponse() as { success: boolean; error?: string };
+    expect(r.success).toBe(false);
+    expect(r.error).toContain("3");
+    expect(r.error).toMatch(/hidden|rendered/);
+  });
+});
+
 describe("act scroll (WI-P4.2)", () => {
   it("scrolls to a ref on a granted origin", async () => {
     const id = seed();
