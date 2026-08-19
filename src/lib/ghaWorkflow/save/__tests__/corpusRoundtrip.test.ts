@@ -40,7 +40,10 @@ const CORPUS_ROOTS = ["src/test/fixtures/gha-workflows", ".github/workflows"];
 // around.
 // 38 since 2026-08-17: pdf-smoke.yml — the exporter's three native backends
 // had no cross-platform run anywhere in CI.
-const EXPECTED_FILE_COUNT = 38;
+// 39 since 2026-08-19: release-smoke.yml (WI-NB9.2) — proves a published release
+// artefact actually runs (Gatekeeper + the bundled sidecar), which release.yml
+// signs and uploads but never exercises.
+const EXPECTED_FILE_COUNT = 39;
 
 /**
  * Workflows whose no-op round trip is BYTE-identical today. Two-way
@@ -50,6 +53,7 @@ const BYTE_IDENTICAL: ReadonlySet<string> = new Set([
   ".github/workflows/ci.yml",
   ".github/workflows/claude-cost-report.yml",
   ".github/workflows/pdf-smoke.yml",
+  ".github/workflows/release-smoke.yml",
   ".github/workflows/soak.yml",
   ".github/workflows/release.yml",
   ".github/workflows/rust-cache-warm.yml",
