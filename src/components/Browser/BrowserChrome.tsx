@@ -77,7 +77,7 @@ export function BrowserChrome({
   };
 
   const leaseIndicator = aiHolds ? (
-    <button type="button" className="browser-ai-lease" onClick={reclaim}>
+    <button type="button" className="vm-btn browser-ai-lease" onClick={reclaim}>
       {t("browser.aiControlling")}
     </button>
   ) : null;
