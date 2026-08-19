@@ -1,18 +1,21 @@
 # MCP ツールリファレンス
 
-VMark は AI アシスタントに **7 つの複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`、`selection`、`browser`、`coherence`。これらは合わせて、エディタの読み書きのバックボーン、ファイル／ウィンドウのライフサイクル、CST セーフなワークフロー編集、選択範囲を対象とするピンポイント編集、制限付きのブラウザナビゲーション、そしてワークスペース整合性レイヤーの読み取り専用ビューをカバーします。
+VMark は AI アシスタントに **9 つの複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`、`selection`、`browser`、`browser_read`、`coherence`、`coherence_resolve`。これらは合わせて、エディタの読み書きのバックボーン、ファイル／ウィンドウのライフサイクル、CST セーフなワークフロー編集、選択範囲を対象とするピンポイント編集、制限付きのブラウザナビゲーション、そしてワークスペース整合性レイヤーのビューをカバーします。
 
-以前の 12 ツール／76 アクションのサーフェスは整理されました — ドキュメント内のフォーマットツール（太字、見出し、テーブルなど）は、AI エージェントがすでに Markdown のラウンドトリップで簡単にこなせる作業を重複していたためです。完全な根拠は [MCP プルーニングプラン](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) を参照してください。
+9 つのうち 3 つ——`session`、`browser_read`、`coherence`——は `readOnlyHint: true` を宣言しているため、MCP クライアントはこれらを自動承認できます。`browser`／`browser_read` と `coherence`／`coherence_resolve` がそもそも別々のツールに分かれているのはこのためです：アノテーションはアクションごとではなく **ツールごと** に付くので、ARIA スナップショットと `execute_js` を 1 つにまとめたツールは、`execute_js` の危険性を表明せざるを得なくなります。「これは何かを変更するか？」という基準で分割することで、それぞれの半分が真実を表明でき、サーフェスの本当に破壊的なアクションをツールリスト内で目立たせられます。
+
+以前の 12 ツール／76 アクションのサーフェスは整理されました——ドキュメント内のフォーマットツール（太字、見出し、テーブルなど）は、AI エージェントがすでに Markdown のラウンドトリップで簡単にこなせる作業を重複していたためです。`selection` は（プルーニングプランの ADR-7 に従い）残されました。ドキュメント全体のラウンドトリップは大きなファイルでは非効率だからです——編集のたびにドキュメント全体を入力トークンとして、ドキュメント全体を出力トークンとして（入力の約 5 倍の料金）支払い、さらに書き込みウィンドウが長くなって古いリビジョンによるリトライループが広がります。完全な根拠は [MCP プルーニングプラン](https://github.com/xiaolai/vmark/blob/main/dev-docs/plans/20260504-mcp-pruning.md) を参照してください。
 
 ::: tip 推奨ワークフロー
 1. `session.get_state` を 1 回呼び出して、開いているウィンドウ、タブ、タブごとの `{filePath, dirty, revision, kind}` を確認します。
-2. Markdown の場合：`document.read` → 推論 → `document.write`（安全な並行性のために `expected_revision` を渡す）。
-3. GitHub Actions YAML（`kind: "yaml-workflow"`）の場合：コメントとアンカーを保持する CST セーフな編集には `workflow.apply_patch`、actionlint 診断には `workflow.validate`。
-4. ファイル操作（開く、保存、閉じる、タブ切り替え）は `workspace` にあります。
+2. 小さな Markdown の変更や全面的な書き直しの場合：`document.read` → 推論 → `document.write`（安全な並行性のために `expected_revision` を渡す）。
+3. 大きな Markdown ファイルで、変更対象の領域をユーザーが選択している場合のピンポイント編集：`selection.get` → 推論 → `selection.set`（入力と出力の両方のトークンコストを選択範囲まで削減）。
+4. GitHub Actions YAML（`kind: "yaml-workflow"`）の場合：コメントとアンカーを保持する CST セーフな編集には `workflow.apply_patch`、actionlint 診断には `workflow.validate`。
+5. ファイル操作（開く、保存、閉じる、タブ切り替え）は `workspace` にあります。
 :::
 
 ::: tip Mermaid ダイアグラム
-MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-validator MCP サーバー](/ja/guide/mermaid#mermaid-validator-mcp-server-syntax-checking) のインストールを検討してください — ダイアグラムがドキュメントに到達する前に、同じ Mermaid v11 パーサーで構文エラーをキャッチします。
+MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-validator MCP サーバー](/guide/mermaid#mermaid-validator-mcp-server-syntax-checking) のインストールを検討してください——ダイアグラムがドキュメントに到達する前に、同じ Mermaid v11 パーサーで構文エラーをキャッチします。
 :::
 
 ---
@@ -33,22 +36,27 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
     {
       "label": "main",
       "focused": true,
+      "activeWorkspaceInstanceId": "wsi-a1b2c3",
       "tabs": [
         {
           "id": "tab-1",
           "filePath": "/path/to/notes.md",
           "title": "notes",
           "dirty": false,
-          "revision": "<revision-token>",
-          "kind": "markdown"
+          "revision": "rev-x7Q3aB1F",
+          "kind": "markdown",
+          "active": true,
+          "visible": true
         },
         {
           "id": "tab-2",
           "filePath": "/repo/.github/workflows/ci.yml",
           "title": "ci",
           "dirty": true,
-          "revision": "<revision-token>",
-          "kind": "yaml-workflow"
+          "revision": "rev-x7Q3aB1F",
+          "kind": "yaml-workflow",
+          "active": false,
+          "visible": false
         }
       ]
     }
@@ -56,10 +64,24 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
   "capabilities": {
     "version": "<vmark-mcp-server version>",
     "supportedKinds": ["markdown", "yaml-workflow"],
-    "mcpProtocol": "<mcp-protocol-version>"
+    "mcpProtocol": "0.2.0"
   }
 }
 ```
+
+#### 画面に実際に表示されているものを知る
+
+タブは存在し、アドレス指定可能でありながら、それでも表示されていないことがあります。3 つのフィールドがそれを示します：
+
+| フィールド | 意味 |
+|---|---|
+| `tab.active` | このタブは、そのウィンドウの現在のタブです。 |
+| `tab.visible` | このタブは今この瞬間にレンダリングされています。ウィンドウが現在表示していないワークスペースインスタンスにタブが属している場合は `false` になります。 |
+| `window.activeWorkspaceInstanceId` | ウィンドウが表示しているワークスペースインスタンス。ワークスペースレールがオフの場合は `null`（その場合はすべてのタブが可視）。 |
+
+`window.focused` は、オペレーティングシステムから読み取った、**ユーザー** が見ているウィンドウです。「このリクエストに応答したウィンドウ」ではありません——VMark は該当するワークスペースを所有するウィンドウにリクエストをルーティングするため、マルチウィンドウのセッションではそれが別のウィンドウであることがよくあります。
+
+これらは確認ステップとして扱ってください：`workspace.switch_tab` の後にもう一度 `get_state` を呼べば、そのタブが本当にユーザーの前面にあるかどうかがわかります。`switch_tab` 自体も応答前にストアを再読み取りするため、アクティブ化が成立しなかった場合は、リクエストをそのまま返すのではなく `activated: false` を報告します。
 
 `kind` の判別子は、そのタブで `document.write`（markdown 用）と `workflow.apply_patch`（yaml-workflow 用）のどちらを使うべきかを示します。
 
@@ -68,6 +90,13 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 ## `workspace`
 
 ファイルとウィンドウのライフサイクル。ドキュメント内のことは扱いません。
+
+> **パスのスコープ。** ファイル操作（`open`、`save`、`save_as`）は、開いている
+> ワークスペースのルートと、すでに開いているドキュメントのディレクトリに限定されます。
+> そのスコープ外のパスへのリクエストは `INVALID_PATH` で拒否されます。ワークスペースが
+> なく、開いているドキュメントもない場合はスコープが存在しないため、ファイル操作は
+> 拒否されます。これにより、自動化されたクライアントはあなたが開いたものの範囲内で
+> 動作します。
 
 ### `new`
 
@@ -82,14 +111,26 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 
 ### `open`
 
-ディスクからファイルを開きます。
+ディスクから **ファイル** を **バックグラウンド** タブに開きます——ユーザーに見えているタブやワークスペースは変わりません。返された `tabId` を `document` ／ `selection` の呼び出しにつなげます；`switch_tab` はユーザーにタブを *見せる* べきときだけ使ってください。
 
 | パラメーター | タイプ | 必須 |
 |-----------|------|------|
 | `filePath` | string | はい |
 | `windowLabel` | string | いいえ |
 
-`{tabId}` を返します。
+`{tabId, workspaceInstanceId, activationChanged, workspaceSwitched}` を返します。
+
+### `open_workspace`
+
+**フォルダー** をアクティブなワークスペースとして開きます。`open`（すでに同意済みのツリー内の単一ファイル）とは異なり、これはアシスタントにまったく新しいファイルツリーへのアクセスを与えるため、**1 回限りのユーザー承認によってゲートされ**、上記のパスのスコープの対象外です。
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `folderPath` | string | はい |
+
+ここでは `new` や `open` と違い、`windowLabel` は **受け付けません**。フォルダーは常にリクエストが届いたウィンドウで開きます。これは意図的です：承認ダイアログと実際のオープンは同じウィンドウに着地する必要があり、クライアントが指定したラベルでは、あるウィンドウの前でプロンプトを表示しながら別のウィンドウを変更する——1 つを承認したのに別のものが返ってくる——事態を招きかねません。マルチウィンドウのターゲティングには、まだ存在しないリクエストルーティングが必要です。
+
+**承認フロー。** 最初の呼び出しは `{needsApproval: true}` を返し、*正規化された* フォルダーパス（シンボリックリンクは解決済み）を示す同意ダイアログを表示します。アシスタントはユーザーに確認したうえで、**同じ呼び出しをリトライ** してください；ユーザーが承認すると、リトライがフォルダーを開きます。拒否されたリクエストは、再承認されるまで失敗し続けます。「記憶する」オプションはありません——各オープンは個別に承認されます。
 
 ### `save`
 
@@ -112,6 +153,8 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 
 `{revision}` を返します。
 
+タブ自身の現在のファイル以外のパスへの保存は、新規書き込みとして扱われます。**編集を自動承認**（設定 → インテグレーション）がオフのとき（デフォルト）、そのようなリクエストは `APPROVAL_REQUIRED` で拒否され、何がブロックされたかがトーストで通知されます。タブ自身のパスへの保存は常に許可されます。
+
 ### `close`
 
 タブを閉じます。`force` なしで未保存の作業を破棄することを拒否します。
@@ -125,11 +168,13 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 
 ### `switch_tab`
 
-タブをアクティブにします。
+タブをアクティブにして **可視** にします。[ワークスペースレール](/guide/workspace-rail) が有効な場合、ユーザーのアクティブなワークスペースコンテキストを切り替えることがあります——その場合レスポンスは `workspaceSwitched: true` を報告するので、アシスタントはユーザーに伝えるべきです。
 
 | パラメーター | タイプ | 必須 |
 |-----------|------|------|
 | `tabId` | string | はい |
+
+`{activated, workspaceSwitched, workspaceInstanceId, activeTabId}` を返します。
 
 ### `focus_window`
 
@@ -151,7 +196,7 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 |-----------|------|------|
 | `tabId` | string | いいえ（デフォルトはフォーカス中のタブ） |
 
-`{content, revision, filePath, kind, dirty}` を返します。書き込み前には必ず読み取ります — `revision` トークンは次の `write` に同伴される必要があります。
+`{content, revision, filePath, kind, dirty}` を返します。書き込み前には必ず読み取ります——`revision` トークンは次の `write` に同伴される必要があります。
 
 ### `write`
 
@@ -166,11 +211,11 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 `expected_revision` が指定されていてその読み取り以降にドキュメントが変更されている場合、レスポンスは現在のリビジョンを含む `STALE` 構造化エラーエンベロープになります；再読み取りしてリトライしてください。
 
 ```json
-// 成功
-{ "revision": "<new-revision-after-write>" }
+// success
+{ "revision": "rev-newAfterWrite" }
 
 // stale
-{ "error": "STALE", "message": "Document has changed since the last read", "current_revision": "<current-revision>" }
+{ "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
 ### `transform`
@@ -193,11 +238,11 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 
 GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セーフな外科的編集**。`kind` が `"yaml-workflow"` のタブでのみ利用可能です。
 
-::: info `document.read` ／ `document.write` はすべてのタブで動作 — ワークフロー YAML を含む
+::: info `document.read` ／ `document.write` はすべてのタブで動作——ワークフロー YAML を含む
 `workflow` ツールは読み書きのバックボーンの代替では **ありません**。ワークフロータブでは以下が可能です：
 
 - `document.read` で生の YAML テキスト（すべてのコメント付き）を取得
-- `document.write` で全体を置き換え（送信した文字列はそのまま保存される — コメントを含めれば保持される）
+- `document.write` で全体を置き換え（送信した文字列はそのまま保存される——コメントを含めれば保持される）
 - 部分的な編集でコメント、アンカー、キー順が確実に保持されることを **サーバー自身に保証** させたい場合は `workflow.apply_patch`
 
 1 つのフィールドを変更しつつ他はそのままにしたい場合は `apply_patch` を使ってください（サーバーは変更しないコメントを落とすことができません）。全体を書き直したり、新しいワークフローをゼロから生成したりする場合は `document.write` を使ってください。
@@ -217,13 +262,13 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 
 | `kind` | 効果 |
 |---|---|
-| `workflow.set` | トップレベルフィールドを設定（`{path, value}`）— `name`、`env.X` など |
+| `workflow.set` | トップレベルフィールドを設定（`{path, value}`）——`name`、`env.X` など |
 | `job.set` | ジョブ上のフィールドを設定（`{jobId, path, value}`） |
 | `step.set` | ステップ上のフィールドを設定（`{jobId, stepIndex, path, value}`） |
 | `with.set` | ステップの `with:` ブロック内のキーを設定（`{jobId, stepIndex, key, value}`） |
 | `with.remove` | ステップの `with:` ブロックからキーを削除 |
 | `needs.add` ／ `needs.remove` | `needs:` からジョブ ID を追加または削除 |
-| `trigger.setFilters` | トリガーのフィルター配列を置き換え — branches、paths、types など（`{event, filter, value: string[]}`） |
+| `trigger.setFilters` | トリガーのフィルター配列を置き換え——branches、paths、types など（`{event, filter, value: string[]}`） |
 
 成功時は `{revision}`、失敗時は構造化された `STALE` ／ `INVALID_PATCH` ／ `NOT_WORKFLOW` エラーエンベロープを返します。
 
@@ -239,18 +284,160 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 
 ---
 
+## `selection`
+
+ユーザーの現在のエディタ選択範囲を読み取るか置き換えます。ユーザーが変更したい領域をハイライトしている場合は、`document.read`／`document.write` の代わりにこれを使ってください——`selection.get` は選択されたスライスだけを返し、`selection.set` はその範囲だけを書き換えるので、トークンコストはドキュメントではなく編集量に比例します。
+
+::: warning 選択範囲はビュー状態——フォーカス中のタブのみ
+選択範囲は、現在レンダリングされているエディタ内にのみ存在します。`tabId` を指定する場合はフォーカス中のタブと一致していなければなりません；一致しない場合は `INVALID_TAB` を返します。フォーカス中のタブに生きているエディタがない場合（読み取り専用ビューアーなど）、レスポンスは `NO_EDITOR` になります。
+:::
+
+### `get`
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `tabId` | string | いいえ |
+
+返り値：
+
+| フィールド | タイプ | 備考 |
+|---|---|---|
+| `text` | string | 選択スライスの Markdown シリアライズ（WYSIWYG モード）、または選択された生テキスト（ソースモード）。折りたたまれている場合は空文字列。 |
+| `isEmpty` | boolean | 選択範囲が折りたたまれている（カーソルのみ）場合は `true`。 |
+| `range` | `{from, to}` | WYSIWYG モードでは ProseMirror の位置；ソースモードでは文字オフセット。 |
+| `mode` | `"wysiwyg"` \| `"source"` | `range` の位置空間を判別します。 |
+| `kind` | `"markdown"` \| `"yaml-workflow"` | ドキュメント種別の判別子。 |
+| `tabId` | string | 確認用にエコーバックされます。 |
+| `revision` | string | 楽観的並行制御のために `set` に渡し返します。 |
+
+### `set`
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `tabId` | string | いいえ |
+| `content` | string | はい |
+| `expected_revision` | string | いいえ（推奨） |
+
+エディタが現在の選択範囲として報告するものを何であれ置き換えます。**WYSIWYG モードでは**、プレーンなインラインテキストはリテラルなテキストノードとして挿入されるため、先頭／末尾の空白が正確に往復します；markdown マーカーを含むコンテンツ（`**bold**`、`*italic*`、`` `code` ``、フェンス付きコード、ブロック引用、リストなど）は markdown として解析され、対応するノードとして挿入されます。**ソースモードでは**、`content` は常に生テキストとしてはめ込まれます——ソースサーフェスはすでに markdown バイト列だからです。空の `content` は選択範囲を削除します。選択範囲が折りたたまれている場合、`content` はカーソル位置に挿入されます。
+
+成功時は `{revision, replaced_chars}` を返します。`replaced_chars` は呼び出し前に選択されていたテキストの長さです——AI が意図したものを編集したかを確認するのに役立ちます。
+
+`STALE` は `document.write` とまったく同じように `{error: "STALE", message, current_revision}` を返します。ドキュメントレベルのリビジョンが `get` と `set` の間のキーストロークを捕捉します。純粋なカーソル移動（キーストロークなし）はサーバーによる調停の対象外です——ユーザーが `get` と `set` の間でカーソルを移動した場合、編集は新しい位置に着地します。
+
+---
+
+## `browser`
+
+埋め込みブラウザサーフェスの **変更を伴う** 半分——ページ、タブ、または保存されたログインを変更するすべて。まず [`browser_read`](#browser-read) でページを読み取ってください：ここでのすべてのターゲティングモードは、読み取りが返したものを参照します。
+
+ブラウザツールは **設定 → 詳細設定 → macOS → 埋め込みブラウザ** に従います。これは macOS では **デフォルトでオン** なので、オフにしない限り、接続された AI クライアントはこれらのツールを利用できます。オフの間、すべてのアクションは `BROWSER_DISABLED` で失敗します。MCP に返される URL は、アプリのブラウザセッション状態で使われるのと同じ境界を通じてマスクされます。
+
+`readOnlyHint: false, destructiveHint: true` とアノテーションされています——ここでのすべてのアクションが何かを変更するため、単に保守的なのではなく正確です。
+
+### `act`
+
+引数：`tabId?`、`operation: "click" | "type" | "scroll" | "key"`、および操作ごとのターゲット：
+
+- **click / type**——ターゲット（`ref`（事前の読み取りから）**または** `role` + `name`）、およびタイプ入力用の `text?`。`ref` は正確で順序に依存しませんが、**すでに許可済み** の操作でのみ尊重されます；アクションが承認を必要とする可能性がある場合は、プロンプトがユーザーに読める要素を示すよう `role` + `name` を使ってください。
+- **scroll**——`ref`（ビューにスクロールインする）**または** `dy`（垂直方向のピクセル差分）。
+- **key**——`key`（例：`"Enter"`、`"Escape"`、`"Tab"`）、ターゲット指定用のオプションの `ref`、およびオプションの `modifiers: {ctrl, shift, alt, meta}`。
+
+`scroll` と `key` は act クラス（承認ゲート付き）で、**合成** DOM イベントをディスパッチするため、`event.isTrusted` でゲートするサイトはこれらを無視することがあります。変更を伴う操作にはオリジンスコープの承認が必要です；AI が選んだアップロードは決して許可されません。
+
+**クリックは成功を報告する前にその効果を検証します。** ターゲットはビューにスクロールインされ、可視にレンダリングされていなければならず（計算済みスタイルと折りたたまれた祖先がチェックされるため、閉じたアコーディオンステップ内の重複ボタンはクリックされずスキップされます）、クリック位置はヒットテストされます——オーバーレイに覆われたターゲットは、突き抜けてクリックするのではなく、覆っている要素の名前（`covered by div.cmp-overlay`）とともに拒否されます。role + name の結果には `matchedTotal` ／ `matchedVisible` のカウントが付き、あいまいさが見えるようになっています。また、すべての act レスポンスにはタブの現在の `url` と `generation` が含まれます。`type` はテキストフィールド、`<select>` コントロール（オプションのラベルまたは値を渡す；存在しないオプションは `no-such-option` として拒否される）、および `contenteditable` 領域を扱います。
+
+### `workflow_run` / `workflow_cancel`
+
+`workflow_run` は、`source` テキストとして渡したワークフローを AI 所有のタブで実行します。引数：`tabId?`、`source`（ワークフローテキスト——小さな行指向の文法；このビルドではあなたか AI がそれを書きます。また、いずれ搭載されるアプリ内レコーダーが生成する形式でもあります）、`inputs?`（`{name}` 参照に代入される `{name: value}` のマップ）、`allowRepeat?`。これは `{runId, steps}` を **即座に** 返します——複数ステップの実行は 1 回のリクエストより長く続くことがあるため、実行は **非同期** に行われます。進捗は [`browser_read`](#browser-read) の `workflow_status` をポーリングしてください。
+
+決定的なステップ——その文法での `click` ／ `type` ／ `navigate`、および `extract`——は VMark 内で実行され、手動で発行した `act` とまったく同じように **個別に承認ゲートされます**：実行は各ステップをそれぞれ個別に認可するので、ワークフローは承認プロンプトを回避する手段にはなりません。`goal`、`confirm`、`api`、およびあらゆる自由記述のステップは、AI が手動で処理できるよう実行を **一時停止** します。再実行は、このセッションですでに成功した **書き込みステップをスキップ** します（完了済み書き込みの台帳）。ただし `allowRepeat` が設定されている場合は別です——そのため一時停止後の再実行が二重送信になることはありません。
+
+`workflow_cancel {tabId?, runId}` は実行を停止します。これは **決して承認ゲートされません**——停止は常に許可されます——そして実行の保留中のプロンプトを取り下げ、タブをあなたに返します。あなたがブラウザを引き継いだ瞬間（ページやそのクロムへの何らかの操作が制御を取り戻す）にも実行は停止します。
+
+実行には上限があり（≤ 25 ステップ、≤ 120 秒、source ≤ 64 KiB）、タブごとに一度に 1 つだけです。
+
+### `open`
+
+引数：`url` とオプションの `timeoutMs`（1〜12,000 ms）。現在の Sandbox または Shared のポスチャを使って AI 所有のタブを作成し、ロード完了後にその `tabId`、`navigationId`、URL、タイトル、generation を返します。
+
+### `navigate`
+
+引数：`tabId?`、`url`、およびオプションの `timeoutMs`。AI 所有のタブをナビゲートし、ナビゲーションチケットの結果を返します。タイムアウトしてもチケットは返されるので、後から `wait` で最終結果を取得できます。
+
+**ゲート検出。** ロードされた `open` ／ `navigate` ／ `wait` の結果は、着地したページが **ログインウォール**、**同意インタースティシャル**、**人間確認チャレンジ**、または **レート制限** として読み取れる場合に `gate: {kind, hint}` を持つことがあります——これにより AI は、結果を読んだその瞬間に、要求したコンテンツを見ていないことに気づきます。検出は精度優先で（レンダリングされたチャレンジウィジェット、または簡潔なページ上の少なくとも 2 つの独立したシグナル——`$429` の価格、「Protected by Cloudflare」のフッター；CAPTCHA *について書かれた* 記事は決して分類されません）、純粋に助言的です：AI に伝えられる内容を変えるだけで、認可されているものは変えません。すべてのヒントは、ゲートを回避するのではなく、あなたを巻き込む方向を指します。
+
+### `style`
+
+引数：`tabId?`、ターゲット（`ref` **または** `selector`）、および `set: {prop: value}`、`addClasses`、`removeClasses`、`injectCss` のいずれか 1 つ。ブロックしているオーバーレイの解除、ターゲットのハイライトなど。**act クラス**（承認ゲート付き、op `style`）。隔離されたコンテンツワールド。
+
+### `execute_js`
+
+引数：`tabId?`、`script`（JSON シリアライズ可能な値を `return` する必要があります）。構造化された動詞では表現できないことのための逃げ道です。**隔離されたコンテンツワールド** で実行されます——DOM は共有しますが（`querySelector`、`element.style` は動作します）、ページ自身の JS ヒープ／グローバルは **見られません**。承認は **呼び出しごとのみ**（決して常設の付与ではなく、Rust ドライバーで強制されます）で、承認はスクリプトを表示し、返り値は **信頼できない** ものとしてフラグ付けされ、後続の `act` に自動的に渡されることはありません。まず `query`／`style` を優先してください。
+
+### `session_save` / `session_load`
+
+引数：`tabId?`、`handle`（`[A-Za-z0-9._-]`、1〜128 文字）。`session_save` はタブのセッションを `handle` で名付けた **OS キーチェーン** エントリにスナップショットし、値を含まないサマリー（カウント）を返します；`session_load` はそれを復元し、`{loaded: true, handle}`——確認と AI が指定したハンドルのみで、値は一切含みません——を返します。`session_load` は、セッションが保存された **同じオリジン** のページにのみ適用されます。これは **参照による** 資格情報です（ADR-A7）：AI は保存されたセッションを名前で指定し、クッキー／トークンの値を受け取ることは決してなく、それらがログに記録されることもありません。どちらも `session` 権限で——**決して常設の付与ではなく**（呼び出しごとに承認）、あるハンドルの承認を別のハンドルに流用することはできません。*現時点ではこれは `localStorage` を対象とします；クッキーのキャプチャはライブテストのフォローアップです。*
+
+### `console_clear`
+
+引数：`tabId?`。[`browser_read`](#browser-read) の `console` とまったく同じように `{entries: [{level, text}], url}` を返し、**バッファをドレイン** するので、次の読み取りには新しい出力だけが見えます。他のコンソール読み取りと一緒ではなくここに置かれているのは、ドレインがページ内で `element.textContent = "[]"` を評価する——DOM 書き込み——だからです。
+
+Shared のポスチャは、一致する `navigate` の付与が存在しない限り、新しいオリジンごとに宛先の承認を求めます。人間が作成したタブは、AI の読み取り／操作の前に一時的なアタッチメント承認を必要とします。Sandbox タブは別の非永続的な AI クッキーストアを使用します。
+
+---
+
+## `browser_read`
+
+**読み取り専用** の半分：タブを変更せずに観察します。`readOnlyHint: true` とアノテーションされているため、MCP クライアントはこれを自動承認できます——それがこの分割の狙いです。これらのアクションは以前 `browser` にあり、そこでは 1 つのツールレベルのアノテーションが `execute_js` も記述しなければならなかったため、ARIA スナップショットを取るだけで人間の承認が必要でした。
+
+`openWorldHint` は `true` のままです：読み取り専用が記述するのは、ツールが *何を変更するか* であって、そのバイト列が信頼できるかどうかではありません。返されるものはすべてページに制御され、**信頼できません**——結果をそのまま `browser` の act ターゲットとして渡さないでください。
+
+### `read`
+
+フォーカス中のブラウザタブ、または `tabId` で指定したタブについて `{url, snapshot}` を返します。`snapshot` は `{role, name, ref}` の ARIA 指向のリストです——各 `ref`（例：`"e5"`）はその要素の安定したハンドルで、現在のビューが存続する間有効です。
+
+### `screenshot`
+
+引数：`tabId?`。タブの現在のレンダリングの **画像コンテンツブロック**（base64 JPEG、品質制限あり）と、ページ名を示すテキスト行を返します——ARIA スナップショットでは記述できない、レイアウトとレンダリング状態への視覚的なチャネルです。ネイティブに（`takeSnapshot`）キャプチャされ、ページの DOM や JavaScript を一切読み取りません。read クラス：`read` とまったく同じように認可されます（AI 所有のタブで許可；人間のタブにはアタッチメントが必要で、キャプチャ時に消費されます）。
+
+### `query`
+
+引数：`tabId?`、`selector`（CSS）、およびオプションの `fields: {attributes, box, styles:[...]}`。`{count, elements: [{ref, tag, text, …}]}` を返します——ARIA スナップショットでは名付けられない構造化 DOM データ（テーブル、計算値）。**read クラス。** 隔離されたコンテンツワールドで実行されます。
+
+### `extract`
+
+引数：`tabId?`。`{title, byline, url, markdown, textLength, truncated}` を返します——ページを **リーダーモードの Markdown** として、AI が操作するのではなく *読みたい* ページのために。1 回の上限付きキャプチャがページの HTML をエクスポートします；抽出自体はページ内ではなく VMark 内で実行されます：そのオリジンに登録された **サイトプラグイン** が最初の権利を持ち（組み込みの Wikipedia プラグインは wiki のクロム——インフォボックス、ナビゲーションボックス、ハットノート、編集リンク——を名前で取り除きます）、汎用の密度ヒューリスティックリーダーが他のすべてのサイトのフォールバックです。`truncated: true` は、ページがキャプチャ上限を超え、末尾が読まれなかったことを意味します。**read クラス。** 返されるものはすべてページ由来で信頼できません。
+
+### `workflow_status`
+
+引数：`tabId?`、`runId`（`workflow_run` から）。`{status, completedSteps, stepCount, pausedAt?, reasonCode?, reason?, stepResults}` を返します。`status` は `running` ／ `paused` ／ `completed` ／ `failed` ／ `cancelled` のいずれかです。`paused` の状態は、あなたを必要とするステップを `pausedAt` で示します。**read クラス**——自由にポーリングしてください。
+
+### `console`
+
+引数：`tabId?`。`{entries: [{level, text}], url}` を返します——ページがキャプチャした `console.*` の出力に加え、**キャッチされなかったエラーと未処理の Promise リジェクション**（`Uncaught` ／ `Unhandled rejection:` を接頭辞とする `level: "error"` エントリとして記録されます——`console.*` のパッチだけでは決して見えないシグナル）。Sandbox タブのみ。キャプチャは、ページワールドのシムが隠し DOM バッファに書き込み、ドライバーが隔離ワールドからそれを読み取ることで機能します——したがって VMark へ戻る **メッセージングチャネルは開かれません**（ブリッジなしの保証が保たれます）。出力はページに制御され、**信頼できません**——`read` のように扱い、決して `act` のターゲットにしないでください。
+
+バッファは上限付きのリングなので、連続した読み取りは重複します。読みながらドレインするには、[`browser`](#browser) の `console_clear` を使ってください——ドレインはページのバッファ要素に `[]` を書き込みますが、これは DOM 書き込みであり、したがって `readOnlyHint: true` の下には置けません。
+
+### `wait`
+
+引数：`tabId?`、オプションの `navigationId`、およびオプションの `timeoutMs`。ナビゲーションを開始することは決してありません。バッファされたロード／失敗の結果、`NAVIGATION_SUPERSEDED`、またはチケットが制限時間内に完了しない場合は `TIMEOUT` を返します。
+
+### `wait_for`
+
+引数：`tabId?`、`ref`（読み取りから）、`role`（+ オプションの `name`）、`text`（可視テキストの部分文字列）、`urlContains`（タブの URL が含まなければならない部分文字列——クリックによるナビゲーションが着地したことを、ページのラウンドトリップなしにタブの状態から確認します）のうち **ちょうど 1 つ**、およびオプションの `timeoutMs`（1〜12,000 ms）。条件が成立するかタイムアウトが経過するまでポーリングし、`{matched: true|false}`（ref/role 条件の場合は一致した要素の `ref` も）を返します——これにより「見つかった」と「タイムアウトした」を区別できます。read クラス。フローを決定的にするために使ってください：操作し、`wait_for` で結果を待ち、それから読み取ります。
+
+---
+
 ## `coherence`
 
-ワークスペース整合性レイヤーの**読み取り専用**ビュー — どの派生ドキュメントが、その生成元となった上流に対して古くなっているかを示します。どちらのアクションもドキュメント、台帳、エディタ状態を一切変更しません；両方とも Rust バックエンドがワークスペースごとのカーネルから直接応答するため、エディタウィンドウが前面になくても動作します。
+ワークスペース整合性レイヤーの **読み取り専用** ビュー——どの派生ドキュメントが、その生成元となった上流に対して古くなっているかを示します。どのアクションもドキュメントやエディタ状態を変更しません。`status` は読み取り専用です；`edges` は先に照合を行い、由来レコードをワークスペースの台帳に追記することがありますが、ドキュメントの内容を変更することは決してありません。すべて Rust バックエンドがワークスペースごとのカーネルから完全に応答するため、エディタウィンドウが前面になくても動作します。
 
 さらに 2 つの読み取り専用アクションがセマンティックレイヤーを公開します：
 
-- `claims` — 現在のカノン設定：`{claim, entryId, statement, maturity, invalidAt, visible}`。セマンティックチェックの制約になるのは `established` の設定だけです。`visible` はデフォルトコンテキストを反映します。
-- `contexts` — コンテキストの集合（暗黙の `default` は常に存在します）：`{id, name, parent, enforcement, visibleClaims, errors}`。
+- `claims`——現在のカノン設定：`{claim, entryId, statement, maturity, invalidAt, visible}`。セマンティックチェックの制約になるのは `established` の設定だけです。`visible` はデフォルトコンテキストを反映します。
+- `contexts`——コンテキストの集合（暗黙の `default` は常に存在します）：`{id, name, parent, enforcement, visibleClaims, errors}`。
 
-変更を伴うアクションが 1 つ、委任によってゲートされます：
-
-- `resolve` — 明示的に委任されたエージェントとして、活きている古くなったエッジを解決します：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。認可は fail-closed です：ワークスペースの所有者が **認証済みのブリッジ ID** に対して、その解決の種類をカバーする有効で失効していない委任を（アプリ内で、内訳から）付与している必要があり、かつエッジが活きていなければなりません。委任による解決はすべて、その付与に紐づけて監査ログに記録されます。設定とコンテキストの変更が公開されることは決してありません — カノンは人間の管理下にとどまります。
+`readOnlyHint: true` とアノテーションされています。唯一の変更を伴うアクション `resolve` は独自のツールに置かれており——[`coherence_resolve`](#coherence-resolve) を参照——それがこのツールを自動承認可能にしています。設定とコンテキストの変更はまったく公開されません：カノンは人間の管理下にとどまります。
 
 すべてのアクションで `workspace_root`（照会するワークスペースの絶対パス）が必要です。`session.get_state`（開いているタブの `filePath`）または workspace ツールから取得できます。パスが欠落している、絶対パスでない、またはディレクトリでない場合は、平文の文字列エラーで拒否されます。
 
@@ -278,7 +465,7 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 |---|---|
 | `initialized` | ワークスペースにまだ整合性台帳がない（`.vmark/` ディレクトリがない）場合は `false`。その場合、`objects` 以外のカウンターはすべて 0 です。 |
 | `objects` | 追跡中のオブジェクト（整合性 ID を持つファイル）。 |
-| `open_items` | 現存する非フレッシュなエッジ — 現在の内訳の件数。 |
+| `open_items` | 現存する非フレッシュなエッジ——現在の内訳の件数。 |
 | `quarantined` | 直近の読み取りで隔離された不正な台帳行。 |
 | `writer` | このインストールのライター ID（UUID）。 |
 
@@ -290,7 +477,7 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 |-----------|------|------|-----|
 | `workspace_root` | string | はい | 照会するワークスペースの絶対パス |
 
-**返り値**は配列 — すべて整合している場合は空です：
+**返り値**は配列——すべて整合している場合は空です：
 
 ```json
 [
@@ -316,7 +503,21 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 | `downstream` ／ `downstream_path` ／ `downstream_rev` | 派生オブジェクト、そのパス、および現在のリビジョン。 |
 | `state` | `"version-stale"`、`"stale-valid"`、`"stale-contradicted"`、`"stale-unknown"`、`"waived"`、`"diverged"`、`"diverged-multi-head"`、または `"unpinnable"`。 |
 
-エッジの解決（新しい版の受け入れ／免除）は、VMark の内訳ビューで人間が行う操作です — 意図的に MCP には公開されていません。
+エッジの解決（新しい版の受け入れ／免除）は、通常は VMark の内訳ビューで人間が行う操作です。AI がそれを行えるのは [`coherence_resolve`](#coherence-resolve) を通じてのみで、しかもワークスペースの所有者がそれを明示的に委任した場合に限られます。
+
+---
+
+## `coherence_resolve`
+
+整合性レイヤー上の **唯一の変更を伴うアクション** で、[`coherence`](#coherence) を自動承認可能に保つために独自のツールになっています——そして取り消し不可能なものが、5 つの列挙値の 1 つとして埋もれるのではなく、ツールリスト内で目立つようにするためでもあります。`readOnlyHint: false, destructiveHint: true` とアノテーションされています。
+
+### `resolve`
+
+引数：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。`txf` と `input` は `coherence` → `edges` の行から取得します。
+
+明示的に委任されたエージェントとして、活きている古くなったエッジを解決します。認可は **fail-closed** です：ワークスペースの所有者が **あなたの認証済みブリッジ ID** に対して、その解決の種類をカバーする有効で失効していない委任を（アプリ内で、内訳から）付与している必要があり、かつエッジがまだ活きていなければなりません。委任による解決はすべて、その付与に紐づけて監査ログに記録され、そのエントリは取り消せません。
+
+拒否は、付与が欠落しているか失効していることを意味します——リトライするのではなく、ユーザーに付与を求めてください。これを `coherence` から分離してもセキュリティ特性は何も変わりません：認可は常に認証済みのブリッジプリンシパルをキーにしており、クライアントが主張する何かをキーにしたことは一度もありません。
 
 ---
 
@@ -324,21 +525,23 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 
 2 種類のエラー形状が現れます：
 
-**ドメインエラー** — `success: false` を設定し、JSON エンコードされたエンベロープを `error` で返します：
+**ドメインエラー**——`success: false` を設定し、JSON エンコードされたエンベロープを `error` で返します：
 
 ```json
-{ "error": "STALE", "message": "...", "current_revision": "<current-revision>" }
+{ "error": "STALE", "message": "...", "current_revision": "rev-..." }
 ```
 
-**引数形状エラー** — 必須引数の不足／不正（例: `content` フィールドなしの `document.write`）の場合、`error` は問題を説明する平文の文字列です。構造化エンベロープはドメインレベルの条件のために予約されています。
+**引数形状エラー**——必須引数の不足／不正（例: `content` フィールドなしの `document.write`）の場合、`error` は問題を説明する平文の文字列です。構造化エンベロープはドメインレベルの条件のために予約されています。
 
 | コード | 表面化形式 | 意味 |
 |---|---|---|
 | `STALE` | エンベロープ | `expected_revision` が一致しなかった；再読み取りしてリトライ |
 | `INVALID_PATCH` | エンベロープ | `workflow.apply_patch` が不正な `patches` 配列を受信 |
 | `INVALID_TAB` | エンベロープ | `tabId` を解決できなかった |
-| `INVALID_PATH` | エンベロープ | `workspace.open` が読み取れない `filePath` を受信 |
+| `INVALID_PATH` | エンベロープ | `filePath` を読み取れなかった、または開いているワークスペース／ドキュメントのスコープ外 |
+| `APPROVAL_REQUIRED` | エンベロープ | **編集を自動承認** がオフの状態で、新しい場所への `save_as` |
 | `NOT_WORKFLOW` | エンベロープ | 非 YAML ワークフロータブで `workflow.*` が呼ばれた |
 | `READ_ONLY` | エンベロープ | 読み取り専用ドキュメントへのミューテーションが試行された |
+| `NO_EDITOR` | エンベロープ | `selection.*` が呼ばれたがフォーカス中のタブに生きているエディタがない |
 | `INTERNAL` | エンベロープ | ハンドラーで予期しないエラー |
 | （平文文字列） | 文字列 | 必須引数の欠落または型違い |
