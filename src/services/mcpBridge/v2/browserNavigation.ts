@@ -25,6 +25,7 @@ import {
   validateNonEmptyString,
   validateTimeout,
 } from "./browserHelpers";
+import { probeGate } from "./browserGateProbe";
 
 type NavigationResult = { tabId: string; navigationId: string };
 
@@ -92,7 +93,14 @@ async function waitForNavigation(
       url: result.url,
       generation: result.generation,
     });
-    await respond({ id, success: true, data: eventData(result, tabId) });
+    // Advisory gate verdict (WI-NB2.2): best-effort, absent for ordinary pages
+    // and on any probe failure — a gate must never degrade a loaded result.
+    const gate = await probeGate(tabId, result.generation);
+    await respond({
+      id,
+      success: true,
+      data: { ...eventData(result, tabId), ...(gate ? { gate } : {}) },
+    });
   } else if (result.kind === "failed") {
     await failure(id, "NAVIGATION_FAILED", {
       ...eventData(result, tabId),

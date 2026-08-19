@@ -403,6 +403,16 @@ Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab 
 the navigation ticket result. A timeout still returns the ticket so a later `wait` can
 retrieve the terminal result.
 
+**Gate detection.** A loaded `open` / `navigate` / `wait` result may carry
+`gate: {kind, hint}` when the landed page reads as a **login wall**, **consent
+interstitial**, **human-verification challenge**, or **rate limit** — so the AI learns it
+is not looking at the content it asked for, at the moment it reads the result. Detection
+is precision-first (a rendered challenge widget, or at least two independent signals on a
+terse page — a `$429` price, a "Protected by Cloudflare" footer, or an article *about*
+CAPTCHAs never classify) and purely advisory: it changes what the AI is told, never what
+is authorized, and every hint points at involving you rather than routing around the
+gate.
+
 ### `style`
 
 Arguments: `tabId?`, a target (`ref` **or** `selector`), and one of `set: {prop: value}`,
