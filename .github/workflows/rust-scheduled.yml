@@ -1,0 +1,118 @@
+name: Rust drift check
+
+# The Rust gate on a CLOCK, because the PR-tier one runs on a PATH.
+#
+# `ci.yml`'s `rust-test` is path-filtered to `src-tauri/**` and `Cargo.lock`,
+# which is correct — a docs-only PR should not compile three OSes. But it means
+# Rust CI only runs when someone touches Rust, while the things it checks drift
+# on their own schedule:
+#
+#   - `dtolnay/rust-toolchain@stable` follows the channel, so a new release adds
+#     lints that `-D warnings` turns into errors with no code change;
+#   - `cargo machete` and the dependency graph move under the lockfile.
+#
+# That gap is not hypothetical. On 2026-08-20 a PR that changed nothing but
+# version strings failed `rust-test` on two clippy 1.98 errors
+# (`result_large_err`, `drain_collect`) that had been latent on `main` since the
+# toolchain rolled. The bump did not cause them; it was simply the first change
+# in a while to touch `Cargo.toml` and therefore the first to RUN the job. Every
+# docs and frontend PR in between had reported green while the Rust gate had no
+# opinion at all.
+#
+# Weekly is deliberate. Rust stable ships every six weeks, so a weekly run gives
+# roughly six chances to see a new release before someone trips over it, at
+# ~30 runner-minutes a week. Daily would buy nothing a release cadence can use.
+#
+# This runs the SAME steps as ci.yml's `rust-test` rather than a reduced set: a
+# drift check that skips a step is a drift check with a blind spot, and the one
+# it skipped is where the next surprise lives.
+#
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs. A scheduled gate that quietly
+#     stops producing verdicts looks exactly like one that is passing — which is
+#     the failure this workflow exists to prevent, so it is not exempt from it.
+
+on:
+  workflow_dispatch:
+  # Weekly, Monday 05:10 UTC — after rust-cache-warm (04:43) so the compiled
+  # cache is warm, and before mutation (06:00) so the scheduled suites do not
+  # contend for runners.
+  schedule:
+    - cron: "10 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-scheduled
+  cancel-in-progress: true
+
+jobs:
+  rust-drift:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tauri-deps
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable branch
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      # Same `shared-key` as ci.yml, populated from `main` by rust-cache-warm.
+      # `cache-on-failure: false` for the reason ci.yml gives: a half-written
+      # target dir restored on the next run produces failures that reproduce
+      # nowhere else — and on a scheduled job nobody is watching to notice.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: "src-tauri -> target"
+          shared-key: "ci-rust-v1"
+          cache-on-failure: "false"
+
+      - name: Create sidecar stub for Tauri build script
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            triple="x86_64-pc-windows-msvc"
+            ext=".exe"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            triple="x86_64-unknown-linux-gnu"
+            ext=""
+          else
+            triple="aarch64-apple-darwin"
+            ext=""
+          fi
+          touch "src-tauri/binaries/vmark-mcp-server-${triple}${ext}"
+
+      - name: Report the toolchain under test
+        # The version is the whole point of this run: when it goes red, the
+        # first question is "which stable?", and the answer should be in the log
+        # rather than inferred from the date.
+        run: rustc --version && cargo clippy --version
+
+      # rustfmt is textual and platform-independent — one OS leg is enough.
+      - name: Format check (rustfmt)
+        if: runner.os == 'Linux'
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Unused Cargo dependencies (cargo-machete)
+        if: runner.os == 'Linux'
+        run: |
+          cargo install cargo-machete --locked --version ^0.9 || true
+          cargo machete src-tauri
+
+      # Per-OS: cfg-gated platform code never compiles on the other legs, and a
+      # new lint firing only inside a `#[cfg(windows)]` block is exactly the
+      # kind of drift this workflow is for.
+      - name: Lint (clippy, warnings are errors)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
