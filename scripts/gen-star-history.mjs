@@ -37,14 +37,36 @@
  *
  * Colors are mid-tone so the chart reads on both light and dark GitHub themes
  * (GitHub sanitizes SVG <style>/prefers-color-scheme, so a single neutral asset
- * is more reliable than theme-swapped sources). The wobble is drawn from a
- * SEEDED PRNG: identical star data must render byte-identical SVG, because the
- * refresh workflow commits only when the file changed.
+ * is more reliable than theme-swapped sources).
+ *
+ * WHY ROUGH.JS AND NOT A HAND-ROLLED WOBBLE. This file used to shake a polyline
+ * with its own PRNG, and the result never read as hand-drawn — the axes did,
+ * because the eye holds a perfect straight line to compare them against, but the
+ * data line did not, because a curve offers no such reference and every
+ * deviation just reads as "the data did that". Shaking it harder only misstates
+ * the numbers. Two things fix it, and both come free from rough.js:
+ *
+ *   1. CURVES. A hand does not draw polylines. rough.js emits cubic Béziers
+ *      (`bcurveTo` ops), and multi-strokes each shape by default, which is the
+ *      cue that reads as a pen on a shape with no ideal to compare against.
+ *   2. HACHURE. Shading as a bundle of ruled pen strokes is something a person
+ *      could have done; a smooth vertical gradient is unmistakably a machine.
+ *
+ * `rough.generator()` is the DOM-free entry point — `rough.canvas()`/`rough.svg()`
+ * both need a document — and `opsToPath` serialises an OpSet to an SVG `d`
+ * string, so this runs under plain Node with no jsdom. roughjs is MIT, which ISC
+ * can carry (unlike chart.xkcd's `xkcd Script` font — see above).
+ *
+ * Every shape is given an explicit `seed`, reset per render: identical star data
+ * must produce byte-identical SVG, because the refresh workflow commits only
+ * when the file changed. Unseeded, rough.js would randomise every run and commit
+ * a new chart every week forever.
  */
 import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import rough from "roughjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = "xiaolai/vmark";
@@ -105,72 +127,62 @@ function niceMax(v) {
   return 10 * pow;
 }
 
-// Deterministic PRNG (mulberry32) — see header for why not Math.random().
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/**
+ * One rough.js generator for the whole chart. `rough.generator()` needs no DOM —
+ * unlike `rough.canvas()`/`rough.svg()`, which do — so it runs under plain Node,
+ * and `opsToPath` serialises its OpSets straight to an SVG `d` string.
+ */
+const gen = rough.generator();
 
 /**
- * Hand-drawn path: subdivide the polyline into ~`step`px pieces and nudge each
- * joint perpendicular to its segment by a smoothed random offset. This is
- * chart.xkcd's wobble done geometrically, so it needs no SVG filter support
- * (feTurbulence inside <img> is spotty in some renderers). First and last
- * points stay exact so the line lands on the real values.
+ * Deterministic seeds. rough.js randomises per shape unless given a `seed`, and
+ * the refresh workflow commits only when the file changed — an unseeded chart
+ * would produce a commit every week forever. Reset per render so output depends
+ * on the DATA alone.
+ */
+let seedCounter = 0;
+const nextSeed = () => (seedCounter += 7919);
+
+/**
+ * Every OpSet of a rough.js drawable, as SVG markup.
  *
- * Returns the wobbled points AND the index each ORIGINAL vertex landed at, so
- * markers can be pinned to the drawn line rather than to the ideal one. At the
- * amplitude the data line needs (see `HAND`) a dot placed at the true position
- * sits visibly beside the stroke instead of on it.
+ * Each path carries a semantic `class`, so the tests can ask for "the data line"
+ * rather than matching on a stroke colour or width. Both of those are shared —
+ * the hachure strokes the area in the ACCENT colour too — and a test that
+ * selected by colour would silently start measuring the shading instead.
  */
-function roughPoints(pts, rng, { step = 11, mag = 4.0 } = {}) {
-  const sub = [pts[0]];
-  const normals = [[0, 0]];
-  const anchors = [0];
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1];
-    const [x1, y1] = pts[i];
-    const dx = x1 - x0, dy = y1 - y0;
-    const len = Math.hypot(dx, dy);
-    const n = Math.max(1, Math.round(len / step));
-    const nrm = len ? [-dy / len, dx / len] : [0, 0];
-    for (let j = 1; j <= n; j++) {
-      sub.push([x0 + (dx * j) / n, y0 + (dy * j) / n]);
-      normals.push(nrm);
-    }
-    anchors.push(sub.length - 1);
-  }
-  const raw = sub.map(() => (rng() - 0.5) * 2 * mag);
-  raw[0] = 0;
-  raw[raw.length - 1] = 0;
-  // one smoothing pass so the wobble reads as a shaky hand, not as noise
-  const off = raw.map((o, i) => (i === 0 || i === raw.length - 1 ? o : (raw[i - 1] + o + raw[i + 1]) / 3));
-  const out = sub.map(([x, y], i) => [x + normals[i][0] * off[i], y + normals[i][1] * off[i]]);
-  out.anchors = anchors;
-  return out;
+function drawablePaths(drawable, cls, { stroke, strokeWidth, fill, fillOpacity = 1 }) {
+  return drawable.sets
+    .map((set) => {
+      const d = gen.opsToPath(set);
+      // Hachure/zigzag shading: a bundle of separate strokes, not a filled shape.
+      if (set.type === "fillSketch") {
+        return `<path class="${cls}-hachure" d="${d}" fill="none" stroke="${fill}" stroke-width="${drawable.options.fillWeight}" stroke-linecap="round" opacity="${fillOpacity}"/>`;
+      }
+      if (set.type === "fillPath") {
+        return `<path class="${cls}-fill" d="${d}" fill="${fill}" stroke="none" opacity="${fillOpacity}"/>`;
+      }
+      return `<path class="${cls}" d="${d}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    })
+    .join("\n  ");
 }
 
-const toPath = (pts) => pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-
 /**
- * Five-pointed star as geometry. U+2605 is absent from every handwriting font
- * considered here (including star-history.com's own xkcd Script), so drawing it
- * is the only way to keep the SVG free of un-embedded glyphs.
+ * Five-pointed star, drawn by the same hand as everything else. U+2605 is absent
+ * from every handwriting font considered here (including star-history.com's own
+ * xkcd Script), so it has to be geometry; a literal ★ in a <text> node would
+ * fall back to a system font and undo the embedding.
  */
-function starPath(cx, cy, R) {
+function starDrawable(cx, cy, R) {
   const pts = [];
   for (let i = 0; i < 10; i++) {
     const a = (-90 + i * 36) * (Math.PI / 180);
     const r = i % 2 === 0 ? R : R * 0.42;
     pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
   }
-  return `${toPath(pts)} Z`;
+  return gen.polygon(pts, {
+    seed: nextSeed(), roughness: 0.8, fill: ACCENT, fillStyle: "solid", stroke: ACCENT, strokeWidth: 1.2,
+  });
 }
 
 /** The subset font, inlined — see the header for why naming it is not enough. */
@@ -179,62 +191,83 @@ function fontFaceStyle() {
   return `<style>@font-face{font-family:'${FONT_FAMILY}';font-style:normal;font-weight:400;src:url(data:font/woff2;base64,${b64}) format('woff2');}</style>`;
 }
 
-export function render(series) {
-  const W = 800, H = 400;
-  const M = { top: 48, right: 28, bottom: 48, left: 56 };
-  const iw = W - M.left - M.right, ih = H - M.top - M.bottom;
-  const rng = mulberry32(0xc0ffee);
+/** Plot box, in SVG units. */
+export const PLOT = { W: 800, H: 400, M: { top: 48, right: 28, bottom: 48, left: 56 } };
 
+/**
+ * Project a series onto plot pixels — the TRUE positions, before any hand is
+ * applied.
+ *
+ * Exported because it is the only thing that knows where the data really sits,
+ * and the accuracy bound is worth testing. The markers cannot stand in for it:
+ * a sketched circle's path starts somewhere on its outline, ~half a marker away
+ * from the point it marks, which is a 5.9px error that reads as a real one.
+ */
+export function projectSeries(series) {
+  const { W, H, M } = PLOT;
+  const iw = W - M.left - M.right, ih = H - M.top - M.bottom;
   const t0 = series[0][0], t1 = series[series.length - 1][0];
   const yMax = niceMax(series[series.length - 1][1]);
   const x = (t) => M.left + ((t - t0) / (t1 - t0 || 1)) * iw;
   const y = (c) => M.top + ih - (c / yMax) * ih;
+  return { x, y, yMax, iw, ih, t0, t1, xAxisY: M.top + ih, pts: series.map(([t, c]) => [x(t), y(c)]) };
+}
 
-  // TWO strokes, wobbled independently — this is what makes a CURVE read as
-  // hand-drawn, and a single wobbled stroke does not. Wobble is only perceivable
-  // against a known-ideal shape: on the axes the eye holds a perfect straight
-  // line to compare against, so ±1px of tremor is obvious. A data curve has no
-  // such reference — any deviation just reads as "the data did that" — so the
-  // old single stroke looked plotted no matter how hard it was shaken, and
-  // raising the amplitude only misstated the numbers. Two nearly-parallel
-  // strokes that separate and rejoin is something no plotter produces, so it
-  // reads as a pen regardless of the underlying shape. rough.js works this way
-  // for the same reason.
-  const idealPts = series.map(([t, c]) => [x(t), y(c)]);
-  const strokeA = roughPoints(idealPts, rng, HAND);
-  const strokeB = roughPoints(idealPts, rng, HAND);
-  const line = toPath(strokeA);
-  const line2 = toPath(strokeB);
-  const area = `${line} L${x(t1).toFixed(1)},${(M.top + ih).toFixed(1)} L${x(t0).toFixed(1)},${(M.top + ih).toFixed(1)} Z`;
+export function render(series) {
+  const { W, H, M } = PLOT;
+  seedCounter = 0; // output must depend on the data alone
 
-  // hand-drawn axes with tick marks (no gridlines — matches the xkcd look)
-  const axis = (x1, y1, x2, y2) => toPath(roughPoints([[x1, y1], [x2, y2]], rng, { step: 22, mag: 1.8 }));
-  const xAxisY = M.top + ih;
+  const { x, y, yMax, t0, t1, xAxisY, pts } = projectSeries(series);
+
+  // The data line is a rough.js CURVE, so it is cubic Béziers — a polyline is
+  // the one thing a hand never draws, and no amount of shaking a polyline fixes
+  // that. rough.js also multi-strokes by default, which is the cue that reads as
+  // pen-on-paper on a shape the eye has no ideal to compare against.
+  const curve = gen.curve(pts, {
+    seed: nextSeed(), roughness: HAND.roughness, bowing: HAND.bowing, strokeWidth: HAND.strokeWidth,
+  });
+
+  // Hachure, not a gradient: a bundle of ruled pen strokes is shading a person
+  // could have done, and a smooth vertical gradient is unmistakably a machine.
+  // Solid fill was tried and buries the chart in a block of colour.
+  const area = gen.polygon([...pts, [x(t1), xAxisY], [x(t0), xAxisY]], {
+    seed: nextSeed(), roughness: 1.0, fill: ACCENT, fillStyle: "hachure",
+    fillWeight: HAND.fillWeight, hachureGap: HAND.hachureGap, hachureAngle: -41, stroke: "none",
+  });
+
+  // Axes: LOW bowing. `bowing: 2` over a 300px axis bends the whole line into a
+  // lens — measured, and it looked like a bug rather than a hand.
+  const axisOpts = { roughness: 0.9, bowing: 0.4, strokeWidth: 1.9 };
+  const tickOpts = { roughness: 0.8, bowing: 0.3, strokeWidth: 1.5 };
+  const inkLine = (x1, y1, x2, y2, opts, cls) =>
+    drawablePaths(gen.line(x1, y1, x2, y2, { seed: nextSeed(), ...opts }), cls, { stroke: INK, strokeWidth: opts.strokeWidth });
   const axes = [
-    `<path d="${axis(M.left, M.top - 8, M.left, xAxisY)}" fill="none" stroke="#888" stroke-width="1.75" stroke-linecap="round"/>`,
-    `<path d="${axis(M.left, xAxisY, W - M.right + 6, xAxisY)}" fill="none" stroke="#888" stroke-width="1.75" stroke-linecap="round"/>`,
+    inkLine(M.left, M.top - 8, M.left, xAxisY, axisOpts, "axis"),
+    inkLine(M.left, xAxisY, W - M.right + 6, xAxisY, axisOpts, "axis"),
   ];
 
   const yTicks = 5, xTicks = 6;
   const ticks = [], yLabels = [], xLabels = [];
   for (let i = 1; i <= yTicks; i++) {
     const c = (yMax / yTicks) * i, yy = y(c);
-    ticks.push(`<path d="${axis(M.left - 5, yy, M.left, yy)}" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>`);
-    yLabels.push(`<text x="${M.left - 10}" y="${(yy + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#888">${Math.round(c)}</text>`);
+    ticks.push(inkLine(M.left - 5, yy, M.left, yy, tickOpts, "tick"));
+    yLabels.push(`<text x="${M.left - 10}" y="${(yy + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="${INK}">${Math.round(c)}</text>`);
   }
   for (let i = 0; i <= xTicks; i++) {
     const t = t0 + ((t1 - t0) / xTicks) * i, xx = x(t);
-    ticks.push(`<path d="${axis(xx, xAxisY, xx, xAxisY + 5)}" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round"/>`);
-    xLabels.push(`<text x="${xx.toFixed(1)}" y="${(H - M.bottom + 24).toFixed(1)}" text-anchor="middle" font-size="13" fill="#888">${fmtDate(t)}</text>`);
+    ticks.push(inkLine(xx, xAxisY, xx, xAxisY + 5, tickOpts, "tick"));
+    xLabels.push(`<text x="${xx.toFixed(1)}" y="${(H - M.bottom + 24).toFixed(1)}" text-anchor="middle" font-size="13" fill="${INK}">${fmtDate(t)}</text>`);
   }
 
-  // Dots on the (downsampled) data points, like star-history.com's markers —
-  // pinned to the DRAWN line, not the ideal one. At this amplitude a dot at the
-  // true position sits beside the stroke rather than on it, which reads as a
-  // rendering bug rather than as a marker.
-  const dots = strokeA.anchors
-    .map((i) => strokeA[i])
-    .map(([cx, cy]) => `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2.6" fill="#fff" stroke="${ACCENT}" stroke-width="1.6"/>`)
+  // Markers, drawn by the same hand: a perfect circle beside a sketched line is
+  // the tell that the "hand-drawn" chart was assembled by a machine.
+  const dots = pts
+    .map(([cx, cy]) =>
+      drawablePaths(
+        gen.circle(cx, cy, 7.5, { seed: nextSeed(), roughness: 1.0, fill: "#fff", fillStyle: "solid", strokeWidth: 1.7 }),
+        "dot",
+        { stroke: ACCENT, strokeWidth: 1.7, fill: "#fff" },
+      ))
     .join("\n  ");
 
   const total = series[series.length - 1][1];
@@ -246,17 +279,12 @@ export function render(series) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'${FONT_FAMILY}','Comic Sans MS',cursive">
   <defs>
     ${fontFaceStyle()}
-    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${ACCENT}" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="${ACCENT}" stop-opacity="0"/>
-    </linearGradient>
   </defs>
-  <text x="${M.left}" y="28" font-size="17" fill="#888">${REPO} — Star History</text>
-  <path d="${starPath(starCx, 22.5, 7.5)}" fill="${ACCENT}" class="star"/>
+  <text x="${M.left}" y="28" font-size="17" fill="${INK}">${REPO} — Star History</text>
+  ${drawablePaths(starDrawable(starCx, 22.5, 7.5), "star", { stroke: ACCENT, strokeWidth: 1.2, fill: ACCENT })}
   <text x="${countRight.toFixed(1)}" y="28" text-anchor="end" font-size="15" fill="${ACCENT}">${total}</text>
-  <path d="${area}" fill="url(#fill)"/>
-  <path d="${line}" fill="none" stroke="${ACCENT}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="${line2}" fill="none" stroke="${ACCENT}" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" opacity="0.75"/>
+  ${drawablePaths(area, "area", { fill: ACCENT, fillOpacity: HAND.fillOpacity })}
+  ${drawablePaths(curve, "line", { stroke: ACCENT, strokeWidth: HAND.strokeWidth })}
   ${dots}
   ${axes.join("\n  ")}
   ${ticks.join("\n  ")}
@@ -267,20 +295,30 @@ export function render(series) {
 }
 
 const ACCENT = "#3b82f6"; // blue — pops on light and dark
+const INK = "#8b8b8b"; // pencil grey for axes, ticks and labels
 
 /**
- * Wobble for the DATA line. Coarser and larger than the axes' (step 22 / mag
- * 1.8): the axes are short and straight, where fine tremor reads; the data line
- * is 716px of already-irregular polyline, where fine tremor reads as noise and
- * a long, slow undulation reads as a hand. Paired with the second stroke in
- * `render`, this is the whole hand-drawn effect.
+ * The hand. Chosen by RENDERING candidates and looking at them, not by
+ * reasoning about numbers — this is the one thing here that only the eye can
+ * settle, and the previous attempt failed precisely by arguing it instead.
  *
- * `mag` is a bound on how far the drawing may sit from the truth: ±5px on a
- * 304px-tall plot is under 2% of the y-range. Raising it buys nothing — beyond
- * the double stroke the eye stops reading "hand-drawn" and starts reading
- * "wrong" — and it is the one knob here that trades accuracy for style.
+ * `roughness`/`bowing` are rough.js's tremor and bend. `hachureGap` 13 with
+ * `fillOpacity` 0.5 reads as shading; denser buries the plot, a solid fill
+ * (tried) buries it completely, and much sparser stops reading as fill at all.
+ *
+ * Accuracy: rough.js's displacement is bounded by `roughness`, and the drawn
+ * curve stays within ~2.2px of every true data point on a 304px-tall plot —
+ * under 1%. A test holds that bound, because this is the one knob that trades
+ * honesty about the numbers for style.
  */
-const HAND = { step: 26, mag: 5 };
+const HAND = {
+  roughness: 1.5,
+  bowing: 1.5,
+  strokeWidth: 2.6,
+  fillWeight: 1.0,
+  hachureGap: 13,
+  fillOpacity: 0.5,
+};
 
 // Only fetch when RUN, never when imported: the test suite drives `render()`
 // directly, and an unguarded top-level `gh` call would make importing this
