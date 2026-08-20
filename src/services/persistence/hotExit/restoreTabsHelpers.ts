@@ -69,42 +69,64 @@ export function clearExistingWindowTabs(windowLabel: string): void {
 }
 
 /**
- * Deduplicate tabs by file path before restoring.
+ * Deduplicate persisted tabs before restoring — by IDENTITY first, then path.
  *
- * tabStore.createTab deduplicates by `normalizePath(filePath)`, so a second
- * createTab with an equivalent path returns the first tab's id — causing
- * restoreDocumentState to overwrite the first tab's content. We must skip
- * later duplicates using the SAME normalizePath comparison so equivalent
- * paths (trailing slash, separator/drive-letter casing) don't slip past an
- * exact-string comparison and silently collide.
+ * The original rule keyed on `file_path` alone and short-circuited on `null`
+ * with "untitled tabs are never duplicates". That was true of the collision it
+ * was written for: `tabStore.createTab` dedups by `normalizePath`, so two
+ * records naming one FILE collapse into a single tab and the second
+ * `restoreDocumentState` overwrites the first's content. An untitled tab cannot
+ * collide that way, because `createTab(label, null)` always makes a new tab.
  *
- * normalizePath does NOT case-fold the path body (only the Windows drive
- * letter), so distinct files on case-sensitive volumes stay distinct —
- * preserving the data-availability fix that removed earlier lowercasing.
+ * But "cannot collide" is not "cannot be duplicated". Path was only ever a
+ * PROXY for identity, and it is a proxy that does not exist for an untitled
+ * tab — so a repeated record of one unsaved document was restored once per
+ * copy, every recovery, with nothing to notice. `id` is the real identity and
+ * every persisted tab has one, so it is the primary key here and the path check
+ * is what it always was: a second pass for two DIFFERENT records that name the
+ * same file.
  *
- * Skipped duplicates are tracked back to the retained tab's original id so
- * the active-tab restore can still resolve to the surviving tab.
+ * Deliberately NOT keyed on content. Two unsaved drafts holding the same text
+ * are two documents, and collapsing them would destroy one — the failure
+ * direction that actually matters. Over-dedup loses work; under-dedup shows a
+ * duplicate. `restoreTabsDedup.test.ts` pins both directions.
+ *
+ * `normalizePath` does NOT case-fold the path body (only the Windows drive
+ * letter), so distinct files on case-sensitive volumes stay distinct.
+ *
+ * Skipped duplicates are tracked back to the retained tab's original id so the
+ * active-tab restore still resolves to the surviving tab.
  */
-export function deduplicateTabsByPath(tabs: TabState[]): DeduplicatedTabs {
-  const seenFilePaths = new Map<string, string>(); // normalizedPath -> retained original id
+export function deduplicateTabs(tabs: TabState[]): DeduplicatedTabs {
+  const seenIds = new Map<string, string>(); // tab id -> retained original id
+  const seenFilePaths = new Map<string, string>(); // normalized path -> retained id
   const kept: TabState[] = [];
   const duplicateToRetained = new Map<string, string>();
 
   for (const tabState of tabs) {
-    if (!tabState.file_path) {
-      kept.push(tabState); // untitled tabs are never duplicates
+    // Identity: the same persisted tab recorded twice, path or not.
+    const retainedById = seenIds.get(tabState.id);
+    if (retainedById !== undefined) {
+      hotExitWarn(`Skipping repeated record of tab '${tabState.id}' during restore`);
+      duplicateToRetained.set(tabState.id, retainedById);
       continue;
     }
-    const normalized = normalizePath(tabState.file_path);
-    const retainedId = seenFilePaths.get(normalized);
-    if (retainedId !== undefined) {
-      hotExitWarn(
-        `Skipping duplicate tab '${tabState.id}' with file_path '${tabState.file_path}' during restore`
-      );
-      duplicateToRetained.set(tabState.id, retainedId);
-      continue;
+
+    if (tabState.file_path) {
+      const normalized = normalizePath(tabState.file_path);
+      const retainedId = seenFilePaths.get(normalized);
+      if (retainedId !== undefined) {
+        hotExitWarn(
+          `Skipping duplicate tab '${tabState.id}' with file_path '${tabState.file_path}' during restore`
+        );
+        duplicateToRetained.set(tabState.id, retainedId);
+        continue;
+      }
+      seenFilePaths.set(normalized, tabState.id);
     }
-    seenFilePaths.set(normalized, tabState.id);
+
+    seenIds.set(tabState.id, tabState.id);
+    duplicateToRetained.set(tabState.id, tabState.id);
     kept.push(tabState);
   }
 

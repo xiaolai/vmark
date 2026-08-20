@@ -6,7 +6,7 @@ import { useUIStore, TERMINAL_MAX_RATIO } from '@/stores/uiStore';
 import { restoreDocumentState } from './restoreDocumentState';
 import {
   clearExistingWindowTabs,
-  deduplicateTabsByPath,
+  deduplicateTabs,
   filterMeaningfulTabs,
   restoreActiveTab,
   restoreTabMetadata,
@@ -198,7 +198,7 @@ export async function restoreTabs(
 
   clearExistingWindowTabs(windowLabel);
 
-  const { kept, duplicateToRetained } = deduplicateTabsByPath(meaningfulTabs);
+  const { kept, duplicateToRetained } = deduplicateTabs(meaningfulTabs);
 
   // Build tab ID mapping: session tab ID -> new tab ID
   const tabIdMap = new Map<string, string>();
