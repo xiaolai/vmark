@@ -162,12 +162,6 @@ pub(crate) fn create_document_window_with_url(
     Ok(label)
 }
 
-/// Create a new document window for a tab transfer (drag-out).
-/// The URL includes `?transfer=true` so the frontend can claim the data.
-pub fn create_document_window_for_transfer(app: &AppHandle) -> Result<String, tauri::Error> {
-    create_document_window_with_url(app, "/?transfer=true".to_string())
-}
-
 /// Allocate a unique window label without creating a window.
 ///
 /// Increments the global window counter and returns the label that would

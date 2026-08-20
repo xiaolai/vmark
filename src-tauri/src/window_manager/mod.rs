@@ -22,6 +22,25 @@
 //! `crate::window_manager::...` (and `lib.rs`'s `generate_handler!` paths
 //! keep resolving — glob re-exports carry the `#[tauri::command]` macros).
 //!
+//! **Every command that creates a window is `#[tauri::command(async)]`, and that
+//! is load-bearing on Windows (#1301, #1302).** A command without `async` is
+//! `ExecutionContext::Blocking`: Tauri runs the body inline on the thread that
+//! delivered the IPC message, which on Windows is inside WebView2's
+//! `WebMessageReceived` COM callback. Creating a webview from inside a WebView2
+//! callback is the reentrancy case WebView2 forbids, so the app hangs — the
+//! Settings window paints white and the process needs `taskkill /F`. Both
+//! upstreams document it: `WebviewWindowBuilder::new` ("deadlocks when used in a
+//! synchronous command"), and tauri-runtime-wry's `create_webview` ("must be
+//! called from a separate thread, otherwise the channel will introduce a
+//! deadlock").
+//!
+//! The same window opened from the NATIVE MENU works, because a menu click
+//! arrives through tao's event loop rather than a WebView2 callback — which is
+//! why #1301 could report the toolbar entry point hanging while the menu entry
+//! point did not, and why macOS shows no symptom at all. `pnpm lint:window-thread`
+//! (`scripts/check-window-creation-thread.mjs`) holds the property so the next
+//! window command cannot be added synchronously.
+//!
 //! Known limitations:
 //!   - Window counter is process-global (AtomicU32); labels are not recycled.
 

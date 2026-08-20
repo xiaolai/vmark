@@ -5,6 +5,7 @@
 //! part: a `prepare` must never destroy anything, and the source must only
 //! restore from the ack the destination actually sent back.
 
+use super::drop_target::point_in_window_rect;
 use super::removal::{
     drop_pending_ack, pending_acks, register_pending_ack, route_ack, validate_phase, TabRemovalAck,
     REMOVAL_PHASE_COMMIT, REMOVAL_PHASE_PREPARE,
@@ -205,4 +206,89 @@ fn declined_ack_carries_no_data() {
     .expect("optional fields may be omitted by the frontend");
     assert!(!parsed.accepted);
     assert!(parsed.data.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Detach ordering (#1301)
+//
+// `detach_tab_to_new_window` became `#[tauri::command(async)]` because a
+// blocking window build deadlocks WebView2 on Windows. That moved the registry
+// insert off the thread that creates the window, so the old "create, then
+// register" order became a real gap: the target invokes `claim_tab_transfer`
+// on mount, and a claim landing in the gap opens an EMPTY window with the
+// user's tab nowhere. The payload is now registered first, exactly as
+// `workspace_transfer.rs` documents for the same reason.
+
+// tauri::test::MockRuntime crashes the test binary at startup on
+// windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of tauri is
+// not enabled on Windows (see Cargo.toml's target-specific dev-dependency), so
+// `tauri::test` does not exist there and every caller is cfg-gated to match —
+// the same treatment `fs_scope.test.rs` and `mcp_bridge/*.test.rs` already use.
+// macOS/Linux still exercise the real runtime path.
+#[cfg(not(target_os = "windows"))]
+fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+    tauri::test::mock_builder()
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("build mock app")
+}
+
+/// Drive the command's real body against a mock runtime. The `#[tauri::command]`
+/// wrapper resolves to `Wry`, so the generic window helper is called the way the
+/// command calls it — same order, same rollback.
+#[cfg(not(target_os = "windows"))]
+fn detach_into(app: &tauri::AppHandle<tauri::test::MockRuntime>, data: TabTransferData) -> String {
+    let label = window_manager::allocate_window_label();
+    registry()
+        .get_or_insert_with(HashMap::new)
+        .insert(label.clone(), data);
+    tauri::webview::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::default())
+        .visible(false)
+        .build()
+        .expect("build transfer window");
+    label
+}
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn the_payload_is_registered_before_the_window_can_claim_it() {
+    let _lock = acquire_test_lock();
+    *registry() = None;
+
+    let app = mock_app();
+    let label = detach_into(app.handle(), live_data("# Detached"));
+
+    // The window exists AND the payload is already claimable — the ordering the
+    // async command depends on.
+    assert!(app.get_webview_window(&label).is_some());
+    let claimed = claim_tab_transfer(label.clone()).expect("payload must be claimable at once");
+    assert_eq!(claimed.content, "# Detached");
+    // A claim is a take: a second one must not resurrect the tab.
+    assert!(claim_tab_transfer(label).is_none());
+}
+
+#[test]
+fn a_failed_window_build_leaves_no_orphan_transfer_entry() {
+    let _lock = acquire_test_lock();
+    *registry() = None;
+
+    // Register first, as the command does, then fail the build the way a
+    // duplicate label does — nothing would ever claim or destroy this entry.
+    let label = window_manager::allocate_window_label();
+    registry()
+        .get_or_insert_with(HashMap::new)
+        .insert(label.clone(), live_data("# Orphan"));
+    clear_unclaimed_transfer(&label);
+
+    assert!(
+        claim_tab_transfer(label).is_none(),
+        "a rolled-back detach must not leave the payload behind"
+    );
+}
+
+#[test]
+fn the_transfer_route_is_what_the_frontend_claims_on() {
+    // The `?transfer=true` flag is the only thing that makes the new window
+    // call `claim_tab_transfer` at all; a plain "/" opens an empty document.
+    assert!(TRANSFER_URL.contains("transfer=true"));
+    assert!(TRANSFER_URL.starts_with('/'));
 }

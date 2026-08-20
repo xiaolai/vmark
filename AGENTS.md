@@ -84,6 +84,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     | Locale JSON | `pnpm lint:i18n && pnpm vitest run src/locales` |
     | CSS only | Nothing — visual QA instead (`.claude/rules/10-tdd.md` exempts CSS) |
     | Rust | `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo clippy --all-targets -- -D warnings` |
+    | Rust, adding a `tauri::test` mock-runtime test | the row above, **plus** `bash scripts/check-cross-target.sh` |
     | Anything, before pushing | `pnpm check:predelta` (finds the batch in ~40s), then one `pnpm check:all` |
 
     **What `check:fast` does not see** — it is an incremental loop, and these
@@ -107,6 +108,24 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
       guessing.
     - It compares against `origin/main`, so `git fetch` first or it will
       select against a stale base.
+
+  - **`tauri::test` does not exist on Windows, and only the Windows target can
+    tell you.** `Cargo.toml` scopes tauri's `test` feature to
+    `cfg(not(target_os = "windows"))` because the MockRuntime test binary dies at
+    startup on windows-latest with `STATUS_ENTRYPOINT_NOT_FOUND` (0xc0000139).
+    So every `tauri::test::` caller carries `#[cfg(not(target_os = "windows"))]`
+    per item — `fs_scope.test.rs` and `mcp_bridge/*.test.rs` are the worked
+    examples. An ungated one compiles and passes everywhere you can run it, and
+    fails only on CI's Windows leg.
+
+    `mod.test.rs` records the same class one step further out: merely binding a
+    command as a FUNCTION POINTER emits a runtime symbol reference that drags
+    WebView2 loader entry points into the lib test binary and reproduces the
+    identical failure. It uses `use` instead, deliberately.
+
+    `bash scripts/check-cross-target.sh` reproduces both in ~1 minute against
+    `x86_64-pc-windows-gnu`. Run it whenever a Rust change adds a mock-runtime
+    test; the alternative is finding out from a CI round trip.
 
   - **There are FOUR vitest tiers, and they must partition the test files.**
     `vitest.config.ts` runs the app (`src/**`, jsdom). `vitest.gates.config.ts`
@@ -274,6 +293,53 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     A command no literal `invoke()` names is **not** a failure — 5 call sites
     resolve the name from a `const`/`as const` map, and MCP and e2e paths reach
     others. `--report` lists them as information.
+
+  - **A Tauri command that creates a window MUST be `async`** — `pnpm
+    lint:window-thread` (`scripts/check-window-creation-thread.mjs`, in
+    `check:static`). A command without `async` is `ExecutionContext::Blocking`,
+    so Tauri runs the body inline on the thread that delivered the IPC message;
+    on Windows that thread is inside WebView2's `WebMessageReceived` COM
+    callback, and building a webview there is the reentrancy case WebView2
+    forbids. Tauri says so in its own docs (`WebviewWindowBuilder::new`:
+    "deadlocks when used in a synchronous command") and tauri-runtime-wry says
+    it again at `create_webview` ("must be called from a separate thread,
+    otherwise the channel will introduce a deadlock").
+
+    **There is no macOS symptom, so nothing run locally can see it.** #1301 and
+    #1302 are the bill: the Settings window opened from the status bar froze
+    VMark 0.9.44 on Windows 11 and left a process Task Manager could not end,
+    while the SAME window opened from the native menu worked — a menu click
+    arrives through tao's event loop, not a WebView2 callback. That asymmetry is
+    the fingerprint. Seven commands had it (`open_settings_window`, the three
+    `open_*_in_new_window`, `hot_exit_restore_multi_window` — which runs at
+    startup — and both `detach_*_to_new_window`).
+
+    Measured at zero after the fix, so it ships zero-tolerance with **no
+    baseline** — a baseline here would list commands known to hang Windows.
+    Reachability is **visibility-aware**, and that is not tidiness: resolving
+    calls by bare name reports 15 findings, 8 of them false, because the seed set
+    holds two private helpers named `start` and two named `start_print`, and
+    those names are written all over the crate. A
+    private `fn` is callable only from its own file; with that one rule the same
+    scan reports 7, all real. A command that hands creation to a spawned task is
+    exempt via `// window-thread-ok: <reason>` — the reason is required.
+
+    **Going async removes serialization the blocking IPC loop used to provide**,
+    and two orderings had been relying on it. The Settings singleton's
+    check-then-create became a real race, so creation is now IDEMPOTENT: the
+    `build()` that loses focuses the winner's window instead of surfacing
+    `WindowLabelAlreadyExists` as a failed open. A mutex would have been the
+    obvious fix and is wrong — the non-macOS branch calls `Menu::new`, which
+    blocks on the main thread, so a worker holding the lock while the main
+    thread runs the menu's own Preferences handler deadlocks from the other
+    side. And `detach_tab_to_new_window` now registers the tab payload BEFORE
+    creating the window (with rollback), the ordering `workspace_transfer.rs`
+    already documents: the target claims on mount, and a claim that beats the
+    insert opens an empty window with the user's tab nowhere.
+
+    The rule this leaves behind: **when a command goes async, re-read it for
+    check-then-act.** A blocking command was serialized by the IPC loop for
+    free, and that guarantee is invisible in the code that depended on it.
 
   - **Type-aware lint is a separate, slower gate.** `pnpm lint:type-aware`
     (`eslint.typeaware.config.mjs` + `scripts/check-type-aware.mjs`) is the only

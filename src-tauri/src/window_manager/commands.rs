@@ -12,7 +12,9 @@ use super::document_windows::{
 use super::path_validation::{validate_openable_path, validate_workspace_root};
 
 /// Open a file in a new window (Tauri command)
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, CommandError> {
     validate_openable_path(&path).map_err(CommandError::invalid_input)?;
     crate::allow_fs_read(&app, &path);
@@ -24,7 +26,9 @@ pub fn open_file_in_new_window(app: AppHandle, path: String) -> Result<String, C
 ///
 /// Creates a new window with the workspace root set. If a file path is provided,
 /// it will be opened in the new window after the workspace is initialized.
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn open_workspace_in_new_window(
     app: AppHandle,
     workspace_root: String,
@@ -40,7 +44,9 @@ pub fn open_workspace_in_new_window(
 }
 
 /// Open a workspace in a new window with multiple files.
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn open_workspace_with_files_in_new_window(
     app: AppHandle,
     workspace_root: String,

@@ -23,6 +23,15 @@ function emitStoreChange() {
   for (const fn of subscribers) fn();
 }
 
+// The drop warning is the subject of the tests at the bottom of this file: it
+// forwards to the Tauri log plugin in production, so a false alarm here ends up
+// in every user's VMark.log.
+const keybindingWarn = vi.fn();
+vi.mock("@/utils/debug", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/debug")>()),
+  keybindingWarn: (...args: unknown[]) => keybindingWarn(...args),
+}));
+
 import {
   installBindings,
   resolveShortcutChord,
@@ -31,6 +40,8 @@ import {
 } from "./keybindingRegistry";
 import type { Binding, BindingContext } from "./bindingRegistry";
 import { canonicalizeChordString } from "@/utils/keybinding/canonicalChord";
+import { KEYBINDINGS } from "./keybindingDefinitions";
+import { DEFAULT_SHORTCUTS } from "@/stores/settingsStore/shortcutDefinitions";
 
 function cmd(shortcutId: string, commandId: string, over: Partial<Binding> = {}): Binding {
   return {
@@ -61,6 +72,7 @@ let dispose: () => void;
 beforeEach(() => {
   keyMap = {};
   subscribers.clear();
+  keybindingWarn.mockClear();
   dispose?.();
 });
 
@@ -127,5 +139,51 @@ describe("keybindingRegistry service", () => {
     keyMap = { palette: "Mod-k" };
     emitStoreChange();
     expect([..._getIndex().values()]).toHaveLength(0);
+  });
+});
+
+/**
+ * An UNBOUND shortcut is not a defect (#1301).
+ *
+ * `getShortcut` returns `""` for both "this id has no key" and "this id does
+ * not exist", so the registry could not tell them apart and warned about both.
+ * Six shipped shortcuts have an empty `defaultKey` on purpose, and a user may
+ * clear any key in Settings — so the warning fired on every window load, was
+ * forwarded to the Tauri log plugin, and reached users' VMark.log. #1301's
+ * attached log carries eight copies of it, and the reporter listed it as a
+ * suspected cause of the freeze it had nothing to do with. That is the cost:
+ * a permanent false alarm trains readers to ignore the one line that would
+ * mean something.
+ */
+describe("dropped-binding warnings distinguish unbound from unknown", () => {
+  it("stays silent for a KNOWN shortcut that is deliberately unbound", () => {
+    const known = DEFAULT_SHORTCUTS[0].id;
+    keyMap = {}; // nothing bound
+    dispose = installBindings([cmd(known, "some.command")]);
+    expect([..._getIndex().values()].flat()).toHaveLength(0); // still dropped
+    expect(keybindingWarn).not.toHaveBeenCalled();
+  });
+
+  it("still warns for a shortcutId that does not exist at all", () => {
+    dispose = installBindings([cmd("no-such-shortcut-id", "some.command")]);
+    expect(keybindingWarn).toHaveBeenCalledTimes(1);
+    expect(String(keybindingWarn.mock.calls[0][0])).toContain("no-such-shortcut-id");
+  });
+
+  it("installing the REAL bindings at their REAL defaults logs nothing", () => {
+    // The regression pin for the reported log line. Real KEYBINDINGS, real
+    // DEFAULT_SHORTCUTS — only the store plumbing is a stand-in.
+    keyMap = Object.fromEntries(DEFAULT_SHORTCUTS.map((s) => [s.id, s.defaultKey]));
+    dispose = installBindings(KEYBINDINGS);
+    expect(keybindingWarn.mock.calls).toEqual([]);
+  });
+
+  it("the real binding set does include an intentionally unbound shortcut", () => {
+    // Guards the test above from going vacuous: if every shipped shortcut ever
+    // gains a default key, the silence proves nothing and this fails loudly.
+    const unbound = DEFAULT_SHORTCUTS.filter((s) => s.defaultKey === "").map((s) => s.id);
+    const bound = new Set(unbound);
+    const declared = KEYBINDINGS.filter((b) => "shortcutId" in b && bound.has(b.shortcutId));
+    expect(declared.length).toBeGreaterThan(0);
   });
 });
