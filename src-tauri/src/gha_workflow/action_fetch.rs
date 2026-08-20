@@ -91,17 +91,11 @@ pub fn parse_action_yml(yaml: &str) -> Result<ActionMetadata, String> {
     })
 }
 
-/// Result of a fetch — typed so the frontend can branch cleanly.
+/// Result of a fetch — typed so the frontend can branch cleanly. `metadata` is boxed because this is also `fetch_action_yml`'s `Err`, where an inline `ActionMetadata` rode on every error return (`clippy::result_large_err`); `Box<T>` serialises as `T`, so the wire is unchanged.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FetchResult {
     Ok {
-        /// Boxed to keep the ENUM small. `ActionMetadata` inlines two BTreeMaps
-        /// and four Options (~145 bytes), and this enum is also used as the
-        /// `Err` type of `fetch_action_yml` — where every byte of the unused
-        /// `Ok` variant is carried on the error path of every call
-        /// (`clippy::result_large_err`). `Box<T>` serialises exactly like `T`,
-        /// so the IPC wire format is unchanged.
         metadata: Box<ActionMetadata>,
         /// Whether the result came from cache (vs. fresh network fetch).
         from_cache: bool,
