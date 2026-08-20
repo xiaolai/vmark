@@ -47,7 +47,11 @@ const CORPUS_ROOTS = ["src/test/fixtures/gha-workflows", ".github/workflows"];
 // sealed token again, so the README embeds the hosted chart and the whole
 // self-hosted generator went with it. The count moves DOWN here for the first
 // time — the pin is two-way on purpose.
-const EXPECTED_FILE_COUNT = 38;
+// 39 since 2026-08-21: rust-scheduled.yml — ci.yml's Rust gate is path-filtered,
+// so `stable` toolchain drift accumulated unseen between Rust-touching PRs. Two
+// clippy 1.98 errors were latent on main until a version-string bump happened to
+// touch Cargo.toml and made the job run.
+const EXPECTED_FILE_COUNT = 39;
 
 /**
  * Workflows whose no-op round trip is BYTE-identical today. Two-way
