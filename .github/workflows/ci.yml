@@ -103,6 +103,11 @@ jobs:
       - run: pnpm check:static
 
   fe-test:
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -160,7 +165,11 @@ jobs:
           retention-days: 1
 
   fe-coverage:
-    needs: [fe-test]
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes, fe-test]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -179,6 +188,11 @@ jobs:
         run: pnpm vitest --merge-reports=.vitest-reports --coverage
 
   fe-servers:
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -187,6 +201,11 @@ jobs:
       - run: pnpm check:servers
 
   fe-build:
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -200,6 +219,11 @@ jobs:
   # (issues #1176 / #1179, fixed twice in one week with no automated gate
   # watching). Separate job because it must NOT inherit src/test/setup.ts.
   webkit:
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -242,21 +266,25 @@ jobs:
           BUILD: ${{ needs.fe-build.result }}
           WEBKIT: ${{ needs.webkit.result }}
         run: |
+          # `skipped` is a PASS. The app tiers are path-filtered off for a
+          # docs-only PR, and this job is a REQUIRED check under
+          # `enforce_admins` — so without this tolerance every prose PR would
+          # report failure here and could never be merged by anyone. The `rust`
+          # aggregate below has carried the same clause since it was written.
+          #
+          # `fe-static` is never skipped, so a group reporting `skipped` here
+          # always means the filter fired, never that a gate went missing.
           failed=0
           for pair in "fe-static:$STATIC" "fe-test:$TESTS" "fe-coverage:$COVERAGE" \
                       "fe-servers:$SERVERS" "fe-build:$BUILD" "webkit:$WEBKIT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
-            if [ "$result" != "success" ]; then
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "$name: $result"
               failed=1
             fi
           done
           [ "$failed" -eq 0 ]
-          if [ "$WEBKIT" != "success" ]; then
-            echo "webkit: $WEBKIT"
-            exit 1
-          fi
 
   # Perf bench: on every run, src/bench/*.bench.ts must execute without error
   # so the suite can't silently rot. On PRs, additionally benches the base ref
@@ -266,6 +294,11 @@ jobs:
   # variance makes a hard gate cry wolf; the step summary carries the verdict.
   # Threshold and semantics: scripts/compare-bench.mjs (2.5x mean, 1 ms floor).
   bench:
+    # Docs-only PRs skip this tier. `fe-static` deliberately does NOT: it runs
+    # the markdown gates (lint:emdash scans every *.md, lint:keybinding-manifest
+    # reads website/guide/shortcuts.md), so prose still gets checked.
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -300,20 +333,48 @@ jobs:
         continue-on-error: true
         run: node scripts/compare-bench.mjs /tmp/bench-base.json /tmp/bench-current.json
 
-  # Detect if Rust code changed — skip rust-test for frontend-only PRs
+  # Detect if Rust code changed — skip rust-test for frontend-only PRs — and
+  # whether anything but PROSE changed, so a docs-only PR skips the app tiers.
+  #
+  # `predicate-quantifier: some-with-excludes` is load-bearing. Under the
+  # DEFAULT ('some') a file counts if it matches at least one pattern, so `'**'`
+  # would match everything and `code` would always be true — the filter would
+  # silently be a no-op that still looked wired up. `some-with-excludes` means
+  # "matches a positive pattern AND no negated one", independent of order.
+  # Verified present in the pinned SHA's action.yml before relying on it; an
+  # unknown input would have been ignored rather than rejected.
   changes:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      code: ${{ steps.filter.outputs.code }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          predicate-quantifier: 'some-with-excludes'
           filters: |
             rust:
               - 'src-tauri/**'
               - 'Cargo.lock'
+            # True when any changed file is NOT prose — i.e. false only for a
+            # docs-only PR. The exclusions are an explicit allowlist, not
+            # `!**/*.md`, and that distinction is the whole safety argument:
+            # there are 50 markdown files under src/, including the
+            # markdown-pipeline characterization corpus that round-trip tests
+            # READ at runtime. A blanket `!**/*.md` would skip the entire suite
+            # on precisely the change most able to break it. Nothing below is
+            # read by an app-tier test; the paths that ARE inputs
+            # (website/guide/shortcuts.md → lint:keybinding-manifest) belong to
+            # fe-static, which never skips.
+            code:
+              - '**'
+              - '!README.md'
+              - '!AGENTS.md'
+              - '!CLAUDE.md'
+              - '!.claude/**/*.md'
+              - '!website/**/*.md'
 
   rust-test:
     needs: [changes]
