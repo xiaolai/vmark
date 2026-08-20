@@ -153,44 +153,24 @@ vi.mock("../utils/linebreakDetection", () => ({
 // startupFileOpen delegates to openFileInNewTabCore; its mechanics are covered
 // by its own tests. Mocked here (parse behavior real) so the orchestration
 // assertions (which path opens which file) stay meaningful.
-const loadOne = async (label: string, path: string) => {
-  const { readTextFile } = await import("@tauri-apps/plugin-fs");
-  const tabId = mockCreateTab(label, path);
-  try {
-    const content = await readTextFile(path);
-    mockInitDocument(tabId, content, path);
-    mockSetLineMetadata(tabId, { type: "lf" });
-    mockAddFile(path);
-  } catch {
-    mockInitDocument(tabId, "", null);
-    const { toast } = await import("sonner");
-    const filename = path.split("/").pop() ?? path;
-    toast.error(`Failed to open ${filename}`);
-  }
-};
-
-// `importActual` for the parser: a hand-written copy here would let the real
-// one drift while these orchestration tests stayed green. Only the file-opening
-// side is stubbed.
+// `importActual` for the parser: a hand-written copy would let the real one drift
+// while these tests stayed green. Only opening is stubbed.
 vi.mock("./startupFileOpen", async (importActual) => ({
   parseStartupFilesParam: (await importActual<typeof import("./startupFileOpen")>())
     .parseStartupFilesParam,
   loadStartupFilesIntoTabs: vi.fn(async (label: string, paths: string[]) => {
-    for (const path of paths) await loadOne(label, path);
-  }),
-  loadStartupFileIntoTab: vi.fn(async (label: string, path: string) => {
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
-    const tabId = mockCreateTab(label, path);
-    try {
-      const content = await readTextFile(path);
-      mockInitDocument(tabId, content, path);
-      mockSetLineMetadata(tabId, { type: "lf" });
-      mockAddFile(path);
-    } catch {
-      mockInitDocument(tabId, "", null);
-      const { toast } = await import("sonner");
-      const filename = path.split("/").pop() ?? path;
-      toast.error(`Failed to open ${filename}`);
+    const { toast } = await import("sonner");
+    for (const path of paths) {
+      const tabId = mockCreateTab(label, path);
+      try {
+        mockInitDocument(tabId, await readTextFile(path), path);
+        mockSetLineMetadata(tabId, { type: "lf" });
+        mockAddFile(path);
+      } catch {
+        mockInitDocument(tabId, "", null);
+        toast.error(`Failed to open ${path.split("/").pop() ?? path}`);
+      }
     }
   }),
   createBlankStartupTab: vi.fn((label: string) => {
@@ -340,9 +320,8 @@ describe("WindowContext", () => {
       });
     });
 
-    // #1313 — a fresh launch lands on the WelcomeScreen, which `Editor.tsx`
-    // already renders whenever there is no active tab. Scoped to the LAUNCH
-    // window: `doc-*` (New Window) still gets a blank tab — see the test below.
+    // #1313 — a fresh launch lands on the WelcomeScreen (Editor.tsx already
+    // renders it for the no-tab state). `doc-*` still gets a blank tab, below.
     it("clears the workspace and opens no tab on a fresh launch (#1313)", async () => {
       mockWindowLabel = "main";
 
@@ -707,8 +686,7 @@ describe("WindowContext", () => {
         expect(screen.getByTestId("child")).toBeInTheDocument();
       });
 
-      // Subject: malformed JSON does not crash init. The fall-through now opens
-      // nothing on the launch window (#1313) instead of forcing a blank tab.
+      // Subject: malformed JSON does not crash init (#1313: no tab now).
       expect(mockCreateTab).not.toHaveBeenCalled();
 
       errorSpy.mockRestore();
@@ -1058,9 +1036,8 @@ describe("WindowContext", () => {
         expect.stringContaining("Failed to claim tab transfer"),
         expect.any(Error),
       );
-      // Subject: a failed claim is caught and init CONTINUES — now to the launch
-      // window's no-tab state (#1313), so "continued" is proven by the logged
-      // error above plus the children rendering.
+        // Subject: a failed claim is caught and init CONTINUES — proven by the
+      // logged error above plus the children rendering (#1313: no tab now).
       expect(screen.getByTestId("child")).toBeInTheDocument();
       expect(mockCreateTab).not.toHaveBeenCalled();
 

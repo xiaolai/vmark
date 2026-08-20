@@ -39,7 +39,7 @@
     "src/components/StatusBar/StatusBar.tsx": 310,
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
     "src/components/Tabs/useTabContextMenuActions.ts": 349,
-    "src/contexts/WindowContext.tsx": 347,
+    "src/contexts/WindowContext.tsx": 344,
     "src/export/htmlExport.ts": 331,
     "src/export/reader/vmark-reader.js": 1343,
     "src/export/resourceResolver.ts": 445,
