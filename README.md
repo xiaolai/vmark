@@ -90,14 +90,31 @@ pnpm check:all        # Lint + test + build
 
 ## Star History
 
-<!-- Self-hosted, and necessarily so: on 2026-06-30 GitHub restricted the
-     stargazers API to a repository's own admins and collaborators, so
-     api.star-history.com now serves a "restricted" notice instead of a chart
-     for every repo. There is no live version left to link to. The weekly
-     star-history.yml workflow regenerates this SVG (scripts/gen-star-history.mjs)
-     from our own authenticated read and publishes it to the unprotected
-     `star-history` branch — main's branch protection rejects bot pushes. -->
-<img alt="Star History Chart" src="https://raw.githubusercontent.com/xiaolai/vmark/star-history/star-history.svg" width="800" />
+<!-- Hosted by star-history.com again, via a SEALED TOKEN. On 2026-06-30 GitHub
+     restricted the stargazers API to a repo's own admins and collaborators, so
+     api.star-history.com served a "restricted" notice for every repo and this
+     block had to be self-hosted. The sealed_token below re-authorises it: it
+     wraps a fine-grained GitHub token so star-history.com can read this repo's
+     star data on our behalf.
+
+     Two consequences worth knowing when this chart breaks:
+       - the sealed token is a bearer capability and is PUBLIC here by design;
+         it is only as narrowly scoped as the fine-grained PAT behind it, so
+         that PAT should be read-only on public repo metadata;
+       - fine-grained PATs EXPIRE. When this silently reverts to a "restricted"
+         notice, the token has lapsed — reissue it at star-history.com.
+
+     The self-hosted fallback is still in the repo and still works:
+     scripts/gen-star-history.mjs renders the chart from our own authenticated
+     read, and .github/workflows/star-history.yml publishes it to the
+     `star-history` branch. -->
+<a href="https://www.star-history.com/?repos=vmark%2Fvmark%2Cxiaolai%2Fvmark&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&theme=dark&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
+ </picture>
+</a>
 
 ---
 
