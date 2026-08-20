@@ -104,6 +104,13 @@ pnpm check:all        # Lint + test + build
        - fine-grained PATs EXPIRE. When this silently reverts to a "restricted"
          notice, the token has lapsed — reissue it at star-history.com.
 
+     The <picture> carries exactly two entries, and the pairing is not
+     cosmetic: the chart's background is OPAQUE (#fff light, #0d1117 dark), so
+     serving the light SVG to a dark reader puts a white slab with black text in
+     a dark README. Hence a dark <source> plus the light <img> as the fallback.
+     A third `prefers-color-scheme: light` <source> was dropped because its URL
+     was byte-identical to that <img> — that one really was redundant.
+
      There is NO fallback any more. The self-hosted generator that carried this
      chart through the outage (scripts/gen-star-history.mjs, its workflow, its
      tests, a subsetted font and the roughjs dependency) was deleted with this
@@ -112,7 +119,6 @@ pnpm check:all        # Lint + test + build
 <a href="https://www.star-history.com/?repos=vmark%2Fvmark%2Cxiaolai%2Fvmark&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&theme=dark&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
  </picture>
 </a>
