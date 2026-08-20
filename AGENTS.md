@@ -109,6 +109,33 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     - It compares against `origin/main`, so `git fetch` first or it will
       select against a stale base.
 
+  - **A docs-only PR skips the app tiers in CI.** `fe-test` (×4), `fe-coverage`,
+    `fe-servers`, `fe-build`, `webkit` and `bench` are gated on a `code` output
+    from the `changes` job, which is false when every changed file is prose.
+    `fe-static` is deliberately NOT gated — it runs `lint:emdash` (scans every
+    `*.md`) and `lint:keybinding-manifest` (reads `website/guide/shortcuts.md`),
+    so prose is still verified by the gates that read prose. Measured: ~12
+    runner-minutes down to ~3.
+
+    Three things about it are load-bearing, and each fails SILENTLY:
+
+    - **The prose list is an allowlist, never `!**/*.md`.** 50 markdown files
+      live under `src/`, including the markdown-pipeline characterization corpus
+      that round-trip tests read at RUNTIME. A blanket exclusion would skip the
+      whole suite on exactly the change most able to break it, and every check
+      would stay green.
+    - **The `frontend` aggregate treats `skipped` as a pass.** It is a required
+      check under `enforce_admins`, so without that clause every docs PR is
+      unmergeable by anyone, including the owner. `rust` has always had it.
+    - **`predicate-quantifier: some-with-excludes`.** Under dorny's default
+      (`some`) a file counts if it matches ANY pattern, so `'**'` matches
+      everything, `code` is always true, and the filter is a no-op that still
+      looks wired up.
+
+    `scripts/check-ci-docs-filter.test.mjs` pins all three; each was verified by
+    mutation. Note the filter cannot be exercised by a PR that edits `ci.yml` —
+    such a PR is not docs-only — so it is confirmed on the next prose-only PR.
+
   - **`tauri::test` does not exist on Windows, and only the Windows target can
     tell you.** `Cargo.toml` scopes tauri's `test` feature to
     `cfg(not(target_os = "windows"))` because the MockRuntime test binary dies at
