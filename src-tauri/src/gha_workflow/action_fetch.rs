@@ -91,12 +91,12 @@ pub fn parse_action_yml(yaml: &str) -> Result<ActionMetadata, String> {
     })
 }
 
-/// Result of a fetch — typed so the frontend can branch cleanly.
+/// Result of a fetch — typed so the frontend can branch cleanly. `metadata` is boxed because this is also `fetch_action_yml`'s `Err`, where an inline `ActionMetadata` rode on every error return (`clippy::result_large_err`); `Box<T>` serialises as `T`, so the wire is unchanged.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FetchResult {
     Ok {
-        metadata: ActionMetadata,
+        metadata: Box<ActionMetadata>,
         /// Whether the result came from cache (vs. fresh network fetch).
         from_cache: bool,
     },
@@ -377,7 +377,7 @@ pub async fn fetch_metadata(app: &AppHandle, uses: &str, ttl_secs: u64) -> Fetch
     if let Some(p) = &cache {
         if let Some(metadata) = read_cache(p, ttl_secs) {
             return FetchResult::Ok {
-                metadata,
+                metadata: Box::new(metadata),
                 from_cache: true,
             };
         }
@@ -402,7 +402,7 @@ pub async fn fetch_metadata(app: &AppHandle, uses: &str, ttl_secs: u64) -> Fetch
     }
 
     FetchResult::Ok {
-        metadata,
+        metadata: Box::new(metadata),
         from_cache: false,
     }
 }
