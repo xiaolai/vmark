@@ -52,7 +52,7 @@ vi.mock("./restoreDocumentState", () => ({
 }));
 vi.mock("./restoreTabsHelpers", () => ({
   clearExistingWindowTabs: (...a: unknown[]) => mockClearExisting(...a),
-  deduplicateTabsByPath: (tabs: unknown[]) => ({ kept: tabs, duplicateToRetained: new Map() }),
+  deduplicateTabs: (tabs: unknown[]) => ({ kept: tabs, duplicateToRetained: new Map() }),
   filterMeaningfulTabs: (tabs: unknown[]) => tabs,
   restoreActiveTab: vi.fn(),
   restoreTabMetadata: (...a: unknown[]) => mockRestoreTabMetadata(...a),

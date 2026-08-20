@@ -15,15 +15,82 @@
 
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { z } from "zod";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
 import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
+import { tryOpenMediaFile } from "@/services/navigation/openMediaFile";
+import { getReplaceableTab } from "@/services/tabs/replaceableTab";
 import { workspaceWarn } from "@/utils/debug";
+
+/**
+ * Is `tabId` STILL the clean untitled tab it was when we probed for it?
+ *
+ * The probe happens before the file reads and the close happens after, so the
+ * verdict in between is stale by construction: `await readTextFile` yields, and
+ * in that window the user can type into the tab, save it, or close it. Acting
+ * on the old verdict would discard their work — the one outcome this cleanup
+ * must never produce. So the decision to close is re-derived from live state at
+ * the moment of closing, and a tab that has changed in any way is left alone.
+ */
+function stillReplaceable(windowLabel: string, tabId: string): boolean {
+  const tab = (useTabStore.getState().tabs[windowLabel] ?? []).find((t) => t.id === tabId);
+  if (!tab || tab.kind !== "document" || tabFilePath(tab) !== null) return false;
+  return !(useDocumentStore.getState().documents[tabId]?.isDirty ?? false);
+}
 
 /** WI-3: a restorable path is a non-empty string — everything else is skipped. */
 const restorablePathSchema = z.string().min(1);
+
+/**
+ * Restore ONE path. Returns whether a tab was created.
+ *
+ * Split out of the loop so the loop reads as "for each path, restore it" rather
+ * than as five interleaved policies (media routing, read failure, stale dedup,
+ * create, ingest failure). Each of those has its own reason, and they were
+ * hard to see — and one of them, the stale dedup, was a live defect — while
+ * they shared one `try` and one nesting level.
+ */
+async function restoreOnePath(windowLabel: string, filePath: string): Promise<boolean> {
+  // Binary media is path-only and must never be decoded as UTF-8. The shared
+  // open pipeline refuses it before any read; this function hand-rolls its own
+  // read/create/ingest and so has to consult the same guard. A workspace's
+  // persisted tabs are document paths, and a media tab IS a document tab with a
+  // path, so an image or video in `lastOpenTabs` reached `readTextFile`.
+  if (tryOpenMediaFile(windowLabel, filePath)) return true;
+
+  let content: string;
+  try {
+    content = await readTextFile(filePath);
+  } catch {
+    // Read failure only: the file was moved or deleted. Nothing was created, so
+    // there is nothing to roll back. Kept separate from the catch below so a
+    // post-create failure cannot be mislabelled as an unreadable file.
+    workspaceWarn(`Could not restore tab: ${filePath}`);
+    return false;
+  }
+
+  // Re-check dedup AFTER the read. The caller's verdict was taken before an
+  // await, and in that window another opener (hot-exit restore, a Finder open,
+  // the user) can create a tab for this same path. `createTab` would then dedup
+  // and hand back THEIR tab, and the ingest below would overwrite its contents.
+  if (findExistingTabForPath(windowLabel, filePath)) return false;
+
+  const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+  try {
+    // The disk-open door canonicalises AND derives line metadata.
+    useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
+    return true;
+  } catch (error) {
+    // The file read fine — a real failure after the tab exists. Roll the tab
+    // back rather than leave an orphan with no document, and surface the actual
+    // error instead of hiding it as "file moved".
+    useTabStore.getState().closeTab(windowLabel, tabId);
+    workspaceWarn(`Failed to initialise restored tab: ${filePath}`, error);
+    return false;
+  }
+}
 
 /**
  * Restore the given file paths as tabs in `windowLabel`. Paths that already
@@ -38,6 +105,11 @@ export async function restoreWorkspaceTabs(
 ): Promise<number> {
   if (!Array.isArray(paths) || paths.length === 0) return 0;
 
+  // #1313 — probe for the startup blank tab BEFORE creating anything, because
+  // "replaceable" means "the ONLY tab", and the first restored file destroys
+  // that property. Closing happens after, and only if something was restored.
+  const replaceable = getReplaceableTab(windowLabel);
+
   let created = 0;
   for (const rawPath of paths) {
     const parsed = restorablePathSchema.safeParse(rawPath);
@@ -49,16 +121,24 @@ export async function restoreWorkspaceTabs(
     // Dedup guard: skip files already open in this window (e.g. hot-exit restore).
     if (findExistingTabForPath(windowLabel, filePath)) continue;
 
-    try {
-      const content = await readTextFile(filePath);
-      const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-      // The disk-open door canonicalises AND derives line metadata.
-      useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
-      created += 1;
-    } catch {
-      // File may have been moved/deleted — skip it.
-      workspaceWarn(`Could not restore tab: ${filePath}`);
-    }
+    if (await restoreOnePath(windowLabel, filePath)) created += 1;
+  }
+
+  // #1313 — the blank Untitled tab the window launched with is orphaned beside
+  // the workspace's files: the dedup guard above matches on PATH, and this
+  // tab's path is null, so it can never be matched.
+  //
+  // `getReplaceableTab` is the EXISTING policy for this — the only tab,
+  // untitled, and clean — and every file-open path already honours it
+  // (`fileOpen`, Finder open, drag-drop, recent files). This loop was the one
+  // seam that bypassed it, so applying it here fixes all three workspace call
+  // sites at once rather than patching `openWorkspaceByPath` alone.
+  //
+  // Guarded on `created`: a workspace whose files have all been moved restores
+  // nothing, and closing the user's tab to show them an empty window would be
+  // a worse outcome than the orphan.
+  if (created > 0 && replaceable && stillReplaceable(windowLabel, replaceable.tabId)) {
+    useTabStore.getState().closeTab(windowLabel, replaceable.tabId);
   }
   return created;
 }
@@ -85,5 +165,13 @@ export function restoreSplitLayout(windowLabel: string, rootPath: string): void 
   pane.openSplit(windowLabel, secondaryTabId);
   pane.setOrientation(windowLabel, layout.orientation);
   pane.setFraction(windowLabel, layout.fraction);
-  if (layout.syncScroll) pane.toggleSyncScroll(windowLabel);
+  // Toggle, not assign: `openSplit` preserves the previous pane state, so a
+  // persisted `true` INVERTS an already-true state to false, and a persisted
+  // `false` leaves a stale `true` standing. Read the live value and only toggle
+  // when it disagrees, so restore lands on the persisted value either way.
+  // `getSplit` reads live state — `usePaneStore.getState()` was captured into
+  // `pane` before openSplit/setOrientation/setFraction ran, so re-read it.
+  if (usePaneStore.getState().getSplit(windowLabel).syncScroll !== Boolean(layout.syncScroll)) {
+    pane.toggleSyncScroll(windowLabel);
+  }
 }

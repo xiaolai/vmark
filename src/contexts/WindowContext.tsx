@@ -10,7 +10,9 @@
  * emit "ready" to Rust → render children.
  *
  * Key decisions:
- *   - initStartedRef guards against React.StrictMode double-init in dev.
+ *   - initStartedRef guards the WHOLE effect against StrictMode's double-invoke,
+ *     set synchronously so neither pass slips through. Ready handshake:
+ *     useWindowReady. Startup-content policy: openStartupContent.
  *   - Transfer windows claim Rust registry payloads before normal init.
  *   - Runtime transfers are handled by listeners set up after isReady.
  *   - Workspace resolution: for files opened via Finder/drag, resolves the
@@ -22,12 +24,11 @@
  *     localStorage key so workspace config toggles work cross-window.
  *   - Doc-window localStorage is cleared on mount to prevent inheriting
  *     main window's persisted workspace state.
- *   - Workspace re-entry without a specific file (e.g. dock-icon reopen
- *     into a workspace) does NOT auto-create a blank untitled tab — the
- *     file explorer is the entry point, and a forced blank tab feels
- *     orphaned. Cold start without any workspace context still creates
- *     one (familiar new-file UX). Hot-exit / lastOpenTabs restore can
- *     still populate tabs after init.
+ *   - A forced blank untitled tab is created ONLY for an explicitly created
+ *     `doc-*` window with no file. Workspace re-entry does not (the file
+ *     explorer is the entry point), and neither does the LAUNCH window, which
+ *     lands on the WelcomeScreen instead (#1313). Hot-exit / lastOpenTabs
+ *     restore can still populate tabs after init.
  *
  * @coordinates-with tabTransferHandlers.ts — applies incoming transfers, answers the removal handshake
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
@@ -46,22 +47,19 @@ import { useRecentWorkspacesStore, useWorkspaceStore } from "../stores/workspace
 import { useUIStore } from "../stores/uiStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { restoreWindowBrowserSession } from "@/services/persistence/windowBrowserSession";
-import { loadStartupFileIntoTab, createBlankStartupTab, parseStartupFilesParam } from "./startupFileOpen";
+import { openStartupContent, parseStartupFilesParam } from "./startupFileOpen";
+import { isLaunchWindow, isDocumentWindowLabel } from "@/utils/windowLabels";
+import { useWindowReady } from "./useWindowReady";
+import { prepareWindowStorage } from "./prepareWindowStorage";
 import {
   applyTabTransferData,
   handleTabTransfer,
   handleTabRemovalRequest,
 } from "./tabTransferHandlers";
-import {
-  setCurrentWindowLabel,
-  migrateWorkspaceStorage,
-  getWorkspaceStorageKey,
-  findActiveWorkspaceLabel,
-} from "@/services/persistence/workspaceStorage";
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabRemovalRequestEvent, TabTransferPayload } from "@/types/tabTransfer";
-import { windowContextError, workspaceWarn, appError } from "@/utils/debug";
+import { windowContextError, appError } from "@/utils/debug";
 import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
 import { voidAsync } from "@/utils/voidAsync";
 
@@ -71,7 +69,6 @@ import { voidAsync } from "@/utils/voidAsync";
  * Without sufficient delay, menu events (e.g., menu:open) arrive before
  * useFileOperations has registered its listener.
  */
-const READY_EVENT_DELAY_MS = 100;
 
 interface WindowContextValue {
   windowLabel: string;
@@ -86,67 +83,47 @@ interface WindowProviderProps {
 
 export function WindowProvider({ children }: WindowProviderProps) {
   const [windowLabel, setWindowLabel] = useState<string>("main");
-  const [isReady, setIsReady] = useState(false);
+  const { isReady, markReady } = useWindowReady();
   // Guard against double-init from React.StrictMode in dev
   const initStartedRef = useRef(false);
 
   useEffect(() => {
+    // StrictMode invokes this effect twice in dev. The document-init block below
+    // was already guarded, but `markReady` was NOT: the second pass reached it
+    // while the first was still awaiting, so Rust got two `ready` events and the
+    // children mounted before initialisation had finished. The guard belongs to
+    // the whole effect, and must be set SYNCHRONOUSLY — setting it after an
+    // await would let both passes through before either recorded it.
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
+
     const init = async () => {
       try {
         const window = getCurrentWebviewWindow();
         const label = window.label;
 
-        // For main window, migrate legacy workspace storage first
-        if (label === "main") {
-          migrateWorkspaceStorage();
-        }
-
-        // Set the current window label for workspace storage
-        // This must happen before store rehydration
-        setCurrentWindowLabel(label);
-
-        // Settings window: read workspace state from the source document window
-        // so workspace config toggles work correctly across windows
-        if (label === "settings") {
-          const sourceLabel = findActiveWorkspaceLabel();
-          if (sourceLabel) {
-            setCurrentWindowLabel(sourceLabel);
-          }
-        }
-
-        // Clear any stale persisted workspace state for doc windows
-        if (label.startsWith("doc-")) {
-          const storageKey = getWorkspaceStorageKey(label);
-          localStorage.removeItem(storageKey);
-        }
-
-        // Rehydrate workspace store from window-specific storage key
-        // This ensures new windows don't inherit main's workspace
-        void Promise.resolve(useWorkspaceStore.persist.rehydrate()).catch((e) => workspaceWarn("Workspace rehydrate failed:", e));
+        prepareWindowStorage(label);
 
         setWindowLabel(label);
 
         // CRITICAL: Only init documents for document windows (main, doc-*)
         // Settings and other non-document windows don't need document state
-        if (label === "main" || label.startsWith("doc-")) {
+        if (isDocumentWindowLabel(label)) {
           // Check if we already have tabs for this window
           // Also check initStartedRef to prevent double-init from StrictMode
           const existingTabs = useTabStore.getState().getTabsByWindow(label);
-          if (existingTabs.length === 0 && !initStartedRef.current) {
-            initStartedRef.current = true;
+          if (existingTabs.length === 0) {
 
             // Handle workspace/tab transfer (drag-out from another window)
             try {
               const workspaceTransferred = await claimWorkspaceTransferForWindow(label, openWorkspaceWithConfig);
               if (workspaceTransferred) {
-                setIsReady(true);
-                setTimeout(() => window.emit("ready", label), READY_EVENT_DELAY_MS);
+                markReady(window);
                 return;
               }
               const transferred = await handleTabTransfer(label);
               if (transferred) {
-                setIsReady(true);
-                setTimeout(() => window.emit("ready", label), READY_EVENT_DELAY_MS);
+                markReady(window);
                 return;
               }
             } catch (err) {
@@ -189,7 +166,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
                 const derivedRoot = resolveWorkspaceRootForExternalFile(filePath);
                 if (derivedRoot) {
                   await openWorkspaceWithConfig(derivedRoot, { windowLabel: label });
-                } else if (label === "main") {
+                } else if (isLaunchWindow(label)) {
                   useWorkspaceStore.getState().closeWorkspace();
                 }
               }
@@ -197,73 +174,47 @@ export function WindowProvider({ children }: WindowProviderProps) {
 
             // If opening fresh (no file and no workspace root), clear any persisted workspace
             // This ensures a clean slate when launching the app without a file
-            if (!filePath && !workspaceRootParam && label === "main") {
+            if (!filePath && !workspaceRootParam && isLaunchWindow(label)) {
               useWorkspaceStore.getState().closeWorkspace();
             }
-            // Shared per-file open: delegates to openFileInNewTabCore (size
-            // routing, dedupe + close-during-read guards, file ownership /
-            // read-only conflict handling, recents, large-file source marking)
-            // and guarantees the window ends up non-empty. See startupFileOpen.
-            if (filePaths && filePaths.length > 0) {
-              for (const path of filePaths) {
-                await loadStartupFileIntoTab(label, path);
-              }
-            } else if (filePath) {
-              await loadStartupFileIntoTab(label, filePath);
-            } else if (workspaceRootParam) {
-              // Restore the workspace's last open tabs in the new window (#1005),
-              // matching the same-window Open Workspace behavior.
-              for (const restorePath of workspaceConfig?.lastOpenTabs ?? []) {
-                await loadStartupFileIntoTab(label, restorePath);
-              }
-            } else {
-              // No file AND no workspace context: fresh new-file UX — create
-              // a blank untitled tab so the window has a live document.
-              // In workspace mode we deliberately skip this; the file explorer
-              // is the entry point, and a forced blank tab feels orphaned
-              // (the user wanted "into the workspace," not "into the workspace
-              // plus a blank doc"). Hot-exit / lastOpenTabs restore can still
-              // populate tabs after this — see useHotExitStartup and
-              // useWorkspaceBootstrap.
-              createBlankStartupTab(label);
-            }
+            // What this window opens, and why, lives in startupFileOpen.
+            await openStartupContent(label, {
+              filePaths,
+              filePath,
+              workspaceRoot: workspaceRootParam,
+              lastOpenTabs: workspaceConfig?.lastOpenTabs,
+            });
+            // The LAUNCH window with nothing to open falls through to no tab at
+            // all, which `Editor.tsx` already renders as the WelcomeScreen
+            // (#1313) — a forced blank tab only meant startup could never reach
+            // it. Hot-exit/lastOpenTabs still populate tabs afterwards; an empty
+            // window is a valid intermediate state, not a broken one.
             // WI-8.2: restore the window's human browser pages (background).
             restoreWindowBrowserSession(label);
           }
         }
 
-        setIsReady(true);
-        // Notify Rust that the window is ready to receive events.
-        // Delay ensures:
-        // 1. Rust's window.once("ready") listener is registered
-        // 2. Child components' useEffect hooks have run and set up menu listeners
-        // Without sufficient delay, menu events (e.g., menu:open) arrive before
-        // useFileOperations has registered its listener.
-        // Pass the window label so Rust can track which windows are ready.
-        setTimeout(() => window.emit("ready", label), READY_EVENT_DELAY_MS);
+        markReady(window);
       } catch (error) {
         windowContextError("Init failed:", error);
         // Still set ready to allow error boundary to catch render errors
-        setIsReady(true);
         // Notify Rust even on error so waiting handlers don't hang
-        const errorWindow = getCurrentWebviewWindow();
-        setTimeout(() => errorWindow.emit("ready", errorWindow.label), READY_EVENT_DELAY_MS);
+        markReady(getCurrentWebviewWindow());
       }
     };
 
     /* v8 ignore start -- @preserve reason: .catch() callback on init() only fires on unhandled init errors; not triggered in controlled tests */
     init().catch((e) => {
       windowContextError("Unhandled init error:", e);
-      setIsReady(true);
-      const errorWindow = getCurrentWebviewWindow();
-      setTimeout(() => errorWindow.emit("ready", errorWindow.label), READY_EVENT_DELAY_MS);
+      markReady(getCurrentWebviewWindow());
     });
     /* v8 ignore stop */
-  }, []);
+    // markReady is a stable useCallback — still a once-only effect.
+  }, [markReady]);
 
   useEffect(() => {
     if (!isReady) return;
-    if (windowLabel !== "main" && !windowLabel.startsWith("doc-")) return;
+    if (!isDocumentWindowLabel(windowLabel)) return;
 
     const currentWindow = getCurrentWebviewWindow();
     let cancelled = false;
@@ -318,7 +269,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
   // Sync workspace config changes across windows (settings ↔ document windows)
   useWorkspaceSync();
 
-  const isDocumentWindow = windowLabel === "main" || windowLabel.startsWith("doc-");
+  const isDocumentWindow = isDocumentWindowLabel(windowLabel);
 
   if (!isReady) {
     return null; // Don't render until window label is determined
