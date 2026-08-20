@@ -34,6 +34,17 @@ export { replaceTabWithFile, type ReplaceTabResult } from "./replaceTabWithFile"
  * On failure, cleans up the orphaned tab and shows a toast error.
  * @internal Exported for testing
  */
+/**
+ * What an open actually did — five outcomes that a tab COUNT cannot tell apart.
+ *
+ * `startupFileOpen` used to infer failure from "the window has zero tabs
+ * afterwards", which reads `closed` (the user shut the tab or window while the
+ * read was in flight) as `failed` and resurrects a tab against their action,
+ * defeating the close-during-read guard below. Only the operation knows which
+ * of these happened, so it says so.
+ */
+export type OpenOutcome = "opened" | "deduped" | "refused" | "closed" | "failed";
+
 export async function openFileInNewTabCore(
   windowLabel: string,
   path: string,
@@ -46,15 +57,15 @@ export async function openFileInNewTabCore(
      */
     onTabCreated?: (tabId: string, isExistingTab: boolean) => void;
   }
-): Promise<void> {
+): Promise<OpenOutcome> {
   // Binary media: path-only open, never read as UTF-8. See openMediaFile.ts.
-  if (tryOpenMediaFile(windowLabel, path, options)) return;
+  if (tryOpenMediaFile(windowLabel, path, options)) return "opened";
 
   // Pre-read size gate: refuse/confirm huge files; no-op for small ones.
   const route = await routeOpenBySize(path);
   if (!route.proceed) {
     perfMark("openFileInNewTab:refusedOrCancelled");
-    return;
+    return "refused";
   }
 
   perfStart("createTab");
@@ -72,7 +83,7 @@ export async function openFileInNewTabCore(
   // createTab deduped to an existing tab — just activate, don't overwrite content
   if (isExistingTab) {
     perfMark("openFileInNewTab:deduped");
-    return;
+    return "deduped";
   }
 
   // Show the indeterminate "Opening large file…" indicator when the file is
@@ -98,7 +109,7 @@ export async function openFileInNewTabCore(
     if (!useTabStore.getState().findTabById(tabId)) {
       perfMark("openFileInNewTab:tabClosedDuringRead");
       if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
-      return;
+      return "closed";
     }
 
     // WI-2.6 — YAML force-source bandaid retired. YAML files now route
@@ -124,6 +135,7 @@ export async function openFileInNewTabCore(
     perfMark("openFileInNewTab:complete");
     // On success, the indicator stays on until TiptapEditor's onCreate fires
     // endLoad() — that is the moment the editor is actually interactive.
+    return "opened";
   } catch (error) {
     fileOpsError("Failed to open file:", path, error);
     // Clean up the orphaned tab — without initDocument, it renders blank.
@@ -136,6 +148,7 @@ export async function openFileInNewTabCore(
     });
     // Clear the indicator immediately on error so no stale spinner lingers.
     if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
+    return "failed";
   }
 }
 

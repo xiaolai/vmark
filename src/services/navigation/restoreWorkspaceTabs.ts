@@ -71,15 +71,36 @@ export async function restoreWorkspaceTabs(
     // Dedup guard: skip files already open in this window (e.g. hot-exit restore).
     if (findExistingTabForPath(windowLabel, filePath)) continue;
 
+    let content: string;
     try {
-      const content = await readTextFile(filePath);
-      const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+      content = await readTextFile(filePath);
+    } catch {
+      // Read failure only: the file was moved or deleted. Nothing was created,
+      // so there is nothing to roll back. Kept separate from the block below so
+      // a post-create failure cannot be mislabelled as an unreadable file.
+      workspaceWarn(`Could not restore tab: ${filePath}`);
+      continue;
+    }
+
+    // Re-check dedup AFTER the read, not just before it. The verdict above was
+    // taken before an await, and in that window another opener (hot-exit
+    // restore, a Finder open, the user) can create a tab for this same path.
+    // `createTab` would then dedup and hand back THEIR tab, and the ingest
+    // below would overwrite its contents — the read is what makes the earlier
+    // check stale, so the check has to happen on this side of it.
+    if (findExistingTabForPath(windowLabel, filePath)) continue;
+
+    const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+    try {
       // The disk-open door canonicalises AND derives line metadata.
       useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
       created += 1;
-    } catch {
-      // File may have been moved/deleted — skip it.
-      workspaceWarn(`Could not restore tab: ${filePath}`);
+    } catch (error) {
+      // The file read fine — this is a real failure after the tab exists. Roll
+      // the tab back rather than leaving an orphan with no document, and
+      // surface the actual error instead of hiding it as "file moved".
+      useTabStore.getState().closeTab(windowLabel, tabId);
+      workspaceWarn(`Failed to initialise restored tab: ${filePath}`, error);
     }
   }
 

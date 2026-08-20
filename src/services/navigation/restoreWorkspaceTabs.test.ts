@@ -208,3 +208,56 @@ describe("#1313 — the tab is re-checked at close time, not trusted from probe 
     expect(mockCloseTab).toHaveBeenCalledWith("main", "blank-1");
   });
 });
+
+/**
+ * Class A, instance 2 — the dedup verdict is also stale across the read.
+ *
+ * `findExistingTabForPath` runs BEFORE `await readTextFile`, and `createTab`
+ * runs after. A concurrent opener (hot-exit restore, Finder open, the user)
+ * can create a tab for the same path in that window. `createTab` then dedups
+ * and returns the EXISTING tab's id — and the next line ingests into it,
+ * overwriting whatever the user had there, while `created` counts a tab that
+ * was never created.
+ */
+describe("#1313 audit — dedup is re-checked after the read, not before", () => {
+  it("does not overwrite a tab another opener created during the read", async () => {
+    mockFindExistingTabForPath.mockImplementation(() => null);
+    mockReadTextFile.mockImplementation(async () => {
+      // someone else opened this same file while we were reading it
+      mockFindExistingTabForPath.mockReturnValue("other-tab");
+      return "content";
+    });
+    const created = await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockIngestExternalContent).not.toHaveBeenCalled();
+    expect(created).toBe(0);
+  });
+
+  it("still restores when nothing else touched the path", async () => {
+    mockFindExistingTabForPath.mockReturnValue(null);
+    expect(await restoreWorkspaceTabs("main", ["/w/a.md"])).toBe(1);
+    expect(mockIngestExternalContent).toHaveBeenCalled();
+  });
+});
+
+/**
+ * One `catch` around read + create + ingest cannot tell a missing file from a
+ * failure after the tab exists. It reported both as "could not restore" and
+ * left the second case holding an orphan tab with no document.
+ */
+describe("#1313 audit — read failure and post-create failure are different", () => {
+  it("rolls the tab back when ingest fails after the tab exists", async () => {
+    mockIngestExternalContent.mockImplementation(() => {
+      throw new Error("ingest blew up");
+    });
+    const created = await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(created).toBe(0);
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "tab-/w/a.md");
+  });
+
+  it("creates nothing to roll back when the file is unreadable", async () => {
+    mockReadTextFile.mockRejectedValue(new Error("ENOENT"));
+    expect(await restoreWorkspaceTabs("main", ["/w/gone.md"])).toBe(0);
+    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+});

@@ -45,7 +45,7 @@ import { useRecentWorkspacesStore, useWorkspaceStore } from "../stores/workspace
 import { useUIStore } from "../stores/uiStore";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { restoreWindowBrowserSession } from "@/services/persistence/windowBrowserSession";
-import { loadStartupFileIntoTab, createBlankStartupTab, parseStartupFilesParam } from "./startupFileOpen";
+import { loadStartupFilesIntoTabs, createBlankStartupTab, parseStartupFilesParam } from "./startupFileOpen";
 import {
   applyTabTransferData,
   handleTabTransfer,
@@ -199,22 +199,19 @@ export function WindowProvider({ children }: WindowProviderProps) {
             if (!filePath && !workspaceRootParam && label === "main") {
               useWorkspaceStore.getState().closeWorkspace();
             }
-            // Shared per-file open: delegates to openFileInNewTabCore (size
-            // routing, dedupe + close-during-read guards, file ownership /
-            // read-only conflict handling, recents, large-file source marking)
-            // and guarantees the window ends up non-empty. See startupFileOpen.
+            // Shared batch open: delegates per file to openFileInNewTabCore
+            // (size routing, dedupe + close-during-read guards, ownership,
+            // recents, large-file source marking) and decides the blank-tab
+            // fallback ONCE, from outcomes rather than a tab count. See
+            // startupFileOpen.
             if (filePaths && filePaths.length > 0) {
-              for (const path of filePaths) {
-                await loadStartupFileIntoTab(label, path);
-              }
+              await loadStartupFilesIntoTabs(label, filePaths);
             } else if (filePath) {
-              await loadStartupFileIntoTab(label, filePath);
+              await loadStartupFilesIntoTabs(label, [filePath]);
             } else if (workspaceRootParam) {
               // Restore the workspace's last open tabs in the new window (#1005),
               // matching the same-window Open Workspace behavior.
-              for (const restorePath of workspaceConfig?.lastOpenTabs ?? []) {
-                await loadStartupFileIntoTab(label, restorePath);
-              }
+              await loadStartupFilesIntoTabs(label, workspaceConfig?.lastOpenTabs ?? []);
             } else if (label !== "main") {
               // New Window with no file is an unambiguous request for somewhere
               // to type; launching the app is not. Only the launch window falls

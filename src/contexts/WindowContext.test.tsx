@@ -153,8 +153,31 @@ vi.mock("../utils/linebreakDetection", () => ({
 // startupFileOpen delegates to openFileInNewTabCore; its mechanics are covered
 // by its own tests. Mocked here (parse behavior real) so the orchestration
 // assertions (which path opens which file) stay meaningful.
-vi.mock("./startupFileOpen", () => ({
-  parseStartupFilesParam: (raw: string | null) => { try { const p = raw ? JSON.parse(raw) : null; return Array.isArray(p) ? p.filter((v: unknown): v is string => typeof v === "string") : null; } catch { return null; } },
+const loadOne = async (label: string, path: string) => {
+  const { readTextFile } = await import("@tauri-apps/plugin-fs");
+  const tabId = mockCreateTab(label, path);
+  try {
+    const content = await readTextFile(path);
+    mockInitDocument(tabId, content, path);
+    mockSetLineMetadata(tabId, { type: "lf" });
+    mockAddFile(path);
+  } catch {
+    mockInitDocument(tabId, "", null);
+    const { toast } = await import("sonner");
+    const filename = path.split("/").pop() ?? path;
+    toast.error(`Failed to open ${filename}`);
+  }
+};
+
+// `importActual` for the parser: a hand-written copy here would let the real
+// one drift while these orchestration tests stayed green. Only the file-opening
+// side is stubbed.
+vi.mock("./startupFileOpen", async (importActual) => ({
+  parseStartupFilesParam: (await importActual<typeof import("./startupFileOpen")>())
+    .parseStartupFilesParam,
+  loadStartupFilesIntoTabs: vi.fn(async (label: string, paths: string[]) => {
+    for (const path of paths) await loadOne(label, path);
+  }),
   loadStartupFileIntoTab: vi.fn(async (label: string, path: string) => {
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     const tabId = mockCreateTab(label, path);

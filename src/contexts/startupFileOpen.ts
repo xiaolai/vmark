@@ -18,7 +18,8 @@
 
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
+import { openFileInNewTabCore, type OpenOutcome } from "@/services/navigation/fileOpen";
+import { fileOpsWarn } from "@/utils/debug";
 
 /** Create a blank untitled tab so the window has a live document. */
 function ensureBlankTab(windowLabel: string): void {
@@ -44,8 +45,56 @@ function ensureBlankTab(windowLabel: string): void {
 export async function loadStartupFileIntoTab(
   windowLabel: string,
   path: string,
+): Promise<OpenOutcome> {
+  try {
+    return await openFileInNewTabCore(windowLabel, path);
+  } catch (error) {
+    // A REJECTION (not a handled failure) — e.g. a native size dialog throwing.
+    // Swallowed per path on purpose: this used to propagate out of the caller's
+    // loop and abandon every remaining startup file, so one bad path lost the
+    // rest of the user's launch arguments.
+    fileOpsWarn(`Startup open threw for ${path}:`, error);
+    return "failed";
+  }
+}
+
+/**
+ * Open every startup path, then decide ONCE whether the window needs a blank
+ * tab — never per file.
+ *
+ * Three defects lived in the per-file version, all of them the same mistake:
+ * inferring what happened from a tab COUNT taken after an await.
+ *
+ *   - a first path that failed created a blank tab, and a later path that
+ *     succeeded then opened beside it, leaving the orphan the count was
+ *     supposed to prevent;
+ *   - `closed` — the user shutting the tab or window mid-read — looks
+ *     identical to `failed` in a count, so the fallback resurrected a tab
+ *     against a deliberate action, defeating the close-during-read guard in
+ *     `openFileInNewTabCore`;
+ *   - a rejection aborted the whole batch.
+ *
+ * Outcomes, not counts: the fallback fires only if nothing opened AND the user
+ * did not close anything. `ensureBlankTab` is itself a no-op when the window
+ * already has tabs, so the count check is a second line of defence, not the
+ * decision.
+ */
+export async function loadStartupFilesIntoTabs(
+  windowLabel: string,
+  paths: readonly string[],
 ): Promise<void> {
-  await openFileInNewTabCore(windowLabel, path);
+  // Nothing was ASKED for, so there is nothing to fall back from. Without this
+  // an empty workspace `lastOpenTabs` would reach the count check and force the
+  // blank tab that workspace mode deliberately does not create.
+  if (paths.length === 0) return;
+
+  const outcomes: OpenOutcome[] = [];
+  for (const path of paths) {
+    outcomes.push(await loadStartupFileIntoTab(windowLabel, path));
+  }
+  const anyLanded = outcomes.some((o) => o === "opened" || o === "deduped");
+  const userClosed = outcomes.includes("closed");
+  if (anyLanded || userClosed) return;
   if (useTabStore.getState().getTabsByWindow(windowLabel).length === 0) {
     ensureBlankTab(windowLabel);
   }
