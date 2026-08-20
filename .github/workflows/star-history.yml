@@ -35,14 +35,19 @@ jobs:
           ref: star-history
           path: chart
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
+      # The generator imports roughjs (the hand-drawn renderer), so it DOES need
+      # node_modules. This step used to be a bare `setup-node` under a comment
+      # claiming "the generator needs no npm deps" — true when written, false the
+      # moment the dependency landed, and the only place that runs is this
+      # workflow, so the first symptom was a red weekly refresh with
+      # ERR_MODULE_NOT_FOUND. `scripts/star-history-workflow.test.mjs` now pins
+      # the install step against the script's own imports.
+      - uses: ./.github/actions/setup-node-pnpm
 
       # gh is pre-installed on the runner; GH_TOKEN authenticates its API calls.
-      # The generator needs no npm deps — it only shells out to `gh` and Node stdlib.
-      # It writes .github/star-history.svg relative to the repo root (untracked on
-      # main); the publish step copies it into the star-history branch checkout.
+      # The generator writes .github/star-history.svg relative to the repo root
+      # (untracked on main); the publish step copies it into the star-history
+      # branch checkout.
       - name: Regenerate the chart
         env:
           GH_TOKEN: ${{ github.token }}
