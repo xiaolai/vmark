@@ -104,10 +104,11 @@ pnpm check:all        # Lint + test + build
        - fine-grained PATs EXPIRE. When this silently reverts to a "restricted"
          notice, the token has lapsed — reissue it at star-history.com.
 
-     The self-hosted fallback is still in the repo and still works:
-     scripts/gen-star-history.mjs renders the chart from our own authenticated
-     read, and .github/workflows/star-history.yml publishes it to the
-     `star-history` branch. -->
+     There is NO fallback any more. The self-hosted generator that carried this
+     chart through the outage (scripts/gen-star-history.mjs, its workflow, its
+     tests, a subsetted font and the roughjs dependency) was deleted with this
+     change rather than left running weekly for an asset nothing reads. If the
+     endpoint goes dark again, it is in the history — `git log -- scripts/gen-star-history.mjs`. -->
 <a href="https://www.star-history.com/?repos=vmark%2Fvmark%2Cxiaolai%2Fvmark&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vmark/vmark%2Cxiaolai/vmark&type=date&theme=dark&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />

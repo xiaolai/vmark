@@ -412,9 +412,6 @@ importers:
       playwright:
         specifier: ^1.62.1
         version: 1.62.1
-      roughjs:
-        specifier: ^4.6.6
-        version: 4.6.6
       size-limit:
         specifier: ^13.0.3
         version: 13.0.3
