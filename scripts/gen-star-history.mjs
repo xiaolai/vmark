@@ -123,10 +123,16 @@ function mulberry32(seed) {
  * chart.xkcd's wobble done geometrically, so it needs no SVG filter support
  * (feTurbulence inside <img> is spotty in some renderers). First and last
  * points stay exact so the line lands on the real values.
+ *
+ * Returns the wobbled points AND the index each ORIGINAL vertex landed at, so
+ * markers can be pinned to the drawn line rather than to the ideal one. At the
+ * amplitude the data line needs (see `HAND`) a dot placed at the true position
+ * sits visibly beside the stroke instead of on it.
  */
 function roughPoints(pts, rng, { step = 11, mag = 4.0 } = {}) {
   const sub = [pts[0]];
   const normals = [[0, 0]];
+  const anchors = [0];
   for (let i = 1; i < pts.length; i++) {
     const [x0, y0] = pts[i - 1];
     const [x1, y1] = pts[i];
@@ -138,13 +144,16 @@ function roughPoints(pts, rng, { step = 11, mag = 4.0 } = {}) {
       sub.push([x0 + (dx * j) / n, y0 + (dy * j) / n]);
       normals.push(nrm);
     }
+    anchors.push(sub.length - 1);
   }
   const raw = sub.map(() => (rng() - 0.5) * 2 * mag);
   raw[0] = 0;
   raw[raw.length - 1] = 0;
   // one smoothing pass so the wobble reads as a shaky hand, not as noise
   const off = raw.map((o, i) => (i === 0 || i === raw.length - 1 ? o : (raw[i - 1] + o + raw[i + 1]) / 3));
-  return sub.map(([x, y], i) => [x + normals[i][0] * off[i], y + normals[i][1] * off[i]]);
+  const out = sub.map(([x, y], i) => [x + normals[i][0] * off[i], y + normals[i][1] * off[i]]);
+  out.anchors = anchors;
+  return out;
 }
 
 const toPath = (pts) => pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
@@ -181,8 +190,21 @@ export function render(series) {
   const x = (t) => M.left + ((t - t0) / (t1 - t0 || 1)) * iw;
   const y = (c) => M.top + ih - (c / yMax) * ih;
 
-  const linePts = roughPoints(series.map(([t, c]) => [x(t), y(c)]), rng);
-  const line = toPath(linePts);
+  // TWO strokes, wobbled independently — this is what makes a CURVE read as
+  // hand-drawn, and a single wobbled stroke does not. Wobble is only perceivable
+  // against a known-ideal shape: on the axes the eye holds a perfect straight
+  // line to compare against, so ±1px of tremor is obvious. A data curve has no
+  // such reference — any deviation just reads as "the data did that" — so the
+  // old single stroke looked plotted no matter how hard it was shaken, and
+  // raising the amplitude only misstated the numbers. Two nearly-parallel
+  // strokes that separate and rejoin is something no plotter produces, so it
+  // reads as a pen regardless of the underlying shape. rough.js works this way
+  // for the same reason.
+  const idealPts = series.map(([t, c]) => [x(t), y(c)]);
+  const strokeA = roughPoints(idealPts, rng, HAND);
+  const strokeB = roughPoints(idealPts, rng, HAND);
+  const line = toPath(strokeA);
+  const line2 = toPath(strokeB);
   const area = `${line} L${x(t1).toFixed(1)},${(M.top + ih).toFixed(1)} L${x(t0).toFixed(1)},${(M.top + ih).toFixed(1)} Z`;
 
   // hand-drawn axes with tick marks (no gridlines — matches the xkcd look)
@@ -206,9 +228,13 @@ export function render(series) {
     xLabels.push(`<text x="${xx.toFixed(1)}" y="${(H - M.bottom + 24).toFixed(1)}" text-anchor="middle" font-size="13" fill="#888">${fmtDate(t)}</text>`);
   }
 
-  // dots on the (downsampled) data points, like star-history.com's markers
-  const dots = series
-    .map(([t, c]) => `<circle cx="${x(t).toFixed(1)}" cy="${y(c).toFixed(1)}" r="2.6" fill="#fff" stroke="${ACCENT}" stroke-width="1.6"/>`)
+  // Dots on the (downsampled) data points, like star-history.com's markers —
+  // pinned to the DRAWN line, not the ideal one. At this amplitude a dot at the
+  // true position sits beside the stroke rather than on it, which reads as a
+  // rendering bug rather than as a marker.
+  const dots = strokeA.anchors
+    .map((i) => strokeA[i])
+    .map(([cx, cy]) => `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2.6" fill="#fff" stroke="${ACCENT}" stroke-width="1.6"/>`)
     .join("\n  ");
 
   const total = series[series.length - 1][1];
@@ -229,7 +255,8 @@ export function render(series) {
   <path d="${starPath(starCx, 22.5, 7.5)}" fill="${ACCENT}" class="star"/>
   <text x="${countRight.toFixed(1)}" y="28" text-anchor="end" font-size="15" fill="${ACCENT}">${total}</text>
   <path d="${area}" fill="url(#fill)"/>
-  <path d="${line}" fill="none" stroke="${ACCENT}" stroke-width="2.75" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="${line}" fill="none" stroke="${ACCENT}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="${line2}" fill="none" stroke="${ACCENT}" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" opacity="0.75"/>
   ${dots}
   ${axes.join("\n  ")}
   ${ticks.join("\n  ")}
@@ -240,6 +267,20 @@ export function render(series) {
 }
 
 const ACCENT = "#3b82f6"; // blue — pops on light and dark
+
+/**
+ * Wobble for the DATA line. Coarser and larger than the axes' (step 22 / mag
+ * 1.8): the axes are short and straight, where fine tremor reads; the data line
+ * is 716px of already-irregular polyline, where fine tremor reads as noise and
+ * a long, slow undulation reads as a hand. Paired with the second stroke in
+ * `render`, this is the whole hand-drawn effect.
+ *
+ * `mag` is a bound on how far the drawing may sit from the truth: ±5px on a
+ * 304px-tall plot is under 2% of the y-range. Raising it buys nothing — beyond
+ * the double stroke the eye stops reading "hand-drawn" and starts reading
+ * "wrong" — and it is the one knob here that trades accuracy for style.
+ */
+const HAND = { step: 26, mag: 5 };
 
 // Only fetch when RUN, never when imported: the test suite drives `render()`
 // directly, and an unguarded top-level `gh` call would make importing this

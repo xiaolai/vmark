@@ -141,16 +141,76 @@ describe("y-axis headroom", () => {
   );
 });
 
+/**
+ * What makes a CURVE read as hand-drawn — and why the previous test here passed
+ * while it did not.
+ *
+ * That test asserted a mean local deviation above 0.35px and was named "draws a
+ * visibly hand-drawn line". 0.35px is a quarter of the stroke's own half-width:
+ * the wobble it certified was drawn INSIDE the line and could not be seen. The
+ * chart shipped with hand-drawn axes and a data line that read as plotted, and
+ * every test was green. It also pinned the subdivision COUNT (`> 50`), which is
+ * an implementation detail — tuning the wobble coarser broke the test without
+ * changing the property.
+ *
+ * The mechanism it missed: wobble is only perceivable against a known-ideal
+ * shape. The axes have one — the eye holds a perfect straight line to compare
+ * against, so a fraction of a pixel of tremor is obvious. A data curve has no
+ * such reference, so any deviation reads as "the data did that" and raising the
+ * amplitude only misstates the numbers. What no plotter produces is TWO
+ * nearly-parallel strokes that separate and rejoin, which is why rough.js draws
+ * everything twice and why this now does too.
+ *
+ * So the assertions below are about the doubling and whether it escapes the
+ * stroke body — measurable things that track what the eye actually sees.
+ */
 describe("wobble", () => {
-  it("draws a visibly hand-drawn line, not a straight polyline", () => {
-    const svg = render(seriesOf(600));
-    const d = /<path d="(M[^"]+)" fill="none" stroke="#3b82f6"/.exec(svg)?.[1] ?? "";
-    const ys = [...d.matchAll(/[ML][\d.]+,([\d.]+)/g)].map((m) => +m[1]);
-    expect(ys.length).toBeGreaterThan(50);
-    // deviation of each point from the straight line through its neighbours
+  /** The accent-coloured data strokes, as point arrays. */
+  const dataStrokes = (svg) =>
+    [...svg.matchAll(/<path d="(M[^"]+)" fill="none" stroke="#3b82f6"/g)]
+      .map((m) => [...m[1].matchAll(/[ML](-?[\d.]+),(-?[\d.]+)/g)].map((p) => [+p[1], +p[2]]));
+
+  it("draws the data line as two independently wobbled strokes", () => {
+    const [a, b] = dataStrokes(render(seriesOf(600)));
+    expect(a.length).toBeGreaterThan(2);
+    expect(b).toHaveLength(a.length);
+    // Independent draws, not one path reused at a second width — a copy would
+    // render as a single thicker line and lose the entire effect.
+    expect(b).not.toEqual(a);
+  });
+
+  it("separates the two strokes by more than the stroke's own half-width", () => {
+    // The threshold is not a taste call: the wider stroke is 2.2px, so a
+    // separation under 1.1px keeps the second stroke buried inside the first and
+    // the doubling is invisible. Measured mean separation is ~1.39px, stable at
+    // 120 / 522 / 600 / 2000 stars — this asserts the mechanism survives, not a
+    // lucky number.
+    for (const n of [120, 600, 2000]) {
+      const [a, b] = dataStrokes(render(seriesOf(n)));
+      const sep = a.map(([ax, ay], i) => Math.hypot(ax - b[i][0], ay - b[i][1]));
+      const mean = sep.reduce((s, v) => s + v, 0) / sep.length;
+      expect(mean, `mean stroke separation at n=${n}`).toBeGreaterThan(1.1);
+    }
+  });
+
+  it("keeps the drawing within 2% of the y-range of the truth", () => {
+    // The other side of the same knob: this chart may look hand-drawn, but it
+    // still reports real numbers. `HAND.mag` is 5px against a 304px plot.
+    const [a] = dataStrokes(render(seriesOf(600)));
+    const ys = a.map(([, y]) => y);
     const dev = ys.slice(1, -1).map((y, i) => Math.abs(y - (ys[i] + ys[i + 2]) / 2));
-    const mean = dev.reduce((a, b) => a + b, 0) / dev.length;
-    expect(mean).toBeGreaterThan(0.35);
+    expect(Math.max(...dev)).toBeLessThan(0.02 * 304);
+  });
+
+  it("pins the markers to the drawn line, not to the ideal one", () => {
+    // A dot at the true position sits visibly beside a stroke wobbled this far,
+    // which reads as a rendering bug rather than as a marker.
+    const svg = render(seriesOf(600));
+    const [a] = dataStrokes(svg);
+    const onStroke = new Set(a.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`));
+    const dots = [...svg.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)"/g)].map((m) => `${m[1]},${m[2]}`);
+    expect(dots.length).toBeGreaterThan(5);
+    expect(dots.filter((d) => !onStroke.has(d))).toEqual([]);
   });
 });
 
