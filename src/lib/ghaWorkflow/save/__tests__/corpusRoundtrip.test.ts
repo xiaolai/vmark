@@ -43,7 +43,11 @@ const CORPUS_ROOTS = ["src/test/fixtures/gha-workflows", ".github/workflows"];
 // 39 since 2026-08-19: release-smoke.yml (WI-NB9.2) — proves a published release
 // artefact actually runs (Gatekeeper + the bundled sidecar), which release.yml
 // signs and uploads but never exercises.
-const EXPECTED_FILE_COUNT = 39;
+// 38 since 2026-08-20: star-history.yml DELETED. star-history.com issues a
+// sealed token again, so the README embeds the hosted chart and the whole
+// self-hosted generator went with it. The count moves DOWN here for the first
+// time — the pin is two-way on purpose.
+const EXPECTED_FILE_COUNT = 38;
 
 /**
  * Workflows whose no-op round trip is BYTE-identical today. Two-way
@@ -58,7 +62,6 @@ const BYTE_IDENTICAL: ReadonlySet<string> = new Set([
   ".github/workflows/release.yml",
   ".github/workflows/rust-cache-warm.yml",
   ".github/workflows/rust-coverage.yml",
-  ".github/workflows/star-history.yml",
   "src/test/fixtures/gha-workflows/bun/format.yml",
   "src/test/fixtures/gha-workflows/sveltejs-svelte/ci.yml",
   "src/test/fixtures/gha-workflows/vite/ci.yml",

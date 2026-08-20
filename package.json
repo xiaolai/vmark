@@ -243,7 +243,6 @@
     "markdownlint-cli2": "^0.23.2",
     "mdast-util-math": "^3.0.0",
     "playwright": "^1.62.1",
-    "roughjs": "^4.6.6",
     "size-limit": "^13.0.3",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.12",
