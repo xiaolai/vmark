@@ -22,12 +22,11 @@
  *     localStorage key so workspace config toggles work cross-window.
  *   - Doc-window localStorage is cleared on mount to prevent inheriting
  *     main window's persisted workspace state.
- *   - Workspace re-entry without a specific file (e.g. dock-icon reopen
- *     into a workspace) does NOT auto-create a blank untitled tab — the
- *     file explorer is the entry point, and a forced blank tab feels
- *     orphaned. Cold start without any workspace context still creates
- *     one (familiar new-file UX). Hot-exit / lastOpenTabs restore can
- *     still populate tabs after init.
+ *   - A forced blank untitled tab is created ONLY for an explicitly created
+ *     `doc-*` window with no file. Workspace re-entry does not (the file
+ *     explorer is the entry point), and neither does the LAUNCH window, which
+ *     lands on the WelcomeScreen instead (#1313). Hot-exit / lastOpenTabs
+ *     restore can still populate tabs after init.
  *
  * @coordinates-with tabTransferHandlers.ts — applies incoming transfers, answers the removal handshake
  * @coordinates-with tab_transfer.rs — claims transfer data from Rust registry
@@ -216,17 +215,17 @@ export function WindowProvider({ children }: WindowProviderProps) {
               for (const restorePath of workspaceConfig?.lastOpenTabs ?? []) {
                 await loadStartupFileIntoTab(label, restorePath);
               }
-            } else {
-              // No file AND no workspace context: fresh new-file UX — create
-              // a blank untitled tab so the window has a live document.
-              // In workspace mode we deliberately skip this; the file explorer
-              // is the entry point, and a forced blank tab feels orphaned
-              // (the user wanted "into the workspace," not "into the workspace
-              // plus a blank doc"). Hot-exit / lastOpenTabs restore can still
-              // populate tabs after this — see useHotExitStartup and
-              // useWorkspaceBootstrap.
+            } else if (label !== "main") {
+              // New Window with no file is an unambiguous request for somewhere
+              // to type; launching the app is not. Only the launch window falls
+              // through to the WelcomeScreen below.
               createBlankStartupTab(label);
             }
+            // The LAUNCH window with nothing to open falls through to no tab at
+            // all, which `Editor.tsx` already renders as the WelcomeScreen
+            // (#1313) — a forced blank tab only meant startup could never reach
+            // it. Hot-exit/lastOpenTabs still populate tabs afterwards; an empty
+            // window is a valid intermediate state, not a broken one.
             // WI-8.2: restore the window's human browser pages (background).
             restoreWindowBrowserSession(label);
           }

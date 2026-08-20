@@ -239,18 +239,6 @@ describe("WindowContext", () => {
       vi.useRealTimers();
     });
 
-    it("creates initial tab and empty document for main window", async () => {
-      render(
-        <WindowProvider>
-          <div>content</div>
-        </WindowProvider>,
-      );
-
-      await waitFor(() => {
-        expect(mockCreateTab).toHaveBeenCalledWith("main", null);
-        expect(mockInitDocument).toHaveBeenCalledWith("tab-1", "", null);
-      });
-    });
 
     it("skips document init for settings window", async () => {
       mockWindowLabel = "settings";
@@ -329,7 +317,10 @@ describe("WindowContext", () => {
       });
     });
 
-    it("closes workspace when main window opens with no file and no workspace param", async () => {
+    // #1313 — a fresh launch lands on the WelcomeScreen, which `Editor.tsx`
+    // already renders whenever there is no active tab. Scoped to the LAUNCH
+    // window: `doc-*` (New Window) still gets a blank tab — see the test below.
+    it("clears the workspace and opens no tab on a fresh launch (#1313)", async () => {
       mockWindowLabel = "main";
 
       render(
@@ -341,6 +332,8 @@ describe("WindowContext", () => {
       await waitFor(() => {
         expect(mockCloseWorkspace).toHaveBeenCalled();
       });
+      expect(mockCreateTab).not.toHaveBeenCalled();
+      expect(mockInitDocument).not.toHaveBeenCalled();
     });
   });
 
@@ -691,11 +684,9 @@ describe("WindowContext", () => {
         expect(screen.getByTestId("child")).toBeInTheDocument();
       });
 
-      // Should still create a default empty tab (falls through to else branch)
-      await waitFor(() => {
-        expect(mockCreateTab).toHaveBeenCalled();
-        expect(mockInitDocument).toHaveBeenCalledWith(expect.any(String), "", null);
-      });
+      // Subject: malformed JSON does not crash init. The fall-through now opens
+      // nothing on the launch window (#1313) instead of forcing a blank tab.
+      expect(mockCreateTab).not.toHaveBeenCalled();
 
       errorSpy.mockRestore();
     });
@@ -1044,8 +1035,11 @@ describe("WindowContext", () => {
         expect.stringContaining("Failed to claim tab transfer"),
         expect.any(Error),
       );
-      // Should still create a default tab
-      expect(mockCreateTab).toHaveBeenCalled();
+      // Subject: a failed claim is caught and init CONTINUES — now to the launch
+      // window's no-tab state (#1313), so "continued" is proven by the logged
+      // error above plus the children rendering.
+      expect(screen.getByTestId("child")).toBeInTheDocument();
+      expect(mockCreateTab).not.toHaveBeenCalled();
 
       errorSpy.mockRestore();
       vi.useRealTimers();

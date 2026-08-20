@@ -6,19 +6,30 @@ const mockFindExistingTabForPath = vi.fn();
 const mockCreateTab = vi.fn();
 const mockIngestExternalContent = vi.fn();
 const mockSetLineMetadata = vi.fn();
+const mockCloseTab = vi.fn();
+const mockGetReplaceableTab = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({ readTextFile: (...a: unknown[]) => mockReadTextFile(...a) }));
 vi.mock("@/services/tabs/findExistingTabForPath", () => ({
   findExistingTabForPath: (...a: unknown[]) => mockFindExistingTabForPath(...a),
 }));
+let mockTabs: Array<{ id: string; kind: string; filePath: string | null }> = [];
+let mockDocs: Record<string, { isDirty: boolean }> = {};
 vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: () => ({ createTab: mockCreateTab }) },
+  useTabStore: {
+    getState: () => ({ createTab: mockCreateTab, closeTab: mockCloseTab, tabs: { main: mockTabs } }),
+  },
+  tabFilePath: (t: { filePath: string | null }) => t.filePath,
+}));
+vi.mock("@/services/tabs/replaceableTab", () => ({
+  getReplaceableTab: (...a: unknown[]) => mockGetReplaceableTab(...a),
 }));
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
       ingestExternalContent: mockIngestExternalContent,
       setLineMetadata: mockSetLineMetadata,
+      documents: mockDocs,
     }),
   },
 }));
@@ -26,8 +37,12 @@ vi.mock("@/stores/documentStore", () => ({
 import { restoreWorkspaceTabs } from "./restoreWorkspaceTabs";
 
 beforeEach(() => {
-  [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockIngestExternalContent, mockSetLineMetadata]
+  [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockIngestExternalContent,
+   mockSetLineMetadata, mockCloseTab, mockGetReplaceableTab]
     .forEach((m) => m.mockReset());
+  mockGetReplaceableTab.mockReturnValue(null);
+  mockTabs = [{ id: "blank-1", kind: "document", filePath: null }];
+  mockDocs = { "blank-1": { isDirty: false } };
   mockFindExistingTabForPath.mockReturnValue(null);
   mockReadTextFile.mockResolvedValue("content");
   mockCreateTab.mockImplementation((_w: string, p: string) => `tab-${p}`);
@@ -97,5 +112,99 @@ describe("restoreWorkspaceTabs", () => {
     expect(mockIngestExternalContent).toHaveBeenCalledWith(
       "tab-路径/未命名.md", cjkContent, "disk-open", { filePath: "路径/未命名.md" },
     );
+  });
+});
+
+/**
+ * #1313 — the blank Untitled tab is left orphaned beside a restored workspace.
+ *
+ * `findExistingTabForPath` dedups by PATH, and the startup tab's path is null,
+ * so it can never match and the tab survives alongside the workspace's files.
+ *
+ * The predicate for "safe to close" already exists and is already honoured by
+ * every file-open path (`fileOpen`, Finder open, drag-drop, recent files):
+ * `getReplaceableTab` — the only tab, untitled, and clean. This loop is the one
+ * seam that bypassed it, so the fix is to apply the existing policy rather than
+ * to invent a second definition of "blank tab" that could drift from it.
+ */
+describe("#1313 — orphaned blank tab", () => {
+  it("closes a clean untitled tab when workspace files are restored", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    const created = await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(created).toBe(1);
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "blank-1");
+  });
+
+  it("reads the replaceable tab BEFORE creating any, or it is no longer 'the only tab'", async () => {
+    const order: string[] = [];
+    mockGetReplaceableTab.mockImplementation(() => {
+      order.push("probe");
+      return { tabId: "blank-1" };
+    });
+    mockCreateTab.mockImplementation((_w: string, p: string) => {
+      order.push("create");
+      return `tab-${p}`;
+    });
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(order[0]).toBe("probe");
+  });
+
+  it("keeps the tab when nothing could be restored — no gratuitous closing", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    mockReadTextFile.mockRejectedValue(new Error("gone"));
+    expect(await restoreWorkspaceTabs("main", ["/w/missing.md"])).toBe(0);
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when there is no replaceable tab (dirty or file-backed)", async () => {
+    mockGetReplaceableTab.mockReturnValue(null);
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The close is deferred past `await readTextFile`, so the tab's state at probe
+ * time is not its state at close time. Between them the event loop runs and the
+ * user can type — and `getReplaceableTab`'s cleanliness check was made against
+ * the OLD state. Closing on that stale verdict discards their work.
+ *
+ * Found by an independent audit of this change, not by the change's own tests.
+ */
+describe("#1313 — the tab is re-checked at close time, not trusted from probe time", () => {
+  it("does not close a tab the user dirtied while files were being read", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    mockReadTextFile.mockImplementation(async () => {
+      mockDocs["blank-1"].isDirty = true; // user types during the read
+      return "content";
+    });
+    expect(await restoreWorkspaceTabs("main", ["/w/a.md"])).toBe(1);
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("does not close a tab that gained a file path while files were being read", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    mockReadTextFile.mockImplementation(async () => {
+      mockTabs[0].filePath = "/w/saved-meanwhile.md";
+      return "content";
+    });
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("does not close a tab that is already gone", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    mockReadTextFile.mockImplementation(async () => {
+      mockTabs = [];
+      return "content";
+    });
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("still closes a tab that stayed clean and untitled", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "blank-1");
   });
 });

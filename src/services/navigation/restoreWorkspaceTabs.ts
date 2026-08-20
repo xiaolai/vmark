@@ -15,12 +15,29 @@
 
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { z } from "zod";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
 import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
+import { getReplaceableTab } from "@/services/tabs/replaceableTab";
 import { workspaceWarn } from "@/utils/debug";
+
+/**
+ * Is `tabId` STILL the clean untitled tab it was when we probed for it?
+ *
+ * The probe happens before the file reads and the close happens after, so the
+ * verdict in between is stale by construction: `await readTextFile` yields, and
+ * in that window the user can type into the tab, save it, or close it. Acting
+ * on the old verdict would discard their work — the one outcome this cleanup
+ * must never produce. So the decision to close is re-derived from live state at
+ * the moment of closing, and a tab that has changed in any way is left alone.
+ */
+function stillReplaceable(windowLabel: string, tabId: string): boolean {
+  const tab = (useTabStore.getState().tabs[windowLabel] ?? []).find((t) => t.id === tabId);
+  if (!tab || tab.kind !== "document" || tabFilePath(tab) !== null) return false;
+  return !(useDocumentStore.getState().documents[tabId]?.isDirty ?? false);
+}
 
 /** WI-3: a restorable path is a non-empty string — everything else is skipped. */
 const restorablePathSchema = z.string().min(1);
@@ -37,6 +54,11 @@ export async function restoreWorkspaceTabs(
   paths: readonly unknown[] | null | undefined,
 ): Promise<number> {
   if (!Array.isArray(paths) || paths.length === 0) return 0;
+
+  // #1313 — probe for the startup blank tab BEFORE creating anything, because
+  // "replaceable" means "the ONLY tab", and the first restored file destroys
+  // that property. Closing happens after, and only if something was restored.
+  const replaceable = getReplaceableTab(windowLabel);
 
   let created = 0;
   for (const rawPath of paths) {
@@ -59,6 +81,23 @@ export async function restoreWorkspaceTabs(
       // File may have been moved/deleted — skip it.
       workspaceWarn(`Could not restore tab: ${filePath}`);
     }
+  }
+
+  // #1313 — the blank Untitled tab the window launched with is orphaned beside
+  // the workspace's files: the dedup guard above matches on PATH, and this
+  // tab's path is null, so it can never be matched.
+  //
+  // `getReplaceableTab` is the EXISTING policy for this — the only tab,
+  // untitled, and clean — and every file-open path already honours it
+  // (`fileOpen`, Finder open, drag-drop, recent files). This loop was the one
+  // seam that bypassed it, so applying it here fixes all three workspace call
+  // sites at once rather than patching `openWorkspaceByPath` alone.
+  //
+  // Guarded on `created`: a workspace whose files have all been moved restores
+  // nothing, and closing the user's tab to show them an empty window would be
+  // a worse outcome than the orphan.
+  if (created > 0 && replaceable && stillReplaceable(windowLabel, replaceable.tabId)) {
+    useTabStore.getState().closeTab(windowLabel, replaceable.tabId);
   }
   return created;
 }
@@ -85,5 +124,13 @@ export function restoreSplitLayout(windowLabel: string, rootPath: string): void 
   pane.openSplit(windowLabel, secondaryTabId);
   pane.setOrientation(windowLabel, layout.orientation);
   pane.setFraction(windowLabel, layout.fraction);
-  if (layout.syncScroll) pane.toggleSyncScroll(windowLabel);
+  // Toggle, not assign: `openSplit` preserves the previous pane state, so a
+  // persisted `true` INVERTS an already-true state to false, and a persisted
+  // `false` leaves a stale `true` standing. Read the live value and only toggle
+  // when it disagrees, so restore lands on the persisted value either way.
+  // `getSplit` reads live state — `usePaneStore.getState()` was captured into
+  // `pane` before openSplit/setOrientation/setFraction ran, so re-read it.
+  if (usePaneStore.getState().getSplit(windowLabel).syncScroll !== Boolean(layout.syncScroll)) {
+    pane.toggleSyncScroll(windowLabel);
+  }
 }

@@ -6,9 +6,10 @@
  *   to the shared {@link openFileInNewTabCore} (size routing, dedupe guard,
  *   close-during-read guard, ownership, recents, large-file source marking) so
  *   the startup path can't drift from the runtime open paths — while preserving
- *   the startup-only invariant that the window always ends up with at least one
- *   live document (a refused/failed open must not leave a blank, tabless
- *   window).
+ *   the invariant that a window ASKED TO OPEN A FILE ends up with at least one
+ *   live document (a refused/failed open must not leave it blank and tabless).
+ *   That invariant is scoped to the file-open path: a launch window with no file
+ *   at all is legitimately tabless and renders the WelcomeScreen (#1313).
  *
  * @coordinates-with useFileOpen.ts — openFileInNewTabCore does the heavy lifting
  * @coordinates-with WindowContext.tsx — sole production caller (init effect)
@@ -50,7 +51,15 @@ export async function loadStartupFileIntoTab(
   }
 }
 
-/** Create the fresh-start blank untitled tab (no file, no workspace context). */
+/**
+ * Create a blank untitled tab.
+ *
+ * The #1313 policy — that the LAUNCH window gets no tab and lands on the
+ * WelcomeScreen, while an explicitly created `doc-*` window does get one —
+ * belongs to the caller (`WindowContext`'s init), which is where the label is
+ * known and where it is tested. Deliberately NOT re-encoded here: two copies of
+ * one policy is how they drift, and this helper has no view of intent.
+ */
 export function createBlankStartupTab(windowLabel: string): void {
   ensureBlankTab(windowLabel);
 }
@@ -61,7 +70,9 @@ export function parseStartupFilesParam(filesParam: string | null): string[] | nu
   try {
     const parsed = JSON.parse(filesParam);
     if (Array.isArray(parsed)) {
-      return parsed.filter((value): value is string => typeof value === "string");
+      // Non-empty: `files=[""]` would otherwise reach the open pipeline as a
+      // path and attempt size-routing and a read on "".
+      return parsed.filter((value): value is string => typeof value === "string" && value !== "");
     }
   } catch {
     // Malformed param — treated as absent.
