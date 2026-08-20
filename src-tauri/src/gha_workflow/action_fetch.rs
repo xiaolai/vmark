@@ -96,7 +96,13 @@ pub fn parse_action_yml(yaml: &str) -> Result<ActionMetadata, String> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FetchResult {
     Ok {
-        metadata: ActionMetadata,
+        /// Boxed to keep the ENUM small. `ActionMetadata` inlines two BTreeMaps
+        /// and four Options (~145 bytes), and this enum is also used as the
+        /// `Err` type of `fetch_action_yml` — where every byte of the unused
+        /// `Ok` variant is carried on the error path of every call
+        /// (`clippy::result_large_err`). `Box<T>` serialises exactly like `T`,
+        /// so the IPC wire format is unchanged.
+        metadata: Box<ActionMetadata>,
         /// Whether the result came from cache (vs. fresh network fetch).
         from_cache: bool,
     },
@@ -377,7 +383,7 @@ pub async fn fetch_metadata(app: &AppHandle, uses: &str, ttl_secs: u64) -> Fetch
     if let Some(p) = &cache {
         if let Some(metadata) = read_cache(p, ttl_secs) {
             return FetchResult::Ok {
-                metadata,
+                metadata: Box::new(metadata),
                 from_cache: true,
             };
         }
@@ -402,7 +408,7 @@ pub async fn fetch_metadata(app: &AppHandle, uses: &str, ttl_secs: u64) -> Fetch
     }
 
     FetchResult::Ok {
-        metadata,
+        metadata: Box::new(metadata),
         from_cache: false,
     }
 }

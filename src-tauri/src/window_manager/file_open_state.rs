@@ -217,7 +217,10 @@ pub fn decide_file_open_locked(
 /// section (caller passes the locked state). Returns the drained opens.
 pub fn mark_ready_and_drain(state: &mut FileOpenState) -> Vec<PendingFileOpen> {
     state.frontend_ready = true;
-    state.pending.drain(..).collect()
+    // `take`, not `drain(..).collect()`: draining every element into a fresh
+    // Vec of the same type allocates a second buffer and copies into it, when
+    // the existing buffer can simply be handed over (`clippy::drain_collect`).
+    std::mem::take(&mut state.pending)
 }
 
 #[cfg(test)]
