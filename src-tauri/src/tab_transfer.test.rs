@@ -219,6 +219,13 @@ fn declined_ack_carries_no_data() {
 // user's tab nowhere. The payload is now registered first, exactly as
 // `workspace_transfer.rs` documents for the same reason.
 
+// tauri::test::MockRuntime crashes the test binary at startup on
+// windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of tauri is
+// not enabled on Windows (see Cargo.toml's target-specific dev-dependency), so
+// `tauri::test` does not exist there and every caller is cfg-gated to match —
+// the same treatment `fs_scope.test.rs` and `mcp_bridge/*.test.rs` already use.
+// macOS/Linux still exercise the real runtime path.
+#[cfg(not(target_os = "windows"))]
 fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
     tauri::test::mock_builder()
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
@@ -228,6 +235,7 @@ fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
 /// Drive the command's real body against a mock runtime. The `#[tauri::command]`
 /// wrapper resolves to `Wry`, so the generic window helper is called the way the
 /// command calls it — same order, same rollback.
+#[cfg(not(target_os = "windows"))]
 fn detach_into(app: &tauri::AppHandle<tauri::test::MockRuntime>, data: TabTransferData) -> String {
     let label = window_manager::allocate_window_label();
     registry()
@@ -240,6 +248,7 @@ fn detach_into(app: &tauri::AppHandle<tauri::test::MockRuntime>, data: TabTransf
     label
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn the_payload_is_registered_before_the_window_can_claim_it() {
     let _lock = acquire_test_lock();

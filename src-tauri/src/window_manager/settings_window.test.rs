@@ -94,12 +94,20 @@ fn empty_section_still_yields_a_matchable_route() {
 // `MockRuntime` reproduces the losing call exactly: a second `build()` with a
 // live label fails the same way it does under Wry.
 
+// tauri::test::MockRuntime crashes the test binary at startup on
+// windows-latest (STATUS_ENTRYPOINT_NOT_FOUND). The `test` feature of tauri is
+// not enabled on Windows (see Cargo.toml's target-specific dev-dependency), so
+// `tauri::test` does not exist there and every caller is cfg-gated to match —
+// the same treatment `fs_scope.test.rs` and `mcp_bridge/*.test.rs` already use.
+// macOS/Linux still exercise the real runtime path.
+#[cfg(not(target_os = "windows"))]
 fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
     tauri::test::mock_builder()
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app")
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn a_second_open_focuses_the_existing_window_instead_of_creating_one() {
     let app = mock_app();
@@ -118,6 +126,7 @@ fn a_second_open_focuses_the_existing_window_instead_of_creating_one() {
     );
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn a_build_that_loses_the_race_reports_success_rather_than_label_already_exists() {
     let app = mock_app();
@@ -150,6 +159,7 @@ fn a_build_that_loses_the_race_reports_success_rather_than_label_already_exists(
     assert_eq!(label, SETTINGS_LABEL);
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn focus_existing_reports_absence_rather_than_pretending_it_focused() {
     let app = mock_app();

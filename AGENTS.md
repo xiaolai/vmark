@@ -84,6 +84,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     | Locale JSON | `pnpm lint:i18n && pnpm vitest run src/locales` |
     | CSS only | Nothing — visual QA instead (`.claude/rules/10-tdd.md` exempts CSS) |
     | Rust | `cargo test --manifest-path src-tauri/Cargo.toml` and `cargo clippy --all-targets -- -D warnings` |
+    | Rust, adding a `tauri::test` mock-runtime test | the row above, **plus** `bash scripts/check-cross-target.sh` |
     | Anything, before pushing | `pnpm check:predelta` (finds the batch in ~40s), then one `pnpm check:all` |
 
     **What `check:fast` does not see** — it is an incremental loop, and these
@@ -107,6 +108,24 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
       guessing.
     - It compares against `origin/main`, so `git fetch` first or it will
       select against a stale base.
+
+  - **`tauri::test` does not exist on Windows, and only the Windows target can
+    tell you.** `Cargo.toml` scopes tauri's `test` feature to
+    `cfg(not(target_os = "windows"))` because the MockRuntime test binary dies at
+    startup on windows-latest with `STATUS_ENTRYPOINT_NOT_FOUND` (0xc0000139).
+    So every `tauri::test::` caller carries `#[cfg(not(target_os = "windows"))]`
+    per item — `fs_scope.test.rs` and `mcp_bridge/*.test.rs` are the worked
+    examples. An ungated one compiles and passes everywhere you can run it, and
+    fails only on CI's Windows leg.
+
+    `mod.test.rs` records the same class one step further out: merely binding a
+    command as a FUNCTION POINTER emits a runtime symbol reference that drags
+    WebView2 loader entry points into the lib test binary and reproduces the
+    identical failure. It uses `use` instead, deliberately.
+
+    `bash scripts/check-cross-target.sh` reproduces both in ~1 minute against
+    `x86_64-pc-windows-gnu`. Run it whenever a Rust change adds a mock-runtime
+    test; the alternative is finding out from a CI round trip.
 
   - **There are FOUR vitest tiers, and they must partition the test files.**
     `vitest.config.ts` runs the app (`src/**`, jsdom). `vitest.gates.config.ts`
