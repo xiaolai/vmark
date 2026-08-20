@@ -118,8 +118,8 @@ pnpm check:all        # Lint + test + build
      endpoint goes dark again, it is in the history — `git log -- scripts/gen-star-history.mjs`. -->
 <a href="https://www.star-history.com/?repos=xiaolai%2Fvmark&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&theme=dark&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left&sealed_token=qzdaDwLsJGl7o5BrAqxdidzzZ9Lssj-5DZ7-xtI-ZHgWG62bS-F8X29gUh02TQSxHD0eypMRp182O6QuTgb7WUs6JjSUsZi7ILMKUi58RpjlMyDlkDA0w3Y9cvv_Xvr62WDFWLrR1Tbr2G-8d_UbtTheGN7ZQ07OUF8BIZBzpwu7eukr-OrsMSoxteZD" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&theme=dark&legend=top-left&sealed_token=N2-lbst3zDsNkStcxyDIv9I8vk5Sgqx4pLFGil8mBhSJZs-UxObXFI6rSX9uPC2_Tv0jqTvVvwUsk3Kc3gRJNCXr9RL8XvRWqwjozm9Rrd8wfH3eWxMT6EdZoIiCIKPqIxbVxhKvOhyoLpKwQVwwOf6dFvTMJVb7FlJiX9vgZNMiKSP2dk5LIt8QOQsl" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiaolai/vmark&type=date&legend=top-left&sealed_token=N2-lbst3zDsNkStcxyDIv9I8vk5Sgqx4pLFGil8mBhSJZs-UxObXFI6rSX9uPC2_Tv0jqTvVvwUsk3Kc3gRJNCXr9RL8XvRWqwjozm9Rrd8wfH3eWxMT6EdZoIiCIKPqIxbVxhKvOhyoLpKwQVwwOf6dFvTMJVb7FlJiX9vgZNMiKSP2dk5LIt8QOQsl" />
  </picture>
 </a>
 
