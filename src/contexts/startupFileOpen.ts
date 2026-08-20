@@ -20,6 +20,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { openFileInNewTabCore, type OpenOutcome } from "@/services/navigation/fileOpen";
 import { fileOpsWarn } from "@/utils/debug";
+import { isLaunchWindow } from "@/utils/windowLabels";
 
 /** Create a blank untitled tab so the window has a live document. */
 function ensureBlankTab(windowLabel: string): void {
@@ -127,4 +128,37 @@ export function parseStartupFilesParam(filesParam: string | null): string[] | nu
     // Malformed param — treated as absent.
   }
   return null;
+}
+
+/**
+ * Decide what a starting window opens, from its launch parameters.
+ *
+ * Extracted from `WindowContext`'s init, which had grown to ~159 lines with
+ * this policy buried in the middle of listener wiring and transfer claiming.
+ * It is a policy — four mutually exclusive cases with a documented reason each
+ * — so it is worth a name and its own tests.
+ */
+export async function openStartupContent(
+  windowLabel: string,
+  params: {
+    filePaths: readonly string[] | null;
+    filePath: string | null;
+    workspaceRoot: string | null;
+    lastOpenTabs?: readonly string[] | undefined;
+  },
+): Promise<void> {
+  if (params.filePaths && params.filePaths.length > 0) {
+    await loadStartupFilesIntoTabs(windowLabel, params.filePaths);
+  } else if (params.filePath) {
+    await loadStartupFilesIntoTabs(windowLabel, [params.filePath]);
+  } else if (params.workspaceRoot) {
+    // Restore the workspace's last open tabs (#1005), matching the same-window
+    // Open Workspace behaviour.
+    await loadStartupFilesIntoTabs(windowLabel, params.lastOpenTabs ?? []);
+  } else if (!isLaunchWindow(windowLabel)) {
+    // New Window with no file is an unambiguous request for somewhere to type;
+    // launching the app is not, so the launch window opens nothing and lands on
+    // the WelcomeScreen (#1313).
+    createBlankStartupTab(windowLabel);
+  }
 }

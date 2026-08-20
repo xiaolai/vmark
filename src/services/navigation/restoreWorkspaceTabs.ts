@@ -20,6 +20,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { usePaneStore } from "@/stores/paneStore";
 import { loadSplitLayout } from "@/services/persistence/splitLayoutPersistence";
 import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
+import { tryOpenMediaFile } from "@/services/navigation/openMediaFile";
 import { getReplaceableTab } from "@/services/tabs/replaceableTab";
 import { workspaceWarn } from "@/utils/debug";
 
@@ -70,6 +71,16 @@ export async function restoreWorkspaceTabs(
     const filePath = parsed.data;
     // Dedup guard: skip files already open in this window (e.g. hot-exit restore).
     if (findExistingTabForPath(windowLabel, filePath)) continue;
+
+    // Binary media is path-only and must never be decoded as UTF-8. The shared
+    // open pipeline refuses it before any read; this loop hand-rolls its own
+    // read/create/ingest and so has to consult the same guard. A workspace's
+    // persisted tabs are document paths, and a media tab IS a document tab with
+    // a path, so an image or video in `lastOpenTabs` reached `readTextFile`.
+    if (tryOpenMediaFile(windowLabel, filePath)) {
+      created += 1;
+      continue;
+    }
 
     let content: string;
     try {

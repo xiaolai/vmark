@@ -21,6 +21,10 @@ vi.mock("@/stores/tabStore", () => ({
   },
   tabFilePath: (t: { filePath: string | null }) => t.filePath,
 }));
+const mockTryOpenMediaFile = vi.fn(() => false);
+vi.mock("@/services/navigation/openMediaFile", () => ({
+  tryOpenMediaFile: (...a: unknown[]) => mockTryOpenMediaFile(...a),
+}));
 vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...a: unknown[]) => mockGetReplaceableTab(...a),
 }));
@@ -38,8 +42,9 @@ import { restoreWorkspaceTabs } from "./restoreWorkspaceTabs";
 
 beforeEach(() => {
   [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockIngestExternalContent,
-   mockSetLineMetadata, mockCloseTab, mockGetReplaceableTab]
+   mockSetLineMetadata, mockCloseTab, mockGetReplaceableTab, mockTryOpenMediaFile]
     .forEach((m) => m.mockReset());
+  mockTryOpenMediaFile.mockReturnValue(false);
   mockGetReplaceableTab.mockReturnValue(null);
   mockTabs = [{ id: "blank-1", kind: "document", filePath: null }];
   mockDocs = { "blank-1": { isDirty: false } };
@@ -259,5 +264,28 @@ describe("#1313 audit — read failure and post-create failure are different", (
     expect(await restoreWorkspaceTabs("main", ["/w/gone.md"])).toBe(0);
     expect(mockCreateTab).not.toHaveBeenCalled();
     expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A workspace's persisted tabs are document paths, and a media tab IS a
+ * document tab with a path — so an image or video in `lastOpenTabs` reached
+ * `readTextFile` and was decoded as UTF-8. The shared open pipeline has always
+ * refused that (`tryOpenMediaFile` runs before any read); this loop, which
+ * hand-rolls its own read/create/ingest, never consulted it.
+ */
+describe("#1313 audit — media files are not read as text on restore", () => {
+  it("routes a binary media path to the media opener instead of readTextFile", async () => {
+    mockTryOpenMediaFile.mockReturnValue(true);
+    const created = await restoreWorkspaceTabs("main", ["/w/clip.mp4"]);
+    expect(mockTryOpenMediaFile).toHaveBeenCalledWith("main", "/w/clip.mp4");
+    expect(mockReadTextFile).not.toHaveBeenCalled();
+    expect(created).toBe(1);
+  });
+
+  it("leaves text files on the text path", async () => {
+    mockTryOpenMediaFile.mockReturnValue(false);
+    await restoreWorkspaceTabs("main", ["/w/a.md"]);
+    expect(mockReadTextFile).toHaveBeenCalledWith("/w/a.md");
   });
 });

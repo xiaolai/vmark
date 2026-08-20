@@ -11,6 +11,7 @@ import {
   loadStartupFilesIntoTabs,
   createBlankStartupTab,
   parseStartupFilesParam,
+  openStartupContent,
 } from "./startupFileOpen";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -193,5 +194,57 @@ describe("parseStartupFilesParam", () => {
     ["empty array", "[]", []],
   ])("%s", (_name, input, expected) => {
     expect(parseStartupFilesParam(input as string | null)).toEqual(expected);
+  });
+});
+
+/**
+ * The startup-content policy, extracted from WindowContext's ~159-line init.
+ * Four mutually exclusive cases, each with a reason — worth testing as a unit
+ * rather than only through a full provider render.
+ */
+describe("openStartupContent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOpenFileInNewTabCore.mockImplementation(async (label: string, path: string) => {
+      useTabStore.getState().createTab(label, path);
+      return "opened";
+    });
+    useTabStore.getState().removeWindow(WINDOW);
+    useTabStore.getState().removeWindow("doc-9");
+  });
+
+  const tabsOf = (w: string) => useTabStore.getState().getTabsByWindow(w);
+
+  it("opens an explicit file list", async () => {
+    await openStartupContent(WINDOW, { filePaths: ["/a.md", "/b.md"], filePath: null, workspaceRoot: null });
+    expect(tabsOf(WINDOW).map((t) => t.filePath)).toEqual(["/a.md", "/b.md"]);
+  });
+
+  it("opens a single file param", async () => {
+    await openStartupContent(WINDOW, { filePaths: null, filePath: "/only.md", workspaceRoot: null });
+    expect(tabsOf(WINDOW).map((t) => t.filePath)).toEqual(["/only.md"]);
+  });
+
+  it("restores a workspace's last open tabs, and opens nothing when it had none", async () => {
+    await openStartupContent(WINDOW, {
+      filePaths: null, filePath: null, workspaceRoot: "/ws", lastOpenTabs: ["/ws/x.md"],
+    });
+    expect(tabsOf(WINDOW).map((t) => t.filePath)).toEqual(["/ws/x.md"]);
+
+    useTabStore.getState().removeWindow(WINDOW);
+    await openStartupContent(WINDOW, { filePaths: null, filePath: null, workspaceRoot: "/ws" });
+    expect(tabsOf(WINDOW)).toHaveLength(0);
+  });
+
+  it("gives a NON-launch window a blank tab when it has nothing to open", async () => {
+    await openStartupContent("doc-9", { filePaths: null, filePath: null, workspaceRoot: null });
+    const tabs = tabsOf("doc-9");
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].filePath).toBeNull();
+  });
+
+  it("leaves the LAUNCH window empty for the WelcomeScreen (#1313)", async () => {
+    await openStartupContent(WINDOW, { filePaths: null, filePath: null, workspaceRoot: null });
+    expect(tabsOf(WINDOW)).toHaveLength(0);
   });
 });

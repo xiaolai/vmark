@@ -153,29 +153,37 @@ vi.mock("../utils/linebreakDetection", () => ({
 // startupFileOpen delegates to openFileInNewTabCore; its mechanics are covered
 // by its own tests. Mocked here (parse behavior real) so the orchestration
 // assertions (which path opens which file) stay meaningful.
+type StartupParams = { filePaths?: string[] | null; filePath?: string | null;
+  workspaceRoot?: string | null; lastOpenTabs?: string[] };
+
+async function loadFiles(label: string, paths: readonly string[]) {
+  const { readTextFile } = await import("@tauri-apps/plugin-fs");
+  const { toast } = await import("sonner");
+  for (const path of paths) {
+    const tabId = mockCreateTab(label, path);
+    try {
+      mockInitDocument(tabId, await readTextFile(path), path);
+      mockSetLineMetadata(tabId, { type: "lf" });
+      mockAddFile(path);
+    } catch {
+      mockInitDocument(tabId, "", null);
+      toast.error(`Failed to open ${path.split("/").pop() ?? path}`);
+    }
+  }
+}
+
 // `importActual` for the parser: a hand-written copy would let the real one drift
 // while these tests stayed green. Only opening is stubbed.
 vi.mock("./startupFileOpen", async (importActual) => ({
   parseStartupFilesParam: (await importActual<typeof import("./startupFileOpen")>())
     .parseStartupFilesParam,
-  loadStartupFilesIntoTabs: vi.fn(async (label: string, paths: string[]) => {
-    const { readTextFile } = await import("@tauri-apps/plugin-fs");
-    const { toast } = await import("sonner");
-    for (const path of paths) {
-      const tabId = mockCreateTab(label, path);
-      try {
-        mockInitDocument(tabId, await readTextFile(path), path);
-        mockSetLineMetadata(tabId, { type: "lf" });
-        mockAddFile(path);
-      } catch {
-        mockInitDocument(tabId, "", null);
-        toast.error(`Failed to open ${path.split("/").pop() ?? path}`);
-      }
-    }
-  }),
-  createBlankStartupTab: vi.fn((label: string) => {
-    const tabId = mockCreateTab(label, null);
-    mockInitDocument(tabId, "", null);
+  openStartupContent: vi.fn(async (label: string, p: StartupParams) => {
+    const paths = p.filePaths?.length ? p.filePaths
+      : p.filePath ? [p.filePath]
+      : p.workspaceRoot ? (p.lastOpenTabs ?? [])
+      : null;
+    if (paths) return loadFiles(label, paths);
+    if (label !== "main") mockInitDocument(mockCreateTab(label, null), "", null);
   }),
 }));
 
@@ -439,23 +447,6 @@ describe("WindowContext", () => {
       }).toThrow("useIsDocumentWindow must be used within WindowProvider");
 
       consoleSpy.mockRestore();
-    });
-  });
-
-  describe("WindowProvider — doc-* window", () => {
-    it("creates tab and document for doc-* window", async () => {
-      mockWindowLabel = "doc-456";
-
-      render(
-        <WindowProvider>
-          <div>content</div>
-        </WindowProvider>,
-      );
-
-      await waitFor(() => {
-        expect(mockCreateTab).toHaveBeenCalledWith("doc-456", null);
-        expect(mockInitDocument).toHaveBeenCalledWith("tab-1", "", null);
-      });
     });
   });
 
