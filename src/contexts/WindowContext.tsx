@@ -10,7 +10,9 @@
  * emit "ready" to Rust → render children.
  *
  * Key decisions:
- *   - initStartedRef guards against React.StrictMode double-init in dev.
+ *   - initStartedRef guards the WHOLE effect against StrictMode's double-invoke,
+ *     set synchronously so neither pass slips through. Ready handshake:
+ *     useWindowReady. Startup-content policy: openStartupContent.
  *   - Transfer windows claim Rust registry payloads before normal init.
  *   - Runtime transfers are handled by listeners set up after isReady.
  *   - Workspace resolution: for files opened via Finder/drag, resolves the
@@ -48,21 +50,16 @@ import { restoreWindowBrowserSession } from "@/services/persistence/windowBrowse
 import { openStartupContent, parseStartupFilesParam } from "./startupFileOpen";
 import { isLaunchWindow, isDocumentWindowLabel } from "@/utils/windowLabels";
 import { useWindowReady } from "./useWindowReady";
+import { prepareWindowStorage } from "./prepareWindowStorage";
 import {
   applyTabTransferData,
   handleTabTransfer,
   handleTabRemovalRequest,
 } from "./tabTransferHandlers";
-import {
-  setCurrentWindowLabel,
-  migrateWorkspaceStorage,
-  getWorkspaceStorageKey,
-  findActiveWorkspaceLabel,
-} from "@/services/persistence/workspaceStorage";
 import { resolveWorkspaceRootForExternalFile } from "../utils/openPolicy";
 import { isWithinRoot } from "../utils/paths";
 import type { TabRemovalRequestEvent, TabTransferPayload } from "@/types/tabTransfer";
-import { windowContextError, workspaceWarn, appError } from "@/utils/debug";
+import { windowContextError, appError } from "@/utils/debug";
 import { claimWorkspaceTransferForWindow } from "@/services/workspaces/workspaceWindowActions";
 import { voidAsync } from "@/utils/voidAsync";
 
@@ -105,33 +102,7 @@ export function WindowProvider({ children }: WindowProviderProps) {
         const window = getCurrentWebviewWindow();
         const label = window.label;
 
-        // For main window, migrate legacy workspace storage first
-        if (isLaunchWindow(label)) {
-          migrateWorkspaceStorage();
-        }
-
-        // Set the current window label for workspace storage
-        // This must happen before store rehydration
-        setCurrentWindowLabel(label);
-
-        // Settings window: read workspace state from the source document window
-        // so workspace config toggles work correctly across windows
-        if (label === "settings") {
-          const sourceLabel = findActiveWorkspaceLabel();
-          if (sourceLabel) {
-            setCurrentWindowLabel(sourceLabel);
-          }
-        }
-
-        // Clear any stale persisted workspace state for doc windows
-        if (label.startsWith("doc-")) {
-          const storageKey = getWorkspaceStorageKey(label);
-          localStorage.removeItem(storageKey);
-        }
-
-        // Rehydrate workspace store from window-specific storage key
-        // This ensures new windows don't inherit main's workspace
-        void Promise.resolve(useWorkspaceStore.persist.rehydrate()).catch((e) => workspaceWarn("Workspace rehydrate failed:", e));
+        prepareWindowStorage(label);
 
         setWindowLabel(label);
 
@@ -238,7 +209,8 @@ export function WindowProvider({ children }: WindowProviderProps) {
       markReady(getCurrentWebviewWindow());
     });
     /* v8 ignore stop */
-  }, []);
+    // markReady is a stable useCallback — still a once-only effect.
+  }, [markReady]);
 
   useEffect(() => {
     if (!isReady) return;

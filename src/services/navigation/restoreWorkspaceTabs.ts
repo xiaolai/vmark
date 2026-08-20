@@ -44,6 +44,55 @@ function stillReplaceable(windowLabel: string, tabId: string): boolean {
 const restorablePathSchema = z.string().min(1);
 
 /**
+ * Restore ONE path. Returns whether a tab was created.
+ *
+ * Split out of the loop so the loop reads as "for each path, restore it" rather
+ * than as five interleaved policies (media routing, read failure, stale dedup,
+ * create, ingest failure). Each of those has its own reason, and they were
+ * hard to see — and one of them, the stale dedup, was a live defect — while
+ * they shared one `try` and one nesting level.
+ */
+async function restoreOnePath(windowLabel: string, filePath: string): Promise<boolean> {
+  // Binary media is path-only and must never be decoded as UTF-8. The shared
+  // open pipeline refuses it before any read; this function hand-rolls its own
+  // read/create/ingest and so has to consult the same guard. A workspace's
+  // persisted tabs are document paths, and a media tab IS a document tab with a
+  // path, so an image or video in `lastOpenTabs` reached `readTextFile`.
+  if (tryOpenMediaFile(windowLabel, filePath)) return true;
+
+  let content: string;
+  try {
+    content = await readTextFile(filePath);
+  } catch {
+    // Read failure only: the file was moved or deleted. Nothing was created, so
+    // there is nothing to roll back. Kept separate from the catch below so a
+    // post-create failure cannot be mislabelled as an unreadable file.
+    workspaceWarn(`Could not restore tab: ${filePath}`);
+    return false;
+  }
+
+  // Re-check dedup AFTER the read. The caller's verdict was taken before an
+  // await, and in that window another opener (hot-exit restore, a Finder open,
+  // the user) can create a tab for this same path. `createTab` would then dedup
+  // and hand back THEIR tab, and the ingest below would overwrite its contents.
+  if (findExistingTabForPath(windowLabel, filePath)) return false;
+
+  const tabId = useTabStore.getState().createTab(windowLabel, filePath);
+  try {
+    // The disk-open door canonicalises AND derives line metadata.
+    useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
+    return true;
+  } catch (error) {
+    // The file read fine — a real failure after the tab exists. Roll the tab
+    // back rather than leave an orphan with no document, and surface the actual
+    // error instead of hiding it as "file moved".
+    useTabStore.getState().closeTab(windowLabel, tabId);
+    workspaceWarn(`Failed to initialise restored tab: ${filePath}`, error);
+    return false;
+  }
+}
+
+/**
  * Restore the given file paths as tabs in `windowLabel`. Paths that already
  * have an open tab are skipped (dedup). Unreadable paths (moved/deleted) are
  * skipped with a warning. The list comes from a persisted workspace config, so
@@ -72,47 +121,7 @@ export async function restoreWorkspaceTabs(
     // Dedup guard: skip files already open in this window (e.g. hot-exit restore).
     if (findExistingTabForPath(windowLabel, filePath)) continue;
 
-    // Binary media is path-only and must never be decoded as UTF-8. The shared
-    // open pipeline refuses it before any read; this loop hand-rolls its own
-    // read/create/ingest and so has to consult the same guard. A workspace's
-    // persisted tabs are document paths, and a media tab IS a document tab with
-    // a path, so an image or video in `lastOpenTabs` reached `readTextFile`.
-    if (tryOpenMediaFile(windowLabel, filePath)) {
-      created += 1;
-      continue;
-    }
-
-    let content: string;
-    try {
-      content = await readTextFile(filePath);
-    } catch {
-      // Read failure only: the file was moved or deleted. Nothing was created,
-      // so there is nothing to roll back. Kept separate from the block below so
-      // a post-create failure cannot be mislabelled as an unreadable file.
-      workspaceWarn(`Could not restore tab: ${filePath}`);
-      continue;
-    }
-
-    // Re-check dedup AFTER the read, not just before it. The verdict above was
-    // taken before an await, and in that window another opener (hot-exit
-    // restore, a Finder open, the user) can create a tab for this same path.
-    // `createTab` would then dedup and hand back THEIR tab, and the ingest
-    // below would overwrite its contents — the read is what makes the earlier
-    // check stale, so the check has to happen on this side of it.
-    if (findExistingTabForPath(windowLabel, filePath)) continue;
-
-    const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-    try {
-      // The disk-open door canonicalises AND derives line metadata.
-      useDocumentStore.getState().ingestExternalContent(tabId, content, "disk-open", { filePath });
-      created += 1;
-    } catch (error) {
-      // The file read fine — this is a real failure after the tab exists. Roll
-      // the tab back rather than leaving an orphan with no document, and
-      // surface the actual error instead of hiding it as "file moved".
-      useTabStore.getState().closeTab(windowLabel, tabId);
-      workspaceWarn(`Failed to initialise restored tab: ${filePath}`, error);
-    }
+    if (await restoreOnePath(windowLabel, filePath)) created += 1;
   }
 
   // #1313 — the blank Untitled tab the window launched with is orphaned beside
