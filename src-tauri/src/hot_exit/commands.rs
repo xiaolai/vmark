@@ -117,7 +117,9 @@ pub async fn hot_exit_clear_session(
 ///
 /// Creates secondary windows and stores session state for pull-based restoration.
 /// Returns list of created window labels.
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn hot_exit_restore_multi_window(
     app: AppHandle,
     session: SessionData,

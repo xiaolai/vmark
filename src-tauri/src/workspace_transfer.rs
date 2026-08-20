@@ -96,7 +96,9 @@ fn ack_route_targets() -> std::sync::MutexGuard<'static, Option<HashMap<String, 
     ACK_ROUTE_TARGETS.lock().unwrap_or_else(|p| p.into_inner())
 }
 
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn detach_workspace_to_new_window(
     app: AppHandle,
     data: WorkspaceTransferData,

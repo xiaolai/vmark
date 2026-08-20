@@ -79,3 +79,84 @@ fn empty_section_still_yields_a_matchable_route() {
         "route must stay /settings, got {url}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Idempotent creation (#1301)
+//
+// `open_settings_window` became `#[tauri::command(async)]` because a
+// synchronous command builds the window on the main thread and deadlocks
+// WebView2 on Windows. That removed the accidental serialization the blocking
+// IPC loop used to provide: two clicks can now both see "no settings window"
+// before either builds. Exactly one `build()` can win — labels are registered
+// on the main thread — so the loser must focus the winner's window instead of
+// returning `WindowLabelAlreadyExists` to the user as a failed Settings open.
+//
+// `MockRuntime` reproduces the losing call exactly: a second `build()` with a
+// live label fails the same way it does under Wry.
+
+fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+    tauri::test::mock_builder()
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("build mock app")
+}
+
+#[test]
+fn a_second_open_focuses_the_existing_window_instead_of_creating_one() {
+    let app = mock_app();
+    let first = show_settings_window_section(app.handle(), None).expect("first open");
+    let second = show_settings_window_section(app.handle(), Some("about")).expect("second open");
+
+    assert_eq!(first, SETTINGS_LABEL);
+    assert_eq!(second, SETTINGS_LABEL);
+    assert_eq!(
+        app.webview_windows()
+            .keys()
+            .filter(|l| *l == SETTINGS_LABEL)
+            .count(),
+        1,
+        "Settings must stay a singleton"
+    );
+}
+
+#[test]
+fn a_build_that_loses_the_race_reports_success_rather_than_label_already_exists() {
+    let app = mock_app();
+    // Stand in for the winning concurrent call: the label is already taken by
+    // the time this call's `build()` runs, which is the whole losing case.
+    let _winner = tauri::webview::WebviewWindowBuilder::new(
+        app.handle(),
+        SETTINGS_LABEL,
+        tauri::WebviewUrl::default(),
+    )
+    .visible(false)
+    .build()
+    .expect("build the winning settings window");
+
+    // Prove the premise rather than assuming it: a duplicate label must fail.
+    let duplicate = tauri::webview::WebviewWindowBuilder::new(
+        app.handle(),
+        SETTINGS_LABEL,
+        tauri::WebviewUrl::default(),
+    )
+    .build();
+    assert!(
+        duplicate.is_err(),
+        "premise: a duplicate window label must be rejected by the runtime"
+    );
+
+    // The real entry point must nonetheless succeed — the user's window exists.
+    let label = show_settings_window_section(app.handle(), Some("integrations"))
+        .expect("losing the create race is not a user-visible failure");
+    assert_eq!(label, SETTINGS_LABEL);
+}
+
+#[test]
+fn focus_existing_reports_absence_rather_than_pretending_it_focused() {
+    let app = mock_app();
+    assert!(
+        !focus_existing(app.handle(), None),
+        "no settings window yet — must report false so the caller builds one"
+    );
+    show_settings_window_section(app.handle(), None).expect("open settings");
+    assert!(focus_existing(app.handle(), Some("about")));
+}

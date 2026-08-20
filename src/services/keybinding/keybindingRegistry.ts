@@ -14,6 +14,7 @@
  */
 
 import { useShortcutsStore } from "@/stores/settingsStore/shortcuts";
+import { DEFAULT_SHORTCUTS } from "@/stores/settingsStore/shortcutDefinitions";
 import {
   canonicalizeChordString,
   canonicalizeEvent,
@@ -43,8 +44,27 @@ let unsubscribe: (() => void) | null = null;
 /** Monotonic id of the current installation; guards disposer identity. */
 let installToken = 0;
 
+/**
+ * Ids the shortcut registry actually declares. Membership is what separates
+ * "unbound" from "unknown" — `getShortcut` returns `""` for both.
+ */
+const KNOWN_SHORTCUT_IDS = new Set(DEFAULT_SHORTCUTS.map((s) => s.id));
+
 function rebuild(): void {
   index = buildIndex(declaredBindings, resolveShortcutChord, (binding, reason) => {
+    // An UNBOUND shortcut is normal, not a defect (#1301). Several shortcuts
+    // ship with an empty `defaultKey`, and a user may clear any key in
+    // Settings; both reach here identically because the store answers `""` for
+    // either. Warning about them put a line in every user's production log on
+    // every window load — `keybindingWarn` forwards to the Tauri log plugin —
+    // and #1301 arrived with eight copies of
+    // `Dropped binding view.toggleFitTables` in it, listed by the reporter as
+    // a suspected cause of a freeze it had nothing to do with.
+    //
+    // The case that IS a defect survives: a binding naming a shortcut id the
+    // registry does not declare. It is still dropped either way; only the
+    // warning is scoped.
+    if ("shortcutId" in binding && KNOWN_SHORTCUT_IDS.has(binding.shortcutId)) return;
     const id = binding.kind === "command" ? binding.commandId : "(containment)";
     keybindingWarn(`Dropped binding ${id}: ${reason}`);
   });

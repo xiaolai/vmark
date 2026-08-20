@@ -10,9 +10,19 @@
 //! Undo (move a tab back): `remove_tab_from_window` is a two-phase handshake, not
 //! a fire-and-forget removal — see `TabRemovalAck`.
 //!
+//! Submodules (split out to stay under the file-size gate, each a coherent
+//! responsibility rather than an arbitrary slice):
+//!   - `drop_target` — which window is under the pointer, and focusing it
+//!   - `removal` — the undo handshake's wire contract and pending-ack registry
+//!
 //! Key decisions:
 //!   - Transfer data is stored in a global Mutex<HashMap> keyed by window label,
 //!     not passed via URL params, to handle large document content safely.
+//!   - The payload is registered BEFORE the window is created, and a failed
+//!     build rolls the entry back. The target claims on mount, so the reverse
+//!     order is a gap in which a claim finds nothing and the window opens
+//!     empty — invisible while the command was blocking (one thread did both),
+//!     real once it became `(async)` for #1301.
 //!   - `clear_unclaimed_transfer` is called on WindowEvent::Destroyed to prevent
 //!     leaks when a window is destroyed before claiming its transfer.
 //!   - `find_drop_target_window` uses screen coordinates and prefers focused windows
@@ -42,8 +52,15 @@ use tokio::time::{timeout, Duration};
 
 use crate::window_manager;
 
+mod drop_target;
 mod removal;
 
+// GLOB, not a named re-export: `#[tauri::command]` also emits a sibling
+// `__cmd__<name>` macro, and `generate_handler!` resolves it through the same
+// path as the function. A named `pub use` moves the fn and leaves the macro
+// behind, so `command_registry.rs` stops compiling — the same reason
+// `window_manager/mod.rs` re-exports its submodules with `*`.
+pub use drop_target::*;
 pub use removal::TabRemovalAck;
 use removal::{
     drop_pending_ack, register_pending_ack, route_ack, validate_phase, TabRemovalRequest,
@@ -78,6 +95,10 @@ pub struct TabTransferData {
     pub last_disk_content: Option<String>,
 }
 
+/// The route a detached window loads; `?transfer=true` is what makes its
+/// frontend claim the payload registered for its label.
+const TRANSFER_URL: &str = "/?transfer=true";
+
 /// Registry of pending tab transfers, keyed by target window label.
 static TRANSFER_REGISTRY: Mutex<Option<HashMap<String, TabTransferData>>> = Mutex::new(None);
 
@@ -87,17 +108,39 @@ fn registry() -> std::sync::MutexGuard<'static, Option<HashMap<String, TabTransf
 
 /// Create a new window and store transfer data for it.
 /// Returns the new window label.
-#[tauri::command]
+/// `(async)` is required: a sync command creates the window on the main thread,
+/// which deadlocks WebView2 on Windows (#1301). See `window_manager/mod.rs`.
+#[tauri::command(async)]
 pub fn detach_tab_to_new_window(
     app: AppHandle,
     data: TabTransferData,
 ) -> Result<String, CommandError> {
-    let label = window_manager::create_document_window_for_transfer(&app)
-        .map_err(|e| CommandError::internal(e.to_string()))?;
+    // Register the payload BEFORE creating the window — the ordering
+    // `workspace_transfer.rs` already documents, and the reason it gives holds
+    // here verbatim: the target invokes `claim_tab_transfer` on mount, and a
+    // claim that arrives before the registry is populated silently opens an
+    // EMPTY window with the user's tab nowhere.
+    //
+    // Under the old blocking command that could not happen — the insert ran on
+    // the same main thread that had to return to its loop before the new
+    // webview could execute any JS. `(async)` (#1301) moved the insert to a
+    // runtime worker, so "create, then register" became a real check-then-act
+    // gap. Registering first cannot lose the race in either direction.
+    let label = window_manager::allocate_window_label();
+    registry()
+        .get_or_insert_with(HashMap::new)
+        .insert(label.clone(), data);
 
-    let mut guard = registry();
-    let map = guard.get_or_insert_with(HashMap::new);
-    map.insert(label.clone(), data);
+    // Roll back on failure so a window that never existed does not leave a
+    // transfer entry behind — nothing would ever claim or destroy it.
+    if let Err(e) = window_manager::create_document_window_with_label_and_url(
+        &app,
+        &label,
+        TRANSFER_URL.to_string(),
+    ) {
+        clear_unclaimed_transfer(&label);
+        return Err(CommandError::internal(e.to_string()));
+    }
 
     Ok(label)
 }
@@ -118,73 +161,6 @@ pub fn transfer_tab_to_existing_window(
 
     target_window
         .emit("tab:transfer", data)
-        .map_err(|e| CommandError::internal(e.to_string()))
-}
-
-/// Find a document window at the given screen coordinates.
-/// Returns `None` when no other document window contains the point.
-#[tauri::command]
-pub fn find_drop_target_window(
-    app: AppHandle,
-    source_window_label: String,
-    screen_x: f64,
-    screen_y: f64,
-) -> Option<String> {
-    let windows = app.webview_windows();
-    let mut focused_match: Option<String> = None;
-    let mut fallback_match: Option<String> = None;
-
-    for (label, window) in windows {
-        if label == source_window_label {
-            continue;
-        }
-        if label != "main" && !label.starts_with("doc-") {
-            continue;
-        }
-
-        let Ok(position) = window.outer_position() else {
-            continue;
-        };
-        let Ok(size) = window.outer_size() else {
-            continue;
-        };
-
-        if point_in_window_rect(
-            position.x,
-            position.y,
-            size.width,
-            size.height,
-            screen_x,
-            screen_y,
-        ) {
-            let is_focused = window.is_focused().unwrap_or(false);
-            if is_focused {
-                focused_match = Some(label.clone());
-                break;
-            }
-            if fallback_match.is_none() {
-                fallback_match = Some(label.clone());
-            }
-        }
-    }
-
-    focused_match.or(fallback_match)
-}
-
-/// Focus an existing window by label (used for spring-loaded drag targeting).
-#[tauri::command]
-pub fn focus_existing_window(app: AppHandle, window_label: String) -> Result<(), CommandError> {
-    let Some(window) = app.get_webview_window(&window_label) else {
-        return Err(CommandError::not_found(format!(
-            "Window '{window_label}' not found"
-        )));
-    };
-    if window.is_minimized().unwrap_or(false) {
-        let _ = window.unminimize();
-    }
-    let _ = window.show();
-    window
-        .set_focus()
         .map_err(|e| CommandError::internal(e.to_string()))
 }
 
@@ -263,28 +239,6 @@ pub fn clear_unclaimed_transfer(window_label: &str) {
     if let Some(map) = guard.as_mut() {
         map.remove(window_label);
     }
-}
-
-/// Pure point-in-rect test for a window's outer bounds (WI-5.4, TQ5).
-///
-/// A zero-size window is never a drop target. Edges are inclusive — a point
-/// exactly on a border counts as inside (matches the original drop behavior).
-fn point_in_window_rect(
-    pos_x: i32,
-    pos_y: i32,
-    width: u32,
-    height: u32,
-    screen_x: f64,
-    screen_y: f64,
-) -> bool {
-    if width == 0 || height == 0 {
-        return false;
-    }
-    let left = pos_x as f64;
-    let top = pos_y as f64;
-    let right = left + width as f64;
-    let bottom = top + height as f64;
-    screen_x >= left && screen_x <= right && screen_y >= top && screen_y <= bottom
 }
 
 #[cfg(test)]
