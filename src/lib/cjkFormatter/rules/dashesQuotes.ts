@@ -68,12 +68,24 @@ export function fixEmdashSpacing(text: string): string {
   });
 }
 
-/** Fix spacing around quotation marks (generic). */
+/**
+ * Fix spacing around quotation marks (generic).
+ *
+ * A CJK letter is in BOTH no-space sets (WI-CJKF3.3). `“ ”` are fullwidth in
+ * CJK context — GB/T 15834 and JLREQ both give them their own sidebearing, and
+ * the W3C's *Spacing between scripts inline* makes the same point structurally:
+ * the gap belongs to the glyph, not to a character in the content. Without
+ * this, `他说"你好"然后走了` came back as `他说 “你好” 然后走了`.
+ *
+ * Latin↔quote spacing is unaffected, which is the whole point of the rule.
+ * Korean is excluded from `CJK_NO_KOREAN` and so was never spaced.
+ */
 function fixQuoteSpacing(
   text: string,
   openingQuote: string,
   closingQuote: string
 ): string {
+  const isCJKChar = new RegExp(`[${CJK_NO_KOREAN}]`);
   const noSpaceBefore = CJK_CLOSING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
   const noSpaceAfter = CJK_OPENING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
 
@@ -84,7 +96,7 @@ function fixQuoteSpacing(
       "g"
     ),
     (_, before) => {
-      if (noSpaceBefore.includes(before)) {
+      if (noSpaceBefore.includes(before) || isCJKChar.test(before)) {
         return `${before}${openingQuote}`;
       }
       return `${before} ${openingQuote}`;
@@ -98,7 +110,7 @@ function fixQuoteSpacing(
       "g"
     ),
     (_, after) => {
-      if (noSpaceAfter.includes(after)) {
+      if (noSpaceAfter.includes(after) || isCJKChar.test(after)) {
         return `${closingQuote}${after}`;
       }
       return `${closingQuote} ${after}`;

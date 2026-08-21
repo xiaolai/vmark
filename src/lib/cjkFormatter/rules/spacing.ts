@@ -103,12 +103,24 @@ export function fixCurrencySpacing(
   return text;
 }
 
-/** Remove same-line spaces around slashes (preserves URLs and line breaks). */
+/**
+ * Remove same-line spaces around slashes (preserves URLs and line breaks).
+ *
+ * Whitespace on the LEFT ONLY is left alone (WI-CJKF3.4). That shape is a path
+ * or a root-anchored token — `路径 /usr/local/bin`, `see /etc/hosts` — never a
+ * spaced separator, and collapsing it welded the path onto the preceding word.
+ * Both-sides (`读 / 写`) and right-side-only (`读/ 写`) are separators and still
+ * tighten.
+ *
+ * `[ \t]` only — matching `\n` would merge adjacent lines (e.g. a heading with
+ * a following line that starts with an absolute path).
+ */
 export function fixSlashSpacing(text: string): string {
-  // Remove horizontal whitespace around / but not in URLs (avoid //).
-  // [ \t] only — matching \n here would merge adjacent lines (e.g. a heading
-  // with a following line that starts with an absolute path).
-  return text.replace(/(?<![/:])[ \t]*\/[ \t]*(?!\/)/g, "/");
+  return text.replace(
+    /(?<![/:])([ \t]*)\/([ \t]*)(?!\/)/g,
+    (whole, left: string, right: string) =>
+      left.length > 0 && right.length === 0 ? whole : "/"
+  );
 }
 
 /**
