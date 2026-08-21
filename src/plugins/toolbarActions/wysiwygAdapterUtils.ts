@@ -11,6 +11,7 @@
  * @module plugins/toolbarActions/wysiwygAdapterUtils
  */
 import type { EditorView } from "@tiptap/pm/view";
+import { TextSelection } from "@tiptap/pm/state";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
 import { hostDocument, activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { hostSettings } from "@/plugins/shared/hostSettings";
@@ -101,11 +102,32 @@ export function applyFullDocumentTransform(
     });
 
     const { state, dispatch } = view;
+
+    // Where the user was, before the document is replaced under them
+    // (WI-CJKF6.3). ProseMirror maps a selection through a replacement of the
+    // ENTIRE document by collapsing it to the end, so "Format CJK File" threw
+    // the caret to the bottom of a long document — and took the scroll
+    // position with it — for a command whose point is that nothing visible
+    // changes. On a document that SHRANK it was worse: restoring nothing meant
+    // the mapped position could fall outside the new doc and `TextSelection`
+    // threw, which this catch turned into a silent no-op.
+    const caretBefore = state.selection.head;
+    const scrollBefore = view.dom.scrollTop;
+
     const tr = state.tr
       .replaceWith(0, state.doc.content.size, newDoc.content)
       .setMeta("addToHistory", true);
 
+    // Clamped, not mapped: the offsets shift by however many spaces the rules
+    // inserted, so this is a best effort at "roughly where you were" rather
+    // than an exact restoration. `TextSelection.near` snaps to the closest
+    // valid text position, so it is safe at a node boundary.
+    const maxPos = tr.doc.content.size;
+    const caretAfter = Math.max(0, Math.min(caretBefore, maxPos));
+    tr.setSelection(TextSelection.near(tr.doc.resolve(caretAfter)));
+
     dispatch(tr);
+    view.dom.scrollTop = scrollBefore;
     view.focus();
     return true;
   } catch (error) {

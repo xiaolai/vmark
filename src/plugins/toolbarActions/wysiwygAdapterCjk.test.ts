@@ -39,6 +39,17 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
+// WI-CJKF6.3 — `applyFullDocumentTransform` resolves a real position to
+// restore the caret. This file stubs ProseMirror wholesale rather than
+// building a real EditorView, so `tr.doc.resolve` cannot return anything
+// `TextSelection.near` accepts. The behaviour it stands in for is covered
+// against a REAL view in `wysiwygFullDocumentTransform.test.ts`; here the
+// subject is routing (does it serialize, does it dispatch), not selection.
+vi.mock("@tiptap/pm/state", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tiptap/pm/state")>()),
+  TextSelection: { near: vi.fn(() => ({ __stubSelection: true })) },
+}));
+
 vi.mock("@/lib/cjkFormatter", () => ({
   collapseNewlines: vi.fn((s: string) => s.replace(/\n{3,}/g, "\n\n")),
   formatMarkdown: vi.fn((s: string) => `formatted:${s}`),
@@ -81,6 +92,8 @@ function createMockContext(opts?: {
   const tr = {
     replaceWith: vi.fn().mockReturnThis(),
     setMeta: vi.fn().mockReturnThis(),
+    setSelection: vi.fn().mockReturnThis(),
+    doc: { content: { size: 100 }, resolve: vi.fn(() => ({})) },
   };
 
   const dispatch = vi.fn();
@@ -118,6 +131,7 @@ function createMockContext(opts?: {
           $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
+          head: 10,
           empty: selectionEmpty,
         },
         doc: {
@@ -131,6 +145,8 @@ function createMockContext(opts?: {
       },
       dispatch,
       focus,
+      // WI-CJKF6.3 restores the scroll offset around a whole-document replace.
+      dom: { scrollTop: 0 },
     } as never,
     editor: {
       schema,

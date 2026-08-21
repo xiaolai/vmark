@@ -28,6 +28,15 @@ vi.mock("@/utils/linebreaks", () => ({
   resolveHardBreakStyle: vi.fn(() => "twoSpaces"),
 }));
 
+// WI-CJKF6.3 — the caret restore resolves a real position. This suite stubs
+// ProseMirror rather than building an EditorView, so `tr.doc.resolve` cannot
+// return anything `TextSelection.near` accepts. Real-view coverage of the same
+// behaviour lives in `wysiwygFullDocumentTransform.test.ts`.
+vi.mock("@tiptap/pm/state", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tiptap/pm/state")>()),
+  TextSelection: { near: vi.fn(() => ({ __stubSelection: true })) },
+}));
+
 vi.mock("@/utils/markdownPipeline", () => ({
   parseMarkdown: vi.fn(),
   serializeMarkdown: vi.fn(),
@@ -162,13 +171,19 @@ describe("applyFullDocumentTransform", () => {
       view: {
         state: {
           doc: mockDoc,
+          // WI-CJKF6.3 records where the caret and the scroll were before the
+          // whole-document replace, and restores them after.
+          selection: { head: 10 },
           tr: {
             replaceWith: vi.fn().mockReturnThis(),
             setMeta: vi.fn().mockReturnThis(),
+            setSelection: vi.fn().mockReturnThis(),
+            doc: { content: { size: 100 }, resolve: vi.fn(() => ({})) },
           },
         },
         dispatch,
         focus,
+        dom: { scrollTop: 0 },
       } as never,
       editor: {
         schema: mockSchema,
