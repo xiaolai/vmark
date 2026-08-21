@@ -130,9 +130,9 @@ describe("segment edge flags", () => {
   });
 
   it("keeps a CRLF document's fence intact end to end", () => {
-    const crlf = "正文English\r\n\r\n```python\r\ns = {\'中文key\': 1}\r\n```\r\n\r\n结束English";
+    const crlf = "正文English\r\n\r\n```python\r\ns = {'中文key': 1}\r\n```\r\n\r\n结束English";
     expect(fmt(crlf)).toBe(
-      "正文 English\r\n\r\n```python\r\ns = {\'中文key\': 1}\r\n```\r\n\r\n结束 English"
+      "正文 English\r\n\r\n```python\r\ns = {'中文key': 1}\r\n```\r\n\r\n结束 English"
     );
   });
 

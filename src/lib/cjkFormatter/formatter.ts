@@ -14,10 +14,12 @@
  *     needs the same protection a file does; the separate unprotected
  *     `formatSelection` was deleted (WI-CJKF1.1) after it was found rewriting
  *     fenced code and YAML frontmatter on a plain select-all.
- *   - Post-format integrity check verifies structural patterns survived;
- *     returns original text on mismatch (defense-in-depth)
+ *   - Post-format integrity check compares the document's CONTENT SKELETON;
+ *     returns the original text on mismatch (defense-in-depth), and the caller
+ *     is told, because a silent refusal reads as "nothing to change"
  *
  * @coordinates-with markdownParser.ts — identifies protected regions
+ * @coordinates-with formatterTables.ts — GFM table recognition and cell formatting
  * @coordinates-with segments.ts — extracts formattable segments and reconstructs text
  * @coordinates-with rules.ts — contains the actual CJK formatting rules
  * @coordinates-with integrity.ts — post-format integrity verification

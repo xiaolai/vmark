@@ -8,7 +8,7 @@
 // frontmatter and link URLs — the same corruption class as WI-CJKF1.1, reached
 // through the tool surface instead of the keyboard.
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import { applyTransform, isTransformKind, TRANSFORM_KINDS } from "./documentTransform";
 import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
