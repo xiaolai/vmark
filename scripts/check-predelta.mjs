@@ -19,7 +19,7 @@
  * ~2–4 minutes, and report EVERY failure together.
  *
  * WHAT IT RUNS — derived from `package.json`, not hardcoded, so it cannot drift:
- *   - every leaf gate in `check:static` except `lint` (already in check:fast),
+ *   - EVERY leaf gate in `check:static`, `lint` included — see FAST_STEPS,
  *   - `check:servers` and `check:build` as units (their internal order — build
  *     before size/coverage — is a real dependency, so within-unit exit-on-first
  *     is correct, not hiding),
@@ -27,10 +27,14 @@
  *     scanning app-tier test files for `readFileSync`/`readdirSync`).
  *
  * WHAT IT DELIBERATELY SKIPS, printed loudly every run so a green result is
- * never mistaken for `check:all` green: the full instrumented app coverage suite
- * (`test:coverage`), and check:fast's own steps (typecheck, eslint,
- * changed-tests). The intended flow is `check:fast` while you work → `check:predelta`
- * before you push → one confirming `check:all`.
+ * never mistaken for `check:all` green: the full instrumented app coverage
+ * suite (`test:coverage`), and `test:changed`, which is a subset of it. The
+ * intended flow is `check:fast` while you work → `check:predelta` before you
+ * push → one confirming `check:all`.
+ *
+ * The PROPERTY that makes that flow work, pinned by check-predelta.test.mjs:
+ * a green predelta means `check:all` cannot die in a gate predelta could have
+ * run. `test:coverage` is the one announced exception.
  *
  * NOT a CI gate. It is a developer/pre-push convenience (like the offline
  * pre-push gate), so it is intentionally absent from `check:all` — enforced by
@@ -52,8 +56,21 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The composition names — run their leaves individually, never as a unit. */
 export const CI_GROUPS = ["check:static", "test:coverage", "check:servers", "check:build"];
-/** What check:fast already covers, so the delta excludes it. */
-export const FAST_STEPS = ["typecheck", "lint", "test:changed"];
+/**
+ * What predelta deliberately does NOT run.
+ *
+ * `lint` used to be here, on the reasoning that check:fast covers it. That is
+ * true only if you happen to have run check:fast since your last edit, and a
+ * PRE-PUSH gate cannot assume that: on 2026-08-21 predelta reported all 38
+ * gates green and the confirming `check:all` died ~40 seconds later on five
+ * eslint errors — one full cycle spent discovering what a cached, seconds-long
+ * gate already knew, which is the exact failure this script exists to prevent.
+ * eslint is `--cache`d and runs in parallel here, so it costs nothing.
+ *
+ * `typecheck` is not listed because it is not skipped either: `check:build` →
+ * `build` → `typecheck`, so a type error surfaces as a check:build failure.
+ */
+export const FAST_STEPS = ["test:changed"];
 /** Units whose internal ordering is a real dependency (build → size/coverage). */
 export const UNIT_GATES = ["check:servers", "check:build"];
 
@@ -63,9 +80,7 @@ export const UNIT_GATES = ["check:servers", "check:build"];
  * picked up automatically.
  */
 export function individualGates(scripts) {
-  return invokedScripts(scripts, "check:static").filter(
-    (g) => g !== "lint" && !CI_GROUPS.includes(g),
-  );
+  return invokedScripts(scripts, "check:static").filter((g) => !CI_GROUPS.includes(g));
 }
 
 /**

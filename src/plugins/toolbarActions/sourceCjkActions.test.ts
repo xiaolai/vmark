@@ -9,19 +9,6 @@ vi.mock("@/stores/documentStore", () => ({
   },
 }));
 
-vi.mock("@/stores/settingsStore", () => ({
-  useSettingsStore: {
-    getState: vi.fn(() => ({
-      cjkFormatting: {
-        spaceBetweenCjkAndAlpha: true,
-        spaceBetweenCjkAndDigit: true,
-        fullWidthPunctuation: false,
-      },
-      markdown: { hardBreakStyleOnSave: "backslash" },
-    })),
-  },
-}));
-
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: vi.fn(() => ({
@@ -34,22 +21,23 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
 
-vi.mock("@/lib/cjkFormatter", () => ({
-  formatMarkdown: vi.fn((text: string) => text.replace(/你好world/g, "你好 world")),
-  formatSelection: vi.fn((text: string) => text.replace(/你好world/g, "你好 world")),
-  removeTrailingSpaces: vi.fn((text: string) => text.replace(/ +$/gm, "")),
-  collapseNewlines: vi.fn((text: string) => text.replace(/\n{3,}/g, "\n\n")),
-}));
-
-vi.mock("@/utils/linebreaks", () => ({
+// WI-CJKF1.3 — only `normalizeLineEndings` is mocked, and only so the
+// metadata-only assertion below can prove it is never called.
+// `resolveHardBreakStyle` stays REAL: the old mock pinned it to "backslash",
+// which silently disabled hard-break preservation for every case in this file,
+// where the app resolves "unknown" + "preserve" to "twoSpaces".
+//
+// Nothing else is mocked either. This file used to `vi.mock` the whole of
+// `@/lib/cjkFormatter`, which is precisely why the corruption WI-CJKF1.1 fixes
+// survived here: a test that mocks its own subject cannot see the subject
+// being wrong. The settings mock it carried also used keys that do not exist
+// on `CJKFormattingSettings` (`spaceBetweenCjkAndAlpha`, `fullWidthPunctuation`)
+// — undetectable, because tsconfig.json excludes test files from typechecking.
+vi.mock("@/utils/linebreaks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/linebreaks")>()),
   normalizeLineEndings: vi.fn((text: string, target: string) =>
     target === "crlf" ? text.replace(/\n/g, "\r\n") : text.replace(/\r\n/g, "\n")
   ),
-  resolveHardBreakStyle: vi.fn(() => "backslash"),
-}));
-
-vi.mock("@/utils/sourceSelection", () => ({
-  getSourceBlockRange: vi.fn((_state: unknown, from: number, to: number) => ({ from, to: to + 10 })),
 }));
 
 import { EditorSelection, EditorState } from "@codemirror/state";
@@ -65,6 +53,7 @@ import {
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { normalizeLineEndings } from "@/utils/linebreaks";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
 
 function createView(doc: string, from: number, to?: number): EditorView {
   const parent = document.createElement("div");
@@ -112,12 +101,7 @@ describe("handleFormatCJK", () => {
 describe("formatCJKCurrentBlock", () => {
   it("formats the current block text", () => {
     const view = createView("你好world extra", 4);
-    const config = {
-      spaceBetweenCjkAndAlpha: true,
-      spaceBetweenCjkAndDigit: true,
-      fullWidthPunctuation: false,
-    };
-    const result = formatCJKCurrentBlock(view, config);
+    const result = formatCJKCurrentBlock(view, DEFAULT_CJK_FORMATTING);
     expect(result).toBe(true);
     view.destroy();
   });
@@ -150,11 +134,31 @@ describe("handleFormatCJKFile", () => {
 });
 
 describe("handleRemoveTrailingSpaces", () => {
-  it("removes trailing spaces from each line", () => {
+  // WI-CJKF1.3 — this block asserted that every trailing run is removed. That
+  // was only ever true because the old mock pinned `resolveHardBreakStyle` to
+  // "backslash". With the real resolver, an unknown document under the
+  // "preserve" default resolves to "twoSpaces", and a run of two or more
+  // trailing spaces after real content is a hard BREAK — markdown syntax, not
+  // junk whitespace. Removing it changes the rendered output.
+  it("keeps a two-or-more-space run, because that is a hard break", () => {
     const view = createView("hello   \nworld  ", 0);
     const result = handleRemoveTrailingSpaces(view);
     expect(result).toBe(true);
+    expect(view.state.doc.toString()).toBe("hello   \nworld  ");
+    view.destroy();
+  });
+
+  it("removes a single trailing space, which is never a hard break", () => {
+    const view = createView("hello \nworld ", 0);
+    handleRemoveTrailingSpaces(view);
     expect(view.state.doc.toString()).toBe("hello\nworld");
+    view.destroy();
+  });
+
+  it("removes trailing whitespace from a blank line — nothing precedes it", () => {
+    const view = createView("hello\n   \nworld", 0);
+    handleRemoveTrailingSpaces(view);
+    expect(view.state.doc.toString()).toBe("hello\n\nworld");
     view.destroy();
   });
 

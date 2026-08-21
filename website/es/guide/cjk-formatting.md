@@ -6,7 +6,9 @@ VMark incluye un conjunto completo de reglas de formato para texto en chino, jap
 
 Usa **Formato → Formatear Documento CJK** o presiona `Alt + Mod + Shift + F` para formatear el documento completo.
 
-Para formatear solo una selección, usa `Mod + Shift + F`.
+`Mod + Shift + F` formatea **los bloques que abarca tu selección** — el párrafo, la lista o la tabla completos que toca el cursor o la selección, no los caracteres exactos seleccionados. El espaciado CJK es una propiedad del límite *entre* dos caracteres adyacentes, y una selección a media palabra no contiene ese límite, así que el comando nombra una región que corregir en lugar del texto que reescribir. Sin selección, formatea el bloque donde está el cursor.
+
+Ambos comandos protegen exactamente lo mismo (ver [Contenido protegido](#contenido-protegido)), así que seleccionar todo antes de `Mod + Shift + F` es seguro.
 
 ---
 
@@ -72,8 +74,8 @@ VMark usa un **algoritmo de emparejamiento de comillas basado en pila** que gest
 
 | Antes | Después |
 |-------|---------|
-| 他说"hello" | 他说 "hello" |
-| "don't worry" | "don't worry" |
+| 他说"hello" | 他说“hello” |
+| "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
 Con la opción de corchetes angulares activada:
@@ -89,8 +91,11 @@ Estandariza el formato de los puntos suspensivos.
 
 | Antes | Después |
 |-------|---------|
-| 等等. . . | 等等... |
-| 然后. . .继续 | 然后... 继续 |
+| 等等. . . | 等等…… |
+| 然后...继续 | 然后……继续 |
+| そして...続く | そして……続く |
+| 그리고...계속 | 그리고…계속 |
+| wait...ok | wait... ok |
 
 ### 8. Puntuación Repetida
 
@@ -194,7 +199,9 @@ El formateador CJK detecta los encabezados "References" / "参考文献" / "参�
 
 ### Verificación de Integridad
 
-Después de cada pasada de formato CJK, el formateador ejecuta una comprobación de integridad que compara el contenido visible del texto (ignorando las transformaciones de espacios en blanco/puntuación) antes y después. Si la comprobación falla, la operación se revierte y aparece un diagnóstico — garantiza que el formato CJK nunca pierda contenido en silencio.
+Después de cada pasada de formato CJK, el formateador compara el **esqueleto de contenido** del documento antes y después: el texto sin espacios ni puntuación y con el ancho de carácter normalizado. Todas las reglas de formato cambian únicamente espacios, puntuación o el ancho de un alfanumérico, así que ese esqueleto debe volver idéntico — y, al ser una secuencia y no un recuento, también detecta contenido reordenado. Cuentan las letras, los dígitos, los ideogramas, el kana, el hangul y los emoji.
+
+Si la comprobación falla, el documento queda **completamente sin modificar** y una notificación te lo indica. Un rechazo nunca es silencioso, y nunca se confunde con «no había nada que cambiar».
 
 ---
 
@@ -316,8 +323,8 @@ La conversión a corchetes angulares se activa cuando el contenido entre comilla
 |-------------------|---------|-------------|
 | Chino | `"中文"` | ✓ `「中文」` |
 | Japonés con Kanji | `"日本語"` | ✓ `「日本語」` |
-| Solo Hiragana | `"ひらがな"` | ✗ permanece como `"ひらがな"` |
-| Solo Katakana | `"カタカナ"` | ✗ permanece como `"カタカナ"` |
+| Solo Hiragana | `"ひらがな"` | ✓ `「ひらがな」` |
+| Solo Katakana | `"カタカナ"` | ✓ `「カタカナ」` |
 | Coreano | `"한글"` | ✗ permanece como `"한글"` |
 | Inglés | `"hello"` | ✗ permanece como `"hello"` |
 
@@ -359,7 +366,7 @@ Después del formato, el texto tendrá este aspecto:
 
 目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
 
-学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
 老师说 "don't give up" 然后继续讲 "写代码要注重可读性"，我觉得很有道理。
 
@@ -367,9 +374,9 @@ Después del formato, el texto tendrá este aspecto:
 
 项目使用的技术栈如下：
 
-- **Frontend** —— React + TypeScript
-- **Backend** —— Node.js + Express
-- **Database** —— PostgreSQL
+- **Frontend**--React + TypeScript
+- **Backend**--Node.js + Express
+- **Database**--PostgreSQL
 
 总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
 

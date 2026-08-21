@@ -1,14 +1,27 @@
 /**
  * Post-Format Integrity Verification
  *
- * Purpose: Safety net that counts structural markdown patterns before and after
- * formatting. If any count changes, formatting corrupted something — the caller
- * should discard the result and return the original text.
+ * Purpose: safety net that compares the document's CONTENT before and after
+ * formatting. If it changed, formatting corrupted something — the caller
+ * discards the result and returns the original text.
  *
- * This is defense-in-depth. The segment-based architecture should prevent all
- * corruption, but this catches bugs in the parser itself.
+ * Key decision: the check is a content SKELETON, not a list of substrings
+ * (WI-CJKF6.1). It used to count occurrences of seven literals — `[^`, `<!--`,
+ * ```` ``` ````, `~~~`, `$$`, `[[`, `` ` `` — which would not have caught a
+ * single one of the ten defects the 2026-08-21 investigation found, while the
+ * published guide claimed it "compares the visible text content … guarantees
+ * that CJK formatting never silently loses content".
  *
- * Inspired by the Glean CJK formatter's integrity check system.
+ * The invariant that is actually available: **every legitimate rule in this
+ * formatter changes only whitespace, punctuation, or the width of an
+ * alphanumeric.** So NFKC-folding and then stripping whitespace and
+ * punctuation leaves a string that must be IDENTICAL across a format run.
+ * Letters, digits, ideographs, kana, hangul and emoji all survive into it, and
+ * because it is a sequence rather than a count it catches reordering too.
+ *
+ * The substring counts are kept as a second, cheaper signal: they catch a lost
+ * fence or backtick, which is punctuation and therefore invisible to the
+ * skeleton.
  *
  * @coordinates-with formatter.ts — called after formatMarkdown to verify output
  * @module lib/cjkFormatter/integrity
@@ -16,12 +29,12 @@
 
 export interface IntegrityResult {
   ok: boolean;
-  details: Record<string, { before: number; after: number }>;
+  details: Record<string, { before: number | string; after: number | string }>;
 }
 
 /**
- * Patterns to count. Each is a literal string that appears in structural markdown.
- * We count occurrences in both before and after text — any difference means corruption.
+ * Patterns to count. Each is a literal string that appears in structural
+ * markdown and is made entirely of punctuation, so the skeleton cannot see it.
  */
 const STRUCTURAL_PATTERNS = [
   "[^",   // footnote references and definitions
@@ -32,6 +45,31 @@ const STRUCTURAL_PATTERNS = [
   "[[",   // wiki links
   "`",    // inline code backticks (catches lost inline code)
 ] as const;
+
+/**
+ * `<br />` in its several spellings.
+ *
+ * `collapseNewlines` DELETES these, which is the one legitimate rule that
+ * removes letters. Stripping them from both sides keeps that rule from
+ * tripping the content check.
+ */
+const BR_TAG = /<br\s*\/?>/gi;
+
+const WHITESPACE_OR_PUNCTUATION = /[\p{White_Space}\p{P}]/gu;
+
+/**
+ * The document's content, with everything the formatter is allowed to change
+ * removed: whitespace, punctuation, and alphanumeric width.
+ *
+ * Symbols (`$`, `%`, `°`, emoji) are deliberately KEPT — no rule here alters
+ * one, and keeping them is what makes a dropped emoji visible.
+ */
+export function contentSkeleton(text: string): string {
+  return text
+    .replace(BR_TAG, "")
+    .normalize("NFKC")
+    .replace(WHITESPACE_OR_PUNCTUATION, "");
+}
 
 function countOccurrences(text: string, pattern: string): number {
   let count = 0;
@@ -46,14 +84,24 @@ function countOccurrences(text: string, pattern: string): number {
 }
 
 /**
- * Verify that formatting did not lose or gain structural patterns.
+ * Verify that formatting changed nothing but whitespace, punctuation and
+ * character width.
  *
- * Returns { ok: true } if all pattern counts match, or { ok: false, details }
- * with the mismatched counts.
+ * Returns `{ ok: true }` when the content skeleton and every structural count
+ * match, or `{ ok: false, details }` naming what diverged.
  */
 export function verifyIntegrity(before: string, after: string): IntegrityResult {
-  const details: Record<string, { before: number; after: number }> = {};
+  const details: IntegrityResult["details"] = {};
   let ok = true;
+
+  const beforeSkeleton = contentSkeleton(before);
+  const afterSkeleton = contentSkeleton(after);
+  if (beforeSkeleton !== afterSkeleton) {
+    ok = false;
+    // Lengths only. This runs over the user's document and the result reaches
+    // their log file, which they attach to bug reports.
+    details.content = { before: beforeSkeleton.length, after: afterSkeleton.length };
+  }
 
   for (const pattern of STRUCTURAL_PATTERNS) {
     const beforeCount = countOccurrences(before, pattern);

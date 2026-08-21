@@ -36,14 +36,17 @@ export interface CJKFormattingSettings {
   singleQuoteSpacing: boolean;
   cjkCornerQuotes: boolean;
   cjkNestedQuotes: boolean;
+  quoteToggleMode: "simple" | "full-cycle";
   // Group 5: Cleanup
   consecutivePunctuationLimit: number;
   trailingSpaceRemoval: boolean;
+  // Group 6: Section Handling
+  skipReferenceSections: boolean;
 }
 
 export const defaultCJKSettings: CJKFormattingSettings = {
   ellipsisNormalization: true,
-  newlineCollapsing: true,
+  newlineCollapsing: false, // OFF by default
   fullwidthAlphanumeric: true,
   fullwidthPunctuation: true,
   fullwidthParentheses: true,
@@ -62,8 +65,10 @@ export const defaultCJKSettings: CJKFormattingSettings = {
   singleQuoteSpacing: true,
   cjkCornerQuotes: false, // OFF by default
   cjkNestedQuotes: false, // OFF by default
+  quoteToggleMode: "simple",
   consecutivePunctuationLimit: 0, // OFF by default
   trailingSpaceRemoval: true,
+  skipReferenceSections: false, // OFF by default
 };
 
 // Character ranges
@@ -437,18 +442,15 @@ function applyContextualQuotes(
 // Helper Functions
 // ============================================================
 
+// WI-CJKF3.1 — the IMMEDIATE neighbour, never across whitespace. A fullwidth
+// mark is never preceded by a space in any CJK orthography, so a mark separated
+// from CJK by one must not convert.
 function getLeftNeighbor(text: string, pos: number): string {
-  for (let i = pos - 1; i >= 0; i--) {
-    if (text[i] !== " " && text[i] !== "\t") return text[i];
-  }
-  return "";
+  return pos > 0 ? text[pos - 1] : "";
 }
 
 function getRightNeighbor(text: string, pos: number): string {
-  for (let i = pos + 1; i < text.length; i++) {
-    if (text[i] !== " " && text[i] !== "\t") return text[i];
-  }
-  return "";
+  return pos + 1 < text.length ? text[pos + 1] : "";
 }
 
 function containsCJK(text: string): boolean {
@@ -463,10 +465,22 @@ function containsCJK(text: string): boolean {
 // Group 1: Universal
 // ============================================================
 
+// WI-CJKF5.2 — Chinese and Japanese use `……` with no space after it
+// (GB/T 15834, JIS X 4051); Korean uses `…`; only Latin text uses `... `.
+// The script comes from the characters immediately beside the run.
+const HAN_LIKE_RE = /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\u31f0-\u31ff\u3100-\u312f]/;
+const HANGUL_RE = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
+
 function normalizeEllipsis(text: string): string {
-  text = text.replace(/\s*\.\s+\.\s+\.(?:\s+\.)*/g, "...");
-  text = text.replace(/\.\.\.\s*(?=\S)/g, "... ");
-  return text;
+  text = text.replace(/[ \t]*\.[ \t]+\.[ \t]+\.(?:[ \t]+\.)*/g, "...");
+  return text.replace(/\.\.\.(?!\.)([ \t]*)/g, (whole, gap: string, offset: number) => {
+    const before = offset > 0 ? text[offset - 1] : "";
+    const after = text[offset + whole.length] ?? "";
+    if (HAN_LIKE_RE.test(before) || HAN_LIKE_RE.test(after)) return "\u2026\u2026";
+    if (HANGUL_RE.test(before) || HANGUL_RE.test(after)) return "\u2026";
+    const rest = text.slice(offset + whole.length);
+    return rest.length > 0 && !/^[\r\n]/.test(rest) ? "... " : `...${gap}`;
+  });
 }
 
 function collapseNewlines(text: string): string {
@@ -593,8 +607,14 @@ function fixCurrencySpacing(text: string): string {
   return text;
 }
 
+// WI-CJKF3.4 — whitespace on the LEFT ONLY is a path (`路径 /usr/bin`), not a
+// spaced separator, so it is left alone.
 function fixSlashSpacing(text: string): string {
-  return text.replace(/(?<![/:])\s*\/\s*(?!\/)/g, "/");
+  return text.replace(
+    /(?<![/:])([ \t]*)\/([ \t]*)(?!\/)/g,
+    (whole, left: string, right: string) =>
+      left.length > 0 && right.length === 0 ? whole : "/"
+  );
 }
 
 function collapseSpaces(text: string): string {
@@ -690,17 +710,26 @@ function convertNestedCornerQuotes(text: string): string {
   });
 }
 
+// WI-CJKF3.3 — `“ ”` are fullwidth in CJK context (GB/T 15834, JLREQ), so no
+// space goes between them and a CJK character. Latin↔quote spacing is unchanged.
 function fixQuoteSpacing(text: string, openingQuote: string, closingQuote: string): string {
+  const isCJKChar = new RegExp(`[${CJK_NO_KOREAN}]`);
   const noSpaceBefore = CJK_CLOSING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
   const noSpaceAfter = CJK_OPENING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
 
   text = text.replace(
     new RegExp(`([A-Za-z0-9${CJK_ALL}${CJK_CLOSING_BRACKETS}${CJK_TERMINAL_PUNCTUATION}]|——)${openingQuote}`, "g"),
-    (_, before) => noSpaceBefore.includes(before) ? `${before}${openingQuote}` : `${before} ${openingQuote}`
+    (_, before) =>
+      noSpaceBefore.includes(before) || isCJKChar.test(before)
+        ? `${before}${openingQuote}`
+        : `${before} ${openingQuote}`
   );
   text = text.replace(
     new RegExp(`${closingQuote}([A-Za-z0-9${CJK_ALL}${CJK_OPENING_BRACKETS}${CJK_TERMINAL_PUNCTUATION}]|——)`, "g"),
-    (_, after) => noSpaceAfter.includes(after) ? `${closingQuote}${after}` : `${closingQuote} ${after}`
+    (_, after) =>
+      noSpaceAfter.includes(after) || isCJKChar.test(after)
+        ? `${closingQuote}${after}`
+        : `${closingQuote} ${after}`
   );
   return text;
 }

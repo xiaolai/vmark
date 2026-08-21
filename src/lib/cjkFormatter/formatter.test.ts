@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { CJKFormattingSettings } from "@/stores/settingsStore";
-import { formatMarkdown, formatSelection } from "./formatter";
+import { formatMarkdown } from "./formatter";
 
 function makeConfig(partial: Partial<CJKFormattingSettings> = {}): CJKFormattingSettings {
   return {
@@ -281,6 +281,28 @@ describe("cjkFormatter.formatMarkdown (table-safe)", () => {
 
     // The first table body row is formatted
     expect(out).toContain("| 中文 Python |");
+    // …and nothing is emitted twice. The trailing delimiter row used to claim
+    // the body row above it as ITS header, producing two OVERLAPPING blocks
+    // whose overlap `formatMarkdown` wrote out twice — silent content
+    // duplication in the safe entry point. `toContain` could not see it; the
+    // content-skeleton integrity check (WI-CJKF6.1) is what surfaced it.
+    expect(out).toBe(
+      ["| Header | Col |", "| --- | --- |", "| 中文 Python | data |", "| --- | --- |"].join("\n")
+    );
+  });
+
+  it("does not duplicate content when delimiter rows repeat", () => {
+    const input = [
+      "| A | B |",
+      "| --- | --- |",
+      "| 中文一 | x |",
+      "| --- | --- |",
+      "| 中文二 | y |",
+      "| --- | --- |",
+    ].join("\n");
+    const out = formatMarkdown(input, makeConfig());
+    expect(out.split("中文一")).toHaveLength(2);
+    expect(out.split("中文二")).toHaveLength(2);
   });
 
   it("handles table cell with single cell (no pipe split)", () => {
@@ -298,25 +320,28 @@ describe("cjkFormatter.formatMarkdown (table-safe)", () => {
   });
 });
 
-describe("formatSelection", () => {
-  it("applies rules to plain text selection", () => {
-    const out = formatSelection("中文Python", makeConfig());
-    expect(out).toBe("中文 Python");
+// WI-CJKF1.1 — the selection path calls formatMarkdown on the block span it
+// resolved; there is no unprotected variant any more. These are the cases the
+// deleted `formatSelection` suite covered, re-expressed against what ships.
+describe("formatMarkdown over a selection-sized fragment", () => {
+  it("applies rules to a plain fragment", () => {
+    expect(formatMarkdown("中文Python", makeConfig())).toBe("中文 Python");
   });
 
   it("applies CJK punctuation conversion", () => {
-    const out = formatSelection("中文,内容", makeConfig());
-    expect(out).toBe("中文，内容");
+    expect(formatMarkdown("中文,内容", makeConfig())).toBe("中文，内容");
   });
 
-  it("does not apply markdown protection (no code block handling)", () => {
-    // formatSelection treats text as plain, not markdown
-    const out = formatSelection("中文Python内容", makeConfig());
-    expect(out).toBe("中文 Python 内容");
+  it("DOES apply markdown protection — the fragment is a document slice", () => {
+    // The old `formatSelection` documented the opposite ("assumes no markdown
+    // structure to preserve") and corrupted every fence it was handed.
+    const out = formatMarkdown("中文Python内容\n\n`中文Code`", makeConfig());
+    expect(out).toContain("`中文Code`");
+    expect(out).toContain("中文 Python 内容");
   });
 
   it("preserves two-space hard breaks when option is set", () => {
-    const out = formatSelection(
+    const out = formatMarkdown(
       "中文Python  \n下一行",
       makeConfig({ trailingSpaceRemoval: true }),
       { preserveTwoSpaceHardBreaks: true }

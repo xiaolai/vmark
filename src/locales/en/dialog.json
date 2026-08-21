@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "Cleanup Failed",
   "orphanCleanup.scanFailedMessage": "The assets folder could not be checked. See the log for details.",
   "divergentChanges.title": "File Changed on Disk",
-  "divergentChanges.single": "“{{title}}” changed on disk and you kept your local version. Save your version now, or close and leave the file as it is on disk?"
+  "divergentChanges.single": "“{{title}}” changed on disk and you kept your local version. Save your version now, or close and leave the file as it is on disk?",
+  "toast.cjkFormatRefused": "Formatting was cancelled — the result did not match the original text. Nothing was changed."
 }

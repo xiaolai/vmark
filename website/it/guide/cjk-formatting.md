@@ -6,7 +6,9 @@ VMark include un insieme completo di regole di formattazione per testo cinese, g
 
 Usa **Formato → Formatta Documento CJK** o premi `Alt + Mod + Shift + F` per formattare l'intero documento.
 
-Per formattare solo una selezione, usa `Mod + Shift + F`.
+`Mod + Shift + F` formatta **i blocchi attraversati dalla selezione** — l'intero paragrafo, elenco o tabella toccato dal cursore o dalla selezione, non i caratteri esattamente selezionati. La spaziatura CJK è una proprietà del confine *tra* due caratteri adiacenti, e una selezione a metà parola non contiene alcun confine di questo tipo: il comando indica quindi una regione da correggere anziché il testo da riscrivere. Senza selezione formatta il blocco in cui si trova il cursore.
+
+Entrambi i comandi proteggono esattamente le stesse cose (vedi «Contenuto protetto»), quindi selezionare tutto prima di `Mod + Shift + F` è sicuro.
 
 ---
 
@@ -72,8 +74,8 @@ VMark usa un **algoritmo di abbinamento virgolette basato su stack** che gestisc
 
 | Prima | Dopo |
 |-------|------|
-| 他说"hello" | 他说 "hello" |
-| "don't worry" | "don't worry" |
+| 他说"hello" | 他说“hello” |
+| "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
 Con l'opzione parentesi a forcella abilitata:
@@ -89,8 +91,11 @@ Standardizza la formattazione dei puntini di sospensione.
 
 | Prima | Dopo |
 |-------|------|
-| 等等. . . | 等等... |
-| 然后. . .继续 | 然后... 继续 |
+| 等等. . . | 等等…… |
+| 然后...继续 | 然后……继续 |
+| そして...続く | そして……続く |
+| 그리고...계속 | 그리고…계속 |
+| wait...ok | wait... ok |
 
 ### 8. Punteggiatura Ripetuta
 
@@ -194,7 +199,9 @@ Il formattatore CJK rileva le intestazioni «References» / «参考文献» / �
 
 ### Verifica di integrità
 
-Dopo ogni passaggio di formattazione CJK, il formattatore esegue un controllo di integrità che confronta il contenuto del testo visibile (ignorando le trasformazioni di spazi bianchi/punteggiatura) prima e dopo. Se il controllo fallisce, l'operazione viene annullata e appare una diagnostica — garantisce che la formattazione CJK non perda mai silenziosamente contenuto.
+Dopo ogni passaggio di formattazione CJK, il formattatore confronta lo **scheletro del contenuto** del documento prima e dopo: il testo privato di spazi e punteggiatura e con la larghezza dei caratteri normalizzata. Tutte le regole di formattazione modificano soltanto spazi, punteggiatura o la larghezza di un carattere alfanumerico, quindi quello scheletro deve tornare identico — e, trattandosi di una sequenza e non di un conteggio, individua anche il contenuto riordinato. Contano lettere, cifre, ideogrammi, kana, hangul ed emoji.
+
+Se il controllo fallisce, il documento resta **completamente immutato** e una notifica te lo comunica. Un rifiuto non è mai silenzioso e non viene mai confuso con «non c'era nulla da cambiare».
 
 ---
 
@@ -316,8 +323,8 @@ La conversione delle parentesi a forcella si attiva quando il contenuto citato c
 |-------------------|---------|-----------|
 | Cinese | `"中文"` | ✓ `「中文」` |
 | Giapponese con Kanji | `"日本語"` | ✓ `「日本語」` |
-| Solo Hiragana | `"ひらがな"` | ✗ rimane `"ひらがな"` |
-| Solo Katakana | `"カタカナ"` | ✗ rimane `"カタカナ"` |
+| Solo Hiragana | `"ひらがな"` | ✓ `「ひらがな」` |
+| Solo Katakana | `"カタカナ"` | ✓ `「カタカナ」` |
 | Coreano | `"한글"` | ✗ rimane `"한글"` |
 | Inglese | `"hello"` | ✗ rimane `"hello"` |
 
@@ -359,7 +366,7 @@ Dopo la formattazione, il testo apparirà così:
 
 目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
 
-学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
 老师说 "don't give up" 然后继续讲 "写代码要注重可读性"，我觉得很有道理。
 
@@ -367,9 +374,9 @@ Dopo la formattazione, il testo apparirà così:
 
 项目使用的技术栈如下：
 
-- **Frontend** —— React + TypeScript
-- **Backend** —— Node.js + Express
-- **Database** —— PostgreSQL
+- **Frontend**--React + TypeScript
+- **Backend**--Node.js + Express
+- **Database**--PostgreSQL
 
 总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
 

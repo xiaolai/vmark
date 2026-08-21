@@ -19,7 +19,8 @@
  */
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { hostSettings } from "@/plugins/shared/hostSettings";
-import { collapseNewlines, formatMarkdown, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { collapseNewlines, formatMarkdownChecked, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { notifyCjkFormatRefused } from "./cjkFormatFeedback";
 import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
 import { wysiwygAdapterError } from "@/utils/debug";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
@@ -79,7 +80,10 @@ function handleFormatCJKBlock(context: WysiwygToolbarContext): boolean {
     const tempDoc = editor.schema.nodes.doc.create(null, blockNodes);
     const blockMarkdown = serializeMarkdown(editor.schema, tempDoc, serializeOpts);
 
-    const formatted = formatMarkdown(blockMarkdown, config, { preserveTwoSpaceHardBreaks });
+    const { text: formatted, refused } = formatMarkdownChecked(blockMarkdown, config, {
+      preserveTwoSpaceHardBreaks,
+    });
+    notifyCjkFormatRefused(refused);
     if (formatted === blockMarkdown) return true;
 
     // Parse back and replace the block
@@ -107,9 +111,13 @@ export function handleFormatCJKFile(context: WysiwygToolbarContext): boolean {
   const config = hostSettings.cjkFormatting();
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
 
-  return applyFullDocumentTransform(context, (markdown) =>
-    formatMarkdown(markdown, config, { preserveTwoSpaceHardBreaks })
-  );
+  return applyFullDocumentTransform(context, (markdown) => {
+    const { text, refused } = formatMarkdownChecked(markdown, config, {
+      preserveTwoSpaceHardBreaks,
+    });
+    notifyCjkFormatRefused(refused);
+    return text;
+  });
 }
 
 /**

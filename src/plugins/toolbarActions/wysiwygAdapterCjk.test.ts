@@ -39,10 +39,21 @@ vi.mock("@/stores/tabStore", () => ({
   },
 }));
 
+// WI-CJKF6.3 — `applyFullDocumentTransform` resolves a real position to
+// restore the caret. This file stubs ProseMirror wholesale rather than
+// building a real EditorView, so `tr.doc.resolve` cannot return anything
+// `TextSelection.near` accepts. The behaviour it stands in for is covered
+// against a REAL view in `wysiwygFullDocumentTransform.test.ts`; here the
+// subject is routing (does it serialize, does it dispatch), not selection.
+vi.mock("@tiptap/pm/state", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tiptap/pm/state")>()),
+  TextSelection: { near: vi.fn(() => ({ __stubSelection: true })) },
+}));
+
 vi.mock("@/lib/cjkFormatter", () => ({
   collapseNewlines: vi.fn((s: string) => s.replace(/\n{3,}/g, "\n\n")),
   formatMarkdown: vi.fn((s: string) => `formatted:${s}`),
-  formatSelection: vi.fn((s: string) => `sel-formatted:${s}`),
+  formatMarkdownChecked: vi.fn((s: string) => ({ text: `formatted:${s}`, refused: false })),
   removeTrailingSpaces: vi.fn((s: string) => s.replace(/ +$/gm, "")),
 }));
 
@@ -63,7 +74,7 @@ import {
   handleCollapseBlankLines,
   handleLineEndings,
 } from "./wysiwygAdapterCjk";
-import { formatMarkdown } from "@/lib/cjkFormatter";
+import { formatMarkdownChecked } from "@/lib/cjkFormatter";
 import { serializeMarkdown, parseMarkdown } from "@/utils/markdownPipeline";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -81,6 +92,8 @@ function createMockContext(opts?: {
   const tr = {
     replaceWith: vi.fn().mockReturnThis(),
     setMeta: vi.fn().mockReturnThis(),
+    setSelection: vi.fn().mockReturnThis(),
+    doc: { content: { size: 100 }, resolve: vi.fn(() => ({})) },
   };
 
   const dispatch = vi.fn();
@@ -118,6 +131,7 @@ function createMockContext(opts?: {
           $to,
           from: 10,
           to: selectionEmpty ? 10 : 20,
+          head: 10,
           empty: selectionEmpty,
         },
         doc: {
@@ -131,6 +145,8 @@ function createMockContext(opts?: {
       },
       dispatch,
       focus,
+      // WI-CJKF6.3 restores the scroll offset around a whole-document replace.
+      dom: { scrollTop: 0 },
     } as never,
     editor: {
       schema,
@@ -172,9 +188,10 @@ describe("handleFormatCJK", () => {
     // Fix: selection formatting should go through markdown roundtrip (handleFormatCJKBlock or handleFormatCJKFile)
     const ctx = createMockContext({ selectionEmpty: false, selectedText: "hello世界" });
 
-    // The fix routes through markdown roundtrip — so formatMarkdown should be called, not formatSelection+schema.text
+    // The fix routes through the markdown round-trip, so the formatter is
+    // called on serialized markdown rather than on schema.text() output.
     vi.mocked(serializeMarkdown).mockReturnValue("**bold**世界");
-    vi.mocked(formatMarkdown).mockReturnValue("**bold** 世界");
+    vi.mocked(formatMarkdownChecked).mockReturnValue({ text: "**bold** 世界", refused: false });
     vi.mocked(parseMarkdown).mockReturnValue({ content: "parsed" } as never);
 
     const result = handleFormatCJK(ctx);
@@ -188,7 +205,7 @@ describe("handleFormatCJK", () => {
 
     // After fix, selection path uses markdown roundtrip
     vi.mocked(serializeMarkdown).mockReturnValue("already formatted");
-    vi.mocked(formatMarkdown).mockReturnValue("already formatted");
+    vi.mocked(formatMarkdownChecked).mockReturnValue({ text: "already formatted", refused: false });
 
     const result = handleFormatCJK(ctx);
     expect(result).toBe(true);
@@ -241,9 +258,9 @@ describe("handleFormatCJKBlock — early return when formatted === original (lin
   it("returns true without dispatching when block markdown is unchanged after format", () => {
     const ctx = createMockContext({ selectionEmpty: true });
 
-    // formatMarkdown returns the same string → early return at line 85
+    // The formatter returns the same string, so the handler returns early.
     vi.mocked(serializeMarkdown).mockReturnValue("already clean content");
-    vi.mocked(formatMarkdown).mockReturnValue("already clean content");
+    vi.mocked(formatMarkdownChecked).mockReturnValue({ text: "already clean content", refused: false });
 
     const result = handleFormatCJK(ctx);
     expect(result).toBe(true);
@@ -269,7 +286,7 @@ describe("handleFormatCJKFile", () => {
     expect(handleFormatCJKFile(ctx)).toBe(false);
   });
 
-  it("applies formatMarkdown transform to full document", () => {
+  it("applies the CJK transform to the full document", () => {
     const ctx = createMockContext();
     vi.mocked(serializeMarkdown).mockReturnValue("original");
     vi.mocked(parseMarkdown).mockReturnValue({ content: "new" } as never);

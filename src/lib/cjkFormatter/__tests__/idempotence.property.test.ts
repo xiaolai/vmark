@@ -8,8 +8,8 @@
  * little more on every "Format CJK File" invocation. These properties GENERATE
  * mixed CJK/Latin/digit/punctuation documents — including tables, fences,
  * headings and CRLF line endings — and assert the fixed-point contract over
- * the top-level pipeline the app actually calls (`formatMarkdown`, plus
- * `formatSelection` for the selection path), under the app's default config
+ * the top-level pipeline the app actually calls (`formatMarkdown` — which is
+ * what BOTH the file and the selection paths call), under the app's default config
  * and the widest rule combinations.
  *
  * Scope matches stryker.config.json's formatter `mutate` globs
@@ -26,14 +26,14 @@
  * space-transparent quote context, glyph-intrinsic curly roles, corners never
  * rewritten) are recorded as D8 in .claude/tdd-guardian/decisions-20260803.md.
  *
- * @coordinates-with ../formatter.ts — formatMarkdown / formatSelection
+ * @coordinates-with ../formatter.ts — formatMarkdown
  * @coordinates-with ../rules/applyRules.ts — the per-segment rule dispatcher
  * @coordinates-with ../quotePairing.ts — stack-based quote conversion
  * @module lib/cjkFormatter/__tests__/idempotence.property.test
  */
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
-import { formatMarkdown, formatSelection } from "../formatter";
+import { formatMarkdown } from "../formatter";
 import { DEFAULT_CJK_FORMATTING, type CJKFormattingSettings } from "../types";
 
 /** Same rationale as roundtrip.property.test.ts: CPU-bound properties on a
@@ -128,12 +128,14 @@ describe("cjkFormatter — idempotence properties", () => {
     }, PROPERTY_TEST_TIMEOUT_MS);
   }
 
-  it("formatSelection is idempotent over generated fragments (all configs)", () => {
+  // WI-CJKF1.1 — was `formatSelection`, deleted. The selection path calls
+  // formatMarkdown on a block span, so the fragment property runs against it.
+  it("formatMarkdown is idempotent over generated fragments (all configs)", () => {
     fc.assert(
       fc.property(line, (fragment) => {
         for (const [, config] of CONFIGS) {
-          const once = formatSelection(fragment, config);
-          const twice = formatSelection(once, config);
+          const once = formatMarkdown(fragment, config);
+          const twice = formatMarkdown(once, config);
           expect(twice).toBe(once);
         }
       }),
@@ -204,14 +206,14 @@ describe("cjkFormatter — pinned shrunk counterexamples", () => {
   it("quote context survives the pipeline's own spacing ('',中0 selection)", () => {
     // Was: ''中0 → ‘’ 中 0 → '' 中 0 (pass 1 saw 中 adjacent → curly; pass 1
     // also inserted the space; pass 2 saw a space boundary → back to straight).
-    const once = formatSelection("''中0", DEFAULT_CJK_FORMATTING);
-    expect(formatSelection(once, DEFAULT_CJK_FORMATTING)).toBe(once);
+    const once = formatMarkdown("''中0", DEFAULT_CJK_FORMATTING);
+    expect(formatMarkdown(once, DEFAULT_CJK_FORMATTING)).toBe(once);
   });
 
   it("pre-existing curly open + straight close near CJK is stable", () => {
     // Was: “"中hello → “” 中 hello → "" 中 hello (same space-boundary flip).
-    const once = formatSelection('“"中hello', DEFAULT_CJK_FORMATTING);
-    expect(formatSelection(once, DEFAULT_CJK_FORMATTING)).toBe(once);
+    const once = formatMarkdown('“"中hello', DEFAULT_CJK_FORMATTING);
+    expect(formatMarkdown(once, DEFAULT_CJK_FORMATTING)).toBe(once);
   });
 
   it("curly-glyph roles do not flip when spacing lands next to them", () => {

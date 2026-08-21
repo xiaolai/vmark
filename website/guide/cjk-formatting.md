@@ -2,11 +2,17 @@
 
 VMark includes a comprehensive set of formatting rules for Chinese, Japanese, and Korean text. These tools help maintain consistent typography when mixing CJK and Latin characters.
 
+::: info Korean is deliberately left alone
+Korean uses native word spacing, and particles attach directly to the preceding word — `VMark에는`, never `VMark 에는`. Inserting a space there is a grammar error, not a typography preference, so **Hangul is excluded from every spacing rule** and from fullwidth punctuation conversion. Korean text passes through unchanged; only Han characters inside it are formatted.
+:::
+
 ## Quick Start
 
 Use **Format → CJK Format Document** or press `Alt + Mod + Shift + F` to format the entire document.
 
-To format just a selection, use `Mod + Shift + F`.
+`Mod + Shift + F` formats the **blocks your selection spans** — the whole paragraph, list or table your cursor or selection touches, not the exact characters selected. CJK spacing is a property of the boundary *between* two adjacent characters, and a part-word selection contains no such boundary, so the command names a region to fix rather than the text to rewrite. With no selection it formats the block at the cursor.
+
+Both commands protect the same things (see [Protected Content](#protected-content)), so a select-all before `Mod + Shift + F` is safe.
 
 ---
 
@@ -85,9 +91,11 @@ VMark uses a **stack-based quote pairing algorithm** that correctly handles:
 
 | Before | After |
 |--------|-------|
-| 他说"hello" | 他说 "hello" |
-| "don't worry" | "don't worry" |
+| 他说"hello" | 他说“hello” |
+| "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
+
+No space is inserted between a CJK character and a quote glyph. `“ ”`, `‘ ’`, `「 」` and `『 』` are fullwidth in CJK context — GB/T 15834 and JLREQ both give them their own sidebearing — so `他说“你好”然后走了` stays exactly as written. Latin text still gets a space: `word“text”` becomes `word “text”`.
 
 With corner bracket option enabled:
 
@@ -98,12 +106,17 @@ With corner bracket option enabled:
 
 ### 7. Ellipsis Normalization
 
-Standardizes ellipsis formatting.
+Standardizes ellipsis formatting, in the shape the surrounding script uses. There is no single correct answer: Chinese (GB/T 15834) and Japanese (JIS X 4051) use the six-dot ellipsis `……` and take **no** space after it, Korean uses `…`, and only Latin text uses `...` followed by a space.
 
 | Before | After |
 |--------|-------|
-| 等等. . . | 等等... |
-| 然后. . .继续 | 然后... 继续 |
+| 等等. . . | 等等…… |
+| 然后...继续 | 然后……继续 |
+| そして...続く | そして……続く |
+| 그리고...계속 | 그리고…계속 |
+| wait...ok | wait... ok |
+
+The script is decided from the characters immediately beside the dots, not from the document, so `...` inside an English quotation in a Chinese file keeps its Latin form.
 
 ### 8. Repeated Punctuation
 
@@ -127,12 +140,13 @@ Limits consecutive punctuation marks (configurable limit).
 
 The following content is **not** affected by formatting:
 
-- Code blocks (```)
+- Code blocks (```) — including an **unclosed** fence, which claims the rest of the document, as CommonMark specifies
 - Inline code (`)
 - Link URLs
 - Image paths
 - HTML tags
-- YAML frontmatter
+- Frontmatter — both YAML (`---`) and TOML (`+++`)
+- Inline math (`$…$`), matched by the same rule VMark's renderer uses, so a currency pair like `价格是 $100 和 $200 元` is *not* mistaken for math
 - Backslash-escaped punctuation (e.g., `\,` stays as `,`)
 
 ### Technical Constructs
@@ -207,7 +221,9 @@ When **Skip reference sections** is enabled in Settings → Language → Section
 
 ### Integrity Verification
 
-After every CJK format pass, the formatter runs an integrity check that compares the visible text content (ignoring whitespace/punctuation transformations) before and after. If the check fails, the operation is rolled back and a diagnostic appears — guarantees that CJK formatting never silently loses content.
+After every CJK format pass, the formatter compares the document's **content skeleton** before and after: the text with whitespace and punctuation removed and character width normalized. Every formatting rule changes only whitespace, punctuation, or the width of an alphanumeric, so that skeleton must come back identical — and because it is a sequence rather than a count, reordered content fails it too. Letters, digits, ideographs, kana, hangul and emoji all count.
+
+If the check fails, the document is left **completely unchanged** and a notification tells you so. A refusal is never silent, and it is never confused with "there was nothing to change".
 
 ---
 
@@ -323,18 +339,20 @@ When **CJK Corner Quotes** is enabled, curly quotes around CJK content are autom
 
 ### Supported Characters
 
-Corner bracket conversion triggers when the quoted content contains **Chinese characters** (CJK Unified Ideographs U+4E00–U+9FFF):
+Corner bracket conversion triggers when the quoted content — or the text
+immediately beside it — is Han, Hiragana, Katakana or Bopomofo:
 
 | Content Type | Example | Converts? |
 |--------------|---------|-----------|
 | Chinese | `"中文"` | ✓ `「中文」` |
 | Japanese with Kanji | `"日本語"` | ✓ `「日本語」` |
-| Hiragana only | `"ひらがな"` | ✗ stays as `"ひらがな"` |
-| Katakana only | `"カタカナ"` | ✗ stays as `"カタカナ"` |
+| Hiragana only | `"ひらがな"` | ✓ `「ひらがな」` |
+| Katakana only | `"カタカナ"` | ✓ `「カタカナ」` |
 | Korean | `"한글"` | ✗ stays as `"한글"` |
 | English | `"hello"` | ✗ stays as `"hello"` |
 
-**Tip:** For Japanese text with only Kana, manually use corner brackets `「」` or include at least one Kanji character.
+Korean is excluded for the same reason as the spacing rules: Korean uses `“ ”`,
+not corner brackets.
 
 ---
 
@@ -372,17 +390,17 @@ After formatting, the text will look like this:
 
 目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
 
-学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
+老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
 项目使用的技术栈如下：
 
-- **Frontend** —— React + TypeScript
-- **Backend** —— Node.js + Express
-- **Database** —— PostgreSQL
+- **Frontend**--React + TypeScript
+- **Backend**--Node.js + Express
+- **Database**--PostgreSQL
 
 总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
 
@@ -392,7 +410,13 @@ After formatting, the text will look like this:
 - CJK-Latin spacing added (学习 TypeScript)
 - Fullwidth punctuation converted (，。！)
 - Fullwidth numbers normalized (３→3, １０００→1000, ２００→200)
-- Double hyphens converted to em-dashes (-- → ——)
-- Ellipsis normalized (. . . → ...)
-- Smart quotes applied, apostrophe preserved (don't)
+- Double hyphens converted to em-dashes (是--状态 → 是 —— 状态)
+- Ellipsis normalized to the Chinese form, with no space after it (. . . → ……)
+- Smart quotes applied with no space beside the CJK text, apostrophe preserved (don't)
 - Technical constructs protected (https://example.com/docs, v2.0.0, $99.99, 12:30)
+
+**And what does _not_ change:** the `--` in `**Frontend**--React` stays a double
+hyphen. Dash conversion needs a CJK character or an alphanumeric immediately
+beside the dashes, and `*` is neither. Firing on emphasis markers instead would
+convert `--` inside every pure-English list item of a Chinese document, which is
+worse than leaving these three alone.

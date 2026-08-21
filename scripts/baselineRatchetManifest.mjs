@@ -66,6 +66,17 @@ export const MANIFEST = {
       checks: [{ mode: "per-key-count", at: "" }],
     },
     {
+      // Per-file type-error counts for the TEST corpus, which `tsconfig.json`
+      // excludes and `pnpm typecheck` therefore never saw. A count rather than
+      // an identity list is a deliberate weakening: two errors on different
+      // lines of one file are indistinguishable without pinning line numbers,
+      // and a baseline that churns on every edit above a frozen error is a
+      // baseline people delete. The unit that matters — this file is dirty,
+      // and by how much — survives.
+      path: "scripts/test-types-baseline.json",
+      checks: [{ mode: "per-key-count", at: "" }],
+    },
+    {
       // Counts only. The collectors (collectBespokeButtons /
       // collectStyledButtonClasses) already return class→file maps, so an
       // identity conversion is cheap — but it changes the checker's contract

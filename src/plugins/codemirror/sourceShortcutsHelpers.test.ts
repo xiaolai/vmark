@@ -63,7 +63,7 @@ vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: () => "main",
 }));
 
-const mockResolveHardBreakStyle = vi.fn(() => "backslash");
+const mockResolveHardBreakStyle = vi.fn((..._args: unknown[]) => "backslash");
 
 vi.mock("@/utils/linebreaks", () => ({
   resolveHardBreakStyle: (...args: unknown[]) => mockResolveHardBreakStyle(...args),
@@ -71,7 +71,6 @@ vi.mock("@/utils/linebreaks", () => ({
 
 vi.mock("@/lib/cjkFormatter", () => ({
   formatMarkdown: (content: string) => content.replace(/hello/g, "HELLO"),
-  formatSelection: (content: string) => content.replace(/hello/g, "HELLO"),
 }));
 
 vi.mock("@/stores/sourceCursorContextStore", () => ({
@@ -79,8 +78,8 @@ vi.mock("@/stores/sourceCursorContextStore", () => ({
 }));
 
 const mockPerformSourceToolbarAction = vi.fn();
-const mockSetSourceHeadingLevel = vi.fn(() => true);
-const mockFormatCJKCurrentBlock = vi.fn(() => true);
+const mockSetSourceHeadingLevel = vi.fn((..._args: unknown[]) => true);
+const mockFormatCJKCurrentBlock = vi.fn((..._args: unknown[]) => true);
 
 vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
   performSourceToolbarAction: (...args: unknown[]) => mockPerformSourceToolbarAction(...args),
@@ -92,7 +91,7 @@ vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
   getSourceMultiSelectionContext: () => ({}),
 }));
 
-const mockGetHeadingInfo = vi.fn(() => null);
+const mockGetHeadingInfo = vi.fn((..._args: unknown[]) => null);
 const mockSetHeadingLevel = vi.fn();
 const mockConvertToHeading = vi.fn();
 
@@ -102,7 +101,7 @@ vi.mock("@/plugins/sourceContextDetection/headingDetection", () => ({
   convertToHeading: (...args: unknown[]) => mockConvertToHeading(...args),
 }));
 
-const mockGetListItemInfo = vi.fn(() => null);
+const mockGetListItemInfo = vi.fn((..._args: unknown[]) => null);
 const mockConvertListBlock = vi.fn();
 const mockRemoveList = vi.fn();
 
