@@ -9,7 +9,7 @@
  * @module lib/cjkFormatter/rules/applyRules
  */
 
-import type { CJKFormattingSettings } from "@/stores/settingsStore";
+import type { CJKFormattingSettings, FormatOptions } from "../types";
 import { cjkFmtWarn } from "@/utils/debug";
 import { applyContextualQuotes } from "../quotePairing";
 import { containsCJK } from "./shared";
@@ -66,7 +66,7 @@ export const MAX_RULE_PASSES = 8;
 export function applyRules(
   text: string,
   config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+  options: FormatOptions = {}
 ): string {
   let prev = text;
   for (let pass = 0; pass < MAX_RULE_PASSES; pass++) {
@@ -98,7 +98,7 @@ export function applyRules(
 function applyRulesOnce(
   text: string,
   config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+  options: FormatOptions = {}
 ): string {
   // Group 1: Universal (always check, applies to all text)
   if (config.ellipsisNormalization) {
@@ -194,7 +194,7 @@ function applyRulesOnce(
 
   // Group 5: Universal cleanup rules (apply to all text)
   if (config.spaceCollapsing) {
-    text = collapseSpaces(text);
+    text = collapseSpaces(text, options);
   }
   if (config.trailingSpaceRemoval) {
     text = removeTrailingSpaces(text, options);

@@ -12,6 +12,27 @@
  * @module lib/cjkFormatter/types
  */
 
+/**
+ * Per-invocation options, distinct from the user's `CJKFormattingSettings`.
+ *
+ * `startsAtLineStart` / `endsAtLineEnd` describe the SEGMENT the rules are
+ * running on. A segment boundary is not a line boundary — a segment ends
+ * wherever a protected region begins — and the two line-anchored rules
+ * (`removeTrailingSpaces`, `collapseSpaces`) are wrong without that
+ * distinction: they deleted the space before every inline code span, image,
+ * wiki link, footnote reference, inline math span and HTML tag in the
+ * document (WI-CJKF2.1). Both default to true, which is correct for a whole
+ * document.
+ */
+export interface FormatOptions {
+  /** Keep a two-or-more-space run at end of line: it is a hard BREAK, not junk. */
+  preserveTwoSpaceHardBreaks?: boolean;
+  /** The text's first offset is offset 0 of a line in the enclosing document. */
+  startsAtLineStart?: boolean;
+  /** The text's last offset is the end of a line in the enclosing document. */
+  endsAtLineEnd?: boolean;
+}
+
 /** Target quote style: curly (""), corner (「」), or guillemets (<<>>). */
 export type QuoteStyle = "curly" | "corner" | "guillemets";
 

@@ -24,7 +24,7 @@
  * @module lib/cjkFormatter/formatter
  */
 
-import type { CJKFormattingSettings } from "./types";
+import type { CJKFormattingSettings, FormatOptions } from "./types";
 import { findProtectedRegions } from "./markdownParser";
 import {
   extractFormattableSegments,
@@ -161,7 +161,7 @@ function detectTableBlocks(text: string, protectedRegions: Array<{ start: number
 function formatMarkdownWithoutTables(
   text: string,
   config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+  options: FormatOptions = {}
 ): string {
   const protectedRegions = findProtectedRegions(text, {
     skipReferenceSections: config.skipReferenceSections,
@@ -169,7 +169,14 @@ function formatMarkdownWithoutTables(
   const segments = extractFormattableSegments(text, protectedRegions);
   const formattedSegments: TextSegment[] = segments.map((segment) => ({
     ...segment,
-    text: applyRules(segment.text, config, options),
+    // The segment's own line edges override the caller's: a segment boundary
+    // is not a line boundary, and the line-anchored rules are wrong without
+    // that distinction (WI-CJKF2.1).
+    text: applyRules(segment.text, config, {
+      ...options,
+      startsAtLineStart: segment.startsAtLineStart,
+      endsAtLineEnd: segment.endsAtLineEnd,
+    }),
   }));
   return reconstructText(text, formattedSegments, protectedRegions);
 }
@@ -177,7 +184,7 @@ function formatMarkdownWithoutTables(
 function formatTableBlock(
   tableText: string,
   config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+  options: FormatOptions = {}
 ): string {
   const lines = splitLines(tableText);
 
@@ -228,7 +235,7 @@ function formatTableBlock(
 export function formatMarkdown(
   text: string,
   config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
+  options: FormatOptions = {}
 ): string {
   // Detect table blocks first so we can format table cells without breaking table structure.
   // We must not treat pipes in code as delimiters, and must not rewrite the delimiter row.

@@ -4,6 +4,7 @@
  * @module lib/cjkFormatter/rules/spacing
  */
 
+import type { FormatOptions } from "../types";
 import { CJK_NO_KOREAN } from "./shared";
 
 /**
@@ -110,8 +111,40 @@ export function fixSlashSpacing(text: string): string {
   return text.replace(/(?<![/:])[ \t]*\/[ \t]*(?!\/)/g, "/");
 }
 
-/** Collapse multiple spaces to single space (preserves indentation). */
-export function collapseSpaces(text: string): string {
-  // Match non-space + 2+ spaces to preserve leading indentation
-  return text.replace(/(\S) {2,}/g, "$1 ");
+/**
+ * Collapse multiple spaces to a single space, preserving indentation.
+ *
+ * Two things this must NOT do:
+ *
+ * 1. **Collapse a hard break** (WI-CJKF3.2). A run of two or more spaces at
+ *    end of line is markdown syntax. Collapsing it to one left
+ *    `removeTrailingSpaces` — which would have PRESERVED a two-space run —
+ *    looking at a single space, which it then deleted. So
+ *    `preserveTwoSpaceHardBreaks` was inert under default settings and every
+ *    hard line break in a CJK document was silently dropped, changing the
+ *    rendered output. The lookahead keeps end-of-line runs intact; `[ ]*` in
+ *    it is load-bearing, because `{2,}` is greedy and backtracks.
+ *
+ * 2. **Mistake a segment-leading run for indentation** (WI-CJKF2.1). The
+ *    `(\S)` prefix is how indentation is spared, but a segment that starts
+ *    mid-line — because a protected region sits immediately to its left — has
+ *    no `\S` to anchor against, so `` `code`   中文 `` kept all three spaces.
+ */
+export function collapseSpaces(text: string, options: FormatOptions = {}): string {
+  const { preserveTwoSpaceHardBreaks = false, startsAtLineStart = true } = options;
+
+  let out = preserveTwoSpaceHardBreaks
+    ? text.replace(/(\S) {2,}(?![ ]*(?:\r?\n|$))/g, "$1 ")
+    : text.replace(/(\S) {2,}/g, "$1 ");
+
+  // Same exemption for the segment-leading run: `中文 \`code\`  \n` puts the
+  // hard break at the START of the segment that follows the code span, where
+  // there is no `\S` in front of it at all.
+  if (!startsAtLineStart) {
+    out = preserveTwoSpaceHardBreaks
+      ? out.replace(/^ {2,}(?![ ]*(?:\r?\n|$))/, " ")
+      : out.replace(/^ {2,}/, " ");
+  }
+
+  return out;
 }
