@@ -4,8 +4,11 @@
  * Extracts headings from markdown content and builds a tree structure.
  */
 
+import { stripInlineMarkdown } from "@/utils/stripInlineMarkdown";
+
 export interface HeadingItem {
   level: number;
+  /** Plain text, with inline markdown stripped — see `extractHeadings`. */
   text: string;
   line: number; // 0-based line number in content
 }
@@ -85,7 +88,11 @@ export function extractHeadings(content: string): HeadingItem[] {
     if (match) {
       headings.push({
         level: match[1].length,
-        text: match[2].trim(),
+        // The pane shows this as a LABEL, so it carries the text a reader sees
+        // rather than the source that produces it. `getHeadingLinesKey` below
+        // deliberately keys off the RAW line instead — a cache key has to change
+        // whenever the source does, including when only the markup changed.
+        text: stripInlineMarkdown(match[2].trim()),
         line: i,
       });
     }

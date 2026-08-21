@@ -528,3 +528,34 @@ describe("integration: collapsed state with level:text key", () => {
     expect(key1).toBe(key2);
   });
 });
+
+// The outline pane shows heading text as a LABEL, not as rendered markdown, so
+// a heading written `## The **bold** one` was listed with its asterisks — along
+// with code spans, links and wiki links, each shown as its own syntax.
+describe("extractHeadings renders inline markdown as plain text", () => {
+  it.each([
+    ["bold", "# The **bold** one", "The bold one"],
+    ["code span", "## Use `invoke()`", "Use invoke()"],
+    ["link", "### See [the docs](https://x.dev)", "See the docs"],
+    ["wiki link with label", "# See [[some-page|Some Page]]", "See Some Page"],
+    ["several at once", "# **A** and `b` and [c](u)", "A and b and c"],
+  ])("%s", (_name, line, expected) => {
+    expect(extractHeadings(line)[0]?.text).toBe(expected);
+  });
+
+  it("still trims, and still reads the level from the hashes", () => {
+    const [h] = extractHeadings("###   **Spaced**   ");
+    expect(h).toMatchObject({ level: 3, text: "Spaced", line: 0 });
+  });
+
+  it("leaves a heading that only LOOKS like markup alone", () => {
+    expect(extractHeadings("# 2 ** 3 is not bold")[0]?.text).toBe("2 ** 3 is not bold");
+    expect(extractHeadings("# The snake_case_name rule")[0]?.text).toBe(
+      "The snake_case_name rule",
+    );
+  });
+
+  it("does not strip inside a fenced block — those are not headings at all", () => {
+    expect(extractHeadings("```\n# **not a heading**\n```")).toEqual([]);
+  });
+});
