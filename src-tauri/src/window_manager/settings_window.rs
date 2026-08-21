@@ -85,7 +85,8 @@ pub fn show_settings_window_section<R: Runtime>(
     section: Option<&str>,
 ) -> Result<String, tauri::Error> {
     const SETTINGS_WIDTH: f64 = 760.0;
-    const SETTINGS_HEIGHT: f64 = 540.0;
+    // 540 cut most panels off mid-list, so the window opened already scrolled.
+    const SETTINGS_HEIGHT: f64 = 680.0;
     const SETTINGS_MIN_WIDTH: f64 = 600.0;
     const SETTINGS_MIN_HEIGHT: f64 = 400.0;
 
