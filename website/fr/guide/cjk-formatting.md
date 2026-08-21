@@ -6,7 +6,9 @@ VMark inclut un ensemble complet de règles de mise en forme pour les textes chi
 
 Utilisez **Format → Formater le document CJK** ou appuyez sur `Alt + Mod + Shift + F` pour formater l'intégralité du document.
 
-Pour formater uniquement une sélection, utilisez `Mod + Shift + F`.
+`Mod + Shift + F` met en forme **les blocs que votre sélection recouvre** — le paragraphe, la liste ou le tableau entier que le curseur ou la sélection touche, et non les caractères exactement sélectionnés. L'espacement CJK est une propriété de la frontière *entre* deux caractères adjacents, et une sélection à mi-mot ne contient aucune frontière de ce type ; la commande désigne donc une région à corriger plutôt qu'un texte à réécrire. Sans sélection, elle met en forme le bloc où se trouve le curseur.
+
+Les deux commandes protègent exactement les mêmes éléments (voir « Contenu protégé »), donc tout sélectionner avant `Mod + Shift + F` est sans risque.
 
 ---
 
@@ -72,8 +74,8 @@ VMark utilise un **algorithme d'appariement de guillemets basé sur une pile** q
 
 | Avant | Après |
 |-------|-------|
-| 他说"hello" | 他说 "hello" |
-| "don't worry" | "don't worry" |
+| 他说"hello" | 他说“hello” |
+| "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
 Avec l'option de crochets d'angle activée :
@@ -89,8 +91,11 @@ Standardise la mise en forme des points de suspension.
 
 | Avant | Après |
 |-------|-------|
-| 等等. . . | 等等... |
-| 然后. . .继续 | 然后... 继续 |
+| 等等. . . | 等等…… |
+| 然后...继续 | 然后……继续 |
+| そして...続く | そして……続く |
+| 그리고...계속 | 그리고…계속 |
+| wait...ok | wait... ok |
 
 ### 8. Ponctuation répétée
 
@@ -194,7 +199,9 @@ Le formateur CJK détecte les titres «&nbsp;References&nbsp;» / «&nbsp;参考
 
 ### Vérification d'intégrité
 
-Après chaque passage de mise en forme CJK, le formateur exécute une vérification d'intégrité qui compare le contenu textuel visible (en ignorant les transformations d'espaces/de ponctuation) avant et après. Si la vérification échoue, l'opération est annulée et un diagnostic apparaît — garantit que la mise en forme CJK ne perd jamais silencieusement de contenu.
+Après chaque passage de mise en forme CJK, le formateur compare le **squelette de contenu** du document avant et après : le texte débarrassé des espaces et de la ponctuation, avec la largeur des caractères normalisée. Toutes les règles de mise en forme ne modifient que des espaces, de la ponctuation ou la largeur d'un caractère alphanumérique ; ce squelette doit donc revenir identique — et comme il s'agit d'une séquence et non d'un décompte, un contenu réordonné est également détecté. Les lettres, les chiffres, les idéogrammes, les kana, le hangul et les émoji comptent tous.
+
+Si la vérification échoue, le document reste **totalement inchangé** et une notification vous en informe. Un refus n'est jamais silencieux, et il n'est jamais confondu avec « il n'y avait rien à changer ».
 
 ---
 
@@ -316,8 +323,8 @@ La conversion en crochets d'angle se déclenche lorsque le contenu entre guillem
 |-----------------|---------|--------------|
 | Chinois | `"中文"` | ✓ `「中文」` |
 | Japonais avec kanji | `"日本語"` | ✓ `「日本語」` |
-| Hiragana uniquement | `"ひらがな"` | ✗ reste `"ひらがな"` |
-| Katakana uniquement | `"カタカナ"` | ✗ reste `"カタカナ"` |
+| Hiragana uniquement | `"ひらがな"` | ✓ `「ひらがな」` |
+| Katakana uniquement | `"カタカナ"` | ✓ `「カタカナ」` |
 | Coréen | `"한글"` | ✗ reste `"한글"` |
 | Anglais | `"hello"` | ✗ reste `"hello"` |
 
@@ -359,7 +366,7 @@ Après la mise en forme, le texte ressemblera à ceci :
 
 目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
 
-学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
 老师说 "don't give up" 然后继续讲 "写代码要注重可读性"，我觉得很有道理。
 
@@ -367,9 +374,9 @@ Après la mise en forme, le texte ressemblera à ceci :
 
 项目使用的技术栈如下：
 
-- **Frontend** —— React + TypeScript
-- **Backend** —— Node.js + Express
-- **Database** —— PostgreSQL
+- **Frontend**--React + TypeScript
+- **Backend**--Node.js + Express
+- **Database**--PostgreSQL
 
 总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
 

@@ -6,7 +6,9 @@ VMark enthält einen umfassenden Satz von Formatierungsregeln für chinesischen,
 
 Verwenden Sie **Format → CJK-Dokument formatieren** oder drücken Sie `Alt + Mod + Umschalt + F`, um das gesamte Dokument zu formatieren.
 
-Um nur eine Auswahl zu formatieren, verwenden Sie `Mod + Umschalt + F`.
+`Mod + Umschalt + F` formatiert **die Blöcke, die Ihre Auswahl umfasst** — den gesamten Absatz, die Liste oder die Tabelle, die der Cursor oder die Auswahl berührt, nicht die exakt ausgewählten Zeichen. CJK-Abstand ist eine Eigenschaft der Grenze *zwischen* zwei benachbarten Zeichen, und eine Auswahl mitten im Wort enthält keine solche Grenze. Der Befehl benennt daher einen zu korrigierenden Bereich statt eines neu zu schreibenden Textes. Ohne Auswahl formatiert er den Block an der Cursorposition.
+
+Beide Befehle schützen genau dasselbe (siehe „Geschützte Inhalte“), ein Alles-Markieren vor `Mod + Umschalt + F` ist also unbedenklich.
 
 ---
 
@@ -72,8 +74,8 @@ VMark verwendet einen **stapelbasierten Anführungszeichen-Paarungsalgorithmus**
 
 | Vorher | Nachher |
 |--------|---------|
-| 他说"hello" | 他说 "hello" |
-| "don't worry" | "don't worry" |
+| 他说"hello" | 他说“hello” |
+| "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
 Mit aktivierter Eckklammern-Option:
@@ -89,8 +91,11 @@ Standardisiert die Formatierung von Auslassungszeichen.
 
 | Vorher | Nachher |
 |--------|---------|
-| 等等. . . | 等等... |
-| 然后. . .继续 | 然后... 继续 |
+| 等等. . . | 等等…… |
+| 然后...继续 | 然后……继续 |
+| そして...続く | そして……続く |
+| 그리고...계속 | 그리고…계속 |
+| wait...ok | wait... ok |
 
 ### 8. Wiederholte Interpunktion
 
@@ -194,7 +199,9 @@ Der CJK-Formatierer erkennt Überschriften wie „References", „参考文献",
 
 ### Integritätsprüfung
 
-Nach jedem CJK-Formatierungsdurchlauf führt der Formatierer eine Integritätsprüfung durch, die den sichtbaren Textinhalt (ohne Berücksichtigung von Leerzeichen-/Interpunktionsänderungen) vor und nach dem Vorgang vergleicht. Schlägt die Prüfung fehl, wird der Vorgang zurückgerollt und es erscheint eine Diagnose — so ist garantiert, dass die CJK-Formatierung niemals stillschweigend Inhalt verliert.
+Nach jedem CJK-Formatierungsdurchlauf vergleicht der Formatierer das **Inhaltsskelett** des Dokuments vorher und nachher: den Text ohne Leerzeichen und Interpunktion und mit normalisierter Zeichenbreite. Alle Formatierungsregeln ändern ausschließlich Leerzeichen, Interpunktion oder die Breite eines alphanumerischen Zeichens, also muss dieses Skelett unverändert zurückkommen — und da es eine Folge und keine Zählung ist, fällt auch umgestellter Inhalt auf. Buchstaben, Ziffern, Ideogramme, Kana, Hangul und Emoji zählen alle mit.
+
+Schlägt die Prüfung fehl, bleibt das Dokument **vollständig unverändert** und eine Meldung weist Sie darauf hin. Eine Ablehnung ist nie stillschweigend und wird nie mit „es gab nichts zu ändern“ verwechselt.
 
 ---
 
@@ -316,8 +323,8 @@ Die Eckklammernkonvertierung wird ausgelöst, wenn der zitierte Inhalt **chinesi
 |------------|---------|-------------|
 | Chinesisch | `"中文"` | ✓ `「中文」` |
 | Japanisch mit Kanji | `"日本語"` | ✓ `「日本語」` |
-| Nur Hiragana | `"ひらがな"` | ✗ bleibt als `"ひらがな"` |
-| Nur Katakana | `"カタカナ"` | ✗ bleibt als `"カタカナ"` |
+| Nur Hiragana | `"ひらがな"` | ✓ `「ひらがな」` |
+| Nur Katakana | `"カタカナ"` | ✓ `「カタカナ」` |
 | Koreanisch | `"한글"` | ✗ bleibt als `"한글"` |
 | Englisch | `"hello"` | ✗ bleibt als `"hello"` |
 
@@ -359,7 +366,7 @@ Nach der Formatierung sieht der Text folgendermaßen aus:
 
 目前已经完成了 3 个 projects，代码量超过 1000 行。其中最复杂的是一个 dashboard 应用，包含了数据可视化，用户认证，还有 API 集成等功能。
 
-学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念... 说实话有点难理解。后来换成了 Zustand，简单多了！
+学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
 老师说 "don't give up" 然后继续讲 "写代码要注重可读性"，我觉得很有道理。
 
@@ -367,9 +374,9 @@ Nach der Formatierung sieht der Text folgendermaßen aus:
 
 项目使用的技术栈如下：
 
-- **Frontend** —— React + TypeScript
-- **Backend** —— Node.js + Express
-- **Database** —— PostgreSQL
+- **Frontend**--React + TypeScript
+- **Backend**--Node.js + Express
+- **Database**--PostgreSQL
 
 总共花费大约 $200 美元购买了学习资源，包括书籍和 online courses。虽然价格不便宜，但非常值得。
 
