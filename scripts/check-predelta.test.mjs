@@ -23,15 +23,39 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scripts = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).scripts;
 
 describe("derivation — the delta is complete and cannot drift", () => {
-  it("individualGates is every check:static leaf except lint", () => {
+  it("individualGates is EVERY check:static leaf", () => {
     const expected = invokedScripts(scripts, "check:static").filter(
-      (g) => g !== "lint" && !CI_GROUPS.includes(g),
+      (g) => !CI_GROUPS.includes(g),
     );
     expect(individualGates(scripts)).toEqual(expected);
     // Sanity: the gates that bit us in this very change are in the set.
     for (const g of ["lint:bespoke-buttons", "lint:knip-baseline", "lint:file-size", "test:gates"]) {
       expect(individualGates(scripts)).toContain(g);
     }
+  });
+
+  it("runs `lint`, because it is the FIRST thing check:all does", () => {
+    // The hole this closes, observed 2026-08-21: predelta reported all 38 gates
+    // green, and the confirming `check:all` then died ~40 seconds in on five
+    // eslint errors — one full cycle spent discovering what a cached,
+    // seconds-long gate already knew. `lint` was excluded on the reasoning
+    // that check:fast covers it, which is true only if you happen to have run
+    // check:fast since your last edit. A pre-push gate cannot assume that.
+    //
+    // Cost of including it: eslint here is `--cache`d, and predelta runs its
+    // gates in parallel, so it disappears behind the multi-minute ones.
+    const { gates } = computePlan(scripts, []);
+    expect(gates.some((g) => g.name === "lint")).toBe(true);
+  });
+
+  it("leaves NOTHING that can fail check:static before its slow phase", () => {
+    // The property, stated once: if predelta is green, `check:all` cannot die
+    // in a gate predelta could have run. `test:coverage` is the deliberate,
+    // loudly-announced exception.
+    const { gates } = computePlan(scripts, []);
+    const run = new Set([...gates.map((g) => g.name), ...UNIT_GATES.flatMap((u) => invokedScripts(scripts, u))]);
+    const staticLeaves = invokedScripts(scripts, "check:static").filter((g) => !CI_GROUPS.includes(g));
+    expect(staticLeaves.filter((g) => !run.has(g))).toEqual([]);
   });
 
   it("covers every check:all gate except what check:fast runs and the bulk app suite", () => {
@@ -54,14 +78,22 @@ describe("derivation — the delta is complete and cannot drift", () => {
     expect(missed, `delta gates predelta would miss: ${missed.join(", ")}`).toEqual([]);
   });
 
-  it("deliberately skips the full app suite and check:fast's own steps", () => {
+  it("deliberately skips only the full app suite and the changed-tests run", () => {
     const { skipped, gates } = computePlan(scripts, []);
     expect(skipped.join(" ")).toContain("test:coverage");
     const names = gates.flatMap((g) => g.argv);
-    expect(names).not.toContain("typecheck");
+    // `test:changed` is a SUBSET of the test:coverage suite predelta already
+    // announces it is skipping, so running it would buy nothing.
     expect(names).not.toContain("test:changed");
-    // `lint` (eslint) is check:fast's; predelta must not re-run it.
-    expect(gates.some((g) => g.name === "lint")).toBe(false);
+  });
+
+  it("covers typecheck through check:build, rather than as its own gate", () => {
+    // `check:build` -> `build` -> `typecheck`, so a type error surfaces as a
+    // check:build failure. Stated because the reverse is easy to assume: a
+    // reader who sees no `typecheck` gate concludes predelta cannot catch one.
+    expect(invokedScripts(scripts, "check:build")).toContain("typecheck");
+    const { gates } = computePlan(scripts, []);
+    expect(gates.some((g) => g.name === "check:build")).toBe(true);
   });
 
   it("runs check:servers and check:build as units (their build ordering is real)", () => {

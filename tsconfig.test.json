@@ -1,0 +1,28 @@
+{
+  // Typechecking for the ~404k lines of TEST code that `tsconfig.json`
+  // excludes and nothing else covers. `pnpm typecheck` builds production
+  // source only; vitest transpiles without checking types; ESLint here is not
+  // type-aware. So a test file could assert against a shape that does not
+  // exist and stay green forever — `sourceCjkActions.test.ts` mocked
+  // `CJKFormattingSettings` with three keys the interface has never had.
+  //
+  // `pnpm lint:test-types` runs this and compares against a per-file baseline
+  // that ratchets DOWN only, so NEW test code is checked from day one while
+  // the pre-existing debt burns off. See scripts/check-test-types.mjs.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Test files legitimately reach for node APIs (fs, path, process) and for
+    // the matchers vitest and jest-dom install.
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
+
+    // Deliberately relaxed relative to production. An unused local in a test
+    // is usually a fixture kept for readability, not a defect, and flagging it
+    // would bury the errors that matter under noise the linter already owns.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig-test/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": []
+}

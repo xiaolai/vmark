@@ -61,12 +61,29 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     `check:all`.** `check:all` exits on the FIRST failure, so a batch of
     independent `check:all`-only problems surfaces one per 15-minute run — using
     a slow gate for discovery, which this file forbids ("never use a slow gate as
-    an instrument of discovery"). `check:predelta` runs exactly the gates
-    `check:fast` cannot see — every `check:static` leaf but `lint`, plus
-    `check:servers` and `check:build` and the runtime-file app tests — **in
-    parallel, collecting EVERY failure at once**, and skips only the full
-    instrumented app suite. Measured ~40s vs ~15min, and it finds the whole batch
-    in one pass (the six issues the "does not see" list below can produce: a
+    an instrument of discovery"). `check:predelta` runs **every**
+    `check:static` leaf, plus `check:servers` and `check:build` and the
+    runtime-file app tests — **in parallel, collecting EVERY failure at
+    once** — and skips only the full instrumented app suite (`test:coverage`)
+    and `test:changed`, which is a subset of it.
+
+    The property it now guarantees, pinned by `check-predelta.test.mjs`: **a
+    green `check:predelta` means `check:all` cannot die in a gate predelta
+    could have run.** `lint` used to be excluded on the reasoning that
+    `check:fast` covers it — true only if you happen to have run `check:fast`
+    since your last edit, which a pre-push gate cannot assume. On 2026-08-21
+    predelta reported all 38 gates green and the confirming `check:all` died
+    ~40 seconds later on five eslint errors: one full cycle spent discovering
+    what a cached, seconds-long gate already knew. eslint is `--cache`d and
+    runs in parallel here, so including it costs nothing.
+
+    `typecheck` has no gate of its own and is not skipped either — `check:build`
+    → `build` → `typecheck`, so a type error surfaces as a `check:build`
+    failure. Measured **1m41s vs ~15min** (2026-08-21, 40 gates;
+    it was ~40s before `lint:type-aware` and `lint:test-types` joined
+    `check:static` — both are ~95s and run in PARALLEL with each other, so they
+    set the floor together rather than adding up). It finds the whole batch in
+    one pass (the six issues the "does not see" list below can produce: a
     baseline ratchet, a knip finding, a corpus-enumerating test, a sidecar
     ESM/coverage break, a `size-limit` overflow). The gate list is DERIVED from
     `package.json`, so it cannot drift; `scripts/check-predelta.test.mjs` pins the
@@ -95,10 +112,36 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
       baseline ratchets, the shell-slots identity list, the byte-identity
       check on `ci.yml` — so editing a baseline JSON or a workflow file
       changes nothing the graph can see and selects no tests at all.
-    - **Test files are never typechecked, by anything.** `tsconfig.json`
-      excludes `*.test.ts(x)`, `__tests__/**`, `src/test/**` and `src/bench/**`,
-      and ESLint here is not type-aware — so ~388k lines of test code have no
-      type checking. `pnpm typecheck` covers production source only.
+    - **Test files are outside `pnpm typecheck`, and are covered by a separate
+      gate.** `tsconfig.json` excludes `*.test.ts(x)`, `__tests__/**`,
+      `src/test/**` and `src/bench/**`, vitest transpiles without checking
+      types, and ESLint here is not type-aware — so ~404k lines across ~1,537
+      files were checked by NOTHING. The failure mode is silent:
+      `sourceCjkActions.test.ts` built its settings mock from three keys
+      `CJKFormattingSettings` has never had and passed for months, because a
+      mock that does not match its subject still satisfies a test written
+      against the mock.
+
+      `pnpm lint:test-types` (`tsconfig.test.json` +
+      `scripts/check-test-types.mjs`, in `check:static`) closes it. Measured on
+      adoption: **2,503 errors in 376 files**, all pre-existing, so it ships
+      with a per-file baseline rather than at zero — fixing them is a real
+      project and an unrelated one. The baseline ratchets DOWN two-way like
+      every other one here, and the half that matters is immediate: a NEW test
+      file, or a newly-broken one, fails from day one.
+
+      It costs CI ~95s in the serial `check:static` chain, alongside
+      `lint:type-aware`'s ~93s. That is the price of the only thing that reads
+      404k lines of test code; pay it, or the class comes back silently.
+
+      A COUNT rather than an identity list is a deliberate weakening: two
+      errors on different lines of one file are indistinguishable without
+      pinning line numbers, and a baseline that churns on every edit above a
+      frozen error is a baseline people delete. The unit that matters — this
+      file is dirty, and by how much — survives. `noUnusedLocals` and
+      `noUnusedParameters` are off there: an unused fixture in a test is
+      usually deliberate, and flagging it would bury the errors that matter
+      under noise the linter already owns.
     - It skips coverage thresholds, `check:servers`, `check:build` and
       size-limit, the WebKit tier, all of Rust, and the soak tier.
     - `test:changed` runs the app tier's changed set, and adds the WHOLE gate

@@ -38,7 +38,8 @@
     "src/utils/markdownPipeline/__tests__/spec/specDeltas.json": "down — each declared divergence fixed or ruled a deliberate dialect choice",
     "src/utils/markdownPipeline/__tests__/spec/specRoundtripDeltas.json": "down — same",
     "src/utils/markdownPipeline/conformance/expectedDeltas.ts": "down — same",
-    "src/utils/markdownPipeline/__tests__/fidelity/fidelityLedger.ts": "down — same"
+    "src/utils/markdownPipeline/__tests__/fidelity/fidelityLedger.ts": "down — same",
+    "scripts/test-types-baseline.json": "zero — every test file typechecks under tsconfig.test.json; 2,503 errors in 376 files on adoption, all pre-existing"
   },
   "exempt": {
     "scripts/shell-slots-baseline.json": "An INVENTORY, not debt: the identity list of the surfaces App.tsx mounts. It should track reality, and reality has ~20 surfaces. Driving it to zero would mean an app with no UI.",
