@@ -192,7 +192,7 @@ pub fn run() {
         .on_menu_event(menu_events::handle_menu_event)
         // CRITICAL: Only intercept close for document windows (main, doc-*)
         // Non-document windows (settings) should close normally
-        .on_window_event(app_setup::handle_document_window_close_event);
+        .on_window_event(window_manager::handle_document_window_close_event);
 
     // Tauri MCP bridge plugin for automation/screenshots (dev only).
     //

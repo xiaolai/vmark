@@ -56,25 +56,9 @@ mod finder_open_delivery;
 mod native_theme;
 mod path_validation;
 mod settings_window;
-
-/// Where macOS draws this app's window controls.
-///
-/// A window built at runtime does NOT inherit `tauri.conf.json`'s window entry,
-/// so setting `trafficLightPosition` there moves the main window's buttons and
-/// nothing else. Every builder that asks for the overlay title bar has to place
-/// them itself, from this one constant — miss one and that window's lights sit
-/// 10pt away from the main window's, in the same app on the same screen.
-///
-/// The value matches Finder, measured: 19pt in from the window's left and top
-/// edges. `y` carries the standard titlebar inset AppKit applies before this
-/// value is used, so `19 + 9 = 28`; `x` is one to one. See
-/// `src/shell/trafficLights.ts`, which derives the app's own clearances from
-/// the same numbers and has the test that keeps all three declarations equal.
-///
-/// Needs the `macos-private-api` cargo feature — see `Cargo.toml`.
 #[cfg(target_os = "macos")]
-pub(crate) const TRAFFIC_LIGHT_POSITION: tauri::LogicalPosition<f64> =
-    tauri::LogicalPosition { x: 19.0, y: 28.0 };
+mod traffic_lights;
+mod window_events;
 
 pub use commands::*;
 pub use document_windows::*;
@@ -83,6 +67,9 @@ pub use file_open_state::*;
 pub(crate) use finder_open_delivery::*;
 pub use native_theme::*;
 pub use settings_window::*;
+#[cfg(target_os = "macos")]
+pub(crate) use traffic_lights::*;
+pub(crate) use window_events::*;
 
 #[cfg(test)]
 #[path = "mod.test.rs"]

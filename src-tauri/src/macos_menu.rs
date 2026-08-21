@@ -223,6 +223,10 @@ pub fn apply_menu_icons(app_handle: &tauri::AppHandle) {
     apply_icons_to_ns_menu(&main_menu, &title_icon_map);
 
     log::debug!("[macos_menu] Menu icons applied");
+
+    // Touching the main menu makes AppKit re-lay out window chrome, which puts
+    // repositioned traffic lights back. See `window_manager::repair_traffic_lights`.
+    crate::window_manager::repair_traffic_lights(app_handle);
 }
 
 /// Fallback icon for dynamic menu items based on which submenu they're in.
