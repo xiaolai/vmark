@@ -10,7 +10,10 @@
  *   - Protected regions (code, URLs, inline math) are identified first and
  *     excluded from formatting to prevent corruption
  *   - File-level formatting includes trailing whitespace and newline cleanup
- *   - Selection-level formatting applies rules only within the selected range
+ *   - There is ONE entry point. A selection is a slice of the document, so it
+ *     needs the same protection a file does; the separate unprotected
+ *     `formatSelection` was deleted (WI-CJKF1.1) after it was found rewriting
+ *     fenced code and YAML frontmatter on a plain select-all.
  *   - Post-format integrity check verifies structural patterns survived;
  *     returns original text on mismatch (defense-in-depth)
  *
