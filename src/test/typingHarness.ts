@@ -203,7 +203,7 @@ function applyDeletionDefault(view: Editor["view"], key: "Backspace" | "Delete")
     const before = $pos.parent.textBetween(
       Math.max(0, $pos.parentOffset - 2),
       $pos.parentOffset,
-      " ",
+      "\u0000",
     );
     const width = /[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test(before) ? 2 : 1;
     view.dispatch(state.tr.delete(from - width, from));
@@ -212,7 +212,7 @@ function applyDeletionDefault(view: Editor["view"], key: "Backspace" | "Delete")
     const after = $pos.parent.textBetween(
       $pos.parentOffset,
       Math.min($pos.parent.content.size, $pos.parentOffset + 2),
-      " ",
+      "\u0000",
     );
     const width = /^[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(after) ? 2 : 1;
     view.dispatch(state.tr.delete(from, from + width));

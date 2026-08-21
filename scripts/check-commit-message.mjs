@@ -282,7 +282,7 @@ function main(argv) {
 
   const seen = new Set();
   const unique = hits.filter((h) => {
-    const key = `${h.rule} ${h.detail}`;
+    const key = `${h.rule}\u0000${h.detail}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
