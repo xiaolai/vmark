@@ -1,4 +1,5 @@
 // @vitest-environment node
+// WI-CJKF5.1 — adjacentScript, the script decision these rules consult.
 /**
  * WI-CJKF5.2 / WI-CJKF5.3 — the rules whose correct output differs by script.
  *

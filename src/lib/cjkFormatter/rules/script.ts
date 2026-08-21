@@ -1,5 +1,6 @@
 /**
- * Which script a construct sits in, decided from its ADJACENT characters.
+ * WI-CJKF5.1 — which script a construct sits in, decided from its ADJACENT
+ * characters.
  *
  * Purpose: a few rules have no single correct output across CJK. The ellipsis
  * is `……` in Chinese (GB/T 15834) and Japanese (JIS X 4051) but `…` in Korean
