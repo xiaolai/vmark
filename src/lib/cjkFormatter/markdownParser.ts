@@ -9,6 +9,9 @@
  *   - Detection order matters: fenced code blocks first, then inline code,
  *     then images (before links to avoid URL-only protection on images),
  *     then link URLs, HTML tags, wiki links, footnotes, math, indented code
+ *   - Frontmatter covers BOTH delimiters, `---` (YAML) and `+++` (TOML)
+ *   - An UNCLOSED fence claims the rest of the document, as CommonMark says;
+ *     a document being edited is unterminated most of the time
  *   - Each regex checks isInsideRegion before adding, so nested constructs
  *     (e.g., inline code inside a fenced block) are not double-protected
  *   - Link URLs protect only the URL part [text](URL), not the display text,
@@ -64,8 +67,14 @@ export function findProtectedRegions(
 ): ProtectedRegion[] {
   const regions: ProtectedRegion[] = [];
 
-  // 1. Frontmatter (must be at start of document)
-  const frontmatterMatch = text.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  // 1. Frontmatter (must be at start of document).
+  //    Both delimiters: YAML `---` and TOML `+++`. TOML was missing, so a Hugo
+  //    post's `title = "中文"` lost its straight quotes to smart-quote
+  //    conversion and stopped parsing (WI-CJKF2.3). The empty-block form
+  //    (`+++\n+++`) is legal and has no body, hence the `*` alternative.
+  const frontmatterMatch = text.match(
+    /^(---|\+\+\+)\r?\n(?:[\s\S]*?\r?\n)?\1(?=\r?\n|$)/
+  );
   if (frontmatterMatch) {
     regions.push({
       start: 0,
@@ -89,9 +98,19 @@ export function findProtectedRegions(
     }
   }
 
-  // 2. Fenced code blocks (``` or ~~~)
-  // Handle both normal case and code blocks at EOF without trailing newline
-  const fencedCodeRegex = /^(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)^\1[ \t]*$/gm;
+  // 2. Fenced code blocks (``` or ~~~), paired first.
+  //    Up to three spaces of indentation is a legal fence; four is indented
+  //    code, which detector 12 owns.
+  //
+  //    The closer must be AT LEAST as long as the opener (CommonMark), which
+  //    needs the fence CHARACTER captured separately from the run: `\2` pins
+  //    the opener's exact length and `\3*` allows more of the same character
+  //    after it. Matching `\2` alone — as this did — refuses a legal
+  //    ```` ``` ````-opened block closed by four backticks, and the block then
+  //    falls through to the unclosed-fence rule below and swallows the rest of
+  //    the document.
+  const fencedCodeRegex =
+    /^([ ]{0,3})((`|~)\3{2,})([^\n]*)\n([\s\S]*?)^[ ]{0,3}\2\3*[ \t]*$/gm;
   let match;
   while ((match = fencedCodeRegex.exec(text)) !== null) {
     regions.push({
@@ -99,6 +118,25 @@ export function findProtectedRegions(
       end: match.index + match[0].length,
       type: "fenced_code",
     });
+  }
+
+  // 2b. An UNCLOSED fence claims the rest of the document (WI-CJKF2.2).
+  //     CommonMark closes an unterminated fence at end of input, and a document
+  //     being edited is unterminated most of the time — so without this, the
+  //     SAFE entry point rewrote the code the user was in the middle of typing:
+  //     `s = {'中文key': 1}` came back as `s = {‘中文 key’: 1}`, a broken Python
+  //     string literal. Detected on the ORIGINAL text and skipped when already
+  //     inside a paired fence, so a closed block's interior cannot re-open one.
+  const fenceOpenerRegex = /^[ ]{0,3}(`{3,}|~{3,})[^\n]*$/gm;
+  let opener;
+  while ((opener = fenceOpenerRegex.exec(text)) !== null) {
+    if (isInsideRegion(opener.index, regions)) continue;
+    regions.push({
+      start: opener.index,
+      end: text.length,
+      type: "fenced_code",
+    });
+    break;
   }
 
   // 3. Inline code (backticks, handling escaped and multiple backticks)
