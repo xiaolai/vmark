@@ -49,11 +49,25 @@
      that use it WITHOUT a fallback (title-bar.css) still resolve, and so the
      value is visible to anyone reading the token file. */
   --workspace-rail-width: 30px;
-  /* Vertical space the macOS traffic lights need at the top of a full-height
-     column (sidebar, workspace rail). Static default of 0 — the shell root sets
-     the real value from shellChrome.ts, and only macOS puts the lights inside
-     the webview, so 0 is the correct fallback for every other platform. */
-  --traffic-lights-inset: 0px;
+  /* Vertical space a full-height column (sidebar, workspace rail) must leave
+     clear at the top of the window: the app's own chrome strip, and the macOS
+     traffic lights inside it. Static default of 0 — the shell root sets the real
+     value from shellChrome.ts, and only macOS mounts the strip, so 0 is the
+     correct fallback for every other platform. */
+  --shell-top-inset: 0px;
+  /* The macOS window controls' own geometry: the horizontal space the title bar
+     keeps clear of them, and their optical centre, which the title bar centres
+     its content on. Static defaults of 0 for the same reason as above — only
+     macOS puts the controls inside the webview, and the shell root writes the
+     real values from shell/trafficLights.ts. */
+  --traffic-lights-zone: 0px;
+  --traffic-lights-centre: 0px;
+  /* The leading card holding the workspace rail and the sidebar: its gutter, and
+     its radius concentric with the window's own 21px corner. Written by the
+     shell root from shell/shellChrome.ts; unlike the values above these do not
+     collapse off macOS, so the static defaults match the real ones. */
+  --shell-card-inset: 8px;
+  --shell-card-radius: 13px;
   --border-color: #d5d4d4;
   --table-border-color: #d5d4d4;
   --selection-color: rgba(0, 102, 204, 0.2);

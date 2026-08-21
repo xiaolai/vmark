@@ -21,7 +21,21 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+# `macos-private-api` is what makes `trafficLightPosition` work. Without it the
+# position is ignored SILENTLY — the app builds, the config parses, and the
+# lights stay where AppKit put them, with nothing reporting why.
+#
+# It stays on THIS line, literally and unconditionally. tauri-build reads this
+# `features = [...]` array as MANIFEST TEXT and, with `macOSPrivateApi: true` in
+# tauri.conf.json, refuses to build unless the feature is spelled out here — it
+# knows nothing about `[features]` forwarding, and the same check runs against
+# the same config on every target, so hiding it behind a cfg only changes which
+# platform fails. It is inert off macOS.
+#
+# It also bars the Mac App Store. VMark ships notarized Developer ID DMGs via
+# tauri-action, so that costs nothing today; it would have to be reconsidered
+# before any App Store submission.
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"

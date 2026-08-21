@@ -28,6 +28,7 @@
 
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { CHROME_HEIGHT } from "./shellChrome";
 import "./app-shell.css";
 
 /**
@@ -38,8 +39,13 @@ import "./app-shell.css";
  * must be exactly as tall as the space reserved for it. Two literals would drift
  * without any test noticing — this one's test reads the constant, and CSS reads
  * the variable, so both sides now come from here.
+ *
+ * DEFINED in `shellChrome.ts` and re-exported here. The strip is absolutely
+ * positioned over the WHOLE shell, so the sidebar and the workspace rail have to
+ * clear it too — and that made its height an input to `SHELL_TOP_INSET`, which
+ * is layout maths that must not import a React component to read a number.
  */
-export const CHROME_HEIGHT = 40;
+export { CHROME_HEIGHT };
 
 export interface AppShellProps {
   /**

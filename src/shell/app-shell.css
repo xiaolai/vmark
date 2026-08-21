@@ -21,10 +21,17 @@
   background-color: var(--browser-bg-color);
 }
 
+/* The gutter around the leading card. `box-sizing` is load-bearing: App.tsx
+   sets this element's width from `shellSideWidth()`, which now INCLUDES both
+   gutters, so the padding has to come out of that width rather than add to it.
+   Without it the card is the right size and the editor starts 16px too far
+   right. */
 .app-shell__sidebar {
   height: 100%;
   flex-shrink: 0;
   position: relative;
+  box-sizing: border-box;
+  padding: var(--shell-card-inset, 0px);
 }
 
 .app-shell__primary {
@@ -71,10 +78,29 @@
   background-color: var(--browser-bg-color);
 }
 
+/* THE LEADING CARD. The workspace rail and the sidebar are one surface, so they
+   are one card — the rail is a column of the sidebar, not a separate slab
+   against the window edge.
+ *
+ * The card owns the frame (background, radius, shadow) and the children go flat
+ * inside it, per rule 32 "Frame ownership". Its radius is concentric with the
+ * window's own 21pt corner, derived in shellChrome.ts rather than picked.
+ *
+ * `padding-top` clears the chrome strip measured from the WINDOW's top, but
+ * padding is measured from the CARD's top — which is already `--shell-card-inset`
+ * down. Using the full inset overshoots by exactly that and drops the first
+ * control visibly low. `max()` because off macOS the strip is zero and the
+ * subtraction would go negative, which drops the declaration entirely. */
 .app-sidebar-stack {
   display: flex;
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
+  padding-top: max(0px, calc(var(--shell-top-inset, 0px) - var(--shell-card-inset, 0px)));
+  border-radius: var(--shell-card-radius, 0px);
+  background: var(--sidebar-bg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 
 .app-sidebar-stack__rail {
