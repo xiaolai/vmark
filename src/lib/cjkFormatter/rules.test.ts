@@ -1755,7 +1755,9 @@ describe("normalizeEllipsis — line-break preservation (F2 regression)", () => 
   });
 
   it("still normalizes same-line spacing after ellipsis", () => {
-    expect(normalizeEllipsis("等等...然后")).toBe("等等... 然后");
+    // WI-CJKF5.2 — the CJK form is `……` and takes NO space after it; only the
+    // Latin form gets the single space this rule was written for.
+    expect(normalizeEllipsis("等等...然后")).toBe("等等……然后");
     expect(normalizeEllipsis("wait...\tok")).toBe("wait... ok");
   });
 });

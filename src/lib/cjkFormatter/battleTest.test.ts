@@ -46,17 +46,25 @@ const config: CJKFormattingSettings = {
 
 describe("CJK Battle Test", () => {
   describe("1. Ellipsis Normalization", () => {
+    // WI-CJKF5.2 — in Chinese and Japanese the ellipsis is 六点省略号 `……`
+    // (GB/T 15834, JIS X 4051), not three ASCII dots, and it takes no space
+    // after it. These asserted the Latin shape in Chinese prose.
     test("basic ellipsis", () => {
-      expect(formatMarkdown("等等...后续内容", config)).toContain("...");
+      expect(formatMarkdown("等等...后续内容", config)).toBe("等等……后续内容");
     });
 
     test("spaced dots to ellipsis", () => {
-      expect(formatMarkdown("思考中. . .然后继续", config)).toContain("...");
+      expect(formatMarkdown("思考中. . .然后继续", config)).toBe("思考中……然后继续");
     });
 
     test("multiple ellipsis groups", () => {
-      const result = formatMarkdown("前文...中间...后文...三组", config);
-      expect(result).toContain("...");
+      expect(formatMarkdown("前文...中间...后文...三组", config)).toBe(
+        "前文……中间……后文……三组"
+      );
+    });
+
+    test("keeps the Latin shape in Latin context", () => {
+      expect(formatMarkdown("wait...then continue 中文在别处", config)).toContain("wait... then");
     });
 
     test("15 consecutive dots", () => {
