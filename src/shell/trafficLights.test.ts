@@ -1,8 +1,8 @@
 // @vitest-environment node
 //
 // The macOS window controls are described in THREE places that no compiler
-// joins: `tauri.conf.json` (the main window), `window_manager/mod.rs` (every
-// window built at runtime), and `trafficLights.ts` (the clearances the app's
+// joins: `tauri.conf.json` (the main window), `window_manager/traffic_lights.rs`
+// (every window built at runtime), and `trafficLights.ts` (the clearances the app's
 // own chrome leaves). A number changed in one of them and not the others is
 // silent — the lights simply move under the title bar, or a second window's
 // lights sit somewhere the first window's do not.
@@ -94,9 +94,9 @@ describe("the three declarations of the position agree", () => {
   });
 
   it("matches the constant the runtime window builders use", () => {
-    const rs = read("src-tauri/src/window_manager/mod.rs");
+    const rs = read("src-tauri/src/window_manager/traffic_lights.rs");
     const m = /const TRAFFIC_LIGHT_POSITION:\s*(?:tauri::)?LogicalPosition<f64>\s*=\s*(?:tauri::)?LogicalPosition\s*\{\s*x:\s*([\d.]+),\s*y:\s*([\d.]+)\s*,?\s*\}/.exec(rs);
-    expect(m, "TRAFFIC_LIGHT_POSITION not found in window_manager/mod.rs").not.toBeNull();
+    expect(m, "TRAFFIC_LIGHT_POSITION not found in window_manager/traffic_lights.rs").not.toBeNull();
     expect(Number(m?.[1])).toBe(TRAFFIC_LIGHT_POSITION.x);
     expect(Number(m?.[2])).toBe(TRAFFIC_LIGHT_POSITION.y);
   });

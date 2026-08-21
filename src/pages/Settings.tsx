@@ -5,7 +5,7 @@
  * Sections sorted alphabetically.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Palette,
@@ -31,11 +31,13 @@ import { useUpdateBroadcast, useUpdateListener } from "@/hooks/useUpdateSync";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { isMacPlatform } from "@/utils/platform";
+import { shellChromeVars } from "@/shell/shellChrome";
 import { SettingsSearchContext } from "./settings/SettingsSearchContext";
 import { SettingsSearchResults, type SearchablePanel } from "./settings/SettingsSearchResults";
-import { SearchInput } from "./settings/components";
+import { SettingsNav } from "./settings/SettingsNav";
 import { SETTINGS_PANELS, SEARCHABLE_PANEL_IDS, type Section } from "./settings/panels";
 import "./settings/settings-search.css";
+import "./settings/settings-shell.css";
 import { appError } from "@/utils/debug";
 import { voidAsync } from "@/utils/voidAsync";
 
@@ -72,30 +74,6 @@ function useDevSectionShortcut() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-}
-
-interface NavItemProps {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}
-
-function NavItem({ icon, label, active, onClick }: NavItemProps) {
-  return (
-    <button
-      onClick={onClick}
-      data-active={active}
-      className="flex w-full items-center gap-2.5 rounded-md px-3 py-2
-                 text-sm font-medium transition-colors
-                 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]
-                 data-[active=true]:bg-[var(--accent-bg)]
-                 data-[active=true]:text-[var(--accent-primary)]"
-    >
-      {icon}
-      {label}
-    </button>
-  );
 }
 
 // Navigation config icons — labels are resolved at render time via i18n
@@ -222,41 +200,22 @@ export function SettingsPage() {
   const ActivePanel = SETTINGS_PANELS[section];
 
   return (
-    <div className="relative flex h-screen bg-[var(--bg-color)]">
-      {/* Sidebar - full height */}
-      <div
-        className="w-52 shrink-0 border-r border-gray-200 dark:border-gray-700
-                   bg-[var(--bg-secondary)] flex flex-col"
-      >
-        {isMac && <div data-tauri-drag-region className="h-12 shrink-0" />}
-        {/* Search box */}
-        <div className="px-3 pb-2">
-          <SearchInput
-            type="search"
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder={t("search.placeholder")}
-            aria-label={t("search.placeholder")}
-          />
-        </div>
-        {/* Nav items */}
-        <div className="flex-1 overflow-auto px-3 pb-3">
-          <div className="space-y-1">
-            {navItems.map((item) => (
-              <NavItem
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                active={!searching && section === item.id}
-                onClick={() => {
-                  setSearchQuery("");
-                  setSection(item.id);
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+    // The settings window has its own root, not AppShell's, so it has to publish
+    // the same chrome geometry — otherwise --shell-top-inset falls back to the
+    // :root default of 0 and every clearance here is a hardcoded guess again.
+    <div
+      className="relative flex h-screen bg-[var(--bg-color)]"
+      style={shellChromeVars(isMac) as CSSProperties}
+    >
+      <SettingsNav
+        isMac={isMac}
+        items={navItems}
+        section={section}
+        searching={searching}
+        searchQuery={searchQuery}
+        onSearch={setSearchQuery}
+        onSelect={setSection}
+      />
 
       {/* Content area */}
       {/* min-w-0: without it this flex item cannot shrink below its content's
@@ -264,11 +223,17 @@ export function SettingsPage() {
           update card's button column), and the whole window grows a
           document-level horizontal scrollbar. */}
       <div className="flex-1 flex flex-col min-w-0">
-        {isMac && <div data-tauri-drag-region className="h-12 shrink-0" />}
+        {isMac && (
+          <div
+            data-tauri-drag-region
+            className="shrink-0"
+            style={{ height: "var(--shell-top-inset)" }}
+          />
+        )}
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
-            className="flex-1 overflow-auto p-6 [scrollbar-gutter:stable]"
+            className="settings-scroll flex-1 overflow-auto p-6"
             data-settings-searching={searching ? "" : undefined}
           >
             {searching ? (
@@ -283,8 +248,11 @@ export function SettingsPage() {
       {isMac && (
         <div
           data-tauri-drag-region
-          className="absolute top-0 right-0 h-12 flex items-center justify-center pointer-events-none"
-          style={{ left: "13rem" }}
+          className="absolute top-0 right-0 flex items-center justify-center pointer-events-none"
+          style={{
+            left: "calc(13rem + 2 * var(--shell-card-inset))",
+            height: "calc(2 * var(--traffic-lights-centre))",
+          }}
         >
           <span className="text-sm font-medium text-[var(--text-color)]">
             {t("title")}
