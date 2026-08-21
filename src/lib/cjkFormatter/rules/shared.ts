@@ -50,11 +50,28 @@ export const PUNCTUATION_MAP: Record<string, string> = {
  */
 export type CharSequence = { readonly length: number; readonly [index: number]: string };
 
-/** Nearest non-space character to the left of `pos` (handles surrogate pairs). */
-export function getLeftNeighbor(text: CharSequence, pos: number): string {
+/**
+ * Nearest non-space character to the left of `pos` (handles surrogate pairs).
+ *
+ * `skipSpaces` is FALSE for punctuation conversion (WI-CJKF3.1): a mark
+ * separated from the CJK character by a space must not become fullwidth,
+ * because fullwidth punctuation carries its own sidebearing and is never
+ * preceded by a space in any CJK orthography. Skipping produced
+ * `中文 ， English`, `中文 ：smile:`, and `## 1。 第一章`.
+ *
+ * It stays TRUE for the quote-context reader, which needs whitespace to be
+ * transparent so quote classification is idempotent under the formatter's own
+ * spacing output.
+ */
+export function getLeftNeighbor(
+  text: CharSequence,
+  pos: number,
+  skipSpaces = true
+): string {
   for (let i = pos - 1; i >= 0; i--) {
-    if (text[i] !== " " && text[i] !== "\t") {
+    if (!skipSpaces || (text[i] !== " " && text[i] !== "\t")) {
       const ch = text[i];
+      if (ch === " " || ch === "\t") return "";
       const code = ch.charCodeAt(0);
       // Combine surrogate pair if we landed on a low surrogate.
       if (code >= 0xdc00 && code <= 0xdfff && i - 1 >= 0) {
@@ -71,11 +88,16 @@ export function getLeftNeighbor(text: CharSequence, pos: number): string {
   return "";
 }
 
-/** Nearest non-space character to the right of `pos` (handles surrogate pairs). */
-export function getRightNeighbor(text: string, pos: number): string {
+/** Nearest non-space character to the right of `pos`; see `getLeftNeighbor`. */
+export function getRightNeighbor(
+  text: string,
+  pos: number,
+  skipSpaces = true
+): string {
   for (let i = pos + 1; i < text.length; i++) {
-    if (text[i] !== " " && text[i] !== "\t") {
+    if (!skipSpaces || (text[i] !== " " && text[i] !== "\t")) {
       const ch = text[i];
+      if (ch === " " || ch === "\t") return "";
       const code = ch.charCodeAt(0);
       // Combine surrogate pair if we landed on a high surrogate.
       if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {

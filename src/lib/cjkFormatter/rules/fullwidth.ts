@@ -2,8 +2,11 @@
  * Group 2 — Fullwidth normalization rules.
  *
  * Converts half-width ASCII to fullwidth forms when in CJK context.
- * Protects ordered list markers ("1."), ellipses ("..."), and technical
+ * Protects enumerator periods ("1."), ellipses ("..."), and technical
  * subspans (URLs, versions, times) from over-conversion.
+ *
+ * A mark must be IMMEDIATELY adjacent to its CJK neighbour to convert
+ * (WI-CJKF3.1); see `getLeftNeighbor` in ./shared.ts for why.
  *
  * @coordinates-with latinSpanScanner — technical subspan protection
  * @module lib/cjkFormatter/rules/fullwidth
@@ -47,20 +50,32 @@ export function normalizeFullwidthAlphanumeric(text: string): string {
 }
 
 /**
- * Check if a period at `dotPos` is an ordered list marker (e.g. "1.", "10.").
- * Walks back from the period through digits; if it reaches line-start or a
- * newline (possibly preceded by indentation), it's a list marker.
+ * Whether the period at `dotPos` is an ENUMERATOR — the dot of `1.`, `10.` —
+ * rather than a sentence period.
+ *
+ * Adjacency (WI-CJKF3.1) already spares `1. 中文`, because the space after the
+ * dot means neither neighbour is adjacent CJK. This still carries the
+ * SPACE-LESS form `1.中文`, which is common in Chinese text and which adjacency
+ * would convert to `1。中文`.
+ *
+ * Walks back through the digits, then through any leading line furniture:
+ * indentation, blockquote markers (`>`), and ATX heading hashes. All three
+ * were missing, and each was its own reproduction — `> 1.中文`, `## 1.中文`
+ * and `  1.中文` all became `1。`.
  */
-function isOrderedListMarker(text: string, dotPos: number): boolean {
+function isEnumeratorPeriod(text: string, dotPos: number): boolean {
   let i = dotPos - 1;
   // Must have at least one digit before the dot
   if (i < 0 || text[i] < "0" || text[i] > "9") return false;
   // Walk back through digits
   while (i >= 0 && text[i] >= "0" && text[i] <= "9") i--;
-  // Skip optional indentation (spaces/tabs)
-  while (i >= 0 && (text[i] === " " || text[i] === "\t")) i--;
-  // Must be at start of string or after a newline
-  return i < 0 || text[i] === "\n";
+  // Walk back through leading line furniture: indentation, `>` quote markers,
+  // and `#` heading marks, in any order and any nesting.
+  while (i >= 0 && (text[i] === " " || text[i] === "\t" || text[i] === ">" || text[i] === "#")) {
+    i--;
+  }
+  // Must be at start of string or after a line break
+  return i < 0 || text[i] === "\n" || text[i] === "\r";
 }
 
 /** Check if a character is part of an ellipsis pattern. */
@@ -147,18 +162,19 @@ function normalizeFullwidthPunctuationOnce(text: string): string {
     // conversion can ever create or destroy an ellipsis mid-scan.)
     if (char === "." && isPartOfEllipsis(text, i)) continue;
 
-    // Special case: ordered list marker - never convert "1." "2." etc. at line start
-    if (char === "." && isOrderedListMarker(text, i)) continue;
+    // Special case: an ENUMERATOR period — the dot of "1.", "10." — at the
+    // start of a line, including under `>` quote markers and `#` heading marks.
+    if (char === "." && isEnumeratorPeriod(text, i)) continue;
 
     // Check if inside a technical subspan (URL, version, time, etc.)
     if (isInTechnicalSubspan(i, latinSpans)) continue;
 
-    // Get context: nearest non-space neighbors. LEFT comes from the working
-    // copy — that is the propagation. RIGHT comes from the original, and may:
-    // no conversion produces a CJK letter or an opening bracket, the only two
-    // things the right-hand test accepts.
-    const leftNeighbor = getLeftNeighbor(out, i);
-    const rightNeighbor = getRightNeighbor(text, i);
+    // Get context: the IMMEDIATELY adjacent neighbours (WI-CJKF3.1). LEFT comes
+    // from the working copy — that is the propagation. RIGHT comes from the
+    // original, and may: no conversion produces a CJK letter or an opening
+    // bracket, the only two things the right-hand test accepts.
+    const leftNeighbor = getLeftNeighbor(out, i, false);
+    const rightNeighbor = getRightNeighbor(text, i, false);
 
     // Check if either neighbor is a CJK character or CJK bracket
     const leftIsCJK = leftNeighbor && (

@@ -240,9 +240,16 @@ describe("normalizeFullwidthPunctuation", () => {
     // Technical terms protected, mixed punctuation converted
     const input = "中文,English; 版本v0.3.11,时间12:30,网址test.com/a,b?x=1.";
     const output = normalizeFullwidthPunctuation(input);
-    // Commas and semicolons in CJK context should be converted
+    // A comma wedged between CJK and Latin converts — it is adjacent to 文.
     expect(output).toContain("中文，English");
-    expect(output).toContain("English；");
+    // The semicolon does NOT (WI-CJKF3.1). Its left neighbour is `h` and a
+    // SPACE separates it from 版, so neither side is adjacent CJK. This used
+    // to produce `English； 版本` — a fullwidth mark followed by a space, which
+    // is wrong in every CJK orthography: fullwidth punctuation carries its own
+    // sidebearing. The correct forms are `English;` or `English；版本`, and the
+    // formatter cannot tell which the author meant, so it leaves it alone.
+    expect(output).toContain("English; ");
+    expect(output).not.toContain("；");
     // Technical subspans should be protected
     expect(output).toContain("v0.3.11");
     expect(output).toContain("12:30");
