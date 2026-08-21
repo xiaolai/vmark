@@ -266,10 +266,21 @@ export function formatMarkdown(
     }
   }
 
-  // Final cleanup: trim trailing whitespace. Trailing backslashes are kept —
-  // a literal backslash at EOF (e.g. a Windows path) is legitimate content,
-  // and a hard-break backslash at EOF is harmless.
+  // Final cleanup: trim trailing whitespace, then put the document's single
+  // final newline back (WI-CJKF2.4). Trailing backslashes are kept — a literal
+  // backslash at EOF (e.g. a Windows path) is legitimate content, and a
+  // hard-break backslash at EOF is harmless.
+  //
+  // The trim alone was a real cost: nothing downstream restores the newline
+  // (`saveToPath` writes what the buffer holds), so every "Format CJK File"
+  // stripped the POSIX terminator and put `\ No newline at end of file` into
+  // the user's next git diff. The terminator is echoed in the document's own
+  // convention so a CRLF file does not silently acquire a lone LF, and an
+  // all-whitespace document stays empty rather than being handed a newline it
+  // never had.
+  const trailingNewline = /(\r?\n)[\s]*$/.exec(out)?.[1] ?? "";
   out = out.trimEnd();
+  if (out.length > 0) out += trailingNewline;
 
   // Integrity check: verify structural patterns survived formatting.
   // If any pattern count changed, the parser has a bug — return original text.

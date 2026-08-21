@@ -33,7 +33,8 @@ describe("WI-CJKF2.2 — an unclosed fence runs to the end of the document", () 
   it("protects a backtick fence with no closer", () => {
     const doc = "正文English\n\n```python\ns = {'中文key': 1}\n";
     expect(typesOf(doc)).toContain("fenced_code");
-    expect(fmt(doc)).toBe("正文 English\n\n```python\ns = {'中文key': 1}");
+    // The final newline survives too (WI-CJKF2.4).
+    expect(fmt(doc)).toBe("正文 English\n\n```python\ns = {'中文key': 1}\n");
   });
 
   it("protects a tilde fence with no closer", () => {

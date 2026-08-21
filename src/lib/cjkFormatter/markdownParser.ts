@@ -241,17 +241,33 @@ export function findProtectedRegions(
     }
   }
 
-  // 11. Inline math: $...$ (but not $$ or escaped \$)
-  // Be careful: $ is common in text, so we require content between them
-  const mathInlineRegex = /(?<!\$)\$(?!\$)([^$\n]+)\$(?!\$)/g;
+  // 11. Inline math: $...$ (but not $$, and not escaped \$).
+  //
+  //     The padding rule is micromark's, and it is the whole reason this is
+  //     not a naive `\$[^$\n]+\$` (WI-CJKF4.1): content may be padded with one
+  //     space on BOTH sides, but one-sided padding is not math at all. Without
+  //     it, `价格是 $100 和 $200 元` and `cost $5, tax $1` were "protected" —
+  //     which skipped the CJK rules inside them AND made the space in front of
+  //     the span a segment edge, so it was eaten as trailing whitespace.
+  //
+  //     `mathRegionParity.test.ts` checks a corpus against `parseMarkdown`
+  //     itself, so this cannot drift away from what VMark renders.
+  const mathInlineRegex = /(?<![\\$])\$(?!\$)([^$\n]+)\$(?!\$)/g;
   while ((match = mathInlineRegex.exec(text)) !== null) {
-    if (!isInsideRegion(match.index, regions)) {
-      regions.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        type: "math_inline",
-      });
-    }
+    if (isInsideRegion(match.index, regions)) continue;
+    const content = match[1];
+    const paddedLeft = /^[ \t]/.test(content);
+    const paddedRight = /[ \t]$/.test(content);
+    if (paddedLeft !== paddedRight) continue;
+    // An all-whitespace run is padding with nothing to pad.
+    if (paddedLeft && content.trim() === "") continue;
+    // A trailing backslash would escape the closing delimiter.
+    if (content.endsWith("\\")) continue;
+    regions.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      type: "math_inline",
+    });
   }
 
   // 12. Indented code blocks (4+ spaces at line start, but not in lists)
