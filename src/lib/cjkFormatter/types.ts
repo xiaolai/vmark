@@ -103,3 +103,40 @@ export const DEFAULT_CJK_FORMATTING: CJKFormattingSettings = {
   trailingSpaceRemoval: true,
   skipReferenceSections: false,
 };
+
+// ---------------------------------------------------------------------------
+// Protected regions
+// ---------------------------------------------------------------------------
+
+/**
+ * A span of the document that must be excluded from formatting.
+ *
+ * Here rather than in `markdownParser.ts` because the line-oriented detectors
+ * live in a sibling module (`markdownParserBlocks.ts`) and append to the
+ * caller's array — so both files need the type, and importing it from the
+ * parser made the two modules circular.
+ */
+export interface ProtectedRegion {
+  start: number;
+  end: number;
+  type:
+    | "fenced_code"
+    | "inline_code"
+    | "indented_code"
+    | "link_url"
+    | "image"
+    | "frontmatter"
+    | "html_tag"
+    | "wiki_link"
+    | "footnote_ref"
+    | "footnote_def"
+    | "math_block"
+    | "math_inline"
+    | "thematic_break"
+    | "reference_section";
+}
+
+export interface ProtectedRegionOptions {
+  /** Skip ## References and ## Further Reading sections (off by default). */
+  skipReferenceSections?: boolean;
+}

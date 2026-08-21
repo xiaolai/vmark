@@ -21,5 +21,5 @@
  * @module lib/cjkFormatter
  */
 
-export { formatMarkdown, formatMarkdownChecked, type FormatResult } from "./formatter";
+export { formatMarkdown, formatMarkdownChecked } from "./formatter";
 export { removeTrailingSpaces, collapseNewlines } from "./rules";

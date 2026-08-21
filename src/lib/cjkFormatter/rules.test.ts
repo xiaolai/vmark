@@ -242,12 +242,8 @@ describe("normalizeFullwidthPunctuation", () => {
     const output = normalizeFullwidthPunctuation(input);
     // A comma wedged between CJK and Latin converts — it is adjacent to 文.
     expect(output).toContain("中文，English");
-    // The semicolon does NOT (WI-CJKF3.1). Its left neighbour is `h` and a
-    // SPACE separates it from 版, so neither side is adjacent CJK. This used
-    // to produce `English； 版本` — a fullwidth mark followed by a space, which
-    // is wrong in every CJK orthography: fullwidth punctuation carries its own
-    // sidebearing. The correct forms are `English;` or `English；版本`, and the
-    // formatter cannot tell which the author meant, so it leaves it alone.
+    // The semicolon does NOT (WI-CJKF3.1): a SPACE separates it from 版, and a
+    // fullwidth mark followed by a space is wrong in every CJK orthography.
     expect(output).toContain("English; ");
     expect(output).not.toContain("；");
     // Technical subspans should be protected
@@ -646,11 +642,8 @@ describe("fixDoubleQuoteSpacing", () => {
     });
 
     it("adds NO space after CJK characters", () => {
-      // WI-CJKF3.3 — a CJK letter takes NO space beside a quote glyph.
-      // `“ ”`, `‘ ’`, `「 」` and `『 』` are all fullwidth in CJK context:
-      // GB/T 15834 and JLREQ give them their own sidebearing, and the W3C's
-      // *Spacing between scripts inline* makes the same point structurally.
-      // These cases asserted the opposite, and that was the bug.
+      // WI-CJKF3.3 — a CJK letter takes NO space beside a quote glyph; these
+      // asserted the opposite. Full rationale: __tests__/quoteAndSlashSpacing.
       expect(fixDoubleQuoteSpacing(`中文${OQ}text${CQ}`)).toBe(`中文${OQ}text${CQ}`);
       expect(fixDoubleQuoteSpacing(`日本語${OQ}text${CQ}`)).toBe(`日本語${OQ}text${CQ}`);
       // Korean is excluded from CJK_NO_KOREAN, so it was never spaced either.
@@ -750,8 +743,7 @@ describe("fixDoubleQuoteSpacing", () => {
     });
 
     it("real-world Chinese text", () => {
-      // The clearest demonstration of the defect: ordinary Chinese prose, into
-      // which the old expectation inserted three spaces.
+      // Ordinary Chinese prose, into which the old expectation inserted spaces.
       const input = `科学共识是明确的：幸福从根本上与${OQ}物质财富${CQ}无关。${OQ}伊斯特林悖论${CQ}表明`;
       expect(fixDoubleQuoteSpacing(input)).toBe(input);
     });
@@ -841,8 +833,6 @@ describe("fixCornerQuoteSpacing", () => {
     });
 
     it("adds NO space after CJK characters", () => {
-      // Corner brackets are unambiguously fullwidth; applyRules already skips
-      // this rule for them, and now the rule agrees.
       expect(fixCornerQuoteSpacing("中文「text」")).toBe("中文「text」");
     });
 
@@ -1580,26 +1570,16 @@ describe("applyRules", () => {
     expect(result).toContain("『内层』");
   });
 
-  it("applies quote spacing to the LATIN side, and not to the CJK side", () => {
-    // WI-CJKF3.3. The rule still exists and still fires; what changed is that
-    // a CJK letter is no longer a candidate for a space beside a quote glyph.
-    expect(applyRules("中文\u201chello\u201d内容", makeConfig({ quoteSpacing: true }))).toBe(
-      "中文\u201chello\u201d内容"
-    );
-    // The Latin side still gains spaces — but `applyRules` gates every quote
-    // rule behind `containsCJK`, so the probe has to contain CJK somewhere.
-    expect(applyRules("中文。word\u201chello\u201dword", makeConfig({ quoteSpacing: true }))).toBe(
-      "中文。word \u201chello\u201d word"
-    );
-  });
-
-  it("applies single quote spacing to the LATIN side, and not to the CJK side", () => {
-    expect(applyRules("中文\u2018hello\u2019内容", makeConfig({ singleQuoteSpacing: true }))).toBe(
-      "中文\u2018hello\u2019内容"
-    );
-    expect(applyRules("中文。word\u2018hello\u2019word", makeConfig({ singleQuoteSpacing: true }))).toBe(
-      "中文。word \u2018hello\u2019 word"
-    );
+  // WI-CJKF3.3 — the rules still fire; a CJK letter is no longer a candidate
+  // for a space beside a quote glyph. Every quote rule is gated behind
+  // `containsCJK`, so the Latin probes have to contain CJK somewhere too.
+  it.each([
+    ["double, CJK side", "quoteSpacing", "中文\u201chello\u201d内容", "中文\u201chello\u201d内容"],
+    ["double, Latin side", "quoteSpacing", "中文。word\u201chello\u201dword", "中文。word \u201chello\u201d word"],
+    ["single, CJK side", "singleQuoteSpacing", "中文\u2018hello\u2019内容", "中文\u2018hello\u2019内容"],
+    ["single, Latin side", "singleQuoteSpacing", "中文。word\u2018hello\u2019word", "中文。word \u2018hello\u2019 word"],
+  ] as const)("applies quote spacing — %s", (_label, flag, input, expected) => {
+    expect(applyRules(input, makeConfig({ [flag]: true }))).toBe(expected);
   });
 
   it("applies CJK-English spacing", () => {

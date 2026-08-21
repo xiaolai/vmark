@@ -17,28 +17,23 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/cjkFormatter", () => ({
   formatMarkdownChecked: vi.fn(() => ({ text: "ORIGINAL", refused: true })),
 }));
-vi.mock("@/stores/settingsStore", async () => {
-  const { DEFAULT_CJK_FORMATTING } = await import("@/lib/cjkFormatter/types");
-  return { useSettingsStore: { getState: () => ({ cjkFormatting: DEFAULT_CJK_FORMATTING }) } };
-});
-vi.mock("@/plugins/toolbarActions/wysiwygAdapterUtils", () => ({
-  shouldPreserveTwoSpaceBreaks: () => true,
-}));
-
 import { applyTransform } from "./documentTransform";
+import { DEFAULT_CJK_FORMATTING } from "@/lib/cjkFormatter/types";
+
+const SETTINGS = { cjkFormatting: DEFAULT_CJK_FORMATTING, preserveTwoSpaceHardBreaks: true };
 
 describe("cjk-format under a refusing formatter", () => {
   it("throws instead of returning the unchanged content", () => {
-    expect(() => applyTransform("cjk-format", "ORIGINAL")).toThrow(/refused/i);
+    expect(() => applyTransform("cjk-format", "ORIGINAL", SETTINGS)).toThrow(/refused/i);
   });
 
   it("does not swallow the reason", () => {
-    expect(() => applyTransform("cjk-format", "ORIGINAL")).toThrow(
+    expect(() => applyTransform("cjk-format", "ORIGINAL", SETTINGS)).toThrow(
       /did not match the input/i
     );
   });
 
   it("leaves the narrow transforms unaffected — they have no integrity check", () => {
-    expect(applyTransform("cjk-spacing", "中文English")).toBe("中文 English");
+    expect(applyTransform("cjk-spacing", "中文English", SETTINGS)).toBe("中文 English");
   });
 });

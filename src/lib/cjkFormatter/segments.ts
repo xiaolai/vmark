@@ -16,7 +16,7 @@
  * @module lib/cjkFormatter/segments
  */
 
-import type { ProtectedRegion } from "./markdownParser";
+import type { ProtectedRegion } from "./types";
 
 /**
  * A text segment that should be formatted (a non-protected region).

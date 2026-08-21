@@ -10,13 +10,14 @@
  * @module services/mcpBridge/v2/documentTransform
  */
 import { useSettingsStore } from "@/stores/settingsStore";
+import { shouldPreserveTwoSpaceBreaks } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { formatMarkdownChecked } from "@/lib/cjkFormatter";
+import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { findProtectedRegions } from "@/lib/cjkFormatter/markdownParser";
 import {
   extractFormattableSegments,
   reconstructText,
 } from "@/lib/cjkFormatter/segments";
-import { shouldPreserveTwoSpaceBreaks } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { HALF_TO_FULL } from "./cjkMaps";
 
 /**
@@ -48,6 +49,26 @@ export const TRANSFORM_KINDS = [
 ] as const;
 export type TransformKind = (typeof TRANSFORM_KINDS)[number];
 
+/** Everything `applyTransform` needs from the app, passed in rather than read. */
+export interface TransformSettings {
+  cjkFormatting: CJKFormattingSettings;
+  preserveTwoSpaceHardBreaks: boolean;
+}
+
+/**
+ * Read the app's current settings for a transform.
+ *
+ * Separate from `applyTransform` on purpose: the transform stays a pure
+ * string→string function that a test can call without mocking the settings
+ * store, and the store reads live in one place that a handler calls once.
+ */
+export function currentTransformSettings(): TransformSettings {
+  return {
+    cjkFormatting: useSettingsStore.getState().cjkFormatting,
+    preserveTwoSpaceHardBreaks: shouldPreserveTwoSpaceBreaks(),
+  };
+}
+
 export function isTransformKind(value: unknown): value is TransformKind {
   return (
     typeof value === "string" &&
@@ -57,13 +78,25 @@ export function isTransformKind(value: unknown): value is TransformKind {
 
 const CJK_RE = "[一-鿿぀-ゟ゠-ヿ가-힯]";
 
-export function applyTransform(kind: TransformKind, content: string): string {
+/**
+ * Apply a transform to `content`.
+ *
+ * The CJK config and the hard-break convention are PARAMETERS, not store
+ * reads. This used to call `useSettingsStore.getState()` and
+ * `shouldPreserveTwoSpaceBreaks()` itself, which made a pure string→string
+ * function depend on two singletons and forced every test of it to mock the
+ * app's settings store — mocking app STATE rather than a boundary. The caller
+ * already holds an app context; it reads the settings and passes them in.
+ */
+export function applyTransform(
+  kind: TransformKind,
+  content: string,
+  settings: TransformSettings
+): string {
   switch (kind) {
     case "cjk-format": {
-      const config = useSettingsStore.getState().cjkFormatting;
-      const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
-      const { text, refused } = formatMarkdownChecked(content, config, {
-        preserveTwoSpaceHardBreaks,
+      const { text, refused } = formatMarkdownChecked(content, settings.cjkFormatting, {
+        preserveTwoSpaceHardBreaks: settings.preserveTwoSpaceHardBreaks,
       });
       // A refusal must not look like "nothing needed changing" (WI-CJKF6.2).
       // Both return the input; only one of them is a defect the caller should

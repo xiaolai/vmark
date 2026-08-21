@@ -379,7 +379,7 @@ function describeWrite(after: string, before: string): string {
   return `Wrote document (${sign}${magnitude} chars, was ${beforeBytes}, now ${afterBytes})`;
 }
 
-import { applyTransform, isTransformKind, TRANSFORM_KINDS } from "./documentTransform";
+import { applyTransform, currentTransformSettings, isTransformKind, TRANSFORM_KINDS } from "./documentTransform";
 
 /**
  * Handle `vmark.document.transform`.
@@ -427,7 +427,7 @@ export async function handleDocumentTransform(
       return;
     }
 
-    const transformed = applyTransform(args.kind, resolved.content);
+    const transformed = applyTransform(args.kind, resolved.content, currentTransformSettings());
     if (transformed === resolved.content) {
       await respond({
         id,

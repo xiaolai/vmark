@@ -920,11 +920,6 @@
     {
       "file": "src/plugins/toolbarActions/sourceCjkActions.test.ts",
       "api": "vi.mock",
-      "target": "src/stores/settingsStore"
-    },
-    {
-      "file": "src/plugins/toolbarActions/sourceCjkActions.test.ts",
-      "api": "vi.mock",
       "target": "src/stores/tabStore"
     },
     {

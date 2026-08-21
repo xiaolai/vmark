@@ -32,30 +32,8 @@
  * @module lib/cjkFormatter/markdownParser
  */
 
-export interface ProtectedRegion {
-  start: number;
-  end: number;
-  type:
-    | "fenced_code"
-    | "inline_code"
-    | "indented_code"
-    | "link_url"
-    | "image"
-    | "frontmatter"
-    | "html_tag"
-    | "wiki_link"
-    | "footnote_ref"
-    | "footnote_def"
-    | "math_block"
-    | "math_inline"
-    | "thematic_break"
-    | "reference_section";
-}
-
-export interface ProtectedRegionOptions {
-  /** Skip ## References and ## Further Reading sections (off by default). */
-  skipReferenceSections?: boolean;
-}
+import type { ProtectedRegion, ProtectedRegionOptions } from "./types";
+import { detectLineOrientedRegions } from "./markdownParserBlocks";
 
 /**
  * Find all protected regions in markdown text.
@@ -270,79 +248,10 @@ export function findProtectedRegions(
     });
   }
 
-  // 12. Indented code blocks (4+ spaces at line start, but not in lists)
-  // This is tricky - we look for lines starting with 4+ spaces
-  // that aren't list continuations
-  const lines = text.split("\n");
-  let pos = 0;
-  let inIndentedBlock = false;
-  let blockStart = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const isIndented = /^( {4}|\t)/.test(line) && line.trim().length > 0;
-    const isBlankLine = line.trim().length === 0;
-
-    if (isIndented && !isInsideRegion(pos, regions)) {
-      if (!inIndentedBlock) {
-        // Check previous non-blank line - if it's a list item, this is continuation
-        let prevNonBlank = i - 1;
-        while (prevNonBlank >= 0 && lines[prevNonBlank].trim() === "") {
-          prevNonBlank--;
-        }
-        // Fixed: group alternation to avoid precedence bug
-        // Previous: /^[\s]*[-*+]|\d+\./ matched ^\s*[-*+] OR \d+. anywhere
-        const isListContinuation =
-          prevNonBlank >= 0 &&
-          /^[\s]*(?:[-*+]|\d+\.)/.test(lines[prevNonBlank]);
-
-        if (!isListContinuation) {
-          inIndentedBlock = true;
-          blockStart = pos;
-        }
-      }
-    } else if (!isBlankLine && inIndentedBlock) {
-      // End of indented block
-      regions.push({
-        start: blockStart,
-        end: pos,
-        type: "indented_code",
-      });
-      inIndentedBlock = false;
-    }
-
-    pos += line.length + 1; // +1 for newline
-  }
-
-  // Handle indented block at end of file
-  if (inIndentedBlock) {
-    regions.push({
-      start: blockStart,
-      end: text.length,
-      type: "indented_code",
-    });
-  }
-
-  // 13. Reference sections (opt-in): ## References, ## Further Reading
-  // Academic/technical documents often have bibliographic entries with specific
-  // punctuation that CJK formatting would corrupt (DOIs, citation commas, etc.)
-  if (options.skipReferenceSections) {
-    const refHeadingRegex = /^## (?:References|Further Reading)[ \t]*$/gm;
-    const nextH2Regex = /^## /gm;
-    let refMatch;
-    while ((refMatch = refHeadingRegex.exec(text)) !== null) {
-      if (isInsideRegion(refMatch.index, regions)) continue;
-      // Find the next ## heading after this one
-      nextH2Regex.lastIndex = refMatch.index + refMatch[0].length;
-      const nextHeading = nextH2Regex.exec(text);
-      const sectionEnd = nextHeading ? nextHeading.index : text.length;
-      regions.push({
-        start: refMatch.index,
-        end: sectionEnd,
-        type: "reference_section",
-      });
-    }
-  }
+  // Detectors 12 (indented code) and 13 (reference sections) are the two
+  // line-oriented ones; they live in ./markdownParserBlocks.ts and append to
+  // `regions` in place, because these detectors are order-dependent.
+  detectLineOrientedRegions(text, regions, options);
 
   // Sort by start position
   regions.sort((a, b) => a.start - b.start);
