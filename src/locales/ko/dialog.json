@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "정리 실패",
   "orphanCleanup.scanFailedMessage": "에셋 폴더를 확인할 수 없습니다. 자세한 내용은 로그를 확인하세요.",
   "divergentChanges.title": "파일이 디스크에서 변경됨",
-  "divergentChanges.single": "“{{title}}”이(가) 디스크에서 변경되었고 로컬 버전을 유지하기로 했습니다. 지금 내 버전을 저장할까요, 아니면 닫고 디스크의 파일을 그대로 둘까요?"
+  "divergentChanges.single": "“{{title}}”이(가) 디스크에서 변경되었고 로컬 버전을 유지하기로 했습니다. 지금 내 버전을 저장할까요, 아니면 닫고 디스크의 파일을 그대로 둘까요?",
+  "toast.cjkFormatRefused": "서식 지정을 취소했습니다. 결과가 원본과 일치하지 않아 아무것도 변경되지 않았습니다."
 }

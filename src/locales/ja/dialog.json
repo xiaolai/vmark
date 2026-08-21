@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "クリーンアップ失敗",
   "orphanCleanup.scanFailedMessage": "アセットフォルダーを確認できませんでした。詳細はログをご覧ください。",
   "divergentChanges.title": "ファイルがディスク上で変更されました",
-  "divergentChanges.single": "「{{title}}」はディスク上で変更され、あなたはローカル版を保持しています。今あなたの版を保存しますか？それとも閉じてディスク上のファイルをそのまま残しますか？"
+  "divergentChanges.single": "「{{title}}」はディスク上で変更され、あなたはローカル版を保持しています。今あなたの版を保存しますか？それとも閉じてディスク上のファイルをそのまま残しますか？",
+  "toast.cjkFormatRefused": "整形を中止しました。結果が元のテキストと一致しないため、変更は行われていません。"
 }

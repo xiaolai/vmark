@@ -238,10 +238,26 @@ function formatTableBlock(
 }
 
 /**
- * Format markdown text with CJK typography rules.
+ * What a format run did, for callers that need to tell a REFUSAL apart from
+ * "nothing needed changing".
+ *
+ * Both return the input text, and before WI-CJKF6.2 nothing could distinguish
+ * them: a failed integrity check logged to the log file and the user saw the
+ * accelerator do nothing at all.
+ */
+export interface FormatResult {
+  text: string;
+  /** The integrity check failed; `text` is the ORIGINAL, deliberately. */
+  refused: boolean;
+}
+
+/**
+ * Format markdown text with CJK typography rules, reporting whether the
+ * integrity check refused the result.
+ *
  * Preserves code blocks, URLs, frontmatter, and other protected regions.
  */
-export function formatMarkdown(
+export function formatMarkdownChecked(
   text: string,
   config: CJKFormattingSettings,
   options: FormatOptions = {}
@@ -296,10 +312,24 @@ export function formatMarkdown(
   const integrity = verifyIntegrity(text, out);
   if (!integrity.ok) {
     cjkFmtWarn("Integrity check failed, returning original text:", integrity.details);
-    return text;
+    return { text, refused: true };
   }
 
-  return out;
+  return { text: out, refused: false };
+}
+
+/**
+ * Format markdown text with CJK typography rules.
+ *
+ * The convenience wrapper over `formatMarkdownChecked` for callers with
+ * nothing to report to.
+ */
+export function formatMarkdown(
+  text: string,
+  config: CJKFormattingSettings,
+  options: FormatOptions = {}
+): string {
+  return formatMarkdownChecked(text, config, options).text;
 }
 
 // There is deliberately no `formatSelection` here (WI-CJKF1.1).

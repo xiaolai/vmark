@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "Bereinigung fehlgeschlagen",
   "orphanCleanup.scanFailedMessage": "Der Asset-Ordner konnte nicht geprüft werden. Details finden Sie im Protokoll.",
   "divergentChanges.title": "Datei auf der Festplatte geändert",
-  "divergentChanges.single": "„{{title}}“ wurde auf der Festplatte geändert und Sie haben Ihre lokale Version behalten. Jetzt Ihre Version speichern, oder schließen und die Datei so lassen, wie sie auf der Festplatte ist?"
+  "divergentChanges.single": "„{{title}}“ wurde auf der Festplatte geändert und Sie haben Ihre lokale Version behalten. Jetzt Ihre Version speichern, oder schließen und die Datei so lassen, wie sie auf der Festplatte ist?",
+  "toast.cjkFormatRefused": "Formatierung abgebrochen — das Ergebnis stimmte nicht mit dem Originaltext überein. Es wurde nichts geändert."
 }

@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "清理失敗",
   "orphanCleanup.scanFailedMessage": "無法檢查資產資料夾。詳情請查看日誌。",
   "divergentChanges.title": "檔案已在磁碟上被修改",
-  "divergentChanges.single": "「{{title}}」已在磁碟上被修改，而你選擇了保留本機版本。現在儲存你的版本，還是直接關閉並保留磁碟上的檔案？"
+  "divergentChanges.single": "「{{title}}」已在磁碟上被修改，而你選擇了保留本機版本。現在儲存你的版本，還是直接關閉並保留磁碟上的檔案？",
+  "toast.cjkFormatRefused": "格式化已取消：結果與原文不一致，文件未作任何修改。"
 }

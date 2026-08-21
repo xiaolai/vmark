@@ -10,7 +10,7 @@
  * @module services/mcpBridge/v2/documentTransform
  */
 import { useSettingsStore } from "@/stores/settingsStore";
-import { formatMarkdown } from "@/lib/cjkFormatter";
+import { formatMarkdownChecked } from "@/lib/cjkFormatter";
 import { findProtectedRegions } from "@/lib/cjkFormatter/markdownParser";
 import {
   extractFormattableSegments,
@@ -62,7 +62,14 @@ export function applyTransform(kind: TransformKind, content: string): string {
     case "cjk-format": {
       const config = useSettingsStore.getState().cjkFormatting;
       const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
-      return formatMarkdown(content, config, { preserveTwoSpaceHardBreaks });
+      const { text, refused } = formatMarkdownChecked(content, config, {
+        preserveTwoSpaceHardBreaks,
+      });
+      // A refusal must not look like "nothing needed changing" (WI-CJKF6.2).
+      // Both return the input; only one of them is a defect the caller should
+      // hear about. `wrapHandler` turns this into a failed response.
+      if (refused) throw new Error("cjk-format refused: the result did not match the input");
+      return text;
     }
     case "cjk-spacing": {
       // Add spacing between CJK and Latin/digits in both directions.

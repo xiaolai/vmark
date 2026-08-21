@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "Falha na limpeza",
   "orphanCleanup.scanFailedMessage": "Não foi possível verificar a pasta de ativos. Consulte o log para detalhes.",
   "divergentChanges.title": "Arquivo alterado no disco",
-  "divergentChanges.single": "“{{title}}” foi alterado no disco e você manteve sua versão local. Salvar sua versão agora, ou fechar e deixar o arquivo como está no disco?"
+  "divergentChanges.single": "“{{title}}” foi alterado no disco e você manteve sua versão local. Salvar sua versão agora, ou fechar e deixar o arquivo como está no disco?",
+  "toast.cjkFormatRefused": "Formatação cancelada: o resultado não correspondia ao texto original. Nada foi alterado."
 }

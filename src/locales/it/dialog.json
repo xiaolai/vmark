@@ -236,5 +236,6 @@
   "orphanCleanup.scanFailedTitle": "Pulizia non riuscita",
   "orphanCleanup.scanFailedMessage": "Non è stato possibile controllare la cartella assets. Consulta il log per i dettagli.",
   "divergentChanges.title": "File modificato su disco",
-  "divergentChanges.single": "“{{title}}” è cambiato su disco e hai mantenuto la tua versione locale. Salvare ora la tua versione, o chiudere e lasciare il file com'è su disco?"
+  "divergentChanges.single": "“{{title}}” è cambiato su disco e hai mantenuto la tua versione locale. Salvare ora la tua versione, o chiudere e lasciare il file com'è su disco?",
+  "toast.cjkFormatRefused": "Formattazione annullata: il risultato non corrispondeva al testo originale. Non è stato modificato nulla."
 }
