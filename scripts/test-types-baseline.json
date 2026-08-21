@@ -153,7 +153,6 @@
   "src/plugins/codemirror/sourceMermaidPreview.test.ts": 1,
   "src/plugins/codemirror/sourceSelectOccurrence.test.ts": 29,
   "src/plugins/codemirror/sourceShortcuts.test.ts": 4,
-  "src/plugins/codemirror/sourceShortcutsHelpers.test.ts": 5,
   "src/plugins/codemirror/sourceWorkflowCompletion.test.ts": 3,
   "src/plugins/codemirror/sourceWorkflowCursorSync.test.ts": 1,
   "src/plugins/compositionGuard/__tests__/tiptap.imecleanup.test.ts": 4,

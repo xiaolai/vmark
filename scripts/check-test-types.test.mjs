@@ -135,16 +135,24 @@ describe("the committed baseline", () => {
   });
 });
 
-describe("end to end", () => {
-  it("passes against the repository as committed", () => {
-    const out = execFileSync("node", [join(ROOT, "scripts/check-test-types.mjs")], {
-      cwd: ROOT,
-      encoding: "utf8",
-    });
-    expect(out).toContain("Test types held");
-  }, 300_000);
+describe("wiring", () => {
+  // Deliberately NOT an end-to-end `node check-test-types.mjs` run. That takes
+  // ~50s (it is a full tsc over 404k lines) and `check:static` already invokes
+  // the real thing on every `check:all` — so the duplicate proved nothing and
+  // cost fifty seconds of every CI run. What CAN silently break is the
+  // REGISTRATION: a gate that exists but is wired to nothing is the failure
+  // this repo has hit before.
+  it("is registered in check:static, so check:all actually runs it", () => {
+    const scripts = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).scripts;
+    expect(scripts["lint:test-types"]).toBe("node scripts/check-test-types.mjs");
+    expect(scripts["check:static"]).toContain("pnpm lint:test-types");
+  });
 
-  it("names the project it checks", () => {
+  it("checks the project the tsconfig actually defines", () => {
     expect(PROJECT).toBe("tsconfig.test.json");
+    const config = readFileSync(join(ROOT, PROJECT), "utf8");
+    // The whole point is the files tsconfig.json excludes.
+    expect(config).toContain('"exclude": []');
+    expect(config).toContain('"extends": "./tsconfig.json"');
   });
 });
