@@ -133,6 +133,21 @@ const REGISTRY = [
     deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
     reason: "The merged popup store must not come back under another filename either.",
   },
+  {
+    kind: "symbol",
+    name: "formatSelection",
+    glob: "src",
+    deletedBy: "WI-CJKF1.1 (dev-docs/plans/20260821-cjk-formatter-correctness.md)",
+    reason:
+      "An unprotected CJK format pass — applyRules with no findProtectedRegions " +
+      "and no verifyIntegrity, documented as 'assumes no markdown structure to " +
+      "preserve'. Nothing could establish that assumption: its only caller handed " +
+      "it a SLICE OF THE DOCUMENT, so Cmd+A then Cmd+Shift+F in Source mode " +
+      "rewrote every fenced code block (straight quotes became curly, breaking " +
+      "string literals) and every YAML `title:` (into `title：`). formatMarkdown " +
+      "takes exactly the same input safely. A 'plain text' variant must not come " +
+      "back — the safety difference is invisible at the call site.",
+  },
 ];
 
 /** POSIX ERE word boundary — `git grep -E` has no portable `\b`. */

@@ -71,7 +71,6 @@ vi.mock("@/utils/linebreaks", () => ({
 
 vi.mock("@/lib/cjkFormatter", () => ({
   formatMarkdown: (content: string) => content.replace(/hello/g, "HELLO"),
-  formatSelection: (content: string) => content.replace(/hello/g, "HELLO"),
 }));
 
 vi.mock("@/stores/sourceCursorContextStore", () => ({

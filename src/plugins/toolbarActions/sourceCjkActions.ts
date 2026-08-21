@@ -13,7 +13,7 @@ import { hostDocument } from "@/plugins/shared/hostDocument";
 import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { collapseNewlines, formatMarkdown, formatSelection, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { collapseNewlines, formatMarkdown, removeTrailingSpaces } from "@/lib/cjkFormatter";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
 import { resolveHardBreakStyle } from "@/utils/linebreaks";
@@ -55,8 +55,15 @@ export function handleFormatCJK(view: EditorView): boolean {
     const blockFrom = doc.line(span.start + 1).from;
     const blockTo = doc.line(span.end + 1).to;
 
+    // `formatMarkdown`, never a bare rule pass: the span is a slice of the
+    // DOCUMENT, so it can contain a code fence, frontmatter, inline code or a
+    // URL, and those must survive. The unprotected variant this used to call
+    // rewrote all of them — a plain Cmd+A then Cmd+Shift+F turned every
+    // `'中文key'` in a Python block into `‘中文 key’` and every YAML `title:`
+    // into `title：`. The `inCodeBlock` guard upstream cannot catch that: it
+    // keys on the CURSOR, which on a select-all sits outside the fence.
     const selectedText = doc.sliceString(blockFrom, blockTo);
-    const formatted = formatSelection(selectedText, config, { preserveTwoSpaceHardBreaks });
+    const formatted = formatMarkdown(selectedText, config, { preserveTwoSpaceHardBreaks });
     if (formatted !== selectedText) {
       view.dispatch({
         changes: { from: blockFrom, to: blockTo, insert: formatted },

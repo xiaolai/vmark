@@ -272,13 +272,12 @@ export function formatMarkdown(
   return out;
 }
 
-/**
- * Format a selection of text (assumes no markdown structure to preserve)
- */
-export function formatSelection(
-  text: string,
-  config: CJKFormattingSettings,
-  options: { preserveTwoSpaceHardBreaks?: boolean } = {}
-): string {
-  return applyRules(text, config, options);
-}
+// There is deliberately no `formatSelection` here (WI-CJKF1.1).
+//
+// It was `applyRules` with no protected-region parsing and no integrity check,
+// documented as "assumes no markdown structure to preserve". Nothing can
+// establish that assumption: its only caller handed it a SLICE OF THE
+// DOCUMENT, so it was routinely given code fences and frontmatter and rewrote
+// them. Every caller now passes its span to `formatMarkdown`, which is built
+// to take exactly that. `scripts/check-deleted-names.mjs` refuses the name so
+// the unprotected variant cannot be reintroduced.

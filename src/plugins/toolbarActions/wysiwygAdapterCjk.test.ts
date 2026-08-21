@@ -42,7 +42,6 @@ vi.mock("@/stores/tabStore", () => ({
 vi.mock("@/lib/cjkFormatter", () => ({
   collapseNewlines: vi.fn((s: string) => s.replace(/\n{3,}/g, "\n\n")),
   formatMarkdown: vi.fn((s: string) => `formatted:${s}`),
-  formatSelection: vi.fn((s: string) => `sel-formatted:${s}`),
   removeTrailingSpaces: vi.fn((s: string) => s.replace(/ +$/gm, "")),
 }));
 
