@@ -25,7 +25,7 @@
  */
 
 import type { CJKFormattingSettings, FormatOptions } from "./types";
-import { findProtectedRegions } from "./markdownParser";
+import { findProtectedRegions, type ProtectedRegion } from "./markdownParser";
 import {
   extractFormattableSegments,
   reconstructText,
@@ -170,11 +170,23 @@ function detectTableBlocks(text: string, protectedRegions: Array<{ start: number
 function formatMarkdownWithoutTables(
   text: string,
   config: CJKFormattingSettings,
-  options: FormatOptions = {}
+  options: FormatOptions = {},
+  /**
+   * Regions already computed for exactly this `text`, if the caller has them.
+   *
+   * `formatMarkdown` scans for regions to find table blocks and then called
+   * this, which scanned the identical string a second time — half the
+   * region work in a document with no tables, and region scanning is the
+   * dominant cost on a large one. The table path cannot reuse them: it passes
+   * SLICES, whose offsets do not match (WI-CJKF7.3).
+   */
+  precomputedRegions?: ProtectedRegion[]
 ): string {
-  const protectedRegions = findProtectedRegions(text, {
-    skipReferenceSections: config.skipReferenceSections,
-  });
+  const protectedRegions =
+    precomputedRegions ??
+    findProtectedRegions(text, {
+      skipReferenceSections: config.skipReferenceSections,
+    });
   const segments = extractFormattableSegments(text, protectedRegions);
   const formattedSegments: TextSegment[] = segments.map((segment) => ({
     ...segment,
@@ -272,7 +284,7 @@ export function formatMarkdownChecked(
   let out: string;
 
   if (tableBlocks.length === 0) {
-    out = formatMarkdownWithoutTables(text, config, options);
+    out = formatMarkdownWithoutTables(text, config, options, protectedRegions);
   } else {
     out = "";
     let cursor = 0;
