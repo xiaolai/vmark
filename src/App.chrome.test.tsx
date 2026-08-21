@@ -18,6 +18,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { isValidElement } from "react";
 import type { ReactElement } from "react";
+import { SHELL_TOP_INSET } from "@/shell/shellChrome";
 
 const platform = vi.hoisted(() => ({ overlayTitleBar: true, boom: false }));
 vi.mock("@/utils/platform", async (importOriginal) => ({
@@ -121,15 +122,17 @@ describe("MainLayout — chrome is mounted only where the app overlays the title
     expect(capturedChrome()).toBeNull();
   });
 
-  it("reserves the traffic-light inset on macOS", () => {
+  it("reserves the shell top inset on macOS", () => {
     render(<MainLayout />);
-    expect(shellProps.current?.style["--traffic-lights-inset"]).toBe("28px");
+    // Read from the constant, not restated: shellChrome.test.ts owns the
+    // derivation, this owns only that the shell root publishes it.
+    expect(shellProps.current?.style["--shell-top-inset"]).toBe(`${SHELL_TOP_INSET}px`);
   });
 
-  it("reserves no traffic-light inset off macOS", () => {
+  it("reserves no shell top inset off macOS", () => {
     platform.overlayTitleBar = false;
     render(<MainLayout />);
-    expect(shellProps.current?.style["--traffic-lights-inset"]).toBe("0px");
+    expect(shellProps.current?.style["--shell-top-inset"]).toBe("0px");
   });
 
   it("publishes the rail width on both platforms", () => {
@@ -154,12 +157,13 @@ describe("MainLayout — chrome is mounted only where the app overlays the title
 
   it("keeps the chrome slot and the inset on the SAME side of the decision", () => {
     // The failure this guards is a half-applied change: chrome dropped but the
-    // inset left at 28px would put a 28px gap above a window with no title bar.
+    // inset left in place would put an unexplained gap above a window that has
+    // no title bar of its own.
     for (const overlay of [true, false]) {
       platform.overlayTitleBar = overlay;
       render(<MainLayout />);
       const hasChrome = capturedChrome() !== null;
-      const reservesInset = shellProps.current?.style["--traffic-lights-inset"] !== "0px";
+      const reservesInset = shellProps.current?.style["--shell-top-inset"] !== "0px";
       expect(hasChrome).toBe(reservesInset);
     }
   });

@@ -259,6 +259,31 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
     It fails closed (no node → refuse), and `--no-verify` falls under
     `.claude/rules/60-ai-governance.md` §9.
 
+  - **A raw NUL byte in a source file makes it invisible to grep.** `pnpm
+    lint:no-nul-bytes` (`scripts/check-no-nul-bytes.mjs`, in `check:static`)
+    refuses one in any tracked text file. A NUL is what every content sniffer
+    uses to decide a file is BINARY, and each of them then fails SILENTLY:
+    `grep -I` (and the ugrep/ripgrep shims built on it) skips the file and exits
+    1 — indistinguishable from "no match" — while `git diff` prints "Binary
+    files differ" and GitHub refuses to render the blob.
+
+    Eleven files had one, including `scripts/check-commit-message.mjs` — the
+    leak gate above. Grepping that file for its own exported `findings` returned
+    nothing, with no error. Every site was a deliberate NUL used as a key
+    separator or as test data, and none needed to be a raw byte: `\u0000` is the
+    identical string value and leaves the file plain text.
+
+    Two properties are load-bearing. **Unknown extensions are treated as text
+    and therefore checked** — skipping by default is how a gate goes quiet; a
+    genuinely binary new type fails loudly once and is added to
+    `BINARY_EXTENSIONS` deliberately. And **binary files are identified by
+    extension, never by asking git**: git's own text/binary detection keys on
+    the presence of a NUL, so `git ls-files --eol` would classify exactly the
+    offending files as binary and skip them, a circular test that always passes.
+    Measured clean on adoption (92 binaries: 87 `.png`, 3 `.ico`, 2 `.icns`), so
+    it ships zero-tolerance with **no baseline** — a baseline here would list
+    files known to be invisible to grep.
+
   - **Real-WebKit tier (`pnpm test:browser`).** `pnpm check:all` is jsdom-only.
     The `*.webkit.test.ts` files run in real WebKit via Playwright and guard the
     CJK IME composition gate, whose premise jsdom cannot reproduce: real WebKit

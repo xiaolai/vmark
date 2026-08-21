@@ -123,6 +123,10 @@ pub fn show_settings_window_section<R: Runtime>(
         builder = builder
             .title_bar_style(tauri::TitleBarStyle::Overlay)
             .hidden_title(true)
+            // A runtime-built window does not inherit tauri.conf.json's window
+            // entry, so the buttons have to be placed here too — see
+            // super::TRAFFIC_LIGHT_POSITION.
+            .traffic_light_position(super::TRAFFIC_LIGHT_POSITION)
             .visible(false);
     }
 

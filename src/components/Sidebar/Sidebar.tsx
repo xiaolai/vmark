@@ -157,9 +157,10 @@ export function Sidebar() {
 
   return (
     <div className="sidebar" style={{ width: "100%", height: "100%" }}>
-      {/* Spacer for the macOS traffic lights; collapses to nothing where the OS
-          draws its own title bar (shellChrome.ts publishes the inset). */}
-      <div className="sidebar-traffic-lights-spacer" />
+      {/* Clears the chrome strip painted over this column, and the traffic
+          lights in it; collapses to nothing where the OS draws its own title
+          bar (shellChrome.ts publishes the inset). */}
+      <div className="sidebar-top-spacer" />
       <div className="sidebar-header">
         <SidebarActionButton
           label={nextShowLabel}

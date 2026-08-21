@@ -12,9 +12,20 @@
   right: 0;
   height: var(--chrome-height);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: var(--space-1);
+  /* Put the content's optical centre on the TRAFFIC LIGHTS' line rather than on
+     this strip's own middle, which is what makes a filename read as belonging
+     beside the buttons instead of floating above them. With `align-items:
+     center` the content centres at (padding-top + height) / 2, so solving for
+     the lights' centre gives the expression below — 11px today, against the 4px
+     of `--space-1` that used to top-align it 12px too high.
+
+     Derived, not written: both vars come from shell/shellChrome.ts, and
+     shell/trafficLights.ts derives the centre from the single position
+     tauri.conf.json asks AppKit for. No fallback, deliberately — the same rule
+     --chrome-height follows above. */
+  padding-top: calc(2 * var(--traffic-lights-centre) - var(--chrome-height));
   z-index: var(--z-bar);
   box-sizing: border-box;
 }
@@ -38,19 +49,25 @@
   color: var(--browser-text-color);
 }
 
+/* The leading pad clears the native macOS window controls, which reach 78.5px
+   from the window's left edge. --traffic-lights-zone is that plus a little air,
+   published from shell/trafficLights.ts so it follows the position the app asks
+   AppKit for instead of being re-guessed here. It replaces a 72 here and a 70
+   below, which disagreed with each other and were both too small once the
+   buttons moved onto Finder's line. */
 .title-bar-browser {
   display: flex;
   align-items: stretch;
   width: 100%;
   min-width: 0;
   min-height: 0;
-  padding: 0 var(--space-2) 0 72px;
+  padding: 0 var(--space-2) 0 var(--traffic-lights-zone);
 }
 
 .workspace-rail-visible .title-bar-browser {
-  /* Keep the native macOS traffic-light area clear after the title bar starts
-     beside the 30px workspace rail. */
-  padding-left: calc(70px - var(--workspace-rail-width));
+  /* The same distance from the WINDOW's left edge, but the bar now starts beside
+     the rail, so the rail's width comes off the pad rather than adding to it. */
+  padding-left: calc(var(--traffic-lights-zone) - var(--workspace-rail-width));
 }
 
 .title-bar-browser-leading {
@@ -59,9 +76,12 @@
 }
 
 .title-bar-content {
-  /* Center the content, accounting for traffic lights on macOS (~70px) */
-  margin-left: 70px;
-  margin-right: 70px;
+  /* Centred, with both margins holding the window controls' own width so a long
+     filename cannot reach them. Mirrored on the right so the content stays
+     centred in the window rather than in the space left over beside the
+     buttons. Same derived zone as the browser bar above. */
+  margin-left: var(--traffic-lights-zone);
+  margin-right: var(--traffic-lights-zone);
 }
 
 .title-bar-filename {

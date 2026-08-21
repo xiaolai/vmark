@@ -1906,7 +1906,7 @@ describe("useExternalFileChanges — media tabs excluded from UTF-8 re-read", ()
   it("does NOT read a media file as text on a modify event", async () => {
     seedTab("tab-media", "/workspace/photo.png", "media");
     // If the guard were missing, this garbage would be loaded into the doc.
-    mocks.readTextFile.mockResolvedValue(" binary-bytes");
+    mocks.readTextFile.mockResolvedValue("\u0000binary-bytes");
 
     const callback = await setupHookAndCallback();
 

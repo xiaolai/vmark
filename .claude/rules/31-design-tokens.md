@@ -244,27 +244,82 @@ Icon SVG sizes (conventions, not tokens):
 | `--sidebar-bg` | Sidebar background | `#e5e4e4` |
 | `--sidebar-width` | Sidebar width | `260px` |
 | `--workspace-rail-width` | Workspace rail column width | `30px` |
-| `--traffic-lights-inset` | Top inset clearing the macOS traffic lights | `0px` |
+| `--shell-top-inset` | Top inset a full-height column leaves clear | `0px` |
+| `--traffic-lights-zone` | Horizontal space the title bar keeps clear of the window controls | `0px` |
+| `--traffic-lights-centre` | The window controls' optical line, which the title bar centres content on | `0px` |
 
-**Both are written by `shellChromeVars()`, not by CSS.** The `:root` values are
-static defaults; `App.tsx` overrides both on the shell root from
+**All four are written by `shellChromeVars()`, not by CSS.** The `:root` values
+are static defaults; `App.tsx` overrides them on the shell root from
 `src/shell/shellChrome.ts` (`WORKSPACE_RAIL_WIDTH`, re-exported by
-`components/WorkspaceRail`, and `TRAFFIC_LIGHTS_INSET`), which stays the source
+`components/WorkspaceRail`, and `SHELL_TOP_INSET`), which stays the source
 of truth because the same numbers also feed layout arithmetic in TS —
 `shellSideWidth()` in that module is the one definition of the chrome left of
-the editor, shared by `App.tsx` and the terminal's sizing.
+the editor, shared by `App.tsx` and the terminal's sizing. The two
+`--traffic-lights-*` values come from `src/shell/trafficLights.ts`.
 Change the TS constant, not the CSS.
 The `:root` declaration exists so consumers that use the var **without a
 fallback** — `title-bar.css` does — still resolve if the shell root has not
 applied its override yet.
 
-**`--traffic-lights-inset` is `0px` off macOS, and that is the point (#1296).**
-The traffic lights sit inside the webview only where the app overlays the native
-title bar (`usesOverlayTitleBar()`, true on macOS alone). The sidebar spacer and
-the workspace rail's top padding each hardcoded `28px`, so on Windows and Linux
-both opened with a gap clearing buttons that are not there — most visible once
-the app's own 40px chrome strip stopped rendering on those platforms. Consume
-the var; never write `28px` again.
+**`--shell-top-inset` is `0px` off macOS, and that is the point (#1296).**
+The chrome strip is mounted, and the traffic lights sit inside the webview, only
+where the app overlays the native title bar (`usesOverlayTitleBar()`, true on
+macOS alone). The sidebar spacer and the workspace rail's top padding each
+hardcoded `28px`, so on Windows and Linux both opened with a gap clearing
+buttons that are not there. Consume the var; never write a literal again.
+
+**It is `CHROME_HEIGHT` on macOS, not the height of the lights — the strip is
+the binding constraint.** `.title-bar` is `position: absolute; left: 0; right: 0`
+over the WHOLE shell and carries `data-tauri-drag-region` on its own root, so it
+takes the pointer everywhere it paints, the sidebar and the rail included. At
+the old `28` against a 40px strip the sidebar's header buttons ran 36→64px and
+their **top 4px were un-clickable**, and a window-drag handle instead. Measured,
+not inferred: screenshot at 2×, active button fill y 36.0→63.5pt, strip 0→40pt.
+The same 12px stepped the sidebar's first row above the editor's, since the
+primary column reserves the full `CHROME_HEIGHT`.
+
+`SHELL_TOP_INSET` is therefore `Math.max(CHROME_HEIGHT, TRAFFIC_LIGHTS_CLEARANCE)`
+— either input can bind, and today the strip is taller. That `max` has already
+earned its keep: moving the buttons onto Finder's line took the clearance from
+23 to 33 and this number did not move.
+
+### The window controls are described in `shell/trafficLights.ts`
+
+Everything about them derives from ONE value — `TRAFFIC_LIGHT_POSITION`, what
+`tauri.conf.json` asks AppKit for — so a change to the position carries the
+clearances with it:
+
+| Derived | Value | From |
+|---|---|---|
+| top edge, below the window top | 19pt | `y − 9`, AppKit's standard titlebar inset |
+| optical centre (`--traffic-lights-centre`) | 26pt | top + half of the 14pt button |
+| downward clearance | 33pt | top + 14pt |
+| sideways reach | 78.5pt | `x` + the 59.5pt cluster span |
+| `--traffic-lights-zone` | 82pt | reach + 3.5pt of air |
+
+**Why 19/19 and not AppKit's default.** Measured against a live Finder window,
+VMark's buttons sat exactly **10.00pt up and 10.00pt left** of where every
+native window puts them — on all four measures, so the whole cluster was jammed
+into the corner. Finder insets 19pt from both edges, centre 25.75pt (the 0.25 is
+antialiasing on a 14pt circle; paper-one measured Finder's centre at 25.8pt
+independently). `{x: 19, y: 28}` reproduces it.
+
+**Take TWO measurements before believing a mapping.** A single reading fits
+`top = y − 9` and `top = 29 − y` equally well and they disagree about which way
+the axis runs; paper-one shipped the wrong sign off one point.
+
+**Three surfaces declare the position and no compiler joins them:**
+`tauri.conf.json` (the main window only), `window_manager/mod.rs` (every window
+built at RUNTIME — those do not inherit the config's window entry, so a
+settings or document window would keep the old position), and
+`trafficLights.ts`. `src/shell/trafficLights.test.ts` reads all three and fails
+if they disagree, and also fails if the inset is raised without the zone — the
+half-change paper-one warns about.
+
+**It needs the `macos-private-api` cargo feature**, without which the position
+is ignored SILENTLY. The feature must be spelled out literally in `Cargo.toml`'s
+`tauri` dependency line; tauri-build reads that array as manifest text. It also
+bars the Mac App Store, which costs nothing while VMark ships Developer ID DMGs.
 | `--outline-width` | Outline panel width | `200px` |
 | `--table-border-color` | Table borders | `#d5d4d4` |
 
