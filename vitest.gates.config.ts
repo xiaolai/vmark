@@ -48,8 +48,17 @@ export default defineConfig({
     // Same reasoning as the app tier (see vitest.config.ts): a timeout here is
     // a liveness bound, and every one of these tests waits on a real child
     // process, so 5000ms would measure machine load rather than correctness.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    //
+    // 20_000 measured load too, and that is why this is 60_000. This tier is
+    // also run by `pnpm check:predelta`, which puts it INSIDE an 8-way pool of
+    // other gates (a full Vite build among them) on a 10-core box — measured
+    // load average 68. `check-ipc-contract` (which parses every TS file in the
+    // repo in a child process) and `clean-dev` both blew the 20s bound there,
+    // and both finish in 11s wall for the two files together when run alone.
+    // Raising the bound does not weaken what it detects: a child process that
+    // has genuinely hung never returns, so it is still caught — just 40s later.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     include: [testGlob("scripts"), testGlob(".claude/hooks")],
     exclude: ["**/node_modules/**", "**/dist/**"],
     // These spawn child processes and then wait, so they are even further from
