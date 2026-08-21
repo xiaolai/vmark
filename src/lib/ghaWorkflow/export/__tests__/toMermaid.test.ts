@@ -11,7 +11,10 @@
 //   - empty / no-jobs IR handling
 
 import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import type { WorkflowIR, JobIR } from "../../types";
+import { parse } from "../../parser";
 import { toMermaid } from "../toMermaid";
 
 function ir(jobs: Partial<JobIR>[], extras: Partial<WorkflowIR> = {}): WorkflowIR {
@@ -143,12 +146,12 @@ describe("toMermaid", () => {
 // ─── Fixture-corpus integration ──────────────────────────────────────
 
 describe("toMermaid — fixture corpus", () => {
-  // Lazy: require parse only here, so toMermaid unit tests above don't
-  // pull in the parser unnecessarily.
-  it("produces valid-looking Mermaid for every real workflow", async () => {
-    const { parse } = await import("../../parser");
-    const { readFileSync, readdirSync, statSync } = await import("node:fs");
-    const { join } = await import("node:path");
+  // The parser is imported statically, like the sibling corpus tests in
+  // parser/__tests__ and save/__tests__. Loading it lazily inside the test body
+  // saved nothing — this test always runs, so the module always loads — but it
+  // charged the transform to the 20s test budget, and under `check:predelta`'s
+  // full parallel load that timed out roughly half the time.
+  it("produces valid-looking Mermaid for every real workflow", () => {
     const FIXTURE_ROOT = "src/test/fixtures/gha-workflows";
     function walk(dir: string): string[] {
       const out: string[] = [];
