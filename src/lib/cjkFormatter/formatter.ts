@@ -94,6 +94,13 @@ function detectTableBlocks(text: string, protectedRegions: Array<{ start: number
   const blocks: TableBlock[] = [];
 
   let i = 0;
+  // The last line already claimed by an emitted block. A row that is already a
+  // table BODY row cannot also be the header of a new table — and when it was
+  // allowed to be, the two blocks OVERLAPPED and `formatMarkdown` emitted the
+  // overlap twice, silently duplicating the user's content. Reproduction:
+  // header / delimiter / body / delimiter, where the trailing delimiter row
+  // claimed the body row above it as its header (WI-CJKF6.1 found this).
+  let claimedThroughLine = -1;
   while (i < lines.length) {
     const line = lines[i];
     const { prefix, content } = splitBlockquotePrefix(line.text);
@@ -108,8 +115,9 @@ function detectTableBlocks(text: string, protectedRegions: Array<{ start: number
       continue;
     }
 
-    // Header row must exist on previous line with same prefix.
-    if (i === 0) {
+    // Header row must exist on previous line with same prefix, and must not
+    // already belong to a block.
+    if (i === 0 || i - 1 <= claimedThroughLine) {
       i += 1;
       continue;
     }
@@ -152,6 +160,7 @@ function detectTableBlocks(text: string, protectedRegions: Array<{ start: number
     const end = endLineInfo.start + endLineInfo.text.length + endLineInfo.lineBreak.length;
 
     blocks.push({ start, end });
+    claimedThroughLine = endLine;
     i = endLine + 1;
   }
 

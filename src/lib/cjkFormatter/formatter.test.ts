@@ -281,6 +281,28 @@ describe("cjkFormatter.formatMarkdown (table-safe)", () => {
 
     // The first table body row is formatted
     expect(out).toContain("| 中文 Python |");
+    // …and nothing is emitted twice. The trailing delimiter row used to claim
+    // the body row above it as ITS header, producing two OVERLAPPING blocks
+    // whose overlap `formatMarkdown` wrote out twice — silent content
+    // duplication in the safe entry point. `toContain` could not see it; the
+    // content-skeleton integrity check (WI-CJKF6.1) is what surfaced it.
+    expect(out).toBe(
+      ["| Header | Col |", "| --- | --- |", "| 中文 Python | data |", "| --- | --- |"].join("\n")
+    );
+  });
+
+  it("does not duplicate content when delimiter rows repeat", () => {
+    const input = [
+      "| A | B |",
+      "| --- | --- |",
+      "| 中文一 | x |",
+      "| --- | --- |",
+      "| 中文二 | y |",
+      "| --- | --- |",
+    ].join("\n");
+    const out = formatMarkdown(input, makeConfig());
+    expect(out.split("中文一")).toHaveLength(2);
+    expect(out.split("中文二")).toHaveLength(2);
   });
 
   it("handles table cell with single cell (no pipe split)", () => {
