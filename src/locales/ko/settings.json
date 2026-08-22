@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0.7 — 판정은 늘지만 확실성은 낮음",
   "coherence.checkTau.option08": "0.8 — 균형",
   "coherence.checkTau.option09": "0.9 — 신중 (기본값)",
-  "coherence.checkTau.option095": "0.95 — 거의 확실한 답만"
+  "coherence.checkTau.option095": "0.95 — 거의 확실한 답만",
+  "shortcuts.label.lastUsedTab": "마지막으로 사용한 탭",
+  "shortcuts.label.splitDocuments": "편집기 분할 — 문서 두 개",
+  "shortcuts.label.closePane": "창 닫기",
+  "shortcuts.label.focusOtherPane": "다른 창에 포커스",
+  "shortcuts.label.syncPaneScroll": "스크롤 동기화"
 }

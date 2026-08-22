@@ -163,6 +163,11 @@ menu:
   # === 보기 메뉴 ===
   view: "보기"
   view.wysiwygMode: "WYSIWYG 모드"
+  view.lastUsedTab: "마지막으로 사용한 탭"
+  view.splitDocuments: "편집기 분할 — 문서 두 개"
+  view.closePane: "창 닫기"
+  view.focusOtherPane: "다른 창에 포커스"
+  view.syncPaneScroll: "스크롤 동기화"
   view.sourceMode: "소스 코드 모드"
   view.markdownSplit: "마크다운 분할 보기"
   view.focusMode: "집중 모드"

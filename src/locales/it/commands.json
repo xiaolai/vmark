@@ -190,5 +190,6 @@
   "tab.new": "Nuova scheda",
   "tab.next": "Scheda successiva",
   "tab.prev": "Scheda precedente",
+  "tab.lastUsed": "Ultima scheda usata",
   "tab.close": "Chiudi scheda"
 }

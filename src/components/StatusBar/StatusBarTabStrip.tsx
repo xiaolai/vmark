@@ -11,15 +11,20 @@
  * @coordinates-with Tabs/Tab.tsx — individual tab pill
  * @module components/StatusBar/StatusBarTabStrip
  */
-import type { KeyboardEvent, MouseEvent } from "react";
-import { Globe2, Plus } from "lucide-react";
+import { useCallback, useRef, type KeyboardEvent, type MouseEvent } from "react";
+import { ChevronLeft, ChevronRight, Globe2, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Tab } from "@/components/Tabs/Tab";
+import { Tab, OTHER_PANE_DESC_ID } from "@/components/Tabs/Tab";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 import type { useStatusBarTabDrag } from "./useStatusBarTabDrag";
+import { useTabStripOverflow } from "@/hooks/useTabStripOverflow";
+import { useScrollActiveTabIntoView, prefersReducedMotion } from "./scrollActiveTabIntoView";
+import { paneIndicatorTabId } from "./paneIndicator";
+import { usePaneStore } from "@/stores/paneStore";
+import { useWindowLabel } from "@/contexts/WindowContext";
 
 type TabDragResult = ReturnType<typeof useStatusBarTabDrag>;
 
@@ -73,6 +78,41 @@ export function StatusBarTabStrip({
   const newTabShortcut = useShortcutsStore((state) => state.getShortcut("newTab"));
   const newTabTooltip = tooltipWithShortcut(t("newTabTitle"), formatKeyForDisplay(newTabShortcut));
 
+  // WI-TNAV1.2 — the strip scrolls with its scrollbar suppressed in both
+  // engines, so without these the tabs simply vanish (F1).
+  const regionRef = useRef<HTMLDivElement | null>(null);
+  // WI-DSPL1.1 (F4) — the non-focused pane's document has no pill state at
+  // all otherwise: `activeTabId` is the ADR-1 alias of the FOCUSED pane.
+  const windowLabel = useWindowLabel();
+  const paneIndicated = usePaneStore((s) =>
+    paneIndicatorTabId(s.byWindow[windowLabel], browserWorkspaceActive),
+  );
+  const { canScrollLeft, canScrollRight } = useTabStripOverflow(regionRef);
+
+  // WI-TNAV1.3 (F2) — keyed on an ACTIVATION KEY, not `activeTabId`: the
+  // browser pill is current while `activeTabId` is null, so an activeTabId-only
+  // effect could never reveal it.
+  useScrollActiveTabIntoView(regionRef, {
+    activeTabId,
+    browserWorkspaceActive,
+    isDragging,
+  });
+
+  const scrollByPage = useCallback((direction: -1 | 1) => {
+    const node = regionRef.current;
+    if (!node) return;
+    // Proportional to the visible width, not a constant: a fixed step scrolls
+    // most of a narrow strip and a sliver of a wide one.
+    //
+    // Reduced motion comes from the SAME helper the scroll-into-view effect
+    // uses — two copies of the policy meant one preference could produce two
+    // behaviours in one strip.
+    node.scrollBy({
+      left: direction * node.clientWidth * 0.8,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }, []);
+
   return (
     <>
       {showNewTabButton && (
@@ -88,6 +128,21 @@ export function StatusBarTabStrip({
       )}
 
       {showTabs && (
+        <div
+          className="status-tabs-wrap"
+          data-can-scroll-left={canScrollLeft}
+          data-can-scroll-right={canScrollRight}
+        >
+          <div
+            className="status-tabs-region"
+            role="group"
+            aria-label={t("tabStrip")}
+            // Focusable so a keyboard user can reach a scroll region whose
+            // scrollbar is suppressed. It sits OUTSIDE `role="tablist"`, so the
+            // pills' roving arrow-key contract is untouched.
+            tabIndex={0}
+            ref={regionRef}
+          >
         <div className="status-tabs" role="tablist">
           {tabs.map((tab, index) => {
             const dragHandlers = getTabDragHandlers(tab.id, tab.isPinned);
@@ -100,6 +155,7 @@ export function StatusBarTabStrip({
                 key={tab.id}
                 tab={tab}
                 isActive={tab.id === activeTabId}
+                isOtherPane={tab.id === paneIndicated}
                 isDragTarget={isDragging && isBeingDragged}
                 isReordering={isReordering && isBeingDragged}
                 isInvalidDrop={isDropInvalid && isBeingDragged}
@@ -145,6 +201,38 @@ export function StatusBarTabStrip({
               {browserWorkspaceCount > 1 && (
                 <span className="browser-workspace-count">{browserWorkspaceCount}</span>
               )}
+            </button>
+          )}
+        </div>
+          </div>
+          {/* ONE shared description, outside every role="tab" — nested, its text
+              would join each tab's accessible name (name-from-content) and be
+              announced twice. */}
+          {paneIndicated && (
+            <span id={OTHER_PANE_DESC_ID} className="sr-only">
+              {t("common:tab.otherPane")}
+            </span>
+          )}
+          {canScrollLeft && (
+            <button
+              type="button"
+              className="popup-icon-btn status-tabs-chevron status-tabs-chevron--left"
+              aria-label={t("scrollTabsLeft")}
+              title={t("scrollTabsLeft")}
+              onClick={() => scrollByPage(-1)}
+            >
+              <ChevronLeft size={14} aria-hidden="true" />
+            </button>
+          )}
+          {canScrollRight && (
+            <button
+              type="button"
+              className="popup-icon-btn status-tabs-chevron status-tabs-chevron--right"
+              aria-label={t("scrollTabsRight")}
+              title={t("scrollTabsRight")}
+              onClick={() => scrollByPage(1)}
+            >
+              <ChevronRight size={14} aria-hidden="true" />
             </button>
           )}
         </div>

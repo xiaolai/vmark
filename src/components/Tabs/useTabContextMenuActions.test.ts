@@ -69,15 +69,15 @@ vi.mock("sonner", () => ({
   toast: mocks.toast,
 }));
 
-vi.mock("@/stores/tabStore", () => ({
-  useTabStore: {
-    getState: () => ({
-      togglePin: mocks.togglePin,
-      detachTab: mocks.detachTab,
-      getTabsByWindow: mocks.getTabsByWindow,
-    }),
-  },
-}));
+vi.mock("@/stores/tabStore", () => {
+  // A hook that ALSO carries getState — the real module's shape. A
+  // getState-only double diverges silently until something subscribes.
+  const state = { tabs: {}, activeTabId: {}, togglePin: mocks.togglePin,
+    detachTab: mocks.detachTab, getTabsByWindow: mocks.getTabsByWindow };
+  const useTabStore = Object.assign(
+    (sel?: (s: typeof state) => unknown) => (sel ? sel(state) : state), { getState: () => state });
+  return { useTabStore };
+});
 
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
@@ -548,14 +548,12 @@ describe("useTabContextMenuActions", () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    it("handleRestoreToDisk shows error when save fails", async () => {
+    // saveToPath owns manual-failure feedback (all 3 paths); see tabDiskActions.test.ts.
+    it("adds NO second error toast when the save fails", async () => {
       mocks.saveToPath.mockResolvedValueOnce(false);
-      const { items } = renderActions({
-        doc: makeDoc({ isMissing: true }),
-        filePath: "/workspace/project/one.md",
-      });
+      const { items } = renderActions({ doc: makeDoc({ isMissing: true }), filePath: "/workspace/project/one.md" });
       await findItem(items, "restoreToDisk")!.action();
-      expect(mocks.toast.error).toHaveBeenCalledWith("Failed to restore file to disk.");
+      expect(mocks.toast.error).not.toHaveBeenCalled();
     });
 
     it("handleRevertToSaved reloads on confirm", async () => {

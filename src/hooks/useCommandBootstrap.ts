@@ -85,6 +85,11 @@ const RECENT_WORKSPACES_BINDINGS: MenuCommandBinding[] = [
 
 const VIEW_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:find-in-files", commandId: "view.contentSearch" },
+  { menuEvent: "menu:last-used-tab", commandId: "tab.lastUsed" },
+  { menuEvent: "menu:split-documents", commandId: "view.toggleSplitDocuments" },
+  { menuEvent: "menu:close-pane", commandId: "view.closePane" },
+  { menuEvent: "menu:focus-other-pane", commandId: "view.focusOtherPane" },
+  { menuEvent: "menu:sync-pane-scroll", commandId: "view.toggleSyncScroll" },
   { menuEvent: "menu:wysiwyg-mode", commandId: "view.setWysiwygMode" },
   { menuEvent: "menu:source-mode", commandId: "view.toggleSourceMode" },
   { menuEvent: "menu:markdown-split", commandId: "view.toggleMarkdownSplit" },

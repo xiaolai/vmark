@@ -190,5 +190,6 @@
   "tab.new": "Nouvel onglet",
   "tab.next": "Onglet suivant",
   "tab.prev": "Onglet précédent",
+  "tab.lastUsed": "Dernier onglet utilisé",
   "tab.close": "Fermer l'onglet"
 }

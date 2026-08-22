@@ -180,5 +180,7 @@
   "workspaceRail.menu.duplicate": "Duplica",
   "workspaceRail.menu.moveToNewWindow": "Sposta in una nuova finestra",
   "sites.wikipedia.name": "Wikipedia",
-  "browser.aiControlling": "L'IA sta controllando — fai clic per riprendere il controllo"
+  "browser.aiControlling": "L'IA sta controllando — fai clic per riprendere il controllo",
+  "tab.otherPane": "Mostrato nell'altro riquadro dell'editor",
+  "tabMenu.openToSide": "Apri di lato"
 }

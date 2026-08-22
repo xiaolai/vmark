@@ -74,3 +74,38 @@ describe("extractMenuIdsFromRust", () => {
     expect(extractMenuIdsFromRust(src)).toEqual(["save"]);
   });
 });
+
+describe("extractMenuIdsFromRust argument forms", () => {
+  // The regex anchored on a bare `app`, so every `MenuItem::with_id(&app, …)`
+  // was invisible — four real static ids (the whole genie submenu) never
+  // reached menu-ids.json. That failed OPEN: the contract asserts "everything
+  // EXTRACTED is classified", so an id that was never extracted was never
+  // checked, and no gate went red. This is the assertion that makes a
+  // recurrence loud.
+  it("extracts both the bare and the borrowed app argument", () => {
+    const source = `
+      MenuItem::with_id(app, "bare-form", &t!("x"), true, None::<&str>)?;
+      MenuItem::with_id(&app, "borrowed-form", &t!("y"), true, None::<&str>)?;
+      MenuItem::with_id(
+          &app,
+          "borrowed-multiline",
+          &t!("z"),
+          true,
+          None::<&str>,
+      )?;
+    `;
+    expect(extractMenuIdsFromRust(source).sort()).toEqual([
+      "bare-form",
+      "borrowed-form",
+      "borrowed-multiline",
+    ]);
+  });
+
+  it("still extracts the genie submenu ids from the real dynamic.rs", async () => {
+    // Anchored on the real file, so deleting the `&?` from the regex fails here
+    // rather than silently shrinking the contract's input set.
+    const { readFileSync } = await import("node:fs");
+    const ids = extractMenuIdsFromRust(readFileSync("src-tauri/src/menu/dynamic.rs", "utf8"));
+    expect(ids).toEqual(expect.arrayContaining(["search-genies", "no-genies", "reload-genies"]));
+  });
+});

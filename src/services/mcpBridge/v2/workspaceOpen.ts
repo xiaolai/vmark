@@ -22,6 +22,7 @@ import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { errorMessage } from "@/utils/errorMessage";
+import { withActivationOrigin } from "@/stores/tabActivationBus";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -78,11 +79,19 @@ export async function handleWorkspaceOpen(
     // focused; `createTab` activates, so we restore afterwards. Only the
     // explicit `switch_tab` action may change the visible context.
     const prevActiveTabId = tabStore.activeTabId[windowLabel] ?? null;
-    const tabId = tabStore.createTab(windowLabel, filePath);
-    // `createTab` dedupes by path, so this may be a tab that is ALREADY open.
-    const existing = docStore.documents[tabId];
-    const owner = claimTabForWorkspaceContext(windowLabel, tabId, filePath);
-    restoreBackgroundActivation(windowLabel, prevActiveTabId, tabId);
+    // WI-TNAV0.2 — the activations below are NOT the user switching documents,
+    // and labelling them says so. Without this the MRU records a file the human
+    // never saw, so `Ctrl+Tab` jumps to it (D5/D12). The region is deliberately
+    // synchronous: `withActivationOrigin` is a module-level scope and an await
+    // inside would leak the label onto a real activation.
+    const { tabId, existing, owner } = withActivationOrigin("background", () => {
+      const openedTabId = tabStore.createTab(windowLabel, filePath);
+      // `createTab` dedupes by path, so this may be a tab that is ALREADY open.
+      const openedExisting = docStore.documents[openedTabId];
+      const openedOwner = claimTabForWorkspaceContext(windowLabel, openedTabId, filePath);
+      restoreBackgroundActivation(windowLabel, prevActiveTabId, openedTabId);
+      return { tabId: openedTabId, existing: openedExisting, owner: openedOwner };
+    });
     const background = {
       workspaceInstanceId: owner?.workspaceInstanceId ?? null,
       workspaceSwitched: false,

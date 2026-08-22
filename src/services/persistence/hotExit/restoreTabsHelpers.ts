@@ -15,6 +15,7 @@ import { useUnifiedHistoryStore } from '@/stores/documentStore';
 import { getFormatById } from '@/lib/formats/registry';
 import { normalizePath } from '@/utils/paths';
 import type { TabState, WindowState } from './types';
+import { collapseMruToActive } from "@/stores/tabMruStore";
 
 /** Result of deduplicating persisted tabs before restore. */
 export interface DeduplicatedTabs {
@@ -219,21 +220,30 @@ export function restoreActiveTab(
   tabIdMap: Map<string, string>,
   duplicateToRetained: Map<string, string>,
 ): void {
-  if (!windowState.active_tab_id) return;
-  const tabStore = useTabStore.getState();
+  // WI-TNAV2.5 — whatever branch this takes, the MRU ends up holding exactly
+  // the active tab. Restore creates each tab with an ACTIVATING `createTab`
+  // (`restoreHelpers.ts:212`), so without the collapse the session opens with a
+  // history the user never produced. In `finally`, because the early return for
+  // a session with no persisted active tab must be covered too.
+  try {
+    if (!windowState.active_tab_id) return;
+    const tabStore = useTabStore.getState();
 
-  // The persisted active id may itself have been a skipped duplicate; resolve
-  // to the retained tab's original id before mapping.
-  const retainedOriginalId =
-    duplicateToRetained.get(windowState.active_tab_id) ?? windowState.active_tab_id;
-  const mappedActiveId = tabIdMap.get(retainedOriginalId);
-  if (mappedActiveId) {
-    tabStore.setActiveTab(windowLabel, mappedActiveId);
-    return;
-  }
-  // Fallback to first tab if mapping not found
-  const tabs = tabStore.getTabsByWindow(windowLabel);
-  if (tabs.length > 0) {
-    tabStore.setActiveTab(windowLabel, tabs[0].id);
+    // The persisted active id may itself have been a skipped duplicate; resolve
+    // to the retained tab's original id before mapping.
+    const retainedOriginalId =
+      duplicateToRetained.get(windowState.active_tab_id) ?? windowState.active_tab_id;
+    const mappedActiveId = tabIdMap.get(retainedOriginalId);
+    if (mappedActiveId) {
+      tabStore.setActiveTab(windowLabel, mappedActiveId);
+      return;
+    }
+    // Fallback to first tab if mapping not found
+    const tabs = tabStore.getTabsByWindow(windowLabel);
+    if (tabs.length > 0) {
+      tabStore.setActiveTab(windowLabel, tabs[0].id);
+    }
+  } finally {
+    collapseMruToActive(windowLabel);
   }
 }

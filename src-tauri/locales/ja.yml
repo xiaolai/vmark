@@ -163,6 +163,11 @@ menu:
   # === 表示メニュー ===
   view: "表示"
   view.wysiwygMode: "WYSIWYGモード"
+  view.lastUsedTab: "最後に使ったタブ"
+  view.splitDocuments: "エディタを分割 — 2つの文書"
+  view.closePane: "ペインを閉じる"
+  view.focusOtherPane: "もう一方のペインにフォーカス"
+  view.syncPaneScroll: "スクロールを同期"
   view.sourceMode: "ソースコードモード"
   view.markdownSplit: "Markdown分割ビュー"
   view.focusMode: "フォーカスモード"

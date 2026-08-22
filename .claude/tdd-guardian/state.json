@@ -1,7 +1,7 @@
 {
-  "last_gate_passed_at": "2026-03-10T09:45:00.000Z",
+  "last_gate_passed_at": "2026-08-22T12:00:00.000Z",
   "last_result": "passed",
-  "last_head_sha": "de6827c0",
+  "last_head_sha": "c90cc97ab",
   "tests_passed": true,
   "coverage_passed": true,
   "workItems": {
@@ -91,7 +91,7 @@
         "package.json"
       ],
       "updatedAt": "2026-08-04T11:34:30.933691+00:00",
-      "notes": "Rust filter proven live: 139 mutants with config vs 4202 without. Stryker dry run SUCCEEDED (9229 tests, 3m19s; was: timeout every CI run) \u2014 root causes: sandbox copied ~291k machine-local files (.claude worktree symlinks crashed copy) + 5-min single-threaded dry-run cap; fixed via ignorePatterns + dryRunTimeoutMinutes 20 + related:true. Mutation phase reached (165/2370 tested). continue-on-error removed; failure->rolling issue step; taiki-e install. actionlint clean. PENDING AT PR TIME: (1) SHA-pinned live dispatch gh workflow run mutation.yml --ref <branch> + gh run view --json headSha,conclusion,jobs green; (2) deliberately-failing branch dispatch proving the issue step fires. PR-TIME ACCEPTANCE PROGRESS: dispatch 1 (85dc5440) exit-4 = fixture bond reads outside crate in mutants sandbox -> skip added; dispatch 2 (20a3ffe6) same = CARGO_MUTANTS env NOT set in baseline (measured) -> compile-time manifest-path discriminator, proven in exact local sandbox replica; dispatch 3 (cd750542) BASELINE GREEN both legs, killed by undersized job caps (Rust 139 mutants > 60min; TS 2234/2462 @ 90min, ~76% running score); dispatch 4 (8ccf77b0, run 30905319861) with measured caps 240/300min + stryker timeoutMS 60s \u2014 multi-hour, reports failure autonomously via rolling issue."
+      "notes": "Rust filter proven live: 139 mutants with config vs 4202 without. Stryker dry run SUCCEEDED (9229 tests, 3m19s; was: timeout every CI run) — root causes: sandbox copied ~291k machine-local files (.claude worktree symlinks crashed copy) + 5-min single-threaded dry-run cap; fixed via ignorePatterns + dryRunTimeoutMinutes 20 + related:true. Mutation phase reached (165/2370 tested). continue-on-error removed; failure->rolling issue step; taiki-e install. actionlint clean. PENDING AT PR TIME: (1) SHA-pinned live dispatch gh workflow run mutation.yml --ref <branch> + gh run view --json headSha,conclusion,jobs green; (2) deliberately-failing branch dispatch proving the issue step fires. PR-TIME ACCEPTANCE PROGRESS: dispatch 1 (85dc5440) exit-4 = fixture bond reads outside crate in mutants sandbox -> skip added; dispatch 2 (20a3ffe6) same = CARGO_MUTANTS env NOT set in baseline (measured) -> compile-time manifest-path discriminator, proven in exact local sandbox replica; dispatch 3 (cd750542) BASELINE GREEN both legs, killed by undersized job caps (Rust 139 mutants > 60min; TS 2234/2462 @ 90min, ~76% running score); dispatch 4 (8ccf77b0, run 30905319861) with measured caps 240/300min + stryker timeoutMS 60s — multi-hour, reports failure autonomously via rolling issue."
     },
     "WI-5": {
       "status": "DONE",
@@ -160,7 +160,7 @@
         "scripts/extension-budget.json"
       ],
       "updatedAt": "2026-08-03T15:54:41.222744+00:00",
-      "notes": "17 plugin-wide licenses deleted; 74 edges frozen per-edge; exemption budget 28->7; known-violations 7->74 (documented rebase \u2014 same debt made visible); 3 dead entries proven+deleted; meta-test 1.2s on real config."
+      "notes": "17 plugin-wide licenses deleted; 74 edges frozen per-edge; exemption budget 28->7; known-violations 7->74 (documented rebase — same debt made visible); 3 dead entries proven+deleted; meta-test 1.2s on real config."
     },
     "WI-9": {
       "status": "DONE",
@@ -207,7 +207,7 @@
         ".claude/rules/00-engineering-principles.md"
       ],
       "updatedAt": "2026-08-03T20:45:08.352716+00:00",
-      "notes": "D3 executed: all channels parse, prose safe, landmine note replaced. Fallout: 21 tests passed via global-mock leak \u2014 fixed at fakes; 1 vacuous test strengthened. check:all EXIT 0. Ran on opus (Fable subagent limit)."
+      "notes": "D3 executed: all channels parse, prose safe, landmine note replaced. Fallout: 21 tests passed via global-mock leak — fixed at fakes; 1 vacuous test strengthened. check:all EXIT 0. Ran on opus (Fable subagent limit)."
     },
     "WI-12": {
       "status": "DONE",
@@ -269,7 +269,7 @@
         "src-tauri/Cargo.toml (thiserror 2, already in lock transitively)"
       ],
       "updatedAt": "2026-08-03T23:28:46.341551+00:00",
-      "notes": "12-code vocabulary incl. feature-disabled (WI-19 dep ready). Migrated the 2 string-sniffed modules (PARENT_MISSING: prefix, APPROVAL_REQUIRED x4). Generated wire fixture bonds Rust<->TS suites. i18n self-scanning test. Independent gates: cargo 1812 passed, frontend green. Stale LSP diagnostics were RED-phase captures \u2014 verified files exist + cargo check clean. Ran on opus."
+      "notes": "12-code vocabulary incl. feature-disabled (WI-19 dep ready). Migrated the 2 string-sniffed modules (PARENT_MISSING: prefix, APPROVAL_REQUIRED x4). Generated wire fixture bonds Rust<->TS suites. i18n self-scanning test. Independent gates: cargo 1812 passed, frontend green. Stale LSP diagnostics were RED-phase captures — verified files exist + cargo check clean. Ran on opus."
     },
     "WI-15": {
       "status": "DONE",
@@ -287,7 +287,7 @@
         "scripts/check-file-size.mjs (generated-file exemption, test-first)"
       ],
       "updatedAt": "2026-08-04T00:23:44.828170+00:00",
-      "notes": "RED found 3 drifts: windowId (deleted, rename-repair rejected \u2014 would invert routing precedence), clientId phantom (one-shot approval was per-session all along), open_workspace.windowLabel dead field. D5a posture: reject for targeting classes, strip-and-log for session. lint:mcp-contracts in check:all. Sidecar coverage floors RAISED. Ran on opus."
+      "notes": "RED found 3 drifts: windowId (deleted, rename-repair rejected — would invert routing precedence), clientId phantom (one-shot approval was per-session all along), open_workspace.windowLabel dead field. D5a posture: reject for targeting classes, strip-and-log for session. lint:mcp-contracts in check:all. Sidecar coverage floors RAISED. Ran on opus."
     },
     "WI-16": {
       "status": "DONE",
@@ -299,7 +299,7 @@
         "scripts/baselineRatchetModes.mjs",
         "scripts/check-baseline-ratchet.mjs (rewritten)",
         ".github/workflows/ci.yml",
-        ".claude/rules/60-ai-governance.md (\u00a711)",
+        ".claude/rules/60-ai-governance.md (§11)",
         "mock-boundaries + command-error baselines (MANIFEST-PENDING dropped)"
       ],
       "updatedAt": "2026-08-04T00:53:16.174238+00:00",
@@ -337,10 +337,10 @@
         "src/services/workflow/workflowEnginePolicySync.ts",
         "src/services/assembly/workflowExtensionGates.ts",
         ".claude/hooks/gha-tdd-guard.mjs (SCOPED repaired)",
-        ".claude/rules/60-ai-governance.md (\u00a712 verdicts, proposed)"
+        ".claude/rules/60-ai-governance.md (§12 verdicts, proposed)"
       ],
       "updatedAt": "2026-08-04T02:27:30.259264+00:00",
-      "notes": "Viewer/engine split; backend fail-closed via managed-state push (browser_ai_policy pattern). FINDING: GHA workbench never was flag-gated (yaml adapter unconditional) \u2014 viewer flag gates source-pane extras only; website doc corrected. Guard RED = hook blocked agent's own write. VERDICTS AWAIT RATIFICATION: browser keep-dark->2026-11-01; viewer ship-on->2026-09-15; engine extract->2026-10-01. Genie-with-engine-off now fails loudly (toast fixed from [object Object]). Ran on opus."
+      "notes": "Viewer/engine split; backend fail-closed via managed-state push (browser_ai_policy pattern). FINDING: GHA workbench never was flag-gated (yaml adapter unconditional) — viewer flag gates source-pane extras only; website doc corrected. Guard RED = hook blocked agent's own write. VERDICTS AWAIT RATIFICATION: browser keep-dark->2026-11-01; viewer ship-on->2026-09-15; engine extract->2026-10-01. Genie-with-engine-off now fails loudly (toast fixed from [object Object]). Ran on opus."
     },
     "WI-20": {
       "status": "DONE",
@@ -357,7 +357,7 @@
         "scripts/file-size-baseline.json (2 ratcheted down)"
       ],
       "updatedAt": "2026-08-04T03:53:50.061197+00:00",
-      "notes": "8 statics deleted; cfg(test) fork + generation-counter cope gone (RestoreRound token); poison recovery 5->2 documented accessors (parking_lot deferred: 110-site convention). Isolation proof INVERTED (two states, same ids, no observation). connection_generation KEPT: production admission epoch. Ratchet candidates named: handshake LIVE_CONNECTIONS, dedup LAST_WRITTEN_HASH. Pins byte-identical across migration. Ran on opus. GATE NOTE: first full-suite run failed on a LATENT WI-13-era flake (lazy-mount transform race, 1-in-5 in isolation) in yaml.test.ts + GhaWorkflowWorkbench.test.tsx \u2014 fixed by orchestrator with documented LAZY_MOUNT timeouts, 10/10 isolated + full suite green after."
+      "notes": "8 statics deleted; cfg(test) fork + generation-counter cope gone (RestoreRound token); poison recovery 5->2 documented accessors (parking_lot deferred: 110-site convention). Isolation proof INVERTED (two states, same ids, no observation). connection_generation KEPT: production admission epoch. Ratchet candidates named: handshake LIVE_CONNECTIONS, dedup LAST_WRITTEN_HASH. Pins byte-identical across migration. Ran on opus. GATE NOTE: first full-suite run failed on a LATENT WI-13-era flake (lazy-mount transform race, 1-in-5 in isolation) in yaml.test.ts + GhaWorkflowWorkbench.test.tsx — fixed by orchestrator with documented LAZY_MOUNT timeouts, 10/10 isolated + full suite green after."
     },
     "WI-21": {
       "status": "DONE",
@@ -373,6 +373,231 @@
       ],
       "updatedAt": "2026-08-04T05:07:23.024617+00:00",
       "notes": "2 latent absent-vs-undefined findings pinned RED-first (parseWorkflow positions claimed all 8 keys; WorkflowPreview wrote duration:undefined over layout). Zero new as/any/!/ts-ignore. file-size ratchet fought back and won (no baselines raised). server/mcp exactOptional deferred (26 errors, out of scope). Ran on opus."
+    },
+    "WI-TNAV0.1": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/tabActivationBus.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/tabStoreBrowserWorkspace.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "activation bus announces browser page creation"
+    },
+    "WI-TNAV0.2": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/tabActivationBus.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/tabActivationBus.ts",
+        "src/services/mcpBridge/v2/workspaceOpen.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "ActivationOrigin on the bus + withActivationOrigin, wired at the MCP background open"
+    },
+    "WI-TNAV0.3": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/settingsStore/shortcutDefinitions.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/settingsStore/shortcutDefinitions.ts",
+        "website/guide/shortcuts.md"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "canonical duplicate-shortcut detection; found a live Windows/Linux collision"
+    },
+    "WI-TNAV1.1": {
+      "status": "DONE",
+      "testFiles": [
+        "src/utils/tabStripOverflow.test.ts",
+        "src/hooks/useTabStripOverflow.test.tsx"
+      ],
+      "sourceFiles": [
+        "src/utils/tabStripOverflow.ts",
+        "src/hooks/useTabStripOverflow.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "tab-strip overflow core + observing hook"
+    },
+    "WI-TNAV1.2": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/StatusBar/StatusBarTabStrip.test.tsx"
+      ],
+      "sourceFiles": [
+        "src/components/StatusBar/StatusBarTabStrip.tsx",
+        "src/components/StatusBar/StatusBar.css"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "fade masks and chevrons outside the tablist"
+    },
+    "WI-TNAV1.3": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/StatusBar/scrollActiveTabIntoView.test.ts",
+        "src/components/StatusBar/useScrollActiveTabIntoView.test.tsx"
+      ],
+      "sourceFiles": [
+        "src/components/StatusBar/scrollActiveTabIntoView.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "scroll the active pill into view, incl. the browser pill"
+    },
+    "WI-TNAV1.4": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/StatusBar/StatusBarTabStrip.test.tsx"
+      ],
+      "sourceFiles": [
+        "src/components/StatusBar/StatusBarTabStrip.tsx"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "focusable, translated scroll region"
+    },
+    "WI-TNAV2.1": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/tabMruStore.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/tabMruStore.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "tabMruStore"
+    },
+    "WI-TNAV2.2": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/tabs/lastUsedTab.test.ts"
+      ],
+      "sourceFiles": [
+        "src/services/tabs/lastUsedTab.ts",
+        "src/services/commands/tabCommands.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "tab.lastUsed per D13"
+    },
+    "WI-TNAV2.3": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/keybinding/keybindingDefinitions.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/settingsStore/shortcutDefinitions.ts",
+        "src-tauri/src/menu/localized/view_menu.rs"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "Ctrl-Tab, native-menu-owned, seven surfaces"
+    },
+    "WI-TNAV2.4": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/QuickOpen/useQuickOpenItems.test.ts"
+      ],
+      "sourceFiles": [
+        "src/components/QuickOpen/useQuickOpenItems.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "QuickOpen MRU order + the tier inversion that made it reachable"
+    },
+    "WI-TNAV2.5": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/tabMruRestore.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/tabMruStore.ts",
+        "src/services/navigation/restoreWorkspaceTabs.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "restore is MRU-neutral, on BOTH restore paths"
+    },
+    "WI-DSPL1.1": {
+      "status": "DONE",
+      "testFiles": [
+        "src/components/StatusBar/paneIndicator.test.ts"
+      ],
+      "sourceFiles": [
+        "src/components/StatusBar/paneIndicator.ts",
+        "src/components/Tabs/Tab.tsx"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "pane indicator from focusedPane, browser-suppressed"
+    },
+    "WI-DSPL1.2": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/keybinding/keybindingDefinitions.test.ts"
+      ],
+      "sourceFiles": [
+        "src-tauri/src/menu/localized/view_menu.rs",
+        "src/hooks/useCommandBootstrap.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "four native View-menu pane items"
+    },
+    "WI-DSPL1.3": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/settingsStore/shortcutDefinitions.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/settingsStore/shortcutDefinitions.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "shortcuts for closePane / focusOtherPane"
+    },
+    "WI-DSPL1.4": {
+      "status": "DONE",
+      "testFiles": [],
+      "sourceFiles": [
+        "website/guide/tab-navigation.md"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "website tab-navigation guide"
+    },
+    "WI-DSPL1.5": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/tabs/openToTheSide.test.ts"
+      ],
+      "sourceFiles": [
+        "src/services/tabs/openToTheSide.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "Open to the Side"
+    },
+    "WI-DSPL1.6": {
+      "status": "DONE",
+      "testFiles": [
+        "src/stores/paneSurvivor.test.ts"
+      ],
+      "sourceFiles": [
+        "src/stores/paneStore.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "collapse onto the survivor"
+    },
+    "WI-DSPL1.7": {
+      "status": "DONE",
+      "testFiles": [
+        "src/services/navigation/toggleSplitDocuments.test.ts"
+      ],
+      "sourceFiles": [
+        "src/services/navigation/toggleSplitDocuments.ts"
+      ],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "A/A illegal, browser no-op, guards on the open path"
+    },
+    "WI-DSPL1.8": {
+      "status": "DROPPED",
+      "testFiles": [],
+      "sourceFiles": [],
+      "updatedAt": "2026-08-22T12:00:00+00:00",
+      "notes": "Premise dissolved on measurement: 62 production files cite dev-docs/ paths, so paneStore.ts:19 is a convention, not an anomaly."
     }
   }
 }

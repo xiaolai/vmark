@@ -93,5 +93,8 @@
   "largeFile.opening": "正在打开大文件（{{size}}）…",
   "largeFile.openedInSourceMode": "已以源码模式打开（大文件）。",
   "largeFile.switchToWysiwyg": "切换到富文本模式",
-  "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式"
+  "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式",
+  "tabStrip": "已打开的标签页",
+  "scrollTabsLeft": "向左滚动标签页",
+  "scrollTabsRight": "向右滚动标签页"
 }

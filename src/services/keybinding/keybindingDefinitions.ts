@@ -76,7 +76,13 @@ const VIEW_BINDINGS: Binding[] = [
   viewBinding("viewHistory", "view.toggleHistory", { suppressInInput: true }),
   viewBinding("knowledgeBase", "view.toggleKnowledgeBase", { suppressInInput: true }),
   viewBinding("markdownSplit", "view.toggleMarkdownSplit", { suppressInInput: true }),
-  viewBinding("splitDocuments", "view.toggleSplitDocuments", { suppressInInput: true }),
+  // WI-DSPL1.2 gave these native menu accelerators, so they must be
+  // NATIVE-owned: AppKit dispatches a menu accelerator regardless of focus,
+  // and a DOM binding alongside it double-fires. For an involution like the
+  // split toggle that means opening and instantly closing again.
+  nativeMenuBinding("splitDocuments", "view.toggleSplitDocuments"),
+  nativeMenuBinding("closePane", "view.closePane"),
+  nativeMenuBinding("focusOtherPane", "view.focusOtherPane"),
 ];
 
 /**
@@ -147,6 +153,10 @@ export const KEYBINDINGS: readonly Binding[] = [
   nativeMenuBinding("newBrowserTab", "browser.newTab"),
   globalBinding("nextTab", "tab.next"),
   globalBinding("prevTab", "tab.prev"),
+  // NATIVE-owned (D7): while the embedded WKWebView browser holds first
+  // responder, window.keydown never fires, so a DOM binding would be dead
+  // exactly where tab switching is most wanted.
+  nativeMenuBinding("lastUsedTab", "tab.lastUsed"),
   globalBinding("closeFile", "tab.close"),
   globalBinding("toggleStatusBar", "view.toggleStatusBar"),
   // Save / Save As (migrated from useFileShortcuts). On the window listener

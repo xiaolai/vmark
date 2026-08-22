@@ -180,5 +180,7 @@
   "workspaceRail.menu.duplicate": "Duplizieren",
   "workspaceRail.menu.moveToNewWindow": "In neues Fenster verschieben",
   "sites.wikipedia.name": "Wikipedia",
-  "browser.aiControlling": "KI steuert — klicken zum Übernehmen"
+  "browser.aiControlling": "KI steuert — klicken zum Übernehmen",
+  "tab.otherPane": "Im anderen Editorbereich angezeigt",
+  "tabMenu.openToSide": "Seitlich öffnen"
 }

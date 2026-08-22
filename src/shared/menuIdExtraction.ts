@@ -19,8 +19,19 @@
  * @module shared/menuIdExtraction
  */
 
-/** Matches MenuItem::with_id(app, "menu-id", ...) in Rust menu sources. */
-const MENU_ITEM_REGEX = /MenuItem::with_id\s*\(\s*app\s*,\s*"([^"]+)"/g;
+/**
+ * Matches `MenuItem::with_id(app, "menu-id", ...)` in Rust menu sources.
+ *
+ * The `&` is REQUIRED, not decorative. Rust accepts both `app` and `&app` for
+ * this argument and both spellings ship — `localized/*.rs` uses the bare form,
+ * `dynamic.rs` uses `&app`. Anchoring on the bare identifier silently dropped
+ * four real static ids (`search-genies`, `no-genies`, `reload-genies`,
+ * `open-genies-folder`), so the action-registry contract could not tell whether
+ * they were routed. A missing id fails OPEN here: nothing reports it, because
+ * the check is "everything extracted must be classified", and an id that was
+ * never extracted is never checked.
+ */
+const MENU_ITEM_REGEX = /MenuItem::with_id\s*\(\s*&?\s*app\s*,\s*"([^"]+)"/g;
 
 /**
  * Extract static menu IDs from Rust source text. Dynamic IDs containing
@@ -59,6 +70,24 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   // File operations (dedicated listeners)
   "new",
   "new-window",
+  // Routed through the CommandBus (menu:last-used-tab -> tab.lastUsed).
+  "last-used-tab",
+  // Genie submenu, built dynamically in menu/dynamic.rs. These were INVISIBLE
+  // to this list until the extraction regex learned the `&app` form — each is
+  // handled, just not through the action registry:
+  //   search-genies      dynamic accelerator bound by useGenieShortcuts
+  //   reload-genies      dedicated listen("menu:reload-genies") in the same hook
+  //   open-genies-folder routed via useCommandBootstrap to genies.openFolder
+  //   no-genies          a disabled placeholder; it dispatches nothing
+  "search-genies",
+  "reload-genies",
+  "open-genies-folder",
+  "no-genies",
+  // Pane commands, routed through the CommandBus (WI-DSPL1.2).
+  "split-documents",
+  "close-pane",
+  "focus-other-pane",
+  "sync-pane-scroll",
   // Routed through the CommandBus (menu:new-browser-tab -> browser.newTab), not the
   // editor action registry: it opens a tab, it does not act on a document. It exists as
   // a NATIVE menu item because the embedded browser's WKWebView takes keyboard focus,

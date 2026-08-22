@@ -93,5 +93,8 @@
   "largeFile.opening": "Große Datei wird geöffnet ({{size}})…",
   "largeFile.openedInSourceMode": "Im Quelltextmodus geöffnet (große Datei).",
   "largeFile.switchToWysiwyg": "Zu WYSIWYG wechseln",
-  "largeFile.switchToWysiwygAria": "Dieses Dokument vom Quelltextmodus zu WYSIWYG wechseln"
+  "largeFile.switchToWysiwygAria": "Dieses Dokument vom Quelltextmodus zu WYSIWYG wechseln",
+  "tabStrip": "Geöffnete Tabs",
+  "scrollTabsLeft": "Tabs nach links scrollen",
+  "scrollTabsRight": "Tabs nach rechts scrollen"
 }

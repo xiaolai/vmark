@@ -180,5 +180,7 @@
   "workspaceRail.menu.duplicate": "복제",
   "workspaceRail.menu.moveToNewWindow": "새 창으로 이동",
   "sites.wikipedia.name": "위키백과",
-  "browser.aiControlling": "AI가 제어 중 — 클릭하여 제어권 가져오기"
+  "browser.aiControlling": "AI가 제어 중 — 클릭하여 제어권 가져오기",
+  "tab.otherPane": "다른 편집기 창에 표시됨",
+  "tabMenu.openToSide": "옆에 열기"
 }

@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0.7 — 判定は増えるが確実性は低い",
   "coherence.checkTau.option08": "0.8 — バランス重視",
   "coherence.checkTau.option09": "0.9 — 慎重（既定）",
-  "coherence.checkTau.option095": "0.95 — ほぼ確実な回答のみ"
+  "coherence.checkTau.option095": "0.95 — ほぼ確実な回答のみ",
+  "shortcuts.label.lastUsedTab": "最後に使ったタブ",
+  "shortcuts.label.splitDocuments": "エディタを分割 — 2つの文書",
+  "shortcuts.label.closePane": "ペインを閉じる",
+  "shortcuts.label.focusOtherPane": "もう一方のペインにフォーカス",
+  "shortcuts.label.syncPaneScroll": "スクロールを同期"
 }

@@ -190,5 +190,6 @@
   "tab.new": "新しいタブ",
   "tab.next": "次のタブ",
   "tab.prev": "前のタブ",
+  "tab.lastUsed": "最後に使ったタブ",
   "tab.close": "タブを閉じる"
 }

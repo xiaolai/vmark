@@ -17,7 +17,15 @@ let mockTabs: Array<{ id: string; kind: string; filePath: string | null }> = [];
 let mockDocs: Record<string, { isDirty: boolean }> = {};
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
-    getState: () => ({ createTab: mockCreateTab, closeTab: mockCloseTab, tabs: { main: mockTabs } }),
+    // `activeTabId` is a real store key that production reads directly
+    // (WI-TNAV2.5's `collapseMruToActive`); a double that omits it makes a
+    // dropped key a silent no-op rather than a crash.
+    getState: () => ({
+      createTab: mockCreateTab,
+      closeTab: mockCloseTab,
+      tabs: { main: mockTabs },
+      activeTabId: {},
+    }),
   },
   tabFilePath: (t: { filePath: string | null }) => t.filePath,
 }));

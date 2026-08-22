@@ -52,9 +52,23 @@ import { formatFileDisplayName } from "@/utils/displayFileName";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { TabRenameInput } from "./TabRenameInput";
 
+/**
+ * Id of the ONE shared hidden description for "shown in the other pane".
+ *
+ * `aria-describedby` + a hidden element rather than `aria-description`, which
+ * is an ARIA 1.3 draft attribute with the weakest support on this app's
+ * primary platform. The element lives OUTSIDE `role="tab"`, which computes its
+ * accessible name from content — nested, the text joined the tab's NAME and was
+ * then announced a second time as its description.
+ */
+export const OTHER_PANE_DESC_ID = "vm-tab-other-pane-desc";
+
 interface TabProps {
   tab: TabType;
   isActive: boolean;
+  /** Shown in the OTHER split pane — visible, but not where typing goes.
+   *  Never carries `aria-selected`: exactly one tab is selected (D8). */
+  isOtherPane?: boolean;
   isDragTarget?: boolean;
   isReordering?: boolean;
   isInvalidDrop?: boolean;
@@ -71,6 +85,7 @@ interface TabProps {
 export const Tab = memo(function Tab({
   tab,
   isActive,
+  isOtherPane = false,
   isDragTarget,
   isReordering,
   isInvalidDrop,
@@ -159,9 +174,11 @@ export const Tab = memo(function Tab({
         role="tab"
         aria-selected={isActive}
         data-tab-id={tab.id}
+        {...(isOtherPane ? { "data-pane-indicator": "true", "aria-describedby": OTHER_PANE_DESC_ID } : {})}
         className={cn(
           "tab-pill group",
           isActive && "active",
+          isOtherPane && "tab-other-pane",
           isMissing && "tab-missing",
           showDivergent && "tab-divergent",
           isDragTarget && "tab--dragging",

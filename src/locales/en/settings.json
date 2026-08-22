@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0.7 — more verdicts, less certain",
   "coherence.checkTau.option08": "0.8 — balanced",
   "coherence.checkTau.option09": "0.9 — cautious (default)",
-  "coherence.checkTau.option095": "0.95 — only near-certain answers"
+  "coherence.checkTau.option095": "0.95 — only near-certain answers",
+  "shortcuts.label.lastUsedTab": "Last Used Tab",
+  "shortcuts.label.splitDocuments": "Split Editor — Two Documents",
+  "shortcuts.label.closePane": "Close Pane",
+  "shortcuts.label.focusOtherPane": "Focus Other Pane",
+  "shortcuts.label.syncPaneScroll": "Sync Pane Scroll"
 }

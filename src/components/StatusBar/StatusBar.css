@@ -149,20 +149,92 @@
    Pill-style Tabs in Status Bar
    ======================================== */
 
+/* The scroll REGION owns the cap and the scrolling; the tablist inside is a
+   plain flex row. Split in WI-TNAV1.2 so the chevrons can be positioned
+   against a non-scrolling parent — inside the region they would scroll away
+   with the content. */
+.status-tabs-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 60%;
+  min-width: 0;
+}
+
+.status-tabs-region {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-width: 0;
+}
+
+.status-tabs-region:focus-visible {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
+}
+
+.status-tabs-region::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fade masks: the substitute for the suppressed scrollbar. Pointer-events off
+   so they never eat a click meant for a pill. */
+.status-tabs-wrap::before,
+.status-tabs-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--space-5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-base) ease;
+  z-index: 1;
+}
+
+.status-tabs-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bg-secondary), transparent);
+}
+
+.status-tabs-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--bg-secondary), transparent);
+}
+
+.status-tabs-wrap[data-can-scroll-left="true"]::before,
+.status-tabs-wrap[data-can-scroll-right="true"]::after {
+  opacity: 1;
+}
+
+/* POSITIONING ONLY. The button surface comes from the canonical
+   `.popup-icon-btn` primitive — declaring padding + background here would make
+   this an 89th bespoke button class, which `lint:bespoke-buttons` counts and
+   ratchets down only. The fade mask behind it supplies the contrast the
+   primitive's transparent background would otherwise lack. */
+.status-tabs-chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.status-tabs-chevron--left {
+  left: 0;
+}
+
+.status-tabs-chevron--right {
+  right: 0;
+}
+
 .status-tabs {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-half) 0;
-  max-width: 60%;
-  overflow-x: auto;
-  scrollbar-width: none;
   user-select: none;
   -webkit-user-select: none;
-}
-
-.status-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 /* Individual tab pill */
@@ -896,4 +968,22 @@
     animation: none;
     border-top-color: var(--accent-primary);
   }
+}
+
+/* WI-DSPL1.1 — the document shown in the OTHER split pane: visible, but not
+   where typing goes. Deliberately weaker than `.active` so the two never read
+   as equals; `aria-selected` stays on the focused tab alone (D8). */
+.tab-pill.tab-other-pane:not(.active) {
+  box-shadow: inset 0 -2px 0 var(--border-color);
+  color: var(--text-color);
+}
+
+/* Focus must outrank the other-pane marker. `.tab-pill.tab-other-pane:not(.active)`
+   is specificity (0,3,0) and `.tab-pill:focus-visible` only (0,2,0), so without
+   this the indicator SILENTLY replaced the focus ring on exactly the pill a
+   keyboard user is most likely to be on — a WCAG failure invisible to every
+   test that checks the indicator or the ring in isolation
+   (.claude/rules/33-focus-indicators.md). */
+.tab-pill.tab-other-pane:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--accent-primary);
 }

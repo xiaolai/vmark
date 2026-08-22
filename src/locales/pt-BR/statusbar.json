@@ -93,5 +93,8 @@
   "largeFile.opening": "Abrindo arquivo grande ({{size}})…",
   "largeFile.openedInSourceMode": "Aberto no modo Fonte (arquivo grande).",
   "largeFile.switchToWysiwyg": "Mudar para WYSIWYG",
-  "largeFile.switchToWysiwygAria": "Mudar este documento do modo Fonte para WYSIWYG"
+  "largeFile.switchToWysiwygAria": "Mudar este documento do modo Fonte para WYSIWYG",
+  "tabStrip": "Abas abertas",
+  "scrollTabsLeft": "Rolar abas para a esquerda",
+  "scrollTabsRight": "Rolar abas para a direita"
 }

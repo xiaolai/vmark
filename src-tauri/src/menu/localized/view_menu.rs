@@ -48,6 +48,48 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 accel("markdown-split", "Shift+F6"),
             )?,
             &PredefinedMenuItem::separator(app)?,
+            // WI-DSPL1.2 — the four pane commands. Three were reachable only
+            // through the command palette; the #1081 plan deferred this menu.
+            &MenuItem::with_id(
+                app,
+                "split-documents",
+                &t!("menu.view.splitDocuments"),
+                true,
+                accel("split-documents", "Alt+CmdOrCtrl+\\"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "close-pane",
+                &t!("menu.view.closePane"),
+                true,
+                accel("close-pane", "Alt+CmdOrCtrl+Shift+\\"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "focus-other-pane",
+                &t!("menu.view.focusOtherPane"),
+                true,
+                accel("focus-other-pane", "Alt+CmdOrCtrl+Shift+O"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "sync-pane-scroll",
+                &t!("menu.view.syncPaneScroll"),
+                true,
+                accel("sync-pane-scroll", ""),
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            // NATIVE-owned (D7): a DOM binding is dead while the embedded
+            // WKWebView browser holds first responder, and AppKit dispatches a
+            // menu accelerator regardless of who has focus.
+            &MenuItem::with_id(
+                app,
+                "last-used-tab",
+                &t!("menu.view.lastUsedTab"),
+                true,
+                accel("last-used-tab", "Ctrl+Tab"),
+            )?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
                 "focus-mode",

@@ -190,5 +190,6 @@
   "tab.new": "Nueva pestaña",
   "tab.next": "Pestaña siguiente",
   "tab.prev": "Pestaña anterior",
+  "tab.lastUsed": "Última pestaña usada",
   "tab.close": "Cerrar pestaña"
 }

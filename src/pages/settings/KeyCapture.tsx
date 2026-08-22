@@ -11,6 +11,7 @@ import { getShortcutLabel } from "@/stores/settingsShortcutLabels";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { canonicalizeChordString } from "@/utils/keybinding/canonicalChord";
 import { Button } from "./components";
+import { captureChord } from "@/pages/settings/captureChord";
 
 interface KeyCaptureProps {
   shortcut: ShortcutDefinition;
@@ -34,28 +35,8 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
       return;
     }
 
-    // Ignore lone modifier keys
-    if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
-      return;
-    }
-
-    // Build key string in ProseMirror format
-    const parts: string[] = [];
-    if (e.metaKey || e.ctrlKey) parts.push("Mod");
-    if (e.altKey) parts.push("Alt");
-    if (e.shiftKey) parts.push("Shift");
-
-    // Handle special keys
-    let key = e.key;
-    if (key === " ") key = "Space";
-    else if (key === "ArrowLeft") key = "Left";
-    else if (key === "ArrowRight") key = "Right";
-    else if (key === "ArrowUp") key = "Up";
-    else if (key === "ArrowDown") key = "Down";
-    else if (key.length === 1) key = key.toLowerCase();
-
-    parts.push(key);
-    const keyStr = parts.join("-");
+    const keyStr = captureChord(e);
+    if (keyStr === null) return; // lone modifier
     setCapturedKey(keyStr);
   }, [onCancel]);
 

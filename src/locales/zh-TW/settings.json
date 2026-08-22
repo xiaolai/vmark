@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0.7 — 判定更多，確定性更低",
   "coherence.checkTau.option08": "0.8 — 平衡",
   "coherence.checkTau.option09": "0.9 — 謹慎（預設）",
-  "coherence.checkTau.option095": "0.95 — 僅接受幾乎確定的答案"
+  "coherence.checkTau.option095": "0.95 — 僅接受幾乎確定的答案",
+  "shortcuts.label.lastUsedTab": "最近使用的分頁",
+  "shortcuts.label.splitDocuments": "分割編輯器 — 兩個文件",
+  "shortcuts.label.closePane": "關閉窗格",
+  "shortcuts.label.focusOtherPane": "聚焦另一個窗格",
+  "shortcuts.label.syncPaneScroll": "同步窗格捲動"
 }

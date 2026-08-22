@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0,7 — más veredictos, menos certeza",
   "coherence.checkTau.option08": "0,8 — equilibrado",
   "coherence.checkTau.option09": "0,9 — prudente (predeterminado)",
-  "coherence.checkTau.option095": "0,95 — solo respuestas casi seguras"
+  "coherence.checkTau.option095": "0,95 — solo respuestas casi seguras",
+  "shortcuts.label.lastUsedTab": "Última pestaña usada",
+  "shortcuts.label.splitDocuments": "Dividir editor — dos documentos",
+  "shortcuts.label.closePane": "Cerrar panel",
+  "shortcuts.label.focusOtherPane": "Enfocar el otro panel",
+  "shortcuts.label.syncPaneScroll": "Sincronizar desplazamiento"
 }

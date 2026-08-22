@@ -84,7 +84,7 @@ const mockSetTabActiveSchemaId = vi.fn();
 vi.mock('@/stores/tabStore', () => ({
   useTabStore: {
     getState: () => ({
-      createTab: mockCreateTab,
+      tabs: {}, activeTabId: {}, createTab: mockCreateTab, // tabs/activeTabId: real keys production reads (WI-TNAV2.5)
       getTabsByWindow: mockGetTabsByWindow,
       removeWindow: mockRemoveWindow,
       updateTabTitle: mockUpdateTabTitle,

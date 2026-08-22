@@ -755,5 +755,10 @@
   "coherence.checkTau.option07": "0.7 — 判定更多，确定性更低",
   "coherence.checkTau.option08": "0.8 — 平衡",
   "coherence.checkTau.option09": "0.9 — 谨慎（默认）",
-  "coherence.checkTau.option095": "0.95 — 仅接受几乎确定的答案"
+  "coherence.checkTau.option095": "0.95 — 仅接受几乎确定的答案",
+  "shortcuts.label.lastUsedTab": "最近使用的标签页",
+  "shortcuts.label.splitDocuments": "拆分编辑器 — 两个文档",
+  "shortcuts.label.closePane": "关闭窗格",
+  "shortcuts.label.focusOtherPane": "聚焦另一个窗格",
+  "shortcuts.label.syncPaneScroll": "同步窗格滚动"
 }

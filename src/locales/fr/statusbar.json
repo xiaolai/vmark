@@ -93,5 +93,8 @@
   "largeFile.opening": "Ouverture d'un fichier volumineux ({{size}})…",
   "largeFile.openedInSourceMode": "Ouvert en mode Source (fichier volumineux).",
   "largeFile.switchToWysiwyg": "Passer au WYSIWYG",
-  "largeFile.switchToWysiwygAria": "Basculer ce document du mode Source au WYSIWYG"
+  "largeFile.switchToWysiwygAria": "Basculer ce document du mode Source au WYSIWYG",
+  "tabStrip": "Onglets ouverts",
+  "scrollTabsLeft": "Faire défiler les onglets vers la gauche",
+  "scrollTabsRight": "Faire défiler les onglets vers la droite"
 }

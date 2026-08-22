@@ -190,5 +190,6 @@
   "tab.new": "Nova aba",
   "tab.next": "Próxima aba",
   "tab.prev": "Aba anterior",
+  "tab.lastUsed": "Última aba usada",
   "tab.close": "Fechar aba"
 }

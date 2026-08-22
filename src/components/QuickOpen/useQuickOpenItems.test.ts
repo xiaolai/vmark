@@ -1,11 +1,18 @@
 // @vitest-environment node
+// WI-TNAV2.4 — MRU-ordered open tier, and the tier inversion that makes it
+// reachable at all.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: vi.fn(() => ({ files: [] })) },
 }));
 vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: vi.fn(() => ({ getTabsByWindow: () => [] })) },
+  useTabStore: {
+    // Complete enough to stand in for the real store: production code reads
+    // `tabs` and `activeTabId` directly, and a double missing them turns a
+    // genuinely-dropped key into a silent no-op instead of a loud failure.
+    getState: vi.fn(() => ({ tabs: {}, activeTabId: {}, getTabsByWindow: () => [] })),
+  },
   tabFilePath: (t: { kind?: string; filePath?: string | null }) =>
     t?.kind === "document" ? (t.filePath ?? null) : null,
 }));
@@ -30,7 +37,9 @@ const mockActiveScope = vi.mocked(getActiveWorkspaceScope);
 beforeEach(() => {
   vi.clearAllMocks();
   mockRecentFiles.mockReturnValue({ files: [] } as any);
-  mockTabStore.mockReturnValue({ getTabsByWindow: () => [] } as any);
+  mockTabStore.mockReturnValue({
+      tabs: {},
+      activeTabId: {}, getTabsByWindow: () => [] } as any);
   mockActiveScope.mockReturnValue({ rootPath: null } as any);
 });
 
@@ -108,6 +117,7 @@ describe("buildQuickOpenItems", () => {
 
   it("includes current-window open tabs as tier 'open'", () => {
     mockTabStore.mockReturnValue({
+      activeTabId: {},
       tabs: { win: [{ kind: "document", filePath: "/b.md" }] },
       getTabsByWindow: (wl: string) =>
         wl === "win" ? [{ kind: "document", filePath: "/b.md" }] : [],
@@ -133,21 +143,28 @@ describe("buildQuickOpenItems", () => {
     expect(items.filter((i) => i.path === "/a.md")).toHaveLength(1);
   });
 
-  it("deduplicates: recent wins over open and workspace", () => {
+  // WI-TNAV2.4 inverted this deliberately. Recents used to be emitted first and
+  // win dedup, while ordinary file opening ADDS the path to recents
+  // (`loadFileIntoTab.ts:20`) — so almost every open file was labelled `recent`
+  // and the open tier was nearly empty. Ordering that tier by MRU would have
+  // been a no-op. `open` now claims a path first.
+  it("deduplicates: OPEN wins over recent and workspace", () => {
     mockRecentFiles.mockReturnValue({
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
+      activeTabId: {},
       tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
     const items = buildQuickOpenItems("win", ["/a.md"]);
     expect(items.filter((i) => i.path === "/a.md")).toHaveLength(1);
-    expect(items.find((i) => i.path === "/a.md")!.tier).toBe("recent");
+    expect(items.find((i) => i.path === "/a.md")!.tier).toBe("open");
   });
 
   it("deduplicates: open wins over workspace", () => {
     mockTabStore.mockReturnValue({
+      activeTabId: {},
       tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
@@ -161,6 +178,7 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
+      activeTabId: {},
       tabs: { win: [{ kind: "document", filePath: "/a.md" }] },
       getTabsByWindow: () => [{ kind: "document", filePath: "/a.md" }],
     } as any);
@@ -173,6 +191,8 @@ describe("buildQuickOpenItems", () => {
       files: [{ path: "/a.md", name: "a", timestamp: 100 }],
     } as any);
     mockTabStore.mockReturnValue({
+      tabs: {},
+      activeTabId: {},
       getTabsByWindow: () => [],
     } as any);
     const items = buildQuickOpenItems("win", []);
@@ -217,6 +237,7 @@ describe("buildQuickOpenItems", () => {
 
   it("handles tabs without filePath (untitled tabs)", () => {
     mockTabStore.mockReturnValue({
+      activeTabId: {},
       tabs: {
         win: [
           { kind: "document", filePath: null },
@@ -288,14 +309,14 @@ describe("filterAndRankItems", () => {
     expect(filterAndRankItems(items, "f", 10)).toHaveLength(10);
   });
 
-  it("sorts recent before open before workspace", () => {
+  it("sorts open before recent before workspace", () => {
     const items = [
       { path: "/w.md", filename: "w.md", relPath: "w.md", tier: "workspace" as const, isOpenTab: false },
       { path: "/r.md", filename: "r.md", relPath: "r.md", tier: "recent" as const, isOpenTab: false },
       { path: "/o.md", filename: "o.md", relPath: "o.md", tier: "open" as const, isOpenTab: true },
     ];
     const result = filterAndRankItems(items, "");
-    expect(result.map((r) => r.item.tier)).toEqual(["recent", "open"]);
+    expect(result.map((r) => r.item.tier)).toEqual(["open", "recent"]);
   });
 
   it("returns match data for scored items", () => {
@@ -374,5 +395,86 @@ describe("filterAndRankItems", () => {
   it("returns empty for empty items array", () => {
     expect(filterAndRankItems([], "test")).toEqual([]);
     expect(filterAndRankItems([], "")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WI-TNAV2.4 — MRU ordering, and the dedup bug that made it a no-op.
+// ---------------------------------------------------------------------------
+import { useTabMruStore } from "@/stores/tabMruStore";
+
+const openTabs = (paths: string[]) =>
+  paths.map((filePath, i) => ({ id: `t${i}`, kind: "document", filePath }));
+
+function seedTabs(paths: string[]) {
+  const tabs = openTabs(paths);
+  mockTabStore.mockReturnValue({
+      activeTabId: {},
+    tabs: { win: tabs },
+    getTabsByWindow: (wl: string) => (wl === "win" ? tabs : []),
+  } as any);
+  return tabs;
+}
+
+/** Seed the MRU by tab id, in the order given. */
+function seedMru(tabs: { id: string; filePath: string }[], paths: string[]) {
+  const idFor = (p: string) => tabs.find((t) => t.filePath === p)!.id;
+  useTabMruStore.setState({ lists: { win: paths.map(idFor) } });
+}
+
+describe("QuickOpen — MRU ordering (WI-TNAV2.4)", () => {
+  beforeEach(() => {
+    useTabMruStore.getState().reset();
+  });
+
+  it("puts /r.md LAST at BOTH MRU populations — the cold-start trap (Gap 7)", () => {
+    // One fixture, two populations, because the defect is a BRANCH not a value:
+    // D4 leaves the MRU empty at every cold start, so an
+    // `if (mru.length === 0) return legacyBuild(...)` fallback would preserve
+    // the recents-win dedup that is this work item's entire subject.
+    const run = (mru: string[]) => {
+      const tabs = seedTabs(["/a.md", "/b.md"]);
+      mockRecentFiles.mockReturnValue({ files: [{ path: "/r.md" }] } as any);
+      if (mru.length) seedMru(tabs as never, mru);
+      else useTabMruStore.getState().reset();
+      return filterAndRankItems(buildQuickOpenItems("win", []), "").map((r) => r.item.path);
+    };
+
+    expect(run([])).toEqual(["/a.md", "/b.md", "/r.md"]);
+    expect(run(["/b.md", "/a.md"])).toEqual(["/b.md", "/a.md", "/r.md"]);
+  });
+
+  it("ranks an open file above a more-recent one (the plan's named case)", () => {
+    // RED before the tier swap: recents were emitted first and won dedup, so
+    // both paths were labelled `recent` and the MRU could not reorder them.
+    const tabs = seedTabs(["/a.md", "/b.md"]);
+    mockRecentFiles.mockReturnValue({ files: [{ path: "/b.md" }, { path: "/a.md" }] } as any);
+    seedMru(tabs as never, ["/a.md", "/b.md"]);
+    expect(filterAndRankItems(buildQuickOpenItems("win", []), "")[0].item.path).toBe("/a.md");
+  });
+
+  it("does not hide the rest when the MRU is partial", () => {
+    const tabs = seedTabs(["/a.md", "/b.md", "/c.md"]);
+    seedMru(tabs as never, ["/c.md"]);
+    const paths = filterAndRankItems(buildQuickOpenItems("win", []), "").map((r) => r.item.path);
+    expect(paths[0]).toBe("/c.md");
+    expect(new Set(paths)).toEqual(new Set(["/a.md", "/b.md", "/c.md"]));
+  });
+
+  it("conserves the path set: nothing lost, nothing duplicated", () => {
+    const tabs = seedTabs(["/a.md", "/b.md"]);
+    mockRecentFiles.mockReturnValue({ files: [{ path: "/b.md" }, { path: "/r.md" }] } as any);
+    seedMru(tabs as never, ["/b.md", "/a.md"]);
+    const items = buildQuickOpenItems("win", ["/a.md", "/w.md"]);
+    const paths = items.map((i) => i.path);
+    expect(new Set(paths)).toEqual(new Set(["/a.md", "/b.md", "/r.md", "/w.md"]));
+    expect(paths.length).toBe(new Set(paths).size);
+  });
+
+  it("ignores an MRU entry whose tab is not open", () => {
+    seedTabs(["/a.md"]);
+    useTabMruStore.setState({ lists: { win: ["t99", "t0"] } });
+    const paths = buildQuickOpenItems("win", []).map((i) => i.path);
+    expect(paths).toEqual(["/a.md"]);
   });
 });
