@@ -32,7 +32,7 @@ jobs:
     # 6h default (the neobrowser lesson).
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve the tag under test
         id: tag
