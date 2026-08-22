@@ -83,6 +83,18 @@ import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 
+// Local ResizeObserver shim — `src/test/setup.ts` deliberately defines no
+// global one (see its note). This file renders StatusBarTabStrip, which since
+// WI-TNAV1.2 observes its scroll region.
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
+
 describe("StatusBar accessibility", () => {
   beforeEach(() => {
     useUIStore.setState({ sidebarVisible: false, statusBarVisible: true });

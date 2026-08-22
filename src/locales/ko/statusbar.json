@@ -93,5 +93,8 @@
   "largeFile.opening": "큰 파일을 여는 중({{size}})…",
   "largeFile.openedInSourceMode": "소스 모드로 열림(큰 파일).",
   "largeFile.switchToWysiwyg": "WYSIWYG로 전환",
-  "largeFile.switchToWysiwygAria": "이 문서를 소스 모드에서 WYSIWYG로 전환"
+  "largeFile.switchToWysiwygAria": "이 문서를 소스 모드에서 WYSIWYG로 전환",
+  "tabStrip": "열린 탭",
+  "scrollTabsLeft": "탭을 왼쪽으로 스크롤",
+  "scrollTabsRight": "탭을 오른쪽으로 스크롤"
 }

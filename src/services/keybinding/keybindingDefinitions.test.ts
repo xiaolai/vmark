@@ -1,4 +1,6 @@
 // @vitest-environment node
+// WI-TNAV2.3 — Ctrl-Tab, native-menu-owned.
+// WI-DSPL1.2 — the four pane commands' native menu accelerators.
 // WI-3.2 — re-covers useViewShortcuts' behavior after migration onto the registry:
 // the 18 view mappings, input-suppression, and the terminal-toggle exemption.
 import { describe, it, expect } from "vitest";
@@ -37,7 +39,6 @@ const VIEW_MAP: Array<[string, string]> = [
   ["viewHistory", "view.toggleHistory"],
   ["knowledgeBase", "view.toggleKnowledgeBase"],
   ["markdownSplit", "view.toggleMarkdownSplit"],
-  ["splitDocuments", "view.toggleSplitDocuments"],
 ];
 
 describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
@@ -48,6 +49,23 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
       expect(b.kind === "command" && b.commandId).toBe(commandId);
       expect(b.captureOwner).toBe("window");
       expect(b.ime).toBe("chord-exempt"); // command chords, IME-false-positive-exempt
+    }
+  });
+
+  it("owns the three pane chords natively, not through the window DOM router", () => {
+    // WI-DSPL1.2 gave them native menu accelerators. AppKit dispatches those
+    // regardless of focus, so a DOM binding alongside would double-fire — and
+    // for an involution like the split toggle that means opening and instantly
+    // closing again. `splitDocuments` moved OUT of VIEW_MAP for this reason.
+    for (const [shortcutId, commandId] of [
+      ["splitDocuments", "view.toggleSplitDocuments"],
+      ["closePane", "view.closePane"],
+      ["focusOtherPane", "view.focusOtherPane"],
+    ] as const) {
+      const b = byShortcut(shortcutId);
+      expect(b.kind).toBe("command");
+      expect(b.kind === "command" && b.commandId).toBe(commandId);
+      expect(b.captureOwner).toBe("native-menu");
     }
   });
 
@@ -81,8 +99,18 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
     }
   });
 
-  it("has the 11 global + 1 native + 18 view + 2 explorer + 1 containment bindings", () => {
-    expect(KEYBINDINGS).toHaveLength(33);
+  it("has the 11 global + 5 native + 17 view + 2 explorer + 1 containment bindings", () => {
+    // The second native binding is `lastUsedTab` (WI-TNAV2.3, D7): a DOM
+    // binding is dead while the embedded WKWebView browser holds first
+    // responder, so the native menu accelerator owns the chord.
+    expect(KEYBINDINGS).toHaveLength(36);
+  });
+
+  it("owns lastUsedTab natively, not through the window DOM router", () => {
+    const binding = KEYBINDINGS.find((b) => "shortcutId" in b && b.shortcutId === "lastUsedTab");
+    expect(binding).toBeDefined();
+    expect(binding?.captureOwner).toBe("native-menu");
+    expect(binding && "commandId" in binding && binding.commandId).toBe("tab.lastUsed");
   });
 });
 

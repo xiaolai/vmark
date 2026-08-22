@@ -163,6 +163,11 @@ menu:
   # === View menu ===
   view: "Vista"
   view.wysiwygMode: "Modo WYSIWYG"
+  view.lastUsedTab: "Última pestaña usada"
+  view.splitDocuments: "Dividir editor — dos documentos"
+  view.closePane: "Cerrar panel"
+  view.focusOtherPane: "Enfocar el otro panel"
+  view.syncPaneScroll: "Sincronizar desplazamiento"
   view.sourceMode: "Modo código fuente"
   view.markdownSplit: "Vista dividida de Markdown"
   view.focusMode: "Modo enfoque"

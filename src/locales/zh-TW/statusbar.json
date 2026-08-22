@@ -93,5 +93,8 @@
   "largeFile.opening": "正在開啟大型檔案（{{size}}）…",
   "largeFile.openedInSourceMode": "已以原始碼模式開啟（大型檔案）。",
   "largeFile.switchToWysiwyg": "切換為所見即所得",
-  "largeFile.switchToWysiwygAria": "將目前文件由原始碼模式切換為所見即所得"
+  "largeFile.switchToWysiwygAria": "將目前文件由原始碼模式切換為所見即所得",
+  "tabStrip": "已開啟的分頁",
+  "scrollTabsLeft": "向左捲動分頁",
+  "scrollTabsRight": "向右捲動分頁"
 }

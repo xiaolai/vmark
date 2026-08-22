@@ -93,5 +93,8 @@
   "largeFile.opening": "大きなファイルを開いています（{{size}}）…",
   "largeFile.openedInSourceMode": "ソースモードで開きました（大きなファイル）。",
   "largeFile.switchToWysiwyg": "WYSIWYG に切り替え",
-  "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える"
+  "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える",
+  "tabStrip": "開いているタブ",
+  "scrollTabsLeft": "タブを左にスクロール",
+  "scrollTabsRight": "タブを右にスクロール"
 }

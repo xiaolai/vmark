@@ -93,5 +93,8 @@
   "largeFile.opening": "Abriendo archivo grande ({{size}})…",
   "largeFile.openedInSourceMode": "Abierto en modo Fuente (archivo grande).",
   "largeFile.switchToWysiwyg": "Cambiar a WYSIWYG",
-  "largeFile.switchToWysiwygAria": "Cambiar este documento del modo Fuente a WYSIWYG"
+  "largeFile.switchToWysiwygAria": "Cambiar este documento del modo Fuente a WYSIWYG",
+  "tabStrip": "Pestañas abiertas",
+  "scrollTabsLeft": "Desplazar pestañas a la izquierda",
+  "scrollTabsRight": "Desplazar pestañas a la derecha"
 }

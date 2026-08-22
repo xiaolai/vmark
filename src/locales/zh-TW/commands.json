@@ -190,5 +190,6 @@
   "tab.new": "新增分頁",
   "tab.next": "下一個分頁",
   "tab.prev": "上一個分頁",
+  "tab.lastUsed": "最近使用的分頁",
   "tab.close": "關閉分頁"
 }

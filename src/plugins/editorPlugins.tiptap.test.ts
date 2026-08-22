@@ -137,7 +137,12 @@ describe("buildEditorKeymapBindings", () => {
   it("does NOT bind toggleSidebar in the editor keymap (handled globally to avoid double-toggle)", () => {
     const bindings = buildEditorKeymapBindings();
     const key = useShortcutsStore.getState().getShortcut("toggleSidebar");
-    expect(key).toBe("Ctrl-Shift-0");
+    // Read the chord, never hardcode it: toggleSidebar gained a
+    // `defaultKeyOther` in WI-TNAV0.3 (off macOS `Mod` IS Ctrl, so the macOS
+    // Ctrl-Shift-0 collided with `paragraph`). The claim under test is that
+    // the editor does not bind it, whatever it is — which is how the
+    // transform/blockquote/insertImage siblings above are already written.
+    expect(key).toBeTruthy();
     // toggleSidebar is scope:"global", handled by useViewShortcuts at window level.
     // Binding it here too would double-toggle when both handlers fire.
     expect(bindings[key]).toBeUndefined();

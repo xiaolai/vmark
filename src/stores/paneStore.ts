@@ -30,39 +30,15 @@ import { create } from "zustand";
 import { useTabStore } from "@/stores/tabStore";
 import { onTabRemoved } from "@/stores/tabRemovalBus";
 import { onTabActivated } from "@/stores/tabActivationBus";
+import { DEFAULT_SPLIT } from "@/stores/paneStoreTypes";
+import type { PaneId, SplitOrientation, WindowSplit } from "@/stores/paneStoreTypes";
+import { resolveWindowSplit, clampFraction } from "@/stores/paneStoreHelpers";
 
-export type PaneId = "primary" | "secondary";
-export type SplitOrientation = "horizontal" | "vertical";
-
-/** Resize clamp shared with the divider (mirrors SplitPaneEditor's [0.2, 0.8]). */
-export const MIN_PANE_FRACTION = 0.2;
-export const MAX_PANE_FRACTION = 0.8;
-
-export interface WindowSplit {
-  /** false ⇒ single pane (default); the secondary pane is not rendered. */
-  enabled: boolean;
-  orientation: SplitOrientation;
-  /** Primary pane's size as a fraction of the split axis, in [0.2, 0.8]. */
-  fraction: number;
-  /** The document in the primary (left/top) pane. */
-  primaryTabId: string | null;
-  /** The document in the secondary (right/bottom) pane. */
-  secondaryTabId: string | null;
-  /** Which pane is focused (its tab is mirrored into tabStore.activeTabId). */
-  focusedPane: PaneId;
-  /** Synchronize scrolling between the two panes (off by default). */
-  syncScroll: boolean;
-}
-
-export const DEFAULT_SPLIT: WindowSplit = {
-  enabled: false,
-  orientation: "horizontal",
-  fraction: 0.5,
-  primaryTabId: null,
-  secondaryTabId: null,
-  focusedPane: "primary",
-  syncScroll: false,
-};
+// Shapes live in a leaf module so `paneStoreHelpers` can import them without
+// forming a cycle with this file (dep-cruiser `no-circular`). Re-exported so
+// existing `from "@/stores/paneStore"` imports keep working.
+export { DEFAULT_SPLIT, MIN_PANE_FRACTION, MAX_PANE_FRACTION } from "@/stores/paneStoreTypes";
+export type { PaneId, SplitOrientation, WindowSplit } from "@/stores/paneStoreTypes";
 
 interface PaneState {
   byWindow: Record<string, WindowSplit>;
@@ -74,6 +50,8 @@ interface PaneState {
   setFocusedPane: (windowLabel: string, pane: PaneId) => void;
   /** Set the focused pane's document (e.g. clicking a tab while it's focused). */
   setFocusedPaneTab: (windowLabel: string, tabId: string) => void;
+  /** Put `tabId` in `pane` and focus it, as ONE write with ONE announcement. */
+  showTabInPane: (windowLabel: string, pane: PaneId, tabId: string) => void;
   setFraction: (windowLabel: string, fraction: number) => void;
   setOrientation: (windowLabel: string, orientation: SplitOrientation) => void;
   toggleSyncScroll: (windowLabel: string) => void;
@@ -93,11 +71,6 @@ interface PaneState {
   ) => void;
   /** Drop all state for a window (window closed). */
   removeWindow: (windowLabel: string) => void;
-}
-
-function clampFraction(fraction: number): number {
-  if (Number.isNaN(fraction)) return DEFAULT_SPLIT.fraction;
-  return Math.min(MAX_PANE_FRACTION, Math.max(MIN_PANE_FRACTION, fraction));
 }
 
 function patch(
@@ -167,6 +140,21 @@ export const usePaneStore = create<PaneState>((set, get) => ({
     useTabStore.getState().setActiveTab(windowLabel, tabId);
   },
 
+  showTabInPane: (windowLabel, pane, tabId) => {
+    // ONE write, ONE announcement. Doing this as setFocusedPane +
+    // setFocusedPaneTab announces the pane's DISPLACED tab first, recording a
+    // phantom user activation for a document nobody chose — which lands at the
+    // MRU front and sends `tab.lastUsed` to it.
+    set((s) =>
+      patch(s, windowLabel, (split) => ({
+        ...split,
+        focusedPane: pane,
+        ...(pane === "primary" ? { primaryTabId: tabId } : { secondaryTabId: tabId }),
+      })),
+    );
+    useTabStore.getState().setActiveTab(windowLabel, tabId);
+  },
+
   setFraction: (windowLabel, fraction) =>
     set((s) => patch(s, windowLabel, (split) => ({ ...split, fraction: clampFraction(fraction) }))),
 
@@ -184,17 +172,23 @@ export const usePaneStore = create<PaneState>((set, get) => ({
     // refuses to close a pinned tab (and this runs from the close/detach choke
     // point regardless), so a still-present tab means the removal was declined.
     if (useTabStore.getState().tabs[windowLabel]?.some((t) => t.id === closedTabId)) return;
-    // The closed tab was shown in a pane: collapse to single. tabStore selects
-    // the new activeTabId itself, so we don't touch it here.
+    // R2/D10 — collapse onto the SURVIVOR (may be null: an empty secondary is
+    // legal, and that case is the old collapse). Letting tabStore pick means
+    // closing one of two side-by-side documents discards the layout AND jumps
+    // to an unrelated neighbour, since it chooses by raw strip index.
+    const survivor =
+      closedTabId === split.primaryTabId ? split.secondaryTabId : split.primaryTabId;
     set((s) =>
       patch(s, windowLabel, (sp) => ({
         ...sp,
         enabled: false,
-        primaryTabId: null,
+        primaryTabId: survivor,
         secondaryTabId: null,
         focusedPane: "primary",
       })),
     );
+    // closeTab announces the alias AFTER this reconciles (tabStore.ts:275).
+    if (survivor) useTabStore.getState().setActiveTab(windowLabel, survivor);
   },
 
   replaceWindowSplit: (windowLabel, split, fallbackActiveTabId) => {
@@ -203,22 +197,7 @@ export const usePaneStore = create<PaneState>((set, get) => ({
         .filter((tab) => tab.kind === "document")
         .map((tab) => tab.id),
     );
-    const validPane = (tabId: string | null): string | null =>
-      tabId && liveDocIds.has(tabId) ? tabId : null;
-
-    const primary = validPane(split?.primaryTabId ?? null);
-    const secondary = validPane(split?.secondaryTabId ?? null);
-    const bothValid =
-      Boolean(split?.enabled) && primary !== null && secondary !== null && primary !== secondary;
-
-    let applied: WindowSplit;
-    if (split && bothValid) {
-      applied = { ...split, fraction: clampFraction(split.fraction), primaryTabId: primary, secondaryTabId: secondary };
-    } else {
-      // One survivor collapses to it; none uses the caller's fallback.
-      const survivor = primary ?? secondary ?? validPane(fallbackActiveTabId);
-      applied = { ...DEFAULT_SPLIT, primaryTabId: survivor };
-    }
+    const applied = resolveWindowSplit(split, liveDocIds, fallbackActiveTabId);
     set((s) => ({ byWindow: { ...s.byWindow, [windowLabel]: applied } }));
     // The single alias write (ADR-1): the focused pane's tab, or the collapsed
     // survivor/fallback (possibly null — an empty incoming workspace).

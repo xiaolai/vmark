@@ -9,26 +9,21 @@
  * @module components/Tabs/useTabContextMenuActions
  */
 import { useCallback, useMemo } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTabStore, type Tab } from "@/stores/tabStore";
-import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
+import { type DocumentState } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
 import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "@/services/tabs/tabOperations";
-import { saveToPath } from "@/services/persistence/saveToPath";
-import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
+import { closeOthersIds, closeToRightIds, closeAllUnpinnedIds } from "@/services/tabs/bulkCloseSelectors";
 import { getRelativePath, isWithinRoot } from "@/utils/paths";
+import { tabContextError } from "@/utils/debug";
 import { restoreTransferredTab } from "@/components/StatusBar/tabTransferActions";
-import type { TabTransferPayload } from "@/types/tabTransfer";
-import { buildTransferDocumentFields } from "@/utils/transferLineMetadata";
-import { windowCloseWarn, tabContextError } from "@/utils/debug";
-import { cleanupTabState } from "@/services/windowClose/tabCleanup";
+import { moveTabToNewWindow } from "@/services/tabs/moveTabToNewWindow";
+import { openToTheSide, canOpenToTheSide } from "@/services/tabs/openToTheSide";
+import { restoreTabToDisk, revertTabToSaved } from "@/services/tabs/tabDiskActions";
 import i18n from "@/i18n";
-import { commandErrorMessage } from "@/services/commands/commandError";
 
 /** Definition for a single item in the tab context menu. */
 export interface TabMenuItem {
@@ -81,25 +76,18 @@ export function useTabContextMenuActions({
     onClose();
   }, [onClose, tab.id, windowLabel]);
 
-  const handleCloseOthers = useCallback(async () => {
-    const tabIds = tabs.filter((entry) => entry.id !== tab.id && !entry.isPinned).map((entry) => entry.id);
-    await closeTabsWithDirtyCheck(windowLabel, tabIds);
-    onClose();
-  }, [onClose, tab.id, tabs, windowLabel]);
+  // One lifecycle, three selections — see services/tabs/bulkCloseSelectors.
+  const closeMany = useCallback(
+    async (ids: string[]) => {
+      await closeTabsWithDirtyCheck(windowLabel, ids);
+      onClose();
+    },
+    [onClose, windowLabel],
+  );
 
-  const handleCloseToRight = useCallback(async () => {
-    const tabIds = tabs
-      .filter((entry, index) => index > tabIndex && !entry.isPinned)
-      .map((entry) => entry.id);
-    await closeTabsWithDirtyCheck(windowLabel, tabIds);
-    onClose();
-  }, [onClose, tabIndex, tabs, windowLabel]);
-
-  const handleCloseAllUnpinned = useCallback(async () => {
-    const tabIds = tabs.filter((entry) => !entry.isPinned).map((entry) => entry.id);
-    await closeTabsWithDirtyCheck(windowLabel, tabIds);
-    onClose();
-  }, [onClose, tabs, windowLabel]);
+  const handleCloseOthers = useCallback(() => closeMany(closeOthersIds(tabs, tab.id)), [closeMany, tab.id, tabs]);
+  const handleCloseToRight = useCallback(() => closeMany(closeToRightIds(tabs, tabIndex)), [closeMany, tabIndex, tabs]);
+  const handleCloseAllUnpinned = useCallback(() => closeMany(closeAllUnpinnedIds(tabs)), [closeMany, tabs]);
 
   const handlePin = useCallback(() => {
     useTabStore.getState().togglePin(windowLabel, tab.id);
@@ -112,87 +100,34 @@ export function useTabContextMenuActions({
   }, [onClose, tab.id]);
 
   const handleMoveToNewWindow = useCallback(async () => {
-    if (!doc) {
-      toast.error(i18n.t("dialog:toast.cannotMoveTabNoDoc"));
-      onClose();
-      return;
-    }
-
-    if (windowLabel === "main" && tabs.length <= 1) {
-      toast.error(i18n.t("dialog:toast.cannotMoveLastTab"));
-      onClose();
-      return;
-    }
-
-    const transferData: TabTransferPayload = {
-      tabId: tab.id,
-      title: tab.title,
-      filePath,
-      workspaceRoot: workspaceRoot ?? null,
-      ...buildTransferDocumentFields(doc),
-    };
-
-    try {
-      const createdWindowLabel = await invoke<string>("detach_tab_to_new_window", { data: transferData });
-      useTabStore.getState().detachTab(windowLabel, tab.id);
-      cleanupTabState(tab.id);
-
-      toast.message(i18n.t("dialog:toast.tabMoved", { title: tab.title }), {
-        action: {
-          label: i18n.t("dialog:common.undo"),
-          onClick: () => {
-            void restoreTransferredTab(windowLabel, createdWindowLabel, transferData).catch((error) => {
-              tabContextError(" Undo move-to-new-window failed:", error);
-              toast.error(i18n.t("dialog:toast.undoTabMoveFailed"));
-            });
-          },
-        },
-      });
-
-      const remaining = useTabStore.getState().getTabsByWindow(windowLabel);
-      if (remaining.length === 0 && windowLabel !== "main") {
-        const win = getCurrentWebviewWindow();
-        void invoke("close_window", { label: win.label }).catch((error: unknown) => {
-          windowCloseWarn("Failed to close window:", commandErrorMessage(error));
-        });
-      }
-    } catch (error) {
-      tabContextError(" Move to new window failed:", error);
-      toast.error(i18n.t("dialog:toast.failedToMoveTabToNewWindow"));
-    } finally {
-      onClose();
-    }
-  }, [doc, filePath, onClose, tab.id, tab.title, tabs.length, windowLabel, workspaceRoot]);
+    // Body extracted to services/tabs/moveTabToNewWindow.ts in WI-DSPL1.5:
+    // this file sat exactly on its 300-line-limit baseline (349), so the
+    // "Open to the Side" item had nowhere to go. Detaching a tab is a
+    // multi-step transfer with its own rollback — a service, not a callback.
+    await moveTabToNewWindow({ tab, doc, filePath, tabs, windowLabel, workspaceRoot, restoreTransferredTab });
+    onClose();
+  }, [doc, filePath, onClose, tab, tabs, windowLabel, workspaceRoot]);
 
   const handleRestoreToDisk = useCallback(async () => {
-    /* v8 ignore next -- @preserve defensive guard; item only appears when filePath and doc are both present */
-    if (!filePath || !doc) return;
-    const saved = await saveToPath(tab.id, filePath, doc.content, "manual");
-    if (saved) {
-      useDocumentStore.getState().clearMissing(tab.id);
-      toast.success(i18n.t("dialog:toast.fileRestoredToDisk"));
-    } else {
-      toast.error(i18n.t("dialog:toast.failedToRestoreToDisk"));
-    }
+    await restoreTabToDisk(tab.id, filePath, doc);
     onClose();
   }, [doc, filePath, onClose, tab.id]);
 
   const handleRevertToSaved = useCallback(async () => {
-    /* v8 ignore next -- @preserve defensive guard; item only appears when filePath and doc are both present */
-    if (!filePath || !doc) { onClose(); return; }
-    const confirmed = await ask(
-      i18n.t("dialog:revertToSaved.message", { title: tab.title }),
-      { title: i18n.t("dialog:revertToSaved.title"), kind: "warning" }
-    );
-    if (!confirmed) { onClose(); return; }
-    try {
-      await reloadTabFromDisk(tab.id, filePath);
-      toast.success(i18n.t("dialog:toast.revertedToSaved"));
-    } catch {
-      toast.error(i18n.t("dialog:toast.failedToRevert"));
-    }
+    await revertTabToSaved(tab.id, tab.title, filePath, doc);
     onClose();
   }, [doc, filePath, onClose, tab.id, tab.title]);
+
+  // SUBSCRIBE to the active tab: `canOpenToTheSide` depends on it, and a native
+  // menu or shortcut can change it while this menu is open — an imperative read
+  // left the row's disabled state stale.
+  useTabStore((state) => state.activeTabId[windowLabel] ?? null);
+  const canOpenToSide = canOpenToTheSide(windowLabel, tab.id);
+
+  const handleOpenToTheSide = useCallback(() => {
+    openToTheSide(windowLabel, tab.id);
+    onClose();
+  }, [onClose, tab.id, windowLabel]);
 
   const handleCloseAll = useCallback(async () => {
     const allTabIds = tabs.map((entry) => entry.id);
@@ -251,6 +186,18 @@ export function useTabContextMenuActions({
       label: tab.isPinned ? i18n.t("tabMenu.unpin") : i18n.t("tabMenu.pin"),
       action: handlePin,
     },
+    // Omitted entirely for a browser tab (WI-DSPL1.5): panes hold documents, so
+    // a permanently-disabled row on every browser tab is noise, not affordance.
+    ...(tab.kind === "document"
+      ? [
+          {
+            id: "open-to-side",
+            label: i18n.t("tabMenu.openToSide"),
+            action: handleOpenToTheSide,
+            disabled: !canOpenToSide,
+          },
+        ]
+      : []),
     {
       id: "rename",
       label: i18n.t("tabMenu.rename"),
@@ -335,6 +282,9 @@ export function useTabContextMenuActions({
     handleCopyPath,
     handleCopyRelativePath,
     handleMoveToNewWindow,
+    handleOpenToTheSide,
+    canOpenToSide,
+    tab.kind,
     handlePin,
     handleRename,
     handleRestoreToDisk,

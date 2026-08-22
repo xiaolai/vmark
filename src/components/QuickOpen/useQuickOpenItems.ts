@@ -5,6 +5,7 @@
 
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { tabFilePath } from "@/stores/tabStore";
+import { useTabMruStore } from "@/stores/tabMruStore";
 import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { fuzzyMatch, type FuzzyMatchResult } from "./fuzzyMatch";
@@ -31,7 +32,42 @@ export interface RankedItem {
   match: FuzzyMatchResult | null;
 }
 
-const TIER_ORDER: Record<QuickOpenTier, number> = { recent: 0, open: 1, workspace: 2 };
+// WI-TNAV2.4: `open` outranks `recent`. Ordering the open tier by MRU is a
+// NO-OP without this, and the reason is subtle: recents were emitted first and
+// won dedup (`addItem` lets the first tier claim a path), while ordinary file
+// opening ADDS the path to recents (`loadFileIntoTab.ts:20`) — so almost every
+// open file was labelled `recent` and never reached the open tier at all.
+const TIER_ORDER: Record<QuickOpenTier, number> = { open: 0, recent: 1, workspace: 2 };
+
+/**
+ * The window's open paths, most-recently-used first, with any path the MRU does
+ * not mention appended in tab order. Falling back rather than dropping matters:
+ * the MRU is NOT persisted (D4), so it is empty at every cold start — an
+ * implementation that emitted only MRU-known paths would hide every open tab on
+ * the first Quick Open after launch.
+ */
+function openPathsInMruOrder(windowLabel: string, openPathSet: Set<string>): string[] {
+  const byId = new Map<string, string>();
+  for (const tab of visibleWindowTabs(windowLabel)) {
+    const path = tabFilePath(tab);
+    if (path && openPathSet.has(path)) byId.set(tab.id, path);
+  }
+  // A companion Set keeps membership O(1) while the array keeps the order —
+  // `ordered.includes` made this quadratic on every keystroke-free rebuild.
+  const ordered: string[] = [];
+  const emitted = new Set<string>();
+  const push = (path: string): void => {
+    if (emitted.has(path)) return;
+    emitted.add(path);
+    ordered.push(path);
+  };
+  for (const key of useTabMruStore.getState().keys(windowLabel)) {
+    const path = byId.get(key);
+    if (path) push(path);
+  }
+  for (const path of openPathSet) push(path);
+  return ordered;
+}
 
 function getRelativePath(path: string, rootPath: string | null): string {
   // Delegate to the shared, separator-normalizing helper so workspace files
@@ -90,14 +126,15 @@ export function buildQuickOpenItems(
     });
   };
 
-  // Tier 1: Recent files (highest priority in dedup)
-  for (const rf of recentFiles) {
-    addItem(rf.path, "recent", openPathSet.has(rf.path));
+  // Tier 1: Open tabs, in MRU order — they claim their paths before recents,
+  // which is what makes the MRU ordering observable at all.
+  for (const path of openPathsInMruOrder(windowLabel, openPathSet)) {
+    addItem(path, "open", true);
   }
 
-  // Tier 2: Open tabs (deduped against recent)
-  for (const path of openPathSet) {
-    addItem(path, "open", true);
+  // Tier 2: Recent files (deduped against open)
+  for (const rf of recentFiles) {
+    addItem(rf.path, "recent", openPathSet.has(rf.path));
   }
 
   // Tier 3: Workspace files (deduped against recent + open)

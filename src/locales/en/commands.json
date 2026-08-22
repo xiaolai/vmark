@@ -190,5 +190,6 @@
   "tab.new": "New Tab",
   "tab.next": "Next Tab",
   "tab.prev": "Previous Tab",
+  "tab.lastUsed": "Last Used Tab",
   "tab.close": "Close Tab"
 }

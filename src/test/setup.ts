@@ -28,6 +28,19 @@ vi.stubGlobal("__VMARK_VERSION__", "0.0.0-test");
 // genuinely need ResizeObserver (xyflow in WorkflowCanvas) provide their own
 // local, callback-firing shim. matchMedia is likewise shimmed per-test.
 
+// jsdom implements no Element.prototype.scrollIntoView at all. Unlike the
+// ResizeObserver case above, a no-op here has no downstream consequence: it
+// gates no render path and unblocks no code that would then hit a *further*
+// missing API.
+//
+// It does mean a scroll is INVISIBLE to any test that does not spy. WI-TNAV1.3
+// exists to make the active tab scroll into view, so its effect test
+// (`useScrollActiveTabIntoView.test.tsx`) replaces this with a spy rather than
+// relying on the no-op — otherwise the feature would be unverifiable here.
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
 // react-i18next global mock
 // Makes t(key, opts) return the English translation string with interpolations
 // applied, so component tests can assert against real English text.

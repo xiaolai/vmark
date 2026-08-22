@@ -17,6 +17,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { cycleTabId } from "@/utils/tabCycling";
+import { lastUsedTabId } from "@/services/tabs/lastUsedTab";
 import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
 import { fileOpsError } from "@/utils/debug";
 import i18n from "@/i18n";
@@ -60,6 +61,18 @@ function buildTabCommandSpecs(): CommandDefinition[] {
       },
     });
   }
+
+  specs.push({
+    id: "tab.lastUsed",
+    title: () => i18n.t("commands:tab.lastUsed"),
+    category: "file",
+    run: (_a, ctx: Ctx) => {
+      const windowLabel = wl(ctx);
+      // D12: a null target is a deliberate no-op, never a positional fallback.
+      const target = lastUsedTabId(windowLabel);
+      if (target) useTabStore.getState().setActiveTab(windowLabel, target);
+    },
+  });
 
   specs.push({
     id: "tab.close",

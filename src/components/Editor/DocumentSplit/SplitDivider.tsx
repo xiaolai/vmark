@@ -9,6 +9,12 @@
 import { useTranslation } from "react-i18next";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { SplitOrientation } from "@/stores/paneStore";
+// The clamp is DERIVED, not restated. Home/End and the ARIA range were
+// separately hardcoded as 0.2/0.8 and 20/80, so a change to the store
+// constants would have moved the drag limit while leaving this keyboard jump
+// and the announced range pointing at the old bounds — silently, and only for
+// keyboard and screen-reader users.
+import { MIN_PANE_FRACTION, MAX_PANE_FRACTION } from "@/stores/paneStoreTypes";
 
 const KEYBOARD_STEP = 0.05;
 
@@ -57,10 +63,10 @@ export function SplitDivider({ orientation, fraction, onResize }: SplitDividerPr
       onResize(fraction + KEYBOARD_STEP);
     } else if (e.key === "Home") {
       e.preventDefault();
-      onResize(0.2);
+      onResize(MIN_PANE_FRACTION);
     } else if (e.key === "End") {
       e.preventDefault();
-      onResize(0.8);
+      onResize(MAX_PANE_FRACTION);
     }
   };
 
@@ -72,8 +78,8 @@ export function SplitDivider({ orientation, fraction, onResize }: SplitDividerPr
       aria-orientation={horizontal ? "vertical" : "horizontal"}
       aria-label={t("split.dividerLabel")}
       aria-valuenow={Math.round(fraction * 100)}
-      aria-valuemin={20}
-      aria-valuemax={80}
+      aria-valuemin={Math.round(MIN_PANE_FRACTION * 100)}
+      aria-valuemax={Math.round(MAX_PANE_FRACTION * 100)}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
     />

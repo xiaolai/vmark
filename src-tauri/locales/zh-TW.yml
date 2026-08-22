@@ -163,6 +163,11 @@ menu:
   # === 檢視選單 ===
   view: "檢視"
   view.wysiwygMode: "所見即所得模式"
+  view.lastUsedTab: "最近使用的分頁"
+  view.splitDocuments: "分割編輯器 — 兩個文件"
+  view.closePane: "關閉窗格"
+  view.focusOtherPane: "聚焦另一個窗格"
+  view.syncPaneScroll: "同步窗格捲動"
   view.sourceMode: "原始碼模式"
   view.markdownSplit: "Markdown 分割檢視"
   view.focusMode: "專注模式"

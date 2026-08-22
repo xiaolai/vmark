@@ -180,5 +180,7 @@
   "workspaceRail.menu.duplicate": "複製",
   "workspaceRail.menu.moveToNewWindow": "新しいウィンドウに移動",
   "sites.wikipedia.name": "ウィキペディア",
-  "browser.aiControlling": "AIが操作中 — クリックして操作を引き継ぐ"
+  "browser.aiControlling": "AIが操作中 — クリックして操作を引き継ぐ",
+  "tab.otherPane": "もう一方のエディタペインに表示中",
+  "tabMenu.openToSide": "横に開く"
 }

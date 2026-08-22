@@ -377,3 +377,57 @@ Auto-pair insertion is also disabled inside code blocks for both WYSIWYG and Sou
 4. **Shift + Tab** — The mirror of Tab. Escapes backward from marks, links, and opening brackets. In tables, moves to the previous cell. In lists, outdents the item.
 
 5. **Multi-cursor** — Tab escape works with all your cursors simultaneously, making bulk edits even faster.
+
+## Switching between open tabs
+
+Tabs live in the status bar at the bottom of the window. Three ways to move
+between them:
+
+| Action | Shortcut | Notes |
+|---|---|---|
+| Last Used Tab | `Ctrl + Tab` | Jumps to the tab you were in before this one. Press it again to come straight back. |
+| Next / Previous Tab | `Mod + Shift + ]` / `Mod + Shift + [` | Moves along the strip in order, regardless of what you used recently. |
+| Quick Open | `Mod + O` | Type to filter. Open tabs are listed first, most recently used at the top. |
+
+**Last Used Tab is a toggle, not a cycle.** It takes you to the document you
+were in most recently, and pressing it a second time returns you to where you
+started — the fast way to work between two files. Next and Previous Tab walk
+the strip positionally instead, which is what you want when you are looking for
+something rather than going back to it.
+
+It is a menu item as well as a shortcut (**View → Last Used Tab**), which is
+what lets it keep working while the embedded browser has keyboard focus.
+
+### When you have more tabs than fit
+
+The tab strip scrolls. When there are tabs off either edge, the strip fades at
+that edge and a small arrow appears — click it to scroll a screenful. Switching
+tabs by any means also scrolls the new tab into view, so the highlighted tab is
+never hidden off-screen.
+
+The strip itself is keyboard-reachable: Tab to it and use the arrow keys.
+
+## Two documents side by side
+
+**View → Split Editor — Two Documents** (`Alt + Mod + \`) puts a second
+document beside the current one. To choose which document, right-click any tab
+and pick **Open to the Side**.
+
+| Action | Shortcut |
+|---|---|
+| Split Editor — Two Documents | `Alt + Mod + \` |
+| Close Pane | `Alt + Mod + Shift + \` |
+| Focus Other Pane | `Alt + Mod + Shift + O` |
+| Sync Pane Scroll | *(no default)* |
+
+Notes on how it behaves:
+
+- The tab showing in the **other** pane is marked in the tab strip with a faint
+  underline, so you can always tell which two documents are on screen and which
+  one your typing will go to.
+- **Closing one of the two collapses onto the other**, rather than jumping you
+  to an unrelated tab. Your remaining document stays put.
+- **Sync Pane Scroll** ties the two panes' scrolling together proportionally.
+  It is off by default and is per-split.
+- Splitting needs two documents open. Browser tabs are not documents, so the
+  split does not apply to them.

@@ -1,3 +1,5 @@
+// WI-TNAV0.3 — canonical duplicate-chord detection.
+// WI-DSPL1.3 — the closePane / focusOtherPane chords, verified free under it.
 /**
  * Default shortcut table invariants.
  *
@@ -13,17 +15,29 @@
  */
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SHORTCUTS } from "./shortcutDefinitions";
+import { canonicalizeChordString, type Platform } from "@/utils/keybinding/canonicalChord";
 
 /** Effective default chord on Windows/Linux (`defaultKeyOther` wins). */
 function otherPlatformKey(s: (typeof DEFAULT_SHORTCUTS)[number]): string {
   return s.defaultKeyOther ?? s.defaultKey;
 }
 
-function duplicates(pairs: { id: string; key: string }[]): string[] {
+function duplicates(
+  pairs: { id: string; key: string }[],
+  platform: Platform,
+): string[] {
   const byKey = new Map<string, string[]>();
   for (const { id, key } of pairs) {
     if (!key) continue; // deliberately unbound — many, and they cannot collide
-    byKey.set(key, [...(byKey.get(key) ?? []), id]);
+    // Key on the CANONICAL chord, never the raw string. `Alt-Mod-]` and
+    // `Mod-Alt-]` are ONE accelerator written two ways, and `Mod` resolves to
+    // ctrl off macOS, so `Mod-Shift-0` and `Ctrl-Shift-0` are one chord there.
+    // A raw-string map counts each pair as two distinct keys and reports
+    // nothing — while the native menu silently disables one of the two items.
+    // An unparseable chord keys on itself, so a typo is still reported rather
+    // than collapsing every bad chord into one bucket.
+    const canonical = canonicalizeChordString(key, platform) ?? `unparsed:${key}`;
+    byKey.set(canonical, [...(byKey.get(canonical) ?? []), id]);
   }
   return [...byKey.entries()]
     .filter(([, ids]) => ids.length > 1)
@@ -41,7 +55,10 @@ describe("DEFAULT_SHORTCUTS", () => {
 
   it("assigns each macOS default chord to at most one shortcut", () => {
     expect(
-      duplicates(DEFAULT_SHORTCUTS.map((s) => ({ id: s.id, key: s.defaultKey }))),
+      duplicates(
+        DEFAULT_SHORTCUTS.map((s) => ({ id: s.id, key: s.defaultKey })),
+        "mac",
+      ),
     ).toEqual([]);
   });
 
@@ -49,7 +66,34 @@ describe("DEFAULT_SHORTCUTS", () => {
     expect(
       duplicates(
         DEFAULT_SHORTCUTS.map((s) => ({ id: s.id, key: otherPlatformKey(s) })),
+        "other",
       ),
     ).toEqual([]);
+  });
+
+  // WI-TNAV0.3 — the detector's own guard. Before canonicalization it keyed a
+  // Map on the raw string, so both cases below reported ZERO duplicates while
+  // the native menu would silently disable one item of each pair.
+  it("detects a duplicate chord written with a different modifier order", () => {
+    expect(
+      duplicates(
+        [
+          { id: "alpha", key: "Alt-Mod-]" },
+          { id: "beta", key: "Mod-Alt-]" },
+        ],
+        "mac",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("detects Mod colliding with Ctrl off macOS, where Mod IS Ctrl", () => {
+    const pairs = [
+      { id: "alpha", key: "Mod-Shift-0" },
+      { id: "beta", key: "Ctrl-Shift-0" },
+    ];
+    // Distinct on macOS (meta vs ctrl) …
+    expect(duplicates(pairs, "mac")).toEqual([]);
+    // … and one chord on Windows/Linux.
+    expect(duplicates(pairs, "other")).toHaveLength(1);
   });
 });

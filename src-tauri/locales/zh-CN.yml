@@ -163,6 +163,11 @@ menu:
   # === 视图菜单 ===
   view: "视图"
   view.wysiwygMode: "所见即所得模式"
+  view.lastUsedTab: "最近使用的标签页"
+  view.splitDocuments: "拆分编辑器 — 两个文档"
+  view.closePane: "关闭窗格"
+  view.focusOtherPane: "聚焦另一个窗格"
+  view.syncPaneScroll: "同步窗格滚动"
   view.sourceMode: "源代码模式"
   view.markdownSplit: "Markdown 分屏视图"
   view.focusMode: "专注模式"

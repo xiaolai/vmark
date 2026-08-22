@@ -128,14 +128,17 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === View ===
   // toggleSidebar: no menuId (a Rust accel would clash with `paragraph` Mod-Shift-0 on Win/Linux); owned by the window-scoped KEYBINDINGS registry, never the TipTap keymap, to avoid double-toggle.
-  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-0" },
+  { id: "toggleSidebar", label: "Toggle Sidebar", category: "view", defaultKey: "Ctrl-Shift-0", defaultKeyOther: "Alt-Shift-0" },  // Alt off macOS: `Mod` IS Ctrl there, so Ctrl-Shift-0 would be the same accelerator as `paragraph`'s Mod-Shift-0 (WI-TNAV0.3). Same resolution the transform* trio already uses.
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline" },
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history" },
   { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", description: "Open the local knowledge-base inspector panel" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode", description: "Show source (markdown WYSIWYG⇄Source; split-pane formats Source⇄Split)" },
   { id: "markdownSplit", label: "Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", description: "Toggle split view (markdown split; split-pane formats Preview⇄Split)" },
-  { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", description: "Open two different documents side by side (#1081)" },
+  { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", menuId: "split-documents", description: "Open two different documents side by side (#1081)" },
+  { id: "closePane", label: "Close Pane", category: "view", defaultKey: "Alt-Mod-Shift-\\", menuId: "close-pane", description: "Collapse the split back to a single pane" },
+  { id: "focusOtherPane", label: "Focus Other Pane", category: "view", defaultKey: "Alt-Mod-Shift-o", menuId: "focus-other-pane", description: "Move focus to the other split pane" },
+  { id: "syncPaneScroll", label: "Sync Pane Scroll", category: "view", defaultKey: "", menuId: "sync-pane-scroll", description: "Scroll both split panes together (off by default)" },
   { id: "toggleStatusBar", label: "Toggle Status Bar", category: "view", defaultKey: "F7", description: "Show/hide the status bar" },
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode" },
   { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode" },
@@ -165,6 +168,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", menuId: "new-browser-tab", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
   { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab" },
   { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab" },
+  { id: "lastUsedTab", label: "Last Used Tab", category: "view", defaultKey: "Ctrl-Tab", menuId: "last-used-tab", description: "Jump back to the most recently used tab (D13: the first MRU entry that is not the current tab)" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new" },
   { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window" },
   { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open" },

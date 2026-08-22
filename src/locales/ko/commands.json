@@ -190,5 +190,6 @@
   "tab.new": "새 탭",
   "tab.next": "다음 탭",
   "tab.prev": "이전 탭",
+  "tab.lastUsed": "마지막으로 사용한 탭",
   "tab.close": "탭 닫기"
 }

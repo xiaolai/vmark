@@ -190,5 +190,6 @@
   "tab.new": "Neuer Tab",
   "tab.next": "Nächster Tab",
   "tab.prev": "Vorheriger Tab",
+  "tab.lastUsed": "Zuletzt verwendeter Tab",
   "tab.close": "Tab schließen"
 }

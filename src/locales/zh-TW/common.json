@@ -180,5 +180,7 @@
   "workspaceRail.menu.duplicate": "複製",
   "workspaceRail.menu.moveToNewWindow": "移至新視窗",
   "sites.wikipedia.name": "維基百科",
-  "browser.aiControlling": "AI 正在控制 — 點擊接管"
+  "browser.aiControlling": "AI 正在控制 — 點擊接管",
+  "tab.otherPane": "顯示在另一個編輯器窗格中",
+  "tabMenu.openToSide": "在旁邊開啟"
 }

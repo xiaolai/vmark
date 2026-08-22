@@ -34,7 +34,7 @@ const {
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
-    getState: () => ({ createTab: mockCreateTab, detachTab: mockDetachTab }),
+    getState: () => ({ tabs: {}, activeTabId: {}, createTab: mockCreateTab, detachTab: mockDetachTab }),
   },
 }));
 vi.mock("@/stores/documentStore", () => ({

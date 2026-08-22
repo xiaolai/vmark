@@ -166,6 +166,10 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Zoom In | `Mod + =` |
 | Zoom Out | `Mod + -` |
 | Word Wrap | `Alt + Z` |
+| Last Used Tab | `Ctrl + Tab` |
+| Split Editor — Two Documents | `Alt + Mod + \` |
+| Close Pane | `Alt + Mod + Shift + \` |
+| Focus Other Pane | `Alt + Mod + Shift + O` |
 | Toggle Sidebar | `Ctrl + Shift + 0` |
 | Toggle Outline | `Ctrl + Shift + 1` |
 | Toggle File Explorer | `Ctrl + Shift + 2` |
@@ -241,6 +245,10 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 
 ::: tip Windows/Linux Note
 Toggle Hidden Files uses `Ctrl + H` on Windows and Linux.
+
+Toggle Sidebar uses `Alt + Shift + 0` on Windows and Linux, because `Mod` is
+Ctrl there — so the macOS chord `Ctrl + Shift + 0` would collide with
+Paragraph's `Mod + Shift + 0`.
 :::
 
 ::: tip New Browser Tab

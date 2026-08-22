@@ -23,6 +23,7 @@ import { findExistingTabForPath } from "@/services/tabs/findExistingTabForPath";
 import { tryOpenMediaFile } from "@/services/navigation/openMediaFile";
 import { getReplaceableTab } from "@/services/tabs/replaceableTab";
 import { workspaceWarn } from "@/utils/debug";
+import { collapseMruToActive } from "@/stores/tabMruStore";
 
 /**
  * Is `tabId` STILL the clean untitled tab it was when we probed for it?
@@ -140,6 +141,14 @@ export async function restoreWorkspaceTabs(
   if (created > 0 && replaceable && stillReplaceable(windowLabel, replaceable.tabId)) {
     useTabStore.getState().closeTab(windowLabel, replaceable.tabId);
   }
+
+  // WI-TNAV2.5 — every `createTab` above ACTIVATES, so without this the session
+  // opens with an MRU in reverse-restore order that the user never produced,
+  // and the first `Ctrl+Tab` jumps somewhere arbitrary. Hot-exit restore has
+  // the same shape and the same fix; this is the second path, which the first
+  // pass missed. Declarative rather than a scoped origin because this loop
+  // `await`s per path, and a module-level scope would leak across the await.
+  if (created > 0) collapseMruToActive(windowLabel);
   return created;
 }
 

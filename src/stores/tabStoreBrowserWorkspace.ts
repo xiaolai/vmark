@@ -1,6 +1,7 @@
 import type { BrowserAutomationMode, Tab } from "./tabStoreTypes";
 import { browserTabUrl, findBrowserTab, makeBrowserTab } from "./tabStoreBrowser";
 import { generateTabId } from "./tabStoreHelpers";
+import { notifyTabActivated } from "./tabActivationBus";
 
 type BrowserStoreState = {
   tabs: Record<string, Tab[]>;
@@ -50,6 +51,11 @@ function addBrowserPage(
       lastActiveBrowserPageId: { ...state.lastActiveBrowserPageId, [windowLabel]: id },
     };
   });
+  // WI-TNAV0.1 (F5) — this helper WRITES activeTabId, so it owns the
+  // announcement. Routing it through the caller instead is what let both
+  // browser entry points bypass the bus: no MRU could see a browser
+  // activation, and paneStore's split convergence silently skipped them.
+  notifyTabActivated(windowLabel, returnId);
   return returnId;
 }
 
