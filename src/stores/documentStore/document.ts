@@ -164,6 +164,13 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   markDivergent: (tabId) =>
     set((state) => updateDoc(state, tabId, () => ({ isDivergent: true }))),
 
+  // Binary reload: the counter moves, no text field does. See the contract for
+  // why this is `documentId` rather than a second per-document flag.
+  markBinaryFileChanged: (tabId) =>
+    set((state) =>
+      updateDoc(state, tabId, (doc) => ({ documentId: doc.documentId + 1 }))
+    ),
+
   setReadOnly: (tabId, readOnly) =>
     set((state) => updateDoc(state, tabId, () => ({ readOnly }))),
 

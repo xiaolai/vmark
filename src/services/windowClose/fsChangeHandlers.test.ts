@@ -23,6 +23,7 @@ function makeContext(over: Partial<FsChangeContext> = {}): FsChangeContext {
     handleDeletion: vi.fn(),
     isMissing: vi.fn(() => false),
     clearMissing: vi.fn(),
+    markBinaryFileChanged: vi.fn(),
     ...over,
   };
 }
@@ -318,6 +319,91 @@ describe("handleSemanticBatch", () => {
     expect(readTextFile).not.toHaveBeenCalled();
   });
 
+  it("announces a media modify so the viewer re-fetches the bytes (#1328)", async () => {
+    // The regression: this branch used to `continue` on the reasoning that
+    // "the asset URL already points at the fresh bytes". It does — but an
+    // <img> whose src attribute never changes never refetches, so the viewer
+    // kept showing the bytes it decoded when the tab opened.
+    const readTextFile = vi.fn(async () => "x");
+    const ctx = makeContext({ readTextFile, isMedia: () => true });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "modified" })], () => map);
+
+    expect(ctx.markBinaryFileChanged).toHaveBeenCalledWith("tab-p");
+    // Still never reads the binary — it could be a multi-GB video.
+    expect(readTextFile).not.toHaveBeenCalled();
+    expect(ctx.handleModifyEvent).not.toHaveBeenCalled();
+  });
+
+  it("announces a media re-create as well as clearing missing", async () => {
+    // A file deleted and rewritten is new bytes just as much as an in-place
+    // rewrite. Clearing `isMissing` alone re-renders the same stale URL.
+    const ctx = makeContext({ isMedia: () => true, isMissing: () => true });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "created" })], () => map);
+
+    expect(ctx.clearMissing).toHaveBeenCalledWith("tab-p");
+    expect(ctx.markBinaryFileChanged).toHaveBeenCalledWith("tab-p");
+  });
+
+  it("announces a media create even when the tab was never missing", async () => {
+    // Watchers emit `created` for atomic replacements (write-temp-then-rename)
+    // of a file that never disappeared, so the refresh must not be gated on
+    // the missing flag the way `clearMissing` is.
+    const ctx = makeContext({ isMedia: () => true, isMissing: () => false });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "created" })], () => map);
+
+    expect(ctx.clearMissing).not.toHaveBeenCalled();
+    expect(ctx.markBinaryFileChanged).toHaveBeenCalledWith("tab-p");
+  });
+
+  it("does not announce a media change for our own pending save", async () => {
+    const ctx = makeContext({ isMedia: () => true, hasPendingSave: () => true });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "modified" })], () => map);
+
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
+  });
+
+  it("still clears missing on a re-create during our own pending save", async () => {
+    // The pending-save filter is about the REFRESH, and must not narrow the
+    // pre-existing recovery: a file that is back is back whoever wrote it.
+    const ctx = makeContext({
+      isMedia: () => true,
+      isMissing: () => true,
+      hasPendingSave: () => true,
+    });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/pic.png", kind: "created" })], () => map);
+
+    expect(ctx.clearMissing).toHaveBeenCalledWith("tab-p");
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
+  });
+
+  it("does not announce a media change for a file no tab has open", async () => {
+    const ctx = makeContext({ isMedia: () => true });
+    await handleSemanticBatch(
+      ctx,
+      [evt({ path: "/ws/other.png", kind: "modified" })],
+      () => new Map<string, string>(),
+    );
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
+  });
+
+  it("leaves text documents on the text path", async () => {
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "edited") });
+    const map = new Map<string, string>([["/ws/a.md", "tab-a"]]);
+    await handleSemanticBatch(ctx, [evt({ path: "/ws/a.md", kind: "modified" })], () => map);
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
+    expect(ctx.handleModifyEvent).toHaveBeenCalledWith("tab-a", "/ws/a.md", "edited");
+  });
+
   it("handles a mixed batch (rename + modify) in one pass", async () => {
     const ctx = makeContext({ readTextFile: vi.fn(async () => "edited") });
     const map = new Map<string, string>([
@@ -334,6 +420,48 @@ describe("handleSemanticBatch", () => {
     );
     expect(ctx.applyRename).toHaveBeenCalledWith("tab-b", "/ws/new.md");
     expect(ctx.handleModifyEvent).toHaveBeenCalledWith("tab-a", "/ws/a.md", "edited");
+  });
+
+  // Audit finding #1 (2026-08-25). An atomic replacement — write temp, rename
+  // over the target — reaches an open media tab through the RENAME fallback,
+  // not the modify branch. That path existence-probed the file and returned,
+  // so the viewer kept rendering the bytes it had already decoded: the exact
+  // #1328 defect, still live on a second path after the modify branch was
+  // fixed. Editors and image tools use atomic replacement by default, so this
+  // is the COMMON way a picture changes, not an exotic one.
+  it("announces a media change when an atomic rename replaces the file", async () => {
+    const ctx = makeContext({ isMedia: () => true, fileExists: vi.fn(async () => true) });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleRenameEvent(ctx, ["/ws/pic.png"], map);
+
+    expect(ctx.markBinaryFileChanged).toHaveBeenCalledWith("tab-p");
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
+  });
+
+  it("marks a renamed-away media file missing instead of announcing a change", async () => {
+    const ctx = makeContext({ isMedia: () => true, fileExists: vi.fn(async () => false) });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleRenameEvent(ctx, ["/ws/pic.png"], map);
+
+    expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-p");
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
+  });
+
+  it("announces nothing when the media existence probe is ambiguous", async () => {
+    // An unreadable probe is not evidence either way. Announcing a change would
+    // make the viewer re-fetch a file we cannot confirm exists.
+    const ctx = makeContext({
+      isMedia: () => true,
+      fileExists: vi.fn(async () => { throw new Error("EPERM"); }),
+    });
+    const map = new Map<string, string>([["/ws/pic.png", "tab-p"]]);
+
+    await handleRenameEvent(ctx, ["/ws/pic.png"], map);
+
+    expect(ctx.handleDeletion).not.toHaveBeenCalled();
+    expect(ctx.markBinaryFileChanged).not.toHaveBeenCalled();
   });
 
   it("does not mis-pair a paired rename that follows an unpaired one", async () => {

@@ -18,6 +18,10 @@
  * waits for Reload — re-executing a document is an action the user takes, and a
  * running simulation surviving a keystroke is the behaviour the feature is for.
  *
+ * The corollary, and the thing issue #1328 was: when the pane cannot know what
+ * the frame is running — a remount, or a file trusted earlier in the session —
+ * it says so rather than claiming currency. It still does not act.
+ *
  * @module lib/formats/adapters/HtmlPreview
  */
 
@@ -76,9 +80,11 @@ export function HtmlPreview({
   const [error, setError] = useState<string | null>(null);
 
   // A pane can render a different document without remounting, and `ran`
-  // describes the PREVIOUS one. Left alone it reports a freshly-opened trusted
-  // file as stale against content it never ran. Adjusted during render rather
-  // than in an effect, same as HtmlTrustBar's confirmation reset.
+  // describes the PREVIOUS one — so it must be cleared, or the new file would
+  // be judged against content that belongs to another document entirely.
+  // Clearing means "unknown", which now reads as possibly-stale rather than as
+  // current (see the `stale` note below). Adjusted during render rather than in
+  // an effect, same as HtmlTrustBar's confirmation reset.
   const [ranPath, setRanPath] = useState(path);
   if (ranPath !== path) {
     setRanPath(path);
@@ -91,7 +97,22 @@ export function HtmlPreview({
   // `content`: executing the document the user can no longer see would be a
   // correctness bug, and comparing against a lagging value would report a
   // freshly-reloaded preview as stale.
-  const stale = trusted && ran !== null && ran !== liveContent;
+  //
+  // UNKNOWN IS NOT CURRENT (issue #1328). `ran === null` means this pane does
+  // not know what the frame is running — after a remount, or after switching to
+  // a file trusted earlier in the session. It is NOT evidence that the frame is
+  // up to date: the grant lives in a module-level store keyed by path, so it
+  // outlives the component, and the frame reloads and re-executes whatever that
+  // token still holds. The guard used to be `ran !== null && ran !== liveContent`,
+  // which rendered that uncertainty as a clean bill of health — a user who
+  // closed and reopened a trusted tab saw superseded output with no stale
+  // marker and no reason to press Reload. Comparing `null` against a string is
+  // the whole fix: unknown compares unequal, so it reports.
+  //
+  // Reporting is ALL this does. Nothing here publishes or re-runs; making the
+  // preview match the file stays an explicit user action (Reload), so content
+  // that changed since the user authorized it never executes on its own.
+  const stale = trusted && ran !== liveContent;
 
   /**
    * One guarded runner for both actions.

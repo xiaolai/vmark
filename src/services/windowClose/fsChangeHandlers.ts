@@ -10,6 +10,8 @@
  *
  * @coordinates-with useExternalFileChanges.ts — sole caller; builds the context
  * @coordinates-with services/workspaceEvents — handleSemanticBatch consumes its SemanticWorkspaceEvent
+ * @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — the media
+ *   branch's markBinaryFileChanged is what makes that surface re-fetch (#1328)
  * @module services/windowClose/fsChangeHandlers
  */
 
@@ -48,6 +50,12 @@ export interface FsChangeContext {
   isMissing: (tabId: string) => boolean;
   /** Clear a tab's missing flag (e.g. a media file reappeared on disk). */
   clearMissing: (tabId: string) => void;
+  /**
+   * Announce that a BINARY document's bytes changed on disk, so its viewer
+   * re-fetches them. Text documents never use this — they carry their content
+   * in the store and go through {@link FsChangeContext.handleModifyEvent}.
+   */
+  markBinaryFileChanged: (tabId: string) => void;
 }
 
 /**
@@ -95,10 +103,18 @@ export async function handleRenameEvent(
 
     // Media tabs stream from asset:// and hold no text — never read the binary
     // to probe existence (it could be a multi-GB video). Existence-probe only;
-    // an ambiguous probe error is treated conservatively (do NOT mark missing).
+    // an ambiguous probe error is treated conservatively (do NOT mark missing,
+    // and do NOT announce a change for a file we cannot confirm is there).
+    //
+    // A file that IS still present got here because a rename replaced it —
+    // which is how an atomic write lands, and therefore how most tools rewrite
+    // a picture. It is new bytes under an unchanged path, so it needs the same
+    // announcement the modify branch makes; without it the viewer keeps
+    // rendering what it decoded at open time (issue #1328, audit finding #1).
     if (ctx.isMedia(changedPath)) {
       try {
-        if (!(await ctx.fileExists(changedPath))) ctx.handleDeletion(tabId);
+        if (await ctx.fileExists(changedPath)) ctx.markBinaryFileChanged(tabId);
+        else ctx.handleDeletion(tabId);
       } catch {
         /* ambiguous probe error — leave the tab as-is, don't flag missing */
       }
@@ -230,10 +246,23 @@ export async function handleSemanticBatch(
       continue;
     }
     if (isMedia) {
-      // A media `create` means a deleted file reappeared — clear missing so the
-      // viewer re-streams via asset://. `modify` needs no action (the asset URL
-      // already points at the fresh bytes). Never read the binary.
+      // A media `create` can mean a deleted file reappeared — clear missing so
+      // the viewer leaves its "file is gone" state. Unconditional, as it has
+      // always been: a file that is back is back whoever wrote it.
       if (event.kind === "created" && ctx.isMissing(tabId)) ctx.clearMissing(tabId);
+      // Our own write echoing back needs no refresh — the viewer is already
+      // showing what we just wrote. The text path filters these by comparing
+      // content, which a binary has none of, so the path check is the filter.
+      if (ctx.hasPendingSave(normalizedPath)) continue;
+      // Announce the new bytes, for BOTH kinds. This used to be skipped
+      // for `modify` on the reasoning that "the asset URL already points at the
+      // fresh bytes" — true of the URL, and irrelevant to the element: an
+      // <img>/<video> whose `src` attribute does not change never refetches, so
+      // the surface kept displaying what it decoded when the tab opened, and a
+      // tab close and reopen produced the identical URL and the identical
+      // cached bytes (issue #1328). Never read the binary — it could be a
+      // multi-GB video; only the counter moves.
+      ctx.markBinaryFileChanged(tabId);
       continue;
     }
     // created / modified

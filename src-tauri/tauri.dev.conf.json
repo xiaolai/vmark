@@ -1,5 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "app.vmark.dev",
   "bundle": {
     "icon": [
       "icons-dev/32x32.png",

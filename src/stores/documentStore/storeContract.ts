@@ -76,6 +76,22 @@ export interface DocumentStore {
   markMissing: (tabId: string) => void;
   clearMissing: (tabId: string) => void;
   markDivergent: (tabId: string) => void;
+  /**
+   * The BYTES of a binary document changed on disk (issue #1328).
+   *
+   * A media tab's file content never enters the store — the viewer streams it
+   * from `asset://` — so `ingestExternalContent` has nothing to ingest and
+   * cannot be used to announce the change. Without a signal the surface has no
+   * way to know: an `<img>` whose `src` attribute did not change never
+   * refetches, so a PNG rewritten on disk kept rendering the bytes it had
+   * decoded at open time, through a tab close and reopen.
+   *
+   * This bumps `documentId` and moves NOTHING else. That counter already means
+   * "this document was replaced from outside" — it is what remounts the editor
+   * on an external text reload — so a binary reload is the same fact, not a
+   * second mechanism.
+   */
+  markBinaryFileChanged: (tabId: string) => void;
 
   setReadOnly: (tabId: string, readOnly: boolean) => void;
   toggleReadOnly: (tabId: string) => void;

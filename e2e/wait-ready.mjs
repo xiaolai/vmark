@@ -11,12 +11,22 @@
  * The socket was a proxy for readiness. This checks the property instead:
  *   1. a WebSocket session can be established, AND
  *   2. `list_windows` reports the target window label, AND
- *   3. `execute_js` in that window returns — i.e. the webview is running JS,
- *      which is the thing every journey actually needs.
+ *   3. the webview reports itself DRIVABLE — the Tauri APIs callable, the React
+ *      shell mounted, and the window's ready handshake complete, which is the
+ *      point at which its event listeners exist (`lib/readiness.mjs`).
  *
  * Step 3 is not redundant with step 2. A window can be listed while its webview
  * is still loading, and "the window exists" is the same shape of proxy as "the
- * port is open" — one layer further in. The gate is whether JS evaluates.
+ * port is open" — one layer further in.
+ *
+ * Step 3 USED to be `execute_js "1+1"`, and that was the same mistake a third
+ * time: `1+1` evaluates the moment `index.html` parses, long before React
+ * mounts. Run 32701401717 (2026-08-24) declared the app ready 6 seconds before
+ * it logged `Window 'main' is ready`, and the first journey in line fired
+ * `vmark.workspace.new` at a listener that did not exist yet — the event was
+ * dropped, and the journey then waited out its budget for a tab that was never
+ * coming. `lib/readiness.mjs` records the full reasoning and owns the
+ * predicate, which `01-boot-editor-ready` shares.
  *
  * Usage:
  *   node e2e/wait-ready.mjs [--port 9323] [--window main] [--timeout-ms 300000]
@@ -24,6 +34,7 @@
  * Exit codes: 0 ready · 1 not ready within the budget (prints what it last saw)
  */
 import { BridgeClient, expectSuccess } from "./lib/bridge.mjs";
+import { DRIVABLE_SNIPPET, drivableGap } from "./lib/readiness.mjs";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -56,9 +67,17 @@ async function attempt() {
     if (!labels.includes(WINDOW)) {
       return `window '${WINDOW}' not among [${labels.join(", ")}]`;
     }
-    const reply = await client.send("execute_js", { script: "1+1" }, 10000);
+    // `windowLabel` is not optional here: without it `execute_js` runs in the
+    // DEFAULT window, so `--window doc-1` verified that doc-1 exists and then
+    // reported main's readiness as doc-1's (audit finding #8). The label check
+    // above made that look deliberate.
+    const reply = await client.send(
+      "execute_js",
+      { script: DRIVABLE_SNIPPET, windowLabel: WINDOW },
+      10000,
+    );
     if (reply.success !== true) return `execute_js not ready: ${reply.error ?? "?"}`;
-    return null;
+    return drivableGap(reply.data);
   } catch (err) {
     return `probe: ${err.message}`;
   } finally {
@@ -73,7 +92,7 @@ while (Date.now() < deadline) {
   n += 1;
   last = (await attempt()) ?? "";
   if (last === "") {
-    console.log(`app drivable after ${n} attempt(s): window '${WINDOW}' evaluates JS`);
+    console.log(`app drivable after ${n} attempt(s): window '${WINDOW}' completed its ready handshake`);
     process.exit(0);
   }
   // Report progress occasionally so a stuck run says what it is stuck on

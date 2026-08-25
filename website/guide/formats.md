@@ -71,6 +71,9 @@ How it works and what to expect:
   to the viewer through the native asset pipeline. It is never read as UTF-8,
   never held in memory as a document, and never editable or saved. Even
   multi-gigabyte videos open instantly and seek natively.
+- **Edits on disk show up.** Re-export the image from your editor, or let a
+  script rewrite it, and the open tab picks up the new version by itself — no
+  reopening, no closing and re-opening the file.
 - **Broad format coverage.** VMark hands the file to the platform's media
   engine, so support tracks what your system's webview can decode. On macOS
   that is wide — HEIC, TIFF, `.mov`/H.264, and FLAC all play. Formats the
@@ -192,8 +195,12 @@ Three properties worth knowing:
   unavailable for an unsaved document, which has no identity to attach a grant
   to — save the file first.
 - **A trusted preview never re-runs itself.** Editing the source marks it
-  *Source changed* and waits for **Reload**, so a running simulation is not
-  reset by every keystroke.
+  *May not match the current source* and waits for **Reload**, so a running
+  simulation is not reset by every keystroke. The same marker appears when
+  VMark cannot know what the frame is running — after you switch away from the
+  tab and back, or close and reopen it, the preview keeps executing whatever
+  was last published for that file, so it says so rather than claiming to be
+  up to date. **Reload** re-publishes the file as it stands now.
 
 ::: warning macOS and Linux only
 Trusted preview is unavailable on Windows in this build. Tauri exposes a custom

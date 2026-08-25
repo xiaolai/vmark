@@ -34,6 +34,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 import {
   resolveMediaSrc,
   normalizePathForAsset,
+  withMediaReloadKey,
   getActiveTabIdForCurrentWindow,
 } from "./resolveMediaSrc";
 import { useTabStore } from "@/stores/tabStore";
@@ -43,6 +44,39 @@ import { useDocumentStore } from "@/stores/documentStore";
 vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
+
+describe("withMediaReloadKey", () => {
+  const URL = "asset://localhost/%2Ftmp%2Fpic.png";
+
+  it("leaves the URL untouched at key 0 (never externally changed)", () => {
+    expect(withMediaReloadKey(URL, 0)).toBe(URL);
+  });
+
+  it("appends a query parameter once the file has changed", () => {
+    expect(withMediaReloadKey(URL, 1)).toBe(`${URL}?v=1`);
+  });
+
+  it("produces a DIFFERENT url for each successive change", () => {
+    // The whole mechanism: an unchanged src never refetches, so two
+    // consecutive external writes must not collapse to one URL.
+    expect(withMediaReloadKey(URL, 1)).not.toBe(withMediaReloadKey(URL, 2));
+  });
+
+  it("uses & when the url already carries a query", () => {
+    expect(withMediaReloadKey(`${URL}?a=1`, 3)).toBe(`${URL}?a=1&v=3`);
+  });
+
+  it.each([
+    ["negative", -1],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("returns the bare url for a %s key rather than a broken one", (_label, key) => {
+    // A malformed key must degrade to today's behaviour (stale but loadable),
+    // never to a URL the asset protocol cannot serve — a blank image is worse
+    // than an out-of-date one.
+    expect(withMediaReloadKey(URL, key)).toBe(URL);
+  });
+});
 
 describe("normalizePathForAsset", () => {
   it("converts backslashes to forward slashes", () => {

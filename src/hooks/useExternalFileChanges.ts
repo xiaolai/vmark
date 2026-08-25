@@ -13,7 +13,9 @@
  *     saves (MoveFileEx) and sync daemons fire spurious events for files that
  *     still exist (issue 995); handleModifyEvent() is shared by both paths
  *   - Media tabs (png/mp4/…) are never UTF-8-read: remove/rename existence-probe
- *     only, and a media `create` clears isMissing so MediaView re-streams
+ *     only. A media create/modify bumps `documentId` (and a `create` also clears
+ *     isMissing) so MediaView re-fetches — the asset URL alone cannot do it,
+ *     because an element whose `src` never changes never reloads (issue #1328)
  *   - Deleted files get isMissing (no auto-close — user may want to save)
  *   - Divergent docs auto-recover when disk content matches editor content
  *   - After "Keep my changes", lastDiskContent is refreshed to current disk so
@@ -245,6 +247,8 @@ export function useExternalFileChanges(): void {
       handleDeletion,
       isMissing: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isMissing ?? false,
       clearMissing: (tabId) => useDocumentStore.getState().clearMissing(tabId),
+      markBinaryFileChanged: (tabId) =>
+        useDocumentStore.getState().markBinaryFileChanged(tabId),
     };
 
     const unsubscribe = subscribeWorkspaceEvents(windowLabel, (events) => {

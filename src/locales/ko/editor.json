@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "신뢰된 미리 보기는 이 문서의 스크립트를 격리된 출처에서 실행합니다. 네트워크에 접근할 수 없으며 VMark에도 접근할 수 없습니다. 직접 작성했거나 완전히 신뢰하는 파일에만 활성화하세요.",
   "preview.htmlTrustConfirm": "스크립트 활성화",
   "preview.htmlTrustActive": "신뢰됨 — 스크립트 활성화됨",
-  "preview.htmlTrustStale": "실행 이후 소스가 변경되었습니다",
+  "preview.htmlTrustStale": "현재 소스와 일치하지 않을 수 있습니다",
   "preview.htmlTrustReload": "다시 로드",
   "preview.htmlTrustRevoke": "신뢰 취소",
   "preview.htmlTrustUnsaved": "신뢰된 미리 보기를 활성화하기 전에 이 파일을 저장하세요",

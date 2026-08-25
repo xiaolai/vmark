@@ -237,6 +237,56 @@ describe("editing a trusted document", () => {
     expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
   });
 
+  /// The reported defect (#1328): close the tab and reopen it, or switch tabs
+  /// away and back, and the component remounts. `ran` starts null again while
+  /// the grant — held in a module-level store keyed by path — survives, so the
+  /// frame reloads and re-executes whatever that token still holds. The old
+  /// `ran !== null` guard made that render as "up to date", leaving the user
+  /// looking at superseded output with no Reload prompt and no explanation.
+  it("flags a trusted document as possibly-stale after a remount", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument();
+
+    unmount();
+    renderPreview(); // same path, same content — the reopen
+
+    expect(screen.getByTestId("html-trust-active")).toBeInTheDocument();
+    expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
+  });
+
+  /// The posture the maintainer chose: report honestly, change nothing about
+  /// what executes. A remount must not publish anything on its own.
+  it("does not publish anything of its own accord on remount", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    bridge.publishTrustedHtml.mockClear();
+
+    unmount();
+    renderPreview();
+
+    expect(bridge.publishTrustedHtml).not.toHaveBeenCalled();
+  });
+
+  /// And the badge must be actionable, not just honest: Reload republishes the
+  /// current source, after which the pane knows what is running again.
+  it("clears the post-remount flag once the user presses Reload", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    unmount();
+    renderPreview();
+
+    await user.click(screen.getByRole("button", { name: /reload/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument(),
+    );
+    expect(bridge.publishTrustedHtml).toHaveBeenCalledWith(TOKEN, SCRIPTED);
+  });
+
   it("republishes and re-runs on Reload", async () => {
     const user = userEvent.setup();
     const { rerender } = renderPreview();
@@ -358,10 +408,14 @@ describe("switching documents in the same pane", () => {
     expect(frame().getAttribute("sandbox")).toBe("");
   });
 
-  /// `ran` describes the document the frame is running. Carried across a path
-  /// change it reports a freshly-opened trusted file as stale against content
-  /// it never ran.
-  it("does not report a newly-opened trusted file as stale", async () => {
+  /// UNKNOWN IS NOT CURRENT (issue #1328). `ran` describes the document the
+  /// frame is running, and a path change clears it — so the pane genuinely does
+  /// not know what the other file's token is serving. It was previously
+  /// reported as up to date, which is a claim the component cannot support: the
+  /// frame runs whatever was published for that token earlier in the session.
+  /// The badge is worded "may not match the current source" precisely because
+  /// this case is uncertainty rather than an observed change.
+  it("flags a trusted file whose running content it cannot know", async () => {
     const user = userEvent.setup();
     const { rerender } = renderPreview();
     await user.click(screen.getByRole("button", { name: /trusted preview/i }));
@@ -374,7 +428,7 @@ describe("switching documents in the same pane", () => {
     rerender(<HtmlPreview content="<p>different</p>" liveContent="<p>different</p>" path={other} diagnostics={[]} />);
 
     expect(screen.getByTestId("html-trust-active")).toBeInTheDocument();
-    expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument();
+    expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
   });
 
   it("can always re-run a file trusted earlier in the session", async () => {

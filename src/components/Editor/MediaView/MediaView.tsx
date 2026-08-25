@@ -7,10 +7,21 @@
 //   external-open actions. This component is intentionally prop-only (no
 //   store reads) so the Quick Look overlay can reuse it directly.
 //
-// Public contract: <MediaView path={absolutePath} />
+// Public contract: <MediaView path={absolutePath} reloadKey={n?} />
+//
+// Key decisions:
+//   - `reloadKey` rides in the URL, because that is the only thing a media
+//     element reacts to: an unchanged `src` never refetches, and the webview
+//     serves even a brand-new element from cache (issue #1328). Optional and
+//     0-defaulted so the overlay entry points, which have no document to
+//     watch, produce byte-identical URLs to before.
+//   - Load errors are keyed by path AND version, so a corrupt file that was
+//     rewritten correctly gets a fresh attempt instead of staying pinned to
+//     the fallback panel for the life of the tab.
 //
 // @coordinates-with utils/mediaPathDetection.ts — getMediaType()
-// @coordinates-with services/media/resolveMediaSrc.ts — normalizePathForAsset()
+// @coordinates-with services/media/resolveMediaSrc.ts — normalizePathForAsset(), withMediaReloadKey()
+// @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — supplies reloadKey from documentId
 // @module components/Editor/MediaView/MediaView
 
 import { useEffect, useState } from "react";
@@ -19,7 +30,10 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { FileQuestion } from "lucide-react";
 import { getMediaType } from "@/utils/mediaPathDetection";
-import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
+import {
+  normalizePathForAsset,
+  withMediaReloadKey,
+} from "@/services/media/resolveMediaSrc";
 import { mediaViewError } from "@/utils/debug";
 import "./MediaView.css";
 
@@ -32,21 +46,40 @@ function basenameOf(path: string): string {
 export interface MediaViewProps {
   /** Absolute file path handed down by the tab surface / overlay. */
   path: string;
+  /**
+   * Bumped when the file's BYTES change on disk, so the element re-fetches.
+   *
+   * Optional and defaulting to 0 because the two overlay entry points (Quick
+   * Look, arrow-nav) render a path the user just picked and have no document
+   * to watch; only a media TAB, which outlives external edits, supplies one.
+   * At 0 the URL is byte-identical to what it was before issue #1328.
+   */
+  reloadKey?: number;
 }
 
 /** Render an image / audio / video preview, or a graceful fallback. */
-export function MediaView({ path }: MediaViewProps) {
+export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
   const { t } = useTranslation("editor");
   // Track state per-path (not booleans) so a path change resets granted/errored
   // implicitly — no synchronous setState in the effect (cascading-render rule).
   const [grantedPath, setGrantedPath] = useState<string | null>(null);
-  const [erroredPath, setErroredPath] = useState<string | null>(null);
+  // Errors are tracked per PATH-AND-VERSION, not per path: a file that failed
+  // to decode and was then rewritten correctly must get a fresh attempt rather
+  // than stay pinned to the fallback panel for the life of the tab.
+  const [erroredAttempt, setErroredAttempt] = useState<string | null>(null);
+  const attempt = `${path}\u0000${reloadKey}`;
   const granted = grantedPath === path;
-  const errored = erroredPath === path;
+  const errored = erroredAttempt === attempt;
 
   const mediaType = getMediaType(path);
   const filename = basenameOf(path);
-  const src = convertFileSrc(normalizePathForAsset(path));
+  // The reload key rides in the URL because that is the ONLY thing an <img> or
+  // <video> reacts to: an unchanged `src` never refetches, and the webview
+  // serves a fresh element from cache. See withMediaReloadKey (issue #1328).
+  const src = withMediaReloadKey(
+    convertFileSrc(normalizePathForAsset(path)),
+    reloadKey,
+  );
 
   // Grant the webview asset:// access to THIS file before rendering the media
   // element. Opening a media tab grants at open time, but Quick Look and
@@ -125,12 +158,18 @@ export function MediaView({ path }: MediaViewProps) {
     return (
       <div className={`media-view media-view--${mediaType}`}>
         <Tag
+          // Keyed by ATTEMPT, not by path: without it React reuses one DOM node
+          // across a reload, and a late error for the previous `src` runs the
+          // handler closed over the new attempt — failing a version that
+          // loaded fine (audit finding #10). Decoding is async, so a slow old
+          // image erroring after a fast new one is ordinary.
+          key={attempt}
           className={`media-view__${mediaType}`}
           data-testid={`media-view-${mediaType}`}
           src={src}
           controls
           preload="metadata"
-          onError={() => setErroredPath(path)}
+          onError={() => setErroredAttempt(attempt)}
         />
       </div>
     );
@@ -139,10 +178,13 @@ export function MediaView({ path }: MediaViewProps) {
   return (
     <div className="media-view media-view--image">
       <img
+        // See the video/audio branch: keyed by attempt so a stale error cannot
+        // be delivered against a newer version.
+        key={attempt}
         className="media-view__image"
         src={src}
         alt={filename}
-        onError={() => setErroredPath(path)}
+        onError={() => setErroredAttempt(attempt)}
       />
     </div>
   );

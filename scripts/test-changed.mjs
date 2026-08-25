@@ -20,15 +20,39 @@
  * subject at runtime with `readFileSync` is invisible to it.
  *
  * @coordinates-with package.json — `test:changed`, used by `check:fast`
- * @coordinates-with vitest.gates.config.ts — the tier conditionally added here
+ * @coordinates-with vitest.gates.config.ts — the tier conditionally added here;
+ *   GATE_PREFIXES must cover its include roots (pinned by test-changed.test.mjs)
  * @module scripts/test-changed
  */
 import { spawnSync } from "node:child_process";
 
 const BASE = process.env.VMARK_CHANGED_BASE ?? "origin/main";
 
-/** Paths whose tests live in the gate tier rather than the app tier. */
-const GATE_PREFIXES = ["scripts/", ".claude/hooks/"];
+/**
+ * Paths whose tests live in the gate tier rather than the app tier.
+ *
+ * MUST cover every root in `vitest.gates.config.ts`'s `include`, or a change
+ * under a root this list forgets selects no tests at all and still reports
+ * green — the exact failure this script was written to stop, one root further
+ * along. `scripts/test-changed.test.mjs` derives the tier's roots from that
+ * config and fails if the two disagree, in either direction.
+ */
+// NOT exported: this module runs vitest at import time, so its self-test reads
+// the literal below as TEXT rather than importing it.
+//
+// The last three entries are FILES, not roots, and they are the gate tier's own
+// configuration. Editing `vitest.gates.config.ts` decides what that tier runs,
+// yet a root-prefix-only list selected no gate tests for it — a change to the
+// selector's own subject running nothing, while `check:fast` reported green.
+// `vitest.shared.ts` is the same one hop out: every tier's worker count and
+// extension set come from it.
+const GATE_PREFIXES = [
+  "scripts/",
+  ".claude/hooks/",
+  "e2e/",
+  "vitest.gates.config.ts",
+  "vitest.shared.ts",
+];
 
 function run(label, args) {
   process.stdout.write(`\n▶ ${label}\n`);
@@ -59,16 +83,25 @@ const changed = changedFiles();
 const gatesTouched =
   changed === null || changed.some((f) => GATE_PREFIXES.some((p) => f.startsWith(p)));
 
-let exit = run("app tier (changed)", [
-  "vitest", "run", `--changed=${BASE}`, "--passWithNoTests",
-]);
+// An unresolvable base cannot be handed to `--changed`: vitest fails to resolve
+// it and the app tier errors WITHOUT running anything, which is the opposite of
+// the "running BOTH tiers rather than guessing" the message above promises.
+// Run the whole app tier instead — that is what "not guessing" means here.
+let exit =
+  changed === null
+    ? run("app tier (FULL — base unresolvable)", ["vitest", "run", "--passWithNoTests"])
+    : run("app tier (changed)", [
+        "vitest", "run", `--changed=${BASE}`, "--passWithNoTests",
+      ]);
 
 if (gatesTouched) {
   exit = run("gate tier (a gate file changed)", [
     "vitest", "run", "--config", "vitest.gates.config.ts",
   ]) || exit;
 } else {
-  process.stdout.write("\n▶ gate tier skipped — no scripts/ or .claude/hooks/ change\n");
+  process.stdout.write(
+    `\n▶ gate tier skipped — no change under ${GATE_PREFIXES.join(", ")}\n`,
+  );
 }
 
 process.exit(exit);

@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "受信任預覽會在隔離的來源中執行此文件的指令碼，該環境既無網路存取權限，也無法存取 VMark。請僅對你自己撰寫或完全信任的檔案啟用。",
   "preview.htmlTrustConfirm": "啟用指令碼",
   "preview.htmlTrustActive": "受信任 — 指令碼已啟用",
-  "preview.htmlTrustStale": "自上次執行後原始碼已變更",
+  "preview.htmlTrustStale": "可能與目前的原始碼不一致",
   "preview.htmlTrustReload": "重新載入",
   "preview.htmlTrustRevoke": "撤銷信任",
   "preview.htmlTrustUnsaved": "請先儲存此檔案，然後再啟用受信任預覽",

@@ -108,7 +108,7 @@
     "src/contexts/WindowContext.test.tsx": 1558,
     "src/export/resourceResolver.test.ts": 1084,
     "src/hooks/__tests__/useGenieInvocation.test.ts": 1253,
-    "src/hooks/useExternalFileChanges.test.ts": 2015,
+    "src/hooks/useExternalFileChanges.test.ts": 1852,
     "src/hooks/useFinderFileOpen.test.ts": 806,
     "src/hooks/useSourceEditorSearch.test.ts": 860,
     "src/hooks/useTabDragOut.test.ts": 1150,

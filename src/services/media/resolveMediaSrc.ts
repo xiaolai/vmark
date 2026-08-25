@@ -8,6 +8,9 @@
  * Key decisions:
  *   - Async because relative paths need the document's directory from Tauri path API
  *   - Uses convertFileSrc to turn local file paths into Tauri asset:// protocol URLs
+ *   - withMediaReloadKey() appends a version to that URL so a file changed on
+ *     disk is re-fetched: an element whose `src` is unchanged never reloads,
+ *     and the webview's cache defeats a fresh element too (issue #1328)
  *   - Windows path normalization handles backslash-to-forward-slash conversion
  *   - Security: relative paths are validated against directory traversal attacks
  *
@@ -42,6 +45,29 @@ import { decodeMarkdownUrl } from "@/utils/markdownUrl";
  */
 export function normalizePathForAsset(path: string): string {
   return path.replace(/\\/g, "/");
+}
+
+/**
+ * Append a reload key to an `asset://` URL so a changed file is re-fetched.
+ *
+ * An `<img>` / `<video>` whose `src` attribute does not change never refetches,
+ * and the webview's cache means even a BRAND-NEW element pointed at the same
+ * URL is served the bytes it already holds. Measured against real WebKit while
+ * fixing issue #1328: with a 64×64 PNG open and a 96×96 one written over it,
+ * a fresh `new Image()` on the unchanged URL still decoded 64×64, while the
+ * same URL plus a query parameter decoded 96×96. So the URL has to move, and a
+ * remount alone cannot substitute for it.
+ *
+ * `key === 0` returns the URL untouched: that is the state of every media view
+ * that has never seen an external change, and a bare URL is what the existing
+ * tests, the Quick Look overlay and the asset scope all already exercise.
+ *
+ * The parameter rides in the QUERY, which the asset protocol resolves the file
+ * path independently of — verified live, not assumed.
+ */
+export function withMediaReloadKey(assetUrl: string, key: number): string {
+  if (!Number.isFinite(key) || key <= 0) return assetUrl;
+  return `${assetUrl}${assetUrl.includes("?") ? "&" : "?"}v=${key}`;
 }
 
 /**

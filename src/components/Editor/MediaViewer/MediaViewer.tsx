@@ -8,7 +8,7 @@
 //
 // @coordinates-with components/Editor/Editor.tsx — kind:"media" dispatch
 // @coordinates-with components/Editor/MediaView/MediaView.tsx — render core
-// @coordinates-with stores/documentStore.ts — per-tab filePath
+// @coordinates-with stores/documentStore.ts — per-tab filePath + documentId
 // @module components/Editor/MediaViewer/MediaViewer
 
 import { useDocumentStore } from "@/stores/documentStore";
@@ -25,6 +25,13 @@ export function MediaViewer({ tabId }: MediaViewerProps) {
   const filePath = useDocumentStore(
     (state) => state.documents?.[tabId]?.filePath ?? null,
   );
+  // `documentId` means "this document was replaced from outside" — for a text
+  // document it remounts the editor, and for a binary one it is the only signal
+  // that the bytes moved, since a media tab's content never enters the store.
+  // `markBinaryFileChanged` advances it from the fs watcher (issue #1328).
+  const reloadKey = useDocumentStore(
+    (state) => state.documents?.[tabId]?.documentId ?? 0,
+  );
 
   // A media tab always carries a filePath (opened from disk). Guard anyway:
   // an empty untitled media tab has nothing to render.
@@ -32,7 +39,7 @@ export function MediaViewer({ tabId }: MediaViewerProps) {
 
   return (
     <div className="media-viewer" role="group">
-      <MediaView path={filePath} />
+      <MediaView path={filePath} reloadKey={reloadKey} />
     </div>
   );
 }

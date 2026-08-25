@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "A pré-visualização confiável executa os scripts deste documento em uma origem isolada, sem acesso à rede nem ao VMark. Ative-a apenas para arquivos que você escreveu ou nos quais confia plenamente.",
   "preview.htmlTrustConfirm": "Ativar scripts",
   "preview.htmlTrustActive": "Confiável — scripts ativados",
-  "preview.htmlTrustStale": "O código-fonte mudou desde a última execução",
+  "preview.htmlTrustStale": "Pode não corresponder ao código-fonte atual",
   "preview.htmlTrustReload": "Recarregar",
   "preview.htmlTrustRevoke": "Revogar confiança",
   "preview.htmlTrustUnsaved": "Salve este arquivo antes de ativar a pré-visualização confiável",

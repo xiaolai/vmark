@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
 
 /**
- * Gate self-test tier — the tests OF the lint gates, not of the app.
+ * Gate and harness self-test tier — the tests OF the tooling, not of the app.
  *
  * `scripts/*.test.*` and `.claude/hooks/*.test.*` verify the gate scripts
  * themselves: each one spawns the gate as a SUBPROCESS against fixture trees
@@ -38,6 +38,16 @@ import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
  * their subject through a subprocess, so it never appeared in the in-process
  * coverage graph either way.
  *
+ * `e2e/` joined this tier for the same two reasons the gates did: its helpers
+ * are plain Node modules that must never see a jsdom document (they describe
+ * the REAL webview, and a jsdom global is exactly the thing that could make a
+ * broken probe look correct), and they have no use for `src/test/setup.ts`.
+ * Only the harness's own pure helpers are unit-tested here — the journeys
+ * themselves need a live app and are driven by `e2e/run-journeys.mjs`, never by
+ * vitest. Before this, `e2e/` was owned by NO tier, so a test file added there
+ * would have run nowhere; the partition check in
+ * `scripts/check-scripts-parity.test.mjs` is what surfaced that, by failing.
+ *
  * @coordinates-with vitest.config.ts — the app tier; all four tiers must partition
  * @coordinates-with scripts/check-scripts-parity.test.mjs — enforces the partition
  */
@@ -59,7 +69,7 @@ export default defineConfig({
     // has genuinely hung never returns, so it is still caught — just 40s later.
     testTimeout: 60_000,
     hookTimeout: 60_000,
-    include: [testGlob("scripts"), testGlob(".claude/hooks")],
+    include: [testGlob("scripts"), testGlob(".claude/hooks"), testGlob("e2e")],
     exclude: ["**/node_modules/**", "**/dist/**"],
     // These spawn child processes and then wait, so they are even further from
     // CPU-bound than the app tier. The ratio is INHERITED from the app tier's

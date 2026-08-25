@@ -356,10 +356,36 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
     - The VMark bridge port is **dynamic** (OS-assigned) — never point at a fixed port
       (9223 is discarded); the sidecar auto-discovers it from
-      `~/Library/Application Support/app.vmark/mcp-port`. In dev, **rebuild the sidecar**
+      `~/Library/Application Support/<identifier>/mcp-port`. In dev, **rebuild the sidecar**
       (`pnpm --dir server/mcp build:sidecar`), reconfigure the client to the dev
       binary (Integrations settings / `mcp_config_install`), then **restart the AI
       client** — MCP servers bind at startup.
+
+    - **`tauri dev` runs under its OWN identifier, `app.vmark.dev`.** Tauri derives
+      `app_data_dir()`, `app_log_dir()` and the webview's `localStorage` from the
+      bundle identifier and nothing else, so the identifier IS the profile. Until
+      2026-08-25 `tauri.dev.conf.json` overrode only `bundle.icon`, and a debug
+      build therefore shared one hot-exit session, one `workspaces/` directory and
+      one `mcp-port` file with the VMark in `/Applications`. Two processes
+      read-modify-writing one session is what it sounds like: a window whose tab
+      strip stopped reflecting its own store, and stray tabs left in the
+      maintainer's real app. The `mcp-port` half was worse and quieter — the dev
+      app overwrote the port and token the release app had published, so a client
+      configured for the release app talked to the dev build, then dialled a dead
+      port when it exited.
+
+      Consequences to know: dev has its OWN settings and session (empty on first
+      launch — which is what CI sees, so local dev now matches it), its own logs
+      under `~/Library/Logs/app.vmark.dev/`, and its own port file. To point an AI
+      client at the DEV app, set `VMARK_APP_IDENTIFIER=app.vmark.dev`; the sidecar
+      and `e2e/lib/vmarkMcp.mjs` both honour it, and e2e DERIVES it from
+      `tauri.dev.conf.json` because e2e only ever drives a debug build. The
+      keychain services (`app.vmark.secrets`, `app.vmark.browser.storagestate`)
+      are deliberately NOT split: they are keyed atomic writes rather than a
+      shared mutable session, so they were never part of the corruption, and
+      splitting them would make dev lose the API keys that make it useful.
+      `src/test/devProfileIsolation.test.ts` fails if the two identifiers ever
+      converge again.
 
     - **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 

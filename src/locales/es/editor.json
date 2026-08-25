@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "La vista previa de confianza ejecuta los scripts de este documento en un origen aislado, sin acceso a la red ni a VMark. Actívala solo para archivos que hayas escrito o en los que confíes plenamente.",
   "preview.htmlTrustConfirm": "Activar scripts",
   "preview.htmlTrustActive": "De confianza — scripts activados",
-  "preview.htmlTrustStale": "El código fuente cambió desde la última ejecución",
+  "preview.htmlTrustStale": "Puede no coincidir con el código fuente actual",
   "preview.htmlTrustReload": "Recargar",
   "preview.htmlTrustRevoke": "Revocar confianza",
   "preview.htmlTrustUnsaved": "Guarda este archivo antes de activar la vista previa de confianza",

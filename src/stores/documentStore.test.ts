@@ -300,6 +300,54 @@ describe("documentStore", () => {
     });
   });
 
+  describe("markBinaryFileChanged", () => {
+    // A media document's bytes live on disk, never in `content`, so the only
+    // way a viewer can learn the file changed is this counter moving.
+    it("bumps documentId without touching any text field", () => {
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+      const before = getDocument(WINDOW_LABEL);
+
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      const after = getDocument(WINDOW_LABEL);
+      expect(after?.documentId).toBe((before?.documentId ?? 0) + 1);
+      expect(after?.content).toBe(before?.content);
+      expect(after?.savedContent).toBe(before?.savedContent);
+      expect(after?.lastDiskContent).toBe(before?.lastDiskContent);
+      expect(after?.filePath).toBe("/shot.png");
+    });
+
+    it("never marks the document dirty", () => {
+      // A media tab is read-only and save-as-only; a dirty media tab would
+      // arm the close-guard prompt for a file the user cannot have edited.
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(false);
+      expect(getDocument(WINDOW_LABEL)?.isMissing).toBe(false);
+    });
+
+    it("advances on every call, so repeated external writes each refresh", () => {
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+
+      markBinaryFileChanged(WINDOW_LABEL);
+      markBinaryFileChanged(WINDOW_LABEL);
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      expect(getDocument(WINDOW_LABEL)?.documentId).toBe(3);
+    });
+
+    it("no-ops for non-existent document", () => {
+      const { markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      markBinaryFileChanged("non-existent");
+      expect(getDocument("non-existent")).toBeUndefined();
+    });
+  });
+
   describe("markDivergent", () => {
     it("sets isDivergent to true", () => {
       const { initDocument, markDivergent, getDocument } = useDocumentStore.getState();

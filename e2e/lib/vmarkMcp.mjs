@@ -23,11 +23,13 @@
  *
  * @coordinates-with server/mcp/src/cli.ts — the process spawned here
  * @coordinates-with server/mcp/src/utils/portFile.ts — how it finds VMark
+ * @coordinates-with src-tauri/tauri.dev.conf.json — the dev profile identifier
  */
 
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,9 +46,37 @@ const PROTOCOL_VERSION = "2024-11-05";
  *  the sidecar's error rather than as our own, less informative, one. */
 const CALL_TIMEOUT_MS = 40_000;
 
+/**
+ * Which app's data directory to look in — DERIVED, never restated.
+ *
+ * Every per-app path Tauri hands out (app data, logs, the webview's storage) is
+ * built from the bundle `identifier`, so the identifier IS the profile. E2E
+ * always drives a `tauri dev` build, which means it must look in the DEV
+ * profile; defaulting to the release identifier would point this helper at
+ * whichever installed VMark happens to be running, and silently drive the
+ * user's real app instead of the one under test.
+ *
+ * Read from `tauri.dev.conf.json` rather than copied out of it: a literal here
+ * is a second spelling of the same fact, and the whole defect this replaced was
+ * two profiles that were supposed to differ and did not.
+ */
+function devIdentifier() {
+  if (process.env.VMARK_APP_IDENTIFIER) return process.env.VMARK_APP_IDENTIFIER;
+  const conf = JSON.parse(
+    readFileSync(join(REPO_ROOT, "src-tauri", "tauri.dev.conf.json"), "utf8"),
+  );
+  if (typeof conf.identifier !== "string" || conf.identifier.length === 0) {
+    throw new Error(
+      "tauri.dev.conf.json declares no `identifier`, so `tauri dev` shares the " +
+        "release app's profile. Restore it — see src/test/devProfileIsolation.test.ts.",
+    );
+  }
+  return conf.identifier;
+}
+
 /** VMark's port file — `{port}:{token}`, rewritten on every app launch. */
 function portFilePath() {
-  const id = process.env.VMARK_APP_IDENTIFIER || "app.vmark";
+  const id = devIdentifier();
   if (platform() === "darwin") {
     return join(homedir(), "Library", "Application Support", id, "mcp-port");
   }
@@ -65,8 +95,14 @@ function portFilePath() {
  * into a fast, legible failure.
  */
 export async function bridgeReady() {
+  // Resolved OUTSIDE the catch. A missing dev identifier is a configuration
+  // error, not "the bridge is not up yet" — swallowing it made a misconfigured
+  // dev profile silently SKIP coverage-required journeys, reporting the same
+  // green as a run that exercised them (audit finding #9). Only the absent
+  // port file below is an expected, suppressible condition.
+  const path = portFilePath();
   try {
-    const raw = (await readFile(portFilePath(), "utf8")).trim();
+    const raw = (await readFile(path, "utf8")).trim();
     const port = Number.parseInt(raw.split(":")[0], 10);
     return Number.isInteger(port) && port > 0 && port <= 65535;
   } catch {
