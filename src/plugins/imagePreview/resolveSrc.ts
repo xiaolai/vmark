@@ -18,6 +18,7 @@ import {
   isAbsolutePath,
   isExternalUrl,
   isRelativePath,
+  hasUriScheme,
   validateImagePath,
 } from "@/plugins/shared/mediaSecurity";
 
@@ -57,6 +58,13 @@ export async function resolveImageSrc(src: string): Promise<string> {
   // Decode URL-encoded paths for file system access
   const decodedSrc = decodeMarkdownUrl(src);
 
+  // Classify AGAIN after decoding: angle-bracket syntax (`<https://…/a b.png>`)
+  // hides the scheme from the check above, so a bracketed external URL fell
+  // through and came back with its brackets still attached.
+  if (isExternalUrl(decodedSrc)) {
+    return decodedSrc;
+  }
+
   // Absolute local paths - convert to asset:// URL
   if (isAbsolutePath(decodedSrc)) {
     return convertFileSrc(normalizePathForAsset(decodedSrc));
@@ -84,6 +92,23 @@ export async function resolveImageSrc(src: string): Promise<string> {
       imagePreviewError("Failed to resolve path:", error);
       return src;
     }
+  }
+
+  // Fall-through: not external, not absolute, not a relative path.
+  //
+  // Two very different things land here, and they must not share a verdict.
+  // A leading `../` path is rejected one layer earlier by `isRelativePath` and
+  // is INERT: the webview resolves an unresolved relative src against the app
+  // origin, never `file://`, so it cannot read the disk. Returning it unchanged
+  // is the honest answer and is asserted by the tests.
+  //
+  // A SCHEME-bearing source is not inert, and used to leave by this same door —
+  // `javascript:`, `file:`, `blob:` and any custom scheme, including the
+  // `vmark-trusted://` origin this app registers, went straight into an
+  // element's `src` verbatim. That is the hole; the path passthrough is not.
+  if (hasUriScheme(decodedSrc)) {
+    imagePreviewError("Rejected media source with an unsupported URI scheme:", decodedSrc);
+    return "";
   }
 
   return src;

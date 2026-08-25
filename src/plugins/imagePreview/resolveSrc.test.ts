@@ -21,6 +21,7 @@ vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (p: string) => `asset:/
 
 import { resolveImageSrc } from "./resolveSrc";
 import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
+import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
 
 afterEach(resetHostDocument);
 
@@ -43,5 +44,25 @@ describe("resolving against the active document", () => {
       activeFilePath: () => "/docs/note.md",
     });
     expect(await resolveImageSrc("pic.png")).toBe("pic.png");
+  });
+  // The class this shares with the other two resolvers: a source none of the
+  // branches claims must be REFUSED when it carries a scheme, not handed back.
+  // See src/test/adversarialMediaSources.ts.
+  it.each(ADVERSARIAL_MEDIA_SOURCES)("refuses %s", async (_label, src) => {
+    bindHostDocument({
+      currentWindowLabel: () => "main",
+      activeFilePath: () => "/docs/note.md",
+    });
+    expect(await resolveImageSrc(src)).toBe("");
+  });
+
+  it("recognises an angle-bracket-wrapped external URL after decoding", async () => {
+    bindHostDocument({
+      currentWindowLabel: () => "main",
+      activeFilePath: () => "/docs/note.md",
+    });
+    expect(await resolveImageSrc("<https://example.com/a b.png>")).toBe(
+      "https://example.com/a b.png",
+    );
   });
 });

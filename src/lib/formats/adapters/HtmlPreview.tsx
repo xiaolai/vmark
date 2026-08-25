@@ -40,28 +40,41 @@ import { TRUSTED_ALLOW, TRUSTED_SANDBOX, trustedFrameUrl } from "./htmlTrust";
 import type { PreviewRendererProps } from "../types";
 import "./html-preview.css";
 
-const CSP_META =
-  '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; font-src data:; base-uri \'none\';">';
+const CSP_CONTENT =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none';";
 
 /**
- * The SAFE path, unchanged from ADR-4: DOMPurify first, then an empty sandbox,
- * then a meta CSP restricting what the frame may load.
+ * The SAFE path, unchanged from ADR-4 in intent: DOMPurify first, then an empty
+ * sandbox, then a meta CSP restricting what the frame may load.
+ *
+ * The meta is inserted through the DOM, not spliced in with a regex, and that
+ * is a correctness requirement rather than a style preference. Two successive
+ * regexes got this wrong. The first matched `<head` plus one delimiter, so
+ * `<head lang="en">` became `<head <meta …>lang="en">`. Its replacement,
+ * `/<head\b[^>]*>/i`, stops at the first `>` — and HTML attribute
+ * serialization escapes `&` and `"` but NOT `>`, so DOMPurify passes
+ * `<head title="a>b">` straight through. The regex then matched
+ * `<head title="a>` and spliced the meta INSIDE the attribute value, leaving
+ * the sandboxed document with NO policy element at all (audit finding #19).
+ *
+ * A parser cannot be confused by a `>` inside an attribute, so the whole class
+ * goes away. `DOMParser` with `text/html` always synthesises `html`/`head`/
+ * `body`, which also removes the separate no-head fallback branch that existed
+ * only because a regex could miss.
  */
 function buildSandboxedSrcdoc(content: string): string {
   const sanitized = DOMPurify.sanitize(content, {
     WHOLE_DOCUMENT: true,
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|#|data:image\/):|[^a-z]|$)/i,
   });
-  // Replace the WHOLE opening tag, not its first two characters. The previous
-  // form matched `<head` plus one delimiter and re-emitted them with the meta
-  // spliced in, so `<head lang="en">` became `<head <meta …>lang="en">` —
-  // malformed markup in which the CSP may not apply at all. This is the SAFE
-  // path, so that failure mode was the more dangerous of the two.
-  const openingHead = /<head\b[^>]*>/i;
-  if (openingHead.test(sanitized)) {
-    return sanitized.replace(openingHead, (tag) => `${tag}${CSP_META}`);
-  }
-  return `<!doctype html><html><head>${CSP_META}</head><body>${sanitized}</body></html>`;
+  const doc = new DOMParser().parseFromString(sanitized, "text/html");
+  const meta = doc.createElement("meta");
+  meta.setAttribute("http-equiv", "Content-Security-Policy");
+  meta.setAttribute("content", CSP_CONTENT);
+  // FIRST child of head: a policy that follows a resource-loading element
+  // would not govern it.
+  doc.head.insertBefore(meta, doc.head.firstChild);
+  return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
 export function HtmlPreview({

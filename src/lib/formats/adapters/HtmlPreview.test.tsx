@@ -4,7 +4,7 @@
 // trusted mode may weaken the default, so the sanitized path is pinned here
 // alongside the new one.
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -71,6 +71,46 @@ describe("safe mode (the default)", () => {
     const srcdoc = frame().getAttribute("srcdoc") ?? "";
     expect(srcdoc).not.toContain("<head <meta");
     expect(srcdoc).toMatch(/<head\b[^>]*>\s*<meta http-equiv="Content-Security-Policy"/i);
+  });
+
+  /// Audit finding #19. `<head\b[^>]*>` stops at the FIRST `>`, which a quoted
+  /// attribute value may contain — HTML attribute serialization escapes `&` and
+  /// `"` but NOT `>`, so DOMPurify hands one straight through. The regex then
+  /// matched `<head title="a>` and spliced the meta INSIDE the attribute, so no
+  /// CSP element existed at all and the sandboxed document ran with none.
+  ///
+  /// Asserted by PARSING the result rather than pattern-matching it: the
+  /// property is "a real meta element exists in head", and a regex assertion is
+  /// what let a regex bug hide here in the first place.
+  it("injects a REAL CSP element when <head> has an attribute containing '>'", () => {
+    renderPreview(
+      '<!doctype html><html><head title="a>b"><title>t</title></head><body><p>x</p></body></html>',
+    );
+    const srcdoc = frame().getAttribute("srcdoc") ?? "";
+    const parsed = new DOMParser().parseFromString(srcdoc, "text/html");
+    const meta = parsed.head.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    expect(meta, "no CSP meta element in <head> — the sandbox has no policy").not.toBeNull();
+    expect(meta?.getAttribute("content")).toContain("default-src 'none'");
+  });
+
+  it("keeps the CSP a real element for every document shape", () => {
+    for (const html of [
+      '<!doctype html><html><head lang="en"><title>t</title></head><body>x</body></html>',
+      "<!doctype html><html><head><title>t</title></head><body>x</body></html>",
+      "<p>no head at all</p>",
+      '<html><head data-a="1>2" data-b=\'3>4\'><title>t</title></head><body>x</body></html>',
+    ]) {
+      renderPreview(html);
+      const parsed = new DOMParser().parseFromString(
+        frame().getAttribute("srcdoc") ?? "",
+        "text/html",
+      );
+      expect(
+        parsed.head.querySelector('meta[http-equiv="Content-Security-Policy"]'),
+        `no CSP element for: ${html}`,
+      ).not.toBeNull();
+      cleanup();
+    }
   });
 
   it("still injects the CSP for a bare <head>", () => {

@@ -39,11 +39,61 @@ import {
 } from "./resolveMediaSrc";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
 
 // Mock getWindowLabel
 vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
+
+// Audit findings #20, #35, #36 — one mechanism: classification ran on the RAW
+// string, in the wrong order, and anything it failed to classify fell through
+// and was RETURNED UNCHANGED. That last part is what made it a security
+// question rather than a tidiness one.
+describe("resolveMediaSrc — classification and refusal", () => {
+  it.each(ADVERSARIAL_MEDIA_SOURCES)(
+    "refuses %s instead of returning it unchanged",
+    async (_label, src) => {
+      // Shared with the two plugin resolvers — see the module header for why
+      // the table is not copied into each test file.
+      await expect(resolveMediaSrc(src)).resolves.toBe("");
+    },
+  );
+
+  it("refuses a home-relative path", async () => {
+    await expect(resolveMediaSrc("~/secrets.png")).resolves.toBe("");
+  });
+
+  it("recognises an angle-bracket-wrapped external URL after decoding", async () => {
+    // Classification happened before decoding, so the brackets hid the scheme
+    // and the RAW bracketed string was returned — a src no loader can fetch.
+    await expect(resolveMediaSrc("<https://example.com/a b.png>")).resolves.toBe(
+      "https://example.com/a b.png",
+    );
+  });
+
+  it("leaves a plain external URL percent-encoded", async () => {
+    // The fast path must stay ahead of decoding: %20 is valid in a URL and
+    // decoding it to a space would corrupt the request.
+    await expect(resolveMediaSrc("https://example.com/a%20b.png")).resolves.toBe(
+      "https://example.com/a%20b.png",
+    );
+  });
+
+  it("still refuses parent traversal", async () => {
+    await expect(resolveMediaSrc("../../etc/passwd")).resolves.toBe("");
+    await expect(resolveMediaSrc("assets/../../../etc/passwd")).resolves.toBe("");
+  });
+
+  it("still refuses traversal hidden by percent-encoding", async () => {
+    await expect(resolveMediaSrc("assets/%2E%2E/%2E%2E/etc/passwd")).resolves.toBe("");
+  });
+
+  it("keeps allowing an ordinary relative filename", async () => {
+    // The refusal must not swallow the common case.
+    await expect(resolveMediaSrc("my..photo.png")).resolves.not.toBe("");
+  });
+});
 
 describe("withMediaReloadKey", () => {
   const URL = "asset://localhost/%2Ftmp%2Fpic.png";
