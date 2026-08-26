@@ -17,7 +17,7 @@
 import type { CursorInfo } from "@/types/cursorSync";
 import type { IngestOrigin } from "@/utils/ingestOrigin";
 import type { IngestOptions } from "./ingestState";
-import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
+import type { LineMetadata } from "@/utils/ingestOrigin";
 import type { DocumentRestoreState, DocumentState, SaveSnapshots } from "./documentState";
 
 export interface SetContentOptions {
@@ -113,13 +113,14 @@ export interface DocumentStore {
    */
   updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
-  /** Per-doc editor mode (ADR-009). */
-  setMode: (tabId: string, mode: "wysiwyg" | "source") => void;
+  /** Per-doc editor mode (ADR-009). Derived from the state type, never
+   *  restated: a second spelling of the union would let the action contract
+   *  drift the day a mode is added. */
+  setMode: (tabId: string, mode: DocumentState["mode"]) => void;
   setSelectedText: (tabId: string, text: string) => void;
-  setLineMetadata: (
-    tabId: string,
-    meta: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
+  /** `Partial<LineMetadata>` rather than an anonymous copy of its two fields —
+   *  the shape already has a name and one definition. */
+  setLineMetadata: (tabId: string, meta: Partial<LineMetadata>) => void;
   removeDocument: (tabId: string) => void;
 
   // Selectors

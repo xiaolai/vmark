@@ -50,11 +50,10 @@ import {
   reviewEachIndividually,
 } from "@/services/files/fileChangeBatch";
 import { resolveExternalChangeAction } from "@/utils/openPolicy";
-import { normalizePath } from "@/utils/paths";
+import { getFileName, normalizePath } from "@/utils/paths";
 import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
-import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
 import { resolveDirtyFileChange } from "@/services/persistence/resolveDirtyFileChange";
@@ -214,8 +213,11 @@ export function useExternalFileChanges(): void {
 
       switch (action) {
         case "auto_reload":
+          // No `clearMissing` here: the `doc.isMissing` branch above returns in
+          // both its arms, and nothing between that read and this switch
+          // awaits, so a missing document can never reach this case. The call
+          // was a no-op that still wrote to the store and woke every subscriber.
           useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-          useDocumentStore.getState().clearMissing(tabId);
           toast.info(i18n.t("dialog:toast.reloaded", { filename: getFileName(changedPath) }));
           break;
         case "prompt_user":

@@ -40,7 +40,6 @@ export type { CursorInfo } from "@/types/cursorSync";
 export type { DocumentState } from "./documentState";
 export type { SetContentOptions } from "./storeContract";
 
-/** Options for {@link DocumentStore.setContent}. */
 /**
  * Tab-existence guard for `initDocument` (C1, defense-in-depth).
  *

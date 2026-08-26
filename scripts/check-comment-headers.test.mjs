@@ -171,6 +171,41 @@ describe("check-comment-headers", () => {
     expect(runHook()).toContain("wasn't updated");
   });
 
+  // Round-4. `*`-followed-by-space still admitted a SPACED deref
+  // (`* slot = "Purpose: x";`) and a spaced TypeScript generator
+  // (`* method() { return "Purpose:"; }`). Neither is a comment; both are
+  // ordinary code that happens to mention a label word. The prefix cannot tell
+  // them apart on its own — only the line's position inside a real comment
+  // block can.
+  it("is not silenced by a SPACED Rust deref mentioning a label", () => {
+    const p = join(repo, "src", "e.rs");
+    writeFileSync(p, `//! Purpose: do the thing.\n\nfn f() {}\n`);
+    git("add", "-A");
+    git("commit", "-qm", "add e.rs");
+    writeFileSync(p, `//! Purpose: do the thing.\n\nfn f(slot: &mut &str) {\n* slot = "Purpose: runtime";\n}\n`);
+    git("add", "-A");
+    expect(runHook()).toContain("e.rs");
+  });
+
+  it("is not silenced by a spaced TypeScript generator mentioning a label", () => {
+    writeSubject("  return 2;", HEADER + '\nclass C {\n* method() { return "Purpose:"; }\n}\n');
+    git("add", "-A");
+    expect(runHook()).toContain("wasn't updated");
+  });
+
+  it("still accepts a label added to a MID-FILE JSDoc block", () => {
+    // The reason `*` cannot simply be dropped: this repo documents exports with
+    // JSDoc below the header, and editing one IS a documentation update.
+    const p = join(repo, "src", "mid.ts");
+    const mid = (label) => `/**\n * Purpose: top.\n */\nexport const a = 1;\n\n/**\n * Does a thing.\n${label} */\nexport function f() { return 1; }\n`;
+    writeFileSync(p, mid(""));
+    git("add", "-A");
+    git("commit", "-qm", "add mid");
+    writeFileSync(p, mid(" * @coordinates-with x.ts — y\n").replace("return 1;", "return 2;"));
+    git("add", "-A");
+    expect(runHook()).not.toContain("mid.ts");
+  });
+
   // Round-3 (verify verdict #16 PARTIAL). A bare `*` prefix also begins a Rust
   // deref assignment, so `*slot = "Purpose: ...";` looked like a JSDoc
   // continuation line. A comment continuation always has whitespace after the

@@ -54,13 +54,60 @@ while IFS= read -r -d '' file; do
   # the file. The line must LOOK like a comment: the rule used to match the
   # label anywhere on an added line, so shipping `const s = "Purpose: ..."`
   # silenced the warning for the whole file.
-  # Only `//`, `/*` and a `*` FOLLOWED BY WHITESPACE count. This hook scans
-  # .ts/.tsx/.rs, and in those languages the other spellings are real code:
-  # `#` begins a TypeScript private field and a Rust attribute, and a bare `*`
-  # begins a Rust deref assignment (`*slot = "Purpose: ..."`). A JSDoc
-  # continuation always separates the asterisk from its text, so requiring that
-  # separator keeps every real header line and drops the code.
-  if echo "$DIFF" | grep -qE '^\+[[:space:]]*(\*[[:space:]]|\*$|//|/\*).*(Purpose:|Pipeline:|Key decisions:|Known limitations:|@coordinates-with|@edge-case|@module)'; then
+  # A label word counts only when the line carrying it is INSIDE A COMMENT.
+  #
+  # No prefix test can decide this. `//` and `/*` are unambiguous, but a JSDoc
+  # continuation's `*` is spelled exactly like a Rust deref (`* slot = "..."`)
+  # and a TypeScript generator (`* method() { ... }`), and `#` — tried and
+  # removed — is a private field and an attribute. Successive prefix rules kept
+  # admitting one more piece of real code, because the prefix is not the
+  # property; position is. So the comment ranges are computed from the staged
+  # blob, and an added line qualifies only if its NEW line number falls in one.
+  #
+  # `*` cannot simply be dropped either: this repo documents exports with JSDoc
+  # BELOW the file header, and editing one is a genuine documentation update
+  # that the leading-block rule further down cannot see.
+  COMMENT_LINES=$(printf '%s\n' "$CONTENT" | awk '
+    {
+      isComment = 0
+      if (inBlock) isComment = 1
+      else if ($0 ~ /^[[:space:]]*\/\//) isComment = 1
+      else if ($0 ~ /\/\*/) isComment = 1
+      if ($0 ~ /\/\*/ && $0 !~ /\*\//) inBlock = 1
+      else if (inBlock && $0 ~ /\*\//) inBlock = 0
+      # Comma-separated, NOT newline-separated: BSD awk (macOS, the primary
+      # platform here) rejects a -v value containing a newline with
+      # "newline in string" — on stderr, leaving the if below false and the
+      # detector silently switched off. No apostrophes in this block: it lives
+      # inside a single-quoted awk program.
+      if (isComment) printf "%s,", NR
+    }')
+
+  if echo "$DIFF" | awk -v commentLines="$COMMENT_LINES" '
+    BEGIN {
+      n = split(commentLines, rows, ",")
+      for (i = 1; i <= n; i++) if (rows[i] != "") isComment[rows[i] + 0] = 1
+      label = "(Purpose:|Pipeline:|Key decisions:|Known limitations:|@coordinates-with|@edge-case|@module)"
+    }
+    /^@@/ {
+      match($0, /\+[0-9]+/)
+      lineNo = substr($0, RSTART + 1, RLENGTH - 1) + 0
+      inHunk = 1
+      next
+    }
+    # Everything before the first @@ is diff preamble — and `+++ b/path` starts
+    # with a `+`, so counting it as an added line shifted every line number
+    # after it.
+    !inHunk { next }
+    /^\+/ {
+      if ($0 ~ label && isComment[lineNo]) { found = 1 }
+      lineNo++
+      next
+    }
+    /^-/ { next }
+    { lineNo++ }
+    END { exit found ? 0 : 1 }
+  '; then
     continue
   fi
 
