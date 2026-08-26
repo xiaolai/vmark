@@ -25,7 +25,7 @@
  * @module lib/formats/adapters/HtmlPreview
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { commandErrorMessage } from "@/services/commands/commandError";
@@ -137,25 +137,47 @@ export function HtmlPreview({
    * that nothing can ever free.
    */
   const busy = useRef(false);
+  // Which document this pane is showing RIGHT NOW, readable from inside an
+  // async completion. A pane renders a different file without remounting, so
+  // `path` captured in a closure describes where the operation STARTED, and
+  // this ref describes where it landed.
+  const currentPath = useRef(path);
+  // Synced in an effect, not during render: writing a ref while rendering is
+  // what `react-hooks/refs` forbids, and effects run at commit — long before
+  // any awaited IPC round trip can settle.
+  useEffect(() => {
+    currentPath.current = path;
+  }, [path]);
   const run = useCallback(
     (operation: (html: string) => Promise<unknown>) => {
       if (busy.current) return;
       busy.current = true;
       setError(null);
       const html = liveContent;
+      // The document this operation belongs to. Its completion may only write
+      // state while the pane is still showing it: `setRunCount` feeds the
+      // trusted frame's `?run=` parameter, so a completion belonging to a file
+      // the pane has already left forced a DIFFERENT trusted document to
+      // reload and re-execute — an execution nobody asked for, which is the
+      // one thing this feature promises never to do (audit finding #32).
+      const startedOn = path;
       void (async () => {
         try {
           await operation(html);
+          if (currentPath.current !== startedOn) return;
           setRan(html);
           setRunCount((n) => n + 1);
         } catch (e) {
-          setError(t("preview.htmlTrustFailed", { error: commandErrorMessage(e) }));
+          // Same scope rule: a failure belongs to the document that caused it.
+          if (currentPath.current === startedOn) {
+            setError(t("preview.htmlTrustFailed", { error: commandErrorMessage(e) }));
+          }
         } finally {
           busy.current = false;
         }
       })();
     },
-    [liveContent, t],
+    [liveContent, path, t],
   );
 
   const handleEnable = useCallback(

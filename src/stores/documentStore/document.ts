@@ -26,6 +26,7 @@ import { INGEST_ORIGIN_SNAPSHOT } from "@/utils/ingestOrigin";
 import { applyTransferLineMetadata } from "@/utils/transferLineMetadata";
 import {
   assertCanonicalEditorText,
+  assertNotRebuildingDocument,
   assertRestoreState,
   buildPostSaveState,
   createInitialDocument,
@@ -88,6 +89,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (tabExistsGuard && !tabExistsGuard(tabId)) {
       return;
     }
+    // Rebuilding an existing entry loses readOnly, mode and documentId — see
+    // the assertion for why the last one is the dangerous part. Dev-only.
+    assertNotRebuildingDocument(get().documents[tabId], tabId);
     const doc = createInitialDocument(content, filePath);
     if (restore) {
       assertRestoreState(restore);

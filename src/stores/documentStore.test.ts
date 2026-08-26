@@ -300,6 +300,59 @@ describe("documentStore", () => {
     });
   });
 
+  // Audit finding #37. `initDocument` builds a whole fresh entry, so calling it
+  // for a tab that already has one discards `readOnly` (silently disabling
+  // write protection), the editor mode, and `documentId`. The last is the
+  // quiet one: it is the editor's remount key, and a first-open document sits
+  // at 0 — so rebuilding it there leaves the counter UNCHANGED and the editor
+  // may never remount onto the new content. The MCP open path met exactly this
+  // and routed around it, but the reasoning lived in a comment on that caller.
+  describe("initDocument refuses to rebuild a document that would lose state", () => {
+    it("throws when the document has been externally replaced (documentId > 0)", () => {
+      const { initDocument, ingestExternalContent } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      ingestExternalContent(WINDOW_LABEL, "b", "disk-open", { filePath: "/f.md" });
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow(/ingestExternalContent/);
+    });
+
+    it("throws when write protection is on", () => {
+      const { initDocument, setReadOnly } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      setReadOnly(WINDOW_LABEL, true);
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow(/readOnly/);
+    });
+
+    it("throws when the editor mode is not the default", () => {
+      const { initDocument, setMode } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      setMode(WINDOW_LABEL, "source");
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow();
+    });
+
+    it("allows re-initialising a pristine entry", () => {
+      // Resetting a tab to a known state discards nothing and is how every
+      // store test seeds. An assertion that fired here would describe test
+      // setup rather than the hazard.
+      const { initDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "b", "/g.md"))
+        .not.toThrow();
+      expect(useDocumentStore.getState().getDocument(WINDOW_LABEL)?.content).toBe("b");
+    });
+
+    it("allows the first initialisation of a tab", () => {
+      expect(() => useDocumentStore.getState().initDocument("fresh-tab", "a", "/f.md"))
+        .not.toThrow();
+    });
+  });
+
   describe("markBinaryFileChanged", () => {
     // A media document's bytes live on disk, never in `content`, so the only
     // way a viewer can learn the file changed is this counter moving.

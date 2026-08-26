@@ -327,6 +327,65 @@ describe("editing a trusted document", () => {
     expect(bridge.publishTrustedHtml).toHaveBeenCalledWith(TOKEN, SCRIPTED);
   });
 
+  /// Audit finding #32. `run()` writes `ran`/`runCount` when its async
+  /// operation settles, with nothing tying that completion to the document it
+  /// started on. A pane can render a DIFFERENT file without remounting, so an
+  /// Enable that resolves after the switch marked the NEW document as running
+  /// content it had never executed — and `stale` is computed from `ran`, so the
+  /// new file then advertised itself as up to date.
+  it("ignores a grant that completes after the pane moved to another file", async () => {
+    const user = userEvent.setup();
+    let release!: (token: string) => void;
+    bridge.grantTrustedHtml.mockImplementation(
+      (p: string) => new Promise<string>((resolve) => {
+        release = (token) => { useHtmlTrustStore.getState().grant(p, token); resolve(token); };
+      }),
+    );
+
+    const { rerender } = renderPreview();
+    await user.click(screen.getByRole("button", { name: /trusted preview/i }));
+    await user.click(screen.getByRole("button", { name: /enable scripts/i }));
+
+    // The pane moves on before the grant lands.
+    const other = "/labs/other.html";
+    rerender(<HtmlPreview content="<p>other</p>" liveContent="<p>other</p>" path={other} diagnostics={[]} />);
+    release(TOKEN);
+    await waitFor(() => expect(bridge.grantTrustedHtml).toHaveBeenCalled());
+
+    // The completion belongs to the FIRST file. The second must not inherit it:
+    // it is untrusted, and nothing here may say otherwise.
+    expect(screen.queryByTestId("html-trust-active")).not.toBeInTheDocument();
+    expect(frame().getAttribute("sandbox")).toBe("");
+  });
+
+  it("does not re-run another document's frame when a stale operation lands", async () => {
+    // The concrete harm: `run()` bumps `runCount` on completion, and the
+    // trusted frame's URL carries `?run=`. A completion belonging to a file the
+    // pane has already left therefore forces a DIFFERENT, trusted document to
+    // reload and re-execute — an execution nobody asked for, which is exactly
+    // what "a trusted preview never re-runs itself" exists to prevent.
+    const user = userEvent.setup();
+    const other = "/labs/other.html";
+    const otherToken = "b".repeat(64);
+    let release!: () => void;
+    bridge.grantTrustedHtml.mockImplementation(
+      () => new Promise<string>((resolve) => { release = () => resolve(TOKEN); }),
+    );
+
+    const { rerender } = renderPreview();
+    await user.click(screen.getByRole("button", { name: /trusted preview/i }));
+    await user.click(screen.getByRole("button", { name: /enable scripts/i }));
+
+    useHtmlTrustStore.getState().grant(other, otherToken);
+    rerender(<HtmlPreview content="<p>other</p>" liveContent="<p>other</p>" path={other} diagnostics={[]} />);
+    const before = frame().getAttribute("src");
+
+    release();
+    await waitFor(() => expect(bridge.grantTrustedHtml).toHaveBeenCalled());
+
+    expect(frame().getAttribute("src")).toBe(before);
+  });
+
   it("republishes and re-runs on Reload", async () => {
     const user = userEvent.setup();
     const { rerender } = renderPreview();

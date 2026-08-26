@@ -185,6 +185,54 @@ export function assertRestoreState(restore: DocumentRestoreState): void {
   }
 }
 
+/**
+ * Refuse to REBUILD a document that already exists — in development.
+ *
+ * `initDocument` constructs a whole fresh entry, so calling it for a tab that
+ * already has one silently discards more than its content: `readOnly` (which
+ * disables write protection), the per-document editor mode, and `documentId`.
+ * That last one is the quiet part. `documentId` is the editor's remount key and
+ * a first-open document sits at 0, so rebuilding it there leaves the counter
+ * UNCHANGED and the editor may never remount onto the new content. The MCP
+ * open path hit exactly this and routed around it (see
+ * `services/mcpBridge/v2/workspaceOpen.ts`), but the reasoning lived in a
+ * comment on the caller — where the next caller will not look.
+ *
+ * No production caller does this today; every one creates its tab first. This
+ * exists so the day one does, it says so instead of producing a document that
+ * looks right and will not re-render.
+ *
+ * It fires only when a rebuild would actually LOSE something — a raised
+ * `documentId`, write protection, or a non-default editor mode. Re-initialising
+ * a pristine entry discards nothing, and it is an ordinary way to reset a tab
+ * to a known state (every store test in this directory does it in `beforeEach`).
+ * An assertion that fired there would be describing test setup, not the hazard.
+ *
+ * `ingestExternalContent(tabId, text, "disk-open")` is the door for an existing
+ * tab: it mutates in place, increments `documentId`, and bumps the MCP revision
+ * when the content actually moved.
+ *
+ * DEV-only, like the canonical-text assertion beside it: a hard throw in
+ * production would turn a recoverable mistake into a blank window.
+ */
+export function assertNotRebuildingDocument(
+  existing: DocumentState | undefined,
+  tabId: string,
+): void {
+  if (!import.meta.env.DEV) return;
+  if (!existing) return;
+  const wouldLose =
+    existing.documentId !== 0 || existing.readOnly || existing.mode !== "wysiwyg";
+  if (!wouldLose) return;
+  throw new Error(
+    `initDocument("${tabId}") was called for a tab that already has a document. ` +
+      `It builds a FRESH entry, discarding readOnly, the editor mode, and ` +
+      `documentId — and an unchanged documentId means the editor may never ` +
+      `remount onto the new content. Use ingestExternalContent(tabId, text, ` +
+      `"disk-open") to replace an existing document in place.`,
+  );
+}
+
 export function assertCanonicalEditorText(text: string, action: string): void {
   if (!import.meta.env.DEV) return;
   // The contract is LF-only AND BOM-free. Checking only `\r` let a leading
