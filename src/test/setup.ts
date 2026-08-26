@@ -273,7 +273,6 @@ vi.mock("@xterm/addon-search", () => ({
   })),
 }));
 
-
 // Real path semantics, via `node:path`'s POSIX implementation — not a
 // hand-rolled approximation of them.
 //
@@ -298,3 +297,4 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 import "./bindPluginRegistries";
+import "./globalTestHooks";

@@ -8,11 +8,12 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, renderHook } from "@testing-library/react";
-import type { ReactNode } from "react";
 import type { TabRemovalRequestEvent } from "@/types/tabTransfer";
 import { useUIStore } from "../stores/uiStore";
 
 // --- Mocks (must precede imports) ---
+
+type ListenHandler = (e: { payload: unknown }) => void;
 
 const {
   mockEmit,
@@ -31,8 +32,11 @@ const {
   mockWorkspaceState,
 } = vi.hoisted(() => ({
   mockEmit: vi.fn(),
-  mockListen: vi.fn(() => Promise.resolve(vi.fn())),
-  mockCreateTab: vi.fn(() => "tab-1"),
+  // Typed to the real signatures: a bare `vi.fn(() => …)` has a ZERO-parameter
+  // type, so `mock.calls[n][1]` indexes an empty tuple — 22 type errors vitest
+  // never reports, because it transpiles tests without checking them.
+  mockListen: vi.fn((_e: string, _h: ListenHandler): Promise<() => void> => Promise.resolve(vi.fn())),
+  mockCreateTab: vi.fn((_windowLabel: string, _filePath: string | null) => "tab-1"),
   mockGetTabsByWindow: vi.fn(() => [] as unknown[]),
   mockInitDocument: vi.fn(),
   mockSetLineMetadata: vi.fn(),
@@ -196,11 +200,6 @@ vi.mock("@/utils/debug", () => ({
 import { WindowProvider, useWindowLabel, useIsDocumentWindow } from "./WindowContext";
 import { windowContextError as _windowContextError } from "@/utils/debug";
 const mockWindowContextError = vi.mocked(_windowContextError);
-
-// Helper wrapper
-function _Wrapper({ children }: { children: ReactNode }) {
-  return <WindowProvider>{children}</WindowProvider>;
-}
 
 describe("WindowContext", () => {
   beforeEach(() => {
@@ -1300,11 +1299,11 @@ describe("WindowContext", () => {
     it("returns early in tab:transfer callback when cancelled (component unmounted before event fires)", async () => {
       // This covers line 334: `if (cancelled) return;` inside the tab:transfer listener callback
       // We need to: register the listener, unmount (sets cancelled=true), then fire the listener callback
-      let transferCallback: ((event: { payload: unknown }) => void) | null = null;
+      const held: { cb: ListenHandler | null } = { cb: null }; // a `let` set inside a callback narrows to `never`
 
-      mockListen.mockImplementation((event: string, cb: (e: unknown) => void) => {
+      mockListen.mockImplementation((event: string, cb: ListenHandler) => {
         if (event === "tab:transfer") {
-          transferCallback = cb as (event: { payload: unknown }) => void;
+          held.cb = cb;
         }
         return Promise.resolve(vi.fn());
       });
@@ -1317,7 +1316,7 @@ describe("WindowContext", () => {
 
       // Wait for listeners to be registered
       await waitFor(() => {
-        expect(transferCallback).not.toBeNull();
+        expect(held.cb).not.toBeNull();
       });
 
       // Unmount sets cancelled = true
@@ -1325,8 +1324,8 @@ describe("WindowContext", () => {
 
       // Fire the tab:transfer callback AFTER unmount — should return early (line 334)
       // The applyTabTransferData should NOT be called
-      if (transferCallback) {
-        await transferCallback({
+      if (held.cb) {
+        await held.cb({
           payload: {
             tabId: "late-tab",
             title: "Late",
@@ -1345,11 +1344,11 @@ describe("WindowContext", () => {
 
     it("returns early in tab:remove-by-id callback when cancelled", async () => {
       // This covers line 352: `if (cancelled) return;` inside the tab:remove-by-id callback
-      let removeCallback: ((event: { payload: TabRemovalRequestEvent }) => void) | null = null;
+      const held: { cb: ((e: { payload: TabRemovalRequestEvent }) => void) | null } = { cb: null };
 
-      mockListen.mockImplementation((event: string, cb: (e: unknown) => void) => {
+      mockListen.mockImplementation((event: string, cb: ListenHandler) => {
         if (event === "tab:remove-by-id") {
-          removeCallback = cb as (event: { payload: TabRemovalRequestEvent }) => void;
+          held.cb = cb as (e: { payload: TabRemovalRequestEvent }) => void;
         }
         return Promise.resolve(vi.fn());
       });
@@ -1362,15 +1361,15 @@ describe("WindowContext", () => {
 
       // Wait for listeners to be registered
       await waitFor(() => {
-        expect(removeCallback).not.toBeNull();
+        expect(held.cb).not.toBeNull();
       });
 
       // Unmount sets cancelled = true
       unmount();
 
       // Fire the tab:remove-by-id callback AFTER unmount — should return early (line 352)
-      if (removeCallback) {
-        removeCallback({ payload: { requestId: "req-1", tabId: "stale-tab", phase: "commit" } });
+      if (held.cb) {
+        held.cb({ payload: { requestId: "req-1", tabId: "stale-tab", phase: "commit" } });
       }
 
       // removeTransferredTabData calls detachTab internally
