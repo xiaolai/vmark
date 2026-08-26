@@ -181,7 +181,7 @@ describe("useDragDropOpen.openFileInNewTab — size-tier routing", () => {
     useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
     const dirtyTabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(dirtyTabId, "dirty", null);
-    useDocumentStore.getState().setContent(dirtyTabId, "dirty changed");
+    useDocumentStore.getState().setEditorContent(dirtyTabId, "dirty changed");
     mockInvoke.mockImplementation((cmd: string) => {
       if (cmd === "get_file_size_bytes") return Promise.resolve(10_000);
       return Promise.resolve(null);

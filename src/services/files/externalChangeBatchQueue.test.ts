@@ -239,3 +239,92 @@ describe("empty-queue behaviour", () => {
     expect(process).toHaveBeenCalledTimes(1);
   });
 });
+
+// Audit finding #28. `cancel()` clears the timer and keeps the items, which is
+// its documented job — but it is also what unmount cleanup called, and it
+// cannot stop a batch that is ALREADY running. That batch's `finally`
+// re-schedules whenever anything is pending, so a dialog open at unmount
+// re-armed a timer after cleanup had cancelled one, and it fired into a
+// torn-down hook. This module's header already records fixing that for the
+// two-scheduling-path case; the in-flight rearm survived it.
+describe("dispose is terminal, unlike cancel", () => {
+  it("stops an in-flight batch from re-arming after cleanup", async () => {
+    let release!: () => void;
+    const process = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const q = createBatchQueue<string>({ debounceMs: MS, process, onError: vi.fn() });
+
+    q.queue("a", "a");
+    vi.advanceTimersByTime(MS);
+    await settle();
+    expect(process).toHaveBeenCalledTimes(1);
+
+    // A change arrives while the batch is still in flight — this is what puts
+    // something in `pending` for the `finally` to re-schedule.
+    q.queue("b", "b");
+    q.dispose();
+    release();
+    await settle();
+
+    // Nothing may run after dispose, however long the timers are advanced.
+    vi.advanceTimersByTime(MS * 10);
+    await settle();
+    expect(process).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-arm when an in-flight batch REJECTS after dispose", async () => {
+    // The path the latch actually guards. On failure the `catch` puts the
+    // drained batch BACK, so `pending` is non-empty again by the time the
+    // `finally` runs — and without the latch that `finally` schedules a fresh
+    // timer, after cleanup believed it had shut the queue down. A dispose that
+    // only emptied the queue would be undone by the very next rejection.
+    let reject!: (e: Error) => void;
+    const process = vi.fn(() => new Promise<void>((_, r) => { reject = r; }));
+    const onError = vi.fn();
+    const q = createBatchQueue<string>({ debounceMs: MS, process, onError });
+
+    q.queue("a", "a");
+    vi.advanceTimersByTime(MS);
+    await settle();
+    expect(process).toHaveBeenCalledTimes(1);
+
+    q.dispose();
+    reject(new Error("dialog closed with the window"));
+    await settle();
+
+    vi.advanceTimersByTime(MS * 10);
+    await settle();
+    expect(process).toHaveBeenCalledTimes(1);
+    expect(q.size(), "the catch put the batch back into a disposed queue").toBe(0);
+  });
+
+  it("drops queued items, where cancel keeps them", () => {
+    const q = createBatchQueue<string>({ debounceMs: MS, process: vi.fn(), onError: vi.fn() });
+    q.queue("a", "a");
+    expect(q.size()).toBe(1);
+
+    q.cancel();
+    expect(q.size(), "cancel keeps items by design").toBe(1);
+
+    q.dispose();
+    expect(q.size()).toBe(0);
+  });
+
+  it("ignores anything queued after dispose", () => {
+    const process = vi.fn(async () => {});
+    const q = createBatchQueue<string>({ debounceMs: MS, process, onError: vi.fn() });
+
+    q.dispose();
+    q.queue("a", "a");
+    vi.advanceTimersByTime(MS * 10);
+
+    expect(q.size()).toBe(0);
+    expect(process).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent", () => {
+    const q = createBatchQueue<string>({ debounceMs: MS, process: vi.fn(), onError: vi.fn() });
+    q.queue("a", "a");
+    expect(() => { q.dispose(); q.dispose(); }).not.toThrow();
+    expect(q.size()).toBe(0);
+  });
+});

@@ -48,7 +48,7 @@ describe("startupFileOpen", () => {
       // Open the file once with dirty edits.
       const tabId = useTabStore.getState().createTab(WINDOW, "/docs/dup.md");
       useDocumentStore.getState().initDocument(tabId, "saved", "/docs/dup.md");
-      useDocumentStore.getState().setContent(tabId, "DIRTY EDITS");
+      useDocumentStore.getState().setEditorContent(tabId, "DIRTY EDITS");
       expect(useDocumentStore.getState().getDocument(tabId)?.isDirty).toBe(true);
 
       // The shared core dedupes (creates no new tab, writes nothing) — that is

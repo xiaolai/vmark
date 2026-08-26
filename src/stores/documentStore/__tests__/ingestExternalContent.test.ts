@@ -346,3 +346,40 @@ describe("ingestExternalContent — routing options", () => {
     expect(doc()?.lineEnding).toBe("crlf");
   });
 });
+
+// Audit finding #39. A baseline ingest into a tab with no document did TWO
+// `set()` calls: `initDocument` published an EMPTY document, then the patch
+// replaced it with the real content. Every subscriber saw the empty one — and
+// `documentId` is an editor remount key, so a surface that mounted on that
+// intermediate state is mounting on a document that does not exist yet.
+describe("a baseline ingest into an empty tab is one atomic write", () => {
+  it("never publishes an intermediate empty document", () => {
+    useDocumentStore.setState({ documents: {} });
+    const seen: (string | undefined)[] = [];
+    const unsubscribe = useDocumentStore.subscribe((state) => {
+      seen.push(state.documents["tab-atomic"]?.content);
+    });
+
+    useDocumentStore
+      .getState()
+      .ingestExternalContent("tab-atomic", "# real content\n", "disk-open", {
+        filePath: "/f.md",
+      });
+    unsubscribe();
+
+    expect(seen).not.toContain("");
+    expect(useDocumentStore.getState().documents["tab-atomic"]?.content).toBe("# real content\n");
+  });
+
+  it("still creates the document with its file path and clean state", () => {
+    useDocumentStore.setState({ documents: {} });
+    useDocumentStore
+      .getState()
+      .ingestExternalContent("tab-atomic", "body\n", "disk-open", { filePath: "/f.md" });
+
+    const doc = useDocumentStore.getState().documents["tab-atomic"];
+    expect(doc?.filePath).toBe("/f.md");
+    expect(doc?.isDirty).toBe(false);
+    expect(doc?.savedContent).toBe("body\n");
+  });
+});

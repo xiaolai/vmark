@@ -18,46 +18,62 @@
  * waits for Reload — re-executing a document is an action the user takes, and a
  * running simulation surviving a keystroke is the behaviour the feature is for.
  *
+ * The corollary, and the thing issue #1328 was: when the pane cannot know what
+ * the frame is running — a remount, or a file trusted earlier in the session —
+ * it says so rather than claiming currency. It still does not act.
+ *
+ * This file renders those two modes. The trust lifecycle behind them — what
+ * the frame is running, whether that is stale, and the guarded Enable / Reload
+ * / Revoke actions — is `useHtmlTrust`.
+ *
+ * @coordinates-with useHtmlTrust.ts — the trust lifecycle
  * @module lib/formats/adapters/HtmlPreview
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
-import { commandErrorMessage } from "@/services/commands/commandError";
-import {
-  grantTrustedHtml,
-  publishTrustedHtml,
-  revokeTrustedHtml,
-} from "@/services/trustedHtml/trustedHtmlBridge";
-import { useHtmlTrustStore } from "@/stores/htmlTrustStore";
 import { HtmlTrustBar } from "./HtmlTrustBar";
+import { useHtmlTrust } from "./useHtmlTrust";
 import { TRUSTED_ALLOW, TRUSTED_SANDBOX, trustedFrameUrl } from "./htmlTrust";
 import type { PreviewRendererProps } from "../types";
 import "./html-preview.css";
 
-const CSP_META =
-  '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'; font-src data:; base-uri \'none\';">';
+const CSP_CONTENT =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; base-uri 'none';";
 
 /**
- * The SAFE path, unchanged from ADR-4: DOMPurify first, then an empty sandbox,
- * then a meta CSP restricting what the frame may load.
+ * The SAFE path, unchanged from ADR-4 in intent: DOMPurify first, then an empty
+ * sandbox, then a meta CSP restricting what the frame may load.
+ *
+ * The meta is inserted through the DOM, not spliced in with a regex, and that
+ * is a correctness requirement rather than a style preference. Two successive
+ * regexes got this wrong. The first matched `<head` plus one delimiter, so
+ * `<head lang="en">` became `<head <meta …>lang="en">`. Its replacement,
+ * `/<head\b[^>]*>/i`, stops at the first `>` — and HTML attribute
+ * serialization escapes `&` and `"` but NOT `>`, so DOMPurify passes
+ * `<head title="a>b">` straight through. The regex then matched
+ * `<head title="a>` and spliced the meta INSIDE the attribute value, leaving
+ * the sandboxed document with NO policy element at all (audit finding #19).
+ *
+ * A parser cannot be confused by a `>` inside an attribute, so the whole class
+ * goes away. `DOMParser` with `text/html` always synthesises `html`/`head`/
+ * `body`, which also removes the separate no-head fallback branch that existed
+ * only because a regex could miss.
  */
 function buildSandboxedSrcdoc(content: string): string {
   const sanitized = DOMPurify.sanitize(content, {
     WHOLE_DOCUMENT: true,
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|#|data:image\/):|[^a-z]|$)/i,
   });
-  // Replace the WHOLE opening tag, not its first two characters. The previous
-  // form matched `<head` plus one delimiter and re-emitted them with the meta
-  // spliced in, so `<head lang="en">` became `<head <meta …>lang="en">` —
-  // malformed markup in which the CSP may not apply at all. This is the SAFE
-  // path, so that failure mode was the more dangerous of the two.
-  const openingHead = /<head\b[^>]*>/i;
-  if (openingHead.test(sanitized)) {
-    return sanitized.replace(openingHead, (tag) => `${tag}${CSP_META}`);
-  }
-  return `<!doctype html><html><head>${CSP_META}</head><body>${sanitized}</body></html>`;
+  const doc = new DOMParser().parseFromString(sanitized, "text/html");
+  const meta = doc.createElement("meta");
+  meta.setAttribute("http-equiv", "Content-Security-Policy");
+  meta.setAttribute("content", CSP_CONTENT);
+  // FIRST child of head: a policy that follows a resource-loading element
+  // would not govern it.
+  doc.head.insertBefore(meta, doc.head.firstChild);
+  return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
 export function HtmlPreview({
@@ -67,78 +83,9 @@ export function HtmlPreview({
   diagnostics,
 }: PreviewRendererProps) {
   const { t } = useTranslation("editor");
-  const token = useHtmlTrustStore((s) => (path ? (s.grants[path] ?? null) : null));
 
-  /** The content the trusted frame is currently running. */
-  const [ran, setRan] = useState<string | null>(null);
-  /** Bumped on Reload so the frame refetches the same token. */
-  const [runCount, setRunCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  // A pane can render a different document without remounting, and `ran`
-  // describes the PREVIOUS one. Left alone it reports a freshly-opened trusted
-  // file as stale against content it never ran. Adjusted during render rather
-  // than in an effect, same as HtmlTrustBar's confirmation reset.
-  const [ranPath, setRanPath] = useState(path);
-  if (ranPath !== path) {
-    setRanPath(path);
-    setRan(null);
-    setError(null);
-  }
-
-  const trusted = token !== null;
-  // Staleness and every ACTION below use `liveContent`, never the deferred
-  // `content`: executing the document the user can no longer see would be a
-  // correctness bug, and comparing against a lagging value would report a
-  // freshly-reloaded preview as stale.
-  const stale = trusted && ran !== null && ran !== liveContent;
-
-  /**
-   * One guarded runner for both actions.
-   *
-   * `busy` is a ref, not state: the guard has to reject a second click within
-   * the same tick, before any re-render could deliver a new prop. Without it,
-   * a double-click on Enable mints two backend grants and the store keeps only
-   * the second — orphaning the first, which still occupies a `MAX_GRANTS` slot
-   * that nothing can ever free.
-   */
-  const busy = useRef(false);
-  const run = useCallback(
-    (operation: (html: string) => Promise<unknown>) => {
-      if (busy.current) return;
-      busy.current = true;
-      setError(null);
-      const html = liveContent;
-      void (async () => {
-        try {
-          await operation(html);
-          setRan(html);
-          setRunCount((n) => n + 1);
-        } catch (e) {
-          setError(t("preview.htmlTrustFailed", { error: commandErrorMessage(e) }));
-        } finally {
-          busy.current = false;
-        }
-      })();
-    },
-    [liveContent, t],
-  );
-
-  const handleEnable = useCallback(
-    () => run((html) => grantTrustedHtml(path, html)),
-    [run, path],
-  );
-
-  const handleReload = useCallback(() => {
-    if (!token) return;
-    run((html) => publishTrustedHtml(token, html));
-  }, [run, token]);
-
-  const handleRevoke = useCallback(() => {
-    setError(null);
-    setRan(null);
-    void revokeTrustedHtml(path);
-  }, [path]);
+  const { token, trusted, stale, error, runCount, onEnable, onReload, onRevoke } =
+    useHtmlTrust(path, liveContent);
 
   const srcdoc = useMemo(
     () => (trusted ? null : buildSandboxedSrcdoc(content)),
@@ -172,9 +119,9 @@ export function HtmlPreview({
         stale={stale}
         canTrust={Boolean(path)}
         error={error}
-        onEnable={handleEnable}
-        onRevoke={handleRevoke}
-        onReload={handleReload}
+        onEnable={onEnable}
+        onRevoke={onRevoke}
+        onReload={onReload}
       />
       {diagnostics.length > 0 && (
         <div className="html-preview__hint" role="status">

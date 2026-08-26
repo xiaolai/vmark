@@ -9,6 +9,9 @@
  *         → resolveMediaSrc resolves path → img element displays
  *
  * Key decisions:
+ *   - The owning tab arrives from the extension option and is handed to
+ *     `resolveMediaSrc`, so a relative `src` resolves against this
+ *     document rather than whichever tab has focus when the node renders.
  *   - Image src resolution delegated to shared resolveMediaSrc utility
  *   - Security: relative paths validated against directory traversal attacks
  *
@@ -48,13 +51,21 @@ export class BlockImageNodeView implements NodeView {
   private originalSrc: string;
   private getPos: () => number | undefined;
   private editor: Editor;
+  /** Whose document this node belongs to — see the extension option. */
+  private ownerTabId: string | undefined;
   private resolveRequestId = 0;
   private destroyed = false;
   private cleanupHandlers: (() => void) | null = null;
 
-  constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
+  constructor(
+    node: PMNode,
+    getPos: () => number | undefined,
+    editor: Editor,
+    ownerTabId?: string,
+  ) {
     this.getPos = getPos;
     this.editor = editor;
+    this.ownerTabId = ownerTabId;
     this.originalSrc = String(node.attrs.src ?? "");
 
     this.dom = document.createElement("figure");
@@ -150,7 +161,7 @@ export class BlockImageNodeView implements NodeView {
     this.img.src = "";
     this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
 
-    resolveMediaSrc(src, "[BlockImageView]")
+    resolveMediaSrc(src, "[BlockImageView]", this.ownerTabId)
       .then((resolvedSrc) => {
         if (this.destroyed || requestId !== this.resolveRequestId) return;
         if (!resolvedSrc) {

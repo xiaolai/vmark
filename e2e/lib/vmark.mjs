@@ -92,19 +92,48 @@ export function mcpFire(client, type, args) {
 // Tab-bar observation
 // ---------------------------------------------------------------------------
 
-const TABS_SNIPPET = `[...document.querySelectorAll('[role="tab"][data-tab-id]')].map((el) => ({
+// DOCUMENT tabs only — the `[data-tab-id]` filter is the whole point. The tab
+// strip also renders a synthetic BROWSER WORKSPACE tab, which is a `role="tab"`
+// with `data-workspace-tab` and no id, and every caller below counts document
+// tabs or looks one up by id. See WORKSPACE_TAB_SNIPPET for the other one.
+export const TABS_SNIPPET = `[...document.querySelectorAll('[role="tab"][data-tab-id]')].map((el) => ({
   id: el.getAttribute("data-tab-id"),
   title: el.querySelector(".tab-title")?.textContent ?? null,
   selected: el.getAttribute("aria-selected") === "true",
   dirty: !!el.querySelector(".tab-dirty-dot"),
 }))`;
 
-/** Snapshot the tab bar: [{id, title, selected, dirty}]. */
+// The synthetic browser-workspace tab. It is rendered only when at least one
+// browser page is open, it carries no `data-tab-id`, and it can be the SELECTED
+// tab while every document tab reads `aria-selected="false"`.
+//
+// Reading only the document tabs made that state indistinguishable from a
+// broken one: a session with documents open and the browser workspace active
+// reported "tabs open but none active" and failed a healthy app, and a session
+// with ONLY the browser workspace reported an empty welcome screen while a
+// browser surface was on screen. Both were silent — one a false failure, the
+// other a false pass.
+export const WORKSPACE_TAB_SNIPPET = `(() => {
+  const el = document.querySelector('[role="tab"][data-workspace-tab]');
+  if (!el) return null;
+  return {
+    kind: "workspace",
+    title: el.textContent ?? null,
+    selected: el.getAttribute("aria-selected") === "true",
+  };
+})()`;
+
+/** Snapshot the DOCUMENT tabs: [{id, title, selected, dirty}]. */
 export function getTabs(client) {
   return evalJs(client, `(() => (${TABS_SNIPPET}))()`);
 }
 
-/** The currently selected tab (or null). */
+/** The synthetic browser-workspace tab, or null when no browser page is open. */
+export function getWorkspaceTab(client) {
+  return evalJs(client, WORKSPACE_TAB_SNIPPET);
+}
+
+/** The currently selected DOCUMENT tab (or null). */
 export async function getActiveTab(client) {
   const tabs = await getTabs(client);
   return tabs.find((t) => t.selected) ?? null;

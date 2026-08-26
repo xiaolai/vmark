@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "L’anteprima attendibile esegue gli script di questo documento in un’origine isolata, senza accesso alla rete né a VMark. Attivala solo per file che hai scritto tu o di cui ti fidi completamente.",
   "preview.htmlTrustConfirm": "Attiva script",
   "preview.htmlTrustActive": "Attendibile — script attivi",
-  "preview.htmlTrustStale": "Il sorgente è cambiato dall’ultima esecuzione",
+  "preview.htmlTrustStale": "Potrebbe non corrispondere al sorgente attuale",
   "preview.htmlTrustReload": "Ricarica",
   "preview.htmlTrustRevoke": "Revoca attendibilità",
   "preview.htmlTrustUnsaved": "Salva questo file prima di attivare l’anteprima attendibile",

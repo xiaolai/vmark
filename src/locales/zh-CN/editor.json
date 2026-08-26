@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "受信任预览会在隔离的源中运行此文档的脚本，该环境既无网络访问权限，也无法访问 VMark。请仅对你自己编写或完全信任的文件启用。",
   "preview.htmlTrustConfirm": "启用脚本",
   "preview.htmlTrustActive": "受信任 — 脚本已启用",
-  "preview.htmlTrustStale": "自上次运行后源码已更改",
+  "preview.htmlTrustStale": "可能与当前源码不一致",
   "preview.htmlTrustReload": "重新加载",
   "preview.htmlTrustRevoke": "撤销信任",
   "preview.htmlTrustUnsaved": "请先保存此文件，然后再启用受信任预览",

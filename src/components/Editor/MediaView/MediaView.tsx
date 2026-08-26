@@ -7,20 +7,27 @@
 //   external-open actions. This component is intentionally prop-only (no
 //   store reads) so the Quick Look overlay can reuse it directly.
 //
-// Public contract: <MediaView path={absolutePath} />
+// Public contract: <MediaView path={absolutePath} reloadKey={n?} />
 //
+// Key decisions:
+//   - This file is RENDER ONLY: three media branches, a loading slot, and the
+//     fallback panel. The asset-grant lifecycle, the per-attempt error keying
+//     and the cache-busting URL live in `useMediaAsset` — none of that is
+//     about rendering, and all of it is subtle.
+//   - `reloadKey` is optional and 0-defaulted, so the overlay entry points,
+//     which have no document to watch, produce byte-identical URLs to before.
+//
+// @coordinates-with useMediaAsset.ts — the grant lifecycle and the asset URL
 // @coordinates-with utils/mediaPathDetection.ts — getMediaType()
-// @coordinates-with services/media/resolveMediaSrc.ts — normalizePathForAsset()
+// @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — supplies reloadKey from documentId
 // @module components/Editor/MediaView/MediaView
 
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { FileQuestion } from "lucide-react";
 import { getMediaType } from "@/utils/mediaPathDetection";
-import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
 import { mediaViewError } from "@/utils/debug";
+import { useMediaAsset } from "./useMediaAsset";
 import "./MediaView.css";
 
 /** Extract the trailing filename from an absolute path (sync, cross-platform). */
@@ -32,47 +39,26 @@ function basenameOf(path: string): string {
 export interface MediaViewProps {
   /** Absolute file path handed down by the tab surface / overlay. */
   path: string;
+  /**
+   * Bumped when the file's BYTES change on disk, so the element re-fetches.
+   *
+   * Optional and defaulting to 0 because the two overlay entry points (Quick
+   * Look, arrow-nav) render a path the user just picked and have no document
+   * to watch; only a media TAB, which outlives external edits, supplies one.
+   * At 0 the URL is byte-identical to what it was before issue #1328.
+   */
+  reloadKey?: number;
 }
 
 /** Render an image / audio / video preview, or a graceful fallback. */
-export function MediaView({ path }: MediaViewProps) {
+export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
   const { t } = useTranslation("editor");
-  // Track state per-path (not booleans) so a path change resets granted/errored
-  // implicitly — no synchronous setState in the effect (cascading-render rule).
-  const [grantedPath, setGrantedPath] = useState<string | null>(null);
-  const [erroredPath, setErroredPath] = useState<string | null>(null);
-  const granted = grantedPath === path;
-  const errored = erroredPath === path;
+  // Grant lifecycle, error-per-attempt and the cache-busting URL all live in
+  // the hook — none of it is about rendering, and all of it is subtle.
+  const { granted, errored, src, attempt, markErrored } = useMediaAsset(path, reloadKey);
 
   const mediaType = getMediaType(path);
   const filename = basenameOf(path);
-  const src = convertFileSrc(normalizePathForAsset(path));
-
-  // Grant the webview asset:// access to THIS file before rendering the media
-  // element. Opening a media tab grants at open time, but Quick Look and
-  // arrow-nav reach MediaView without going through that path — so the render
-  // core owns the grant, making every entry point work. Best-effort: on
-  // failure we still render and let the element's onError show the fallback.
-  useEffect(() => {
-    // Skip the grant for a non-media path: an unknown extension renders the
-    // fallback panel and never points an element at an asset:// URL, so it must
-    // not acquire fs+asset scope for a file it won't preview.
-    if (getMediaType(path) === null) return;
-    let cancelled = false;
-    void invoke("grant_asset_access", { path })
-      .catch((e: unknown) => mediaViewError("grant_asset_access failed:", e))
-      // Mark the path granted even if the grant REJECTED. This is deliberate:
-      // the element then attempts the asset:// URL, the webview returns 403, and
-      // onError falls through to the panel below. Gating render on grant success
-      // instead would strand a legitimately-failed grant on the loading spinner
-      // forever — render → onError → fallback is the intended failure path.
-      .finally(() => {
-        if (!cancelled) setGrantedPath(path);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
 
   const openExternally = () => {
     void openPath(path).catch((e: unknown) =>
@@ -125,12 +111,18 @@ export function MediaView({ path }: MediaViewProps) {
     return (
       <div className={`media-view media-view--${mediaType}`}>
         <Tag
+          // Keyed by ATTEMPT, not by path: without it React reuses one DOM node
+          // across a reload, and a late error for the previous `src` runs the
+          // handler closed over the new attempt — failing a version that
+          // loaded fine (audit finding #10). Decoding is async, so a slow old
+          // image erroring after a fast new one is ordinary.
+          key={attempt}
           className={`media-view__${mediaType}`}
           data-testid={`media-view-${mediaType}`}
           src={src}
           controls
           preload="metadata"
-          onError={() => setErroredPath(path)}
+          onError={markErrored}
         />
       </div>
     );
@@ -139,10 +131,13 @@ export function MediaView({ path }: MediaViewProps) {
   return (
     <div className="media-view media-view--image">
       <img
+        // See the video/audio branch: keyed by attempt so a stale error cannot
+        // be delivered against a newer version.
+        key={attempt}
         className="media-view__image"
         src={src}
         alt={filename}
-        onError={() => setErroredPath(path)}
+        onError={markErrored}
       />
     </div>
   );

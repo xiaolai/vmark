@@ -77,12 +77,12 @@ describe("documentStore", () => {
     });
   });
 
-  describe("setContent", () => {
+  describe("setEditorContent", () => {
     it("updates content and marks dirty when content differs from saved", () => {
-      const { initDocument, setContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Original");
-      setContent(WINDOW_LABEL, "Modified");
+      setEditorContent(WINDOW_LABEL, "Modified");
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.content).toBe("Modified");
@@ -90,19 +90,19 @@ describe("documentStore", () => {
     });
 
     it("does not mark dirty when content matches saved content", () => {
-      const { initDocument, setContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Same content");
-      setContent(WINDOW_LABEL, "Same content");
+      setEditorContent(WINDOW_LABEL, "Same content");
 
       const doc = getDocument(WINDOW_LABEL);
       expect(doc?.isDirty).toBe(false);
     });
 
     it("does nothing for non-existent window", () => {
-      const { setContent, getDocument } = useDocumentStore.getState();
+      const { setEditorContent, getDocument } = useDocumentStore.getState();
 
-      setContent("non-existent", "content");
+      setEditorContent("non-existent", "content");
 
       expect(getDocument("non-existent")).toBeUndefined();
     });
@@ -114,11 +114,11 @@ describe("documentStore", () => {
   // same behaviour through the door that replaced it.
   describe("disk-open ingest (formerly loadContent)", () => {
     it("loads content and resets dirty state", () => {
-      const { initDocument, setContent, ingestExternalContent, getDocument } =
+      const { initDocument, setEditorContent, ingestExternalContent, getDocument } =
         useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Initial");
-      setContent(WINDOW_LABEL, "Dirty content");
+      setEditorContent(WINDOW_LABEL, "Dirty content");
       expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(true);
 
       ingestExternalContent(WINDOW_LABEL, "Loaded content", "disk-open", {
@@ -186,10 +186,10 @@ describe("documentStore", () => {
 
   describe("markSaved", () => {
     it("clears the dirty flag", () => {
-      const { initDocument, setContent, markSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Initial");
-      setContent(WINDOW_LABEL, "Modified");
+      setEditorContent(WINDOW_LABEL, "Modified");
       expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(true);
 
       markSaved(WINDOW_LABEL, { editorSnapshot: "Modified", diskSnapshot: "Modified" });
@@ -200,11 +200,11 @@ describe("documentStore", () => {
     });
 
     it("keeps isDirty true when content diverged during save (TOCTOU)", () => {
-      const { initDocument, setContent, markSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Original");
       // User edits to "Version B"
-      setContent(WINDOW_LABEL, "Version B");
+      setEditorContent(WINDOW_LABEL, "Version B");
       // But the save wrote "Version A" (the content from before the edit)
       markSaved(WINDOW_LABEL, { editorSnapshot: "Version A", diskSnapshot: "Version A" });
 
@@ -216,10 +216,10 @@ describe("documentStore", () => {
     });
 
     it("clears isDirty when content matches disk content", () => {
-      const { initDocument, setContent, markSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Original");
-      setContent(WINDOW_LABEL, "Saved content");
+      setEditorContent(WINDOW_LABEL, "Saved content");
       markSaved(WINDOW_LABEL, { editorSnapshot: "Saved content", diskSnapshot: "Saved content" });
 
       const doc = getDocument(WINDOW_LABEL);
@@ -231,10 +231,10 @@ describe("documentStore", () => {
 
   describe("markAutoSaved", () => {
     it("clears dirty flag and sets lastAutoSave timestamp", () => {
-      const { initDocument, setContent, markAutoSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markAutoSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Initial");
-      setContent(WINDOW_LABEL, "Modified");
+      setEditorContent(WINDOW_LABEL, "Modified");
 
       const beforeTime = Date.now();
       markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Modified", diskSnapshot: "Modified" });
@@ -247,10 +247,10 @@ describe("documentStore", () => {
     });
 
     it("keeps isDirty true when content diverged during auto-save (TOCTOU)", () => {
-      const { initDocument, setContent, markAutoSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markAutoSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Original");
-      setContent(WINDOW_LABEL, "Edited during save");
+      setEditorContent(WINDOW_LABEL, "Edited during save");
       // Auto-save wrote the pre-edit content
       markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Pre-edit content", diskSnapshot: "Pre-edit content" });
 
@@ -261,10 +261,10 @@ describe("documentStore", () => {
     });
 
     it("clears isDirty when content matches disk content", () => {
-      const { initDocument, setContent, markAutoSaved, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, markAutoSaved, getDocument } = useDocumentStore.getState();
 
       initDocument(WINDOW_LABEL, "Original");
-      setContent(WINDOW_LABEL, "Auto-saved content");
+      setEditorContent(WINDOW_LABEL, "Auto-saved content");
       markAutoSaved(WINDOW_LABEL, { editorSnapshot: "Auto-saved content", diskSnapshot: "Auto-saved content" });
 
       const doc = getDocument(WINDOW_LABEL);
@@ -296,6 +296,107 @@ describe("documentStore", () => {
     it("no-ops for non-existent document", () => {
       const { markMissing, getDocument } = useDocumentStore.getState();
       markMissing("non-existent");
+      expect(getDocument("non-existent")).toBeUndefined();
+    });
+  });
+
+  // Audit finding #37. `initDocument` builds a whole fresh entry, so calling it
+  // for a tab that already has one discards `readOnly` (silently disabling
+  // write protection), the editor mode, and `documentId`. The last is the
+  // quiet one: it is the editor's remount key, and a first-open document sits
+  // at 0 — so rebuilding it there leaves the counter UNCHANGED and the editor
+  // may never remount onto the new content. The MCP open path met exactly this
+  // and routed around it, but the reasoning lived in a comment on that caller.
+  describe("initDocument refuses to rebuild a document that would lose state", () => {
+    it("throws when the document has been externally replaced (documentId > 0)", () => {
+      const { initDocument, ingestExternalContent } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      ingestExternalContent(WINDOW_LABEL, "b", "disk-open", { filePath: "/f.md" });
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow(/ingestExternalContent/);
+    });
+
+    it("throws when write protection is on", () => {
+      const { initDocument, setReadOnly } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      setReadOnly(WINDOW_LABEL, true);
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow(/readOnly/);
+    });
+
+    it("throws when the editor mode is not the default", () => {
+      const { initDocument, setMode } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+      setMode(WINDOW_LABEL, "source");
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "c", "/f.md"))
+        .toThrow();
+    });
+
+    it("allows re-initialising a pristine entry", () => {
+      // Resetting a tab to a known state discards nothing and is how every
+      // store test seeds. An assertion that fired here would describe test
+      // setup rather than the hazard.
+      const { initDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "a", "/f.md");
+
+      expect(() => useDocumentStore.getState().initDocument(WINDOW_LABEL, "b", "/g.md"))
+        .not.toThrow();
+      expect(useDocumentStore.getState().getDocument(WINDOW_LABEL)?.content).toBe("b");
+    });
+
+    it("allows the first initialisation of a tab", () => {
+      expect(() => useDocumentStore.getState().initDocument("fresh-tab", "a", "/f.md"))
+        .not.toThrow();
+    });
+  });
+
+  describe("markBinaryFileChanged", () => {
+    // A media document's bytes live on disk, never in `content`, so the only
+    // way a viewer can learn the file changed is this counter moving.
+    it("bumps documentId without touching any text field", () => {
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+      const before = getDocument(WINDOW_LABEL);
+
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      const after = getDocument(WINDOW_LABEL);
+      expect(after?.documentId).toBe((before?.documentId ?? 0) + 1);
+      expect(after?.content).toBe(before?.content);
+      expect(after?.savedContent).toBe(before?.savedContent);
+      expect(after?.lastDiskContent).toBe(before?.lastDiskContent);
+      expect(after?.filePath).toBe("/shot.png");
+    });
+
+    it("never marks the document dirty", () => {
+      // A media tab is read-only and save-as-only; a dirty media tab would
+      // arm the close-guard prompt for a file the user cannot have edited.
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      expect(getDocument(WINDOW_LABEL)?.isDirty).toBe(false);
+      expect(getDocument(WINDOW_LABEL)?.isMissing).toBe(false);
+    });
+
+    it("advances on every call, so repeated external writes each refresh", () => {
+      const { initDocument, markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      initDocument(WINDOW_LABEL, "", "/shot.png");
+
+      markBinaryFileChanged(WINDOW_LABEL);
+      markBinaryFileChanged(WINDOW_LABEL);
+      markBinaryFileChanged(WINDOW_LABEL);
+
+      expect(getDocument(WINDOW_LABEL)?.documentId).toBe(3);
+    });
+
+    it("no-ops for non-existent document", () => {
+      const { markBinaryFileChanged, getDocument } = useDocumentStore.getState();
+      markBinaryFileChanged("non-existent");
       expect(getDocument("non-existent")).toBeUndefined();
     });
   });
@@ -478,14 +579,14 @@ describe("documentStore", () => {
 
   describe("getAllDirtyDocuments", () => {
     it("returns all tab IDs with dirty documents", () => {
-      const { initDocument, setContent, getAllDirtyDocuments } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, getAllDirtyDocuments } = useDocumentStore.getState();
 
       initDocument("tab-1", "Content 1");
       initDocument("tab-2", "Content 2");
       initDocument("tab-3", "Content 3");
 
-      setContent("tab-1", "Modified 1");
-      setContent("tab-3", "Modified 3");
+      setEditorContent("tab-1", "Modified 1");
+      setEditorContent("tab-3", "Modified 3");
 
       const dirtyTabs = getAllDirtyDocuments();
       expect(dirtyTabs).toHaveLength(2);
@@ -506,12 +607,12 @@ describe("documentStore", () => {
 
   describe("multiple windows", () => {
     it("maintains separate state for each window", () => {
-      const { initDocument, setContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, setEditorContent, getDocument } = useDocumentStore.getState();
 
       initDocument("window-1", "Content A");
       initDocument("window-2", "Content B");
 
-      setContent("window-1", "Modified A");
+      setEditorContent("window-1", "Modified A");
 
       expect(getDocument("window-1")?.content).toBe("Modified A");
       expect(getDocument("window-1")?.isDirty).toBe(true);
@@ -559,10 +660,10 @@ describe("documentStore", () => {
     });
 
     it("readOnly survives content updates", () => {
-      const { initDocument, setReadOnly, setContent, getDocument } = useDocumentStore.getState();
+      const { initDocument, setReadOnly, setEditorContent, getDocument } = useDocumentStore.getState();
       initDocument(WINDOW_LABEL, "test");
       setReadOnly(WINDOW_LABEL, true);
-      setContent(WINDOW_LABEL, "updated");
+      setEditorContent(WINDOW_LABEL, "updated");
       expect(getDocument(WINDOW_LABEL)?.readOnly).toBe(true);
     });
 

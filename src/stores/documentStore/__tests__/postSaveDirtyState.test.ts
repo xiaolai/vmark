@@ -39,7 +39,7 @@ describe("post-save dirty state vs. line-ending normalization", () => {
     const writtenToDisk = "# Doc\r\n\r\nbody\r\n"; // saveToPath's normalized output
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
-    useDocumentStore.getState().setContent(TAB, editorContent);
+    useDocumentStore.getState().setEditorContent(TAB, editorContent);
     useDocumentStore
       .getState()
       .markSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
@@ -52,7 +52,7 @@ describe("post-save dirty state vs. line-ending normalization", () => {
     const writtenToDisk = "# Doc\r\n\r\nbody\r\n";
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
-    useDocumentStore.getState().setContent(TAB, editorContent);
+    useDocumentStore.getState().setEditorContent(TAB, editorContent);
     useDocumentStore
       .getState()
       .markAutoSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
@@ -65,7 +65,7 @@ describe("post-save dirty state vs. line-ending normalization", () => {
     const editedSince = "# Doc\n\nbody with a later edit\n";
 
     useDocumentStore.getState().initDocument(TAB, "# Doc\n\nbody\n");
-    useDocumentStore.getState().setContent(TAB, editedSince);
+    useDocumentStore.getState().setEditorContent(TAB, editedSince);
     useDocumentStore
       .getState()
       .markSaved(TAB, { editorSnapshot: "# Doc\n\nbody\n", diskSnapshot: writtenToDisk });
@@ -78,7 +78,7 @@ describe("post-save dirty state vs. line-ending normalization", () => {
     const writtenToDisk = "# Doc\r\n\r\nbody\r\n";
 
     useDocumentStore.getState().initDocument(TAB, editorContent);
-    useDocumentStore.getState().setContent(TAB, editorContent);
+    useDocumentStore.getState().setEditorContent(TAB, editorContent);
     useDocumentStore
       .getState()
       .markSaved(TAB, { editorSnapshot: editorContent, diskSnapshot: writtenToDisk });
@@ -92,7 +92,7 @@ describe("post-save dirty state vs. line-ending normalization", () => {
     const content = "# Doc\n\nbody\n";
 
     useDocumentStore.getState().initDocument(TAB, content);
-    useDocumentStore.getState().setContent(TAB, content);
+    useDocumentStore.getState().setEditorContent(TAB, content);
     useDocumentStore
       .getState()
       .markSaved(TAB, { editorSnapshot: content, diskSnapshot: content });

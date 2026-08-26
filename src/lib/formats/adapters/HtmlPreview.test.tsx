@@ -4,7 +4,7 @@
 // trusted mode may weaken the default, so the sanitized path is pinned here
 // alongside the new one.
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -71,6 +71,46 @@ describe("safe mode (the default)", () => {
     const srcdoc = frame().getAttribute("srcdoc") ?? "";
     expect(srcdoc).not.toContain("<head <meta");
     expect(srcdoc).toMatch(/<head\b[^>]*>\s*<meta http-equiv="Content-Security-Policy"/i);
+  });
+
+  /// Audit finding #19. `<head\b[^>]*>` stops at the FIRST `>`, which a quoted
+  /// attribute value may contain — HTML attribute serialization escapes `&` and
+  /// `"` but NOT `>`, so DOMPurify hands one straight through. The regex then
+  /// matched `<head title="a>` and spliced the meta INSIDE the attribute, so no
+  /// CSP element existed at all and the sandboxed document ran with none.
+  ///
+  /// Asserted by PARSING the result rather than pattern-matching it: the
+  /// property is "a real meta element exists in head", and a regex assertion is
+  /// what let a regex bug hide here in the first place.
+  it("injects a REAL CSP element when <head> has an attribute containing '>'", () => {
+    renderPreview(
+      '<!doctype html><html><head title="a>b"><title>t</title></head><body><p>x</p></body></html>',
+    );
+    const srcdoc = frame().getAttribute("srcdoc") ?? "";
+    const parsed = new DOMParser().parseFromString(srcdoc, "text/html");
+    const meta = parsed.head.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    expect(meta, "no CSP meta element in <head> — the sandbox has no policy").not.toBeNull();
+    expect(meta?.getAttribute("content")).toContain("default-src 'none'");
+  });
+
+  it("keeps the CSP a real element for every document shape", () => {
+    for (const html of [
+      '<!doctype html><html><head lang="en"><title>t</title></head><body>x</body></html>',
+      "<!doctype html><html><head><title>t</title></head><body>x</body></html>",
+      "<p>no head at all</p>",
+      '<html><head data-a="1>2" data-b=\'3>4\'><title>t</title></head><body>x</body></html>',
+    ]) {
+      renderPreview(html);
+      const parsed = new DOMParser().parseFromString(
+        frame().getAttribute("srcdoc") ?? "",
+        "text/html",
+      );
+      expect(
+        parsed.head.querySelector('meta[http-equiv="Content-Security-Policy"]'),
+        `no CSP element for: ${html}`,
+      ).not.toBeNull();
+      cleanup();
+    }
   });
 
   it("still injects the CSP for a bare <head>", () => {
@@ -237,6 +277,115 @@ describe("editing a trusted document", () => {
     expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
   });
 
+  /// The reported defect (#1328): close the tab and reopen it, or switch tabs
+  /// away and back, and the component remounts. `ran` starts null again while
+  /// the grant — held in a module-level store keyed by path — survives, so the
+  /// frame reloads and re-executes whatever that token still holds. The old
+  /// `ran !== null` guard made that render as "up to date", leaving the user
+  /// looking at superseded output with no Reload prompt and no explanation.
+  it("flags a trusted document as possibly-stale after a remount", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument();
+
+    unmount();
+    renderPreview(); // same path, same content — the reopen
+
+    expect(screen.getByTestId("html-trust-active")).toBeInTheDocument();
+    expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
+  });
+
+  /// The posture the maintainer chose: report honestly, change nothing about
+  /// what executes. A remount must not publish anything on its own.
+  it("does not publish anything of its own accord on remount", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    bridge.publishTrustedHtml.mockClear();
+
+    unmount();
+    renderPreview();
+
+    expect(bridge.publishTrustedHtml).not.toHaveBeenCalled();
+  });
+
+  /// And the badge must be actionable, not just honest: Reload republishes the
+  /// current source, after which the pane knows what is running again.
+  it("clears the post-remount flag once the user presses Reload", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPreview();
+    await enable(user);
+    unmount();
+    renderPreview();
+
+    await user.click(screen.getByRole("button", { name: /reload/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument(),
+    );
+    expect(bridge.publishTrustedHtml).toHaveBeenCalledWith(TOKEN, SCRIPTED);
+  });
+
+  /// Audit finding #32. `run()` writes `ran`/`runCount` when its async
+  /// operation settles, with nothing tying that completion to the document it
+  /// started on. A pane can render a DIFFERENT file without remounting, so an
+  /// Enable that resolves after the switch marked the NEW document as running
+  /// content it had never executed — and `stale` is computed from `ran`, so the
+  /// new file then advertised itself as up to date.
+  it("ignores a grant that completes after the pane moved to another file", async () => {
+    const user = userEvent.setup();
+    let release!: (token: string) => void;
+    bridge.grantTrustedHtml.mockImplementation(
+      (p: string) => new Promise<string>((resolve) => {
+        release = (token) => { useHtmlTrustStore.getState().grant(p, token); resolve(token); };
+      }),
+    );
+
+    const { rerender } = renderPreview();
+    await user.click(screen.getByRole("button", { name: /trusted preview/i }));
+    await user.click(screen.getByRole("button", { name: /enable scripts/i }));
+
+    // The pane moves on before the grant lands.
+    const other = "/labs/other.html";
+    rerender(<HtmlPreview content="<p>other</p>" liveContent="<p>other</p>" path={other} diagnostics={[]} />);
+    release(TOKEN);
+    await waitFor(() => expect(bridge.grantTrustedHtml).toHaveBeenCalled());
+
+    // The completion belongs to the FIRST file. The second must not inherit it:
+    // it is untrusted, and nothing here may say otherwise.
+    expect(screen.queryByTestId("html-trust-active")).not.toBeInTheDocument();
+    expect(frame().getAttribute("sandbox")).toBe("");
+  });
+
+  it("does not re-run another document's frame when a stale operation lands", async () => {
+    // The concrete harm: `run()` bumps `runCount` on completion, and the
+    // trusted frame's URL carries `?run=`. A completion belonging to a file the
+    // pane has already left therefore forces a DIFFERENT, trusted document to
+    // reload and re-execute — an execution nobody asked for, which is exactly
+    // what "a trusted preview never re-runs itself" exists to prevent.
+    const user = userEvent.setup();
+    const other = "/labs/other.html";
+    const otherToken = "b".repeat(64);
+    let release!: () => void;
+    bridge.grantTrustedHtml.mockImplementation(
+      () => new Promise<string>((resolve) => { release = () => resolve(TOKEN); }),
+    );
+
+    const { rerender } = renderPreview();
+    await user.click(screen.getByRole("button", { name: /trusted preview/i }));
+    await user.click(screen.getByRole("button", { name: /enable scripts/i }));
+
+    useHtmlTrustStore.getState().grant(other, otherToken);
+    rerender(<HtmlPreview content="<p>other</p>" liveContent="<p>other</p>" path={other} diagnostics={[]} />);
+    const before = frame().getAttribute("src");
+
+    release();
+    await waitFor(() => expect(bridge.grantTrustedHtml).toHaveBeenCalled());
+
+    expect(frame().getAttribute("src")).toBe(before);
+  });
+
   it("republishes and re-runs on Reload", async () => {
     const user = userEvent.setup();
     const { rerender } = renderPreview();
@@ -358,10 +507,14 @@ describe("switching documents in the same pane", () => {
     expect(frame().getAttribute("sandbox")).toBe("");
   });
 
-  /// `ran` describes the document the frame is running. Carried across a path
-  /// change it reports a freshly-opened trusted file as stale against content
-  /// it never ran.
-  it("does not report a newly-opened trusted file as stale", async () => {
+  /// UNKNOWN IS NOT CURRENT (issue #1328). `ran` describes the document the
+  /// frame is running, and a path change clears it — so the pane genuinely does
+  /// not know what the other file's token is serving. It was previously
+  /// reported as up to date, which is a claim the component cannot support: the
+  /// frame runs whatever was published for that token earlier in the session.
+  /// The badge is worded "may not match the current source" precisely because
+  /// this case is uncertainty rather than an observed change.
+  it("flags a trusted file whose running content it cannot know", async () => {
     const user = userEvent.setup();
     const { rerender } = renderPreview();
     await user.click(screen.getByRole("button", { name: /trusted preview/i }));
@@ -374,7 +527,7 @@ describe("switching documents in the same pane", () => {
     rerender(<HtmlPreview content="<p>different</p>" liveContent="<p>different</p>" path={other} diagnostics={[]} />);
 
     expect(screen.getByTestId("html-trust-active")).toBeInTheDocument();
-    expect(screen.queryByTestId("html-trust-stale")).not.toBeInTheDocument();
+    expect(screen.getByTestId("html-trust-stale")).toBeInTheDocument();
   });
 
   it("can always re-run a file trusted earlier in the session", async () => {

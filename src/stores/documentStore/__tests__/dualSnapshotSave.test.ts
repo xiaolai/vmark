@@ -40,7 +40,7 @@ beforeEach(() => {
 describe("markSaved stores each snapshot in its own domain", () => {
   it("savedContent gets the EDITOR snapshot, lastDiskContent the DISK snapshot", () => {
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "a\nb");
+    store.setEditorContent(TAB, "a\nb");
     store.markSaved(TAB, { editorSnapshot: "a\nb", diskSnapshot: "a\r\nb" });
 
     expect(doc().savedContent).toBe("a\nb");
@@ -53,16 +53,16 @@ describe("markSaved stores each snapshot in its own domain", () => {
     // LF content against them, and the tab re-dirtied on every flush — so a
     // CRLF document was rewritten every auto-save interval forever.
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "a\nb");
+    store.setEditorContent(TAB, "a\nb");
     store.markSaved(TAB, { editorSnapshot: "a\nb", diskSnapshot: "a\r\nb" });
 
-    store.setContent(TAB, "a\nb"); // the RAF-debounced flush re-sets identical content
+    store.setEditorContent(TAB, "a\nb"); // the RAF-debounced flush re-sets identical content
     expect(doc().isDirty).toBe(false);
   });
 
   it("TOCTOU: an edit landing mid-save leaves the tab dirty", () => {
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "edited during save");
+    store.setEditorContent(TAB, "edited during save");
     store.markSaved(TAB, { editorSnapshot: "original", diskSnapshot: "original" });
     expect(doc().isDirty).toBe(true);
   });
@@ -71,14 +71,14 @@ describe("markSaved stores each snapshot in its own domain", () => {
     // softContentEquals folded one trailing newline, so this exact edit was
     // read as clean and the user's keystroke silently vanished on save.
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "text\n");
+    store.setEditorContent(TAB, "text\n");
     store.markSaved(TAB, { editorSnapshot: "text", diskSnapshot: "text" });
     expect(doc().isDirty).toBe(true);
   });
 
   it("marking twice with identical snapshots is a no-op", () => {
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "x");
+    store.setEditorContent(TAB, "x");
     store.markSaved(TAB, { editorSnapshot: "x", diskSnapshot: "x" });
     const before = doc();
     store.markSaved(TAB, { editorSnapshot: "x", diskSnapshot: "x" });
@@ -89,7 +89,7 @@ describe("markSaved stores each snapshot in its own domain", () => {
 
   it("clears isDivergent — a successful save supersedes the divergence", () => {
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "x");
+    store.setEditorContent(TAB, "x");
     store.markDivergent(TAB);
     store.markSaved(TAB, { editorSnapshot: "x", diskSnapshot: "x" });
     expect(doc().isDivergent).toBe(false);
@@ -103,7 +103,7 @@ describe("markAutoSaved is markSaved plus a timestamp", () => {
   // saved baseline. The real difference is exactly one field.
   it("moves savedContent like a real save — because it IS one", () => {
     const store = useDocumentStore.getState();
-    store.setContent(TAB, "auto");
+    store.setEditorContent(TAB, "auto");
     store.markAutoSaved(TAB, { editorSnapshot: "auto", diskSnapshot: "auto\r\n" });
     expect(doc().savedContent).toBe("auto");
     expect(doc().lastDiskContent).toBe("auto\r\n");

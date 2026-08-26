@@ -1,19 +1,23 @@
 /**
  * External File Changes Hook
  *
- * Purpose: Detects and responds to filesystem changes on open documents —
- *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
- *   Owns the per-tab REACTION POLICY only; the batching state machine and the
- *   single-file resolution dialog are separate, directly testable modules.
+ * Purpose: WIRE the window's fs-event subscription to the per-tab reaction —
+ *   subscribe, serialize the batches, and hold the debounced conflict queue.
+ *   Every decision it dispatches lives in a directly-testable module: the
+ *   reaction policy in `applyModifyPolicy`, the batching state machine in
+ *   `externalChangeBatchQueue`, the dialogs in `resolveDirtyBatch`, and the
+ *   per-kind routing in `fsChangeHandlers`.
  *
  * Key decisions:
  *   - Clean docs auto-reload silently; dirty docs batch into one dialog
  *   - matchesPendingSave() filters out our own saves echoing back
  *   - Rename/`remove` verify existence before marking deleted — Windows atomic
  *     saves (MoveFileEx) and sync daemons fire spurious events for files that
- *     still exist (issue 995); handleModifyEvent() is shared by both paths
+ *     still exist (issue 995); applyModifyPolicy() is shared by both paths
  *   - Media tabs (png/mp4/…) are never UTF-8-read: remove/rename existence-probe
- *     only, and a media `create` clears isMissing so MediaView re-streams
+ *     only. A media create/modify bumps `documentId` (and a `create` also clears
+ *     isMissing) so MediaView re-fetches — the asset URL alone cannot do it,
+ *     because an element whose `src` never changes never reloads (issue #1328)
  *   - Deleted files get isMissing (no auto-close — user may want to save)
  *   - Divergent docs auto-recover when disk content matches editor content
  *   - After "Keep my changes", lastDiskContent is refreshed to current disk so
@@ -27,43 +31,30 @@
  * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
  * @coordinates-with services/windowClose/fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
- * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
+ * @coordinates-with services/files/applyModifyPolicy.ts — the reaction policy for changed bytes
+ * @coordinates-with services/files/resolveDirtyBatch.ts — revalidates a batch, then runs the one-file or bulk dialog
  * @coordinates-with externalChangeBatchQueue.ts — the debounce/requeue/single-timer rules
  * @coordinates-with services/persistence/resolveDirtyFileChange.ts — the 3-option dialog
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";
 import { readTextFile, exists } from "@tauri-apps/plugin-fs";
-import { message } from "@tauri-apps/plugin-dialog";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { applyExternalRename } from "@/services/workspaces/reassignTabOwnershipForPath";
 import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
-import {
-  reloadAllFromDisk,
-  keepAllLocal,
-  reviewEachIndividually,
-} from "@/services/files/fileChangeBatch";
-import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { normalizePath } from "@/utils/paths";
-import { softContentEquals } from "@/utils/linebreaks";
-import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
-import { getFileName } from "@/utils/paths";
 import { fileOpsError } from "@/utils/debug";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
-import { resolveDirtyFileChange } from "@/services/persistence/resolveDirtyFileChange";
 import { createBatchQueue, type BatchQueue } from "@/services/files/externalChangeBatchQueue";
+import {
+  resolveDirtyBatch,
+  type PendingDirtyChange,
+} from "@/services/files/resolveDirtyBatch";
+import { applyModifyPolicy } from "@/services/files/applyModifyPolicy";
 import { handleSemanticBatch, type FsChangeContext } from "@/services/windowClose/fsChangeHandlers";
-
-/** Pending dirty file change awaiting user decision */
-interface PendingDirtyChange {
-  tabId: string;
-  filePath: string;
-}
 
 /** Debounce window for batching external changes (ms) */
 const BATCH_DEBOUNCE_MS = 300;
@@ -85,6 +76,10 @@ export function useExternalFileChanges(): void {
   // testable without React — see externalChangeBatchQueue.ts for the two
   // defects that were unreachable while this was inline.
   const queueRef = useRef<BatchQueue<PendingDirtyChange> | null>(null);
+
+  // Serializes fs-event batches. See the subscription below for why parallel
+  // batches let an older disk read overwrite a newer one.
+  const batchChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Get tabs and their file paths for the current window
   const getOpenFilePaths = useCallback(() => {
@@ -111,49 +106,13 @@ export function useExternalFileChanges(): void {
     [windowLabel],
   );
 
-  // Resolve one batch: one file goes straight to the single-file dialog,
-  // several go through the reload-all/keep-all/review-each dialog.
-  const processBatch = useCallback(async (pending: PendingDirtyChange[]) => {
-    if (pending.length === 1) {
-      await resolveDirtyFileChange(pending[0].tabId, pending[0].filePath);
-      return;
-    }
-
-    /* v8 ignore next -- @preserve unknownFile fallback fires only when getFileName returns "" (path is "/"); effectively unreachable in production */
-    const fileNames = pending
-      .map((p) => getFileName(p.filePath) || i18n.t("dialog:fileChanged.unknownFile"))
-      .join(", ");
-    const buttons = {
-      reloadAll: i18n.t("dialog:fileChanged.buttonReloadAll"),
-      keepAll: i18n.t("dialog:fileChanged.buttonKeepAll"),
-      reviewEach: i18n.t("dialog:fileChanged.buttonReviewEach"),
-    } as const;
-
-    const result = await message(
-      i18n.t("dialog:fileChanged.multipleMessage", { count: pending.length, fileNames }),
-      {
-        title: i18n.t("dialog:fileChanged.multipleTitle"),
-        kind: "warning",
-        buttons: { yes: buttons.reloadAll, no: buttons.keepAll, cancel: buttons.reviewEach },
-      }
-    );
-
-    if (result === "Yes" || result === buttons.reloadAll) {
-      await reloadAllFromDisk(pending, reloadTabFromDisk);
-    } else if (result === "No" || result === buttons.keepAll) {
-      await keepAllLocal(pending);
-    } else {
-      await reviewEachIndividually(pending, resolveDirtyFileChange);
-    }
-  }, []);
-
-  // One queue per hook instance, created lazily so `processBatch` is captured
-  // once. A rejected batch is put BACK by the queue — the old inline version
-  // drained it before awaiting the dialog, so a rejection lost the conflicts.
+  // One queue per hook instance. A rejected batch is put BACK by the queue —
+  // the old inline version drained it before awaiting the dialog, so a
+  // rejection lost the conflicts.
   if (queueRef.current === null) {
     queueRef.current = createBatchQueue<PendingDirtyChange>({
       debounceMs: BATCH_DEBOUNCE_MS,
-      process: processBatch,
+      process: resolveDirtyBatch,
       onError: (error) => fileOpsError("Failed to process batched file changes:", error),
     });
   }
@@ -164,66 +123,13 @@ export function useExternalFileChanges(): void {
     queueRef.current?.queue(normalizePath(filePath), { tabId, filePath });
   }, []);
 
-  // Handle a modify-like event by reading disk content and applying policy.
-  // Shared by the modify/create branch and the rename fallback (atomic writes).
+  // The reaction policy itself lives in `applyModifyPolicy` — it is a function
+  // of the document's state and the bytes on disk, with no React in it. Shared
+  // by the modify/create branch and the rename fallback (atomic writes).
   const handleModifyEvent = useCallback(
-    async (tabId: string, changedPath: string, diskContent: string) => {
-      const doc = useDocumentStore.getState().getDocument(tabId);
-      /* v8 ignore next -- @preserve doc is always defined when tabId is from an open tab; null branch is defensive */
-      if (!doc) return;
-
-      // File reappeared after deletion — reload unless the user has unsaved edits
-      if (doc.isMissing) {
-        if (doc.isDirty) {
-          queueDirtyChange(tabId, changedPath);
-          return;
-        }
-        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-        useDocumentStore.getState().clearMissing(tabId);
-        toast.info(i18n.t("dialog:toast.restored", { filename: getFileName(changedPath) }));
-        return;
-      }
-
-      // Disk matches what we last wrote — no actual external change.
-      // Use soft equality so cloud sync rewrites that only touch line endings,
-      // BOM, or the trailing newline (OneDrive/iCloud/Dropbox are frequent
-      // offenders) don't trigger spurious reloads or dialogs.
-      if (softContentEquals(diskContent, doc.lastDiskContent)) {
-        // Refresh the stored disk content so subsequent byte-for-byte compares
-        // match; otherwise the next sync rewrite would slip through again.
-        if (diskContent !== doc.lastDiskContent) {
-          useDocumentStore.getState().updateLastDiskContent(tabId, diskContent);
-        }
-        return;
-      }
-
-      // Divergent doc: disk now matches editor — auto-clear divergent state so auto-save resumes.
-      // This happens when e.g. git checkout restores the same content that's in the editor.
-      if (doc.isDivergent && softContentEquals(diskContent, doc.content)) {
-        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-        return;
-      }
-
-      // Real external change — apply policy
-      const action = resolveExternalChangeAction({
-        isDirty: doc.isDirty,
-        hasFilePath: Boolean(doc.filePath),
-      });
-
-      switch (action) {
-        case "auto_reload":
-          useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-          useDocumentStore.getState().clearMissing(tabId);
-          toast.info(i18n.t("dialog:toast.reloaded", { filename: getFileName(changedPath) }));
-          break;
-        case "prompt_user":
-          queueDirtyChange(tabId, changedPath);
-          break;
-        case "no_op":
-          break;
-      }
-    },
-    [queueDirtyChange]
+    async (tabId: string, changedPath: string, diskContent: string) =>
+      applyModifyPolicy(tabId, changedPath, diskContent, queueDirtyChange),
+    [queueDirtyChange],
   );
 
   useEffect(() => {
@@ -245,19 +151,44 @@ export function useExternalFileChanges(): void {
       handleDeletion,
       isMissing: (tabId) => useDocumentStore.getState().getDocument(tabId)?.isMissing ?? false,
       clearMissing: (tabId) => useDocumentStore.getState().clearMissing(tabId),
+      markBinaryFileChanged: (tabId) =>
+        useDocumentStore.getState().markBinaryFileChanged(tabId),
     };
 
+    // SERIALIZED, not fired in parallel. Each delivery used to spawn an
+    // unawaited batch, so two changes arriving close together ran their disk
+    // reads concurrently — and reads do not finish in the order they start (a
+    // larger file, a cold cache, a network volume). The EARLIER batch could
+    // therefore land last and write content the user had already superseded,
+    // which presents as a document silently reverting to a version that was on
+    // disk moments ago.
+    //
+    // Chaining preserves arrival order, which is the property that matters: the
+    // watcher delivers events in the order the filesystem produced them, and
+    // the last write must be the newest one. A batch is short — reads plus
+    // policy — because the dirty-file dialog is not inside it; that goes
+    // through the debounced queue, so serializing cannot park behind a modal.
+    //
+    // The chain must never reject, or every later batch would be skipped: each
+    // link swallows its own error into the log, exactly as the old `.catch`
+    // did per batch.
     const unsubscribe = subscribeWorkspaceEvents(windowLabel, (events) => {
-      void handleSemanticBatch(ctx, events, getOpenFilePaths).catch((error) => {
-        fileOpsError("Failed to handle external file changes:", error);
-      });
+      batchChainRef.current = batchChainRef.current.then(() =>
+        handleSemanticBatch(ctx, events, getOpenFilePaths).catch((error) => {
+          fileOpsError("Failed to handle external file changes:", error);
+        }),
+      );
     });
 
     return () => {
       unsubscribe();
-      // One cancel is enough: the queue guarantees a single live timer, which
-      // the two-path inline version did not.
-      queueRef.current?.cancel();
+      // DISPOSE, not cancel. Cancelling clears the timer but cannot reach a
+      // batch already in flight, and that batch re-schedules from its own
+      // `finally` — so a resolution dialog open at unmount re-armed a timer
+      // after cleanup had cancelled one, and it fired into a torn-down hook.
+      // `dispose()` latches, so a late completion finds the queue closed.
+      queueRef.current?.dispose();
+      queueRef.current = null;
     };
   }, [windowLabel, getOpenFilePaths, handleDeletion, handleModifyEvent, applyRename]);
 }

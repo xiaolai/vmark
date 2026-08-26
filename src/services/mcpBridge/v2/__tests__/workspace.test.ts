@@ -181,7 +181,7 @@ describe("vmark.workspace.open — already-open tabs", () => {
     const tabId = (lastRespond().data as { tabId: string }).tabId;
 
     // The user edits the open document without saving.
-    useDocumentStore.getState().setContent(tabId, "# my unsaved work");
+    useDocumentStore.getState().setEditorContent(tabId, "# my unsaved work");
     expect(useDocumentStore.getState().documents[tabId].isDirty).toBe(true);
 
     await handleWorkspaceOpen("req-second", { filePath: "/repo/notes.md" });
@@ -198,7 +198,7 @@ describe("vmark.workspace.open — already-open tabs", () => {
   it("explains why nothing was reloaded so the agent does not silently assume fresh content", async () => {
     await handleWorkspaceOpen("req-a", { filePath: "/repo/notes.md" });
     const tabId = (lastRespond().data as { tabId: string }).tabId;
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     await handleWorkspaceOpen("req-b", { filePath: "/repo/notes.md" });
 
@@ -309,7 +309,7 @@ describe("vmark.workspace.close", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-d", "", null);
-    useDocumentStore.getState().setContent("t-d", "dirty edits");
+    useDocumentStore.getState().setEditorContent("t-d", "dirty edits");
 
     await handleWorkspaceClose("req-1", { tabId: "t-d" });
     const r = lastRespond();
@@ -329,7 +329,7 @@ describe("vmark.workspace.close", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-d2", "", null);
-    useDocumentStore.getState().setContent("t-d2", "dirty");
+    useDocumentStore.getState().setEditorContent("t-d2", "dirty");
 
     await handleWorkspaceClose("req-2", { tabId: "t-d2", force: true });
     const r = lastRespond();
@@ -414,7 +414,7 @@ describe("vmark.workspace.save / save_as", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-s", "hi", "/tmp/notes.md");
-    useDocumentStore.getState().setContent("t-s", "updated");
+    useDocumentStore.getState().setEditorContent("t-s", "updated");
 
     await handleWorkspaceSave("req-s", {});
     const r = lastRespond();
@@ -482,7 +482,7 @@ describe("vmark.workspace.save / save_as", () => {
       closedTabs: {},
     });
     useDocumentStore.getState().initDocument("t-ps", "hi", "/tmp/notes.md");
-    useDocumentStore.getState().setContent("t-ps", "updated");
+    useDocumentStore.getState().setEditorContent("t-ps", "updated");
 
     await handleWorkspaceSave("req-ps", {});
 

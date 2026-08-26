@@ -166,7 +166,7 @@ describe("BlockAudioNodeView", () => {
     it("resolves relative src via resolveMediaSrc", () => {
       mockIsExternalUrl.mockReturnValue(false);
       createNodeView({ src: "./audio/track.mp3" });
-      expect(mockResolveMediaSrc).toHaveBeenCalledWith("./audio/track.mp3", "[BlockAudioView]");
+      expect(mockResolveMediaSrc).toHaveBeenCalledWith("./audio/track.mp3", "[BlockAudioView]", undefined);
     });
 
     it("sets src directly for external URLs", () => {
@@ -296,7 +296,7 @@ describe("BlockAudioNodeView", () => {
       vi.clearAllMocks();
 
       nodeView.update(createMockNode({ src: "new.mp3" }));
-      expect(mockResolveMediaSrc).toHaveBeenCalledWith("new.mp3", "[BlockAudioView]");
+      expect(mockResolveMediaSrc).toHaveBeenCalledWith("new.mp3", "[BlockAudioView]", undefined);
     });
 
     it("does not re-resolve src when it stays the same", () => {

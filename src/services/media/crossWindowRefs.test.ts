@@ -64,7 +64,7 @@ describe("localLiveRefKeys", () => {
 
   it("reads the UNSAVED buffer — that is the whole point", () => {
     useDocumentStore.getState().initDocument("t1", "saved", "/w/a.md");
-    useDocumentStore.getState().setContent("t1", "![](./assets/images/pasted.png)");
+    useDocumentStore.getState().setEditorContent("t1", "![](./assets/images/pasted.png)");
     expect(localLiveRefKeys()).toContain("assets/images/pasted.png");
   });
 

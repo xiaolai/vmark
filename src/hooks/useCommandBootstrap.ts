@@ -10,7 +10,9 @@
  *      a no-op on the second call).
  *   2. Async Pandoc-format expansion runs next; the format list is
  *      not known until pandocExport.ts dynamically loads.
- *   3. The combined binding list is mounted via mountMenuCommands.
+ *   3. The combined binding list is mounted via mountMenuCommands, which
+ *      then signals `menuCommandsReady` — the barrier the window-ready
+ *      handshake waits on.
  *
  * @module services/commands/useCommandBootstrap
  */
@@ -44,6 +46,7 @@ import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
 import { executeCommand } from "@/services/commands/CommandBus";
+import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -238,6 +241,13 @@ export function useCommandBootstrap(): void {
         unlisten = off;
       } catch (err) {
         menuError("Failed to mount menu commands:", err);
+      } finally {
+        // The window-ready handshake waits on this instead of guessing how
+        // long the `await` above takes — it is a dynamic import, so no
+        // constant could bound it. Signalled in a `finally` because a mount
+        // that THREW will never become mounted: hanging the handshake on it
+        // would turn dead menus into a window that never reports ready at all.
+        signalMenuCommandsMounted();
       }
     })().catch((err) => appError("Command bootstrap failed:", err));
 

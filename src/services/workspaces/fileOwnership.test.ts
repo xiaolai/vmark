@@ -61,7 +61,7 @@ function addTab(
     activeTabId: { ...state.activeTabId, [windowLabel]: tabId },
   }));
   useDocumentStore.getState().initDocument(tabId, "saved", filePath);
-  if (options.dirty) useDocumentStore.getState().setContent(tabId, "dirty");
+  if (options.dirty) useDocumentStore.getState().setEditorContent(tabId, "dirty");
   if (options.readOnly) useDocumentStore.getState().setReadOnly(tabId, true);
 }
 

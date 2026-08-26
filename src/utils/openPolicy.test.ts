@@ -14,6 +14,7 @@ import {
   resolveWorkspaceRootForExternalFile,
   resolveMissingFileSaveAction,
   resolveExternalChangeAction,
+  isQueuedConflictStillLive,
   resolvePostSaveWorkspaceAction,
   findReplaceableTab,
   type OpenActionContext,
@@ -627,5 +628,64 @@ describe("findReplaceableTab", () => {
     const result = findReplaceableTab(tabs);
 
     expect(result).toBeNull();
+  });
+});
+
+describe("isQueuedConflictStillLive", () => {
+  const normalize = (path: string) => path.replace(/\\/g, "/");
+  const live = {
+    document: { filePath: "/ws/a.md", isDirty: true, isDivergent: false },
+    queuedPath: "/ws/a.md",
+    normalize,
+  };
+
+  it("resolves a conflict that is still real", () => {
+    expect(isQueuedConflictStillLive(live)).toBe(true);
+  });
+
+  it("drops a conflict whose tab was closed", () => {
+    expect(isQueuedConflictStillLive({ ...live, document: undefined })).toBe(false);
+  });
+
+  it("drops a conflict whose document was saved while it waited", () => {
+    // Prompting here asks the user about a conflict that resolved itself.
+    expect(isQueuedConflictStillLive({
+      ...live,
+      document: { ...live.document, isDirty: false },
+    })).toBe(false);
+  });
+
+  it("keeps a DIVERGENT document, which is unsaved work with a clean flag", () => {
+    // "Keep my changes" leaves content the user deliberately retained; the
+    // dirty flag is clear but the work is not saved.
+    expect(isQueuedConflictStillLive({
+      ...live,
+      document: { ...live.document, isDirty: false, isDivergent: true },
+    })).toBe(true);
+  });
+
+  it("drops a conflict whose tab was renamed to another path", () => {
+    // The dangerous one: the entry still names the OLD path, so resolving it
+    // would pull a different file's bytes into this document.
+    expect(isQueuedConflictStillLive({
+      ...live,
+      document: { ...live.document, filePath: "/ws/renamed.md" },
+    })).toBe(false);
+  });
+
+  it("drops a conflict whose document lost its path entirely", () => {
+    expect(isQueuedConflictStillLive({
+      ...live,
+      document: { ...live.document, filePath: null },
+    })).toBe(false);
+  });
+
+  it("compares paths the way the watcher does", () => {
+    // Windows separators must not read as a rename.
+    expect(isQueuedConflictStillLive({
+      document: { filePath: "C:\\ws\\a.md", isDirty: true, isDivergent: false },
+      queuedPath: "C:/ws/a.md",
+      normalize,
+    })).toBe(true);
   });
 });

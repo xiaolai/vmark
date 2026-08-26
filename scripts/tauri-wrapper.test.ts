@@ -324,3 +324,53 @@ describe("runTauri", () => {
     });
   });
 });
+
+/**
+ * The dev config carries the DEV BUNDLE IDENTIFIER (`app.vmark.dev`), which is
+ * what keeps `tauri dev` out of the installed app's profile. That makes the
+ * `isDev` guard below load-bearing in a direction it was not before: applying
+ * the dev config to a `build` would ship a release whose `identifier` is
+ * `app.vmark.dev`, silently relocating `app_data_dir()` for every existing
+ * user — settings, hot-exit session and workspaces all "gone" with no error
+ * anywhere. That is a strictly worse failure than the profile collision the
+ * identifier fixes, so it gets an assertion rather than a reading of the code.
+ *
+ * @coordinates-with src/test/devProfileIsolation.test.ts — the identifiers themselves
+ */
+describe("dev config is applied to `dev` and to nothing else", () => {
+  const DEV_CONFIG = "src-tauri/tauri.dev.conf.json";
+
+  /** Run the wrapper with a present sidecar and capture the argv it would spawn. */
+  function argvFor(args: string[]): string[] {
+    const result = runTauri({
+      args,
+      env: { platform: "darwin", arch: "arm64" },
+      spawnFn: (argv: string[]) => {
+        captured = argv;
+        return { status: 0 };
+      },
+      existsFn: () => true,
+    });
+    expect(result.exitCode).toBe(0);
+    return captured;
+  }
+  let captured: string[] = [];
+
+  it("injects the dev config for `dev`", () => {
+    expect(argvFor(["dev"])).toContain(DEV_CONFIG);
+  });
+
+  it("does NOT inject it for `build` — a release must keep the shipped identifier", () => {
+    expect(argvFor(["build"])).not.toContain(DEV_CONFIG);
+  });
+
+  it("does NOT inject it for a cross-target build", () => {
+    expect(argvFor(["build", "--target", "aarch64-apple-darwin"])).not.toContain(DEV_CONFIG);
+  });
+
+  it("does not override a config the caller supplied explicitly", () => {
+    const argv = argvFor(["dev", "--config", "some/other.json"]);
+    expect(argv).not.toContain(DEV_CONFIG);
+    expect(argv).toContain("some/other.json");
+  });
+});

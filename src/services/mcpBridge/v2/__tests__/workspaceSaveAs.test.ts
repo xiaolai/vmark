@@ -187,7 +187,7 @@ describe("save_as write failure and success contract", () => {
   it("on success updates tab path/title, marks the doc saved, and returns the revision", async () => {
     seedTab("t-ok", null);
     useDocumentStore.getState().initDocument("t-ok", "hello", null);
-    useDocumentStore.getState().setContent("t-ok", "edited");
+    useDocumentStore.getState().setEditorContent("t-ok", "edited");
 
     await handleWorkspaceSaveAs("req-ok", {
       tabId: "t-ok",

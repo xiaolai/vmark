@@ -17,6 +17,9 @@ export {
   resolveWorkspaceRootForExternalFile,
 } from "./openPolicy/openRouting";
 export { resolveMissingFileSaveAction } from "./openPolicy/savePolicy";
-export { resolveExternalChangeAction } from "./openPolicy/externalChangePolicy";
+export {
+  resolveExternalChangeAction,
+  isQueuedConflictStillLive,
+} from "./openPolicy/externalChangePolicy";
 export { resolvePostSaveWorkspaceAction } from "./openPolicy/postSavePolicy";
 export { findReplaceableTab } from "./openPolicy/replaceableTab";

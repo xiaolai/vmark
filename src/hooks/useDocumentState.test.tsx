@@ -113,7 +113,7 @@ describe("useDocumentIsDirty", () => {
   it("returns true for dirty document", () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "content", null);
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
     const { result } = renderHook(() => useDocumentIsDirty());
     expect(result.current).toBe(true);
   });

@@ -30,7 +30,7 @@ describe("liveContentsExcluding", () => {
 
   it("returns the UNSAVED buffer, not the saved content", () => {
     useDocumentStore.getState().initDocument("t1", "saved", "/tmp/a.md");
-    useDocumentStore.getState().setContent("t1", "![](./assets/images/pasted.png)");
+    useDocumentStore.getState().setEditorContent("t1", "![](./assets/images/pasted.png)");
 
     expect(liveContentsExcluding().get("/tmp/a.md")).toBe("![](./assets/images/pasted.png)");
   });
@@ -57,7 +57,7 @@ describe("liveContentsExcluding", () => {
   it("prefers the dirty buffer when two tabs hold one path", () => {
     useDocumentStore.getState().initDocument("clean", "saved", "/tmp/a.md");
     useDocumentStore.getState().initDocument("dirty", "saved", "/tmp/a.md");
-    useDocumentStore.getState().setContent("dirty", "![](./assets/images/pasted.png)");
+    useDocumentStore.getState().setEditorContent("dirty", "![](./assets/images/pasted.png)");
 
     // Whichever order the store iterates, the buffer carrying the extra
     // reference must win — the clean twin would leave that image unprotected.
@@ -66,7 +66,7 @@ describe("liveContentsExcluding", () => {
 
   it("keeps the dirty buffer even when the clean twin comes last", () => {
     useDocumentStore.getState().initDocument("dirty", "saved", "/tmp/a.md");
-    useDocumentStore.getState().setContent("dirty", "![](./assets/images/pasted.png)");
+    useDocumentStore.getState().setEditorContent("dirty", "![](./assets/images/pasted.png)");
     useDocumentStore.getState().initDocument("clean", "saved", "/tmp/a.md");
 
     expect(liveContentsExcluding().get("/tmp/a.md")).toBe("![](./assets/images/pasted.png)");
@@ -84,7 +84,7 @@ describe("liveContentsExcluding — flushes pending editor state first", () => {
     useDocumentStore.getState().initDocument("t1", "old", "/tmp/a.md");
     // The mounted editor holds newer content than the store.
     registerWysiwygFlusher("t1", () => {
-      useDocumentStore.getState().setContent("t1", "![](./assets/images/pasted.png)");
+      useDocumentStore.getState().setEditorContent("t1", "![](./assets/images/pasted.png)");
     });
 
     const live = liveContentsExcluding();

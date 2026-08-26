@@ -9,7 +9,19 @@
  * per-document value types, so the contract sits beside them rather than on
  * top of the implementation.
  *
+ * Key decisions:
+ *   - `setContent` is GONE. It was a one-line delegation to
+ *     `setEditorContent` that only tests called — a deprecated API kept alive
+ *     by its own suite. `externalWriterGate.test.ts` now asserts it does not
+ *     exist, which its "nothing calls it" regex could not: a destructured
+ *     `const { setContent } = …getState()` carries no `.setContent(` to match.
+ *   - Documents are handed out READONLY. Every content change has to go through
+ *     an action, because that is where the revision bump lives; a direct
+ *     `doc.content = …` would move what an MCP client reads while leaving its
+ *     `expected_revision` valid. See the declarations for the full argument.
+ *
  * @coordinates-with stores/documentStore/document.ts — the implementation
+ * @coordinates-with stores/documentStore/__tests__/readonlyDocumentView.test.ts — guards the readonly declarations
  * @coordinates-with stores/documentStore/documentState.ts — the value types
  * @module stores/documentStore/storeContract
  */
@@ -17,7 +29,7 @@
 import type { CursorInfo } from "@/types/cursorSync";
 import type { IngestOrigin } from "@/utils/ingestOrigin";
 import type { IngestOptions } from "./ingestState";
-import type { HardBreakStyle, LineEnding } from "@/utils/linebreakDetection";
+import type { LineMetadata } from "@/utils/ingestOrigin";
 import type { DocumentRestoreState, DocumentState, SaveSnapshots } from "./documentState";
 
 export interface SetContentOptions {
@@ -35,7 +47,16 @@ export interface SetContentOptions {
 
 export interface DocumentStore {
   // Documents keyed by tab ID (changed from window label)
-  documents: Record<string, DocumentState>;
+  /**
+   * READONLY to callers. Every content change has to go through an action,
+   * because that is where the revision bump lives (see
+   * `bumpRevisionIfContentChanged`) — a direct `doc.content = …` would change
+   * what an MCP client reads while leaving its `expected_revision` valid, so
+   * the client's next write would overwrite a snapshot nobody could see it had
+   * missed. The store's own reducers build new objects, so nothing inside
+   * needed to change; this cost zero call-site edits and closes the class.
+   */
+  documents: Record<string, Readonly<DocumentState>>;
 
   // Actions - now take tabId instead of windowLabel
   /** Create (or reset) a document; `restore` carries a TRANSFER's state. */
@@ -65,17 +86,26 @@ export interface DocumentStore {
     origin: IngestOrigin,
     opts?: IngestOptions
   ) => void;
-  /**
-   * @deprecated Use `setEditorContent` (editor domain) or `ingestExternalContent`
-   * (external). This pointed at `loadContent`, which the header of this same
-   * file records as GONE — a deleted API recommended twelve lines below the
-   * note recording its deletion.
-   */
-  setContent: (tabId: string, content: string, options?: SetContentOptions) => void;
   setFilePath: (tabId: string, path: string | null) => void;
   markMissing: (tabId: string) => void;
   clearMissing: (tabId: string) => void;
   markDivergent: (tabId: string) => void;
+  /**
+   * The BYTES of a binary document changed on disk (issue #1328).
+   *
+   * A media tab's file content never enters the store — the viewer streams it
+   * from `asset://` — so `ingestExternalContent` has nothing to ingest and
+   * cannot be used to announce the change. Without a signal the surface has no
+   * way to know: an `<img>` whose `src` attribute did not change never
+   * refetches, so a PNG rewritten on disk kept rendering the bytes it had
+   * decoded at open time, through a tab close and reopen.
+   *
+   * This bumps `documentId` and moves NOTHING else. That counter already means
+   * "this document was replaced from outside" — it is what remounts the editor
+   * on an external text reload — so a binary reload is the same fact, not a
+   * second mechanism.
+   */
+  markBinaryFileChanged: (tabId: string) => void;
 
   setReadOnly: (tabId: string, readOnly: boolean) => void;
   toggleReadOnly: (tabId: string) => void;
@@ -97,16 +127,18 @@ export interface DocumentStore {
    */
   updateLastDiskContent: (tabId: string, diskContent: string) => void;
   setCursorInfo: (tabId: string, info: CursorInfo | null) => void;
-  /** Per-doc editor mode (ADR-009). */
-  setMode: (tabId: string, mode: "wysiwyg" | "source") => void;
+  /** Per-doc editor mode (ADR-009). Derived from the state type, never
+   *  restated: a second spelling of the union would let the action contract
+   *  drift the day a mode is added. */
+  setMode: (tabId: string, mode: DocumentState["mode"]) => void;
   setSelectedText: (tabId: string, text: string) => void;
-  setLineMetadata: (
-    tabId: string,
-    meta: { lineEnding?: LineEnding; hardBreakStyle?: HardBreakStyle }
-  ) => void;
+  /** `Partial<LineMetadata>` rather than an anonymous copy of its two fields —
+   *  the shape already has a name and one definition. */
+  setLineMetadata: (tabId: string, meta: Partial<LineMetadata>) => void;
   removeDocument: (tabId: string) => void;
 
   // Selectors
-  getDocument: (tabId: string) => DocumentState | undefined;
+  /** Readonly for the reason on `documents` above. */
+  getDocument: (tabId: string) => Readonly<DocumentState> | undefined;
   getAllDirtyDocuments: () => string[]; // Returns tabIds
 }

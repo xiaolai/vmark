@@ -49,7 +49,7 @@
 
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { BridgeClient, expectSuccess, evalJs as evalJsWithTimeout } from "./lib/bridge.mjs";
+import { BridgeClient, evalJs as evalJsWithTimeout, listWindows } from "./lib/bridge.mjs";
 import { parseArgs } from "./lib/config.mjs";
 import { writeScreenshot } from "./lib/artifacts.mjs";
 import {
@@ -95,14 +95,7 @@ async function main() {
   pass(`Connected to Tauri automation bridge (${cfg.host}:${cfg.port})`);
 
   // Step 2 — confirm at least one window/webview is present.
-  const windows = expectSuccess(
-    await client.send("list_windows", {}, cfg.timeoutMs),
-    "list_windows"
-  );
-  const windowList = Array.isArray(windows) ? windows : windows?.windows;
-  if (!Array.isArray(windowList) || windowList.length === 0) {
-    throw new Error(`No windows reported by the bridge: ${JSON.stringify(windows)}`);
-  }
+  const windowList = await listWindows(client, cfg.timeoutMs);
   pass(`Window present (${windowList.length} window(s) reported)`);
 
   // Step 3 — confirm the editor webview is loaded and reachable.

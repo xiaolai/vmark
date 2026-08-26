@@ -42,7 +42,7 @@ describe("serialization sync (fromUserEdit: false)", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
     expect(doc().isDirty).toBe(false);
 
-    useDocumentStore.getState().setContent(TAB, NORMALIZED, { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, NORMALIZED, { fromUserEdit: false });
 
     expect(doc().isDirty).toBe(false);
     expect(doc().content).toBe(NORMALIZED);
@@ -50,18 +50,18 @@ describe("serialization sync (fromUserEdit: false)", () => {
 
   it("still records the serialized content so a later save writes the live doc", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
-    useDocumentStore.getState().setContent(TAB, NORMALIZED, { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, NORMALIZED, { fromUserEdit: false });
     expect(doc().content).toBe(NORMALIZED);
   });
 
   it("does not CLEAR dirt on a document the user did edit", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
-    useDocumentStore.getState().setContent(TAB, `${DISK} edited`);
+    useDocumentStore.getState().setEditorContent(TAB, `${DISK} edited`);
     expect(doc().isDirty).toBe(true);
 
     // Auto-save's flush lands after a real edit — the dirt must survive it,
     // otherwise the edit would never be written.
-    useDocumentStore.getState().setContent(TAB, `${NORMALIZED} edited`, { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, `${NORMALIZED} edited`, { fromUserEdit: false });
 
     expect(doc().isDirty).toBe(true);
   });
@@ -70,7 +70,7 @@ describe("serialization sync (fromUserEdit: false)", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
     const before = useRevisionStore.getState().getRevision(TAB);
 
-    useDocumentStore.getState().setContent(TAB, NORMALIZED, { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, NORMALIZED, { fromUserEdit: false });
 
     expect(useRevisionStore.getState().getRevision(TAB)).toBe(before);
   });
@@ -78,7 +78,7 @@ describe("serialization sync (fromUserEdit: false)", () => {
   it("is idempotent across repeated auto-save cycles", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
     for (let i = 0; i < 5; i++) {
-      useDocumentStore.getState().setContent(TAB, NORMALIZED, { fromUserEdit: false });
+      useDocumentStore.getState().setEditorContent(TAB, NORMALIZED, { fromUserEdit: false });
     }
     expect(doc().isDirty).toBe(false);
   });
@@ -87,27 +87,27 @@ describe("serialization sync (fromUserEdit: false)", () => {
 describe("user edits (default) keep their existing behavior", () => {
   it("dirties when content differs from the saved bytes", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
-    useDocumentStore.getState().setContent(TAB, `${DISK}!`);
+    useDocumentStore.getState().setEditorContent(TAB, `${DISK}!`);
     expect(doc().isDirty).toBe(true);
   });
 
   it("an explicit fromUserEdit: true dirties even from the normalized form", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
-    useDocumentStore.getState().setContent(TAB, NORMALIZED, { fromUserEdit: true });
+    useDocumentStore.getState().setEditorContent(TAB, NORMALIZED, { fromUserEdit: true });
     expect(doc().isDirty).toBe(true);
   });
 
   it("returns to clean when the user restores the saved content", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
-    useDocumentStore.getState().setContent(TAB, `${DISK}!`);
-    useDocumentStore.getState().setContent(TAB, DISK);
+    useDocumentStore.getState().setEditorContent(TAB, `${DISK}!`);
+    useDocumentStore.getState().setEditorContent(TAB, DISK);
     expect(doc().isDirty).toBe(false);
   });
 
   it("bumps the revision", () => {
     useDocumentStore.getState().initDocument(TAB, DISK, "/a.md");
     const before = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().setContent(TAB, `${DISK}!`);
+    useDocumentStore.getState().setEditorContent(TAB, `${DISK}!`);
     expect(useRevisionStore.getState().getRevision(TAB)).not.toBe(before);
   });
 });

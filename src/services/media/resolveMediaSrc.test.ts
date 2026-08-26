@@ -34,15 +34,144 @@ vi.mock("@tauri-apps/api/path", () => ({
 import {
   resolveMediaSrc,
   normalizePathForAsset,
+  withMediaReloadKey,
   getActiveTabIdForCurrentWindow,
 } from "./resolveMediaSrc";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
+import { createInitialDocument } from "@/stores/documentStore/documentState";
 
 // Mock getWindowLabel
 vi.mock("@/services/navigation/windowFocus", () => ({
   getWindowLabel: vi.fn(() => "main"),
 }));
+
+// Audit findings #20, #35, #36 — one mechanism: classification ran on the RAW
+// string, in the wrong order, and anything it failed to classify fell through
+// and was RETURNED UNCHANGED. That last part is what made it a security
+// question rather than a tidiness one.
+// Audit finding #34. Relative media resolved against whichever tab the WINDOW
+// had focused, not against the document the image lives in. With two documents
+// open in a split (#1081), the unfocused pane's images resolved against the
+// other document's directory — and the answer changed as focus moved.
+describe("resolveMediaSrc — resolves against the OWNING document", () => {
+  beforeEach(() => {
+    useTabStore.setState({
+      tabs: {
+        main: [
+          { id: "tab-focused", kind: "document", title: "a.md", filePath: "/docs/a/a.md", isPinned: false, formatId: "markdown" },
+          { id: "tab-other", kind: "document", title: "b.md", filePath: "/notes/b/b.md", isPinned: false, formatId: "markdown" },
+        ],
+      },
+      activeTabId: { main: "tab-focused" },
+      untitledCounter: 0,
+    });
+    useDocumentStore.setState({
+      documents: {
+        "tab-focused": createInitialDocument("", "/docs/a/a.md"),
+        "tab-other": createInitialDocument("", "/notes/b/b.md"),
+      },
+    });
+  });
+
+  it("uses the owning tab's directory, not the focused tab's", async () => {
+    // convertFileSrc percent-encodes, so compare on the decoded URL.
+    const url = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    expect(decodeURIComponent(url)).toContain("/notes/b/pic.png");
+  });
+
+  it("gives the same answer regardless of which tab has focus", async () => {
+    const first = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    useTabStore.setState({ activeTabId: { main: "tab-other" } });
+    const second = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    expect(second).toBe(first);
+  });
+
+  it("falls back to the focused tab when no owner is supplied", async () => {
+    // The default keeps every existing caller working unchanged.
+    const url = await resolveMediaSrc("pic.png");
+    expect(decodeURIComponent(url)).toContain("/docs/a/pic.png");
+  });
+});
+
+describe("resolveMediaSrc — classification and refusal", () => {
+  it.each(ADVERSARIAL_MEDIA_SOURCES)(
+    "refuses %s instead of returning it unchanged",
+    async (_label, src) => {
+      // Shared with the two plugin resolvers — see the module header for why
+      // the table is not copied into each test file.
+      await expect(resolveMediaSrc(src)).resolves.toBe("");
+    },
+  );
+
+  it("refuses a home-relative path", async () => {
+    await expect(resolveMediaSrc("~/secrets.png")).resolves.toBe("");
+  });
+
+  it("recognises an angle-bracket-wrapped external URL after decoding", async () => {
+    // Classification happened before decoding, so the brackets hid the scheme
+    // and the RAW bracketed string was returned — a src no loader can fetch.
+    await expect(resolveMediaSrc("<https://example.com/a b.png>")).resolves.toBe(
+      "https://example.com/a b.png",
+    );
+  });
+
+  it("leaves a plain external URL percent-encoded", async () => {
+    // The fast path must stay ahead of decoding: %20 is valid in a URL and
+    // decoding it to a space would corrupt the request.
+    await expect(resolveMediaSrc("https://example.com/a%20b.png")).resolves.toBe(
+      "https://example.com/a%20b.png",
+    );
+  });
+
+  it("still refuses parent traversal", async () => {
+    await expect(resolveMediaSrc("../../etc/passwd")).resolves.toBe("");
+    await expect(resolveMediaSrc("assets/../../../etc/passwd")).resolves.toBe("");
+  });
+
+  it("still refuses traversal hidden by percent-encoding", async () => {
+    await expect(resolveMediaSrc("assets/%2E%2E/%2E%2E/etc/passwd")).resolves.toBe("");
+  });
+
+  it("keeps allowing an ordinary relative filename", async () => {
+    // The refusal must not swallow the common case.
+    await expect(resolveMediaSrc("my..photo.png")).resolves.not.toBe("");
+  });
+});
+
+describe("withMediaReloadKey", () => {
+  const URL = "asset://localhost/%2Ftmp%2Fpic.png";
+
+  it("leaves the URL untouched at key 0 (never externally changed)", () => {
+    expect(withMediaReloadKey(URL, 0)).toBe(URL);
+  });
+
+  it("appends a query parameter once the file has changed", () => {
+    expect(withMediaReloadKey(URL, 1)).toBe(`${URL}?v=1`);
+  });
+
+  it("produces a DIFFERENT url for each successive change", () => {
+    // The whole mechanism: an unchanged src never refetches, so two
+    // consecutive external writes must not collapse to one URL.
+    expect(withMediaReloadKey(URL, 1)).not.toBe(withMediaReloadKey(URL, 2));
+  });
+
+  it("uses & when the url already carries a query", () => {
+    expect(withMediaReloadKey(`${URL}?a=1`, 3)).toBe(`${URL}?a=1&v=3`);
+  });
+
+  it.each([
+    ["negative", -1],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("returns the bare url for a %s key rather than a broken one", (_label, key) => {
+    // A malformed key must degrade to today's behaviour (stale but loadable),
+    // never to a URL the asset protocol cannot serve — a blank image is worse
+    // than an out-of-date one.
+    expect(withMediaReloadKey(URL, key)).toBe(URL);
+  });
+});
 
 describe("normalizePathForAsset", () => {
   it("converts backslashes to forward slashes", () => {

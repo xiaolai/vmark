@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "Trusted preview runs this document's scripts in an isolated origin, with no network access and no access to VMark. Enable it only for files you wrote or fully trust.",
   "preview.htmlTrustConfirm": "Enable scripts",
   "preview.htmlTrustActive": "Trusted — scripts enabled",
-  "preview.htmlTrustStale": "Source changed since this ran",
+  "preview.htmlTrustStale": "May not match the current source",
   "preview.htmlTrustReload": "Reload",
   "preview.htmlTrustRevoke": "Revoke trust",
   "preview.htmlTrustUnsaved": "Save this file before enabling trusted preview",

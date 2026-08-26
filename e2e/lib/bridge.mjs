@@ -153,3 +153,29 @@ export async function evalJs(client, script, timeoutMs = 15000) {
   }
   return reply.data;
 }
+
+/**
+ * List the app's windows, normalized.
+ *
+ * The bridge has returned both `[...]` and `{windows: [...]}` across versions,
+ * and an entry is sometimes a bare label string rather than an object. Three
+ * callers each unwrapped that by hand — `smoke.mjs`, `wait-ready.mjs` and the
+ * boot journey — and had already drifted: only `wait-ready` handled the string
+ * form, so the other two would have produced `undefined` labels against a
+ * bridge version that used it, silently.
+ *
+ * Returns `[{label, isMain, raw}]`. Throws when no window is reported, because
+ * every caller treated that as fatal.
+ */
+export async function listWindows(client, timeoutMs = 15000) {
+  const raw = expectSuccess(await client.send("list_windows", {}, timeoutMs), "list_windows");
+  const list = Array.isArray(raw) ? raw : raw?.windows;
+  if (!Array.isArray(list) || list.length === 0) {
+    throw new Error(`no windows reported by the bridge: ${JSON.stringify(raw)}`);
+  }
+  return list.map((w) =>
+    typeof w === "string"
+      ? { label: w, isMain: false, raw: w }
+      : { label: w?.label ?? w?.name ?? null, isMain: Boolean(w?.isMain), raw: w },
+  );
+}

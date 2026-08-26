@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "Die vertrauenswürdige Vorschau führt die Skripte dieses Dokuments in einem isolierten Origin aus — ohne Netzwerkzugriff und ohne Zugriff auf VMark. Aktivieren Sie sie nur für Dateien, die Sie selbst erstellt haben oder denen Sie voll vertrauen.",
   "preview.htmlTrustConfirm": "Skripte aktivieren",
   "preview.htmlTrustActive": "Vertrauenswürdig — Skripte aktiviert",
-  "preview.htmlTrustStale": "Quelltext seit dem letzten Lauf geändert",
+  "preview.htmlTrustStale": "Stimmt möglicherweise nicht mit dem aktuellen Quelltext überein",
   "preview.htmlTrustReload": "Neu laden",
   "preview.htmlTrustRevoke": "Vertrauen widerrufen",
   "preview.htmlTrustUnsaved": "Speichern Sie diese Datei, bevor Sie die vertrauenswürdige Vorschau aktivieren",

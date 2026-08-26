@@ -30,7 +30,7 @@
   "preview.htmlTrustWarning": "信頼済みプレビューは、このドキュメントのスクリプトを分離されたオリジンで実行します。ネットワークにも VMark にもアクセスできません。自分で作成したファイル、または完全に信頼できるファイルにのみ有効にしてください。",
   "preview.htmlTrustConfirm": "スクリプトを有効にする",
   "preview.htmlTrustActive": "信頼済み — スクリプト有効",
-  "preview.htmlTrustStale": "前回の実行後にソースが変更されました",
+  "preview.htmlTrustStale": "現在のソースと一致しない可能性があります",
   "preview.htmlTrustReload": "再読み込み",
   "preview.htmlTrustRevoke": "信頼を取り消す",
   "preview.htmlTrustUnsaved": "信頼済みプレビューを有効にする前にこのファイルを保存してください",

@@ -19,6 +19,10 @@
  *     flight is NEWER than the copy that failed, so it wins.
  *   - Retries are bounded (one). Beyond that the items stay queued for the
  *     next real event rather than driving an endless dialog loop.
+ *   - `dispose()` is terminal and `cancel()` is not. Cleanup needs the former:
+ *     cancelling cannot reach a batch that is already running, and that batch
+ *     re-schedules from its own `finally`, so an open dialog at unmount re-armed
+ *     a timer after cleanup had cancelled one.
  *
  * @coordinates-with hooks/useExternalFileChanges.ts — the only production consumer
  * @module services/files/externalChangeBatchQueue
@@ -30,8 +34,19 @@ const MAX_AUTO_RETRIES = 1;
 export interface BatchQueue<T> {
   /** Queue `item` under `key`, replacing any earlier item with that key. */
   queue(key: string, item: T): void;
-  /** Cancel the pending timer. Queued items are kept, not dropped. */
+  /** Cancel the pending timer. Queued items are KEPT, not dropped. */
   cancel(): void;
+  /**
+   * Terminal shutdown: no further work runs, ever.
+   *
+   * `cancel()` cannot serve as cleanup, because it cannot reach a batch that is
+   * already running: that batch re-schedules from its own `finally` whenever
+   * anything is pending, so a dialog open at unmount re-armed a timer after
+   * cleanup had cancelled one, and it fired into a torn-down consumer. This
+   * clears the timer, drops the queue, and latches — a late completion finds
+   * the queue disposed and stops.
+   */
+  dispose(): void;
   /** Number of items currently waiting. */
   size(): number;
 }
@@ -53,6 +68,7 @@ export function createBatchQueue<T>({
   let timer: ReturnType<typeof setTimeout> | null = null;
   let processing = false;
   let consecutiveFailures = 0;
+  let disposed = false;
 
   function schedule(): void {
     // Always clear first — the single-timer invariant this module exists for.
@@ -89,6 +105,10 @@ export function createBatchQueue<T>({
       onError(error);
     } finally {
       processing = false;
+      // A dispose that landed while this batch was in flight wins: drop
+      // whatever the catch put back rather than re-arming for a consumer that
+      // no longer exists.
+      if (disposed) pending.clear();
       // Anything queued during processing — or put back by the catch — gets
       // another pass, up to the retry bound.
       if (pending.size > 0 && consecutiveFailures <= MAX_AUTO_RETRIES) {
@@ -99,6 +119,7 @@ export function createBatchQueue<T>({
 
   return {
     queue(key, item) {
+      if (disposed) return;
       pending.set(key, item);
       schedule();
     },
@@ -107,6 +128,20 @@ export function createBatchQueue<T>({
         clearTimeout(timer);
         timer = null;
       }
+    },
+    // Two guards, and only two: `queue()` refuses new work, and the `finally`
+    // below drops whatever the catch put back. Guards in `schedule()` and at
+    // the top of `run()` were also written, and removed — `dispose()` clears
+    // the timer, so `run()` cannot start afterwards and `schedule()` cannot be
+    // reached, which made them branches no test could distinguish. Untestable
+    // defence is indistinguishable from dead code.
+    dispose() {
+      disposed = true;
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      pending.clear();
     },
     size: () => pending.size,
   };

@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { resolveImageSrc } from "./resolveSrc";
 import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
+import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (p: string) => `asset://localhost/${p}`,
@@ -73,6 +74,26 @@ describe("resolveImageSrc", () => {
     // filesystem. Asserted so the two rejection layers stay distinguishable.
     bindHostDocument(openIn("/docs/note.md"));
     expect(await resolveImageSrc("../../../etc/passwd")).toBe("../../../etc/passwd");
+  });
+
+  // The class this shares with the other two resolvers: a source none of the
+  // branches claims must be REFUSED when it carries a scheme, not handed back.
+  // See src/test/adversarialMediaSources.ts.
+  it.each(ADVERSARIAL_MEDIA_SOURCES)(
+    "refuses %s",
+    async (_label, src) => {
+      bindHostDocument(openIn("/docs/note.md"));
+      expect(await resolveImageSrc(src)).toBe("");
+    },
+  );
+
+  it("recognises an angle-bracket-wrapped external URL after decoding", async () => {
+    // Classification ran on the RAW string, so the brackets hid the scheme and
+    // the bracketed string came back — a src no loader can fetch.
+    bindHostDocument(openIn("/docs/note.md"));
+    expect(await resolveImageSrc("<https://example.com/a b.png>")).toBe(
+      "https://example.com/a b.png",
+    );
   });
 
   it("falls back to the original src when path joining throws", async () => {

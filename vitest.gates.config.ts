@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
 
 /**
- * Gate self-test tier — the tests OF the lint gates, not of the app.
+ * Gate and harness self-test tier — the tests OF the tooling, not of the app.
  *
  * `scripts/*.test.*` and `.claude/hooks/*.test.*` verify the gate scripts
  * themselves: each one spawns the gate as a SUBPROCESS against fixture trees
@@ -38,6 +38,16 @@ import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
  * their subject through a subprocess, so it never appeared in the in-process
  * coverage graph either way.
  *
+ * `e2e/` joined this tier for the same two reasons the gates did: its helpers
+ * are plain Node modules that must never see a jsdom document (they describe
+ * the REAL webview, and a jsdom global is exactly the thing that could make a
+ * broken probe look correct), and they have no use for `src/test/setup.ts`.
+ * Only the harness's own pure helpers are unit-tested here — the journeys
+ * themselves need a live app and are driven by `e2e/run-journeys.mjs`, never by
+ * vitest. Before this, `e2e/` was owned by NO tier, so a test file added there
+ * would have run nowhere; the partition check in
+ * `scripts/check-scripts-parity.test.mjs` is what surfaced that, by failing.
+ *
  * @coordinates-with vitest.config.ts — the app tier; all four tiers must partition
  * @coordinates-with scripts/check-scripts-parity.test.mjs — enforces the partition
  */
@@ -57,15 +67,24 @@ export default defineConfig({
     // and both finish in 11s wall for the two files together when run alone.
     // Raising the bound does not weaken what it detects: a child process that
     // has genuinely hung never returns, so it is still caught — just 40s later.
+    //
+    // A lower default with per-file overrides for the slow ones was considered
+    // and rejected on the measurements: UNLOADED, the slowest single test is
+    // 16.5s (the real-Stryker canary), then 12.4s, then five in the 6–8s band.
+    // Under predelta's contention those multiply, so a 25s default would sit
+    // close enough to real durations to go flaky — trading a rare 40s delay in
+    // reporting a hang for intermittent red on healthy runs. The list of
+    // exceptions would also have to be maintained, and its failure mode is the
+    // same flake. Re-measure before revisiting; do not nudge.
     testTimeout: 60_000,
     hookTimeout: 60_000,
-    include: [testGlob("scripts"), testGlob(".claude/hooks")],
+    include: [testGlob("scripts"), testGlob(".claude/hooks"), testGlob("e2e")],
     exclude: ["**/node_modules/**", "**/dist/**"],
-    // These spawn child processes and then wait, so they are even further from
-    // CPU-bound than the app tier. The ratio is INHERITED from the app tier's
-    // sweep, not measured here — a subprocess burns CPU outside the worker
-    // accounting that sweep was derived from, so it is a reasonable default
-    // rather than an established optimum for this workload. See vitest.shared.ts.
+    // These spawn child processes and then wait. Swept here as well as in the
+    // app tier, and the answer is that it does not matter: anything from 8 to
+    // 24 lands inside the run-to-run variance, because the wall clock is set by
+    // a few long subprocess-bound files rather than by pool throughput. Numbers
+    // and method in vitest.shared.ts.
     maxWorkers: maxWorkers(),
   },
   resolve: {
