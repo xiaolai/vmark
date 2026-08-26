@@ -7,21 +7,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
-import { useWorkspaceStore } from "@/stores/workspaceStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
-import { resolveFinderOpenBranch } from "@/services/navigation/finderOpenBranch";
 import { loadFileIntoTab } from "@/services/navigation/loadFileIntoTab";
-import {
-  activateExistingTab,
-  createNewTabForFile,
-  replaceTabWithFile,
-  withSizeGateAndIndicator,
-  type FinderBranchContext,
-} from "@/services/navigation/finderOpenBranches";
+import { dispatchFinderOpen } from "@/services/navigation/finderOpenDispatch";
+import type { FinderBranchContext } from "@/services/navigation/finderOpenBranches";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
-import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { commandErrorMessage } from "@/services/commands/commandError";
 
 export interface OpenFilePayload {
@@ -43,9 +33,12 @@ interface PendingFileOpen {
  * When the user opens a markdown file from Finder (double-click or "Open With"),
  * and the app is already running, this hook receives the file path and:
  * 1. Checks if there's an existing tab for this file -> activates it
- * 2. Checks if there's an empty (replaceable) tab -> loads file there
- * 3. If same workspace -> creates new tab in the current window
- * 4. Otherwise -> opens file in a new window (different workspace)
+ * 2. If the file belongs to this window's workspace (or rail mode is on) ->
+ *    lands it here, reusing an empty (replaceable) tab when there is one
+ * 3. Otherwise -> opens file in a new window (different workspace)
+ *
+ * Reusing the empty tab never re-roots the window; `resolveFinderOpenBranch`
+ * owns that decision and hands it down as `adoptWorkspace` (#1330).
  *
  * Every document window listens for targeted hot opens. The main window alone
  * fetches pending files queued during cold start.
@@ -82,98 +75,6 @@ export function useFinderFileOpen(): void {
       loadFileIntoTab,
     };
 
-    /**
-     * Branch 4 — different workspace, so open in a new window. The Rust
-     * command validates the path and extends the fs scope for the spawned
-     * window; it stays here because it touches no tab in THIS window.
-     */
-    const openFileInNewWindow = async (
-      path: string,
-      workspaceRoot: string | null,
-    ) => {
-      try {
-        if (workspaceRoot) {
-          await invoke("open_workspace_in_new_window", { workspaceRoot, filePath: path });
-        } else {
-          await invoke("open_file_in_new_window", { path });
-        }
-      } catch (error) {
-        finderFileOpenError("Failed to open in new window:", path, error);
-        toastOpenFailure(error);
-      }
-    };
-
-    /**
-     * Dispatch a file open request to the correct branch. Must be called
-     * via enqueueFileOpen() to ensure serialization. Branch SELECTION is the
-     * pure resolveFinderOpenBranch(); this function owns only the async
-     * size-gate, indicator lifecycle, and branch EXECUTION.
-     */
-    const processFileOpen = async (
-      path: string,
-      workspaceRoot: string | null,
-      finishDrainedBatch = false,
-    ) => {
-      const currentBranchCtx = finishDrainedBatch
-        ? { ...branchCtx, isCancelled: () => false }
-        : branchCtx;
-      // Pre-read size check: applies to every non-activate branch below.
-      // Refused files never create a tab or open a window; huge files confirm.
-      // (Existing-tab activation skips the read, so resolve the branch first.)
-      const branch = resolveFinderOpenBranch({
-        filePath: path,
-        existingTabId: findExistingTabForPath(windowLabel, path),
-        replaceableTabId: getReplaceableTab(windowLabel)?.tabId ?? null,
-        workspaceRailMode: useSettingsStore.getState().general.workspaceRailMode,
-        currentRoot: useWorkspaceStore.getState().rootPath,
-        incomingWorkspace: workspaceRoot,
-      });
-
-      if (branch.kind === "activate") {
-        activateExistingTab(currentBranchCtx, branch.tabId);
-        return;
-      }
-
-      switch (branch.kind) {
-        case "replace": {
-          await withSizeGateAndIndicator(currentBranchCtx, path, async () => {
-            // Re-check: the replaceable tab could have been claimed during the
-            // awaited size route. Fall back to a new tab if it is gone.
-            const tab = getReplaceableTab(windowLabel);
-            if (!tab) {
-              return createNewTabForFile(
-                currentBranchCtx,
-                path,
-                workspaceRoot,
-                !useWorkspaceStore.getState().rootPath,
-              );
-            }
-            return replaceTabWithFile(currentBranchCtx, tab, path, workspaceRoot);
-          });
-          return;
-        }
-        case "create": {
-          await withSizeGateAndIndicator(currentBranchCtx, path, () =>
-            createNewTabForFile(
-              currentBranchCtx,
-              path,
-              workspaceRoot,
-              branch.adoptWorkspace,
-            ),
-          );
-          return;
-        }
-        case "newWindow": {
-          // The remote window runs its own size route when its cold-start queue
-          // drains, so no tab is marked here — none exists in this window.
-          const route = await routeOpenBySize(path);
-          if (!route.proceed || (cancelled && !finishDrainedBatch)) return;
-          await openFileInNewWindow(path, workspaceRoot);
-          return;
-        }
-      }
-    };
-
     /** Enqueue a file open, serialized to prevent concurrent tab races */
     const enqueueFileOpen = (
       path: string,
@@ -181,7 +82,7 @@ export function useFinderFileOpen(): void {
       finishDrainedBatch = false,
     ) => {
       processingChainRef.current = processingChainRef.current
-        .then(() => processFileOpen(path, workspaceRoot, finishDrainedBatch))
+        .then(() => dispatchFinderOpen(branchCtx, path, workspaceRoot, finishDrainedBatch))
         .catch((error) => {
           finderFileOpenError("Failed to open file:", path, error);
         });

@@ -37,7 +37,7 @@ describe("resolveFinderOpenBranch precedence", () => {
   it("replaces a clean untitled tab when no existing tab", () => {
     expect(
       resolveFinderOpenBranch(input({ replaceableTabId: "tab-empty" })),
-    ).toEqual({ kind: "replace", replaceableTabId: "tab-empty" });
+    ).toEqual({ kind: "replace", replaceableTabId: "tab-empty", adoptWorkspace: true });
   });
 
   it("always creates a new tab in rail mode (no workspace adoption)", () => {
@@ -46,6 +46,52 @@ describe("resolveFinderOpenBranch precedence", () => {
         input({ workspaceRailMode: true, currentRoot: "/ws", incomingWorkspace: "/other" }),
       ),
     ).toEqual({ kind: "create", adoptWorkspace: false });
+  });
+
+  // #1330 — the replaceable tab used to be checked ABOVE rail mode and above
+  // the workspace check, so reusing it silently re-pointed the window at the
+  // incoming file's folder. A window is not "empty" just because its only tab
+  // is an untitled one; it can still own the workspace the sidebar is showing.
+  it("reuses the clean untitled tab in rail mode WITHOUT adopting a workspace", () => {
+    expect(
+      resolveFinderOpenBranch(
+        input({
+          replaceableTabId: "tab-empty",
+          workspaceRailMode: true,
+          currentRoot: "/ws",
+          incomingWorkspace: "/other",
+        }),
+      ),
+    ).toEqual({ kind: "replace", replaceableTabId: "tab-empty", adoptWorkspace: false });
+  });
+
+  it("opens a new window rather than consuming the untitled tab of a workspace window", () => {
+    expect(
+      resolveFinderOpenBranch(
+        input({
+          filePath: "/other/file.md",
+          replaceableTabId: "tab-empty",
+          currentRoot: "/ws",
+          incomingWorkspace: "/other",
+        }),
+      ),
+    ).toEqual({ kind: "newWindow" });
+  });
+
+  it("reuses the untitled tab without re-rooting when the file is inside the workspace", () => {
+    // The incoming root is the file's PARENT — a subfolder of the workspace.
+    // Adopting it would narrow the sidebar to that subfolder.
+    mockIsWithinRoot.mockReturnValue(true);
+    expect(
+      resolveFinderOpenBranch(
+        input({
+          filePath: "/ws/sub/file.md",
+          replaceableTabId: "tab-empty",
+          currentRoot: "/ws",
+          incomingWorkspace: "/ws/sub",
+        }),
+      ),
+    ).toEqual({ kind: "replace", replaceableTabId: "tab-empty", adoptWorkspace: false });
   });
 
   it("creates a tab and adopts the incoming workspace when this window has none", () => {

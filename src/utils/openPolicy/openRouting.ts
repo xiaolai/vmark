@@ -68,6 +68,13 @@ function routeRailMode(context: OpenActionContext): OpenActionResult {
  * Step 4 — route a file outside the current workspace. Resolves the file's own
  * folder as a workspace root and threads it through every action so ownership
  * never gets lost (the new-tab path carries the root so callers can claim it).
+ *
+ * Reusing this window is only on the table when the window owns NO workspace.
+ * Every in-window action here carries `newWorkspaceRoot`, and applying it
+ * re-roots the window — so for a window that already has a workspace, reuse
+ * means the user's sidebar tree is replaced by the opened file's folder
+ * (#1330). A window is not free just because its only tab is untitled: that is
+ * exactly the state right after File → Open Workspace.
  */
 function routeExternalFile(context: OpenActionContext): OpenActionResult {
   const newWorkspaceRoot = resolveWorkspaceRootForExternalFile(context.filePath);
@@ -75,17 +82,20 @@ function routeExternalFile(context: OpenActionContext): OpenActionResult {
     return { action: "no_op", reason: "cannot_resolve_workspace_root" };
   }
 
+  const windowOwnsWorkspace = Boolean(context.isWorkspaceMode && context.workspaceRoot);
+
   // fix(#946) — with "open in new tab" enabled, an external file that would
   // otherwise replace the clean untitled tab opens as a new tab instead, so the
   // empty tab is preserved. The resolved root travels with the action so the
   // caller can apply workspace ownership rather than attaching the file to the
   // current context.
-  if (context.replaceableTab && context.openInNewTab) {
+  if (context.replaceableTab && context.openInNewTab && !windowOwnsWorkspace) {
     return { action: "create_tab", filePath: context.filePath, workspaceRoot: newWorkspaceRoot };
   }
 
-  // Replaceable tab present: replace it instead of opening a new window.
-  if (context.replaceableTab) {
+  // Replaceable tab in a window with no workspace of its own: replace it
+  // instead of opening a new window.
+  if (context.replaceableTab && !windowOwnsWorkspace) {
     return {
       action: "replace_tab",
       tabId: context.replaceableTab.tabId,
@@ -94,7 +104,7 @@ function routeExternalFile(context: OpenActionContext): OpenActionResult {
     };
   }
 
-  // No replaceable tab: open in a new window.
+  // Nothing here can take the file without cost: open a new window.
   return {
     action: "open_workspace_in_new_window",
     filePath: context.filePath,
