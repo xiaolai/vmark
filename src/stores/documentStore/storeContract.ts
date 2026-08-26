@@ -9,7 +9,14 @@
  * per-document value types, so the contract sits beside them rather than on
  * top of the implementation.
  *
+ * Key decisions:
+ *   - Documents are handed out READONLY. Every content change has to go through
+ *     an action, because that is where the revision bump lives; a direct
+ *     `doc.content = …` would move what an MCP client reads while leaving its
+ *     `expected_revision` valid. See the declarations for the full argument.
+ *
  * @coordinates-with stores/documentStore/document.ts — the implementation
+ * @coordinates-with stores/documentStore/__tests__/readonlyDocumentView.test.ts — guards the readonly declarations
  * @coordinates-with stores/documentStore/documentState.ts — the value types
  * @module stores/documentStore/storeContract
  */
