@@ -17,7 +17,7 @@
  * @coordinates-with utils/openPolicy/externalChangePolicy.ts — the predicate
  * @module hooks/useExternalFileChanges.staleConflict.test
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 
 // --- Hoisted mocks ---
@@ -154,6 +154,21 @@ async function setupHookAndCallback(): Promise<ListenCallback> {
   return captureListenCallback();
 }
 
+// Reset between tests. The split that created this file left the mocks
+// accumulating across cases, which showed up as a call count of 6 where 2 were
+// expected — a suite that is measuring the previous test as well as its own.
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.listen.mockImplementation(() => Promise.resolve(() => {}));
+  mocks.subscribeWorkspaceEvents.mockImplementation(
+    (_label: string, _cb: unknown) => () => {},
+  );
+  mocks.activeScopeRoot.mockReturnValue(null);
+  mocks.matchesPendingSave.mockReturnValue(false);
+  mocks.hasPendingSave.mockReturnValue(false);
+  useDocumentStore.setState({ documents: {} });
+});
+
 describe("a queued conflict that went stale is not resolved", () => {
   // Audit finding #27. An entry names the tab and path captured when it was
   // QUEUED, then waits out a 300 ms debounce (and, for a multi-file batch, a
@@ -200,5 +215,67 @@ describe("a queued conflict that went stale is not resolved", () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(mocks.dialogMessage).not.toHaveBeenCalled();
+  });
+});
+
+// Audit finding #26. Each delivery of events spawned an UNAWAITED
+// `handleSemanticBatch`, so two changes arriving close together ran their disk
+// reads concurrently. Reads do not finish in the order they start — a larger
+// file, a cold cache, a network volume — so the EARLIER batch could land last
+// and write content the user had already superseded. The symptom is a document
+// that silently reverts to a version that was on disk moments ago.
+describe("batches are serialized, so an older read cannot land last", () => {
+  it("leaves the NEWER content in the document when reads finish out of order", async () => {
+    seedStores();
+
+    // First read resolves slowly, second immediately.
+    let releaseFirst!: (text: string) => void;
+    mocks.readTextFile
+      .mockImplementationOnce(
+        () => new Promise<string>((resolve) => { releaseFirst = resolve; }),
+      )
+      .mockResolvedValue("# second (newer)");
+
+    const callback = await setupHookAndCallback();
+    const event = {
+      payload: {
+        watchId: "main",
+        rootPath: "/workspace",
+        paths: ["/workspace/test.md"],
+        kind: "modify",
+      },
+    };
+
+    // Deliver the first change and wait until its read is genuinely in flight.
+    const first = callback(event);
+    await vi.waitFor(() => expect(mocks.readTextFile).toHaveBeenCalledTimes(1));
+
+    // The second change is delivered while the first read is still pending —
+    // that overlap is the whole scenario.
+    const second = callback(event);
+    releaseFirst("# first (older)");
+    await first;
+    await second;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(useDocumentStore.getState().documents["tab-1"]?.content)
+      .toBe("# second (newer)");
+  });
+
+  it("still processes every batch", async () => {
+    // Serializing must not drop work — the point is ordering, not exclusion.
+    seedStores();
+    mocks.readTextFile.mockResolvedValue("# changed");
+
+    const callback = await setupHookAndCallback();
+    const event = (path: string) => ({
+      payload: { watchId: "main", rootPath: "/workspace", paths: [path], kind: "modify" },
+    });
+
+    await callback(event("/workspace/test.md"));
+    await callback(event("/workspace/test.md"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(mocks.readTextFile).toHaveBeenCalledTimes(2);
   });
 });

@@ -29,14 +29,13 @@
  * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
  * @coordinates-with services/windowClose/fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
- * @coordinates-with fileChangeBatch.ts — the reload-all/keep-all/review-each resolutions
+ * @coordinates-with services/files/resolveDirtyBatch.ts — revalidates a batch, then runs the one-file or bulk dialog
  * @coordinates-with externalChangeBatchQueue.ts — the debounce/requeue/single-timer rules
  * @coordinates-with services/persistence/resolveDirtyFileChange.ts — the 3-option dialog
  * @module hooks/useExternalFileChanges
  */
 import { useEffect, useRef, useCallback } from "react";
 import { readTextFile, exists } from "@tauri-apps/plugin-fs";
-import { message } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
@@ -44,30 +43,18 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { applyExternalRename } from "@/services/workspaces/reassignTabOwnershipForPath";
 import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
-import {
-  reloadAllFromDisk,
-  keepAllLocal,
-  reviewEachIndividually,
-} from "@/services/files/fileChangeBatch";
-import {
-  isQueuedConflictStillLive,
-  resolveExternalChangeAction,
-} from "@/utils/openPolicy";
+import { resolveExternalChangeAction } from "@/utils/openPolicy";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { softContentEquals } from "@/utils/linebreaks";
-import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
 import { fileOpsError } from "@/utils/debug";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
-import { resolveDirtyFileChange } from "@/services/persistence/resolveDirtyFileChange";
 import { createBatchQueue, type BatchQueue } from "@/services/files/externalChangeBatchQueue";
+import {
+  resolveDirtyBatch,
+  type PendingDirtyChange,
+} from "@/services/files/resolveDirtyBatch";
 import { handleSemanticBatch, type FsChangeContext } from "@/services/windowClose/fsChangeHandlers";
-
-/** Pending dirty file change awaiting user decision */
-interface PendingDirtyChange {
-  tabId: string;
-  filePath: string;
-}
 
 /** Debounce window for batching external changes (ms) */
 const BATCH_DEBOUNCE_MS = 300;
@@ -89,6 +76,10 @@ export function useExternalFileChanges(): void {
   // testable without React — see externalChangeBatchQueue.ts for the two
   // defects that were unreachable while this was inline.
   const queueRef = useRef<BatchQueue<PendingDirtyChange> | null>(null);
+
+  // Serializes fs-event batches. See the subscription below for why parallel
+  // batches let an older disk read overwrite a newer one.
+  const batchChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Get tabs and their file paths for the current window
   const getOpenFilePaths = useCallback(() => {
@@ -115,64 +106,13 @@ export function useExternalFileChanges(): void {
     [windowLabel],
   );
 
-  // Resolve one batch: one file goes straight to the single-file dialog,
-  // several go through the reload-all/keep-all/review-each dialog.
-  const processBatch = useCallback(async (queued: PendingDirtyChange[]) => {
-    // Revalidate before resolving. An entry names the tab and path captured
-    // when it was QUEUED, and it then waits out a debounce and — for a
-    // multi-file batch — a modal the user may sit on indefinitely. In that
-    // window the tab can be closed, saved, or renamed, and the old entry would
-    // resolve against state that no longer exists. The rename case is the
-    // dangerous one: reloading a path this document no longer has pulls a
-    // DIFFERENT file's bytes into the buffer.
-    const pending = queued.filter((entry) =>
-      isQueuedConflictStillLive({
-        document: useDocumentStore.getState().getDocument(entry.tabId),
-        queuedPath: entry.filePath,
-        normalize: normalizePath,
-      }),
-    );
-    if (pending.length === 0) return;
-    if (pending.length === 1) {
-      await resolveDirtyFileChange(pending[0].tabId, pending[0].filePath);
-      return;
-    }
-
-    /* v8 ignore next -- @preserve unknownFile fallback fires only when getFileName returns "" (path is "/"); effectively unreachable in production */
-    const fileNames = pending
-      .map((p) => getFileName(p.filePath) || i18n.t("dialog:fileChanged.unknownFile"))
-      .join(", ");
-    const buttons = {
-      reloadAll: i18n.t("dialog:fileChanged.buttonReloadAll"),
-      keepAll: i18n.t("dialog:fileChanged.buttonKeepAll"),
-      reviewEach: i18n.t("dialog:fileChanged.buttonReviewEach"),
-    } as const;
-
-    const result = await message(
-      i18n.t("dialog:fileChanged.multipleMessage", { count: pending.length, fileNames }),
-      {
-        title: i18n.t("dialog:fileChanged.multipleTitle"),
-        kind: "warning",
-        buttons: { yes: buttons.reloadAll, no: buttons.keepAll, cancel: buttons.reviewEach },
-      }
-    );
-
-    if (result === "Yes" || result === buttons.reloadAll) {
-      await reloadAllFromDisk(pending, reloadTabFromDisk);
-    } else if (result === "No" || result === buttons.keepAll) {
-      await keepAllLocal(pending);
-    } else {
-      await reviewEachIndividually(pending, resolveDirtyFileChange);
-    }
-  }, []);
-
-  // One queue per hook instance, created lazily so `processBatch` is captured
-  // once. A rejected batch is put BACK by the queue — the old inline version
-  // drained it before awaiting the dialog, so a rejection lost the conflicts.
+  // One queue per hook instance. A rejected batch is put BACK by the queue —
+  // the old inline version drained it before awaiting the dialog, so a
+  // rejection lost the conflicts.
   if (queueRef.current === null) {
     queueRef.current = createBatchQueue<PendingDirtyChange>({
       debounceMs: BATCH_DEBOUNCE_MS,
-      process: processBatch,
+      process: resolveDirtyBatch,
       onError: (error) => fileOpsError("Failed to process batched file changes:", error),
     });
   }
@@ -271,10 +211,29 @@ export function useExternalFileChanges(): void {
         useDocumentStore.getState().markBinaryFileChanged(tabId),
     };
 
+    // SERIALIZED, not fired in parallel. Each delivery used to spawn an
+    // unawaited batch, so two changes arriving close together ran their disk
+    // reads concurrently — and reads do not finish in the order they start (a
+    // larger file, a cold cache, a network volume). The EARLIER batch could
+    // therefore land last and write content the user had already superseded,
+    // which presents as a document silently reverting to a version that was on
+    // disk moments ago.
+    //
+    // Chaining preserves arrival order, which is the property that matters: the
+    // watcher delivers events in the order the filesystem produced them, and
+    // the last write must be the newest one. A batch is short — reads plus
+    // policy — because the dirty-file dialog is not inside it; that goes
+    // through the debounced queue, so serializing cannot park behind a modal.
+    //
+    // The chain must never reject, or every later batch would be skipped: each
+    // link swallows its own error into the log, exactly as the old `.catch`
+    // did per batch.
     const unsubscribe = subscribeWorkspaceEvents(windowLabel, (events) => {
-      void handleSemanticBatch(ctx, events, getOpenFilePaths).catch((error) => {
-        fileOpsError("Failed to handle external file changes:", error);
-      });
+      batchChainRef.current = batchChainRef.current.then(() =>
+        handleSemanticBatch(ctx, events, getOpenFilePaths).catch((error) => {
+          fileOpsError("Failed to handle external file changes:", error);
+        }),
+      );
     });
 
     return () => {
