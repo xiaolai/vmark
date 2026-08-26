@@ -38,13 +38,41 @@ import { DRIVABLE_SNIPPET, drivableGap } from "./lib/readiness.mjs";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
-  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+  if (i === -1) return fallback;
+  const value = process.argv[i + 1];
+  // The flag was GIVEN, so a missing or option-shaped value is a mistake, not a
+  // request for the default: `--port --window main` used to take "--window" as
+  // the port and `Number()` it to NaN. Falling back silently would hide the
+  // typo just as effectively as the NaN did.
+  if (value === undefined || value.startsWith("--")) {
+    console.error(`::error::--${name} was given without a value`);
+    process.exit(2);
+  }
+  return value;
+}
+
+/**
+ * Parse a positive-integer argument, or die saying which one was wrong.
+ *
+ * `Number()` alone turned a typo into a silent misconfiguration: NaN for
+ * `--port abc`, and a NaN budget makes `Date.now() < deadline` false on the
+ * FIRST check, so the script exits "not ready" without ever probing — a failure
+ * that looks exactly like an app that never started.
+ */
+function numericArg(name, fallback, { max = Number.MAX_SAFE_INTEGER } = {}) {
+  const raw = arg(name, fallback);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0 || value > max) {
+    console.error(`::error::--${name} must be a positive integer, got ${JSON.stringify(raw)}`);
+    process.exit(2);
+  }
+  return value;
 }
 
 const HOST = arg("host", "127.0.0.1");
-const PORT = Number(arg("port", "9323"));
+const PORT = numericArg("port", "9323", { max: 65535 });
 const WINDOW = arg("window", "main");
-const BUDGET_MS = Number(arg("timeout-ms", "300000"));
+const BUDGET_MS = numericArg("timeout-ms", "300000");
 const POLL_MS = 1000;
 
 /** One full readiness attempt. Returns null on success, else why it failed. */
@@ -98,7 +126,12 @@ while (Date.now() < deadline) {
   // Report progress occasionally so a stuck run says what it is stuck on
   // rather than going quiet for five minutes.
   if (n === 1 || n % 15 === 0) console.log(`  [${n}] not ready: ${last}`);
-  await new Promise((r) => setTimeout(r, POLL_MS));
+  // Sleep only as far as the deadline. An unconditional POLL_MS meant the loop
+  // could wake, find the budget spent, and exit — after sleeping past it — so
+  // the advertised timeout was a lower bound rather than a bound.
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) break;
+  await new Promise((r) => setTimeout(r, Math.min(POLL_MS, remaining)));
 }
 
 console.error(`::error::app never became drivable within ${BUDGET_MS}ms — last: ${last}`);
