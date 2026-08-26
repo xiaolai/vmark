@@ -74,6 +74,10 @@ describe("handleRenameEvent", () => {
       readTextFile: vi.fn(async () => {
         throw new Error("ENOENT");
       }),
+      // "Truly gone" has to be in the FIXTURE, not just the title. It used to
+      // sit at the default (`exists: true`) and still pass, because the code
+      // took any read failure as proof of deletion and never asked.
+      fileExists: vi.fn(async () => false),
     });
     const openPaths = new Map([["/file.md", "tab-1"]]);
 
@@ -212,6 +216,7 @@ describe("handleRemoveEvent", () => {
       readTextFile: vi.fn(async () => {
         throw new Error("ENOENT");
       }),
+      fileExists: vi.fn(async () => false),
     });
 
     await handleRemoveEvent(ctx, "tab-1", "/file.md", "/file.md");
@@ -270,6 +275,118 @@ describe("handleModifyOrCreateEvent", () => {
   });
 });
 
+// Audit findings #22 and #23 — one mechanism, two symptoms. The `try` around
+// the disk read also enclosed the POLICY call, and its `catch` treated every
+// failure as proof of deletion. So a rejecting reload policy and a transient
+// EACCES both ended as "the file is gone", marking a document missing that was
+// sitting on disk the whole time. The media path next to it already probes
+// before concluding deletion; the text path did not.
+// Audit findings #21 and #24 — one mechanism: rename handling treats the batch
+// as a unit when each pair is independent.
+describe("rename pairs are independent of each other", () => {
+  it("runs the fallback for an unmatched pair even when another pair matched", async () => {
+    // `handled` was batch-wide: one recognised rename returned early and every
+    // OTHER path in the same batch was dropped, so an atomic replacement
+    // arriving beside a real rename was silently lost.
+    const ctx = makeContext({ readTextFile: vi.fn(async () => "edited") });
+    const openPaths = new Map([
+      ["/ws/old.md", "tab-renamed"],
+      ["/ws/atomic.md", "tab-atomic"],
+    ]);
+
+    // The atomic pair is temp -> target: its OLD path belongs to no tab, which
+    // is exactly what makes it "unmatched" and sends it to the fallback.
+    await handleRenameEvent(
+      ctx,
+      ["/ws/old.md", "/ws/new.md", "/ws/.tmp-9f2a", "/ws/atomic.md"],
+      openPaths,
+    );
+
+    expect(ctx.applyRename).toHaveBeenCalledWith("tab-renamed", "/ws/new.md");
+    expect(ctx.handleModifyEvent).toHaveBeenCalledWith(
+      "tab-atomic", "/ws/atomic.md", "edited",
+    );
+  });
+
+  it("follows a chained old -> mid -> new rename across one batch", async () => {
+    // Faithful to production: the real `applyRename` re-points the tab in the
+    // STORE, and `getOpenPaths` reads the store. `handleSemanticBatch` took ONE
+    // snapshot before dispatching every rename, so the second hop looked the
+    // tab up under a name the snapshot still held and found nothing — the tab
+    // stayed pointed at `/ws/b.md` while the file was at `/ws/c.md`.
+    const store = new Map([["/ws/a.md", "tab-a"]]);
+    const ctx = makeContext({
+      applyRename: vi.fn((tabId: string, newPath: string) => {
+        for (const [k, v] of [...store]) if (v === tabId) store.delete(k);
+        store.set(newPath, tabId);
+      }),
+    });
+
+    await handleSemanticBatch(
+      ctx,
+      [
+        evt({ kind: "renamed", path: "/ws/b.md", previousPath: "/ws/a.md" }),
+        evt({ kind: "renamed", path: "/ws/c.md", previousPath: "/ws/b.md" }),
+      ],
+      () => new Map(store),
+    );
+
+    expect(ctx.applyRename).toHaveBeenNthCalledWith(1, "tab-a", "/ws/b.md");
+    expect(ctx.applyRename).toHaveBeenNthCalledWith(2, "tab-a", "/ws/c.md");
+    expect(store.get("/ws/c.md")).toBe("tab-a");
+  });
+});
+
+describe("read failures are not proof of deletion", () => {
+  for (const [label, run] of [
+    ["rename fallback", (ctx: FsChangeContext) =>
+      handleRenameEvent(ctx, ["/ws/a.md"], new Map([["/ws/a.md", "tab-a"]]))],
+    ["remove event", (ctx: FsChangeContext) =>
+      handleRemoveEvent(ctx, "tab-a", "/ws/a.md", "/ws/a.md")],
+  ] as const) {
+    describe(label, () => {
+      it("does not mark missing when the read fails but the file still exists", async () => {
+        const ctx = makeContext({
+          readTextFile: vi.fn(async () => { throw new Error("EACCES"); }),
+          fileExists: vi.fn(async () => true),
+        });
+        await run(ctx);
+        expect(ctx.handleDeletion).not.toHaveBeenCalled();
+      });
+
+      it("marks missing when the read fails AND the file is gone", async () => {
+        const ctx = makeContext({
+          readTextFile: vi.fn(async () => { throw new Error("ENOENT"); }),
+          fileExists: vi.fn(async () => false),
+        });
+        await run(ctx);
+        expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-a");
+      });
+
+      it("does not mark missing when the existence probe itself is ambiguous", async () => {
+        // Same conservatism the media branch already applies: an unreadable
+        // probe is not evidence either way.
+        const ctx = makeContext({
+          readTextFile: vi.fn(async () => { throw new Error("EIO"); }),
+          fileExists: vi.fn(async () => { throw new Error("EPERM"); }),
+        });
+        await run(ctx);
+        expect(ctx.handleDeletion).not.toHaveBeenCalled();
+      });
+
+      it("does not convert a POLICY rejection into a deletion", async () => {
+        // The reload policy failing says nothing about whether the file exists.
+        const ctx = makeContext({
+          readTextFile: vi.fn(async () => "text"),
+          handleModifyEvent: vi.fn(async () => { throw new Error("policy exploded"); }),
+        });
+        await expect(run(ctx)).rejects.toThrow("policy exploded");
+        expect(ctx.handleDeletion).not.toHaveBeenCalled();
+      });
+    });
+  }
+});
+
 describe("handleSemanticBatch", () => {
   const openPaths = () => new Map<string, string>([["/ws/a.md", "tab-a"]]);
 
@@ -290,6 +407,7 @@ describe("handleSemanticBatch", () => {
       readTextFile: vi.fn(async () => {
         throw new Error("gone");
       }),
+      fileExists: vi.fn(async () => false),
     });
     await handleSemanticBatch(ctx, [evt({ path: "/ws/a.md", kind: "deleted" })], openPaths);
     expect(ctx.handleDeletion).toHaveBeenCalledWith("tab-a");

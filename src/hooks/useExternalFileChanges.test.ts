@@ -84,39 +84,19 @@ vi.mock("@/services/workspaceEvents/subscribeWorkspaceEvents", () => ({
 
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
+import {
+  seedTabAndDocument,
+  type SeedOptions,
+} from "@/test/externalFileChangesFixtures";
 import { useExternalFileChanges } from "./useExternalFileChanges";
 
 type ListenCallback = (event: { payload: { watchId: string; rootPath: string; paths: string[]; kind: string } }) => Promise<void>;
 
-function seedStores(overrides: { isMissing?: boolean; isDirty?: boolean; lastDiskContent?: string } = {}) {
-  useTabStore.setState({
-    tabs: {
-      main: [{ id: "tab-1", title: "test.md", filePath: "/workspace/test.md", isPinned: false }],
-    },
-    activeTabId: { main: "tab-1" },
-    untitledCounter: 0,
-    closedTabs: {},
-  });
-
-  useDocumentStore.setState({
-    documents: {
-      "tab-1": {
-        content: "# old content",
-        savedContent: "# old content",
-        lastDiskContent: overrides.lastDiskContent ?? "# old content",
-        filePath: "/workspace/test.md",
-        isDirty: overrides.isDirty ?? false,
-        documentId: 0,
-        cursorInfo: null,
-        lastAutoSave: null,
-        isMissing: overrides.isMissing ?? false,
-        isDivergent: false,
-        lineEnding: "unknown",
-        hardBreakStyle: "unknown",
-      },
-    },
-  });
-}
+/** Seed one tab + document. Shared with the `.media` and `.deletion` suites:
+ *  three hand-written copies of this helper had each fallen behind `Tab` and
+ *  `DocumentState`, invisibly, because a mock that does not match its subject
+ *  still satisfies a test written against the mock. */
+const seedStores = (overrides: SeedOptions = {}) => seedTabAndDocument(overrides);
 
 /** Map a raw fs:changed payload to the SemanticWorkspaceEvent[] the bus delivers. */
 function toSemantic(payload: { rootPath: string; paths: string[]; kind: string }) {
@@ -331,25 +311,6 @@ describe("useExternalFileChanges — rename events", () => {
     expect(mocks.toastInfo).toHaveBeenCalledWith("Reloaded: test.md");
   });
 
-  it("marks file as deleted when rename fallback cannot read the file", async () => {
-    seedStores();
-    mocks.hasPendingSave.mockReturnValue(false);
-    mocks.readTextFile.mockRejectedValue(new Error("file not found"));
-
-    const callback = await setupHookAndCallback();
-
-    await callback({
-      payload: {
-        watchId: "main",
-        rootPath: "/workspace",
-        paths: ["/workspace/test.md"],
-        kind: "rename",
-      },
-    });
-
-    const doc = useDocumentStore.getState().documents["tab-1"];
-    expect(doc?.isMissing).toBe(true);
-  });
 
   it("handles paired rename (real file rename) by updating tab path", async () => {
     seedStores();
@@ -400,25 +361,12 @@ describe("useExternalFileChanges — remove events", () => {
     vi.clearAllMocks();
   });
 
-  it("marks file as missing on remove event", async () => {
-    seedStores();
-    // Genuine deletion: file no longer readable and not one of our saves.
-    mocks.readTextFile.mockRejectedValue(new Error("file not found"));
+  // The class, asserted end-to-end through the real store rather than at the
+  // routing layer: a read that fails for a reason OTHER than absence must never
+  // mark a document missing. Two fixtures in this file used to claim a deletion
+  // while leaving `exists` at its default `true`, and passed anyway — the code
+  // could not tell the two apart, so nothing could catch the contradiction.
 
-    const callback = await setupHookAndCallback();
-
-    await callback({
-      payload: {
-        watchId: "main",
-        rootPath: "/workspace",
-        paths: ["/workspace/test.md"],
-        kind: "remove",
-      },
-    });
-
-    const doc = useDocumentStore.getState().documents["tab-1"];
-    expect(doc?.isMissing).toBe(true);
-  });
 
   // fix(#995) — Windows atomic-save emits a `remove` for the target during
   // NamedTempFile::persist (MoveFileEx). The remove branch must skip our own

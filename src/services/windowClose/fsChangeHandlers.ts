@@ -10,53 +10,16 @@
  *
  * @coordinates-with useExternalFileChanges.ts — sole caller; builds the context
  * @coordinates-with services/workspaceEvents — handleSemanticBatch consumes its SemanticWorkspaceEvent
+ * @coordinates-with services/windowClose/fsChangeContext.ts — the injected collaborator contract
  * @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — the media
  *   branch's markBinaryFileChanged is what makes that surface re-fetch (#1328)
  * @module services/windowClose/fsChangeHandlers
  */
 
 import type { SemanticWorkspaceEvent } from "@/services/workspaceEvents";
+import type { FsChangeContext } from "./fsChangeContext";
 
-/**
- * Injected collaborators for the FS-change handlers. Mirrors exactly the
- * closures the hook already had — the handlers stay free of direct store /
- * Tauri imports so tests can pass fakes.
- */
-export interface FsChangeContext {
-  /** Read a file from disk; rejects if the file is gone/unreadable. */
-  readTextFile: (path: string) => Promise<string>;
-  /** Existence probe that never loads content — used for binary media tabs. */
-  fileExists: (path: string) => Promise<boolean>;
-  /** Normalize a path for map lookups and comparisons. */
-  normalizePath: (path: string) => string;
-  /** True if a save we initiated is still in flight for this normalized path. */
-  hasPendingSave: (normalizedPath: string) => boolean;
-  /** True if disk content matches a save we initiated (our own echo). */
-  matchesPendingSave: (path: string, diskContent: string) => boolean;
-  /** True if the tab is a binary media tab (png/mp4/…) — never UTF-8-read it. */
-  /**
-   * True when a path is binary media (image/audio/video). Extension-based and
-   * association-independent — a media file must never be read as UTF-8 even if
-   * its tab's formatId was routed elsewhere by a user format association.
-   */
-  isMedia: (path: string) => boolean;
-  /** Re-point a tab + its document at the renamed path and clear missing state. */
-  applyRename: (tabId: string, newPath: string) => void;
-  /** Apply modify-style policy (reload / prompt / no-op) for a changed file. */
-  handleModifyEvent: (tabId: string, changedPath: string, diskContent: string) => Promise<void>;
-  /** Mark a tab's document missing (file truly gone). */
-  handleDeletion: (tabId: string) => void;
-  /** True if the tab's document is currently flagged missing. */
-  isMissing: (tabId: string) => boolean;
-  /** Clear a tab's missing flag (e.g. a media file reappeared on disk). */
-  clearMissing: (tabId: string) => void;
-  /**
-   * Announce that a BINARY document's bytes changed on disk, so its viewer
-   * re-fetches them. Text documents never use this — they carry their content
-   * in the store and go through {@link FsChangeContext.handleModifyEvent}.
-   */
-  markBinaryFileChanged: (tabId: string) => void;
-}
+export type { FsChangeContext };
 
 /**
  * Resolve a single rename pair: re-point the open tab if the OLD path matches a
@@ -77,6 +40,47 @@ function applyRenamePair(
 }
 
 /**
+ * Read a text file and route it, or decide whether it is really gone.
+ *
+ * The two callers below both used to write this inline as one `try` wrapping
+ * BOTH the read and the policy call, with a `catch` that marked the tab
+ * missing. That conflated three different events into one verdict:
+ *
+ *   - the file is gone                  → missing, correct;
+ *   - the read failed for another reason (EACCES, EIO, a locked file mid-write)
+ *                                       → NOT evidence of deletion;
+ *   - the reload POLICY threw           → says nothing about the file at all,
+ *                                         and was silently converted into
+ *                                         "your document was deleted".
+ *
+ * So the read is now the only thing inside the `try`, and a failure is
+ * CONFIRMED against `fileExists` before concluding deletion — the same
+ * conservatism the media branch beside it already applied, where an ambiguous
+ * probe deliberately leaves the tab alone. A policy rejection propagates to the
+ * caller, which logs it (`useExternalFileChanges`), instead of being disguised.
+ */
+async function readAndRouteOrMarkMissing(
+  ctx: FsChangeContext,
+  tabId: string,
+  changedPath: string,
+  { filterOwnSave = false }: { filterOwnSave?: boolean } = {},
+): Promise<void> {
+  let diskContent: string;
+  try {
+    diskContent = await ctx.readTextFile(changedPath);
+  } catch {
+    try {
+      if (!(await ctx.fileExists(changedPath))) ctx.handleDeletion(tabId);
+    } catch {
+      /* ambiguous probe — not evidence either way, leave the tab as-is */
+    }
+    return;
+  }
+  if (filterOwnSave && ctx.matchesPendingSave(changedPath, diskContent)) return;
+  await ctx.handleModifyEvent(tabId, changedPath, diskContent);
+}
+
+/**
  * Handle a `rename` event. Filesystem rename events arrive as flattened
  * [old, new] pairs. When no pair maps to an open tab (atomic-write renames that
  * only touch the target), fall back to verifying each path: a still-readable
@@ -87,13 +91,22 @@ export async function handleRenameEvent(
   paths: string[],
   openPaths: Map<string, string>,
 ): Promise<void> {
-  let handled = false;
-  for (let i = 0; i + 1 < paths.length; i += 2) {
-    if (applyRenamePair(ctx, openPaths, paths[i], paths[i + 1])) handled = true;
+  // Per PAIR, not per batch. `handled` used to be a single flag for the whole
+  // array: one recognised rename returned early and every other path in the
+  // same batch was dropped, so an atomic replacement arriving alongside a real
+  // rename was silently lost (audit finding #21). Each pair is an independent
+  // filesystem event and gets an independent verdict.
+  const unmatched: string[] = [];
+  let i = 0;
+  for (; i + 1 < paths.length; i += 2) {
+    if (!applyRenamePair(ctx, openPaths, paths[i], paths[i + 1])) {
+      unmatched.push(paths[i], paths[i + 1]);
+    }
   }
-  if (handled) return;
+  // A trailing odd path is an unpaired rename (an atomic-write target).
+  if (i < paths.length) unmatched.push(paths[i]);
 
-  for (const changedPath of paths) {
+  for (const changedPath of unmatched) {
     const normalizedPath = ctx.normalizePath(changedPath);
     const tabId = openPaths.get(normalizedPath);
     if (!tabId) continue;
@@ -123,12 +136,7 @@ export async function handleRenameEvent(
 
     // Verify file is actually gone before marking as deleted.
     // Atomic writes trigger rename events but the target still exists.
-    try {
-      const diskContent = await ctx.readTextFile(changedPath);
-      await ctx.handleModifyEvent(tabId, changedPath, diskContent);
-    } catch {
-      ctx.handleDeletion(tabId);
-    }
+    await readAndRouteOrMarkMissing(ctx, tabId, changedPath);
   }
 }
 
@@ -161,15 +169,9 @@ export async function handleRemoveEvent(
     return;
   }
 
-  try {
-    const diskContent = await ctx.readTextFile(changedPath);
-    // File still exists — spurious remove. Run modify-style checks
-    // (filters our own save, handles real external edits).
-    if (ctx.matchesPendingSave(changedPath, diskContent)) return;
-    await ctx.handleModifyEvent(tabId, changedPath, diskContent);
-  } catch {
-    ctx.handleDeletion(tabId);
-  }
+  // A readable file means the remove was spurious — run modify-style checks
+  // (filters our own save, handles real external edits).
+  await readAndRouteOrMarkMissing(ctx, tabId, changedPath, { filterOwnSave: true });
 }
 
 /**
@@ -197,11 +199,11 @@ export async function handleModifyOrCreateEvent(
  * handlers. Scope, self-write flagging, and no-op suppression already happened
  * upstream (the workspace event source), so this is pure routing.
  *
- * Rename handling: only *complete* [old, new] pairs go to {@link handleRenameEvent}
- * — mixing unpaired entries into its flat array would corrupt positional pairing;
- * unpaired renames (atomic-write targets) route as a modify. `getOpenPaths` is
- * re-read after renames because {@link FsChangeContext.applyRename} re-points tabs,
- * invalidating a pre-rename path map.
+ * Rename handling: each rename is dispatched to {@link handleRenameEvent} on its
+ * own, against a freshly read path map — `applyRename` re-points tabs in the
+ * store, so any map read before it is stale for every rename after it. Complete
+ * [old, new] pairs and unpaired renames (atomic-write targets) stay separate
+ * because mixing them into one flat array would corrupt its positional pairing.
  */
 export async function handleSemanticBatch(
   ctx: FsChangeContext,
@@ -211,23 +213,28 @@ export async function handleSemanticBatch(
   const renamed = events.filter((e) => e.kind === "renamed");
   const rest = events.filter((e) => e.kind !== "renamed");
 
-  if (renamed.length > 0) {
-    const openPaths = getOpenPaths();
-    // Only *complete* pairs go to the flat-array handler — mixing unpaired
-    // entries in would corrupt its positional [old, new] pairing.
-    const pairs: string[] = [];
-    for (const event of renamed) {
-      if (event.previousPath !== undefined) pairs.push(event.previousPath, event.path);
+  // Each rename is dispatched against a FRESH path map, because applying one
+  // re-points a tab in the store and invalidates any snapshot taken before it.
+  // A single snapshot for the whole group broke a chained `a -> b -> c` rename
+  // arriving in one batch: the second hop looked the tab up under a name the
+  // snapshot still held, found nothing, and left the tab pointing at `b` while
+  // the file was at `c` (audit finding #24). Re-reading is cheap — it is a map
+  // build over the window's open tabs — and correctness here is not optional.
+  //
+  // Pairs are dispatched ONE at a time for the same reason. Batching them into
+  // the flat array was what forced a single snapshot in the first place.
+  for (const event of renamed) {
+    if (event.previousPath !== undefined) {
+      await handleRenameEvent(ctx, [event.previousPath, event.path], getOpenPaths());
     }
-    if (pairs.length > 0) await handleRenameEvent(ctx, pairs, openPaths);
-    // Unpaired renames (atomic-write targets / lone paths) each go through the
-    // fallback individually — a single-element array can't be mis-paired, and
-    // this preserves the probe semantics (readable → modify, gone → delete,
-    // media → existence-only).
-    for (const event of renamed) {
-      if (event.previousPath === undefined) {
-        await handleRenameEvent(ctx, [event.path], openPaths);
-      }
+  }
+  // Unpaired renames (atomic-write targets / lone paths) each go through the
+  // fallback individually — a single-element array can't be mis-paired, and
+  // this preserves the probe semantics (readable → modify, gone → delete,
+  // media → existence-only).
+  for (const event of renamed) {
+    if (event.previousPath === undefined) {
+      await handleRenameEvent(ctx, [event.path], getOpenPaths());
     }
   }
 

@@ -97,9 +97,7 @@ vi.mock("@/services/workspaceEvents/subscribeWorkspaceEvents", () => ({
 }));
 
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import type { DocumentTab } from "@/stores/tabStoreTypes";
-import { createInitialDocument } from "@/stores/documentStore/documentState";
+import { seedTabAndDocument } from "@/test/externalFileChangesFixtures";
 import { __resetRegistry } from "@/lib/formats/registry";
 import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
 import { registerMediaFormat } from "@/lib/formats/adapters/media";
@@ -189,27 +187,10 @@ describe("useExternalFileChanges — media tabs excluded from UTF-8 re-read", ()
    * behind (`selectedText`, `readOnly`, `hasBom`, `mode`) — invisibly, because
    * test files went untypechecked until `lint:test-types`.
    */
-  function seedTab(id: string, filePath: string, formatId: string) {
-    const tab: DocumentTab = {
-      id,
-      kind: "document",
-      title: filePath.split("/").pop()!,
-      filePath,
-      isPinned: false,
-      formatId,
-    };
-    useTabStore.setState({
-      tabs: { main: [tab] },
-      activeTabId: { main: id },
-      untitledCounter: 0,
-    });
-    // A media document's content is empty by construction — the bytes never
-    // enter the store. Text tabs get a body so a reload is observable.
-    const body = formatId === "media" ? "" : "# old content";
-    useDocumentStore.setState({
-      documents: { [id]: createInitialDocument(body, filePath) },
-    });
-  }
+  /** Seed one tab + document. Shared with the other two suites so the three
+   *  copies of this helper cannot drift from the real types again. */
+  const seedTab = (id: string, filePath: string, formatId: string) =>
+    seedTabAndDocument({ tabId: id, filePath, formatId });
 
   it("does NOT read a media file as text on a modify event", async () => {
     seedTab("tab-media", "/workspace/photo.png", "media");
