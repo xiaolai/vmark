@@ -205,39 +205,74 @@ export async function handleModifyOrCreateEvent(
  * [old, new] pairs and unpaired renames (atomic-write targets) stay separate
  * because mixing them into one flat array would corrupt its positional pairing.
  */
-export async function handleSemanticBatch(
+/**
+ * Apply every rename in the batch, one at a time.
+ *
+ * Each is dispatched against a FRESH path map, because applying one re-points a
+ * tab in the store and invalidates any snapshot taken before it. A single
+ * snapshot for the whole group broke a chained `a -> b -> c` rename arriving in
+ * one batch: the second hop looked the tab up under a name the snapshot still
+ * held, found nothing, and left the tab pointing at `b` while the file was at
+ * `c` (audit finding #24). Re-reading is cheap — it is a map build over the
+ * window's open tabs — and correctness here is not optional.
+ *
+ * Paired renames go first, then unpaired ones (atomic-write targets / lone
+ * paths) individually: a single-element array cannot be mis-paired, and that
+ * preserves the fallback's probe semantics (readable → modify, gone → delete,
+ * media → existence-only).
+ */
+async function dispatchRenames(
   ctx: FsChangeContext,
-  events: SemanticWorkspaceEvent[],
+  renamed: SemanticWorkspaceEvent[],
   getOpenPaths: () => Map<string, string>,
 ): Promise<void> {
-  const renamed = events.filter((e) => e.kind === "renamed");
-  const rest = events.filter((e) => e.kind !== "renamed");
-
-  // Each rename is dispatched against a FRESH path map, because applying one
-  // re-points a tab in the store and invalidates any snapshot taken before it.
-  // A single snapshot for the whole group broke a chained `a -> b -> c` rename
-  // arriving in one batch: the second hop looked the tab up under a name the
-  // snapshot still held, found nothing, and left the tab pointing at `b` while
-  // the file was at `c` (audit finding #24). Re-reading is cheap — it is a map
-  // build over the window's open tabs — and correctness here is not optional.
-  //
-  // Pairs are dispatched ONE at a time for the same reason. Batching them into
-  // the flat array was what forced a single snapshot in the first place.
   for (const event of renamed) {
     if (event.previousPath !== undefined) {
       await handleRenameEvent(ctx, [event.previousPath, event.path], getOpenPaths());
     }
   }
-  // Unpaired renames (atomic-write targets / lone paths) each go through the
-  // fallback individually — a single-element array can't be mis-paired, and
-  // this preserves the probe semantics (readable → modify, gone → delete,
-  // media → existence-only).
   for (const event of renamed) {
     if (event.previousPath === undefined) {
       await handleRenameEvent(ctx, [event.path], getOpenPaths());
     }
   }
+}
 
+/**
+ * A create/modify on an open MEDIA tab. Never reads the file — it could be a
+ * multi-GB video; only the change counter moves.
+ */
+function handleMediaChangeEvent(
+  ctx: FsChangeContext,
+  tabId: string,
+  normalizedPath: string,
+  kind: SemanticWorkspaceEvent["kind"],
+): void {
+  // A media `create` can mean a deleted file reappeared — clear missing so the
+  // viewer leaves its "file is gone" state. Unconditional, as it has always
+  // been: a file that is back is back whoever wrote it.
+  if (kind === "created" && ctx.isMissing(tabId)) ctx.clearMissing(tabId);
+  // Our own write echoing back needs no refresh — the viewer is already showing
+  // what we just wrote. The text path filters these by comparing content, which
+  // a binary has none of, so the path check is the filter.
+  if (ctx.hasPendingSave(normalizedPath)) return;
+  // Announce the new bytes, for BOTH kinds. This used to be skipped for
+  // `modify` on the reasoning that "the asset URL already points at the fresh
+  // bytes" — true of the URL, and irrelevant to the element: an <img>/<video>
+  // whose `src` attribute does not change never refetches, so the surface kept
+  // displaying what it decoded when the tab opened, and a tab close and reopen
+  // produced the identical URL and the identical cached bytes (issue #1328).
+  ctx.markBinaryFileChanged(tabId);
+}
+
+export async function handleSemanticBatch(
+  ctx: FsChangeContext,
+  events: SemanticWorkspaceEvent[],
+  getOpenPaths: () => Map<string, string>,
+): Promise<void> {
+  await dispatchRenames(ctx, events.filter((e) => e.kind === "renamed"), getOpenPaths);
+
+  const rest = events.filter((e) => e.kind !== "renamed");
   if (rest.length === 0) return;
   // Rebuild the map: a rename above may have re-pointed a tab (applyRename
   // mutates the store), so a pre-rename snapshot would misroute related events.
@@ -250,29 +285,10 @@ export async function handleSemanticBatch(
     const isMedia = ctx.isMedia(event.path);
     if (event.kind === "deleted") {
       await handleRemoveEvent(ctx, tabId, event.path, normalizedPath, isMedia);
-      continue;
+    } else if (isMedia) {
+      handleMediaChangeEvent(ctx, tabId, normalizedPath, event.kind);
+    } else {
+      await handleModifyOrCreateEvent(ctx, tabId, event.path);
     }
-    if (isMedia) {
-      // A media `create` can mean a deleted file reappeared — clear missing so
-      // the viewer leaves its "file is gone" state. Unconditional, as it has
-      // always been: a file that is back is back whoever wrote it.
-      if (event.kind === "created" && ctx.isMissing(tabId)) ctx.clearMissing(tabId);
-      // Our own write echoing back needs no refresh — the viewer is already
-      // showing what we just wrote. The text path filters these by comparing
-      // content, which a binary has none of, so the path check is the filter.
-      if (ctx.hasPendingSave(normalizedPath)) continue;
-      // Announce the new bytes, for BOTH kinds. This used to be skipped
-      // for `modify` on the reasoning that "the asset URL already points at the
-      // fresh bytes" — true of the URL, and irrelevant to the element: an
-      // <img>/<video> whose `src` attribute does not change never refetches, so
-      // the surface kept displaying what it decoded when the tab opened, and a
-      // tab close and reopen produced the identical URL and the identical
-      // cached bytes (issue #1328). Never read the binary — it could be a
-      // multi-GB video; only the counter moves.
-      ctx.markBinaryFileChanged(tabId);
-      continue;
-    }
-    // created / modified
-    await handleModifyOrCreateEvent(ctx, tabId, event.path);
   }
 }

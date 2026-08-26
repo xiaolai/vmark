@@ -48,7 +48,7 @@ beforeEach(() => {
 describe("revision bumps on every content change but one", () => {
   it("bumps on a user edit", () => {
     const before = revision();
-    useDocumentStore.getState().setContent(TAB, "# edited\n");
+    useDocumentStore.getState().setEditorContent(TAB, "# edited\n");
     expect(revision()).not.toBe(before);
   });
 
@@ -75,16 +75,16 @@ describe("revision bumps on every content change but one", () => {
 
   it("does not bump on a serialization sync — the one documented exception", () => {
     const before = revision();
-    useDocumentStore.getState().setContent(TAB, "# original\n\n", { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, "# original\n\n", { fromUserEdit: false });
     expect(revision()).toBe(before);
   });
 
   it("bumps on a user edit made FROM the re-serialized form", () => {
     // The follow-on that makes the exception safe: once the user touches the
     // re-rendered document, the client's snapshot goes stale as it should.
-    useDocumentStore.getState().setContent(TAB, "# original\n\n", { fromUserEdit: false });
+    useDocumentStore.getState().setEditorContent(TAB, "# original\n\n", { fromUserEdit: false });
     const before = revision();
-    useDocumentStore.getState().setContent(TAB, "# original\n\nedited\n");
+    useDocumentStore.getState().setEditorContent(TAB, "# original\n\nedited\n");
     expect(revision()).not.toBe(before);
   });
 
@@ -94,7 +94,7 @@ describe("revision bumps on every content change but one", () => {
     // why the guard's only effect is on a real change, and why the reasoning
     // above has to carry the weight instead of the flag.
     const before = revision();
-    useDocumentStore.getState().setContent(TAB, "# original\n", { fromUserEdit: true });
+    useDocumentStore.getState().setEditorContent(TAB, "# original\n", { fromUserEdit: true });
     expect(revision()).toBe(before);
   });
 
@@ -102,7 +102,7 @@ describe("revision bumps on every content change but one", () => {
     // Enumerated from the store contract rather than recalled: a NEW action
     // that writes `content` is either covered by a case above or shows up here
     // as an unaccounted name, and this fails until someone decides which.
-    const contentWriters = ["initDocument", "setContent", "setEditorContent", "ingestExternalContent"];
+    const contentWriters = ["initDocument", "setEditorContent", "ingestExternalContent"];
     const store = useDocumentStore.getState() as unknown as Record<string, unknown>;
     for (const name of contentWriters) {
       expect(typeof store[name], `${name} is missing from the store`).toBe("function");

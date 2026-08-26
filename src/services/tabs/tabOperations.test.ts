@@ -90,7 +90,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("keeps dirty tab open when user cancels", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     // message() returns 'Cancel' when user clicks Cancel or dismisses
     vi.mocked(message).mockResolvedValueOnce("Cancel");
@@ -105,7 +105,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("closes dirty tab without saving when user chooses Don't Save", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     // message() returns 'No' when user clicks "Don't Save"
     vi.mocked(message).mockResolvedValueOnce("No");
@@ -122,7 +122,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("closes dirty tab when dialog returns custom button label (Don't Save)", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Don't Save");
 
@@ -137,7 +137,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("saves and closes dirty tab when user chooses Save and file has path", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     // message() returns 'Yes' when user clicks "Save". The mock must mirror
     // the real saveToPath (markSaved), or the revalidation loop correctly
@@ -159,7 +159,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("cancels close if user chooses Save but cancels Save dialog", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, null);
     useDocumentStore.getState().initDocument(tabId, "hello", null);
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce(null);
@@ -173,7 +173,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("concurrent closes share ONE prompt and ONE outcome (WI-7)", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     // Make message() hang until we resolve it manually
     let resolveDialog!: (value: string) => void;
@@ -273,7 +273,7 @@ describe("closeTabWithDirtyCheck", () => {
   it("refuses to close a pinned + dirty tab WITHOUT running the save prompt", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/pinned-dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/pinned-dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
     useTabStore.getState().togglePin(WINDOW_LABEL, tabId);
 
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
@@ -309,7 +309,7 @@ describe("closeTabsWithDirtyCheck", () => {
     const tabId2 = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/b.md");
     useDocumentStore.getState().initDocument(tabId1, "a", "/tmp/a.md");
     useDocumentStore.getState().initDocument(tabId2, "b", "/tmp/b.md");
-    useDocumentStore.getState().setContent(tabId1, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId1, "dirty");
 
     // User cancels on first dirty tab
     vi.mocked(message).mockResolvedValueOnce("Cancel");
@@ -430,7 +430,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
     // The real saveToPath calls markSaved — mirror it, or the doc stays dirty
@@ -453,7 +453,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(saveToPath).mockImplementationOnce(async (id) => {
@@ -481,7 +481,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("No");
 
@@ -503,7 +503,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
 
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/dirty.md");
     useDocumentStore.getState().initDocument(tabId, "hello", "/tmp/dirty.md");
-    useDocumentStore.getState().setContent(tabId, "changed");
+    useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("No");
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -621,7 +621,7 @@ describe("cleanupOrphansForClosingTabs", () => {
     const staying = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/staying.md");
     useDocumentStore.getState().initDocument(closing, "bye", "/tmp/closing.md");
     useDocumentStore.getState().initDocument(staying, "saved", "/tmp/staying.md");
-    useDocumentStore.getState().setContent(staying, "![](./assets/images/just-pasted.png)");
+    useDocumentStore.getState().setEditorContent(staying, "![](./assets/images/just-pasted.png)");
 
     await cleanupOrphansForClosingTabs([closing]);
 
@@ -637,7 +637,7 @@ describe("cleanupOrphansForClosingTabs", () => {
 
     const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
     useDocumentStore.getState().initDocument(a, "saved", "/tmp/a.md");
-    useDocumentStore.getState().setContent(a, "unsaved edit");
+    useDocumentStore.getState().setEditorContent(a, "unsaved edit");
 
     await cleanupOrphansForClosingTabs([a]);
 
@@ -679,7 +679,7 @@ describe("cleanupOrphansForClosingTabs", () => {
 
     const a = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/a.md");
     useDocumentStore.getState().initDocument(a, "saved", "/tmp/a.md");
-    useDocumentStore.getState().setContent(a, "unsaved");
+    useDocumentStore.getState().setEditorContent(a, "unsaved");
 
     await cleanupOrphansForClosingTabs([a]);
 

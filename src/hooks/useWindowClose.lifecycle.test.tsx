@@ -108,7 +108,7 @@ describe("useWindowClose — a stalled close does not brick the window (#1253)",
   async function renderWithStalledPrompt() {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
     // Never resolves — the shape of the observed stall.
     mockPromptSaveForDirtyDocument.mockImplementation(() => new Promise(() => {}));
 
@@ -161,7 +161,7 @@ describe("useWindowClose — concurrent close requests join (WI-1/WI-7 shape)", 
   it("a duplicate close-requested joins the in-flight close: one prompt, one close", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     let resolvePrompt!: (v: { action: string }) => void;
     mockPromptSaveForDirtyDocument.mockImplementation((ctx) =>

@@ -81,13 +81,6 @@ export interface DocumentStore {
     origin: IngestOrigin,
     opts?: IngestOptions
   ) => void;
-  /**
-   * @deprecated Use `setEditorContent` (editor domain) or `ingestExternalContent`
-   * (external). This pointed at `loadContent`, which the header of this same
-   * file records as GONE — a deleted API recommended twelve lines below the
-   * note recording its deletion.
-   */
-  setContent: (tabId: string, content: string, options?: SetContentOptions) => void;
   setFilePath: (tabId: string, path: string | null) => void;
   markMissing: (tabId: string) => void;
   clearMissing: (tabId: string) => void;

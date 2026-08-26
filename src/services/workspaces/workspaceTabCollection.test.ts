@@ -164,7 +164,7 @@ describe("collectWorkspaceTabs", () => {
     addWorkspaceInstance("ws-a", "/a");
     const clean = addDocumentTab("/a/clean.md");
     const dirty = addDocumentTab("/a/dirty.md");
-    useDocumentStore.getState().setContent(dirty, "changed");
+    useDocumentStore.getState().setEditorContent(dirty, "changed");
     const missing = addDocumentTab("/a/missing.md");
     useDocumentStore.getState().markMissing(missing);
     addDocumentTab(null); // untitled → classified into the active instance

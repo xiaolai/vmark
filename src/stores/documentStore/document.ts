@@ -159,11 +159,6 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
   },
 
-  // Delegates INTO the guard; only tests may call it (externalWriterGate.test).
-  setContent: (tabId, content, options) => {
-    get().setEditorContent(tabId, content, options);
-  },
-
   setFilePath: (tabId, path) =>
     set((state) => updateDoc(state, tabId, () => ({ filePath: path }))),
 

@@ -142,7 +142,7 @@ describe("useWindowClose — window:close-requested", () => {
   it("prompts save for a single dirty document", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "modified");
+    useDocumentStore.getState().setEditorContent(tabId, "modified");
 
     mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
       settleDoc(ctx);
@@ -165,7 +165,7 @@ describe("useWindowClose — window:close-requested", () => {
   it("does not close when single dirty save is cancelled", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "modified");
+    useDocumentStore.getState().setEditorContent(tabId, "modified");
 
     mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
 
@@ -186,8 +186,8 @@ describe("useWindowClose — window:close-requested", () => {
     const tab2 = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tab1, "initial1", null);
     useDocumentStore.getState().initDocument(tab2, "initial2", null);
-    useDocumentStore.getState().setContent(tab1, "dirty1");
-    useDocumentStore.getState().setContent(tab2, "dirty2");
+    useDocumentStore.getState().setEditorContent(tab1, "dirty1");
+    useDocumentStore.getState().setEditorContent(tab2, "dirty2");
 
     mockPromptSaveForMultipleDocuments.mockImplementation(async (ctxs) => {
       ctxs.forEach(settleDoc);
@@ -212,8 +212,8 @@ describe("useWindowClose — window:close-requested", () => {
     const tab2 = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tab1, "initial1", null);
     useDocumentStore.getState().initDocument(tab2, "initial2", null);
-    useDocumentStore.getState().setContent(tab1, "dirty1");
-    useDocumentStore.getState().setContent(tab2, "dirty2");
+    useDocumentStore.getState().setEditorContent(tab1, "dirty1");
+    useDocumentStore.getState().setEditorContent(tab2, "dirty2");
 
     mockPromptSaveForMultipleDocuments.mockResolvedValue({ action: "cancelled" });
 
@@ -321,7 +321,7 @@ describe("useWindowClose — window:close-requested", () => {
     const pinnedTab = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(pinnedTab, "initial", null);
     useTabStore.getState().togglePin(WINDOW, pinnedTab);
-    useDocumentStore.getState().setContent(pinnedTab, "dirty");
+    useDocumentStore.getState().setEditorContent(pinnedTab, "dirty");
 
     mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
       settleDoc(ctx);
@@ -367,7 +367,7 @@ describe("useWindowClose — app:quit-requested", () => {
   it("calls cancel_quit when close is cancelled", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
 
@@ -390,7 +390,7 @@ describe("useWindowClose — app:quit-requested", () => {
   it("joins an in-flight close and answers Rust exactly once", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     let resolvePrompt!: (v: { action: string }) => void;
     mockPromptSaveForDirtyDocument.mockReturnValue(
@@ -424,7 +424,7 @@ describe("useWindowClose — app:quit-requested", () => {
   it("answers cancel_quit for a close another trigger started", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     let resolvePrompt!: (v: { action: string }) => void;
     mockPromptSaveForDirtyDocument.mockReturnValue(
@@ -453,7 +453,7 @@ describe("useWindowClose — app:quit-requested", () => {
   it("handles cancel_quit invoke rejection (lines 210-211)", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, null);
     useDocumentStore.getState().initDocument(tabId, "initial", null);
-    useDocumentStore.getState().setContent(tabId, "dirty");
+    useDocumentStore.getState().setEditorContent(tabId, "dirty");
 
     mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
 
@@ -688,7 +688,7 @@ describe("useWindowClose — orphan image cleanup", () => {
   it("cleans up after the save prompt resolves, so it scans the saved content", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
     useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
-    useDocumentStore.getState().setContent(tabId, "modified");
+    useDocumentStore.getState().setEditorContent(tabId, "modified");
 
     const order: string[] = [];
     mockPromptSaveForDirtyDocument.mockImplementation(async (ctx) => {
@@ -734,7 +734,7 @@ describe("useWindowClose — orphan image cleanup", () => {
   it("does not clean up when the user cancels the close", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
     useDocumentStore.getState().initDocument(tabId, "initial", "/tmp/a.md");
-    useDocumentStore.getState().setContent(tabId, "modified");
+    useDocumentStore.getState().setEditorContent(tabId, "modified");
 
     mockPromptSaveForDirtyDocument.mockResolvedValue({ action: "cancelled" });
 

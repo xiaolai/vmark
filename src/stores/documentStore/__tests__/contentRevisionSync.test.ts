@@ -30,7 +30,7 @@ describe("setContent ⇒ revision invalidation", () => {
     const readRevision = useRevisionStore.getState().getRevision(TAB);
 
     // The user types in source mode — this path never touched Tiptap.
-    useDocumentStore.getState().setContent(TAB, "hello world");
+    useDocumentStore.getState().setEditorContent(TAB, "hello world");
 
     // The captured revision must no longer be current, so a write carrying it
     // is rejected as STALE instead of clobbering the keystrokes.
@@ -39,9 +39,9 @@ describe("setContent ⇒ revision invalidation", () => {
 
   it("bumps the revision to a new value on each distinct edit", () => {
     const first = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().setContent(TAB, "edit one");
+    useDocumentStore.getState().setEditorContent(TAB, "edit one");
     const second = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().setContent(TAB, "edit two");
+    useDocumentStore.getState().setEditorContent(TAB, "edit two");
     const third = useRevisionStore.getState().getRevision(TAB);
 
     expect(second).not.toBe(first);
@@ -53,7 +53,7 @@ describe("setContent ⇒ revision invalidation", () => {
     // Bumping on a no-op write would cause false STALE rejections — the exact
     // failure mode revisionTracker's lazy-init comment warns about.
     const before = useRevisionStore.getState().getRevision(TAB);
-    useDocumentStore.getState().setContent(TAB, "hello");
+    useDocumentStore.getState().setEditorContent(TAB, "hello");
     expect(useRevisionStore.getState().getRevision(TAB)).toBe(before);
   });
 
@@ -62,14 +62,14 @@ describe("setContent ⇒ revision invalidation", () => {
     useDocumentStore.getState().initDocument(other, "other", "/tmp/b.md");
     const otherRevision = useRevisionStore.getState().getRevision(other);
 
-    useDocumentStore.getState().setContent(TAB, "changed");
+    useDocumentStore.getState().setEditorContent(TAB, "changed");
 
     expect(useRevisionStore.getState().getRevision(other)).toBe(otherRevision);
   });
 
   it("is a no-op for an unknown tab", () => {
     expect(() =>
-      useDocumentStore.getState().setContent("no-such-tab", "x")
+      useDocumentStore.getState().setEditorContent("no-such-tab", "x")
     ).not.toThrow();
     expect(useRevisionStore.getState().revisions["no-such-tab"]).toBeUndefined();
   });
@@ -99,7 +99,7 @@ describe("loadContent ⇒ revision invalidation", () => {
   });
 
   it("still clears dirty state and increments documentId on reload", () => {
-    useDocumentStore.getState().setContent(TAB, "local edit");
+    useDocumentStore.getState().setEditorContent(TAB, "local edit");
     const idBefore = useDocumentStore.getState().documents[TAB].documentId;
 
     useDocumentStore.getState().ingestExternalContent(TAB, "from disk", "disk-open", { filePath: "/tmp/a.md" });

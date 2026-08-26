@@ -27,6 +27,71 @@ import { evalJs, listWindows } from "../lib/bridge.mjs";
 import { DRIVABLE_SNIPPET, drivableGap } from "../lib/readiness.mjs";
 import { getTabs, getWorkspaceTab, poll } from "../lib/vmark.mjs";
 
+/**
+ * The one tab that is active, across both kinds — or null when the session has
+ * none. Throws if the strip somehow reports two.
+ *
+ * The strip has TWO kinds of tab, and the browser one is not a document: it
+ * carries no `data-tab-id`, and when it is selected every document tab reads
+ * `aria-selected="false"`. Reading only documents therefore called a healthy
+ * browser-active session "tabs open but none active" — a false failure — and
+ * called a browser-only session an empty welcome screen — a false pass that
+ * skipped the surface check entirely (audit finding #51).
+ */
+async function activeTab(client) {
+  const tabs = await getTabs(client);
+  const workspaceTab = await getWorkspaceTab(client);
+  const active = [
+    ...tabs.filter((t) => t.selected),
+    ...(workspaceTab?.selected ? [workspaceTab] : []),
+  ];
+  const state = { tabs, workspaceTab };
+
+  if (active.length > 1) {
+    throw new Error(`more than one active tab: ${JSON.stringify(state)}`);
+  }
+  if (tabs.length === 0 && !workspaceTab) return { ...state, active: null };
+  if (active.length !== 1) {
+    throw new Error(
+      `${tabs.length} document tab(s) open but none active: ${JSON.stringify(state)}`,
+    );
+  }
+  return { ...state, active: active[0] };
+}
+
+/**
+ * Wait for a content surface and name it.
+ *
+ * Any ONE of these is correct — which it is depends on the active tab's format,
+ * which the tab bar does not report, so requiring an editor specifically failed
+ * a healthy media tab. Surfaces mount through `React.lazy`, hence the poll.
+ *
+ * Every selector is verified against the component that renders it:
+ * `.browser-workspace-surface` is `BrowserWorkspaceSurface.tsx`, NOT
+ * `.browser-workspace` — that shorter name belongs to no element (the shell
+ * root uses `browser-workspace-active`), so the first version of this check
+ * could never have matched a browser tab and would have timed out on one.
+ * `src/components/StatusBar/tabStripHarnessContract.test.tsx` pins that.
+ */
+function contentSurface(client, timeoutMs, label) {
+  return poll(
+    () =>
+      evalJs(
+        client,
+        `(() => {
+           if (document.querySelector('.ProseMirror')) return 'wysiwyg';
+           if (document.querySelector('.cm-editor')) return 'source';
+           if (document.querySelector('.media-view')) return 'media';
+           if (document.querySelector('.browser-workspace-surface')) return 'browser';
+           return null;
+         })()`,
+        timeoutMs,
+      ),
+    (kind) => kind !== null,
+    `a content surface for active tab "${label}"`,
+  );
+}
+
 export default {
   name: "boot-editor-ready",
 
@@ -47,74 +112,21 @@ export default {
     // machine. The invariant that holds in BOTH states is the one worth
     // pinning: at most one tab is active, and if any tab is open exactly one
     // is, with a content surface mounted for it.
-    //
-    // The strip has TWO kinds of tab, and the browser one is not a document: it
-    // carries no `data-tab-id`, and when it is selected every document tab
-    // reads `aria-selected="false"`. Reading only documents therefore called a
-    // healthy browser-active session "tabs open but none active" — a false
-    // failure — and called a browser-only session an empty welcome screen — a
-    // false pass that skipped the surface check entirely (audit finding #51).
-    const tabs = await getTabs(client);
-    const workspaceTab = await getWorkspaceTab(client);
-    const active = [
-      ...tabs.filter((t) => t.selected),
-      ...(workspaceTab?.selected ? [workspaceTab] : []),
-    ];
-    if (active.length > 1) {
-      throw new Error(
-        `more than one active tab: ${JSON.stringify({ tabs, workspaceTab })}`,
-      );
-    }
-    if (tabs.length === 0 && !workspaceTab) {
-      // `active` is derived by filtering `tabs`, so it cannot be non-empty
-      // here — the guard that used to sit at this line was unreachable
-      // (audit finding #6).
+    const { tabs, workspaceTab, active } = await activeTab(client);
+    if (!active) {
       ctx.log("no tabs open — welcome screen; app is drivable");
       return;
     }
-    if (active.length !== 1) {
-      throw new Error(
-        `${tabs.length} document tab(s) open but none active: ` +
-          `${JSON.stringify({ tabs, workspaceTab })}`,
-      );
-    }
 
-    // Any ONE of these is a correct surface — which it is depends on the active
-    // tab's format, which the tab bar does not report. Requiring an editor
-    // specifically failed a healthy media tab.
-    //
-    // Every selector here is verified against the component that renders it:
-    // `.browser-workspace-surface` is `BrowserWorkspaceSurface.tsx`, NOT
-    // `.browser-workspace` — that shorter name belongs to no element (the
-    // shell root uses `browser-workspace-active`), so the first version of
-    // this check could never have matched a browser tab and would have timed
-    // out on one.
-    const surface = await poll(
-      () =>
-        evalJs(
-          client,
-          `(() => {
-             if (document.querySelector('.ProseMirror')) return 'wysiwyg';
-             if (document.querySelector('.cm-editor')) return 'source';
-             if (document.querySelector('.media-view')) return 'media';
-             if (document.querySelector('.browser-workspace-surface')) return 'browser';
-             return null;
-           })()`,
-          ctx.cfg.timeoutMs,
-        ),
-      (kind) => kind !== null,
-      `a content surface for active tab "${active[0].title}"`,
-    );
+    const surface = await contentSurface(client, ctx.cfg.timeoutMs, active.title);
     // The browser workspace has exactly one correct surface, so when it is the
     // active tab that is an assertion rather than a menu of options.
-    if (active[0].kind === "workspace" && surface !== "browser") {
-      throw new Error(
-        `browser workspace is active but the surface is "${surface}"`,
-      );
+    if (active.kind === "workspace" && surface !== "browser") {
+      throw new Error(`browser workspace is active but the surface is "${surface}"`);
     }
     ctx.log(
       `${tabs.length} document tab(s)${workspaceTab ? " + browser workspace" : ""}, ` +
-        `active: "${active[0].title}" (${surface} surface)`,
+        `active: "${active.title}" (${surface} surface)`,
     );
   },
 };

@@ -36,16 +36,12 @@
  */
 import { useEffect, useRef, useCallback } from "react";
 import { readTextFile, exists } from "@tauri-apps/plugin-fs";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { applyExternalRename } from "@/services/workspaces/reassignTabOwnershipForPath";
 import { isBinaryMediaPath } from "@/services/navigation/openMediaFile";
-import { resolveExternalChangeAction } from "@/utils/openPolicy";
-import { getFileName, normalizePath } from "@/utils/paths";
-import { softContentEquals } from "@/utils/linebreaks";
+import { normalizePath } from "@/utils/paths";
 import { matchesPendingSave, hasPendingSave } from "@/utils/pendingSaves";
 import { fileOpsError } from "@/utils/debug";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
@@ -54,6 +50,7 @@ import {
   resolveDirtyBatch,
   type PendingDirtyChange,
 } from "@/services/files/resolveDirtyBatch";
+import { applyModifyPolicy } from "@/services/files/applyModifyPolicy";
 import { handleSemanticBatch, type FsChangeContext } from "@/services/windowClose/fsChangeHandlers";
 
 /** Debounce window for batching external changes (ms) */
@@ -123,69 +120,13 @@ export function useExternalFileChanges(): void {
     queueRef.current?.queue(normalizePath(filePath), { tabId, filePath });
   }, []);
 
-  // Handle a modify-like event by reading disk content and applying policy.
-  // Shared by the modify/create branch and the rename fallback (atomic writes).
+  // The reaction policy itself lives in `applyModifyPolicy` — it is a function
+  // of the document's state and the bytes on disk, with no React in it. Shared
+  // by the modify/create branch and the rename fallback (atomic writes).
   const handleModifyEvent = useCallback(
-    async (tabId: string, changedPath: string, diskContent: string) => {
-      const doc = useDocumentStore.getState().getDocument(tabId);
-      /* v8 ignore next -- @preserve doc is always defined when tabId is from an open tab; null branch is defensive */
-      if (!doc) return;
-
-      // File reappeared after deletion — reload unless the user has unsaved edits
-      if (doc.isMissing) {
-        if (doc.isDirty) {
-          queueDirtyChange(tabId, changedPath);
-          return;
-        }
-        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-        useDocumentStore.getState().clearMissing(tabId);
-        toast.info(i18n.t("dialog:toast.restored", { filename: getFileName(changedPath) }));
-        return;
-      }
-
-      // Disk matches what we last wrote — no actual external change.
-      // Use soft equality so cloud sync rewrites that only touch line endings,
-      // BOM, or the trailing newline (OneDrive/iCloud/Dropbox are frequent
-      // offenders) don't trigger spurious reloads or dialogs.
-      if (softContentEquals(diskContent, doc.lastDiskContent)) {
-        // Refresh the stored disk content so subsequent byte-for-byte compares
-        // match; otherwise the next sync rewrite would slip through again.
-        if (diskContent !== doc.lastDiskContent) {
-          useDocumentStore.getState().updateLastDiskContent(tabId, diskContent);
-        }
-        return;
-      }
-
-      // Divergent doc: disk now matches editor — auto-clear divergent state so auto-save resumes.
-      // This happens when e.g. git checkout restores the same content that's in the editor.
-      if (doc.isDivergent && softContentEquals(diskContent, doc.content)) {
-        useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-        return;
-      }
-
-      // Real external change — apply policy
-      const action = resolveExternalChangeAction({
-        isDirty: doc.isDirty,
-        hasFilePath: Boolean(doc.filePath),
-      });
-
-      switch (action) {
-        case "auto_reload":
-          // No `clearMissing` here: the `doc.isMissing` branch above returns in
-          // both its arms, and nothing between that read and this switch
-          // awaits, so a missing document can never reach this case. The call
-          // was a no-op that still wrote to the store and woke every subscriber.
-          useDocumentStore.getState().ingestExternalContent(tabId, diskContent, "disk-open", { filePath: changedPath });
-          toast.info(i18n.t("dialog:toast.reloaded", { filename: getFileName(changedPath) }));
-          break;
-        case "prompt_user":
-          queueDirtyChange(tabId, changedPath);
-          break;
-        case "no_op":
-          break;
-      }
-    },
-    [queueDirtyChange]
+    async (tabId: string, changedPath: string, diskContent: string) =>
+      applyModifyPolicy(tabId, changedPath, diskContent, queueDirtyChange),
+    [queueDirtyChange],
   );
 
   useEffect(() => {

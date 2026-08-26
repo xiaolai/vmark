@@ -521,7 +521,7 @@ describe("SplitPaneEditor", () => {
       render(<SplitPaneEditor tabId="tab-defer-2" formatConfig={previewConfig} />);
       await screen.findByText("preview:first");
 
-      useDocumentStore.getState().setContent("tab-defer-2", "second");
+      useDocumentStore.getState().setEditorContent("tab-defer-2", "second");
 
       await screen.findByText("preview:second");
     });
@@ -531,7 +531,7 @@ describe("SplitPaneEditor", () => {
       render(<SplitPaneEditor tabId="tab-defer-3" formatConfig={previewConfig} />);
 
       for (let i = 1; i <= 10; i++) {
-        useDocumentStore.getState().setContent("tab-defer-3", `v${i}`);
+        useDocumentStore.getState().setEditorContent("tab-defer-3", `v${i}`);
       }
 
       // Intermediate values may be skipped — the last one may not be.

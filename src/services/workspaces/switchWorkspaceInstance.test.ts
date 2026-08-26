@@ -95,7 +95,7 @@ describe("switchWorkspaceInstance (WI-2R)", () => {
     const idA = openDoc("/repo-a/one.md");
     openDoc("/repo-b/one.md");
     useTabStore.getState().setActiveTab(W, idA);
-    useDocumentStore.getState().setContent(idA, "unsaved edits");
+    useDocumentStore.getState().setEditorContent(idA, "unsaved edits");
     expect(useDocumentStore.getState().documents[idA]?.isDirty).toBe(true);
 
     switchWorkspaceInstance(W, "wsi-b");

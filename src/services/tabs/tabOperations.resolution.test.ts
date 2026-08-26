@@ -90,14 +90,14 @@ describe("closeTabWithDirtyCheck — resolution", () => {
   it("re-prompts when an edit lands during the save", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/race.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/race.md");
-    useDocumentStore.getState().setContent(tabId, "v2");
+    useDocumentStore.getState().setEditorContent(tabId, "v2");
 
     vi.mocked(message).mockResolvedValue("Yes");
     vi.mocked(saveToPath)
       .mockImplementationOnce(async (id, _p, content) => {
         // The save lands — and so does a concurrent MCP write.
         useDocumentStore.getState().markSaved(id, content);
-        useDocumentStore.getState().setContent(id, "v3 (concurrent)");
+        useDocumentStore.getState().setEditorContent(id, "v3 (concurrent)");
         return true;
       })
       .mockImplementationOnce(async (id, _p, content) => {
@@ -118,13 +118,13 @@ describe("closeTabWithDirtyCheck — resolution", () => {
   it("refuses to close when the document never comes to rest", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/hostile.md");
     useDocumentStore.getState().initDocument(tabId, "v0", "/tmp/hostile.md");
-    useDocumentStore.getState().setContent(tabId, "v1");
+    useDocumentStore.getState().setEditorContent(tabId, "v1");
 
     vi.mocked(message).mockResolvedValue("Yes");
     let n = 0;
     vi.mocked(saveToPath).mockImplementation(async (id, _p, content) => {
       useDocumentStore.getState().markSaved(id, content);
-      useDocumentStore.getState().setContent(id, `v${++n + 1} (writer keeps going)`);
+      useDocumentStore.getState().setEditorContent(id, `v${++n + 1} (writer keeps going)`);
       return true;
     });
 
@@ -140,7 +140,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
   it("honours a pin applied while the prompt was open", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/pin.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/pin.md");
-    useDocumentStore.getState().setContent(tabId, "v2");
+    useDocumentStore.getState().setEditorContent(tabId, "v2");
 
     vi.mocked(message).mockImplementationOnce(async () => {
       useTabStore.getState().togglePin(WINDOW_LABEL, tabId);
@@ -174,7 +174,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
   it("closes after ONE prompt when only save-normalization keeps the doc dirty", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/breaks.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
-    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+    useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     vi.mocked(message).mockResolvedValue("Yes");
     vi.mocked(saveToPath).mockImplementation(async (id) => {
@@ -195,7 +195,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
   it("still re-prompts when a REAL edit hides behind the normalization artifact", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW_LABEL, "/tmp/breaks.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
-    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+    useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     vi.mocked(message).mockResolvedValue("Yes");
     vi.mocked(saveToPath)
@@ -203,7 +203,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
         useDocumentStore.getState().markSaved(id, "line\\\nnext");
         // A concurrent MCP write lands during the save — the content CHANGED,
         // so the artifact exemption must not swallow it.
-        useDocumentStore.getState().setContent(id, "line  \nnext plus more");
+        useDocumentStore.getState().setEditorContent(id, "line  \nnext plus more");
         return true;
       })
       .mockImplementationOnce(async (id, _p, content) => {

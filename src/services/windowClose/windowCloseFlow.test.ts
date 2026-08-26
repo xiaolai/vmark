@@ -76,7 +76,7 @@ describe("runWindowCloseFlow — edit landing during finalize", () => {
 
     mockCleanup.mockImplementationOnce(async () => {
       // An MCP write lands while cleanup does its file IO.
-      useDocumentStore.getState().setContent(tabId, "landed during cleanup");
+      useDocumentStore.getState().setEditorContent(tabId, "landed during cleanup");
     });
 
     const result = await runWindowCloseFlow(WINDOW, log);
@@ -95,7 +95,7 @@ describe("runWindowCloseFlow — edit landing during finalize", () => {
     useDocumentStore.getState().initDocument(tabId, "clean", "/tmp/a.md");
 
     mockPersist.mockImplementationOnce(async () => {
-      useDocumentStore.getState().setContent(tabId, "landed during persist");
+      useDocumentStore.getState().setEditorContent(tabId, "landed during persist");
     });
 
     const result = await runWindowCloseFlow(WINDOW, log);
@@ -112,7 +112,7 @@ describe("runWindowCloseFlow — edit landing during finalize", () => {
 
     let n = 0;
     mockCleanup.mockImplementation(async () => {
-      useDocumentStore.getState().setContent(tabId, `writer keeps going ${++n}`);
+      useDocumentStore.getState().setEditorContent(tabId, `writer keeps going ${++n}`);
     });
 
     const result = await runWindowCloseFlow(WINDOW, log);
@@ -133,7 +133,7 @@ describe("runWindowCloseFlow — edit landing during the pin dialog", () => {
     useTabStore.getState().togglePin(WINDOW, tabId);
 
     mockAsk.mockImplementationOnce(async () => {
-      useDocumentStore.getState().setContent(tabId, "typed during pin dialog");
+      useDocumentStore.getState().setEditorContent(tabId, "typed during pin dialog");
       return true; // the user confirms closing pinned tabs
     });
 
@@ -155,7 +155,7 @@ describe("runWindowCloseFlow — save-normalization artifact", () => {
   it("closes after one prompt when the save leaves isDirty on unchanged content", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/breaks.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
-    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+    useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     mockPromptSingle.mockImplementationOnce(async (ctx) => {
       // The save normalizes hard breaks: saved bytes differ from the buffer,
@@ -174,10 +174,10 @@ describe("runWindowCloseFlow — save-normalization artifact", () => {
   it("applies the exemption per document in the multi-doc prompt", async () => {
     const a = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
     useDocumentStore.getState().initDocument(a, "v1", "/tmp/a.md");
-    useDocumentStore.getState().setContent(a, "a  \nbreaks");
+    useDocumentStore.getState().setEditorContent(a, "a  \nbreaks");
     const b = useTabStore.getState().createTab(WINDOW, "/tmp/b.md");
     useDocumentStore.getState().initDocument(b, "v1", "/tmp/b.md");
-    useDocumentStore.getState().setContent(b, "plain");
+    useDocumentStore.getState().setEditorContent(b, "plain");
 
     mockPromptMulti.mockImplementationOnce(async (ctxs) => {
       for (const ctx of ctxs) {
@@ -199,13 +199,13 @@ describe("runWindowCloseFlow — save-normalization artifact", () => {
   it("does NOT extend the exemption past a real edit", async () => {
     const tabId = useTabStore.getState().createTab(WINDOW, "/tmp/breaks.md");
     useDocumentStore.getState().initDocument(tabId, "v1", "/tmp/breaks.md");
-    useDocumentStore.getState().setContent(tabId, "line  \nnext");
+    useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     mockPromptSingle
       .mockImplementationOnce(async (ctx) => {
         useDocumentStore.getState().markSaved(ctx.tabId, "line\\\nnext");
         // A concurrent write changes the buffer — the exemption must void.
-        useDocumentStore.getState().setContent(ctx.tabId, "line  \nnext plus more");
+        useDocumentStore.getState().setEditorContent(ctx.tabId, "line  \nnext plus more");
         return { action: "saved" as const };
       })
       .mockImplementationOnce(async (ctx) => {

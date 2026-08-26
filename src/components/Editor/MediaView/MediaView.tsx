@@ -24,17 +24,12 @@
 // @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — supplies reloadKey from documentId
 // @module components/Editor/MediaView/MediaView
 
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { FileQuestion } from "lucide-react";
 import { getMediaType } from "@/utils/mediaPathDetection";
-import {
-  normalizePathForAsset,
-  withMediaReloadKey,
-} from "@/services/media/resolveMediaSrc";
 import { mediaViewError } from "@/utils/debug";
+import { useMediaAsset } from "./useMediaAsset";
 import "./MediaView.css";
 
 /** Extract the trailing filename from an absolute path (sync, cross-platform). */
@@ -60,52 +55,12 @@ export interface MediaViewProps {
 /** Render an image / audio / video preview, or a graceful fallback. */
 export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
   const { t } = useTranslation("editor");
-  // Track state per-path (not booleans) so a path change resets granted/errored
-  // implicitly — no synchronous setState in the effect (cascading-render rule).
-  const [grantedPath, setGrantedPath] = useState<string | null>(null);
-  // Errors are tracked per PATH-AND-VERSION, not per path: a file that failed
-  // to decode and was then rewritten correctly must get a fresh attempt rather
-  // than stay pinned to the fallback panel for the life of the tab.
-  const [erroredAttempt, setErroredAttempt] = useState<string | null>(null);
-  const attempt = `${path}\u0000${reloadKey}`;
-  const granted = grantedPath === path;
-  const errored = erroredAttempt === attempt;
+  // Grant lifecycle, error-per-attempt and the cache-busting URL all live in
+  // the hook — none of it is about rendering, and all of it is subtle.
+  const { granted, errored, src, attempt, markErrored } = useMediaAsset(path, reloadKey);
 
   const mediaType = getMediaType(path);
   const filename = basenameOf(path);
-  // The reload key rides in the URL because that is the ONLY thing an <img> or
-  // <video> reacts to: an unchanged `src` never refetches, and the webview
-  // serves a fresh element from cache. See withMediaReloadKey (issue #1328).
-  const src = withMediaReloadKey(
-    convertFileSrc(normalizePathForAsset(path)),
-    reloadKey,
-  );
-
-  // Grant the webview asset:// access to THIS file before rendering the media
-  // element. Opening a media tab grants at open time, but Quick Look and
-  // arrow-nav reach MediaView without going through that path — so the render
-  // core owns the grant, making every entry point work. Best-effort: on
-  // failure we still render and let the element's onError show the fallback.
-  useEffect(() => {
-    // Skip the grant for a non-media path: an unknown extension renders the
-    // fallback panel and never points an element at an asset:// URL, so it must
-    // not acquire fs+asset scope for a file it won't preview.
-    if (getMediaType(path) === null) return;
-    let cancelled = false;
-    void invoke("grant_asset_access", { path })
-      .catch((e: unknown) => mediaViewError("grant_asset_access failed:", e))
-      // Mark the path granted even if the grant REJECTED. This is deliberate:
-      // the element then attempts the asset:// URL, the webview returns 403, and
-      // onError falls through to the panel below. Gating render on grant success
-      // instead would strand a legitimately-failed grant on the loading spinner
-      // forever — render → onError → fallback is the intended failure path.
-      .finally(() => {
-        if (!cancelled) setGrantedPath(path);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
 
   const openExternally = () => {
     void openPath(path).catch((e: unknown) =>
@@ -169,7 +124,7 @@ export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
           src={src}
           controls
           preload="metadata"
-          onError={() => setErroredAttempt(attempt)}
+          onError={markErrored}
         />
       </div>
     );
@@ -184,7 +139,7 @@ export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
         className="media-view__image"
         src={src}
         alt={filename}
-        onError={() => setErroredAttempt(attempt)}
+        onError={markErrored}
       />
     </div>
   );
