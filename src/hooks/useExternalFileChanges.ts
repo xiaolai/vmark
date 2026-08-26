@@ -49,7 +49,10 @@ import {
   keepAllLocal,
   reviewEachIndividually,
 } from "@/services/files/fileChangeBatch";
-import { resolveExternalChangeAction } from "@/utils/openPolicy";
+import {
+  isQueuedConflictStillLive,
+  resolveExternalChangeAction,
+} from "@/utils/openPolicy";
 import { getFileName, normalizePath } from "@/utils/paths";
 import { softContentEquals } from "@/utils/linebreaks";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
@@ -114,7 +117,22 @@ export function useExternalFileChanges(): void {
 
   // Resolve one batch: one file goes straight to the single-file dialog,
   // several go through the reload-all/keep-all/review-each dialog.
-  const processBatch = useCallback(async (pending: PendingDirtyChange[]) => {
+  const processBatch = useCallback(async (queued: PendingDirtyChange[]) => {
+    // Revalidate before resolving. An entry names the tab and path captured
+    // when it was QUEUED, and it then waits out a debounce and — for a
+    // multi-file batch — a modal the user may sit on indefinitely. In that
+    // window the tab can be closed, saved, or renamed, and the old entry would
+    // resolve against state that no longer exists. The rename case is the
+    // dangerous one: reloading a path this document no longer has pulls a
+    // DIFFERENT file's bytes into the buffer.
+    const pending = queued.filter((entry) =>
+      isQueuedConflictStillLive({
+        document: useDocumentStore.getState().getDocument(entry.tabId),
+        queuedPath: entry.filePath,
+        normalize: normalizePath,
+      }),
+    );
+    if (pending.length === 0) return;
     if (pending.length === 1) {
       await resolveDirtyFileChange(pending[0].tabId, pending[0].filePath);
       return;
