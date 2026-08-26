@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { handleRenameEvent } from "./fsRenameHandlers";
 import {
-  handleRenameEvent,
   handleRemoveEvent,
   handleModifyOrCreateEvent,
   handleSemanticBatch,
