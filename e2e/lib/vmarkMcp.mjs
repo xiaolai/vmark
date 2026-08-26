@@ -28,6 +28,7 @@
 
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { createStdioChannel } from "./jsonRpcStdio.mjs";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
@@ -87,6 +88,49 @@ function portFilePath() {
 }
 
 /**
+ * Parse a `{port}:{token}` port file, or null if it does not name a valid port.
+ *
+ * Anchored, not `parseInt`: `parseInt("80x", 10)` is 80, so a truncated or
+ * half-written file — which is exactly what a concurrent app launch produces —
+ * read as a perfectly good port. The run then went on and failed somewhere
+ * else, against a port nothing was listening on.
+ */
+export function parsePortFile(raw) {
+  const port = Number(/^(\d{1,5})(?::|$)/.exec(String(raw).trim())?.[1]);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : null;
+}
+
+/**
+ * Normalize an MCP `tools/call` reply into `{ isError, text, json, content }`.
+ *
+ * `json` prefers `structuredContent`. The sidecar attaches it deliberately —
+ * `staleError.ts` puts `current_revision` there precisely so a caller can
+ * branch without parsing a sentence — and reading only `content` threw that
+ * away, leaving the one field the protocol guarantees unreachable from a
+ * journey. Prose results still fall back to parsing the text.
+ */
+export function normalizeToolResult(reply) {
+  if (reply.error) {
+    return { isError: true, text: JSON.stringify(reply.error), json: undefined, content: [] };
+  }
+  const result = reply.result ?? {};
+  const content = result.content ?? [];
+  const text = content
+    .filter((c) => c?.type === "text")
+    .map((c) => c.text)
+    .join("\n");
+  let json = result.structuredContent;
+  if (json === undefined) {
+    try {
+      json = text ? JSON.parse(text) : undefined;
+    } catch {
+      json = undefined; // many results are prose, not JSON
+    }
+  }
+  return { isError: result.isError === true, text, json, content };
+}
+
+/**
  * Is VMark's own MCP bridge up and advertising a port?
  *
  * `cli.ts` attempts its WebSocket connection BEFORE starting the MCP stdio
@@ -102,9 +146,7 @@ export async function bridgeReady() {
   // port file below is an expected, suppressible condition.
   const path = portFilePath();
   try {
-    const raw = (await readFile(path, "utf8")).trim();
-    const port = Number.parseInt(raw.split(":")[0], 10);
-    return Number.isInteger(port) && port > 0 && port <= 65535;
+    return parsePortFile(await readFile(path, "utf8")) !== null;
   } catch {
     return false;
   }
@@ -146,125 +188,65 @@ export async function startVmarkMcp({ rebuild = true } = {}) {
 
   // stdout is PROTOCOL ONLY. Anything the sidecar logs must go to stderr, or the
   // JSON-RPC stream is corrupted; capturing it separately also makes a sidecar
-  // crash legible instead of appearing as a silent hang.
-  let stderrBuf = "";
-  child.stderr.on("data", (d) => (stderrBuf += d.toString()));
-
-  const pending = new Map();
-  let nextId = 1;
-  let buf = "";
-
-  // MCP stdio framing is newline-delimited JSON — NOT LSP-style Content-Length.
-  child.stdout.on("data", (chunk) => {
-    buf += chunk.toString();
-    let nl;
-    while ((nl = buf.indexOf("\n")) !== -1) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line) continue;
-      let msg;
-      try {
-        msg = JSON.parse(line);
-      } catch {
-        continue; // non-protocol noise on stdout; ignore rather than die
-      }
-      const entry = pending.get(msg.id);
-      if (!entry) continue;
-      pending.delete(msg.id);
-      entry.resolve(msg);
-    }
-  });
-
-  const exited = once(child, "exit").then(([code]) => {
-    for (const [, p] of pending) {
-      p.reject(new Error(`sidecar exited (code ${code}) mid-request.\nstderr:\n${stderrBuf.trim()}`));
-    }
-    pending.clear();
-  });
-
-  function send(method, params) {
-    const id = nextId++;
-    return new Promise((resolvePromise, reject) => {
-      const timer = setTimeout(() => {
-        pending.delete(id);
-        reject(new Error(`MCP ${method} timed out after ${CALL_TIMEOUT_MS}ms.\nstderr:\n${stderrBuf.trim()}`));
-      }, CALL_TIMEOUT_MS);
-      pending.set(id, {
-        resolve: (m) => {
-          clearTimeout(timer);
-          resolvePromise(m);
-        },
-        reject: (e) => {
-          clearTimeout(timer);
-          reject(e);
-        },
-      });
-      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
-    });
-  }
-
-  function notify(method, params) {
-    child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method, params })}\n`);
-  }
+  // crash legible instead of appearing as a silent hang. Framing, the pending
+  // map, and the refusal to write to a dead process live in `jsonRpcStdio`.
+  const channel = createStdioChannel(child, { timeoutMs: CALL_TIMEOUT_MS });
 
   // Handshake: initialize, then the initialized notification. `tools/call` before
   // this is a protocol error.
-  const init = await send("initialize", {
-    protocolVersion: PROTOCOL_VERSION,
-    capabilities: {},
-    clientInfo: { name: "vmark-e2e", version: "1.0.0" },
-  });
-  if (init.error) {
-    throw new Error(`MCP initialize failed: ${JSON.stringify(init.error)}\nstderr:\n${stderrBuf.trim()}`);
+  //
+  // A failure here USED TO LEAK THE PROCESS: the throw skipped every path that
+  // could have reaped the child, so a rejected handshake left an orphaned
+  // sidecar holding a bridge connection for the rest of the run — and the next
+  // journey then failed for a reason that had nothing to do with it.
+  let init;
+  try {
+    init = await channel.send("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: "vmark-e2e", version: "1.0.0" },
+    });
+    if (init.error) {
+      throw new Error(`MCP initialize failed: ${JSON.stringify(init.error)}`);
+    }
+  } catch (err) {
+    await channel.close();
+    const stderr = channel.stderr().trim();
+    throw new Error(stderr ? `${err.message}\nstderr:\n${stderr}` : err.message);
   }
-  notify("notifications/initialized", {});
+  channel.notify("notifications/initialized", {});
 
   return {
     async listTools() {
-      const reply = await send("tools/list", {});
+      const reply = await channel.send("tools/list", {});
       if (reply.error) throw new Error(`tools/list failed: ${JSON.stringify(reply.error)}`);
       return reply.result?.tools ?? [];
     },
 
     /**
-     * Call a tool and return `{ isError, text, json }`.
+     * Call a tool and return `{ isError, text, json, content }`.
      *
      * NOTE the shape. `mcpAdapters.ts` returns only `content` + `isError`; the
      * app-side `data.needsApproval` does NOT survive to the MCP boundary — it is
      * rendered into the error TEXT by `toErrorResult`. Journeys must assert on
      * `text`, and treat a successful RETRY as the only proof that authority was
      * actually minted in Rust.
+     *
+     * `json` prefers `structuredContent` over parsing the prose. The sidecar
+     * attaches it deliberately — `staleError.ts` puts `current_revision` there
+     * precisely so a caller can branch without parsing a sentence — and reading
+     * only `content` threw that away, leaving the one field the protocol
+     * guarantees unreachable from a journey.
      */
     async callTool(name, args = {}) {
-      const reply = await send("tools/call", { name, arguments: args });
-      if (reply.error) {
-        return { isError: true, text: JSON.stringify(reply.error), json: undefined };
-      }
-      const result = reply.result ?? {};
-      const text = (result.content ?? [])
-        .filter((c) => c?.type === "text")
-        .map((c) => c.text)
-        .join("\n");
-      let json;
-      try {
-        json = text ? JSON.parse(text) : undefined;
-      } catch {
-        json = undefined; // many results are prose, not JSON
-      }
-      return { isError: result.isError === true, text, json, content: result.content ?? [] };
+      return normalizeToolResult(await channel.send("tools/call", { name, arguments: args }));
     },
 
-    stderr: () => stderrBuf,
+    stderr: () => channel.stderr(),
 
-    async close() {
-      try {
-        child.stdin.end();
-      } catch {
-        /* already gone */
-      }
-      const timer = setTimeout(() => child.kill("SIGKILL"), 3000);
-      await exited.catch(() => {});
-      clearTimeout(timer);
-    },
+    /** stdout lines that were not protocol frames — kept for diagnostics. */
+    noise: () => channel.noise(),
+
+    close: () => channel.close(),
   };
 }

@@ -35,7 +35,16 @@ export interface SetContentOptions {
 
 export interface DocumentStore {
   // Documents keyed by tab ID (changed from window label)
-  documents: Record<string, DocumentState>;
+  /**
+   * READONLY to callers. Every content change has to go through an action,
+   * because that is where the revision bump lives (see
+   * `bumpRevisionIfContentChanged`) — a direct `doc.content = …` would change
+   * what an MCP client reads while leaving its `expected_revision` valid, so
+   * the client's next write would overwrite a snapshot nobody could see it had
+   * missed. The store's own reducers build new objects, so nothing inside
+   * needed to change; this cost zero call-site edits and closes the class.
+   */
+  documents: Record<string, Readonly<DocumentState>>;
 
   // Actions - now take tabId instead of windowLabel
   /** Create (or reset) a document; `restore` carries a TRANSFER's state. */
@@ -124,6 +133,7 @@ export interface DocumentStore {
   removeDocument: (tabId: string) => void;
 
   // Selectors
-  getDocument: (tabId: string) => DocumentState | undefined;
+  /** Readonly for the reason on `documents` above. */
+  getDocument: (tabId: string) => Readonly<DocumentState> | undefined;
   getAllDirtyDocuments: () => string[]; // Returns tabIds
 }

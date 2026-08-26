@@ -34,6 +34,8 @@ describe("wait-ready argument validation", () => {
     ["a negative timeout", ["--timeout-ms", "-5"]],
     ["a zero timeout", ["--timeout-ms", "0"]],
     ["a fractional timeout", ["--timeout-ms", "1.5"]],
+    ["a zero poll interval", ["--poll-ms", "0"]],
+    ["a non-numeric poll interval", ["--poll-ms", "soon"]],
   ])("rejects %s with exit 2", (_label, args) => {
     const { code, output } = run(...args, "--timeout-ms", "1000");
     expect(code, output).toBe(2);
@@ -62,12 +64,20 @@ describe("wait-ready argument validation", () => {
 
   it("honours the advertised timeout as an upper bound", () => {
     // The loop used to sleep a full poll interval after the budget was spent,
-    // so `--timeout-ms` was a lower bound. Generous margin: this asserts the
-    // budget is respected, not how fast the machine is.
+    // so `--timeout-ms` was a LOWER bound. The margin here is derived, not
+    // taste: with a 3000ms interval and a 3100ms budget, the correct loop makes
+    // its last sleep 100ms and finishes at ~3100ms, while the unconditional
+    // version sleeps the full 3000 and finishes at ~6000. A bound of 4500 sits
+    // between them with ~1.4s of headroom on each side.
+    //
+    // The previous version allowed 15s against a 1s interval, which the
+    // mutation it was written for passed comfortably. If this ever needs
+    // relaxing, raise `--poll-ms` and the bound together — widening the margin
+    // alone puts the guard back to sleep.
     const started = Date.now();
-    const { code } = run("--timeout-ms", "1500");
+    const { code } = run("--timeout-ms", "3100", "--poll-ms", "3000");
     const elapsed = Date.now() - started;
     expect(code).toBe(1);
-    expect(elapsed).toBeLessThan(15_000);
+    expect(elapsed).toBeLessThan(4_500);
   });
 });

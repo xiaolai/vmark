@@ -33,7 +33,7 @@
  *
  * Exit codes: 0 ready · 1 not ready within the budget (prints what it last saw)
  */
-import { BridgeClient, expectSuccess } from "./lib/bridge.mjs";
+import { BridgeClient, listWindows } from "./lib/bridge.mjs";
 import { DRIVABLE_SNIPPET, drivableGap } from "./lib/readiness.mjs";
 
 function arg(name, fallback) {
@@ -73,7 +73,12 @@ const HOST = arg("host", "127.0.0.1");
 const PORT = numericArg("port", "9323", { max: 65535 });
 const WINDOW = arg("window", "main");
 const BUDGET_MS = numericArg("timeout-ms", "300000");
-const POLL_MS = 1000;
+// Injectable so the "the budget is an UPPER bound" property can be tested with
+// a bound DERIVED from the interval rather than guessed. It used to be a
+// constant, and the test that guarded it allowed a 15s margin against a 1s
+// interval — so the very mutation it existed to catch (sleeping a full
+// interval past a spent budget) passed it. A guard that cannot fail is not one.
+const POLL_MS = numericArg("poll-ms", "1000");
 
 /** One full readiness attempt. Returns null on success, else why it failed. */
 async function attempt() {
@@ -84,14 +89,9 @@ async function attempt() {
     return `connect: ${err.message}`;
   }
   try {
-    const raw = expectSuccess(await client.send("list_windows", {}, 5000), "list_windows");
-    // The bridge has returned both shapes across versions; accept either
-    // rather than pinning one and failing opaquely if it changes.
-    const windows = Array.isArray(raw) ? raw : raw?.windows;
-    if (!Array.isArray(windows) || windows.length === 0) {
-      return `no windows reported yet (${JSON.stringify(raw)})`;
-    }
-    const labels = windows.map((w) => (typeof w === "string" ? w : w?.label ?? w?.name));
+    // Shape normalization lives in `listWindows`; see bridge.mjs for the two
+    // reply shapes and the bare-label entry it reconciles.
+    const labels = (await listWindows(client, 5000)).map((w) => w.label);
     if (!labels.includes(WINDOW)) {
       return `window '${WINDOW}' not among [${labels.join(", ")}]`;
     }
