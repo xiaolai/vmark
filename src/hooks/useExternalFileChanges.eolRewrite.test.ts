@@ -30,6 +30,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 }));
 
 import { useDocumentStore } from "@/stores/documentStore";
+import { softContentEquals } from "@/utils/linebreaks";
 import { keepAllLocal } from "@/services/files/fileChangeBatch";
 
 const TAB = "tab-eol";
@@ -119,5 +120,44 @@ describe("keepAllLocal adopts the convention alongside the disk snapshot", () =>
     expect(doc()?.lastDiskContent).toBe("alpha\r\nbeta\r\n");
     expect(doc()?.lineEnding).toBe("crlf");
     expect(doc()?.isDivergent).toBe(true); // Keep-my-changes semantics intact
+  });
+});
+
+// Audit finding #40 claimed a transferred CRLF/BOM document "looks externally
+// modified immediately", because `initDocument`'s restore path stores the
+// CANONICAL `savedContent` as `lastDiskContent` when the sender supplies no raw
+// snapshot — and all three transfer callers do omit it.
+//
+// The premise is right and the consequence is not: the watcher compares with
+// `softContentEquals`, which strips the BOM and normalises CRLF and a trailing
+// newline for exactly this reason. Asserted here rather than argued, so the
+// claim is checkable and so a future "optimisation" to strict equality fails
+// loudly instead of flooding the user with phantom reload prompts.
+describe("a transferred CRLF/BOM document is not mistaken for an external edit", () => {
+  it.each([
+    ["CRLF", "alpha\r\nbeta\r\n"],
+    ["a BOM", "\u{FEFF}alpha\nbeta\n"],
+    ["CRLF and a BOM", "\u{FEFF}alpha\r\nbeta\r\n"],
+    ["a trailing-newline difference", "alpha\nbeta"],
+  ])("%s on disk still soft-equals the canonical snapshot", (_label, onDisk) => {
+    // What a transfer leaves behind: canonical text in `lastDiskContent`,
+    // because the payload carried no raw bytes.
+    useDocumentStore.setState({ documents: {} });
+    useDocumentStore.getState().initDocument(TAB, "alpha\nbeta\n", PATH, {
+      savedContent: "alpha\nbeta\n",
+    });
+
+    expect(doc()?.lastDiskContent).toBe("alpha\nbeta\n");
+    expect(softContentEquals(onDisk, doc()?.lastDiskContent ?? "")).toBe(true);
+  });
+
+  it("still reports a REAL edit to the same document", () => {
+    // The guard must absorb convention noise without swallowing content.
+    useDocumentStore.setState({ documents: {} });
+    useDocumentStore.getState().initDocument(TAB, "alpha\nbeta\n", PATH, {
+      savedContent: "alpha\nbeta\n",
+    });
+
+    expect(softContentEquals("alpha\r\nbeta\r\ngamma\r\n", doc()?.lastDiskContent ?? "")).toBe(false);
   });
 });

@@ -132,20 +132,29 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   },
 
   ingestExternalContent: (tabId, rawDiskText, origin, opts) => {
-    // A baseline origin IS the document — create it if the tab has none
-    // (initDocument keeps the tab-existence guard); edits have nothing to edit.
-    if (!get().documents[tabId] && INGEST_ORIGIN_SNAPSHOT[origin] === "baseline") {
-      get().initDocument(tabId, "", opts?.filePath ?? null);
-    }
+    // A baseline origin IS the document — create it if the tab has none; edits
+    // have nothing to edit.
+    //
+    // Created INSIDE the same `set()` as the patch. Calling `initDocument`
+    // first published an empty document to every subscriber before the real
+    // content landed one write later, and `documentId` is the editor's remount
+    // key — so a surface could mount on a document that did not exist yet.
+    const creating =
+      !get().documents[tabId] && INGEST_ORIGIN_SNAPSHOT[origin] === "baseline";
+    // The tab-existence guard `initDocument` applies still has to hold: do not
+    // resurrect an orphan entry for a tab that was closed mid-read (C1).
+    if (creating && tabExistsGuard && !tabExistsGuard(tabId)) return;
     const previous = get().documents[tabId]?.content;
     let next: string | undefined;
-    set((state) =>
-      updateDoc(state, tabId, (doc) => {
-        const patch = buildIngestState(doc, rawDiskText, origin, opts);
-        next = patch.content;
-        return patch;
-      })
-    );
+    set((state) => {
+      const base = creating
+        ? createInitialDocument("", opts?.filePath ?? null)
+        : state.documents[tabId];
+      if (!base) return state;
+      const patch = buildIngestState(base, rawDiskText, origin, opts);
+      next = patch.content;
+      return { documents: { ...state.documents, [tabId]: { ...base, ...patch } } };
+    });
     // `next` stays undefined for a missing tab, so it cannot bump a revision.
     if (next !== undefined) bumpRevisionIfContentChanged(tabId, previous, next);
   },
