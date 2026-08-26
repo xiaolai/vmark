@@ -33,12 +33,22 @@ import { resolve } from "node:path";
  * past the knee the wall clock gets WORSE, so a guess in the wrong direction is
  * a silent regression that still reports green.
  *
- * **The ratio is measured for the APP tier only.** The gate tier
- * (`vitest.gates.config.ts`) spawns child processes that burn CPU *outside* the
- * worker accounting this ratio was derived from, so for that tier it is an
- * inherited default, not an established optimum. It is shared because one
- * definition that is honest about its provenance beats two copies that drift —
- * not because the gate tier was benchmarked.
+ * **The knee is the APP tier's.** The gate tier was swept separately
+ * (58 files, 1,112 tests, same 10-core box) and has NO knee to find:
+ *
+ *   batch A   8 → 48s    16 → 44s    24 → 57s
+ *   batch B  12 → 68s    16 → 71s    20 → 66s
+ *
+ * The same setting measured 44s and 71s in the two batches, so run-to-run
+ * variance exceeds every difference between settings. The reason is in the
+ * per-file distribution: one test takes 16.5s (the real-Stryker canary), the
+ * next 12.4s (check-ipc-contract against the whole repo), and a handful more
+ * 6–8s — all of them waiting on child processes. A pool wide enough to hold
+ * those few in parallel is wide enough, and 8 already is.
+ *
+ * So the shared ratio costs this tier nothing, and there is no separate number
+ * worth maintaining. Do not "tune" it here on a single run — a single run
+ * cannot resolve a difference smaller than 60%.
  */
 export const OVERSUBSCRIPTION_RATIO = 1.6;
 
