@@ -37,7 +37,7 @@ export function isSameWorkspace(
 
 export type FinderOpenBranch =
   | { kind: "activate"; tabId: string }
-  | { kind: "replace"; replaceableTabId: string }
+  | { kind: "replace"; replaceableTabId: string; adoptWorkspace: boolean }
   | { kind: "create"; adoptWorkspace: boolean }
   | { kind: "newWindow" };
 
@@ -57,26 +57,43 @@ export interface FinderOpenBranchInput {
 
 /**
  * Resolve the open branch. Precedence:
- *   1. existing tab    → activate
- *   2. replaceable tab → replace (reuse the clean untitled tab)
- *   3. rail mode       → always create a new tab in this window (no workspace
- *                        adoption — the rail owns workspace identity)
- *   4. same workspace  → create a new tab (adopting the incoming workspace when
- *                        this window has none)
- *   5. otherwise       → new window (different workspace)
+ *   1. existing tab   → activate
+ *   2. rail mode      → land in this window (no workspace adoption — the rail
+ *                       owns workspace identity)
+ *   3. same workspace → land in this window, adopting the incoming workspace
+ *                       only when this window has none
+ *   4. otherwise      → new window (different workspace)
+ *
+ * Within 2 and 3, a single clean untitled tab is reused instead of adding one.
+ *
+ * REUSING THAT TAB IS NOT A LICENCE TO RE-ROOT THE WINDOW (#1330). The
+ * replaceable-tab check used to sit at the top, above both the rail rule and
+ * the workspace check, and the replace path then opened the incoming
+ * workspace unconditionally — so double-clicking a file from another folder
+ * silently replaced the sidebar tree of a window whose only tab happened to be
+ * untitled. "One clean untitled tab" describes the TABS; it says nothing about
+ * whether the window owns a workspace, which is exactly the state a window is
+ * in right after File → Open Workspace.
  */
 export function resolveFinderOpenBranch(input: FinderOpenBranchInput): FinderOpenBranch {
   if (input.existingTabId) {
     return { kind: "activate", tabId: input.existingTabId };
   }
-  if (input.replaceableTabId) {
-    return { kind: "replace", replaceableTabId: input.replaceableTabId };
-  }
   if (input.workspaceRailMode) {
-    return { kind: "create", adoptWorkspace: false };
+    return landInThisWindow(input, false);
   }
   if (isSameWorkspace(input.filePath, input.currentRoot, input.incomingWorkspace)) {
-    return { kind: "create", adoptWorkspace: !input.currentRoot };
+    return landInThisWindow(input, !input.currentRoot);
   }
   return { kind: "newWindow" };
+}
+
+/** Reuse the lone clean untitled tab when there is one; otherwise add a tab. */
+function landInThisWindow(
+  input: FinderOpenBranchInput,
+  adoptWorkspace: boolean,
+): FinderOpenBranch {
+  return input.replaceableTabId
+    ? { kind: "replace", replaceableTabId: input.replaceableTabId, adoptWorkspace }
+    : { kind: "create", adoptWorkspace };
 }

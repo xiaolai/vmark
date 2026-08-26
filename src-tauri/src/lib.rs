@@ -49,6 +49,7 @@ mod secret_token;
 mod secure_store;
 mod shell_env;
 mod shell_integration;
+mod single_instance;
 mod supported_files;
 mod tab_transfer;
 mod task;
@@ -104,7 +105,25 @@ pub fn run() {
     text_substitution::disable_smart_substitutions();
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // FIRST, before every other plugin — Tauri's own guidance, and it is what
+    // makes the guard cheap: a duplicate launch is turned away before this
+    // process builds any state to turn away with.
+    //
+    // Off macOS only. macOS keeps one process per bundle identifier natively
+    // and routes later opens through `RunEvent::Opened`; on Windows and Linux
+    // every file-association double-click starts a fresh process that then
+    // shares one localStorage and one hot-exit session with the running app
+    // (#1330 — see `single_instance.rs`).
+    #[cfg(not(target_os = "macos"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            single_instance::handle_second_launch(app, argv);
+        }));
+    }
+
+    builder = builder
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([

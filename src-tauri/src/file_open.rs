@@ -26,13 +26,11 @@ use crate::window_manager;
 
 #[cfg(target_os = "macos")]
 use crate::supported_files::is_openable_supported;
-// macOS-gated since the scope helpers moved to `fs_scope`. This was
-// unconditional because `allow_fs_read` needed `Manager` for
-// `asset_protocol_scope()` on every platform; that consumer now lives in
-// `fs_scope.rs`, leaving `handle_reopen`'s `get_webview_window` as the only
-// user here — and that is macOS-only. Unconditional is now an unused-import
-// ERROR on Linux/Windows, the exact mirror of the hazard this comment used to
-// warn about, and CI caught it on ubuntu and windows while macOS stayed green.
+// Unconditional, and it must stay that way: `record_ready_document_window` and
+// `route_file_opens` both reach for `get_webview_window` / `webview_windows` on
+// every platform. (An earlier revision had only macOS callers left here, and
+// gating it was correct THEN — re-deriving that from the caller list is the
+// check, not this comment.)
 use tauri::Manager;
 
 /// A file open request queued during cold start before the frontend is ready.
@@ -171,7 +169,18 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
         }
     }
 
-    let file_paths = opened.files;
+    route_file_opens(app, opened.files);
+}
+
+/// Route already-filtered file paths to a ready document window, queueing them
+/// for the next one when no window can take them yet.
+///
+/// Shared by the macOS `RunEvent::Opened` handler above and the Windows/Linux
+/// single-instance callback (`crate::single_instance`), which arrive at the
+/// same point by different roads — Finder hands macOS a URL list, Explorer
+/// hands a second `vmark` process an argv. Both then need the identical
+/// grouping, atomic decide, and emit-or-queue behaviour, so it lives once.
+pub(crate) fn route_file_opens(app: &tauri::AppHandle, file_paths: Vec<String>) {
     if file_paths.is_empty() {
         return;
     }
@@ -180,7 +189,7 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
     for path in &file_paths {
         crate::allow_fs_read(app, path);
     }
-    log::info!("[Finder] Opening {} file(s)", file_paths.len());
+    log::info!("[FileOpen] Opening {} file(s)", file_paths.len());
 
     let groups = window_manager::group_paths_by_workspace(&file_paths);
     for (workspace_key, paths) in groups {
@@ -208,18 +217,18 @@ pub(crate) fn handle_finder_opened(app: &tauri::AppHandle, urls: Vec<tauri::Url>
             window_manager::FileOpenOutcome::Queued { create_window } => {
                 if create_window {
                     if app.get_webview_window("main").is_none() {
-                        log::info!("[Finder] Queueing files, creating main window");
+                        log::info!("[FileOpen] Queueing files, creating main window");
                         if let Err(e) = window_manager::create_main_window(app, None) {
                             log::error!(
-                                "[Finder] Failed to create main window for queued opens: {}",
+                                "[FileOpen] Failed to create main window for queued opens: {}",
                                 e
                             );
                         }
                     } else {
-                        log::info!("[Finder] Queueing files until main window is ready");
+                        log::info!("[FileOpen] Queueing files until main window is ready");
                     }
                 } else {
-                    log::info!("[Finder] Queueing files (frontend not ready)");
+                    log::info!("[FileOpen] Queueing files (frontend not ready)");
                 }
             }
         }

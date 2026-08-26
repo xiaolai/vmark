@@ -201,6 +201,18 @@ Each VMark window can have its own independent workspace. This lets you work on 
 
 When you drag a markdown file from Finder and the current window already has unsaved work, VMark opens the file's project in a new window automatically.
 
+### Opening a file from outside the current workspace
+
+A window with a workspace open keeps that workspace. Opening a file that lives
+somewhere else — from Finder or Explorer, from `File > Open`, or from Recent
+Files — opens it in a **new window** rooted at its own folder, so the file tree
+you were working in stays where it is. Only a window with no workspace of its
+own takes the file in place.
+
+On Windows and Linux, double-clicking a file whose type is associated with
+VMark now hands it to the VMark you already have running instead of starting a
+second copy. macOS has always worked this way.
+
 ### Detaching Tabs into New Windows
 
 You can pull a tab out of its window to create a new one:

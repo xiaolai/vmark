@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.9.51"
+version = "0.9.52"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
@@ -132,6 +132,17 @@ serde_yaml_ng = "0.10"
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
 lopdf = { version = "0.44.0", default-features = false }
+
+# Windows and Linux start a FRESH process for every file-association
+# double-click; macOS does not (one process per bundle identifier, later opens
+# arrive as `RunEvent::Opened`). A second process shares this app's
+# localStorage, app-data directory and hot-exit session, so it corrupts the
+# running one rather than merely duplicating it — see `src/single_instance.rs`
+# and #1330. Official Tauri plugin, same workspace as every other
+# `tauri-plugin-*` here. Rust-only: it has no `@tauri-apps/*` counterpart, so
+# `lint:tauri-versions` correctly skips it.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tauri-plugin-single-instance = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

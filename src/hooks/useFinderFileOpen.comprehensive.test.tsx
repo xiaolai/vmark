@@ -28,17 +28,29 @@ const listenMock = vi.fn(
 );
 
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: (...args: unknown[]) => listenMock(...(args as [string, ListenHandler])),
+  listen: (eventName: string, handler: ListenHandler) => listenMock(eventName, handler),
 }));
 
-const invokeMock = vi.fn(() => Promise.resolve([]));
+// Every mock below is declared with its real signature. `vi.fn(() => null)`
+// infers a return type of exactly `null`, so `mockReturnValue({...})` is a type
+// ERROR the runtime never sees — the mock and its subject can then disagree
+// silently, which is the whole reason `pnpm lint:test-types` exists.
+const invokeMock = vi.fn<(command: string, args?: unknown) => Promise<unknown>>(
+  () => Promise.resolve([]),
+);
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invokeMock(...args),
+  // Tuple rest, not `(command, args?)`: naming the optional parameter forwards
+  // an explicit `undefined` for it, so a one-argument invoke is RECORDED as two
+  // and `toHaveBeenCalledWith("cmd")` stops matching. A tuple also satisfies
+  // TS2556, which is what an untyped `...args: unknown[]` spread violates.
+  invoke: (...args: [command: string, args?: unknown]) => invokeMock(...args),
 }));
 
-const mockReadTextFile = vi.fn(() => Promise.resolve("# Content"));
+const mockReadTextFile = vi.fn<(path: string) => Promise<string>>(() =>
+  Promise.resolve("# Content"),
+);
 vi.mock("@tauri-apps/plugin-fs", () => ({
-  readTextFile: (...args: unknown[]) => mockReadTextFile(...args),
+  readTextFile: (path: string) => mockReadTextFile(path),
 }));
 
 let mockWindowLabel = "main";
@@ -46,23 +58,29 @@ vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => mockWindowLabel,
 }));
 
-const mockFindExistingTabForPath = vi.fn(() => null);
-const mockGetReplaceableTab = vi.fn(() => null);
+type ReplaceableTab = { tabId: string; filePath: string | null };
+const mockFindExistingTabForPath =
+  vi.fn<(windowLabel: string, path: string) => string | null>(() => null);
+const mockGetReplaceableTab =
+  vi.fn<(windowLabel: string) => ReplaceableTab | null>(() => null);
 vi.mock("@/services/tabs/replaceableTab", () => ({
-  getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
-  findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
+  getReplaceableTab: (windowLabel: string) => mockGetReplaceableTab(windowLabel),
+  findExistingTabForPath: (windowLabel: string, path: string) =>
+    mockFindExistingTabForPath(windowLabel, path),
 }));
 
-const mockOpenWorkspaceWithConfig = vi.fn(() => Promise.resolve());
+const mockOpenWorkspaceWithConfig =
+  vi.fn<(rootPath: string, options?: unknown) => Promise<unknown>>(() => Promise.resolve(null));
 vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
-  openWorkspaceWithConfig: (...args: unknown[]) => mockOpenWorkspaceWithConfig(...args),
+  openWorkspaceWithConfig: (...args: [rootPath: string, options?: unknown]) =>
+    mockOpenWorkspaceWithConfig(...args),
 }));
 
 const mockSetActiveTab = vi.fn();
 const mockCreateTab = vi.fn(() => "new-tab-id");
 const mockUpdateTabPath = vi.fn();
 const mockDetachTab = vi.fn();
-const mockGetActiveTab = vi.fn(() => null);
+const mockGetActiveTab = vi.fn<() => { id: string } | null>(() => null);
 vi.mock("@/stores/tabStore", () => ({
   useTabStore: {
     getState: () => ({
@@ -102,9 +120,17 @@ vi.mock("@/stores/documentStore", () => ({
 }));
 
 const mockAddFile = vi.fn();
+// Configurable, not pinned. This was hardcoded to `rootPath: null`, so the
+// whole suite only ever described a window with NO workspace — and the one
+// state where reusing the untitled tab destroys something (#1330) could not be
+// reached by any test here.
+let mockWorkspaceState: { rootPath: string | null; isWorkspaceMode: boolean } = {
+  rootPath: null,
+  isWorkspaceMode: false,
+};
 vi.mock("@/stores/workspaceStore", () => ({
   useWorkspaceStore: {
-    getState: () => ({ rootPath: null, isWorkspaceMode: false }),
+    getState: () => mockWorkspaceState,
   },
   useRecentFilesStore: {
     getState: () => ({ addFile: mockAddFile }),
@@ -119,9 +145,10 @@ vi.mock("@/utils/paths", () => ({
   isWithinRoot: (_root: string, path: string) => path.startsWith("/workspace/"),
 }));
 
-const mockWaitForRestoreComplete = vi.fn(() => Promise.resolve(true));
+const mockWaitForRestoreComplete =
+  vi.fn<(timeoutMs: number) => Promise<boolean>>(() => Promise.resolve(true));
 vi.mock("@/services/persistence/hotExit/hotExitCoordination", () => ({
-  waitForRestoreComplete: (...args: unknown[]) => mockWaitForRestoreComplete(...args),
+  waitForRestoreComplete: (timeoutMs: number) => mockWaitForRestoreComplete(timeoutMs),
   RESTORE_WAIT_TIMEOUT_MS: 5000,
 }));
 
@@ -146,6 +173,7 @@ describe("useFinderFileOpen", () => {
     mockReadTextFile.mockResolvedValue("# Content");
     mockFindExistingTabForPath.mockReturnValue(null);
     mockGetReplaceableTab.mockReturnValue(null);
+    mockWorkspaceState = { rootPath: null, isWorkspaceMode: false };
   });
 
   it("registers listener and fetches pending files on main window", async () => {
@@ -298,6 +326,75 @@ describe("useFinderFileOpen", () => {
     expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/workspace", {
       windowLabel: "main",
     });
+  });
+
+  // #1330 — the reported scenario, end to end through the real branch resolver
+  // and dispatcher: File → Open Workspace leaves a window with a file tree and
+  // ONE clean untitled tab, and a double-click on a file from another folder
+  // used to consume that tab and re-root the window, so the tree disappeared
+  // with no tab left to navigate back from.
+  it("keeps the open workspace when a file from elsewhere arrives", async () => {
+    mockWorkspaceState = { rootPath: "/workspace", isWorkspaceMode: true };
+    mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab", filePath: null });
+
+    await act(async () => {
+      render(<TestComponent />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      // `isWithinRoot` is mocked to accept only /workspace/*, so this file is
+      // outside the open workspace — the same relation as C:\Users\…\Desktop
+      // against D:\notes in the report.
+      listenHandler!({
+        payload: { path: "/elsewhere/note.md", workspace_root: "/elsewhere" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+    // The untitled tab is left alone too: it was never the window's only claim
+    // on the workspace, but consuming it would still have lost the user's tab.
+    expect(mockUpdateTabPath).not.toHaveBeenCalled();
+    expect(invokeMock).toHaveBeenCalledWith("open_workspace_in_new_window", {
+      workspaceRoot: "/elsewhere",
+      filePath: "/elsewhere/note.md",
+    });
+  });
+
+  it("still reuses the untitled tab for a file inside the open workspace", async () => {
+    // The other half of the guard: the fix must not push same-workspace opens
+    // into a new window. It lands here, and still does not re-root — the
+    // incoming root is the file's PARENT, a subfolder of the workspace.
+    mockWorkspaceState = { rootPath: "/workspace", isWorkspaceMode: true };
+    mockGetReplaceableTab.mockReturnValue({ tabId: "empty-tab", filePath: null });
+
+    await act(async () => {
+      render(<TestComponent />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      listenHandler!({
+        payload: { path: "/workspace/sub/note.md", workspace_root: "/workspace/sub" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+    expect(mockUpdateTabPath).toHaveBeenCalledWith("empty-tab", "/workspace/sub/note.md");
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "open_workspace_in_new_window",
+      expect.anything(),
+    );
   });
 
   it("creates new tab when no replaceable tab and same workspace", async () => {

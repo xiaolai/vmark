@@ -1,8 +1,12 @@
-//! Delivery of macOS Finder hot-open events to one document window.
+//! Delivery of a system file-open to one document window.
 //!
 //! Rust broadcasts the event because the frontend listens through Tauri's
 //! global event API. The payload carries the selected window label so every
 //! other document window can reject the broadcast.
+//!
+//! Reached from macOS `RunEvent::Opened` and from the Windows/Linux
+//! single-instance callback, both via `file_open::route_file_opens` — so this
+//! module is NOT macOS-only, whatever the `[Finder]` log prefixes suggest.
 
 use serde::Serialize;
 use tauri::{Emitter, Manager};

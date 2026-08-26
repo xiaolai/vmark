@@ -173,7 +173,13 @@ describe("resolveOpenAction", () => {
       });
     });
 
-    it("returns replace_tab when file is outside workspace and replaceable tab exists", () => {
+    // #1330 — this used to assert replace_tab, which was the defect: every
+    // in-window action here carries the file's own folder as the new root, so
+    // reusing the untitled tab of a WORKSPACE window replaced the sidebar tree
+    // the user was looking at, leaving no tab to navigate back from. A lone
+    // clean untitled tab describes the TABS; it says nothing about whether the
+    // window owns a workspace, and right after File → Open Workspace it does.
+    it("opens a new window rather than re-rooting a workspace window", () => {
       const context: OpenActionContext = {
         filePath: "/other/folder/file.md",
         workspaceRoot: "/workspace/project",
@@ -185,8 +191,7 @@ describe("resolveOpenAction", () => {
       const result = resolveOpenAction(context);
 
       expect(result).toEqual({
-        action: "replace_tab",
-        tabId: "untitled-tab",
+        action: "open_workspace_in_new_window",
         filePath: "/other/folder/file.md",
         workspaceRoot: "/other/folder",
       });
@@ -252,7 +257,9 @@ describe("resolveOpenAction", () => {
       });
     });
 
-    it("returns create_tab (with resolved workspaceRoot) for file outside workspace when a replaceable tab exists", () => {
+    // #1330 — openInNewTab preserves the empty TAB; it never licensed
+    // re-rooting the window. In a workspace window the new window does both.
+    it("opens a new window for a file outside a workspace window", () => {
       const context: OpenActionContext = {
         filePath: "/other/folder/file.md",
         workspaceRoot: "/workspace/project",
@@ -265,7 +272,7 @@ describe("resolveOpenAction", () => {
       const result = resolveOpenAction(context);
 
       expect(result).toEqual({
-        action: "create_tab",
+        action: "open_workspace_in_new_window",
         filePath: "/other/folder/file.md",
         workspaceRoot: "/other/folder",
       });

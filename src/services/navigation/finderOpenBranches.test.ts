@@ -123,7 +123,7 @@ describe("media never reaches readTextFile", () => {
   });
 
   it("replace branch: a .mp4 replaces the clean tab as media", async () => {
-    const result = await replaceTabWithFile(ctx, { tabId: "t1" } as never, "/w/clip.mp4", null);
+    const result = await replaceTabWithFile(ctx, { tabId: "t1" } as never, "/w/clip.mp4", null, true);
 
     expect(mockReplaceTabWithMediaFile).toHaveBeenCalledWith("t1", "/w/clip.mp4");
     expect(mockLoadFileIntoTab).not.toHaveBeenCalled();
@@ -219,11 +219,37 @@ describe("cancellation", () => {
   it("stops the replace branch after the workspace open", async () => {
     const cancelled: FinderBranchContext = { ...ctx, isCancelled: () => true };
 
-    const result = await replaceTabWithFile(cancelled, { tabId: "t1" } as never, MD, "/w");
+    const result = await replaceTabWithFile(cancelled, { tabId: "t1" } as never, MD, "/w", true);
 
     expect(mockOpenWorkspaceWithConfig).toHaveBeenCalled();
     expect(mockLoadFileIntoTab).not.toHaveBeenCalled();
     expect(result).toBeNull();
+  });
+});
+
+// #1330 — the replace branch is reached for a window that already owns a
+// workspace (rail mode, or a file inside the current root). Adopting the
+// incoming root there re-points the sidebar at the file's folder and the user
+// loses the tree they were looking at, with no tab left to navigate back from.
+describe("replacing the untitled tab does not re-root the window", () => {
+  it("skips the workspace open when the branch says not to adopt", async () => {
+    await replaceTabWithFile(ctx, { tabId: "t1" } as never, MD, "/w/sub", false);
+
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+    expect(mockLoadFileIntoTab).toHaveBeenCalledWith("t1", MD);
+  });
+
+  it("skips it for media too — the short-circuit must not smuggle it back in", async () => {
+    await replaceTabWithFile(ctx, { tabId: "t1" } as never, PNG, "/w/sub", false);
+
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+    expect(mockReplaceTabWithMediaFile).toHaveBeenCalledWith("t1", PNG);
+  });
+
+  it("still adopts when the window has no workspace of its own", async () => {
+    await replaceTabWithFile(ctx, { tabId: "t1" } as never, MD, "/w", true);
+
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/w", { windowLabel: "main" });
   });
 });
 

@@ -67,15 +67,21 @@ export function activateExistingTab(ctx: FinderBranchContext, tabId: string): vo
  * Branch 2 — a single clean untitled tab exists; load into it. On read failure
  * the tab is left untouched, so the user gets their blank tab back.
  *
+ * `adoptWorkspace` is the same guard `createNewTabForFile` carries, and it was
+ * missing here (#1330): this path opened `workspaceRoot` unconditionally, so
+ * reusing the untitled tab of a window that already had a workspace replaced
+ * that window's sidebar tree with the incoming file's folder.
+ *
  * Returns the tab id that received content, or null if nothing landed.
  */
 export async function replaceTabWithFile(
   ctx: FinderBranchContext,
   tab: ReplaceableTabInfo,
   path: string,
-  workspaceRoot: string | null
+  workspaceRoot: string | null,
+  adoptWorkspace: boolean
 ): Promise<string | null> {
-  if (workspaceRoot) {
+  if (adoptWorkspace && workspaceRoot) {
     await openWorkspaceWithConfig(workspaceRoot, { windowLabel: ctx.windowLabel });
   }
   if (ctx.isCancelled()) return null;
