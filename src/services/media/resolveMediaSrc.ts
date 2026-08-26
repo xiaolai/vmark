@@ -6,6 +6,8 @@
  * and relative paths resolved against the active document's directory.
  *
  * Key decisions:
+ *   - The OWNING tab may be passed explicitly; only a caller with no owner
+ *     falls back to the focused tab. A split view has two owners at once.
  *   - Async because relative paths need the document's directory from Tauri path API
  *   - Uses convertFileSrc to turn local file paths into Tauri asset:// protocol URLs
  *   - withMediaReloadKey() appends a version to that URL so a file changed on
@@ -96,11 +98,14 @@ export function getActiveTabIdForCurrentWindow(): string | null {
  *
  * @param src - Raw src from node attributes
  * @param logPrefix - Optional prefix for console warnings (e.g., "[BlockImageView]")
+ * @param ownerTabId - The tab whose document owns this src. Omit only when the
+ *   caller genuinely has no owner (then the focused tab is used).
  * @returns Resolved URL suitable for element src
  */
 export async function resolveMediaSrc(
   src: string,
   logPrefix = "[Media]",
+  ownerTabId?: string,
 ): Promise<string> {
   // An already-usable external URL is returned VERBATIM, ahead of decoding:
   // `%20` is valid in a URL and decoding it to a space would corrupt the
@@ -140,7 +145,13 @@ export async function resolveMediaSrc(
     return "";
   }
 
-  const tabId = getActiveTabIdForCurrentWindow();
+  // The OWNING document decides what a relative path means, not whichever tab
+  // happens to have focus. Falling back to the focused tab kept every caller
+  // that has no owner to offer working exactly as before, but a caller that
+  // knows its document must say so: with two documents open in a split
+  // (#1081), resolving against the focused tab gave the unfocused pane the
+  // other document's directory, and changed its answer as focus moved.
+  const tabId = ownerTabId ?? getActiveTabIdForCurrentWindow();
   const doc = tabId
     ? useDocumentStore.getState().getDocument(tabId)
     : undefined;

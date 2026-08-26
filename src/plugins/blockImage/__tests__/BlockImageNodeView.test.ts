@@ -150,7 +150,7 @@ describe("BlockImageNodeView", () => {
     it("resolves relative src via resolveMediaSrc", () => {
       mockIsExternalUrl.mockReturnValue(false);
       createNodeView({ src: "./images/photo.png" });
-      expect(mockResolveMediaSrc).toHaveBeenCalledWith("./images/photo.png", "[BlockImageView]");
+      expect(mockResolveMediaSrc).toHaveBeenCalledWith("./images/photo.png", "[BlockImageView]", undefined);
     });
 
     it("sets src directly for external URLs", () => {
@@ -270,7 +270,7 @@ describe("BlockImageNodeView", () => {
       vi.clearAllMocks();
 
       nodeView.update(createMockNode({ src: "new.png" }));
-      expect(mockResolveMediaSrc).toHaveBeenCalledWith("new.png", "[BlockImageView]");
+      expect(mockResolveMediaSrc).toHaveBeenCalledWith("new.png", "[BlockImageView]", undefined);
     });
 
     it("does not re-resolve src when it stays the same", () => {

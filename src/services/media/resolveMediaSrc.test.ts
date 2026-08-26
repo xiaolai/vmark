@@ -40,6 +40,7 @@ import {
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
+import { createInitialDocument } from "@/stores/documentStore/documentState";
 
 // Mock getWindowLabel
 vi.mock("@/services/navigation/windowFocus", () => ({
@@ -50,6 +51,50 @@ vi.mock("@/services/navigation/windowFocus", () => ({
 // string, in the wrong order, and anything it failed to classify fell through
 // and was RETURNED UNCHANGED. That last part is what made it a security
 // question rather than a tidiness one.
+// Audit finding #34. Relative media resolved against whichever tab the WINDOW
+// had focused, not against the document the image lives in. With two documents
+// open in a split (#1081), the unfocused pane's images resolved against the
+// other document's directory — and the answer changed as focus moved.
+describe("resolveMediaSrc — resolves against the OWNING document", () => {
+  beforeEach(() => {
+    useTabStore.setState({
+      tabs: {
+        main: [
+          { id: "tab-focused", kind: "document", title: "a.md", filePath: "/docs/a/a.md", isPinned: false, formatId: "markdown" },
+          { id: "tab-other", kind: "document", title: "b.md", filePath: "/notes/b/b.md", isPinned: false, formatId: "markdown" },
+        ],
+      },
+      activeTabId: { main: "tab-focused" },
+      untitledCounter: 0,
+    });
+    useDocumentStore.setState({
+      documents: {
+        "tab-focused": createInitialDocument("", "/docs/a/a.md"),
+        "tab-other": createInitialDocument("", "/notes/b/b.md"),
+      },
+    });
+  });
+
+  it("uses the owning tab's directory, not the focused tab's", async () => {
+    // convertFileSrc percent-encodes, so compare on the decoded URL.
+    const url = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    expect(decodeURIComponent(url)).toContain("/notes/b/pic.png");
+  });
+
+  it("gives the same answer regardless of which tab has focus", async () => {
+    const first = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    useTabStore.setState({ activeTabId: { main: "tab-other" } });
+    const second = await resolveMediaSrc("pic.png", "[t]", "tab-other");
+    expect(second).toBe(first);
+  });
+
+  it("falls back to the focused tab when no owner is supplied", async () => {
+    // The default keeps every existing caller working unchanged.
+    const url = await resolveMediaSrc("pic.png");
+    expect(decodeURIComponent(url)).toContain("/docs/a/pic.png");
+  });
+});
+
 describe("resolveMediaSrc — classification and refusal", () => {
   it.each(ADVERSARIAL_MEDIA_SOURCES)(
     "refuses %s instead of returning it unchanged",

@@ -123,7 +123,7 @@
   "src/plugins/blockAudio/__tests__/blockAudio.test.ts": 1,
   "src/plugins/blockAudio/tiptap.test.ts": 22,
   "src/plugins/blockImage/__tests__/BlockImageNodeView.test.ts": 5,
-  "src/plugins/blockImage/tiptap.test.ts": 22,
+  "src/plugins/blockImage/tiptap.test.ts": 20,
   "src/plugins/blockVideo/__tests__/BlockVideoNodeView.test.ts": 7,
   "src/plugins/blockVideo/__tests__/blockVideo.test.ts": 1,
   "src/plugins/blockVideo/tiptap.test.ts": 26,

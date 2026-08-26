@@ -26,4 +26,29 @@ describe("WI-3.4 — WYSIWYG composition order", () => {
   it("composition throws nothing — every canonical id maps to a real extension", () => {
     expect(() => createTiptapExtensions({ tabId: "tab-1" })).not.toThrow();
   });
+
+  // Audit finding #34. The media node views resolve a relative `src` against a
+  // DOCUMENT's directory, and they learn which document from this option. If
+  // the wiring is dropped they silently fall back to the focused tab, which is
+  // right often enough that nothing looks broken until two documents are open
+  // in a split — so the wiring needs an assertion of its own, not just working
+  // node views. Deleting the `.configure(...)` calls left every other test in
+  // this suite green.
+  it.each(["block_image", "block_video", "block_audio"])(
+    "configures %s with the owning tab",
+    (name) => {
+      const ext = createTiptapExtensions({ tabId: "tab-owner" }).find((e) => e.name === name);
+      expect(ext, `${name} is not registered`).toBeDefined();
+      expect((ext?.options as { ownerTabId?: string } | undefined)?.ownerTabId).toBe("tab-owner");
+    },
+  );
+
+  it.each(["block_image", "block_video", "block_audio"])(
+    "leaves %s without an owner when the editor has no tab",
+    (name) => {
+      // A preview with no tab behind it: the focused-tab fallback is correct.
+      const ext = createTiptapExtensions().find((e) => e.name === name);
+      expect((ext?.options as { ownerTabId?: string } | undefined)?.ownerTabId).toBeUndefined();
+    },
+  );
 });

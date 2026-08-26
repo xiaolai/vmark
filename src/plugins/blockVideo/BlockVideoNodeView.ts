@@ -8,6 +8,9 @@
  *         → resolveMediaSrc resolves path → video element displays
  *
  * Key decisions:
+ *   - The owning tab arrives from the extension option and is handed to
+ *     `resolveMediaSrc`, so a relative `src` resolves against this
+ *     document rather than whichever tab has focus when the node renders.
  *   - Video src resolution delegated to shared resolveMediaSrc utility
  *   - Uses `loadedmetadata` event instead of `load` (video loads metadata first)
  *   - Security: relative paths validated against directory traversal attacks
@@ -48,13 +51,21 @@ export class BlockVideoNodeView implements NodeView {
   private originalSrc: string;
   private getPos: () => number | undefined;
   private editor: Editor;
+  /** Whose document this node belongs to — see the extension option. */
+  private ownerTabId: string | undefined;
   private resolveRequestId = 0;
   private destroyed = false;
   private cleanupHandlers: (() => void) | null = null;
 
-  constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
+  constructor(
+    node: PMNode,
+    getPos: () => number | undefined,
+    editor: Editor,
+    ownerTabId?: string,
+  ) {
     this.getPos = getPos;
     this.editor = editor;
+    this.ownerTabId = ownerTabId;
     this.originalSrc = String(node.attrs.src ?? "");
 
     this.dom = document.createElement("figure");
@@ -130,7 +141,7 @@ export class BlockVideoNodeView implements NodeView {
     this.video.src = "";
     this.dom.classList.add(VIDEO_LOAD_CONFIG.loadingClass);
 
-    resolveMediaSrc(src, "[BlockVideoView]")
+    resolveMediaSrc(src, "[BlockVideoView]", this.ownerTabId)
       .then((resolvedSrc) => {
         if (this.destroyed || requestId !== this.resolveRequestId) return;
         if (!resolvedSrc) {

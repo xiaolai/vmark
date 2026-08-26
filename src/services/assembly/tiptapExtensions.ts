@@ -5,6 +5,9 @@
  * nodes, media, plugins. Settings reach a plugin as an injected getter (ADR-015).
  *
  * Key decisions:
+ *   - Per-editor options (`tabId`) are how a plugin learns which document it
+ *     belongs to; the block-media group is configured in
+ *     `blockMediaExtensions.ts`.
  *   - StarterKit is the base, with several nodes overridden (heading, paragraph,
  *     codeBlock, etc.) to add sourceLine attributes; loaded eagerly (WYSIWYG is
  *     the default mode)
@@ -62,9 +65,6 @@ import { focusModeExtension } from "@/plugins/focusMode/tiptap";
 import { focusModeHostOptions, typewriterModeHostOptions } from "./uiToggleOptions";
 import { typewriterModeExtension } from "@/plugins/typewriterMode/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
-import { blockImageExtension } from "@/plugins/blockImage/tiptap";
-import { blockVideoExtension } from "@/plugins/blockVideo/tiptap";
-import { blockAudioExtension } from "@/plugins/blockAudio/tiptap";
 import { videoEmbedExtension } from "@/plugins/videoEmbed/tiptap";
 import { mediaPopupExtension } from "@/plugins/mediaPopup/tiptap";
 import { mediaHandlerExtension } from "@/plugins/mediaHandler/tiptap";
@@ -118,6 +118,7 @@ import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
 import { resolveExtensions } from "@/lib/extensions/resolve";
 import { deriveAfterConstraints, assertCanonicalCoverage, orderingSlice } from "./extensionOrdering";
 import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
+import { blockMediaExtensions } from "./blockMediaExtensions";
 import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
@@ -202,9 +203,7 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     editorContextMenuExtension,
     blockEscapeExtension,
     compositionGuardExtension,
-    blockImageExtension,
-    blockVideoExtension,
-    blockAudioExtension,
+    ...blockMediaExtensions(tabId),
     videoEmbedExtension,
     imageViewExtension,
     inlineNodeEditingExtension,

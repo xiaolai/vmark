@@ -4,8 +4,13 @@
  * Purpose: Custom ProseMirror NodeView for block_audio nodes — handles async audio
  * src resolution, double-click-to-popup, and loading/error states.
  *
+ * Key decisions:
+ *   - The owning tab arrives from the extension option and is handed to
+ *     `resolveMediaSrc`, so a relative `src` resolves against this document
+ *     rather than whichever tab has focus when the node renders.
+ *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_audio node type
- * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
+ * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockAudio/BlockAudioNodeView
  */
@@ -37,13 +42,21 @@ export class BlockAudioNodeView implements NodeView {
   private originalSrc: string;
   private getPos: () => number | undefined;
   private editor: Editor;
+  /** Whose document this node belongs to — see the extension option. */
+  private ownerTabId: string | undefined;
   private resolveRequestId = 0;
   private destroyed = false;
   private cleanupHandlers: (() => void) | null = null;
 
-  constructor(node: PMNode, getPos: () => number | undefined, editor: Editor) {
+  constructor(
+    node: PMNode,
+    getPos: () => number | undefined,
+    editor: Editor,
+    ownerTabId?: string,
+  ) {
     this.getPos = getPos;
     this.editor = editor;
+    this.ownerTabId = ownerTabId;
     this.originalSrc = String(node.attrs.src ?? "");
 
     this.dom = document.createElement("figure");
@@ -110,7 +123,7 @@ export class BlockAudioNodeView implements NodeView {
     this.audio.src = "";
     this.dom.classList.add(AUDIO_LOAD_CONFIG.loadingClass);
 
-    resolveMediaSrc(src, "[BlockAudioView]")
+    resolveMediaSrc(src, "[BlockAudioView]", this.ownerTabId)
       .then((resolvedSrc) => {
         if (this.destroyed || requestId !== this.resolveRequestId) return;
         if (!resolvedSrc) {

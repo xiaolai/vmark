@@ -417,19 +417,37 @@ describe("blockImageExtension", () => {
 
     it("creates BlockImageNodeView with function getPos", () => {
       MockBlockImageNodeView.mockClear();
-      const factory = blockImageExtension.config.addNodeView!.call({} as never);
+      const factory = blockImageExtension.config.addNodeView!.call({ options: { ownerTabId: undefined } } as never)!;
       const mockNode = { type: { name: "block_image" } };
       const mockGetPos = vi.fn(() => 5);
       const mockEditor = { view: {} };
 
       factory({ node: mockNode, getPos: mockGetPos, editor: mockEditor } as never);
 
-      expect(MockBlockImageNodeView).toHaveBeenCalledWith(mockNode, mockGetPos, mockEditor);
+      expect(MockBlockImageNodeView).toHaveBeenCalledWith(mockNode, mockGetPos, mockEditor, undefined);
+    });
+
+    it("passes the configured owner tab to the node view", () => {
+      // The whole point of the option: a relative `src` must resolve against
+      // the document that owns the node, not the focused tab.
+      MockBlockImageNodeView.mockClear();
+      const factory = blockImageExtension.config.addNodeView!.call({
+        options: { ownerTabId: "tab-owner" },
+      } as never)!;
+      const mockNode = { type: { name: "block_image" } };
+      const mockGetPos = vi.fn(() => 5);
+      const mockEditor = { view: {} };
+
+      factory({ node: mockNode, getPos: mockGetPos, editor: mockEditor } as never);
+
+      expect(MockBlockImageNodeView).toHaveBeenCalledWith(
+        mockNode, mockGetPos, mockEditor, "tab-owner",
+      );
     });
 
     it("wraps non-function getPos with fallback returning undefined", () => {
       MockBlockImageNodeView.mockClear();
-      const factory = blockImageExtension.config.addNodeView!.call({} as never);
+      const factory = blockImageExtension.config.addNodeView!.call({ options: { ownerTabId: undefined } } as never)!;
       const mockNode = { type: { name: "block_image" } };
       const mockEditor = { view: {} };
 
