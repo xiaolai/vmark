@@ -22,6 +22,11 @@
  * the frame is running — a remount, or a file trusted earlier in the session —
  * it says so rather than claiming currency. It still does not act.
  *
+ * This file renders those two modes. The trust lifecycle behind them — what
+ * the frame is running, whether that is stale, and the guarded Enable / Reload
+ * / Revoke actions — is `useHtmlTrust`.
+ *
+ * @coordinates-with useHtmlTrust.ts — the trust lifecycle
  * @module lib/formats/adapters/HtmlPreview
  */
 

@@ -10,6 +10,11 @@
  * top of the implementation.
  *
  * Key decisions:
+ *   - `setContent` is GONE. It was a one-line delegation to
+ *     `setEditorContent` that only tests called — a deprecated API kept alive
+ *     by its own suite. `externalWriterGate.test.ts` now asserts it does not
+ *     exist, which its "nothing calls it" regex could not: a destructured
+ *     `const { setContent } = …getState()` carries no `.setContent(` to match.
  *   - Documents are handed out READONLY. Every content change has to go through
  *     an action, because that is where the revision bump lives; a direct
  *     `doc.content = …` would move what an MCP client reads while leaving its

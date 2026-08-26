@@ -10,17 +10,15 @@
 // Public contract: <MediaView path={absolutePath} reloadKey={n?} />
 //
 // Key decisions:
-//   - `reloadKey` rides in the URL, because that is the only thing a media
-//     element reacts to: an unchanged `src` never refetches, and the webview
-//     serves even a brand-new element from cache (issue #1328). Optional and
-//     0-defaulted so the overlay entry points, which have no document to
-//     watch, produce byte-identical URLs to before.
-//   - Load errors are keyed by path AND version, so a corrupt file that was
-//     rewritten correctly gets a fresh attempt instead of staying pinned to
-//     the fallback panel for the life of the tab.
+//   - This file is RENDER ONLY: three media branches, a loading slot, and the
+//     fallback panel. The asset-grant lifecycle, the per-attempt error keying
+//     and the cache-busting URL live in `useMediaAsset` — none of that is
+//     about rendering, and all of it is subtle.
+//   - `reloadKey` is optional and 0-defaulted, so the overlay entry points,
+//     which have no document to watch, produce byte-identical URLs to before.
 //
+// @coordinates-with useMediaAsset.ts — the grant lifecycle and the asset URL
 // @coordinates-with utils/mediaPathDetection.ts — getMediaType()
-// @coordinates-with services/media/resolveMediaSrc.ts — normalizePathForAsset(), withMediaReloadKey()
 // @coordinates-with components/Editor/MediaViewer/MediaViewer.tsx — supplies reloadKey from documentId
 // @module components/Editor/MediaView/MediaView
 

@@ -1,17 +1,19 @@
 /**
  * External File Changes Hook
  *
- * Purpose: Detects and responds to filesystem changes on open documents —
- *   auto-reloads clean docs, prompts for dirty docs, marks deleted files.
- *   Owns the per-tab REACTION POLICY only; the batching state machine and the
- *   single-file resolution dialog are separate, directly testable modules.
+ * Purpose: WIRE the window's fs-event subscription to the per-tab reaction —
+ *   subscribe, serialize the batches, and hold the debounced conflict queue.
+ *   Every decision it dispatches lives in a directly-testable module: the
+ *   reaction policy in `applyModifyPolicy`, the batching state machine in
+ *   `externalChangeBatchQueue`, the dialogs in `resolveDirtyBatch`, and the
+ *   per-kind routing in `fsChangeHandlers`.
  *
  * Key decisions:
  *   - Clean docs auto-reload silently; dirty docs batch into one dialog
  *   - matchesPendingSave() filters out our own saves echoing back
  *   - Rename/`remove` verify existence before marking deleted — Windows atomic
  *     saves (MoveFileEx) and sync daemons fire spurious events for files that
- *     still exist (issue 995); handleModifyEvent() is shared by both paths
+ *     still exist (issue 995); applyModifyPolicy() is shared by both paths
  *   - Media tabs (png/mp4/…) are never UTF-8-read: remove/rename existence-probe
  *     only. A media create/modify bumps `documentId` (and a `create` also clears
  *     isMissing) so MediaView re-fetches — the asset URL alone cannot do it,
@@ -29,6 +31,7 @@
  * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
  * @coordinates-with services/windowClose/fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
+ * @coordinates-with services/files/applyModifyPolicy.ts — the reaction policy for changed bytes
  * @coordinates-with services/files/resolveDirtyBatch.ts — revalidates a batch, then runs the one-file or bulk dialog
  * @coordinates-with externalChangeBatchQueue.ts — the debounce/requeue/single-timer rules
  * @coordinates-with services/persistence/resolveDirtyFileChange.ts — the 3-option dialog

@@ -8,6 +8,13 @@
  *   collaborators (store mutators, disk reads, pending-save guards) and these
  *   functions own only the control flow.
  *
+ * Key decisions:
+ *   - `handleSemanticBatch` dispatches, and nothing else. Renames go through
+ *     `dispatchRenames` (fresh path map per rename, pairs before singletons)
+ *     and a media create/modify through `handleMediaChangeEvent` (never reads
+ *     the file — it could be a multi-GB video). Both carry the reasoning that
+ *     made them separate.
+ *
  * @coordinates-with useExternalFileChanges.ts — sole caller; builds the context
  * @coordinates-with services/workspaceEvents — handleSemanticBatch consumes its SemanticWorkspaceEvent
  * @coordinates-with services/windowClose/fsChangeContext.ts — the injected collaborator contract
