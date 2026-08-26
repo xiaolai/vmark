@@ -261,9 +261,13 @@ export function useExternalFileChanges(): void {
 
     return () => {
       unsubscribe();
-      // One cancel is enough: the queue guarantees a single live timer, which
-      // the two-path inline version did not.
-      queueRef.current?.cancel();
+      // DISPOSE, not cancel. Cancelling clears the timer but cannot reach a
+      // batch already in flight, and that batch re-schedules from its own
+      // `finally` — so a resolution dialog open at unmount re-armed a timer
+      // after cleanup had cancelled one, and it fired into a torn-down hook.
+      // `dispose()` latches, so a late completion finds the queue closed.
+      queueRef.current?.dispose();
+      queueRef.current = null;
     };
   }, [windowLabel, getOpenFilePaths, handleDeletion, handleModifyEvent, applyRename]);
 }
