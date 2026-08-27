@@ -75,6 +75,12 @@ function routeRailMode(context: OpenActionContext): OpenActionResult {
  * means the user's sidebar tree is replaced by the opened file's folder
  * (#1330). A window is not free just because its only tab is untitled: that is
  * exactly the state right after File → Open Workspace.
+ *
+ * Two shapes of window can take the file: one holding a single clean untitled
+ * tab (`replaceableTab` → replace it) and one holding NOTHING, the Welcome
+ * screen (`windowIsEmpty` → add a tab). The second is not a special case of the
+ * first — with zero tabs there is no id to replace — which is why it needs its
+ * own signal (#1331).
  */
 function routeExternalFile(context: OpenActionContext): OpenActionResult {
   const newWorkspaceRoot = resolveWorkspaceRootForExternalFile(context.filePath);
@@ -83,6 +89,20 @@ function routeExternalFile(context: OpenActionContext): OpenActionResult {
   }
 
   const windowOwnsWorkspace = Boolean(context.isWorkspaceMode && context.workspaceRoot);
+
+  // fix(#1331) — an empty window is showing the Welcome screen. It has no tab
+  // to replace, but nothing to preserve either, so it takes the file rather
+  // than spawning a second window and leaving this one empty. `openInNewTab`
+  // has nothing to say here: that preference protects an existing clean tab,
+  // and there is none.
+  //
+  // Gated on workspace ownership for the same reason as the branches below —
+  // the action carries the file's own folder as the new root, so reusing a
+  // workspace window replaces the sidebar tree (#1330), which on the Welcome
+  // screen is the only thing left on screen.
+  if (context.windowIsEmpty && !windowOwnsWorkspace) {
+    return { action: "create_tab", filePath: context.filePath, workspaceRoot: newWorkspaceRoot };
+  }
 
   // fix(#946) — with "open in new tab" enabled, an external file that would
   // otherwise replace the clean untitled tab opens as a new tab instead, so the

@@ -14,7 +14,7 @@ import {
   isSupportedFileName,
 } from "@/utils/dropPaths";
 import { resolveOpenAction, resolveWorkspaceRootForExternalFile } from "@/utils/openPolicy";
-import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
+import { getReplaceableTab, findExistingTabForPath, isWindowEmpty } from "@/services/tabs/replaceableTab";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { replaceTabWithFile, type ReplaceTabResult } from "@/services/navigation/fileOpen";
 import { safeUnlisten } from "@/utils/safeUnlisten";
@@ -23,6 +23,26 @@ import { getFileName } from "@/utils/pathUtils";
 import { openDroppedFileInNewTab } from "@/services/navigation/dragDropOpenFile";
 import { openDroppedPathsInLegacyWindows } from "@/services/navigation/dragDropLegacyWindows";
 import { voidAsync } from "@/utils/voidAsync";
+
+/**
+ * Claim the resolved workspace for a dropped file before its tab is created.
+ *
+ * Mirrors `executeOpenDecision`'s create_tab branch: the file opens either way
+ * — the user asked for the file, not the workspace — but a silent failure
+ * leaves it owned by the WRONG context with no sign anything went wrong.
+ */
+async function adoptWorkspaceForDroppedFile(
+  windowLabel: string,
+  workspaceRoot: string | null | undefined,
+): Promise<void> {
+  if (!workspaceRoot) return;
+  try {
+    await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
+  } catch (error) {
+    dragDropError("Failed to open workspace for dropped file:", workspaceRoot, error);
+    toast.warning(i18n.t("dialog:toast.openWorkspaceForFileFailed"), { pin: true });
+  }
+}
 
 /** Surface a drag-drop replace-tab read failure (cancellations stay silent). */
 function reportReplaceFailure(result: ReplaceTabResult, path: string): void {
@@ -151,6 +171,10 @@ export function useDragDropOpen(): void {
             existingTabId,
             replaceableTab,
             workspaceRailMode,
+            // fix(#1331) — read LIVE, not once before the loop: a window that
+            // was empty when the drop arrived stops being empty as soon as the
+            // first file lands, and only the first file may claim it.
+            windowIsEmpty: isWindowEmpty(windowLabel),
           });
 
           switch (decision.action) {
@@ -158,6 +182,10 @@ export function useDragDropOpen(): void {
               useTabStore.getState().setActiveTab(windowLabel, decision.tabId);
               break;
             case "create_tab":
+              // An external file landing in this window carries its own
+              // resolved root (#946/#1331); claim that workspace first, or the
+              // file is owned by whatever context the window had before.
+              await adoptWorkspaceForDroppedFile(windowLabel, decision.workspaceRoot);
               await openDroppedFileInNewTab(windowLabel, path);
               break;
             case "replace_tab": {

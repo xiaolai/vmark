@@ -22,7 +22,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
-import { getReplaceableTab } from "@/services/tabs/replaceableTab";
+import { getReplaceableTab, isWindowEmpty } from "@/services/tabs/replaceableTab";
 import { openFileInNewTabCore, replaceTabWithFile } from "@/services/navigation/fileOpen";
 import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
 import { menuError } from "@/utils/debug";
@@ -163,6 +163,9 @@ export function registerRecentFilesCommands(): void {
       const { openInNewTab, workspaceRailMode } = useSettingsStore.getState().general;
       const existingTab = useTabStore.getState().findTabByPath(windowLabel, filePath);
       const replaceableTab = getReplaceableTab(windowLabel);
+      // fix(#1331) — the Welcome screen's recent list runs this command, and a
+      // window with zero tabs has no replaceable tab to offer.
+      const windowIsEmpty = isWindowEmpty(windowLabel);
 
       const result = resolveOpenAction({
         filePath,
@@ -172,6 +175,7 @@ export function registerRecentFilesCommands(): void {
         replaceableTab,
         openInNewTab,
         workspaceRailMode,
+        windowIsEmpty,
       });
 
       await withReentryGuard(windowLabel, "open-recent", async () => {

@@ -32,6 +32,11 @@
  *     a rename is in flight, because disabling the input blurs it.
  *   - The typed name is submitted VERBATIM. Trimming first made a file named
  *     " spaced .md" look changed the instant you confirmed it unedited.
+ *   - With NO tab open the strip names the app, not a document (#1331). It read
+ *     "Untitled" — a document that does not exist — and its double-click
+ *     affordance fired a save for nothing. The preference still governs the
+ *     strip: "no document" is no reason to override a title bar the user asked
+ *     to keep clean.
  *
  * @coordinates-with useTitleBarRename.ts — performs the actual file rename via Tauri fs
  * @module components/TitleBar/TitleBar
@@ -40,12 +45,13 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from "react"
 import { useTranslation } from "react-i18next";
 import { emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { useDocumentFilePath, useDocumentIsDirty, useDocumentIsMissing, useActiveTabId } from "@/hooks/useDocumentState";
+import { useDocumentFilePath, useDocumentIsDirty, useDocumentIsMissing, useActiveTabId, useHasActiveTab } from "@/hooks/useDocumentState";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTitleBarRename } from "./useTitleBarRename";
 import { getFileName } from "@/utils/pathUtils";
 import { formatFileDisplayName } from "@/utils/displayFileName";
+import { APP_NAME } from "@/utils/appName";
 import "./title-bar.css";
 import { titleBarWarn } from "@/utils/debug";
 
@@ -89,6 +95,7 @@ function DocumentTitleBar() {
   const isDirty = useDocumentIsDirty();
   const isMissing = useDocumentIsMissing();
   const activeTabId = useActiveTabId();
+  const hasActiveTab = useHasActiveTab();
   const { renameFile, isRenaming } = useTitleBarRename();
   const showFilename = useSettingsStore((state) => state.appearance.showFilenameInTitlebar ?? false);
   const showExtensions = useSettingsStore((state) => state.general.showFileExtensions ?? true);
@@ -177,6 +184,20 @@ function DocumentTitleBar() {
     return (
       <TitleBarBanner>
         <div className="title-bar-content" data-tauri-drag-region />
+      </TitleBarBanner>
+    );
+  }
+
+  // #1331 — no tab: the Welcome screen is showing, so this window is the app
+  // rather than a document. Inert by construction — no dirty dot, no missing
+  // warning, no double-click handler, because there is no file for any of them
+  // to refer to.
+  if (!hasActiveTab) {
+    return (
+      <TitleBarBanner>
+        <div className="title-bar-content" data-tauri-drag-region>
+          <span className="title-bar-filename">{APP_NAME}</span>
+        </div>
       </TitleBarBanner>
     );
   }

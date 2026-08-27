@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const mocks = vi.hoisted(() => ({
   filePath: "/tmp/notes.md" as string | null,
   isRenaming: false,
+  hasActiveTab: true,
 }));
 
 vi.mock("@/hooks/useDocumentState", () => ({
@@ -22,6 +23,7 @@ vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentIsDirty: () => false,
   useDocumentIsMissing: () => false,
   useActiveTabId: () => "tab-1",
+  useHasActiveTab: () => mocks.hasActiveTab,
 }));
 
 const mockRenameFile = vi.fn().mockResolvedValue(true);
@@ -50,6 +52,12 @@ function setShowExtensions(value: boolean) {
   }));
 }
 
+function setShowFilename(value: boolean) {
+  useSettingsStore.setState((s) => ({
+    appearance: { ...s.appearance, showFilenameInTitlebar: value },
+  }));
+}
+
 beforeEach(() => {
   // Without this the rename assertions below match a CALL FROM AN EARLIER
   // TEST and pass vacuously — which is how the first draft of this suite
@@ -58,6 +66,7 @@ beforeEach(() => {
   mockRenameFile.mockResolvedValue(true);
   mocks.filePath = "/tmp/notes.md";
   mocks.isRenaming = false;
+  mocks.hasActiveTab = true;
   setShowExtensions(true);
   useTabStore.setState({ tabs: { main: [untitledTab] }, activeTabId: { main: "tab-1" } });
 });
@@ -189,5 +198,48 @@ describe("TitleBar — rename honours the extension policy it opened with", () =
     expect(mockRenameFile).toHaveBeenCalledWith("/tmp/notes.md", "notes", {
       preserveExtension: false,
     });
+  });
+});
+
+// #1331 — the strip is the visible title bar on macOS, and with the last tab
+// closed it read "Untitled": a document that does not exist, whose double-click
+// affordance fired a save for nothing.
+describe("TitleBar with no document open (WelcomeScreen)", () => {
+  beforeEach(() => {
+    mocks.hasActiveTab = false;
+    mocks.filePath = null;
+    setShowFilename(true);
+  });
+
+  it("shows the product name instead of the untitled label", () => {
+    render(<TitleBar />);
+    expect(screen.getByText("VMark")).toBeInTheDocument();
+    expect(screen.queryByText("Untitled")).not.toBeInTheDocument();
+  });
+
+  it("offers no rename affordance — there is nothing to rename", async () => {
+    const user = userEvent.setup();
+    render(<TitleBar />);
+
+    await user.dblClick(screen.getByText("VMark"));
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(mockRenameFile).not.toHaveBeenCalled();
+  });
+
+  // The macOS-only preference governs this strip; "no document" is no reason
+  // to override it.
+  it("stays empty when the filename is not shown", () => {
+    setShowFilename(false);
+    render(<TitleBar />);
+    expect(screen.queryByText("VMark")).not.toBeInTheDocument();
+  });
+
+  // Browser mode owns the whole strip and never falls through to the document
+  // variant, tab or no tab.
+  it("still yields the strip to the browser chrome", () => {
+    render(<TitleBar browserChrome={<div>chrome</div>} />);
+    expect(screen.getByText("chrome")).toBeInTheDocument();
+    expect(screen.queryByText("VMark")).not.toBeInTheDocument();
   });
 });

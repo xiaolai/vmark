@@ -13,12 +13,16 @@
  *     title bar is visible and is the only place a filename can appear, so
  *     showing it is not a preference — clearing it just left the window blank
  *     (#1296).
- *   - The unsaved-document fallback label is passed IN, so it can be
- *     translated: off macOS it is on screen for every unsaved document.
- *   - Reacts to filePath, isDirty, and setting changes
+ *   - The no-filename fallback label is passed IN, so the caller decides what
+ *     a window with no filename is called. Two things are: an unsaved document
+ *     (the translated "Untitled") and a window with NO document at all — the
+ *     WelcomeScreen, which is the app, not a document, and says so with the
+ *     product name (#1331). A null `filePath` alone cannot tell them apart, so
+ *     the hook asks the tab store instead of guessing.
+ *   - Reacts to filePath, isDirty, tab presence, and setting changes
  *
  * @coordinates-with settingsStore.ts — reads appearance.showFilenameInTitlebar
- * @coordinates-with useDocumentState.ts — reads filePath and isDirty
+ * @coordinates-with useDocumentState.ts — reads filePath, isDirty, tab presence
  * @coordinates-with utils/platform.ts — usesOverlayTitleBar decides whose title this is
  * @module hooks/useWindowTitle
  */
@@ -26,19 +30,20 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useDocumentFilePath, useDocumentIsDirty } from "./useDocumentState";
+import { useDocumentFilePath, useDocumentIsDirty, useHasActiveTab } from "./useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { getFileName, getFileNameWithoutExtension } from "@/utils/pathUtils";
 import { usesOverlayTitleBar } from "@/utils/platform";
 import { titleBarWarn } from "@/utils/debug";
+import { APP_NAME } from "@/utils/appName";
 
 // ---------------------------------------------------------------------------
 // Pure formatting functions — exported for testing, no DOM access
 // ---------------------------------------------------------------------------
 
 /** The document's display name, or the caller's label when there is no file. */
-function fileNameOr(untitledLabel: string, filePath: string | null | undefined): string {
-  return filePath ? getFileName(filePath) || untitledLabel : untitledLabel;
+function fileNameOr(fallbackLabel: string, filePath: string | null | undefined): string {
+  return filePath ? getFileName(filePath) || fallbackLabel : fallbackLabel;
 }
 
 /** Format the native window title from document state. Pure — no DOM access. */
@@ -46,11 +51,11 @@ export function formatWindowTitle(
   filePath: string | null | undefined,
   isDirty: boolean,
   showFilename: boolean,
-  untitledLabel: string
+  fallbackLabel: string
 ): string {
   if (!showFilename) return "";
   const dirtyIndicator = isDirty ? "• " : "";
-  return `${dirtyIndicator}${fileNameOr(untitledLabel, filePath)}`;
+  return `${dirtyIndicator}${fileNameOr(fallbackLabel, filePath)}`;
 }
 
 /**
@@ -62,9 +67,9 @@ export function formatWindowTitle(
  */
 export function formatDocumentTitle(
   filePath: string | null | undefined,
-  untitledLabel: string
+  fallbackLabel: string
 ): string {
-  return getFileNameWithoutExtension(fileNameOr(untitledLabel, filePath));
+  return getFileNameWithoutExtension(fileNameOr(fallbackLabel, filePath));
 }
 
 // ---------------------------------------------------------------------------
@@ -76,23 +81,29 @@ export function useWindowTitle() {
   const { t } = useTranslation("common");
   const filePath = useDocumentFilePath();
   const isDirty = useDocumentIsDirty();
+  const hasActiveTab = useHasActiveTab();
   // Default to false for undefined (localStorage migration)
   const setting = useSettingsStore((state) => state.appearance.showFilenameInTitlebar ?? false);
   // The setting speaks for the app's own chrome strip, which exists only where
   // that strip covers the native title bar. See the header note.
   const showFilename = usesOverlayTitleBar() ? setting : true;
-  const untitled = t("untitled");
+  // #1331 — with no tab there is no document, so the untitled label would name
+  // one that does not exist. The window is the app itself; call it that. Both
+  // states reach the formatter as "the label for a window with no filename",
+  // and neither carries a dirty flag, because neither has a buffer to dirty.
+  const fallbackLabel = hasActiveTab ? t("untitled") : APP_NAME;
+  const dirty = hasActiveTab && isDirty;
 
   useEffect(() => {
     const updateTitle = async () => {
       const window = getCurrentWebviewWindow();
 
-      document.title = formatDocumentTitle(filePath, untitled);
+      document.title = formatDocumentTitle(filePath, fallbackLabel);
 
-      const title = formatWindowTitle(filePath, isDirty, showFilename, untitled);
+      const title = formatWindowTitle(filePath, dirty, showFilename, fallbackLabel);
       await window.setTitle(title);
     };
 
     void updateTitle().catch((e) => titleBarWarn("Failed to set window title:", e));
-  }, [filePath, isDirty, showFilename, untitled]);
+  }, [filePath, dirty, showFilename, fallbackLabel]);
 }

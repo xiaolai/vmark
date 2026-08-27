@@ -15,6 +15,7 @@ vi.mock("@/contexts/WindowContext", () => ({
 
 import {
   useActiveTabId,
+  useHasActiveTab,
   useDocumentContent,
   useDocumentFilePath,
   useDocumentIsDirty,
@@ -47,6 +48,56 @@ describe("useActiveTabId", () => {
     const tabId = useTabStore.getState().createTab(WINDOW, "/test.md");
     const { result } = renderHook(() => useActiveTabId());
     expect(result.current).toBe(tabId);
+  });
+});
+
+// #1331 — a null filePath means "untitled document" OR "no document at all",
+// and the window title used to conflate them. This is the signal that tells
+// them apart, and it must also survive a STALE active id — the state Editor
+// already fails closed on.
+describe("useHasActiveTab", () => {
+  beforeEach(resetStores);
+
+  it("is false when the window has no active tab", () => {
+    const { result } = renderHook(() => useHasActiveTab());
+    expect(result.current).toBe(false);
+  });
+
+  it("is true when a tab is active", () => {
+    useTabStore.getState().createTab(WINDOW, "/test.md");
+    const { result } = renderHook(() => useHasActiveTab());
+    expect(result.current).toBe(true);
+  });
+
+  it("is true for an untitled tab — an unsaved document is still a document", () => {
+    useTabStore.getState().createTab(WINDOW, null);
+    const { result } = renderHook(() => useHasActiveTab());
+    expect(result.current).toBe(true);
+  });
+
+  it("is false when the active id names a tab that no longer exists", () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/test.md");
+    // Leave the id behind but drop the tab, the shape a tab transfer or a
+    // hot-exit restore can leave.
+    act(() => {
+      useTabStore.setState((state) => ({
+        tabs: { ...state.tabs, [WINDOW]: [] },
+        activeTabId: { ...state.activeTabId, [WINDOW]: tabId },
+      }));
+    });
+    const { result } = renderHook(() => useHasActiveTab());
+    expect(result.current).toBe(false);
+  });
+
+  it("follows the window as its last tab closes", () => {
+    const tabId = useTabStore.getState().createTab(WINDOW, "/test.md");
+    const { result } = renderHook(() => useHasActiveTab());
+    expect(result.current).toBe(true);
+
+    act(() => {
+      useTabStore.getState().closeTab(WINDOW, tabId);
+    });
+    expect(result.current).toBe(false);
   });
 });
 

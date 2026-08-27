@@ -57,9 +57,11 @@ vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
 
 const mockGetReplaceableTab = vi.fn(() => null);
 const mockFindExistingTabForPath = vi.fn(() => null);
+const mockIsWindowEmpty = vi.fn<(windowLabel: string) => boolean>(() => false);
 vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...args: unknown[]) => mockGetReplaceableTab(...args),
   findExistingTabForPath: (...args: unknown[]) => mockFindExistingTabForPath(...args),
+  isWindowEmpty: (windowLabel: string) => mockIsWindowEmpty(windowLabel),
 }));
 
 const mockCreateUntitledTab = vi.fn();
@@ -498,6 +500,40 @@ describe("handleOpen — dialog and routing", () => {
     );
 
     useSettingsStore.getState().updateGeneralSetting("openInNewTab", false);
+  });
+
+  // fix(#1331) — the Welcome screen is a window with zero tabs. Without this
+  // signal the policy saw "no replaceable tab" and opened a NEW window, leaving
+  // the window the user pressed Open File in still empty.
+  it("passes windowIsEmpty into resolveOpenAction", async () => {
+    mockOpen.mockResolvedValue("/docs/welcome.md");
+    mockFindExistingTabForPath.mockReturnValue(null);
+    mockIsWindowEmpty.mockReturnValue(true);
+    mockResolveOpenAction.mockReturnValue({ action: "create_tab" });
+    mockReadTextFile.mockResolvedValue("# Welcome");
+
+    const { handleOpen } = await import("./fileOpen");
+    await handleOpen(WINDOW);
+
+    expect(mockIsWindowEmpty).toHaveBeenCalledWith(WINDOW);
+    expect(mockResolveOpenAction).toHaveBeenCalledWith(
+      expect.objectContaining({ windowIsEmpty: true })
+    );
+  });
+
+  it("reports a window with tabs as not empty", async () => {
+    mockOpen.mockResolvedValue("/docs/other.md");
+    mockFindExistingTabForPath.mockReturnValue(null);
+    mockIsWindowEmpty.mockReturnValue(false);
+    mockResolveOpenAction.mockReturnValue({ action: "create_tab" });
+    mockReadTextFile.mockResolvedValue("# Other");
+
+    const { handleOpen } = await import("./fileOpen");
+    await handleOpen(WINDOW);
+
+    expect(mockResolveOpenAction).toHaveBeenCalledWith(
+      expect.objectContaining({ windowIsEmpty: false })
+    );
   });
 
   it("replaces tab when action is replace_tab", async () => {

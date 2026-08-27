@@ -23,13 +23,15 @@ vi.mock("@/utils/debug", async (importOriginal) => ({
   titleBarWarn: (...args: unknown[]) => titleBarWarn(...args),
 }));
 
-const state: { filePath: string | null; isDirty: boolean } = {
+const state: { filePath: string | null; isDirty: boolean; hasActiveTab: boolean } = {
   filePath: "/docs/readme.md",
   isDirty: false,
+  hasActiveTab: true,
 };
 vi.mock("./useDocumentState", () => ({
   useDocumentFilePath: () => state.filePath,
   useDocumentIsDirty: () => state.isDirty,
+  useHasActiveTab: () => state.hasActiveTab,
 }));
 
 // The native title's audience is platform-dependent (#1296): on macOS it is
@@ -49,6 +51,7 @@ beforeEach(() => {
   platform.overlayTitleBar = true;
   state.filePath = "/docs/readme.md";
   state.isDirty = false;
+  state.hasActiveTab = true;
   useSettingsStore.setState((s) => ({
     appearance: { ...s.appearance, showFilenameInTitlebar: true },
   }));
@@ -131,5 +134,46 @@ describe("useWindowTitle — off macOS the native title is not optional", () => 
     state.filePath = null;
     renderHook(() => useWindowTitle());
     await waitFor(() => expect(setTitle).toHaveBeenCalledWith("Untitled"));
+  });
+});
+
+// #1331 — closing the last tab leaves the window on the WelcomeScreen. The
+// title kept reading the active document's `filePath`, which is null there for
+// the same reason it is null for a genuinely untitled buffer — so the window
+// announced a document that does not exist. On Linux and Windows that string is
+// the visible title bar; on macOS it is the Window menu entry.
+describe("useWindowTitle — no document open (WelcomeScreen)", () => {
+  beforeEach(() => {
+    state.hasActiveTab = false;
+    state.filePath = null;
+  });
+
+  it("shows the product name instead of the untitled label", async () => {
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
+    expect(setTitle).not.toHaveBeenCalledWith("Untitled");
+  });
+
+  it("shows the product name off macOS too", async () => {
+    platform.overlayTitleBar = false;
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
+  });
+
+  // The setting still speaks for the whole title on macOS: an empty native
+  // title is what keeps the window out of the Window menu, and "no document
+  // open" is no reason to override a preference the user set.
+  it("still honours the macOS show-filename setting", async () => {
+    setShowFilename(false);
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith(""));
+  });
+
+  // A stale document flag cannot smuggle a bullet onto a title with no
+  // document behind it.
+  it("never prefixes a dirty indicator", async () => {
+    state.isDirty = true;
+    renderHook(() => useWindowTitle());
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
   });
 });
