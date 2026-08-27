@@ -14,7 +14,10 @@
  * cannot return.
  */
 import { describe, it, expect } from "vitest";
-import { collectJsDefinedVars, findFocusRemovals } from "./check-design-tokens.mjs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { collectJsDefinedVars, findFocusRemovals, globFiles } from "./check-design-tokens.mjs";
 
 describe("collectJsDefinedVars", () => {
   it("collects setProperty() calls", () => {
@@ -142,5 +145,44 @@ describe("findFocusRemovals", () => {
   it("reports a line number for the finding", () => {
     const css = `.x { color: red; }\n\n${removal}`;
     expect(findFocusRemovals(css)[0].line).toBe(3);
+  });
+});
+
+describe("globFiles", () => {
+  // The gate globs `src/**/*.{ts,tsx}` and readFileSync's every hit. Vitest's
+  // browser runner writes screenshot artifacts into a `__screenshots__`
+  // directory named after the TEST FILE, so after any `*.webkit.test.ts`
+  // failure there is a DIRECTORY whose name ends in `.ts`. Those directories
+  // are gitignored — expected on a developer machine — and feeding one to
+  // readFileSync threw an unhandled EISDIR that killed the gate with a raw Node
+  // stack trace, reading as "the token checker is broken".
+  it("excludes a directory whose name ends in a source extension", () => {
+    const root = mkdtempSync(join(tmpdir(), "globfiles-"));
+    try {
+      writeFileSync(join(root, "real.ts"), "export {};");
+      mkdirSync(join(root, "__screenshots__"));
+      mkdirSync(join(root, "__screenshots__", "some.webkit.test.ts"));
+
+      const hits = globFiles(join(root, "**/*.{ts,tsx}"));
+
+      expect(hits).toContain(join(root, "real.ts"));
+      expect(hits.some((p: string) => p.endsWith("some.webkit.test.ts"))).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns every regular file that matches", () => {
+    const root = mkdtempSync(join(tmpdir(), "globfiles-"));
+    try {
+      writeFileSync(join(root, "a.ts"), "");
+      writeFileSync(join(root, "b.tsx"), "");
+      writeFileSync(join(root, "c.css"), "");
+      expect(globFiles(join(root, "**/*.{ts,tsx}")).sort()).toEqual(
+        [join(root, "a.ts"), join(root, "b.tsx")].sort(),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
