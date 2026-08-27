@@ -12,6 +12,10 @@
  *     rollback cannot drift apart.
  *   - Option normalization lives in terminalOptions.ts, so this file reads as
  *     a lifecycle (acquire → wire → release) rather than option tuning.
+ *   - The mono font handed to xterm is MEASURED, never assumed. xterm sizes its
+ *     character cell from the advance of a `W`, so a stack that resolves to a
+ *     proportional font spaces the whole grid out — which is what WebKitGTK
+ *     does under a CJK locale (#1334). See services/fonts/verifiedMonoStack.
  *   - Each instance gets its own child div inside the parent container,
  *     initially hidden; the caller (useTerminalSessions) toggles visibility
  *     when switching sessions.
@@ -68,6 +72,9 @@ import {
   type TerminalInstanceSettings,
 } from "./terminalOptions";
 
+import { getRuntimePlatform } from "@/utils/platform";
+import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
+
 import "@xterm/xterm/css/xterm.css";
 
 // Re-exports kept for compatibility with existing imports/tests.
@@ -77,11 +84,16 @@ export { ATLAS_PAGE_LIMIT } from "./setupWebglRenderer";
  *  terminal creation (the var is already applied by then). Live mono-font
  *  changes are handled by terminalSessionStoreSync, which resolves the stack
  *  straight from the monoFont setting via resolveMonoFontStack (the CSS var
- *  lags inside the store subscriber). */
+ *  lags inside the store subscriber).
+ *
+ *  Both paths are MEASURED, not trusted. `--font-mono` is written by useTheme,
+ *  which already verifies it; the fallback verifies its own stack rather than
+ *  hardcoding a literal. A proportional font reaching xterm sizes every cell
+ *  from the advance of a `W` and spaces the whole grid out (#1334). */
 function resolveMonoFont(): string {
   const style = getComputedStyle(document.documentElement);
   const mono = style.getPropertyValue("--font-mono").trim();
-  return mono || "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace";
+  return mono || verifiedMonoStack("system", getRuntimePlatform());
 }
 
 /** A fully-configured xterm.js terminal with its addons and container element. */
