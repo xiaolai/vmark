@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { resolveLoginShellPath, buildShellSpawnConfig } from "./terminalSpawnEnv";
+import {
+  resolveLoginShellPath,
+  buildShellSpawnConfig,
+  buildBaseTerminalEnv,
+} from "./terminalSpawnEnv";
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -151,5 +155,67 @@ describe("buildShellSpawnConfig (WI-3.3)", () => {
     mockInvoke.mockResolvedValue({ env: {}, args: "--rcfile /x" });
     const result = await buildShellSpawnConfig({}, "/bin/bash", true);
     expect(result.args).toEqual([]);
+  });
+});
+
+describe("buildBaseTerminalEnv", () => {
+  const originalPlatform = navigator.platform;
+  afterEach(() => setPlatform(originalPlatform));
+
+  it("states the terminal's identity and colour capability", () => {
+    const env = buildBaseTerminalEnv("/usr/bin", undefined);
+    expect(env.TERM).toBe("xterm-256color");
+    // ADR-006: CLI tools with terminal allowlists (Claude Code's
+    // /terminal-setup) enable CSI-u only for terminals they recognize.
+    expect(env.TERM_PROGRAM).toBe("WezTerm");
+  });
+
+  it("advertises 24-bit colour on every platform (#1334)", () => {
+    // xterm.js renders SGR 38;2;r;g;b, but with COLORTERM empty a CLI tool has
+    // no way to know that and downgrades to the 256-colour palette.
+    for (const platform of ["MacIntel", "Linux x86_64", "Win32"]) {
+      setPlatform(platform);
+      expect(buildBaseTerminalEnv("/usr/bin", undefined).COLORTERM).toBe("truecolor");
+    }
+  });
+
+  it("passes the login shell PATH through", () => {
+    expect(buildBaseTerminalEnv("/opt/homebrew/bin:/usr/bin", undefined).PATH).toBe(
+      "/opt/homebrew/bin:/usr/bin",
+    );
+  });
+
+  // #1334: "UTF-8" is a locale name on Darwin (/usr/share/locale/UTF-8) and is
+  // NOT one on glibc. Exporting it on Linux replaced a perfectly good inherited
+  // locale with an invalid one, so every child calling setlocale() failed —
+  // "locale: Cannot set LC_CTYPE to default locale: No such file or directory",
+  // and `manpath: can't set the locale` on every prompt.
+  it.each([
+    ["MacIntel", true],
+    ["Linux x86_64", false],
+    ["Win32", false],
+  ])("platform=%s → sets LC_CTYPE=UTF-8: %s", (platform, expected) => {
+    setPlatform(platform);
+    const env = buildBaseTerminalEnv("/usr/bin", undefined);
+    if (expected) expect(env.LC_CTYPE).toBe("UTF-8");
+    else expect(env).not.toHaveProperty("LC_CTYPE");
+  });
+
+  it("exposes the workspace root only when one is open", () => {
+    expect(buildBaseTerminalEnv("/usr/bin", "/my/workspace").VMARK_WORKSPACE).toBe(
+      "/my/workspace",
+    );
+    expect(buildBaseTerminalEnv("/usr/bin", undefined)).not.toHaveProperty(
+      "VMARK_WORKSPACE",
+    );
+  });
+
+  it("never sets EDITOR (T1/D1)", () => {
+    // Forcing EDITOR=vmark could never work — the shim is opt-in, macOS-only,
+    // and returns immediately, so `git commit` aborts with an empty message.
+    for (const platform of ["MacIntel", "Linux x86_64", "Win32"]) {
+      setPlatform(platform);
+      expect(buildBaseTerminalEnv("/usr/bin", "/ws")).not.toHaveProperty("EDITOR");
+    }
   });
 });
