@@ -14,6 +14,7 @@ import {
   computeTypographyVars,
   computeCoreColorVars,
   computeModeColorVars,
+  type TypographyInput,
 } from "./useTheme";
 import type { ThemeColors } from "@/stores/settingsStore";
 
@@ -21,7 +22,7 @@ import type { ThemeColors } from "@/stores/settingsStore";
 // Typography vars computation
 // ---------------------------------------------------------------------------
 describe("computeTypographyVars", () => {
-  const baseTypography = {
+  const baseTypography: TypographyInput = {
     latinFont: "system",
     cjkFont: "system",
     monoFont: "system",
@@ -31,7 +32,22 @@ describe("computeTypographyVars", () => {
     cjkLetterSpacing: "0",
     editorWidth: 50,
     blockFontSize: "1",
+    platform: "macos",
   };
+
+  // #1334: --font-mono feeds the editor's code blocks, Source mode AND the
+  // terminal's xterm cell measurement. `ui-monospace` is not implemented on
+  // WebKitGTK, where it returns the proportional GTK UI font.
+  it("emits no ui-* generic in --font-mono on linux", () => {
+    const vars = computeTypographyVars({ ...baseTypography, platform: "linux" });
+    expect(vars["--font-mono"]).not.toMatch(/\bui-[a-z]+\b/);
+    expect(vars["--font-mono"]).toMatch(/(^|,\s*)monospace$/);
+  });
+
+  it("keeps ui-monospace in --font-mono on macOS", () => {
+    const vars = computeTypographyVars({ ...baseTypography, platform: "macos" });
+    expect(vars["--font-mono"]).toContain("ui-monospace");
+  });
 
   it("computes editor font size in px", () => {
     const vars = computeTypographyVars(baseTypography);

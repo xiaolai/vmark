@@ -23,6 +23,7 @@ import _katexCSSRaw from "katex/dist/katex.min.css?raw";
 import { embedKatexFonts } from "./katexFontEmbed";
 import { getPrimitiveTokenCSS } from "./primitiveTokens";
 import { buildFontStack } from "@/utils/fontStacks";
+import { getRuntimePlatform } from "@/utils/platform";
 import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
 import { buildFitCSS } from "./pdfFitToPage";
 import { type PdfOptions, PAGE_SIZE_KEYWORDS, effectiveBottomMarginMm } from "./pdfOptions";
@@ -116,6 +117,7 @@ function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
     options.latinFont,
     options.cjkFont,
     "system",
+    getRuntimePlatform(),
   );
   const fs = options.fontSize;
   const lh = options.lineHeight;

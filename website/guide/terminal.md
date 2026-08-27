@@ -208,6 +208,13 @@ Open **Settings → Terminal** to configure:
 
 Changes apply immediately to all open sessions. **Panel Size** goes up to 80 % of the available space. The editor keeps a minimum size in pixels, so it never disappears entirely no matter how large the terminal gets. Double-click the resize handle to jump straight to the maximum and back again without changing the stored size. **Mac Option as Meta** routes the macOS Option key as Meta in the integrated terminal so emacs, tmux, and similar tools see Alt-prefixed shortcuts (macOS only); it is on by default, so Option+Arrow does word movement rather than inserting accented characters. **Shell Integration** is available on macOS and Linux (hidden on Windows). **Remote Clipboard** is described below. **Scrollback** controls how many lines of output each session retains in its scroll history — higher values use more memory. **Screen Reader Mode** exposes terminal output to assistive technology such as VoiceOver; it is off by default for performance. **Terminal bell** chooses how a bell (BEL) is signalled — a visual background-activity mark on the session tab, a soft audible beep (which also flags a background session's tab so you can find it), or nothing. **Minimum contrast** lifts faint terminal text to a readable contrast ratio against its background; raise it for accessibility or set it to Off to disable the lift.
 
+::: tip Terminal font family
+The terminal uses the **Mono Font** from **Settings → Editor**, not a font of
+its own, so changing it there restyles code blocks, Source mode and the terminal
+together. On Linux the System Default option follows your desktop's own
+monospace font, which is what your system terminal uses.
+:::
+
 ::: tip Font size and zoom
 `Mod + =` / `Mod + -` zoom in steps of 2 px, so the terminal font can land on a
 value the dropdown doesn't list (13 → 15 → 17 …). The dropdown shows whatever

@@ -6,7 +6,7 @@
  * Part of: pnpm check:all
  */
 import { readFileSync } from "node:fs";
-import { globSync } from "node:fs";
+import { globSync, statSync } from "node:fs";
 
 import { pathToFileURL } from "node:url";
 
@@ -119,12 +119,37 @@ export function collectJsDefinedVars(source) {
   return names;
 }
 
+/**
+ * `globSync` restricted to regular files.
+ *
+ * Vitest's browser runner writes screenshot artifacts into a `__screenshots__`
+ * directory beside the test, named after the test FILE — so a directory whose
+ * name ends in `.ts` exists after any `*.webkit.test.ts` failure, and those
+ * directories are gitignored, i.e. expected on a developer machine. Feeding
+ * it to `readFileSync` threw an unhandled `EISDIR` and killed this gate with a
+ * raw Node stack trace, which reads as "the token checker is broken" rather than
+ * "you have a leftover artifact".
+ *
+ * @param {string} pattern
+ * @returns {string[]}
+ */
+export function globFiles(pattern) {
+  return globSync(pattern).filter((p) => {
+    try {
+      return statSync(p).isFile();
+    } catch {
+      // Raced with a delete, or a broken symlink. Not ours to read either way.
+      return false;
+    }
+  });
+}
+
 // Main guard: this module EXPORTS collectJsDefinedVars for tests, so importing
 // it must not run the checker. Without it the importer's argv leaked in —
 // vitest's "run" was treated as a CSS path and the import threw ENOENT.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const args = process.argv.slice(2);
-  const files = args.length ? args : globSync("src/**/*.css");
+  const files = args.length ? args : globFiles("src/**/*.css");
 
   const violations = [];
 
@@ -216,12 +241,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     const definedVars = new Set();
     const defRe = /--[A-Za-z0-9-]+(?=\s*:)/g;
     // CSS definitions across all stylesheets
-    for (const file of globSync("src/**/*.css")) {
+    for (const file of globFiles("src/**/*.css")) {
       const content = readFileSync(file, "utf8");
       for (const m of content.matchAll(defRe)) definedVars.add(m[0]);
     }
     // JS-emitted tokens: setProperty("--x", ...) and "--x": value maps
-    for (const file of globSync("src/**/*.{ts,tsx}")) {
+    for (const file of globFiles("src/**/*.{ts,tsx}")) {
       const content = readFileSync(file, "utf8");
       for (const name of collectJsDefinedVars(content)) definedVars.add(name);
     }

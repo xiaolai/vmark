@@ -216,6 +216,47 @@ Icon SVG sizes (conventions, not tokens):
 | `--cjk-letter-spacing` | CJK character spacing | `0.05em` |
 | `--editor-width` | Max editor content width | `50em` |
 
+**A monospace font stack must be MEASURED, never assumed (#1334).** Reach for
+`verifiedMonoStack()` from `src/services/fonts/`, not `resolveMonoFontStack()`,
+anywhere the result feeds a character grid — the terminal, code blocks, Source
+mode.
+
+The CSS cascade is supposed to skip a family that is not installed. On
+WebKitGTK under a CJK locale it does not: fontconfig returns a best match for
+**any** family name rather than reporting no match, WebKit accepts it, and the
+cascade stops at the unmatched head family instead of reaching the generic
+behind it. Measured on Ubuntu 24.04.4 + `fonts-noto-cjk`, `'W' × 32` vs
+`'i' × 32` (how xterm.js sizes its cell):
+
+| stack | `LANG=C` | `LANG=zh_CN.UTF-8` |
+|---|---|---|
+| `"No Such Family XYZ", monospace` | 8 / 8 | **11 / 4 — proportional** |
+| `"JetBrains Mono", monospace` (absent) | 8 / 8 | **11 / 4 — proportional** |
+| `monospace` | 8 / 8 | 7 / 7 |
+
+`verifiedMonoStack` drops leading families until the remainder measures
+monospace — performing the cascade step the engine skipped — so an installed
+font is kept and an absent one degrades. Measured on the repro host: **9 of 16
+mono settings were broken before it, 0 after**, and it is a no-op under
+`LANG=C`.
+
+**Two plausible-sounding explanations for this bug were refuted by
+measurement**, so do not re-derive them: it is not that `ui-monospace` is
+unimplemented on GTK and "wins" the cascade (in a list it is skipped like any
+absent family), and it is not the GTK UI font shadowing the stack (setting
+`gtk-font-name` changes nothing). `ui-monospace` is still kept out of the Linux
+tail in `src/utils/fontStacks.ts` as hygiene — it means nothing there — while
+remaining on macOS, where it is the only way to reach SF Mono (`"SF Mono"` and
+`SFMono-Regular` do not match by family name; the real family is the hidden
+`.SF NS Mono`).
+
+**A font test that measures real fonts asserts nothing on a machine without the
+trigger.** The first guard written for this bug did exactly that and passed on
+macOS and on CI's Linux WebKit while the bug was live. `verifiedMonoStack`'s
+unit test injects the measurement, and its WebKit test constructs the failure
+with `sans-serif` — a generic that always resolves and is always proportional —
+so it can fail on any engine.
+
 **Note:** These tokens have static defaults in `:root` for print/SSR, but are dynamically updated by `useTheme.ts` based on user settings. For example, `--editor-line-height` defaults to `1.6` in CSS, but the user-facing default is `1.8` (set in `settingsStore.ts` as "Relaxed" and applied dynamically by `useTheme.ts`).
 
 ## Code/Syntax Tokens

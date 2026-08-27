@@ -13,6 +13,13 @@
  * Key decisions:
  *   - Font stacks live in `@/utils/fontStacks` (leaf-pure); this hook composes
  *     them via `buildFontStack` into the `--font-sans`/`--font-mono` tokens
+ *   - This hook is where the PLATFORM and the ENGINE enter font resolution:
+ *     `buildFontStack` takes the platform as a parameter so it can stay pure,
+ *     and the `navigator` read happens here. `--font-mono` is then MEASURED
+ *     before it is written — on WebKitGTK under a CJK locale the cascade stops
+ *     at an unmatched family instead of falling through to the generic, so the
+ *     stack CSS would resolve is not always monospace (#1334). See
+ *     services/fonts/verifiedMonoStack.
  *   - Editor font size drives dependent tokens (line-height, padding, mono size)
  *   - Mermaid and code preview plugins notified of font size changes
  *   - Dark theme toggled via `.dark-theme` class on documentElement
@@ -40,6 +47,8 @@ import { refreshPreviews } from "@/plugins/codePreview/tiptap";
 import { applyTheme, themes as themeTokensCatalog } from "@/theme";
 import { computeCoreColorVars, computeModeColorVars } from "@/theme/legacyModeColors";
 import { buildFontStack } from "@/utils/fontStacks";
+import { getRuntimePlatform, type RuntimePlatform } from "@/utils/platform";
+import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
 import { syncNativeTheme } from "@/services/theme/nativeTheme";
 
 // Pure color computation moved to @/theme/legacyModeColors (ADR-014 home for
@@ -64,12 +73,28 @@ export type TypographyInput = {
   cjkLetterSpacing: string;
   editorWidth: number;
   blockFontSize: string;
+  /** Which monospace fallback the mono stack may use. Passed in so this stays
+   *  pure; the DOM read lives in `useTheme` itself. */
+  platform: RuntimePlatform;
+  /** The mono stack to emit, already MEASURED against this engine (#1334).
+   *  Optional because the pure computation cannot measure anything — when it is
+   *  absent the preferred stack is used, which is what every non-DOM caller
+   *  wants. `applyTypography` supplies it. */
+  verifiedMono?: string;
 };
 
 /** Compute typography CSS vars. Pure — no DOM access. */
 export function computeTypographyVars(input: TypographyInput): Record<string, string> {
   const { fontSize, lineHeight, blockSpacing, cjkLetterSpacing, editorWidth, blockFontSize } = input;
-  const { sans, mono } = buildFontStack(input.latinFont, input.cjkFont, input.monoFont);
+  const { sans, mono: preferredMono } = buildFontStack(
+    input.latinFont,
+    input.cjkFont,
+    input.monoFont,
+    input.platform,
+  );
+  // The stack the CASCADE would give is not always the stack the engine
+  // renders — see services/fonts/verifiedMonoStack (#1334).
+  const mono = input.verifiedMono ?? preferredMono;
 
   // Calculate absolute line-height for use with reduced font sizes
   const lineHeightPx = fontSize * lineHeight;
@@ -142,6 +167,8 @@ function applyTypography(
   applyVars(root, computeTypographyVars({
     latinFont, cjkFont, monoFont, fontSize, lineHeight,
     blockSpacing, cjkLetterSpacing, editorWidth, blockFontSize,
+    platform: getRuntimePlatform(),
+    verifiedMono: verifiedMonoStack(monoFont, getRuntimePlatform()),
   }));
 }
 

@@ -38,6 +38,13 @@ const fontOptions = {
     { value: "monaco", label: "Monaco" },
     { value: "menlo", label: "Menlo" },
     { value: "consolas", label: "Consolas" },
+    // Linux distribution defaults (#1334) — without these a Linux user had no
+    // monospace family in the list that ships on their machine.
+    { value: "dejavu", label: "DejaVu Sans Mono" },
+    { value: "liberation", label: "Liberation Mono" },
+    { value: "ubuntumono", label: "Ubuntu Mono" },
+    { value: "notosansmono", label: "Noto Sans Mono" },
+    { value: "notosansmonocjk", label: "Noto Sans Mono CJK SC" },
     { value: "jetbrains", label: "JetBrains Mono" },
     { value: "firacode", label: "Fira Code" },
     { value: "saucecodepro", label: "SauceCodePro NFM" },

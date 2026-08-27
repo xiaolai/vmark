@@ -13,6 +13,10 @@
  *     (not the --font-mono CSS var, which useTheme writes only in a later
  *     effect, so it would lag a monoFont-only change) (G6/WI-4.1). A monoFont
  *     change also re-fits and resizes the PTY, since cell width changes.
+ *     The stack is MEASURED before it is applied: on WebKitGTK under a CJK
+ *     locale the cascade stops at an unmatched family rather than falling
+ *     through to the generic, so what CSS resolves is not always monospace
+ *     (#1334). A proportional font here inflates every terminal cell.
  *   - Workspace-root changes inject a `cd` command into every alive PTY whose
  *     current cwd differs from the new root — the live OSC 7 cwd when known,
  *     else the spawn-time cwd (WI-2.2); PTY-less or exited sessions are skipped.
@@ -33,7 +37,8 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { buildXtermThemeForId } from "@/theme";
 import { useTabStore } from "@/stores/tabStore";
-import { resolveMonoFontStack } from "@/utils/fontStacks";
+import { getRuntimePlatform } from "@/utils/platform";
+import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
 import { fitAndResizePty } from "./fitAndResizePty";
 // Re-exported so existing importers (and tests) keep one obvious home for it.
 export type { SyncableSessionEntry } from "./terminalSessionTypes";
@@ -104,7 +109,7 @@ export function useUIStoreSync(
       // subscriber fires synchronously inside the store `set`, before useTheme's
       // effect writes --font-mono, so reading that CSS var here would yield the
       // PREVIOUS font on a monoFont-only change.
-      const newFont = resolveMonoFontStack(monoFont);
+      const newFont = verifiedMonoStack(monoFont, getRuntimePlatform());
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
