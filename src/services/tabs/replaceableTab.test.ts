@@ -47,7 +47,7 @@ vi.mock("@/utils/paths", () => ({
   }),
 }));
 
-import { getReplaceableTab, findExistingTabForPath } from "./replaceableTab";
+import { getReplaceableTab, findExistingTabForPath, isWindowEmpty } from "./replaceableTab";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
@@ -315,5 +315,47 @@ describe("findExistingTabForPath", () => {
     const result = findExistingTabForPath("main", "c:/Users/test/file.md");
 
     expect(result).toBe("tab-1");
+  });
+});
+
+// #1331 — the Welcome screen is a window with ZERO tabs. `getReplaceableTab`
+// returns null there (correctly — there is nothing to replace), so the open
+// policy needs this second signal to tell "nothing to reuse" apart from
+// "nothing to lose".
+describe("isWindowEmpty", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const withTabs = (tabs: Record<string, unknown[]>) => {
+    vi.mocked(useTabStore.getState).mockReturnValue({ tabs } as never);
+  };
+
+  it("is true when the window has no tabs", () => {
+    withTabs({ main: [] });
+    expect(isWindowEmpty("main")).toBe(true);
+  });
+
+  it("is true when the window is not in the map at all", () => {
+    withTabs({});
+    expect(isWindowEmpty("main")).toBe(true);
+  });
+
+  it("is false when the window has a tab", () => {
+    withTabs({ main: [{ kind: "document", id: "tab-1", filePath: null }] });
+    expect(isWindowEmpty("main")).toBe(false);
+  });
+
+  // A browser tab cannot be replaced, but it is still a tab: the window is
+  // occupied, and an open has no business closing it to make room.
+  it("is false for a window holding only a browser tab", () => {
+    withTabs({ main: [{ kind: "browser", id: "tab-b" }] });
+    expect(isWindowEmpty("main")).toBe(false);
+  });
+
+  it("is scoped to the named window", () => {
+    withTabs({ main: [{ kind: "document", id: "tab-1", filePath: null }], "doc-2": [] });
+    expect(isWindowEmpty("main")).toBe(false);
+    expect(isWindowEmpty("doc-2")).toBe(true);
   });
 });

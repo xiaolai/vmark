@@ -11,7 +11,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
-import { getReplaceableTab, findExistingTabForPath } from "@/services/tabs/replaceableTab";
+import { getReplaceableTab, findExistingTabForPath, isWindowEmpty } from "@/services/tabs/replaceableTab";
 import { createUntitledTab } from "@/services/navigation/newFile";
 import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
@@ -214,6 +214,10 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
     // Check for replaceable tab (single clean untitled tab)
     const replaceableTab = getReplaceableTab(windowLabel);
+    // fix(#1331) — zero tabs is the Welcome screen, and it has no replaceable
+    // tab. Without this the file opened in a NEW window and left the window the
+    // user pressed Open File in still empty.
+    const windowIsEmpty = isWindowEmpty(windowLabel);
 
     // fix(#946) — honor the "open files in a new tab" preference
     const openInNewTab = useSettingsStore.getState().general.openInNewTab;
@@ -227,6 +231,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
       replaceableTab,
       openInNewTab,
       workspaceRailMode,
+      windowIsEmpty,
     });
 
     perfMark("handleOpen:resolvedAction", { action: decision.action });

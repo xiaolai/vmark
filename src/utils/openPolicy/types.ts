@@ -38,6 +38,14 @@ export interface OpenActionContext {
   openInNewTab?: boolean;
   /** Workspace rail mode keeps external files in the current workbench. */
   workspaceRailMode?: boolean;
+  /**
+   * fix(#1331) — the window has NO tabs at all: it is showing the Welcome
+   * screen. There is no tab to replace, so `replaceableTab` is null and the
+   * routing used to fall through to "open a new window" — which left the
+   * window the user clicked Open File in still empty. An empty window has
+   * nothing to preserve, so it takes the file itself.
+   */
+  windowIsEmpty?: boolean;
 }
 
 /**

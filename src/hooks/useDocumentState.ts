@@ -8,6 +8,10 @@
  * Key decisions:
  *   - Each hook returns a single value (content, filePath, isDirty, etc.)
  *   - All hooks derive from useActiveTabId() for consistent window scoping
+ *   - `useHasActiveTab` is the odd one out: it reports whether there is a
+ *     DOCUMENT at all, which no document field can answer — `filePath` is null
+ *     both for an unsaved buffer and for a window showing the Welcome screen
+ *     (#1331)
  *   - Safe defaults (empty string, null, false) when tab or document is missing
  *   - `loadContent` routes to `ingestExternalContent(..., "disk-open")`. The
  *     store's `loadContent` action is gone: it duplicated the ingest baseline
@@ -46,6 +50,21 @@ export function useActiveTabId(): string | null {
   const windowLabel = useWindowLabel();
   const activeTabId = useTabStore((state) => state.activeTabId[windowLabel] ?? null);
   return pane ? pane.tabId : activeTabId;
+}
+
+/**
+ * Whether the active tab id resolves to a tab that still exists.
+ *
+ * Not the same as `useActiveTabId() !== null`: a STALE id is reachable (tab
+ * transfer, hot-exit restore, workspace switch), and `Editor` renders the
+ * WelcomeScreen for that case too. Surfaces that must agree with what is on
+ * screen — the window title, the title bar — ask this rather than inferring
+ * "no document" from a null `filePath`, which an untitled buffer also has
+ * (#1331).
+ */
+export function useHasActiveTab(): boolean {
+  const tabId = useActiveTabId();
+  return useTabStore((state) => (tabId ? state.findTabById(tabId) !== null : false));
 }
 
 /**

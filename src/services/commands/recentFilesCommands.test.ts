@@ -17,6 +17,7 @@ const mockReplaceTabWithFile = vi.fn();
 const mockResolveOpenAction = vi.fn();
 const mockToastError = vi.fn();
 const mockOpenWorkspaceWithConfig = vi.fn();
+const mockIsWindowEmpty = vi.fn<(windowLabel: string) => boolean>(() => false);
 
 vi.mock("@tauri-apps/plugin-fs", () => ({ exists: (...a: unknown[]) => mockExists(...a) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ ask: (...a: unknown[]) => mockAsk(...a) }));
@@ -29,7 +30,10 @@ vi.mock("@/utils/openPolicy", () => ({
   resolveOpenAction: (...a: unknown[]) => mockResolveOpenAction(...a),
 }));
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
-vi.mock("@/services/tabs/replaceableTab", () => ({ getReplaceableTab: () => null }));
+vi.mock("@/services/tabs/replaceableTab", () => ({
+  getReplaceableTab: () => null,
+  isWindowEmpty: (windowLabel: string) => mockIsWindowEmpty(windowLabel),
+}));
 vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: (...a: unknown[]) => mockOpenWorkspaceWithConfig(...a),
 }));
@@ -255,6 +259,30 @@ describe("file.openRecent honors general.openInNewTab (parity with Cmd+O)", () =
 
       expect(mockResolveOpenAction).toHaveBeenCalledWith(
         expect.objectContaining({ openInNewTab }),
+      );
+    },
+  );
+});
+
+// fix(#1331) — the Welcome screen's recent list dispatches this command from a
+// window with ZERO tabs. Without the signal the policy saw "no replaceable tab"
+// and opened a new window, leaving the clicked-in window empty.
+describe("file.openRecent forwards the empty-window signal (parity with Cmd+O)", () => {
+  beforeEach(() => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, findTabByPath: () => null } as never);
+    mockResolveOpenAction.mockReturnValue({ action: "no_op", reason: "test" });
+  });
+
+  it.each([[true], [false]])(
+    "passes windowIsEmpty=%s into resolveOpenAction",
+    async (windowIsEmpty) => {
+      mockIsWindowEmpty.mockReturnValue(windowIsEmpty);
+
+      await executeCommand("file.openRecent", "/docs/a.md", { windowLabel: "main" });
+
+      expect(mockIsWindowEmpty).toHaveBeenCalledWith("main");
+      expect(mockResolveOpenAction).toHaveBeenCalledWith(
+        expect.objectContaining({ windowIsEmpty }),
       );
     },
   );

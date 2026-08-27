@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- Mocks ---
 
 const mockReadTextFile = vi.fn();
+const mockIsWindowEmpty = vi.fn<(windowLabel: string) => boolean>(() => false);
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: (...args: unknown[]) => mockReadTextFile(...args),
 }));
@@ -54,15 +55,25 @@ vi.mock("@tauri-apps/api/webview", () => ({
 vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: () => null,
   findExistingTabForPath: () => null,
+  isWindowEmpty: (windowLabel: string) => mockIsWindowEmpty(windowLabel),
 }));
 
 vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => "main",
 }));
 
+const mockOpenWorkspaceWithConfig =
+  vi.fn<(root: string, opts: { windowLabel: string }) => Promise<unknown>>(() =>
+    Promise.resolve(null),
+  );
+vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
+  openWorkspaceWithConfig: (root: string, opts: { windowLabel: string }) =>
+    mockOpenWorkspaceWithConfig(root, opts),
+}));
+
 import { __testing__, useDragDropOpen } from "./useDragDropOpen";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
+import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { useFileLoadStore } from "@/stores/documentStore";
@@ -177,6 +188,39 @@ describe("useDragDropOpen.openFileInNewTab — size-tier routing", () => {
     expect(useLargeFileSessionStore.getState().forcedSourceTabs).toEqual({});
   });
 
+  // fix(#1331) — a window showing the Welcome screen has no replaceable tab, so
+  // a drop whose files span several folders used to open EVERY one of them in a
+  // new window and leave the dropped-on window empty. The first file claims the
+  // empty window (with its own folder as the root); the window is then occupied,
+  // so the second file still gets its own window.
+  it("lets the first of a multi-folder drop claim an empty window", async () => {
+    mockIsWindowEmpty.mockReturnValueOnce(true).mockReturnValue(false);
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "get_file_size_bytes") return Promise.resolve(10_000);
+      return Promise.resolve(null);
+    });
+    mockReadTextFile.mockResolvedValue("# dropped");
+
+    renderHook(() => useDragDropOpen());
+    await waitFor(() => expect(mockOnDragDropEvent).toHaveBeenCalled());
+    await act(async () => {
+      await dragDropHandler?.({
+        payload: { type: "drop", paths: ["/one/a.md", "/two/b.md"] },
+      });
+    });
+
+    // The first file lands here, and claims its own folder as the root — the
+    // same ownership the new-window path would have given it.
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/one", { windowLabel: WINDOW });
+    expect(useTabStore.getState().getTabsByWindow(WINDOW).map(tabFilePath))
+      .toContain("/one/a.md");
+    // The second file finds an occupied window and opens its own.
+    expect(mockInvoke).toHaveBeenCalledWith("open_workspace_in_new_window", {
+      workspaceRoot: "/two",
+      filePath: "/two/b.md",
+    });
+  });
+
   it("keeps dropped files in the current workbench in rail mode even with dirty tabs", async () => {
     useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
     const dirtyTabId = useTabStore.getState().createTab(WINDOW, null);
@@ -195,7 +239,7 @@ describe("useDragDropOpen.openFileInNewTab — size-tier routing", () => {
       });
     });
 
-    expect(useTabStore.getState().getTabsByWindow(WINDOW).map((tab) => tab.filePath))
+    expect(useTabStore.getState().getTabsByWindow(WINDOW).map(tabFilePath))
       .toContain("/outside/a.md");
     expect(mockReadTextFile).toHaveBeenCalledWith("/outside/a.md");
     expect(mockInvoke.mock.calls.some(([cmd]) =>

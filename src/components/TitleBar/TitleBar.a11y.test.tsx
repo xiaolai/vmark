@@ -20,6 +20,7 @@ vi.mock("@/hooks/useDocumentState", () => ({
   useDocumentIsDirty: () => false,
   useDocumentIsMissing: () => false,
   useActiveTabId: () => "tab-1",
+  useHasActiveTab: () => true,
 }));
 
 vi.mock("@/stores/tabStore", () => ({

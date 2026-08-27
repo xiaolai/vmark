@@ -161,7 +161,17 @@ Closing the last open document no longer closes the window. Instead, the window 
 The Welcome screen offers quick actions to get back to work:
 
 - **New File**, **Open File**, and **Open Folder** buttons
-- A **Recent** list — click any entry to reopen it
+- A **Recent Files** list and a **Recent Workspaces** list — click any entry to
+  reopen it. Each list appears only when it has entries.
+
+**Open File** and the recent lists reuse the window you are already in. A
+Welcome-screen window has no tabs to displace, so nothing opens in a second
+window — unless the window still has a workspace open, in which case a file from
+outside that workspace gets its own window rather than replacing the file tree
+you can still see in the sidebar.
+
+The title bar of a Welcome-screen window reads **VMark**: there is no document
+open, so there is no file name to show.
 
 To close the window itself, use the red traffic-light button, `Cmd/Ctrl + Q` (quit), or press `Cmd/Ctrl + W` again while the Welcome screen is showing.
 
