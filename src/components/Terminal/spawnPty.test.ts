@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   resolveTerminalCwd,
   spawnPty,
@@ -55,6 +55,14 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { invoke } from "@tauri-apps/api/core";
 import { spawn } from "@/lib/pty";
+
+/** Override navigator.platform for the duration of a test (#1334 gates the
+ *  macOS-only LC_CTYPE on it). Restored in an afterEach below. */
+function setPlatform(value: string) {
+  Object.defineProperty(navigator, "platform", { value, configurable: true });
+}
+const originalPlatform = navigator.platform;
+afterEach(() => setPlatform(originalPlatform));
 
 describe("resolveTerminalCwd", () => {
   beforeEach(() => {
@@ -413,37 +421,11 @@ describe("spawnPty shell selection", () => {
     expect(spawnCallEnv.env.VMARK_WORKSPACE).toBe("/my/workspace");
   });
 
-  it("sets TERM_PROGRAM env to WezTerm so CLI tools recognize the host (ADR-006)", async () => {
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      terminal: { shell: "" },
-    } as ReturnType<typeof useSettingsStore.getState>);
-
-    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
-
-    const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
-    // Impersonation per ADR-006: WezTerm is in Claude Code's CSI-u allowlist; "vmark" isn't.
-    expect(spawnCallEnv.env.TERM_PROGRAM).toBe("WezTerm");
-  });
-
-  it("does not set EDITOR (T1) — the vmark shim is opt-in, macOS-only, and non-blocking", async () => {
-    // `EDITOR=vmark` was set unconditionally on every OS. The shim is opt-in
-    // and admin-gated, so the default state is `vmark: command not found` —
-    // and even when installed, `open -b app.vmark` returns immediately, so
-    // `git commit` aborts with "empty commit message". Setting nothing lets
-    // the user's real $EDITOR (inherited from their login shell rc) win.
-    vi.mocked(useSettingsStore.getState).mockReturnValue({
-      terminal: { shell: "" },
-    } as ReturnType<typeof useSettingsStore.getState>);
-
-    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
-
-    const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
-    expect(spawnCallEnv.env).not.toHaveProperty("EDITOR");
-  });
-
-  it("preserves the WezTerm impersonation and the rest of the env contract after dropping EDITOR", async () => {
-    // Regression guard for WI-1.1: removing EDITOR must not disturb any other
-    // key. ADR-006's TERM_PROGRAM impersonation is the one that matters most.
+  it("hands the shell exactly the base env buildBaseTerminalEnv built", async () => {
+    // The seam, not the contract: which variables are set and why is
+    // terminalSpawnEnv's own test. What this pins is that spawnPty passes that
+    // env through to spawn() intact, with the workspace root threaded in.
+    setPlatform("MacIntel");
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
     } as ReturnType<typeof useSettingsStore.getState>);
@@ -462,6 +444,7 @@ describe("spawnPty shell selection", () => {
     expect(spawnCallEnv.env).toEqual({
       TERM: "xterm-256color",
       TERM_PROGRAM: "WezTerm",
+      COLORTERM: "truecolor",
       LC_CTYPE: "UTF-8",
       PATH: "/usr/local/bin:/bin",
       VMARK_WORKSPACE: "/my/workspace",

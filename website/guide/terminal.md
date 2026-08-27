@@ -132,7 +132,8 @@ VMark sets these environment variables in every terminal session:
 | `TERM_PROGRAM` | `WezTerm` |
 | `VMARK_WORKSPACE` | Workspace root path (when a folder is open) |
 | `PATH` | Full login shell PATH (same as your system terminal) |
-| `LC_CTYPE` | `UTF-8` |
+| `COLORTERM` | `truecolor` |
+| `LC_CTYPE` | `UTF-8` — **macOS only** |
 
 `TERM_PROGRAM` reports `WezTerm`, not `vmark`, and that is deliberate. Several
 CLI tools — Claude Code's `/terminal-setup` among them — enable
@@ -143,6 +144,14 @@ identifies as the allowlisted terminal whose behavior it matches most closely.
 Changing this value to `vmark` would silently break Shift+Enter and other
 modified-key sequences in those tools. See
 [ADR-006](https://github.com/xiaolai/vmark/blob/main/dev-docs/decisions/ADR-006-terminal-program-identity.md).
+
+`LC_CTYPE=UTF-8` is set on **macOS only**. A GUI app launched from the Dock or
+Spotlight inherits almost no environment there, so without it the shell falls
+back to the C locale and tools print `?` for CJK text. The bare name `UTF-8` is
+a locale on macOS and is *not* one on Linux, so setting it there would replace a
+perfectly good inherited locale with an invalid one — every program that calls
+`setlocale()` would complain. On Linux and Windows your desktop session's own
+`LANG` / `LC_*` are inherited unchanged.
 
 VMark deliberately does **not** set `EDITOR`. Your own `$EDITOR` — whatever your
 shell config exports — is what `git commit`, `crontab -e`, and friends will

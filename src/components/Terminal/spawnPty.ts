@@ -11,30 +11,9 @@
  *     (get_default_shell: getpwuid → $SHELL → /bin/sh). Only absolute paths
  *     are accepted; relative paths are rejected to prevent PATH/CWD hijack.
  *   - If the configured shell fails to spawn, retries with system default.
- *   - Sets TERM_PROGRAM=WezTerm (impersonation) so CLI tools with terminal
- *     allowlists (Claude Code's /terminal-setup, etc.) recognize the host as a
- *     CSI-u-capable terminal. WezTerm chosen for lowest side-effect risk among
- *     the four recognized values. See dev-docs/decisions/ADR-006-terminal-program-identity.md.
- *     Do NOT change to "vmark" — third-party tools will fall through to a
- *     generic "unknown terminal" path. The impersonation is kept honest by
- *     terminalKeyHandler.ts, which translates Shift+Enter into the matching
- *     CSI-u sequence ("\x1b[13;2u") that real WezTerm sends.
- *   - Does NOT set EDITOR (T1/D1). It used to be forced to "vmark" on every
- *     platform, which could never work: the `vmark` shim is opt-in, macOS-only
- *     and admin-gated, so the default state is `vmark: command not found`; and
- *     even when installed the shim runs `open -b app.vmark "$@"` without `-W`,
- *     so it returns immediately and `git commit` aborts with "empty commit
- *     message". Leaving EDITOR unset lets the value from the user's login shell
- *     rc win. Restoring it requires a real blocking `vmark --wait` protocol
- *     (an IPC handshake, VS Code's `code --wait` design) — tracked separately.
- *   - Injects login shell PATH via get_login_shell_path Tauri command so CLI
- *     tools (node, claude, etc.) are discoverable — macOS GUI apps have minimal
- *     PATH by default. Fallback PATH is platform-aware (Windows vs Unix).
- *   - Sets LC_CTYPE=UTF-8 because macOS GUI apps have minimal env; without it
- *     the shell defaults to C locale and tools emit "?" for CJK characters.
- *     LC_CTYPE (not LANG) avoids overriding the user's full locale.
- *   - Sets VMARK_WORKSPACE when a workspace is open, enabling shell scripts
- *     to access the workspace root.
+ *   - The environment handed to the shell is built by
+ *     terminalSpawnEnv.buildBaseTerminalEnv — every variable and the reason
+ *     for it lives there, next to the code that sets it.
  *   - The disposed() callback lets the caller abort if the session was removed
  *     while the async spawn was in flight.
  *   - Watermark-based flow control pauses the PTY when xterm.js's parser can't
@@ -58,7 +37,11 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getParentDir } from "@/utils/paths/paths";
 import { terminalLog } from "@/utils/debug";
-import { resolveLoginShellPath, buildShellSpawnConfig } from "./terminalSpawnEnv";
+import {
+  resolveLoginShellPath,
+  buildShellSpawnConfig,
+  buildBaseTerminalEnv,
+} from "./terminalSpawnEnv";
 
 /**
  * Resolve terminal working directory:
@@ -205,24 +188,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   if (disposed()) throw new Error("disposed before spawn");
   const workspaceRoot = resolveTerminalWorkspaceRoot();
 
-  const env: Record<string, string> = {
-    // Ensure consistent color capabilities in xterm.js; Tauri GUI apps may not inherit terminal env vars.
-    TERM: "xterm-256color",
-    // Impersonate WezTerm so CLI tools with terminal allowlists (Claude Code's
-    // /terminal-setup, etc.) recognize the host. See ADR-006. Do NOT change to "vmark".
-    TERM_PROGRAM: "WezTerm",
-    // NOTE: EDITOR is deliberately absent — see the header's "Key decisions".
-    // macOS GUI apps launched from Dock/Spotlight have minimal environment —
-    // set UTF-8 encoding so the shell and tools handle CJK/multibyte correctly.
-    // LC_CTYPE (not LANG) to only affect encoding without overriding the user's locale.
-    LC_CTYPE: "UTF-8",
-    // Inject login shell PATH so CLI tools (node, claude, etc.) are on PATH,
-    // matching system terminal behavior on macOS GUI apps.
-    PATH: loginPath,
-  };
-  if (workspaceRoot) {
-    env.VMARK_WORKSPACE = workspaceRoot;
-  }
+  const env = buildBaseTerminalEnv(loginPath, workspaceRoot);
   // Observability (T1): make "why doesn't `git commit` open VMark?" answerable
   // from a dev-mode log instead of guesswork. Once per session, not per bell.
   terminalLog(
