@@ -65,7 +65,7 @@ Typography, display, editing behavior, and whitespace settings.
 |---------|-------------|---------|---------|
 | Latin Font | Font family for Latin (English) text | System Default | System Default, Athelas, Palatino, Georgia, Charter, Literata |
 | CJK Font | Font family for Chinese, Japanese, Korean text | System Default | System Default, PingFang SC, Songti SC, Kaiti SC, Noto Serif CJK, Source Han Sans |
-| Mono Font | Font family for code and monospace text | System Default | System Default, SF Mono, Monaco, Menlo, Consolas, JetBrains Mono, Fira Code, SauceCodePro NFM, IBM Plex Mono, Hack, Inconsolata |
+| Mono Font | Font family for code and monospace text — also used by the integrated terminal | System Default | System Default, SF Mono, Monaco, Menlo, Consolas, DejaVu Sans Mono, Liberation Mono, Ubuntu Mono, Noto Sans Mono, Noto Sans Mono CJK SC, JetBrains Mono, Fira Code, SauceCodePro NFM, IBM Plex Mono, Hack, Inconsolata |
 | Font Size | Base font size for editor content | 18px | 14px, 16px, 18px, 20px, 22px |
 | Line Height | Vertical spacing between lines | 1.8 (Relaxed) | 1.4 (Compact), 1.6 (Normal), 1.8 (Relaxed), 2.0 (Spacious), 2.2 (Extra) |
 | Block Spacing | Visual gap between block elements (headings, paragraphs, lists) measured in multiples of line height | 1x (Normal) | 0.5x (Tight), 1x (Normal), 1.5x (Relaxed), 2x (Spacious) |
