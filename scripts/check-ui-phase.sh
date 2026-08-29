@@ -94,11 +94,17 @@ case "$PHASE" in
     assert_cmd "lint:theme-contrast green" pnpm lint:theme-contrast
     assert_cmd "lint:ui-consistency green" pnpm lint:ui-consistency
     assert_cmd "lint:design-tokens green" pnpm lint:design-tokens
-    assert_file dev-docs/css-reference.md "visual-QA reference doc"
-    assert_file dev-docs/e2e-testing.md "e2e harness runbook"
-    for theme in white paper mint sepia night solarized; do
-      assert_file "dev-docs/baselines/${theme}.png" "baseline screenshot ${theme}"
-    done
+    # dev-docs/ is maintainer-local (gitignored — AGENTS.md); the visual-QA
+    # fixtures exist only where the folder does. Same skip rule as phase 4.
+    if [[ -d dev-docs ]]; then
+      assert_file dev-docs/css-reference.md "visual-QA reference doc"
+      assert_file dev-docs/e2e-testing.md "e2e harness runbook"
+      for theme in white paper mint sepia night solarized; do
+        assert_file "dev-docs/baselines/${theme}.png" "baseline screenshot ${theme}"
+      done
+    else
+      ok "dev-docs/ absent (CI runner) — visual-QA fixture checks skipped per AGENTS.md"
+    fi
     ;;
   1)
     echo "Phase 1 — Contrast + emission:"
@@ -137,7 +143,13 @@ case "$PHASE" in
   4)
     echo "Phase 4 — Copy + semantics + docs:"
     assert_file src/services/dialogs/confirmAction.ts
-    assert_file dev-docs/design-system.md
+    # dev-docs/ is maintainer-local (gitignored — AGENTS.md): the folder does
+    # not exist on a CI runner, so the doc check applies only where it can.
+    if [[ -d dev-docs ]]; then
+      assert_file dev-docs/design-system.md
+    else
+      ok "dev-docs/ absent (CI runner) — design-system.md check skipped per AGENTS.md"
+    fi
     assert_cmd "lint:i18n green (casing/punctuation checks live there)" pnpm lint:i18n
     assert_cmd "lint:keybinding-manifest green (label parity)" pnpm lint:keybinding-manifest
     if ls src/components/**/*.a11y.test.tsx >/dev/null 2>&1 || ls src/components/*/*.a11y.test.tsx >/dev/null 2>&1; then
