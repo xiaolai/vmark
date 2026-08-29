@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+const confirmActionMock = vi.hoisted(() => vi.fn());
+vi.mock("@/services/dialogs/confirmAction", () => ({
+  confirmAction: confirmActionMock,
+}));
+
 import { AboutSettings } from "./AboutSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 
@@ -73,23 +78,30 @@ describe("AboutSettings — reset to defaults (WI-6 / D3)", () => {
     vi.restoreAllMocks();
   });
 
-  it("does not reset when the confirmation is dismissed", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+  it("does not reset when the confirmation is dismissed", async () => {
+    // Audit 20260829: production goes through confirmAction, not
+    // window.confirm — mock the funnel and AWAIT the async continuation.
+    confirmActionMock.mockResolvedValue(false);
     useSettingsStore.setState({
       appearance: { ...useSettingsStore.getState().appearance, fontSize: 42 },
     });
     render(<AboutSettings />);
     fireEvent.click(screen.getByText("Reset to Defaults"));
+    await vi.waitFor(() => expect(confirmActionMock).toHaveBeenCalled());
     expect(useSettingsStore.getState().appearance.fontSize).toBe(42);
   });
 
-  it("resets all settings to defaults when confirmed", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("resets all settings to defaults when confirmed", async () => {
+    // WI-UI4.1: the confirm goes through confirmAction (Tauri ask), not
+    // window.confirm.
+    confirmActionMock.mockResolvedValue(true);
     useSettingsStore.setState({
       appearance: { ...useSettingsStore.getState().appearance, fontSize: 42 },
     });
     render(<AboutSettings />);
     fireEvent.click(screen.getByText("Reset to Defaults"));
-    expect(useSettingsStore.getState().appearance.fontSize).toBe(18);
+    await vi.waitFor(() => {
+      expect(useSettingsStore.getState().appearance.fontSize).toBe(18);
+    });
   });
 });

@@ -37,7 +37,7 @@ export class MathPreviewView {
 
   private buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "math-preview-popup";
+    container.className = "popup-container math-preview-popup";
     container.style.display = "none";
 
     const preview = document.createElement("div");

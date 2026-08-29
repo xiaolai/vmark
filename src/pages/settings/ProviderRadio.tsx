@@ -32,13 +32,13 @@ export function ProviderRadio({
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`w-3.5 h-3.5 rounded-full border flex-shrink-0
+      className={`vm-hit-expand relative w-3.5 h-3.5 rounded-full border flex-shrink-0
         flex items-center justify-center transition-colors
         ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}
         ${checked
           ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]"
           : "border-[var(--text-tertiary)] bg-transparent hover:border-[var(--text-secondary)]"
-        }`}
+        } focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2`}
     >
       {checked && (
         <span className="w-1.5 h-1.5 rounded-full bg-[var(--contrast-text)]" />

@@ -111,7 +111,7 @@
   height: 100%;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1;
@@ -133,6 +133,17 @@
   background: var(--sidebar-bg);
   opacity: 0;
   cursor: pointer;
+}
+
+/* D2: the badge paints 14px; the hit area is --target-min. */
+.workspace-rail__duplicate::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--target-min);
+  height: var(--target-min);
+  transform: translate(-50%, -50%);
 }
 
 .workspace-rail__entry:hover .workspace-rail__duplicate,

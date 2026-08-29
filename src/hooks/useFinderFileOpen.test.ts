@@ -262,9 +262,10 @@ describe("useFinderFileOpen", () => {
       // Orphan tab is cleaned up and the error surfaces via toast — no
       // silent empty tab, no ingest zeroing the path.
       expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab");
+      // Two-line contract (WI-UI4.4): sonner mocked directly, real errorDetail runs — the error arrives as description.
       expect(mockToastError).toHaveBeenCalledWith(
-        expect.stringContaining("forbidden path"),
-        expect.objectContaining({ action: expect.any(Object) }),
+        expect.stringContaining("failedToOpenFile"),
+        expect.objectContaining({ description: expect.stringContaining("forbidden path"), action: expect.any(Object) }),
       );
     });
     expect(mockIngestExternalContent).not.toHaveBeenCalled();
@@ -626,7 +627,6 @@ describe("useFinderFileOpen", () => {
     });
   });
 });
-
 describe("useFinderFileOpen — size-tier routing", () => {
   beforeEach(async () => {
     vi.clearAllMocks();

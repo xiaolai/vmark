@@ -54,7 +54,7 @@ describe("TerminalSearchBar", () => {
 
   it("renders with search input", () => {
     render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-    expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search…")).toBeInTheDocument();
   });
 
   // WI-2.4 (a11y) — accessible name on the search input. Placeholder text
@@ -69,14 +69,14 @@ describe("TerminalSearchBar", () => {
 
   it("searches on input change", () => {
     render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-    const input = screen.getByPlaceholderText("Search...");
+    const input = screen.getByPlaceholderText("Search…");
     fireEvent.change(input, { target: { value: "hello" } });
     expect(addon.findNext).toHaveBeenCalledWith("hello", ALL_OFF);
   });
 
   it("finds next on Enter, previous on Shift+Enter", () => {
     render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-    const input = screen.getByPlaceholderText("Search...");
+    const input = screen.getByPlaceholderText("Search…");
     fireEvent.change(input, { target: { value: "test" } });
 
     fireEvent.keyDown(input, { key: "Enter" });
@@ -88,7 +88,7 @@ describe("TerminalSearchBar", () => {
 
   it("closes on Escape", () => {
     render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-    const input = screen.getByPlaceholderText("Search...");
+    const input = screen.getByPlaceholderText("Search…");
     fireEvent.keyDown(input, { key: "Escape" });
     expect(addon.clearDecorations).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
@@ -101,7 +101,7 @@ describe("TerminalSearchBar", () => {
 
     it("Enter with isComposing does not trigger findNext", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
       vi.clearAllMocks();
 
@@ -112,7 +112,7 @@ describe("TerminalSearchBar", () => {
 
     it("Escape with isComposing does not close", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
 
       fireEvent.keyDown(input, { key: "Escape", isComposing: true });
 
@@ -121,7 +121,7 @@ describe("TerminalSearchBar", () => {
 
     it("keyCode 229 (IME marker) is blocked", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
       vi.clearAllMocks();
 
@@ -141,7 +141,7 @@ describe("TerminalSearchBar", () => {
       vi.useFakeTimers({ toFake: ["Date", "performance"] });
       try {
         render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-        const input = screen.getByPlaceholderText("Search...");
+        const input = screen.getByPlaceholderText("Search…");
         fireEvent.change(input, { target: { value: "test" } });
 
         fireEvent.compositionStart(input);
@@ -161,7 +161,7 @@ describe("TerminalSearchBar", () => {
       vi.useFakeTimers({ toFake: ["Date", "performance"] });
       try {
         render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-        const input = screen.getByPlaceholderText("Search...");
+        const input = screen.getByPlaceholderText("Search…");
         fireEvent.change(input, { target: { value: "test" } });
 
         fireEvent.compositionStart(input);
@@ -180,7 +180,7 @@ describe("TerminalSearchBar", () => {
 
     it("does not double-search when onChange fires after compositionEnd", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
 
       // Start composition
       fireEvent.compositionStart(input);
@@ -199,7 +199,7 @@ describe("TerminalSearchBar", () => {
 
     it("skips addon.findNext during composition onChange", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
 
       // Start composition
       fireEvent.compositionStart(input);
@@ -219,7 +219,7 @@ describe("TerminalSearchBar", () => {
   describe("button clicks", () => {
     it("previous button calls findPrevious", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
       vi.clearAllMocks();
 
@@ -230,7 +230,7 @@ describe("TerminalSearchBar", () => {
 
     it("next button calls findNext", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
       vi.clearAllMocks();
 
@@ -259,7 +259,7 @@ describe("TerminalSearchBar", () => {
 
     it("prev/next buttons are enabled when query is non-empty", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "hello" } });
 
       const prevBtn = screen.getByTitle("Previous (Shift+Enter)");
@@ -272,7 +272,7 @@ describe("TerminalSearchBar", () => {
   describe("edge cases", () => {
     it("clearing input clears decorations", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
       vi.clearAllMocks();
 
@@ -284,7 +284,7 @@ describe("TerminalSearchBar", () => {
     it("handles null search addon gracefully on input", () => {
       const nullAddonGetter = () => null;
       render(<TerminalSearchBar getSearchAddon={nullAddonGetter} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
 
       // Should not throw
       expect(() => {
@@ -295,7 +295,7 @@ describe("TerminalSearchBar", () => {
     it("handles null search addon gracefully on Enter", () => {
       const nullAddonGetter = () => null;
       render(<TerminalSearchBar getSearchAddon={nullAddonGetter} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       fireEvent.change(input, { target: { value: "test" } });
 
       expect(() => {
@@ -308,14 +308,14 @@ describe("TerminalSearchBar", () => {
       render(<TerminalSearchBar getSearchAddon={nullAddonGetter} onClose={onClose} />);
 
       expect(() => {
-        fireEvent.keyDown(screen.getByPlaceholderText("Search..."), { key: "Escape" });
+        fireEvent.keyDown(screen.getByPlaceholderText("Search…"), { key: "Escape" });
       }).not.toThrow();
       expect(onClose).toHaveBeenCalled();
     });
 
     it("compositionEnd with empty query clears decorations", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
 
       fireEvent.compositionStart(input);
       // Simulate composition that results in empty (user cancelled)
@@ -327,7 +327,7 @@ describe("TerminalSearchBar", () => {
 
     it("auto-focuses the input on mount", () => {
       render(<TerminalSearchBar getSearchAddon={getSearchAddon} onClose={onClose} />);
-      const input = screen.getByPlaceholderText("Search...");
+      const input = screen.getByPlaceholderText("Search…");
       expect(document.activeElement).toBe(input);
     });
   });
@@ -341,7 +341,7 @@ describe("TerminalSearchBar", () => {
     }
 
     function type(value: string) {
-      fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value } });
+      fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value } });
     }
 
     it("shows nothing before a query is typed", () => {
@@ -362,7 +362,7 @@ describe("TerminalSearchBar", () => {
       type("zzz");
       resultsHook.emit({ resultIndex: -1, resultCount: 0 });
       expect(results()?.textContent).toBe("No results");
-      expect(screen.getByPlaceholderText("Search...")).toHaveClass(
+      expect(screen.getByPlaceholderText("Search…")).toHaveClass(
         "terminal-search-input--no-match",
       );
     });
@@ -375,7 +375,7 @@ describe("TerminalSearchBar", () => {
       resultsHook.emit({ resultIndex: -1, resultCount: 5000 });
       expect(results()?.textContent).toBe("5000 matches");
       expect(results()?.textContent).not.toContain("/");
-      expect(screen.getByPlaceholderText("Search...")).not.toHaveClass(
+      expect(screen.getByPlaceholderText("Search…")).not.toHaveClass(
         "terminal-search-input--no-match",
       );
     });
@@ -388,7 +388,7 @@ describe("TerminalSearchBar", () => {
 
       type("");
       expect(results()?.textContent ?? "").toBe("");
-      expect(screen.getByPlaceholderText("Search...")).not.toHaveClass(
+      expect(screen.getByPlaceholderText("Search…")).not.toHaveClass(
         "terminal-search-input--no-match",
       );
     });
@@ -465,7 +465,7 @@ describe("TerminalSearchBar", () => {
     }
 
     function type(value: string) {
-      fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value } });
+      fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value } });
     }
 
     it.each([
@@ -505,7 +505,7 @@ describe("TerminalSearchBar", () => {
       fireEvent.click(toggle(/whole word/i));
       vi.clearAllMocks();
 
-      fireEvent.keyDown(screen.getByPlaceholderText("Search..."), { key: "Enter" });
+      fireEvent.keyDown(screen.getByPlaceholderText("Search…"), { key: "Enter" });
 
       expect(addon.findNext).toHaveBeenCalledWith("abc", {
         ...ALL_OFF,
@@ -529,7 +529,7 @@ describe("TerminalSearchBar", () => {
       fireEvent.click(toggle(/match case/i));
       fireEvent.click(toggle(/whole word/i));
       vi.clearAllMocks();
-      fireEvent.keyDown(screen.getByPlaceholderText("Search..."), { key: "Enter" });
+      fireEvent.keyDown(screen.getByPlaceholderText("Search…"), { key: "Enter" });
 
       expect(addon.findNext).toHaveBeenCalledWith("abc", {
         caseSensitive: true,
@@ -551,7 +551,7 @@ describe("TerminalSearchBar", () => {
       expect(document.querySelector(".terminal-search-results")?.textContent).toBe(
         "No results",
       );
-      expect(screen.getByPlaceholderText("Search...")).toHaveClass(
+      expect(screen.getByPlaceholderText("Search…")).toHaveClass(
         "terminal-search-input--no-match",
       );
     });

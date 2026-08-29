@@ -1,5 +1,7 @@
 /* Window-Status panel mount (#1057) — floating, top-right, above content. */
 .window-status-overlay {
+  /* ui-ok(overlay): corner-card ANCHOR — positions only; the panel chrome
+     lives on the child panel, and there is no backdrop */
   position: fixed;
   top: var(--space-10);
   right: var(--space-3);

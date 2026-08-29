@@ -1,0 +1,36 @@
+{
+  "//": [
+    "WI-UI0.1 — identity baseline for scripts/check-theme-contrast.ts (C1a-C1f).",
+    "`failing` lists TODAY'S measured failing pairs per theme; it only ratchets",
+    "DOWN (onAdd: fail in the manifest) — Phase 1 empties it. `ansiFloor` and",
+    "`exempt` are permanent, REASONED exceptions (D10): the value may only rise",
+    "and a blank reason fails the gate. Regenerate `failing` after a retint with:",
+    "  node --import tsx scripts/check-theme-contrast.ts --update"
+  ],
+  "failing": {
+    "white": [],
+    "paper": [],
+    "mint": [],
+    "sepia": [],
+    "night": [],
+    "solarized": []
+  },
+  "ansiFloor": {
+    "night": {
+      "value": 1.1,
+      "reason": "ANSI black/brightBlack are the dim role on a dark bg; xterm lifts each cell at paint time via minimumContrastRatio 4.5 (default), which this gate also asserts stays >= 4.5"
+    },
+    "solarized": {
+      "value": 2.4,
+      "reason": "canonical Solarized: bright 8-15 are base tones by design; lifted at paint time by minimumContrastRatio 4.5 (default), which this gate also asserts stays >= 4.5"
+    }
+  },
+  "exempt": {
+    "solarized": [
+      {
+        "id": "ansi.black/bg.primary",
+        "reason": "canonical Solarized ANSI black is base02, the dim role beside base03 - deliberately near-bg; lifted per cell by minimumContrastRatio"
+      }
+    ]
+  }
+}

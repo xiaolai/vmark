@@ -8,6 +8,7 @@
 
 import React, { useState, useRef } from "react";
 import { ChevronRight } from "lucide-react";
+import { Button } from "./buttons";
 import { useSettingsSearchQuery, matchesSettingsQuery } from "./SettingsSearchContext";
 
 interface SettingRowProps {
@@ -21,6 +22,7 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
   const id = React.useId();
   const labelId = `${id}-label`;
   const descId = `${id}-desc`;
+  const controlId = `${id}-control`;
 
   // Settings search (D2): when a query is active, the dialog stacks every
   // panel and each row hides itself unless its label/description matches.
@@ -28,20 +30,44 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
   // rendering pays nothing. See settings-search.css.
   const query = useSettingsSearchQuery();
   const visible = matchesSettingsQuery(query, label, description);
+  // No "button" here on purpose: label activation is the affordance for VALUE
+  // controls (toggle, select, field). On a row whose child is an action
+  // button, a click on the label TEXT would fire the action — surprising for
+  // one-shot buttons like "Detect CLI" or "Reset all settings" (audit round
+  // 2, finding 28). Buttons keep aria-labelledby only.
+  const LABELABLE_TAGS = new Set(["input", "select", "textarea", "meter", "output", "progress"]);
+  const childEl = React.isValidElement(children)
+    ? (children as React.ReactElement<Record<string, unknown>>)
+    : null;
+  const isButtonChild = childEl !== null && (childEl.type === "button" || childEl.type === Button);
+  const labelable =
+    childEl !== null &&
+    !isButtonChild &&
+    (typeof childEl.type !== "string" || LABELABLE_TAGS.has(childEl.type));
+  // Never overwrite a child-provided id — reference it instead.
+  const effectiveControlId = (childEl?.props.id as string | undefined) ?? controlId;
 
   return (
     <div
       data-setting-row
       data-search-visible={visible}
       className={`flex items-center justify-between py-2.5
-                     ${disabled ? "opacity-50" : ""}`}
+                     ${disabled ? "opacity-[var(--opacity-disabled)]" : ""}`}
     >
       <div className="flex-1">
-        <div id={labelId} className="text-sm font-medium text-[var(--text-color)]">
+        {/* A real <label htmlFor>, so clicking the row's text activates the
+            control (WI-UI2.4) — a switch/select is a labelable element.
+            Audit 20260829: a wrapper <div> child is NOT labelable, so the
+            htmlFor would dangle — omit it there and keep the aria wiring. */}
+        <label
+          htmlFor={labelable ? effectiveControlId : undefined}
+          id={labelId}
+          className="block text-sm font-medium text-[var(--text-color)]"
+        >
           {label}
-        </div>
+        </label>
         {description && (
-          <div id={descId} className="text-xs text-[var(--text-tertiary)] mt-0.5">
+          <div id={descId} className="text-xs text-[var(--text-secondary)] mt-0.5">
             {description}
           </div>
         )}
@@ -49,6 +75,7 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
       <div className="ml-4">
         {React.isValidElement(children)
           ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+              id: effectiveControlId,
               "aria-labelledby": labelId,
               ...(description ? { "aria-describedby": descId } : {}),
             })
@@ -143,9 +170,7 @@ export function CollapsibleGroup({
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex items-center gap-2 text-sm font-medium text-[var(--text-color)] mb-2
-                   rounded hover:text-[var(--text-secondary)] transition-colors
-                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
+        className="vm-btn vm-btn--plain flex items-center gap-2 text-[var(--text-color)]! font-medium mb-2"
       >
         <ChevronRight
           className={`w-4 h-4 transition-transform ${open ? "rotate-90" : ""}`}
@@ -153,7 +178,7 @@ export function CollapsibleGroup({
         {title}
       </button>
       {description && (
-        <p className="text-xs text-[var(--text-tertiary)] ml-6 mb-2">
+        <p className="text-xs text-[var(--text-secondary)] ml-6 mb-2">
           {description}
         </p>
       )}

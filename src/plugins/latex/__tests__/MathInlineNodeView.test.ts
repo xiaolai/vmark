@@ -242,7 +242,7 @@ describe("MathInlineNodeView", () => {
       createNodeView({ content: "x^2" });
       const loading = nodeView.dom.querySelector(".math-inline-loading");
       expect(loading).not.toBeNull();
-      expect(loading?.textContent).toBe("...");
+      expect(loading?.textContent).toBe("…");
     });
 
     it("shows text content when KaTeX is loaded (before render)", () => {

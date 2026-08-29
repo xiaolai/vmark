@@ -112,7 +112,7 @@ describe("HeadingPicker", () => {
       setState({ isOpen: false });
       render(<HeadingPicker />);
 
-      expect(screen.queryByPlaceholderText("Filter headings...")).toBeNull();
+      expect(screen.queryByPlaceholderText("Filter headings…")).toBeNull();
     });
 
     it("renders when open", async () => {
@@ -125,7 +125,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      expect(screen.getByPlaceholderText("Filter headings...")).not.toBeNull();
+      expect(screen.getByPlaceholderText("Filter headings…")).not.toBeNull();
     });
 
     it("renders heading items when open with headings", async () => {
@@ -171,7 +171,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      expect(screen.getByText("No headings in document")).not.toBeNull();
+      expect(screen.getByText(/No headings in document/)).not.toBeNull();
     });
 
     it("shows filter empty message when filter matches nothing", async () => {
@@ -184,10 +184,10 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       fireEvent.change(input, { target: { value: "xyz123nonexistent" } });
 
-      expect(screen.getByText("No headings match filter")).not.toBeNull();
+      expect(screen.getByText(/No headings match filter/)).not.toBeNull();
     });
   });
 
@@ -202,7 +202,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       fireEvent.change(input, { target: { value: "install" } });
 
       expect(screen.getByText("Installation")).not.toBeNull();
@@ -219,7 +219,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       fireEvent.change(input, { target: { value: "getting-started" } });
 
       expect(screen.getByText("Getting Started")).not.toBeNull();
@@ -236,7 +236,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       fireEvent.change(input, { target: { value: "ADVANCED" } });
 
       expect(screen.getByText("Advanced Features")).not.toBeNull();
@@ -513,7 +513,7 @@ describe("HeadingPicker", () => {
       render(<HeadingPicker />);
       await vi.runAllTimersAsync();
 
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       const container = document.querySelector(".heading-picker") as HTMLElement;
 
       // Simulate composition then immediate Enter (macOS WebKit pattern)
@@ -663,7 +663,7 @@ describe("HeadingPicker", () => {
       fireEvent.keyDown(container, { key: "ArrowDown" });
 
       // Filter to only 1 result
-      const input = screen.getByPlaceholderText("Filter headings...");
+      const input = screen.getByPlaceholderText("Filter headings…");
       fireEvent.change(input, { target: { value: "installation" } });
 
       // Selection should clamp to 0 (only item)

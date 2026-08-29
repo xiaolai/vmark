@@ -25,8 +25,8 @@
   background: var(--bg-color);
   border-bottom-color: var(--border-color);
   color: var(--text-secondary);
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .workflow-preview-canvas .react-flow__controls-button:hover {

@@ -46,7 +46,12 @@ THEME_NAMES='"(paper|white|mint|sepia|night|solarized)"|'\''(paper|white|mint|se
 #   - Docs (dev-docs/, website/, .claude/rules/) describe themes.
 #   - The export reader bundle has its own theme handling.
 #   - Snapshot files contain captured theme output.
-ALLOWLIST='^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/stores/settingsStore/defaults\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx)$|^scripts/check-theme-names\.sh$'
+#   - baselineRatchetManifest.mjs registers the theme-contrast baseline with
+#     one identity entry PER THEME (WI-UI0.1) — the names are the manifest keys.
+#   - theme-contrast-baseline.json keys its failing lists by theme id.
+#   - Gates-tier tests (*.test.mjs) construct theme fixtures by name, the same
+#     reason app-tier *.test.ts files were always allowlisted.
+ALLOWLIST='^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/stores/settingsStore/defaults\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx|mjs)$|^scripts/check-theme-names\.sh$|^scripts/baselineRatchetManifest\.mjs$|^scripts/theme-contrast-baseline\.json$'
 
 cd "$(git rev-parse --show-toplevel)"
 

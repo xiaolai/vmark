@@ -8,6 +8,15 @@ import {
 } from "../useTerminalPosition";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
 import { TERMINAL_MAX_RATIO } from "@/stores/uiStore";
+import { BAR_HEIGHT } from "@/shell/shellChrome";
+
+// TITLEBAR_HEIGHT is resolved at module load from usesOverlayTitleBar() —
+// pin the macOS (overlay) branch so the maths below stay deterministic in
+// jsdom. The off-macOS branch subtracts no top strip (WI-UI3.5).
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  usesOverlayTitleBar: () => true,
+}));
 
 describe("computeTerminalPosition", () => {
   it.each([
@@ -85,9 +94,9 @@ describe("pixelsToRatio", () => {
 });
 
 describe("getAvailableDimension", () => {
-  // Layout constants from the source: TITLEBAR_HEIGHT = 40, STATUSBAR_HEIGHT = 40
-  const TITLEBAR_HEIGHT = 40;
-  const STATUSBAR_HEIGHT = 40;
+  // Layout constants come from the ONE owner (R11) rather than restating 40.
+  const TITLEBAR_HEIGHT = BAR_HEIGHT;
+  const STATUSBAR_HEIGHT = BAR_HEIGHT;
 
   it("returns windowHeight minus titlebar and statusbar for bottom position", () => {
     const result = getAvailableDimension("bottom", 1920, 1080, 0);
@@ -171,7 +180,7 @@ describe("getAvailableDimension — additional edge cases", () => {
 
   it("handles zero window dimensions for bottom", () => {
     const result = getAvailableDimension("bottom", 0, 0, 0);
-    expect(result).toBe(0 - 40 - 40); // negative
+    expect(result).toBe(0 - BAR_HEIGHT - BAR_HEIGHT); // negative
   });
 
   it("treats left like right — width minus sidebar", () => {
@@ -180,7 +189,7 @@ describe("getAvailableDimension — additional edge cases", () => {
   });
 
   it("treats top like bottom — height minus bars", () => {
-    expect(getAvailableDimension("top", 1000, 800, 0)).toBe(800 - 40 - 40);
+    expect(getAvailableDimension("top", 1000, 800, 0)).toBe(800 - BAR_HEIGHT - BAR_HEIGHT);
   });
 
   it("subtracts the WHOLE side chrome, rail included (audit fix)", () => {
@@ -192,7 +201,7 @@ describe("getAvailableDimension — additional edge cases", () => {
     expect(getAvailableDimension("right", 1000, 800, railOnly)).toBe(970);
     expect(getAvailableDimension("right", 1000, 800, railAndSidebar)).toBe(710);
     // The vertical axis is unaffected by horizontal chrome.
-    expect(getAvailableDimension("bottom", 1000, 800, railAndSidebar)).toBe(800 - 40 - 40);
+    expect(getAvailableDimension("bottom", 1000, 800, railAndSidebar)).toBe(800 - BAR_HEIGHT - BAR_HEIGHT);
   });
 });
 

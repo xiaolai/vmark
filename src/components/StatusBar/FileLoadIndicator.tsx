@@ -32,7 +32,7 @@ export function FileLoadIndicator() {
 
   return (
     <div className="status-file-load" role="status" aria-live="polite">
-      <span className="status-file-load__spinner" aria-hidden="true" />
+      <span className="vm-spinner status-file-load__spinner" aria-hidden="true" />
       <span className="status-file-load__label">
         {t("largeFile.opening", { size: formatFileSize(sizeBytes) })}
       </span>

@@ -180,7 +180,7 @@ export function BreakdownRow({ row, workspaceRoot, annotation }: BreakdownRowPro
         <div className="breakdown-row__waive">
           <input
             type="text"
-            className="breakdown-row__waive-input"
+            className="vm-input breakdown-row__waive-input"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             onKeyDown={(e) => {

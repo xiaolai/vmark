@@ -51,8 +51,7 @@ export class MathPopupView extends WysiwygPopupView<MathPopupState> {
   }
 
   protected buildContainer(): HTMLElement {
-    const container = document.createElement("div");
-    container.className = "math-popup";
+    const container = this.createShell("math-popup");
 
     const textarea = document.createElement("textarea");
     textarea.className = "math-popup-input";

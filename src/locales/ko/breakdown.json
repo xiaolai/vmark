@@ -41,10 +41,10 @@
   "provenance.hint": "복구 가능한 이전 입력 {{count}}개",
   "provenance.suggest": "입력 제안",
   "provenance.confirm": "출처 확정",
-  "provenance.empty": "선택된 입력이 없습니다",
+  "provenance.empty": "선택된 입력이 없습니다. 이 산출물의 출처를 선택하세요.",
   "provenance.stale": "문서가 변경되었습니다 — 제안을 새로 고쳤습니다",
   "delegations.heading": "에이전트 위임",
-  "delegations.empty": "활성 위임 없음",
+  "delegations.empty": "활성 위임이 없습니다. 부여하면 주체가 범위 내에서 작업할 수 있습니다.",
   "delegations.grant": "부여",
   "delegations.revoke": "철회",
   "delegations.principalPlaceholder": "에이전트 프린시펄 (예: codex-cli)",
@@ -90,6 +90,6 @@
   "anchor.change": "고정 위치 변경",
   "anchor.clear": "파일 전체",
   "anchor.hint": "파일 전체가 아니라 의존하는 섹션만 확인합니다.",
-  "anchor.empty": "고정할 섹션이 없습니다.",
+  "anchor.empty": "앵커할 섹션이 없습니다. 먼저 문서에 제목을 추가하세요.",
   "anchor.error": "섹션을 불러오지 못했습니다."
 }

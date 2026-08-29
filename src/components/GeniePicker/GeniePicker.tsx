@@ -332,10 +332,10 @@ export function GeniePicker() {
   const ghostTextEl = promptHistory.ghostText ? <span className="genie-freeform-ghost" aria-hidden="true"><span className="genie-freeform-ghost-spacer">{filter}</span><span className="genie-freeform-ghost-text">{promptHistory.ghostText}</span></span> : null;
 
   return createPortal(
-    <div className="genie-picker-backdrop">
+    <div className="vm-overlay vm-overlay--top genie-picker-backdrop">
       <div
         ref={containerRef}
-        className="genie-picker"
+        className="vm-overlay__panel genie-picker"
         onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
@@ -384,7 +384,7 @@ export function GeniePicker() {
               )}
 
               {/* Genie list */}
-              <div className="genie-picker-list" ref={listRef} id="genie-picker-list" role="listbox">
+              <div className="vm-scroll--thin genie-picker-list" ref={listRef} id="genie-picker-list" role="listbox">
                 {loading && (
                   <div className="genie-picker-empty">{t("picker.loading")}</div>
                 )}
@@ -406,7 +406,7 @@ export function GeniePicker() {
                     ) : (
                       <span>
                         {t("picker.freeformHintPrefix")}{" "}
-                        <kbd className="genie-picker-kbd">Enter</kbd>{" "}
+                        <kbd className="vm-overlay__kbd">Enter</kbd>{" "}
                         {t("picker.freeformHintSuffix")}
                       </span>
                     )}
@@ -472,7 +472,7 @@ export function GeniePicker() {
         </div>
 
         {/* Footer */}
-        <div className="genie-picker-footer">
+        <div className="vm-overlay__footer genie-picker-footer">
           <span className="genie-picker-scope">
             {t("picker.scopeLabel", { scope: activeScope ?? "all" })}
           </span>
@@ -496,9 +496,9 @@ export function GeniePicker() {
             </span>
           )}
           <span className="genie-picker-hint">
-            <kbd className="genie-picker-kbd">Tab</kbd> {t("picker.footerCycleScope")}
+            <kbd className="vm-overlay__kbd">Tab</kbd> {t("picker.footerCycleScope")}
             {" "}
-            <kbd className="genie-picker-kbd">&uarr;&darr;</kbd> {t("picker.footerNavigate")}
+            <kbd className="vm-overlay__kbd">&uarr;&darr;</kbd> {t("picker.footerNavigate")}
           </span>
         </div>
       </div>

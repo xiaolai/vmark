@@ -15,6 +15,10 @@
 import type { Transformer } from "markmap-lib";
 import type { Markmap, IMarkmapOptions } from "markmap-view";
 import type { INode } from "markmap-common";
+import {
+  readDiagramThemeTokens,
+  serializeDiagramThemeTokens,
+} from "@/plugins/shared/diagramThemeTokens";
 import { registerCleanup } from "@/plugins/shared/diagramCleanup";
 import { diagramWarn } from "@/utils/debug";
 import "./markmap.css";
@@ -27,24 +31,17 @@ let loadPromise: Promise<void> | null = null;
 // Track active markmap instances for theme re-rendering
 const activeInstances = new Map<SVGElement, { mm: Markmap; content: string }>();
 
-// Current theme state
-let currentIsDark = false;
+// Current theme snapshot — the token VALUES, not the dark bit (WI-UI1.5): a
+// mint→sepia switch never flips isDark, yet every alert colour changes.
+let currentTokenKey = "";
 
 /**
- * Detect if dark mode is active by checking document class
+ * Depth palette from the LIVE design tokens (alert colours + accent), so the
+ * branches follow the theme instead of a hardcoded binary palette.
  */
-function isDarkMode(): boolean {
-  const cl = document.documentElement.classList;
-  return cl.contains("dark-theme") || cl.contains("dark");
-}
-
-/**
- * Get color options for the current theme
- */
-function getColorOptions(dark: boolean): Partial<IMarkmapOptions> {
-  const lightColors = ["#0969da", "#1a7f37", "#8250df", "#9a6700", "#cf222e", "#0550ae"];
-  const darkColors = ["#58a6ff", "#3fb950", "#a371f7", "#d29922", "#f85149", "#79c0ff"];
-  const palette = dark ? darkColors : lightColors;
+function getColorOptions(): Partial<IMarkmapOptions> {
+  const t = readDiagramThemeTokens();
+  const palette = [t.alertNote, t.alertTip, t.alertImportant, t.alertWarning, t.alertCaution, t.accentPrimary];
 
   return {
     color: (node: INode) => {
@@ -96,9 +93,9 @@ export async function renderMarkmapToElement(
 
   try {
     const { root } = transformerInstance.transform(trimmed);
-    currentIsDark = isDarkMode();
+    currentTokenKey = serializeDiagramThemeTokens(readDiagramThemeTokens());
     const options: Partial<IMarkmapOptions> = {
-      ...getColorOptions(currentIsDark),
+      ...getColorOptions(),
       scrollForPan: true,  // zoom filter rejects plain scroll
       pan: false,          // don't bind wheel→handlePan
     };
@@ -160,9 +157,18 @@ export async function renderMarkmapToSvgString(
 
   try {
     const { root } = transformerInstance.transform(trimmed);
+    // Export renders a STANDALONE artifact that may request the opposite mode
+    // of the live app, so it keeps a fixed palette per requested mode (same
+    // rationale as printStyles) rather than reading live tokens.
     const dark = theme === "dark";
+    const exportPalette = dark
+      ? ["#58a6ff", "#3fb950", "#a371f7", "#d29922", "#f85149", "#79c0ff"]
+      : ["#0969da", "#1a7f37", "#8250df", "#9a6700", "#cf222e", "#0550ae"];
     const options: Partial<IMarkmapOptions> = {
-      ...getColorOptions(dark),
+      color: (node: INode) => {
+        const depth = (node.state?.path || "").split(".").length - 1;
+        return exportPalette[depth % exportPalette.length];
+      },
       duration: 0, // no animation — serialize immediately
     };
 
@@ -193,12 +199,15 @@ export async function renderMarkmapToSvgString(
 
 /**
  * Update markmap theme when app theme changes.
- * Re-renders all active instances with new colors.
+ * Re-renders all active instances with new colors. Compares the TOKEN
+ * SNAPSHOT, not the dark bit — mint→sepia changes every branch colour while
+ * isDark never moves (WI-UI1.5).
  * Returns true if theme changed.
  */
-export async function updateMarkmapTheme(isDark: boolean): Promise<boolean> {
-  if (isDark === currentIsDark) return false;
-  currentIsDark = isDark;
+export async function updateMarkmapTheme(): Promise<boolean> {
+  const key = serializeDiagramThemeTokens(readDiagramThemeTokens());
+  if (key === currentTokenKey) return false;
+  currentTokenKey = key;
 
   if (!transformerInstance) return false;
 
@@ -206,7 +215,7 @@ export async function updateMarkmapTheme(isDark: boolean): Promise<boolean> {
   for (const [, { mm, content }] of activeInstances) {
     try {
       const { root } = transformerInstance.transform(content);
-      const options = getColorOptions(isDark);
+      const options = getColorOptions();
       mm.setOptions(options);
       void Promise.resolve(mm.setData(root)).catch((e) => diagramWarn("Markmap setData failed:", e));
       void Promise.resolve(mm.fit()).catch((e) => diagramWarn("Markmap fit failed:", e));

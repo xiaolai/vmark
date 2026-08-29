@@ -6,7 +6,6 @@
   z-index: var(--z-bar);
   /* Status pill shared dimensions (tab-pill, status-source-upgrade, status-file-load). */
   --status-pill-height: 22px;
-  --status-pill-radius: 11px;
 }
 
 .status-bar {
@@ -244,7 +243,7 @@
   gap: var(--space-1);
   height: var(--status-pill-height);
   padding: 0 var(--space-2);
-  border-radius: var(--status-pill-radius);
+  border-radius: var(--radius-pill);
   background-color: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -269,9 +268,14 @@
 }
 
 .tab-pill.active {
+  /* ui-ok(state): the active tab SHARES THE PAGE SURFACE it fronts — the
+     browser-tab idiom; an accent wash here would disconnect tab from page. */
+  /* WI-UI3.6: a real surface — on night the page-vs-bar contrast alone was
+     ~1.05:1, so the active pill was findable only by its text weight. The
+     --control-border boundary is authored ≥ 3:1 on every theme (D8). */
   background-color: var(--bg-color);
   color: var(--text-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 0 0 var(--border-thin) var(--control-border), var(--shadow-sm);
 }
 
 .browser-workspace-tab {
@@ -281,7 +285,7 @@
   height: var(--status-pill-height);
   padding: 0 var(--space-2);
   border: none;
-  border-radius: var(--status-pill-radius);
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
@@ -309,7 +313,7 @@
   min-width: 16px;
   padding: 0 var(--space-half);
   border-radius: var(--radius-pill);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   background: var(--hover-bg);
   font-size: var(--font-size-2xs);
   text-align: center;
@@ -323,15 +327,13 @@
 
 /* Inline rename editor — borderless, caret is the focus indicator (per popup
    input convention); sized to match the title so the pill doesn't jump. */
+/* One rename treatment: `.vm-input` (WI-UI3.3). Residual = strip layout. */
 .tab-title-input {
   max-width: 100px;
   padding: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--text-color);
   font: inherit;
 }
+
 
 /* focus: caret-only — inline rename field; the caret is the indicator
    (.claude/rules/33-focus-indicators.md §2), and the pill must not resize. */
@@ -348,31 +350,17 @@
   flex-shrink: 0;
 }
 
+/* Paint/hit-box live on `.tab-strip-close` (icon-button-shared.css);
+   the pill owns only the reveal. */
 .tab-close {
   display: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
-  flex-shrink: 0;
 }
 
 .tab-pill:hover .tab-close,
 .tab-pill:focus-within .tab-close {
-  display: flex;
+  display: inline-flex;
 }
 
-.tab-close:hover {
-  background-color: var(--hover-bg-strong);
-  color: var(--text-color);
-}
 
 /* Missing file indicator (file deleted from disk) */
 .tab-pill.tab-missing {
@@ -381,11 +369,13 @@
 }
 
 .tab-pill.tab-missing:hover {
+  /* ui-ok(state): missing-file WARNING state on hover */
   background-color: rgba(154, 103, 0, 0.15);
   background-color: color-mix(in srgb, var(--warning-color) 15%, transparent);
 }
 
 .tab-pill.tab-missing.active {
+  /* ui-ok(state): missing-file WARNING state — the warning wash, not a selection */
   background-color: rgba(154, 103, 0, 0.2);
   background-color: color-mix(in srgb, var(--warning-color) 20%, transparent);
 }
@@ -443,53 +433,14 @@
   app-region: no-drag;
 }
 
-/* Sidebar toggle button (shown when sidebar is hidden) */
-.status-sidebar-toggle {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
-  flex-shrink: 0;
-}
-
-.status-sidebar-toggle:hover {
-  background-color: var(--hover-bg-strong);
-  color: var(--text-color);
-}
-
-/* New tab button */
-.status-new-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
-  flex-shrink: 0;
-}
-
-.status-new-tab:hover {
-  background-color: var(--hover-bg-strong);
-  color: var(--text-color);
-}
+/* The sidebar toggle and the new-tab button are canonical (WI-UI2.3):
+   `.vm-icon-btn--sm` and TabStripButton respectively. Residual hooks
+   `.status-sidebar-toggle` / `.status-new-tab` remain in the DOM for
+   automation, with no styling of their own. */
 
 .tab-drag-ghost {
+  /* ui-ok(overlay): drag preview that follows the pointer — not an overlay
+     shell; it has no backdrop and no interaction */
   position: fixed;
   z-index: var(--z-mcp-overlay);
   pointer-events: none;
@@ -521,7 +472,9 @@
 
 @media (pointer: coarse) {
   .tab-pill {
-    height: 28px;
+    /* Component-scoped local (rule 31): the pill inside the 40px bar. */
+  --tab-pill-height: 28px;
+  height: var(--tab-pill-height);
     padding: 0 var(--space-2-5);
     /* Half the 28px height, i.e. a pill. `--radius-pill` clamps to the same
        14px here and keeps the intent readable if the height ever changes. */
@@ -535,6 +488,7 @@
   }
 }
 
+/* KEPT under the global duration-collapse (D9/WI-UI1.7): the activity indicator must rest in its FINISHED colour, not the first keyframe */
 @media (prefers-reduced-motion: reduce) {
   .tab-pill,
   .tab-drag-ghost,
@@ -650,7 +604,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
@@ -665,7 +619,10 @@
 }
 
 .status-mcp.connected {
+  /* Badge treatment (WI-UI1.3): the tinted pill keeps the state readable at
+     11px — colour alone at this size was below 3:1 pre-retint. */
   color: var(--success-color);
+  background-color: color-mix(in srgb, var(--success-color) 12%, transparent);
 }
 
 .status-mcp.loading {
@@ -756,8 +713,6 @@
 }
 
 /* Focus indicators for StatusBar buttons */
-.status-sidebar-toggle:focus-visible,
-.status-new-tab:focus-visible,
 .status-mode:focus-visible,
 .status-mcp:focus-visible,
 .status-lock:focus-visible,
@@ -765,8 +720,6 @@
   outline: none;
 }
 
-.status-sidebar-toggle:focus-visible::after,
-.status-new-tab:focus-visible::after,
 .status-mode:focus-visible::after,
 .status-mcp:focus-visible::after,
 .status-lock:focus-visible::after,
@@ -777,7 +730,7 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -793,7 +746,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: default;
   transition: color var(--duration-base) ease, background-color var(--duration-base) ease;
 }
@@ -810,17 +763,9 @@
 }
 
 .status-update.checking svg {
-  animation: update-spin var(--duration-1s) linear infinite;
+  animation: vm-spin var(--duration-1s) linear infinite;
 }
 
-@keyframes update-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* Downloading state - pulsing icon */
 .status-update.downloading {
@@ -941,15 +886,11 @@
   animation: status-file-load-fade-in 150ms ease-out 150ms forwards;
 }
 
+/* `.vm-spinner` (WI-UI3.4); residual = the accent tint this bar uses. */
 .status-file-load__spinner {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  border: var(--border-medium) solid transparent;
   border-top-color: var(--accent-primary);
-  border-right-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: status-file-load-spin var(--duration-1s) linear infinite;
 }
+
 
 .status-file-load__label {
   color: var(--text-secondary);
@@ -959,9 +900,6 @@
   to { opacity: 1; }
 }
 
-@keyframes status-file-load-spin {
-  to { transform: rotate(360deg); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .status-file-load__spinner {
@@ -986,4 +924,34 @@
    (.claude/rules/33-focus-indicators.md). */
 .tab-pill.tab-other-pane:focus-visible {
   box-shadow: inset 0 -2px 0 var(--accent-primary);
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.status-update:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+
+/* WI-UI4.5 (R13): the tiny state glyph beside the satellite icon — the
+   second channel for the MCP state (R13). */
+.status-mcp__state {
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+}
+
+/* WI-UI4.5 (R13): the MCP states and the active pill survive forced-colors
+   mode with system inks + a real border. */
+@media (forced-colors: active) {
+  .tab-pill.active {
+    border: 1px solid CanvasText;
+  }
+
+  .status-mcp.connected {
+    color: Highlight;
+  }
+
+  .status-mcp.error {
+    color: LinkText;
+  }
 }

@@ -217,11 +217,10 @@ export function useImageDragDrop({
 
         // Only require saved document when copying to assets
         if (copyToAssets && !filePath) {
-          await message(
-            "Please save the document first before inserting images. " +
-              "Images are stored relative to the document location.",
-            { title: "Unsaved Document", kind: "warning" }
-          );
+          await message(i18n.t("dialog:unsavedDocument.messageInsertImages"), {
+            title: i18n.t("dialog:unsavedDocument.title"),
+            kind: "warning",
+          });
           return;
         }
 

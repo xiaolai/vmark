@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP bereit · Keine KI verbunden",
   "mcpConnected": "Verbunden: {{clients}}",
   "mcpHistoryTitle": "MCP-Schreibverlauf ({{count}})",
-  "mcpHistoryEmpty": "Keine MCP-Schreibvorgänge für diesen Tab aufgezeichnet",
+  "mcpHistoryEmpty": "Keine MCP-Schreibvorgänge für diesen Tab. KI-Änderungen erscheinen hier.",
   "mcpHistoryClear": "Verlauf für diesen Tab löschen",
   "mcpHistoryRestore": "Auf den Stand vor diesem Schreibvorgang zurücksetzen",
   "mcpHistoryRestored": "Auf den Stand vor {{tool}} zurückgesetzt",
@@ -26,7 +26,7 @@
   "readOnly": "Nur-Lesen",
   "editable": "Bearbeitbar",
   "sourceModeTitle": "Quellcode-Modus ({{shortcut}})",
-  "richTextModeTitle": "Rich-Text-Modus ({{shortcut}})",
+  "richTextModeTitle": "WYSIWYG-Modus ({{shortcut}})",
   "cancelAiRequest": "KI-Anfrage abbrechen",
   "cancelAiTitle": "Abbrechen",
   "dismissError": "Fehler schließen",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "Dieses Dokument vom Quelltextmodus zu WYSIWYG wechseln",
   "tabStrip": "Geöffnete Tabs",
   "scrollTabsLeft": "Tabs nach links scrollen",
-  "scrollTabsRight": "Tabs nach rechts scrollen"
+  "scrollTabsRight": "Tabs nach rechts scrollen",
+  "terminal.sessionExited": "{{name}} (beendet)",
+  "terminal.backgroundActivity": "Hintergrundaktivität"
 }

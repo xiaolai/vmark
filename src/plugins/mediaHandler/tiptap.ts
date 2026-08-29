@@ -91,10 +91,10 @@ async function handleDroppedMediaFile(view: EditorView, file: File): Promise<voi
     }
   } catch (error) {
     mediaHandlerError("Failed to handle dropped media file:", error);
-    await message(
-      `Failed to save media file: ${errorMessage(error)}`,
-      { title: "Error", kind: "error" }
-    );
+    await message(i18n.t("dialog:error.saveMediaFailed", { error: errorMessage(error) }), {
+      title: i18n.t("dialog:error.title"),
+      kind: "error",
+    });
   }
 }
 

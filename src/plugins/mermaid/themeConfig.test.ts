@@ -23,6 +23,11 @@ const lightTokens: DiagramThemeTokens = {
   borderColor: "#d5d4d4",
   accentPrimary: "#0066cc",
   mdCharColor: "#777777",
+  alertNote: "#085bbe",
+  alertTip: "#166d2f",
+  alertImportant: "#6f44bf",
+  alertWarning: "#815600",
+  alertCaution: "#b81e29",
   fontMono: "ui-monospace, monospace",
   isDark: false,
 };

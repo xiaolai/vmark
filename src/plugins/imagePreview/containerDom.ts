@@ -22,7 +22,7 @@ export interface PreviewDomRefs {
 /** Build the preview container and return references to its child slots. */
 export function buildPreviewContainer(): PreviewDomRefs {
   const container = document.createElement("div");
-  container.className = "image-preview-popup";
+  container.className = "popup-container image-preview-popup";
   container.style.display = "none";
 
   const loadingEl = document.createElement("div");

@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "@/utils/motion";
 
 /** Sentinel for the synthetic browser-workspace pill, which has no tab id. */
 export const BROWSER_PILL_KEY = "__browser-workspace__";
@@ -37,20 +38,6 @@ export function activationKey({ activeTabId, browserWorkspaceActive }: Activatio
   return activeTabId;
 }
 
-/**
- * Whether the user asked for reduced motion, read at CALL time.
- *
- * One owner for the policy: the scroll-into-view effect and the chevron buttons
- * both consult it, and when each had its own copy the same preference produced
- * two behaviours in one strip depending on how the user moved.
- */
-export function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
 
 export interface ScrollDecisionInput {
   prevKey: string | null;
@@ -70,6 +57,10 @@ export function scrollDecision({
   if (prevKey === nextKey) return null;
   if (nextKey === null) return null;
   return {
+    // The literal lives here rather than via scrollBehavior() so the DECISION
+    // stays pure and table-testable; the flag still arrives from
+    // @/utils/motion at the call site. (The lint rule matches the bare
+    // `behavior: "smooth"` literal, which this conditional is not.)
     behavior: reducedMotion ? "auto" : "smooth",
     block: "nearest",
     inline: "nearest",

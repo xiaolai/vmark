@@ -67,7 +67,7 @@
   "format.toast.set": "{{key}} 파일을 {{format}}(으)로 엽니다",
   "format.toast.reset": "{{key}} 파일을 기본 편집기로 재설정했습니다",
   "commandPalette.placeholder": "명령을 입력하세요",
-  "commandPalette.empty": "일치하는 명령이 없습니다",
+  "commandPalette.empty": "일치하는 명령이 없습니다. 검색어를 지우면 모든 명령이 표시됩니다.",
   "aria.commandPalette": "명령 팔레트",
   "browser.newTab": "새 브라우저 탭",
   "claims.extractFromSelection": "선택 영역에서 설정 추출",
@@ -191,5 +191,8 @@
   "tab.next": "다음 탭",
   "tab.prev": "이전 탭",
   "tab.lastUsed": "마지막으로 사용한 탭",
-  "tab.close": "탭 닫기"
+  "tab.close": "탭 닫기",
+  "commandPalette.hintNavigate": "이동",
+  "commandPalette.hintRun": "실행",
+  "commandPalette.hintClose": "닫기"
 }

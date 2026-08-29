@@ -36,7 +36,9 @@
 }
 
 .find-bar-input-group:focus-within {
-  border-bottom-color: var(--border-color);
+  /* Focus must be VISIBLE (rule 33 §3) — the old value repeated the resting
+     colour, so keyboard focus changed nothing. */
+  border-bottom-color: var(--accent-primary);
 }
 
 .find-bar-icon {
@@ -118,36 +120,6 @@
   gap: var(--space-1);
 }
 
-.find-bar-nav-btn {
-  position: relative;
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
-}
-
-.find-bar-nav-btn:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-}
-
-.find-bar-nav-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.find-bar-nav-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
 .find-bar-count {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
@@ -156,31 +128,10 @@
   white-space: nowrap;
 }
 
+/* The buttons are the canonical `.vm-icon-btn` (WI-UI2.3); only layout
+   that the bar owns stays here. */
 .find-bar-close {
-  position: relative;
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
   margin-left: auto;
-}
-
-.find-bar-close:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-color);
-}
-
-.find-bar-close svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
 }
 
 .find-bar-replace-actions {
@@ -188,49 +139,18 @@
   gap: var(--space-1);
 }
 
-.find-bar-icon-btn {
-  position: relative;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all var(--duration-fast) ease;
-}
-
-.find-bar-icon-btn:hover:not(:disabled) {
-  background: var(--bg-tertiary);
-}
-
-.find-bar-icon-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
 /* Focus indicators for FindBar buttons */
-.find-bar-nav-btn:focus-visible,
-.find-bar-toggle:focus-visible,
-.find-bar-close:focus-visible,
-.find-bar-icon-btn:focus-visible {
+.find-bar-toggle:focus-visible {
   outline: none;
 }
 
-.find-bar-nav-btn:focus-visible::after,
-.find-bar-toggle:focus-visible::after,
-.find-bar-close:focus-visible::after,
-.find-bar-icon-btn:focus-visible::after {
+.find-bar-toggle:focus-visible::after {
   content: '';
   position: absolute;
   bottom: 2px;
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }

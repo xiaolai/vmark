@@ -5,19 +5,14 @@
  * Follows popup-shared patterns: compact padding, tokens, dark theme.
  */
 
+/* Shell chrome comes from `.popup-container` (WI-UI3.2). */
 .source-math-popup {
-  display: flex;
   flex-direction: column;
+  align-items: stretch;
   width: 360px;
   gap: var(--space-1);
-  padding: var(--popup-padding);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
-  animation: popup-fade-in var(--duration-fast) ease-out;
-  z-index: var(--z-popup);
 }
+
 
 .dark-theme .source-math-popup {
   box-shadow: var(--popup-shadow-dark);
@@ -96,6 +91,7 @@
 
 /* Save hover: re-assert background and color, dim with opacity token. */
 .source-math-popup-btn-save:hover {
+  /* ui-ok(state): solid CTA holds its fill on hover — same decision as .vm-btn--cta */
   background: var(--primary-color);
   color: var(--contrast-text);
   opacity: var(--opacity-mostly-opaque);
@@ -114,6 +110,6 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }

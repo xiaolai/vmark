@@ -9,38 +9,13 @@
   min-width: 0; /* let the input shrink instead of overflowing the bar */
 }
 
-.browser-omnibox-btn {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  flex: none;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
+/* Buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3). The glyph class is
+   the residual: these draw TEXT glyphs (‹ › ✕ ⟳ ★), not svgs, so the square
+   still needs a glyph size. The bookmark star's on-state comes from the
+   canonical [aria-pressed="true"] accent. */
+.browser-omnibox-glyph {
   font-size: var(--font-size-lg);
   line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--duration-base), color var(--duration-base);
-}
-
-.browser-omnibox-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-/* No back/forward history → the control is inert, and must look it (WI-S1.6). */
-.browser-omnibox-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: default;
-}
-
-.browser-omnibox-btn:focus-visible {
-  outline: none;
-  border-bottom: var(--border-medium) solid var(--primary-color);
 }
 
 .browser-omnibox-form {
@@ -68,24 +43,12 @@
   border-bottom-color: var(--primary-color);
 }
 
+/* `.vm-spinner` (WI-UI3.4); residual = the omnibox's compact 8px size. */
 .browser-omnibox-loading {
   flex: none;
   width: var(--space-2);
   height: var(--space-2);
-  border: var(--border-medium) solid var(--border-color);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: browser-omnibox-spin var(--duration-slower) linear infinite;
 }
 
-@keyframes browser-omnibox-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
-/* A bookmarked page (WI-S3.2). The star is filled, and coloured — this is state, not an
-   action, so it should read at a glance without hovering. */
-.browser-omnibox-btn--on {
-  color: var(--primary-color);
-}
+

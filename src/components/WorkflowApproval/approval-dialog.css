@@ -1,34 +1,24 @@
 /* Workflow approval dialog (WI-3.2). Component-scoped one-off dimensions
    live on `.approval-dialog` per .claude/rules/31-design-tokens.md. */
 
+/* Backdrop chrome (scrim, centring, z) comes from the shared overlay
+   shell (WI-UI3.1); the sizing knobs stay here. */
 .approval-dialog__backdrop {
-  --approval-backdrop-color: color-mix(in srgb, black 40%, transparent);
-  --approval-dialog-width: 560px;
-  --approval-dialog-max-width: 90vw;
   --approval-dialog-max-height: 80vh;
   --approval-preview-max-height: 240px;
-
-  position: fixed;
-  inset: 0;
-  background: var(--approval-backdrop-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-popup);
 }
 
 .approval-dialog {
-  background: var(--bg-color);
-  color: var(--text-color);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  width: min(var(--approval-dialog-width), var(--approval-dialog-max-width));
-  max-height: var(--approval-dialog-max-height);
-  display: flex;
-  flex-direction: column;
+  --vm-overlay-width: 560px;
   padding: var(--space-3);
   gap: var(--space-2);
+}
+
+/* The 80vh cap must MATCH the shared panel rule's (0,2,0) specificity —
+   `.vm-overlay--center .vm-overlay__panel` sets its own max-height, and a
+   bare (0,1,0) `.approval-dialog` declaration loses to it silently. */
+.vm-overlay--center .approval-dialog {
+  max-height: var(--approval-dialog-max-height);
 }
 
 .dark-theme .approval-dialog {

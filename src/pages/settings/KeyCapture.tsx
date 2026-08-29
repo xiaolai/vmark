@@ -59,8 +59,10 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[var(--bg-color)] rounded-lg shadow-xl p-6 w-80 border border-[var(--border-color)]">
+    // Shared modal shell: .vm-overlay--center owns the blocking scrim (35%
+    // black) — the hover tint here read as a barely-visible film in dark themes.
+    <div className="vm-overlay vm-overlay--center">
+      <div className="bg-[var(--bg-color)] rounded-lg shadow-popup p-6 w-80 border border-[var(--border-color)]">
         <h3 className="text-lg font-semibold text-[var(--text-color)] mb-2">
           {t("shortcuts.capture.title")}
         </h3>
@@ -75,7 +77,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
               {formatKeyForDisplay(capturedKey)}
             </span>
           ) : (
-            <span className="text-sm text-[var(--text-tertiary)]">
+            <span className="text-sm text-[var(--text-secondary)]">
               {t("shortcuts.capture.waiting")}
             </span>
           )}
@@ -113,7 +115,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
           </Button>
         </div>
 
-        <p className="text-xs text-[var(--text-tertiary)] mt-4 text-center">
+        <p className="text-xs text-[var(--text-secondary)] mt-4 text-center">
           {t("shortcuts.capture.pressEsc")}{" "}
           <kbd className="px-1 bg-[var(--bg-secondary)] rounded">Esc</kbd>{" "}
           {t("shortcuts.capture.toCancel")}

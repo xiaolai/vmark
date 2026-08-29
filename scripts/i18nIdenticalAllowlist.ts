@@ -44,6 +44,35 @@ export const IDENTICAL_ALLOWLIST: IdenticalException[] = [
   {
     kind: "json",
     ns: "settings.json",
+    key: "language.fullwidthAlphanumeric.description",
+    locales: ["de", "es", "fr", "it", "ko", "pt-BR"],
+    reason:
+      "A pure symbol example of the formatter's own transform (１２３ → 123, Ａ → A) — " +
+      "no prose to translate; the glyphs ARE the content. (CJK locales differ only by " +
+      "their native list comma.)",
+  },
+  {
+    kind: "json",
+    ns: "settings.json",
+    key: "language.cjkEnglishSpacing.description",
+    locales: ["de", "es", "fr", "it", "ko", "pt-BR", "zh-CN", "zh-TW"],
+    reason:
+      "The example must show CJK-adjacent Latin (中文English → 中文 English) or it " +
+      "demonstrates nothing — a translated subject with no CJK would be a no-op the rule " +
+      "never fires on. Symbolic content, not prose.",
+  },
+  {
+    kind: "json",
+    ns: "settings.json",
+    key: "language.cjkParenthesisSpacing.description",
+    locales: ["de", "es", "fr", "it", "ko", "pt-BR"],
+    reason:
+      "Same class as cjkEnglishSpacing: the rule only fires beside CJK, so the example " +
+      "subject must be CJK (中文(test) → 中文 (test)). Symbolic content, not prose.",
+  },
+  {
+    kind: "json",
+    ns: "settings.json",
     key: "formats.externalEditor.placeholder",
     locales: ALL_LOCALES,
     reason:
@@ -92,16 +121,7 @@ export const IDENTICAL_ALLOWLIST: IdenticalException[] = [
     locales: ["fr"],
     reason:
       '"Double" is the French word, and the rest of the string is the punctuation ' +
-      "example (!!! → !!) that carries the meaning.",
-  },
-  {
-    kind: "json",
-    ns: "settings.json",
-    key: "language.cjkParenthesisSpacing.description",
-    locales: ["it"],
-    reason:
-      'A literal before/after example ("Test (test) -> Test (test)"), and "Test" is ' +
-      "the Italian word too. Translating the sample would not demonstrate the rule any better.",
+      "example (！！！ → ！！) that carries the meaning.",
   },
 ];
 

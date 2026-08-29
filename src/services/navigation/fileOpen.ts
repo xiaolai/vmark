@@ -23,7 +23,6 @@ import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership
 import { activateTabWithWorkspaceContext } from "@/services/workspaces/activateTabWithWorkspaceContext";
 import { tryOpenMediaFile } from "./openMediaFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
-import { errorMessage } from "@/utils/errorMessage";
 // Shared replace flow (also used by "Open Recent File"); re-exported so existing
 // `from "@/services/navigation/fileOpen"` import sites stay stable.
 export { replaceTabWithFile, type ReplaceTabResult } from "./replaceTabWithFile";
@@ -141,11 +140,9 @@ export async function openFileInNewTabCore(
     // Clean up the orphaned tab — without initDocument, it renders blank.
     // Use detachTab (not closeTab) to avoid polluting the "reopen closed tab" history.
     useTabStore.getState().detachTab(windowLabel, tabId);
-    const msg = errorMessage(error);
-    // Pin: system errors include paths/codes worth reading carefully.
-    toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
-      pin: true,
-    });
+    // Two-line toast (WI-UI4.4): paths/codes as the detail.
+    // Raw error — errorDetail owns the normalization (commandErrorMessage).
+    toast.errorDetail(i18n.t("dialog:toast.failedToOpenFile"), error);
     // Clear the indicator immediately on error so no stale spinner lingers.
     if (loadId !== null) useFileLoadStore.getState().endLoad(loadId);
     return "failed";

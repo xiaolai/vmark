@@ -119,9 +119,9 @@ export function QuickLookOverlay() {
   const filename = basenameOf(path);
 
   return createPortal(
-    <div className="quick-look-backdrop" onClick={close}>
+    <div className="vm-overlay vm-overlay--center quick-look-backdrop" onClick={close}>
       <div
-        className="quick-look-panel"
+        className="vm-overlay__panel quick-look-panel"
         role="dialog"
         aria-modal="true"
         aria-label={filename}
@@ -139,7 +139,7 @@ export function QuickLookOverlay() {
           <button
             ref={closeBtnRef}
             type="button"
-            className="quick-look-close"
+            className="vm-icon-btn vm-icon-btn--sm"
             aria-label={t("quickLook.close")}
             onClick={close}
           >

@@ -3,21 +3,9 @@
  * Matches trigger-menu.css design
  */
 
+/* Surface chrome comes from `.vm-menu` (overlay-shared.css, WI-UI3.1). */
 .context-menu {
-  position: fixed;
-  z-index: var(--z-context-menu);
-  min-width: 180px;
   max-width: 240px;
-  background: var(--bg-color);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  padding: 5px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  font-size: var(--font-size-base);
 }
 
 .context-menu-separator {
@@ -86,7 +74,6 @@
   width: var(--size-icon-xs);
   height: var(--size-icon-xs);
   stroke: currentColor;
-  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

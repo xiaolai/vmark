@@ -72,7 +72,7 @@ class ImagePasteToastView {
 
   private buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "image-paste-toast";
+    container.className = "popup-container image-paste-toast";
     container.style.display = "none";
 
     // Message

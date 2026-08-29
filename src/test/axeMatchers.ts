@@ -23,4 +23,17 @@ import { expect } from "vitest";
 import "vitest-axe/extend-expect";
 import * as axeMatchers from "vitest-axe/matchers";
 
+// `vitest-axe/extend-expect` augments the pre-v1 `Vi.Assertion` namespace,
+// which Vitest 4 no longer has — so the call sites were untyped and every
+// a11y suite carried a frozen TS2339 in the test-types baseline. This is the
+// v4-era augmentation (WI-UI4.5 follow-up: fix the class, not the instances).
+declare module "vitest" {
+  interface Assertion<T> {
+    toHaveNoViolations(): T;
+  }
+  interface AsymmetricMatchersContaining {
+    toHaveNoViolations(): void;
+  }
+}
+
 expect.extend(axeMatchers);

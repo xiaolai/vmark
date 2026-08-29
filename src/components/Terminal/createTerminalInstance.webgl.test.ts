@@ -168,6 +168,7 @@ vi.mock("./terminalKeyHandler", () => ({
 
 vi.mock("@/theme", () => ({
   buildXtermThemeForId: () => ({ background: "#fff" }),
+  drawBoldTextInBrightColorsForId: () => true,
 }));
 
 // --- Imports (after mocks) ---

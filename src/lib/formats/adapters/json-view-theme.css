@@ -1,6 +1,7 @@
 /* Token-aligned value colors for the json / yaml / toml tree previews
- * (react-json-view-lite). Colors come from the shared GitHub palette in
- * styles/syntax-palette.css (the same --syntax-* vars the CodeMirror Source
+ * (react-json-view-lite). Colors come from the per-theme --syntax-* vars
+ * (theme/applyTheme.ts emits them from ThemeTokens.syntax; static fallbacks
+ * in styles/index.css — the same vars the CodeMirror Source
  * highlighter uses), so a file shows the SAME token colors whether viewed as
  * source or as a data tree, and light/dark is handled in one place.
  *
@@ -10,7 +11,7 @@
  * the container, row indentation, and expand icons (theme-correct per the
  * isDark base passed in jsonViewStyles.ts).
  *
- * @coordinates-with styles/syntax-palette.css — color source of truth
+ * @coordinates-with src/theme/applyTheme.ts — emits the --syntax-* vars (ThemeTokens.syntax)
  */
 
 /* Neutralize the library container's hardcoded background so the tree

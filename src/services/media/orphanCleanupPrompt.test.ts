@@ -9,8 +9,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { confirm, message } from "@tauri-apps/plugin-dialog";
+import { message } from "@tauri-apps/plugin-dialog";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 import type { OrphanCleanupResult, OrphanedImage } from "./orphanAssetCleanup";
+
+vi.mock("@/services/dialogs/confirmAction", () => ({
+  confirmAction: vi.fn(),
+}));
 
 vi.mock("./orphanAssetCleanup", () => ({
   findOrphanedImages: vi.fn(),
@@ -80,7 +85,7 @@ describe("runOrphanCleanup — nothing to delete", () => {
     expect(await runOrphanCleanup("/doc/a.md", "x")).toEqual({ status: "empty" });
     expect(messageOpts()?.kind).toBe("info");
     expect(messageBody()).toContain("3");
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirmAction).not.toHaveBeenCalled();
   });
 
   // An incomplete scan protects every candidate, so an empty orphan list means
@@ -105,7 +110,7 @@ describe("runOrphanCleanup — confirmation", () => {
   });
 
   it("deletes nothing when the user declines", async () => {
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(confirmAction).mockResolvedValue(false);
 
     expect(await runOrphanCleanup("/doc/a.md", "x")).toEqual({ status: "cancelled" });
 
@@ -115,7 +120,7 @@ describe("runOrphanCleanup — confirmation", () => {
   });
 
   it("deletes on confirmation and reports the count", async () => {
-    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(confirmAction).mockResolvedValue(true);
     vi.mocked(findOrphanedImages).mockResolvedValue(
       scanResult({ orphanedImages: [image("a.png")], totalInFolder: 1 }),
     );
@@ -134,24 +139,24 @@ describe("runOrphanCleanup — confirmation", () => {
     vi.mocked(findOrphanedImages).mockResolvedValue(
       scanResult({ orphanedImages: many, totalInFolder: 14 }),
     );
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(confirmAction).mockResolvedValue(false);
 
     await runOrphanCleanup("/doc/a.md", "x");
 
-    const body = String(vi.mocked(confirm).mock.calls[0][0]);
+    const body = String(vi.mocked(confirmAction).mock.calls[0][0].message);
     expect(body).toContain("f9.png");
     expect(body).not.toContain("f10.png");
     expect(body).toContain("4");
   });
 
   it("tells the user auto-cleanup will handle these when it is on", async () => {
-    vi.mocked(confirm).mockResolvedValue(false);
+    vi.mocked(confirmAction).mockResolvedValue(false);
     await runOrphanCleanup("/doc/a.md", "x", true);
-    const withAuto = String(vi.mocked(confirm).mock.calls[0][0]);
+    const withAuto = String(vi.mocked(confirmAction).mock.calls[0][0].message);
 
-    vi.mocked(confirm).mockClear();
+    vi.mocked(confirmAction).mockClear();
     await runOrphanCleanup("/doc/a.md", "x", false);
-    const withoutAuto = String(vi.mocked(confirm).mock.calls[0][0]);
+    const withoutAuto = String(vi.mocked(confirmAction).mock.calls[0][0].message);
 
     expect(withAuto).not.toBe(withoutAuto);
   });
@@ -161,7 +166,7 @@ describe("runOrphanCleanup — confirmation", () => {
 // or the user re-adding the image, must not be deleted off a stale list.
 describe("runOrphanCleanup — re-scans before deleting", () => {
   beforeEach(() => {
-    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(confirmAction).mockResolvedValue(true);
   });
 
   it("deletes only what is STILL orphaned", async () => {
@@ -221,7 +226,7 @@ describe("runOrphanCleanup — re-scans before deleting", () => {
     vi.mocked(findOrphanedImages).mockResolvedValue(
       scanResult({ orphanedImages: [image("a.png")], totalInFolder: 1 }),
     );
-    vi.mocked(confirm).mockImplementation(async () => {
+    vi.mocked(confirmAction).mockImplementation(async () => {
       // A sibling pastes while the user is deciding.
       current = new Map([["/doc/other.md", "![](./assets/images/a.png)"]]);
       return true;
@@ -248,7 +253,7 @@ describe("runOrphanCleanup — re-scans before deleting", () => {
 
 describe("runOrphanCleanup — reports deletion failures", () => {
   beforeEach(() => {
-    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(confirmAction).mockResolvedValue(true);
     vi.mocked(findOrphanedImages).mockResolvedValue(
       scanResult({ orphanedImages: [image("a.png"), image("b.png")], totalInFolder: 2 }),
     );

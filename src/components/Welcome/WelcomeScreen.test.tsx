@@ -46,7 +46,7 @@ describe("WelcomeScreen", () => {
     render(<WelcomeScreen />);
     expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open File" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Workspace…" })).toBeInTheDocument();
   });
 
   it("creates a new file for the current window on New File click", async () => {
@@ -66,7 +66,7 @@ describe("WelcomeScreen", () => {
   it("runs the workspace.openFolder command on Open Folder click", async () => {
     const user = userEvent.setup();
     render(<WelcomeScreen />);
-    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(screen.getByRole("button", { name: "Open Workspace…" }));
     expect(mocks.executeCommand).toHaveBeenCalledWith("workspace.openFolder", undefined, {
       windowLabel: "main",
     });
@@ -74,7 +74,7 @@ describe("WelcomeScreen", () => {
 
   it("shows one empty-state message when nothing is recent", () => {
     render(<WelcomeScreen />);
-    expect(screen.getByText("No recent files or workspaces")).toBeInTheDocument();
+    expect(screen.getByText(/Files and workspaces you open will appear here/)).toBeInTheDocument();
     // A heading over an empty list is noise; neither section is rendered.
     expect(screen.queryByText("Recent Files")).not.toBeInTheDocument();
     expect(screen.queryByText("Recent Workspaces")).not.toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("WelcomeScreen", () => {
     const user = userEvent.setup();
     render(<WelcomeScreen />);
 
-    expect(screen.queryByText("No recent files or workspaces")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Files and workspaces you open will appear here/)).not.toBeInTheDocument();
     expect(screen.getByText("Recent Files")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /draft\.md/ }));
@@ -117,7 +117,7 @@ describe("WelcomeScreen", () => {
     const user = userEvent.setup();
     render(<WelcomeScreen />);
 
-    await user.click(screen.getByRole("button", { name: "Open Folder" }));
+    await user.click(screen.getByRole("button", { name: "Open Workspace…" }));
 
     await waitFor(() =>
       expect(mocks.fileOpsError).toHaveBeenCalledWith(
@@ -177,7 +177,7 @@ describe("WelcomeScreen — recent workspaces", () => {
 
     expect(screen.getByText("Recent Files")).toBeInTheDocument();
     expect(screen.getByText("Recent Workspaces")).toBeInTheDocument();
-    expect(screen.queryByText("No recent files or workspaces")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Files and workspaces you open will appear here/)).not.toBeInTheDocument();
   });
 
   // Each list stands on its own: having files does not imply having workspaces.
@@ -187,7 +187,7 @@ describe("WelcomeScreen — recent workspaces", () => {
 
     expect(screen.getByText("Recent Files")).toBeInTheDocument();
     expect(screen.queryByText("Recent Workspaces")).not.toBeInTheDocument();
-    expect(screen.queryByText("No recent files or workspaces")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Files and workspaces you open will appear here/)).not.toBeInTheDocument();
   });
 
   it("omits the files section when only workspaces are recent", () => {
@@ -212,5 +212,22 @@ describe("WelcomeScreen — recent workspaces", () => {
         expect.any(Error),
       ),
     );
+  });
+});
+
+// WI-UI4.7 — the front door says what to do, on canonical buttons.
+describe("front door copy and buttons (WI-UI4.7)", () => {
+  it("the title tells the user what to do, and the region is named Welcome", () => {
+    render(<WelcomeScreen />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Drop a Markdown file/);
+    expect(screen.getByRole("region", { name: "Welcome" })).toBeInTheDocument();
+  });
+
+  it("all three actions are canonical .vm-btn", () => {
+    render(<WelcomeScreen />);
+    for (const name of ["New File", "Open File", "Open Workspace…"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.className, name).toContain("vm-btn");
+    }
   });
 });

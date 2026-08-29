@@ -42,7 +42,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState>
 
   protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "source-wiki-link-popup";
+    container.className = "popup-container source-wiki-link-popup";
 
     // Row 1: Target input + buttons
     const targetRow = document.createElement("div");
@@ -61,7 +61,7 @@ export class SourceWikiLinkPopupView extends SourcePopupView<WikiLinkPopupState>
     this.openBtn.classList.add("source-wiki-link-popup-btn-open");
     const copyBtn = buildSourceWikiLinkBtn(popupIcons.copy, i18n.t("editor:popup.sourceWikiLink.copy"), this.handleCopy.bind(this));
     const deleteBtn = buildSourceWikiLinkBtn(popupIcons.delete, i18n.t("editor:popup.sourceWikiLink.remove"), this.handleRemove.bind(this));
-    deleteBtn.classList.add("source-wiki-link-popup-btn-delete");
+    deleteBtn.classList.add("popup-icon-btn--danger", "source-wiki-link-popup-btn-delete");
 
     targetRow.appendChild(this.targetInput);
     targetRow.appendChild(browseBtn);

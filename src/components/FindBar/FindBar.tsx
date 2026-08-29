@@ -34,6 +34,7 @@ import {
   Replace,
   ReplaceAll,
 } from "lucide-react";
+import { ICON_MD } from "@/utils/iconSizes";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -180,7 +181,7 @@ export function FindBar() {
               title={t("findbar.toggleRegex")}
               aria-label={t("findbar.toggleRegex")}
             >
-              <Regex size={16} />
+              <Regex size={ICON_MD} />
             </button>
           )}
           <button
@@ -190,7 +191,7 @@ export function FindBar() {
             title={t("findbar.toggleCase")}
             aria-label={t("findbar.toggleCase")}
           >
-            <CaseSensitive size={16} />
+            <CaseSensitive size={ICON_MD} />
           </button>
           <button
             className={`find-bar-toggle ${wholeWord ? "active" : ""}`}
@@ -199,7 +200,7 @@ export function FindBar() {
             title={t("findbar.toggleWholeWord")}
             aria-label={t("findbar.toggleWholeWord")}
           >
-            <WholeWord size={16} />
+            <WholeWord size={ICON_MD} />
           </button>
         </div>
 
@@ -225,23 +226,23 @@ export function FindBar() {
         {/* Navigation */}
         <div className="find-bar-nav">
           <button
-            className="find-bar-nav-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={handleFindPrevious}
             disabled={matchCount === 0}
             title={t("findbar.prev")}
             aria-label={t("findbar.prev")}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={14} />
           </button>
           <span className="find-bar-count">{matchDisplay}</span>
           <button
-            className="find-bar-nav-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={handleFindNext}
             disabled={matchCount === 0}
             title={t("findbar.next")}
             aria-label={t("findbar.next")}
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </button>
         </div>
 
@@ -266,27 +267,27 @@ export function FindBar() {
         {/* Replace Actions */}
         <div className="find-bar-replace-actions">
           <button
-            className="find-bar-icon-btn"
+            className="vm-icon-btn vm-icon-btn--bordered"
             onClick={handleReplaceCurrent}
             disabled={matchCount === 0}
             title={t("findbar.replace")}
             aria-label={t("findbar.replace")}
           >
-            <Replace size={16} />
+            <Replace size={14} />
           </button>
           <button
-            className="find-bar-icon-btn"
+            className="vm-icon-btn vm-icon-btn--bordered"
             onClick={handleReplaceAll}
             disabled={matchCount === 0}
             title={t("findbar.replaceAll")}
             aria-label={t("findbar.replaceAll")}
           >
-            <ReplaceAll size={16} />
+            <ReplaceAll size={14} />
           </button>
         </div>
 
-        <button className="find-bar-close" onClick={handleClose} title={t("findbar.close")} aria-label={t("findbar.close")}>
-          <X size={16} />
+        <button className="vm-icon-btn vm-icon-btn--sm find-bar-close" onClick={handleClose} title={t("findbar.close")} aria-label={t("findbar.close")}>
+          <X size={14} />
         </button>
       </div>
     </div>

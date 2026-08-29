@@ -54,11 +54,6 @@ describe("computeTypographyVars", () => {
     expect(vars["--editor-font-size"]).toBe("18px");
   });
 
-  it("computes small font as 90% of base", () => {
-    const vars = computeTypographyVars(baseTypography);
-    expect(vars["--editor-font-size-sm"]).toBe(`${18 * 0.9}px`);
-  });
-
   it("computes mono font as 85% of base", () => {
     const vars = computeTypographyVars(baseTypography);
     expect(vars["--editor-font-size-mono"]).toBe(`${18 * 0.85}px`);
@@ -132,7 +127,6 @@ describe("computeTypographyVars", () => {
       fontSize: 24,
     });
     expect(vars["--editor-font-size"]).toBe("24px");
-    expect(vars["--editor-font-size-sm"]).toBe(`${24 * 0.9}px`);
     expect(vars["--editor-font-size-mono"]).toBe(`${24 * 0.85}px`);
     expect(vars["--editor-line-height-px"]).toBe(`${24 * 1.8}px`);
     expect(vars["--editor-content-padding"]).toBe(`${24 * 2}px`);
@@ -279,7 +273,7 @@ describe("computeModeColorVars", () => {
       // Dark fallback now derives from the `night` typed theme (ADR-014:
       // single source of truth). Real themes always supply textSecondary,
       // so this fallback is only hit by synthetic minimal inputs.
-      expect(vars["--text-secondary"]).toBe("#9aa0a6"); // night.color.text.secondary
+      expect(vars["--text-secondary"]).toBe("#a2a8ad"); // night.color.text.secondary (WI-UI1.2 retint)
       expect(vars["--code-text-color"]).toBe("#d4d4d4"); // falls back to foreground
     });
 
@@ -290,8 +284,9 @@ describe("computeModeColorVars", () => {
 
     it("includes dark alert colors", () => {
       const { vars } = computeModeColorVars(darkTheme, true);
-      expect(vars["--alert-note"]).toBe("#58a6ff");
-      expect(vars["--alert-caution"]).toBe("#f85149");
+      // Night's WI-UI1.2 values — lifted to clear 4.5:1 on the new tertiary.
+      expect(vars["--alert-note"]).toBe("#61abff");
+      expect(vars["--alert-caution"]).toBe("#fa8580");
     });
 
     it("includes highlight tokens for dark mode", () => {

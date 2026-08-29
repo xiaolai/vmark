@@ -1,0 +1,187 @@
+/**
+ * Shared icon-button primitive (WI-UI2.3, D2/R7/R9).
+ *
+ * `.vm-icon-btn` is the canonical icon-only square. VMark had ~33 bespoke
+ * icon-square classes that each re-derived "a quiet square that lights up on
+ * hover" — at 20, 22, 24, 26 and 28px, with three focus treatments and two
+ * cursor policies. One recipe, three sizes, one focus bar.
+ *
+ * `.popup-icon-btn` (rule 32's name for the same control inside popups) is an
+ * ALIAS of the md base — every declaration block names both selectors, so the
+ * two names cannot drift. Do not re-declare `.popup-icon-btn` elsewhere.
+ *
+ * Sizes: base 26 (`--icon-size-md`; there is NO `--md` modifier — the base
+ * IS the medium size), `--sm` 24 (`--icon-size-sm`, the
+ * D2 hit-target floor — no interactive square goes below it), `--lg` 28
+ * (`--icon-size-lg`). Glyphs stay 14px (`--size-icon-xs`) at every size; the
+ * square grows, the drawing does not.
+ */
+
+.vm-icon-btn,
+.popup-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.vm-icon-btn--sm {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+}
+
+.vm-icon-btn--lg {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+}
+
+/* Standalone squares outside a bar (panel corners, node views) that need an
+   edge to read as a control at rest. */
+.vm-icon-btn--bordered {
+  border: var(--border-thin) solid var(--control-border);
+  background: var(--bg-color);
+}
+
+.vm-icon-btn:hover:not(:disabled),
+.popup-icon-btn:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.vm-icon-btn:active:not(:disabled),
+.popup-icon-btn:active:not(:disabled) {
+  background: var(--hover-bg-strong);
+}
+
+.vm-icon-btn:disabled,
+.popup-icon-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Focus is the flat 2px bar (D4) — one shape everywhere. */
+.vm-icon-btn:focus-visible,
+.popup-icon-btn:focus-visible {
+  outline: none;
+}
+
+.vm-icon-btn:focus-visible::after,
+.popup-icon-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}
+
+/* Glyph geometry only — colour and stroke weight belong to the icon (lucide
+   draws at its own 2px; forcing 1.5 here made popup icons thinner than the
+   identical icons beside them, which is why the old override is gone). */
+.vm-icon-btn svg,
+.popup-icon-btn svg {
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Semantic hover inks. */
+.vm-icon-btn--primary:hover:not(:disabled),
+.popup-icon-btn--primary:hover:not(:disabled) {
+  color: var(--primary-color);
+}
+
+.vm-icon-btn--danger:hover:not(:disabled),
+.popup-icon-btn--danger:hover:not(:disabled) {
+  color: var(--error-color);
+}
+
+/* Toggled-on state (omnibox reader mode, pinned panels): accent ink on the
+   accent wash — R6's selection vocabulary. */
+.vm-icon-btn[aria-pressed="true"],
+.popup-icon-btn[aria-pressed="true"] {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
+/* Tab-strip close (TabStripButton kind="close"): paints a 14px round target
+   inside a pill/tab, with a --target-min hit box (D2). */
+.tab-strip-close {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: default;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.tab-strip-close::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--target-min);
+  height: var(--target-min);
+  transform: translate(-50%, -50%);
+}
+
+.tab-strip-close:hover {
+  background: var(--hover-bg-strong);
+  color: var(--text-color);
+}
+
+.tab-strip-close:focus-visible {
+  outline: none;
+}
+
+.tab-strip-close:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}
+
+/* Hit-box expander for paint-small controls (D2): keeps the drawn box exact
+   while centring a --target-min square of clickable area over it. Apply to
+   tab closes, disclosure arrows and other sub-24px paint. */
+.vm-hit-expand::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(var(--target-min), 100%);
+  height: max(var(--target-min), 100%);
+  transform: translate(-50%, -50%);
+}

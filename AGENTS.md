@@ -389,6 +389,40 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
     - **Never use Chrome DevTools MCP** — VMark is a Tauri app, not a browser app.
 
+  - **Theme contrast is measured from the catalog, not eyeballed.** `pnpm
+    lint:theme-contrast` (`scripts/check-theme-contrast.ts`, in `check:static`)
+    IMPORTS `src/theme/themes` via tsx and computes WCAG ratios for every
+    colour token against every background its theme puts it on — text tokens at
+    4.5:1, boundary/icon tokens at 3:1, rgba tokens COMPOSITED over the page
+    first, the terminal's 16 ANSI slots, and (once WI-UI1.5 lands) the syntax
+    palette. It imports rather than parses because `semantic: semanticLight` /
+    `...sharedPrimitives` mean a text parser sees no literal for half of each
+    theme; and it measures the EMITTED `--bg-tertiary`/`--contrast-text`
+    through the same adapter the runtime uses, so what it checks is what
+    renders. `scripts/theme-contrast-baseline.json` freezes today's failing
+    pairs per theme (identity, ratchets down only — Phase 1 of
+    `dev-docs/plans/20260829-ui-consistency.md` empties it); `ansiFloor`/
+    `exempt` entries are permanent exceptions and REQUIRE a reason (D10:
+    canonical Solarized bright slots are base tones, lifted at paint time by
+    xterm's `minimumContrastRatio`, whose default the gate pins ≥ 4.5).
+
+  - **UI consistency is one gate over CSS and JSX together.** `pnpm
+    lint:ui-consistency` (`scripts/check-ui-consistency.mjs`, in `check:static`)
+    walks every stylesheet on the shared `scripts/lib/cssRules.mjs` grammar AND
+    every `.tsx` through the TypeScript AST, because half the drift lives in
+    `className` strings no CSS gate can see. Eight checks: chrome type scale
+    (C3), overlay shells composing a canonical panel (C4), `--font-sans` only
+    under document selectors (C5), lucide icon sizes (C7), 24px hit targets
+    (C8), hover/active/selected state vocabulary (C9), visible keyboard focus
+    on every focusable element (C10), and bar-height/z-index literals (C11).
+    `scripts/ui-consistency-baseline.json` holds one identity list per check
+    (ratchets down; C4 alone reports additions). Permanent exceptions carry a
+    `ui-ok(<check>): <reason>` marker — the reason is REQUIRED — and C10
+    honours the existing `focus: caret-only — <reason>` grammar. This gate
+    replaced `check-selection-styles.mjs` (registered in
+    `check-deleted-names.mjs`): that script only scanned four selector name
+    fragments and only against literals, so a wrong TOKEN passed.
+
   - **The IPC seam is checked across languages.** `pnpm lint:ipc-contract`
     (`scripts/check-ipc-contract.mjs`, in `check:static`) is the only gate that
     reads TypeScript and Rust together. `invoke("foo")` and `#[command] fn foo`
@@ -563,9 +597,9 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Tokens first**: Never hardcode colors; use CSS vars (`--bg-color`, `--accent-bg`, etc.).
 
-  - **Selection states**: Use `--accent-bg` for background, `--accent-primary` for text/icons.
+  - **Selection states**: `--accent-bg` background, `--text-color` text, `--accent-primary` icons and indicators (R6 — accent-on-accent-tint text fails AA on paper, which is why text keeps its ink).
 
-  - **Focus indicators**: MUST be visible (accessibility). Use U-shaped underline for buttons, bottom-border for inputs.
+  - **Focus indicators**: MUST be visible (accessibility). Use the flat 2px bar (D4, rule 33 §1) for buttons, bottom-border for inputs.
 
   - **Popup positioning**: Editor popups MUST be inside editor container, not `document.body`.
 

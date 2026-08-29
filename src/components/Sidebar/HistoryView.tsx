@@ -7,7 +7,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw, Trash2 } from "lucide-react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -25,6 +24,8 @@ import { buildHistorySettings, HISTORY_CLEARED_EVENT } from "@/utils/historyType
 import { formatSnapshotTime, groupByDay } from "@/utils/dateUtils";
 import { historyError } from "@/utils/debug";
 import { captureWrite } from "@/services/coherence/captureFunnel";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 
 /** Renders the document version history sidebar with revert and delete actions. */
 export function HistoryView() {
@@ -99,13 +100,12 @@ export function HistoryView() {
     isMutatingRef.current = true;
 
     try {
-      const confirmed = await ask(
-        t("history.revertMessage", { time: formatSnapshotTime(snapshot.timestamp) }),
-        {
-          title: t("history.revertTitle"),
-          kind: "warning",
-        }
-      );
+      const confirmed = await confirmAction({
+        title: t("history.revertTitle"),
+        message: t("history.revertMessage", { time: formatSnapshotTime(snapshot.timestamp) }),
+        actionLabel: i18n.t("dialog:action.revert"),
+        kind: "warning",
+      });
 
       if (!confirmed) return;
 
@@ -196,20 +196,20 @@ export function HistoryView() {
               </div>
               <div className="history-item-actions">
                 <button
-                  className="history-revert-btn"
+                  className="vm-icon-btn vm-icon-btn--sm history-action"
                   onClick={() => void handleRevert(snapshot)}
                   title={t("history.revertButton")}
                   aria-label={t("history.revertButton")}
                 >
-                  <RotateCcw size={12} />
+                  <RotateCcw size={14} />
                 </button>
                 <button
-                  className="history-delete-btn"
+                  className="vm-icon-btn vm-icon-btn--sm vm-icon-btn--danger history-action"
                   onClick={() => void handleDeleteSnapshot(snapshot)}
                   title={t("history.deleteSnapshot")}
                   aria-label={t("history.deleteSnapshot")}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>

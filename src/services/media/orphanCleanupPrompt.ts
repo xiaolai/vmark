@@ -26,12 +26,13 @@
  * @module services/media/orphanCleanupPrompt
  */
 
-import { confirm, message } from "@tauri-apps/plugin-dialog";
+import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { orphanCleanupError } from "@/utils/debug";
 import { withoutWorkspaceReferenced } from "@/services/media/workspaceReferenceCheck";
 import { collectRemoteLiveRefs } from "@/services/media/crossWindowRefs";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 import {
   deleteOrphanedImages,
   findOrphanedImages,
@@ -196,17 +197,16 @@ export async function runOrphanCleanup(
     ? t("orphanCleanup.hintAuto")
     : t("orphanCleanup.hintEnable");
 
-  const confirmed = await confirm(
-    `${t("orphanCleanup.foundMessage", { count: result.orphanedImages.length })}\n\n` +
+  const confirmed = await confirmAction({
+    title: t("orphanCleanup.foundTitle"),
+    message:
+      `${t("orphanCleanup.foundMessage", { count: result.orphanedImages.length })}\n\n` +
       `${buildPreview(result.orphanedImages)}\n\n${hint}\n\n` +
       t("orphanCleanup.confirmQuestion"),
-    {
-      title: t("orphanCleanup.foundTitle"),
-      kind: "warning",
-      okLabel: t("orphanCleanup.deleteNow"),
-      cancelLabel: t("orphanCleanup.later"),
-    }
-  );
+    actionLabel: t("orphanCleanup.deleteNow"),
+    kind: "warning",
+    cancelLabel: t("orphanCleanup.later"),
+  });
 
   if (!confirmed) return { status: "cancelled" };
 

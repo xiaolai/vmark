@@ -67,7 +67,7 @@
   "format.toast.set": "Ouverture des fichiers {{key}} en tant que {{format}}",
   "format.toast.reset": "Fichiers {{key}} réinitialisés sur l'éditeur par défaut",
   "commandPalette.placeholder": "Saisir une commande",
-  "commandPalette.empty": "Aucune commande correspondante",
+  "commandPalette.empty": "Aucune commande correspondante. Effacez la recherche pour tout afficher.",
   "aria.commandPalette": "Palette de commandes",
   "browser.newTab": "Nouvel onglet de navigateur",
   "claims.extractFromSelection": "Extraire une affirmation de la sélection",
@@ -191,5 +191,8 @@
   "tab.next": "Onglet suivant",
   "tab.prev": "Onglet précédent",
   "tab.lastUsed": "Dernier onglet utilisé",
-  "tab.close": "Fermer l'onglet"
+  "tab.close": "Fermer l'onglet",
+  "commandPalette.hintNavigate": "naviguer",
+  "commandPalette.hintRun": "exécuter",
+  "commandPalette.hintClose": "fermer"
 }

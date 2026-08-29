@@ -41,10 +41,10 @@
   "provenance.hint": "{{count}} frühere Eingabe(n) wiederherstellbar",
   "provenance.suggest": "Eingaben vorschlagen",
   "provenance.confirm": "Provenienz bestätigen",
-  "provenance.empty": "Keine Eingaben ausgewählt",
+  "provenance.empty": "Keine Eingaben ausgewählt. Wähle die Quellen dieses Artefakts.",
   "provenance.stale": "Das Dokument hat sich geändert — Vorschläge aktualisiert",
   "delegations.heading": "Agenten-Delegationen",
-  "delegations.empty": "Keine aktiven Delegationen",
+  "delegations.empty": "Keine aktiven Delegationen. Gewähre eine, damit ein Principal im Rahmen handeln kann.",
   "delegations.grant": "Erteilen",
   "delegations.revoke": "Widerrufen",
   "delegations.principalPlaceholder": "Agenten-Principal (z. B. codex-cli)",
@@ -90,6 +90,6 @@
   "anchor.change": "Anker ändern",
   "anchor.clear": "Ganze Datei",
   "anchor.hint": "Nur den Abschnitt prüfen, von dem dies abhängt, statt der ganzen Datei.",
-  "anchor.empty": "Keine Abschnitte zum Verankern.",
+  "anchor.empty": "Keine Abschnitte zum Verankern. Füge dem Dokument zuerst Überschriften hinzu.",
   "anchor.error": "Abschnitte konnten nicht geladen werden."
 }

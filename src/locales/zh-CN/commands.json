@@ -67,7 +67,7 @@
   "format.toast.set": "正在以 {{format}} 方式打开 {{key}} 文件",
   "format.toast.reset": "已将 {{key}} 文件恢复为默认编辑器",
   "commandPalette.placeholder": "输入命令",
-  "commandPalette.empty": "没有匹配的命令",
+  "commandPalette.empty": "没有匹配的命令。清除搜索可查看全部命令。",
   "aria.commandPalette": "命令面板",
   "browser.newTab": "新建浏览器标签页",
   "claims.extractFromSelection": "从选中内容提取设定",
@@ -191,5 +191,8 @@
   "tab.next": "下一个标签页",
   "tab.prev": "上一个标签页",
   "tab.lastUsed": "最近使用的标签页",
-  "tab.close": "关闭标签页"
+  "tab.close": "关闭标签页",
+  "commandPalette.hintNavigate": "导航",
+  "commandPalette.hintRun": "执行",
+  "commandPalette.hintClose": "关闭"
 }

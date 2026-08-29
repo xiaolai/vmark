@@ -55,12 +55,9 @@
   min-width: 0;
 }
 
-/* Compact overrides for shared SettingRow inside PDF sidebar */
-.pdf-export-sidebar-content .text-sm {
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-base);
-}
-
+/* The old `.text-sm` compact override is gone (WI-UI2.2): the @theme bridge
+   maps text-sm onto --font-size-base globally, so the override restated what
+   every surface now gets for free. */
 .pdf-export-sidebar-content .py-2\.5 {
   padding-top: 0.125rem;
   padding-bottom: 0.125rem;

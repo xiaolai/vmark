@@ -1,0 +1,73 @@
+/**
+ * Shared input primitive (WI-UI3.3, R7).
+ *
+ * VMark had ~37 distinct input treatments across ~28 CSS rules — three border
+ * styles, four font sizes, five focus indicators. Three treatments cover the
+ * real cases:
+ *
+ *   .vm-input          bottom-border on transparent — inline fields, filters,
+ *                      renames. Focus = accent bottom border (rule 33 §3).
+ *   .vm-input--field   full --control-border on a tinted fill — "fill me in"
+ *                      form fields. Focus = accent border.
+ *   .vm-input--bare    borderless; the caret is the indicator (rule 33 §2).
+ *
+ * Sizes: the base `.vm-input` reads at --font-size-sm (12px); `--field`
+ * overrides to --font-size-xs (11px); finder inputs are .vm-overlay__input
+ * (14px) in overlay-shared.css, not this file.
+ */
+
+.vm-input {
+  padding: var(--space-1) 0;
+  background: transparent;
+  border: none;
+  border-bottom: var(--border-thin) solid var(--border-color);
+  border-radius: 0;
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-ui);
+  outline: none;
+}
+
+.vm-input:focus {
+  /* Focus = accent bottom border (rule 33 §3); outline is already off on the
+     base rule, so this rule only PAINTS. */
+  border-bottom-color: var(--primary-color);
+}
+
+.vm-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.vm-input:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Monospace content — paths, URLs, code-like values. */
+.vm-input--mono {
+  font-family: var(--font-mono);
+}
+
+.vm-input--field {
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-tertiary);
+  border: var(--border-thin) solid var(--control-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.vm-input--field:focus {
+  border-color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+/* focus: caret-only — declared borderless input; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2). */
+.vm-input--bare,
+.vm-input--bare:focus,
+.vm-input--bare:focus-visible {
+  border: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+}

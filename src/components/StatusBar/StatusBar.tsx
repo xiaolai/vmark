@@ -200,7 +200,7 @@ export function StatusBar() {
             {!sidebarVisible && isDocumentWindow && (
               <button
                 type="button"
-                className="status-sidebar-toggle"
+                className="vm-icon-btn vm-icon-btn--sm status-sidebar-toggle"
                 onClick={() => useUIStore.getState().toggleSidebar()}
                 // WI-2.3 — bind aria-expanded to live state, not a literal
                 // (the button only renders while the sidebar is hidden).

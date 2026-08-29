@@ -13,7 +13,7 @@
  *   local hover accents.
  *
  * @coordinates-with FootnotePopupView.ts — consumes these helpers for popup construction
- * @coordinates-with src/styles/popup-shared.css — owns `.popup-icon-btn`
+ * @coordinates-with src/styles/icon-button-shared.css — owns `.popup-icon-btn`
  * @module plugins/footnotePopup/footnotePopupDom
  */
 
@@ -46,7 +46,7 @@ interface FootnotePopupDomHandlers {
 /** Creates the footnote popup DOM structure with textarea and action buttons. */
 export function createFootnotePopupDom(handlers: FootnotePopupDomHandlers) {
   const container = document.createElement("div");
-  container.className = "footnote-popup";
+  container.className = "popup-container footnote-popup";
   container.style.display = "none";
 
   const textarea = document.createElement("textarea");
@@ -69,9 +69,9 @@ export function createFootnotePopupDom(handlers: FootnotePopupDomHandlers) {
   const gotoBtn = buildIconButton(popupIcons.goto, i18n.t("editor:popup.footnote.goToDefinition"), handlers.onGoto);
   gotoBtn.classList.add("footnote-popup-btn-goto");
   const saveBtn = buildIconButton(popupIcons.save, i18n.t("editor:popup.footnote.save"), handlers.onSave);
-  saveBtn.classList.add("footnote-popup-btn-save");
+  saveBtn.classList.add("popup-icon-btn--primary", "footnote-popup-btn-save");
   const deleteBtn = buildIconButton(popupIcons.delete, i18n.t("editor:popup.footnote.remove"), handlers.onDelete);
-  deleteBtn.classList.add("footnote-popup-btn-delete");
+  deleteBtn.classList.add("popup-icon-btn--danger", "footnote-popup-btn-delete");
 
   btnRow.appendChild(gotoBtn);
   btnRow.appendChild(saveBtn);

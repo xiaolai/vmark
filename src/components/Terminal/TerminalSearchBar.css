@@ -10,21 +10,17 @@
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--popup-shadow);
-  z-index: var(--z-resize-handle);
+  z-index: var(--z-panel-overlay);
   /* Intentionally fixed for compact terminal search UI. */
-  --terminal-search-font-size: 12px;
 }
 
+/* `.vm-input--bare` (WI-UI3.3): the bar owns the boundary. */
 .terminal-search-input {
   width: 160px;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--terminal-search-font-size);
-  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
   padding: var(--space-half) var(--space-1);
 }
+
 
 .terminal-search-input::placeholder {
   color: var(--text-secondary);
@@ -48,68 +44,22 @@
   flex: 0 0 auto;
   padding: 0 var(--space-1);
   color: var(--text-secondary);
-  font-size: var(--terminal-search-font-size);
-  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-ui);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-/* An engaged modifier (case / word / regex). Driven by `aria-pressed` so the
-   visual state cannot disagree with what assistive tech is told, and so no
-   second button class is introduced. Uses the selection tokens, matching every
-   other active control in the app. */
-.terminal-search-btn[aria-pressed="true"] {
-  background: var(--accent-bg);
-  color: var(--accent-primary);
-}
-
-.terminal-search-btn[aria-pressed="true"]:hover:not(:disabled) {
-  background: var(--accent-bg);
-  color: var(--accent-primary);
-}
-
-.terminal-search-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.terminal-search-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.terminal-search-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* Focus indicators (accessibility) */
-.terminal-search-btn:focus-visible {
-  outline: none;
-  position: relative;
-}
-
-.terminal-search-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 1px;
-  left: 3px;
-  right: 3px;
-  height: 2px;
-  background: var(--accent-primary);
-  border-radius: 1px;
-}
+/* Buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3); aria-pressed accent,
+   hover, disabled and the focus bar all come from icon-button-shared.css. */
 
 /* Dark theme shadow */
 .dark-theme .terminal-search-bar {
   box-shadow: var(--popup-shadow-dark);
+}
+
+/* focus: caret-only — borderless finder/popup input; the caret is the
+   indicator (rule 33 §2, WI-UI1.8). */
+.terminal-search-input:focus {
+  outline: none;
 }

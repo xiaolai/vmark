@@ -121,6 +121,15 @@ describe("collectBespokeButtons — every class in the selector", () => {
     expect([...found.keys()]).toEqual([]);
   });
 
+  // WI-UI2.3 — the icon primitive is canonical, variants included.
+  it("excludes .vm-icon-btn and its variants", () => {
+    const found = collectBespokeButtons(
+      ["a.css"],
+      () => `.vm-icon-btn { width: 26px; }\n.vm-icon-btn--sm { width: 24px; }\n.vm-icon-btn--bordered { border: 1px; }`,
+    );
+    expect([...found.keys()]).toEqual([]);
+  });
+
   it("does not count a button class named only inside a comment", () => {
     const found = collectBespokeButtons(["a.css"], () => `/* use .ghost-btn here */\n.real-btn { padding: 1px; }`);
     expect([...found.keys()]).toEqual([".real-btn"]);

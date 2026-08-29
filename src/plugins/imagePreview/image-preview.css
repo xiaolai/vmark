@@ -4,39 +4,26 @@
  * Styled to match link popup design language
  */
 
-.image-preview-popup {
-  position: fixed;
-  z-index: var(--z-popup);
+/* Shell chrome comes from `.popup-container` (WI-UI3.2); a hover PREVIEW,
+   so it must not steal the pointer. Compounded with the shared class so the
+   residual's 4px gap wins on SPECIFICITY — this chunk (WindowContext) loads
+   before the App chunk that carries `.popup-container`, so at equal
+   specificity the shared gap: var(--space-half) would win the tie. */
+.popup-container.image-preview-popup {
   pointer-events: none;
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1-5);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-color);
-  box-shadow: var(--shadow-md);
-  animation: image-preview-fade-in var(--duration-fast) ease-out;
   max-width: 220px;
   min-width: var(--space-15);
 }
+
 
 /* Allow interaction with audio/video controls */
 .image-preview-popup.image-preview-popup--interactive {
   pointer-events: auto;
 }
 
-@keyframes image-preview-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 .image-preview-img {
   max-width: 200px;
@@ -82,9 +69,3 @@
   box-shadow: var(--popup-shadow-dark);
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .image-preview-popup {
-    animation: none;
-  }
-}

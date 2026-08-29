@@ -35,7 +35,7 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
-import { buildXtermThemeForId } from "@/theme";
+import { buildXtermThemeForId, drawBoldTextInBrightColorsForId } from "@/theme";
 import { useTabStore } from "@/stores/tabStore";
 import { getRuntimePlatform } from "@/utils/platform";
 import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
@@ -113,7 +113,13 @@ export function useUIStoreSync(
       const sessions = sessionsRef.current;
       if (!sessions) return;
       for (const [, entry] of sessions) {
-        if (newTheme) entry.instance.term.options.theme = newTheme;
+        if (newTheme) {
+          entry.instance.term.options.theme = newTheme;
+          // The bold repaint rule is per theme too (WI-UI1.4/D10) — switching
+          // to solarized live must stop repainting bold as base-tone grey.
+          entry.instance.term.options.drawBoldTextInBrightColors =
+            drawBoldTextInBrightColorsForId(themeId);
+        }
         entry.instance.term.options.fontFamily = newFont;
         // A different mono family changes cell advance width, so cols/rows
         // change just as they do for a font-size change. This effect used to

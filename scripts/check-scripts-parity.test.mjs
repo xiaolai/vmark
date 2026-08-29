@@ -18,7 +18,7 @@
  * @module scripts/check-scripts-parity.test
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
@@ -514,5 +514,54 @@ describe("test tiers partition the test files on disk", () => {
   it("the gate self-tests are reachable from check:all too", () => {
     // So a local `pnpm check:all` runs them as well, not just CI.
     expect(invokedScripts(pkg.scripts, "check:all")).toContain("test:gates");
+  });
+});
+
+// ── WI-UI0.4 (C12) — every check:static gate has a self-test ────────────────
+
+describe("C12: every check:static gate naming a scripts/ file has a sibling test", () => {
+  /** The root-scripts file a gate command runs, if any. Anchored so
+   *  `server/mcp/scripts/…` (another package's tooling) does not count. */
+  function gateScriptOf(command) {
+    const m = /(?:^|[\s"'])scripts\/([\w.-]+\.(?:mjs|ts|sh))\b/.exec(command ?? "");
+    return m ? m[1] : null;
+  }
+
+  const baseline = JSON.parse(
+    readFileSync(path.join(REPO, "scripts", "gate-tests-baseline.json"), "utf8"),
+  );
+
+  const gates = new Map(); // script file name -> leaf script name
+  for (const leaf of invokedScripts(pkg.scripts, "check:static")) {
+    const file = gateScriptOf(pkg.scripts[leaf]);
+    if (file) gates.set(file, leaf);
+  }
+
+  const hasSibling = (file) => {
+    const stem = file.replace(/\.(mjs|ts|sh)$/, "");
+    return ["mjs", "ts", "tsx"].some((ext) =>
+      existsSync(path.join(REPO, "scripts", `${stem}.test.${ext}`)),
+    );
+  };
+
+  it("finds a meaningful number of gates (the census itself is alive)", () => {
+    expect(gates.size).toBeGreaterThan(20);
+  });
+
+  it("an untested gate is either baselined or a failure — a 10th untested gate fails", () => {
+    const untested = [...gates.keys()].filter((f) => !hasSibling(f)).sort();
+    const baselined = [...baseline.untested].sort();
+    // Exact equality gives both directions at once: a NEW untested gate fails
+    // (not in the baseline), and a STALE entry fails (gate gained a test or
+    // left check:static) so the win gets recorded.
+    expect(untested).toEqual(baselined);
+  });
+
+  it("every baselined entry still names a wired-in gate", () => {
+    for (const file of baseline.untested) {
+      expect(gates.has(file), `${file} is baselined as untested but no check:static gate runs it`).toBe(
+        true,
+      );
+    }
   });
 });

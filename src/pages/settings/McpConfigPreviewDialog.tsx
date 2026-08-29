@@ -101,7 +101,9 @@ export function McpConfigPreviewDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-content z-[1000]"
+      // Shared modal shell: the scrim, centring (the old `justify-content`
+      // was a dead typo for justify-center) and z come from .vm-overlay--center.
+      className="vm-overlay vm-overlay--center"
       onClick={onCancel}
     >
       <div
@@ -111,7 +113,7 @@ export function McpConfigPreviewDialog({
         aria-modal="true"
         aria-label={t("integrations.installMcp.previewAriaLabel")}
         className="mx-auto bg-[var(--bg-color)] border border-[var(--border-color)]
-                   rounded-lg shadow-lg w-[560px] max-w-[90vw] max-h-[80vh]
+                   rounded-lg shadow-popup w-[560px] max-w-[90vw] max-h-[80vh]
                    flex flex-col outline-none"
         onClick={(e) => e.stopPropagation()}
       >
@@ -160,14 +162,14 @@ export function McpConfigPreviewDialog({
                 {t("integrations.installMcp.currentConfig")}
               </div>
               <pre className="p-3 bg-[var(--bg-tertiary)] rounded-md text-xs font-mono
-                             text-[var(--text-tertiary)] overflow-auto max-h-32 whitespace-pre">
+                             text-[var(--text-secondary)] overflow-auto max-h-32 whitespace-pre">
                 {preview.currentContent}
               </pre>
             </div>
           )}
 
           {/* Safety Note */}
-          <div className="text-xs text-[var(--text-tertiary)] flex items-start gap-2">
+          <div className="text-xs text-[var(--text-secondary)] flex items-start gap-2">
             <svg className="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
@@ -218,7 +220,7 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-[var(--text-tertiary)] w-20 flex-shrink-0">
+      <span className="text-xs text-[var(--text-secondary)] w-20 flex-shrink-0">
         {label}
       </span>
       <span
@@ -232,7 +234,7 @@ function InfoRow({
       {copyable && <CopyButton text={fullValue || value} />}
       {badge && (
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+          className={`text-2xs px-1.5 py-0.5 rounded font-medium ${
             badgeColor === "amber"
               ? "bg-[var(--warning-bg)] text-[var(--warning-color)]"
               : "bg-[var(--success-color)]/10 text-[var(--success-color)]"

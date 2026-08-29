@@ -76,18 +76,14 @@
   max-width: 140px;
 }
 
+/* `.vm-spinner` (WI-UI3.4); residual = the node's compact size + warning tint. */
 .workflow-node__spinner {
   width: 12px;
   height: 12px;
-  border: var(--border-medium) solid var(--border-color);
   border-top-color: var(--warning-color);
-  border-radius: 50%;
-  animation: workflow-spinner var(--duration-slower) linear infinite;
 }
 
-@keyframes workflow-spinner {
-  to { transform: rotate(360deg); }
-}
+
 
 .workflow-node__status-icon {
   font-size: var(--font-size-sm);

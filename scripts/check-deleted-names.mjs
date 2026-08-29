@@ -54,6 +54,18 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REGISTRY = [
   {
     kind: "path",
+    path: "scripts/check-selection-styles.mjs",
+    deletedBy: "WI-UI0.3 (dev-docs/plans/20260829-ui-consistency.md)",
+    reason:
+      "Enforced the selection vocabulary only on selectors containing " +
+      "menu|popup|picker|dropdown, and only against hard colour literals — a " +
+      "wrong TOKEN passed, the file tree and tab strip were never scanned, and " +
+      "it had no self-test. check-ui-consistency.mjs C9 covers every selector " +
+      "with the full state vocabulary and sanctioned-family allowlists. " +
+      "Re-adding it would shadow that gate with a weaker one.",
+  },
+  {
+    kind: "path",
     path: "src/services/keybinding/keybindingManifest.ts",
     deletedBy: "audit-fix #29 (settled with Codex, thread 019fdb16)",
     reason:

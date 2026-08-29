@@ -47,9 +47,7 @@ export class LinkCreatePopupView extends WysiwygPopupView<LinkCreatePopupState> 
 
   protected buildContainer(): HTMLElement {
     // Bare shell — content is rebuilt on every show based on showTextInput
-    const container = document.createElement("div");
-    container.className = "link-create-popup";
-    return container;
+    return this.createShell("link-create-popup");
   }
 
   protected override getPopupDimensions() {

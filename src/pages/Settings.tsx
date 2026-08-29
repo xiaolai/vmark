@@ -250,7 +250,7 @@ export function SettingsPage() {
           data-tauri-drag-region
           className="absolute top-0 right-0 flex items-center justify-center pointer-events-none"
           style={{
-            left: "calc(13rem + 2 * var(--shell-card-inset))",
+            left: "calc(var(--settings-nav-width) + 2 * var(--shell-card-inset))",
             height: "calc(2 * var(--traffic-lights-centre))",
           }}
         >

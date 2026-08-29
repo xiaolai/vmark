@@ -471,3 +471,22 @@ describe("TerminalTabBar", () => {
     });
   });
 });
+
+// WI-UI3.6 (R13) — a dead session announces its state, and shows a glyph.
+describe("dead session indicator (R13)", () => {
+  it("carries '(exited)' in the accessible name and renders the × glyph", () => {
+    useUIStore.getState().terminalCreateSession();
+    const st = useUIStore.getState();
+    useUIStore.setState({
+      terminal: {
+        ...st.terminal,
+        sessions: st.terminal.sessions.map((x) => ({ ...x, isAlive: false })),
+      },
+    });
+    render(<TerminalTabBar onClose={vi.fn()} onRestart={vi.fn()} position="bottom" />);
+    const tab = document.querySelector(".terminal-tab-dead");
+    expect(tab).not.toBeNull();
+    expect(tab!.getAttribute("aria-label")).toContain("(exited)");
+    expect(tab!.querySelector(".terminal-tab-dead-glyph")).not.toBeNull();
+  });
+});

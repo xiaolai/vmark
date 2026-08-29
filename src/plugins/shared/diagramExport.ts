@@ -38,7 +38,7 @@ export function setupDiagramExport(
   const resetBtn = container.querySelector<HTMLElement>(".mermaid-panzoom-reset");
 
   const btn = document.createElement("button");
-  btn.className = "mermaid-export-btn";
+  btn.className = "vm-icon-btn vm-icon-btn--sm mermaid-export-overlay mermaid-export-btn";
   const exportLabel = i18n.t("editor:plugin.exportPng");
   btn.title = exportLabel;
   btn.setAttribute("aria-label", exportLabel);
@@ -66,7 +66,7 @@ export function setupDiagramExport(
     }
 
     menu = document.createElement("div");
-    menu.className = "mermaid-export-menu";
+    menu.className = "vm-menu mermaid-export-menu";
 
     const rect = btn.getBoundingClientRect();
     menu.style.top = `${rect.bottom + 4}px`;

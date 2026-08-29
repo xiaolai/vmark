@@ -182,12 +182,12 @@ export function McpHistoryButton(): React.ReactElement {
       {open && (
         <div
           ref={popoverRef}
-          className="mcp-history-popover"
+          className="vm-overlay__panel mcp-history-popover"
           style={popoverStyle}
           role="dialog"
           aria-label={t("mcpHistoryTitle", { count })}
         >
-          <header className="mcp-history-popover__header">
+          <header className="vm-panel__header mcp-history-popover__header">
             <span className="mcp-history-popover__title">
               {t("mcpHistoryTitle", { count })}
             </span>

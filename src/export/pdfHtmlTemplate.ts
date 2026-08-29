@@ -27,6 +27,8 @@ import { getRuntimePlatform } from "@/utils/platform";
 import { sharedContentCSS, forceLightThemeCSS } from "./pdfPrintCss";
 import { buildFitCSS } from "./pdfFitToPage";
 import { type PdfOptions, PAGE_SIZE_KEYWORDS, effectiveBottomMarginMm } from "./pdfOptions";
+import i18n from "@/i18n";
+import { escapeHtml } from "@/utils/sanitize";
 
 // Re-exported so existing importers keep one entry point for the export API.
 export { MARGIN_PRESETS, PAGE_SIZE_KEYWORDS } from "./pdfOptions";
@@ -126,7 +128,6 @@ function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
   return `
 :root {
   --editor-font-size: ${fs}pt;
-  --editor-font-size-sm: ${fs * 0.9}pt;
   --editor-font-size-mono: ${fs * 0.85}pt;
   --editor-font-size-block: ${fs * blockRatio}pt;
   --editor-line-height: ${lh};
@@ -191,7 +192,7 @@ export function buildPdfExportHtml(
 <html lang="en" class="${htmlClass}">
 <head>
   <meta charset="UTF-8">
-  <title>PDF Export</title>
+  <title>${escapeHtml(i18n.t("dialog:pdfExport.title"))}</title>
   <style>
 /* KaTeX (bundled) */
 ${katexCSS}

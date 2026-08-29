@@ -111,7 +111,7 @@ export function TerminalTabRename({
 
   return (
     <input
-      className="terminal-tab terminal-tab-rename"
+      className="terminal-tab vm-input terminal-tab-rename"
       // Autofocus is correct here: the box only exists because the user just
       // double-clicked to type in it, and it disappears when they leave.
       autoFocus

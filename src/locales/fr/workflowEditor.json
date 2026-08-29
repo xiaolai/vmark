@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "Clé en double — déjà définie dans une autre ligne",
   "form.step.uses.label": "Utilise",
   "form.trigger.kind": "Déclencheurs",
-  "form.trigger.empty": "Aucun déclencheur configuré",
+  "form.trigger.empty": "Aucun déclencheur configuré. Ajoutez-en un pour choisir quand ce workflow s'exécute.",
   "form.trigger.branches": "Branches : {{value}}",
   "form.trigger.branchesIgnore": "Branches ignorées : {{value}}",
   "form.trigger.tags": "Tags : {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "Développer run",
   "expression.title.if": "Modifier if",
   "expression.title.run": "Modifier run",
-  "panel.noWorkflow": "Aucun workflow détecté",
+  "panel.noWorkflow": "Aucun workflow détecté. Ouvrez un fichier YAML sous .github/workflows pour utiliser l'éditeur.",
   "panel.conditional": "conditionnel",
   "panel.shell.resize": "Redimensionner les volets",
   "panel.viewerAriaLabel": "Visionneuse de workflows GitHub Actions",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(par défaut : {{value}})",
   "panel.exportLabel": "Exporter le diagramme du workflow",
   "panel.exportError": "Échec de l'exportation",
-  "settings.groupTitle": "Fichiers de workflow"
+  "settings.groupTitle": "Fichiers de workflow",
+  "form.job.delete.confirm": "Supprimer le job « {{id}} » ? Irréversible avant l’enregistrement.",
+  "form.job.steps.deleteConfirm": "Supprimer l’étape « {{label}} » ?"
 }

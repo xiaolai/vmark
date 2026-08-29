@@ -31,6 +31,7 @@ import { outlineSyncError } from "@/utils/debug";
 import { useUIStore } from "@/stores/uiStore";
 import { getTiptapEditorDom } from "@/services/editor/tiptapView";
 import { safeUnlisten } from "@/utils/safeUnlisten";
+import { scrollBehavior } from "@/utils/motion";
 
 type EditorViewGetter = () => EditorView | null;
 
@@ -130,7 +131,7 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
             requestAnimationFrame(() => {
               const headingDOM = view.nodeDOM(pos);
               if (headingDOM instanceof HTMLElement) {
-                headingDOM.scrollIntoView({ behavior: "smooth", block: "start" });
+                headingDOM.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
               }
             });
           }

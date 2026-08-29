@@ -8,9 +8,10 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { useBreakdownStore } from "@/stores/breakdownStore";
 import { delegate } from "@/services/breakdown/semanticActs";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 
 const DEFAULT_DAYS = 7;
 
@@ -43,14 +44,16 @@ export function DelegationsSection({ workspaceRoot }: { workspaceRoot: string | 
     ).toISOString();
     // D2.2/D4.3 posture: nothing is recorded without the explicit
     // confirmation naming principal, scope, and expiry.
-    const confirmed = await ask(
-      t("delegations.grantConfirm", {
+    const confirmed = await confirmAction({
+      title: t("delegations.grantTitle"),
+      message: t("delegations.grantConfirm", {
         principal: trimmed,
         scope: scope.join(", "),
         date: expires.slice(0, 10),
       }),
-      { title: t("delegations.grantTitle"), kind: "warning" },
-    );
+      actionLabel: i18n.t("dialog:action.grant"),
+      kind: "warning",
+    });
     if (!confirmed) return;
     setBusy(true);
     setPrincipal("");
@@ -105,7 +108,7 @@ export function DelegationsSection({ workspaceRoot }: { workspaceRoot: string | 
       <div className="delegations-section__form">
         <input
           type="text"
-          className="delegations-section__input"
+          className="vm-input vm-input--mono delegations-section__input"
           value={principal}
           onChange={(e) => setPrincipal(e.target.value)}
           placeholder={t("delegations.principalPlaceholder")}
@@ -114,6 +117,7 @@ export function DelegationsSection({ workspaceRoot }: { workspaceRoot: string | 
         <label className="delegations-section__scope-box">
           <input
             type="checkbox"
+            className="breakdown-checkbox"
             checked={acceptNewer}
             onChange={(e) => setAcceptNewer(e.target.checked)}
           />
@@ -122,6 +126,7 @@ export function DelegationsSection({ workspaceRoot }: { workspaceRoot: string | 
         <label className="delegations-section__scope-box">
           <input
             type="checkbox"
+            className="breakdown-checkbox"
             checked={waive}
             onChange={(e) => setWaive(e.target.checked)}
           />

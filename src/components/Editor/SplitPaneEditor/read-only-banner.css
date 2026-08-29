@@ -9,7 +9,7 @@
   padding: var(--space-1) var(--space-2);
   background: var(--bg-tertiary);
   border-bottom: var(--border-thin) solid var(--border-color);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-sm);
 }
 

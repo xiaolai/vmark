@@ -115,10 +115,10 @@ describe("ProviderSwitcher", () => {
       expect(screen.queryByText("OpenAI")).toBeNull();
     });
 
-    it("renders Settings... footer button", () => {
+    it("renders Settings… footer button", () => {
       render(<ProviderSwitcher onClose={onClose} onCloseAll={onCloseAll} />);
 
-      expect(screen.getByText("Settings...")).toBeInTheDocument();
+      expect(screen.getByText("Settings…")).toBeInTheDocument();
     });
 
     it("hides CLI section when no available CLI providers", () => {
@@ -248,7 +248,7 @@ describe("ProviderSwitcher", () => {
 
       render(<ProviderSwitcher onClose={onClose} onCloseAll={onCloseAll} />);
 
-      fireEvent.click(screen.getByText("Settings..."));
+      fireEvent.click(screen.getByText("Settings…"));
 
       expect(onCloseAll).toHaveBeenCalledTimes(1);
       expect(openSettingsWindow).toHaveBeenCalledWith("integrations");

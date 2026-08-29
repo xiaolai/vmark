@@ -23,7 +23,7 @@
   align-items: center;
   gap: var(--space-6);
   width: 100%;
-  max-width: 36em;
+  max-width: 648px; /* was 36em @ 18px (WI-UI2.1) */
   padding: var(--space-6);
 }
 
@@ -42,29 +42,13 @@
   justify-content: center;
 }
 
+/* The actions are the canonical `.vm-btn` (WI-UI4.7); the residual keeps the
+   front door's larger size and its FINDABLE boundary (--control-border, D8). */
 .welcome-action {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  color: var(--text-color);
+  border-color: var(--control-border);
   font-size: var(--font-size-md);
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: background var(--duration-base), border-color var(--duration-base);
-}
-
-.welcome-action:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--primary-color);
-}
-
-.welcome-action:focus-visible {
-  outline: var(--border-medium) solid var(--primary-color);
-  outline-offset: 2px;
 }
 
 .welcome-action__icon {
@@ -95,13 +79,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-loose);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .welcome-screen__empty {
   margin: 0;
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .welcome-recent-list {
@@ -123,7 +107,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-color);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
@@ -158,7 +142,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }

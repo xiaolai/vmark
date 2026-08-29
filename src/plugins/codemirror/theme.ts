@@ -9,7 +9,7 @@
  *   - Base theme handles caret, selection, gutters, and panel styling
  *   - Highlight style maps Lezer grammar tags to `.cm-hl-*` CSS classes
  *
- * @coordinates-with styles/source-mode.css — CSS class definitions for the highlight tokens
+ * @coordinates-with src/plugins/codemirror/source-syntax.css — CSS class definitions for the highlight tokens
  * @module plugins/codemirror/theme
  */
 
@@ -82,7 +82,15 @@ export const codeHighlightStyle = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "bold" },
   // Strikethrough
   { tag: tags.strikethrough, textDecoration: "line-through" },
-  // Code/monospace
+  // Markdown structure characters (#, >, -) read as SYNTAX, not prose
+  // (WI-UI3.6): the same --md-char-color WYSIWYG uses. ONLY
+  // processingInstruction — Lezer's markdown parser tags QuoteMark/ListMark
+  // with it, while `tags.quote`/`tags.list` cover the WHOLE blockquote/list
+  // subtrees, prose included (audit 20260829 caught the overreach).
+  { tag: tags.processingInstruction, class: "cm-hl-md-char" },
+  // Code/monospace: font only. `tags.monospace` covers block CodeText as
+  // well as InlineCode, so a background/padding surface here would wrap
+  // every fenced-code line (same audit).
   { tag: tags.monospace, fontFamily: "var(--font-mono)" },
   // Invalid/error syntax
   { tag: tags.invalid, class: "cm-hl-invalid" },

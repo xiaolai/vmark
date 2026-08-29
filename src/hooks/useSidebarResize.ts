@@ -10,11 +10,14 @@
  */
 
 import { useCallback, useRef, useEffect } from "react";
-import { useUIStore } from "@/stores/uiStore";
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, useUIStore } from "@/stores/uiStore";
 
-/** Sidebar width constraints in pixels */
-export const MIN_SIDEBAR_WIDTH = 150;
-export const MAX_SIDEBAR_WIDTH = 500;
+/** Sidebar width constraints in pixels — ONE owner: the store's canonical
+ * bounds (audit 20260829: this hook said 150/500 while setSidebarWidth
+ * enforced 180/480, so Home/End and the ARIA range exposed values the store
+ * would immediately reject). */
+export const MIN_SIDEBAR_WIDTH = SIDEBAR_MIN_WIDTH;
+export const MAX_SIDEBAR_WIDTH = SIDEBAR_MAX_WIDTH;
 /** Keyboard resize step per arrow press */
 const KEYBOARD_RESIZE_STEP = 8;
 /** Larger step when Shift is held */
@@ -47,8 +50,27 @@ export function useSidebarResize() {
   }>({ move: null, up: null });
 
   /** Clamp width to valid range */
+  // Finding 3 (audit 20260829): the viewport cap only ran during interaction,
+  // so a restored wide sidebar kept its width when the WINDOW narrowed.
+  // Reclamp the stored width on resize (and once on mount).
+  useEffect(() => {
+    const reclamp = () => {
+      const current = useUIStore.getState().sidebarWidth;
+      const viewportMax = Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - 480);
+      const next = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, viewportMax, current));
+      if (next !== current) useUIStore.getState().setSidebarWidth(next);
+    };
+    reclamp();
+    window.addEventListener("resize", reclamp);
+    return () => window.removeEventListener("resize", reclamp);
+  }, []);
+
   const clampWidth = useCallback((width: number): number => {
-    return Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, width));
+    // WI-UI4.10: also clamp against the live viewport — a fixed 500px max
+    // could swallow the editor on a narrow window. 480px is the editor's
+    // keep-alive floor (rail + margins + a readable column).
+    const viewportMax = Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - 480);
+    return Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, viewportMax, width));
   }, []);
 
   /** Clean up listeners and styles */

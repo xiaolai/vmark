@@ -3,17 +3,9 @@
  * Tokens only (rule 31); dark theme follows the tokens, no overrides needed.
  */
 
+/* Surface chrome comes from `.vm-menu` (overlay-shared.css, WI-UI3.1). */
 .workspace-rail-menu {
-  position: fixed;
-  z-index: var(--z-context-menu);
-  min-width: 180px;
   padding: var(--space-1-5);
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--popup-shadow);
 }
 
 .workspace-rail-menu:focus-visible {
@@ -32,7 +24,7 @@
   border-radius: var(--radius-md);
   color: var(--text-color);
   background: transparent;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-base);
   text-align: left;
   cursor: default;

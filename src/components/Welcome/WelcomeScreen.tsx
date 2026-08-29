@@ -107,24 +107,24 @@ export function WelcomeScreen() {
   const nothingRecent = recentFiles.length === 0 && recentWorkspaces.length === 0;
 
   return (
-    <div className="welcome-screen" role="region" aria-label={t("emptyState.title")}>
+    <div className="welcome-screen" role="region" aria-label={t("emptyState.welcome")}>
       <div className="welcome-screen__inner">
         <h1 className="welcome-screen__title">{t("emptyState.title")}</h1>
 
         <div className="welcome-screen__actions">
           <button
             type="button"
-            className="welcome-action"
+            className="vm-btn welcome-action"
             onClick={() => handleNew(windowLabel)}
           >
             <FilePlus className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.newFile")}</span>
           </button>
-          <button type="button" className="welcome-action" onClick={onOpenFile}>
+          <button type="button" className="vm-btn welcome-action" onClick={onOpenFile}>
             <FileUp className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFile")}</span>
           </button>
-          <button type="button" className="welcome-action" onClick={onOpenFolder}>
+          <button type="button" className="vm-btn welcome-action" onClick={onOpenFolder}>
             <FolderOpen className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFolder")}</span>
           </button>

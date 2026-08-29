@@ -33,11 +33,12 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { CSS_RULE_RE, stripComments, declaredValue } from "./lib/cssRules.mjs";
 
 const SRC_DIR = "src";
 const BASELINE_PATH = "scripts/bespoke-buttons-baseline.json";
 
-const CANONICAL = /^\.(vm-btn|popup-icon-btn|universal-toolbar-btn)(--[a-z0-9-]+)?$/;
+const CANONICAL = /^\.(vm-btn|vm-icon-btn|popup-icon-btn|universal-toolbar-btn)(--[a-z0-9-]+)?$/;
 /**
  * A class whose NAME looks like a button, anywhere in a selector.
  *
@@ -67,9 +68,10 @@ function walkExt(dir, ext, out = []) {
 const BUTTON_EL_RE =
   /<button\b[^>]*?className=(?:"([^"]*)"|\{`([^`]*)`\}|\{"([^"]*)"\})/gs;
 /** Canonical names as they appear in JSX (no leading dot). */
-const CANONICAL_BARE = /^(vm-btn|popup-icon-btn|universal-toolbar-btn)(--[a-z0-9-]+)?$/;
-/** Every `selector { body }` pair; good enough for flat component CSS. */
-const CSS_RULE_RE = /([^{}]+)\{([^{}]*)\}/g;
+const CANONICAL_BARE = /^(vm-btn|vm-icon-btn|popup-icon-btn|universal-toolbar-btn)(--[a-z0-9-]+)?$/;
+// CSS_RULE_RE / stripComments / declaredValue now live in scripts/lib/cssRules.mjs
+// (WI-UI0.2), shared with the token and ui-consistency gates so the three
+// cannot parse CSS differently.
 
 /**
  * Does this rule body re-derive a button SURFACE (rather than just position or
@@ -200,26 +202,6 @@ export function resolveValue(value, tokens) {
     out = next;
   }
   return out.replace(/\s+/g, " ").trim();
-}
-
-/**
- * Comments out, so a declaration that follows one is still visible.
- *
- * `declaredValue` anchors on `^`, `;` or `{` to avoid matching `border-radius`
- * inside `border`, and a preceding `/* … *\/` breaks that anchor. The real
- * `.vm-btn` carries a comment directly above its `padding`, so without this the
- * canonical triple came back incomplete and the gate threw on its own source.
- */
-function stripComments(css) {
-  return css.replace(/\/\*[\s\S]*?\*\//g, " ");
-}
-
-/** The value a rule body declares for `prop`, or null. Last declaration wins. */
-function declaredValue(body, prop) {
-  const re = new RegExp(`(?:^|[;{])\\s*${prop}\\s*:\\s*([^;}]+)`, "gi");
-  let found = null;
-  for (const m of stripComments(body).matchAll(re)) found = m[1].trim();
-  return found;
 }
 
 /**

@@ -4,18 +4,11 @@
  * Popup for creating new links (text + URL inputs).
  */
 
+/* Shell chrome comes from `.popup-container` (WI-UI3.2). */
 .link-create-popup {
-  position: fixed;
-  z-index: var(--z-popup);
-  display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-1-5);
-  padding: var(--popup-padding);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
-  animation: popup-fade-in var(--duration-fast) ease-out;
 }
 
 .dark-theme .link-create-popup {
@@ -38,7 +31,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   outline: none;
 }
 
@@ -61,65 +54,6 @@
   font-size: var(--font-size-xs);
 }
 
-.link-create-popup-btn {
-  position: relative;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--duration-base), color var(--duration-base);
-}
-
-.link-create-popup-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.link-create-popup-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.link-create-popup-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* Save button hover - primary color */
-.link-create-popup-btn-save:hover:not(:disabled) {
-  color: var(--primary-color);
-}
-
-/* Cancel button hover - error color */
-.link-create-popup-btn-cancel:hover:not(:disabled) {
-  color: var(--error-color);
-}
-
-/* Focus indicator: U-shaped underline */
-.link-create-popup-btn:focus-visible {
-  outline: none;
-}
-
-.link-create-popup-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
+/* Buttons carry the canonical `.popup-icon-btn` (WI-UI2.3) — the byte-for-byte
+   duplicate recipe that lived here is gone; suffix classes remain as query
+   hooks only. */

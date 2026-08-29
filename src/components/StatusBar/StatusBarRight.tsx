@@ -209,7 +209,7 @@ export function StatusBarRight({
         >
           <AlertTriangle size={12} />
           <span className="status-ai-text">
-            {aiError.length > 30 ? `${aiError.slice(0, 30)}...` : aiError}
+            {aiError.length > 30 ? `${aiError.slice(0, 30)}…` : aiError}
           </span>
           <button className="status-ai-action" onClick={onRetryAi}>{t("aiRetry")}</button>
           <button
@@ -238,9 +238,14 @@ export function StatusBarRight({
         className={`status-mcp ${mcpRunning ? "connected" : ""} ${mcpLoading ? "loading" : ""} ${mcpError ? "error" : ""}`}
         onClick={openMcpSettings}
         title={formatMcpTooltip(mcpRunning, mcpLoading, mcpError, mcpClients)}
-        aria-label={t("mcpStatus")}
+        // R13 (WI-UI4.5): the STATE rides in the accessible name, not colour.
+        aria-label={formatMcpTooltip(mcpRunning, mcpLoading, mcpError, mcpClients)}
       >
         <Satellite size={12} />
+        {/* Second channel beside colour: a state glyph. */}
+        <span className="status-mcp__state" aria-hidden="true">
+          {mcpError ? "✗" : mcpLoading ? "⟳" : mcpRunning ? "✓" : "○"}
+        </span>
       </button>
 
       <McpHistoryButton />
@@ -270,7 +275,7 @@ export function StatusBarRight({
             onToggleSourceMode();
           }}
         >
-          {sourceMode ? <Code2 size={14} /> : <Type size={12} />}
+          {sourceMode ? <Code2 size={12} /> : <Type size={12} />}
         </button>
       )}
 

@@ -39,7 +39,7 @@ export function GenieChips({ genies, onSelect }: GenieChipsProps) {
         return (
           <button
             key={action.genieName}
-            className="genie-chip"
+            className="vm-chip genie-chip"
             onClick={() => onSelect(genie)}
             type="button"
           >

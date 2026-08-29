@@ -9,7 +9,7 @@ import {
   shellSideWidth,
   shellChromeVars,
   WORKSPACE_RAIL_WIDTH,
-  CHROME_HEIGHT,
+  BAR_HEIGHT,
   SHELL_TOP_INSET,
   SHELL_CARD_INSET,
   SHELL_CARD_RADIUS,
@@ -133,7 +133,7 @@ describe("SHELL_TOP_INSET is derived, not chosen", () => {
     // The regression: at 28 against a 40px strip, the sidebar's header buttons
     // ran 36→64px and their top 4px sat under `data-tauri-drag-region`,
     // un-clickable. Measured in the running app at 2×, not inferred.
-    expect(SHELL_TOP_INSET).toBeGreaterThanOrEqual(CHROME_HEIGHT);
+    expect(SHELL_TOP_INSET).toBeGreaterThanOrEqual(BAR_HEIGHT);
   });
 
   it("clears the native traffic lights", () => {
@@ -141,13 +141,13 @@ describe("SHELL_TOP_INSET is derived, not chosen", () => {
   });
 
   it("is exactly the larger of the two — no third, unstated input", () => {
-    expect(SHELL_TOP_INSET).toBe(Math.max(CHROME_HEIGHT, TRAFFIC_LIGHTS_CLEARANCE));
+    expect(SHELL_TOP_INSET).toBe(Math.max(BAR_HEIGHT, TRAFFIC_LIGHTS_CLEARANCE));
   });
 
   it("leaves the sidebar's first row level with the editor's first row", () => {
-    // `AppShell` gives the primary column `paddingTop: CHROME_HEIGHT`. A
+    // `AppShell` gives the primary column `paddingTop: BAR_HEIGHT`. A
     // different number here is two answers to where the top of the window is,
     // and the 12px difference was visible as a step between the two columns.
-    expect(SHELL_TOP_INSET).toBe(CHROME_HEIGHT);
+    expect(SHELL_TOP_INSET).toBe(BAR_HEIGHT);
   });
 });

@@ -234,7 +234,7 @@ export function StepForm({
       <header className="workflow-form__header workflow-form__header--step">
         <button
           type="button"
-          className="workflow-form__nav-btn"
+          className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={backToJob}
           aria-label={t("form.step.nav.backToJob", {
             defaultValue: "Back to job",
@@ -245,7 +245,7 @@ export function StepForm({
         </button>
         <button
           type="button"
-          className="workflow-form__nav-btn"
+          className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={() => goToStep(prevStepId)}
           disabled={!prevStepId}
           aria-label={t("form.step.nav.prev", {
@@ -266,7 +266,7 @@ export function StepForm({
         </span>
         <button
           type="button"
-          className="workflow-form__nav-btn"
+          className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={() => goToStep(nextStepId)}
           disabled={!nextStepId}
           aria-label={t("form.step.nav.next", {
@@ -286,7 +286,7 @@ export function StepForm({
       <label className="workflow-form__field">
         <span className="workflow-form__label">{t("form.step.name.label")}</span>
         <input
-          className="workflow-form__input"
+          className="vm-input vm-input--field workflow-form__input"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -305,7 +305,7 @@ export function StepForm({
         <label className="workflow-form__field">
           <span className="workflow-form__label">{t("form.step.run.label")}</span>
           <textarea
-            className="workflow-form__input workflow-form__input--mono"
+            className="vm-input vm-input--field vm-input--mono workflow-form__input"
             rows={3}
             value={run}
             onChange={(e) => setRun(e.target.value)}
@@ -326,7 +326,7 @@ export function StepForm({
           {t("form.step.workingDirectory.label")}
         </span>
         <input
-          className="workflow-form__input workflow-form__input--mono"
+          className="vm-input vm-input--field vm-input--mono workflow-form__input"
           type="text"
           value={workingDir}
           onChange={(e) => setWorkingDir(e.target.value)}
@@ -343,7 +343,7 @@ export function StepForm({
       <label className="workflow-form__field">
         <span className="workflow-form__label">{t("form.step.if.label")}</span>
         <textarea
-          className="workflow-form__input workflow-form__input--mono"
+          className="vm-input vm-input--field vm-input--mono workflow-form__input"
           rows={2}
           value={ifCond}
           onChange={(e) => setIfCond(e.target.value)}
@@ -380,7 +380,7 @@ export function StepForm({
                 <div key={idx} className="workflow-form__with-row-group">
                   <div className="workflow-form__with-row">
                     <input
-                      className="workflow-form__input workflow-form__input--mono"
+                      className="vm-input vm-input--field vm-input--mono workflow-form__input"
                       type="text"
                       value={row.key}
                       placeholder={t("form.step.with.keyPlaceholder")}
@@ -395,7 +395,7 @@ export function StepForm({
                       onBlur={() => commitWithRow(idx)}
                     />
                     <input
-                      className="workflow-form__input workflow-form__input--mono"
+                      className="vm-input vm-input--field vm-input--mono workflow-form__input"
                       type="text"
                       value={row.value}
                       placeholder={

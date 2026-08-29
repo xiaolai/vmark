@@ -109,7 +109,7 @@ export function WindowStatusPanel() {
       aria-label={t("windowStatus.title")}
       data-testid="window-status-panel"
     >
-      <header className="window-status-panel__header">
+      <header className="vm-panel__header window-status-panel__header">
         <span className="window-status-panel__title">{t("windowStatus.title")}</span>
         <div className="window-status-panel__actions">
           <div className="window-status-panel__pin-wrap" ref={pinRef}>
@@ -136,7 +136,7 @@ export function WindowStatusPanel() {
                   onClick={pinThisWindow}
                 >
                   <span className="window-status-panel__pin-check" aria-hidden="true">
-                    {pinned ? <Check size={13} /> : null}
+                    {pinned ? <Check size={12} /> : null}
                   </span>
                   {t("windowStatus.pinThisWindow")}
                 </button>
@@ -148,7 +148,7 @@ export function WindowStatusPanel() {
                   onClick={pinAllWindows}
                 >
                   <span className="window-status-panel__pin-check" aria-hidden="true">
-                    {globalPin ? <Check size={13} /> : null}
+                    {globalPin ? <Check size={12} /> : null}
                   </span>
                   {t("windowStatus.pinAllWindows")}
                 </button>
@@ -184,7 +184,7 @@ export function WindowStatusPanel() {
                   aria-label={`${name} — ${status}. ${t("windowStatus.goToHint")}`}
                 >
                   <span className={`window-status-dot window-status-dot--${k}`} aria-hidden="true">
-                    {k === "attention" ? <Bell size={11} /> : null}
+                    {k === "attention" ? <Bell size={12} /> : null}
                   </span>
                   <span className="window-status-row__name">{name}</span>
                   <span className="window-status-row__status">{status}</span>

@@ -43,7 +43,7 @@
 
 .media-view__audio {
   width: 100%;
-  max-width: 32em;
+  max-width: 576px; /* was 32em @ 18px (WI-UI2.1) */
 }
 
 /* Fallback panel: icon + filename + message + actions. */
@@ -80,23 +80,4 @@
   margin-top: var(--spacing-1);
 }
 
-.media-view__btn {
-  padding: var(--spacing-1) var(--spacing-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  color: var(--text-color);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-  transition: background var(--duration-base);
-}
-
-.media-view__btn:hover {
-  background: var(--bg-tertiary);
-}
-
-/* Focus: standard visible outline for standalone buttons (rule 33 §4). */
-.media-view__btn:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
+/* The action is the canonical `.vm-btn` (WI-UI2.3). */

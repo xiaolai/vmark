@@ -18,8 +18,10 @@
 }
 
 .browser-approval {
+  /* ui-ok(overlay): frozen WKWebView — see header; the OPAQUE backdrop and
+     self-contained shell are the point, so it does not adopt .vm-overlay */
   width: 100%;
-  max-width: 30em;
+  max-width: 540px; /* was 30em against the old 18px body basis (WI-UI2.1) */
   padding: var(--space-5);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);

@@ -11,6 +11,7 @@
 
 import type { EditorView } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { scrollBehavior } from "@/utils/motion";
 
 const SCROLL_OFFSET_PX = 100;
 
@@ -21,7 +22,7 @@ export function scrollToPosition(view: EditorView, pos: number) {
 
   const editorRect = editorContent.getBoundingClientRect();
   const scrollTop = coords.top - editorRect.top + editorContent.scrollTop - SCROLL_OFFSET_PX;
-  editorContent.scrollTo({ top: scrollTop, behavior: "smooth" });
+  editorContent.scrollTo({ top: scrollTop, behavior: scrollBehavior() });
 }
 
 export function findFootnoteDefinition(view: EditorView, label: string): { content: string; pos: number } | null {

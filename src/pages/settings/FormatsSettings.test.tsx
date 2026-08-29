@@ -14,7 +14,7 @@ describe("FormatsSettings — file type overrides (WI-5)", () => {
   it("shows the empty state when there are no overrides", () => {
     render(<FormatsSettings />);
     expect(screen.getByText("File Type Overrides")).toBeInTheDocument();
-    expect(screen.getByText("No overrides yet.")).toBeInTheDocument();
+    expect(screen.getByText(/No overrides yet\. Add an extension below to route it to a format\./)).toBeInTheDocument();
   });
 
   it("lists existing associations by key", () => {
@@ -70,14 +70,14 @@ describe("FormatsSettings — settings search discoverability", () => {
 
   it("file-type overrides section is a searchable row that matches its title", () => {
     renderWithQuery("overrides");
-    const row = screen.getByText("No overrides yet.").closest("[data-setting-row]");
+    const row = screen.getByText(/No overrides yet\. Add an extension below to route it to a format\./).closest("[data-setting-row]");
     expect(row).not.toBeNull();
     expect(row).toHaveAttribute("data-search-visible", "true");
   });
 
   it("file-type overrides section hides for a non-matching query", () => {
     renderWithQuery("zzz-no-match");
-    const row = screen.getByText("No overrides yet.").closest("[data-setting-row]");
+    const row = screen.getByText(/No overrides yet\. Add an extension below to route it to a format\./).closest("[data-setting-row]");
     expect(row).not.toBeNull();
     expect(row).toHaveAttribute("data-search-visible", "false");
   });

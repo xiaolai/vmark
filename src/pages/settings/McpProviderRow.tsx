@@ -56,19 +56,19 @@ export function ProviderRow(props: ProviderRowProps) {
                 {diagnostic.name}
               </span>
               {diagnostic.legacy && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-[var(--warning-bg)] text-[var(--warning-color)] flex-shrink-0">
+                <span className="text-2xs px-1.5 py-0.5 rounded font-medium bg-[var(--warning-bg)] text-[var(--warning-color)] flex-shrink-0">
                   {t("integrations.installMcp.legacyBadge")}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1">
               <span
-                className="text-xs text-[var(--text-tertiary)] font-mono truncate"
+                className="text-xs text-[var(--text-secondary)] font-mono truncate"
                 title={formatPath(diagnostic.configPath)}
               >
                 {shortenPath(diagnostic.configPath)}
               </span>
-              <CopyButton text={diagnostic.configPath} size="xs" />
+              <CopyButton text={diagnostic.configPath} />
             </div>
           </div>
         </div>

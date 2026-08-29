@@ -41,10 +41,10 @@
   "provenance.hint": "復元可能な以前の入力が {{count}} 件あります",
   "provenance.suggest": "入力を提案",
   "provenance.confirm": "来歴を確定",
-  "provenance.empty": "入力が選択されていません",
+  "provenance.empty": "入力が選択されていません。この成果物の由来ソースを選んでください。",
   "provenance.stale": "ドキュメントが変更されました — 提案を更新しました",
   "delegations.heading": "エージェントへの委任",
-  "delegations.empty": "有効な委任はありません",
+  "delegations.empty": "有効な委任はありません。付与すると、主体が範囲内で行動できます。",
   "delegations.grant": "付与",
   "delegations.revoke": "取り消し",
   "delegations.principalPlaceholder": "エージェントのプリンシパル（例：codex-cli）",
@@ -90,6 +90,6 @@
   "anchor.change": "固定先を変更",
   "anchor.clear": "ファイル全体",
   "anchor.hint": "ファイル全体ではなく、依存しているセクションのみを対象にします。",
-  "anchor.empty": "固定できるセクションがありません。",
+  "anchor.empty": "アンカーできるセクションがありません。まず文書に見出しを追加してください。",
   "anchor.error": "セクションを読み込めませんでした。"
 }

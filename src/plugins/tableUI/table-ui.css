@@ -7,17 +7,13 @@
  * Context Menu Styles
  * =========================================== */
 
+/* Surface chrome comes from `.vm-menu` (overlay-shared.css, WI-UI3.1); the
+   table menu keeps its OWN stacking layer — it must beat inline popups. */
 .table-context-menu {
-  position: fixed;
   z-index: var(--z-table-context);
   display: flex;
   flex-direction: column;
-  min-width: 180px;
   padding: var(--space-1);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
   animation: table-context-menu-fade-in var(--duration-fast) ease-out;
 }
 
@@ -125,6 +121,16 @@
   transition: background var(--duration-base);
 }
 
+/* D2: paint stays 6px; the grab area is 12px. */
+.table-resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+}
+
 .table-resize-handle:hover,
 .table-resize-handle.active {
   background: var(--primary-color);
@@ -142,9 +148,3 @@
   opacity: 0.8;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .table-context-menu {
-    animation: none;
-  }
-}

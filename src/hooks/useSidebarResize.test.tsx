@@ -14,6 +14,8 @@ const { mockSetSidebarWidth, uiState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/stores/uiStore", () => ({
+  SIDEBAR_MIN_WIDTH: 180,
+  SIDEBAR_MAX_WIDTH: 480,
   useUIStore: {
     getState: () => ({
       sidebarWidth: uiState.sidebarWidth,
@@ -54,7 +56,7 @@ beforeEach(() => {
 });
 
 describe("useSidebarResize", () => {
-  it("clamps width to MIN (150) when delta pushes below the floor", () => {
+  it("clamps width to MIN (180) when delta pushes below the floor", () => {
     const { result } = renderHook(() => useSidebarResize());
     act(() => result.current.handleResizeStart(fireMouseDown(500)));
 
@@ -62,18 +64,18 @@ describe("useSidebarResize", () => {
     // clamped to 150.
     act(() => fireMouseMove(100));
 
-    expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(150);
+    expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(180);
     act(() => fireMouseUp());
   });
 
-  it("clamps width to MAX (500) when delta pushes above the ceiling", () => {
+  it("clamps width to MAX (480) when delta pushes above the ceiling", () => {
     const { result } = renderHook(() => useSidebarResize());
     act(() => result.current.handleResizeStart(fireMouseDown(0)));
 
     // Drag far right — delta = +1000, 250+1000 = 1250, clamped to 500.
     act(() => fireMouseMove(1000));
 
-    expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(500);
+    expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(480);
     act(() => fireMouseUp());
   });
 
@@ -211,40 +213,40 @@ describe("useSidebarResize", () => {
       expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(282);
     });
 
-    it("ArrowLeft clamps to MIN (150) when already at floor", () => {
+    it("ArrowLeft clamps to MIN (180) when already at floor", () => {
       uiState.sidebarWidth = 152;
       const { result } = renderHook(() => useSidebarResize());
 
       act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowLeft")));
 
-      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(150);
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(180);
     });
 
-    it("ArrowRight clamps to MAX (500) when already at ceiling", () => {
+    it("ArrowRight clamps to MAX (480) when already at ceiling", () => {
       uiState.sidebarWidth = 495;
       const { result } = renderHook(() => useSidebarResize());
 
       act(() => result.current.handleResizeKeyDown(fireKeyDown("ArrowRight")));
 
-      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(500);
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(480);
     });
 
-    it("Home jumps directly to MIN (150)", () => {
+    it("Home jumps directly to MIN (180)", () => {
       uiState.sidebarWidth = 350;
       const { result } = renderHook(() => useSidebarResize());
 
       act(() => result.current.handleResizeKeyDown(fireKeyDown("Home")));
 
-      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(150);
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(180);
     });
 
-    it("End jumps directly to MAX (500)", () => {
+    it("End jumps directly to MAX (480)", () => {
       uiState.sidebarWidth = 350;
       const { result } = renderHook(() => useSidebarResize());
 
       act(() => result.current.handleResizeKeyDown(fireKeyDown("End")));
 
-      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(500);
+      expect(mockSetSidebarWidth).toHaveBeenLastCalledWith(480);
     });
 
     it("ignores non-resize keys (no store write, no preventDefault)", () => {

@@ -181,6 +181,43 @@ describe("imeToast", () => {
   });
 
   // ── Pin support ────────────────────────────────────────────────────────────
+  describe("errorDetail (WI-UI4.4 two-line error)", () => {
+    it("renders a string detail as the description, pinned", () => {
+      imeToast.errorDetail("Failed to save", "EACCES: /tmp/x.md");
+      expect(mocks.toastError).toHaveBeenCalledTimes(1);
+      const [msg, opts] = mocks.toastError.mock.calls[0];
+      expect(msg).toBe("Failed to save");
+      expect(opts).toMatchObject({ description: "EACCES: /tmp/x.md" });
+      // pin:true is consumed by applyPin (turned into an action), never
+      // forwarded raw to sonner.
+      expect(opts.pin).toBeUndefined();
+      expect(opts.action).toBeDefined();
+    });
+
+    it("normalizes a typed CommandError rejection — never [object Object]", () => {
+      imeToast.errorDetail("Failed to save", { code: "io", message: "Could not save the file: EIO" });
+      const [, opts] = mocks.toastError.mock.calls[0];
+      expect(opts.description).toBe("Could not save the file: EIO");
+      expect(String(opts.description)).not.toContain("[object Object]");
+    });
+
+    it("normalizes an Error to its message and a plain record to JSON", () => {
+      imeToast.errorDetail("Failed", new Error("denied"));
+      expect(mocks.toastError.mock.calls[0][1].description).toBe("denied");
+      imeToast.errorDetail("Failed", { dir: "/tmp" });
+      expect(mocks.toastError.mock.calls[1][1].description).toBe('{"dir":"/tmp"}');
+    });
+
+    it("omits the description entirely for null/undefined/empty detail", () => {
+      imeToast.errorDetail("Failed", undefined);
+      imeToast.errorDetail("Failed", null);
+      imeToast.errorDetail("Failed", "");
+      for (const call of mocks.toastError.mock.calls) {
+        expect(call[1].description).toBeUndefined();
+      }
+    });
+  });
+
   describe("pin option", () => {
     it("error without { pin } passes through unchanged (preserves existing call signature)", () => {
       imeToast.error("plain error");

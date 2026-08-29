@@ -7,36 +7,33 @@
  */
 
 import React from "react";
-import { ChevronsUpDown } from "lucide-react";
 
 export function Toggle({
   checked,
   onChange,
   disabled,
+  id,
   ...ariaProps
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  id?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
 }) {
+  // WI-UI3.4: thin wrapper over the canonical `.vm-switch` (panel-shared.css).
   return (
     <button
       role="switch"
       aria-checked={checked}
       disabled={disabled}
+      id={id}
       onClick={() => !disabled && onChange(!checked)}
       {...ariaProps}
-      className={`relative w-7 h-4 rounded-full transition-colors
-                  focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
-                  ${checked ? "bg-[var(--accent-primary)]" : "bg-[var(--bg-tertiary)]"}
-                  ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+      className="vm-switch"
     >
-      <span
-        className={`absolute top-[3px] left-[3px] w-2.5 h-2.5 rounded-full bg-[var(--contrast-text)] shadow
-                    transition-transform ${checked ? "translate-x-3" : ""}`}
-      />
+      <span className="vm-switch__knob" />
     </button>
   );
 }
@@ -46,26 +43,28 @@ export function Select<T extends string>({
   options,
   onChange,
   disabled,
+  id,
   ...ariaProps
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
   disabled?: boolean;
+  id?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
 }) {
+  // WI-UI2.4: thin wrapper over the canonical `.vm-select` primitive
+  // (select-shared.css) — the wrapper span owns the chevron via ::after.
   return (
-    <span className="relative inline-flex">
+    <span className="vm-select-field w-auto!">
       <select
+        id={id}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value as T)}
         {...ariaProps}
-        className={`appearance-none px-2 pt-[1px] pb-0 pr-6 rounded border border-[var(--border-color)]
-                   bg-[var(--bg-color)] text-sm text-[var(--text-color)]
-                   focus-visible:ring-2 focus-visible:ring-[var(--primary-color)]
-                   ${disabled ? "cursor-not-allowed" : ""}`}
+        className="vm-select"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -73,14 +72,6 @@ export function Select<T extends string>({
           </option>
         ))}
       </select>
-      {/* Chevron rendered as an inline icon (currentColor) instead of a
-          data-URI background so the color comes from a theme token and
-          adapts to dark mode (31-design-tokens). */}
-      <ChevronsUpDown
-        aria-hidden="true"
-        className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4
-                   text-[var(--text-tertiary)]"
-      />
     </span>
   );
 }
@@ -94,7 +85,10 @@ interface BaseInputProps {
   value: string;
   onChange: (v: string) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onCompositionStart?: (e: React.CompositionEvent<HTMLInputElement>) => void;
+  onCompositionEnd?: (e: React.CompositionEvent<HTMLInputElement>) => void;
   placeholder?: string;
   disabled?: boolean;
   /** Render in monospace — paths, URLs, code-like values. */
@@ -162,13 +156,7 @@ export function SearchInput({
       spellCheck={spellCheck}
       autoFocus={autoFocus}
       {...ariaProps}
-      className={`w-full px-0 py-1 text-sm bg-transparent text-[var(--text-color)]
-                  border-0 border-b border-[var(--border-color)]
-                  placeholder:text-[var(--text-tertiary)]
-                  outline-none focus:border-[var(--primary-color)]
-                  ${mono ? "font-mono" : ""}
-                  ${disabled ? "opacity-50 cursor-not-allowed" : ""}
-                  ${className}`}
+      className={`vm-input w-full ${mono ? "vm-input--mono" : ""} ${className}`.replace(/\s+/g, " ").trim()}
     />
   );
 }
@@ -198,7 +186,10 @@ export function FieldInput({
   value,
   onChange,
   onBlur,
+  onFocus,
   onKeyDown,
+  onCompositionStart,
+  onCompositionEnd,
   placeholder,
   disabled,
   mono = true,
@@ -216,20 +207,16 @@ export function FieldInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
+      onFocus={onFocus}
       onKeyDown={onKeyDown}
+      onCompositionStart={onCompositionStart}
+      onCompositionEnd={onCompositionEnd}
       placeholder={placeholder}
       disabled={disabled}
       spellCheck={spellCheck}
       autoFocus={autoFocus}
       {...ariaProps}
-      className={`w-full px-2 py-1 text-xs rounded
-                  bg-[var(--bg-tertiary)] text-[var(--text-color)]
-                  border border-[var(--border-color)]
-                  placeholder:text-[var(--text-tertiary)]
-                  outline-none focus:border-[var(--primary-color)]
-                  ${mono ? "font-mono" : ""}
-                  ${disabled ? "opacity-50 cursor-not-allowed" : ""}
-                  ${className}`}
+      className={`vm-input vm-input--field w-full ${mono ? "vm-input--mono" : ""} ${className}`.replace(/\s+/g, " ").trim()}
     />
   );
 }

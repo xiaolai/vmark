@@ -11,6 +11,6 @@ export type { ThemeId } from "./themes";
 // import the named theme directly.
 export { paper as lightTheme } from "./themes/paper";
 export { night as darkTheme } from "./themes/night";
-export { buildXtermThemeForId } from "./buildXtermTheme";
+export { buildXtermThemeForId, drawBoldTextInBrightColorsForId } from "./buildXtermTheme";
 export { resolveTerminalThemeId } from "./terminalThemeForBrowser";
 export { themesAsColors } from "./themeColorsAdapter";

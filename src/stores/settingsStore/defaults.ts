@@ -103,6 +103,8 @@ export const initialState: SettingsState = {
   },
   terminal: {
     shell: "",
+    // D15: deliberately independent of the 18px reading size — a terminal is
+    // a dense monitoring surface, and 13/1.2 matches what real terminals ship.
     fontSize: 13,
     lineHeight: 1.2,
     cursorStyle: "bar",

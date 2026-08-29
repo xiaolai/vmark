@@ -221,7 +221,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
       <input
         ref={inputRef}
         className={
-          "terminal-search-input" +
+          "vm-input vm-input--bare terminal-search-input" +
           (display.kind === "noMatch" ? " terminal-search-input--no-match" : "")
         }
         type="text"
@@ -245,7 +245,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
           // Active styling is keyed off `aria-pressed` below rather than a
           // modifier class: one source of truth for the state, and no second
           // hand-rolled button class (see `pnpm lint:bespoke-buttons`).
-          className="terminal-search-btn"
+          className="vm-icon-btn vm-icon-btn--sm"
           onClick={() => toggleOption(field)}
           title={t(labelKey)}
           aria-label={t(labelKey)}
@@ -255,7 +255,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         </button>
       ))}
       <button
-        className="terminal-search-btn"
+        className="vm-icon-btn vm-icon-btn--sm"
         onClick={findPrevious}
         title={t("terminal.search.previous")}
         aria-label={t("terminal.search.previous")}
@@ -264,7 +264,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
         <ChevronUp size={14} />
       </button>
       <button
-        className="terminal-search-btn"
+        className="vm-icon-btn vm-icon-btn--sm"
         onClick={findNext}
         title={t("terminal.search.next")}
         aria-label={t("terminal.search.next")}
@@ -272,7 +272,7 @@ export function TerminalSearchBar({ getSearchAddon, onClose }: TerminalSearchBar
       >
         <ChevronDown size={14} />
       </button>
-      <button className="terminal-search-btn" onClick={handleClose} title={t("terminal.search.close")} aria-label={t("terminal.search.close")}>
+      <button className="vm-icon-btn vm-icon-btn--sm" onClick={handleClose} title={t("terminal.search.close")} aria-label={t("terminal.search.close")}>
         <X size={14} />
       </button>
     </div>

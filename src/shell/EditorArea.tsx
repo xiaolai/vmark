@@ -20,7 +20,9 @@
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 
-const BOTTOM_BAR_HEIGHT = 40;
+import { BAR_HEIGHT } from "@/shell/shellChrome";
+
+const BOTTOM_BAR_HEIGHT = BAR_HEIGHT;
 
 type PanelPosition = "top" | "bottom" | "left" | "right";
 

@@ -37,7 +37,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => mockInvoke
 vi.mock("@/services/history/historyOperations", () => ({ createSnapshot: vi.fn() }));
 vi.mock("@/services/coherence/captureFunnel", () => ({ captureWrite: vi.fn() }));
 vi.mock("@/services/ime/imeToast", () => ({
-  imeToast: { warning: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() },
+  imeToast: { warning: vi.fn(), error: vi.fn(), errorDetail: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/utils/pendingSaves", () => ({

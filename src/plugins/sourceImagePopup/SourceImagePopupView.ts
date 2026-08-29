@@ -33,7 +33,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupState> {
 
   protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "source-image-popup";
+    container.className = "popup-container source-image-popup";
 
     // Row 1: Source input + buttons
     const srcRow = document.createElement("div");
@@ -50,7 +50,7 @@ export class SourceImagePopupView extends SourcePopupView<MediaPopupState> {
     const browseBtn = buildSourceImageBtn(popupIcons.folder, i18n.t("editor:popup.sourceImage.browse"), this.handleBrowse.bind(this));
     const copyBtn = buildSourceImageBtn(popupIcons.copy, i18n.t("editor:popup.sourceImage.copy"), this.handleCopy.bind(this));
     const deleteBtn = buildSourceImageBtn(popupIcons.delete, i18n.t("editor:popup.sourceImage.remove"), this.handleRemove.bind(this));
-    deleteBtn.classList.add("source-image-popup-btn-delete");
+    deleteBtn.classList.add("popup-icon-btn--danger", "source-image-popup-btn-delete");
 
     srcRow.appendChild(this.srcInput);
     srcRow.appendChild(browseBtn);

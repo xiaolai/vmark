@@ -67,7 +67,7 @@
   "format.toast.set": "正在以 {{format}} 方式開啟 {{key}} 檔案",
   "format.toast.reset": "已將 {{key}} 檔案恢復為預設編輯器",
   "commandPalette.placeholder": "輸入指令",
-  "commandPalette.empty": "沒有相符的指令",
+  "commandPalette.empty": "沒有相符的命令。清除搜尋可查看全部命令。",
   "aria.commandPalette": "指令面板",
   "browser.newTab": "新增瀏覽器分頁",
   "claims.extractFromSelection": "從選取內容擷取設定",
@@ -191,5 +191,8 @@
   "tab.next": "下一個分頁",
   "tab.prev": "上一個分頁",
   "tab.lastUsed": "最近使用的分頁",
-  "tab.close": "關閉分頁"
+  "tab.close": "關閉分頁",
+  "commandPalette.hintNavigate": "導覽",
+  "commandPalette.hintRun": "執行",
+  "commandPalette.hintClose": "關閉"
 }

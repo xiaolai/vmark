@@ -18,10 +18,12 @@
  */
 
 import type { Node as PMNode } from "@tiptap/pm/model";
+import i18n from "@/i18n";
 import { Selection } from "@tiptap/pm/state";
 import type { EditorView, NodeView } from "@tiptap/pm/view";
 import { extractHeadingsWithIds, type HeadingWithId } from "@/utils/headingSlug";
 import { tocLog, tocWarn } from "@/utils/debug";
+import { scrollBehavior } from "@/utils/motion";
 
 class TocNodeViewImpl implements NodeView {
   dom: HTMLElement;
@@ -92,7 +94,7 @@ class TocNodeViewImpl implements NodeView {
     if (headings.length === 0) {
       const emptyLi = document.createElement("li");
       emptyLi.className = "toc-empty";
-      emptyLi.textContent = "No headings";
+      emptyLi.textContent = i18n.t("editor:toc.empty");
       this.list.appendChild(emptyLi);
       return;
     }
@@ -157,7 +159,7 @@ class TocNodeViewImpl implements NodeView {
         const el = domNode.node instanceof HTMLElement
           ? domNode.node
           : domNode.node.parentElement;
-        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        el?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       }
     } catch {
       // domAtPos can throw for stale positions — selection already moved, scroll is best-effort

@@ -18,6 +18,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import "./typewriter-mode.css";
+import { scrollBehavior } from "@/utils/motion";
 
 const typewriterPluginKey = new PluginKey("typewriterMode");
 
@@ -82,7 +83,7 @@ export const typewriterModeExtension = Extension.create<TypewriterModeOptions>({
                 if (Math.abs(scrollOffset) > SCROLL_THRESHOLD) {
                   scrollContainer.scrollBy({
                     top: scrollOffset,
-                    behavior: "smooth",
+                    behavior: scrollBehavior(),
                   });
                 }
               } catch {

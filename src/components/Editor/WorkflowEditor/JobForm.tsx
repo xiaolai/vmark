@@ -28,6 +28,8 @@ import { useTranslation } from "react-i18next";
 import { Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react";
 import type { JobIR } from "@/lib/ghaWorkflow/types";
 import { useWorkflowStore } from "@/stores/workflowStore";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 import "./workflow-editor.css";
 
 interface JobFormProps {
@@ -89,17 +91,16 @@ export function JobForm({ job }: JobFormProps): ReactElement {
         <code className="workflow-form__id">{job.id}</code>
         <button
           type="button"
-          className="workflow-form__danger-btn"
+          className="vm-icon-btn vm-icon-btn--sm vm-icon-btn--danger workflow-form__danger-btn"
           onClick={() => {
-            const ok = window.confirm(
-              t("form.job.delete.confirm", {
-                defaultValue: "Delete job '{{id}}'? This cannot be undone before save.",
-                id: job.id,
-              }),
-            );
-            if (!ok) return;
-            queue({ kind: "job.delete", jobId: job.id });
-            useWorkflowStore.getState().clearSelection();
+            void (async () => {
+              const label = i18n.t("dialog:action.deleteJob");
+              const message = t("form.job.delete.confirm", { id: job.id });
+              const ok = await confirmAction({ title: label, message, actionLabel: label, kind: "warning" });
+              if (!ok) return;
+              queue({ kind: "job.delete", jobId: job.id });
+              useWorkflowStore.getState().clearSelection();
+            })();
           }}
           aria-label={t("form.job.delete.label", {
             defaultValue: "Delete job",
@@ -113,7 +114,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
       <label className="workflow-form__field">
         <span className="workflow-form__label">{t("form.job.name.label")}</span>
         <input
-          className="workflow-form__input"
+          className="vm-input vm-input--field workflow-form__input"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -127,7 +128,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           {t("form.job.runsOn.label")}
         </span>
         <input
-          className="workflow-form__input"
+          className="vm-input vm-input--field workflow-form__input"
           type="text"
           value={runsOn}
           onChange={(e) => setRunsOn(e.target.value)}
@@ -141,7 +142,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
       <label className="workflow-form__field">
         <span className="workflow-form__label">{t("form.job.if.label")}</span>
         <textarea
-          className="workflow-form__input workflow-form__input--mono"
+          className="vm-input vm-input--field vm-input--mono workflow-form__input"
           value={ifCond}
           rows={2}
           onChange={(e) => setIfCond(e.target.value)}
@@ -186,7 +187,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           </span>
           <button
             type="button"
-            className="workflow-form__step-add-btn"
+            className="vm-icon-btn vm-icon-btn--sm workflow-form__step-add-btn"
             onClick={() =>
               queue({
                 kind: "step.insert",
@@ -229,7 +230,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
                   </button>
                   <button
                     type="button"
-                    className="workflow-form__step-action-btn"
+                    className="vm-icon-btn vm-icon-btn--sm workflow-form__step-action-btn"
                     disabled={isFirst}
                     onClick={() =>
                       queue({
@@ -250,7 +251,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
                   </button>
                   <button
                     type="button"
-                    className="workflow-form__step-action-btn"
+                    className="vm-icon-btn vm-icon-btn--sm workflow-form__step-action-btn"
                     disabled={isLast}
                     onClick={() =>
                       queue({
@@ -271,20 +272,15 @@ export function JobForm({ job }: JobFormProps): ReactElement {
                   </button>
                   <button
                     type="button"
-                    className="workflow-form__step-action-btn workflow-form__step-action-btn--danger"
+                    className="vm-icon-btn vm-icon-btn--sm vm-icon-btn--danger workflow-form__step-action-btn"
                     onClick={() => {
-                      const ok = window.confirm(
-                        t("form.job.steps.deleteConfirm", {
-                          defaultValue: "Delete step '{{label}}'?",
-                          label,
-                        }),
-                      );
-                      if (!ok) return;
-                      queue({
-                        kind: "step.delete",
-                        jobId: job.id,
-                        stepIndex: idx,
-                      });
+                      void (async () => {
+                        const verb = i18n.t("dialog:action.deleteStep");
+                        const message = t("form.job.steps.deleteConfirm", { label });
+                        const ok = await confirmAction({ title: verb, message, actionLabel: verb, kind: "warning" });
+                        if (!ok) return;
+                        queue({ kind: "step.delete", jobId: job.id, stepIndex: idx });
+                      })();
                     }}
                     aria-label={t("form.job.steps.delete", {
                       defaultValue: "Delete step",

@@ -39,7 +39,12 @@
     "src/utils/markdownPipeline/__tests__/spec/specRoundtripDeltas.json": "down — same",
     "src/utils/markdownPipeline/conformance/expectedDeltas.ts": "down — same",
     "src/utils/markdownPipeline/__tests__/fidelity/fidelityLedger.ts": "down — same",
-    "scripts/test-types-baseline.json": "zero — every test file typechecks under tsconfig.test.json; 2,503 errors in 376 files on adoption, all pre-existing"
+    "scripts/test-types-baseline.json": "zero — every test file typechecks under tsconfig.test.json; 2,503 errors in 376 files on adoption, all pre-existing",
+    "scripts/theme-contrast-baseline.json": "failing lists empty for every theme — Phase 1 of the UI-consistency plan retints the catalog; ansiFloor/exempt stay as reasoned permanent exceptions (D10)",
+    "scripts/design-tokens-baseline.json": "both lists empty — each rgba literal moves onto a token (or the sanctioned color-mix pair) and each className literal onto a token-backed class (WI-UI1.x/2.2)",
+    "scripts/ui-consistency-baseline.json": "every list empty — C10 empties in WI-UI1.8, C5 in WI-UI2.1, C7/C8 in WI-UI2.3, C4 in WI-UI3.1/3.2, C9/C11 in WI-UI3.x; permanent exceptions become ui-ok markers, not entries",
+    "scripts/gate-tests-baseline.json": "empty — each listed gate gains a sibling scripts/<stem>.test.* and its entry is removed",
+    "scripts/i18n-copy-baseline.json": "empty — each remaining multi-sentence description is reworded (or Q3 is revisited for multi-sentence copy) and its entry removed"
   },
   "exempt": {
     "scripts/shell-slots-baseline.json": "An INVENTORY, not debt: the identity list of the surfaces App.tsx mounts. It should track reality, and reality has ~20 surfaces. Driving it to zero would mean an app with no UI.",

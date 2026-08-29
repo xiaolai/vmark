@@ -107,7 +107,7 @@ function ClaimItem({ row, workspaceRoot }: { row: ClaimRow; workspaceRoot: strin
         <div className="claim-row__correct">
           <input
             type="text"
-            className="claim-row__correct-input"
+            className="vm-input claim-row__correct-input"
             value={statement}
             onChange={(e) => setStatement(e.target.value)}
             onKeyDown={(e) => {
@@ -161,7 +161,7 @@ function CreateForm({
       </div>
       <input
         type="text"
-        className="claim-panel__create-input"
+        className="vm-input claim-panel__create-input"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -205,13 +205,13 @@ export function ClaimPanel() {
   }, [workspaceRoot]);
 
   return (
-    <div className="claim-panel">
-      <div className="claim-panel__header">
+    <div className="vm-overlay__panel claim-panel">
+      <div className="vm-panel__header claim-panel__header">
         <span className="claim-panel__title">{t("title")}</span>
         <div className="claim-panel__actions">
           <button
             type="button"
-            className="claim-panel__icon-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={() => { if (workspaceRoot) void refreshClaims(workspaceRoot).catch((e) => appError("Failed to refresh claims:", e)); }}
             aria-label={t("refresh")}
             title={t("refresh")}
@@ -220,7 +220,7 @@ export function ClaimPanel() {
           </button>
           <button
             type="button"
-            className="claim-panel__icon-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={() => useClaimStore.getState().setPanelOpen(false)}
             aria-label={t("close")}
             title={t("close")}

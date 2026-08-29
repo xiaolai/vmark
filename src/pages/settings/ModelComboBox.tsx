@@ -5,7 +5,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, RefreshCw, Loader2 } from "lucide-react";
+import { FieldInput } from "./components";
+import { ChevronDown, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { RestProviderType } from "@/types/aiGenies";
@@ -159,8 +160,7 @@ export function ModelComboBox({
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const handleInputChange = (val: string) => {
     onChange(val);
     setFilter(val);
     setHighlightIdx(-1);
@@ -173,18 +173,17 @@ export function ModelComboBox({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="flex items-center gap-0.5">
-        <input
-          className="w-full px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] text-[var(--text-color)] border border-[var(--border-color)] focus:border-[var(--primary-color)] outline-none font-mono"
-          placeholder={t("integrations.modelPlaceholder")}
+        <FieldInput
           value={value}
           onChange={handleInputChange}
           onFocus={handleOpen}
           onKeyDown={handleKeyDown}
           onCompositionStart={ime.onCompositionStart}
           onCompositionEnd={ime.onCompositionEnd}
+          placeholder={t("integrations.modelPlaceholder")}
         />
         <button
-          className="shrink-0 p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--hover-bg)] cursor-pointer focus-visible:outline-none"
+          className="vm-icon-btn vm-icon-btn--sm"
           onClick={() => (open ? setOpen(false) : handleOpen())}
           title={t("integrations.showModels")}
           aria-label={t("integrations.showModels")}
@@ -194,7 +193,7 @@ export function ModelComboBox({
           <ChevronDown size={14} />
         </button>
         <button
-          className="shrink-0 p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--hover-bg)] cursor-pointer focus-visible:outline-none"
+          className="vm-icon-btn vm-icon-btn--sm"
           onClick={() => {
             setFetchedModels(null);
             void fetchModels();
@@ -208,7 +207,7 @@ export function ModelComboBox({
           disabled={fetching}
         >
           {fetching ? (
-            <Loader2 size={14} className="animate-spin" />
+            <span className="vm-spinner" />
           ) : (
             <RefreshCw size={14} />
           )}
@@ -218,16 +217,16 @@ export function ModelComboBox({
       {open && (
         <ul
           ref={listRef}
-          className={`absolute z-50 left-0 right-0 max-h-[140px] overflow-y-auto rounded border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--popup-shadow)] text-xs ${dropPositionClass}`}
+          className={`absolute z-[var(--z-popup)] left-0 right-0 max-h-[140px] overflow-y-auto rounded border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--popup-shadow)] text-xs ${dropPositionClass}`}
           role="listbox"
         >
           {fetching && filtered.length === 0 && (
-            <li className="px-2 py-1.5 text-[var(--text-tertiary)] italic">
+            <li className="px-2 py-1.5 text-[var(--text-secondary)] italic">
               {t("integrations.loadingModels")}
             </li>
           )}
           {!fetching && filtered.length === 0 && (
-            <li className="px-2 py-1.5 text-[var(--text-tertiary)] italic">
+            <li className="px-2 py-1.5 text-[var(--text-secondary)] italic">
               {t("integrations.noModels")}
             </li>
           )}

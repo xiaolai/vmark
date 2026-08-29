@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP 就绪 · 未连接 AI",
   "mcpConnected": "已连接:{{clients}}",
   "mcpHistoryTitle": "MCP 写入历史({{count}})",
-  "mcpHistoryEmpty": "此标签页没有记录任何 MCP 写入",
+  "mcpHistoryEmpty": "此标签页尚无 MCP 写入记录。AI 的编辑会显示在这里。",
   "mcpHistoryClear": "清除此标签页的历史记录",
   "mcpHistoryRestore": "恢复到此次写入之前",
   "mcpHistoryRestored": "已恢复到 {{tool}} 之前",
@@ -26,7 +26,7 @@
   "readOnly": "只读",
   "editable": "可编辑",
   "sourceModeTitle": "源码模式 ({{shortcut}})",
-  "richTextModeTitle": "富文本模式 ({{shortcut}})",
+  "richTextModeTitle": "WYSIWYG 模式（{{shortcut}}）",
   "cancelAiRequest": "取消 AI 请求",
   "cancelAiTitle": "取消",
   "dismissError": "关闭错误",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "将当前文档从源码模式切换到富文本模式",
   "tabStrip": "已打开的标签页",
   "scrollTabsLeft": "向左滚动标签页",
-  "scrollTabsRight": "向右滚动标签页"
+  "scrollTabsRight": "向右滚动标签页",
+  "terminal.sessionExited": "{{name}}（已退出）",
+  "terminal.backgroundActivity": "后台活动"
 }

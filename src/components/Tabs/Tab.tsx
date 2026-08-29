@@ -40,7 +40,8 @@
  * @module components/Tabs/Tab
  */
 import { memo, useCallback, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import { X, Pin, AlertTriangle, GitFork } from "lucide-react";
+import { Pin, AlertTriangle, GitFork } from "lucide-react";
+import { TabStripButton } from "@/components/shared/TabStripButton";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Tab as TabType } from "@/stores/tabStore";
@@ -211,7 +212,9 @@ export const Tab = memo(function Tab({
 
         {/* Dirty indicator (dot before title) */}
         {isDirty && !isMissing && (
-          <span className="tab-dirty-dot" />
+          <span className="tab-dirty-dot">
+            <span className="sr-only">{t("tab.unsavedChanges")}</span>
+          </span>
         )}
 
         {/* Tab title — inline editor while renaming, otherwise the label */}
@@ -226,15 +229,13 @@ export const Tab = memo(function Tab({
 
         {/* Close button (shown on hover for non-pinned) */}
         {!tab.isPinned && (
-          <button
-            type="button"
+          <TabStripButton
+            kind="close"
             className="tab-close"
             data-tab-close
             onClick={handleClose}
-            aria-label={t("closeTab", { title: tab.title })}
-          >
-            <X className="w-3 h-3" />
-          </button>
+            label={t("closeTab", { title: tab.title })}
+          />
         )}
       </div>
     </>

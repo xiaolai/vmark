@@ -41,10 +41,10 @@
   "provenance.hint": "有 {{count}} 个此前的输入可恢复",
   "provenance.suggest": "建议输入",
   "provenance.confirm": "确认来源",
-  "provenance.empty": "未选择任何输入",
+  "provenance.empty": "未选择输入。请选择此产物的来源。",
   "provenance.stale": "文档已更改 — 建议已刷新",
   "delegations.heading": "智能体委托",
-  "delegations.empty": "没有生效中的委托",
+  "delegations.empty": "没有生效的委托。授予一个即可让主体在限定范围内行动。",
   "delegations.grant": "授予",
   "delegations.revoke": "撤销",
   "delegations.principalPlaceholder": "智能体主体（例如 codex-cli）",
@@ -90,6 +90,6 @@
   "anchor.change": "更改锚点",
   "anchor.clear": "整个文件",
   "anchor.hint": "只关注所依赖的章节，而不是整个文件。",
-  "anchor.empty": "没有可锚定的章节。",
+  "anchor.empty": "没有可锚定的章节。请先为文档添加标题。",
   "anchor.error": "无法加载章节。"
 }

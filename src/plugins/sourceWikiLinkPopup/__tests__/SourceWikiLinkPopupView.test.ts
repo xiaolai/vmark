@@ -506,7 +506,7 @@ describe("SourceWikiLinkPopupView", () => {
       const input = document.querySelector(".source-wiki-link-popup-target") as HTMLInputElement;
       expect(input).not.toBeNull();
       expect(input.type).toBe("text");
-      expect(input.placeholder).toBe("Target page...");
+      expect(input.placeholder).toBe("Target page…");
     });
 
     it("has all action buttons", () => {

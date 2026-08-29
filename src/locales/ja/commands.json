@@ -67,7 +67,7 @@
   "format.toast.set": "{{key}} ファイルを {{format}} として開きます",
   "format.toast.reset": "{{key}} ファイルをデフォルトのエディタに戻しました",
   "commandPalette.placeholder": "コマンドを入力",
-  "commandPalette.empty": "一致するコマンドがありません",
+  "commandPalette.empty": "一致するコマンドはありません。検索を消去するとすべて表示されます。",
   "aria.commandPalette": "コマンドパレット",
   "browser.newTab": "新しいブラウザタブ",
   "claims.extractFromSelection": "選択範囲から設定を抽出",
@@ -191,5 +191,8 @@
   "tab.next": "次のタブ",
   "tab.prev": "前のタブ",
   "tab.lastUsed": "最後に使ったタブ",
-  "tab.close": "タブを閉じる"
+  "tab.close": "タブを閉じる",
+  "commandPalette.hintNavigate": "移動",
+  "commandPalette.hintRun": "実行",
+  "commandPalette.hintClose": "閉じる"
 }

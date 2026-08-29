@@ -40,11 +40,13 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
 .frontmatter-panel-chevron {
+  /* ui-ok(target): svg glyph inside the clickable header row — the row is
+     the hit target, not the chevron */
   width: 12px;
   height: 12px;
   transition: transform var(--duration-base);

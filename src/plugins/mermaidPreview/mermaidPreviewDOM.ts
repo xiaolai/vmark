@@ -26,7 +26,7 @@ export function buildContainer(): HTMLElement {
   zoomControls.className = "mermaid-preview-zoom";
 
   const zoomOut = document.createElement("button");
-  zoomOut.className = "mermaid-preview-zoom-btn";
+  zoomOut.className = "vm-icon-btn vm-icon-btn--sm mermaid-preview-zoom-glyph mermaid-preview-zoom-btn";
   zoomOut.dataset.action = "out";
   const zoomOutLabel = i18n.t("editor:plugin.zoomOut");
   zoomOut.title = zoomOutLabel;
@@ -38,7 +38,7 @@ export function buildContainer(): HTMLElement {
   zoomValue.textContent = "100%";
 
   const zoomIn = document.createElement("button");
-  zoomIn.className = "mermaid-preview-zoom-btn";
+  zoomIn.className = "vm-icon-btn vm-icon-btn--sm mermaid-preview-zoom-glyph mermaid-preview-zoom-btn";
   zoomIn.dataset.action = "in";
   const zoomInLabel = i18n.t("editor:plugin.zoomIn");
   zoomIn.title = zoomInLabel;

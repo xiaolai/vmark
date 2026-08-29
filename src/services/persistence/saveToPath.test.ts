@@ -64,6 +64,7 @@ vi.mock("@/services/ime/imeToast", () => ({
     success: vi.fn(),
     message: vi.fn(),
     error: toastMocks.error,
+    errorDetail: toastMocks.error,
     warning: toastMocks.warning,
     loading: vi.fn(),
     dismiss: vi.fn(),
@@ -433,9 +434,9 @@ describe("saveToPath", () => {
       expect(toastMocks.error.mock.calls[0][0]).toEqual(
         expect.stringContaining("dialog:toast.failedToSaveGeneric"),
       );
-      expect(toastMocks.error.mock.calls[0][1]).toEqual(
-        expect.objectContaining({ pin: true }),
-      );
+      // Two-line contract (WI-UI4.4): the RAW error is the detail arg —
+      // errorDetail owns the normalization (imeToast unit tests pin it).
+      expect((toastMocks.error.mock.calls[0][1] as Error).message).toBe("disk error");
       consoleError.mockRestore();
     });
 
@@ -577,8 +578,11 @@ describe("saveToPath", () => {
 
       await saveToPath("tab-1", "/tmp/doc.md", "x", "manual");
 
-      expect(toastMocks.error.mock.calls[0][0]).toContain("Could not save the file: EIO");
-      expect(toastMocks.error.mock.calls[0][0]).not.toContain("[object Object]");
+      // The raw typed rejection reaches errorDetail intact; its normalizer
+      // (commandErrorMessage) renders the message — never "[object Object]".
+      expect(toastMocks.error.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ code: "io", message: "Could not save the file: EIO" }),
+      );
       consoleError.mockRestore();
     });
 

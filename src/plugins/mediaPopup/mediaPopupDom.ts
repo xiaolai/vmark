@@ -50,7 +50,7 @@ export interface MediaPopupDom {
 
 export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopupDom {
   const container = document.createElement("div");
-  container.className = "media-popup";
+  container.className = "popup-container media-popup";
   container.style.display = "none";
 
   // Row 1: Source input + action buttons
@@ -90,7 +90,7 @@ export function createMediaPopupDom(handlers: MediaPopupDomHandlers): MediaPopup
     onClick: handlers.onRemove,
     variant: "danger",
   });
-  deleteBtn.classList.add("media-popup-btn-delete");
+  deleteBtn.classList.add("popup-icon-btn--danger", "media-popup-btn-delete");
 
   srcRow.appendChild(srcInput);
   srcRow.appendChild(browseBtn);

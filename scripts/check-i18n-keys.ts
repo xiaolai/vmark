@@ -19,6 +19,8 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import ts from "typescript";
+
 import {
   IDENTICAL_ALLOWLIST,
   allowedEntries,
@@ -362,6 +364,14 @@ function checkJsonLocales(): boolean {
       const phIssues = checkPlaceholders(join(enDir, file), targetPath);
       const result = compareKeys(targetPath, sourceKeys, targetKeys, phIssues);
       printResult(result);
+      // Placeholder mismatches used to fail the run WITHOUT printing — a
+      // silent failure (found live on 2026-08-29 when a title-case fixer
+      // capitalized inside an interpolation and nothing said why the run was
+      // red). Loud, always.
+      if (phIssues.length > 0) {
+        console.error(`[ERROR] src/locales/${lang}/${file} — ${phIssues.length} placeholder mismatch(es):`);
+        for (const issue of phIssues.slice(0, 10)) console.error(`          ${issue}`);
+      }
       if (result.missing.length > 0 || phIssues.length > 0) allOk = false;
     }
   }
@@ -563,20 +573,283 @@ const BASELINE_COMMENT =
   "Values that can NEVER be translated (a literal path, runner labels, a bare interpolation) do " +
   "not belong here either — they go in scripts/i18nIdenticalAllowlist.ts with a stated reason.";
 
+// ─── Dialog-literal check (WI-UI4.1) ─────────────────────────────────────────
+//
+// A string LITERAL passed to ask()/confirm()/message()/confirmAction()/toast.*
+// is hardcoded English the locale files cannot reach. The check walks a real
+// TS AST (the house rule since check-command-error-ratchet: no hand-rolled
+// lexing), and ALSO refuses raw `ask(`/`window.confirm(` call sites outside
+// services/dialogs/confirmAction.ts — the funnel that keeps every destructive
+// confirmation on one dialog shape. (dependency-cruiser cannot see NAMED
+// imports, so the funnel is enforced here where the AST already is.)
+
+const TOAST_MODULES = /^(sonner|@\/services\/ime\/imeToast|.*\/imeToast)$/;
+
+/** Per-file dialog/toast literal scan — pure over (path, source), exported for
+ *  behavioral tests (a walker cannot be pointed at a fixture tree). */
+export function dialogLiteralFindings(rel: string, text: string): string[] {
+  const DIALOG_FNS = new Set(["ask", "confirm", "message", "confirmAction"]);
+  const problems: string[] = [];
+  if (
+    !/\b(ask|confirm|message|confirmAction|toast)\s*[(.]/.test(text) &&
+    !/from ["'][^"']*(sonner|imeToast)["']/.test(text)
+  ) return problems;
+  {
+    const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const isFunnel = rel.endsWith("services/dialogs/confirmAction.ts");
+    const line = (node: import("typescript").Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+
+    // Toast identity is resolved from IMPORT BINDINGS, not identifier
+    // spelling: `import { toast as notify }` must still be seen, and a local
+    // helper that happens to be named `toast` must not be. Inside the toast
+    // module itself the wrapper object is the export, so the name is trusted.
+    const toastNames = new Set<string>();
+    if (/imeToast\.ts$/.test(rel)) toastNames.add("toast");
+    for (const stmt of sf.statements) {
+      if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+      if (!TOAST_MODULES.test(stmt.moduleSpecifier.text)) continue;
+      const clause = stmt.importClause;
+      if (!clause?.namedBindings || !ts.isNamedImports(clause.namedBindings)) continue;
+      for (const el of clause.namedBindings.elements) {
+        const exported = (el.propertyName ?? el.name).text;
+        if (exported === "toast" || exported === "imeToast") toastNames.add(el.name.text);
+      }
+    }
+
+    const visit = (node: import("typescript").Node) => {
+      if (ts.isCallExpression(node)) {
+        let fnName: string | null = null;
+        let isToast = false;
+        if (ts.isIdentifier(node.expression)) {
+          fnName = node.expression.text;
+          // sonner's primary API is the BARE call — toast("Saved") — not just
+          // toast.success(...); without this the most common form slips past.
+          if (toastNames.has(fnName)) isToast = true;
+        }
+        else if (ts.isPropertyAccessExpression(node.expression)) {
+          const obj = node.expression.expression;
+          if (ts.isIdentifier(obj) && obj.text === "window") fnName = node.expression.name.text;
+          if (ts.isIdentifier(obj) && toastNames.has(obj.text)) { isToast = true; fnName = obj.text; }
+        }
+        // The funnel: raw ask()/window.confirm() live only in confirmAction.ts.
+        if (!isFunnel && (fnName === "ask" || (fnName === "confirm" && ts.isPropertyAccessExpression(node.expression)))) {
+          problems.push(`${rel}:${line(node)}  raw ${fnName}() — route it through services/dialogs/confirmAction.ts`);
+        }
+        if (!isFunnel && fnName === "confirm" && ts.isIdentifier(node.expression)) {
+          // bare confirm() — the browser global; a store method named confirm
+          // is a MEMBER access and does not land here.
+          problems.push(`${rel}:${line(node)}  raw confirm() — route it through services/dialogs/confirmAction.ts`);
+        }
+        // Hardcoded English: a first-argument string literal (or a template/
+        // binary concat containing one) to a dialog/toast surface.
+        const flagLiteral = (arg: import("typescript").Expression | undefined, label: string) => {
+          if (!arg) return;
+          const carriesLiteral = (e: import("typescript").Expression): boolean => {
+            if (ts.isStringLiteralLike(e)) return /[A-Za-z]{2}/.test(e.text);
+            if (ts.isTemplateExpression(e)) return /[A-Za-z]{2}\s+[A-Za-z]{2}/.test(e.head.text + e.templateSpans.map((sp) => sp.literal.text).join(""));
+            if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.PlusToken) return carriesLiteral(e.left) || carriesLiteral(e.right);
+            return false;
+          };
+          if (carriesLiteral(arg)) {
+            problems.push(`${rel}:${line(arg)}  hardcoded string passed to ${label} — key it through i18n`);
+          }
+        };
+        if ((fnName && DIALOG_FNS.has(fnName)) || isToast) {
+          if (fnName === "confirmAction" && node.arguments[0] && ts.isObjectLiteralExpression(node.arguments[0])) {
+            for (const prop of node.arguments[0].properties) {
+              if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && ["title", "message", "actionLabel"].includes(prop.name.text)) {
+                flagLiteral(prop.initializer, `confirmAction ${prop.name.text}`);
+              }
+            }
+          } else if (fnName === "ask" || fnName === "message" || isToast) {
+            flagLiteral(node.arguments[0], `${fnName}()`);
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+  }
+  return problems;
+}
+
+function checkDialogLiterals(): boolean {
+  const walkDirs = ["src"];
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules") continue;
+        walk(rel);
+      } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.(test|spec)\./.test(entry.name) && !entry.name.endsWith(".d.ts")) {
+        files.push(rel);
+      }
+    }
+  };
+  for (const d of walkDirs) walk(d);
+
+  const problems: string[] = [];
+  for (const rel of files) {
+    const text = readFileSync(join(ROOT, rel), "utf8");
+    problems.push(...dialogLiteralFindings(rel, text));
+  }
+
+  if (problems.length) {
+    console.error(`[FAIL]  ${problems.length} hardcoded/raw dialog call(s):`);
+    for (const p of problems.slice(0, 30)) console.error(`        ${p}`);
+    return false;
+  }
+  console.log("[OK]    dialog surfaces: no hardcoded literals, ask()/confirm() funneled through confirmAction.");
+  return true;
+}
+
+// ─── Copy conventions (WI-UI4.2, R14) ────────────────────────────────────────
+//
+// Two casing registers, keyed on the KEY PATTERN (never guessed from the
+// value): chrome nouns (menus, titles, buttons) read Title Case; running copy
+// (labels, descriptions, toasts, placeholders) reads Sentence case. Plus the
+// punctuation vocabulary: `…` never `...`, `→` never `->`/`>` in navigation
+// paths, and descriptions carry no trailing period (Q3).
+//
+// The baseline (scripts/i18n-copy-baseline.json) is an IDENTITY list that
+// ratchets both ways — a new violation fails, and a fixed one fails until its
+// entry is removed (run with --update-copy to record wins). English only:
+// each locale has its own casing conventions.
+
+const TITLE_KEY = /^(menu|contextMenu|tabMenu|toolbar)\.|\.title$|[bB]utton/;
+// ARIA labels are SPOKEN copy — sentence register regardless of their home key.
+const ARIA_KEY = /aria/i;
+const SENTENCE_KEY = /\.(label|description|empty|placeholder)$|^toast\./;
+const STOP_WORDS = new Set([
+  "a", "an", "the", "and", "or", "nor", "but", "of", "to", "in", "on", "at",
+  "for", "with", "as", "by", "from", "into", "onto", "per", "via", "vs",
+  "is", "are", "not", "no", "when", "if", "this", "that",
+]);
+
+export function titleCaseViolations(value: string): boolean {
+  // Words = alphabetic runs outside interpolations; the FIRST word must be
+  // capped; later words may be stop words.
+  const clean = value.replace(/\{\{[^}]+\}\}|%\{[^}]+\}/g, " ");
+  const words = clean.split(/[^A-Za-z’']+/).filter(Boolean);
+  if (words.length === 0) return false;
+  return words.some((w, i) => {
+    if (/^[A-Z0-9]/.test(w)) return false;
+    if (i > 0 && STOP_WORDS.has(w.toLowerCase())) return false;
+    return true;
+  });
+}
+
+/** Exported (with an injectable baseline path) so the fail-closed missing-
+ *  baseline behavior has a behavioral test — the scan itself reads the real
+ *  locale tree either way. */
+export function checkCopyConventions(
+  update: boolean,
+  baselinePath: string = join(ROOT, "scripts", "i18n-copy-baseline.json"),
+): boolean {
+  const enDir = join(ROOT, "src", "locales", "en");
+  const found: string[] = [];
+
+  for (const file of readdirSync(enDir).filter((f) => f.endsWith(".json"))) {
+    const data = JSON.parse(readFileSync(join(enDir, file), "utf8")) as Record<string, unknown>;
+    for (const [key, raw] of Object.entries(data)) {
+      if (typeof raw !== "string") continue;
+      const value = raw;
+      const id = (check: string) => `${file}:${key}:${check}`;
+      if (value.includes("...")) found.push(id("ellipsis"));
+      if (/\s->\s/.test(value)) found.push(id("arrow"));
+      if (/Settings\s*>\s*[A-Z]/.test(value)) found.push(id("nav-arrow"));
+      if (/"\{\{/.test(value) || /\}\}"/.test(value)) found.push(id("straight-quotes"));
+      if (SENTENCE_KEY.test(key) && key.endsWith(".description") && /[.。]$/.test(value.trim()) && !/[.][.][.]|…$/.test(value.trim())) {
+        found.push(id("trailing-period"));
+      }
+      if (TITLE_KEY.test(key) && !SENTENCE_KEY.test(key) && !ARIA_KEY.test(key) && titleCaseViolations(value)) {
+        found.push(id("title-case"));
+      }
+    }
+  }
+
+  // en.yml punctuation only (casing there follows the same menu register but
+  // the yml is scanned for the vocabulary set).
+  const yml = readFileSync(join(ROOT, "src-tauri", "locales", "en.yml"), "utf8");
+  yml.split("\n").forEach((line, i) => {
+    const m = /^\s*([A-Za-z0-9._-]+):\s*(.*)$/.exec(line);
+    if (!m) return;
+    const [, key, val] = m;
+    if (val.includes("...")) found.push(`en.yml:${key}:ellipsis`);
+    if (/Settings\s*>\s*[A-Z]/.test(val)) found.push(`en.yml:${key}:nav-arrow`);
+    void i;
+  });
+
+  found.sort();
+  const baseline: string[] = existsSync(baselinePath)
+    ? (JSON.parse(readFileSync(baselinePath, "utf8")) as { entries: string[] }).entries
+    : [];
+  const added = found.filter((f) => !baseline.includes(f));
+  const fixed = baseline.filter((b) => !found.includes(b));
+
+  // A missing baseline is an ERROR, not an invitation to write one: silently
+  // rebaselining every current violation on a deleted/renamed file is fail-open
+  // (mirrors checkUntranslatedValues). Only --update-copy writes.
+  if (!update && !existsSync(baselinePath)) {
+    console.error(
+      `[FAIL]  copy-convention baseline missing (${baselinePath}) — restore it, or regenerate deliberately with --update-copy.`,
+    );
+    return false;
+  }
+  if (update) {
+    writeFileSync(
+      baselinePath,
+      JSON.stringify(
+        {
+          "//":
+            "WI-UI4.2 copy-convention baseline (identity, ratchets both ways). A NEW casing/punctuation " +
+            "violation fails; a fixed one fails until removed (pnpm lint:i18n --update-copy). English only.",
+          entries: found,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    console.log(`[OK]    copy conventions: baseline written with ${found.length} entr(ies).`);
+    return true;
+  }
+
+  if (added.length) {
+    console.error(`[FAIL]  ${added.length} NEW copy-convention violation(s):`);
+    for (const a of added.slice(0, 20)) console.error(`        ${a}`);
+    return false;
+  }
+  if (fixed.length) {
+    console.error(`[FAIL]  ${fixed.length} baselined copy entr(ies) now pass — record the win with --update-copy:`);
+    for (const f of fixed.slice(0, 20)) console.error(`        ${f}`);
+    return false;
+  }
+  console.log(`[OK]    copy conventions held (${baseline.length} baselined).`);
+  return true;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
+// Guarded so the classifier can be imported by its test without running the
+// whole gate (same pattern as check-bespoke-buttons.mjs).
 
-console.log("Checking i18n key completeness...\n");
+if (process.argv[1] && process.argv[1].endsWith("check-i18n-keys.ts")) {
+  console.log("Checking i18n key completeness...\n");
 
-const updateUntranslated = process.argv.includes("--update-untranslated");
+  const updateUntranslated = process.argv.includes("--update-untranslated");
+  const updateCopy = process.argv.includes("--update-copy");
 
-const jsonOk = checkJsonLocales();
-const yamlOk = checkYamlLocales();
-const valuesOk = checkUntranslatedValues(updateUntranslated);
+  const jsonOk = checkJsonLocales();
+  const yamlOk = checkYamlLocales();
+  const valuesOk = checkUntranslatedValues(updateUntranslated);
+  const dialogsOk = checkDialogLiterals();
+  const copyOk = checkCopyConventions(updateCopy);
 
-if (jsonOk && yamlOk && valuesOk) {
-  console.log("\nAll i18n checks passed.");
-  process.exit(0);
-} else {
-  console.error("\ni18n check FAILED.");
-  process.exit(1);
+  if (jsonOk && yamlOk && valuesOk && dialogsOk && copyOk) {
+    console.log("\nAll i18n checks passed.");
+    process.exit(0);
+  } else {
+    console.error("\ni18n check FAILED.");
+    process.exit(1);
+  }
 }

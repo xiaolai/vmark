@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "キーが重複しています — 別の行で既に設定されています",
   "form.step.uses.label": "使用",
   "form.trigger.kind": "トリガー",
-  "form.trigger.empty": "トリガーが設定されていません",
+  "form.trigger.empty": "トリガーが設定されていません。追加すると、このワークフローの実行タイミングを選べます。",
   "form.trigger.branches": "ブランチ: {{value}}",
   "form.trigger.branchesIgnore": "除外するブランチ: {{value}}",
   "form.trigger.tags": "タグ: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "run を展開",
   "expression.title.if": "if を編集",
   "expression.title.run": "run を編集",
-  "panel.noWorkflow": "ワークフローが検出されませんでした",
+  "panel.noWorkflow": "ワークフローが見つかりません。.github/workflows の YAML ファイルを開くとエディタを使えます。",
   "panel.conditional": "条件付き",
   "panel.shell.resize": "ペインのサイズを変更",
   "panel.viewerAriaLabel": "GitHub Actions ワークフロービューア",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(既定値: {{value}})",
   "panel.exportLabel": "ワークフロー図をエクスポート",
   "panel.exportError": "エクスポートに失敗しました",
-  "settings.groupTitle": "ワークフローファイル"
+  "settings.groupTitle": "ワークフローファイル",
+  "form.job.delete.confirm": "ジョブ“{{id}}”を削除しますか？保存前は元に戻せません。",
+  "form.job.steps.deleteConfirm": "ステップ“{{label}}”を削除しますか？"
 }

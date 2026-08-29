@@ -67,7 +67,7 @@
   "format.toast.set": "Abriendo archivos {{key}} como {{format}}",
   "format.toast.reset": "Archivos {{key}} restablecidos al editor predeterminado",
   "commandPalette.placeholder": "Escribe un comando",
-  "commandPalette.empty": "No hay comandos coincidentes",
+  "commandPalette.empty": "No hay comandos coincidentes. Borra la búsqueda para verlos todos.",
   "aria.commandPalette": "Paleta de comandos",
   "browser.newTab": "Nueva pestaña del navegador",
   "claims.extractFromSelection": "Extraer afirmación de la selección",
@@ -191,5 +191,8 @@
   "tab.next": "Pestaña siguiente",
   "tab.prev": "Pestaña anterior",
   "tab.lastUsed": "Última pestaña usada",
-  "tab.close": "Cerrar pestaña"
+  "tab.close": "Cerrar pestaña",
+  "commandPalette.hintNavigate": "navegar",
+  "commandPalette.hintRun": "ejecutar",
+  "commandPalette.hintClose": "cerrar"
 }

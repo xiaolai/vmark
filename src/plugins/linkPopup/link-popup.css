@@ -3,30 +3,12 @@
  * Single-line popup: input + icon buttons
  */
 
+/* Shell chrome comes from `.popup-container` (WI-UI3.2). */
 .link-popup {
-  position: fixed;
-  z-index: var(--z-popup);
-  display: flex;
   align-items: center;
   gap: var(--space-half);
-  padding: var(--popup-padding);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
-  animation: link-popup-fade-in var(--duration-fast) ease-out;
 }
 
-@keyframes link-popup-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* URL Input - borderless */
 .link-popup-input {
@@ -66,19 +48,6 @@
    `.popup-icon-btn--primary` / `--danger`. Kept as suffix selectors rather than
    swapped to the modifiers because `LinkPopupView` and its tests query by these
    names; the declarations now match the canonical modifiers exactly. */
-.link-popup-btn-save:hover:not(:disabled) {
-  color: var(--primary-color);
-}
 
 /* Delete button - danger color on hover */
-.link-popup-btn-delete:hover:not(:disabled) {
-  color: var(--error-color);
-}
 
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .link-popup {
-    animation: none;
-  }
-}

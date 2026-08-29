@@ -19,6 +19,7 @@
  *   TypeScript source is a parser, not a comparison mode
  */
 import { tsIdenticalAllowlistIdentities } from "./baselineRatchetTsAllowlist.mjs";
+import { contrastFloors } from "./baselineRatchetContrastFloors.mjs";
 import {
   specConformanceRecords,
   specRoundtripRecords,
@@ -104,6 +105,16 @@ const CUSTOM_COMPARATORS = {
 };
 
 /**
+ * PAIR comparators see both documents at once, for baselines whose loosening
+ * is a numeric relation the Set API cannot express (a floor that may only
+ * rise). Signature: (baseDoc, headDoc, check, filePath) → {failures, notices,
+ * raises}.
+ */
+const CUSTOM_PAIR_COMPARATORS = {
+  contrastFloors,
+};
+
+/**
  * Compare one check across base and head. Returns failures, allowed-addition
  * notices, and the raises observed (so allowRaise can consume them).
  */
@@ -114,6 +125,8 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
   const where = check.at === undefined ? filePath : `${filePath}:${check.at || "<root>"}`;
 
   if (check.mode === "custom") {
+    const pairComparator = CUSTOM_PAIR_COMPARATORS[check.comparator];
+    if (pairComparator) return pairComparator(baseDoc, headDoc, check, filePath);
     const comparator = CUSTOM_COMPARATORS[check.comparator];
     if (!comparator) {
       failures.push(`${filePath}: unknown custom comparator "${check.comparator}"`);

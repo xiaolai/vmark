@@ -8,7 +8,6 @@
 
 import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { hasCommand, registerCommand } from "./CommandBus";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
@@ -23,6 +22,7 @@ import i18n from "@/i18n";
 import { workspaceError } from "@/utils/debug";
 import { parseRecentPathArgs } from "./recentPathArgs";
 import { WORKSPACE_TRANSITION_GUARD } from "./workspaceCommands";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 type Ctx = { windowLabel?: string };
 
@@ -40,13 +40,12 @@ export function registerRecentWorkspacesCommands(): void {
       const { workspaces } = useRecentWorkspacesStore.getState();
       if (workspaces.length === 0) return;
       await withReentryGuard(windowLabel, "clear-recent-workspaces", async () => {
-        const confirmed = await ask(
-          i18n.t("dialog:clearRecentWorkspaces.message"),
-          {
-            title: i18n.t("dialog:clearRecentWorkspaces.title"),
-            kind: "warning",
-          }
-        );
+        const confirmed = await confirmAction({
+          title: i18n.t("dialog:clearRecentWorkspaces.title"),
+          message: i18n.t("dialog:clearRecentWorkspaces.message"),
+          actionLabel: i18n.t("dialog:action.clear"),
+          kind: "warning",
+        });
         if (confirmed) {
           useRecentWorkspacesStore.getState().clearAll();
         }
@@ -68,10 +67,12 @@ export function registerRecentWorkspacesCommands(): void {
       await withReentryGuard(windowLabel, WORKSPACE_TRANSITION_GUARD, async () => {
         const pathExists = await exists(workspacePath);
         if (!pathExists) {
-          const remove = await ask(
-            i18n.t("dialog:workspaceNotFound.message"),
-            { title: i18n.t("dialog:workspaceNotFound.title"), kind: "warning" }
-          );
+          const remove = await confirmAction({
+            title: i18n.t("dialog:workspaceNotFound.title"),
+            message: i18n.t("dialog:workspaceNotFound.message"),
+            actionLabel: i18n.t("dialog:action.remove"),
+            kind: "warning",
+          });
           if (remove) {
             useRecentWorkspacesStore.getState().removeWorkspace(workspacePath);
           }
@@ -85,15 +86,13 @@ export function registerRecentWorkspacesCommands(): void {
         });
 
         if (dirtyTabs.length > 0) {
-          const confirmed = await ask(
-            i18n.t("dialog:unsavedChanges.openInNewWindow"),
-            {
-              title: i18n.t("dialog:unsavedChanges.title"),
-              kind: "warning",
-              okLabel: i18n.t("dialog:unsavedChanges.openInNewWindowOk"),
-              cancelLabel: i18n.t("dialog:unsavedChanges.openInNewWindowCancel"),
-            }
-          );
+          const confirmed = await confirmAction({
+            title: i18n.t("dialog:unsavedChanges.title"),
+            message: i18n.t("dialog:unsavedChanges.openInNewWindow"),
+            actionLabel: i18n.t("dialog:unsavedChanges.openInNewWindowOk"),
+            kind: "warning",
+            cancelLabel: i18n.t("dialog:unsavedChanges.openInNewWindowCancel"),
+          });
           if (confirmed) {
             try {
               await invoke("open_workspace_in_new_window", {

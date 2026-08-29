@@ -227,7 +227,7 @@ export function TabContextMenu({ tab, position, windowLabel, onClose }: TabConte
   return (
     <div
       ref={menuRef}
-      className="tab-context-menu"
+      className="vm-menu tab-context-menu"
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("tabActions")}

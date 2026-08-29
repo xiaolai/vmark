@@ -54,13 +54,30 @@ export function ValidationGutter({ diagnostics, onJump }: ValidationGutterProps)
         data-testid="validation-summary"
         role="status"
       >
-        <span className="validation-gutter__summary-count" data-severity="error">
+        {/* R13 (WI-UI4.5): severity rides on a glyph + the accessible name,
+            not on colour alone. */}
+        <span
+          className="validation-gutter__summary-count"
+          data-severity="error"
+          aria-label={t("splitPane.errorCount", { count: counts.error })}
+        >
+          <span aria-hidden="true">✗ </span>
           {counts.error}
         </span>
-        <span className="validation-gutter__summary-count" data-severity="warning">
+        <span
+          className="validation-gutter__summary-count"
+          data-severity="warning"
+          aria-label={t("splitPane.warningCount", { count: counts.warning })}
+        >
+          <span aria-hidden="true">⚠ </span>
           {counts.warning}
         </span>
-        <span className="validation-gutter__summary-count" data-severity="info">
+        <span
+          className="validation-gutter__summary-count"
+          data-severity="info"
+          aria-label={t("splitPane.infoCount", { count: counts.info })}
+        >
+          <span aria-hidden="true">ℹ </span>
           {counts.info}
         </span>
       </div>

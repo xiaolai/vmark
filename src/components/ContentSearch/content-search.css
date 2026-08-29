@@ -1,31 +1,9 @@
 /* Content Search — "Find in Files" spotlight overlay */
 
-.content-search-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popup);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 15vh;
-  background: var(--hover-bg-strong);
-}
-
-.content-search {
-  width: min(600px, calc(100vw - 24px));
-  max-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--popup-shadow);
-  animation: popup-fade-in var(--duration-fast) ease-out;
-  overflow: hidden;
-}
+/* Backdrop / panel / input / footer come from the shared overlay shell
+   (`overlay-shared.css`, WI-UI3.1). Match rows stay DENSE on purpose: this
+   is a grep-results list, not a menu — 36px rows would show a third as many
+   matches. */
 
 /* Search input area */
 .content-search-header {
@@ -39,19 +17,12 @@
   gap: var(--space-2);
 }
 
+/* Header owns the border; keep only the inline metric on the shared input. */
 .content-search-input {
   flex: 1;
+  width: auto;
   padding: var(--space-1-5) 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: var(--font-size-md);
-  font-family: var(--font-sans);
-  outline: none;
-}
-
-.content-search-input::placeholder {
-  color: var(--text-tertiary);
+  border-bottom: none;
 }
 
 /* Toggle buttons row */
@@ -67,7 +38,7 @@
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   cursor: pointer;
@@ -98,7 +69,7 @@
   left: 3px;
   right: 3px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -203,40 +174,14 @@
   padding: 0 var(--space-px);
 }
 
-/* Footer hint */
+/* Footer chrome comes from .vm-overlay__footer. */
 .content-search-footer {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1-5) var(--space-3-5);
-  border-top: var(--border-thin) solid var(--border-color);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
 }
 
 .content-search-footer-hint {
   margin-left: auto;
 }
 
-.content-search-kbd {
-  display: inline-block;
-  padding: 0 var(--space-1);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-2xs);
-  line-height: var(--line-height-relaxed);
-}
 
-
-.dark-theme .content-search {
-  box-shadow: var(--popup-shadow-dark);
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .content-search {
-    animation: none;
-  }
-}

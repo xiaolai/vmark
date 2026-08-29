@@ -1,31 +1,7 @@
 /* Quick Open — Spotlight-style overlay */
 
-.quick-open-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popup);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 15vh;
-  background: var(--hover-bg-strong);
-}
-
-.quick-open {
-  width: min(540px, calc(100vw - 24px));
-  max-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--popup-shadow);
-  animation: popup-fade-in var(--duration-fast) ease-out;
-  overflow: hidden;
-}
+/* Backdrop / panel / input / rows / footer come from the shared overlay
+   shell (`overlay-shared.css`, WI-UI3.1). */
 
 /* Search input */
 .quick-open-header {
@@ -33,19 +9,11 @@
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
+/* Header owns the border; the shared input's own bottom border would double
+   it. Padding is the header's, so the input keeps only its inline metric. */
 .quick-open-input {
-  width: 100%;
   padding: var(--space-1-5) 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  font-size: var(--font-size-md);
-  font-family: var(--font-sans);
-  outline: none;
-}
-
-.quick-open-input::placeholder {
-  color: var(--text-tertiary);
+  border-bottom: none;
 }
 
 /* Result list */
@@ -58,28 +26,15 @@
 .quick-open-empty {
   padding: var(--space-4) var(--space-2);
   text-align: center;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--font-size-base);
 }
 
 /* Result item */
+/* On top of .vm-overlay__row. */
 .quick-open-item {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  height: 36px;
   padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast);
-}
-
-.quick-open-item:hover {
-  background: var(--hover-bg);
-}
-
-.quick-open-item--selected {
-  background: var(--accent-bg);
 }
 
 .quick-open-item:focus-visible {
@@ -91,7 +46,7 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .quick-open-item-name {
@@ -102,18 +57,9 @@
   text-overflow: ellipsis;
 }
 
-/* Selected name keeps --text-color rather than switching to --accent-primary.
- * Blue on pale-blue (--accent-bg) sat at ~4.3:1 — below WCAG AA. Dark text
- * on the same band reaches ~11:1; the pale-blue band still indicates
- * selection, and matched characters keep their own --accent-primary
- * highlight via .quick-open-match. */
-.quick-open-item--selected .quick-open-item-name {
-  color: var(--text-color);
-}
-
 .quick-open-item-path {
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -128,6 +74,7 @@
 }
 
 .quick-open-tab-dot {
+  /* ui-ok(target): decorative open-tab state dot — not interactive */
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -142,40 +89,13 @@
   margin: var(--space-1) var(--space-2);
 }
 
-/* Footer hint */
+/* Footer chrome comes from .vm-overlay__footer; the hint hugs the right. */
 .quick-open-footer {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1-5) var(--space-3-5);
-  border-top: var(--border-thin) solid var(--border-color);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
 }
 
 .quick-open-footer-hint {
   margin-left: auto;
 }
 
-.quick-open-kbd {
-  display: inline-block;
-  padding: 0 var(--space-1);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-2xs);
-  line-height: var(--line-height-relaxed);
-}
-
-
-.dark-theme .quick-open {
-  box-shadow: var(--popup-shadow-dark);
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .quick-open {
-    animation: none;
-  }
-}

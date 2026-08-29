@@ -76,7 +76,9 @@ export class ImagePreviewView {
       this.host.appendChild(this.container);
     }
 
-    this.container.style.display = "block";
+    // "flex", not "block": .popup-container's layout IS flex, and an inline
+    // block override disables its gap/alignment for this popup only.
+    this.container.style.display = "flex";
     this.visible = true;
 
     // Enable pointer events for audio/video controls

@@ -49,46 +49,12 @@
   gap: var(--space-half);
 }
 
-.mermaid-preview-zoom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-btn-xs);
-  height: var(--size-btn-xs);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
+/* Zoom buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3); the class name
+   stays in the DOM as the view's event-delegation hook. The residual below is
+   glyph-only: these draw text (+ / −), not svgs. */
+.mermaid-preview-zoom-glyph {
   font-size: var(--font-size-md);
   font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--duration-base);
-}
-
-.mermaid-preview-zoom-btn:hover {
-  background: var(--hover-bg);
-}
-
-.mermaid-preview-zoom-btn:active {
-  background: var(--bg-tertiary);
-}
-
-/* Focus: U-shaped underline per 33-focus-indicators */
-.mermaid-preview-zoom-btn:focus-visible {
-  outline: none;
-  position: relative;
-}
-
-.mermaid-preview-zoom-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
 }
 
 .mermaid-preview-zoom-value {

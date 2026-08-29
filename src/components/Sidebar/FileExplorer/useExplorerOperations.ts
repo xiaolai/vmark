@@ -27,7 +27,6 @@ import {
   remove,
   exists,
 } from "@tauri-apps/plugin-fs";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { join, basename, dirname } from "@tauri-apps/api/path";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -41,6 +40,7 @@ import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent
 import { fileExplorerError } from "@/utils/debug";
 import { fileExtensionOf, renameFile, type RenameOptions } from "@/services/persistence/renameFile";
 import { captureExplorerNewFile } from "@/services/coherence/captureFunnel";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 const isCreatingRef = { current: false }; // re-entry guards
 const isDeletingRef = { current: false };
@@ -142,17 +142,17 @@ export function useExplorerOperations() {
 
       try {
         const name = await basename(path);
-        const itemType = isFolder ? "folder" : "file";
         // Show parent folder for context when there could be ambiguity
         const parentPath = path.slice(0, -name.length - 1);
         const parentName = await basename(parentPath);
-        const locationHint = parentName ? `\n\nLocation: ${parentName}/` : "";
-        const message = isFolder
-          ? `Delete folder "${name}" and all its contents?${locationHint}`
-          : `Delete "${name}"?${locationHint}`;
-
-        const confirmed = await ask(message, {
-          title: `Delete ${itemType}`,
+        const locationHint = parentName
+          ? `\n\n${i18n.t("dialog:deleteItem.location", { parent: parentName })}`
+          : "";
+        const kindKey = isFolder ? "deleteFolder" : "deleteFile";
+        const confirmed = await confirmAction({
+          title: i18n.t(`dialog:${kindKey}.title`),
+          message: `${i18n.t(`dialog:${kindKey}.message`, { name })}${locationHint}`,
+          actionLabel: isFolder ? i18n.t("dialog:action.deleteFolder") : i18n.t("dialog:action.delete"),
           kind: "warning",
         });
 

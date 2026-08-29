@@ -211,7 +211,7 @@ function DocumentTitleBar() {
           <input
             ref={inputRef}
             type="text"
-            className="title-bar-input"
+            className="vm-input title-bar-input"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}

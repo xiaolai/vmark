@@ -19,7 +19,7 @@ beforeEach(() => {
 describe("BrowserGrantsList", () => {
   it("says so plainly when nothing has been granted", () => {
     render(<BrowserGrantsList />);
-    expect(screen.getByText(/no site has been given permission/i)).toBeInTheDocument();
+    expect(screen.getByText(/no site has permission yet/i)).toBeInTheDocument();
   });
 
   it("lists each granted origin with the operations it covers", () => {

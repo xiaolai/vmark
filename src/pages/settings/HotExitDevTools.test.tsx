@@ -121,7 +121,7 @@ describe("HotExitDevTools — inspect", () => {
     await user.click(screen.getByRole("button", { name: "Inspect Session" }));
 
     await waitFor(() =>
-      expect(mocks.toast.info).toHaveBeenCalledWith("No saved session found")
+      expect(mocks.toast.info).toHaveBeenCalledWith("No saved session found. Sessions are captured when you quit with hot exit on.")
     );
     expect(mocks.toast.error).not.toHaveBeenCalled();
   });
@@ -169,7 +169,7 @@ describe("HotExitDevTools — restore", () => {
     await user.click(screen.getByRole("button", { name: "Test Restore" }));
 
     await waitFor(() =>
-      expect(mocks.toast.info).toHaveBeenCalledWith("No saved session to restore")
+      expect(mocks.toast.info).toHaveBeenCalledWith("No saved session to restore. Quit with hot exit on to capture one.")
     );
     expect(mocks.invoke).toHaveBeenCalledTimes(1);
   });

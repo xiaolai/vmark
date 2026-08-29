@@ -105,6 +105,19 @@ export abstract class WysiwygPopupView<TState extends PopupStoreBase> {
     return false;
   }
 
+  /**
+   * Build the canonical anchored-popup shell (WI-UI3.2): a div carrying
+   * `.popup-container` — which owns position, z, border, radius, background,
+   * shadow and the fade-in — plus the subclass's residual classes (layout
+   * direction, widths, query hooks). Subclasses call this from
+   * `buildContainer()` instead of restating the shell.
+   */
+  protected createShell(...classes: string[]): HTMLElement {
+    const el = document.createElement("div");
+    el.classList.add("popup-container", ...classes);
+    return el;
+  }
+
   /** Build the popup DOM container. */
   protected abstract buildContainer(): HTMLElement;
 

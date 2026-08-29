@@ -93,7 +93,7 @@ describe("formatMcpTooltip", () => {
   });
 
   it("shows loading message when loading", () => {
-    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting...");
+    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting…");
   });
 
   it("shows stopped message when not running", () => {
@@ -123,7 +123,7 @@ describe("formatMcpTooltip", () => {
   });
 
   it("loading takes priority over stopped", () => {
-    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting...");
+    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting…");
   });
 });
 
@@ -214,17 +214,17 @@ describe("StatusBarRight", () => {
 
   // --- AI indicator: running state ---
 
-  it("shows running indicator with 'Thinking...' when elapsed < 10s", () => {
+  it("shows running indicator with 'Thinking…' when elapsed < 10s", () => {
     const { container } = render(
       <StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={5} />
     );
     expect(container.querySelector(".status-ai-indicator--running")).toBeInTheDocument();
-    expect(screen.getByText("Thinking... 5s")).toBeInTheDocument();
+    expect(screen.getByText("Thinking… 5s")).toBeInTheDocument();
   });
 
-  it("shows running indicator with 'Still working...' when elapsed >= 10s", () => {
+  it("shows running indicator with 'Still working…' when elapsed >= 10s", () => {
     render(<StatusBarRight {...baseProps} aiRunning={true} elapsedSeconds={15} />);
-    expect(screen.getByText("Still working... 15s")).toBeInTheDocument();
+    expect(screen.getByText("Still working… 15s")).toBeInTheDocument();
   });
 
   it("shows cancel button when AI is running", () => {
@@ -260,7 +260,7 @@ describe("StatusBarRight", () => {
   it("truncates long error messages to 30 chars", () => {
     const longError = "This is a very long error message that exceeds thirty characters";
     render(<StatusBarRight {...baseProps} aiError={longError} />);
-    expect(screen.getByText("This is a very long error mess...")).toBeInTheDocument();
+    expect(screen.getByText("This is a very long error mess…")).toBeInTheDocument();
   });
 
   it("shows retry and dismiss buttons on error", () => {
@@ -439,11 +439,11 @@ describe("StatusBarRight", () => {
     expect(btn?.getAttribute("title")).toContain("Source Mode");
   });
 
-  it("shows Rich Text Mode title when not in source mode", () => {
+  it("shows WYSIWYG Mode title when not in source mode", () => {
     const { container } = render(
       <StatusBarRight {...baseProps} sourceMode={false} />
     );
     const btn = container.querySelector(".status-mode");
-    expect(btn?.getAttribute("title")).toContain("Rich Text Mode");
+    expect(btn?.getAttribute("title")).toContain("WYSIWYG Mode");
   });
 });

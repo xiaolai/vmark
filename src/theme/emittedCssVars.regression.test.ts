@@ -33,9 +33,9 @@ describe("emitted legacy CSS vars (behavior-preserving contract)", () => {
     expect(emittedVars(id)).toMatchSnapshot();
   });
 
-  it("night --accent-bg stays the legacy value (not color.accent.bg)", () => {
-    // Guards the intentional divergence: night.color.accent.bg is
-    // rgba(88,166,255,…) but the consumed --accent-bg is rgba(90,168,255,…).
+  it("night --accent-bg IS color.accent.bg (WI-UI1.1 collapsed the legacy twin)", () => {
+    // The old rgba(88,166,255,…)/rgba(90,168,255,…) divergence (ΔE 0.2, no
+    // consumer could see it) is gone — one field, one value.
     expect(emittedVars("night")["--accent-bg"]).toBe("rgba(90, 168, 255, 0.12)");
     expect(themes.night.background).toBe("#23262b");
   });
@@ -55,16 +55,26 @@ describe("emitted legacy CSS vars (behavior-preserving contract)", () => {
     expect(sol["--accent-bg"]).toBe("rgba(38, 139, 210, 0.14)");
     expect(sol["--accent-bg"]).not.toBe(night["--accent-bg"]);
     expect(sol["--md-char-color"]).toBe("#859900");
+    expect(sol["--alert-important"]).toBe(themes.solarized.alertImportant);
     expect(sol["--highlight-bg"]).toBe("#4a4a00");
-    expect(sol["--alert-important"]).toBe("#6c71c4");
   });
 
-  it("dark mode does NOT emit --warning-* / --contrast-text / --subtle-bg", () => {
-    // Preserves the historical quirk: dark mode inherits these from :root.
+  it("dark mode DOES emit its own --warning-* / --contrast-text / --subtle-bg (WI-UI1.1)", () => {
+    // The historical quirk inherited :root's LIGHT values — #9a6700 warning
+    // text measured 3.1:1 on night, white contrast-text 2.53:1 on its accent,
+    // and the black subtle tint composited to 1.01:1 (invisible).
     const night = emittedVars("night");
-    expect(night["--warning-color"]).toBeUndefined();
-    expect(night["--contrast-text"]).toBeUndefined();
-    expect(night["--subtle-bg"]).toBeUndefined();
+    expect(night["--warning-color"]).toBe(themes.night.warningColor);
+    expect(night["--warning-color"]).not.toBe("#9a6700"); // the 3.1:1 light leak
+    expect(night["--contrast-text"]).toBe("#23262b"); // 7.0:1 on #58a6ff
+    expect(night["--subtle-bg"]).toBe("rgba(255, 255, 255, 0.04)");
+    expect(night["--subtle-bg-hover"]).toBe("rgba(255, 255, 255, 0.06)");
+  });
+
+  it("light and dark emit the SAME key set (R2 — isDark adds a class, not keys)", () => {
+    expect(Object.keys(emittedVars("night")).sort()).toEqual(
+      Object.keys(emittedVars("paper")).sort(),
+    );
   });
 
   it("dark mode emits white-tint hover feedback (audit 20260612 H15)", () => {

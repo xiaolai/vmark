@@ -145,6 +145,9 @@ export function UpdateIndicator() {
   };
 
   return (
+    // ui-ok(focus): className is computed (config.className) — every state
+    // renders .status-update, whose :focus-visible outline lives in
+    // StatusBar.css.
     <button
       className={config.className}
       onClick={handleClick}

@@ -18,7 +18,7 @@
   "diagnostics.GHA-SEC-002": "Possible script injection: tainted context `{{context}}` interpolated directly into `run:`",
   "diagnostics.GHA-SCHEMA-001": "Schema warning: {{message}}",
   "panel.title": "Workflow",
-  "panel.noWorkflow": "No workflow detected",
+  "panel.noWorkflow": "No workflow detected. Open a .github/workflows YAML file to use the editor.",
   "panel.conditional": "conditional",
   "panel.shell.resize": "Resize panes",
   "panel.viewerAriaLabel": "GitHub Actions workflow viewer",
@@ -82,7 +82,7 @@
   "form.step.with.missingRequired": "Required inputs not set:",
   "form.step.uses.label": "Uses",
   "form.trigger.kind": "Triggers",
-  "form.trigger.empty": "No triggers configured",
+  "form.trigger.empty": "No triggers configured. Add one to choose when this workflow runs.",
   "form.trigger.branches": "Branches: {{value}}",
   "form.trigger.branchesIgnore": "Branches ignored: {{value}}",
   "form.trigger.tags": "Tags: {{value}}",
@@ -145,5 +145,7 @@
   "form.step.nav.prev": "Previous step (Alt+Left)",
   "form.step.nav.next": "Next step (Alt+Right)",
   "form.step.nav.backToJob": "Back to job",
-  "settings.groupTitle": "Workflow files"
+  "settings.groupTitle": "Workflow files",
+  "form.job.delete.confirm": "Delete job “{{id}}”? This cannot be undone before save.",
+  "form.job.steps.deleteConfirm": "Delete step “{{label}}”?"
 }

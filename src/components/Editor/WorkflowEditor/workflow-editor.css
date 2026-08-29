@@ -83,6 +83,7 @@
 }
 
 .workflow-editor-panel__btn--primary:hover:not(:disabled) {
+  /* ui-ok(state): solid CTA holds its fill on hover — same decision as .vm-btn--cta */
   background: var(--accent-primary);
   color: var(--contrast-text);
   opacity: var(--opacity-mostly-opaque);
@@ -150,36 +151,6 @@
   align-items: center;
 }
 
-.workflow-form__nav-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.workflow-form__nav-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.workflow-form__nav-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.workflow-form__nav-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
-}
 
 .workflow-form__step-position {
   font-size: var(--font-size-xs);
@@ -199,22 +170,14 @@
   color: var(--text-secondary);
 }
 
+/* `.vm-input--field` (WI-UI3.3) owns the treatment; residual = layout. */
 .workflow-form__input {
   width: 100%;
-  font-family: var(--font-sans);
   font-size: var(--font-size-sm);
-  color: var(--text-color);
-  background: var(--bg-color);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-1-5);
-  outline: none;
   resize: vertical;
 }
 
-.workflow-form__input--mono {
-  font-family: var(--font-mono);
-}
+
 
 .workflow-form__input:focus {
   /* Focus indicator: accent-primary border + accent-bg ring + caret.
@@ -489,58 +452,8 @@
    Click hides/shows the entire diagnostics list, leaving only the
    title + count visible. Replaces the prior text-based "Collapse all"
    bulk action — the per-row chevrons still handle individual rows. */
-.workflow-diagnostics-banner__section-toggle {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.workflow-diagnostics-banner__section-toggle:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.workflow-diagnostics-banner__section-toggle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
-}
 
 /* Per-row chevron — toggles message visibility for that row. */
-.workflow-diagnostics-banner__chevron {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.workflow-diagnostics-banner__chevron:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.workflow-diagnostics-banner__chevron:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--space-half) var(--accent-primary);
-}
 
 .workflow-diagnostics-banner__row-button,
 .workflow-diagnostics-banner__row-static {
@@ -771,33 +684,6 @@
 
 /* WI-C.1/C.2/C.3 — destructive + step-list controls + add-job inline form */
 
-.workflow-form__danger-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  padding: 0;
-  margin-left: var(--space-1);
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.workflow-form__danger-btn:hover {
-  background: var(--error-bg);
-  color: var(--error-color);
-}
-
-.workflow-form__danger-btn:focus-visible {
-  outline: none;
-  background: var(--error-bg);
-  color: var(--error-color);
-}
 
 .workflow-form__step-list-header {
   display: flex;
@@ -807,31 +693,6 @@
   margin-bottom: var(--space-half);
 }
 
-.workflow-form__step-add-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.workflow-form__step-add-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.workflow-form__step-add-btn:focus-visible {
-  outline: none;
-  background: var(--accent-bg);
-  color: var(--accent-primary);
-}
 
 .workflow-form__step-row-group {
   display: flex;
@@ -843,47 +704,6 @@
   flex: 1 1 auto;
 }
 
-.workflow-form__step-action-btn {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.workflow-form__step-action-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.workflow-form__step-action-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.workflow-form__step-action-btn--danger:hover:not(:disabled) {
-  background: var(--error-bg);
-  color: var(--error-color);
-}
-
-.workflow-form__step-action-btn:focus-visible:not(:disabled) {
-  outline: none;
-  background: var(--accent-bg);
-  color: var(--text-color);
-}
-
-.workflow-form__step-action-btn--danger:focus-visible:not(:disabled) {
-  background: var(--error-bg);
-  color: var(--error-color);
-}
 
 .workflow-editor-panel__add-job {
   padding: var(--space-1) var(--space-2);
@@ -1011,36 +831,18 @@
 
 /* Expression-editor modal */
 
-.workflow-expression-editor__backdrop {
-  /* Local one-off dim overlay — see .claude/rules/31-design-tokens.md
-     "Component-internal one-off dimensions". 40% black is a standard
-     modal backdrop; --source-mode-bg (5%) is too transparent to dim. */
-  --workflow-expression-editor-backdrop: rgba(0, 0, 0, 0.4);
-  --workflow-expression-editor-max-vw: 90vw;
-  --workflow-expression-editor-max-vh: 80vh;
-  position: fixed;
-  inset: 0;
-  background: var(--workflow-expression-editor-backdrop);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-popup);
+/* Backdrop/panel chrome come from the shared overlay shell (WI-UI3.1);
+   only the editor's own metrics stay. */
+.workflow-expression-editor {
+  --vm-overlay-width: 60ch;
+  height: 50vh;
 }
 
-.workflow-expression-editor {
-  --workflow-expression-editor-width: 60ch;
-  --workflow-expression-editor-height: 50vh;
-  width: var(--workflow-expression-editor-width);
-  max-width: var(--workflow-expression-editor-max-vw);
-  height: var(--workflow-expression-editor-height);
-  max-height: var(--workflow-expression-editor-max-vh);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-color);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  overflow: hidden;
+/* Same specificity note as approval-dialog.css: the shared
+   `.vm-overlay--center .vm-overlay__panel` rule (0,2,0) owns max-height, so
+   the cap must match it to apply. */
+.vm-overlay--center .workflow-expression-editor {
+  max-height: 80vh;
 }
 
 .workflow-expression-editor__header {
@@ -1102,4 +904,23 @@
   border-color: var(--accent-primary);
   background: var(--accent-bg);
   color: var(--accent-primary);
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.workflow-form__known-input:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.workflow-editor-panel__add-job-cancel:focus-visible,
+.workflow-editor-panel__add-job-submit:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §6): content-widget checkbox focus. */
+.workflow-form__checkbox:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }

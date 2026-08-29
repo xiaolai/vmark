@@ -67,7 +67,6 @@
   transition: background-color var(--duration-fast) ease;
 }
 
-
 /* Hover state - yields to focus */
 .universal-toolbar-btn:hover:not(:disabled):not(:focus-visible) {
   background-color: var(--bg-tertiary);
@@ -147,15 +146,6 @@
 
   .universal-toolbar-btn.active::before {
     background: CanvasText;
-  }
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .universal-toolbar,
-  .universal-toolbar-btn,
-  .universal-toolbar-dropdown {
-    transition: none;
   }
 }
 

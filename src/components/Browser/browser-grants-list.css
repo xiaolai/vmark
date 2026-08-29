@@ -50,6 +50,7 @@
 }
 
 .browser-grants-revoke:hover {
+  /* ui-ok(state): danger hover — revoke is destructive; --error-bg is the danger wash */
   background: var(--error-bg);
 }
 

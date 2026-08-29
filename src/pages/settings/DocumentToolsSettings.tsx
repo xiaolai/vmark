@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { SettingRow, SettingsGroup } from "./components";
+import { Button, SettingRow, SettingsGroup } from "./components";
 import { rebuildNativeMenu } from "@/services/menu/rebuildNativeMenu";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { errorMessage } from "@/utils/errorMessage";
@@ -85,7 +85,7 @@ export function DocumentToolsSettings() {
               className={`text-xs ${
                 pandoc.available
                   ? "text-[var(--success-color)]"
-                  : "text-[var(--text-tertiary)]"
+                  : "text-[var(--text-secondary)]"
               }`}
             >
               {pandoc.available
@@ -93,18 +93,14 @@ export function DocumentToolsSettings() {
                 : t("files.pandoc.notFound")}
             </span>
           )}
-          <button
-            onClick={() => { void detect(true); }}
+          <Button
+            size="sm"
             disabled={detecting}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
-              bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
-              hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors"
+            onClick={() => { void detect(true); }}
+            icon={detecting ? <span className="vm-spinner" /> : <RefreshCw size={12} />}
           >
-            <RefreshCw size={12} className={detecting ? "animate-spin" : ""} />
             {t("files.pandoc.detect")}
-          </button>
+          </Button>
         </div>
       </SettingRow>
 
@@ -115,16 +111,16 @@ export function DocumentToolsSettings() {
       )}
 
       {pandoc && !pandoc.available && (
-        <div className="text-xs text-[var(--text-tertiary)] mt-1 px-1">
+        <div className="text-xs text-[var(--text-secondary)] mt-1 px-1">
           {t("files.pandoc.installHint")}{" "}
           <a
             href="https://pandoc.org/installing.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[var(--primary-color)] hover:underline inline-flex items-center gap-0.5"
+            className="text-[var(--primary-color)] hover:underline inline-flex items-center gap-0.5 focus-visible:underline"
           >
             {t("files.pandoc.installGuide")}
-            <ExternalLink size={10} />
+            <ExternalLink size={12} />
           </a>
         </div>
       )}
@@ -132,8 +128,8 @@ export function DocumentToolsSettings() {
       {pandoc?.available && pandoc.path && (
         <div className="mt-2 px-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--text-tertiary)]">{t("files.pandoc.path")}</span>
-            <code className="text-[var(--text-secondary)] font-mono text-[11px]">
+            <span className="text-[var(--text-secondary)]">{t("files.pandoc.path")}</span>
+            <code className="text-[var(--text-secondary)] font-mono text-xs">
               {pandoc.path}
             </code>
           </div>

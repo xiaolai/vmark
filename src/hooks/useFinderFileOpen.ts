@@ -12,7 +12,6 @@ import { dispatchFinderOpen } from "@/services/navigation/finderOpenDispatch";
 import type { FinderBranchContext } from "@/services/navigation/finderOpenBranches";
 import { waitForRestoreComplete, RESTORE_WAIT_TIMEOUT_MS } from "@/services/persistence/hotExit/hotExitCoordination";
 import { finderFileOpenWarn, finderFileOpenError } from "@/utils/debug";
-import { commandErrorMessage } from "@/services/commands/commandError";
 
 export interface OpenFilePayload {
   path: string;
@@ -61,11 +60,9 @@ export function useFinderFileOpen(): void {
      * empty tab or a silent no-op.
      */
     const toastOpenFailure = (error: unknown) => {
-      const msg = commandErrorMessage(error);
-      // Pin: error message embeds a system error the user may want to read.
-      toast.error(i18n.t("dialog:toast.failedToOpenFile", { error: msg }), {
-        pin: true,
-      });
+      // Two-line toast (WI-UI4.4): message first, the system error as detail.
+      // Raw error — errorDetail owns the normalization (commandErrorMessage).
+      toast.errorDetail(i18n.t("dialog:toast.failedToOpenFile"), error);
     };
 
     const branchCtx: FinderBranchContext = {

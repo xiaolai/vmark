@@ -56,7 +56,7 @@ export function BrowserOverlays({
       {frozen && <div className="browser-frozen" aria-hidden="true" />}
 
       {dialog && (
-        <div className="browser-dialog" role="alertdialog" aria-label={dialog.message}>
+        <div className="browser-dialog" role="alertdialog" aria-modal="true" aria-label={dialog.message}>
           <p className="browser-dialog-message">{dialog.message}</p>
           <div className="browser-dialog-actions">
             {dialog.kind === "confirm" && (

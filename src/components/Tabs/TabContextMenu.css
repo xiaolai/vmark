@@ -2,21 +2,10 @@
  * Tab Context Menu Styles - macOS system menu style
  */
 
+/* Surface chrome comes from `.vm-menu` (overlay-shared.css, WI-UI3.1). */
 .tab-context-menu {
-  position: fixed;
-  z-index: var(--z-context-menu);
   min-width: 220px;
   max-width: 280px;
-  background: var(--bg-color);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  padding: 5px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  font-size: var(--font-size-base);
 }
 
 .tab-context-menu-separator {

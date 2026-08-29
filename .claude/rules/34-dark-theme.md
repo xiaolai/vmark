@@ -126,10 +126,10 @@ These tokens are automatically updated by `useTheme.ts`:
 |-------|-------|------|
 | `--bg-color` | Theme-specific | Theme-specific |
 | `--text-color` | `#1a1a1a` | Light text |
-| `--text-secondary` | `#666666` | `#858585` |
+| `--text-secondary` | `#666666` | `#a2a8ad` |
 | `--border-color` | `#d5d4d4` | Darker border |
-| `--selection-color` | Blue tint | Cyan tint |
-| `--md-char-color` | `#777777` | `#6a9955` |
+| `--selection-color` | Blue tint (`rgba(0,102,204,0.2)`) | Blue tint (`rgba(90,168,255,0.22)`) |
+| `--md-char-color` | `#777777` | `#7aa874` |
 | `--accent-bg` | Blue 10% | Blue 12% |
 | `--hover-bg` | `rgba(0,0,0,0.04)` | `rgba(255,255,255,0.08)` |
 | `--hover-bg-strong` | `rgba(0,0,0,0.08)` | `rgba(255,255,255,0.12)` |

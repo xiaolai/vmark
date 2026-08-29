@@ -30,11 +30,11 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
     <button
       onClick={onClick}
       data-active={active}
-      className="flex w-full items-center gap-2.5 rounded-md px-3 py-2
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1
                  text-sm font-medium transition-colors
                  text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]
                  data-[active=true]:bg-[var(--accent-bg)]
-                 data-[active=true]:text-[var(--accent-primary)]"
+                 data-[active=true]:text-[var(--text-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2"
     >
       {icon}
       {label}
@@ -66,7 +66,7 @@ export function SettingsNav({
   return (
     <div className="shrink-0 box-border" style={{ padding: "var(--shell-card-inset)" }}>
       <div
-        className="w-52 h-full flex flex-col overflow-hidden bg-[var(--bg-secondary)]"
+        className="w-[var(--settings-nav-width)] h-full flex flex-col overflow-hidden bg-[var(--bg-secondary)]"
         style={{
           borderRadius: "var(--shell-card-radius)",
           boxShadow: "var(--shadow-md)",

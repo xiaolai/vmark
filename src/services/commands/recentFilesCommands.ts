@@ -10,7 +10,6 @@
  * dispatcher and the replace flow reuses the same code path as Cmd+O.
  */
 
-import { ask } from "@tauri-apps/plugin-dialog";
 import { exists } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -28,6 +27,7 @@ import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWith
 import { menuError } from "@/utils/debug";
 import { getFileName } from "@/utils/pathUtils";
 import { parseRecentPathArgs } from "./recentPathArgs";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 type Ctx = { windowLabel?: string };
 
@@ -45,8 +45,10 @@ export function parseRecentFileArgs(args: unknown): string | null {
  * create/replace paths when the underlying file is missing or unreadable.
  */
 async function promptRemoveRecentFile(filePath: string): Promise<void> {
-  const remove = await ask(i18n.t("dialog:fileNotFound.message"), {
+  const remove = await confirmAction({
     title: i18n.t("dialog:fileNotFound.title"),
+    message: i18n.t("dialog:fileNotFound.message"),
+    actionLabel: i18n.t("dialog:action.remove"),
     kind: "warning",
   });
   if (remove) {
@@ -135,13 +137,12 @@ export function registerRecentFilesCommands(): void {
       if (files.length === 0) return;
 
       await withReentryGuard(windowLabel, "clear-recent", async () => {
-        const confirmed = await ask(
-          i18n.t("dialog:clearRecentFiles.message"),
-          {
-            title: i18n.t("dialog:clearRecentFiles.title"),
-            kind: "warning",
-          }
-        );
+        const confirmed = await confirmAction({
+          title: i18n.t("dialog:clearRecentFiles.title"),
+          message: i18n.t("dialog:clearRecentFiles.message"),
+          actionLabel: i18n.t("dialog:action.clear"),
+          kind: "warning",
+        });
         if (confirmed) {
           useRecentFilesStore.getState().clearAll();
         }

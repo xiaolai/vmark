@@ -21,7 +21,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Loader2, Download, RefreshCw, SkipForward } from "lucide-react";
+import { Download, RefreshCw, SkipForward } from "lucide-react";
 import { SettingsGroup, Button } from "./components";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
@@ -66,7 +66,7 @@ function DownloadProgress() {
 
   return (
     <div className="mt-2 space-y-1">
-      <div className="flex justify-between text-xs text-[var(--text-tertiary)]">
+      <div className="flex justify-between text-xs text-[var(--text-secondary)]">
         <span>{label}</span>
         {detail && <span>{detail}</span>}
       </div>
@@ -154,13 +154,13 @@ export function UpdateAvailableCard() {
                 {t("about.version", { version: updateInfo.version })}
               </span>
               {updateInfo.currentVersion && (
-                <span className="text-xs text-[var(--text-tertiary)]">
+                <span className="text-xs text-[var(--text-secondary)]">
                   {t("about.updateAvailable.current", { version: updateInfo.currentVersion })}
                 </span>
               )}
             </div>
             {updateInfo.pubDate && (
-              <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
+              <div className="text-xs text-[var(--text-secondary)] mt-0.5">
                 {t("about.updateAvailable.released", {
                   date: new Date(updateInfo.pubDate).toLocaleDateString(),
                 })}
@@ -181,7 +181,7 @@ export function UpdateAvailableCard() {
                 disabled={isRestarting}
                 icon={
                   isRestarting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="vm-spinner" />
                   ) : (
                     <RefreshCw className="w-3 h-3" />
                   )
@@ -197,7 +197,7 @@ export function UpdateAvailableCard() {
                   disabled={busy}
                   icon={
                     busy ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span className="vm-spinner" />
                     ) : (
                       <Download className="w-3 h-3" />
                     )

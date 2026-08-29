@@ -46,3 +46,16 @@ describe("applyTheme", () => {
     expect(darkTheme.color.bg.primary).not.toBe(lightTheme.color.bg.primary);
   });
 });
+
+// WI-UI4.9 — `terminal` is JS-side data (buildXtermTheme); the emission must
+// not leak it as dead CSS vars, or the tokens.ts comment becomes a lie again.
+describe("terminal exclusion (WI-UI4.9)", () => {
+  it("emits no --terminal-* custom property for any theme", async () => {
+    const { themes } = await import("./themes");
+    const { tokensToCssEntries } = await import("./applyTheme");
+    for (const theme of Object.values(themes)) {
+      const leaked = tokensToCssEntries(theme).filter(([n]) => n.startsWith("--terminal"));
+      expect(leaked).toEqual([]);
+    }
+  });
+});

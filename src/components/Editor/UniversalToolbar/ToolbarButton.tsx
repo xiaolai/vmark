@@ -74,6 +74,9 @@ export function ToolbarButton({
   const ariaExpanded_ = ariaHasPopup ? ariaExpanded : undefined;
 
   return (
+    // ui-ok(focus): className is computed (btnClass) — the gate cannot resolve
+    // it; every branch renders .universal-toolbar-btn, whose flat focus bar
+    // lives in universal-toolbar.css.
     <button
       type="button"
       className={btnClass}

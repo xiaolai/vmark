@@ -41,10 +41,10 @@
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text-color);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-base);
-  cursor: pointer;
+  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
   transition:
     background var(--duration-fast),
     color var(--duration-fast);
@@ -66,6 +66,14 @@
 .vm-btn:focus-visible {
   outline: var(--border-medium) solid var(--primary-color);
   outline-offset: var(--border-medium);
+}
+
+/* Compact size for dense rows (Settings). Promoted onto the primitive
+   (rule 32's middle path) rather than left as per-wrapper utilities, so the
+   compact recipe exists exactly once. */
+.vm-btn--compact {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
 }
 
 /* Emphasised action (confirm, start, submit). */

@@ -4,7 +4,7 @@ Keyboard focus must ALWAYS be visible. This is a WCAG requirement.
 
 ## Focus Patterns by Component Type
 
-### 1. Toolbar/Popup Buttons: U-Shaped Underline
+### 1. Toolbar/Popup/Icon Buttons: Flat 2px Bar — THE one focus shape (D4)
 
 ```css
 .btn:focus-visible {
@@ -19,12 +19,18 @@ Keyboard focus must ALWAYS be visible. This is a WCAG requirement.
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 ```
 
-**Use for:** Toolbar buttons, popup action buttons, icon buttons
+**Use for:** Toolbar buttons, popup action buttons, icon buttons — every
+icon/toolbar/popup control uses this ONE shape (decision D4 of the
+UI-consistency plan: it was already the majority form at 21 sites, scales to
+20/22/24px boxes without geometry tricks, and replaces the older open-U
+`border-bottom` + rounded-corners variant, which survives only in
+not-yet-migrated CSS). Use `--accent-primary`, not `--primary-color` — same
+value today, but focus rules standardise on the accent name.
 
 ### 2. Text Inputs in Popups: Caret Only
 
@@ -61,8 +67,9 @@ button that simply lost its focus ring. Mark the rule:
 ```
 
 The **reason is required** — the gate rejects a bare `/* focus: caret-only */`,
-because a token with no justification is a mute button. Nine such rules exist;
-`grep -rn "focus: caret-only" src` is the audit.
+because a token with no justification is a mute button.
+`grep -rn "focus: caret-only" src` is the audit — run it for the current list
+rather than trusting any count written here.
 
 You do not need the marker when a `:focus-visible` rule on the same selector
 paints something (`background`, a real `outline`, `border` or `box-shadow`) —

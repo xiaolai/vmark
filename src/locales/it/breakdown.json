@@ -41,10 +41,10 @@
   "provenance.hint": "Input precedenti recuperabili: {{count}}",
   "provenance.suggest": "Suggerisci input",
   "provenance.confirm": "Conferma provenienza",
-  "provenance.empty": "Nessun input selezionato",
+  "provenance.empty": "Nessun input selezionato. Scegli le fonti di questo artefatto.",
   "provenance.stale": "Il documento è cambiato — suggerimenti aggiornati",
   "delegations.heading": "Deleghe agli agenti",
-  "delegations.empty": "Nessuna delega attiva",
+  "delegations.empty": "Nessuna delega attiva. Concedine una perché un principal agisca in un ambito.",
   "delegations.grant": "Concedi",
   "delegations.revoke": "Revoca",
   "delegations.principalPlaceholder": "Principal dell'agente (es. codex-cli)",
@@ -90,6 +90,6 @@
   "anchor.change": "Cambia ancora",
   "anchor.clear": "Intero file",
   "anchor.hint": "Controlla solo la sezione da cui dipende, invece dell'intero file.",
-  "anchor.empty": "Nessuna sezione a cui ancorare.",
+  "anchor.empty": "Nessuna sezione da ancorare. Aggiungi prima delle intestazioni al documento.",
   "anchor.error": "Impossibile caricare le sezioni."
 }

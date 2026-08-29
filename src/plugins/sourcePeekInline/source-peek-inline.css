@@ -59,79 +59,28 @@
   gap: var(--space-1);
 }
 
-/* Header action buttons */
-.source-peek-inline-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--duration-base), color var(--duration-base);
-}
-
-.source-peek-inline-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.source-peek-inline-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-}
-
-/* Cancel button */
-.source-peek-inline-btn--cancel:hover {
-  color: var(--error-color);
-}
-
-/* Save button */
-.source-peek-inline-btn--save:hover {
-  color: var(--success-color);
-}
-
-/* Live preview toggle - icon visibility based on state */
-.source-peek-inline-btn--live .icon-eye {
+/* Header buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3). Only the live
+   toggle's eye-icon swap is local; its on-state accent comes from `.active`
+   below (matching the canonical aria-pressed accent). */
+.source-peek-live-toggle .icon-eye {
   display: none;
 }
 
-.source-peek-inline-btn--live .icon-eye-off {
+.source-peek-live-toggle .icon-eye-off {
   display: block;
 }
 
-.source-peek-inline-btn--live.active {
+.source-peek-live-toggle.active {
   background: var(--accent-bg);
   color: var(--accent-primary);
 }
 
-.source-peek-inline-btn--live.active .icon-eye {
+.source-peek-live-toggle.active .icon-eye {
   display: block;
 }
 
-.source-peek-inline-btn--live.active .icon-eye-off {
+.source-peek-live-toggle.active .icon-eye-off {
   display: none;
-}
-
-/* Focus indicator for buttons */
-.source-peek-inline-btn:focus-visible {
-  outline: none;
-  position: relative;
-}
-
-.source-peek-inline-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
 }
 
 /* Hint text (keyboard shortcuts) */
@@ -180,7 +129,6 @@
   font-family: var(--font-mono);
 }
 
-
 /* Unsaved changes indicator */
 .source-peek-inline-header.has-changes .source-peek-inline-title::after {
   content: '•';
@@ -221,9 +169,3 @@
   pointer-events: none;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .source-peek-inline {
-    animation: none;
-  }
-}

@@ -41,14 +41,14 @@ export function CcSwitchImportRow({ binaryPath, loading }: CcSwitchImportRowProp
         <div className="text-sm font-medium text-[var(--text-color)]">
           {t("integrations.ccSwitch.label")}
         </div>
-        <div className="text-xs text-[var(--text-tertiary)]">
+        <div className="text-xs text-[var(--text-secondary)]">
           {link
             ? t("integrations.ccSwitch.description")
             : t("integrations.ccSwitch.binaryMissing")}
         </div>
       </div>
       <div className="flex items-center gap-2 ml-3">
-        {link && <CopyButton text={link} size="xs" />}
+        {link && <CopyButton text={link} />}
         <Button
           size="sm"
           variant="primary"

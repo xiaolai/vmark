@@ -20,16 +20,15 @@
   box-shadow: var(--popup-shadow-dark);
 }
 
+/* `.vm-panel__header` (WI-UI3.4); residual = split layout + stickiness. */
 .breakdown-panel__header {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   background: var(--bg-color);
+  z-index: var(--z-resize-handle);
 }
+
 
 .breakdown-panel__title {
   font-size: var(--font-size-md);
@@ -43,34 +42,7 @@
   gap: var(--space-half);
 }
 
-.breakdown-panel__icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.breakdown-panel__icon-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.breakdown-panel__icon-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.breakdown-panel__icon-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-bg);
-}
+/* Header buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3). */
 
 .breakdown-panel__loading,
 .breakdown-panel__empty,
@@ -208,17 +180,12 @@
 }
 
 /* Dialog-input pattern (rule 33): bottom border, highlighted on focus. */
+/* `.vm-input` (WI-UI3.3). */
 .breakdown-row__waive-input {
   flex: 1;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
   padding: var(--space-half) 0;
 }
+
 
 .breakdown-row__waive-input:focus {
   border-bottom-color: var(--accent-primary);
@@ -332,16 +299,12 @@
   padding: 0 var(--spacing-1);
 }
 
+/* `.vm-input` (WI-UI3.3). */
 .breakdown-context-bar__input {
   flex: 1;
   min-width: 90px;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--font-size-sm);
 }
+
 
 .breakdown-context-bar__input:focus {
   border-bottom-color: var(--primary-color);
@@ -480,19 +443,14 @@
   margin-left: auto;
 }
 
+/* `.vm-input.--mono` (WI-UI3.3). */
 .delegations-section__input {
   /* Own full-width row; the scope toggles, days and Grant wrap beneath it
      instead of all cramming into one clipped strip. */
   flex: 1 0 100%;
   min-width: 140px;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-mono);
 }
+
 
 .delegations-section__input:focus {
   border-bottom-color: var(--primary-color);
@@ -700,4 +658,30 @@
 .breakdown-anchor__hint {
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.breakdown-branch-chip__create:focus-visible,
+.breakdown-branch-chip__switch:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.breakdown-context-bar__select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.breakdown-merge-banner__dismiss:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §6): content-widget checkboxes define their own focus
+   — the global reset removed the UA outline. */
+.breakdown-checkbox:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }

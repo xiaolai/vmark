@@ -12,8 +12,9 @@
  * @module components/StatusBar/StatusBarTabStrip
  */
 import { useCallback, useRef, type KeyboardEvent, type MouseEvent } from "react";
-import { ChevronLeft, ChevronRight, Globe2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { TabStripButton } from "@/components/shared/TabStripButton";
 import { Tab, OTHER_PANE_DESC_ID } from "@/components/Tabs/Tab";
 import type { Tab as TabType } from "@/stores/tabStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
@@ -21,7 +22,8 @@ import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 import type { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useTabStripOverflow } from "@/hooks/useTabStripOverflow";
-import { useScrollActiveTabIntoView, prefersReducedMotion } from "./scrollActiveTabIntoView";
+import { useScrollActiveTabIntoView } from "./scrollActiveTabIntoView";
+import { scrollBehavior } from "@/utils/motion";
 import { paneIndicatorTabId } from "./paneIndicator";
 import { usePaneStore } from "@/stores/paneStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
@@ -109,22 +111,14 @@ export function StatusBarTabStrip({
     // behaviours in one strip.
     node.scrollBy({
       left: direction * node.clientWidth * 0.8,
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      behavior: scrollBehavior(),
     });
   }, []);
 
   return (
     <>
       {showNewTabButton && (
-        <button
-          type="button"
-          className="status-new-tab"
-          onClick={onNewTab}
-          aria-label={newTabTooltip}
-          title={newTabTooltip}
-        >
-          <Plus className="w-3 h-3" />
-        </button>
+        <TabStripButton kind="add" className="status-new-tab" onClick={onNewTab} label={newTabTooltip} />
       )}
 
       {showTabs && (

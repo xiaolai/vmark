@@ -82,6 +82,7 @@ function CandidateRow({
             <label key={input.path} className="provenance-row__input">
               <input
                 type="checkbox"
+                className="breakdown-checkbox"
                 checked={checked[input.path] ?? false}
                 onChange={(e) =>
                   setChecked((c) => ({ ...c, [input.path]: e.target.checked }))

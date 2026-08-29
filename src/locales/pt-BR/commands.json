@@ -67,7 +67,7 @@
   "format.toast.set": "Abrindo arquivos {{key}} como {{format}}",
   "format.toast.reset": "Arquivos {{key}} redefinidos para o editor padrão",
   "commandPalette.placeholder": "Digite um comando",
-  "commandPalette.empty": "Nenhum comando correspondente",
+  "commandPalette.empty": "Nenhum comando corresponde. Limpe a busca para ver todos.",
   "aria.commandPalette": "Paleta de comandos",
   "browser.newTab": "Nova aba do navegador",
   "claims.extractFromSelection": "Extrair afirmação da seleção",
@@ -191,5 +191,8 @@
   "tab.next": "Próxima aba",
   "tab.prev": "Aba anterior",
   "tab.lastUsed": "Última aba usada",
-  "tab.close": "Fechar aba"
+  "tab.close": "Fechar aba",
+  "commandPalette.hintNavigate": "navegar",
+  "commandPalette.hintRun": "executar",
+  "commandPalette.hintClose": "fechar"
 }

@@ -216,6 +216,9 @@ monospace font, which is what your system terminal uses.
 :::
 
 ::: tip Font size and zoom
+The terminal's font size is deliberately independent of the editor's reading
+size: a terminal is a dense monitoring surface, and its 13 px default matches
+what standalone terminals ship rather than the 18 px reading default.
 `Mod + =` / `Mod + -` zoom in steps of 2 px, so the terminal font can land on a
 value the dropdown doesn't list (13 → 15 → 17 …). The dropdown shows whatever
 size is actually in effect, adding the zoomed value to the list rather than

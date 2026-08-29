@@ -60,7 +60,7 @@ export function createEditHeader(
 
   // Live preview toggle - both icons in DOM, CSS toggles visibility
   const liveBtn = document.createElement("button");
-  liveBtn.className = `source-peek-inline-btn source-peek-inline-btn--live${livePreview ? " active" : ""}`;
+  liveBtn.className = `vm-icon-btn vm-icon-btn--sm source-peek-live-toggle${livePreview ? " active" : ""}`;
   const liveLabel = i18n.t("editor:plugin.toggleLivePreview");
   liveBtn.title = liveLabel;
   liveBtn.setAttribute("aria-label", liveLabel);
@@ -81,7 +81,7 @@ export function createEditHeader(
 
   // Cancel button
   const cancelBtn = document.createElement("button");
-  cancelBtn.className = "source-peek-inline-btn source-peek-inline-btn--cancel";
+  cancelBtn.className = "vm-icon-btn vm-icon-btn--sm vm-icon-btn--danger";
   const cancelLabel = i18n.t("editor:plugin.cancel");
   cancelBtn.title = cancelLabel;
   cancelBtn.setAttribute("aria-label", cancelLabel);
@@ -94,7 +94,7 @@ export function createEditHeader(
 
   // Save button
   const saveBtn = document.createElement("button");
-  saveBtn.className = "source-peek-inline-btn source-peek-inline-btn--save";
+  saveBtn.className = "vm-icon-btn vm-icon-btn--sm vm-icon-btn--primary";
   const saveLabel = i18n.t("editor:plugin.saveCmdEnter");
   saveBtn.title = saveLabel;
   saveBtn.setAttribute("aria-label", saveLabel);

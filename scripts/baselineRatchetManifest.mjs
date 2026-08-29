@@ -129,6 +129,12 @@ export const MANIFEST = {
       ],
     },
     {
+      // WI-UI4.2 — casing/punctuation conventions (R14). Identity list of
+      // "file:key:check" violations in the ENGLISH copy; ratchets down only.
+      path: "scripts/i18n-copy-baseline.json",
+      checks: [{ mode: "identity", at: "entries", shape: "strings", onAdd: "fail" }],
+    },
+    {
       // WI-18's identity list; its header: entries only get REMOVED.
       path: "scripts/mock-boundaries-baseline.json",
       checks: [
@@ -163,6 +169,67 @@ export const MANIFEST = {
           key: ["from", "to", "rule.name"],
           onAdd: "report",
         },
+      ],
+    },
+    {
+      // WI-UI0.1 — the catalog contrast gate's identity baseline. Each theme's
+      // failing-pair list is registered SEPARATELY (shape "strings", onAdd:
+      // "fail") because `object-keys` at `failing` would only see theme names —
+      // a pair added under an existing theme would pass silently, the exact
+      // count-like substitution §11 forbids (Codex objection #13, verified by
+      // fixture in check-baseline-ratchet.test.mjs). The object-keys check
+      // remains for the ARRIVAL of a theme (report — a 7th theme legitimately
+      // adds a key, and adding its per-theme entry here is part of adding it).
+      // `ansiFloor`/`exempt` go through the contrastFloors PAIR comparator:
+      // value may only rise, reason required.
+      path: "scripts/theme-contrast-baseline.json",
+      checks: [
+        { mode: "identity", at: "failing", shape: "object-keys", onAdd: "report" },
+        ...["white", "paper", "mint", "sepia", "night", "solarized"].map((theme) => ({
+          mode: "identity",
+          at: `failing.${theme}`,
+          shape: "strings",
+          onAdd: "fail",
+        })),
+        { mode: "custom", comparator: "contrastFloors", onAdd: "report" },
+      ],
+    },
+    {
+      // WI-UI0.3 — the ui-consistency gate's identity lists, one per check.
+      // Registered per-check (not root object-keys) for the same reason as the
+      // theme-contrast baseline: a site added under an existing check must
+      // fail. C4 alone reports additions — a NEW overlay surface legitimately
+      // adds a shell, and the diff shows it; every other list only shrinks.
+      path: "scripts/ui-consistency-baseline.json",
+      checks: [
+        ...["C3", "C5", "C7", "C8", "C9", "C10", "C11"].map((check) => ({
+          mode: "identity",
+          at: check,
+          shape: "strings",
+          onAdd: "fail",
+        })),
+        { mode: "identity", at: "C4", shape: "strings", onAdd: "report" },
+      ],
+    },
+    {
+      // WI-UI0.4 (C12) — check:static gates with no sibling self-test. The
+      // parity test enforces exact equality with the census, so this ratchet's
+      // job is only to stop the list growing back via history the PR wrote.
+      path: "scripts/gate-tests-baseline.json",
+      checks: [{ mode: "identity", at: "untested", shape: "strings", onAdd: "fail" }],
+    },
+    {
+      // WI-UI0.2 — identity lists for the two non-zero declaration-integrity
+      // checks (C2b rgba literals PER DECLARATION — file:selector:prop, so a
+      // baselined selector cannot accumulate new colour literals invisibly;
+      // renamed from the per-rule `rgbaLiterals` in the same change that
+      // re-measured it — and C2g className literals by file+token).
+      // Everything else in check-design-tokens.mjs is zero-tolerance and has
+      // no baseline to register.
+      path: "scripts/design-tokens-baseline.json",
+      checks: [
+        { mode: "identity", at: "rgbaLiteralDecls", shape: "strings", onAdd: "fail" },
+        { mode: "identity", at: "classNames", shape: "strings", onAdd: "fail" },
       ],
     },
     {

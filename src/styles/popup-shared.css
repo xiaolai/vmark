@@ -38,7 +38,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   outline: none;
 }
 
@@ -66,77 +66,6 @@
   width: 100%;
 }
 
-/* Icon button - base style */
-.popup-icon-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-md);
-  height: var(--icon-size-md);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: default;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.popup-icon-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.popup-icon-btn:active:not(:disabled) {
-  opacity: 0.8;
-}
-
-.popup-icon-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* Focus state - U-shaped underline (uses :focus-visible for keyboard focus only) */
-.popup-icon-btn:focus-visible {
-  outline: none;
-  color: var(--primary-color);
-}
-
-.popup-icon-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 4px;
-  background: transparent;
-  border-bottom: var(--border-medium) solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
-
-/* Icon sizing */
-.popup-icon-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
-/* Primary action button (save/confirm) */
-.popup-icon-btn--primary:hover:not(:disabled) {
-  color: var(--primary-color);
-}
-
-/* Danger action button (delete/remove) */
-.popup-icon-btn--danger:hover:not(:disabled) {
-  color: var(--error-color);
-}
-
 /* Preview text */
 .popup-preview {
   min-height: 18px;
@@ -146,11 +75,74 @@
   font-family: var(--font-mono);
 }
 
+/* ---- Media popup (folded in from media-popup-shared.css, WI-UI3.2) ---- */
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .popup-container {
-    animation: none;
-  }
+/* --- Container --- */
+/* Shell chrome comes from `.popup-container` (WI-UI3.2). */
+.media-popup {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 300px;
+  max-width: 400px;
 }
+
+
+
+/* --- Row container --- */
+.media-popup-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+}
+
+/* --- Source URL/Path Input (monospace, borderless) --- */
+.media-popup-src {
+  width: 220px;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono, monospace);
+  outline: none;
+}
+
+/* --- Text inputs (caption/alt/title) --- */
+.media-popup-alt,
+.media-popup-title {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+/* focus: caret-only — borderless text inputs in a popup; the caret is the
+   indicator (.claude/rules/33-focus-indicators.md §2). */
+.media-popup-src:focus,
+.media-popup-src:focus-visible,
+.media-popup-alt:focus,
+.media-popup-alt:focus-visible,
+.media-popup-title:focus,
+.media-popup-title:focus-visible,
+.media-popup-poster:focus,
+.media-popup-poster:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.media-popup-src::placeholder,
+.media-popup-alt::placeholder,
+.media-popup-title::placeholder,
+.media-popup-poster::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+/* --- Delete button: danger color on hover --- */
 

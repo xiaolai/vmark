@@ -35,7 +35,7 @@ const {
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => mockInvoke(...a) }));
 vi.mock("@/services/ime/imeToast", () => ({
-  imeToast: { warning: mockToastWarning, error: mockToastError, info: vi.fn() },
+  imeToast: { warning: mockToastWarning, error: mockToastError, errorDetail: mockToastError, info: vi.fn() },
 }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/workspaces/activateTabWithWorkspaceContext", () => ({

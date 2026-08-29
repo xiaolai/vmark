@@ -5,6 +5,7 @@
  */
 
 import { message } from "@tauri-apps/plugin-dialog";
+import i18n from "@/i18n";
 
 /**
  * Show an error dialog to the user.
@@ -16,7 +17,7 @@ export async function showError(
 ): Promise<void> {
   const text = description ? `${title}\n\n${description}` : title;
   await message(text, {
-    title: "Error",
+    title: i18n.t("dialog:error.title"),
     kind: "error",
   });
 }

@@ -2,39 +2,30 @@
    popup surface tokens; rule 33: focus stays visible via the shared
    button/input patterns). */
 .claim-overlay {
+  /* ui-ok(overlay): corner-card ANCHOR — positions only; the panel chrome
+     comes from .vm-overlay__panel on the child, and there is no backdrop */
   position: fixed;
   top: var(--space-10);
   left: var(--space-3);
   z-index: var(--z-popup);
 }
 
+/* Panel chrome comes from `.vm-overlay__panel` (WI-UI3.1). */
 .claim-panel {
-  width: 380px;
+  --vm-overlay-width: 380px;
   max-height: 70vh;
   overflow-y: auto;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  display: flex;
-  flex-direction: column;
-  animation: popup-fade-in 0.1s ease-out;
 }
 
-.dark-theme .claim-panel {
-  box-shadow: var(--popup-shadow-dark);
-}
-
+/* `.vm-panel__header` (WI-UI3.4). */
 .claim-panel__header {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-bottom: 1px solid var(--border-color);
 }
+
 
 .claim-panel__title {
-  font-size: var(--font-size-base);
+  /* WI-UI3.4: panel titles read at --font-size-md (see .vm-panel__title). */
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--text-color);
 }
@@ -44,36 +35,7 @@
   gap: var(--spacing-1);
 }
 
-.claim-panel__icon-btn {
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  position: relative;
-}
-
-.claim-panel__icon-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.claim-panel__icon-btn:focus-visible {
-  outline: none;
-}
-
-.claim-panel__icon-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
+/* Header buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3). */
 
 .claim-panel__error {
   padding: var(--spacing-2) var(--spacing-3);
@@ -108,15 +70,11 @@
   font-family: var(--font-mono);
 }
 
+/* `.vm-input` (WI-UI3.3). */
 .claim-panel__create-input {
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
   font-size: var(--font-size-base);
-  padding: var(--spacing-1) 0;
 }
+
 
 .claim-panel__create-input:focus {
   border-bottom-color: var(--primary-color);
@@ -223,7 +181,7 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -232,15 +190,11 @@
   gap: var(--spacing-2);
 }
 
+/* `.vm-input` (WI-UI3.3). */
 .claim-row__correct-input {
   flex: 1;
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--font-size-sm);
 }
+
 
 .claim-row__correct-input:focus {
   border-bottom-color: var(--primary-color);

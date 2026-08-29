@@ -55,7 +55,7 @@ export function AdvancedSettings() {
           <div className="text-sm font-medium text-[var(--text-color)] mb-1">
             {t("advanced.customProtocols.label")}
           </div>
-          <div className="text-xs text-[var(--text-tertiary)] mb-2">
+          <div className="text-xs text-[var(--text-secondary)] mb-2">
             {t("advanced.customProtocols.hint")}
           </div>
           <TagInput

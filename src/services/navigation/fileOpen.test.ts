@@ -378,9 +378,10 @@ describe("openFileInNewTabCore — edge cases", () => {
 
     const { toast } = await import("sonner");
     // Pin: file-open errors carry system messages users may want to read.
+    // Two-line contract (WI-UI4.4): the system error is the DESCRIPTION line.
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining("Permission denied"),
-      expect.objectContaining({ action: expect.any(Object) }),
+      expect.stringContaining("Failed to open file"),
+      expect.objectContaining({ description: expect.stringContaining("Permission denied"), action: expect.any(Object) }),
     );
     errorSpy.mockRestore();
   });
@@ -393,8 +394,8 @@ describe("openFileInNewTabCore — edge cases", () => {
 
     const { toast } = await import("sonner");
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining("string error"),
-      expect.objectContaining({ action: expect.any(Object) }),
+      expect.stringContaining("Failed to open file"),
+      expect.objectContaining({ description: expect.stringContaining("string error"), action: expect.any(Object) }),
     );
     errorSpy.mockRestore();
   });

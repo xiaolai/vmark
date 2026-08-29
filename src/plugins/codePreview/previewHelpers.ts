@@ -190,7 +190,7 @@ export function createEditHeader(
   // Copy button (diagram languages only — passed via onCopy)
   if (onCopy) {
     const copyBtn = document.createElement("button");
-    copyBtn.className = "code-block-edit-btn code-block-edit-copy";
+    copyBtn.className = "vm-icon-btn vm-icon-btn--sm code-block-edit-copy";
     const copyLabel = i18n.t("editor:plugin.copySource");
     copyBtn.title = copyLabel;
     copyBtn.setAttribute("aria-label", copyLabel);
@@ -220,9 +220,9 @@ export function createEditHeader(
           diagramWarn("Copy source failed:", errorMessage(error));
         }
         if (copied) {
-          showCopyFeedback(CHECK_ICON, "code-block-edit-btn--success");
+          showCopyFeedback(CHECK_ICON, "code-block-edit--success");
         } else {
-          showCopyFeedback(CROSS_ICON, "code-block-edit-btn--error");
+          showCopyFeedback(CROSS_ICON, "code-block-edit--error");
         }
       })();
     });
@@ -230,7 +230,7 @@ export function createEditHeader(
   }
 
   const cancelBtn = document.createElement("button");
-  cancelBtn.className = "code-block-edit-btn code-block-edit-cancel";
+  cancelBtn.className = "vm-icon-btn vm-icon-btn--sm code-block-edit-cancel";
   const cancelLabel = i18n.t("editor:plugin.cancel");
   cancelBtn.title = cancelLabel;
   cancelBtn.setAttribute("aria-label", cancelLabel);
@@ -247,7 +247,7 @@ export function createEditHeader(
   });
 
   const saveBtn = document.createElement("button");
-  saveBtn.className = "code-block-edit-btn code-block-edit-save";
+  saveBtn.className = "vm-icon-btn vm-icon-btn--sm code-block-edit-save";
   const saveLabel = i18n.t("editor:plugin.save");
   saveBtn.title = saveLabel;
   saveBtn.setAttribute("aria-label", saveLabel);

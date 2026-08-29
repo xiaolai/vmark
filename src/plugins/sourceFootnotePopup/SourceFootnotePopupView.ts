@@ -40,7 +40,7 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupState>
 
   protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "source-footnote-popup";
+    container.className = "popup-container source-footnote-popup";
 
     // Row 1: Label display + buttons
     const headerRow = document.createElement("div");
@@ -55,9 +55,9 @@ export class SourceFootnotePopupView extends SourcePopupView<FootnotePopupState>
     this.gotoBtn = buildSourceFootnoteBtn(popupIcons.goto, i18n.t("editor:popup.footnote.goToDefinition"), this.handleGoto.bind(this));
     this.gotoBtn.classList.add("source-footnote-popup-btn-goto");
     const saveBtn = buildSourceFootnoteBtn(popupIcons.save, i18n.t("editor:popup.footnote.save"), this.handleSave.bind(this));
-    saveBtn.classList.add("source-footnote-popup-btn-save");
+    saveBtn.classList.add("popup-icon-btn--primary", "source-footnote-popup-btn-save");
     const deleteBtn = buildSourceFootnoteBtn(popupIcons.delete, i18n.t("editor:popup.footnote.remove"), this.handleDelete.bind(this));
-    deleteBtn.classList.add("source-footnote-popup-btn-delete");
+    deleteBtn.classList.add("popup-icon-btn--danger", "source-footnote-popup-btn-delete");
 
     headerRow.appendChild(this.labelSpan);
     headerRow.appendChild(spacer);

@@ -80,14 +80,14 @@ export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
         <div className="media-view__actions">
           <button
             type="button"
-            className="media-view__btn"
+            className="vm-btn"
             onClick={openExternally}
           >
             {t("media.openExternally")}
           </button>
           <button
             type="button"
-            className="media-view__btn"
+            className="vm-btn"
             onClick={reveal}
           >
             {t("media.revealInFinder")}

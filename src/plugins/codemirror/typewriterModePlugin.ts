@@ -18,6 +18,7 @@
 import { ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { hostViewModes } from "@/plugins/shared/hostViewModes";
 import { isCodeMirrorComposing } from "@/utils/imeGuard";
+import { scrollBehavior } from "@/utils/motion";
 
 // Threshold for scrolling (pixels from target position)
 const SCROLL_THRESHOLD = 30;
@@ -95,7 +96,7 @@ export function createSourceTypewriterPlugin() {
             if (Math.abs(scrollOffset) > SCROLL_THRESHOLD) {
               scrollContainer.scrollBy({
                 top: scrollOffset,
-                behavior: "smooth",
+                behavior: scrollBehavior(),
               });
             }
           } catch {

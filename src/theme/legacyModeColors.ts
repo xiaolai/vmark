@@ -26,19 +26,17 @@ import type { ThemeColors } from "./themeColorsAdapter";
 const lightModeColors = legacyLight;
 
 /**
- * Dark mode color defaults, derived from the `night` typed theme. Values that
- * are structurally available (semantic, alert, bg/text scales) read straight
- * from `night`; values that intentionally diverge from the structured fields
- * live in `night.color.legacy` (see that file's comment). This keeps the
- * emitted `--*` vars byte-identical to the historical literals while making
- * the typed catalog the single source of truth.
+ * Dark mode color FALLBACKS, derived from the `night` typed theme. Values
+ * that are structurally available (semantic, alert, bg/text scales) read
+ * straight from `night`; values that intentionally diverge live in
+ * `night.color.legacy`.
  *
- * Note: `--warning-*`, `--subtle-bg*`, and `--contrast-text` are
- * intentionally absent — the dark branch of `computeModeColorVars` never
- * emitted them (dark mode inherits the light/`:root` values for those), and
- * that behavior is preserved. `--hover-bg`/`--hover-bg-strong` ARE emitted
- * since audit 20260612 H15 — the inherited light tints were near-invisible
- * on dark backgrounds.
+ * Since WI-UI1.1 this table is a fallback for a FUTURE dark theme that omits
+ * an optional key — the six shipped themes provide every projected family
+ * through the adapter, and `legacyModeColors.test.ts` pins that. The old
+ * "warning/subtle/contrast-text intentionally absent — behavior preserved"
+ * quirk is gone: preserving it meant dark themes rendered :root's light
+ * literals (#9a6700 warning at 3.1:1 on night).
  */
 const nightLegacy = night.color.legacy ?? {};
 const darkModeColors = {
@@ -72,8 +70,9 @@ const darkModeColors = {
   // Hover feedback (audit 20260612 H15): dark mode previously inherited the
   // light rgba(0,0,0,…) tints — a black tint on a dark background is barely
   // perceivable, and only 17 of 40+ consumers carried manual per-file
-  // overrides. Values mirror --hover-bg-dark/--hover-bg-dark-strong in
-  // index.css.
+  // overrides. The strong tint mirrors what index.css's --hover-bg-dark
+  // declares for the base tint (its old --hover-bg-dark-strong sibling had
+  // zero consumers and was deleted in WI-UI0.2).
   "--hover-bg": "rgba(255, 255, 255, 0.08)",
   "--hover-bg-strong": "rgba(255, 255, 255, 0.12)",
 };
@@ -86,6 +85,7 @@ export function computeCoreColorVars(colors: ThemeColors): Record<string, string
     "--primary-color": colors.link,
     "--bg-secondary": colors.secondary,
     "--border-color": colors.border,
+    "--control-border": colors.controlBorder ?? colors.border,
     "--accent-primary": colors.link,
     "--accent-text": colors.link,
     "--sidebar-bg": colors.secondary,
@@ -100,69 +100,85 @@ export type ModeColorResult = {
   vars: Record<string, string>;
 };
 
+/**
+ * Values that are MODE-structural rather than per-theme: identical for every
+ * theme of a mode, not worth a catalog field. `--warning-bg-hover/-active`
+ * are slated for deletion in WI-UI4.10; `--block-bg-subtle` is an alias-debt
+ * pair the same WI resolves.
+ */
+const MODE_STATIC = {
+  light: {
+    "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
+    "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
+    "--block-bg-subtle": "rgba(0, 0, 0, 0.02)",
+    "--block-bg-subtle-hover": "rgba(0, 0, 0, 0.04)",
+  },
+  dark: {
+    "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
+    "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
+    "--block-bg-subtle": "rgba(255, 255, 255, 0.03)",
+    "--block-bg-subtle-hover": "rgba(255, 255, 255, 0.05)",
+  },
+} as const;
+
 /** Compute mode-specific (dark/light) color CSS vars. Pure — no DOM access.
- *  Returns the vars plus a `__isDark` flag for class toggling. */
+ *  Returns the vars plus a `__isDark` flag for class toggling.
+ *
+ *  WI-UI1.1 (R2 — theme-keyed emission): BOTH branches emit the SAME key set.
+ *  `isDark` selects the fallback table and the class, never which keys exist —
+ *  the old asymmetry left dark themes rendering :root's light `--warning-color`
+ *  at 3.1:1 and left stale branch-only inline vars behind on theme switches.
+ *  For the six shipped themes every value in the families the adapter projects
+ *  comes from `colors` (the catalog); the fallback tables remain ONLY for a
+ *  future theme that omits an optional legacy key —
+ *  `legacyModeColors.test.ts` pins their unreachability today.
+ */
 export function computeModeColorVars(
   colors: ThemeColors,
   isDark: boolean
 ): ModeColorResult {
-  if (isDark) {
-    return {
-      __isDark: true,
-      vars: {
-        "--text-secondary": colors.textSecondary ?? darkModeColors["--text-secondary"],
-        "--code-text-color": colors.codeText ?? colors.foreground,
-        "--selection-color": colors.selection ?? darkModeColors["--selection-color"],
-        "--md-char-color": colors.mdChar ?? darkModeColors["--md-char-color"],
-        "--meta-content-color": colors.mdChar ?? darkModeColors["--meta-content-color"],
-        "--strong-color": colors.strong ?? darkModeColors["--strong-color"],
-        "--emphasis-color": colors.emphasis ?? darkModeColors["--emphasis-color"],
-        "--blur-text-color": colors.blurText ?? darkModeColors["--blur-text-color"],
-        "--bg-tertiary": colors.bgTertiary ?? darkModeColors["--bg-tertiary"],
-        "--text-tertiary": colors.textTertiary ?? darkModeColors["--text-tertiary"],
-        "--accent-bg": colors.accentBg ?? darkModeColors["--accent-bg"],
-        "--source-mode-bg": colors.sourceModeBg ?? darkModeColors["--source-mode-bg"],
-        "--error-color": colors.errorColor ?? darkModeColors["--error-color"],
-        "--error-color-hover": colors.errorColorHover ?? darkModeColors["--error-color-hover"],
-        "--error-bg": colors.errorBg ?? darkModeColors["--error-bg"],
-        "--success-color": colors.successColor ?? darkModeColors["--success-color"],
-        "--success-color-hover": colors.successColorHover ?? darkModeColors["--success-color-hover"],
-        // Alert block colors
-        "--alert-note": colors.alertNote ?? darkModeColors["--alert-note"],
-        "--alert-tip": colors.alertTip ?? darkModeColors["--alert-tip"],
-        "--alert-important": colors.alertImportant ?? darkModeColors["--alert-important"],
-        "--alert-warning": colors.alertWarning ?? darkModeColors["--alert-warning"],
-        "--alert-caution": colors.alertCaution ?? darkModeColors["--alert-caution"],
-        // Highlight mark
-        "--highlight-bg": colors.highlightBg ?? darkModeColors["--highlight-bg"],
-        "--highlight-text": colors.highlightText ?? darkModeColors["--highlight-text"],
-        // Subtle block background for dark mode (light overlay)
-        "--block-bg-subtle": colors.blockBgSubtle ?? nightLegacy.blockBgSubtle ?? "rgba(255, 255, 255, 0.03)",
-        "--block-bg-subtle-hover": colors.blockBgSubtleHover ?? nightLegacy.blockBgSubtleHover ?? "rgba(255, 255, 255, 0.05)",
-        // Hover feedback — white tints; inherited light black tints were
-        // near-invisible on dark backgrounds (audit 20260612 H15)
-        "--hover-bg": darkModeColors["--hover-bg"],
-        "--hover-bg-strong": darkModeColors["--hover-bg-strong"],
-      },
-    };
-  }
+  const fb = isDark ? darkModeColors : lightModeColors;
+  const statics = isDark ? MODE_STATIC.dark : MODE_STATIC.light;
   return {
-    __isDark: false,
+    __isDark: isDark,
     vars: {
-      ...lightModeColors,
-      // Use theme-specific optional colors if defined, fallback to defaults
-      "--text-secondary": colors.textSecondary ?? lightModeColors["--text-secondary"],
-      "--code-text-color": colors.codeText ?? lightModeColors["--code-text-color"],
-      "--selection-color": colors.selection ?? lightModeColors["--selection-color"],
-      "--md-char-color": colors.mdChar ?? lightModeColors["--md-char-color"],
-      "--meta-content-color": colors.mdChar ?? lightModeColors["--meta-content-color"],
-      "--strong-color": colors.strong ?? lightModeColors["--strong-color"],
-      "--emphasis-color": colors.emphasis ?? lightModeColors["--emphasis-color"],
-      // Use theme's border color for bg-tertiary to harmonize with colored themes
-      "--bg-tertiary": colors.border,
-      // Subtle block background for light mode (dark overlay)
-      "--block-bg-subtle": "rgba(0, 0, 0, 0.02)",
-      "--block-bg-subtle-hover": "rgba(0, 0, 0, 0.04)",
+      "--text-secondary": colors.textSecondary ?? fb["--text-secondary"],
+      "--code-text-color": colors.codeText ?? (isDark ? colors.foreground : lightModeColors["--code-text-color"]),
+      "--selection-color": colors.selection ?? fb["--selection-color"],
+      "--md-char-color": colors.mdChar ?? fb["--md-char-color"],
+      "--meta-content-color": colors.mdChar ?? fb["--meta-content-color"],
+      "--strong-color": colors.strong ?? fb["--strong-color"],
+      "--emphasis-color": colors.emphasis ?? fb["--emphasis-color"],
+      "--quote-text": colors.quoteText ?? colors.textSecondary ?? fb["--text-secondary"],
+      "--blur-text-color": colors.blurText ?? fb["--blur-text-color"],
+      "--bg-tertiary": colors.bgTertiary ?? (isDark ? darkModeColors["--bg-tertiary"] : colors.border),
+      "--text-tertiary": colors.textTertiary ?? fb["--text-tertiary"],
+      "--accent-bg": colors.accentBg ?? fb["--accent-bg"],
+      "--source-mode-bg": colors.sourceModeBg ?? fb["--source-mode-bg"],
+      "--error-color": colors.errorColor ?? fb["--error-color"],
+      "--error-color-hover": colors.errorColorHover ?? fb["--error-color-hover"],
+      "--error-bg": colors.errorBg ?? fb["--error-bg"],
+      "--success-color": colors.successColor ?? fb["--success-color"],
+      "--success-color-hover": colors.successColorHover ?? fb["--success-color-hover"],
+      "--warning-color": colors.warningColor ?? lightModeColors["--warning-color"],
+      "--warning-bg": colors.warningBg ?? lightModeColors["--warning-bg"],
+      "--warning-border": colors.warningBorder ?? lightModeColors["--warning-border"],
+      "--warning-bg-hover": statics["--warning-bg-hover"],
+      "--warning-bg-active": statics["--warning-bg-active"],
+      "--contrast-text": colors.contrastText ?? lightModeColors["--contrast-text"],
+      "--subtle-bg": colors.subtleBg ?? lightModeColors["--subtle-bg"],
+      "--subtle-bg-hover": colors.subtleBgHover ?? lightModeColors["--subtle-bg-hover"],
+      "--hover-bg": colors.hoverBg ?? fb["--hover-bg"],
+      "--hover-bg-strong": colors.hoverBgStrong ?? fb["--hover-bg-strong"],
+      "--alert-note": colors.alertNote ?? fb["--alert-note"],
+      "--alert-tip": colors.alertTip ?? fb["--alert-tip"],
+      "--alert-important": colors.alertImportant ?? fb["--alert-important"],
+      "--alert-warning": colors.alertWarning ?? fb["--alert-warning"],
+      "--alert-caution": colors.alertCaution ?? fb["--alert-caution"],
+      "--highlight-bg": colors.highlightBg ?? fb["--highlight-bg"],
+      "--highlight-text": colors.highlightText ?? fb["--highlight-text"],
+      "--block-bg-subtle": colors.blockBgSubtle ?? statics["--block-bg-subtle"],
+      "--block-bg-subtle-hover": colors.blockBgSubtleHover ?? statics["--block-bg-subtle-hover"],
     },
   };
 }

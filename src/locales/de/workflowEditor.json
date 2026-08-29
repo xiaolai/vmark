@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "Doppelter Schlüssel — bereits in einer anderen Zeile gesetzt",
   "form.step.uses.label": "Verwendet",
   "form.trigger.kind": "Auslöser",
-  "form.trigger.empty": "Keine Auslöser konfiguriert",
+  "form.trigger.empty": "Keine Trigger konfiguriert. Füge einen hinzu, um festzulegen, wann dieser Workflow läuft.",
   "form.trigger.branches": "Branches: {{value}}",
   "form.trigger.branchesIgnore": "Ignorierte Branches: {{value}}",
   "form.trigger.tags": "Tags: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "run ausklappen",
   "expression.title.if": "if bearbeiten",
   "expression.title.run": "run bearbeiten",
-  "panel.noWorkflow": "Kein Workflow erkannt",
+  "panel.noWorkflow": "Kein Workflow erkannt. Öffne eine YAML-Datei unter .github/workflows, um den Editor zu nutzen.",
   "panel.conditional": "bedingt",
   "panel.shell.resize": "Bereiche anpassen",
   "panel.viewerAriaLabel": "GitHub-Actions-Workflow-Betrachter",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(Standard: {{value}})",
   "panel.exportLabel": "Workflow-Diagramm exportieren",
   "panel.exportError": "Export fehlgeschlagen",
-  "settings.groupTitle": "Workflow-Dateien"
+  "settings.groupTitle": "Workflow-Dateien",
+  "form.job.delete.confirm": "Job „{{id}}“ löschen? Vor dem Speichern nicht rückgängig zu machen.",
+  "form.job.steps.deleteConfirm": "Schritt „{{label}}“ löschen?"
 }
