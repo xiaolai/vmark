@@ -304,7 +304,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **A raw NUL byte in a source file makes it invisible to grep.** `pnpm
     lint:no-nul-bytes` (`scripts/check-no-nul-bytes.mjs`, in `check:static`)
-    refuses one in any tracked text file. A NUL is what every content sniffer
+    refuses one in any text file, tracked or untracked-non-ignored (a bare `git ls-files` scan is blind to new files until they are committed). A NUL is what every content sniffer
     uses to decide a file is BINARY, and each of them then fails SILENTLY:
     `grep -I` (and the ugrep/ripgrep shims built on it) skips the file and exits
     1 — indistinguishable from "no match" — while `git diff` prints "Binary
