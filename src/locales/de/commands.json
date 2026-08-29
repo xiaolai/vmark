@@ -67,7 +67,7 @@
   "format.toast.set": "{{key}}-Dateien werden als {{format}} geöffnet",
   "format.toast.reset": "{{key}}-Dateien auf den Standard-Editor zurückgesetzt",
   "commandPalette.placeholder": "Befehl eingeben",
-  "commandPalette.empty": "Keine passenden Befehle",
+  "commandPalette.empty": "Keine passenden Befehle. Lösche die Suche, um alle Befehle zu sehen.",
   "aria.commandPalette": "Befehlspalette",
   "browser.newTab": "Neuer Browser-Tab",
   "claims.extractFromSelection": "Aussage aus Auswahl extrahieren",
@@ -191,5 +191,8 @@
   "tab.next": "Nächster Tab",
   "tab.prev": "Vorheriger Tab",
   "tab.lastUsed": "Zuletzt verwendeter Tab",
-  "tab.close": "Tab schließen"
+  "tab.close": "Tab schließen",
+  "commandPalette.hintNavigate": "navigieren",
+  "commandPalette.hintRun": "ausführen",
+  "commandPalette.hintClose": "schließen"
 }

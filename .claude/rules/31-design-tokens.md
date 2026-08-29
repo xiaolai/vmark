@@ -24,7 +24,6 @@ authoritative values for those names live in the typed catalog.
 | `--hover-bg` | Explicit hover state | `rgba(0,0,0,0.04)` |
 | `--hover-bg-strong` | Stronger hover | `rgba(0,0,0,0.08)` |
 | `--hover-bg-dark` | Dark mode hover | `rgba(255,255,255,0.08)` |
-| `--hover-bg-dark-strong` | Dark mode stronger hover | `rgba(255,255,255,0.12)` |
 | `--subtle-bg` | Very subtle background | `rgba(0,0,0,0.02)` |
 | `--subtle-bg-hover` | Subtle background hover | `rgba(0,0,0,0.03)` |
 | `--text-color` | Primary text | `#1a1a1a` |
@@ -33,7 +32,9 @@ authoritative values for those names live in the typed catalog.
 | `--text-tertiary` | Disabled/muted text | `#999999` |
 | `--primary-color` | Links, primary actions | `#0066cc` |
 | `--border-color` | Borders, dividers | `#d5d4d4` |
+| `--control-border` | Control boundary (≥ 3:1 on primary+secondary, D8) — never a divider | `#7e7d7d` |
 | `--selection-color` | Text selection | `rgba(0,102,204,0.2)` |
+| `--quote-text` | Blockquote body ink (readable prose — R5/WI-UI1.3) | `var(--text-secondary)` |
 | `--contrast-text` | Text on colored backgrounds | `white` |
 
 ## Accent Tokens (Selection/Active States)
@@ -43,7 +44,31 @@ authoritative values for those names live in the typed catalog.
 | `--accent-primary` | Active icon/text color | `#0066cc` |
 | `--accent-bg` | Active/selected background | `rgba(0,102,204,0.1)` |
 
-**Rule**: Use `--accent-bg` for all selected/active backgrounds, `--accent-primary` for active text/icons.
+**Rule (R6 — selection keeps its ink)**: Use `--accent-bg` for all selected/active
+backgrounds, with `--text-color` for the row's TEXT and `--accent-primary` for
+icons and indicators only. Accent-coloured text on the accent tint measures
+3.84:1 on paper — below AA — which is why the older "accent-primary for text"
+wording was retired. The raised-card current-tab idiom (`--bg-color` fill) is a
+named exception carrying `ui-ok(state): current-tab`.
+
+**Font roles (R3, WI-UI2.1)**: `--font-sans` is the READING font — the user's
+choice, written from settings by `useTheme.ts`, consumed only under document
+selectors. Chrome uses `--font-ui` (static system stack) so the UI never
+restyles when the reading font changes. `--font-ui` is declared in `:root` and
+the C5 check of `lint:ui-consistency` enforces the split at a zero baseline —
+a chrome `--font-sans` site fails the gate.
+
+**Tertiary is decorative (R5/D3)**: `--text-tertiary` never colours readable
+text or an enabled control — it is the disabled/decorative tier (its rule-31
+row has always said "Disabled/muted text"). Readable secondary content uses
+`--text-secondary`.
+
+**Arriving control tokens**: `--control-border` (D8) landed with WI-UI1.2 —
+use it for any boundary that makes a control findable; `--border-color` stays a
+divider. `--target-min` (24px hit-target floor, D2) landed with WI-UI2.3 —
+no interactive element takes a smaller hit box; paint-small controls centre a
+`--target-min` square over themselves with a `::before` expander (see
+`icon-button-shared.css`).
 
 ## Semantic Tokens
 
@@ -99,6 +124,12 @@ authoritative values for those names live in the typed catalog.
 | `--media-vimeo-dark` | `#4ac3f0` | Vimeo in dark mode |
 | `--media-bilibili-dark` | `#fc9cb5` | Bilibili in dark mode |
 
+## Syntax Tokens
+
+| Family | Tokens | Use For |
+|---|---|---|
+| Syntax palette (per theme via `ThemeTokens.syntax`, D11) | `--syntax-keyword`, `--syntax-type`, `--syntax-function`, `--syntax-property`, `--syntax-variable`, `--syntax-string`, `--syntax-number`, `--syntax-operator`, `--syntax-punctuation`, `--syntax-comment`, `--syntax-escape`, `--syntax-constant`, `--syntax-attribute`, `--syntax-tag`, `--syntax-link`, `--syntax-invalid` | Code highlighting in Source mode (`source-syntax.css`), WYSIWYG code blocks (`hljs-syntax.css`) and data trees (`json-view-theme.css`). Every value clears 4.5:1 on bg.primary AND bg.secondary (C1e). |
+
 ## Highlight Tokens
 
 | Token | Purpose | Default |
@@ -112,6 +143,14 @@ authoritative values for those names live in the typed catalog.
 |-------|---------|---------------|---------------|
 | `--multi-cursor-color` | Secondary cursor caret color | `hsl(217 91% 60%)` | `hsl(217 91% 70%)` |
 | `--multi-cursor-selection-bg` | Secondary cursor selection background | `hsla(217, 91%, 60%, 0.3)` | `hsla(217, 91%, 70%, 0.25)` |
+
+## Search & Divergence Tokens
+
+| Token | Purpose | Light Default | Dark Override |
+|-------|---------|---------------|---------------|
+| `--search-match-color` | Find-bar match highlight | `rgba(255, 180, 0, 0.8)` | `rgba(255, 200, 0, 0.7)` |
+| `--search-match-active-color` | Active find-bar match | `rgba(255, 200, 0, 0.7)` | `rgba(255, 200, 0, 0.5)` |
+| `--divergent-border-dark` | Split-view divergence border (dark themes) | — | `rgba(0, 136, 255, 0.25)` |
 
 ## Spacing Tokens
 
@@ -127,9 +166,10 @@ authoritative values for those names live in the typed catalog.
 
 | Token | Value | Use For |
 |-------|-------|---------|
-| `--icon-size-sm` | `22px` | StatusBar buttons |
+| `--icon-size-sm` | `24px` | Bar buttons (`.vm-icon-btn--sm`); also the D2 hit-target floor |
 | `--icon-size-md` | `26px` | Popup action buttons |
 | `--icon-size-lg` | `28px` | Toolbar buttons |
+| `--target-min` | `24px` | Minimum clickable square (D2); `::before` expanders consume it |
 
 ## List Tokens
 
@@ -176,6 +216,7 @@ authoritative values for those names live in the typed catalog.
 | `--shadow-md` | `0 2px 8px rgba(0,0,0,0.12)` | Inline popups |
 | `--popup-shadow` | `0 4px 12px rgba(0,0,0,0.15)` | Standard popups, dialogs |
 | `--popup-shadow-dark` | `0 4px 12px rgba(0,0,0,0.4)` | Dark mode popups |
+| `--shadow-popup` | theme-adaptive (written by `applyTheme()`; static fallback aliases `--popup-shadow`) | Tailwind `shadow-popup` utility and typed-pathway consumers — adapts in dark themes without a `.dark-theme` rule |
 
 ### Popup Tokens
 
@@ -190,7 +231,7 @@ Use the icon size tokens for button dimensions:
 
 | Token | Value | Use For |
 |-------|-------|---------|
-| `--icon-size-sm` | `22px` | StatusBar, compact areas |
+| `--icon-size-sm` | `24px` | Bar buttons, compact areas (`.vm-icon-btn--sm`) |
 | `--icon-size-md` | `26px` | Popup action buttons |
 | `--icon-size-lg` | `28px` | Toolbar buttons |
 
@@ -205,13 +246,13 @@ Icon SVG sizes (conventions, not tokens):
 
 | Token | Purpose | Static Default |
 |-------|---------|----------------|
-| `--font-sans` | UI text, body content | System fonts |
-| `--font-mono` | Code, URLs, paths | System mono |
+| `--font-ui` | CHROME text — the system face, never touched by settings (R3) | `system-ui, -apple-system, …` |
+| `--font-sans` | READING text — the user's chosen document face; document selectors only | System fonts (runtime-written) |
+| `--font-mono` | Code, URLs, paths — the user's mono face | `ui-monospace, monospace` (runtime-written) |
 | `--editor-font-size` | Editor text size | `18px` |
-| `--editor-font-size-sm` | Small text (90%) | `16.2px` |
 | `--editor-font-size-mono` | Monospace text (85%) | `15.3px` |
-| `--editor-line-height` | Line height ratio | `1.6` |
-| `--editor-line-height-px` | Absolute line height | `28.8px` |
+| `--editor-line-height` | Line height ratio | `1.8` (runtime default; the `:root` static is 1.6 for print/SSR — see Note) |
+| `--editor-line-height-px` | Absolute line height | `32.4px` (18px × 1.8; static 28.8px) |
 | `--editor-block-spacing` | Spacing between blocks | `1em` |
 | `--cjk-letter-spacing` | CJK character spacing | `0.05em` |
 | `--editor-width` | Max editor content width | `50em` |
@@ -283,13 +324,18 @@ so it can fail on any engine.
 | Token | Purpose | Default |
 |-------|---------|---------|
 | `--sidebar-bg` | Sidebar background | `#e5e4e4` |
-| `--sidebar-width` | Sidebar width | `260px` |
 | `--workspace-rail-width` | Workspace rail column width | `30px` |
+| `--bar-height` | Status bar / universal toolbar height | `40px` |
+| `--shell-card-inset` | Gutter around the leading rail+sidebar card | `8px` |
+| `--shell-card-radius` | Leading card radius, concentric with the 21px window corner | `13px` |
 | `--shell-top-inset` | Top inset a full-height column leaves clear | `0px` |
 | `--traffic-lights-zone` | Horizontal space the title bar keeps clear of the window controls | `0px` |
 | `--traffic-lights-centre` | The window controls' optical line, which the title bar centres content on | `0px` |
+| `--outline-width` | Outline panel width | `200px` |
+| `--settings-nav-width` | Settings nav column width (read by Settings.tsx AND SettingsNav) | `13rem` |
+| `--table-border-color` | Table borders | `#d5d4d4` |
 
-**All four are written by `shellChromeVars()`, not by CSS.** The `:root` values
+**Every `--shell-*`, `--traffic-lights-*`, `--workspace-rail-width` and `--bar-height` row above is written by `shellChromeVars()`, not by CSS.** The `:root` values
 are static defaults; `App.tsx` overrides them on the shell root from
 `src/shell/shellChrome.ts` (`WORKSPACE_RAIL_WIDTH`, re-exported by
 `components/WorkspaceRail`, and `SHELL_TOP_INSET`), which stays the source
@@ -361,8 +407,6 @@ half-change paper-one warns about.
 is ignored SILENTLY. The feature must be spelled out literally in `Cargo.toml`'s
 `tauri` dependency line; tauri-build reads that array as manifest text. It also
 bars the Mac App Store, which costs nothing while VMark ships Developer ID DMGs.
-| `--outline-width` | Outline panel width | `200px` |
-| `--table-border-color` | Table borders | `#d5d4d4` |
 
 ## Browser Chrome Tokens
 
@@ -409,6 +453,7 @@ side and you must change the other.
 |-------|---------|---------|
 | `--blur-text-color` | Blurred text color | `#c8c8c8` |
 | `--blur-image-opacity` | Blurred image opacity | `0.5` |
+| `--focus-dim-opacity` | Focus Mode dim level (useTheme.ts overrides) | `1` |
 | `--source-mode-bg` | Source mode background | `rgba(0,0,0,0.02)` |
 
 ## Rules
@@ -439,12 +484,12 @@ VMark's token system has **two layers**, both defined in `src/styles/index.css`:
 | Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
 | Border widths | `--border-hairline` (0.5px), `--border-thin` (1px), `--border-medium` (2px), `--border-thick` (4px) | Setting `border-width`, `border-{top,right,bottom,left}-width` |
 | UI font sizes | `--font-size-2xs` (10), `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. |
-| Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20), `--size-btn-sm` (24) | Width/height of small icons or buttons not covered by `--icon-size-*` |
+| Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20) | Width/height of small icons not covered by `--icon-size-*`. `--size-btn-sm` is gone — a 24px square is `.vm-icon-btn--sm`. |
 | Line heights | `--line-height-tight` (1.25), `--line-height-snug` (1.35), `--line-height-base` (1.4), `--line-height-normal` (1.5), `--line-height-relaxed` (1.6) | `line-height` on UI text |
 | Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px) | UI labels (uppercase, semibold) |
 | Opacity | `--opacity-disabled` (0.4), `--opacity-muted` (0.5), `--opacity-subtle` (0.6), `--opacity-half-faded` (0.7), `--opacity-mostly-opaque` (0.85) | Visual de-emphasis. **Not** for `0` or `1` — those stay literal. |
-| Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slow` (0.3s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
-| Z-index | `--z-resize-handle` (10), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |
+| Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
+| Z-index | `--z-resize-handle` (10), `--z-panel-overlay` (12), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |
 
 ### What stays literal even with primitives
 

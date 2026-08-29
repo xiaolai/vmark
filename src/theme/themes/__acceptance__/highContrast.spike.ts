@@ -1,5 +1,5 @@
 import type { ThemeTokens } from "../../tokens";
-import { sharedPrimitives, lightShadows } from "../../tokens";
+import { sharedPrimitives, lightShadows, subtleLight, hoverLight } from "../../tokens";
 
 /**
  * High-contrast theme — Phase-5 acceptance spike.
@@ -18,11 +18,15 @@ export const highContrast: ThemeTokens = {
     bg: { primary: "#FFFFFF", secondary: "#FFFFFF", tertiary: "#FFFFFF" },
     text: { primary: "#000000", secondary: "#000000", tertiary: "#333333" },
     accent: { primary: "#0000ff", bg: "rgba(0,0,255,0.1)" },
+    contrastText: "#ffffff",
     border: "#000000",
+    controlBorder: "#000000",
     selection: "rgba(0,0,255,0.3)",
+    subtle: subtleLight,
+    hover: hoverLight,
     strong: "#000000",
     emphasis: "#000000",
-    semantic: { error: "#cc0000", errorBg: "#ffeeee", errorHover: "#990000", warning: "#cc6600", warningBg: "#fff5e6", success: "#006600", successHover: "#004400" },
+    semantic: { error: "#cc0000", errorBg: "#ffeeee", errorHover: "#990000", warning: "#cc6600", warningBg: "#fff5e6", warningBorder: "rgba(204,102,0,0.3)", success: "#006600", successHover: "#004400" },
     alert: { note: "#0000cc", tip: "#006600", important: "#660066", warning: "#cc6600", caution: "#cc0000" },
     media: { video: "#006666", audio: "#330099", youtube: "#cc0000", vimeo: "#0066cc", bilibili: "#cc0066" },
   },
@@ -35,8 +39,12 @@ export const highContrast: ThemeTokens = {
     },
     cursor: "#000000",
     cursorAccent: "#FFFFFF",
-    selectionBackground: "rgba(0,0,255,0.3)",
-    scrollbar: { idle: "rgba(0,0,0,0.30)", hover: "rgba(0,0,0,0.45)", active: "rgba(0,0,0,0.60)" },
+  },
+  syntax: {
+    keyword: "#000000", type: "#000000", function: "#000000", property: "#000000",
+    variable: "#000000", string: "#000000", number: "#000000", operator: "#000000",
+    punctuation: "#000000", comment: "#333333", escape: "#000000", constant: "#000000",
+    attribute: "#000000", tag: "#000000", link: "#000000", invalid: "#cc0000",
   },
   ...sharedPrimitives,
   shadow: lightShadows,

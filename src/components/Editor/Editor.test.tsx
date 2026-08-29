@@ -316,7 +316,7 @@ describe("Editor", () => {
 
     // Welcome quick-actions are present...
     expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Workspace…" })).toBeInTheDocument();
     // ...and no editor surface is mounted.
     expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
   });

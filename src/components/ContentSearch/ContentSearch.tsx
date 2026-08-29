@@ -195,10 +195,10 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
   }
 
   return createPortal(
-    <div className="content-search-backdrop">
+    <div className="vm-overlay vm-overlay--top content-search-backdrop">
       <div
         ref={containerRef}
-        className="content-search"
+        className="vm-overlay__panel content-search"
         onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
@@ -208,7 +208,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           <div className="content-search-input-row">
             <input
               ref={inputRef}
-              className="content-search-input"
+              className="vm-overlay__input content-search-input"
               type="text"
               placeholder={
                 isWorkspaceMode
@@ -239,7 +239,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
         </div>
 
         <div
-          className="content-search-results"
+          className="vm-scroll--thin content-search-results"
           ref={listRef}
           role="listbox"
         >
@@ -258,13 +258,13 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
           />
         </div>
 
-        <div className="content-search-footer">
+        <div className="vm-overlay__footer content-search-footer">
           <span className="content-search-footer-hint">
-            <kbd className="content-search-kbd">&uarr;&darr;</kbd>{" "}
+            <kbd className="vm-overlay__kbd">&uarr;&darr;</kbd>{" "}
             {t("contentSearch.hintNavigate", "navigate")}{" "}
-            <kbd className="content-search-kbd">Enter</kbd>{" "}
+            <kbd className="vm-overlay__kbd">Enter</kbd>{" "}
             {t("contentSearch.hintOpen", "open")}{" "}
-            <kbd className="content-search-kbd">Esc</kbd>{" "}
+            <kbd className="vm-overlay__kbd">Esc</kbd>{" "}
             {t("contentSearch.hintClose", "close")}
           </span>
         </div>

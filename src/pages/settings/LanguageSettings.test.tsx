@@ -85,3 +85,14 @@ function exerciseAllControls() {
     }
   });
 }
+
+describe("no raw <select> (WI-UI2.4)", () => {
+  it("every select is the canonical .vm-select primitive", () => {
+    const { container } = render(<LanguageSettings />);
+    const selects = [...container.querySelectorAll("select")];
+    expect(selects.length).toBeGreaterThan(0);
+    for (const sel of selects) {
+      expect(sel.classList.contains("vm-select"), sel.outerHTML.slice(0, 120)).toBe(true);
+    }
+  });
+});

@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { SettingRow, Toggle, SettingsGroup, CopyButton } from "./components";
+import { Button, SettingRow, Toggle, SettingsGroup, CopyButton } from "./components";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpHealthCheck } from "@/hooks/useMcpHealthCheck";
@@ -24,7 +24,7 @@ function StatusBadge({ running, loading }: { running: boolean; loading: boolean 
 
   if (loading) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
         <span className="w-2 h-2 rounded-full bg-[var(--warning-color)] animate-pulse" />
         {t("integrations.mcpStatus.starting")}
       </span>
@@ -41,7 +41,7 @@ function StatusBadge({ running, loading }: { running: boolean; loading: boolean 
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+    <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
       <span className="w-2 h-2 rounded-full bg-[var(--text-tertiary)]" />
       {t("integrations.mcpStatus.stopped")}
     </span>
@@ -174,43 +174,43 @@ export function IntegrationsSettings() {
         {/* Server info - show when running */}
         {running && port && (
           <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
-            <div className="text-xs text-[var(--text-tertiary)] flex items-center gap-1.5">
+            <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
               <span>{t("integrations.mcpInfo.listeningOn")}</span>
               <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] font-mono">
                 localhost:{port}
               </code>
               <CopyButton text={`localhost:${port}`} />
             </div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">
+            <div className="text-xs text-[var(--text-secondary)] mt-1">
               {t("integrations.mcpInfo.portNote")}
             </div>
 
             {/* Server info */}
             <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[var(--text-tertiary)]">{t("integrations.mcpInfo.version")}</span>
+                <span className="text-[var(--text-secondary)]">{t("integrations.mcpInfo.version")}</span>
                 <code className="text-[var(--text-secondary)] font-mono">{version ?? "—"}</code>
               </div>
 
               <div className="flex items-center justify-between text-xs mt-1.5">
-                <span className="text-[var(--text-tertiary)]">{t("integrations.mcpInfo.toolsAvailable")}</span>
+                <span className="text-[var(--text-secondary)]">{t("integrations.mcpInfo.toolsAvailable")}</span>
                 <a
                   href="https://vmark.app/guide/mcp-tools"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[var(--primary-color)] hover:underline"
+                  className="flex items-center gap-1 text-[var(--primary-color)] hover:underline focus-visible:underline"
                 >
                   {toolCount != null ? t("integrations.mcpInfo.toolsCount", { count: toolCount }) : "—"}
-                  <ExternalLink size={10} />
+                  <ExternalLink size={12} />
                 </a>
               </div>
 
               <div className="flex items-center justify-between text-xs mt-1.5">
-                <span className="text-[var(--text-tertiary)]">{t("integrations.mcpInfo.resourcesAvailable")}</span>
+                <span className="text-[var(--text-secondary)]">{t("integrations.mcpInfo.resourcesAvailable")}</span>
                 <span className="text-[var(--text-secondary)]">{resourceCount ?? "—"}</span>
               </div>
               <div className="flex items-center justify-between text-xs mt-1.5">
-                <span className="flex items-center gap-1 text-[var(--text-tertiary)]">
+                <span className="flex items-center gap-1 text-[var(--text-secondary)]">
                   <Users size={12} />
                   {t("integrations.mcpInfo.connectedClients")}
                 </span>
@@ -220,7 +220,7 @@ export function IntegrationsSettings() {
               </div>
               {health.lastChecked && (
                 <div className="flex items-center justify-between text-xs mt-1.5">
-                  <span className="text-[var(--text-tertiary)]">{t("integrations.mcpInfo.lastChecked")}</span>
+                  <span className="text-[var(--text-secondary)]">{t("integrations.mcpInfo.lastChecked")}</span>
                   <span className="text-[var(--text-secondary)]">
                     {health.lastChecked.toLocaleTimeString()}
                   </span>
@@ -233,20 +233,16 @@ export function IntegrationsSettings() {
         {/* Diagnostics section - always visible */}
         <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => void runHealthCheck()}
+            <Button
+              size="sm"
               disabled={isChecking}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
-                bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
-                hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
-                disabled:opacity-50 disabled:cursor-not-allowed
-                transition-colors"
+              onClick={() => void runHealthCheck()}
+              icon={isChecking ? <span className="vm-spinner" /> : <RefreshCw size={12} />}
             >
-              <RefreshCw size={12} className={isChecking ? "animate-spin" : ""} />
               {running ? t("integrations.mcpDiag.testConnection") : t("integrations.mcpDiag.checkSidecar")}
-            </button>
+            </Button>
             {!running && health.version && (
-              <span className="text-xs text-[var(--text-tertiary)]">
+              <span className="text-xs text-[var(--text-secondary)]">
                 {t("integrations.mcpDiag.sidecarInfo", { version: health.version, count: health.toolCount ?? 0 })}
               </span>
             )}
@@ -297,29 +293,25 @@ function AiProviderSettings() {
         label={t("integrations.detectCli.label")}
         description={t("integrations.detectCli.description")}
       >
-        <button
-          onClick={handleDetect}
+        <Button
+          size="sm"
           disabled={detecting}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md
-            bg-[var(--bg-tertiary)] text-[var(--text-secondary)]
-            hover:bg-[var(--hover-bg-strong)] hover:text-[var(--text-color)]
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors"
+          onClick={handleDetect}
+          icon={detecting ? <span className="vm-spinner" /> : <RefreshCw size={12} />}
         >
-          <RefreshCw size={12} className={detecting ? "animate-spin" : ""} />
           {t("integrations.detectCli.button")}
-        </button>
+        </Button>
       </SettingRow>
 
       {/* CLI providers */}
       {cliProviders.length > 0 && (
         <div className="mt-2 px-1" role="radiogroup" aria-label={t("integrations.aiProviders.cliProviders")}>
-          <div className="text-xs text-[var(--text-tertiary)] mb-1">{t("integrations.aiProviders.cliProviders")}</div>
+          <div className="text-xs text-[var(--text-secondary)] mb-1">{t("integrations.aiProviders.cliProviders")}</div>
           {cliProviders.map((p) => (
             <div
               key={p.type}
               className={`flex items-center gap-2 text-xs py-1.5 ${
-                !p.available ? "opacity-50" : "cursor-pointer"
+                !p.available ? "opacity-[var(--opacity-disabled)]" : "cursor-pointer"
               }`}
               onClick={() => p.available && handleActivate(p.type)}
             >
@@ -340,7 +332,7 @@ function AiProviderSettings() {
                 className={`ml-auto text-xs ${
                   p.available
                     ? "text-[var(--success-color)]"
-                    : "text-[var(--text-tertiary)]"
+                    : "text-[var(--text-secondary)]"
                 }`}
               >
                 {p.available ? t("integrations.aiProviders.available") : t("integrations.aiProviders.notFound")}
@@ -352,7 +344,7 @@ function AiProviderSettings() {
 
       {/* REST providers */}
       <div className="mt-3 pt-3 border-t border-[var(--border-color)]" role="radiogroup" aria-label={t("integrations.aiProviders.restProviders")}>
-        <div className="text-xs text-[var(--text-tertiary)] mb-2">
+        <div className="text-xs text-[var(--text-secondary)] mb-2">
           {t("integrations.aiProviders.restProviders")}
         </div>
         {restProviders.map((p) => {

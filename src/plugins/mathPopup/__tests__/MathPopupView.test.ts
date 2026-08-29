@@ -628,7 +628,7 @@ describe("MathPopupView", () => {
 
       const textarea = dom.container.querySelector(".math-popup-input") as HTMLTextAreaElement;
       expect(textarea).not.toBeNull();
-      expect(textarea.placeholder).toBe("Enter LaTeX...");
+      expect(textarea.placeholder).toBe("Enter LaTeX…");
       expect(textarea.rows).toBe(3);
     });
 

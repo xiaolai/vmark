@@ -67,11 +67,11 @@ function FileTypeOverrides() {
         label={t("formats.associations.group")}
         description={t("formats.associations.description")}
       >
-        <div className="text-xs text-[var(--text-tertiary)] py-1">
+        <div className="text-xs text-[var(--text-secondary)] py-1">
           {t("formats.associations.description")}
         </div>
         {entries.length === 0 ? (
-          <div className="text-xs text-[var(--text-tertiary)] py-2 italic">
+          <div className="text-xs text-[var(--text-secondary)] py-2 italic">
             {t("formats.associations.empty")}
           </div>
         ) : (
@@ -90,9 +90,7 @@ function FileTypeOverrides() {
                   <button
                     onClick={() => removeOne(key)}
                     aria-label={t("formats.associations.remove", { key })}
-                    className="p-0.5 rounded text-[var(--text-tertiary)] hover:text-[var(--error-color)]
-                               hover:bg-[var(--hover-bg)] transition-colors
-                               focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1"
+                    className="vm-icon-btn vm-icon-btn--sm vm-icon-btn--danger"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -173,7 +171,7 @@ export function FormatsSettings() {
   return (
     <div>
       <SettingsGroup title={t("formats.group.support")}>
-        <div className="text-xs text-[var(--text-tertiary)] py-1">
+        <div className="text-xs text-[var(--text-secondary)] py-1">
           {t("formats.group.supportDescription")}
         </div>
         <SettingRow
@@ -237,7 +235,7 @@ export function FormatsSettings() {
           label={t("formats.externalEditor.label")}
           description={`${t("formats.group.tooling")} ${t("formats.externalEditor.description")}`}
         >
-        <div className="text-xs text-[var(--text-tertiary)] py-1">
+        <div className="text-xs text-[var(--text-secondary)] py-1">
           {t("formats.group.toolingDescription")}
         </div>
         <div className="py-2.5">
@@ -247,7 +245,7 @@ export function FormatsSettings() {
           >
             {t("formats.externalEditor.label")}
           </div>
-          <div className="text-xs text-[var(--text-tertiary)] mb-2">
+          <div className="text-xs text-[var(--text-secondary)] mb-2">
             {t("formats.externalEditor.description")}
           </div>
           <div className="flex items-end gap-2">

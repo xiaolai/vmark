@@ -36,7 +36,7 @@ describe("FeatureErrorBoundary", () => {
         <ThrowingChild message="boom inside editor" />
       </FeatureErrorBoundary>,
     );
-    expect(screen.queryByText(/Editor failed to render/)).not.toBeNull();
+    expect(screen.queryByText(/Editor stopped working/)).not.toBeNull();
     expect(screen.queryByText(/boom inside editor/)).not.toBeNull();
   });
 
@@ -54,7 +54,7 @@ describe("FeatureErrorBoundary", () => {
         <MaybeThrowing />
       </FeatureErrorBoundary>,
     );
-    expect(screen.queryByText(/Editor failed to render/)).not.toBeNull();
+    expect(screen.queryByText(/Editor stopped working/)).not.toBeNull();
 
     // Simulate the underlying condition being fixed before retry.
     shouldThrow = false;

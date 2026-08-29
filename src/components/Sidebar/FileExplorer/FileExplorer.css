@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: var(--space-1-5) 18px;
+  padding: var(--space-1-5) var(--space-4);
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
@@ -31,39 +31,6 @@
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
-.file-explorer-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.file-explorer-btn:hover {
-  background-color: var(--selection-color);
-  color: var(--text-color);
-}
-
-.file-explorer-btn:focus-visible {
-  outline: none;
-}
-
-.file-explorer-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
 
 /* Sizing frame only — react-window (`.file-explorer-scroller`, inside) is the
  * one scroll container. This element must NOT scroll: it used to say
@@ -99,10 +66,12 @@
 }
 
 .file-node.selected {
-  background-color: var(--subtle-bg-hover);
+  /* R6: selection is the accent wash, like every other selected row. */
+  background-color: var(--accent-bg);
 }
 
 .file-node.active {
+  /* ui-ok(state): the OPEN-document marker — deliberately quieter than the accent selection wash */
   background-color: var(--hover-bg);
 }
 
@@ -118,6 +87,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
   color: var(--text-secondary);
   /* WI-2.1 — reset <button> chrome so the chevron stays visually neutral.
      The chevron is rendered as a real button for keyboard accessibility;
@@ -127,6 +97,17 @@
   padding: 0;
   cursor: pointer;
   font: inherit;
+}
+
+/* D2: the chevron paints small but takes a --target-min hit box. */
+.file-node-arrow::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--target-min);
+  height: var(--target-min);
+  transform: translate(-50%, -50%);
 }
 
 .file-node-arrow:hover {
@@ -147,7 +128,7 @@
   left: var(--space-half);
   right: var(--space-half);
   height: var(--space-half);
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -170,16 +151,13 @@
   white-space: nowrap;
 }
 
+/* One rename treatment: `.vm-input` (WI-UI3.3). */
 .file-node-input {
   flex: 1;
   font-size: var(--font-size-base);
   padding: var(--space-px) var(--space-1);
-  border: none;
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  outline: none;
 }
+
 
 /* focus: caret-only — inline rename field; the caret is the indicator
    (.claude/rules/33-focus-indicators.md §2). */

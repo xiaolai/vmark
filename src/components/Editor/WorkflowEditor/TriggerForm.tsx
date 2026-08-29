@@ -108,7 +108,7 @@ function FilterField({
     <label className="workflow-form__field workflow-form__field--inline">
       <span className="workflow-form__label">{label}</span>
       <input
-        className="workflow-form__input workflow-form__input--mono"
+        className="vm-input vm-input--field vm-input--mono workflow-form__input"
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}

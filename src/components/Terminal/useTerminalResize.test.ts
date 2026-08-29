@@ -6,10 +6,19 @@
  * core regression risk when adding top/left positions).
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// getAvailableDimension resolves the top strip from usesOverlayTitleBar() at
+// module load — pin the macOS (overlay) branch so the 40+40 maths hold in
+// jsdom (WI-UI3.5).
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
+  usesOverlayTitleBar: () => true,
+}));
 import { renderHook } from "@testing-library/react";
 import { useTerminalResize } from "./useTerminalResize";
 import { useUIStore, TERMINAL_MAX_RATIO } from "@/stores/uiStore";
 import type { EffectiveTerminalPosition } from "@/stores/uiStore";
+import { BAR_HEIGHT } from "@/shell/shellChrome";
 
 // Persisting the ratio on mouseup is a side effect the drag tests don't care
 // about; the maximize tests DO need to read panelRatio, so the mock is stateful.
@@ -91,7 +100,7 @@ describe("toggleMaximize (WI-4.5 / F6)", () => {
   const WINDOW_W = 1600;
   // getAvailableDimension subtracts the 40px titlebar + 40px statusbar on the
   // vertical axis, and the sidebar width on the horizontal axis.
-  const AVAILABLE_V = WINDOW_H - 80;
+  const AVAILABLE_V = WINDOW_H - 2 * BAR_HEIGHT;
   const AVAILABLE_H = WINDOW_W;
 
   beforeEach(() => {
@@ -222,7 +231,7 @@ describe("double-click maximize through the real DOM event sequence (WI-4.5)", (
   // back as the stored ratio BEFORE toggleMaximize() read it — so "restore"
   // restored to the maximized size and the toggle became one-way.
   const WINDOW_H = 1000;
-  const AVAILABLE_V = WINDOW_H - 80;
+  const AVAILABLE_V = WINDOW_H - 2 * BAR_HEIGHT;
 
   beforeEach(() => {
     settingsState.terminal.panelRatio = 0.4;

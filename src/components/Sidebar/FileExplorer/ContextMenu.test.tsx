@@ -21,7 +21,7 @@ vi.mock("react-i18next", () => ({
         "contextMenu.open": "Open",
         "contextMenu.rename": "Rename",
         "contextMenu.duplicate": "Duplicate",
-        "contextMenu.moveTo": "Move to...",
+        "contextMenu.moveTo": "Move to…",
         "contextMenu.delete": "Delete",
         "contextMenu.copyPath": "Copy Path",
         "contextMenu.revealInFinder": "Reveal in Finder",
@@ -31,7 +31,7 @@ vi.mock("react-i18next", () => ({
         newFile: "New File",
         newFolder: "New Folder",
         "contextMenu.openTerminalHere": "Open Terminal Here",
-        "contextMenu.openTerminalHereMax": "Open Terminal Here (max 5 sessions)",
+        "contextMenu.openTerminalHereMax": "Open Terminal Here (Max 5 Sessions)",
       };
       return map[key] ?? key;
     },

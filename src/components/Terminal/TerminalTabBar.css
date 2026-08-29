@@ -1,8 +1,8 @@
 .terminal-tab-bar {
+  /* Component-scoped local (rule 31 sanctions these): the rail's own width —
+     no global token means "icon rail width". */
   --tab-bar-width: 28px;
   --tab-size: 20px;
-  --tab-font-size: 11px;
-  --tab-icon-size: 12px;
 
   display: flex;
   flex-direction: column;
@@ -20,7 +20,7 @@
 .terminal-tab-bar--horizontal {
   flex-direction: row;
   width: 100%;
-  height: 40px;
+  height: var(--bar-height);
   padding: 0 var(--space-2);
 }
 
@@ -40,6 +40,7 @@
 }
 
 .terminal-tab {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -47,9 +48,9 @@
   height: var(--tab-size);
   padding: 0;
   border: none;
-  font-size: var(--tab-font-size);
+  font-size: var(--font-size-xs);
   font-family: var(--font-mono);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -59,28 +60,36 @@
 /* Inline rename box (WI-4.1). It occupies the tab's slot, so it inherits the
    tab metrics and only overrides what a text field needs. Wider than a tab so
    a name is actually legible while typing. */
+/* One rename treatment: `.vm-input` (WI-UI3.3) — but `.vm-input` lives in the
+   early main chunk while `.terminal-tab` is emitted in the lazy Terminal
+   chunk, so at equal specificity `.terminal-tab`'s border: none / secondary
+   ink / mono face beat it. The properties a text field needs are re-declared
+   HERE (same file, after `.terminal-tab`, so source order settles it). */
 .terminal-tab-rename {
   width: auto;
   min-width: calc(var(--tab-size) * 4);
   padding: 0 var(--space-1);
   text-align: center;
-  font-family: var(--font-sans);
+  border-bottom: var(--border-thin) solid var(--border-color);
   color: var(--text-color);
-  background: var(--bg-color);
-  border: var(--border-thin) solid var(--accent-primary);
-  outline: none;
+  font-family: var(--font-ui);
+  cursor: text;
 }
 
+
 /* Focus indicator (rule 33): the box is autofocused and unmounts on blur, so
-   it is effectively always focused — the persistent accent border above IS the
-   indicator, reinforced here with the selection background so the state is
-   carried by more than colour alone. */
+   it is effectively always focused — the bottom border above turns accent
+   here, reinforced with the selection background so the state is carried by
+   more than colour alone. */
 .terminal-tab-rename:focus {
   background: var(--accent-bg);
   border-color: var(--accent-primary);
 }
 
-.terminal-tab:hover {
+/* :not(.terminal-tab-rename): the rename input shares the .terminal-tab class
+   for metrics, and this later equal-specificity rule would repaint its focused
+   accent background hover-grey the moment the pointer rests on it. */
+.terminal-tab:hover:not(.terminal-tab-rename) {
   background: var(--hover-bg);
   color: var(--text-color);
 }
@@ -97,6 +106,16 @@
 
 .terminal-tab-dead.terminal-tab-active {
   opacity: 1;
+}
+
+/* R13: state never rides on colour alone — a dead session also shows a ×
+   (and its accessible name says "(exited)"). */
+.terminal-tab-dead-glyph {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  font-size: var(--font-size-2xs);
+  line-height: 1;
 }
 
 /* Background-activity indicator (WI-4.3): a small accent dot top-right of a
@@ -123,45 +142,15 @@
   gap: var(--space-half);
 }
 
-.terminal-tab-bar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--tab-size);
-  height: var(--tab-size);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: background-color var(--duration-base) ease, color var(--duration-base) ease;
-}
+/* Action buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3). */
 
-.terminal-tab-bar-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.terminal-tab-bar-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-.terminal-tab-bar-btn svg {
-  width: var(--tab-icon-size);
-  height: var(--tab-icon-size);
-}
-
-/* Focus indicators (accessibility) */
-.terminal-tab:focus-visible,
-.terminal-tab-bar-btn:focus-visible {
+/* Focus indicator for the numbered session tabs (rule 33). */
+.terminal-tab:focus-visible {
   outline: none;
   position: relative;
 }
 
-.terminal-tab:focus-visible::after,
-.terminal-tab-bar-btn:focus-visible::after {
+.terminal-tab:focus-visible::after {
   content: '';
   position: absolute;
   bottom: 1px;
@@ -170,4 +159,12 @@
   height: 2px;
   background: var(--accent-primary);
   border-radius: 1px;
+}
+
+
+/* WI-UI4.5 (R13): the active session survives forced-colors mode. */
+@media (forced-colors: active) {
+  .terminal-tab-active {
+    border: 1px solid CanvasText;
+  }
 }

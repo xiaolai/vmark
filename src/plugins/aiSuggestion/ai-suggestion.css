@@ -63,6 +63,9 @@
 
 /* Button base styles - icon only, no background */
 .ai-suggestion-btn {
+  /* ui-ok(target): inline affordance inside the text line — the accept/reject
+     pair sit adjacent in a line box, so 24px hit boxes would overlap each
+     other and the line above (D2 exemption, WI-UI2.3) */
   position: relative;
   display: inline-flex;
   align-items: center;

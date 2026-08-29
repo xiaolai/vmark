@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP pronto · Nessuna IA connessa",
   "mcpConnected": "Connesso: {{clients}}",
   "mcpHistoryTitle": "Cronologia scritture MCP ({{count}})",
-  "mcpHistoryEmpty": "Nessuna scrittura MCP registrata per questa scheda",
+  "mcpHistoryEmpty": "Nessuna scrittura MCP per questa scheda. Le modifiche dell'IA appariranno qui.",
   "mcpHistoryClear": "Cancella la cronologia di questa scheda",
   "mcpHistoryRestore": "Ripristina allo stato precedente a questa scrittura",
   "mcpHistoryRestored": "Ripristinato allo stato precedente a {{tool}}",
@@ -26,7 +26,7 @@
   "readOnly": "Sola lettura",
   "editable": "Modificabile",
   "sourceModeTitle": "Modalità sorgente ({{shortcut}})",
-  "richTextModeTitle": "Modalità testo formattato ({{shortcut}})",
+  "richTextModeTitle": "Modalità WYSIWYG ({{shortcut}})",
   "cancelAiRequest": "Annulla richiesta IA",
   "cancelAiTitle": "Annulla",
   "dismissError": "Ignora errore",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "Passa questo documento dalla modalità Sorgente al WYSIWYG",
   "tabStrip": "Schede aperte",
   "scrollTabsLeft": "Scorri le schede a sinistra",
-  "scrollTabsRight": "Scorri le schede a destra"
+  "scrollTabsRight": "Scorri le schede a destra",
+  "terminal.sessionExited": "{{name}} (terminato)",
+  "terminal.backgroundActivity": "Attività in background"
 }

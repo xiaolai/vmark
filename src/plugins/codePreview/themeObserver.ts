@@ -60,8 +60,7 @@ export function setupThemeObserver() {
     // Both renderers are evaluated together and the previews refreshed AT
     // MOST ONCE — a dark-mode flip changes both snapshots, and refreshing
     // per-renderer dispatched two invalidation transactions per view.
-    const isDark = document.documentElement.classList.contains("dark");
-    void Promise.allSettled([updateMermaidTheme(), updateMarkmapTheme(isDark)]).then(
+    void Promise.allSettled([updateMermaidTheme(), updateMarkmapTheme()]).then(
       ([mermaidResult, markmapResult]) => {
         if (mermaidResult.status === "rejected") {
           diagramWarn("Mermaid theme update failed:", errorMessage(mermaidResult.reason));

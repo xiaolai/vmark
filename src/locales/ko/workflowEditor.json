@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "중복된 키 — 다른 행에서 이미 설정됨",
   "form.step.uses.label": "사용",
   "form.trigger.kind": "트리거",
-  "form.trigger.empty": "구성된 트리거가 없습니다",
+  "form.trigger.empty": "구성된 트리거가 없습니다. 추가하여 이 워크플로의 실행 시점을 정하세요.",
   "form.trigger.branches": "브랜치: {{value}}",
   "form.trigger.branchesIgnore": "제외할 브랜치: {{value}}",
   "form.trigger.tags": "태그: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "run 펼치기",
   "expression.title.if": "if 편집",
   "expression.title.run": "run 편집",
-  "panel.noWorkflow": "워크플로가 감지되지 않았습니다",
+  "panel.noWorkflow": "워크플로가 감지되지 않았습니다. .github/workflows의 YAML 파일을 열면 편집기를 사용할 수 있습니다.",
   "panel.conditional": "조건부",
   "panel.shell.resize": "창 크기 조절",
   "panel.viewerAriaLabel": "GitHub Actions 워크플로 뷰어",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(기본값: {{value}})",
   "panel.exportLabel": "워크플로 다이어그램 내보내기",
   "panel.exportError": "내보내기 실패",
-  "settings.groupTitle": "워크플로 파일"
+  "settings.groupTitle": "워크플로 파일",
+  "form.job.delete.confirm": "작업 “{{id}}”을(를) 삭제할까요? 저장 전에는 되돌릴 수 없습니다.",
+  "form.job.steps.deleteConfirm": "단계 “{{label}}”을(를) 삭제할까요?"
 }

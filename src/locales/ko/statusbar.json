@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP 준비됨 · AI 미연결",
   "mcpConnected": "연결됨: {{clients}}",
   "mcpHistoryTitle": "MCP 쓰기 기록 ({{count}})",
-  "mcpHistoryEmpty": "이 탭에 기록된 MCP 쓰기가 없습니다",
+  "mcpHistoryEmpty": "이 탭에는 MCP 기록이 없습니다. AI 편집이 여기에 표시됩니다.",
   "mcpHistoryClear": "이 탭의 기록 지우기",
   "mcpHistoryRestore": "이 쓰기 이전 상태로 복원",
   "mcpHistoryRestored": "{{tool}} 이전 상태로 복원했습니다",
@@ -26,7 +26,7 @@
   "readOnly": "읽기 전용",
   "editable": "편집 가능",
   "sourceModeTitle": "소스 모드 ({{shortcut}})",
-  "richTextModeTitle": "서식 있는 텍스트 모드 ({{shortcut}})",
+  "richTextModeTitle": "WYSIWYG 모드({{shortcut}})",
   "cancelAiRequest": "AI 요청 취소",
   "cancelAiTitle": "취소",
   "dismissError": "오류 닫기",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "이 문서를 소스 모드에서 WYSIWYG로 전환",
   "tabStrip": "열린 탭",
   "scrollTabsLeft": "탭을 왼쪽으로 스크롤",
-  "scrollTabsRight": "탭을 오른쪽으로 스크롤"
+  "scrollTabsRight": "탭을 오른쪽으로 스크롤",
+  "terminal.sessionExited": "{{name}} (종료됨)",
+  "terminal.backgroundActivity": "백그라운드 활동"
 }

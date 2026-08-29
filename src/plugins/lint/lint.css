@@ -64,6 +64,12 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
+}
+
+/* WI-UI1.8 (C10/rule 33 §4): visible keyboard focus. */
+.lint-badge:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }

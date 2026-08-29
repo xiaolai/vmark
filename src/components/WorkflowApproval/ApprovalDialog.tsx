@@ -82,9 +82,9 @@ export function ApprovalDialog() {
   if (!pending) return null;
 
   return (
-    <div className="approval-dialog__backdrop" role="presentation">
+    <div className="vm-overlay vm-overlay--center approval-dialog__backdrop" role="presentation">
       <div
-        className="approval-dialog"
+        className="vm-overlay__panel approval-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="approval-dialog-title"

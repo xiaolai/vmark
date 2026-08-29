@@ -61,7 +61,7 @@ export function ConcurrencyForm({
           {t("form.concurrency.group", { defaultValue: "Group" })}
         </span>
         <input
-          className="workflow-form__input workflow-form__input--mono"
+          className="vm-input vm-input--field vm-input--mono workflow-form__input"
           type="text"
           value={group}
           placeholder="ci-${{ github.ref }}"
@@ -72,6 +72,7 @@ export function ConcurrencyForm({
       <label className="workflow-form__field workflow-form__field--inline">
         <input
           type="checkbox"
+          className="workflow-form__checkbox"
           checked={cancelInProgress}
           disabled={!group || isExpressionCancel}
           onChange={(e) => {

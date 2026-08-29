@@ -54,7 +54,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
 
   protected buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "source-link-popup";
+    container.className = "popup-container source-link-popup";
 
     // Row 1: URL input + buttons
     const hrefRow = document.createElement("div");
@@ -76,7 +76,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
     this.openBtn.classList.add("source-link-popup-btn-open");
     const copyBtn = buildSourceLinkBtn(popupIcons.copy, i18n.t("editor:popup.link.copyUrl"), this.handleCopy.bind(this));
     const deleteBtn = buildSourceLinkBtn(popupIcons.delete, i18n.t("editor:popup.link.remove"), this.handleRemove.bind(this));
-    deleteBtn.classList.add("source-link-popup-btn-delete");
+    deleteBtn.classList.add("popup-icon-btn--danger", "source-link-popup-btn-delete");
 
     hrefRow.appendChild(this.hrefInput);
     hrefRow.appendChild(this.openBtn);

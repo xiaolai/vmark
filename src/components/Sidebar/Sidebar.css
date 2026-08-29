@@ -30,6 +30,16 @@
   transition: background-color var(--duration-base) ease;
 }
 
+/* D2: paint stays 4px; the grab area is 12px. */
+.sidebar-resize-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
+
 .sidebar-resize-handle:hover,
 .sidebar-resize-handle:active {
   background-color: var(--border-color);
@@ -43,51 +53,9 @@
   gap: var(--space-2);
 }
 
-.sidebar-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-lg);
-  height: var(--icon-size-lg);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.sidebar-btn:hover:not(:disabled) {
-  background-color: var(--selection-color);
-  color: var(--text-color);
-}
-
-.sidebar-btn:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* Toggle buttons (show-all-files) advertise their on state — the tree content
-   alone is ambiguous when a folder is genuinely empty (#1224). */
-.sidebar-btn[aria-pressed="true"] {
-  background-color: var(--accent-bg);
-  color: var(--accent-primary);
-}
-
-.sidebar-btn:focus-visible {
-  outline: none;
-}
-
-.sidebar-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
+/* Header/footer buttons are the canonical `.vm-icon-btn--lg` (WI-UI2.3);
+   rest/hover/pressed/focus and the aria-pressed accent all come from
+   src/styles/icon-button-shared.css. */
 
 .sidebar-title {
   flex: 1;
@@ -126,18 +94,8 @@
  * The file tree's real scroller is react-window's outer div
  * (`.file-explorer-scroller`); the outline's is `.sidebar-content` itself.
  * Left as-is, the file tree fell through to the global 10px scrollbar. */
-.sidebar-content::-webkit-scrollbar {
-  width: 2px;
-}
+/* Thin scrollbar comes from `.vm-scroll--thin` (WI-UI3.4). */
 
-.sidebar-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-content::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 1px;
-}
 
 .sidebar-view {
   padding: var(--space-2);
@@ -171,33 +129,6 @@
   flex-shrink: 0;
 }
 
-.file-remove-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-btn-xs);
-  height: var(--size-btn-xs);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--duration-base) ease;
-}
-
-.file-remove-btn:hover {
-  background-color: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.file-remove-btn:focus-visible {
-  opacity: 1;
-  outline: none;
-  background-color: var(--accent-bg);
-  color: var(--accent-primary);
-}
-
 /* Outline view */
 .outline-view {
   padding: 0 var(--space-2) var(--space-2) 0;
@@ -224,17 +155,13 @@
   color: var(--text-secondary);
 }
 
+/* `.vm-input--bare` (WI-UI3.3): the filter row draws its own boundary. */
 .outline-filter-input {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-color);
-  outline: none;
-  font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
   padding: var(--space-half) 0;
 }
+
 
 .outline-filter-input::placeholder {
   color: var(--text-secondary);
@@ -300,7 +227,7 @@
 
 .outline-item.active {
   background-color: var(--accent-bg);
-  color: var(--accent-primary);
+  color: var(--text-color); /* R6 — selection keeps its ink */
 }
 
 .outline-toggle {
@@ -316,8 +243,20 @@
   color: var(--text-secondary);
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
   /* Keep chevron optically aligned with the first line of (possibly wrapped) text. */
   margin-top: var(--space-px);
+}
+
+/* D2: the chevron paints 18px but takes a --target-min hit box. */
+.outline-toggle::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--target-min);
+  height: var(--target-min);
+  transform: translate(-50%, -50%);
 }
 
 .outline-toggle:hover {
@@ -326,6 +265,7 @@
 }
 
 .outline-toggle-spacer {
+  /* ui-ok(target): alignment ghost for rows without a chevron — not interactive */
   width: var(--size-icon-medium);
   height: var(--size-icon-medium);
   flex-shrink: 0;
@@ -384,7 +324,7 @@
   left: 2px;
   right: 2px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -436,35 +376,16 @@
   color: var(--text-secondary);
 }
 
-.history-revert-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
+/* Row actions are canonical `.vm-icon-btn--sm`; the row owns only the
+   reveal-on-hover behaviour. */
+.history-action {
   opacity: 0;
   transition: opacity var(--duration-base) ease;
 }
 
-.history-item:hover .history-revert-btn {
+.history-item:hover .history-action,
+.history-action:focus-visible {
   opacity: 1;
-}
-
-.history-revert-btn:hover {
-  background-color: var(--hover-bg);
-  color: var(--text-color);
-}
-
-.history-revert-btn:focus-visible {
-  opacity: 1;
-  outline: none;
-  background-color: var(--accent-bg);
-  color: var(--accent-primary);
 }
 
 .history-item-actions {
@@ -473,33 +394,14 @@
   gap: var(--space-half);
 }
 
-.history-delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--duration-base) ease;
-}
-
-.history-item:hover .history-delete-btn {
-  opacity: 1;
-}
-
-.history-delete-btn:hover {
-  background-color: var(--hover-bg);
-  color: var(--error-color);
-}
-
-.history-delete-btn:focus-visible {
-  opacity: 1;
+/* WI-UI1.8 (C10): the resize handle is keyboard-reachable — paint its focus. */
+.sidebar-resize-handle:focus-visible {
   outline: none;
-  background-color: var(--accent-bg);
-  color: var(--error-color);
+  background: var(--accent-primary);
+}
+
+/* focus: caret-only — borderless finder/popup input; the caret is the
+   indicator (rule 33 §2, WI-UI1.8). */
+.outline-filter-input:focus {
+  outline: none;
 }

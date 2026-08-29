@@ -23,7 +23,7 @@ export function createCodeActionButton(
   onClick: (e: MouseEvent) => void
 ): HTMLButtonElement {
   const btn = document.createElement("button");
-  btn.className = "code-copy-btn";
+  btn.className = "vm-icon-btn vm-icon-btn--sm code-copy-btn";
   btn.dataset.codeAction = action;
   btn.innerHTML = icon;
   applyActionLabel(btn, labelKey);

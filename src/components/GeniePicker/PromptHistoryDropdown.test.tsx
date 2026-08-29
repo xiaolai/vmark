@@ -53,7 +53,7 @@ describe("PromptHistoryDropdown", () => {
         />
       );
 
-      expect(screen.getByText("No history")).toBeInTheDocument();
+      expect(screen.getByText("No history yet. Prompts you send will appear here.")).toBeInTheDocument();
     });
 
     it("does not render header when entries is empty", () => {

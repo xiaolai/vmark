@@ -43,7 +43,7 @@ const PRIMITIVES = `
   --border-medium: 2px;
   --border-thick: 4px;
   --border-thin: 1px;
-  --code-bg-color: #e5e4e4;
+  --code-bg-color: var(--bg-secondary);
   --code-text-color: #1a1a1a;
   --contrast-text: white;
   --duration-1s: 1s;
@@ -55,21 +55,21 @@ const PRIMITIVES = `
   --emphasis-color: rgb(91, 4, 17);
   --error-bg: #ffebe9;
   --error-color: #cf222e;
-  --font-mono: "SauceCodePro NF", "Courier New", Consolas,
-    monospace;
-  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "SF Pro SC",
-    "SF Pro Text", "Helvetica Neue", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Oxygen, Ubuntu, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-ui: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-size-base: 13px;
   --font-size-sm: 12px;
   --font-size-xs: 11px;
   --highlight-bg: #fff3a3;
   --highlight-text: inherit;
   --hover-bg: rgba(0, 0, 0, 0.04);
-  --icon-size-sm: 22px;
+  --icon-size-sm: 24px;
+  --target-min: 24px;
+  --line-height-tight: 1.25;
   --line-height-normal: 1.5;
   --md-char-color: #777777;
-  --meta-content-color: #777777;
+  --meta-content-color: var(--md-char-color);
   --opacity-half-faded: 0.7;
   --opacity-muted: 0.5;
   --popup-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -80,7 +80,6 @@ const PRIMITIVES = `
   --radius-pill: 100px;
   --radius-sm: 4px;
   --selection-color: rgba(0, 102, 204, 0.2);
-  --size-btn-sm: 24px;
   --space-1: 4px;
   --space-1-5: 6px;
   --space-10: 40px;
@@ -94,8 +93,25 @@ const PRIMITIVES = `
   --subtle-bg-hover: rgba(0, 0, 0, 0.03);
   --success-color: #16a34a;
   --success-color-dark: #4ade80;
-  --table-border-color: #d5d4d4;
+  --table-border-color: var(--border-color);
   --text-color: #1a1a1a;
+  --quote-text: var(--text-secondary);
+  --syntax-keyword: #b3303d;
+  --syntax-type: #6f42c1;
+  --syntax-function: #6f42c1;
+  --syntax-property: #005cc5;
+  --syntax-variable: #1a1a1a;
+  --syntax-string: #032f62;
+  --syntax-number: #005cc5;
+  --syntax-operator: #b3303d;
+  --syntax-punctuation: #1a1a1a;
+  --syntax-comment: #5b626b;
+  --syntax-escape: #005cc5;
+  --syntax-constant: #005cc5;
+  --syntax-attribute: #6f42c1;
+  --syntax-tag: #1d7031;
+  --syntax-link: #032f62;
+  --syntax-invalid: #bd212e;
   --text-secondary: #666666;
   --text-tertiary: #999999;
   --z-popup: 9999;

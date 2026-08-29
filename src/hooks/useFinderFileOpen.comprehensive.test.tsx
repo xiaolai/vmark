@@ -464,9 +464,13 @@ describe("useFinderFileOpen", () => {
     expect(mockCreateTab).toHaveBeenCalled();
     expect(mockLoadContent).not.toHaveBeenCalled();
     expect(mockDetachTab).toHaveBeenCalledWith("main", "new-tab-id");
+    // Two-line contract (WI-UI4.4): the system error is the description line.
     expect(mockToastError).toHaveBeenCalledWith(
-      expect.stringContaining("forbidden path"),
-      expect.objectContaining({ action: expect.any(Object) }),
+      expect.stringContaining("failedToOpenFile"),
+      expect.objectContaining({
+        description: expect.stringContaining("forbidden path"),
+        action: expect.any(Object),
+      }),
     );
     expect(mockSetActiveTab).not.toHaveBeenCalled();
     errorSpy.mockRestore();
@@ -498,9 +502,13 @@ describe("useFinderFileOpen", () => {
       "/docs/broken.md",
       expect.any(Error)
     );
+    // Two-line contract (WI-UI4.4): the system error is the description line.
     expect(mockToastError).toHaveBeenCalledWith(
-      expect.stringContaining("forbidden path"),
-      expect.objectContaining({ action: expect.any(Object) }),
+      expect.stringContaining("failedToOpenFile"),
+      expect.objectContaining({
+        description: expect.stringContaining("forbidden path"),
+        action: expect.any(Object),
+      }),
     );
     // Tab path must NOT be rewritten to the failed file — the untitled
     // tab stays untitled, ready for the next attempt.

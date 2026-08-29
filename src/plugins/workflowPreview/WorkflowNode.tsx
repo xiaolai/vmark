@@ -34,7 +34,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps<WorkflowNodeType>) {
         <span className="workflow-node__icon">{data.icon}</span>
         <span className="workflow-node__label">{data.label}</span>
         {data.status === "running" && (
-          <span className="workflow-node__spinner" aria-label={t("running")} />
+          <span className="vm-spinner workflow-node__spinner" aria-label={t("running")} />
         )}
         {data.status === "success" && (
           <span className="workflow-node__status-icon">✓</span>

@@ -41,6 +41,7 @@
 
 /* Horizontal resize handle (bottom position — top edge) */
 .terminal-resize-handle--horizontal {
+  position: relative;
   height: var(--space-1);
   width: 100%;
   background: transparent;
@@ -49,18 +50,39 @@
   flex-shrink: 0;
 }
 
+/* D2: paint stays 4px; the grab area is 12px. */
+.terminal-resize-handle--horizontal::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+}
+
 .terminal-resize-handle--horizontal:hover {
   background: var(--border-color);
 }
 
 /* Vertical resize handle (right position — left edge) */
 .terminal-resize-handle--vertical {
+  position: relative;
   width: var(--space-1);
   height: 100%;
   background: transparent;
   cursor: col-resize;
   transition: background var(--duration-base);
   flex-shrink: 0;
+}
+
+/* D2: paint stays 4px; the grab area is 12px. */
+.terminal-resize-handle--vertical::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
 }
 
 .terminal-resize-handle--vertical:hover {
@@ -90,19 +112,26 @@
 .terminal-container {
   width: 100%;
   height: 100%;
-  padding: var(--space-1) 0 0 1em;
+  padding: var(--space-1) 0 0 var(--space-4); /* was 1em of the body basis (WI-UI2.1/3.6) */
 }
 
 /* Tighter horizontal padding when terminal is on a side (left/right) */
 .terminal-panel--right .terminal-container,
 .terminal-panel--left .terminal-container {
-  padding: var(--space-1) 1em 0 1em;
+  padding: var(--space-1) var(--space-4) 0 var(--space-4); /* was 1em of the body basis (WI-UI2.1/3.6) */
 }
 
 /* xterm.js v6 uses a custom DOM scrollbar (.xterm-scrollable-element > .scrollbar).
    The old ::-webkit-scrollbar rules on .xterm-viewport no longer apply. */
 .terminal-container .xterm .xterm-scrollable-element > .scrollbar > .slider {
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* The viewport keeps a stale canvas-black underlay between theme repaints on
+   some GPUs — pin it to the page colour so a light theme never flashes a
+   black strip behind the cells (WI-UI1.4). */
+.terminal-panel .xterm-viewport {
+  background: var(--bg-color);
 }
 
 /* Exit-status gutter decorations (WI-3.4). xterm positions the decoration

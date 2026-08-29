@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { FOCUS_DIM_OPACITY } from "@/hooks/useTheme";
+import { selectableThemeIds } from "@/theme/themeAvailability";
 
 // The swatch row only offers themes whose native chrome the platform can
 // match (theme/themeAvailability.ts), so the platform is pinned rather than
@@ -221,5 +222,45 @@ describe("AppearanceSettings — theme picker narrowing (Windows/Linux)", () => 
     render(<AppearanceSettings />);
     fireEvent.click(screen.getByRole("button", { name: /night/i }));
     expect(useSettingsStore.getState().appearance.theme).toBe("night");
+  });
+});
+
+// WI-UI1.6 — the selected swatch ring is token-backed; Tailwind palette
+// classes (ring-gray-*) bypass the theme system and wore a fixed grey on
+// every theme (plus a white offset halo on dark ones).
+describe("AppearanceSettings — swatch ring uses tokens, not the Tailwind palette", () => {
+  it("renders no palette colour class anywhere in the surface", () => {
+    const { container } = render(<AppearanceSettings />);
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/ring-(?:gray|slate|zinc|neutral|stone)-\d/);
+    expect(html).not.toMatch(/dark:ring-gray/);
+  });
+});
+
+// WI-UI4.6 — the swatch is a MINI PAGE from the typed catalog, not a colour
+// dot: an "Aa" specimen in the theme's ink on its paper, a description
+// phrase, and a Light/Dark badge from isDark. A 1.00:1 fill (night swatch on
+// a night page) no longer matters — the specimen carries the identity.
+describe("theme swatches are mini pages (WI-UI4.6)", () => {
+  it("renders one specimen tile + description per selectable theme, no palette class", () => {
+    platform.isMac = true;
+    render(<AppearanceSettings />);
+    const tiles = document.querySelectorAll("[data-theme-swatch]");
+    expect(tiles.length).toBe(selectableThemeIds(true).length);
+    for (const tile of tiles) {
+      expect(tile.querySelector("[data-swatch-specimen]")?.textContent).toBe("Aa");
+      expect(tile.className).not.toMatch(/bg-\[#|palette/);
+    }
+    // description phrases come from the new keys (surfaced as the tooltip)
+    expect(
+      document.querySelector("[data-theme-swatch='paper']")?.closest("button")?.getAttribute("title"),
+    ).toContain("Warm newsprint");
+  });
+
+  it("dark themes carry the Dark badge from the catalog's isDark", () => {
+    platform.isMac = true;
+    render(<AppearanceSettings />);
+    const night = document.querySelector("[data-theme-swatch='night']")?.parentElement;
+    expect(night?.textContent).toContain("Dark");
   });
 });

@@ -212,10 +212,10 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const placeholder = isWorkspaceMode ? t("quickOpen.placeholder") : t("quickOpen.recentPlaceholder");
 
   return createPortal(
-    <div className="quick-open-backdrop">
+    <div className="vm-overlay vm-overlay--top quick-open-backdrop">
       <div
         ref={containerRef}
-        className="quick-open"
+        className="vm-overlay__panel quick-open"
         onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
@@ -224,7 +224,7 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
         <div className="quick-open-header">
           <input
             ref={inputRef}
-            className="quick-open-input"
+            className="vm-overlay__input quick-open-input"
             type="text"
             placeholder={placeholder}
             value={filter}
@@ -244,7 +244,7 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
           />
         </div>
 
-        <div className="quick-open-list" ref={listRef} id="quick-open-list" role="listbox">
+        <div className="vm-scroll--thin quick-open-list" ref={listRef} id="quick-open-list" role="listbox">
           <QuickOpenList
             rankedItems={rankedItems}
             selectedIndex={selectedIndex}
@@ -255,11 +255,11 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
           />
         </div>
 
-        <div className="quick-open-footer">
+        <div className="vm-overlay__footer quick-open-footer">
           <span className="quick-open-footer-hint">
-            <kbd className="quick-open-kbd">&uarr;&darr;</kbd> {t("quickOpen.hintNavigate")}{" "}
-            <kbd className="quick-open-kbd">Enter</kbd> {t("quickOpen.hintOpen")}{" "}
-            <kbd className="quick-open-kbd">Esc</kbd> {t("quickOpen.hintClose")}
+            <kbd className="vm-overlay__kbd">&uarr;&darr;</kbd> {t("quickOpen.hintNavigate")}{" "}
+            <kbd className="vm-overlay__kbd">Enter</kbd> {t("quickOpen.hintOpen")}{" "}
+            <kbd className="vm-overlay__kbd">Esc</kbd> {t("quickOpen.hintClose")}
           </span>
         </div>
       </div>

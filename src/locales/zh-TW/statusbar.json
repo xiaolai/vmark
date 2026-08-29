@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP 已就緒 · 無 AI 連線",
   "mcpConnected": "已連線：{{clients}}",
   "mcpHistoryTitle": "MCP 寫入歷史({{count}})",
-  "mcpHistoryEmpty": "此分頁沒有記錄任何 MCP 寫入",
+  "mcpHistoryEmpty": "此分頁尚無 MCP 寫入記錄。AI 的編輯會顯示在這裡。",
   "mcpHistoryClear": "清除此分頁的歷史記錄",
   "mcpHistoryRestore": "還原到此次寫入之前",
   "mcpHistoryRestored": "已還原到 {{tool}} 之前",
@@ -26,7 +26,7 @@
   "readOnly": "唯讀",
   "editable": "可編輯",
   "sourceModeTitle": "原始碼模式（{{shortcut}}）",
-  "richTextModeTitle": "富文字模式（{{shortcut}}）",
+  "richTextModeTitle": "WYSIWYG 模式（{{shortcut}}）",
   "cancelAiRequest": "取消 AI 請求",
   "cancelAiTitle": "取消",
   "dismissError": "關閉錯誤",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "將目前文件由原始碼模式切換為所見即所得",
   "tabStrip": "已開啟的分頁",
   "scrollTabsLeft": "向左捲動分頁",
-  "scrollTabsRight": "向右捲動分頁"
+  "scrollTabsRight": "向右捲動分頁",
+  "terminal.sessionExited": "{{name}}（已退出）",
+  "terminal.backgroundActivity": "背景活動"
 }

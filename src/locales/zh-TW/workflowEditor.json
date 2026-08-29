@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "鍵重複 — 已在其他列中設定",
   "form.step.uses.label": "使用",
   "form.trigger.kind": "觸發器",
-  "form.trigger.empty": "未設定觸發器",
+  "form.trigger.empty": "未設定觸發器。新增一個以決定此工作流程何時執行。",
   "form.trigger.branches": "分支:{{value}}",
   "form.trigger.branchesIgnore": "忽略的分支:{{value}}",
   "form.trigger.tags": "標籤:{{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "展開 run",
   "expression.title.if": "編輯 if",
   "expression.title.run": "編輯 run",
-  "panel.noWorkflow": "未偵測到工作流程",
+  "panel.noWorkflow": "未偵測到工作流程。開啟 .github/workflows 下的 YAML 檔案即可使用編輯器。",
   "panel.conditional": "有條件",
   "panel.shell.resize": "調整窗格大小",
   "panel.viewerAriaLabel": "GitHub Actions 工作流程檢視器",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(預設:{{value}})",
   "panel.exportLabel": "匯出工作流程圖",
   "panel.exportError": "匯出失敗",
-  "settings.groupTitle": "工作流程檔案"
+  "settings.groupTitle": "工作流程檔案",
+  "form.job.delete.confirm": "刪除作業「{{id}}」？儲存前無法復原。",
+  "form.job.steps.deleteConfirm": "刪除步驟「{{label}}」？"
 }

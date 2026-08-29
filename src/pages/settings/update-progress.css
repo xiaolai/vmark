@@ -24,9 +24,3 @@
   }
 }
 
-/* Honour reduced-motion: keep the sliver visible but stop it travelling. */
-@media (prefers-reduced-motion: reduce) {
-  .update-progress-fill--indeterminate {
-    animation: none;
-  }
-}

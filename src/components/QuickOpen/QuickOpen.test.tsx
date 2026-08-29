@@ -178,13 +178,13 @@ describe("QuickOpen", () => {
   it("shows Browse row always", () => {
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);
-    expect(screen.getByText("Browse...")).toBeInTheDocument();
+    expect(screen.getByText("Browse…")).toBeInTheDocument();
   });
 
   it("shows placeholder for non-workspace mode", () => {
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);
-    expect(screen.getByPlaceholderText("Open recent file...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Open recent file…")).toBeInTheDocument();
   });
 
   it("shows workspace placeholder when in workspace mode", () => {
@@ -193,7 +193,7 @@ describe("QuickOpen", () => {
 
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);
-    expect(screen.getByPlaceholderText("Open file...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Open file…")).toBeInTheDocument();
 
     // Restore
     mockWorkspaceState.rootPath = null;
@@ -205,7 +205,7 @@ describe("QuickOpen", () => {
     render(<QuickOpen windowLabel="main" />);
     const input = screen.getByRole("combobox");
     await userEvent.setup().type(input, "xyz_no_match_123");
-    expect(screen.getByText("No files found")).toBeInTheDocument();
+    expect(screen.getByText(/No files found/)).toBeInTheDocument();
   });
 
   it("Enter on Browse row calls handleOpen when no file items exist", () => {
@@ -223,7 +223,7 @@ describe("QuickOpen", () => {
     const dialog = screen.getByRole("dialog");
 
     // Only Browse row exists (totalCount = 1), so ArrowDown wraps back to 0
-    const browseOption = screen.getByText("Browse...").closest("[role='option']");
+    const browseOption = screen.getByText("Browse…").closest("[role='option']");
     expect(browseOption).toHaveAttribute("aria-selected", "true");
 
     fireEvent.keyDown(dialog, { key: "ArrowDown" });
@@ -238,7 +238,7 @@ describe("QuickOpen", () => {
 
     // selectedIndex starts at 0, ArrowUp: (0 - 1 + 1) % 1 = 0
     fireEvent.keyDown(dialog, { key: "ArrowUp" });
-    const browseOption = screen.getByText("Browse...").closest("[role='option']");
+    const browseOption = screen.getByText("Browse…").closest("[role='option']");
     expect(browseOption).toHaveAttribute("aria-selected", "true");
   });
 
@@ -268,7 +268,7 @@ describe("QuickOpen", () => {
   it("clicking Browse row calls handleOpen", () => {
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);
-    const browseRow = screen.getByText("Browse...").closest("[role='option']")!;
+    const browseRow = screen.getByText("Browse…").closest("[role='option']")!;
     fireEvent.click(browseRow);
     expect(mockHandleOpen).toHaveBeenCalledWith("main");
     expect(useQuickOpenStore.getState().isOpen).toBe(false);
@@ -401,7 +401,7 @@ describe("QuickOpen with file items", () => {
   it("mouseEnter on Browse row selects it", () => {
     useQuickOpenStore.setState({ isOpen: true });
     render(<QuickOpen windowLabel="main" />);
-    const browseRow = screen.getByText("Browse...").closest("[role='option']")!;
+    const browseRow = screen.getByText("Browse…").closest("[role='option']")!;
     fireEvent.mouseEnter(browseRow);
     expect(browseRow).toHaveAttribute("aria-selected", "true");
   });
@@ -414,7 +414,7 @@ describe("QuickOpen with file items", () => {
     // Move selection to Browse row (index 2 — last of 3 items)
     fireEvent.keyDown(dialog, { key: "ArrowDown" });
     fireEvent.keyDown(dialog, { key: "ArrowDown" });
-    const browseRow = screen.getByText("Browse...").closest("[role='option']")!;
+    const browseRow = screen.getByText("Browse…").closest("[role='option']")!;
     expect(browseRow).toHaveAttribute("aria-selected", "true");
 
     // Type filter that leaves only 1 file match + Browse = 2 items (indices 0-1)
@@ -449,5 +449,17 @@ describe("QuickOpen with file items", () => {
 
     expect(document.activeElement).toBe(button);
     document.body.removeChild(button);
+  });
+});
+
+describe("shared overlay shell (WI-UI3.1)", () => {
+  it("renders .vm-overlay--top > .vm-overlay__panel with the shared input and footer", () => {
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    const backdrop = document.querySelector(".vm-overlay.vm-overlay--top");
+    expect(backdrop).not.toBeNull();
+    expect(backdrop!.querySelector(".vm-overlay__panel.quick-open")).not.toBeNull();
+    expect(backdrop!.querySelector("input.vm-overlay__input")).not.toBeNull();
+    expect(backdrop!.querySelector(".vm-overlay__footer")).not.toBeNull();
   });
 });

@@ -666,3 +666,25 @@ describe("WysiwygPopupView", () => {
     });
   });
 });
+
+// WI-UI3.2 — the base class builds the canonical `.popup-container` shell.
+describe("createShell (WI-UI3.2)", () => {
+  it("returns a div carrying popup-container plus the residual classes", () => {
+    const view = createMockView();
+    const store = createMockStore().store;
+    class ShellPopup extends WysiwygPopupView<TestState> {
+      protected buildContainer(): HTMLElement {
+        return this.createShell("my-popup", "my-popup--wide");
+      }
+      protected onShow(): void {}
+      protected onHide(): void {}
+    }
+    const popup = new ShellPopup(view, store);
+    const el = (popup as unknown as { container: HTMLElement }).container;
+    expect(el.tagName).toBe("DIV");
+    expect(el.classList.contains("popup-container")).toBe(true);
+    expect(el.classList.contains("my-popup")).toBe(true);
+    expect(el.classList.contains("my-popup--wide")).toBe(true);
+    popup.destroy();
+  });
+});

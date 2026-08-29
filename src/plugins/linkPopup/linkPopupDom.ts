@@ -20,7 +20,7 @@
  *   `baseClass` is how the duplicate arose in the first place.
  *
  * @coordinates-with LinkPopupView.ts — the sole consumer
- * @coordinates-with src/styles/popup-shared.css — owns `.popup-icon-btn`
+ * @coordinates-with src/styles/icon-button-shared.css — owns `.popup-icon-btn`
  * @module plugins/linkPopup/linkPopupDom
  */
 
@@ -44,7 +44,7 @@ function buildButton(iconSvg: string, title: string, className: string): HTMLBut
 /** The popup container: URL input followed by the four action buttons. */
 export function buildLinkPopupContainer(): HTMLElement {
   const container = document.createElement("div");
-  container.className = "link-popup";
+  container.className = "popup-container link-popup";
 
   const input = document.createElement("input");
   input.type = "text";
@@ -63,10 +63,10 @@ export function buildLinkPopupContainer(): HTMLElement {
     buildButton(popupIcons.copy, i18n.t("editor:popup.link.copyUrl"), "link-popup-btn-copy")
   );
   container.appendChild(
-    buildButton(popupIcons.save, i18n.t("editor:popup.link.save"), "link-popup-btn-save")
+    buildButton(popupIcons.save, i18n.t("editor:popup.link.save"), "popup-icon-btn--primary link-popup-btn-save")
   );
   container.appendChild(
-    buildButton(popupIcons.delete, i18n.t("editor:popup.link.remove"), "link-popup-btn-delete")
+    buildButton(popupIcons.delete, i18n.t("editor:popup.link.remove"), "popup-icon-btn--danger link-popup-btn-delete")
   );
 
   return container;

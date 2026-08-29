@@ -121,7 +121,7 @@ describe("UpdateAvailableCard", () => {
     render(<UpdateAvailableCard />);
 
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
-    expect(screen.getByText("Installing update...")).toBeInTheDocument();
+    expect(screen.getByText("Installing update…")).toBeInTheDocument();
     // The primary button reflects the install phase and is disabled.
     const btn = screen.getByRole("button", { name: /installing/i });
     expect(btn).toBeDisabled();

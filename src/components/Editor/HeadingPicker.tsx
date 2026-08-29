@@ -233,7 +233,7 @@ export function HeadingPicker() {
   return createPortal(
     <div
       ref={containerRef}
-      className="heading-picker"
+      className="popup-container heading-picker"
       role="dialog"
       aria-modal="true"
       aria-label={t("headingPicker.ariaLabel")}

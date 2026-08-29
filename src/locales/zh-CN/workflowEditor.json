@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "键重复 — 已在其他行中设置",
   "form.step.uses.label": "使用",
   "form.trigger.kind": "触发器",
-  "form.trigger.empty": "未配置触发器",
+  "form.trigger.empty": "未配置触发器。添加一个以决定此工作流何时运行。",
   "form.trigger.branches": "分支:{{value}}",
   "form.trigger.branchesIgnore": "忽略的分支:{{value}}",
   "form.trigger.tags": "标签:{{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "展开 run",
   "expression.title.if": "编辑 if",
   "expression.title.run": "编辑 run",
-  "panel.noWorkflow": "未检测到工作流",
+  "panel.noWorkflow": "未检测到工作流。打开 .github/workflows 下的 YAML 文件即可使用编辑器。",
   "panel.conditional": "有条件",
   "panel.shell.resize": "调整窗格大小",
   "panel.viewerAriaLabel": "GitHub Actions 工作流查看器",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(默认:{{value}})",
   "panel.exportLabel": "导出工作流图",
   "panel.exportError": "导出失败",
-  "settings.groupTitle": "工作流文件"
+  "settings.groupTitle": "工作流文件",
+  "form.job.delete.confirm": "删除作业“{{id}}”？保存前无法撤销。",
+  "form.job.steps.deleteConfirm": "删除步骤“{{label}}”？"
 }

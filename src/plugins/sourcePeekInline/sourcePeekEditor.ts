@@ -73,8 +73,8 @@ async function initCMEditor(
     },
     ".cm-content": {
       fontFamily: "var(--font-mono, monospace)",
-      fontSize: "13px",
-      lineHeight: "1.5",
+      fontSize: "var(--editor-font-size-mono)",
+      lineHeight: "var(--code-line-height)",
       padding: "0",
     },
     ".cm-line": {

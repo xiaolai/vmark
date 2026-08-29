@@ -67,7 +67,7 @@
   "format.toast.set": "Opening {{key}} files as {{format}}",
   "format.toast.reset": "Reset {{key}} files to the default editor",
   "commandPalette.placeholder": "Type a command",
-  "commandPalette.empty": "No matching commands",
+  "commandPalette.empty": "No matching commands. Clear the search to see every command.",
   "aria.commandPalette": "Command palette",
   "browser.newTab": "New Browser Tab",
   "claims.extractFromSelection": "Extract Claim from Selection",
@@ -191,5 +191,8 @@
   "tab.next": "Next Tab",
   "tab.prev": "Previous Tab",
   "tab.lastUsed": "Last Used Tab",
-  "tab.close": "Close Tab"
+  "tab.close": "Close Tab",
+  "commandPalette.hintNavigate": "navigate",
+  "commandPalette.hintRun": "run",
+  "commandPalette.hintClose": "close"
 }

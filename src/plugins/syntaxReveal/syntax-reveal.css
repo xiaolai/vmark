@@ -72,6 +72,7 @@
 }
 
 /* Reduced motion */
+/* KEPT under the global duration-collapse (D9/WI-UI1.7): the reveal must rest at full opacity, not at the collapsed first frame */
 @media (prefers-reduced-motion: reduce) {
   .syntax-marker {
     animation: none;

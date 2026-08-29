@@ -79,9 +79,6 @@ export function LanguageSettings() {
     }
   };
 
-  const selectClass = `px-2 py-1 rounded border border-[var(--border-color)]
-                       bg-[var(--bg-color)] text-sm text-[var(--text-color)]`;
-
   return (
     <div>
       {/* UI Language */}
@@ -100,7 +97,7 @@ export function LanguageSettings() {
 
       {/* CJK Formatting */}
       <SettingsGroup title={t("language.group.cjkFormatting")}>
-        <p className="text-xs text-[var(--text-tertiary)] -mt-2 mb-3">
+        <p className="text-xs text-[var(--text-secondary)] -mt-2 mb-3">
           {t("language.cjkFormatting.hint")}
         </p>
         {/* Fullwidth Normalization */}
@@ -304,20 +301,15 @@ export function LanguageSettings() {
             label={t("language.consecutivePunctuation.label")}
             description={t("language.consecutivePunctuation.description")}
           >
-            <select
-              value={cjkFormatting.consecutivePunctuationLimit}
-              onChange={(e) =>
-                updateCJKSetting(
-                  "consecutivePunctuationLimit",
-                  Number(e.target.value)
-                )
-              }
-              className={selectClass}
-            >
-              <option value="0">{t("language.consecutivePunctuation.off")}</option>
-              <option value="1">{t("language.consecutivePunctuation.single")}</option>
-              <option value="2">{t("language.consecutivePunctuation.double")}</option>
-            </select>
+            <Select
+              value={String(cjkFormatting.consecutivePunctuationLimit)}
+              options={[
+                { value: "0", label: t("language.consecutivePunctuation.off") },
+                { value: "1", label: t("language.consecutivePunctuation.single") },
+                { value: "2", label: t("language.consecutivePunctuation.double") },
+              ]}
+              onChange={(v) => updateCJKSetting("consecutivePunctuationLimit", Number(v))}
+            />
           </SettingRow>
           <SettingRow
             label={t("language.trailingSpaces.label")}

@@ -39,62 +39,23 @@
   min-height: 200px;
 }
 
-/* Fit button — matches mermaid panzoom-reset pattern */
-.markmap-fit-btn {
+/* Fit button — canonical `.vm-icon-btn--sm` (WI-UI2.3); the residual owns
+   overlay placement and reveal-on-hover only. */
+.markmap-fit-overlay {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   opacity: 0;
   transition: opacity var(--duration-base), background var(--duration-base), color var(--duration-base);
   z-index: var(--z-resize-handle);
 }
 
-.markmap-fit-btn svg {
-  width: var(--size-icon-xs);
-  height: var(--size-icon-xs);
-}
-
-.code-block-preview.markmap-preview:hover .markmap-fit-btn,
-.code-block-preview.markmap-preview:hover .mermaid-export-btn {
+.code-block-preview.markmap-preview:hover .markmap-fit-overlay,
+.code-block-preview.markmap-preview:hover .mermaid-export-overlay {
   opacity: 1;
 }
 
-.markmap-fit-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-color);
-}
-
-/* Focus: U-shaped underline per 33-focus-indicators */
-.markmap-fit-btn:focus-visible {
-  outline: none;
-  opacity: 1;
-}
-
-.markmap-fit-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
-
-/* Export button focus within markmap */
-.markmap-preview .mermaid-export-btn:focus-visible {
-  outline: none;
+.markmap-fit-overlay:focus-visible {
   opacity: 1;
 }
 

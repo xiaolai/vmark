@@ -1,0 +1,25 @@
+{
+  "//": [
+    "WI-UI0.3 — identity baseline for scripts/check-ui-consistency.mjs.",
+    "One list per check (C3 type scale, C4 overlay shells, C5 font roles,",
+    "C7 icon sizes, C8 hit targets, C9 state vocabulary, C10 focus",
+    "visibility, C11 bar heights). Today's measured sites; ratchets DOWN",
+    "only (Phases 1-3 empty the lists). Regenerate after a migration with:",
+    "  node scripts/check-ui-consistency.mjs --update"
+  ],
+  "C3": [
+    "src/plugins/subSuperscript/sub-super.css:.md-subscript",
+    "src/plugins/subSuperscript/sub-super.css:.md-superscript",
+    "src/plugins/tableOfContents/toc-block.css:.toc-block::before",
+    "src/plugins/tableOfContents/toc-block.css:.toc-empty",
+    "src/plugins/tableOfContents/toc-block.css:.toc-item a",
+    "src/styles/block-media-shared.css:.block-image.image-error::before, .block-audio.media-error::before, .block-video.media-error::before"
+  ],
+  "C4": [],
+  "C5": [],
+  "C7": [],
+  "C8": [],
+  "C9": [],
+  "C10": [],
+  "C11": []
+}

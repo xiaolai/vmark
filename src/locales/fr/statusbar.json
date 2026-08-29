@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP prêt · Aucune IA connectée",
   "mcpConnected": "Connecté : {{clients}}",
   "mcpHistoryTitle": "Historique des écritures MCP ({{count}})",
-  "mcpHistoryEmpty": "Aucune écriture MCP enregistrée pour cet onglet",
+  "mcpHistoryEmpty": "Aucune écriture MCP pour cet onglet. Les modifications de l'IA apparaîtront ici.",
   "mcpHistoryClear": "Effacer l'historique de cet onglet",
   "mcpHistoryRestore": "Restaurer l'état d'avant cette écriture",
   "mcpHistoryRestored": "Restauré à l'état d'avant {{tool}}",
@@ -26,7 +26,7 @@
   "readOnly": "Lecture seule",
   "editable": "Modifiable",
   "sourceModeTitle": "Mode source ({{shortcut}})",
-  "richTextModeTitle": "Mode texte enrichi ({{shortcut}})",
+  "richTextModeTitle": "Mode WYSIWYG ({{shortcut}})",
   "cancelAiRequest": "Annuler la requête IA",
   "cancelAiTitle": "Annuler",
   "dismissError": "Ignorer l'erreur",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "Basculer ce document du mode Source au WYSIWYG",
   "tabStrip": "Onglets ouverts",
   "scrollTabsLeft": "Faire défiler les onglets vers la gauche",
-  "scrollTabsRight": "Faire défiler les onglets vers la droite"
+  "scrollTabsRight": "Faire défiler les onglets vers la droite",
+  "terminal.sessionExited": "{{name}} (terminé)",
+  "terminal.backgroundActivity": "Activité en arrière-plan"
 }

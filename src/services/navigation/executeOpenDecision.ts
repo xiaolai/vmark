@@ -22,7 +22,6 @@ import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWith
 import { activateTabWithWorkspaceContext } from "@/services/workspaces/activateTabWithWorkspaceContext";
 import { replaceTabWithFile } from "@/services/navigation/replaceTabWithFile";
 import { fileOpsError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
 import { perfMark } from "@/utils/perfLog";
 import type { OpenActionResult } from "@/utils/openPolicy/types";
 
@@ -95,12 +94,9 @@ export async function executeOpenDecision(
         perfMark("handleOpen:replaceTabRefusedOrCancelled");
       } else {
         fileOpsError("Failed to replace tab with file:", replaceResult.error);
-        const msg = errorMessage(replaceResult.error);
-        // Pin: system error includes paths and codes the user may want
-        // to copy to investigate (permission denied, missing file, etc.)
-        toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {
-          pin: true,
-        });
+        // Raw error — errorDetail owns the normalization.
+        // Two-line toast (WI-UI4.4): paths/codes as the detail.
+        toast.errorDetail(i18n.t("dialog:toast.fileOpenFailed"), replaceResult.error);
       }
       break;
     }

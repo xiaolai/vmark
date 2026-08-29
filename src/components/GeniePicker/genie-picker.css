@@ -2,33 +2,8 @@
  * Genie Picker — Spotlight-style overlay
  * ============================================================================ */
 
-.genie-picker-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popup);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 15vh;
-  background: var(--hover-bg-strong);
-}
-
-.genie-picker {
-  width: min(540px, calc(100vw - 24px));
-  max-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  border: var(--border-hairline) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: var(--popup-shadow);
-  animation: popup-fade-in var(--duration-fast) ease-out;
-  overflow: hidden;
-}
-
+/* Backdrop / panel / footer chrome come from the shared overlay shell
+   (`overlay-shared.css`, WI-UI3.1). */
 /* ---- Header / Search ---- */
 
 .genie-picker-header {
@@ -47,7 +22,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-md);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   outline: none;
   resize: none;
   overflow: hidden;
@@ -68,16 +43,15 @@
   flex-wrap: wrap;
 }
 
+/* `.vm-chip` (WI-UI3.4); residual = the picker's uppercase label styling. */
 .genie-chip {
-  padding: 3px var(--space-2-5);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-pill);
-  background: transparent;
+  font-weight: 600;
+  /* R5: an enabled control rests at secondary, not the decorative tier. */
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background var(--duration-base), color var(--duration-base), border-color var(--duration-base);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-loose);
 }
+
 
 .genie-chip:hover {
   background: var(--hover-bg);
@@ -134,8 +108,9 @@
   background: var(--accent-bg);
 }
 
+/* R6 — selection keeps its ink (the accent wash indicates it). */
 .genie-picker-item--selected .genie-picker-item-name {
-  color: var(--accent-primary);
+  color: var(--text-color);
 }
 
 .genie-picker-item-name {
@@ -199,7 +174,7 @@
   left: 0;
   padding: var(--space-1-5) 0;
   font-size: var(--font-size-md);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   line-height: normal;
   pointer-events: none;
   white-space: pre-wrap;
@@ -290,35 +265,21 @@
 
 /* ---- Footer ---- */
 
+/* Chrome from .vm-overlay__footer; this keeps only the layout. */
 .genie-picker-footer {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1-5) var(--space-3-5);
-  border-top: var(--border-thin) solid var(--border-color);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
 }
 
 .genie-picker-scope {
   font-family: var(--font-mono);
 }
 
-
 .genie-picker-hint {
   margin-left: auto;
 }
 
-.genie-picker-kbd {
-  display: inline-block;
-  padding: 0 var(--space-1);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-2xs);
-  line-height: var(--line-height-relaxed);
-}
 
 /* ---- Provider Switcher Popover ---- */
 
@@ -390,7 +351,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   cursor: pointer;
   text-align: left;
   transition: background var(--duration-fast);
@@ -445,7 +406,7 @@
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: background var(--duration-fast), color var(--duration-base);
 }
@@ -467,11 +428,6 @@
   background: var(--accent-bg);
 }
 
-
-.dark-theme .genie-picker {
-  box-shadow: var(--popup-shadow-dark);
-}
-
 .dark-theme .prompt-history-dropdown {
   box-shadow: var(--popup-shadow-dark);
 }
@@ -480,11 +436,9 @@
   box-shadow: var(--popup-shadow-dark);
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .genie-picker,
-  .prompt-history-dropdown,
-  .provider-switcher {
-    animation: none;
-  }
+
+/* focus: caret-only — borderless finder/popup input; the caret is the
+   indicator (rule 33 §2, WI-UI1.8). */
+.genie-picker-search:focus {
+  outline: none;
 }

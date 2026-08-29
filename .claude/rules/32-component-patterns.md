@@ -6,11 +6,26 @@ Standard patterns for UI components. Follow these for consistency.
 
 | Need | Use | Defined in |
 |---|---|---|
-| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--plain`, `--danger`) | `src/styles/button-shared.css` |
+| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--cta`, `--plain`, `--danger`, `--compact`) | `src/styles/button-shared.css` |
 | Dropdown / `<select>` | `.vm-select` inside a `.vm-select-field` wrapper | `src/styles/select-shared.css` |
-| Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) | `src/styles/popup-shared.css` |
+| Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) — an alias of `.vm-icon-btn` base (md) | `src/styles/icon-button-shared.css` |
+| Icon-only square button anywhere else | `.vm-icon-btn` (+ `--sm` 24 / `--lg` 28 / `--bordered` / `--primary` / `--danger`) | `src/styles/icon-button-shared.css` |
+| Tab-strip add/close | `TabStripButton` (`src/components/shared/`) — `.vm-icon-btn--sm` Plus 14 / `.tab-strip-close` X 12 | `src/styles/icon-button-shared.css` |
 | Editor toolbar button | `.universal-toolbar-btn` | `universal-toolbar.css` |
-| Popup surface | `.popup-container` | `src/styles/popup-shared.css` |
+| Popup surface (anchored to a selection) | `.popup-container` | `src/styles/popup-shared.css` |
+| Modal/finder overlay + panel | `.vm-overlay` + `.vm-overlay__panel` | `src/styles/overlay-shared.css` |
+| Context menu | `.vm-menu` | `src/styles/overlay-shared.css` |
+| Text input | `.vm-input` (+ `--field`, `--bare`, `--mono`) | `src/styles/input-shared.css` |
+| Panel + header + rows | `.vm-panel` | `src/styles/panel-shared.css` |
+| Chip / pill / kbd hint | `.vm-chip` | `src/styles/panel-shared.css` |
+| Toggle switch | `.vm-switch` | `src/styles/panel-shared.css` |
+
+**The current-tab idiom is a second, named vocabulary — raised, not selected.**
+`.tab-pill.active` / `.browser-page-tab.active` fill with `--bg-color` so the
+current tab reads as a card raised to the page surface; that is deliberate and
+carries `ui-ok(state): current-tab` where the C9 gate would otherwise ask for
+`--accent-bg`. Selected LIST rows are the accent vocabulary (R6); the current
+tab is not a selected row.
 
 A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
 native bezel, native chevron, 5px pill radius — and author styling only partly
@@ -58,6 +73,18 @@ required — a bare marker is rejected, same rule as `focus: caret-only` in rule
 Only the **base** rule is read. A `:focus-visible::after` ring legitimately
 carries its own `border-radius`, and folding pseudo-element rules in would
 report every correctly-built button as drift.
+
+## The ui-consistency gate reads this file's vocabulary
+
+`pnpm lint:ui-consistency` (WI-UI0.3) enforces the checkable half of these
+patterns across CSS **and** JSX: overlay shells must compose
+`.popup-container`/`.vm-overlay__panel`/`.vm-menu` (C4), state backgrounds must
+speak the hover/selected vocabulary below (C9), every focusable element needs a
+painting `:focus-visible` rule or the caret-only marker (C10), hit targets stay
+≥ 24px (C8), and chrome type/icons/bar-heights stay on their tokens (C3, C7,
+C11). Exemptions are `ui-ok(<check>): <reason>` in the rule body (JSX: the line
+above) — the reason is required. Today's violations are frozen in
+`scripts/ui-consistency-baseline.json`, which only ratchets down.
 
 ## Panels: dock in-flow, don't float over the editor
 
@@ -133,18 +160,16 @@ Position is calculated in JS based on selection/cursor coordinates.
 ```css
 .popup-container {
   position: fixed;
-  z-index: 9999;
-  padding: var(--popup-padding);              /* 6px */
-  border: 1px solid var(--border-color);
+  z-index: var(--z-popup);
+  display: flex;
+  align-items: center;
+  gap: var(--space-half);
+  padding: var(--space-1-5);                  /* 6px */
+  border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-lg);            /* 8px */
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
-  animation: popup-fade-in 0.1s ease-out;
-}
-
-.popup-container--vertical {
-  flex-direction: column;
-  gap: 6px;
+  animation: popup-fade-in var(--duration-fast) ease-out;
 }
 ```
 
@@ -163,7 +188,7 @@ Position is calculated in JS based on selection/cursor coordinates.
 ```
 
 **Rules:**
-- Compact padding (6px via `--popup-padding`)
+- Compact padding (6px via `--space-1-5`; the older `--popup-padding` token still exists for legacy consumers but `.popup-container` no longer reads it)
 - 1px border with `--border-color`
 - Radius 8px (use `--radius-lg`)
 - Shadow via `--popup-shadow`
@@ -178,7 +203,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   color: var(--text-color);
   outline: none;
   font-size: 12px;
-  font-family: var(--font-sans);
+  font-family: var(--font-ui); /* R3: chrome never uses the reading face */
 }
 
 .popup-input:focus {
@@ -222,7 +247,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
   transition: background 0.15s, color 0.15s;
 }
 
@@ -236,7 +261,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   cursor: not-allowed;
 }
 
-/* Focus: U-shaped underline */
+/* Focus: flat 2px bar (D4 — rule 33 §1, the one focus shape) */
 .popup-icon-btn:focus-visible {
   outline: none;
 }
@@ -247,9 +272,9 @@ Position is calculated in JS based on selection/cursor coordinates.
   bottom: 2px;
   left: 4px;
   right: 4px;
-  height: 4px;
-  border-bottom: 2px solid var(--primary-color);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
 }
 
 /* Icon sizing */
@@ -308,7 +333,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   border-radius: 50%;
 }
 
-/* Focus: U-shaped underline */
+/* Focus: flat 2px bar (D4 — rule 33 §1, the one focus shape) */
 .toolbar-btn:focus-visible {
   outline: none;
 }
@@ -319,9 +344,9 @@ Position is calculated in JS based on selection/cursor coordinates.
   bottom: 2px;
   left: 4px;
   right: 4px;
-  height: 4px;
-  border-bottom: 2px solid var(--accent-primary);
-  border-radius: 0 0 4px 4px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
 }
 ```
 
@@ -456,10 +481,11 @@ pre {
 ## Scrollbars
 
 ```css
-/* Global thin scrollbars (from index.css) */
+/* The GLOBAL scrollbar (index.css) is 10px — not thin. Dense lists opt into
+   the 2px `.vm-scroll--thin` utility (panel-shared.css, WI-UI3.4). */
 ::-webkit-scrollbar {
-  width: 1px;
-  height: 4px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {

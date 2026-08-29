@@ -14,8 +14,11 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 import { buildXtermThemeForId, type ThemeId } from "@/theme";
+import { themes } from "@/theme";
 
-const themeIds: ThemeId[] = ["white", "paper", "mint", "sepia", "night"];
+// Derived from the catalog (WI-UI1.4) — solarized had NEVER been in this
+// snapshot because the list was hand-written; a 7th theme joins automatically.
+const themeIds = Object.keys(themes) as ThemeId[];
 
 describe("buildXtermTheme — ITheme baseline per theme", () => {
   for (const id of themeIds) {

@@ -84,12 +84,12 @@ export function WordCountPopover({
 
   return (
     <div
-      className="word-count-popover"
+      className="popup-container word-count-popover"
       style={style}
       role="dialog"
       aria-label={t("wordCountTitle")}
     >
-      <header className="word-count-popover__header">
+      <header className="vm-panel__header word-count-popover__header">
         <span className="word-count-popover__title">{t("wordCountTitle")}</span>
       </header>
       <dl className="word-count-popover__list">

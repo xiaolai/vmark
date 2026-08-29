@@ -30,7 +30,6 @@
 
 import { useEffect, useRef } from "react";
 import { emit, listen } from "@tauri-apps/api/event";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
@@ -40,6 +39,7 @@ import { restartWithHotExit } from "@/services/persistence/hotExit/restartWithHo
 import { updateCheckerLog, appError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 // Time constants in milliseconds
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -370,15 +370,12 @@ export function useUpdateChecker() {
           }
 
           // Ask user for confirmation
-          const confirmed = await ask(
-            i18n.t("dialog:unsavedChanges.restartUnsaved", { count: dirtyTabs.length }),
-            {
-              title: i18n.t("dialog:unsavedChanges.title"),
-              kind: "info",
-              okLabel: i18n.t("dialog:common.restart"),
-              cancelLabel: i18n.t("dialog:common.cancel"),
-            }
-          );
+          const confirmed = await confirmAction({
+            title: i18n.t("dialog:unsavedChanges.title"),
+            message: i18n.t("dialog:unsavedChanges.restartUnsaved", { count: dirtyTabs.length }),
+            actionLabel: i18n.t("dialog:common.restart"),
+            kind: "info",
+          });
 
           if (confirmed) {
             // Capture session (including unsaved documents) and restart

@@ -25,7 +25,7 @@ describe("terminalMessages", () => {
 
   it("renders the restart prompt with a trailing CRLF", () => {
     expect(pressAnyKeyToRestartLine()).toBe(
-      "Press any key to restart...\r\n",
+      "Press any key to restart…\r\n",
     );
   });
 
@@ -36,10 +36,10 @@ describe("terminalMessages", () => {
   });
 
   it("renders the retry prompt with a trailing CRLF", () => {
-    expect(pressAnyKeyToRetryLine()).toBe("Press any key to retry...\r\n");
+    expect(pressAnyKeyToRetryLine()).toBe("Press any key to retry…\r\n");
   });
 
   it("frames the restarting notice with surrounding CRLFs", () => {
-    expect(restartingLine()).toBe("\r\nRestarting shell...\r\n");
+    expect(restartingLine()).toBe("\r\nRestarting shell…\r\n");
   });
 });

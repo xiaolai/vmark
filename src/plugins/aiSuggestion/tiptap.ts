@@ -44,7 +44,7 @@ const aiSuggestionPluginKey = new PluginKey("aiSuggestion");
 
 export { applySuggestionToTr, computeSuggestionRemap, isValidPosition } from "./applySuggestion";
 import { applySuggestionToTr, computeSuggestionRemap, isValidPosition } from "./applySuggestion";
-
+import { scrollBehavior } from "@/utils/motion";
 
 /**
  * Check if a DOM event targets a suggestion button.
@@ -360,7 +360,7 @@ export const aiSuggestionExtension = Extension.create<AiSuggestionOptions>({
                   coords.top -
                   editorRect.top -
                   editorRect.height / 3,
-                behavior: "smooth",
+                behavior: scrollBehavior(),
               });
             }
           };

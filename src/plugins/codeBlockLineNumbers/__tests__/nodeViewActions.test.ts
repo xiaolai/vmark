@@ -59,7 +59,7 @@ describe("createCodeActionButton", () => {
       onClick
     );
 
-    expect(btn.className).toBe("code-copy-btn");
+    expect(btn.className).toBe("vm-icon-btn vm-icon-btn--sm code-copy-btn");
     expect(btn.dataset.codeAction).toBe("copy");
     expect(btn.innerHTML).toContain("data-icon");
     expect(btn.title).toBeTruthy();

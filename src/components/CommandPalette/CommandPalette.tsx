@@ -71,7 +71,7 @@ function renderSections(
           role="option"
           id={`command-palette-item-${i}`}
           aria-selected={i === selectedIndex}
-          className={`command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
+          className={`vm-overlay__row command-palette__row${i === selectedIndex ? " is-selected" : ""}`}
           onMouseDown={(e) => {
             e.preventDefault();
             close();
@@ -95,14 +95,18 @@ function renderSections(
     return (
       <li
         key={`group-${section.id}`}
-        role="group"
-        aria-label={section.label ?? undefined}
+        // APG grouped-listbox (WI-UI4.5): role=group is invalid on <li>, so the li is presentational and the inner list carries the group.
+        role="presentation"
         className="command-palette__group"
       >
         <span className="command-palette__group-label" aria-hidden="true">
           {section.label}
         </span>
-        <ul className="command-palette__group-items" role="presentation">
+        <ul
+          className="command-palette__group-items"
+          role="group"
+          aria-label={section.label ?? undefined}
+        >
           {rows}
         </ul>
       </li>
@@ -242,20 +246,20 @@ export function CommandPalette() {
 
   return (
     <div
-      className="command-palette__backdrop"
+      className="vm-overlay vm-overlay--top command-palette__backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
       <div
-        className="command-palette"
+        className="vm-overlay__panel command-palette"
         role="dialog"
         aria-modal="true"
         aria-label={t("commands:aria.commandPalette")}
       >
         <input
           ref={inputRef}
-          className="command-palette__input"
+          className="vm-overlay__input command-palette__input"
           type="text"
           value={query}
           placeholder={t("commands:commandPalette.placeholder")}
@@ -272,7 +276,7 @@ export function CommandPalette() {
         />
         <ul
           ref={listRef}
-          className="command-palette__list"
+          className="vm-scroll--thin command-palette__list"
           id="command-palette-list"
           role="listbox"
         >
@@ -284,6 +288,11 @@ export function CommandPalette() {
             renderSections(sections, selectedIndex, close, windowLabel, categoryLabel)
           )}
         </ul>
+        <div className="vm-overlay__footer">
+          <kbd className="vm-overlay__kbd">&uarr;&darr;</kbd> {t("commands:commandPalette.hintNavigate")}{" "}
+          <kbd className="vm-overlay__kbd">Enter</kbd> {t("commands:commandPalette.hintRun")}{" "}
+          <kbd className="vm-overlay__kbd">Esc</kbd> {t("commands:commandPalette.hintClose")}
+        </div>
       </div>
     </div>
   );

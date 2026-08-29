@@ -117,7 +117,6 @@ export function computeTypographyVars(input: TypographyInput): Record<string, st
     "--font-sans": sans,
     "--font-mono": mono,
     "--editor-font-size": `${fontSize}px`,
-    "--editor-font-size-sm": `${fontSize * 0.9}px`,
     "--editor-font-size-mono": `${fontSize * 0.85}px`,
     "--editor-font-size-block": `${blockFontSizePx}px`, // Absolute to prevent compounding in nested blocks
     "--editor-line-height": String(lineHeight),

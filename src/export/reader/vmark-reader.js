@@ -164,7 +164,6 @@
 
     // Font size
     root.style.setProperty('--editor-font-size', `${settings.fontSize}px`);
-    root.style.setProperty('--editor-font-size-sm', `${settings.fontSize * 0.9}px`);
     root.style.setProperty('--editor-font-size-mono', `${settings.fontSize * 0.85}px`);
 
     // Line height

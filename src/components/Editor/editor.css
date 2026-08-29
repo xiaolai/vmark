@@ -44,7 +44,7 @@
 }
 
 .editor-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--md-char-color);
+  background-color: var(--text-secondary); /* WI-UI1.4: thumbs use text ink, not the syntax colour */
 }
 
 /* Width constraint - works with parent flexbox centering */
@@ -188,7 +188,7 @@
   margin-top: 1.5em;    /* Larger for section separation */
   margin-bottom: 0.75em; /* Smaller for content proximity */
   font-weight: bold;
-  line-height: 1.25;
+  line-height: var(--line-height-tight);
   cursor: text;
 }
 
@@ -361,7 +361,9 @@
   border-radius: var(--radius-md);
   margin: 0 0 var(--editor-block-spacing, 1em) 0;
   padding: 0 1em;
-  color: var(--meta-content-color);
+  /* WI-UI1.3: quotes are readable prose — --meta-content-color rendered
+     3.83:1 grey on paper and syntax GREEN on night. */
+  color: var(--quote-text);
   line-height: var(--editor-line-height-px);
 }
 
@@ -629,7 +631,9 @@
 }
 
 .source-editor .cm-scroller {
-  font-family: var(--font-sans) !important;
+  /* WI-UI2.1: Source mode IS monospace content — the scroller (which the
+     gutter inherits from) follows the mono face, not the reading face. */
+  font-family: var(--font-mono) !important;
   font-size: var(--editor-font-size-mono) !important;
   line-height: var(--editor-line-height, 1.6) !important;
   overflow-x: auto !important;
@@ -652,7 +656,7 @@
 }
 
 .source-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background-color: var(--md-char-color);
+  background-color: var(--text-secondary); /* WI-UI1.4 */
 }
 
 .source-editor .cm-content {
@@ -676,7 +680,7 @@
   display: none;
   background: transparent;
   border-right: var(--border-thin) solid var(--border-color);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .source-editor.show-line-numbers .cm-gutters {
@@ -699,13 +703,3 @@
   display: none;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .tiptap-editor .ProseMirror-gapcursor::after {
-    animation: none;
-  }
-
-  .source-editor .cm-editor.cm-selection-pulse .cm-selectionBackground {
-    animation: none;
-  }
-}

@@ -9,7 +9,7 @@
  * @coordinates-with createTerminalInstance.ts — sole consumer
  * @module components/Terminal/terminalOptions
  */
-import { buildXtermThemeForId } from "@/theme";
+import { buildXtermThemeForId, drawBoldTextInBrightColorsForId } from "@/theme";
 
 /** User-configurable settings for creating a terminal instance. */
 export interface TerminalInstanceSettings {
@@ -71,6 +71,8 @@ export function buildTerminalOptions(
   return {
     theme: buildXtermThemeForId(settings.themeId),
     fontFamily,
+    // D15: the terminal's own size, NOT derived from the editor's reading
+    // size — density is the point, and it has its own setting and zoom.
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,
     cursorStyle: settings.cursorStyle,
@@ -85,6 +87,9 @@ export function buildTerminalOptions(
     // background color (default 4.5 = WCAG AA; user-adjustable for a11y).
     // Fall back to 4.5 when unset; clamp to xterm's valid 1–21 range.
     minimumContrastRatio: clampContrastRatio(settings.minimumContrastRatio),
+    // Per-theme (WI-UI1.4/D10): false where a bright slot doubles as a text
+    // tier (solarized), else xterm's default true.
+    drawBoldTextInBrightColors: drawBoldTextInBrightColorsForId(settings.themeId),
     allowProposedApi: true,
     // Clamp defensively: the settings UI offers bounded presets, but corrupt
     // persisted state could carry an extreme value that bloats memory (Codex

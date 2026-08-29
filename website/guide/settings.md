@@ -16,12 +16,12 @@ Choose one of six color themes. The active theme is indicated by a ring around i
 
 | Theme | Background | Style |
 |-------|-----------|-------|
-| White | `#FFFFFF` | Clean, high contrast |
-| Paper | `#EEEDED` | Warm neutral (default) |
+| White | `#FFFFFF` | Clean white, highest contrast |
+| Paper | `#EEEDED` | Warm newsprint, the default |
 | Mint | `#CCE6D0` | Soft green, easy on the eyes |
-| Sepia | `#F9F0DB` | Warm yellowish, book-like |
-| Night | `#23262B` | Dark mode |
-| Solarized | `#002B36` | Dark, Solarized Dark palette |
+| Sepia | `#F9F0DB` | Book stock, for long reading |
+| Night | `#23262B` | Dark slate for low light |
+| Solarized | `#002B36` | Solarized Dark, the classic palette |
 
 #### Follow system appearance
 
@@ -76,6 +76,10 @@ Typography, display, editing behavior, and whitespace settings.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Editor Width | Maximum content width. Wider values suit large monitors; narrower values improve readability | 50em (Medium) | 36em (Compact), 42em (Narrow), 50em (Medium), 60em (Wide), 80em (Extra Wide), Unlimited |
+
+::: tip The same width reads differently in Latin and CJK
+Editor Width is measured in `em`, so the line length in *characters* depends on the script: at 50em a Latin line holds roughly 90–100 characters (about 2× a typographer's 45–75-character measure, which suits a two-pane editor), while a CJK line holds about 50 full-width characters — right in the traditional 40–60 range for Chinese text. If you write mostly Latin prose and want a book-like measure, choose 36–42em; for mostly-CJK documents the default is already the classical measure.
+:::
 
 ::: tip
 50em at 18px font size is roughly 900px — a comfortable reading width for most displays.

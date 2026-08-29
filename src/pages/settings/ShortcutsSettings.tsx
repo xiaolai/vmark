@@ -21,6 +21,9 @@ import {
 } from "@/stores/settingsShortcutLabels";
 import { KeyCapture } from "./KeyCapture";
 import { Button, SearchInput } from "./components";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
+import { appError } from "@/utils/debug";
 
 export function ShortcutsSettings() {
   const { t } = useTranslation("settings");
@@ -115,7 +118,7 @@ export function ShortcutsSettings() {
             {getShortcutLabel(shortcut)}
           </div>
           {getShortcutDescription(shortcut) && (
-            <div className="text-xs text-[var(--text-tertiary)] truncate">
+            <div className="text-xs text-[var(--text-secondary)] truncate">
               {getShortcutDescription(shortcut)}
             </div>
           )}
@@ -129,7 +132,7 @@ export function ShortcutsSettings() {
                        ${customized
                          ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]/30"
                          : "bg-[var(--bg-tertiary)] text-[var(--text-secondary)]"
-                       } hover:bg-[var(--bg-tertiary)] hover:ring-1 hover:ring-[var(--text-tertiary)]/30 transition-all`}
+                       } hover:bg-[var(--bg-tertiary)] hover:ring-1 hover:ring-[var(--text-tertiary)]/30 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2`}
             title={t("shortcuts.clickToChange")}
           >
             {formatKeyForDisplay(currentKey)}
@@ -139,8 +142,7 @@ export function ShortcutsSettings() {
           {customized && (
             <button
               onClick={() => resetShortcut(shortcut.id)}
-              className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-color)]
-                         hover:bg-[var(--bg-secondary)] rounded transition-colors"
+              className="vm-icon-btn vm-icon-btn--sm"
               title={t("shortcuts.resetToDefault")}
               aria-label={t("shortcuts.resetToDefault")}
             >
@@ -185,7 +187,7 @@ export function ShortcutsSettings() {
 
   return (
     <div>
-      <p className="text-xs text-[var(--text-tertiary)] mb-4">
+      <p className="text-xs text-[var(--text-secondary)] mb-4">
         {t("shortcuts.hint")}
       </p>
 
@@ -208,6 +210,8 @@ export function ShortcutsSettings() {
         <Button onClick={() => fileInputRef.current?.click()}>
           {t("shortcuts.import")}
         </Button>
+        {/* ui-ok(focus): display:none file input, opened programmatically by
+            the Import button — never keyboard-reachable. */}
         <input
           ref={fileInputRef}
           type="file"
@@ -220,9 +224,18 @@ export function ShortcutsSettings() {
         <Button
           variant="danger"
           onClick={() => {
-            if (confirm(t("shortcuts.resetAllConfirm"))) {
-              resetAllShortcuts();
-            }
+            void (async () => {
+              if (
+                await confirmAction({
+                  title: i18n.t("dialog:resetShortcuts.title"),
+                  message: t("shortcuts.resetAllConfirm"),
+                  actionLabel: i18n.t("dialog:action.resetShortcuts"),
+                  kind: "warning",
+                })
+              ) {
+                resetAllShortcuts();
+              }
+            })().catch((e) => appError("Reset-shortcuts confirm failed:", e));
           }}
         >
           {t("shortcuts.resetAll")}
@@ -234,7 +247,7 @@ export function ShortcutsSettings() {
         {filteredShortcuts ? (
           // Search results (flat list)
           <div>
-            <div className="text-xs text-[var(--text-tertiary)] mb-3">
+            <div className="text-xs text-[var(--text-secondary)] mb-3">
               {t(
                 filteredShortcuts.length === 1 ? "shortcuts.resultCount_one" : "shortcuts.resultCount_other",
                 { count: filteredShortcuts.length }
@@ -244,7 +257,7 @@ export function ShortcutsSettings() {
               {filteredShortcuts.map(renderShortcutRow)}
             </div>
             {filteredShortcuts.length === 0 && (
-              <div className="text-sm text-[var(--text-tertiary)] py-8 text-center">
+              <div className="text-sm text-[var(--text-secondary)] py-8 text-center">
                 {t("shortcuts.noResults")}
               </div>
             )}

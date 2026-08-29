@@ -23,7 +23,6 @@
 import { useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { FolderTree, TableOfContents, History, FilePlus, FolderPlus, PanelLeftClose, Trash2, ChevronsDownUp, ChevronsUpDown, Files, Bookmark, ShieldCheck } from "lucide-react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { deleteDocumentHistory } from "@/services/history/historyRecovery";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { useUIStore, type SidebarViewMode } from "@/stores/uiStore";
@@ -45,6 +44,8 @@ import type { BrowserSidebarView } from "@/stores/uiStore/types";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useSidebarInstanceSync } from "./useSidebarInstanceSync";
 import { SidebarActionButton } from "./SidebarActionButton";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 
 // View mode configuration - single source of truth (icon and next only; titles come from t())
 /** The browser kind's own cycle. Its views are a separate union from the document ones,
@@ -128,10 +129,12 @@ export function Sidebar() {
     if (!filePath || isClearingRef.current) return;
     isClearingRef.current = true;
     try {
-      const confirmed = await ask(
-        t("clearHistoryMessage"),
-        { title: t("clearDocumentHistory"), kind: "warning" }
-      );
+      const confirmed = await confirmAction({
+        title: t("clearDocumentHistory"),
+        message: t("clearHistoryMessage"),
+        actionLabel: i18n.t("dialog:action.clearHistory"),
+        kind: "warning",
+      });
       // The service catches its own failures, so awaiting it proved nothing:
       // the UI announced a successful clear over history that was still there.
       if (confirmed && (await deleteDocumentHistory(filePath))) {
@@ -166,7 +169,6 @@ export function Sidebar() {
           label={nextShowLabel}
           icon={Icon}
           onClick={handleToggleView}
-          size={16}
         />
         <span className="sidebar-title">{currentTitle}</span>
         {/* Action buttons - files view */}
@@ -215,7 +217,7 @@ export function Sidebar() {
         )}
       </div>
 
-      <div className="sidebar-content">
+      <div className="vm-scroll--thin sidebar-content">
         {/* The sidebar follows the active tab's KIND (ADR-2, WI-S2.1): a browser tab gets
             browser views, a document tab gets file views, and neither needs a manual
             switch. Each kind remembers its own sub-view, so glancing at a browser and
@@ -250,13 +252,13 @@ export function Sidebar() {
 
       <div className="sidebar-footer">
         <button
-          className="sidebar-btn"
+          className="vm-icon-btn vm-icon-btn--lg"
           onClick={() => useUIStore.getState().toggleSidebar()}
           title={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
           aria-label={tooltipWithShortcut(t("closeSidebar"), formatKeyForDisplay(sidebarShortcut))}
           aria-expanded={sidebarVisible}
         >
-          <PanelLeftClose size={16} />
+          <PanelLeftClose size={14} />
         </button>
       </div>
     </div>

@@ -69,7 +69,7 @@ describe("ImageContextMenu", () => {
   it("renders all four menu items when open", () => {
     render(<ImageContextMenu onAction={onAction} />);
 
-    expect(screen.getByText("Change Image...")).toBeInTheDocument();
+    expect(screen.getByText("Change Image…")).toBeInTheDocument();
     expect(screen.getByText("Delete Image")).toBeInTheDocument();
     expect(screen.getByText("Copy Image Path")).toBeInTheDocument();
     expect(screen.getByText("Reveal in Finder")).toBeInTheDocument();
@@ -120,7 +120,7 @@ describe("ImageContextMenu", () => {
 
   it("calls onAction with 'change' and closes menu on Change Image click", () => {
     render(<ImageContextMenu onAction={onAction} />);
-    fireEvent.click(screen.getByText("Change Image..."));
+    fireEvent.click(screen.getByText("Change Image…"));
     expect(onAction).toHaveBeenCalledWith("change");
     expect(mocks.closeMenu).toHaveBeenCalled();
   });
@@ -257,7 +257,7 @@ describe("ImageContextMenu", () => {
 
   it("focuses the first item when the menu opens", () => {
     render(<ImageContextMenu onAction={onAction} />);
-    expect(screen.getByText("Change Image...").closest("button")).toHaveFocus();
+    expect(screen.getByText("Change Image…").closest("button")).toHaveFocus();
   });
 
   it("uses a roving tabindex (focused item = 0, others = -1)", () => {

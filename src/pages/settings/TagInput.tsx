@@ -69,14 +69,15 @@ export function TagInput({
               e.stopPropagation();
               removeTag(tag);
             }}
-            className="text-[var(--text-tertiary)] hover:text-[var(--text-color)]
-                       rounded-full focus-visible:ring-1 focus-visible:ring-[var(--primary-color)]"
+            className="tab-strip-close"
             aria-label={t("removeTag", { tag })}
           >
             ×
           </button>
         </span>
       ))}
+      {/* ui-ok(focus): borderless tag entry — the caret is the indicator
+          (rule 33 §2); the bordered container is the visible focus parent. */}
       <input
         ref={inputRef}
         type="text"

@@ -39,8 +39,9 @@ import { LogbookSection } from "./LogbookSection";
 import { DelegationsSection } from "./DelegationsSection";
 import { MergeBanner } from "./MergeBanner";
 import { ProvenanceGroup } from "./ProvenanceGroup";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { BreakdownRow } from "./BreakdownRow";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 import "./breakdown-panel.css";
 
 /** Hard cap on listed edges — the count line reports the full total. */
@@ -105,8 +106,10 @@ export function BreakdownPanel() {
     const enforcing = current.enforcement !== "enforcing";
     if (enforcing) {
       // D4.3: enabling enforcement requires an explicit confirmation.
-      const confirmed = await ask(t("contexts.enforceConfirm"), {
+      const confirmed = await confirmAction({
         title: t("contexts.enforceTitle"),
+        message: t("contexts.enforceConfirm"),
+        actionLabel: i18n.t("dialog:action.enforce"),
         kind: "warning",
       });
       if (!confirmed) return;
@@ -141,12 +144,12 @@ export function BreakdownPanel() {
       aria-label={t("title")}
       data-testid="breakdown-panel"
     >
-      <header className="breakdown-panel__header">
+      <header className="vm-panel__header breakdown-panel__header">
         <span className="breakdown-panel__title">{t("title")}</span>
         <div className="breakdown-panel__actions">
           <button
             type="button"
-            className="breakdown-panel__icon-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={refresh}
             disabled={loading || !rootPath}
             title={t("refresh")}
@@ -156,7 +159,7 @@ export function BreakdownPanel() {
           </button>
           <button
             type="button"
-            className="breakdown-panel__icon-btn"
+            className="vm-icon-btn vm-icon-btn--sm"
             onClick={close}
             title={tCommon("close")}
             aria-label={tCommon("close")}
@@ -197,7 +200,7 @@ export function BreakdownPanel() {
         )}
         <input
           type="text"
-          className="breakdown-context-bar__input"
+          className="vm-input breakdown-context-bar__input"
           value={newContextName}
           onChange={(e) => setNewContextName(e.target.value)}
           onKeyDown={(e) => {

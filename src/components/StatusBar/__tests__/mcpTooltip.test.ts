@@ -22,7 +22,7 @@ describe("formatMcpTooltip", () => {
   });
 
   it("shows loading state", () => {
-    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting...");
+    expect(formatMcpTooltip(false, true, null, [])).toBe("MCP starting…");
   });
 
   it("shows stopped state", () => {

@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "Chave duplicada — já definida em outra linha",
   "form.step.uses.label": "Usa",
   "form.trigger.kind": "Gatilhos",
-  "form.trigger.empty": "Nenhum gatilho configurado",
+  "form.trigger.empty": "Nenhum gatilho configurado. Adicione um para escolher quando este workflow roda.",
   "form.trigger.branches": "Ramos: {{value}}",
   "form.trigger.branchesIgnore": "Ramos ignorados: {{value}}",
   "form.trigger.tags": "Tags: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "Expandir run",
   "expression.title.if": "Editar if",
   "expression.title.run": "Editar run",
-  "panel.noWorkflow": "Nenhum fluxo de trabalho detectado",
+  "panel.noWorkflow": "Nenhum workflow detectado. Abra um arquivo YAML em .github/workflows para usar o editor.",
   "panel.conditional": "condicional",
   "panel.shell.resize": "Redimensionar os painéis",
   "panel.viewerAriaLabel": "Visualizador de fluxos de trabalho do GitHub Actions",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(padrão: {{value}})",
   "panel.exportLabel": "Exportar o diagrama do fluxo de trabalho",
   "panel.exportError": "Falha ao exportar",
-  "settings.groupTitle": "Arquivos de fluxo de trabalho"
+  "settings.groupTitle": "Arquivos de fluxo de trabalho",
+  "form.job.delete.confirm": "Excluir o job “{{id}}”? Não pode ser desfeito antes de salvar.",
+  "form.job.steps.deleteConfirm": "Excluir a etapa “{{label}}”?"
 }

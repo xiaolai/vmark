@@ -113,7 +113,7 @@ export function ExpressionEditor({
 
   return (
     <div
-      className="workflow-expression-editor__backdrop"
+      className="vm-overlay vm-overlay--center workflow-expression-editor__backdrop"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -122,7 +122,7 @@ export function ExpressionEditor({
       }}
       onKeyDown={onKeyDown}
     >
-      <div className="workflow-expression-editor">
+      <div className="vm-overlay__panel workflow-expression-editor">
         <header className="workflow-expression-editor__header">
           <span className="workflow-expression-editor__title">{title}</span>
         </header>

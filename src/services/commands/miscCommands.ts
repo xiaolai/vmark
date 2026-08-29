@@ -5,7 +5,6 @@
  * and the open-genies-folder action.
  */
 
-import { ask } from "@tauri-apps/plugin-dialog";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { mkdir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
@@ -24,6 +23,7 @@ import { liveContentsExcluding } from "@/services/media/liveDocumentContents";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useQuickOpenStore } from "@/stores/quickOpenStore";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 const HELP_URL = "https://vmark.app/guide/";
 const SHORTCUTS_URL = "https://vmark.app/guide/shortcuts";
@@ -66,10 +66,12 @@ export function registerMiscCommands(): void {
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
       await withReentryGuard(windowLabel, "clear-history", async () => {
-        const confirmed = await ask(
-          i18n.t("dialog:clearHistory.allMessage"),
-          { title: i18n.t("dialog:clearHistory.allTitle"), kind: "warning" }
-        );
+        const confirmed = await confirmAction({
+          title: i18n.t("dialog:clearHistory.allTitle"),
+          message: i18n.t("dialog:clearHistory.allMessage"),
+          actionLabel: i18n.t("dialog:action.clearHistory"),
+          kind: "warning",
+        });
         if (confirmed) {
           try {
             await clearAllHistory();
@@ -94,10 +96,12 @@ export function registerMiscCommands(): void {
         if (!rootPath) return;
 
         const workspaceName = rootPath.split(/[\\/]/).filter(Boolean).pop() || rootPath;
-        const confirmed = await ask(
-          i18n.t("dialog:clearHistory.workspaceMessage", { workspaceName }),
-          { title: i18n.t("dialog:clearHistory.workspaceTitle"), kind: "warning" }
-        );
+        const confirmed = await confirmAction({
+          title: i18n.t("dialog:clearHistory.workspaceTitle"),
+          message: i18n.t("dialog:clearHistory.workspaceMessage", { workspaceName }),
+          actionLabel: i18n.t("dialog:action.clearHistory"),
+          kind: "warning",
+        });
         if (confirmed) {
           const count = await clearWorkspaceHistory(rootPath);
           historyLog(`Cleared workspace history: ${count} document(s)`);

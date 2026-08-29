@@ -131,3 +131,34 @@ describe("FormatSurface — misregistered adapter", () => {
     expect(alert).toHaveAttribute("data-format-surface-error", "nosurface");
   });
 });
+
+// WI-UI4.4 — the failure surface names the format and offers an in-place
+// Retry that bumps the lazy key (a fresh lazy + fresh boundary, no remount
+// from outside required).
+describe("FormatSurface — in-place retry (WI-UI4.4)", () => {
+  it("renders the format name and a Retry .vm-btn; clicking it retries the thunk", async () => {
+    let attempts = 0;
+    const thunk = vi.fn(() => {
+      attempts += 1;
+      return attempts === 1
+        ? Promise.reject(new Error("transient"))
+        : Promise.resolve({ default: Surface });
+    });
+    render(<FormatSurface formatConfig={configWith("fmt-retry", thunk)} tabId="t1" />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("fmt-retry");
+    const retry = screen.getByRole("button", { name: /try again/i });
+    expect(retry.className).toContain("vm-btn");
+    retry.click();
+    await waitFor(() => expect(screen.getByTestId("surface")).toBeInTheDocument());
+  });
+
+  it("names the format via the COMMON namespace, not the raw id (WI-UI4.4)", async () => {
+    // "txt" has a real display name; an editor-namespace lookup with a raw-id
+    // defaultValue silently showed "txt" here (audit round 2, finding 26).
+    const thunk = vi.fn(() => Promise.reject(new Error("transient")));
+    render(<FormatSurface formatConfig={configWith("txt", thunk)} tabId="t1" />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Plain Text");
+  });
+});

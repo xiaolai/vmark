@@ -259,7 +259,7 @@ export function OutlineView() {
         <Search size={12} className="outline-filter-icon" aria-hidden="true" />
         <input
           type="text"
-          className="outline-filter-input"
+          className="vm-input vm-input--bare outline-filter-input"
           placeholder={t("outline.filterPlaceholder")}
           aria-label={t("outline.filterPlaceholder")}
           value={filterQuery}

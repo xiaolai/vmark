@@ -41,6 +41,7 @@ vi.mock("@/services/workspaces/fileOwnership", () => ({
 vi.mock("@/services/ime/imeToast", () => ({
   imeToast: {
     error: (...args: unknown[]) => mockToastError(...args),
+    errorDetail: (...args: unknown[]) => mockToastError(...args),
   },
 }));
 vi.mock("@/i18n", () => ({
@@ -135,9 +136,11 @@ describe("drag-drop split helpers", () => {
     // Drag-drop now routes through the shared openFileInNewTabCore, which
     // surfaces the unified pinned "failed to open file" toast (carrying the
     // system error) instead of the old drag-drop-only filename toast.
+    // Two-line contract (WI-UI4.4): message key first, RAW error as detail —
+    // errorDetail owns the normalization (imeToast unit tests pin it).
     expect(mockToastError).toHaveBeenCalledWith(
-      { key: "dialog:toast.failedToOpenFile", values: { error: "denied" } },
-      { pin: true },
+      { key: "dialog:toast.failedToOpenFile", values: undefined },
+      expect.objectContaining({ message: "denied" }),
     );
   });
 

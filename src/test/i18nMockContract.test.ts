@@ -54,7 +54,7 @@ describe("namespace resolution", () => {
     const t = tFor(["dialog", "common"]);
     // dialog-only key, and common-only key, through one `t`.
     expect(t("unsavedChanges.title")).toBe("Unsaved Changes");
-    expect(t("emptyState.title")).toBe("VMark");
+    expect(t("emptyState.title")).toBe("Drop a Markdown file here, or open a workspace.");
   });
 
   it("does not echo the raw key for an array namespace", () => {
@@ -67,7 +67,7 @@ describe("namespace resolution", () => {
   it("prefers the FIRST namespace that has the key", () => {
     // i18next's fallback order. Reversing the list must not change a key that
     // only one namespace defines, but the order must be honoured when both do.
-    expect(tFor(["dialog", "common"])("emptyState.title")).toBe("VMark");
+    expect(tFor(["dialog", "common"])("emptyState.title")).toBe("Drop a Markdown file here, or open a workspace.");
     expect(tFor(["common", "dialog"])("unsavedChanges.title")).toBe("Unsaved Changes");
   });
 
@@ -89,7 +89,7 @@ describe("the react-i18next mock is wired to that resolver", () => {
   it("useTranslation(array) yields a t() that resolves across the namespaces", () => {
     const { result } = renderHook(() => useTranslation(["dialog", "common"]));
     expect(result.current.t("unsavedChanges.title")).toBe("Unsaved Changes");
-    expect(result.current.t("emptyState.title")).toBe("VMark");
+    expect(result.current.t("emptyState.title")).toBe("Drop a Markdown file here, or open a workspace.");
   });
 
   it("useTranslation(string) still works", () => {

@@ -153,7 +153,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
 
   return (
     <SettingsGroup title={t("integrations.group.installMcp")} className="mb-0">
-      <div className="text-xs text-[var(--text-tertiary)] mb-3">
+      <div className="text-xs text-[var(--text-secondary)] mb-3">
         {t("integrations.installMcp.hint")}
       </div>
 
@@ -170,7 +170,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
           />
         ))}
         {diagnostics.length === 0 && (
-          <div className="py-4 text-center text-sm text-[var(--text-tertiary)]">
+          <div className="py-4 text-center text-sm text-[var(--text-secondary)]">
             {t("integrations.installMcp.loadingProviders")}
           </div>
         )}
@@ -193,7 +193,7 @@ export function McpConfigInstaller({ onInstallSuccess }: McpConfigInstallerProps
         <div className="mt-2 text-xs text-[var(--success-color)]">
           {successMessage}
           {showRestartHint && (
-            <span className="text-[var(--text-tertiary)] ml-1">
+            <span className="text-[var(--text-secondary)] ml-1">
               {t("integrations.installMcp.restartHint")}
             </span>
           )}

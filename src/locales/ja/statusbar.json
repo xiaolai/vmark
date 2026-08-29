@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP準備完了 · AI未接続",
   "mcpConnected": "接続中: {{clients}}",
   "mcpHistoryTitle": "MCP 書き込み履歴 ({{count}})",
-  "mcpHistoryEmpty": "このタブに記録された MCP 書き込みはありません",
+  "mcpHistoryEmpty": "このタブには MCP の書き込み記録がありません。AI の編集がここに表示されます。",
   "mcpHistoryClear": "このタブの履歴を消去",
   "mcpHistoryRestore": "この書き込み前の状態に復元",
   "mcpHistoryRestored": "{{tool}} の前の状態に復元しました",
@@ -26,7 +26,7 @@
   "readOnly": "読み取り専用",
   "editable": "編集可能",
   "sourceModeTitle": "ソースモード ({{shortcut}})",
-  "richTextModeTitle": "リッチテキストモード ({{shortcut}})",
+  "richTextModeTitle": "WYSIWYG モード（{{shortcut}}）",
   "cancelAiRequest": "AIリクエストをキャンセル",
   "cancelAiTitle": "キャンセル",
   "dismissError": "エラーを閉じる",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "このドキュメントをソースモードから WYSIWYG に切り替える",
   "tabStrip": "開いているタブ",
   "scrollTabsLeft": "タブを左にスクロール",
-  "scrollTabsRight": "タブを右にスクロール"
+  "scrollTabsRight": "タブを右にスクロール",
+  "terminal.sessionExited": "{{name}}（終了済み）",
+  "terminal.backgroundActivity": "バックグラウンドの動作"
 }

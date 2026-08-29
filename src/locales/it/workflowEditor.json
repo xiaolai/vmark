@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "Chiave duplicata — già impostata in un'altra riga",
   "form.step.uses.label": "Usa",
   "form.trigger.kind": "Trigger",
-  "form.trigger.empty": "Nessun trigger configurato",
+  "form.trigger.empty": "Nessun trigger configurato. Aggiungine uno per decidere quando eseguire questo workflow.",
   "form.trigger.branches": "Rami: {{value}}",
   "form.trigger.branchesIgnore": "Rami ignorati: {{value}}",
   "form.trigger.tags": "Tag: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "Espandi run",
   "expression.title.if": "Modifica if",
   "expression.title.run": "Modifica run",
-  "panel.noWorkflow": "Nessun flusso di lavoro rilevato",
+  "panel.noWorkflow": "Nessun workflow rilevato. Apri un file YAML in .github/workflows per usare l'editor.",
   "panel.conditional": "condizionale",
   "panel.shell.resize": "Ridimensiona i riquadri",
   "panel.viewerAriaLabel": "Visualizzatore di flussi di lavoro GitHub Actions",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(predefinito: {{value}})",
   "panel.exportLabel": "Esporta il diagramma del flusso di lavoro",
   "panel.exportError": "Esportazione non riuscita",
-  "settings.groupTitle": "File di workflow"
+  "settings.groupTitle": "File di workflow",
+  "form.job.delete.confirm": "Eliminare il job “{{id}}”? Non annullabile prima del salvataggio.",
+  "form.job.steps.deleteConfirm": "Eliminare il passaggio “{{label}}”?"
 }

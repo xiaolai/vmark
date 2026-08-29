@@ -651,6 +651,79 @@ ${entries
   });
 });
 
+// ─── pair comparator: contrastFloors (WI-UI0.1) ───
+
+describe("pair comparator: contrastFloors (theme-contrast baseline)", () => {
+  const PATH = "scripts/theme-contrast-baseline.json";
+  const floorEntry = {
+    path: PATH,
+    checks: [{ mode: "custom", comparator: "contrastFloors", onAdd: "report" }],
+  };
+  const doc = (floors, exempt = {}) => ({ failing: { paper: [] }, ansiFloor: floors, exempt });
+  const REASON = "canonical palette, lifted per cell";
+
+  it("fails a lowered floor (2.4 → 1.1), naming both values", () => {
+    const dir = scratchRepo({ [PATH]: doc({ solarized: { value: 2.4, reason: REASON } }) });
+    mutate(dir, { [PATH]: doc({ solarized: { value: 1.1, reason: REASON } }) });
+    const { status, stderr } = run(dir, manifestOf([floorEntry]));
+    expect(status).toBe(1);
+    expect(stderr).toContain("2.4");
+    expect(stderr).toContain("1.1");
+    expect(stderr).toContain("only rise");
+  });
+
+  it("passes a raised floor (tightening)", () => {
+    const dir = scratchRepo({ [PATH]: doc({ solarized: { value: 2.4, reason: REASON } }) });
+    mutate(dir, { [PATH]: doc({ solarized: { value: 3.0, reason: REASON } }) });
+    expect(run(dir, manifestOf([floorEntry])).status).toBe(0);
+  });
+
+  it("fails a floor whose reason is blank", () => {
+    const dir = scratchRepo({ [PATH]: doc({ solarized: { value: 2.4, reason: REASON } }) });
+    mutate(dir, { [PATH]: doc({ solarized: { value: 2.4, reason: " " } }) });
+    const { status, stderr } = run(dir, manifestOf([floorEntry]));
+    expect(status).toBe(1);
+    expect(stderr).toContain("reason");
+  });
+
+  it("reports (but allows) a new floor and a new exempt entry under onAdd: report", () => {
+    const dir = scratchRepo({ [PATH]: doc({}) });
+    mutate(dir, {
+      [PATH]: doc(
+        { night: { value: 1.1, reason: REASON } },
+        { solarized: [{ id: "ansi.black/bg.primary", reason: REASON }] },
+      ),
+    });
+    const { status, stdout } = run(dir, manifestOf([floorEntry]));
+    expect(status).toBe(0);
+    expect(stdout).toContain("ansiFloor.night");
+    expect(stdout).toContain("exempt solarized/ansi.black/bg.primary");
+  });
+
+  it("fails a new exempt entry with no reason", () => {
+    const dir = scratchRepo({ [PATH]: doc({}) });
+    mutate(dir, { [PATH]: doc({}, { solarized: [{ id: "x", reason: "" }] }) });
+    expect(run(dir, manifestOf([floorEntry])).status).toBe(1);
+  });
+
+  it("the shipped per-theme identity entries catch a pair added under an existing theme", () => {
+    // Codex objection #13: `object-keys` at `failing` alone cannot see this.
+    // This fixture uses the shipped manifest's exact shape for one theme.
+    const identityEntry = {
+      path: PATH,
+      checks: [
+        { mode: "identity", at: "failing", shape: "object-keys", onAdd: "report" },
+        { mode: "identity", at: "failing.paper", shape: "strings", onAdd: "fail" },
+      ],
+    };
+    const dir = scratchRepo({ [PATH]: { failing: { paper: ["a/b"] }, ansiFloor: {}, exempt: {} } });
+    mutate(dir, { [PATH]: { failing: { paper: ["a/b", "new/pair"] }, ansiFloor: {}, exempt: {} } });
+    const { status, stderr } = run(dir, manifestOf([identityEntry]));
+    expect(status).toBe(1);
+    expect(stderr).toContain("new/pair");
+  });
+});
+
 // ─── the shipped manifest describes the real tree ───
 
 describe("shipped manifest", () => {

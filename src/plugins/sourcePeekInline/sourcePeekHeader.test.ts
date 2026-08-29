@@ -123,33 +123,33 @@ describe("createEditHeader", () => {
 
   it("contains live preview button", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live");
+    const liveBtn = header.querySelector(".source-peek-live-toggle");
     expect(liveBtn).not.toBeNull();
     expect(liveBtn!.getAttribute("title")).toBe("Toggle live preview");
   });
 
   it("live preview button has 'active' class when livePreview is true", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, true);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live");
+    const liveBtn = header.querySelector(".source-peek-live-toggle");
     expect(liveBtn!.classList.contains("active")).toBe(true);
   });
 
   it("live preview button does NOT have 'active' class when livePreview is false", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live");
+    const liveBtn = header.querySelector(".source-peek-live-toggle");
     expect(liveBtn!.classList.contains("active")).toBe(false);
   });
 
   it("contains cancel button", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const cancelBtn = header.querySelector(".source-peek-inline-btn--cancel");
+    const cancelBtn = header.querySelector('[data-action="cancel"], .vm-icon-btn--danger');
     expect(cancelBtn).not.toBeNull();
     expect(cancelBtn!.getAttribute("title")).toContain("Cancel");
   });
 
   it("contains save button", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const saveBtn = header.querySelector(".source-peek-inline-btn--save");
+    const saveBtn = header.querySelector('[data-action="save"], .vm-icon-btn--primary');
     expect(saveBtn).not.toBeNull();
     expect(saveBtn!.getAttribute("title")).toContain("Save");
   });
@@ -157,7 +157,7 @@ describe("createEditHeader", () => {
   it("calls onCancel when cancel button is clicked", () => {
     const onCancel = vi.fn();
     const header = createEditHeader("paragraph", false, onCancel, noop, noop, false);
-    const cancelBtn = header.querySelector(".source-peek-inline-btn--cancel") as HTMLButtonElement;
+    const cancelBtn = header.querySelector('[data-action="cancel"], .vm-icon-btn--danger') as HTMLButtonElement;
     cancelBtn.click();
     expect(onCancel).toHaveBeenCalledOnce();
   });
@@ -165,7 +165,7 @@ describe("createEditHeader", () => {
   it("calls onSave when save button is clicked", () => {
     const onSave = vi.fn();
     const header = createEditHeader("paragraph", false, noop, onSave, noop, false);
-    const saveBtn = header.querySelector(".source-peek-inline-btn--save") as HTMLButtonElement;
+    const saveBtn = header.querySelector('[data-action="save"], .vm-icon-btn--primary') as HTMLButtonElement;
     saveBtn.click();
     expect(onSave).toHaveBeenCalledOnce();
   });
@@ -173,14 +173,14 @@ describe("createEditHeader", () => {
   it("calls onToggleLive when live button is clicked", () => {
     const onToggleLive = vi.fn();
     const header = createEditHeader("paragraph", false, noop, noop, onToggleLive, false);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live") as HTMLButtonElement;
+    const liveBtn = header.querySelector(".source-peek-live-toggle") as HTMLButtonElement;
     liveBtn.click();
     expect(onToggleLive).toHaveBeenCalledOnce();
   });
 
   it("toggles 'active' class on live button when clicked", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live") as HTMLButtonElement;
+    const liveBtn = header.querySelector(".source-peek-live-toggle") as HTMLButtonElement;
     expect(liveBtn.classList.contains("active")).toBe(false);
     liveBtn.click();
     expect(liveBtn.classList.contains("active")).toBe(true);
@@ -190,7 +190,7 @@ describe("createEditHeader", () => {
 
   it("contains both eye icons in live button for CSS toggling", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const liveBtn = header.querySelector(".source-peek-inline-btn--live") as HTMLButtonElement;
+    const liveBtn = header.querySelector(".source-peek-live-toggle") as HTMLButtonElement;
     const eyeIcon = liveBtn.querySelector(".icon-eye");
     const eyeOffIcon = liveBtn.querySelector(".icon-eye-off");
     expect(eyeIcon).not.toBeNull();
@@ -199,7 +199,7 @@ describe("createEditHeader", () => {
 
   it("mousedown on buttons calls preventDefault (prevents editor blur)", () => {
     const header = createEditHeader("paragraph", false, noop, noop, noop, false);
-    const cancelBtn = header.querySelector(".source-peek-inline-btn--cancel") as HTMLButtonElement;
+    const cancelBtn = header.querySelector('[data-action="cancel"], .vm-icon-btn--danger') as HTMLButtonElement;
     const mousedownEvent = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
     const spy = vi.spyOn(mousedownEvent, "preventDefault");
     cancelBtn.dispatchEvent(mousedownEvent);

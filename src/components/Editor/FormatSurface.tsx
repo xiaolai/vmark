@@ -16,8 +16,11 @@
  *     success path because `resolveFormatSurface` caches the resolved module.
  *   - Suspense fallback is `null`. The surrounding editor chrome is already
  *     painted, and a spinner that appears for one frame reads as a flicker.
- *   - The error state reuses `editor:preview.failedToLoad` rather than adding
- *     a string: it says exactly this, in all ten locales, today.
+ *   - The error state (WI-UI4.4) names the format via `preview.surfaceFailed`
+ *     and offers an in-place Retry (`dialog:errorBoundary.tryAgain`) that
+ *     bumps the lazy key — a fresh thunk evaluation, not a re-render of a
+ *     cached rejection. It replaced the older reuse of
+ *     `editor:preview.failedToLoad`, which could not name the surface.
  *
  * @coordinates-with lib/formats/lazySurfaces.ts — resolution cache + typed error
  * @coordinates-with components/Editor/Editor.tsx — the dispatcher that mounts this
@@ -25,7 +28,9 @@
  */
 import { Component, Suspense, lazy, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { FormatSurfaceLoadError, resolveFormatSurface } from "@/lib/formats/lazySurfaces";
+import { localizedFormatName } from "@/lib/formats/saveFilters";
 import type { FormatConfig } from "@/lib/formats/types";
 
 interface FormatSurfaceProps {
@@ -60,21 +65,50 @@ class SurfaceErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
-/** The visible failure state. Named so a test can assert on it by role. */
-function SurfaceLoadFailure({ formatId }: { formatId: string }) {
+/** The visible failure state. Named so a test can assert on it by role.
+ *  WI-UI4.4: it names the SURFACE (which format stopped working) and offers
+ *  an in-place Retry — the canonical `.vm-btn` — wired by the parent to bump
+ *  the lazy key, so the retry is a fresh thunk evaluation, not a re-render of
+ *  a cached rejection. */
+function SurfaceLoadFailure({ formatId, onRetry }: { formatId: string; onRetry: () => void }) {
   const { t } = useTranslation("editor");
+  // Format display names live in the COMMON namespace ("format.txt" → "Plain
+  // Text") — the editor namespace has no format.* keys, so an editor-scoped
+  // lookup silently fell through to the raw id via defaultValue.
+  const name = localizedFormatName(`format.${formatId}`, formatId);
   return (
     <div
       className="editor-content format-surface-error"
       role="alert"
       data-format-surface-error={formatId}
     >
-      {t("preview.failedToLoad")}
+      <p>{t("preview.surfaceFailed", { format: name })}</p>
+      <button type="button" className="vm-btn" onClick={onRetry}>
+        {i18n.t("dialog:errorBoundary.tryAgain")}
+      </button>
     </div>
   );
 }
 
 export function FormatSurface({ formatConfig, tabId }: FormatSurfaceProps) {
+  // WI-UI4.4: bumping the key remounts MountedSurface, which gives a FRESH
+  // React.lazy (so the memoized rejection dies) and a fresh error boundary.
+  const [retryKey, setRetryKey] = useState(0);
+  return (
+    <MountedSurface
+      key={retryKey}
+      formatConfig={formatConfig}
+      tabId={tabId}
+      onRetry={() => setRetryKey((k) => k + 1)}
+    />
+  );
+}
+
+function MountedSurface({
+  formatConfig,
+  tabId,
+  onRetry,
+}: FormatSurfaceProps & { onRetry: () => void }) {
   const { id, wysiwygComponent } = formatConfig;
 
   // ONE lazy object per mount, created by the state initializer rather than a
@@ -108,7 +142,7 @@ export function FormatSurface({ formatConfig, tabId }: FormatSurfaceProps) {
   return (
     <SurfaceErrorBoundary
       formatId={id}
-      fallback={() => <SurfaceLoadFailure formatId={id} />}
+      fallback={() => <SurfaceLoadFailure formatId={id} onRetry={onRetry} />}
     >
       <Suspense fallback={null}>
         <Surface tabId={tabId} />

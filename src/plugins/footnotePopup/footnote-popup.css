@@ -3,32 +3,15 @@
  * Matches link-popup design: compact, borderless inputs, U-shaped focus indicator
  */
 
+/* Shell chrome comes from `.popup-container` (WI-UI3.2). */
 .footnote-popup {
-  position: fixed;
-  z-index: var(--z-popup);
-  display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-1);
-  padding: var(--popup-padding);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-color);
-  box-shadow: var(--popup-shadow);
-  animation: footnote-popup-fade-in var(--duration-fast) ease-out;
   min-width: 240px;
   max-width: 320px;
 }
 
-@keyframes footnote-popup-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* Textarea - borderless style */
 .footnote-popup-textarea {
@@ -40,7 +23,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   outline: none;
   resize: none;
   line-height: var(--line-height-base);
@@ -72,19 +55,6 @@
 }
 
 /* Save button - primary color on hover */
-.footnote-popup-btn-save:hover {
-  color: var(--primary-color);
-}
 
 /* Delete button - danger color on hover */
-.footnote-popup-btn-delete:hover {
-  color: var(--error-color);
-}
 
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .footnote-popup {
-    animation: none;
-  }
-}

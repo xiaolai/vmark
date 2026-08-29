@@ -98,7 +98,18 @@ export function shellSideWidth(state: ShellChromeState): number {
  * and its dependencies along with it. `AppShell` publishes it as
  * `--chrome-height` and reserves it as the primary column's `padding-top`.
  */
-export const CHROME_HEIGHT = 40;
+/**
+ * The ONE bar height (R11, WI-UI3.5): title bar, status bar, horizontal
+ * terminal bar and the chrome strip are all this tall. `shellChromeVars`
+ * publishes it as `--bar-height`; `index.css` carries the static default and
+ * `barHeight.test.ts` pins the two together.
+ */
+export const BAR_HEIGHT = 40;
+
+/* The chrome strip is one bar tall. Internal alias — the exported name lives
+   on AppShell (its semantic home); exporting both from here was a duplicate
+   export of one value (knip). */
+const CHROME_HEIGHT = BAR_HEIGHT;
 
 /**
  * Vertical space a column running to the window's top edge — the sidebar, the
@@ -128,6 +139,7 @@ export const SHELL_TOP_INSET = Math.max(CHROME_HEIGHT, TRAFFIC_LIGHTS_CLEARANCE)
 
 /** CSS custom properties the shell root publishes to every descendant. */
 export interface ShellChromeVars {
+  "--bar-height": string;
   "--workspace-rail-width": string;
   "--shell-top-inset": string;
   "--traffic-lights-zone": string;
@@ -148,6 +160,7 @@ export interface ShellChromeVars {
  */
 export function shellChromeVars(overlayTitleBar: boolean): ShellChromeVars {
   return {
+    "--bar-height": `${BAR_HEIGHT}px`,
     "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px`,
     "--shell-top-inset": `${overlayTitleBar ? SHELL_TOP_INSET : 0}px`,
     // Both are the window controls' own geometry, so both collapse to zero

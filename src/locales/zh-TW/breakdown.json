@@ -41,10 +41,10 @@
   "provenance.hint": "有 {{count}} 個先前的輸入可復原",
   "provenance.suggest": "建議輸入",
   "provenance.confirm": "確認來源",
-  "provenance.empty": "未選取任何輸入",
+  "provenance.empty": "未選擇輸入。請選擇此產物的來源。",
   "provenance.stale": "文件已變更 — 建議已重新整理",
   "delegations.heading": "智慧代理委任",
-  "delegations.empty": "沒有生效中的委任",
+  "delegations.empty": "沒有生效的委託。授予一個即可讓主體在限定範圍內行動。",
   "delegations.grant": "授予",
   "delegations.revoke": "撤銷",
   "delegations.principalPlaceholder": "智慧代理主體（例如 codex-cli）",
@@ -90,6 +90,6 @@
   "anchor.change": "變更錨點",
   "anchor.clear": "整個檔案",
   "anchor.hint": "只關注所依賴的章節，而不是整個檔案。",
-  "anchor.empty": "沒有可錨定的章節。",
+  "anchor.empty": "沒有可錨定的章節。請先為文件加入標題。",
   "anchor.error": "無法載入章節。"
 }

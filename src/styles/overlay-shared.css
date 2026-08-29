@@ -1,0 +1,178 @@
+/**
+ * Shared overlay / menu shells (WI-UI3.1, D14).
+ *
+ * Every full-screen overlay in VMark is the same three-part anatomy — a
+ * backdrop, a panel, rows — and before this file each of the four finders
+ * (CommandPalette, QuickOpen, ContentSearch, GeniePicker), five context
+ * menus and a dozen modal dialogs re-derived it: three widths, two backdrop
+ * tints, two border weights, two input sizes. One recipe each:
+ *
+ *   .vm-overlay            fixed full-inset backdrop (+ --top / --center)
+ *   .vm-overlay__panel     the shell; width via --vm-overlay-width
+ *   .vm-overlay__input     the finder's search field (14px, borderless)
+ *   .vm-overlay__row       36px row rhythm; `.is-selected` is R6 selection
+ *   .vm-overlay__footer    keyboard-hint bar (+ .vm-overlay__kbd chips)
+ *   .vm-menu               the context-menu surface (rule 32's recipe)
+ *
+ * The width clamp is `min(var(--vm-overlay-width), calc(100vw - 2 *
+ * var(--space-4)))` — a plain `min(640px, 90vw)` still overflows a very
+ * narrow window's gutters (Codex #7).
+ */
+
+.vm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  display: flex;
+  justify-content: center;
+  background: var(--hover-bg-strong);
+}
+
+.vm-overlay--top {
+  align-items: flex-start;
+  padding-top: 15vh;
+}
+
+.vm-overlay--center {
+  align-items: center;
+  /* Modal scrim — darker than the finder tint because a modal blocks. One
+     owner; the per-dialog copies (35%/40% black) are gone. */
+  background: color-mix(in srgb, black 35%, transparent);
+}
+
+.vm-overlay__panel {
+  --vm-overlay-width: 640px;
+  width: min(var(--vm-overlay-width), calc(100vw - 2 * var(--space-4)));
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  border: var(--border-hairline) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-color);
+  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--popup-shadow);
+  animation: popup-fade-in var(--duration-fast) ease-out;
+  overflow: hidden;
+}
+
+.dark-theme .vm-overlay__panel {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+/* Modal panels size to content, not the finder height cap. */
+.vm-overlay--center .vm-overlay__panel {
+  max-height: calc(100vh - 2 * var(--space-8));
+}
+
+/* The finder's search field: one size (14px), borderless, separated by the
+   header's own border. */
+/* focus: caret-only — borderless finder input; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2). */
+.vm-overlay__input {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: var(--space-3);
+  background: transparent;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-family: var(--font-ui);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+/* focus: caret-only — borderless finder input; the caret is the indicator
+   (.claude/rules/33-focus-indicators.md §2). */
+.vm-overlay__input:focus,
+.vm-overlay__input:focus-visible {
+  outline: none;
+}
+
+.vm-overlay__input::placeholder {
+  color: var(--text-secondary);
+  opacity: var(--opacity-muted);
+}
+
+/* One row rhythm for finder result rows. */
+.vm-overlay__row {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  cursor: default;
+}
+
+.vm-overlay__row:hover {
+  background: var(--hover-bg);
+}
+
+/* R6 — selection keeps its ink: accent wash, text-colour text. */
+.vm-overlay__row.is-selected,
+.vm-overlay__row[aria-selected="true"] {
+  background: var(--accent-bg);
+  color: var(--text-color);
+}
+
+/* Keyboard-hint footer, shared by all four finders. */
+.vm-overlay__footer {
+  padding: var(--space-1-5) var(--space-3);
+  border-top: var(--border-thin) solid var(--border-color);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.vm-overlay__kbd {
+  display: inline-block;
+  padding: 0 var(--space-1);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
+}
+
+/* The context-menu surface (rule 32). The literal `-apple-system` stacks the
+   five menus carried are gone — chrome text is `--font-ui` (R3). */
+.vm-menu {
+  position: fixed;
+  z-index: var(--z-context-menu);
+  min-width: 180px;
+  background: var(--bg-color);
+  background: color-mix(in srgb, var(--bg-color) 97%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: var(--border-hairline) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--popup-shadow);
+  padding: 5px;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+}
+
+.dark-theme .vm-menu {
+  box-shadow: var(--popup-shadow-dark);
+}
+
+/* WI-UI4.5 (R13): state must survive forced-colors mode, where every theme
+   token collapses to the system palette. This block lives HERE, below the
+   base rules it overrides — from index.css it loses the equal-specificity
+   cascade to this later-imported file and paints nothing (same-file-below is
+   the pattern universal-toolbar.css / StatusBar.css / TerminalTabBar.css
+   already use). */
+@media (forced-colors: active) {
+  .vm-overlay__panel {
+    border: 1px solid CanvasText;
+  }
+
+  .vm-overlay__row.is-selected,
+  .vm-overlay__row[aria-selected="true"] {
+    /* ui-ok(state): forced-colors mode — the SYSTEM highlight pair is the
+       correct vocabulary here; theme tokens are all collapsed by the OS */
+    background: Highlight;
+    color: HighlightText;
+  }
+}

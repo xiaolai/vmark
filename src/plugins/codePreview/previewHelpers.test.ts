@@ -446,11 +446,11 @@ describe("createEditHeader", () => {
     copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     // Still pending — no premature success feedback.
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit--success")).toBe(false);
 
     resolveCopy(true);
     await vi.waitFor(() => {
-      expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(true);
+      expect(copyBtn.classList.contains("code-block-edit--success")).toBe(true);
     });
     // Checkmark SVG should be present
     expect(copyBtn.innerHTML).toContain("polyline");
@@ -464,10 +464,10 @@ describe("createEditHeader", () => {
 
     copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await vi.advanceTimersByTimeAsync(0); // flush the onCopy microtask
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(true);
+    expect(copyBtn.classList.contains("code-block-edit--success")).toBe(true);
 
     await vi.advanceTimersByTimeAsync(1500);
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit--success")).toBe(false);
     // Rect SVG (copy icon) should be back
     expect(copyBtn.innerHTML).toContain("rect");
 
@@ -483,11 +483,11 @@ describe("createEditHeader", () => {
     copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
-    expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(true);
+    expect(copyBtn.classList.contains("code-block-edit--success")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit--error")).toBe(true);
 
     await vi.advanceTimersByTimeAsync(1500);
-    expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit--error")).toBe(false);
     vi.useRealTimers();
   });
 
@@ -499,9 +499,9 @@ describe("createEditHeader", () => {
     copyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     await vi.waitFor(() => {
-      expect(copyBtn.classList.contains("code-block-edit-btn--error")).toBe(true);
+      expect(copyBtn.classList.contains("code-block-edit--error")).toBe(true);
     });
-    expect(copyBtn.classList.contains("code-block-edit-btn--success")).toBe(false);
+    expect(copyBtn.classList.contains("code-block-edit--success")).toBe(false);
   });
 
   it("prevents default on copy button mousedown", () => {

@@ -36,6 +36,7 @@ import { findMatchesInDoc, type Match } from "./findMatches";
 import { createQueryDebounce } from "./queryDebounce";
 import { createReplaceHandlers } from "./replaceActions";
 import "./search.css";
+import { scrollBehavior } from "@/utils/motion";
 
 const searchPluginKey = new PluginKey("search");
 
@@ -230,14 +231,13 @@ export const searchExtension = Extension.create({
             // Scroll container is .editor-content, not editorView.dom (.ProseMirror)
             const scrollContainer = editorView.dom.closest(".editor-content") as HTMLElement | null;
             if (!scrollContainer) return;
-
             const coords = editorView.coordsAtPos(match.from);
             const containerRect = scrollContainer.getBoundingClientRect();
 
             if (coords.top < containerRect.top || coords.bottom > containerRect.bottom) {
               scrollContainer.scrollTo({
                 top: scrollContainer.scrollTop + coords.top - containerRect.top - containerRect.height / 3,
-                behavior: "smooth",
+                behavior: scrollBehavior(),
               });
             }
           };

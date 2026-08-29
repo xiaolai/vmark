@@ -51,6 +51,8 @@ export function LintBadge() {
   };
 
   return (
+    // ui-ok(focus): className is computed (badgeClass) — both branches render
+    // .lint-badge, whose :focus-visible outline lives in lint.css.
     <button
       className={badgeClass}
       onClick={handleClick}

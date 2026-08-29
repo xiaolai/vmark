@@ -73,7 +73,7 @@ export function TabRenameInput({ filePath, fileName }: TabRenameInputProps) {
   return (
     <input
       type="text"
-      className="tab-title-input"
+      className="vm-input tab-title-input"
       aria-label={t("tabMenu.rename")}
       defaultValue={fileName}
       autoFocus

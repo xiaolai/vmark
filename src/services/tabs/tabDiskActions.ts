@@ -9,12 +9,12 @@
  * @coordinates-with components/Tabs/useTabContextMenuActions.ts — the caller
  * @module services/tabs/tabDiskActions
  */
-import { ask } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import { reloadTabFromDisk } from "@/services/persistence/reloadFromDisk";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 /** Write an in-memory document back over a file that vanished from disk. */
 export async function restoreTabToDisk(
@@ -46,8 +46,10 @@ export async function revertTabToSaved(
 ): Promise<void> {
   /* v8 ignore next -- @preserve defensive guard; the item only appears when both are present */
   if (!filePath || !doc) return;
-  const confirmed = await ask(i18n.t("dialog:revertToSaved.message", { title }), {
+  const confirmed = await confirmAction({
     title: i18n.t("dialog:revertToSaved.title"),
+    message: i18n.t("dialog:revertToSaved.message", { title }),
+    actionLabel: i18n.t("dialog:action.revert"),
     kind: "warning",
   });
   if (!confirmed) return;

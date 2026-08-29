@@ -66,7 +66,7 @@ export function QuickOpenList({
       {rankedItems.map((ranked, index) => (
         <div
           key={ranked.item.path}
-          className={`quick-open-item${index === selectedIndex ? " quick-open-item--selected" : ""}`}
+          className={`vm-overlay__row quick-open-item${index === selectedIndex ? " is-selected" : ""}`}
           data-index={index}
           role="option"
           id={`quick-open-item-${index}`}
@@ -93,7 +93,7 @@ export function QuickOpenList({
 
       {/* Browse row — always pinned at bottom */}
       <div
-        className={`quick-open-item${selectedIndex === rankedItems.length ? " quick-open-item--selected" : ""}`}
+        className={`vm-overlay__row quick-open-item${selectedIndex === rankedItems.length ? " is-selected" : ""}`}
         data-index={rankedItems.length}
         role="option"
         id={`quick-open-item-${rankedItems.length}`}

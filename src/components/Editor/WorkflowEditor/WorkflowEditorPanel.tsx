@@ -195,7 +195,7 @@ function AddJobControl({ existingIds }: AddJobControlProps): ReactElement {
       {open && (
         <div className="workflow-editor-panel__add-job-form">
           <input
-            className="workflow-form__input workflow-form__input--mono"
+            className="vm-input vm-input--field vm-input--mono workflow-form__input"
             type="text"
             value={draftId}
             placeholder="job-id"

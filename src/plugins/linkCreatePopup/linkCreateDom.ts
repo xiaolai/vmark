@@ -29,7 +29,7 @@ export interface LinkCreateDomRefs {
 
 /** Build a link-create popup icon button with the popup's bespoke styling. */
 function buildLinkCreateBtn(iconSvg: string, title: string, onClick: () => void): HTMLButtonElement {
-  return buildPopupIconButton({ iconSvg, title, onClick, baseClass: "link-create-popup-btn" });
+  return buildPopupIconButton({ iconSvg, title, onClick });
 }
 
 /**
@@ -85,13 +85,13 @@ export function buildLinkCreateContent(
     i18n.t("editor:popup.linkCreate.create"),
     handlers.onSave
   );
-  saveBtn.classList.add("link-create-popup-btn-save");
+  saveBtn.classList.add("popup-icon-btn--primary", "link-create-popup-btn-save");
   const cancelBtn = buildLinkCreateBtn(
     popupIcons.close,
     i18n.t("editor:popup.linkCreate.cancel"),
     handlers.onCancel
   );
-  cancelBtn.classList.add("link-create-popup-btn-cancel");
+  cancelBtn.classList.add("popup-icon-btn--danger", "link-create-popup-btn-cancel");
 
   urlRow.appendChild(urlInput);
   urlRow.appendChild(saveBtn);

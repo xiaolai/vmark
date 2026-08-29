@@ -41,10 +41,10 @@
   "provenance.hint": "{{count}} entrada(s) anterior(es) recuperable(s)",
   "provenance.suggest": "Sugerir entradas",
   "provenance.confirm": "Confirmar procedencia",
-  "provenance.empty": "Ninguna entrada seleccionada",
+  "provenance.empty": "No hay entradas seleccionadas. Elige las fuentes de este artefacto.",
   "provenance.stale": "El documento cambió — sugerencias actualizadas",
   "delegations.heading": "Delegaciones de agentes",
-  "delegations.empty": "Sin delegaciones activas",
+  "delegations.empty": "No hay delegaciones activas. Concede una para que un principal actúe dentro de un ámbito.",
   "delegations.grant": "Otorgar",
   "delegations.revoke": "Revocar",
   "delegations.principalPlaceholder": "Principal del agente (p. ej., codex-cli)",
@@ -90,6 +90,6 @@
   "anchor.change": "Cambiar ancla",
   "anchor.clear": "Archivo completo",
   "anchor.hint": "Preguntar solo por la sección de la que depende, en vez del archivo entero.",
-  "anchor.empty": "No hay secciones para anclar.",
+  "anchor.empty": "No hay secciones para anclar. Añade primero encabezados al documento.",
   "anchor.error": "No se pudieron cargar las secciones."
 }

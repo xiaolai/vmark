@@ -83,7 +83,7 @@ export class LanguageDropdown {
     dropdown.appendChild(searchInput);
 
     const list = document.createElement("div");
-    list.className = "code-lang-list";
+    list.className = "vm-scroll--thin code-lang-list";
     this.renderLanguageList(list, "");
     dropdown.appendChild(list);
 

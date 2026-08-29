@@ -31,6 +31,7 @@
  */
 
 import { toast } from "sonner";
+import { commandErrorMessage } from "@/services/commands/commandError";
 import { useEditorStore } from "@/stores/editorStore";
 import { buildPinAction } from "./imeToastPinAction";
 
@@ -205,6 +206,25 @@ export const imeToast = {
   warning: (...args: ToastArgs) => {
     const piped = applyPin(toast.warning as ToastFn, args);
     return toast.warning(...piped);
+  },
+  /**
+   * WI-UI4.4 — the two-line error: a human MESSAGE on the first line and the
+   * technical DETAIL (an error string, a path, `%{detail}` from a
+   * CommandError) as sonner's description on the second. Replaces the
+   * "Failed to X: {{error}}" interpolation pattern, which buried the message
+   * under the stack noise it carried.
+   */
+  errorDetail: (message: string, detail?: unknown) => {
+    // commandErrorMessage, not String(): a typed CommandError rejection (or
+    // any plain object) passed through raw would render "[object Object]" —
+    // the class the type-aware gate exists to kill.
+    const description =
+      detail == null || detail === "" ? undefined : commandErrorMessage(detail);
+    const piped = applyPin(toast.error as ToastFn, [
+      message,
+      { ...(description ? { description } : {}), pin: true },
+    ] as ToastArgs);
+    return toast.error(...piped);
   },
   loading: toast.loading,
   dismiss: toast.dismiss,

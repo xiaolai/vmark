@@ -41,10 +41,10 @@
   "provenance.hint": "Entradas anteriores recuperáveis: {{count}}",
   "provenance.suggest": "Sugerir entradas",
   "provenance.confirm": "Confirmar proveniência",
-  "provenance.empty": "Nenhuma entrada selecionada",
+  "provenance.empty": "Nenhuma entrada selecionada. Escolha as fontes deste artefato.",
   "provenance.stale": "O documento mudou — sugestões atualizadas",
   "delegations.heading": "Delegações de agentes",
-  "delegations.empty": "Nenhuma delegação ativa",
+  "delegations.empty": "Nenhuma delegação ativa. Conceda uma para que um principal atue dentro de um escopo.",
   "delegations.grant": "Conceder",
   "delegations.revoke": "Revogar",
   "delegations.principalPlaceholder": "Principal do agente (ex.: codex-cli)",
@@ -90,6 +90,6 @@
   "anchor.change": "Alterar âncora",
   "anchor.clear": "Arquivo inteiro",
   "anchor.hint": "Perguntar apenas sobre a seção da qual isto depende, em vez do arquivo inteiro.",
-  "anchor.empty": "Nenhuma seção para ancorar.",
+  "anchor.empty": "Nenhuma seção para ancorar. Adicione títulos ao documento primeiro.",
   "anchor.error": "Não foi possível carregar as seções."
 }

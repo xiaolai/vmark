@@ -91,6 +91,7 @@ class FeatureErrorBoundaryInner extends Component<Props, State> {
           </pre>
           <button
             type="button"
+            className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2"
             onClick={this.reset}
             style={{
               padding: `${4}px ${12}px`,

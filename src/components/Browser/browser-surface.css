@@ -92,7 +92,7 @@
 
 .browser-dialog-message {
   margin: 0;
-  max-width: 32em;
+  max-width: 576px; /* was 32em @ 18px (WI-UI2.1) */
   text-align: center;
   color: var(--text-color);
   white-space: pre-wrap;

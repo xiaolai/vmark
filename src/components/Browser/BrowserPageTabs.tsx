@@ -17,7 +17,8 @@
  * @coordinates-with services/navigation/activateTabInFocusedPane — pane-aware activation
  * @module components/Browser/BrowserPageTabs
  */
-import { Globe2, Plus, X } from "lucide-react";
+import { Globe2 } from "lucide-react";
+import { TabStripButton } from "@/components/shared/TabStripButton";
 import { useTranslation } from "react-i18next";
 import type { BrowserTab } from "@/stores/tabStoreTypes";
 import { useTabStore } from "@/stores/tabStore";
@@ -44,15 +45,7 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
 
   return (
     <div className="browser-page-tabs" role="tablist" aria-label={t("browser.pages")}>
-      <button
-        type="button"
-        className="browser-page-new"
-        onClick={createPage}
-        aria-label={t("browser.newPage")}
-        title={t("browser.newPage")}
-      >
-        <Plus size={15} />
-      </button>
+      <TabStripButton kind="add" className="browser-page-new" onClick={createPage} label={t("browser.newPage")} />
 
       {pages.map((page) => {
         const active = page.id === activePageId;
@@ -81,8 +74,8 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
           >
             <Globe2 size={14} aria-hidden="true" />
             <span className="browser-page-tab-title">{pageLabel}</span>
-            <button
-              type="button"
+            <TabStripButton
+              kind="close"
               className="browser-page-tab-close"
               onClick={(event) => {
                 event.stopPropagation();
@@ -90,10 +83,8 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
                   /* best-effort: a dirty-check/close failure must not crash the UI */
                 });
               }}
-              aria-label={t("browser.closePage", { title: pageLabel })}
-            >
-              <X size={13} />
-            </button>
+              label={t("browser.closePage", { title: pageLabel })}
+            />
           </div>
         );
       })}

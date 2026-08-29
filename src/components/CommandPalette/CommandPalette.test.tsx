@@ -310,3 +310,15 @@ describe("CommandPalette — window context (WI-S0.7)", () => {
     );
   });
 });
+
+describe("shared overlay shell (WI-UI3.1)", () => {
+  it("renders .vm-overlay--top > .vm-overlay__panel with the shared input and footer", () => {
+    useCommandPaletteStore.getState().open();
+    render(<CommandPalette />);
+    const backdrop = document.querySelector(".vm-overlay.vm-overlay--top");
+    expect(backdrop).not.toBeNull();
+    expect(backdrop!.querySelector(".vm-overlay__panel.command-palette")).not.toBeNull();
+    expect(backdrop!.querySelector("input.vm-overlay__input")).not.toBeNull();
+    expect(backdrop!.querySelector(".vm-overlay__footer")).not.toBeNull();
+  });
+});

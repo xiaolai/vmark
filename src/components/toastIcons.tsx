@@ -10,7 +10,7 @@
  * @module components/toastIcons
  */
 
-import { CheckCircle, AlertCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 
 const SIZE = 16;
 
@@ -22,5 +22,5 @@ export const TOAST_ICONS = {
   error: <AlertCircle size={SIZE} />,
   info: <Info size={SIZE} />,
   warning: <AlertTriangle size={SIZE} />,
-  loading: <Loader2 size={SIZE} className="animate-spin" />,
+  loading: <span className="vm-spinner" />,
 };

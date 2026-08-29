@@ -57,14 +57,14 @@ describe("generated reader dark palette", () => {
 
   // The regression that motivated this: these eight were hand-written and wrong.
   it.each([
-    ["--text-secondary", "#9aa0a6"],
+    ["--text-secondary", "#a2a8ad"],
     ["--code-text-color", "#d1d5db"],
     ["--md-char-color", "#7aa874"],
     ["--strong-color", "#6cb6ff"],
-    ["--emphasis-color", "#d19a66"],
+    ["--emphasis-color", "#d29c69"],
     ["--hover-bg", "rgba(255, 255, 255, 0.08)"],
     ["--hover-bg-strong", "rgba(255, 255, 255, 0.12)"],
-    ["--accent-primary", "#58a6ff"],
+    ["--accent-primary", "#61abff"],
   ])("%s carries the app's value, not the stale hand-written one", (token, expected) => {
     expect(generated[token]).toBe(expected);
   });

@@ -57,7 +57,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
     <div className="browser-omnibox">
       <button
         type="button"
-        className="browser-omnibox-btn"
+        className="vm-icon-btn vm-icon-btn--sm browser-omnibox-glyph"
         onClick={() => backBrowser(tabId)}
         disabled={!canGoBack}
         aria-label={t("browser.back")}
@@ -67,7 +67,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
       </button>
       <button
         type="button"
-        className="browser-omnibox-btn"
+        className="vm-icon-btn vm-icon-btn--sm browser-omnibox-glyph"
         onClick={() => forwardBrowser(tabId)}
         disabled={!canGoForward}
         aria-label={t("browser.forward")}
@@ -78,7 +78,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
       {loading ? (
         <button
           type="button"
-          className="browser-omnibox-btn"
+          className="vm-icon-btn vm-icon-btn--sm browser-omnibox-glyph"
           onClick={() => stopBrowser(tabId)}
           aria-label={t("browser.stop")}
           title={t("browser.stop")}
@@ -88,7 +88,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
       ) : (
         <button
           type="button"
-          className="browser-omnibox-btn"
+          className="vm-icon-btn vm-icon-btn--sm browser-omnibox-glyph"
           onClick={() => reloadBrowser(tabId)}
           aria-label={t("browser.reload")}
           title={t("browser.reload")}
@@ -115,7 +115,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
       </form>
       <button
         type="button"
-        className={`browser-omnibox-btn${bookmarked ? " browser-omnibox-btn--on" : ""}`}
+        className="vm-icon-btn vm-icon-btn--sm browser-omnibox-glyph"
         onClick={() => {
           const store = useBookmarkStore.getState();
           if (bookmarked) store.remove(committedUrl);
@@ -128,7 +128,7 @@ export function BrowserOmnibox({ tabId }: { tabId: string }): React.ReactElement
         {bookmarked ? "★" : "☆"}
       </button>
       {loading && (
-        <span className="browser-omnibox-loading" role="status" aria-label={t("browser.loading")} />
+        <span className="vm-spinner browser-omnibox-loading" role="status" aria-label={t("browser.loading")} />
       )}
     </div>
   );

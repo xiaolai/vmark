@@ -34,6 +34,25 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "prefer-const": "warn",
+      // R10 (WI-UI1.7): JS smooth scrolling must honour prefers-reduced-motion,
+      // so the literal goes through scrollBehavior() in @/utils/motion — the
+      // one place that consults the OS preference. CSS motion is collapsed
+      // globally in index.css; this rule closes the JS half.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: 'Property[key.name="behavior"] > Literal[value="smooth"]',
+          message:
+            'Use scrollBehavior() from "@/utils/motion" — a literal "smooth" ignores prefers-reduced-motion (R10).',
+        },
+      ],
+    },
+  },
+  // The one module that owns the literal.
+  {
+    files: ["src/utils/motion.ts"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
   // Test file overrides
@@ -41,6 +60,9 @@ export default tseslint.config(
     files: ["**/*.test.ts", "**/*.test.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      // Tests ASSERT the smooth/auto value the policy produced — that is the
+      // observable behavior, not a bypass of it.
+      "no-restricted-syntax": "off",
     },
   }
 );

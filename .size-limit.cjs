@@ -173,7 +173,12 @@ module.exports = [
     // behind it. `pnpm lint:eager` is what checks that now.
     name: "EAGER: App",
     path: "dist/assets/App-*.js",
-    limit: "610 kB",
+    // 610 → 612 kB (2026-08-29): the UI-consistency plan's eager additions —
+    // the confirmAction dialog funnel and commandErrorMessage at the toast
+    // boundary (type-aware gate: String(detail) on a typed rejection renders
+    // "[object Object]") — landed the chunk 23 B over. Kept tight so the next
+    // unjustified growth still trips.
+    limit: "612 kB",
     brotli: false,
   },
 

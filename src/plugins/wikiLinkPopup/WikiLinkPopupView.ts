@@ -38,8 +38,7 @@ export class WikiLinkPopupView extends WysiwygPopupView<WikiLinkPopupState> {
   }
 
   protected buildContainer(): HTMLElement {
-    const container = document.createElement("div");
-    container.className = "wiki-link-popup";
+    const container = this.createShell("wiki-link-popup");
 
     // Single row: Input + Browse + Action buttons
     const targetInput = buildPopupInput({

@@ -1,25 +1,11 @@
+/* Backdrop chrome comes from the shared overlay shell (WI-UI3.1). */
 .workspace-approval-overlay {
-  /* Component-scoped one-off, per .claude/rules/31-design-tokens.md — there is
-     no global scrim token, and the workflow approval dialog scopes its backdrop
-     the same way (`--approval-backdrop-color`). */
-  --workspace-approval-backdrop: color-mix(in srgb, black 35%, transparent);
-
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popup);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--workspace-approval-backdrop);
+  padding: var(--space-4);
 }
 
 .workspace-approval-dialog {
-  max-width: 30em;
+  --vm-overlay-width: 540px; /* was 30em @ 18px — the chrome body is 13px now (WI-UI2.1) */
   padding: var(--space-5);
-  background: var(--bg-color);
-  border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
 }
 
 .dark-theme .workspace-approval-dialog {

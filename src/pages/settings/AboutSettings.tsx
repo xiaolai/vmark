@@ -13,11 +13,13 @@ import type { UpdateCheckFrequency } from "@/stores/settingsTypes";
 import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations } from "@/hooks/useUpdateOperations";
-import { Loader2, CheckCircle2, AlertCircle, Download, Globe } from "lucide-react";
+import { CheckCircle2, AlertCircle, Download, Globe } from "lucide-react";
 import { GithubMark } from "./GithubMark";
 import { UpdateAvailableCard } from "./UpdateAvailableCard";
 import appIcon from "@/assets/app-icon.png";
 import { appError } from "@/utils/debug";
+import { confirmAction } from "@/services/dialogs/confirmAction";
+import i18n from "@/i18n";
 
 const WEBSITE_URL = "https://vmark.app";
 const GITHUB_URL = "https://github.com/xiaolai/vmark";
@@ -54,7 +56,7 @@ function Links() {
         <li key={label}>
           <button
             onClick={() => void Promise.resolve(openUrl(url)).catch((e) => appError("Failed to open URL:", e))}
-            className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--primary-color)] transition-colors"
+            className="vm-btn vm-btn--plain flex items-center gap-1.5"
           >
             <Icon className="w-3.5 h-3.5" />
             {label}
@@ -73,8 +75,8 @@ function StatusIndicator() {
 
   if (status === "checking") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
-        <Loader2 className="w-3 h-3 animate-spin" />
+      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+        <span className="vm-spinner" />
         {t("about.updateStatus.checking")}
       </span>
     );
@@ -100,8 +102,8 @@ function StatusIndicator() {
 
   if (status === "downloading" || status === "installing") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
-        <Loader2 className="w-3 h-3 animate-spin" />
+      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+        <span className="vm-spinner" />
         {status === "installing"
           ? t("about.updateStatus.installing")
           : t("about.updateStatus.downloading")}
@@ -231,9 +233,18 @@ export function AboutSettings() {
           <Button
             variant="danger"
             onClick={() => {
-              if (confirm(t("about.resetSettings.confirm"))) {
-                resetSettings();
-              }
+              void (async () => {
+                if (
+                  await confirmAction({
+                    title: i18n.t("dialog:resetSettings.title"),
+                    message: t("about.resetSettings.confirm"),
+                    actionLabel: i18n.t("dialog:action.resetSettings"),
+                    kind: "warning",
+                  })
+                ) {
+                  resetSettings();
+                }
+              })().catch((e) => appError("Reset-settings confirm failed:", e));
             }}
           >
             {t("about.resetSettings.button")}

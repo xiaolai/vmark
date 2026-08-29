@@ -17,7 +17,6 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { joinPath } from "@/utils/pathUtils";
 import { exportError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
 
 /** Pandoc detection result from Rust backend. */
 interface PandocInfo {
@@ -102,11 +101,10 @@ export async function exportViaPandoc(options: {
     return true;
   } catch (error) {
     exportError("Pandoc export failed:", error);
-    const detail = errorMessage(error);
-    // Pin: pandoc errors are typically multi-line stderr output worth reading.
-    toast.error(i18n.t("dialog:toast.pandocExportError", { error: detail }), {
-      pin: true,
-    });
+    // Two-line toast (WI-UI4.4): pandoc's multi-line stderr is the detail.
+    // Raw error — errorDetail owns the normalization (commandErrorMessage);
+    // errorMessage() here re-created the "[object Object]" class it feeds.
+    toast.errorDetail(i18n.t("dialog:toast.pandocExportError"), error);
     return false;
   }
 }

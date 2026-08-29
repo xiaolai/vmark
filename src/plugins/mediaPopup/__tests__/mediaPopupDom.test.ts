@@ -65,9 +65,9 @@ describe("createMediaPopupDom", () => {
     vi.clearAllMocks();
   });
 
-  it("creates container with media-popup class", () => {
+  it("creates container on the canonical popup shell (WI-UI3.2)", () => {
     const dom = createMediaPopupDom(handlers);
-    expect(dom.container.className).toBe("media-popup");
+    expect(dom.container.className).toBe("popup-container media-popup");
     expect(dom.container.style.display).toBe("none");
   });
 

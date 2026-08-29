@@ -649,7 +649,7 @@ describe("useExternalFileChanges — dirty file prompt", () => {
   it("opens Save As dialog when user chooses Save As and saves successfully", async () => {
     seedDirtyStores();
     mocks.readTextFile.mockResolvedValue("# external change");
-    mocks.dialogMessage.mockResolvedValue("Save As...");
+    mocks.dialogMessage.mockResolvedValue("Save As…");
     mocks.dialogSave.mockResolvedValue("/workspace/saved-copy.md");
     mocks.saveToPath.mockResolvedValue(true);
 
@@ -673,7 +673,7 @@ describe("useExternalFileChanges — dirty file prompt", () => {
   it("keeps user changes when Save As is cancelled", async () => {
     seedDirtyStores();
     mocks.readTextFile.mockResolvedValue("# external change");
-    mocks.dialogMessage.mockResolvedValue("Save As...");
+    mocks.dialogMessage.mockResolvedValue("Save As…");
     mocks.dialogSave.mockResolvedValue(null); // Cancelled
 
     const callback = await setupHookAndCallback();
@@ -771,7 +771,7 @@ describe("useExternalFileChanges — dirty file prompt", () => {
   it("keeps changes when Save As fails (save returns false)", async () => {
     seedDirtyStores();
     mocks.readTextFile.mockResolvedValue("# external change");
-    mocks.dialogMessage.mockResolvedValue("Save As...");
+    mocks.dialogMessage.mockResolvedValue("Save As…");
     mocks.dialogSave.mockResolvedValue("/workspace/saved-copy.md");
     mocks.saveToPath.mockResolvedValue(false); // save fails
 
@@ -1388,7 +1388,7 @@ describe("useExternalFileChanges — fileName fallback (getFileName returns empt
 
     const messageArg = mocks.dialogMessage.mock.calls[0][0] as string;
     // When getFileName returns "", the dialog should fall back to "file"
-    expect(messageArg).toContain('"file"');
+    expect(messageArg).toContain('“file”');
 
     vi.mocked(pathsModule.getFileName).mockRestore();
   });

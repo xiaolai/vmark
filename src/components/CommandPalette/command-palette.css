@@ -3,38 +3,9 @@
  * Visual tokens come from ADR-014 typed theme.
  */
 
-.command-palette__backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 15vh;
-  z-index: var(--z-popup);
-}
-
-.command-palette {
-  width: min(640px, 90vw);
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--popup-shadow);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.command-palette__input {
-  width: 100%;
-  border: none;
-  outline: none;
-  padding: var(--space-3);
-  background: transparent;
-  color: var(--text-color);
-  font-size: var(--font-size-lg);
-  border-bottom: 1px solid var(--border-color);
-}
+/* Backdrop, panel, input, rows and selection all come from the shared
+   overlay shell (`overlay-shared.css`, WI-UI3.1); this file keeps only the
+   palette's own layout. */
 
 .command-palette__list {
   list-style: none;
@@ -64,19 +35,9 @@
   padding: 0;
 }
 
+/* On top of .vm-overlay__row: the palette splits title | shortcut. */
 .command-palette__row {
-  display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  color: var(--text-color);
-}
-
-.command-palette__row.is-selected {
-  background: var(--accent-bg);
-  color: var(--accent-primary);
 }
 
 .command-palette__title {
@@ -95,3 +56,4 @@
   color: var(--text-secondary);
   text-align: center;
 }
+

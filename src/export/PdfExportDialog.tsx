@@ -31,7 +31,6 @@ import { PdfSettingsSidebar } from "./PdfSettingsSidebar";
 import { pdfError } from "@/utils/debug";
 
 import "./pdf-export-dialog.css";
-import { commandErrorMessage } from "@/services/commands/commandError";
 import { buildPageSpec } from "./pageSpec";
 import { buildPageNumberSpec, effectiveBottomMarginMm } from "./pdfOptions";
 
@@ -207,10 +206,9 @@ export function PdfExportContent({
 
       onClose();
     } catch (error) {
-      const msg = commandErrorMessage(error);
-      // Pin: PDF export errors (Paged.js / WKWebView) include details users
-      // want to read carefully (asset paths, render failures).
-      toast.error(tDialog("toast.pdfExportFailed", { error: msg }), { pin: true });
+      // Two-line toast (WI-UI4.4): Paged.js/WKWebView details as the detail.
+      // Raw error — errorDetail owns the normalization (commandErrorMessage).
+      toast.errorDetail(tDialog("toast.pdfExportFailed"), error);
       setExporting(false);
       setExportStage("");
     }

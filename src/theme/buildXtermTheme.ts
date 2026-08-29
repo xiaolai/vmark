@@ -17,6 +17,18 @@
 import type { ITheme } from "@xterm/xterm";
 import { themes, type ThemeId } from "./themes";
 
+/** `rgba(r, g, b, a)` / `#rrggbb` → the same colour at a new alpha. */
+export function withAlpha(color: string, alpha: number): string {
+  const rgba = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/.exec(color.trim());
+  if (rgba) return `rgba(${rgba[1]}, ${rgba[2]}, ${rgba[3]}, ${alpha})`;
+  const hex = /^#([0-9a-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+  return color;
+}
+
 /**
  * Build a complete xterm.js ITheme for a specific theme ID.
  *
@@ -41,7 +53,11 @@ export function buildXtermThemeForId(themeId: ThemeId): ITheme {
     foreground:          color.text.primary,
     cursor:              terminal.cursor,
     cursorAccent:        terminal.cursorAccent,
-    selectionBackground: terminal.selectionBackground,
+    // DERIVED (WI-UI1.4): the terminal selection IS the app selection, at a
+    // slightly higher alpha because xterm composites on a canvas with no
+    // ::selection ink adjustment. A separate catalog field had already
+    // drifted (sepia/mint carried a dead blue).
+    selectionBackground: withAlpha(color.selection, 0.25),
 
     // ANSI standard (0–7)
     black:   ansi.black,
@@ -63,8 +79,21 @@ export function buildXtermThemeForId(themeId: ThemeId): ITheme {
     brightCyan:    ansi.brightCyan,
     brightWhite:   ansi.brightWhite,
 
-    scrollbarSliderBackground:       terminal.scrollbar.idle,
-    scrollbarSliderHoverBackground:  terminal.scrollbar.hover,
-    scrollbarSliderActiveBackground: terminal.scrollbar.active,
+    // DERIVED (WI-UI1.4): thumb = text ink at xterm's own .2/.4/.5 alphas, so
+    // the terminal thumb and the app thumb share one source (the app thumb is
+    // color-mix on --text-secondary — same family, same ink).
+    scrollbarSliderBackground:       withAlpha(color.text.primary, 0.2),
+    scrollbarSliderHoverBackground:  withAlpha(color.text.primary, 0.4),
+    scrollbarSliderActiveBackground: withAlpha(color.text.primary, 0.5),
   };
+}
+
+/**
+ * xterm's `drawBoldTextInBrightColors` for a theme (default true). False when
+ * a bright slot doubles as a text tier — see `ThemeTokens.terminal`.
+ */
+export function drawBoldTextInBrightColorsForId(themeId: ThemeId): boolean {
+  const hasTheme = Object.prototype.hasOwnProperty.call(themes, themeId);
+  const theme = hasTheme ? themes[themeId] : themes.paper;
+  return theme.terminal.boldTextInBrightColors ?? true;
 }

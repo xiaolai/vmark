@@ -66,7 +66,7 @@
   "form.step.with.duplicateKey": "Clave duplicada — ya está definida en otra fila",
   "form.step.uses.label": "Usa",
   "form.trigger.kind": "Disparadores",
-  "form.trigger.empty": "No hay disparadores configurados",
+  "form.trigger.empty": "No hay disparadores configurados. Añade uno para elegir cuándo se ejecuta este workflow.",
   "form.trigger.branches": "Ramas: {{value}}",
   "form.trigger.branchesIgnore": "Ramas ignoradas: {{value}}",
   "form.trigger.tags": "Etiquetas: {{value}}",
@@ -110,7 +110,7 @@
   "expression.expand.run": "Expandir run",
   "expression.title.if": "Editar if",
   "expression.title.run": "Editar run",
-  "panel.noWorkflow": "No se detectó ningún flujo de trabajo",
+  "panel.noWorkflow": "No se detectó workflow. Abre un archivo YAML en .github/workflows para usar el editor.",
   "panel.conditional": "condicional",
   "panel.shell.resize": "Redimensionar los paneles",
   "panel.viewerAriaLabel": "Visor de flujos de trabajo de GitHub Actions",
@@ -145,5 +145,7 @@
   "form.step.with.defaultValue": "(predeterminado: {{value}})",
   "panel.exportLabel": "Exportar el diagrama del flujo de trabajo",
   "panel.exportError": "Error al exportar",
-  "settings.groupTitle": "Archivos de flujo de trabajo"
+  "settings.groupTitle": "Archivos de flujo de trabajo",
+  "form.job.delete.confirm": "¿Eliminar el job «{{id}}»? No se puede deshacer antes de guardar.",
+  "form.job.steps.deleteConfirm": "¿Eliminar el paso «{{label}}»?"
 }

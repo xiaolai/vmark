@@ -65,19 +65,23 @@ describe("wait-ready argument validation", () => {
   it("honours the advertised timeout as an upper bound", () => {
     // The loop used to sleep a full poll interval after the budget was spent,
     // so `--timeout-ms` was a LOWER bound. The margin here is derived, not
-    // taste: with a 3000ms interval and a 3100ms budget, the correct loop makes
-    // its last sleep 100ms and finishes at ~3100ms, while the unconditional
-    // version sleeps the full 3000 and finishes at ~6000. A bound of 4500 sits
-    // between them with ~1.4s of headroom on each side.
+    // taste: with a 9000ms interval and a 9100ms budget, the correct loop makes
+    // its last sleep 100ms and finishes at ~9100ms, while the unconditional
+    // version sleeps the full 9000 and finishes at ~18100. A bound of 13600
+    // sits between them with ~4.5s of headroom on each side.
     //
-    // The previous version allowed 15s against a 1s interval, which the
-    // mutation it was written for passed comfortably. If this ever needs
-    // relaxing, raise `--poll-ms` and the bound together — widening the margin
-    // alone puts the guard back to sleep.
+    // The numbers have been raised TOGETHER twice (3000/3100/4500 →
+    // 6000/6100/9000 → here), each time after machine load ate the spawn
+    // overhead margin: 4893ms under check:predelta's 8-way pool, then >9s
+    // when test:changed runs this tier beside the full app tier. That is the
+    // relaxation rule this comment has always stated: raise `--poll-ms` and
+    // the bound TOGETHER — widening the margin alone puts the guard back to
+    // sleep, because the broken variant's finish time scales with the
+    // interval too.
     const started = Date.now();
-    const { code } = run("--timeout-ms", "3100", "--poll-ms", "3000");
+    const { code } = run("--timeout-ms", "9100", "--poll-ms", "9000");
     const elapsed = Date.now() - started;
     expect(code).toBe(1);
-    expect(elapsed).toBeLessThan(4_500);
+    expect(elapsed).toBeLessThan(13_600);
   });
 });

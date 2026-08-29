@@ -215,3 +215,36 @@ describe("App — the file-drop overlay", () => {
     useUIStore.setState({ isDraggingFiles: false });
   });
 });
+
+// WI-UI1.6 — the toaster follows the theme instead of sonner's light default.
+// Sonner is mocked (it does not mount its container under jsdom); the subject
+// is App's THEME PROP wiring, which is exactly what the mock captures.
+vi.mock("sonner", () => ({
+  Toaster: (props: { theme?: string }) => <div data-testid="toaster-probe" data-theme={props.theme} />,
+  toast: Object.assign(() => "id", {
+    success: () => "id",
+    error: () => "id",
+    warning: () => "id",
+    info: () => "id",
+    dismiss: () => {},
+  }),
+}));
+
+describe("App — the Toaster theme prop follows isDark", () => {
+  it.each([
+    [true, "dark"],
+    [false, "light"],
+  ] as const)("isDark=%s renders a %s toaster", async (dark, expected) => {
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    useSettingsStore.getState().updateAppearanceSetting("followSystemAppearance", false);
+    useSettingsStore.getState().updateAppearanceSetting("theme", dark ? "night" : "paper");
+    const { default: App } = await import("./App");
+    const { unmount } = render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("toaster-probe").getAttribute("data-theme")).toBe(expected);
+    unmount();
+  });
+});

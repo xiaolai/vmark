@@ -117,23 +117,18 @@
   line-height: 1;
 }
 
+/* `.vm-input` (WI-UI3.3); the soft rest-state border is local. */
 .title-bar-input {
   font-size: var(--font-size-base);
-  color: var(--text-color);
-  background: transparent;
-  border: none;
-  border-bottom: var(--border-thin) solid rgba(102, 102, 102, 0.4);
-  border-bottom: var(--border-thin) solid color-mix(in srgb, var(--text-secondary) 40%, transparent);
-  border-radius: 0;
+  border-bottom-color: color-mix(in srgb, var(--text-secondary) 40%, transparent);
   padding: var(--space-half) var(--space-1-5);
   min-width: 120px;
   max-width: 300px;
   text-align: center;
-  outline: none;
   -webkit-appearance: none;
   appearance: none;
-  box-shadow: none;
 }
+
 
 /* Input focus: border-bottom highlight is the indicator */
 .title-bar-input:focus,

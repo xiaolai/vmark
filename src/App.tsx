@@ -2,8 +2,7 @@ import { Component, lazy, Suspense, type CSSProperties, type ReactNode } from "r
 import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
-import { Toaster } from "sonner";
-import { TOAST_ICONS } from "@/components/toastIcons";
+import { ThemedToaster } from "@/components/ThemedToaster";
 import { DocumentSplitContainer } from "@/components/Editor";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
@@ -285,11 +284,7 @@ function App() {
     <ErrorBoundary>
       <WindowProvider>
         <AppRoutes />
-        <Toaster
-          position="top-center"
-          closeButton
-          icons={TOAST_ICONS}
-        />
+        <ThemedToaster />
       </WindowProvider>
     </ErrorBoundary>
   );

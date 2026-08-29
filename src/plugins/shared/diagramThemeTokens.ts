@@ -32,6 +32,12 @@ export interface DiagramThemeTokens {
   borderColor: string;
   accentPrimary: string;
   mdCharColor: string;
+  /** Alert palette (WI-UI1.5) — the depth palette markmap paints branches with. */
+  alertNote: string;
+  alertTip: string;
+  alertImportant: string;
+  alertWarning: string;
+  alertCaution: string;
   fontMono: string;
   /** Derived: dark class present or dark background luminance. */
   isDark: boolean;
@@ -46,6 +52,11 @@ const FALLBACKS = {
   "--border-color": "#d5d4d4",
   "--accent-primary": "#0066cc",
   "--md-char-color": "#777777",
+  "--alert-note": "#085bbe",
+  "--alert-tip": "#166d2f",
+  "--alert-important": "#6f44bf",
+  "--alert-warning": "#815600",
+  "--alert-caution": "#b81e29",
   "--font-mono": 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace',
 } as const;
 
@@ -103,6 +114,11 @@ export function readDiagramThemeTokens(): DiagramThemeTokens {
     borderColor: readToken(root, computed, "--border-color"),
     accentPrimary: readToken(root, computed, "--accent-primary"),
     mdCharColor: readToken(root, computed, "--md-char-color"),
+    alertNote: readToken(root, computed, "--alert-note"),
+    alertTip: readToken(root, computed, "--alert-tip"),
+    alertImportant: readToken(root, computed, "--alert-important"),
+    alertWarning: readToken(root, computed, "--alert-warning"),
+    alertCaution: readToken(root, computed, "--alert-caution"),
     fontMono: readToken(root, computed, "--font-mono"),
     isDark: hasDarkClass || isDarkColor(bgColor),
   };
@@ -118,6 +134,11 @@ export function serializeDiagramThemeTokens(tokens: DiagramThemeTokens): string 
     tokens.borderColor,
     tokens.accentPrimary,
     tokens.mdCharColor,
+    tokens.alertNote,
+    tokens.alertTip,
+    tokens.alertImportant,
+    tokens.alertWarning,
+    tokens.alertCaution,
     tokens.fontMono,
     tokens.isDark ? "dark" : "light",
   ].join("|");

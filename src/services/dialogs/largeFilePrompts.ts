@@ -22,9 +22,10 @@
  * @module services/dialogs/largeFilePrompts
  */
 
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { formatFileSize, FILE_SIZE_THRESHOLDS } from "@/utils/fileSizeThresholds";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 /** Extract the trailing filename from a POSIX or Windows path. */
 function basename(path: string): string {
@@ -42,15 +43,13 @@ export async function confirmOpenHugeFile(path: string, sizeBytes: number): Prom
   const filename = basename(path);
   const size = formatFileSize(sizeBytes);
 
-  return await ask(
-    i18n.t("dialog:largeFile.warnBody", { size }),
-    {
-      title: i18n.t("dialog:largeFile.warnTitle", { filename }),
-      kind: "warning",
-      okLabel: i18n.t("dialog:largeFile.warnOk"),
-      cancelLabel: i18n.t("dialog:largeFile.warnCancel"),
-    }
-  );
+  return await confirmAction({
+    title: i18n.t("dialog:largeFile.warnTitle", { filename }),
+    message: i18n.t("dialog:largeFile.warnBody", { size }),
+    actionLabel: i18n.t("dialog:largeFile.warnOk"),
+    kind: "warning",
+    cancelLabel: i18n.t("dialog:largeFile.warnCancel"),
+  });
 }
 
 /**

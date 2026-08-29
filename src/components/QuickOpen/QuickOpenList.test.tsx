@@ -58,7 +58,7 @@ describe("QuickOpenList", () => {
     });
     // 2 files + 1 Browse row.
     expect(screen.getAllByRole("option")).toHaveLength(3);
-    expect(screen.getByText("Browse...")).toBeInTheDocument();
+    expect(screen.getByText("Browse…")).toBeInTheDocument();
   });
 
   it("marks the selected item via aria-selected", () => {
@@ -86,7 +86,7 @@ describe("QuickOpenList", () => {
     const user = userEvent.setup();
     const onBrowse = vi.fn();
     setup({ onBrowse });
-    await user.click(screen.getByText("Browse..."));
+    await user.click(screen.getByText("Browse…"));
     expect(onBrowse).toHaveBeenCalledOnce();
   });
 
@@ -106,7 +106,7 @@ describe("QuickOpenList", () => {
 
   it("shows an empty-state message when filtering yields no items", () => {
     setup({ rankedItems: [], filter: "zzz" });
-    expect(screen.getByText("No files found")).toBeInTheDocument();
+    expect(screen.getByText(/No files found/)).toBeInTheDocument();
   });
 
   it("renders the relative path when it differs from the filename", () => {

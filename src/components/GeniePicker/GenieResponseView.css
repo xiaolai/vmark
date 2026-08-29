@@ -93,7 +93,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   font-size: var(--font-size-sm);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   cursor: pointer;
   position: relative;
   transition: background var(--duration-base), color var(--duration-base), border-color var(--duration-base);
@@ -105,6 +105,7 @@
 }
 
 .genie-response-btn--accept:hover {
+  /* ui-ok(state): semantic ACCEPT hover — the success wash, not a neutral hover */
   background: rgba(22, 163, 74, 0.1);
   background: color-mix(in srgb, var(--success-color) 10%, transparent);
 }
@@ -124,6 +125,7 @@
 }
 
 .genie-response-btn--retry:hover {
+  /* ui-ok(state): semantic RETRY hover — the primary wash names the action */
   background: rgba(0, 102, 204, 0.1);
   background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
@@ -140,7 +142,7 @@
   left: 4px;
   right: 4px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -170,6 +172,7 @@
 }
 
 .dark-theme .genie-response-btn--accept:hover {
+  /* ui-ok(state): semantic ACCEPT hover, dark variant */
   background: rgba(74, 222, 128, 0.1);
   background: color-mix(in srgb, var(--success-color-dark) 10%, transparent);
 }
@@ -179,13 +182,3 @@
   background: color-mix(in srgb, var(--error-color) 10%, transparent);
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .genie-response-spinner {
-    animation: none;
-  }
-
-  .genie-response-cursor {
-    animation: none;
-  }
-}

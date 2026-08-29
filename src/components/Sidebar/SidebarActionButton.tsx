@@ -18,6 +18,7 @@
  */
 import type { LucideIcon } from "lucide-react";
 import { formatKeyForDisplay } from "@/stores/settingsStore";
+import { ICON_SM } from "@/utils/iconSizes";
 import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 
 interface SidebarActionButtonProps {
@@ -29,7 +30,6 @@ interface SidebarActionButtonProps {
   /** Present ⇒ this is a toggle and reports `aria-pressed`. */
   pressed?: boolean;
   disabled?: boolean;
-  size?: number;
 }
 
 /** A sidebar icon button whose tooltip and accessible name cannot disagree. */
@@ -40,19 +40,18 @@ export function SidebarActionButton({
   shortcut,
   pressed,
   disabled,
-  size = 14,
 }: SidebarActionButtonProps) {
   const text = shortcut ? tooltipWithShortcut(label, formatKeyForDisplay(shortcut)) : label;
   return (
     <button
-      className="sidebar-btn"
+      className="vm-icon-btn vm-icon-btn--lg"
       onClick={onClick}
       title={text}
       aria-label={text}
       aria-pressed={pressed}
       disabled={disabled}
     >
-      <Icon size={size} />
+      <Icon size={ICON_SM} />
     </button>
   );
 }

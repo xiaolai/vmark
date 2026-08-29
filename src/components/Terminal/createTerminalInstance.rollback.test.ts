@@ -69,7 +69,7 @@ vi.mock("./setupOsc", () => ({
   }),
   scrollToAdjacentCommand: vi.fn(),
 }));
-vi.mock("@/theme", () => ({ buildXtermThemeForId: () => ({}) }));
+vi.mock("@/theme", () => ({ buildXtermThemeForId: () => ({}), drawBoldTextInBrightColorsForId: () => true }));
 
 import { createTerminalInstance } from "./createTerminalInstance";
 

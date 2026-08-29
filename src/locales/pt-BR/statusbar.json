@@ -13,7 +13,7 @@
   "mcpNoClients": "MCP pronto · Nenhuma IA conectada",
   "mcpConnected": "Conectado: {{clients}}",
   "mcpHistoryTitle": "Histórico de escritas MCP ({{count}})",
-  "mcpHistoryEmpty": "Nenhuma escrita MCP registrada para esta aba",
+  "mcpHistoryEmpty": "Nenhuma gravação MCP nesta aba. As edições da IA aparecerão aqui.",
   "mcpHistoryClear": "Limpar o histórico desta aba",
   "mcpHistoryRestore": "Restaurar ao estado anterior a esta escrita",
   "mcpHistoryRestored": "Restaurado ao estado anterior a {{tool}}",
@@ -26,7 +26,7 @@
   "readOnly": "Somente leitura",
   "editable": "Editável",
   "sourceModeTitle": "Modo de código-fonte ({{shortcut}})",
-  "richTextModeTitle": "Modo de rich text ({{shortcut}})",
+  "richTextModeTitle": "Modo WYSIWYG ({{shortcut}})",
   "cancelAiRequest": "Cancelar solicitação de IA",
   "cancelAiTitle": "Cancelar",
   "dismissError": "Dispensar erro",
@@ -96,5 +96,7 @@
   "largeFile.switchToWysiwygAria": "Mudar este documento do modo Fonte para WYSIWYG",
   "tabStrip": "Abas abertas",
   "scrollTabsLeft": "Rolar abas para a esquerda",
-  "scrollTabsRight": "Rolar abas para a direita"
+  "scrollTabsRight": "Rolar abas para a direita",
+  "terminal.sessionExited": "{{name}} (encerrado)",
+  "terminal.backgroundActivity": "Atividade em segundo plano"
 }

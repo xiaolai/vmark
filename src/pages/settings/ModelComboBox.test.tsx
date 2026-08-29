@@ -497,10 +497,10 @@ describe("ModelComboBox", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "zzz-nonexistent" } });
 
-    expect(screen.getByText("No models found")).toBeInTheDocument();
+    expect(screen.getByText(/No models found\. Check the provider connection, then refresh\./)).toBeInTheDocument();
   });
 
-  it("shows 'Loading models...' while fetching with no curated results", async () => {
+  it("shows 'Loading models…' while fetching with no curated results", async () => {
     let resolveList: (v: string[]) => void;
     mockInvoke.mockImplementation(
       () => new Promise<string[]>((r) => { resolveList = r; }),
@@ -518,7 +518,7 @@ describe("ModelComboBox", () => {
 
     fireEvent.focus(screen.getByPlaceholderText("Model"));
 
-    expect(screen.getByText("Loading models...")).toBeInTheDocument();
+    expect(screen.getByText("Loading models…")).toBeInTheDocument();
 
     // Resolve to clean up
     resolveList!(["llama3"]);

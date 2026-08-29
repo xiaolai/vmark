@@ -164,9 +164,12 @@
   overflow: auto;
 }
 
+/* Matches `.vm-scroll--thin` (WI-UI3.4). Stays as CSS because CodeMirror
+   constructs `.cm-scroller` itself — there is no className seam to hand the
+   utility class to without a bespoke extension. */
 .source-pane .cm-scroller::-webkit-scrollbar {
-  width: var(--border-medium);
-  height: var(--border-thick);
+  width: 2px;
+  height: 2px;
 }
 
 .source-pane .cm-scroller::-webkit-scrollbar-track {
@@ -175,11 +178,13 @@
 
 .source-pane .cm-scroller::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: 1px;
 }
 
 .source-pane .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background: var(--md-char-color);
+  /* WI-UI1.4 (gap-audit): thumbs share ONE ink source — --md-char-color is
+     the syntax tier and renders green on night. */
+  background: var(--text-secondary);
 }
 
 /* Line-number gutter — present only when the toggle is on (the extension is

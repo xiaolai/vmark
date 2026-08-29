@@ -117,47 +117,14 @@
   gap: var(--space-1);
 }
 
-.code-block-edit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size-btn-sm);
-  height: var(--size-btn-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background-color var(--duration-base), color var(--duration-base);
-}
-
-.code-block-edit-btn:hover {
-  background: var(--hover-bg);
-}
-
-.code-block-edit-btn--success {
+/* Header buttons are canonical `.vm-icon-btn--sm` (WI-UI2.3); only the copy
+   feedback tints are local. */
+.code-block-edit--success {
   color: var(--success-color);
 }
 
-.code-block-edit-btn--error {
+.code-block-edit--error {
   color: var(--error-color);
-}
-
-.code-block-edit-btn:focus-visible {
-  outline: none;
-  position: relative;
-}
-
-.code-block-edit-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
 }
 
 .code-block-edit-cancel:hover {
@@ -249,10 +216,6 @@
 .dark-theme .code-block-edit-header {
   background-color: var(--bg-secondary);
   border-color: var(--border-color);
-}
-
-.dark-theme .code-block-edit-btn:hover {
-  background: var(--hover-bg);
 }
 
 .dark-theme .code-block-live-preview {

@@ -1,14 +1,43 @@
 #!/usr/bin/env node
 /**
  * Design Token Enforcement Script
- * Checks CSS files for design system violations.
+ * Checks CSS files for design system violations, and (WI-UI0.2) the
+ * declaration-integrity checks C2a–C2g of the UI-consistency plan:
+ *
+ *   C2a  hardcoded hex — ERROR (was warning; the tree is measured clean
+ *        outside the excluded palette files)
+ *   C2b  rgb()/rgba()/hsl() literals, with the rgba-before-color-mix
+ *        fallback exempted — identity baseline `rgbaLiteralDecls` (per-declaration)
+ *   C2c  a custom property declared twice in one :root/.dark-theme block —
+ *        zero-tolerance
+ *   C2d  every referenced animation-name has a @keyframes — zero-tolerance
+ *   C2e  var(--x, fallback) where --x is defined nowhere — zero-tolerance
+ *   C2f  rule-31 table rows ⇄ declared tokens, zero-consumer tokens —
+ *        zero-tolerance with `token-doc-ok`/`token-unused-ok` reasoned markers
+ *   C2g  className strings: hex, Tailwind palette classes, text-[Npx], z-N —
+ *        identity baseline `classNames`
+ *
+ * Baseline: scripts/design-tokens-baseline.json (identity lists, ratchet
+ * down only, registered in the ratchet manifest). Fixture mode (explicit file
+ * args) runs the per-file checks with no baseline, so a fixture with one
+ * violation exits 1.
+ *
  * Run: node scripts/check-design-tokens.mjs
  * Part of: pnpm check:all
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { globSync, statSync } from "node:fs";
 
 import { pathToFileURL } from "node:url";
+import {
+  findColorFnLiterals,
+  findDuplicateDeclarations,
+  collectKeyframes,
+  findMissingKeyframes,
+  findUndefinedVarFallbacks,
+  rule31Parity,
+} from "./lib/designTokenChecks.mjs";
+import { findClassNameLiterals } from "./lib/designTokensTsx.mjs";
 
 /**
  * CSS custom properties DEFINED from JS in `source`: `setProperty("--x", …)`
@@ -149,9 +178,25 @@ export function globFiles(pattern) {
 // vitest's "run" was treated as a CSS path and the import threw ENOENT.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const args = process.argv.slice(2);
-  const files = args.length ? args : globFiles("src/**/*.css");
+  const fileArgs = args.filter((a) => !a.startsWith("--"));
+  const fixtureMode = fileArgs.length > 0;
+  const files = fixtureMode ? fileArgs : globFiles("src/**/*.css");
 
   const violations = [];
+
+  // Files whose colour literals are the point (palettes, print/export
+  // overrides, token definitions). editor.css and App.css were dropped in
+  // WI-UI0.2; the three syntax stylesheets left in WI-UI1.5 — the palette is
+  // per-theme catalog data now (ThemeTokens.syntax), the static fallback
+  // lives in index.css, and hljs-syntax.css/source-syntax.css are pure role
+  // maps onto var(--syntax-*) with zero literals.
+  const COLOR_EXCLUDE = [
+    /index\.css$/,           // Token definitions
+    /alert-block\.css$/,     // GitHub alert colors
+    /printStyles\.css$/,     // Print overrides (forces light theme)
+    /exportStyles\.css$/,    // Export embeds standalone colors
+    /export\/reader\//,      // Self-contained reader bundle (R12, .tokenize/ignore)
+  ];
 
   // Patterns to detect
   const checks = [
@@ -159,18 +204,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       name: "Hardcoded hex color",
       pattern: /(?<!var\([^)]*)(#[0-9a-fA-F]{3,8})(?![^(]*\))/g,
       message: "Use CSS variable token instead",
-      severity: "warning", // Warning for now - too many to fix at once
-      exclude: [
-        /index\.css$/,           // Token definitions
-        /alert-block\.css$/,     // GitHub alert colors
-        /App\.css$/,             // Vite template (can be deleted)
-        /editor\.css$/,          // Syntax highlighting (GitHub theme)
-        /printStyles\.css$/,     // Print overrides (forces light theme)
-        /exportStyles\.css$/,    // Export embeds standalone colors
-        /hljs-syntax\.css$/,     // Syntax-highlight palette (GitHub theme)
-        /source-syntax\.css$/,   // Syntax-highlight palette (CodeMirror)
-        /styles\/syntax-palette\.css$/, // Shared syntax palette (source + data trees)
-      ],
+      severity: "error", // C2a — the tree is measured clean outside COLOR_EXCLUDE
+      exclude: COLOR_EXCLUDE,
     },
     {
       name: "Deprecated dark theme selector",
@@ -237,11 +272,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   // invalid-at-computed-value-time: the declaration silently becomes
   // auto/initial (this shipped a mispositioned, unpadded export control).
   // Tokens written from JS (useTheme/applyTheme) are collected from src too.
+  const definedVars = new Set();
   {
-    const definedVars = new Set();
     const defRe = /--[A-Za-z0-9-]+(?=\s*:)/g;
-    // CSS definitions across all stylesheets
-    for (const file of globFiles("src/**/*.css")) {
+    // CSS definitions across all stylesheets (and any fixture files given)
+    for (const file of [...globFiles("src/**/*.css"), ...files]) {
       const content = readFileSync(file, "utf8");
       for (const m of content.matchAll(defRe)) definedVars.add(m[0]);
     }
@@ -265,6 +300,111 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
           message: `var(${name}) has no definition anywhere in src/ and no fallback — the declaration is silently dropped at computed-value time.`,
           severity: "error",
         });
+      }
+    }
+  }
+
+  // ── WI-UI0.2 declaration integrity (C2b–C2g) ─────────────────────────────
+  {
+    const BASELINE_PATH = "scripts/design-tokens-baseline.json";
+    const baseline = fixtureMode
+      ? { rgbaLiteralDecls: [], classNames: [] }
+      : JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
+
+    // C2c/C2d/C2e per file; C2b per file against the identity baseline.
+    const rgbaFindings = [];
+    const declaredKeyframes = new Set();
+    for (const file of [...globFiles("src/**/*.css"), ...(fixtureMode ? files : [])]) {
+      for (const name of collectKeyframes(readFileSync(file, "utf8"))) declaredKeyframes.add(name);
+    }
+    for (const file of files) {
+      const content = readFileSync(file, "utf8");
+      if (!COLOR_EXCLUDE.some((re) => re.test(file))) {
+        rgbaFindings.push(...findColorFnLiterals(content, file));
+      }
+      for (const dup of findDuplicateDeclarations(content, file)) {
+        violations.push({ file, line: 0, check: "duplicate-declaration", value: dup.name, message: dup.message, severity: "error" });
+      }
+      for (const miss of findMissingKeyframes(content, file, declaredKeyframes)) {
+        violations.push({ file, line: miss.line, check: "undeclared-keyframes", value: miss.name, message: miss.message, severity: "error" });
+      }
+      for (const fb of findUndefinedVarFallbacks(content, file, definedVars)) {
+        violations.push({ file, line: fb.line, check: "undefined-var-fallback", value: fb.name, message: fb.message, severity: "error" });
+      }
+    }
+
+    // C2g — className literals, tree mode only (the TSX surface).
+    const classNameFindings = fixtureMode
+      ? []
+      : globFiles("src/**/*.{ts,tsx}").flatMap((file) =>
+          findClassNameLiterals(readFileSync(file, "utf8"), file),
+        );
+
+    // Identity-baseline comparison for C2b + C2g: new entries and stale
+    // entries both fail (house rule — record the win).
+    const compare = (name, found, baselined) => {
+      const foundIds = new Set(found.map((f) => f.id));
+      for (const f of found) {
+        if (!baselined.includes(f.id)) {
+          violations.push({
+            file: f.file,
+            line: f.line ?? 0,
+            check: name,
+            value: f.token ?? f.selector ?? f.id,
+            message:
+              name === "rgba-literal"
+                ? `rgb()/rgba()/hsl() literal. Use a token; if this is a color-mix fallback, put the color-mix on the next line for the same property.`
+                : `colour/size/z literal in a className. Use a token-backed class (e.g. ring-[var(--border-color)], z-[var(--z-popup)]).`,
+            severity: "error",
+          });
+        }
+      }
+      for (const id of baselined) {
+        if (!foundIds.has(id)) {
+          violations.push({
+            file: BASELINE_PATH,
+            line: 0,
+            check: `${name}-stale`,
+            value: id,
+            message: `baselined ${name} entry now passes — record the win by removing it from ${BASELINE_PATH}.`,
+            severity: "error",
+          });
+        }
+      }
+    };
+    compare("rgba-literal", rgbaFindings, baseline.rgbaLiteralDecls ?? []);
+    if (!fixtureMode) compare("classname-literal", classNameFindings, baseline.classNames ?? []);
+
+    if (args.includes("--update-integrity") && !fixtureMode) {
+      writeFileSync(
+        BASELINE_PATH,
+        `${JSON.stringify(
+          { ...baseline, rgbaLiteralDecls: rgbaFindings.map((f) => f.id).sort(), classNames: classNameFindings.map((f) => f.id).sort() },
+          null,
+          2,
+        )}\n`,
+      );
+      console.log(`updated ${BASELINE_PATH}`);
+      process.exit(0);
+    }
+
+    // C2f — rule-31 parity, tree mode only.
+    if (!fixtureMode) {
+      const consumedVars = new Set();
+      const useRe = /var\(\s*(--[A-Za-z0-9-]+)/g;
+      const quotedRe = /["'`](--[A-Za-z0-9-]+)["'`]/g;
+      for (const file of [...globFiles("src/**/*.css"), ...globFiles("src/**/*.{ts,tsx}")]) {
+        const content = readFileSync(file, "utf8");
+        for (const m of content.matchAll(useRe)) consumedVars.add(m[1]);
+        for (const m of content.matchAll(quotedRe)) consumedVars.add(m[1]);
+      }
+      for (const finding of rule31Parity({
+        indexCss: readFileSync("src/styles/index.css", "utf8"),
+        ruleMd: readFileSync(".claude/rules/31-design-tokens.md", "utf8"),
+        declaredVars: definedVars,
+        consumedVars,
+      })) {
+        violations.push({ file: ".claude/rules/31-design-tokens.md", line: 0, check: "rule31-parity", value: "", message: finding, severity: "error" });
       }
     }
   }

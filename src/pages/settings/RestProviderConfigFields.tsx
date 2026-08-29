@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Copy, Check, X, Zap, Loader2, FlaskConical } from "lucide-react";
+import { Eye, EyeOff, Copy, Check, X, Zap, FlaskConical } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
@@ -18,10 +18,8 @@ import { ModelComboBox } from "./ModelComboBox";
 import { FieldInput } from "./components";
 import { clipboardWarn } from "@/utils/debug";
 
-const iconBtnClass = `shrink-0 p-1 rounded
-  text-[var(--text-secondary)] hover:text-[var(--text-color)]
-  hover:bg-[var(--hover-bg)] cursor-pointer
-  focus-visible:outline-none`;
+// WI-UI2.4: the canonical icon square (icon-button-shared.css).
+const iconBtnClass = "vm-icon-btn vm-icon-btn--sm";
 
 interface RestProviderConfigFieldsProps {
   type: RestProviderType;
@@ -170,7 +168,7 @@ export function RestProviderConfigFields({
           disabled={testDisabled || testState === "testing"}
         >
           {testState === "testing" ? (
-            <Loader2 size={14} className="animate-spin" />
+            <span className="vm-spinner" />
           ) : testState === "success" ? (
             <Check size={14} className="text-[var(--success-color)]" />
           ) : testState === "failed" ? (
@@ -198,7 +196,7 @@ export function RestProviderConfigFields({
           disabled={modelTestDisabled || modelTestState === "testing"}
         >
           {modelTestState === "testing" ? (
-            <Loader2 size={14} className="animate-spin" />
+            <span className="vm-spinner" />
           ) : modelTestState === "success" ? (
             <Check size={14} className="text-[var(--success-color)]" />
           ) : modelTestState === "failed" ? (

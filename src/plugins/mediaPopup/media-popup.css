@@ -1,9 +1,8 @@
 /**
  * Media Popup Styles — type-specific rules only.
- * Shared styles in src/styles/media-popup-shared.css.
+ * Shared styles live in src/styles/popup-shared.css (the media section was
+ * folded in there by WI-UI3.2).
  */
-
-@import "../../styles/media-popup-shared.css";
 
 /* Dimensions display — inline image only */
 .media-popup-dimensions {

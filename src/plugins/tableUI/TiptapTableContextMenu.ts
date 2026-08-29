@@ -49,7 +49,7 @@ export class TiptapTableContextMenu {
 
   private buildContainer(): HTMLElement {
     const container = document.createElement("div");
-    container.className = "table-context-menu";
+    container.className = "vm-menu table-context-menu";
     container.style.display = "none";
     return container;
   }

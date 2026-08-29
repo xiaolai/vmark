@@ -16,13 +16,11 @@
   box-shadow: var(--popup-shadow-dark);
 }
 
+/* `.vm-panel__header` (WI-UI3.4). */
 .window-status-panel__header {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-2) var(--spacing-3);
-  border-bottom: 1px solid var(--border-color);
 }
+
 
 .window-status-panel__title {
   font-size: var(--font-size-md);

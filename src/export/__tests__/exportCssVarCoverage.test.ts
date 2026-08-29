@@ -52,7 +52,6 @@ function declared(css: string): Set<string> {
 /** Written by buildTypographyCSS at export time, so never in a stylesheet. */
 const RUNTIME_VARS = [
   "--editor-font-size",
-  "--editor-font-size-sm",
   "--editor-font-size-mono",
   "--editor-font-size-block",
   "--editor-line-height",

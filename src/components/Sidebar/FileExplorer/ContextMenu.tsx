@@ -230,7 +230,7 @@ export function ContextMenu({ type, position, onAction, onClose }: ContextMenuPr
   return (
     <div
       ref={menuRef}
-      className="context-menu"
+      className="vm-menu context-menu"
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("contextMenu.ariaLabel")}

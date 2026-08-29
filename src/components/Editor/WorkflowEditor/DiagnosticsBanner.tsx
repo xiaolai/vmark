@@ -164,7 +164,7 @@ export function DiagnosticsBanner({
         </span>
         <button
           type="button"
-          className="workflow-diagnostics-banner__section-toggle"
+          className="vm-icon-btn vm-icon-btn--sm workflow-diagnostics-banner__section-toggle"
           onClick={() => setSectionCollapsed((v) => !v)}
           aria-expanded={!sectionCollapsed}
           aria-controls="workflow-diagnostics-banner-list"
@@ -236,7 +236,7 @@ export function DiagnosticsBanner({
             >
               <button
                 type="button"
-                className="workflow-diagnostics-banner__chevron"
+                className="vm-icon-btn vm-icon-btn--sm workflow-diagnostics-banner__chevron"
                 onClick={onChevronClick}
                 aria-expanded={!rowCollapsed}
                 aria-label={

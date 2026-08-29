@@ -315,7 +315,7 @@ describe("GeniePicker — rendering", () => {
     const input = getUnifiedInput();
     expect(input).not.toBeNull();
     expect(input.tagName).toBe("TEXTAREA");
-    expect(input.placeholder).toBe("Search genies or describe what you want...");
+    expect(input.placeholder).toBe("Search genies or describe what you want…");
   });
 
   it("does not render a separate freeform textarea", () => {
@@ -330,7 +330,7 @@ describe("GeniePicker — rendering", () => {
     geniesState.loading = true;
     render(<GeniePicker />);
 
-    expect(screen.getByText("Loading genies...")).toBeInTheDocument();
+    expect(screen.getByText("Loading genies…")).toBeInTheDocument();
   });
 
   it("shows empty state when no genies and no filter", () => {

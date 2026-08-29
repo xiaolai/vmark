@@ -1,7 +1,8 @@
 /**
  * Source mode syntax highlighting (CodeMirror decoration classes).
- * Colors come from the shared GitHub palette in styles/syntax-palette.css
- * (one source of truth; light/dark handled there via the --syntax-* vars),
+ * Colors come from the per-theme --syntax-* vars — emitted at runtime by
+ * theme/applyTheme.ts from ThemeTokens.syntax, with static fallbacks in
+ * styles/index.css (one source of truth; light/dark handled per theme),
  * so this file only maps grammar classes to palette roles. Scoped to both the
  * markdown Source editor (.source-editor) and the non-markdown source pane
  * (.source-pane).
@@ -71,4 +72,10 @@
 
 :is(.source-editor, .source-pane) .cm-hl-invalid {
   color: var(--syntax-invalid);
+}
+
+/* Markdown structure characters (#, >, -) — syntax ink, matching WYSIWYG's
+   --md-char-color (WI-UI3.6). */
+:is(.source-editor, .source-pane) .cm-hl-md-char {
+  color: var(--md-char-color);
 }

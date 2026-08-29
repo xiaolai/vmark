@@ -42,7 +42,7 @@ export function WorkspaceApprovalDialog() {
 
   return (
     <div
-      className="workspace-approval-overlay"
+      className="vm-overlay vm-overlay--center workspace-approval-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="workspace-approval-title"
@@ -57,7 +57,7 @@ export function WorkspaceApprovalDialog() {
         if (e.target === e.currentTarget) deny();
       }}
     >
-      <div className="workspace-approval-dialog">
+      <div className="vm-overlay__panel workspace-approval-dialog">
         <h2 id="workspace-approval-title" className="workspace-approval-title">
           {t("openWorkspace.approval.title")}
         </h2>

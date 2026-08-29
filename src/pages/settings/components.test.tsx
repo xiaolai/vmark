@@ -68,7 +68,7 @@ describe("SettingRow", () => {
     );
 
     const row = container.firstChild as HTMLElement;
-    expect(row.className).toContain("opacity-50");
+    expect(row.className).toContain("opacity-[var(--opacity-disabled)]"); // WI-UI2.2: token, not the Tailwind step
   });
 
   it("does not apply opacity when not disabled", () => {
@@ -79,7 +79,7 @@ describe("SettingRow", () => {
     );
 
     const row = container.firstChild as HTMLElement;
-    expect(row.className).not.toContain("opacity-50");
+    expect(row.className).not.toContain("opacity-[var(--opacity-disabled)]");
   });
 
   it("injects aria-labelledby into child element", () => {
@@ -170,13 +170,14 @@ describe("Toggle", () => {
     expect(screen.getByRole("switch")).toBeDisabled();
   });
 
-  it("knob uses a design token, not a hardcoded color (31-design-tokens)", () => {
+  it("renders the canonical .vm-switch with its knob (WI-UI3.4)", () => {
     render(<Toggle checked={true} onChange={vi.fn()} />);
 
     const knob = screen.getByRole("switch").querySelector("span");
     expect(knob).not.toBeNull();
-    expect(knob!.className).not.toContain("bg-white");
-    expect(knob!.className).toContain("var(--contrast-text)");
+    // The knob colour (--bg-color, WI-UI1.6) lives on .vm-switch__knob in
+    // panel-shared.css.
+    expect(knob!.classList.contains("vm-switch__knob")).toBe(true);
   });
 });
 
@@ -301,29 +302,27 @@ describe("SearchInput", () => {
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("abc");
   });
 
-  it("uses bottom-border styling, not full border (rule §33-focus-indicators)", () => {
+  it("is the canonical .vm-input (bottom border, transparent — WI-UI3.3)", () => {
     render(<SearchInput value="" onChange={() => {}} />);
     const input = screen.getByRole("textbox");
-    expect(input.className).toContain("border-b");
-    expect(input.className).toContain("border-0");
-    expect(input.className).toContain("bg-transparent");
+    expect(input.classList.contains("vm-input")).toBe(true);
+    expect(input.classList.contains("vm-input--field")).toBe(false);
   });
 
-  it("highlights bottom border in primary color on focus", () => {
+  it("focus/border styling lives on the primitive, not utilities", () => {
     render(<SearchInput value="" onChange={() => {}} />);
-    expect(screen.getByRole("textbox").className).toContain(
-      "focus:border-[var(--primary-color)]",
-    );
+    // input-shared.css owns border-bottom + focus accent for .vm-input.
+    expect(screen.getByRole("textbox").className).not.toContain("border-b");
   });
 
-  it("applies font-mono when mono prop is true", () => {
+  it("applies the mono variant when mono prop is true", () => {
     const { rerender } = render(
       <SearchInput value="" onChange={() => {}} mono />,
     );
-    expect(screen.getByRole("textbox").className).toContain("font-mono");
+    expect(screen.getByRole("textbox").className).toContain("vm-input--mono");
 
     rerender(<SearchInput value="" onChange={() => {}} />);
-    expect(screen.getByRole("textbox").className).not.toContain("font-mono");
+    expect(screen.getByRole("textbox").className).not.toContain("vm-input--mono");
   });
 
   it("forwards onBlur and onKeyDown handlers", async () => {
@@ -358,8 +357,8 @@ describe("SearchInput", () => {
     const onChange = vi.fn();
     render(<SearchInput value="x" onChange={onChange} disabled />);
     const input = screen.getByRole("textbox") as HTMLInputElement;
+    // .vm-input:disabled owns the muting in input-shared.css.
     expect(input).toBeDisabled();
-    expect(input.className).toContain("opacity-50");
   });
 
   it("forwards aria attributes", () => {
@@ -427,29 +426,26 @@ describe("FieldInput", () => {
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("key");
   });
 
-  it("uses full border + tinted background (the fillable affordance)", () => {
+  it("is the canonical .vm-input--field (full border, tinted — WI-UI3.3)", () => {
     render(<FieldInput value="" onChange={() => {}} />);
     const input = screen.getByRole("textbox");
-    expect(input.className).toContain("border");
-    expect(input.className).toContain("bg-[var(--bg-tertiary)]");
-    expect(input.className).not.toContain("bg-transparent");
+    expect(input.classList.contains("vm-input")).toBe(true);
+    expect(input.classList.contains("vm-input--field")).toBe(true);
   });
 
-  it("highlights border in primary color on focus", () => {
+  it("focus accent lives on the primitive (input-shared.css)", () => {
     render(<FieldInput value="" onChange={() => {}} />);
-    expect(screen.getByRole("textbox").className).toContain(
-      "focus:border-[var(--primary-color)]",
-    );
+    expect(screen.getByRole("textbox").classList.contains("vm-input--field")).toBe(true);
   });
 
   it("defaults to monospace (form fields carry paths/URLs/keys)", () => {
     render(<FieldInput value="" onChange={() => {}} />);
-    expect(screen.getByRole("textbox").className).toContain("font-mono");
+    expect(screen.getByRole("textbox").className).toContain("vm-input--mono");
   });
 
   it("mono={false} drops the monospace class for prose-style fields", () => {
     render(<FieldInput value="" onChange={() => {}} mono={false} />);
-    expect(screen.getByRole("textbox").className).not.toContain("font-mono");
+    expect(screen.getByRole("textbox").className).not.toContain("vm-input--mono");
   });
 
   it("type=\"password\" masks the value (used for API keys)", () => {
@@ -466,8 +462,8 @@ describe("FieldInput", () => {
   it("disabled state mutes the input and blocks typing", () => {
     render(<FieldInput value="x" onChange={() => {}} disabled />);
     const input = screen.getByRole("textbox") as HTMLInputElement;
+    // .vm-input:disabled owns the muting in input-shared.css.
     expect(input).toBeDisabled();
-    expect(input.className).toContain("opacity-50");
   });
 
   it("className prop appends layout classes only", () => {
@@ -584,7 +580,6 @@ describe("TagInput", () => {
   beforeEach(() => {
     onChange.mockClear();
   });
-
   describe("basic behavior", () => {
     it("renders existing tags", () => {
       render(<TagInput value={["http", "custom"]} onChange={onChange} />);
@@ -595,12 +590,12 @@ describe("TagInput", () => {
 
     it("shows placeholder when empty", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      expect(screen.getByPlaceholderText("Add item...")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Add item…")).toBeInTheDocument();
     });
 
     it("hides placeholder when tags exist", () => {
       render(<TagInput value={["http"]} onChange={onChange} />);
-      expect(screen.queryByPlaceholderText("Add item...")).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Add item…")).not.toBeInTheDocument();
     });
 
     it("uses custom placeholder", () => {
@@ -746,11 +741,10 @@ describe("TagInput", () => {
       expect(screen.getByPlaceholderText(translated)).toBeInTheDocument();
     });
   });
-
   describe("IME composition guard", () => {
     it("Enter with isComposing does not add a tag", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      const input = screen.getByPlaceholderText("Add item...");
+      const input = screen.getByPlaceholderText("Add item…");
 
       fireEvent.change(input, { target: { value: "custom" } });
       fireEvent.keyDown(input, { key: "Enter", isComposing: true });
@@ -760,7 +754,7 @@ describe("TagInput", () => {
 
     it("comma with isComposing does not add a tag", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      const input = screen.getByPlaceholderText("Add item...");
+      const input = screen.getByPlaceholderText("Add item…");
 
       fireEvent.change(input, { target: { value: "test" } });
       fireEvent.keyDown(input, { key: ",", isComposing: true });
@@ -770,7 +764,7 @@ describe("TagInput", () => {
 
     it("keyCode 229 (IME marker) is blocked", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      const input = screen.getByPlaceholderText("Add item...");
+      const input = screen.getByPlaceholderText("Add item…");
 
       fireEvent.change(input, { target: { value: "proto" } });
       fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
@@ -780,7 +774,7 @@ describe("TagInput", () => {
 
     it("Enter within grace period after compositionEnd is blocked", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      const input = screen.getByPlaceholderText("Add item...");
+      const input = screen.getByPlaceholderText("Add item…");
 
       fireEvent.change(input, { target: { value: "custom" } });
       fireEvent.compositionStart(input);
@@ -792,7 +786,7 @@ describe("TagInput", () => {
 
     it("normal Enter still adds a tag", () => {
       render(<TagInput value={[]} onChange={onChange} />);
-      const input = screen.getByPlaceholderText("Add item...");
+      const input = screen.getByPlaceholderText("Add item…");
 
       fireEvent.change(input, { target: { value: "custom" } });
       fireEvent.keyDown(input, { key: "Enter" });
@@ -830,11 +824,12 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it("applies disabled styling", () => {
+  it("disabled styling comes from the canonical primitive (WI-UI2.4)", () => {
     render(<Button disabled>Disabled</Button>);
     const btn = screen.getByRole("button");
-    expect(btn.className).toContain("opacity-50");
-    expect(btn.className).toContain("cursor-not-allowed");
+    // .vm-btn:disabled owns opacity + cursor in button-shared.css.
+    expect(btn.className).toContain("vm-btn");
+    expect(btn).toBeDisabled();
   });
 
   it("renders icon on the left by default", () => {

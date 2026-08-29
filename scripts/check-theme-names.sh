@@ -46,15 +46,26 @@ THEME_NAMES='"(paper|white|mint|sepia|night|solarized)"|'\''(paper|white|mint|se
 #   - Docs (dev-docs/, website/, .claude/rules/) describe themes.
 #   - The export reader bundle has its own theme handling.
 #   - Snapshot files contain captured theme output.
-ALLOWLIST='^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/stores/settingsStore/defaults\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx)$|^scripts/check-theme-names\.sh$'
+#   - baselineRatchetManifest.mjs registers the theme-contrast baseline with
+#     one identity entry PER THEME (WI-UI0.1) — the names are the manifest keys.
+#   - theme-contrast-baseline.json keys its failing lists by theme id.
+#   - Gates-tier tests (*.test.mjs) construct theme fixtures by name, the same
+#     reason app-tier *.test.ts files were always allowlisted.
+#   - check-theme-contrast.ts names the ANSI slot "white" and parses the CSS
+#     colour keyword "white" — the WORD collides with the theme id, the
+#     meaning does not (theme ids reach it from the imported catalog).
+ALLOWLIST='^scripts/check-theme-contrast\.ts$|^src/theme/|^src/stores/settingsTypes\.ts$|^src/stores/settingsStore\.ts$|^src/stores/settingsStore/defaults\.ts$|^src/hooks/useTheme\.ts$|^src/hooks/useIsDarkTheme\.ts$|^src/locales/|^src-tauri/locales/|^src/export/reader/|^dev-docs/|^website/|^\.claude/rules/|/__snapshots__/|\.test\.(ts|tsx|mjs)$|^scripts/check-theme-names\.sh$|^scripts/baselineRatchetManifest\.mjs$|^scripts/theme-contrast-baseline\.json$'
 
 cd "$(git rev-parse --show-toplevel)"
 
 # Find every file that contains a quoted theme name, then filter the
-# allow-list, then print the offenders. Use git ls-files so we ignore
-# build output, node_modules, etc.
+# allow-list, then print the offenders. `--cached --others --exclude-standard`
+# so UNTRACKED new files are scanned too: a bare `git ls-files` cannot see a
+# file until it is committed, so a leak in a new file sails through every
+# pre-commit run and fails only in CI after the commit lands (hit live on the
+# 0.9.55 release PR).
 offenders=$(
-  git ls-files \
+  git ls-files --cached --others --exclude-standard \
     | grep -vE "$ALLOWLIST" \
     | xargs grep -lE "$THEME_NAMES" 2>/dev/null \
     || true

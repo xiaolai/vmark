@@ -42,7 +42,7 @@ export function SettingsSearchResults({
   return (
     <div ref={containerRef}>
       {!hasResults && (
-        <div className="text-sm text-[var(--text-tertiary)] py-4">
+        <div className="text-sm text-[var(--text-secondary)] py-4">
           {t("search.noResults", { query })}
         </div>
       )}
@@ -50,7 +50,7 @@ export function SettingsSearchResults({
         <section key={id} data-settings-panel className="mb-8">
           <div
             className="text-xs font-semibold uppercase tracking-wide
-                       text-[var(--text-tertiary)] mb-3"
+                       text-[var(--text-secondary)] mb-3"
           >
             {label}
           </div>

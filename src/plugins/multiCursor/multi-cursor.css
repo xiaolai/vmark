@@ -45,6 +45,7 @@
 }
 
 /* Reduce motion preference */
+/* KEPT under the global duration-collapse (D9/WI-UI1.7): the blink animation must REST VISIBLE (opacity: 1), and the collapsed first frame is opacity 1 only by luck of keyframe order */
 @media (prefers-reduced-motion: reduce) {
   .multi-cursor-caret::before {
     animation: none;

@@ -61,7 +61,7 @@ import { serializeByPath } from "./serializeByPath";
 import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
 import { captureWrite } from "@/services/coherence/captureFunnel";
 import { saveError } from "@/utils/debug";
-import { commandErrorDetailString, commandErrorMessage, isCommandErrorCode }
+import { commandErrorDetailString, isCommandErrorCode }
   from "@/services/commands/commandError";
 
 /** Pre-WI-14 sentinel prefix. Transitional only — delete with its tests once
@@ -157,14 +157,10 @@ function handleWriteError(
   // a notification every interval. The next manual save (or an external
   // signal like the file becoming missing) will surface the problem.
   if (saveType === "manual") {
-    // `commandErrorMessage`, not `errorMessage`: a typed rejection is a plain
-    // object, and `String(object)` renders it as "[object Object]".
-    const message = commandErrorMessage(error);
-    // Pin: failure messages can be long (system errors include paths and
-    // permission details). Users may want to copy them down.
-    toast.error(i18n.t("dialog:toast.failedToSaveGeneric", { error: message }), {
-      pin: true,
-    });
+    // Two-line toast (WI-UI4.4): paths/permission details as the detail.
+    // Raw error — errorDetail owns the normalization (commandErrorMessage,
+    // so a typed rejection cannot render "[object Object]").
+    toast.errorDetail(i18n.t("dialog:toast.failedToSaveGeneric"), error);
   }
   return false;
 }

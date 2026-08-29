@@ -109,8 +109,8 @@ describe("FindBar", () => {
 
     it("renders find and replace inputs when open", () => {
       render(<FindBar />);
-      expect(screen.getByPlaceholderText("Find...")).toBeInTheDocument();
-      expect(screen.getByPlaceholderText("Replace...")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Find…")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Replace…")).toBeInTheDocument();
     });
 
     // WI-2.4 (a11y) — search input fields must have accessible names.
@@ -228,14 +228,14 @@ describe("FindBar", () => {
   describe("search input interaction", () => {
     it("calls setQuery on input change", () => {
       render(<FindBar />);
-      const input = screen.getByPlaceholderText("Find...");
+      const input = screen.getByPlaceholderText("Find…");
       fireEvent.change(input, { target: { value: "hello" } });
       expect(mockSetQuery).toHaveBeenCalledWith("hello");
     });
 
     it("calls setReplaceText on replace input change", () => {
       render(<FindBar />);
-      const input = screen.getByPlaceholderText("Replace...");
+      const input = screen.getByPlaceholderText("Replace…");
       fireEvent.change(input, { target: { value: "world" } });
       expect(mockSetReplaceText).toHaveBeenCalledWith("world");
     });
@@ -244,29 +244,29 @@ describe("FindBar", () => {
   describe("keyboard shortcuts - find input", () => {
     it("Enter triggers findNext", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
       fireEvent.keyDown(findInput, { key: "Enter" });
       expect(mockFindNext).toHaveBeenCalled();
     });
 
     it("Shift+Enter triggers findPrevious", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
       fireEvent.keyDown(findInput, { key: "Enter", shiftKey: true });
       expect(mockFindPrevious).toHaveBeenCalled();
     });
 
     it("Escape triggers close", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
       fireEvent.keyDown(findInput, { key: "Escape" });
       expect(mockClose).toHaveBeenCalled();
     });
 
     it("Tab moves focus to replace input", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
-      const replaceInput = screen.getByPlaceholderText("Replace...");
+      const findInput = screen.getByPlaceholderText("Find…");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
       findInput.focus();
       fireEvent.keyDown(findInput, { key: "Tab" });
       // The handler calls replaceInputRef.current?.focus()
@@ -278,22 +278,22 @@ describe("FindBar", () => {
   describe("keyboard shortcuts - replace input", () => {
     it("Enter triggers replaceCurrent", () => {
       render(<FindBar />);
-      const replaceInput = screen.getByPlaceholderText("Replace...");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
       fireEvent.keyDown(replaceInput, { key: "Enter" });
       expect(mockReplaceCurrent).toHaveBeenCalled();
     });
 
     it("Escape triggers close", () => {
       render(<FindBar />);
-      const replaceInput = screen.getByPlaceholderText("Replace...");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
       fireEvent.keyDown(replaceInput, { key: "Escape" });
       expect(mockClose).toHaveBeenCalled();
     });
 
     it("Shift+Tab moves focus to find input", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
-      const replaceInput = screen.getByPlaceholderText("Replace...");
+      const findInput = screen.getByPlaceholderText("Find…");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
       replaceInput.focus();
       fireEvent.keyDown(replaceInput, { key: "Tab", shiftKey: true });
       expect(document.activeElement).toBe(findInput);
@@ -440,7 +440,7 @@ describe("FindBar", () => {
   describe("IME composition guard", () => {
     it("Enter within grace period does not trigger findNext", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
 
       mockIsComposing.mockReturnValue(true);
       fireEvent.keyDown(findInput, { key: "Enter" });
@@ -450,7 +450,7 @@ describe("FindBar", () => {
 
     it("Shift+Enter within grace period does not trigger findPrevious", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
 
       mockIsComposing.mockReturnValue(true);
       fireEvent.keyDown(findInput, { key: "Enter", shiftKey: true });
@@ -460,7 +460,7 @@ describe("FindBar", () => {
 
     it("Escape within grace period does not close", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
 
       mockIsComposing.mockReturnValue(true);
       fireEvent.keyDown(findInput, { key: "Escape" });
@@ -470,7 +470,7 @@ describe("FindBar", () => {
 
     it("Enter within grace period on replace input does not trigger replaceCurrent", () => {
       render(<FindBar />);
-      const replaceInput = screen.getByPlaceholderText("Replace...");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
 
       mockIsComposing.mockReturnValue(true);
       fireEvent.keyDown(replaceInput, { key: "Enter" });
@@ -480,7 +480,7 @@ describe("FindBar", () => {
 
     it("Enter works normally outside grace period", () => {
       render(<FindBar />);
-      const findInput = screen.getByPlaceholderText("Find...");
+      const findInput = screen.getByPlaceholderText("Find…");
 
       mockIsComposing.mockReturnValue(false);
       fireEvent.keyDown(findInput, { key: "Enter" });
@@ -511,13 +511,13 @@ describe("FindBar", () => {
     it("find input shows current query", () => {
       mockSearchState.query = "hello";
       render(<FindBar />);
-      expect(screen.getByPlaceholderText("Find...")).toHaveValue("hello");
+      expect(screen.getByPlaceholderText("Find…")).toHaveValue("hello");
     });
 
     it("replace input shows current replaceText", () => {
       mockSearchState.replaceText = "world";
       render(<FindBar />);
-      expect(screen.getByPlaceholderText("Replace...")).toHaveValue("world");
+      expect(screen.getByPlaceholderText("Replace…")).toHaveValue("world");
     });
   });
 });

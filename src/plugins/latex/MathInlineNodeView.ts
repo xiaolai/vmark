@@ -464,7 +464,7 @@ export class MathInlineNodeView implements NodeView {
     if (!isKatexLoaded()) {
       const loading = document.createElement("span");
       loading.className = "math-inline-loading";
-      loading.textContent = "...";
+      loading.textContent = "…";
       this.previewDom.replaceChildren(loading);
     } else {
       this.previewDom.textContent = trimmed;

@@ -124,7 +124,7 @@ export function WorkspaceRailContextMenu({
   return (
     <div
       ref={menuRef}
-      className="workspace-rail-menu"
+      className="vm-menu workspace-rail-menu"
       role="menu"
       aria-label={workspaceName}
       onKeyDown={onKeyDown}

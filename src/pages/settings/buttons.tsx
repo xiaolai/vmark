@@ -20,26 +20,28 @@ interface ButtonProps {
   icon?: React.ReactNode;
   iconPosition?: "left" | "right";
   onClick?: (e: React.MouseEvent) => void;
+  /** Forwarded so SettingRow's label htmlFor wiring reaches the control. */
+  id?: string;
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
 }
 
+// WI-UI2.4: Button is a THIN WRAPPER over `.vm-btn` (button-shared.css).
+// primary maps to the solid CTA, danger to the outlined danger; warning and
+// success have no canonical variant, so they keep a tint layered on the
+// canonical SHAPE (the shape is the thing that drifted).
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: `bg-[var(--primary-color)] text-[var(--contrast-text)]
-            hover:opacity-90`,
-  secondary: `bg-transparent text-[var(--text-secondary)] border border-[var(--border-color)]
-              hover:bg-[var(--hover-bg)]`,
-  tertiary: `bg-[var(--bg-tertiary)] text-[var(--text-color)]
-             hover:bg-[var(--hover-bg)]`,
-  danger: `bg-transparent text-[var(--error-color)] border border-[var(--error-color)]/30
-           hover:bg-[var(--error-bg)]`,
-  warning: `bg-[var(--warning-color)] text-[var(--contrast-text)]
-            hover:opacity-90`,
-  success: `bg-[var(--success-color)] text-[var(--contrast-text)]
-            hover:opacity-90`,
+  primary: "vm-btn--cta",
+  secondary: "",
+  tertiary: "vm-btn--plain",
+  danger: "vm-btn--danger",
+  warning: "bg-[var(--warning-color)]! text-[var(--contrast-text)]! hover:opacity-90",
+  success: "bg-[var(--success-color)]! text-[var(--contrast-text)]! hover:opacity-90",
 };
 
 const buttonSizes: Record<ButtonSize, string> = {
-  sm: "px-2 py-1 text-xs",
-  md: "px-3 py-1.5 text-sm",
+  sm: "vm-btn--compact",
+  md: "",
 };
 
 export function Button({
@@ -51,6 +53,8 @@ export function Button({
   icon,
   iconPosition = "left",
   onClick,
+  id,
+  ...ariaProps
 }: ButtonProps) {
   const content = icon ? (
     <span className="inline-flex items-center gap-1.5">
@@ -66,12 +70,9 @@ export function Button({
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`rounded font-medium transition-colors
-                  focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
-                  ${buttonVariants[variant]}
-                  ${buttonSizes[size]}
-                  ${disabled ? "opacity-50 cursor-not-allowed" : ""}
-                  ${className}`}
+      id={id}
+      {...ariaProps}
+      className={`vm-btn ${buttonVariants[variant]} ${buttonSizes[size]} ${className}`.replace(/\s+/g, " ").trim()}
     >
       {content}
     </button>
@@ -84,11 +85,10 @@ export function Button({
 
 interface CopyButtonProps {
   text: string;
-  size?: "xs" | "sm";
   className?: string;
 }
 
-export function CopyButton({ text, size = "sm", className = "" }: CopyButtonProps) {
+export function CopyButton({ text, className = "" }: CopyButtonProps) {
   const { t } = useTranslation("settings");
   const [copied, setCopied] = useState(false);
   // Pending revert timer. Kept in a ref so a re-click can cancel the stale
@@ -117,25 +117,23 @@ export function CopyButton({ text, size = "sm", className = "" }: CopyButtonProp
     }
   };
 
-  /* v8 ignore next -- @preserve size !=="sm" branch: tests only invoke with size="sm" */
-  const iconSize = size === "sm" ? "w-3.5 h-3.5" : "w-3 h-3";
 
   return (
     <button
       onClick={(e) => void handleCopy(e)}
-      className={`p-0.5 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
-                  hover:text-[var(--text-color)] transition-colors flex-shrink-0
-                  focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
-                  ${className}`}
+      className={`vm-icon-btn vm-icon-btn--sm ${className}`.trim()}
       title={copied ? t("copied") : t("copy")}
       aria-label={copied ? t("copied") : t("copy")}
     >
       {copied ? (
-        <svg className={`${iconSize} text-[var(--success-color)]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        // Glyph size comes from the unlayered `.vm-icon-btn svg` rule (14px);
+        // a layered Tailwind w-*/h-* utility here can never win and only
+        // misleads (audit round 2, finding 29).
+        <svg className="text-[var(--success-color)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       ) : (
-        <svg className={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
@@ -158,14 +156,11 @@ export function CloseButton({ onClick, className = "" }: CloseButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`p-1 rounded hover:bg-[var(--hover-bg)] text-[var(--text-tertiary)]
-                  hover:text-[var(--text-color)] transition-colors
-                  focus-visible:ring-2 focus-visible:ring-[var(--primary-color)] focus-visible:ring-offset-1
-                  ${className}`}
+      className={`vm-icon-btn vm-icon-btn--sm ${className}`.trim()}
       title={t("close")}
       aria-label={t("close")}
     >
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <line x1="18" y1="6" x2="6" y2="18" />
         <line x1="6" y1="6" x2="18" y2="18" />
       </svg>

@@ -14,6 +14,7 @@
 }
 
 .math-inline:hover:not(.editing) {
+  /* ui-ok(state): editor-content affordance — the selection tint marks an editable span, not chrome hover */
   background-color: var(--selection-color);
   border-radius: 2px;
 }
@@ -187,9 +188,3 @@
   display: none;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .math-inline-loading {
-    animation: none;
-  }
-}

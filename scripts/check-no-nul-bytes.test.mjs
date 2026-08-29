@@ -104,12 +104,19 @@ describe("check-no-nul-bytes", () => {
     expect(stderr).toContain("Makefile");
   });
 
-  it("ignores untracked files", () => {
+  it("scans UNTRACKED (non-ignored) files too — a new file is exactly where a NUL arrives", () => {
+    // The old contract ("ignores untracked files") was the blindness itself:
+    // a bare `git ls-files` cannot see a file until it is committed, so a
+    // defect in a new file passes every pre-commit run and fails only in CI
+    // after the commit lands (hit live on the 0.9.55 release PR, via the
+    // sibling theme-names gate that shared this scan).
     const dir = scratchRepo(
       { "src/a.ts": "export const a = 1;\n" },
       { untracked: { "scratch.ts": `x${NUL}y\n` } },
     );
-    expect(runGate(dir).status).toBe(0);
+    const { status, stderr } = runGate(dir);
+    expect(status).toBe(1);
+    expect(stderr).toContain("scratch.ts");
   });
 
   it("fails closed when the root is not a git repository", () => {

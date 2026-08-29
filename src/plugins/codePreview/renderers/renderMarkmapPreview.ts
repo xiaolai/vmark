@@ -64,7 +64,7 @@ export function createMarkmapPreview(
 
       // Add fit button
       const fitBtn = document.createElement("button");
-      fitBtn.className = "markmap-fit-btn";
+      fitBtn.className = "vm-icon-btn vm-icon-btn--sm markmap-fit-overlay markmap-fit-btn";
       const fitLabel = i18n.t("editor:plugin.fitToView");
       fitBtn.title = fitLabel;
       fitBtn.setAttribute("aria-label", fitLabel);

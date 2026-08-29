@@ -148,10 +148,18 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
               className={`terminal-tab ${s.id === activeId ? "terminal-tab-active" : ""} ${!s.isAlive ? "terminal-tab-dead" : ""} ${s.hasActivity && s.id !== activeId ? "terminal-tab-activity" : ""}`}
               onClick={() => handleSwitch(s.id)}
               onDoubleClick={() => setRenamingId(s.id)}
-              title={name}
-              aria-label={name}
+              title={s.isAlive ? name : t("terminal.sessionExited", { name })}
+              aria-label={s.isAlive ? name : t("terminal.sessionExited", { name })}
             >
               {getTabDisplay(s, name)}
+              {s.hasActivity && s.id !== activeId && (
+                <span className="sr-only">{t("terminal.backgroundActivity")}</span>
+              )}
+              {!s.isAlive && (
+                <span className="terminal-tab-dead-glyph" aria-hidden="true">
+                  ×
+                </span>
+              )}
             </button>
           );
         })}
@@ -160,26 +168,26 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
             order-independent) — see TerminalTabBar.test.tsx and the E2E terminal
             journey. Do not rename these values. */}
         <button
-          className="terminal-tab-bar-btn"
+          className="vm-icon-btn vm-icon-btn--sm"
           data-terminal-action="new"
           onClick={handleCreate}
           disabled={isMaxed}
           title={isMaxed ? t("terminal.maxSessions") : t("terminal.newSession")}
           aria-label={isMaxed ? t("terminal.maxSessions") : t("terminal.newSession")}
         >
-          <Plus size={12} />
+          <Plus size={14} />
         </button>
       </div>
 
       <div className="terminal-tab-bar-actions">
-        <button className="terminal-tab-bar-btn" data-terminal-action="swap" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
-          <SwapIcon size={12} />
+        <button className="vm-icon-btn vm-icon-btn--sm" data-terminal-action="swap" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
+          <SwapIcon size={14} />
         </button>
-        <button className="terminal-tab-bar-btn" data-terminal-action="close" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
-          <Trash2 size={12} />
+        <button className="vm-icon-btn vm-icon-btn--sm" data-terminal-action="close" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
+          <Trash2 size={14} />
         </button>
-        <button className="terminal-tab-bar-btn" data-terminal-action="restart" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
-          <RotateCcw size={12} />
+        <button className="vm-icon-btn vm-icon-btn--sm" data-terminal-action="restart" onClick={onRestart} title={t("terminal.restartSession")} aria-label={t("terminal.restartSession")}>
+          <RotateCcw size={14} />
         </button>
       </div>
     </div>

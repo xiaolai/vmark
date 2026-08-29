@@ -1,0 +1,151 @@
+/**
+ * Shared panel & small-control primitives (WI-UI3.4).
+ *
+ *   .vm-panel__header / __title / __row   the one header rhythm (8/12, 14px)
+ *   .vm-chip (+ --toggle, --kbd)          pills, filter toggles, key hints
+ *   .vm-switch (+ __knob)                 the settings switch (36×20 track)
+ *   .vm-spinner                           the one loading spinner
+ *   .vm-scroll--thin                      2px scrollbar for dense lists
+ */
+
+.vm-panel__header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.vm-panel__title {
+  flex: 1;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vm-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--space-1-5) var(--spacing-2);
+}
+
+/* Chips: pills at rest; the toggle variant squares off to read as a control. */
+.vm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-half) var(--space-2);
+  border: var(--border-thin) solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+}
+
+.vm-chip--toggle {
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+
+.vm-chip--toggle[aria-pressed="true"] {
+  background: var(--accent-bg);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.vm-chip--kbd {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2xs);
+}
+
+/* The switch: a 36×20 track whose OFF boundary must be findable (D8 — the
+   track border is --control-border, authored ≥ 3:1 on every theme). The knob
+   is the PAGE colour: a fixed white knob vanished on night's pastel accent. */
+.vm-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: var(--border-thin) solid var(--control-border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+  cursor: default;
+  transition: background var(--duration-base);
+}
+
+.vm-switch[aria-checked="true"] {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.vm-switch:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.vm-switch:focus-visible {
+  outline: var(--border-medium) solid var(--accent-primary);
+  outline-offset: var(--border-medium);
+}
+
+.vm-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-color);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-base);
+}
+
+.vm-switch[aria-checked="true"] .vm-switch__knob {
+  transform: translateX(16px);
+}
+
+/* The one spinner. Size via font-size-free box: default 14px; scale with a
+   width/height override at the call site if a larger one is genuinely needed. */
+.vm-spinner {
+  display: inline-block;
+  width: var(--size-icon-xs);
+  height: var(--size-icon-xs);
+  border: var(--border-medium) solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: vm-spin var(--duration-slower) linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes vm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dense lists that need a quieter scrollbar than the 10px global. */
+.vm-scroll--thin::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+
+.vm-scroll--thin::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 1px;
+}
+
+.vm-scroll--thin::-webkit-scrollbar-track {
+  background: transparent;
+}

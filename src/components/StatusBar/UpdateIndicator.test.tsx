@@ -77,7 +77,7 @@ describe("UpdateIndicator", () => {
   it("renders checking indicator (not clickable)", () => {
     mockUpdateState.status = "checking";
     render(<UpdateIndicator />);
-    const button = screen.getByTitle("Checking for updates...");
+    const button = screen.getByTitle("Checking for updates…");
     expect(button).toBeInTheDocument();
     expect(button.style.cursor).toBe("default");
   });
@@ -124,7 +124,7 @@ describe("UpdateIndicator", () => {
     mockUpdateState.status = "downloading";
     mockUpdateState.downloadProgress = { downloaded: 50, total: null };
     render(<UpdateIndicator />);
-    const button = screen.getByTitle("Downloading update...");
+    const button = screen.getByTitle("Downloading update…");
     expect(button).toBeInTheDocument();
   });
 
@@ -132,7 +132,7 @@ describe("UpdateIndicator", () => {
     mockUpdateState.status = "downloading";
     mockUpdateState.downloadProgress = null;
     render(<UpdateIndicator />);
-    const button = screen.getByTitle("Downloading update...");
+    const button = screen.getByTitle("Downloading update…");
     expect(button).toBeInTheDocument();
   });
 
@@ -185,7 +185,7 @@ describe("UpdateIndicator", () => {
   it("does not show dot for checking status", () => {
     mockUpdateState.status = "checking";
     render(<UpdateIndicator />);
-    const button = screen.getByTitle("Checking for updates...");
+    const button = screen.getByTitle("Checking for updates…");
     const dot = button.querySelector(".status-update-dot");
     expect(dot).toBeNull();
   });
@@ -227,7 +227,7 @@ describe("UpdateIndicator", () => {
       const user = userEvent.setup();
       mockUpdateState.status = "checking";
       render(<UpdateIndicator />);
-      await user.click(screen.getByTitle("Checking for updates..."));
+      await user.click(screen.getByTitle("Checking for updates…"));
       expect(mockOpenSettingsWindow).not.toHaveBeenCalled();
       expect(mockRestartApp).not.toHaveBeenCalled();
       expect(mockCheckForUpdates).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe("UpdateIndicator", () => {
       mockUpdateState.status = "downloading";
       mockUpdateState.downloadProgress = null;
       render(<UpdateIndicator />);
-      await user.click(screen.getByTitle("Downloading update..."));
+      await user.click(screen.getByTitle("Downloading update…"));
       expect(mockOpenSettingsWindow).not.toHaveBeenCalled();
       expect(mockRestartApp).not.toHaveBeenCalled();
       expect(mockCheckForUpdates).not.toHaveBeenCalled();
@@ -249,7 +249,7 @@ describe("UpdateIndicator", () => {
     it("applies checking class", () => {
       mockUpdateState.status = "checking";
       render(<UpdateIndicator />);
-      expect(screen.getByTitle("Checking for updates...").className).toBe("status-update checking");
+      expect(screen.getByTitle("Checking for updates…").className).toBe("status-update checking");
     });
 
     it("applies downloading class", () => {
@@ -305,7 +305,7 @@ describe("UpdateIndicator", () => {
       render(<UpdateIndicator />);
       // 0/0 = NaN, Math.round(NaN) = NaN, so it falls through to null
       // Actually 0 is falsy so total check fails
-      expect(screen.getByTitle("Downloading update...")).toBeInTheDocument();
+      expect(screen.getByTitle("Downloading update…")).toBeInTheDocument();
     });
   });
 
@@ -313,7 +313,7 @@ describe("UpdateIndicator", () => {
     it("renders an installing indicator (not clickable)", () => {
       mockUpdateState.status = "installing";
       render(<UpdateIndicator />);
-      const button = screen.getByTitle("Installing update...");
+      const button = screen.getByTitle("Installing update…");
       expect(button).toBeInTheDocument();
       expect(button.style.cursor).toBe("default");
     });
@@ -341,7 +341,7 @@ describe("UpdateIndicator", () => {
       mockStalled = true;
       render(<UpdateIndicator />);
 
-      expect(screen.queryByTitle("Checking for updates...")).not.toBeInTheDocument();
+      expect(screen.queryByTitle("Checking for updates…")).not.toBeInTheDocument();
       expect(screen.getByRole("button")).toHaveAttribute(
         "title",
         "Update stalled — click to reset",

@@ -91,7 +91,6 @@ export const EXPORT_CSS_VARS = [
   "--font-sans",
   "--font-mono",
   "--editor-font-size",
-  "--editor-font-size-sm",
   "--editor-font-size-mono",
   "--editor-font-size-block",
   "--editor-line-height",

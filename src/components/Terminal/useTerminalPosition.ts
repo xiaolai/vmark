@@ -28,7 +28,8 @@
 
 import { useEffect, useRef } from "react";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { shellSideWidth } from "@/shell/shellChrome";
+import { BAR_HEIGHT, shellSideWidth } from "@/shell/shellChrome";
+import { usesOverlayTitleBar } from "@/utils/platform";
 import {
   useUIStore,
   type EffectiveTerminalPosition,
@@ -41,9 +42,11 @@ import {
 const WIDTH_THRESHOLD = 1440;
 const HYSTERESIS_PX = 50;
 
-// Layout constants — must match App.tsx TITLEBAR_HEIGHT and bottom bar height
-const TITLEBAR_HEIGHT = 40;
-const STATUSBAR_HEIGHT = 40;
+// Layout constants — one owner (R11): shellChrome.BAR_HEIGHT. The top strip
+// exists only where the app overlays the native title bar (macOS); elsewhere
+// the OS draws its own outside the webview and there is nothing to subtract.
+const TITLEBAR_HEIGHT = usesOverlayTitleBar() ? BAR_HEIGHT : 0;
+const STATUSBAR_HEIGHT = BAR_HEIGHT;
 
 /**
  * Pure function: decide terminal position from window dimensions.

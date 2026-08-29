@@ -13,10 +13,13 @@ import "./styles/index.css";
 // Canonical `.vm-btn` text button. Global so any surface can use it instead of
 // hand-rolling another bespoke `__btn` class (see the file header).
 import "./styles/button-shared.css";
+import "./styles/icon-button-shared.css";
+import "./styles/overlay-shared.css";
+import "./styles/input-shared.css";
+import "./styles/panel-shared.css";
 import "./styles/select-shared.css";
 // Shared syntax-highlight palette (source-syntax.css + json-view-theme.css
 // both consume these vars). Global so the vars resolve wherever either renders.
-import "./styles/syntax-palette.css";
 // KaTeX CSS must load AFTER Tailwind (so preflight runs first).
 // KaTeX fixes must load AFTER KaTeX CSS to restore border-widths reset by Tailwind.
 import "katex/dist/katex.min.css";

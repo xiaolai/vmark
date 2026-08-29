@@ -32,7 +32,7 @@
   padding: var(--code-padding, 18px) 0.5em;
   font-family: var(--font-mono);
   font-size: var(--editor-font-size-mono);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   text-align: right;
   user-select: none;
   pointer-events: none;
@@ -52,7 +52,7 @@
 
 /* Dark theme adjustments */
 .dark-theme .tiptap-editor .code-line-numbers {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   border-right-color: var(--border-color);
 }
 
@@ -72,23 +72,12 @@
   user-select: none;
 }
 
-/* Code-block action button — hidden by default, appears on code block hover.
-   Despite the historical name, this class styles BOTH chrome actions: Copy and
-   Run in Terminal (WI-4.3), which are distinguished by `data-code-action`.
-   They deliberately share one rule set so they cannot drift apart. Migration
-   target for both is `.popup-icon-btn` (see .claude/rules/32-component-patterns). */
+/* Code-block action button (Copy / Run in Terminal, by `data-code-action`).
+   The SQUARE is the canonical `.vm-icon-btn--sm` (WI-UI2.3); this residual
+   class keeps only what is genuinely local — reveal-on-hover, the editor's
+   syntax-char ink, and the success/error feedback tints. */
 .tiptap-editor .code-copy-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--md-char-color);
-  cursor: pointer;
   opacity: 0;
   transition: opacity var(--duration-base), color var(--duration-base), background var(--duration-base);
 }
@@ -105,7 +94,6 @@
 
 .tiptap-editor .code-copy-btn:hover {
   opacity: 1;
-  background: var(--hover-bg);
   color: var(--text-secondary);
 }
 
@@ -114,23 +102,10 @@
   color: var(--success-color);
 }
 
-/* Keyboard focus must be visible even before hover reveals the button
-   (rule 33). U-shaped underline, matching the app's button convention. */
+/* Keyboard focus paints via the canonical flat bar; reveal it even before
+   hover (rule 33). */
 .tiptap-editor .code-copy-btn:focus-visible {
   opacity: 1;
-  outline: none;
-  position: relative;
-}
-
-.tiptap-editor .code-copy-btn:focus-visible::after {
-  content: "";
-  position: absolute;
-  bottom: 1px;
-  left: 3px;
-  right: 3px;
-  height: 2px;
-  background: var(--accent-primary);
-  border-radius: 1px;
 }
 
 /* Success state after copying — must override wrapper:hover opacity */
@@ -149,23 +124,6 @@
   color: var(--error-color);
 }
 
-/* Focus indicator — U-shaped underline (matches code-lang-selector pattern) */
-.tiptap-editor .code-copy-btn:focus-visible {
-  opacity: 1;
-  outline: none;
-  position: relative;
-}
-
-.tiptap-editor .code-copy-btn:focus-visible::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 4px;
-  right: 4px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
-}
 
 /* Language selector chip */
 .tiptap-editor .code-lang-selector {
@@ -173,7 +131,9 @@
   padding: var(--space-half) var(--space-1-5);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-  color: var(--md-char-color);
+  /* WI-UI1.3: --md-char-color is reserved for syntax markers (it renders
+     green on night); an enabled control label reads in the text ramp. */
+  color: var(--text-secondary);
   background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -199,7 +159,7 @@
   left: 2px;
   right: 2px;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
@@ -243,19 +203,8 @@
   padding: var(--space-1);
 }
 
-/* Scrollbar for language list */
-.code-lang-dropdown .code-lang-list::-webkit-scrollbar {
-  width: 1px;
-}
+/* Thin scrollbar comes from `.vm-scroll--thin` (WI-UI3.4). */
 
-.code-lang-dropdown .code-lang-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.code-lang-dropdown .code-lang-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
-}
 
 /* Language item */
 .code-lang-dropdown .code-lang-item {

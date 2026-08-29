@@ -1,0 +1,20 @@
+{
+ "//": [
+  "WI-UI0.4 (C12) \u2014 check:static gates whose scripts/ file has NO sibling",
+  "scripts/<stem>.test.* self-test. Identity list, ratchets DOWN only: give",
+  "a gate a test, remove its entry. A new untested gate fails the parity",
+  "assertion in check-scripts-parity.test.mjs; an entry whose gate gained a",
+  "test (or left check:static) is stale and fails too."
+ ],
+ "untested": [
+  "check-emdash-spacing.mjs",
+  "check-extension-budget.mjs",
+  "check-hooks-react-purity.mjs",
+  "check-i18n-keys.ts",
+  "check-knip-baseline.mjs",
+  "check-merge-drops.mjs",
+  "check-test-timer-isolation.mjs",
+  "check-type-aware.mjs",
+  "lint-console.sh"
+ ]
+}

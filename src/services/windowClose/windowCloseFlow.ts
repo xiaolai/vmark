@@ -35,7 +35,6 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { ask } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -49,6 +48,7 @@ import { cleanupOrphansForClosingTabs } from "@/services/media/closeCleanup";
 import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 import { flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import type { Tab } from "@/stores/tabStoreTypes";
+import { confirmAction } from "@/services/dialogs/confirmAction";
 
 export type CloseLog = (label: string, ...args: unknown[]) => void;
 
@@ -94,15 +94,12 @@ function collectDirtyContexts(
 async function confirmPinnedTabs(tabs: Tab[], log: CloseLog, windowLabel: string): Promise<boolean> {
   const pinnedTabs = tabs.filter((tab) => tab.isPinned);
   if (pinnedTabs.length === 0) return true;
-  const confirmed = await ask(
-    i18n.t("dialog:windowClose.pinnedPrompt", { count: pinnedTabs.length }),
-    {
-      title: i18n.t("dialog:windowClose.pinnedTitle"),
-      kind: "warning",
-      okLabel: i18n.t("dialog:windowClose.confirmClose"),
-      cancelLabel: i18n.t("dialog:common.cancel"),
-    }
-  );
+  const confirmed = await confirmAction({
+    title: i18n.t("dialog:windowClose.pinnedTitle"),
+    message: i18n.t("dialog:windowClose.pinnedPrompt", { count: pinnedTabs.length }),
+    actionLabel: i18n.t("dialog:windowClose.confirmClose"),
+    kind: "warning",
+  });
   if (!confirmed) log(windowLabel, "close cancelled by pinned-tabs prompt");
   return confirmed;
 }

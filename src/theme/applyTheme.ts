@@ -38,7 +38,14 @@ export function tokensToCssEntries(theme: ThemeTokens): Entries {
   const cached = entriesCache.get(theme);
   if (cached) return cached;
   const out: Entries = [];
-  flatten("--", theme as unknown as Record<string, unknown>, out);
+  // `terminal` is JS-side data consumed at xterm-instance creation
+  // (buildXtermTheme) — no stylesheet reads a --terminal-* var, and emitting
+  // 18 dead custom properties per theme made the tokens.ts comment a lie
+  // (WI-UI4.9). Excluded here so the comment is TRUE.
+  const { terminal: _terminal, ...cssFacing } = theme as unknown as Record<string, unknown> & {
+    terminal: unknown;
+  };
+  flatten("--", cssFacing, out);
   const normalized = out.map(
     ([k, v]) => [k.replace(/^---/, "--"), v] as [string, string],
   );

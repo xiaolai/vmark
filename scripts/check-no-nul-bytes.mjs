@@ -78,13 +78,16 @@ function extensionOf(rel) {
 }
 
 /**
- * Every NUL in a tracked text file under `root`.
+ * Every NUL in a text file under `root` (tracked or untracked-non-ignored).
  *
  * @param {string} root repository root to scan
  * @returns {{file: string, line: number, column: number, count: number}[]}
  */
 export function findNulBytes(root) {
-  const listed = execFileSync("git", ["-C", root, "ls-files", "-z"], {
+  // --cached --others --exclude-standard: an UNTRACKED new file must be
+  // scanned too — a bare ls-files goes quiet on exactly the files a session
+  // is creating, and the NUL surfaces only after the commit lands.
+  const listed = execFileSync("git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
     maxBuffer: 1 << 28,
   })
     .toString()
@@ -137,7 +140,7 @@ function main(argv) {
   }
 
   if (findings.length > 0) {
-    console.error("Raw NUL bytes in tracked text files:\n");
+    console.error("Raw NUL bytes in text files:\n");
     for (const f of findings) {
       const plural = f.count === 1 ? "1 NUL" : `${f.count} NULs`;
       console.error(`  ${f.file}:${f.line}:${f.column}  (${plural})`);
@@ -151,7 +154,7 @@ function main(argv) {
     process.exit(1);
   }
 
-  console.log("No raw NUL bytes in tracked text files.");
+  console.log("No raw NUL bytes in text files (tracked + untracked-non-ignored).");
 }
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
