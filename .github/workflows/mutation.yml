@@ -113,7 +113,7 @@ jobs:
         run: touch "src-tauri/binaries/vmark-mcp-server-x86_64-unknown-linux-gnu"
 
       - name: Install cargo-mutants
-        uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2.86.3
+        uses: taiki-e/install-action@fcf5432d9f50d67e37ee6e29bdb7a224ff67b4a7 # v2.86.8
         with:
           tool: cargo-mutants
 
