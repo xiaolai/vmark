@@ -14,7 +14,7 @@
  *   - shouldRerenderOnTransaction: false — Tiptap's default full-React-rerender per
  *     transaction is wasted work here since state flows through Zustand selectors.
  *   - content-visibility gated on .cv-idle (off during typing) and only above
- *     CV_IDLE_CHAR_THRESHOLD; stripped during edits, skipped on small docs (#823).
+ *     CV_IDLE_CHAR_THRESHOLD; viewport-preserving toggles (#823, #1340).
  *   - Native spellcheck disabled above 100K chars where rescans block the main thread.
  *   - Cursor tracking is delayed 200ms after creation to prevent spurious sync during
  *     initial render/focus.
@@ -269,8 +269,8 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       /* v8 ignore next -- @preserve reason: hidden/preview path skips update; not exercised in WYSIWYG update tests */
       if (hiddenRef.current || previewRef.current) return;
 
-      // Suppress content-visibility during active typing; re-enable after
-      // idle on large docs only (#823) — see suppressCvIdleDuringEdit.
+      // Suppress content-visibility during active typing; re-enable after idle,
+      // preserving the viewport (#823, #1340) — see suppressCvIdleDuringEdit.
       suppressCvIdleDuringEdit(
         editorContainerRef,
         editor.state.doc.content.size,

@@ -2,8 +2,10 @@
  * TiptapEditor module helpers
  *
  * Purpose: pure, editor-instance-level helpers extracted from TiptapEditor.tsx —
- * history-free content replacement, adaptive debounce sizing, and external
- * markdown→editor sync. No React state; safe to call from effects and callbacks.
+ * history-free content replacement, adaptive debounce sizing, the spellcheck
+ * size cutoff, the viewport-preserving cv-idle toggle (#823, #1340), and
+ * external markdown→editor sync. No React state; safe to call from effects
+ * and callbacks.
  *
  * @coordinates-with TiptapEditor.tsx — sole consumer; behavior documented there
  * @module components/Editor/tiptapEditorHelpers
@@ -15,6 +17,7 @@ import type { EditorProps } from "@tiptap/pm/view";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { handleTableScrollToSelection } from "@/plugins/tableScroll/scrollGuard";
+import { setCvIdlePreservingViewport } from "./cvIdleViewportLock";
 import { tiptapError } from "@/utils/debug";
 
 /**
@@ -139,6 +142,11 @@ export function applySpellcheckForDocSize(
  * blocks have never been rendered. For small docs the optimization delivers
  * no measurable win and the toggle produces a "shaking" / rippling effect
  * as the total document height changes on each idle interval (#823).
+ *
+ * Large documents keep the toggle and pay the same estimate-vs-real
+ * divergence — which used to throw the viewport (and the user's selection)
+ * out of view on every edit (#1340). Both toggle directions are now
+ * scroll-compensated; see {@link suppressCvIdleDuringEdit}.
  */
 export const CV_IDLE_CHAR_THRESHOLD = 50_000;
 
@@ -151,6 +159,20 @@ export const CV_IDLE_CHAR_THRESHOLD = 50_000;
  * the toggle causes visible shaking because `contain-intrinsic-size: auto`
  * fallbacks don't match real block heights when off-screen blocks have
  * never been rendered, and small docs don't need the optimization anyway (#823).
+ *
+ * Both class toggles go through {@link setCvIdlePreservingViewport}: on a
+ * large doc the same estimate-vs-real height divergence changes the height of
+ * content ABOVE the viewport, so an unadjusted scrollTop threw the selection
+ * out of view on every edit — including toolbar mark toggles (#1340). The
+ * strip only measures when the class is actually present; within the idle
+ * window (the per-keystroke hot path) it is already off and nothing is
+ * measured or written.
+ *
+ * If the idle timer fires while the editor is hidden (Source mode toggled
+ * within the window), display:none geometry yields no anchor and the re-add
+ * is class-only — correct, since nothing is visible and returning to WYSIWYG
+ * re-derives the viewport (cursor mapping, scroll restore). Unmount never
+ * reaches the timer at all: useTiptapUnmountFlush clears it.
  */
 export function suppressCvIdleDuringEdit(
   containerRef: MutableRefObject<HTMLDivElement | null>,
@@ -159,7 +181,9 @@ export function suppressCvIdleDuringEdit(
 ): void {
   const container = containerRef.current;
   if (!container) return;
-  container.classList.remove("cv-idle");
+  if (container.classList.contains("cv-idle")) {
+    setCvIdlePreservingViewport(container, false);
+  }
   if (cvIdleTimeoutRef.current !== null) {
     window.clearTimeout(cvIdleTimeoutRef.current);
     cvIdleTimeoutRef.current = null;
@@ -167,7 +191,8 @@ export function suppressCvIdleDuringEdit(
   if (docSize >= CV_IDLE_CHAR_THRESHOLD) {
     cvIdleTimeoutRef.current = window.setTimeout(() => {
       cvIdleTimeoutRef.current = null;
-      containerRef.current?.classList.add("cv-idle");
+      const idleContainer = containerRef.current;
+      if (idleContainer) setCvIdlePreservingViewport(idleContainer, true);
     }, 500);
   }
 }
