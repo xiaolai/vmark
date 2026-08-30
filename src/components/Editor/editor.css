@@ -113,7 +113,13 @@
    DOM mutations that shift positions of off-screen blocks — edits near the top of
    a long doc cost O(blocks-after-insertion), e.g. 378ms per keystroke on a 2250-block
    doc. We apply it only when the editor is idle (initial load + between edits) and
-   strip it during active typing. The debounced toggle lives in TiptapEditor.tsx. */
+   strip it during active typing. The debounced toggle is suppressCvIdleDuringEdit
+   in tiptapEditorHelpers.ts, invoked from TiptapEditor.tsx's onUpdate.
+
+   Both toggle directions are scroll-compensated (cvIdleViewportLock.ts): swapping
+   the 2.5em estimates for real heights (and back) changes the height of content
+   above the viewport, which threw the selection out of view on every edit in
+   50K+ docs (#1340). */
 .tiptap-editor.cv-idle .ProseMirror > * {
   content-visibility: auto;
   contain-intrinsic-size: auto 2.5em;

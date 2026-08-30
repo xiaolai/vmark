@@ -173,6 +173,28 @@ export function globFiles(pattern) {
   });
 }
 
+/**
+ * `readFileSync` with `globFiles`' race contract carried through to the read:
+ * the stat filter above cannot close the window between glob and read, and a
+ * scanned file CAN vanish inside it — `gha-tdd-guard.test.mjs` writes probe
+ * `*.test.ts` files into `src/lib/browser/` and deletes them while the gates
+ * tier runs this CLI against the real tree (the same transient that gave
+ * `check-scripts-parity` a ~25% flake rate before its single-snapshot fix).
+ * A vanished file is "not ours to read", exactly like a raced delete at stat
+ * time; anything other than ENOENT still throws.
+ *
+ * @param {string} file
+ * @returns {string | null} contents, or null when the file no longer exists
+ */
+export function readScannedFile(file) {
+  try {
+    return readFileSync(file, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 // Main guard: this module EXPORTS collectJsDefinedVars for tests, so importing
 // it must not run the checker. Without it the importer's argv leaked in —
 // vitest's "run" was treated as a CSS path and the import threw ENOENT.
@@ -181,6 +203,16 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const fileArgs = args.filter((a) => !a.startsWith("--"));
   const fixtureMode = fileArgs.length > 0;
   const files = fixtureMode ? fileArgs : globFiles("src/**/*.css");
+
+  // Explicit fixture arguments are claims, not discoveries: a mistyped or
+  // missing path must fail LOUD (readFileSync throws here, before any scan),
+  // and their contents are captured NOW so even a deletion mid-run cannot
+  // demote them to a quiet skip. Only glob-discovered paths get
+  // readScannedFile's ENOENT tolerance.
+  const fixtureContents = fixtureMode
+    ? new Map(files.map((f) => [f, readFileSync(f, "utf8")]))
+    : new Map();
+  const readTree = (file) => fixtureContents.get(file) ?? readScannedFile(file);
 
   const violations = [];
 
@@ -227,7 +259,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   ];
 
   for (const file of files) {
-    const content = readFileSync(file, "utf8");
+    const content = readTree(file);
+    if (content === null) continue;
 
     for (const focus of findFocusRemovals(content)) {
       violations.push({
@@ -277,17 +310,20 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     const defRe = /--[A-Za-z0-9-]+(?=\s*:)/g;
     // CSS definitions across all stylesheets (and any fixture files given)
     for (const file of [...globFiles("src/**/*.css"), ...files]) {
-      const content = readFileSync(file, "utf8");
+      const content = readTree(file);
+      if (content === null) continue;
       for (const m of content.matchAll(defRe)) definedVars.add(m[0]);
     }
     // JS-emitted tokens: setProperty("--x", ...) and "--x": value maps
     for (const file of globFiles("src/**/*.{ts,tsx}")) {
-      const content = readFileSync(file, "utf8");
+      const content = readTree(file);
+      if (content === null) continue;
       for (const name of collectJsDefinedVars(content)) definedVars.add(name);
     }
     const useRe = /var\(\s*(--[A-Za-z0-9-]+)\s*\)/g; // no-fallback uses only
     for (const file of files) {
-      const content = readFileSync(file, "utf8");
+      const content = readTree(file);
+      if (content === null) continue;
       for (const m of content.matchAll(useRe)) {
         const name = m[1];
         if (definedVars.has(name)) continue;
@@ -315,10 +351,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     const rgbaFindings = [];
     const declaredKeyframes = new Set();
     for (const file of [...globFiles("src/**/*.css"), ...(fixtureMode ? files : [])]) {
-      for (const name of collectKeyframes(readFileSync(file, "utf8"))) declaredKeyframes.add(name);
+      const keyframeSource = readTree(file);
+      if (keyframeSource === null) continue;
+      for (const name of collectKeyframes(keyframeSource)) declaredKeyframes.add(name);
     }
     for (const file of files) {
-      const content = readFileSync(file, "utf8");
+      const content = readTree(file);
+      if (content === null) continue;
       if (!COLOR_EXCLUDE.some((re) => re.test(file))) {
         rgbaFindings.push(...findColorFnLiterals(content, file));
       }
@@ -336,9 +375,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     // C2g — className literals, tree mode only (the TSX surface).
     const classNameFindings = fixtureMode
       ? []
-      : globFiles("src/**/*.{ts,tsx}").flatMap((file) =>
-          findClassNameLiterals(readFileSync(file, "utf8"), file),
-        );
+      : globFiles("src/**/*.{ts,tsx}").flatMap((file) => {
+          const source = readTree(file);
+          return source === null ? [] : findClassNameLiterals(source, file);
+        });
 
     // Identity-baseline comparison for C2b + C2g: new entries and stale
     // entries both fail (house rule — record the win).
@@ -394,7 +434,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       const useRe = /var\(\s*(--[A-Za-z0-9-]+)/g;
       const quotedRe = /["'`](--[A-Za-z0-9-]+)["'`]/g;
       for (const file of [...globFiles("src/**/*.css"), ...globFiles("src/**/*.{ts,tsx}")]) {
-        const content = readFileSync(file, "utf8");
+        const content = readTree(file);
+        if (content === null) continue;
         for (const m of content.matchAll(useRe)) consumedVars.add(m[1]);
         for (const m of content.matchAll(quotedRe)) consumedVars.add(m[1]);
       }

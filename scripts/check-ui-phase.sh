@@ -69,15 +69,18 @@ assert_empty_list() {
   " 2>/dev/null; then ok "$label"; else fail "$label ($key in $file is not empty)"; fi
 }
 
-# dev-docs/ is maintainer-local (gitignored — AGENTS.md). The self-test sets
-# VMARK_UI_PHASE_NO_DEVDOCS=1 to force the absent branch: a sibling gate test
-# (clean-dev.test.mjs) fabricates fixtures under the REAL dev-docs/ in the
-# same vitest tier, so probing the directory mid-run is the read half of a
-# TOCTOU race — on a checkout where dev-docs/ is normally absent (CI, a fresh
-# worktree) the probe can see the transient fixture and then demand
-# maintainer files the fixture does not carry.
+# dev-docs/ is maintainer-local (gitignored — AGENTS.md). Two guards against
+# the same race, belt and braces: a sibling gate test (clean-dev.test.mjs)
+# fabricates fixtures under the REAL dev-docs/ in the same vitest tier, so a
+# bare `-d dev-docs` probe mid-run is the read half of a TOCTOU race — on a
+# checkout where dev-docs/ is normally absent (CI, a fresh worktree) it can
+# see the transient fixture and then demand maintainer files the fixture does
+# not carry. So (1) the probe keys on dev-docs/README.md — the index
+# AGENTS.md requires of a real dev-docs and no fixture creates — and (2) the
+# self-test sets VMARK_UI_PHASE_NO_DEVDOCS=1 to force the absent branch
+# deterministically regardless of tree class.
 has_devdocs() {
-  [[ "${VMARK_UI_PHASE_NO_DEVDOCS:-0}" != "1" && -d dev-docs ]]
+  [[ "${VMARK_UI_PHASE_NO_DEVDOCS:-0}" != "1" && -f dev-docs/README.md ]]
 }
 
 case "$PHASE" in
@@ -106,7 +109,8 @@ case "$PHASE" in
     assert_cmd "lint:theme-contrast green" pnpm lint:theme-contrast
     assert_cmd "lint:ui-consistency green" pnpm lint:ui-consistency
     assert_cmd "lint:design-tokens green" pnpm lint:design-tokens
-    # Visual-QA fixtures exist only where dev-docs/ does — see has_devdocs.
+    # Visual-QA fixtures exist only where a real dev-docs/ does — see
+    # has_devdocs for the README-marker probe and the override.
     if has_devdocs; then
       assert_file dev-docs/css-reference.md "visual-QA reference doc"
       assert_file dev-docs/e2e-testing.md "e2e harness runbook"
@@ -154,7 +158,7 @@ case "$PHASE" in
   4)
     echo "Phase 4 — Copy + semantics + docs:"
     assert_file src/services/dialogs/confirmAction.ts
-    # The doc lives only where dev-docs/ does — see has_devdocs.
+    # The doc lives only where a real dev-docs/ does — see has_devdocs.
     if has_devdocs; then
       assert_file dev-docs/design-system.md
     else

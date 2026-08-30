@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmdirSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,7 +52,7 @@ describe("check-ui-phase.sh", () => {
     // Until WI-UI4.x landed, this test pinned the fail-closed direction (red
     // with the missing paths named). The flip to green IS part of the DoD.
     const res = run("4");
-    expect(res.status).toBe(0);
+    expect(res.status, res.stdout + res.stderr).toBe(0);
     expect(res.stdout).toContain("confirmAction.ts exists");
     // Pins that the no-devdocs override took effect — without it this run
     // would race clean-dev.test.mjs's fixture on any checkout where
@@ -95,6 +95,37 @@ describe("check-ui-phase.sh", () => {
     expect(res.status).toBe(0);
     expect(res.stdout).toContain("visual-QA reference doc exists");
     expect(res.stdout).toContain("baseline screenshot night exists");
+  });
+
+  it("phase 4 stays green while a sibling test's transient dev-docs fixture exists", () => {
+    // clean-dev.test.mjs creates dev-docs/grills/… in the REAL repo root and
+    // removes it in afterEach; on a tree with no dev-docs (CI, fresh worktree)
+    // that window overlaps this tier's parallel pool. A markerless dev-docs is
+    // a fixture, not a maintainer tree — the probe keys on dev-docs/README.md.
+    // Directly under dev-docs/, NOT under dev-docs/grills/: clean-dev's own
+    // "no-op when grills is absent" test early-returns whenever grills
+    // exists, and a probe inside grills would make it skip silently.
+    //
+    // runMaintainer, not run: run() forces the absent branch via
+    // VMARK_UI_PHASE_NO_DEVDOCS=1, which would green this test without ever
+    // exercising the README-marker probe it exists to pin.
+    const probe = path.join(REPO, "dev-docs/__ui-phase-race-probe__");
+    mkdirSync(probe, { recursive: true });
+    try {
+      const res = runMaintainer("4");
+      expect(res.status, res.stdout + res.stderr).toBe(0);
+    } finally {
+      // Remove only what is certainly ours: the probe itself, then a
+      // NON-recursive rmdir on dev-docs — it fails on any directory that
+      // still has content (a maintainer's real dev-docs, or a sibling test's
+      // live fixture), which is exactly the safe outcome.
+      rmSync(probe, { recursive: true, force: true });
+      try {
+        rmdirSync(path.dirname(probe));
+      } catch {
+        // non-empty or already gone — leave it alone
+      }
+    }
   });
 
   it("phase 0 reports every gate wiring assertion", () => {
