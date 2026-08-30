@@ -189,9 +189,9 @@ fn path_to_file_url(path: &str) -> Result<String, CommandError> {
 
 /// Show the system print dialog for the rendered document.
 ///
-/// Settles once the dialog has been SHOWN. `webkit_print_operation_run_dialog`
-/// is where the user takes over, and like the other two platforms we cannot
-/// report what they choose to do there.
+/// Settles once the user has DISMISSED the dialog —
+/// `webkit_print_operation_run_dialog` blocks until they respond. Like the
+/// other two platforms we do not report what they chose to do there.
 pub(super) fn print_on_main_thread(
     app: &AppHandle,
     html_path: &str,
@@ -211,9 +211,16 @@ fn start_print(
     let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
     let file_url = path_to_file_url(html_path)?;
     let blank = "about:blank".parse().expect("about:blank parses");
-    // Visible: a print dialog floating over nothing is disorienting.
+    // Hidden, like the export path in `start()`. This window used to be
+    // visible on the theory that a print dialog floating over nothing is
+    // disorienting — but users read the raw-document window behind the
+    // dialog as a stray bug window (#1341), and macOS shows only the print
+    // panel. A hidden WebKitGTK webview provably still renders and prints:
+    // `start()` has always printed from a `.visible(false)` window. Do NOT
+    // unify this with Windows — there, `ShowPrintUI` draws the print UI
+    // INSIDE the webview window, so hiding it would hide the dialog itself.
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
-        .visible(true)
+        .visible(false)
         .title("VMark Print")
         .build()
         .map_err(|e| window_error(&e.to_string()))?;
@@ -247,8 +254,9 @@ fn start_print(
                     return;
                 }
                 let op = PrintOperation::new(view);
-                // No parent window: passing the render window would tie the
-                // dialog's lifetime to a window the user may close under it.
+                // No parent window: the render window is hidden, and a
+                // transient parent that is never mapped gives the WM nothing
+                // to stack against — the dialog floats free, as it always has.
                 // Turbofish: `None` alone is ambiguous — the parameter is
                 // generic over `IsA<gtk::Window>` with nothing to infer from.
                 op.run_dialog(None::<&gtk::Window>);

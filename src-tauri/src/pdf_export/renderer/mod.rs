@@ -251,9 +251,11 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
 
     app.run_on_main_thread(move || {
         // Same sink contract as render: macOS settles synchronously because
-        // its panel is modal, while Windows and Linux settle once the dialog
-        // has been SHOWN. None of the three can detect what the user then does
-        // with it — that has always been the documented contract here.
+        // its panel is modal, Windows settles once the dialog has been SHOWN
+        // (ShowPrintUI is asynchronous), and Linux settles once the user has
+        // DISMISSED the dialog (run_dialog blocks until they respond). None
+        // of the three reports what the user chose — that has always been the
+        // documented contract here.
         #[cfg(target_os = "windows")]
         windows_print::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
         #[cfg(not(target_os = "windows"))]
