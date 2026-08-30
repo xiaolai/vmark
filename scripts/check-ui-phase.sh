@@ -11,9 +11,10 @@
 # scripts/check-gha-phase.sh (rule 60 §3).
 #
 # The plan itself is maintainer-local (dev-docs/ is gitignored), so this
-# script asserts TREE state only — files, npm wiring, baselines, gate output —
-# and can run on any checkout that has the dev-docs folder for the fixture
-# assertions (phase 0's PNGs and reference doc live there).
+# script asserts TREE state only — files, npm wiring, baselines, gate output.
+# The fixture assertions under dev-docs/ (phase 0's PNGs and reference doc,
+# phase 4's design-system.md) run only where that folder exists, and
+# VMARK_UI_PHASE_NO_DEVDOCS=1 skips them explicitly — see has_devdocs.
 
 set -uo pipefail
 
@@ -68,6 +69,17 @@ assert_empty_list() {
   " 2>/dev/null; then ok "$label"; else fail "$label ($key in $file is not empty)"; fi
 }
 
+# dev-docs/ is maintainer-local (gitignored — AGENTS.md). The self-test sets
+# VMARK_UI_PHASE_NO_DEVDOCS=1 to force the absent branch: a sibling gate test
+# (clean-dev.test.mjs) fabricates fixtures under the REAL dev-docs/ in the
+# same vitest tier, so probing the directory mid-run is the read half of a
+# TOCTOU race — on a checkout where dev-docs/ is normally absent (CI, a fresh
+# worktree) the probe can see the transient fixture and then demand
+# maintainer files the fixture does not carry.
+has_devdocs() {
+  [[ "${VMARK_UI_PHASE_NO_DEVDOCS:-0}" != "1" && -d dev-docs ]]
+}
+
 case "$PHASE" in
   0)
     echo "Phase 0 — Instrument:"
@@ -94,16 +106,15 @@ case "$PHASE" in
     assert_cmd "lint:theme-contrast green" pnpm lint:theme-contrast
     assert_cmd "lint:ui-consistency green" pnpm lint:ui-consistency
     assert_cmd "lint:design-tokens green" pnpm lint:design-tokens
-    # dev-docs/ is maintainer-local (gitignored — AGENTS.md); the visual-QA
-    # fixtures exist only where the folder does. Same skip rule as phase 4.
-    if [[ -d dev-docs ]]; then
+    # Visual-QA fixtures exist only where dev-docs/ does — see has_devdocs.
+    if has_devdocs; then
       assert_file dev-docs/css-reference.md "visual-QA reference doc"
       assert_file dev-docs/e2e-testing.md "e2e harness runbook"
       for theme in white paper mint sepia night solarized; do
         assert_file "dev-docs/baselines/${theme}.png" "baseline screenshot ${theme}"
       done
     else
-      ok "dev-docs/ absent (CI runner) — visual-QA fixture checks skipped per AGENTS.md"
+      ok "visual-QA fixture checks skipped — dev-docs/ absent or disabled (AGENTS.md)"
     fi
     ;;
   1)
@@ -143,12 +154,11 @@ case "$PHASE" in
   4)
     echo "Phase 4 — Copy + semantics + docs:"
     assert_file src/services/dialogs/confirmAction.ts
-    # dev-docs/ is maintainer-local (gitignored — AGENTS.md): the folder does
-    # not exist on a CI runner, so the doc check applies only where it can.
-    if [[ -d dev-docs ]]; then
+    # The doc lives only where dev-docs/ does — see has_devdocs.
+    if has_devdocs; then
       assert_file dev-docs/design-system.md
     else
-      ok "dev-docs/ absent (CI runner) — design-system.md check skipped per AGENTS.md"
+      ok "design-system.md check skipped — dev-docs/ absent or disabled (AGENTS.md)"
     fi
     assert_cmd "lint:i18n green (casing/punctuation checks live there)" pnpm lint:i18n
     assert_cmd "lint:keybinding-manifest green (label parity)" pnpm lint:keybinding-manifest
