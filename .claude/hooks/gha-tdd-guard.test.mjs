@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
+import { rmdirSync, mkdirSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Vitest runs with cwd = repo root; import.meta.url is a virtual URL under the
@@ -28,10 +28,14 @@ function runGuard(payload) {
 const write = (file_path) => ({ tool_name: "Write", tool_input: { file_path } });
 
 // Temp fixtures created under a real in-scope dir so the guard's filesystem
-// checks (isFile on the sibling candidate) hit real paths.
-const DIR_AS_TEST = join(REPO, "src/lib/browser/__guardspec_dir__.test.ts");
+// checks (isFile on the sibling candidate) hit real paths. Names carry the
+// pid so two concurrent vitest invocations on one checkout (a manual
+// test:gates beside a running check:predelta) never create or delete each
+// other's probes.
+const TAG = `__guardspec_${process.pid}__`;
+const DIR_AS_TEST = join(REPO, `src/lib/browser/${TAG}_dir.test.ts`);
 const TESTS_DIR = join(REPO, "src/lib/browser/__tests__");
-const TESTS_FILE = join(TESTS_DIR, "__guardspec_sub__.test.ts");
+const TESTS_FILE = join(TESTS_DIR, `${TAG}_sub.test.ts`);
 
 beforeAll(() => {
   mkdirSync(DIR_AS_TEST, { recursive: true }); // a DIRECTORY named like a test
@@ -43,7 +47,16 @@ beforeAll(() => {
 
 afterAll(() => {
   rmSync(DIR_AS_TEST, { recursive: true, force: true });
-  rmSync(TESTS_DIR, { recursive: true, force: true });
+  // File-precise, then a NON-recursive rmdir: mkdirSync(recursive) succeeds
+  // on a pre-existing __tests__/ too, and a recursive rm here would silently
+  // delete any real tests that directory had acquired. rmdir refuses a
+  // non-empty directory, which is exactly the safe outcome.
+  rmSync(TESTS_FILE, { force: true });
+  try {
+    rmdirSync(TESTS_DIR);
+  } catch {
+    // non-empty or already gone — leave it alone
+  }
 });
 
 describe("gha-tdd-guard — pass-through (not our business)", () => {
@@ -96,7 +109,7 @@ describe("gha-tdd-guard — scope + allow-list", () => {
   });
 
   it("allows a scoped source when the test lives in __tests__/", () => {
-    expect(runGuard(write("src/lib/browser/__guardspec_sub__.ts")).status).toBe(0);
+    expect(runGuard(write(`src/lib/browser/${TAG}_sub.ts`)).status).toBe(0);
   });
 
   it("allows the test file itself", () => {
@@ -115,7 +128,7 @@ describe("gha-tdd-guard — scope + allow-list", () => {
 describe("gha-tdd-guard — directory named like a test does not satisfy the gate", () => {
   it("blocks when the sibling test path is a DIRECTORY, not a file", () => {
     // isFile() must reject a directory named foo.test.ts.
-    expect(runGuard(write("src/lib/browser/__guardspec_dir__.ts")).status).toBe(2);
+    expect(runGuard(write(`src/lib/browser/${TAG}_dir.ts`)).status).toBe(2);
   });
 });
 
