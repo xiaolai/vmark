@@ -16,7 +16,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -117,17 +117,12 @@ describe("spike probe artifacts", () => {
   // existed. The sweep must take the artifact dirs and NOTHING else: the spike
   // reports are the evidence §7 requires.
   //
-  // dev-docs/ is maintainer-local and gitignored, so on CI it does not exist at
-  // all. Remember the topmost path created, exactly as withBundle does above.
+  // dev-docs/ is maintainer-local and gitignored, so on CI it does not exist
+  // at all. Cleanup removes the fixture only, then prunes empty ancestors
+  // non-recursively — see the afterEach below.
   const FIXTURE = path.join(REPO, "dev-docs/grills/__clean-dev-fixture__");
-  let fixtureRoot = null;
 
   function withFixture() {
-    let candidate = FIXTURE;
-    while (!existsSync(path.dirname(candidate)) && path.dirname(candidate) !== REPO) {
-      candidate = path.dirname(candidate);
-    }
-    fixtureRoot = existsSync(FIXTURE) ? null : candidate;
     mkdirSync(path.join(FIXTURE, "probe/target/debug"), { recursive: true });
     mkdirSync(path.join(FIXTURE, "probe/node_modules/left-pad"), { recursive: true });
     mkdirSync(path.join(FIXTURE, "probe/src"), { recursive: true });
@@ -135,12 +130,22 @@ describe("spike probe artifacts", () => {
   }
 
   afterEach(() => {
-    if (fixtureRoot && existsSync(fixtureRoot)) {
-      rmSync(fixtureRoot, { recursive: true, force: true });
-    } else if (existsSync(FIXTURE)) {
-      rmSync(FIXTURE, { recursive: true, force: true });
+    // Remove only what is certainly ours (the fixture itself), then prune
+    // now-empty ancestors with a NON-recursive rmdir: it refuses any
+    // directory that still has content — a maintainer's real dev-docs, or a
+    // sibling gate test's live fixture (check-ui-phase.test.mjs probes this
+    // same tree) — which is exactly the safe outcome. The previous cleanup
+    // recursively removed the topmost dir it had created (up to dev-docs/
+    // itself on a tree where it was absent), deleting sibling fixtures
+    // mid-test under the parallel pool.
+    rmSync(FIXTURE, { recursive: true, force: true });
+    for (const dir of [path.dirname(FIXTURE), path.join(REPO, "dev-docs")]) {
+      try {
+        rmdirSync(dir);
+      } catch {
+        break; // non-empty or already gone — leave it alone
+      }
     }
-    fixtureRoot = null;
   });
 
   const actions = (args) =>

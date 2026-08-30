@@ -96,7 +96,13 @@ case "$PHASE" in
     assert_cmd "lint:design-tokens green" pnpm lint:design-tokens
     # dev-docs/ is maintainer-local (gitignored — AGENTS.md); the visual-QA
     # fixtures exist only where the folder does. Same skip rule as phase 4.
-    if [[ -d dev-docs ]]; then
+    # Probe the index file, not the bare directory: gate self-tests running in
+    # the same tier (clean-dev.test.mjs) transiently create dev-docs/grills/ on
+    # trees where dev-docs is absent, and a directory probe mistook that
+    # fixture for a maintainer tree — failing this phase only under the
+    # parallel pool. The index is the one file AGENTS.md requires of a real
+    # dev-docs and no fixture creates.
+    if [[ -f dev-docs/README.md ]]; then
       assert_file dev-docs/css-reference.md "visual-QA reference doc"
       assert_file dev-docs/e2e-testing.md "e2e harness runbook"
       for theme in white paper mint sepia night solarized; do
@@ -145,7 +151,9 @@ case "$PHASE" in
     assert_file src/services/dialogs/confirmAction.ts
     # dev-docs/ is maintainer-local (gitignored — AGENTS.md): the folder does
     # not exist on a CI runner, so the doc check applies only where it can.
-    if [[ -d dev-docs ]]; then
+    # README.md probe, not a directory probe — see the phase 0 comment for the
+    # concurrent-fixture race this avoids.
+    if [[ -f dev-docs/README.md ]]; then
       assert_file dev-docs/design-system.md
     else
       ok "dev-docs/ absent (CI runner) — design-system.md check skipped per AGENTS.md"

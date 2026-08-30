@@ -19,7 +19,42 @@ import { describe, it, expect } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { collectJsDefinedVars, findFocusRemovals, globFiles } from "./check-design-tokens.mjs";
+import {
+  collectJsDefinedVars,
+  findFocusRemovals,
+  globFiles,
+  readScannedFile,
+} from "./check-design-tokens.mjs";
+
+describe("readScannedFile", () => {
+  // Carries globFiles' race contract through to the read: a scanned file CAN
+  // vanish between glob and read (gha-tdd-guard.test.mjs deletes its probe
+  // *.test.ts files under src/ while the gates tier runs this CLI against the
+  // real tree). ENOENT means "no longer ours to read"; everything else is a
+  // real failure and must stay loud.
+  it("returns contents for a file that exists", () => {
+    const root = mkdtempSync(join(tmpdir(), "design-tokens-read-"));
+    try {
+      writeFileSync(join(root, "a.css"), ".x { color: var(--y); }");
+      expect(readScannedFile(join(root, "a.css"))).toContain("--y");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns null when the file vanished after the glob (ENOENT)", () => {
+    expect(readScannedFile(join(tmpdir(), "design-tokens-read-gone", "no-such.css"))).toBeNull();
+  });
+
+  it("rethrows non-ENOENT errors (a directory is a real failure, not a race)", () => {
+    const root = mkdtempSync(join(tmpdir(), "design-tokens-read-dir-"));
+    try {
+      expect(() => readScannedFile(root)).toThrow();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("collectJsDefinedVars", () => {
   it("collects setProperty() calls", () => {
@@ -415,5 +450,21 @@ describe("the CLI in fixture mode", () => {
 
   it("is green against the real tree and the committed baseline", () => {
     execFileSync(process.execPath, ["scripts/check-design-tokens.mjs"], { stdio: "pipe" });
+  });
+
+  it("fails LOUD on a missing explicit fixture argument (no quiet skip)", () => {
+    // readScannedFile tolerates ENOENT only for glob-discovered files; an
+    // explicit argument is a claim, and a typo must not exit 0.
+    let status = 0;
+    try {
+      execFileSync(
+        process.execPath,
+        ["scripts/check-design-tokens.mjs", join(tmpdir(), "design-tokens-fixture-gone", "no.css")],
+        { stdio: "pipe" },
+      );
+    } catch (e) {
+      status = (e as { status?: number }).status ?? -1;
+    }
+    expect(status).not.toBe(0);
   });
 });
