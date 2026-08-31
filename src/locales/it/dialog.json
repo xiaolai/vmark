@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "Impossibile incorporare {{count}} immagini, che risultano assenti dall'output",
   "toast.failedToPreparePdf": "Preparazione esportazione PDF fallita",
   "toast.noEditorContentToPrint": "Nessun contenuto dell'editor da stampare",
-  "toast.failedToOpenPrintDialog": "Apertura della finestra di dialogo di stampa fallita",
+  "toast.printFailed": "Stampa non riuscita",
   "toast.htmlCopied": "HTML copiato negli appunti",
   "toast.pdfExportSuccess": "PDF esportato con successo",
   "toast.pdfExportPartial": "PDF esportato, ma non è stato possibile aggiungere {{what}}.",

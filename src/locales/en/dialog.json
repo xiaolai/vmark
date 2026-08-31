@@ -110,7 +110,7 @@
   "toast.exportImageWarning_other": "{{count}} images could not be embedded and are missing from the output",
   "toast.failedToPreparePdf": "Failed to prepare PDF export",
   "toast.noEditorContentToPrint": "No editor content to print",
-  "toast.failedToOpenPrintDialog": "Failed to open print dialog",
+  "toast.printFailed": "Print failed",
   "toast.htmlCopied": "HTML copied to clipboard",
   "toast.pdfExportSuccess": "PDF exported successfully",
   "toast.pdfExportPartial": "PDF exported, but {{what}} could not be added.",

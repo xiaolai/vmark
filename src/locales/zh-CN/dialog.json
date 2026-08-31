@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "{{count}} 张图片无法嵌入，输出中将缺失",
   "toast.failedToPreparePdf": "无法准备 PDF 导出",
   "toast.noEditorContentToPrint": "没有要打印的编辑器内容",
-  "toast.failedToOpenPrintDialog": "无法打开打印对话框",
+  "toast.printFailed": "打印失败",
   "toast.htmlCopied": "HTML 已复制到剪贴板",
   "toast.pdfExportSuccess": "PDF 导出成功",
   "toast.pdfExportPartial": "已导出 PDF，但无法添加{{what}}。",

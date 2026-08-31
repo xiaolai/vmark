@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "이미지 {{count}}개를 포함하지 못해 출력에서 누락되었습니다",
   "toast.failedToPreparePdf": "PDF 내보내기 준비에 실패했습니다",
   "toast.noEditorContentToPrint": "인쇄할 편집기 콘텐츠가 없습니다",
-  "toast.failedToOpenPrintDialog": "인쇄 대화 상자를 열지 못했습니다",
+  "toast.printFailed": "인쇄에 실패했습니다",
   "toast.htmlCopied": "HTML이 클립보드에 복사되었습니다",
   "toast.pdfExportSuccess": "PDF 내보내기가 완료되었습니다",
   "toast.pdfExportPartial": "PDF를 내보냈지만 {{what}}을(를) 추가하지 못했습니다.",

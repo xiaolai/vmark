@@ -1,133 +1,24 @@
 /**
  * Export Operations
  *
- * Print: Injects @media print styles and calls window.print() on the main webview.
- * HTML Export: Uses ExportSurface for visual-parity rendering.
+ * Print: sends self-contained HTML to the Rust `print_document` command
+ * (helper webview + system print dialog). HTML Export: ExportSurface.
  */
 
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { imeToast as toast } from "@/services/ime/imeToast";
-import { createRoot } from "react-dom/client";
-import React from "react";
 
-import { ExportSurface, type ExportSurfaceRef } from "./ExportSurface";
 import { exportWarn, exportError, pdfError, printError } from "@/utils/debug";
 import i18n from "@/i18n";
 import { exportHtml } from "./htmlExport";
-import { waitForAssets } from "./waitForAssets";
+import { renderMarkdownToHtml } from "./renderMarkdownToHtml";
 import { captureThemeCSS } from "./themeSnapshot";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { commandErrorMessage } from "@/services/commands/commandError";
-import { toError } from "@/utils/errorMessage";
 import { warnMissingResources } from "./exportResourceWarnings";
-
-/** Timeout for waiting on assets (fonts, images, math, diagrams) */
-const ASSET_WAIT_TIMEOUT = 10000;
-
-/** Maximum time to wait for render before giving up */
-const RENDER_TIMEOUT = 15000;
-
-/**
- * Render markdown to HTML using ExportSurface.
- * Creates a temporary DOM element, renders ExportSurface, waits for stability,
- * then extracts the HTML.
- */
-async function renderMarkdownToHtml(
-  markdown: string,
-  lightTheme: boolean = true
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Guard against multiple resolution (timeout vs callback race)
-    let settled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    // Create temporary container
-    const container = document.createElement("div");
-    container.style.cssText = "position: absolute; left: -9999px; top: -9999px;";
-    document.body.appendChild(container);
-
-    const surfaceRef = React.createRef<ExportSurfaceRef>();
-    let root: ReturnType<typeof createRoot> | null = null;
-
-    const cleanup = () => {
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      root?.unmount();
-      if (container.parentNode) {
-        document.body.removeChild(container);
-      }
-    };
-
-    const complete = (html: string) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(html);
-    };
-
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-
-    const handleReady = async () => {
-      if (settled) return;
-      try {
-        // Wait for assets
-        const surfaceContainer = surfaceRef.current?.getContainer();
-        if (surfaceContainer) {
-          await waitForAssets(surfaceContainer, { timeout: ASSET_WAIT_TIMEOUT });
-        }
-
-        // Extract HTML
-        const html = surfaceRef.current?.getHTML() ?? "";
-        complete(html);
-      } catch (error) {
-        fail(toError(error));
-      }
-    };
-
-    const handleError = (error: Error) => {
-      fail(error);
-    };
-
-    // Render ExportSurface
-    try {
-      root = createRoot(container);
-      root.render(
-        React.createElement(ExportSurface, {
-          ref: surfaceRef,
-          markdown,
-          lightTheme,
-          onReady: () => void handleReady(),
-          onError: handleError,
-        })
-      );
-    } catch (error) {
-      cleanup();
-      reject(toError(error));
-      return;
-    }
-
-    // Timeout fallback
-    timeoutId = setTimeout(() => {
-      if (settled) return;
-      const html = surfaceRef.current?.getHTML();
-      if (html) {
-        complete(html);
-      } else {
-        fail(new Error(i18n.t("dialog:toast.exportRenderTimedOut")));
-      }
-    }, RENDER_TIMEOUT);
-  });
-}
 
 /** Options for the exportToHtml operation. */
 export interface ExportToHtmlOptions {
@@ -236,8 +127,9 @@ export interface ExportToPdfOptions {
 }
 
 /**
- * Print via native macOS print dialog (Rust-side WKWebView).
- * On non-macOS platforms, print is not supported (menu item hidden).
+ * Print via the system print dialog on all three platforms (WI-PDF4.1):
+ * macOS NSPrintOperation, Windows ShowPrintUI, Linux
+ * webkit_print_operation_run_dialog — see src-tauri/src/pdf_export/renderer.
  */
 export async function exportToPdf(options: ExportToPdfOptions): Promise<void> {
   const { markdown, sourceFilePath } = options;
@@ -291,24 +183,6 @@ export async function exportToPdfNative(options: ExportToPdfOptions): Promise<vo
 }
 
 /**
- * Print via native macOS print dialog (Rust-side WKWebView).
- *
- * The app's WKWebView can't paginate properly with window.print() because
- * printOperationWithPrintInfo uses the webview's frame size. Instead, we
- * invoke a Rust command that creates a separate off-screen WKWebView,
- * loads the rendered HTML, and shows the native print dialog — same
- * approach as PDF export but with the print panel visible.
- *
- * Note: In WYSIWYG mode this reads HTML directly from the live editor DOM
- * (`.ProseMirror`) for speed rather than re-rendering via ExportSurface
- * (which Export PDF uses). The trade-off is slightly different output
- * between Print and Export PDF (live DOM may include editor UI artifacts).
- *
- * In Source mode there is no `.ProseMirror` element, so we fall back to
- * rendering the markdown via ExportSurface — slower but correct, instead of
- * showing a misleading "no content to print" error.
- */
-/**
  * Decide where to source the HTML for printing.
  * Exposed for tests; production callers use `exportToPdfBrowser`.
  *
@@ -328,8 +202,17 @@ export function pickPrintHtmlSource(
   return { kind: "empty" };
 }
 
-// fix(#999) — inline local images as data-URIs before print/PDF so the
-// off-screen WKWebView (no Tauri asset:// handler) can render them.
+/**
+ * Print via the Rust-side helper webview and the system print dialog.
+ *
+ * The app's own webview can't paginate properly with window.print() because
+ * printOperationWithPrintInfo uses the webview's frame size. Instead, the
+ * `print_document` command builds a separate hidden webview, loads the
+ * rendered HTML, and shows the platform's print dialog — same approach as
+ * PDF export but with the print panel visible (all three platforms since
+ * WI-PDF4.1). Local images are inlined as data-URIs first (#999): the helper
+ * webview has no Tauri asset:// handler.
+ */
 async function exportToPdfBrowser(
   markdown: string,
   sourceFilePath: string | null = null,
@@ -403,7 +286,11 @@ ${html}
     await invoke("print_document", { html: fullHtml });
   } catch (error) {
     printError("Failed to print:", error);
-    toast.error(i18n.t("dialog:toast.failedToOpenPrintDialog"));
+    // "Print failed", not "failed to open print dialog": on Linux a CONFIRMED
+    // job that fails afterwards rejects too (#1343), so the dialog may well
+    // have opened fine. Raw error — errorDetail owns the normalization
+    // (commandErrorMessage), so the typed CommandError renders its message.
+    toast.errorDetail(i18n.t("dialog:toast.printFailed"), error);
   }
 }
 

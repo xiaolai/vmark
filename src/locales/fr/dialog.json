@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "{{count}} images n'ont pas pu être intégrées et sont absentes du résultat",
   "toast.failedToPreparePdf": "Impossible de préparer l'exportation PDF",
   "toast.noEditorContentToPrint": "Aucun contenu d'éditeur à imprimer",
-  "toast.failedToOpenPrintDialog": "Impossible d'ouvrir la boîte de dialogue d'impression",
+  "toast.printFailed": "Échec de l'impression",
   "toast.htmlCopied": "HTML copié dans le presse-papiers",
   "toast.pdfExportSuccess": "PDF exporté avec succès",
   "toast.pdfExportPartial": "PDF exporté, mais {{what}} n'a pas pu être ajouté.",
