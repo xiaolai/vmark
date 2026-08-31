@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "{{count}} Bilder konnten nicht eingebettet werden und fehlen in der Ausgabe",
   "toast.failedToPreparePdf": "PDF-Export konnte nicht vorbereitet werden",
   "toast.noEditorContentToPrint": "Kein Editor-Inhalt zum Drucken",
-  "toast.failedToOpenPrintDialog": "Druckdialog konnte nicht geöffnet werden",
+  "toast.printFailed": "Drucken fehlgeschlagen",
   "toast.htmlCopied": "HTML in Zwischenablage kopiert",
   "toast.pdfExportSuccess": "PDF erfolgreich exportiert",
   "toast.pdfExportPartial": "PDF exportiert, aber {{what}} konnte nicht hinzugefügt werden.",

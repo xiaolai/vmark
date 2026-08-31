@@ -50,6 +50,8 @@ use windows as platform;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod linux;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+mod linux_print;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 use linux as platform;
 
 /// Hard ceiling on a single PDF render. The internal print pipeline can wait
@@ -82,6 +84,48 @@ pub(super) fn emit_progress(app: &AppHandle, stage: &'static str) {
 // PDF Export
 // ============================================================================
 
+/// Write the document to the render temp file the SINK will own.
+///
+/// `tempfile` creates with O_EXCL and 0600, which a pid+clock filename plus
+/// `fs::write` does not: that name is predictable, so a symlink planted at
+/// the path would be followed, and the document — which can contain the
+/// user's entire private note — was written world-readable on a shared /tmp.
+/// The whole create-and-write runs on a blocking thread (a multi-megabyte
+/// document would otherwise hold a Tokio worker), WRITES THROUGH THE OPEN
+/// HANDLE rather than reopening the path by name, and only then
+/// `into_temp_path().keep()`s the result: `keep()` disables tempfile's RAII
+/// cleanup, and calling it before the write meant a failed or cancelled
+/// write leaked a partial private document that no one — the RenderSink that
+/// owns deletion is constructed only after this returns — would ever remove.
+async fn write_render_temp(prefix: &str, html: String) -> Result<std::path::PathBuf, CommandError> {
+    fn err(e: impl std::fmt::Display) -> CommandError {
+        localized_error!(
+            ErrorCode::Io,
+            "errors.pdf.tempWriteFailed",
+            detail = e.to_string()
+        )
+    }
+    let prefix = prefix.to_string();
+    let temp_file =
+        tokio::task::spawn_blocking(move || -> Result<tempfile::NamedTempFile, CommandError> {
+            use std::io::Write;
+            let mut temp_file = tempfile::Builder::new()
+                .prefix(&prefix)
+                .suffix(".html")
+                .tempfile()
+                .map_err(err)?;
+            temp_file.write_all(html.as_bytes()).map_err(err)?;
+            Ok(temp_file)
+        })
+        .await
+        .map_err(err)??;
+    // Kept only now, on the fully written file — if the await above is
+    // cancelled instead, the returned NamedTempFile is dropped and RAII
+    // deletes it. The webview opens the kept file by path; the sink deletes
+    // it on settle or Drop.
+    temp_file.into_temp_path().keep().map_err(err)
+}
+
 /// Render HTML to PDF via off-screen WKWebView.
 ///
 /// Writes HTML to a temp file, then dispatches to the main thread via
@@ -106,52 +150,8 @@ pub async fn render_pdf(
     // The document is written to a temp file rather than passed inline because
     // wry's `.with_html` caps at 2 MiB and a real export routinely exceeds it
     // (ADR-PDF4).
-    //
-    // `tempfile` creates with O_EXCL and 0600, which a pid+clock filename plus
-    // `fs::write` does not: that name is predictable, so a symlink planted at
-    // the path would have been followed, and the document — which can contain
-    // the user's entire private note — was written world-readable on a shared
-    // /tmp. `into_temp_path()` keeps the file after the handle closes, since
-    // the webview opens it by path; RenderSink still owns the deletion.
     let temp_dir = std::env::temp_dir();
-    let temp_file = tempfile::Builder::new()
-        .prefix("vmark-pdf-export-")
-        .suffix(".html")
-        .tempfile()
-        .map_err(|e| {
-            localized_error!(
-                ErrorCode::Io,
-                "errors.pdf.tempWriteFailed",
-                detail = e.to_string()
-            )
-        })?;
-    let temp_html = temp_file.into_temp_path().keep().map_err(|e| {
-        localized_error!(
-            ErrorCode::Io,
-            "errors.pdf.tempWriteFailed",
-            detail = e.to_string()
-        )
-    })?;
-    // Blocking I/O for a multi-megabyte document would hold a Tokio worker for
-    // the whole write; this command is async precisely so it does not.
-    let html_bytes = html.clone();
-    let temp_for_write = temp_html.clone();
-    tokio::task::spawn_blocking(move || std::fs::write(&temp_for_write, html_bytes))
-        .await
-        .map_err(|e| {
-            localized_error!(
-                ErrorCode::Io,
-                "errors.pdf.tempWriteFailed",
-                detail = e.to_string()
-            )
-        })?
-        .map_err(|e| {
-            localized_error!(
-                ErrorCode::Io,
-                "errors.pdf.tempWriteFailed",
-                detail = e.to_string()
-            )
-        })?;
+    let temp_html = write_render_temp("vmark-pdf-export-", html.clone()).await?;
 
     log::debug!(
         "[PDF] render_pdf: wrote {} bytes to {}, output: {}",
@@ -225,22 +225,11 @@ pub async fn render_pdf(
 /// silently saving to a file. The user selects a printer and prints.
 pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandError> {
     let temp_dir = std::env::temp_dir();
-    let unique_id = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let temp_html = temp_dir.join(format!(
-        "vmark-print-{}-{}.html",
-        std::process::id(),
-        unique_id
-    ));
-    std::fs::write(&temp_html, &html).map_err(|e| {
-        localized_error!(
-            ErrorCode::Io,
-            "errors.pdf.tempWriteFailed",
-            detail = e.to_string()
-        )
-    })?;
+    // Same file discipline as render_pdf — the print HTML is the same private
+    // document, and it was still being written under a predictable pid+clock
+    // name with a blocking write after render_pdf's was fixed. One helper now
+    // owns the pattern for both.
+    let temp_html = write_render_temp("vmark-print-", html).await?;
 
     let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
     let sink = RenderSink::new(tx, temp_html.clone());
@@ -252,15 +241,21 @@ pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandE
     app.run_on_main_thread(move || {
         // Same sink contract as render: macOS settles synchronously because
         // its panel is modal, Windows settles once the dialog has been SHOWN
-        // (ShowPrintUI is asynchronous), and Linux settles once the user has
-        // DISMISSED the dialog (run_dialog blocks until they respond). None
-        // of the three reports what the user chose — that has always been the
-        // documented contract here.
+        // (ShowPrintUI is asynchronous), and Linux settles on cancel when the
+        // user dismisses the dialog, or on print once the operation's
+        // finished/failed signal fires — a confirmed job keeps spooling after
+        // the dialog closes (#1343). None of the three reports what the user
+        // chose: a cancelled dialog still settles Ok.
         #[cfg(target_os = "windows")]
         windows_print::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
         platform::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
-        let _ = std::fs::remove_file(&temp_html_str);
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        linux_print::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
+        // The temp file is dropped by the SINK (settle or Drop), not here —
+        // the same rule render_pdf states above: on Windows and Linux the
+        // dispatch returns while the webview is still NAVIGATING to the file,
+        // so an eager remove here raced the load (ENOENT → error page).
     })
     .map_err(|e| {
         localized_error!(

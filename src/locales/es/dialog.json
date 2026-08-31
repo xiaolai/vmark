@@ -88,7 +88,7 @@
   "toast.exportImageWarning_other": "No se pudieron incrustar {{count}} imágenes y faltan en el resultado",
   "toast.failedToPreparePdf": "Error al preparar la exportación a PDF",
   "toast.noEditorContentToPrint": "No hay contenido del editor para imprimir",
-  "toast.failedToOpenPrintDialog": "Error al abrir el cuadro de diálogo de impresión",
+  "toast.printFailed": "Error al imprimir",
   "toast.htmlCopied": "HTML copiado al portapapeles",
   "toast.pdfExportSuccess": "PDF exportado correctamente",
   "toast.pdfExportPartial": "PDF exportado, pero no se pudo añadir {{what}}.",

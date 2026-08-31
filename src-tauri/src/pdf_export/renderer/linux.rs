@@ -27,6 +27,7 @@
 //!
 //! @coordinates-with mod.rs — dispatches here and awaits the sink
 //! @coordinates-with page_spec.rs — supplies the geometry, in points
+//! @coordinates-with linux_print.rs — the dialog path; borrows these helpers
 //! @module pdf_export/renderer/linux
 
 use std::sync::Arc;
@@ -41,7 +42,7 @@ use crate::pdf_export::page_spec::PageSpec;
 use super::RenderSink;
 
 /// Unique per render, so two concurrent exports cannot collide on a label.
-const LABEL_PREFIX: &str = "pdf-render-";
+pub(super) const LABEL_PREFIX: &str = "pdf-render-";
 
 /// The virtual printer GTK's file backend provides. Naming it is mandatory —
 /// see ADR-PDF2.
@@ -85,13 +86,38 @@ fn start(
     window
         .with_webview(move |pw| {
             let view = pw.inner();
+
+            // A failed load still reaches `Finished` (the print path has
+            // always said so), and this path had NO failure handler: it
+            // printed WebKit's error page to the PDF and reported success.
+            // Fail loud instead, and guard Finished with a flag — `close()`
+            // only queues the teardown, so Finished still fires after the
+            // failure handler ran. Rc<Cell>, not Arc: GTK signal handlers
+            // all run on the main thread. If a SECOND navigation is ever
+            // added, reset the flag on LoadEvent::Started.
+            let load_failed = std::rc::Rc::new(std::cell::Cell::new(false));
+
+            let sink_load_fail = sink.clone();
+            let app_load_fail = app_cb.clone();
+            let label_load_fail = label_cb.clone();
+            let failed_flag = load_failed.clone();
+            view.connect_load_failed(move |_, _, _, _| {
+                failed_flag.set(true);
+                sink_load_fail.settle(Err(localized_error!(
+                    ErrorCode::Io,
+                    "errors.pdf.loadFailed"
+                )));
+                close(&app_load_fail, &label_load_fail);
+                true // handled — suppress WebKit's own error page
+            });
+
             let sink_load = sink.clone();
             let app_load = app_cb.clone();
             let label_load = label_cb.clone();
             let out_uri = out_uri.clone();
 
             view.connect_load_changed(move |view, event| {
-                if event != webkit2gtk::LoadEvent::Finished {
+                if event != webkit2gtk::LoadEvent::Finished || load_failed.get() {
                     return;
                 }
                 let op = PrintOperation::new(view);
@@ -160,13 +186,13 @@ fn start(
 }
 
 /// Tear the render window down — a timeout is not cancellation (ADR-PDF7).
-fn close(app: &AppHandle, label: &str) {
+pub(super) fn close(app: &AppHandle, label: &str) {
     if let Some(w) = app.get_webview_window(label) {
         let _ = w.close();
     }
 }
 
-fn window_error(detail: &str) -> CommandError {
+pub(super) fn window_error(detail: &str) -> CommandError {
     localized_error!(
         ErrorCode::Internal,
         "errors.pdf.renderWindowFailed",
@@ -175,7 +201,7 @@ fn window_error(detail: &str) -> CommandError {
 }
 
 /// `file://` URI, percent-encoding whatever must be encoded.
-fn path_to_file_url(path: &str) -> Result<String, CommandError> {
+pub(super) fn path_to_file_url(path: &str) -> Result<String, CommandError> {
     url::Url::from_file_path(path)
         .map(|u| u.to_string())
         .map_err(|()| {
@@ -185,90 +211,4 @@ fn path_to_file_url(path: &str) -> Result<String, CommandError> {
                 path = path
             )
         })
-}
-
-/// Show the system print dialog for the rendered document.
-///
-/// Settles once the user has DISMISSED the dialog —
-/// `webkit_print_operation_run_dialog` blocks until they respond. Like the
-/// other two platforms we do not report what they chose to do there.
-pub(super) fn print_on_main_thread(
-    app: &AppHandle,
-    html_path: &str,
-    _read_access_dir: &str,
-    sink: Arc<RenderSink>,
-) {
-    if let Err(e) = start_print(app, html_path, sink.clone()) {
-        sink.settle(Err(e));
-    }
-}
-
-fn start_print(
-    app: &AppHandle,
-    html_path: &str,
-    sink: Arc<RenderSink>,
-) -> Result<(), CommandError> {
-    let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
-    let file_url = path_to_file_url(html_path)?;
-    let blank = "about:blank".parse().expect("about:blank parses");
-    // Hidden, like the export path in `start()`. This window used to be
-    // visible on the theory that a print dialog floating over nothing is
-    // disorienting — but users read the raw-document window behind the
-    // dialog as a stray bug window (#1341), and macOS shows only the print
-    // panel. A hidden WebKitGTK webview provably still renders and prints:
-    // `start()` has always printed from a `.visible(false)` window. Do NOT
-    // unify this with Windows — there, `ShowPrintUI` draws the print UI
-    // INSIDE the webview window, so hiding it would hide the dialog itself.
-    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
-        .visible(false)
-        .title("VMark Print")
-        .build()
-        .map_err(|e| window_error(&e.to_string()))?;
-
-    let app_cb = app.clone();
-    let label_cb = label.clone();
-
-    window
-        .with_webview(move |pw| {
-            let view = pw.inner();
-
-            // A failed load still reaches `Finished`, so without this the
-            // dialog would come up over WebKit's error page and print it.
-            let sink_fail = sink.clone();
-            let app_fail = app_cb.clone();
-            let label_fail = label_cb.clone();
-            view.connect_load_failed(move |_, _, _, _| {
-                sink_fail.settle(Err(localized_error!(
-                    ErrorCode::Io,
-                    "errors.pdf.loadFailed"
-                )));
-                close(&app_fail, &label_fail);
-                true // handled — suppress WebKit's own error page
-            });
-
-            let sink_load = sink.clone();
-            let app_load = app_cb.clone();
-            let label_load = label_cb.clone();
-            view.connect_load_changed(move |view, event| {
-                if event != webkit2gtk::LoadEvent::Finished {
-                    return;
-                }
-                let op = PrintOperation::new(view);
-                // No parent window: the render window is hidden, and a
-                // transient parent that is never mapped gives the WM nothing
-                // to stack against — the dialog floats free, as it always has.
-                // Turbofish: `None` alone is ambiguous — the parameter is
-                // generic over `IsA<gtk::Window>` with nothing to infer from.
-                op.run_dialog(None::<&gtk::Window>);
-                // `run_dialog` returns once the user has responded, so unlike
-                // Windows' asynchronous ShowPrintUI this path CAN tear its own
-                // window down rather than stranding it.
-                sink_load.settle(Ok(()));
-                close(&app_load, &label_load);
-            });
-
-            view.load_uri(&file_url);
-        })
-        .map_err(|e| window_error(&e.to_string()))?;
-    Ok(())
 }
