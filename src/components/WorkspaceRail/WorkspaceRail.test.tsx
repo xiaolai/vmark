@@ -1,4 +1,5 @@
 // WI-3R — rail click performs the full context switch (tests)
+// WI-TS5.1 — stable data-rail-action/data-instance-id automation attributes
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -489,6 +490,22 @@ describe("WorkspaceRail", () => {
       return screen.getByRole("menu");
     }
 
+    it("does not resurrect a stale menu across a rail-mode toggle (R3-11)", async () => {
+      setRailMode(true);
+      addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
+      render(<WorkspaceRail windowLabel="main" />);
+      await openMenu("alpha");
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+
+      // Disable the rail with the menu open, then re-enable: the menu's
+      // instance may be long gone by the time the rail returns.
+      act(() => setRailMode(false));
+      expect(screen.queryByRole("menu")).toBeNull();
+      act(() => setRailMode(true));
+
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
     it("opens on right-click with the three workspace actions", async () => {
       setRailMode(true);
       addInstance("main", "wsi-a", "/Users/xiaolai/alpha");
@@ -591,5 +608,25 @@ describe("WorkspaceRail", () => {
         useWorkspaceInstancesStore.getState().windows["main"]?.activeWorkspaceInstanceId,
       ).toBe("wsi-b");
     });
+  });
+});
+describe("stable rail automation hooks (WI-TS5.1)", () => {
+  it("every rail item carries data-rail-action + data-instance-id (E2E contract)", () => {
+    setRailMode(true);
+    addInstance("main", "wsi-a", "/Users/xiaolai/a");
+    addInstance("main", "wsi-b", "/Users/xiaolai/b");
+
+    const { container } = render(<WorkspaceRail windowLabel="main" />);
+
+    const activate = [...container.querySelectorAll('[data-rail-action="activate"]')];
+    expect(activate.map((el) => el.getAttribute("data-instance-id"))).toEqual([
+      "wsi-a",
+      "wsi-b",
+    ]);
+    const duplicate = [...container.querySelectorAll('[data-rail-action="duplicate"]')];
+    expect(duplicate.map((el) => el.getAttribute("data-instance-id"))).toEqual([
+      "wsi-a",
+      "wsi-b",
+    ]);
   });
 });

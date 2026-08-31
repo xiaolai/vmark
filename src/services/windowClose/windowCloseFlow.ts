@@ -39,6 +39,7 @@ import i18n from "@/i18n";
 import { useDocumentStore, type DocumentState } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { usePaneStore } from "@/stores/paneStore";
+import { useClosedTabScopesStore } from "@/stores/tabStoreClosedScopes";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
@@ -142,6 +143,10 @@ async function finalizeWindowClose(
   freshTabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
   useTabStore.getState().removeWindow(windowLabel);
   usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
+  // R3-5: the closed-tab reopen history is per-window state too — without
+  // this, a surviving process (window closed, app alive) kept every closed
+  // window's scopes forever, and the action had no production caller at all.
+  useClosedTabScopesStore.getState().removeWindowClosedScopes(windowLabel);
   return true;
 }
 

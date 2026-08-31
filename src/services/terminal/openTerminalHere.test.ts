@@ -8,6 +8,12 @@ import {
 } from "@/stores/uiStore";
 import { openTerminalHere, canOpenTerminalHere } from "./openTerminalHere";
 
+/** Narrow the discriminated result (audit 20260831 #21) — throws on refusal. */
+function sessionIdOf(result: ReturnType<typeof openTerminalHere>): string {
+  if (!result.ok) throw new Error(`expected ok, got ${result.reason}`);
+  return result.sessionId;
+}
+
 describe("openTerminalHere (WI-4.2)", () => {
   beforeEach(() => {
     resetTerminalSessionStore();
@@ -20,7 +26,7 @@ describe("openTerminalHere (WI-4.2)", () => {
     expect(result.ok).toBe(true);
     const session = useUIStore
       .getState()
-      .terminal.sessions.find((s) => s.id === result.sessionId);
+      .terminal.sessions.find((s) => s.id === sessionIdOf(result));
     expect(session?.requestedCwd).toBe("/w/pkg/api");
   });
 
@@ -41,8 +47,8 @@ describe("openTerminalHere (WI-4.2)", () => {
     openTerminalHere("/w/a");
     const first = useUIStore.getState().terminal.activeSessionId;
     const second = openTerminalHere("/w/b");
-    expect(useUIStore.getState().terminal.activeSessionId).toBe(second.sessionId);
-    expect(second.sessionId).not.toBe(first);
+    expect(useUIStore.getState().terminal.activeSessionId).toBe(sessionIdOf(second));
+    expect(sessionIdOf(second)).not.toBe(first);
   });
 
   it("refuses at the session cap instead of silently doing nothing", () => {
@@ -85,7 +91,7 @@ describe("openTerminalHere (WI-4.2)", () => {
     const result = openTerminalHere("/Users/me/My 项目");
     const session = useUIStore
       .getState()
-      .terminal.sessions.find((s) => s.id === result.sessionId);
+      .terminal.sessions.find((s) => s.id === sessionIdOf(result));
     expect(session?.requestedCwd).toBe("/Users/me/My 项目");
   });
 
@@ -95,7 +101,7 @@ describe("openTerminalHere (WI-4.2)", () => {
     const result = openTerminalHere("/w/ notes ");
     const session = useUIStore
       .getState()
-      .terminal.sessions.find((s) => s.id === result.sessionId);
+      .terminal.sessions.find((s) => s.id === sessionIdOf(result));
     expect(session?.requestedCwd).toBe("/w/ notes ");
   });
 
@@ -104,7 +110,7 @@ describe("openTerminalHere (WI-4.2)", () => {
     // session would leave the user in whatever directory it was already in.
     const first = openTerminalHere("/w/a");
     const second = openTerminalHere("/w/b");
-    expect(second.sessionId).not.toBe(first.sessionId);
+    expect(sessionIdOf(second)).not.toBe(sessionIdOf(first));
     expect(useUIStore.getState().terminal.sessions).toHaveLength(2);
   });
 });
@@ -117,15 +123,15 @@ describe("requestedCwd peek/clear (WI-4.2)", () => {
   it("peeking does NOT consume the requested cwd", () => {
     // The spawn path peeks before spawning and clears only on success — a
     // failed first spawn must still be retryable in the requested directory.
-    const { sessionId } = openTerminalHere("/w/pkg");
-    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId!)).toBe("/w/pkg");
-    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId!)).toBe("/w/pkg");
+    const sessionId = sessionIdOf(openTerminalHere("/w/pkg"));
+    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId)).toBe("/w/pkg");
+    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId)).toBe("/w/pkg");
   });
 
   it("clearing releases it, so a later restart resolves normally", () => {
-    const { sessionId } = openTerminalHere("/w/pkg");
-    useUIStore.getState().terminalClearRequestedCwd(sessionId!);
-    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId!)).toBeUndefined();
+    const sessionId = sessionIdOf(openTerminalHere("/w/pkg"));
+    useUIStore.getState().terminalClearRequestedCwd(sessionId);
+    expect(useUIStore.getState().terminalPeekRequestedCwd(sessionId)).toBeUndefined();
   });
 
   it("returns undefined for a session created without one", () => {
@@ -146,8 +152,8 @@ describe("requestedCwd peek/clear (WI-4.2)", () => {
   });
 
   it("clearing one session does not disturb another", () => {
-    const a = openTerminalHere("/w/a").sessionId!;
-    const b = openTerminalHere("/w/b").sessionId!;
+    const a = sessionIdOf(openTerminalHere("/w/a"));
+    const b = sessionIdOf(openTerminalHere("/w/b"));
     useUIStore.getState().terminalClearRequestedCwd(a);
     expect(useUIStore.getState().terminalPeekRequestedCwd(b)).toBe("/w/b");
   });

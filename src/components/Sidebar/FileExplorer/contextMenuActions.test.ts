@@ -29,7 +29,7 @@ function makeDeps(overrides: Partial<ContextMenuActionDeps> = {}): ContextMenuAc
     revealInFinder: vi.fn(() => Promise.resolve()),
     newFile: vi.fn(() => Promise.resolve()),
     newFolder: vi.fn(() => Promise.resolve()),
-    openTerminalHere: vi.fn(() => ({ ok: true, sessionId: "term-1" })),
+    openTerminalHere: vi.fn(() => ({ ok: true as const, sessionId: "term-1" })),
     notifyError: vi.fn(),
     ...overrides,
   };
@@ -165,7 +165,7 @@ describe("runContextMenuAction", () => {
       const deps = makeDeps({
         targetPath: "/w/src",
         targetIsFolder: true,
-        openTerminalHere: vi.fn(() => ({ ok: false, reason: "max-sessions" as const })),
+        openTerminalHere: vi.fn(() => ({ ok: false as const, reason: "max-sessions" as const })),
       });
       await runContextMenuAction("openTerminalHere", deps);
       expect(deps.notifyError).toHaveBeenCalledWith("statusbar:terminal.maxSessions");

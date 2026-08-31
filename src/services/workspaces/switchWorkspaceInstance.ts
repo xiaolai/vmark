@@ -26,6 +26,7 @@
  * @module services/workspaces/switchWorkspaceInstance
  */
 import { useTabStore } from "@/stores/tabStore";
+import { useUIStore } from "@/stores/uiStore";
 import { usePaneStore } from "@/stores/paneStore";
 import {
   useWorkspaceInstancesStore,
@@ -36,10 +37,10 @@ import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFea
 import {
   contextKindOf,
   partitionWindowTabs,
-  resolveIncomingActiveTab,
 } from "./workspaceOwnershipKernel";
 import { orderedWindowInstances } from "./workspaceContextOwnership";
 import { bumpContextGeneration } from "./workspaceContextGeneration";
+import { restoreInstanceVisualContext } from "./restoreInstanceContext";
 import { syncLegacyWorkspaceContext } from "./syncLegacyWorkspaceContext";
 
 export interface SwitchWorkspaceResult {
@@ -108,43 +109,6 @@ function stashOutgoingInstance(windowLabel: string, outgoingId: string): void {
     .stashPaneLayout(outgoingId, usePaneStore.getState().getSplit(windowLabel));
 }
 
-/** Restore the incoming instance's panes/active tab via the atomic pane action. */
-function restoreIncomingInstance(windowLabel: string, instanceId: string): void {
-  const incoming = useWorkspaceInstancesStore.getState().instances[instanceId];
-  if (!incoming) return;
-
-  const liveTabs = useTabStore.getState().getTabsByWindow(windowLabel);
-  const instances = orderedWindowInstances(windowLabel);
-  const fallbackActive = resolveIncomingActiveTab(incoming, liveTabs, instances);
-  const stashed = useWorkspacePaneLayoutsStore.getState().getPaneLayout(instanceId);
-  usePaneStore.getState().replaceWindowSplit(
-    windowLabel,
-    sanitizeSplitForInstance(stashed, instanceId, liveTabs, instances),
-    fallbackActive,
-  );
-}
-
-/**
- * Audit R2-F3: a stashed split may reference tabs that were REASSIGNED to
- * another instance while hidden (Save As, rename). replaceWindowSplit only
- * checks liveness — ownership must be enforced here, through the kernel.
- */
-export function sanitizeSplitForInstance(
-  split: import("@/stores/paneStore").WindowSplit | null,
-  instanceId: string,
-  liveTabs: readonly import("@/stores/tabStore").Tab[],
-  instances: readonly import("@/stores/workspaceInstancesStore").WorkspaceInstanceRecord[],
-): import("@/stores/paneStore").WindowSplit | null {
-  if (!split?.enabled) return split;
-  const { ownerOf } = partitionWindowTabs(liveTabs, instances, instanceId);
-  const owned = (tabId: string | null) =>
-    tabId !== null && ownerOf.get(tabId) === instanceId ? tabId : null;
-  return {
-    ...split,
-    primaryTabId: owned(split.primaryTabId),
-    secondaryTabId: owned(split.secondaryTabId),
-  };
-}
 
 export interface SwitchWorkspaceOptions {
   /**
@@ -170,16 +134,39 @@ export function switchWorkspaceInstance(
   const store = useWorkspaceInstancesStore.getState();
   const windowState = store.windows[windowLabel];
   if (!windowState?.workspaceInstanceIds.includes(instanceId)) return declined();
+  // Audit 20260831 #23: membership without a RECORD is a corrupt store —
+  // decline rather than restore a context that cannot resolve.
+  if (!store.instances[instanceId]) return declined();
 
   const outgoingId = windowState.activeWorkspaceInstanceId;
   if (outgoingId === instanceId) return declined(instanceId);
 
   if (outgoingId) stashOutgoingInstance(windowLabel, outgoingId);
+  // WI-TS2.2 (D-T1): window-scoped terminal sessions are adopted by the
+  // OUTGOING instance — they were created under it and belong to it. A
+  // placeholder outgoing is skipped (placeholders are deleted silently with
+  // no lifecycle follower; adopting into one would strand live PTYs) — and so
+  // is a MISSING outgoing record (audit #23: `undefined !== "placeholder"`
+  // used to stamp sessions with a dead owner).
+  const outgoingRecord = outgoingId ? store.instances[outgoingId] : undefined;
+  const outgoingIsReal =
+    outgoingRecord !== undefined && outgoingRecord.kind !== "placeholder";
+  if (outgoingIsReal && outgoingId) {
+    useUIStore.getState().terminalAdoptUnscopedSessions(outgoingId);
+  }
 
   useWorkspaceInstancesStore.getState().activateWorkspaceInstance(windowLabel, instanceId);
   const generation = bumpContextGeneration(windowLabel);
 
-  restoreIncomingInstance(windowLabel, instanceId);
+  restoreInstanceVisualContext(windowLabel, instanceId);
+
+  // WI-TS2.2: swap the visible terminal set — record the outgoing scope's
+  // shown session, activate the incoming scope's remembered ?? first ?? null
+  // (D-T2, activity cleared per D-T11). Synchronous store op (invariant 6).
+  // A placeholder outgoing writes no memory: its slot could never be read.
+  useUIStore
+    .getState()
+    .terminalSwitchScope(outgoingIsReal ? outgoingId : null, instanceId);
 
   const incoming = useWorkspaceInstancesStore.getState().instances[instanceId];
   const refresh = incoming

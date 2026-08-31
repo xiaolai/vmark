@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { createWorkspaceInstance, generateUUID } from "@/utils/workspaceIdentity";
+import { notifyInstanceRekeyed } from "@/stores/instanceRekeyBus";
+import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
 import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore";
 import {
+  applyAddWorkspaceInstance,
   emptyWindowState,
   removeFromWindow,
-  removePlaceholdersFromWindow,
   uniqueIds,
   type WindowWorkspaceState,
   type WorkspaceInstanceRecord,
@@ -35,47 +37,9 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
   instances: {},
   windows: {},
 
+  // Reducer body lives in helpers.ts (WI-TS0.3 pre-split) — pure, store-free.
   addWorkspaceInstance: (instance) =>
-    set((state) => {
-      const previous = state.instances[instance.workspaceInstanceId];
-      const windows = { ...state.windows };
-      if (previous && previous.ownerWindowLabel !== instance.ownerWindowLabel) {
-        windows[previous.ownerWindowLabel] = removeFromWindow(
-          windows[previous.ownerWindowLabel] ?? emptyWindowState(previous.ownerWindowLabel),
-          instance.workspaceInstanceId
-        );
-      }
-
-      const target = windows[instance.ownerWindowLabel] ?? emptyWindowState(instance.ownerWindowLabel);
-      const realInstance = instance.kind !== "placeholder";
-      const targetWithoutPlaceholders = realInstance
-        ? removePlaceholdersFromWindow(target, state.instances)
-        : target;
-      const placeholderIds = realInstance
-        ? target.workspaceInstanceIds.filter(
-          (id) => state.instances[id]?.kind === "placeholder",
-        )
-        : [];
-      const ids = target.workspaceInstanceIds.includes(instance.workspaceInstanceId)
-        ? targetWithoutPlaceholders.workspaceInstanceIds
-        : [...targetWithoutPlaceholders.workspaceInstanceIds, instance.workspaceInstanceId];
-      const nextInstances = { ...state.instances, [instance.workspaceInstanceId]: instance };
-      for (const id of placeholderIds) {
-        delete nextInstances[id];
-      }
-      windows[instance.ownerWindowLabel] = {
-        ...targetWithoutPlaceholders,
-        workspaceInstanceIds: ids,
-        activeWorkspaceInstanceId: ids.includes(target.activeWorkspaceInstanceId ?? "")
-          ? target.activeWorkspaceInstanceId
-          : instance.workspaceInstanceId,
-      };
-
-      return {
-        instances: nextInstances,
-        windows,
-      };
-    }),
+    set((state) => applyAddWorkspaceInstance(state, instance)),
 
   activateWorkspaceInstance: (windowLabel, instanceId) =>
     set((state) => {
@@ -255,6 +219,14 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
     if (rekeyedFrom && instanceId) {
       useWorkspaceInstanceUiStore.getState().rekeyInstanceUiState(rekeyedFrom, instanceId);
       useWorkspacePaneLayoutsStore.getState().rekeyPaneLayout(rekeyedFrom, instanceId);
+      // WI-TS2.3 (D-T6): terminal sessions follow the identity re-key too —
+      // merge semantics (re-stamp, ordinal renumber, memory target-wins)
+      // live in terminalRekeyScope.
+      useUIStore.getState().terminalRekeyScope(rekeyedFrom, instanceId);
+      // Closed-tab reopen history follows via the bus (audit 20260831 #9 —
+      // tabStoreClosedScopes imports this store, so a direct call back would
+      // be an import cycle).
+      notifyInstanceRekeyed(windowLabel, rekeyedFrom, instanceId);
     }
     return result;
   },

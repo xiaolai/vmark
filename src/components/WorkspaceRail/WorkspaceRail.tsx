@@ -3,18 +3,14 @@ import { useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
-import {
-  duplicateWorkspaceInstanceToNewWindow,
-  moveWorkspaceInstanceToNewWindow,
-} from "@/services/workspaces/workspaceWindowActions";
-import type { WorkspaceWindowActionResult } from "@/types/workspaceTransfer";
-import { imeToast as toast } from "@/services/ime/imeToast";
 import { switchWorkspaceInstance } from "@/services/workspaces/switchWorkspaceInstance";
-import { cleanupTabState } from "@/services/windowClose/tabCleanup";
-import { closeTabsWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { disambiguateWorkspaceDisplayNames } from "@/utils/workspaceIdentity";
 import { workspaceRailGlyphs } from "@/utils/workspaceRailGlyphs";
-import { closeWorkspaceInstance } from "@/services/workspaces/closeWorkspaceInstance";
+import {
+  handleCloseWorkspace,
+  handleDuplicateWorkspace,
+  handleMoveWorkspace,
+} from "./workspaceRailHandlers";
 import {
   WorkspaceRailContextMenu,
   type WorkspaceRailMenuPosition,
@@ -57,7 +53,14 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
     { instanceId: string; name: string; position: WorkspaceRailMenuPosition } | null
   >(null);
 
-  if (!enabled) return null;
+  // Clear a lingering context menu when the rail is disabled (R3-11) —
+  // re-enabling must not resurrect a stale menu over an instance that may be
+  // gone. Render-time guarded one-way adjustment, the TerminalPanel latch
+  // pattern (an effect cannot run once we return null every render).
+  if (!enabled) {
+    if (menu) setMenu(null);
+    return null;
+  }
 
   const instances = workspaceInstanceIds
     .map((id) => instancesById[id])
@@ -98,6 +101,11 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
               <button
                 type="button"
                 className="workspace-rail__item"
+                // Stable automation hooks (WI-TS5.1): aria-labels are
+                // localized, so E2E selects by these instead. A CONTRACT —
+                // renaming them breaks e2e/lib/rail.mjs, not just a unit test.
+                data-rail-action="activate"
+                data-instance-id={instanceId}
                 aria-label={t("workspaceRail.activate", { name: displayLabel })}
                 aria-pressed={active}
                 title={displayLabel}
@@ -175,6 +183,8 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
               <button
                 type="button"
                 className="workspace-rail__duplicate"
+                data-rail-action="duplicate"
+                data-instance-id={instanceId}
                 aria-label={t("workspaceRail.duplicate", { name: displayLabel })}
                 title={t("workspaceRail.duplicate", { name: displayLabel })}
                 onClick={() => {
@@ -193,9 +203,7 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
           workspaceName={menu.name}
           onClose={() => setMenu(null)}
           onCloseWorkspace={() => {
-            void closeWorkspaceInstance(windowLabel, menu.instanceId, {
-              closeTabs: closeTabsWithDirtyCheck,
-            });
+            void handleCloseWorkspace(windowLabel, menu.instanceId, t);
           }}
           onDuplicate={() => {
             void handleDuplicateWorkspace(windowLabel, menu.instanceId, t);
@@ -229,45 +237,6 @@ function workspaceRailColorForSeed(seed: string): string {
     hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   }
   return WORKSPACE_RAIL_COLORS[hash % WORKSPACE_RAIL_COLORS.length];
-}
-
-async function handleMoveWorkspace(
-  windowLabel: string,
-  instanceId: string,
-  t: ReturnType<typeof useTranslation>["t"],
-): Promise<void> {
-  const result = await moveWorkspaceInstanceToNewWindow(windowLabel, instanceId, {
-    cleanupTab: cleanupTabState,
-  });
-  if (result && !result.ok) {
-    toast.error(t("dialog:toast.workspaceMoveFailed"));
-  }
-}
-
-async function handleDuplicateWorkspace(
-  windowLabel: string,
-  instanceId: string,
-  t: ReturnType<typeof useTranslation>["t"],
-): Promise<void> {
-  const result = await duplicateWorkspaceInstanceToNewWindow(windowLabel, instanceId);
-  if (!result) return;
-  if (!result.ok) {
-    toast.error(t("dialog:toast.workspaceDuplicateFailed"));
-    return;
-  }
-  const skipped = countSkippedTabs(result);
-  if (skipped > 0) {
-    toast.message(t("dialog:toast.workspaceDuplicateSkipped", { count: skipped }));
-  }
-}
-
-function countSkippedTabs(result: WorkspaceWindowActionResult): number {
-  if (!result.ok) return 0;
-  return (
-    (result.skippedDirtyCount ?? 0)
-    + (result.skippedUntitledCount ?? 0)
-    + (result.skippedMissingCount ?? 0)
-  );
 }
 
 function isOutsideViewport(clientX: number, clientY: number): boolean {

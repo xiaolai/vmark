@@ -6,6 +6,8 @@
 //   2. a multi-line payload is REFUSED when the shell has not enabled
 //      bracketed paste — because term.paste rewrites "\n" to "\r", and without
 //      bracketed paste each "\r" executes the line on arrival.
+// WI-TS4.2 — delivery stays PINNED to the session id captured at request
+// time: a rail switch mid-delivery must not redirect the payload.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockGetTerminal } = vi.hoisted(() => ({ mockGetTerminal: vi.fn() }));
@@ -372,5 +374,38 @@ describe("runInTerminal (WI-4.3)", () => {
     expect(result).toEqual({ ok: true });
     expect(paste).toHaveBeenCalledWith("echo hi");
     raf.mockRestore();
+  });
+});
+
+describe("id-pinned delivery across a rail switch (WI-TS4.2, D-T10)", () => {
+  beforeEach(() => {
+    resetTerminalSessionStore();
+    if (useUIStore.getState().terminalVisible) useUIStore.getState().toggleTerminal();
+    mockGetTerminal.mockReset();
+  });
+
+  it("delivers to the ORIGINALLY targeted session after the visible scope swaps mid-delivery", async () => {
+    const first = useUIStore
+      .getState()
+      .terminalCreateSession({ ownerInstanceId: "wsi-a" })!;
+    const paste = vi.fn();
+    const focus = vi.fn();
+    let frames = 0;
+    // The terminal only becomes reachable a few frames in — the window in
+    // which a real user can click another workspace on the rail.
+    mockGetTerminal.mockImplementation(() =>
+      ++frames >= 3 ? { paste, focus, modes: { bracketedPasteMode: true } } : null,
+    );
+
+    const pending = runInTerminal("make build", "bash");
+    // Rail switch lands mid-delivery: A's scope hides, nothing is active.
+    useUIStore.getState().terminalSwitchScope("wsi-a", "wsi-b");
+    expect(useUIStore.getState().terminal.activeSessionId).toBeNull();
+
+    const result = await pending;
+
+    expect(result).toEqual({ ok: true });
+    expect(mockGetTerminal).toHaveBeenLastCalledWith(first.id);
+    expect(paste).toHaveBeenCalledWith("make build");
   });
 });

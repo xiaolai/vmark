@@ -2,6 +2,8 @@
 // WI-2R — the rail-switch coordinator: stash outgoing (live ownership,
 // closed projection preserved), activate, pane-aware restore of the incoming
 // context, generation-guarded legacy sync. Real stores; Tauri mocked.
+// WI-TS2.2 — terminal scope wiring: adoption into the outgoing instance,
+// visible-set swap on switch, and hydrate's convergent realign (D-T12).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockInvoke } = vi.hoisted(() => ({
@@ -22,10 +24,10 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { resetContextGenerations } from "./workspaceContextGeneration";
 import { orderedWindowInstances } from "./workspaceContextOwnership";
-import {
-  sanitizeSplitForInstance,
-  switchWorkspaceInstance,
-} from "./switchWorkspaceInstance";
+import { resetTerminalSessionStore, useUIStore } from "@/stores/uiStore";
+import { hydrateWorkspaceInstanceContext } from "./hydrateWorkspaceInstanceContext";
+import { sanitizeSplitForInstance } from "./restoreInstanceContext";
+import { switchWorkspaceInstance } from "./switchWorkspaceInstance";
 
 const W = "main";
 
@@ -59,6 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockInvoke.mockResolvedValue(null);
   resetContextGenerations();
+  resetTerminalSessionStore();
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   useDocumentStore.setState({ documents: {} });
   usePaneStore.setState({ byWindow: {} });
@@ -279,5 +282,61 @@ describe("sanitizeSplitForInstance (audit R2-F3)", () => {
       syncScroll: false,
     };
     expect(sanitizeSplitForInstance(single, "wsi-a", [], [])).toBe(single);
+  });
+});
+
+describe("terminal scope wiring (WI-TS2.2)", () => {
+  const term = () => useUIStore.getState().terminal;
+  const createTerm = (owner?: string) =>
+    useUIStore
+      .getState()
+      .terminalCreateSession(owner ? { ownerInstanceId: owner } : undefined)!;
+
+  it("A→B hides A's set: active swaps, membership UNCHANGED (invariant 1)", () => {
+    const sa = createTerm("wsi-a");
+    const sb = createTerm("wsi-b");
+    useUIStore.getState().terminalSetActiveSession(sa.id);
+
+    switchWorkspaceInstance(W, "wsi-b");
+    expect(term().sessions.map((s) => s.id).sort()).toEqual([sa.id, sb.id].sort());
+    expect(term().activeSessionId).toBe(sb.id);
+
+    switchWorkspaceInstance(W, "wsi-a");
+    expect(term().activeSessionId).toBe(sa.id);
+    expect(term().sessions).toHaveLength(2);
+  });
+
+  it("adopts window-scoped sessions into the OUTGOING instance", () => {
+    const su = createTerm(); // created under wsi-a's watch, unscoped
+
+    switchWorkspaceInstance(W, "wsi-b");
+
+    expect(term().sessions.find((s) => s.id === su.id)?.workspaceInstanceId).toBe(
+      "wsi-a",
+    );
+    // …and it is therefore hidden in B: nothing to show.
+    expect(term().activeSessionId).toBeNull();
+  });
+
+  it("hydrate adopts into the final active instance and activates (no double-create)", async () => {
+    const su = createTerm(); // restore carve-out: unscoped
+
+    await hydrateWorkspaceInstanceContext(W); // active is wsi-a
+
+    expect(term().sessions).toHaveLength(1);
+    expect(term().sessions[0]?.workspaceInstanceId).toBe("wsi-a");
+    expect(term().activeSessionId).toBe(su.id);
+  });
+
+  it("user-switch-then-hydrate converges — hydrate cannot clobber the switch (D-T12)", async () => {
+    const su = createTerm(); // unscoped, created pre-switch
+    switchWorkspaceInstance(W, "wsi-b"); // user switch adopts into wsi-a
+
+    await hydrateWorkspaceInstanceContext(W); // re-derives from wsi-b
+
+    expect(term().sessions.find((s) => s.id === su.id)?.workspaceInstanceId).toBe(
+      "wsi-a",
+    );
+    expect(term().activeSessionId).toBeNull(); // still B's (empty) view
   });
 });

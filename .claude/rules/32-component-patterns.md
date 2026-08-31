@@ -6,7 +6,7 @@ Standard patterns for UI components. Follow these for consistency.
 
 | Need | Use | Defined in |
 |---|---|---|
-| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--cta`, `--plain`, `--danger`, `--compact`) | `src/styles/button-shared.css` |
+| Text button (start, stop, confirm, cancel) | `.vm-btn` (+ `--primary`, `--cta`, `--plain`, `--danger`, `--compact`, `--pill`) | `src/styles/button-shared.css` |
 | Dropdown / `<select>` | `.vm-select` inside a `.vm-select-field` wrapper | `src/styles/select-shared.css` |
 | Icon-only square button inside a popup | `.popup-icon-btn` (+ `--primary`, `--danger`) — an alias of `.vm-icon-btn` base (md) | `src/styles/icon-button-shared.css` |
 | Icon-only square button anywhere else | `.vm-icon-btn` (+ `--sm` 24 / `--lg` 28 / `--bordered` / `--primary` / `--danger`) | `src/styles/icon-button-shared.css` |
@@ -25,7 +25,12 @@ Standard patterns for UI components. Follow these for consistency.
 current tab reads as a card raised to the page surface; that is deliberate and
 carries `ui-ok(state): current-tab` where the C9 gate would otherwise ask for
 `--accent-bg`. Selected LIST rows are the accent vocabulary (R6); the current
-tab is not a selected row.
+tab is not a selected row. Since 2026-08-31 the STATUS-BAR pills are
+borderless (`--shadow-sm` is the active boundary; WI-UI3.6's ring is
+superseded there) and their hover is the NEGATIVE treatment — ink and page
+swap tokens (`--text-color` bg, `--bg-color` text), AA by construction. The
+embedded browser's `.browser-page-tab` keeps the control-border idiom. Pinned
+by `tabPillSurface.test.ts`.
 
 A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
 native bezel, native chevron, 5px pill radius — and author styling only partly

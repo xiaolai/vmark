@@ -25,23 +25,24 @@
  * @coordinates-with services/terminal/revealTerminalSession.ts — shared create + reveal
  * @module services/terminal/openTerminalHere
  */
-import { useUIStore, MAX_TERMINAL_SESSIONS } from "@/stores/uiStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { canCreateTerminalSessionHere } from "./createTerminalSession";
 import { createTerminalSessionAt } from "./revealTerminalSession";
 
 /** Why an "Open Terminal Here" request could not be satisfied. */
 type OpenTerminalHereFailure = "no-directory" | "max-sessions";
 
-export interface OpenTerminalHereResult {
-  ok: boolean;
-  /** Set when `ok` is false. */
-  reason?: OpenTerminalHereFailure;
-  /** The new session's id, when one was created. */
-  sessionId?: string;
-}
+/** Discriminated on `ok` (audit 20260831 #21): `{ok:true}` without a session
+ *  id, or `{ok:false}` with one, are unrepresentable. */
+export type OpenTerminalHereResult =
+  | { ok: true; sessionId: string }
+  | { ok: false; reason: OpenTerminalHereFailure };
 
-/** True when another terminal session can still be created. */
+/** True when another terminal session can still be created — the
+ *  AUTHORITATIVE creation predicate (audit 20260831 #20): the same
+ *  owner-aware union the slice's cap gate applies, never a bare count. */
 export function canOpenTerminalHere(): boolean {
-  return useUIStore.getState().terminal.sessions.length < MAX_TERMINAL_SESSIONS;
+  return canCreateTerminalSessionHere(getCurrentWindowLabel());
 }
 
 /**

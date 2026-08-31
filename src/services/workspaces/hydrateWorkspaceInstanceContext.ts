@@ -15,18 +15,12 @@
  * @coordinates-with syncLegacyWorkspaceContext.ts — sidebar re-root
  * @module services/workspaces/hydrateWorkspaceInstanceContext
  */
-import { useTabStore } from "@/stores/tabStore";
-import { usePaneStore } from "@/stores/paneStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
-import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore";
 import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFeatureFlag";
-import {
-  contextKindOf,
-  resolveIncomingActiveTab,
-} from "./workspaceOwnershipKernel";
-import { orderedWindowInstances } from "./workspaceContextOwnership";
+import { contextKindOf } from "./workspaceOwnershipKernel";
 import { bumpContextGeneration } from "./workspaceContextGeneration";
-import { sanitizeSplitForInstance } from "./switchWorkspaceInstance";
+import { restoreInstanceVisualContext } from "./restoreInstanceContext";
 import { syncLegacyWorkspaceContext } from "./syncLegacyWorkspaceContext";
 
 /**
@@ -43,17 +37,20 @@ export function hydrateWorkspaceInstanceContext(windowLabel: string): Promise<vo
 
   const generation = bumpContextGeneration(windowLabel);
 
-  const liveTabs = useTabStore.getState().getTabsByWindow(windowLabel);
-  const instances = orderedWindowInstances(windowLabel);
-  const fallbackActive = resolveIncomingActiveTab(active, liveTabs, instances);
-  const stashed = useWorkspacePaneLayoutsStore.getState().getPaneLayout(activeId);
-  // Audit R2-F4: hydration restores persisted/stashed splits — sanitize
-  // ownership through the same kernel-backed rule as the switch coordinator.
-  usePaneStore.getState().replaceWindowSplit(
-    windowLabel,
-    sanitizeSplitForInstance(stashed, activeId, liveTabs, instances),
-    fallbackActive,
-  );
+  // Audit R2-F4 + 20260831 #22: hydration restores persisted/stashed splits
+  // through the SAME shared restoration (and kernel-backed sanitization) the
+  // switch coordinator uses — the two paths had grown near-identical copies.
+  restoreInstanceVisualContext(windowLabel, activeId);
+
+  // WI-TS2.2 (D-T12): home window-scoped terminal sessions into the FINAL
+  // active instance and realign the shown session. Convergent by design — a
+  // user switch that landed in the restore gap already adopted on its own,
+  // and re-deriving activation from the active id cannot clobber it. A
+  // placeholder active skips adoption (D-T1 carve-out).
+  if (active.kind !== "placeholder") {
+    useUIStore.getState().terminalAdoptUnscopedSessions(activeId);
+  }
+  useUIStore.getState().terminalHydrateScope(activeId);
 
   return syncLegacyWorkspaceContext(
     windowLabel,

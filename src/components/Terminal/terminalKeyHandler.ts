@@ -43,17 +43,22 @@ import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore, useShortcutsStore } from "@/stores/settingsStore";
+import { initialState as settingsDefaults } from "@/stores/settingsStore/defaults";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import { requestToggleTerminal } from "@/services/terminal/terminalGate";
+import { getVisibleTerminalSessions } from "@/services/terminal/visibleTerminalSessions";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { handleReadlineNavKey } from "./terminalReadlineKeys";
 
-/** Terminal font-zoom step and reset value. `terminal.fontSize` default is 13
- *  (settingsStore/defaults.ts); the store clamps to the terminal range [8,32]. */
+/** Terminal font-zoom step and reset value. The reset target is the store's
+ *  OWN default (audit 20260831 #36 — a restated literal would silently keep
+ *  Cmd/Ctrl+0 resetting to an old value if the default ever moved); the
+ *  store clamps to the terminal range [8,32]. */
 const TERMINAL_FONT_SIZE_STEP = 2;
-const DEFAULT_TERMINAL_FONT_SIZE = 13;
+const DEFAULT_TERMINAL_FONT_SIZE = settingsDefaults.terminal.fontSize;
 
 /** Nudge the terminal font size; the store clamps to the valid range. */
 function adjustTerminalFontSize(delta: number): void {
@@ -255,10 +260,11 @@ export function createTerminalKeyHandler(
       case "1": case "2": case "3": case "4": case "5": {
         event.preventDefault();
         const idx = parseInt(event.key, 10) - 1;
-        const { sessions } = useUIStore.getState().terminal;
-        const setActiveSession = useUIStore.getState().terminalSetActiveSession;
-        if (idx < sessions.length) {
-          setActiveSession(sessions[idx].id);
+        // WI-TS3.1: positional switch indexes the VISIBLE population — a
+        // hidden scope's sessions are not addressable from the keyboard.
+        const visible = getVisibleTerminalSessions(getCurrentWindowLabel());
+        if (idx < visible.length) {
+          useUIStore.getState().terminalSetActiveSession(visible[idx].id);
         }
         return false;
       }

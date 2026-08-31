@@ -1,22 +1,58 @@
-// WI-UI3.6 — the active tab pill has a REAL surface: on night the page-vs-bar
-// contrast alone is ~1.05:1, so the boundary must come from --control-border.
+// The tab-strip pill surface contract.
+//
+// WI-UI3.6 originally drew the active pill's boundary with a --control-border
+// ring. The maintainer superseded that on 2026-08-31: the strip's pills are
+// BORDERLESS — the active pill is a raised --shadow-sm card sharing the page
+// surface, and hover is a photographic NEGATIVE (ink and page swap tokens, so
+// the pair's contrast is the body ratio, AA by construction in every theme).
+// The dark --shadow-sm depth is therefore MORE load-bearing than before: it is
+// now the active pill's only boundary on a dark page.
+//
+// The embedded browser's own page tabs (.browser-page-tab) deliberately KEEP
+// the WI-UI3.6 control-border idiom — real-browser chrome, separate system.
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 
-describe("active tab pill surface (WI-UI3.6)", () => {
-  it(".tab-pill.active draws its boundary with --control-border", () => {
-    const css = readFileSync("src/components/StatusBar/StatusBar.css", "utf8");
-    const i = css.indexOf(".tab-pill.active {");
-    expect(i).toBeGreaterThan(-1);
-    const body = css.slice(i, css.indexOf("}", i));
-    expect(body).toContain("var(--control-border)");
+const statusBarCss = () => readFileSync("src/components/StatusBar/StatusBar.css", "utf8");
+
+function ruleBody(css: string, selector: string): string {
+  const i = css.indexOf(selector);
+  expect(i, selector).toBeGreaterThan(-1);
+  return css.slice(i, css.indexOf("}", i));
+}
+
+describe("tab-strip pill surface (borderless + negative hover, 2026-08-31)", () => {
+  it(".tab-pill.active is a borderless raised card — no control-border ring", () => {
+    const body = ruleBody(statusBarCss(), ".tab-pill.active {");
+    expect(body).not.toContain("var(--control-border)");
+    expect(body).toContain("var(--shadow-sm)");
+    expect(body).toContain("var(--bg-color)");
   });
 
-  it(".browser-page-tab.active uses the same idiom", () => {
+  it(".tab-pill:hover inverts — ink background, page-colour text", () => {
+    const body = ruleBody(statusBarCss(), ".tab-pill:hover {");
+    expect(body).toContain("background-color: var(--text-color)");
+    expect(body).toContain("color: var(--bg-color)");
+  });
+
+  it(".browser-workspace-tab:hover speaks the same negative hover language", () => {
+    const body = ruleBody(statusBarCss(), ".browser-workspace-tab:hover {");
+    expect(body).toContain("var(--text-color)");
+    expect(body).toContain("var(--bg-color)");
+  });
+
+  it("the active rule still OUTRANKS the hover inversion (declared later, equal specificity)", () => {
+    const css = statusBarCss();
+    // .tab-pill:hover and .tab-pill.active tie at (0,2,0); source order is
+    // what keeps the active card stable under the pointer. A refactor that
+    // reorders them would make hovering the active tab invert it.
+    expect(css.indexOf(".tab-pill:hover {")).toBeLessThan(css.indexOf(".tab-pill.active {"));
+  });
+
+  it(".browser-page-tab.active KEEPS the control-border idiom (browser chrome is a separate system)", () => {
     const css = readFileSync("src/components/Browser/browser-chrome.css", "utf8");
-    const i = css.indexOf(".browser-page-tab.active {");
-    const body = css.slice(i, css.indexOf("}", i));
+    const body = ruleBody(css, ".browser-page-tab.active {");
     expect(body).toContain("var(--control-border)");
   });
 

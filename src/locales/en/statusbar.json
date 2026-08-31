@@ -98,5 +98,6 @@
   "scrollTabsLeft": "Scroll tabs left",
   "scrollTabsRight": "Scroll tabs right",
   "terminal.sessionExited": "{{name}} (exited)",
-  "terminal.backgroundActivity": "Background activity"
+  "terminal.backgroundActivity": "Background activity",
+  "terminal.noWorkspaceSession": "Open a folder or save your file to use the terminal"
 }

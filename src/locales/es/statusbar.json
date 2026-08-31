@@ -98,5 +98,6 @@
   "scrollTabsLeft": "Desplazar pestañas a la izquierda",
   "scrollTabsRight": "Desplazar pestañas a la derecha",
   "terminal.sessionExited": "{{name}} (finalizado)",
-  "terminal.backgroundActivity": "Actividad en segundo plano"
+  "terminal.backgroundActivity": "Actividad en segundo plano",
+  "terminal.noWorkspaceSession": "Abre una carpeta o guarda tu archivo para usar la terminal"
 }

@@ -54,7 +54,6 @@
   "src/components/Terminal/createTerminalInstance.test.ts": 25,
   "src/components/Terminal/createTerminalInstance.webgl.test.ts": 1,
   "src/components/Terminal/terminalSessionStoreSync.root.test.ts": 1,
-  "src/components/Terminal/useTerminalShellLifecycle.test.ts": 1,
   "src/contexts/startupFileOpen.test.ts": 20,
   "src/contexts/tabTransferHandlers.test.ts": 2,
   "src/export/__tests__/PdfSettingsSidebar.test.tsx": 1,

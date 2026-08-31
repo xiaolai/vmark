@@ -42,14 +42,13 @@ import type { IPty } from "@/lib/pty";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { initialState } from "@/stores/settingsStore/defaults";
 import { currentTerminalThemeId } from "./terminalThemeId";
-import { diffSessionIds } from "./terminalSessionReconcile";
 import { useUIStore } from "@/stores/uiStore";
 import { createTerminalInstance } from "./createTerminalInstance";
-import { applyTerminalBell } from "./terminalBell";
-import { maybeNotifyTerminalBell, flagWindowAttentionOnBell } from "@/services/terminalAttention";
+import { sessionBellHandler } from "./terminalSessionBell";
 import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
-import { removeSessionEntry, switchVisibility, disposeAllSessions } from "./terminalSessionRegistry";
+import { useTerminalSessionsInit } from "./useTerminalSessionsInit";
+import { removeSessionEntry, switchVisibility } from "./terminalSessionRegistry";
 import { registerTerminalResolver } from "@/services/terminal/activeTerminal";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -68,7 +67,6 @@ export function useTerminalSessions(
   callbacks?: UseTerminalSessionsCallbacks,
 ) {
   const sessionsRef = useRef<Map<string, SessionEntry>>(new Map());
-  const initializedRef = useRef(false);
 
   // Store callbacks in a ref to avoid recreating createSession on every render.
   // The callbacks object is a new literal each render, but the individual
@@ -162,17 +160,15 @@ export function useTerminalSessions(
         settings: { fontSize, lineHeight, cursorStyle, cursorBlink, useWebGL, macOptionIsMeta, screenReaderMode, minimumContrastRatio, scrollback, osc52Clipboard, themeId },
         ptyRef: ptyRefForKeys,
         onSearch: () => callbacksRef.current?.onSearch?.(),
-        onBell: () =>
-          applyTerminalBell(sessionId, {
-            bellMode: useSettingsStore.getState().terminal?.bellMode ?? "visual",
-            isActive: useUIStore.getState().terminal.activeSessionId === sessionId,
-            markActivity: (id) => useUIStore.getState().terminalMarkActivity(id),
-            notify: maybeNotifyTerminalBell,
-            flagAttention: flagWindowAttentionOnBell,
-          }),
+        onBell: sessionBellHandler(sessionId),
         });
       } catch (error) {
         terminalError(`Failed to create terminal instance for ${sessionId}:`, error);
+        // Audit 20260831 #38: leaving the store session alive rendered a
+        // permanently blank tab that neither fit nor restart could recover
+        // (no entry ever registered). Remove it — the reconcile's removal
+        // pass is a no-op for an id with no live instance.
+        useUIStore.getState().terminalRemoveSession(sessionId);
         return;
       }
 
@@ -227,59 +223,14 @@ export function useTerminalSessions(
     [startShell],
   );
 
-  // Initialize on mount — subscribe to store changes
-  useEffect(() => {
-    if (!containerRef.current || initializedRef.current) return;
-    initializedRef.current = true;
-
-    const state = useUIStore.getState();
-
-    if (state.terminal.sessions.length === 0) {
-      // First launch — create initial session
-      const session = state.terminalCreateSession();
-      if (session) {
-        createSession(session.id);
-        switchToVisible(session.id);
-      }
-    } else {
-      // Sessions already exist (e.g., hot-exit restore) — create instances
-      for (const s of state.terminal.sessions) {
-        createSession(s.id);
-      }
-      switchToVisible(state.terminal.activeSessionId);
-    }
-
-    // Subscribe to store changes
-    let prevSessionIds = new Set(
-      useUIStore.getState().terminal.sessions.map((s) => s.id),
-    );
-    let prevActiveId = useUIStore.getState().terminal.activeSessionId;
-
-    const unsubscribe = useUIStore.subscribe((storeState) => {
-      const currentIds = new Set(storeState.terminal.sessions.map((s) => s.id));
-
-      const { added, removed } = diffSessionIds(prevSessionIds, currentIds, (id) =>
-        sessionsRef.current.has(id));
-      for (const id of added) createSession(id);
-      for (const id of removed) removeSession(id);
-
-      // Detect active session change
-      if (storeState.terminal.activeSessionId !== prevActiveId) {
-        switchToVisible(storeState.terminal.activeSessionId);
-      }
-
-      prevSessionIds = currentIds;
-      prevActiveId = storeState.terminal.activeSessionId;
-    });
-
-    const sessions = sessionsRef.current;
-    return () => {
-      unsubscribe();
-      // Per-entry PTY resize timers are cleared by disposeAllSessions.
-      disposeAllSessions(sessions);
-      initializedRef.current = false;
-    };
-  }, [containerRef, createSession, removeSession, switchToVisible]);
+  // Initialize on mount and subscribe to store changes. Extracted to
+  // useTerminalSessionsInit.ts (WI-TS0.2) — the D-T3 reconcile (store removal
+  // → dispose) and the D-T8 mount-time creator both live there.
+  useTerminalSessionsInit(containerRef, sessionsRef, {
+    createSession,
+    removeSession,
+    switchToVisible,
+  });
 
   // Theme + workspace-root + terminal-settings sync, all in one call.
   // See terminalSessionStoreSync.ts for the per-effect design notes.
@@ -290,6 +241,5 @@ export function useTerminalSessions(
     getActiveTerminal,
     getActiveSearchAddon,
     restartActiveSession,
-    sessionsRef,
   };
 }

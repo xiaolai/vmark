@@ -18,6 +18,7 @@ import type { IPty } from "@/lib/pty";
 vi.mock("./spawnPty", () => ({
   spawnPty: vi.fn(),
   resolveTerminalCwd: vi.fn(() => "/tmp"),
+  resolveActiveFileCwd: vi.fn(() => undefined),
   resolveTerminalWorkspaceRoot: vi.fn(() => null),
 }));
 
@@ -81,8 +82,9 @@ function seedStore(sessionIds: string[], terminalVisible: boolean): void {
   useUIStore.setState({
     terminalVisible,
     terminal: {
-      sessions: sessionIds.map((id) => ({ id, label: id, isAlive: true })),
+      sessions: sessionIds.map((id, i) => ({ id, label: id, ordinal: i + 1, isAlive: true })),
       activeSessionId: sessionIds[sessionIds.length - 1] ?? null,
+      lastActiveByScope: {},
     },
   });
 }
@@ -261,7 +263,7 @@ describe("restart during an in-flight spawn (audit fix)", () => {
     const sessions = new Map([["term-1", entry]]);
     const sessionsRef = { current: sessions };
     useUIStore.setState({
-      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1" },
+      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1", lastActiveByScope: {} },
     });
 
     const first = deferredSpawn();
@@ -293,7 +295,7 @@ describe("restart during an in-flight spawn (audit fix)", () => {
     const { entry } = makeEntry();
     const sessionsRef = { current: new Map([["term-1", entry]]) };
     useUIStore.setState({
-      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1" },
+      terminal: { sessions: [{ id: "term-1", label: "Terminal 1", ordinal: 1, isAlive: true }], activeSessionId: "term-1", lastActiveByScope: {} },
     });
 
     const first = deferredSpawn();

@@ -67,6 +67,8 @@
   "toast.quarantineClearedDesc": "macOS では、一部のアプリでダウンロードしたファイルにフラグが付けられ、VMark の実行中に Finder のダブルクリックが密かにブロックされます。VMark がそのフラグを削除したため、これらのファイルが開けるようになりました。設定 → 詳細で無効にできます。",
   "toast.failedToOpenFilesInNewWindow": "新しいウィンドウでファイルを開けませんでした",
   "toast.workspaceMoveFailed": "ワークスペースを新しいウィンドウに移動できませんでした",
+  "toast.workspaceCloseBusy": "ワークスペースは別の操作を実行中です — もう一度閉じてみてください",
+  "toast.workspaceCloseFailed": "ワークスペースを閉じられませんでした",
   "toast.workspaceDuplicateFailed": "ワークスペースを複製できませんでした",
   "toast.workspaceDuplicateSkipped_one": "ワークスペースを複製し、未保存・無題・欠落しているタブを 1 個スキップしました。",
   "toast.workspaceDuplicateSkipped_other": "ワークスペースを複製し、未保存・無題・欠落しているタブを {{count}} 個スキップしました。",

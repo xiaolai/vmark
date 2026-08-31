@@ -185,7 +185,8 @@ jobs:
             failed-save-preserves-document \
             external-change-reloads-clean-doc \
             terminal-workspace-cwd \
-            terminal-workspace-cd-sync
+            terminal-workspace-cd-sync \
+            terminal-rail-scoping
           do
             echo "::group::$journey"
             if ! node e2e/run-journeys.mjs --only "$journey"; then

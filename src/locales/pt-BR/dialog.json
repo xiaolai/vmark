@@ -67,6 +67,8 @@
   "toast.quarantineClearedDesc": "O macOS marca arquivos baixados por alguns aplicativos com um atributo que bloqueia silenciosamente o duplo clique do Finder enquanto o VMark está em execução. O VMark removeu o atributo para que esses arquivos possam ser abertos. Desative em Configurações → Avançado.",
   "toast.failedToOpenFilesInNewWindow": "Falha ao abrir arquivos em uma nova janela",
   "toast.workspaceMoveFailed": "Falha ao mover o espaço de trabalho para uma nova janela",
+  "toast.workspaceCloseBusy": "O espaço de trabalho está ocupado com outra operação — tente fechá-lo novamente",
+  "toast.workspaceCloseFailed": "Falha ao fechar o espaço de trabalho",
   "toast.workspaceDuplicateFailed": "Falha ao duplicar o espaço de trabalho",
   "toast.workspaceDuplicateSkipped_one": "Espaço de trabalho duplicado; 1 aba não salva, sem título ou ausente foi ignorada.",
   "toast.workspaceDuplicateSkipped_other": "Espaço de trabalho duplicado; {{count}} abas não salvas, sem título ou ausentes foram ignoradas.",

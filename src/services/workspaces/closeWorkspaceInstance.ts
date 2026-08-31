@@ -35,13 +35,13 @@
  * @module services/workspaces/closeWorkspaceInstance
  */
 
-import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "@/stores/tabStore";
-import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
-import { useWorkspacePaneLayoutsStore } from "@/stores/workspacePaneLayoutsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
-import { generateUUID } from "@/utils/workspaceIdentity";
-import { workspaceError } from "@/utils/debug";
+import { finalizeInstanceRemoval } from "./finalizeInstanceRemoval";
+import {
+  acquireInstanceOperation,
+  releaseInstanceOperation,
+} from "./instanceOperationLock";
 import { tabBelongsToWorkspace } from "./workspaceTabCollection";
 
 export type CloseWorkspaceInstanceResult =
@@ -62,15 +62,22 @@ export interface CloseWorkspaceInstanceOptions {
   closeTabs: (windowLabel: string, tabIds: string[]) => Promise<boolean>;
 }
 
+// Concurrency: closing awaits a save prompt, during which the menu item can
+// be activated again — the second call would see tabs the first is already
+// closing as "closed" and remove the instance under it. The guard is the
+// SHARED per-instance operation lock (instanceOperationLock.ts, R2-14), so a
+// close is also excluded against an in-flight move/duplicate of the same
+// instance, not merely against another close.
+
 /**
- * Instances with a close in flight.
- *
- * Closing awaits a save prompt, during which the menu item can be activated
- * again. Without this guard the second call sees tabs the first is already
- * closing as "closed", removes the instance and closes the window while the
- * first is still waiting on the user.
+ * How many times the close loop re-collects tabs that appeared DURING a dirty
+ * prompt before giving up with `busy` (R2-12). Each pass only closes NEWLY
+ * appeared ids, so hitting the bound requires fresh tabs to keep landing in
+ * this workspace across five consecutive prompt rounds — pathological churn,
+ * not a user flow. Bounded so it cannot spin forever; `busy` leaves the
+ * instance in place, which is the safe side.
  */
-const closing = new Set<string>();
+const MAX_CLOSE_CONVERGENCE_PASSES = 5;
 
 /** Live owned tab ids, by the same ownership rule transfer uses. */
 function ownedTabIds(windowLabel: string, workspaceInstanceId: string): string[] | null {
@@ -96,51 +103,54 @@ export async function closeWorkspaceInstance(
   workspaceInstanceId: string,
   { closeTabs }: CloseWorkspaceInstanceOptions,
 ): Promise<CloseWorkspaceInstanceResult> {
-  if (closing.has(workspaceInstanceId)) return { ok: false, reason: "busy" };
-
-  const tabIds = ownedTabIds(windowLabel, workspaceInstanceId);
-  if (tabIds === null) return { ok: false, reason: "missing" };
-
-  closing.add(workspaceInstanceId);
+  if (!acquireInstanceOperation(workspaceInstanceId)) {
+    return { ok: false, reason: "busy" };
+  }
   try {
-    const allClosed = await closeTabs(windowLabel, tabIds);
-    if (!allClosed) {
-      // Leave the instance in place. Tabs closed before the cancelled prompt
-      // stay closed (see CANCELLATION above) — the guarantee is that the
-      // workspace and its window survive.
-      return { ok: false, reason: "cancelled" };
-    }
+    const tabIds = ownedTabIds(windowLabel, workspaceInstanceId);
+    if (tabIds === null) return { ok: false, reason: "missing" };
 
-    // Re-validate after the await: the instance may have moved or been removed
-    // while the prompts were open, and the invariants below must not run
-    // against a window this workspace no longer belongs to.
-    if (ownedTabIds(windowLabel, workspaceInstanceId) === null) {
-      return { ok: false, reason: "missing" };
+    // Audit 20260831 #24: tabs can be OPENED into (or reassigned to) this
+    // workspace while a dirty prompt is up, and removing the instance after a
+    // stale snapshot would orphan them. After each pass, re-collect and close
+    // any ids that NEWLY appeared — ids already handed to the injected closer
+    // are its responsibility (the pre-existing contract), so only fresh ones
+    // loop. Bounded so pathological churn cannot spin forever; closeTabs is
+    // always consulted at least once, empty list included — its verdict is
+    // the user's answer.
+    const attempted = new Set<string>();
+    let toClose: string[] = tabIds;
+    let freshRemaining = false;
+    for (let attempt = 0; attempt < MAX_CLOSE_CONVERGENCE_PASSES; attempt++) {
+      for (const id of toClose) attempted.add(id);
+      const allClosed = await closeTabs(windowLabel, toClose);
+      if (!allClosed) {
+        // Leave the instance in place. Tabs closed before the cancelled
+        // prompt stay closed (see CANCELLATION above) — the guarantee is that
+        // the workspace and its window survive.
+        return { ok: false, reason: "cancelled" };
+      }
+      // Re-validate after the await: the instance may have moved or been
+      // removed while the prompts were open.
+      const recollected = ownedTabIds(windowLabel, workspaceInstanceId);
+      if (recollected === null) return { ok: false, reason: "missing" };
+      const fresh = recollected.filter((id) => !attempted.has(id));
+      freshRemaining = fresh.length > 0;
+      if (!freshRemaining) break;
+      toClose = fresh;
     }
+    if (freshRemaining) return { ok: false, reason: "busy" };
 
-    const store = useWorkspaceInstancesStore.getState();
-    store.removeWorkspaceInstance(windowLabel, workspaceInstanceId);
-    // WI-9.1/10.2 lifecycle: a closed instance's parallel per-instance state
-    // (UI, pane snapshot) must not linger as orphans.
-    useWorkspaceInstanceUiStore.getState().removeInstanceUiState(workspaceInstanceId);
-    useWorkspacePaneLayoutsStore.getState().removePaneLayout(workspaceInstanceId);
-
-    if (windowLabel === "main") {
-      // main is never closed, so it must never be left with an empty rail.
-      store.ensurePlaceholderInstance("main", `wsi-placeholder-${generateUUID()}`);
-    } else if (
-      useWorkspaceInstancesStore.getState().windows[windowLabel]?.workspaceInstanceIds
-        .length === 0
-    ) {
-      // Don't drop the rejection — a failed close should surface in logs rather
-      // than become an unhandled promise rejection.
-      void invoke("close_window", { label: windowLabel }).catch((error) => {
-        workspaceError("Failed to close emptied window:", error);
-      });
-    }
+    // The shared post-removal lifecycle (audit #25/#26): store removal,
+    // per-instance UI/pane cleanup, terminal + closed-history cleanup, the
+    // placeholder/empty-window invariants, and FULL successor hydration when
+    // the closed instance was active.
+    await finalizeInstanceRemoval(windowLabel, workspaceInstanceId, {
+      cleanupPerInstanceUi: true,
+    });
 
     return { ok: true };
   } finally {
-    closing.delete(workspaceInstanceId);
+    releaseInstanceOperation(workspaceInstanceId);
   }
 }

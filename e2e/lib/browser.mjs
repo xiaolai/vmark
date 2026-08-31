@@ -20,20 +20,14 @@
 
 import { evalJs } from "./bridge.mjs";
 import { poll } from "./vmark.mjs";
-
-const SETTINGS_KEY = "vmark-settings";
+import {
+  patchPersistedSettings,
+  readPersistedSettingsSection,
+} from "./settingsPatch.mjs";
 
 /** Read the persisted `browser` settings section. */
 export async function readBrowserSettings(client) {
-  const raw = await evalJs(
-    client,
-    `(() => { try { return JSON.stringify(JSON.parse(localStorage.getItem(${JSON.stringify(SETTINGS_KEY)}) || "{}")?.state?.browser ?? null); } catch { return "null"; } })()`
-  );
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return readPersistedSettingsSection(client, "browser");
 }
 
 /**
@@ -43,24 +37,8 @@ export async function readBrowserSettings(client) {
  * would produce, so `useSettingsSync` applies it to the live Zustand store.
  */
 export async function patchBrowserSettings(client, patch) {
-  const ok = await evalJs(
-    client,
-    `(() => {
-       try {
-         const key = ${JSON.stringify(SETTINGS_KEY)};
-         const oldValue = localStorage.getItem(key);
-         const parsed = JSON.parse(oldValue || "{}");
-         parsed.state = parsed.state || {};
-         parsed.state.browser = { ...(parsed.state.browser || {}), ...${JSON.stringify(patch)} };
-         const newValue = JSON.stringify(parsed);
-         localStorage.setItem(key, newValue);
-         // The app's own cross-window sync path (useSettingsSync.ts).
-         window.dispatchEvent(new StorageEvent("storage", { key, oldValue, newValue, storageArea: localStorage }));
-         return true;
-       } catch (e) { return "ERR " + (e && e.message); }
-     })()`
-  );
-  if (ok !== true) throw new Error(`failed to patch browser settings: ${ok}`);
+  // Shared writer (audit 20260831 #45) — see settingsPatch.mjs.
+  await patchPersistedSettings(client, "browser", patch);
 }
 
 /**

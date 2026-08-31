@@ -22,6 +22,7 @@ import { useTabStore, type Tab } from "@/stores/tabStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { closeWorkspaceInstance } from "./closeWorkspaceInstance";
+import { resetInstanceOperationLocks } from "./instanceOperationLock";
 
 function seedInstance(windowLabel: string, instanceId: string, path: string, tabIds: string[]) {
   const rootResult = createWorkspaceRootIdentity(path);
@@ -74,6 +75,7 @@ const idsIn = (windowLabel: string) =>
   useWorkspaceInstancesStore.getState().windows[windowLabel]?.workspaceInstanceIds ?? [];
 
 beforeEach(() => {
+  resetInstanceOperationLocks();
   useWorkspaceInstancesStore.setState({ instances: {}, windows: {} });
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
   closeTabsWithDirtyCheck.mockReset().mockResolvedValue(true);
@@ -203,5 +205,67 @@ describe("closeWorkspaceInstance", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("missing");
     expect(closeTabsWithDirtyCheck).not.toHaveBeenCalled();
+  });
+});
+
+describe("tabs appearing during the dirty prompt (audit 20260831 #24)", () => {
+  it("re-collects and closes tabs that were opened into the workspace mid-prompt", async () => {
+    seedInstance("doc-1", "wsi-a", "/tmp/alpha", ["tab-1"]);
+    addTab("doc-1", "tab-1", "/tmp/alpha/one.md");
+
+    const closedBatches: string[][] = [];
+    let injected = false;
+    const result = await closeWorkspaceInstance("doc-1", "wsi-a", {
+      closeTabs: async (windowLabel, tabIds) => {
+        closedBatches.push([...tabIds]);
+        // The injected closer actually removes what it was handed.
+        useTabStore.setState((state) => ({
+          tabs: {
+            ...state.tabs,
+            [windowLabel]: (state.tabs[windowLabel] ?? []).filter(
+              (t) => !tabIds.includes(t.id),
+            ),
+          },
+        }));
+        if (!injected) {
+          injected = true;
+          // A tab lands in the workspace WHILE the prompt is up — the old
+          // single-snapshot flow removed the instance and orphaned it.
+          addTab("doc-1", "tab-late", "/tmp/alpha/late.md");
+        }
+        return true;
+      },
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(closedBatches[0]).toEqual(["tab-1"]);
+    expect(closedBatches[1]).toEqual(["tab-late"]);
+    expect(useTabStore.getState().tabs["doc-1"] ?? []).toHaveLength(0);
+    expect(idsIn("doc-1")).toEqual([]);
+  });
+});
+
+describe("convergence bound (audit round 2, R2-12)", () => {
+  it("gives up with busy when fresh tabs keep appearing every pass", async () => {
+    seedInstance("doc-1", "wsi-a", "/tmp/alpha", ["tab-1"]);
+    addTab("doc-1", "tab-1", "/tmp/alpha/one.md");
+    // Pathological churn: every prompt round, a NEW owned tab lands in the
+    // workspace, so the re-collect never converges.
+    let n = 0;
+    closeTabsWithDirtyCheck.mockImplementation(async () => {
+      n += 1;
+      addTab("doc-1", `tab-churn-${n}`, `/tmp/alpha/churn-${n}.md`);
+      return true;
+    });
+
+    const result = await closeWorkspaceInstance("doc-1", "wsi-a", {
+      closeTabs: closeTabsWithDirtyCheck,
+    });
+
+    expect(result).toEqual({ ok: false, reason: "busy" });
+    // Bounded: exactly MAX_CLOSE_CONVERGENCE_PASSES rounds, then stop — the
+    // instance survives (the safe side; nothing was force-removed).
+    expect(closeTabsWithDirtyCheck).toHaveBeenCalledTimes(5);
+    expect(idsIn("doc-1")).toContain("wsi-a");
   });
 });

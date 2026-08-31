@@ -341,3 +341,29 @@ describe("workspaceInstancesStore", () => {
       .toBeNull();
   });
 });
+
+describe("same-id placeholder→real replacement (audit 20260831 #10)", () => {
+  it("keeps membership, the record, and activation when a real instance reuses a placeholder's id", () => {
+    useWorkspaceInstancesStore.getState().ensurePlaceholderInstance("main", "wsi-x");
+    expect(useWorkspaceInstancesStore.getState().instances["wsi-x"]?.kind).toBe("placeholder");
+
+    useWorkspaceInstancesStore.getState().addWorkspaceInstance(instance("wsi-x", "main"));
+
+    const state = useWorkspaceInstancesStore.getState();
+    // The old flow filtered the id out of membership, then deleted the record
+    // it had just written — an active id pointing at nothing.
+    expect(state.instances["wsi-x"]?.kind).toBe("workspace");
+    expect(state.windows["main"]?.workspaceInstanceIds).toEqual(["wsi-x"]);
+    expect(state.windows["main"]?.activeWorkspaceInstanceId).toBe("wsi-x");
+  });
+
+  it("still evicts OTHER placeholders when a real instance arrives", () => {
+    useWorkspaceInstancesStore.getState().ensurePlaceholderInstance("main", "wsi-ph");
+    useWorkspaceInstancesStore.getState().addWorkspaceInstance(instance("wsi-real", "main"));
+
+    const state = useWorkspaceInstancesStore.getState();
+    expect(state.instances["wsi-ph"]).toBeUndefined();
+    expect(state.windows["main"]?.workspaceInstanceIds).toEqual(["wsi-real"]);
+    expect(state.windows["main"]?.activeWorkspaceInstanceId).toBe("wsi-real");
+  });
+});

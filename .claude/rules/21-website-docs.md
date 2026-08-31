@@ -28,6 +28,7 @@ Update website docs when:
 | Change broken-link checking | `website/guide/link-check.md` |
 | Change PTY / terminal pause | `website/guide/terminal.md` |
 | Change workspace content search | `website/guide/workspace-management.md` |
+| Change workspace rail behavior (rail UI, context switch, per-workspace terminal scoping) | `website/guide/workspace-rail.md` |
 | Add/modify AI suggestion UI | `website/guide/ai-genies.md` |
 | Add/modify format adapter (registry / dispatch / new file type) | `website/guide/formats.md` |
 | Change SplitPaneEditor behavior (source pane, validation gutter, split UX) | `website/guide/formats.md` |
@@ -56,6 +57,7 @@ Update website docs when:
 | `src/lib/lintEngine/`, `src/plugins/lint/` | `website/guide/lint.md` |
 | `src/lib/markdownLinkCheck/` | `website/guide/link-check.md` |
 | `src-tauri/src/content_search.rs` | `website/guide/workspace-management.md` (Workspace Content Search) |
+| `src/components/WorkspaceRail/`, `src/services/workspaces/` (instances, switch, close/move) | `website/guide/workspace-rail.md` |
 | `src/plugins/aiSuggestion/`, `src/stores/aiStore/suggestion.ts` | `website/guide/ai-genies.md` (AI Suggestions section) |
 | `src/lib/formats/` (registry + adapters) | `website/guide/formats.md` |
 | `src/components/Editor/SplitPaneEditor/` | `website/guide/formats.md` |

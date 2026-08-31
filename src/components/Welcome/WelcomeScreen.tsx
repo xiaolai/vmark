@@ -114,17 +114,17 @@ export function WelcomeScreen() {
         <div className="welcome-screen__actions">
           <button
             type="button"
-            className="vm-btn welcome-action"
+            className="vm-btn vm-btn--pill welcome-action"
             onClick={() => handleNew(windowLabel)}
           >
             <FilePlus className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.newFile")}</span>
           </button>
-          <button type="button" className="vm-btn welcome-action" onClick={onOpenFile}>
+          <button type="button" className="vm-btn vm-btn--pill welcome-action" onClick={onOpenFile}>
             <FileUp className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFile")}</span>
           </button>
-          <button type="button" className="vm-btn welcome-action" onClick={onOpenFolder}>
+          <button type="button" className="vm-btn vm-btn--pill welcome-action" onClick={onOpenFolder}>
             <FolderOpen className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFolder")}</span>
           </button>
