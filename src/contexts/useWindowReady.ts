@@ -79,9 +79,15 @@ export function useWindowReady(): { isReady: boolean; markReady: (w: ReadyTarget
   // records unmount so a barrier that resolves afterwards writes nothing.
   const announcingRef = useRef(false);
   const unmountedRef = useRef(false);
+  // True once the announcement actually PUBLISHED (emit dispatched, attribute
+  // set) — distinct from announcingRef, which only means a chain was started.
+  // The StrictMode re-arm below needs the distinction: a started-but-swallowed
+  // chain must be restartable, a completed one must never run twice.
+  const announcedRef = useRef(false);
 
   const announce = useCallback((w: ReadyTarget) => {
-    if (unmountedRef.current) return;
+    if (unmountedRef.current || announcedRef.current) return;
+    announcedRef.current = true;
     try {
       // `Promise.resolve` wraps because `emit` is not guaranteed to return
       // one; the try/catch is for the case it does not return at all. A
@@ -129,9 +135,23 @@ export function useWindowReady(): { isReady: boolean; markReady: (w: ReadyTarget
     });
   }, [announce]);
 
-  useEffect(() => () => {
-    unmountedRef.current = true;
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
+  useEffect(() => {
+    // Re-arm on (re)mount. Dev builds run under React.StrictMode, whose
+    // simulated unmount executes the cleanup below and then REMOUNTS WITH THE
+    // SAME REFS — without this reset, `unmountedRef` stayed true on a live
+    // window and `announce` refused forever: no `ready` emit to Rust, no DOM
+    // attribute, and the tier-0 wait-ready gate hung its full 300s budget
+    // (CI run 33367721596; reproduced locally on `pnpm tauri:dev`).
+    // `announcingRef` is re-armed too — but only when nothing actually
+    // published — so the second lifecycle's markReady can restart a chain the
+    // simulated unmount swallowed, while a COMPLETED announcement stays
+    // latched (announcedRef) and can never emit twice.
+    unmountedRef.current = false;
+    if (!announcedRef.current) announcingRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
   }, []);
 
   return { isReady, markReady };

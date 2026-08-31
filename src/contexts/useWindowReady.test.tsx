@@ -5,7 +5,8 @@
  * 100 ms delay could never close.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, render, act } from "@testing-library/react";
+import { StrictMode, useEffect } from "react";
 
 const mockWindowContextError = vi.fn();
 vi.mock("@/utils/debug", () => ({ windowContextError: (...a: unknown[]) => mockWindowContextError(...a) }));
@@ -222,5 +223,70 @@ describe("useWindowReady", () => {
     await mountMenuListener();
     expect(emit).toHaveBeenCalled();
     expect(mockWindowContextError).not.toHaveBeenCalled();
+  });
+});
+
+describe("StrictMode double-mount (tier-0 CI run 33367721596)", () => {
+  // Dev builds — which `pnpm tauri:dev` and the tier-0 CI job both are — run
+  // under React.StrictMode: mount → simulated unmount (cleanups run) →
+  // remount, with REFS PERSISTING. The cleanup set unmountedRef and nothing
+  // ever reset it, so `announce` refused forever on a live window: the app
+  // shell rendered, but the ready attribute (and the `ready` emit to Rust)
+  // never happened, and CI's wait-ready gate timed out at 300s. Reproduced
+  // live on macOS `pnpm tauri:dev` before this fix.
+  //
+  // HARNESS NOTE, measured: `renderHook` does NOT double-invoke effects under
+  // a StrictMode wrapper in this environment, while `render` does (probe:
+  // renders=2 setups=2 cleanups=1). These tests must use `render`, or they
+  // pass vacuously against the broken code.
+  function Harness({ label, emit }: { label: string; emit: (e: string, p?: unknown) => unknown }) {
+    const { isReady, markReady } = useWindowReady();
+    useEffect(() => {
+      markReady({ label, emit });
+    }, [markReady, label, emit]);
+    return isReady ? <div data-testid="shell" /> : null;
+  }
+
+  it("still announces a document window after the simulated unmount/remount", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <StrictMode>
+        <Harness label="main" emit={emit} />
+      </StrictMode>,
+    );
+
+    await mountMenuListener();
+
+    expect(readyAttr()).toBe("true");
+    expect(emit).toHaveBeenCalledTimes(1); // announced, and not doubled
+  });
+
+  it("still announces a settings window after the simulated unmount/remount", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <StrictMode>
+        <Harness label="settings" emit={emit} />
+      </StrictMode>,
+    );
+
+    await settle(200);
+
+    expect(readyAttr()).toBe("true");
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("a REAL unmount still suppresses the announcement", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(
+      <StrictMode>
+        <Harness label="main" emit={emit} />
+      </StrictMode>,
+    );
+
+    unmount();
+    await mountMenuListener();
+
+    expect(readyAttr()).toBeNull();
+    expect(emit).not.toHaveBeenCalled();
   });
 });
