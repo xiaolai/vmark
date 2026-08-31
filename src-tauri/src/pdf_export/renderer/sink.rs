@@ -14,7 +14,7 @@
 //! the dispatch that started it (ADR-PDF4).
 //!
 //! @coordinates-with mod.rs — constructs it
-//! @coordinates-with macos_ops.rs, windows.rs, linux.rs — settle it
+//! @coordinates-with macos_ops.rs, windows.rs, windows_print.rs, linux.rs, linux_print.rs — settle it
 //! @module pdf_export/renderer/sink
 
 use std::path::PathBuf;

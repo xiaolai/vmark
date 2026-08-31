@@ -170,10 +170,14 @@ fn post_process(
     outcome
 }
 
-/// Print HTML content via native macOS print dialog.
+/// Print HTML content via the system print dialog (WI-PDF4.1, all three
+/// platforms).
 ///
-/// Creates an off-screen WKWebView, loads the HTML, and shows the
-/// system print dialog. The user selects a printer and prints directly.
+/// Renders the HTML in a helper webview and shows the platform's dialog:
+/// the NSPrintOperation panel on macOS, WebView2 `ShowPrintUI` on Windows,
+/// `webkit_print_operation_run_dialog` on Linux. The helper is hidden on
+/// macOS and Linux; on Windows it must stay visible because `ShowPrintUI`
+/// draws the print UI inside it.
 #[tauri::command]
 pub async fn print_document(app: tauri::AppHandle, html: String) -> Result<(), CommandError> {
     renderer::print_document(app, html).await
