@@ -42,8 +42,10 @@
   justify-content: center;
 }
 
-/* The actions are the canonical `.vm-btn` (WI-UI4.7); the residual keeps the
-   front door's larger size and its FINDABLE boundary (--control-border, D8). */
+/* The actions are the canonical `.vm-btn` + `--pill` (WI-UI4.7; pill shape by
+   maintainer direction 2026-08-31); the residual keeps the front door's larger
+   size and its FINDABLE boundary (--control-border, D8). A capsule's round
+   ends visually eat horizontal padding, hence the wider inset. */
 .welcome-action {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);

@@ -192,7 +192,7 @@ no interactive element takes a smaller hit box; paint-small controls centre a
 | `--radius-sm` | `4px` | Small buttons, toggles |
 | `--radius-md` | `6px` | Inputs, medium containers |
 | `--radius-lg` | `8px` | Popups, dialogs, menus |
-| `--radius-pill` | `100px` | Pill shapes, tags |
+| `--radius-pill` | `100px` | Pill shapes, tags, `.vm-btn--pill` capsule buttons |
 
 **Acceptable hardcoded values** (do not tokenize):
 - `0.5px` for retina sub-pixel borders

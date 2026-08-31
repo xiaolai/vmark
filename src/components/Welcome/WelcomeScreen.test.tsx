@@ -223,11 +223,15 @@ describe("front door copy and buttons (WI-UI4.7)", () => {
     expect(screen.getByRole("region", { name: "Welcome" })).toBeInTheDocument();
   });
 
-  it("all three actions are canonical .vm-btn", () => {
+  it("all three actions are canonical .vm-btn pills", () => {
     render(<WelcomeScreen />);
     for (const name of ["New File", "Open File", "Open Workspace…"]) {
       const btn = screen.getByRole("button", { name });
       expect(btn.className, name).toContain("vm-btn");
+      // Pill shape via the promoted variant (maintainer direction 2026-08-31)
+      // — never a per-wrapper radius override, which the shape-drift gate
+      // would rightly flag.
+      expect(btn.className, name).toContain("vm-btn--pill");
     }
   });
 });

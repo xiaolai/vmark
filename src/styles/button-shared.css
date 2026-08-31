@@ -76,6 +76,14 @@
   font-size: var(--font-size-xs);
 }
 
+/* Capsule shape (maintainer direction, 2026-08-31 — the welcome front door).
+   Promoted onto the primitive (rule 32's middle path) so a pill-shaped action
+   exists exactly once: a per-wrapper border-radius override would register as
+   shape drift in check-bespoke-buttons' maxShapeDriftClasses, and rightly so. */
+.vm-btn--pill {
+  border-radius: var(--radius-pill);
+}
+
 /* Emphasised action (confirm, start, submit). */
 .vm-btn--primary {
   border-color: var(--primary-color);

@@ -259,8 +259,11 @@
 }
 
 .tab-pill:hover {
-  background-color: var(--hover-bg);
-  color: var(--text-color);
+  /* ui-ok(state): negative hover (maintainer direction 2026-08-31) — the pill
+     inverts to ink-on-page: background and text swap tokens, so the contrast
+     is the body pair's own ratio, AA by construction in every theme. */
+  background-color: var(--text-color);
+  color: var(--bg-color);
 }
 
 .tab-pill:focus-visible {
@@ -270,12 +273,14 @@
 .tab-pill.active {
   /* ui-ok(state): the active tab SHARES THE PAGE SURFACE it fronts — the
      browser-tab idiom; an accent wash here would disconnect tab from page. */
-  /* WI-UI3.6: a real surface — on night the page-vs-bar contrast alone was
-     ~1.05:1, so the active pill was findable only by its text weight. The
-     --control-border boundary is authored ≥ 3:1 on every theme (D8). */
+  /* Borderless by maintainer direction (2026-08-31), superseding WI-UI3.6's
+     --control-border ring. The trade is known: on night the page-vs-bar
+     contrast alone is ~1.05:1, so findability now rests on the raised
+     --shadow-sm surface (whose dark value is pinned deep enough to exist on a
+     dark page — tabPillSurface.test.ts) plus the negative hover affordance. */
   background-color: var(--bg-color);
   color: var(--text-color);
-  box-shadow: inset 0 0 0 var(--border-thin) var(--control-border), var(--shadow-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .browser-workspace-tab {
@@ -295,8 +300,10 @@
 }
 
 .browser-workspace-tab:hover {
-  color: var(--text-color);
-  background: var(--hover-bg);
+  /* ui-ok(state): negative hover — matches .tab-pill:hover; the two share
+     one strip and must speak one hover language (maintainer 2026-08-31). */
+  color: var(--bg-color);
+  background: var(--text-color);
 }
 
 .browser-workspace-tab.active {
