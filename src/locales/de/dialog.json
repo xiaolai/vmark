@@ -67,6 +67,8 @@
   "toast.quarantineClearedDesc": "macOS markiert Dateien, die von bestimmten Apps heruntergeladen wurden, mit einem Attribut, das den Finder-Doppelklick stillschweigend blockiert, während VMark läuft. VMark hat es entfernt, damit diese Dateien geöffnet werden können. Unter Einstellungen → Erweitert deaktivierbar.",
   "toast.failedToOpenFilesInNewWindow": "Dateien konnten nicht in neuem Fenster geöffnet werden",
   "toast.workspaceMoveFailed": "Arbeitsbereich konnte nicht in ein neues Fenster verschoben werden",
+  "toast.workspaceCloseBusy": "Arbeitsbereich ist mit einem anderen Vorgang beschäftigt — versuche das Schließen erneut",
+  "toast.workspaceCloseFailed": "Arbeitsbereich konnte nicht geschlossen werden",
   "toast.workspaceDuplicateFailed": "Arbeitsbereich konnte nicht dupliziert werden",
   "toast.workspaceDuplicateSkipped_one": "Arbeitsbereich dupliziert; 1 ungespeicherter, unbenannter oder fehlender Tab wurde übersprungen.",
   "toast.workspaceDuplicateSkipped_other": "Arbeitsbereich dupliziert; {{count}} ungespeicherte, unbenannte oder fehlende Tabs wurden übersprungen.",

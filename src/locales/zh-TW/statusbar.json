@@ -98,5 +98,6 @@
   "scrollTabsLeft": "向左捲動分頁",
   "scrollTabsRight": "向右捲動分頁",
   "terminal.sessionExited": "{{name}}（已退出）",
-  "terminal.backgroundActivity": "背景活動"
+  "terminal.backgroundActivity": "背景活動",
+  "terminal.noWorkspaceSession": "請開啟資料夾或儲存檔案以使用終端機"
 }

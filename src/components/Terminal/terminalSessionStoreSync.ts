@@ -39,6 +39,7 @@ import { buildXtermThemeForId, drawBoldTextInBrightColorsForId } from "@/theme";
 import { useTabStore } from "@/stores/tabStore";
 import { getRuntimePlatform } from "@/utils/platform";
 import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
+import { shouldFollowWorkspaceCd } from "@/services/terminal/terminalCdFollow";
 import { fitAndResizePty } from "./fitAndResizePty";
 // Re-exported so existing importers (and tests) keep one obvious home for it.
 export type { SyncableSessionEntry } from "./terminalSessionTypes";
@@ -62,9 +63,17 @@ export function buildCdCommand(path: string): string {
  * the shell is still running a foreground command. Returns true if a `cd` was
  * written.
  */
-export function flushPendingRoot(entry: SyncableSessionEntry): boolean {
+export function flushPendingRoot(sessionId: string, entry: SyncableSessionEntry): boolean {
   const pending = entry.pendingRoot;
   if (!pending) return false;
+  // WI-TS2.1 (D-T4): the owner is resolved AT FLUSH TIME, so a pendingRoot
+  // recorded before this session was adopted into a workspace scope is
+  // dropped rather than cd'ing a now-scoped shell. This one guard covers the
+  // OSC-133 idle callback and any future caller of the flush.
+  if (!shouldFollowWorkspaceCd(sessionId)) {
+    entry.pendingRoot = null;
+    return false;
+  }
   if (!entry.pty || entry.shellExited) {
     entry.pendingRoot = null;
     return false;
@@ -156,6 +165,11 @@ export function useUIStoreSync(
         // early return skipped the loop below, so a root queued while a shell
         // was busy outlived the workspace, and the next idle event cd'd into a
         // directory the user had just closed (audit 20260815-163607 #14).
+        // WI-TS2.1 note: this clear deliberately applies to EVERY session,
+        // stamped or not — clearing a scoped session's (pre-adoption) pending
+        // is exactly what keeps it from ever being cd'd, and skipping stamped
+        // sessions here would let a stale pending survive a later rail-off
+        // toggle and resurrect the audit-#14 bug through the D-T15 branch.
         prevRoot = newRoot;
         for (const [, entry] of sessionsRef.current ?? []) entry.pendingRoot = null;
         return;
@@ -169,7 +183,16 @@ export function useUIStoreSync(
       const cdCommand = buildCdCommand(newRoot);
       const sessions = sessionsRef.current;
       if (!sessions) return;
-      for (const [, entry] of sessions) {
+      for (const [id, entry] of sessions) {
+        // WI-TS2.1 (D-T4): only effectively-window-scoped sessions follow the
+        // workspace root — a stamped session's workspace never changes under
+        // it; a rail switch HIDES it instead (D-T3). Checked live per session
+        // and rail-aware (D-T15: rail off ⇒ everything follows, as today).
+        // A scoped session must not even QUEUE a root while busy.
+        if (!shouldFollowWorkspaceCd(id)) {
+          entry.pendingRoot = null;
+          continue;
+        }
         // Never inject `cd` into a shell that's running a foreground command
         // (e.g. vim, less) — the Ctrl+U + cd would corrupt it. Record the
         // root as pending so the idle flush (OSC 133 done) cd's once the
@@ -211,10 +234,10 @@ export function useUIStoreSync(
         entry.instance.setOnShellIdle(null);
         wired.delete(entry);
       }
-      for (const entry of live) {
+      for (const [id, entry] of sessions) {
         if (wired.has(entry)) continue;
         wired.add(entry);
-        entry.instance.setOnShellIdle(() => flushPendingRoot(entry));
+        entry.instance.setOnShellIdle(() => flushPendingRoot(id, entry));
       }
     };
     wireIdleFlush();

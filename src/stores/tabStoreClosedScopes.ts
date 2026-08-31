@@ -24,24 +24,29 @@
 import { create } from "zustand";
 import type { Tab } from "@/stores/tabStoreTypes";
 import { onTabRemoved } from "./tabRemovalBus";
+import { onInstanceRekeyed } from "./instanceRekeyBus";
 import { useSettingsStore } from "./settingsStore";
 import { useWorkspaceInstancesStore } from "./workspaceInstancesStore";
 import {
   BROWSER_SCOPE,
   partitionWindowTabs,
 } from "@/services/workspaces/workspaceOwnershipKernel";
-import { canonicalizeBrowserUrl } from "@/lib/browser/url";
+import {
+  isValidClosedEntry,
+  normalizeAcceptedEntry,
+  type ClosedTabEntry,
+} from "./tabStoreClosedScopesValidation";
+
+export type { ClosedTabEntry } from "./tabStoreClosedScopesValidation";
 
 /** Scope for closed tabs with no owning instance (incl. rail-off mode). */
 export const WINDOW_ALL_SCOPE = "window:all" as const;
 
 const MAX_PER_SCOPE = 10;
 
-export interface ClosedTabEntry {
-  tab: Tab;
-  /** Monotonic close order across ALL scopes of the app session. */
-  closedSeq: number;
-}
+/** Hydrated closedSeq values need increment headroom — see audit #14. */
+const SAFE_SEQ_HEADROOM = Number.MAX_SAFE_INTEGER - 1_000_000;
+
 
 interface ClosedTabScopesState {
   /** windowLabel → scopeKey → entries, newest first. */
@@ -56,6 +61,15 @@ interface ClosedTabScopesState {
     scopeKeys: readonly string[],
   ) => { scopeKey: string; entry: ClosedTabEntry } | null;
   closedIdsForScope: (windowLabel: string, scopeKey: string) => string[];
+  /** Drop ONE scope's closed history (WI-TS2.3): called when its workspace
+   *  instance leaves the window (close/move) — without this, per-instance
+   *  scopes leaked forever (removeWindowClosedScopes has no per-instance
+   *  counterpart and zero production callers). */
+  removeClosedScope: (windowLabel: string, scopeKey: string) => void;
+  /** Follow a loose-instance identity re-key (audit 20260831 #9): merge the
+   *  old scope's history into the new key, newest-first, capped. Without
+   *  this the reopen history was orphaned under an id nothing reads. */
+  rekeyClosedScope: (windowLabel: string, oldId: string, newId: string) => void;
   removeWindowClosedScopes: (windowLabel: string) => void;
   /** WI-9.4: rehydrate a window's scopes from a hot-exit payload (validated). */
   hydrateWindowClosedScopes: (
@@ -63,42 +77,6 @@ interface ClosedTabScopesState {
     scopes: Record<string, unknown>,
   ) => void;
   resetClosedScopes: () => void;
-}
-
-/**
- * Shape guard for a persisted closed-tab entry (audit R2-F13/F14): per-kind
- * validation — a document needs a string-or-null filePath; a browser entry
- * needs a CANONICAL http(s) URL (the same gate the live browser applies), so
- * a hand-edited hot-exit payload can never smuggle `javascript:`/`file://`
- * into a later reopen. Kind/scope coherence is enforced at hydrate.
- */
-function isValidClosedEntry(raw: unknown, scopeKey: string): raw is ClosedTabEntry {
-  if (typeof raw !== "object" || raw === null) return false;
-  const e = raw as {
-    tab?: { id?: unknown; kind?: unknown; filePath?: unknown; url?: unknown };
-    closedSeq?: unknown;
-  };
-  if (
-    typeof e.closedSeq !== "number" ||
-    !Number.isSafeInteger(e.closedSeq) ||
-    e.closedSeq < 0 ||
-    typeof e.tab !== "object" ||
-    e.tab === null ||
-    typeof e.tab.id !== "string"
-  ) {
-    return false;
-  }
-  if (e.tab.kind === "document") {
-    // Documents never hydrate into the browser-global scope.
-    if (scopeKey === BROWSER_SCOPE) return false;
-    return e.tab.filePath === null || typeof e.tab.filePath === "string";
-  }
-  if (e.tab.kind === "browser") {
-    // Browser entries ONLY in the browser-global scope, with a safe URL.
-    if (scopeKey !== BROWSER_SCOPE) return false;
-    return typeof e.tab.url === "string" && canonicalizeBrowserUrl(e.tab.url) !== null;
-  }
-  return false;
 }
 
 /** Resolve which scope a closing tab's history belongs to. */
@@ -118,11 +96,16 @@ function resolveScopeKey(windowLabel: string, tab: Tab): string {
     instances,
     windowState?.activeWorkspaceInstanceId ?? null,
   );
-  return (
-    ownerOf.get(tab.id) ??
-    windowState?.activeWorkspaceInstanceId ??
-    WINDOW_ALL_SCOPE
-  );
+  // Fallback for an unowned tab: the ACTIVE instance's scope — unless that
+  // instance is a placeholder (R2-8, audit round 2). A placeholder is evicted
+  // the moment a real workspace arrives, and removeClosedScope drops its
+  // history with it, so recording under a placeholder id orphans the entry.
+  // WINDOW_ALL_SCOPE is the reachable home for ownerless history.
+  const activeId = windowState?.activeWorkspaceInstanceId ?? null;
+  const activeRecord = activeId ? state.instances[activeId] : undefined;
+  const activeScope =
+    activeRecord && activeRecord.kind !== "placeholder" ? activeId : null;
+  return ownerOf.get(tab.id) ?? activeScope ?? WINDOW_ALL_SCOPE;
 }
 
 export const useClosedTabScopesStore = create<ClosedTabScopesState>()((set, get) => ({
@@ -185,13 +168,45 @@ export const useClosedTabScopesStore = create<ClosedTabScopesState>()((set, get)
       const valid: Record<string, ClosedTabEntry[]> = {};
       const seenIds = new Set<string>();
       let maxSeq = state.nextSeq - 1;
+      // Scope keys are whitelisted (R3-4): the two well-known scopes, or a
+      // workspace instance THIS window actually has. Instances hydrate before
+      // closed scopes in the restore sequence (instanceContextState.ts, the
+      // same ordering R2-F16's instance-ui whitelist relies on), so a key
+      // this rejects is junk or cross-window — history nothing could ever
+      // reopen, retained and re-persisted forever.
+      const windowInstanceIds = new Set(
+        useWorkspaceInstancesStore.getState().windows[windowLabel]
+          ?.workspaceInstanceIds ?? [],
+      );
       for (const [scopeKey, rawEntries] of Object.entries(scopes)) {
         if (!Array.isArray(rawEntries)) continue;
-        const entries = rawEntries
+        if (
+          scopeKey !== WINDOW_ALL_SCOPE &&
+          scopeKey !== BROWSER_SCOPE &&
+          !windowInstanceIds.has(scopeKey)
+        ) {
+          continue;
+        }
+        const candidates = rawEntries
           .filter((raw): raw is ClosedTabEntry => isValidClosedEntry(raw, scopeKey))
-          // One scope per id across the whole payload (exclusivity).
-          .filter((entry) => !seenIds.has(entry.tab.id) && (seenIds.add(entry.tab.id), true))
-          .slice(0, MAX_PER_SCOPE);
+          // A closedSeq at the integer ceiling would break the monotonic
+          // nextSeq derived below (audit 20260831 #14) — reject entries with
+          // no increment headroom rather than corrupt ordering forever.
+          .filter((entry) => entry.closedSeq < SAFE_SEQ_HEADROOM)
+          // The store contract is newest-first; a reordered persisted payload
+          // must not decide which entries survive the cap (audit #13).
+          .sort((a, b) => b.closedSeq - a.closedSeq);
+        // One scope per id across the whole payload (exclusivity) — marked at
+        // ACCEPTANCE, not while filtering (R2-9, audit round 2): an id whose
+        // only occurrence in this scope falls beyond the cap must not be
+        // suppressed from every later scope by an entry that never survived.
+        const entries: ClosedTabEntry[] = [];
+        for (const entry of candidates) {
+          if (entries.length >= MAX_PER_SCOPE) break;
+          if (seenIds.has(entry.tab.id)) continue;
+          seenIds.add(entry.tab.id);
+          entries.push(normalizeAcceptedEntry(entry));
+        }
         if (entries.length === 0) continue;
         valid[scopeKey] = entries;
         for (const entry of entries) maxSeq = Math.max(maxSeq, entry.closedSeq);
@@ -201,6 +216,33 @@ export const useClosedTabScopesStore = create<ClosedTabScopesState>()((set, get)
       return {
         nextSeq: maxSeq + 1,
         scopesByWindow: { ...state.scopesByWindow, [windowLabel]: valid },
+      };
+    }),
+
+  removeClosedScope: (windowLabel, scopeKey) =>
+    set((state) => {
+      const windowScopes = state.scopesByWindow[windowLabel];
+      if (!windowScopes || !(scopeKey in windowScopes)) return {};
+      const { [scopeKey]: _removed, ...rest } = windowScopes;
+      return {
+        scopesByWindow: { ...state.scopesByWindow, [windowLabel]: rest },
+      };
+    }),
+
+  rekeyClosedScope: (windowLabel, oldId, newId) =>
+    set((state) => {
+      const windowScopes = state.scopesByWindow[windowLabel];
+      const oldEntries = windowScopes?.[oldId];
+      if (!windowScopes || !oldEntries) return {};
+      const { [oldId]: _moved, ...rest } = windowScopes;
+      const merged = [...(rest[newId] ?? []), ...oldEntries]
+        .sort((a, b) => b.closedSeq - a.closedSeq)
+        .slice(0, MAX_PER_SCOPE);
+      return {
+        scopesByWindow: {
+          ...state.scopesByWindow,
+          [windowLabel]: { ...rest, [newId]: merged },
+        },
       };
     }),
 
@@ -220,4 +262,11 @@ onTabRemoved((windowLabel, _tabId, info) => {
   if (info?.reason === "close") {
     useClosedTabScopesStore.getState().recordClosedTab(windowLabel, info.tab);
   }
+});
+
+// A loose-instance identity re-key must carry its reopen history with it
+// (audit 20260831 #9) — bus-driven because this store imports the instances
+// store, so a direct call back would be an import cycle.
+onInstanceRekeyed((windowLabel, oldId, newId) => {
+  useClosedTabScopesStore.getState().rekeyClosedScope(windowLabel, oldId, newId);
 });

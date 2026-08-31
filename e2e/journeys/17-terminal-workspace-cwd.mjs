@@ -26,6 +26,11 @@
  * React ref), so the assertion reads the OS process table instead — see
  * e2e/lib/terminal.mjs. `VMARK_WORKSPACE` stays manual-only (macOS SIP).
  *
+ * RAIL NOTE (WI-TS5.2): this journey runs on the runner's rail-off default
+ * profile, and its assertion holds under the rail too — a scoped session's
+ * spawn cwd is its owner workspace's root, the same directory. Journey 35
+ * (terminal-rail-scoping) covers the rail-ON contract.
+ *
  * Safety:
  *   - Creates and closes only its OWN session; pre-existing sessions are never
  *     touched, and the panel is returned to its prior visibility.

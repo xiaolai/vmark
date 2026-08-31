@@ -98,5 +98,6 @@
   "scrollTabsLeft": "Scorri le schede a sinistra",
   "scrollTabsRight": "Scorri le schede a destra",
   "terminal.sessionExited": "{{name}} (terminato)",
-  "terminal.backgroundActivity": "Attività in background"
+  "terminal.backgroundActivity": "Attività in background",
+  "terminal.noWorkspaceSession": "Apri una cartella o salva il file per usare il terminale"
 }

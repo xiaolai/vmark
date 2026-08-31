@@ -67,6 +67,8 @@
   "toast.quarantineClearedDesc": "macOS marque les fichiers téléchargés par certaines applications avec un attribut qui bloque silencieusement le double-clic dans le Finder lorsque VMark est en cours d'exécution. VMark l'a retiré pour que ces fichiers s'ouvrent. Désactiver dans Paramètres → Avancé.",
   "toast.failedToOpenFilesInNewWindow": "Impossible d'ouvrir les fichiers dans une nouvelle fenêtre",
   "toast.workspaceMoveFailed": "Échec du déplacement de l'espace de travail vers une nouvelle fenêtre",
+  "toast.workspaceCloseBusy": "L’espace de travail est occupé par une autre opération — réessayez de le fermer",
+  "toast.workspaceCloseFailed": "Échec de la fermeture de l’espace de travail",
   "toast.workspaceDuplicateFailed": "Échec de la duplication de l'espace de travail",
   "toast.workspaceDuplicateSkipped_one": "Espace de travail dupliqué ; 1 onglet non enregistré, sans titre ou manquant a été ignoré.",
   "toast.workspaceDuplicateSkipped_other": "Espace de travail dupliqué ; {{count}} onglets non enregistrés, sans titre ou manquants ont été ignorés.",

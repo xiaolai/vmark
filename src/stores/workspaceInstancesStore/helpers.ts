@@ -40,22 +40,6 @@ export function removeFromWindow(
   };
 }
 
-export function removePlaceholdersFromWindow(
-  windowState: WindowWorkspaceState,
-  instances: Record<string, WorkspaceInstanceRecord>,
-): WindowWorkspaceState {
-  const ids = windowState.workspaceInstanceIds.filter(
-    (id) => instances[id]?.kind !== "placeholder",
-  );
-  return {
-    ...windowState,
-    workspaceInstanceIds: ids,
-    activeWorkspaceInstanceId: ids.includes(windowState.activeWorkspaceInstanceId ?? "")
-      ? windowState.activeWorkspaceInstanceId
-      : ids[0] ?? null,
-  };
-}
-
 export function uniqueIds(ids: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -65,4 +49,66 @@ export function uniqueIds(ids: string[]): string[] {
     result.push(id);
   }
   return result;
+}
+
+/**
+ * Pure reducer for `addWorkspaceInstance` (WI-TS0.3 pre-split). Adding a REAL
+ * instance deletes any placeholder instances from the target window silently;
+ * a placeholder being added never displaces anything.
+ *
+ * The incoming instance's OWN id is never treated as an evictable placeholder
+ * (audit 20260831 #10): when a real instance reuses a placeholder's id, the
+ * old flow filtered that id out of the membership list and then deleted the
+ * record it had just written — leaving an active id with no membership and
+ * no record.
+ */
+export function applyAddWorkspaceInstance(
+  state: {
+    instances: Record<string, WorkspaceInstanceRecord>;
+    windows: Record<string, WindowWorkspaceState>;
+  },
+  instance: WorkspaceInstanceRecord,
+): {
+  instances: Record<string, WorkspaceInstanceRecord>;
+  windows: Record<string, WindowWorkspaceState>;
+} {
+  const previous = state.instances[instance.workspaceInstanceId];
+  const windows = { ...state.windows };
+  if (previous && previous.ownerWindowLabel !== instance.ownerWindowLabel) {
+    windows[previous.ownerWindowLabel] = removeFromWindow(
+      windows[previous.ownerWindowLabel] ?? emptyWindowState(previous.ownerWindowLabel),
+      instance.workspaceInstanceId
+    );
+  }
+
+  const target = windows[instance.ownerWindowLabel] ?? emptyWindowState(instance.ownerWindowLabel);
+  const realInstance = instance.kind !== "placeholder";
+  const isEvictablePlaceholder = (id: string): boolean =>
+    id !== instance.workspaceInstanceId &&
+    state.instances[id]?.kind === "placeholder";
+  const keptIds = realInstance
+    ? target.workspaceInstanceIds.filter((id) => !isEvictablePlaceholder(id))
+    : target.workspaceInstanceIds;
+  const placeholderIds = realInstance
+    ? target.workspaceInstanceIds.filter(isEvictablePlaceholder)
+    : [];
+  const ids = keptIds.includes(instance.workspaceInstanceId)
+    ? keptIds
+    : [...keptIds, instance.workspaceInstanceId];
+  const nextInstances = { ...state.instances, [instance.workspaceInstanceId]: instance };
+  for (const id of placeholderIds) {
+    delete nextInstances[id];
+  }
+  windows[instance.ownerWindowLabel] = {
+    ...target,
+    workspaceInstanceIds: ids,
+    activeWorkspaceInstanceId: ids.includes(target.activeWorkspaceInstanceId ?? "")
+      ? target.activeWorkspaceInstanceId
+      : instance.workspaceInstanceId,
+  };
+
+  return {
+    instances: nextInstances,
+    windows,
+  };
 }

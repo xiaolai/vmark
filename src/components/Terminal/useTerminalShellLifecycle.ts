@@ -36,12 +36,12 @@ import { useCallback } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { errorMessage } from "@/utils/errorMessage";
 import { terminalWarn } from "@/utils/debug";
-import {
-  spawnPty,
-  resolveTerminalCwd,
-  resolveTerminalWorkspaceRoot,
-} from "./spawnPty";
+import { spawnPty, resolveTerminalWorkspaceRoot } from "./spawnPty";
+import { resolveTerminalSpawnContext } from "./resolveTerminalSpawnContext";
 import { buildCdCommand } from "./terminalSessionStoreSync";
+import { shouldFollowWorkspaceCd } from "@/services/terminal/terminalCdFollow";
+import { removeTerminalSessionWithPanelPolicy } from "@/services/terminal/closeTerminalSession";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import {
   processExitedLine,
   pressAnyKeyToRestartLine,
@@ -59,23 +59,15 @@ function detachExitedPty(entry: SessionEntry): void {
 }
 
 /**
- * Clean exit (Ctrl+D / `exit`, code 0): close the tab (#1103), and hide the
- * panel when this was the last session. Instance/registry teardown follows
- * from the store removal via useTerminalSessions' subscription
- * (removeSessionEntry). A hidden panel stays hidden; reopening auto-creates
- * a fresh session (TerminalPanel visibility effect).
+ * Clean exit (Ctrl+D / `exit`, code 0): close the tab (#1103) via the ONE
+ * remove+hide policy (audit 20260831 #32 — TerminalPanel's close button and
+ * this path had drifted). The panel hides only when this was the last
+ * VISIBLE session (WI-TS3.3/D-T7); a hidden scope's exiting shell still
+ * closes its tab. Instance/registry teardown follows from the store removal
+ * via useTerminalSessions' subscription (removeSessionEntry).
  */
 function closeSessionOnCleanExit(sessionId: string): void {
-  const ui = useUIStore.getState();
-  const wasLast =
-    ui.terminal.sessions.length === 1 &&
-    ui.terminal.sessions[0].id === sessionId;
-  ui.terminalRemoveSession(sessionId);
-  if (!wasLast) return;
-  // Re-read state: removal ran subscribers synchronously — only hide a
-  // panel that is still visible.
-  const now = useUIStore.getState();
-  if (now.terminalVisible) now.toggleTerminal();
+  removeTerminalSessionWithPanelPolicy(sessionId);
 }
 
 /** Non-zero exit: keep the buffer readable and offer respawn on any key. */
@@ -114,27 +106,27 @@ export function useTerminalShellLifecycle(
       // session dead — the guard below ignores exits from a superseded gen.
       const gen = ++entry.spawnGen;
       // WI-4.2: an EXPLICIT request ("Open Terminal Here") outranks
-      // everything below. Without this the sibling-cwd inheritance would win
-      // and the new terminal would silently open in some other directory —
-      // exactly the one thing the user did not ask for. PEEKED, not consumed:
-      // it is cleared only once the spawn succeeds, so a failed first spawn
-      // can still be retried in the directory the user actually asked for.
+      // everything else. PEEKED, not consumed: it is cleared only once the
+      // spawn succeeds, so a failed first spawn can still be retried in the
+      // directory the user actually asked for.
       const requestedCwd = useUIStore.getState().terminalPeekRequestedCwd(sessionId);
-      // WI-2.2: otherwise a new terminal inherits a live sibling's cwd (OSC 7)
-      // so it starts where the user is; first terminal / no sibling →
-      // workspace-or-file resolution.
-      let inheritedCwd: string | undefined;
-      if (!requestedCwd) {
-        for (const [id, sib] of sessionsRef.current) {
-          if (id === sessionId || sib.disposed || !sib.pty || sib.shellExited) continue;
-          const live = sib.instance.getCwd();
-          if (live) {
-            inheritedCwd = live;
-            break;
-          }
-        }
-      }
-      const cwd = requestedCwd ?? inheritedCwd ?? resolveTerminalCwd();
+      // D-T9 (WI-TS4.1): cwd AND the env's workspace root come from the ONE
+      // spawn-context contract — request > same-scope sibling OSC-7 cwd >
+      // owner scope > active-scope/file fallback — resolved ONCE before the
+      // await, so a rail switch mid-spawn cannot retarget either.
+      const storeSession = useUIStore
+        .getState()
+        .terminal.sessions.find((s) => s.id === sessionId);
+      const context = resolveTerminalSpawnContext(
+        getCurrentWindowLabel(),
+        storeSession,
+        (siblingId) => {
+          const sib = sessionsRef.current.get(siblingId);
+          if (!sib || sib.disposed || !sib.pty || sib.shellExited) return undefined;
+          return sib.instance.getCwd() ?? undefined;
+        },
+      );
+      const cwd = context.cwd;
       // Captured BEFORE the await so the post-spawn check can tell "the
       // workspace changed while we were spawning" from "this session simply
       // starts somewhere other than the workspace root". Comparing the root
@@ -147,6 +139,9 @@ export function useTerminalShellLifecycle(
           term: entry.instance.term,
           // Omitted when nothing resolved a directory — see spawnPty's cwd note.
           ...(cwd !== undefined ? { cwd } : {}),
+          ...(context.workspaceRoot !== undefined
+            ? { workspaceRoot: context.workspaceRoot }
+            : {}),
           onExit: (exitCode) => {
             const e = sessionsRef.current.get(sessionId);
             // Ignore a stale exit from a PTY superseded by a restart.
@@ -198,12 +193,19 @@ export function useTerminalShellLifecycle(
         if (requestedCwd) useUIStore.getState().terminalClearRequestedCwd(sessionId);
 
         // If the workspace changed WHILE spawning, cd to the new root — but
-        // NOT when the user explicitly asked for a directory (WI-4.2). That
+        // NOT when the user explicitly asked for a directory (WI-4.2), and
+        // NOT for a scope-stamped session (WI-TS2.1/D-T4 — its workspace
+        // never changes under it; a rail switch hides it instead). That
         // catch-up `cd` would otherwise walk the shell straight back out of
         // the folder they right-clicked, which looks like the feature is
         // broken rather than like a workspace sync.
         const currentRoot = resolveTerminalWorkspaceRoot();
-        if (!requestedCwd && currentRoot && currentRoot !== rootBeforeSpawn) {
+        if (
+          !requestedCwd &&
+          currentRoot &&
+          currentRoot !== rootBeforeSpawn &&
+          shouldFollowWorkspaceCd(sessionId)
+        ) {
           pty.write(buildCdCommand(currentRoot));
           currentEntry.spawnedCwd = currentRoot;
         }

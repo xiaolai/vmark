@@ -1,6 +1,9 @@
 // @vitest-environment node
+// WI-TS2.3 — moving an instance out kills its terminal sessions AFTER the
+// ack (never on timeout/cancel) and realigns to the promoted successor.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useDocumentStore } from "@/stores/documentStore";
+import { resetTerminalSessionStore, useUIStore } from "@/stores/uiStore";
 import {
   selectWindowWorkspaceState,
   useWorkspaceInstancesStore,
@@ -200,5 +203,62 @@ describe("workspace window actions", () => {
       .resolves.toEqual({ ok: false, reason: "timeout", targetWindowLabel: "doc-2" });
     expect(selectWindowWorkspaceState(useWorkspaceInstancesStore.getState(), "main"))
       .toMatchObject({ workspaceInstanceIds: ["wsi-repo"] });
+  });
+});
+
+describe("terminal scope lifecycle on move (WI-TS2.3, D-T6)", () => {
+  const termIds = () => useUIStore.getState().terminal.sessions.map((s) => s.id);
+
+  beforeEach(() => {
+    resetTerminalSessionStore();
+  });
+
+  it("kills the moved instance's sessions only AFTER the ack, and realigns to the successor", async () => {
+    setRailMode(true);
+    addInstance("main", "wsi-repo", "/repo");
+    addInstance("main", "wsi-stay", "/stay");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-repo");
+    const moved = useUIStore
+      .getState()
+      .terminalCreateSession({ ownerInstanceId: "wsi-repo" })!;
+    const stay = useUIStore
+      .getState()
+      .terminalCreateSession({ ownerInstanceId: "wsi-stay" })!;
+    useUIStore.getState().terminalSetActiveSession(moved.id);
+    mockInvoke.mockResolvedValueOnce("doc-2");
+
+    const move = moveWorkspaceInstanceToNewWindow("main", "wsi-repo");
+    await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalled());
+    // NOT before the ack: the sessions are still alive while the target has
+    // not confirmed receipt.
+    expect(termIds().sort()).toEqual([moved.id, stay.id].sort());
+
+    ackTransfer(mockInvoke.mock.calls[0][1].data as WorkspaceTransferPayload);
+    await expect(move).resolves.toMatchObject({ ok: true });
+
+    expect(termIds()).toEqual([stay.id]);
+    // The moved instance was ACTIVE — realign shows the successor's session
+    // instead of a blank panel over hidden PTYs.
+    expect(useUIStore.getState().terminal.activeSessionId).toBe(stay.id);
+    expect(
+      "wsi-repo" in useUIStore.getState().terminal.lastActiveByScope,
+    ).toBe(false);
+  });
+
+  it("timeout before ack kills NO terminal sessions", async () => {
+    vi.useFakeTimers();
+    setRailMode(true);
+    addInstance("main", "wsi-repo", "/repo");
+    const s = useUIStore
+      .getState()
+      .terminalCreateSession({ ownerInstanceId: "wsi-repo" })!;
+    mockInvoke.mockResolvedValueOnce("doc-2");
+
+    const move = moveWorkspaceInstanceToNewWindow("main", "wsi-repo", { timeoutMs: 25 });
+    await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalled());
+    await vi.advanceTimersByTimeAsync(25);
+    await expect(move).resolves.toMatchObject({ ok: false, reason: "timeout" });
+
+    expect(termIds()).toEqual([s.id]);
   });
 });

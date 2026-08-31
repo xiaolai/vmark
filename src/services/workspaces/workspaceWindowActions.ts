@@ -3,6 +3,11 @@ import { isWorkspaceRailEnabled } from "@/services/featureFlags/workspaceRailFea
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
+import { finalizeInstanceRemoval } from "./finalizeInstanceRemoval";
+import {
+  acquireInstanceOperation,
+  releaseInstanceOperation,
+} from "./instanceOperationLock";
 import type {
   WorkspaceActionOptions,
   WorkspaceOpener,
@@ -18,34 +23,47 @@ import { waitForWorkspaceAck } from "./workspaceTransferAck";
 
 const DEFAULT_ACK_TIMEOUT_MS = 8_000;
 
+// Concurrency: both actions cross an acknowledgement wait; a second
+// activation during it would serialize a second payload from a source
+// mid-mutation. The guard is the SHARED per-instance operation lock
+// (instanceOperationLock.ts, R2-14) — one set across close, move and
+// duplicate, so a close cannot start during a move's ack wait either.
+
 export async function moveWorkspaceInstanceToNewWindow(
   windowLabel: string,
   workspaceInstanceId: string,
   options: WorkspaceActionOptions = {},
 ): Promise<WorkspaceWindowActionResult> {
-  const payload = buildWorkspacePayload(windowLabel, workspaceInstanceId, "move");
-  if (!payload) return disabledOrMissingResult(workspaceInstanceId);
-
-  const result = await createWindowAndWaitForAck(payload, options.timeoutMs);
-  if (!result.ok) return result;
-
-  for (const tab of payload.tabs) {
-    useTabStore.getState().detachTab(windowLabel, tab.tabId);
-    cleanupMovedTab(tab.tabId, options.cleanupTab);
+  if (!acquireInstanceOperation(workspaceInstanceId)) {
+    return { ok: false, reason: "busy" };
   }
-  const store = useWorkspaceInstancesStore.getState();
-  store.removeWorkspaceInstance(windowLabel, workspaceInstanceId);
-  if (windowLabel === "main") {
-    store.ensurePlaceholderInstance("main", `wsi-placeholder-${generateUUID()}`);
-  } else if (useWorkspaceInstancesStore.getState().windows[windowLabel]?.workspaceInstanceIds.length === 0) {
-    // Don't drop the rejection — a failed close should surface in logs rather
-    // than become an unhandled promise rejection.
-    void invoke("close_window", { label: windowLabel }).catch((error) => {
-      workspaceError("Failed to close emptied source window:", error);
+  try {
+    const payload = buildWorkspacePayload(windowLabel, workspaceInstanceId, "move");
+    if (!payload) return disabledOrMissingResult(workspaceInstanceId);
+
+    const result = await createWindowAndWaitForAck(payload, options.timeoutMs);
+    if (!result.ok) return result;
+
+    for (const tab of payload.tabs) {
+      useTabStore.getState().detachTab(windowLabel, tab.tabId);
+      cleanupMovedTab(tab.tabId, options.cleanupTab);
+    }
+    // WI-TS2.3 (D-T6): PTY/xterm state cannot cross webviews, so the moved
+    // instance's terminal sessions are killed in the SOURCE, strictly after
+    // the ack (the timeout/cancel path above returns before reaching here and
+    // kills nothing). The shared finalizer (audit #26) also cleans its
+    // closed-tab history, keeps the placeholder/empty-window invariants, and
+    // fully hydrates the promoted successor when the moved instance was
+    // active. Per-instance UI/pane snapshots deliberately stay: rail-plan gap
+    // G2 (cross-window orphan) is deferred there, not silently half-fixed.
+    await finalizeInstanceRemoval(windowLabel, workspaceInstanceId, {
+      cleanupPerInstanceUi: false,
     });
-  }
 
-  return result;
+    return result;
+  } finally {
+    releaseInstanceOperation(workspaceInstanceId);
+  }
 }
 
 export async function duplicateWorkspaceInstanceToNewWindow(
@@ -53,17 +71,24 @@ export async function duplicateWorkspaceInstanceToNewWindow(
   workspaceInstanceId: string,
   options: WorkspaceActionOptions = {},
 ): Promise<WorkspaceWindowActionResult> {
-  const payload = buildWorkspacePayload(windowLabel, workspaceInstanceId, "duplicate");
-  if (!payload) return disabledOrMissingResult(workspaceInstanceId);
+  if (!acquireInstanceOperation(workspaceInstanceId)) {
+    return { ok: false, reason: "busy" };
+  }
+  try {
+    const payload = buildWorkspacePayload(windowLabel, workspaceInstanceId, "duplicate");
+    if (!payload) return disabledOrMissingResult(workspaceInstanceId);
 
-  const result = await createWindowAndWaitForAck(payload, options.timeoutMs);
-  if (!result.ok) return result;
-  return {
-    ...result,
-    skippedDirtyCount: payload.skippedDirtyCount,
-    skippedUntitledCount: payload.skippedUntitledCount,
-    skippedMissingCount: payload.skippedMissingCount,
-  };
+    const result = await createWindowAndWaitForAck(payload, options.timeoutMs);
+    if (!result.ok) return result;
+    return {
+      ...result,
+      skippedDirtyCount: payload.skippedDirtyCount,
+      skippedUntitledCount: payload.skippedUntitledCount,
+      skippedMissingCount: payload.skippedMissingCount,
+    };
+  } finally {
+    releaseInstanceOperation(workspaceInstanceId);
+  }
 }
 
 export async function claimWorkspaceTransferForWindow(

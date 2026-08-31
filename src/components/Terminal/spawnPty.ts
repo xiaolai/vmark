@@ -51,41 +51,44 @@ import {
  */
 export function resolveTerminalCwd(): string | undefined {
   const windowLabel = getCurrentWindowLabel();
-  const workspaceRoot = resolveTerminalWorkspaceRoot(windowLabel);
-  if (workspaceRoot) return workspaceRoot;
+  return (
+    resolveTerminalWorkspaceRoot(windowLabel) ?? resolveActiveFileCwd(windowLabel)
+  );
+}
 
+/** The active saved file's parent directory (CWD priority #2), or undefined.
+ *  Split out of resolveTerminalCwd so the spawn-context contract (WI-TS4.1)
+ *  can reach the file fallback without the active-scope root. */
+export function resolveActiveFileCwd(windowLabel: string): string | undefined {
   const activeTabId = useTabStore.getState().activeTabId[windowLabel];
-  if (activeTabId) {
-    const doc = useDocumentStore.getState().getDocument(activeTabId);
-    if (doc?.filePath) {
-      // Use the cross-platform path helper instead of a raw forward-slash
-      // search. On Windows, `doc.filePath` is typically backslash-separated
-      // (`C:\Users\foo\bar.md`); `lastIndexOf("/")` returned -1 and the
-      // terminal opened in $HOME, breaking the documented CWD priority.
-      // `getParentDir` normalizes both separators and returns "" for
-      // filesystem roots.
-      const parent = getParentDir(doc.filePath);
-      // getParentDir returns "" for both POSIX root files (`/file.md`) and
-      // Windows drive-root files (`C:\file.md`) — but those need DIFFERENT
-      // roots, not $HOME. Resolve each explicitly so the terminal starts in
-      // the file's actual directory.
-      if (parent) {
-        // Windows drive-root edge: `C:\sub\file.md` → getParentDir yields
-        // "c:" (a drive-relative reference, NOT an absolute path), which
-        // would start the shell in the wrong directory. Append a slash so it
-        // anchors to the drive root.
-        if (/^[a-z]:$/i.test(parent)) return `${parent}/`;
-        return parent;
-      }
-      // File is directly at a filesystem root.
-      if (doc.filePath.startsWith("/")) return "/";
-      // Windows drive-root file (e.g. `C:\file.md` or `C:/file.md`) — return
-      // the drive root so the shell starts at `C:/` rather than $HOME.
-      const driveMatch = /^([a-zA-Z]):[/\\]/.exec(doc.filePath);
-      if (driveMatch) return `${driveMatch[1].toLowerCase()}:/`;
-    }
+  if (!activeTabId) return undefined;
+  const doc = useDocumentStore.getState().getDocument(activeTabId);
+  if (!doc?.filePath) return undefined;
+  // Use the cross-platform path helper instead of a raw forward-slash
+  // search. On Windows, `doc.filePath` is typically backslash-separated
+  // (`C:\Users\foo\bar.md`); `lastIndexOf("/")` returned -1 and the
+  // terminal opened in $HOME, breaking the documented CWD priority.
+  // `getParentDir` normalizes both separators and returns "" for
+  // filesystem roots.
+  const parent = getParentDir(doc.filePath);
+  // getParentDir returns "" for both POSIX root files (`/file.md`) and
+  // Windows drive-root files (`C:\file.md`) — but those need DIFFERENT
+  // roots, not $HOME. Resolve each explicitly so the terminal starts in
+  // the file's actual directory.
+  if (parent) {
+    // Windows drive-root edge: `C:\sub\file.md` → getParentDir yields
+    // "c:" (a drive-relative reference, NOT an absolute path), which
+    // would start the shell in the wrong directory. Append a slash so it
+    // anchors to the drive root.
+    if (/^[a-z]:$/i.test(parent)) return `${parent}/`;
+    return parent;
   }
-
+  // File is directly at a filesystem root.
+  if (doc.filePath.startsWith("/")) return "/";
+  // Windows drive-root file (e.g. `C:\file.md` or `C:/file.md`) — return
+  // the drive root so the shell starts at `C:/` rather than $HOME.
+  const driveMatch = /^([a-zA-Z]):[/\\]/.exec(doc.filePath);
+  if (driveMatch) return `${driveMatch[1].toLowerCase()}:/`;
   return undefined;
 }
 
@@ -100,6 +103,11 @@ export function resolveTerminalWorkspaceRoot(
 export interface SpawnOptions {
   term: Terminal;
   cwd?: string;
+  /** VMARK_WORKSPACE root, resolved ONCE by the caller before the spawn
+   *  awaits (WI-TS4.1/D-T9 — resolveTerminalSpawnContext). spawnPty no
+   *  longer re-resolves it post-await, so a workspace switch during the
+   *  spawn cannot retarget the shell's env. Absent ⇒ no VMARK_WORKSPACE. */
+  workspaceRoot?: string;
   onExit: (exitCode: number) => void;
   disposed: () => boolean;
 }
@@ -170,7 +178,7 @@ export function wirePtyFlowControl(
  * Reads shell from Tauri backend, accepts optional cwd, wires data streams.
  */
 export async function spawnPty(options: SpawnOptions): Promise<IPty> {
-  const { term, cwd, onExit, disposed } = options;
+  const { term, cwd, workspaceRoot, onExit, disposed } = options;
 
   // Fetch login shell PATH so CLI tools (node, claude, etc.) are discoverable.
   // macOS GUI apps have minimal PATH; this aligns with system terminal behavior.
@@ -186,7 +194,6 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   const shellIsAbsolute = defaultShell.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(defaultShell);
   const shell = shellIsAbsolute ? defaultShell : "/bin/sh";
   if (disposed()) throw new Error("disposed before spawn");
-  const workspaceRoot = resolveTerminalWorkspaceRoot();
 
   const env = buildBaseTerminalEnv(loginPath, workspaceRoot);
   // Observability (T1): make "why doesn't `git commit` open VMark?" answerable

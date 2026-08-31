@@ -41,6 +41,13 @@
 import { useRef, useEffect, useState, useCallback, type RefObject, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { maybeAutoCreateTerminalSession } from "@/services/terminal/maybeAutoCreateTerminalSession";
+import { realignTerminalActiveToVisible } from "@/services/terminal/visibleTerminalSessions";
+import { removeTerminalSessionWithPanelPolicy } from "@/services/terminal/closeTerminalSession";
+import { useVisibleTerminalSessions } from "./useVisibleTerminalSessions";
 import { useTerminalSessions } from "./useTerminalSessions";
 import { useTerminalResize } from "./useTerminalResize";
 import { useTerminalAutoFit } from "./useTerminalAutoFit";
@@ -80,15 +87,31 @@ export function TerminalPanel() {
   const { fit, getActiveTerminal, getActiveSearchAddon, restartActiveSession } =
     useTerminalSessions(activated ? containerRef : NULL_REF, { onSearch });
 
-  // Create a session when terminal becomes visible with none existing
-  // (e.g., user closed all tabs then re-opened the panel)
+  // Auto-create when the panel is visible over an EMPTY visible scope
+  // (WI-TS3.2/D-T8): gated on the synchronous instance-backed scope through
+  // the ONE shared helper, and re-fired on rail switches so entering an
+  // empty workspace scope creates its first session there. A refusal renders
+  // the empty-state hint below instead of spawning into $HOME.
+  //
+  // The rail MODE is a dependency too (R2-15): toggling it changes the
+  // visible population with no scope switch, so the active session is first
+  // realigned to what is actually visible — otherwise a newly-hidden active
+  // session would sit over an empty tab bar and block auto-create.
+  const activeInstanceId = useWorkspaceInstancesStore(
+    (s) => s.windows[getCurrentWindowLabel()]?.activeWorkspaceInstanceId ?? null,
+  );
+  const railEnabled = useSettingsStore(
+    (s) => s.general?.workspaceRailMode ?? false,
+  );
   useEffect(() => {
     if (!visible) return;
-    const store = useUIStore.getState();
-    if (store.terminal.sessions.length === 0) {
-      store.terminalCreateSession();
-    }
-  }, [visible]);
+    realignTerminalActiveToVisible(getCurrentWindowLabel());
+    maybeAutoCreateTerminalSession(getCurrentWindowLabel());
+  }, [visible, activeInstanceId, railEnabled]);
+
+  // The visible population (WI-TS3.3/D-T7): drives the empty-state hint and
+  // close/last-ness decisions — hidden scopes' sessions keep running.
+  const visibleSessions = useVisibleTerminalSessions();
 
   // Refit when shown, resized, or position changes
   useEffect(() => {
@@ -175,18 +198,12 @@ export function TerminalPanel() {
     setContextMenu(null);
   }, []);
 
-  // Tab bar actions
+  // Tab bar actions — the ONE remove+hide policy (audit 20260831 #32):
+  // membership-verified, visible fallback, no hidden-panel resurrect.
   const handleClose = useCallback(() => {
-    const store = useUIStore.getState();
-    if (!store.terminal.activeSessionId) return;
-
-    const isLast = store.terminal.sessions.length <= 1;
-    store.terminalRemoveSession(store.terminal.activeSessionId);
-
-    // Last session — also hide the panel
-    if (isLast) {
-      useUIStore.getState().toggleTerminal();
-    }
+    const activeId = useUIStore.getState().terminal.activeSessionId;
+    if (!activeId) return;
+    removeTerminalSessionWithPanelPolicy(activeId, { onlyIfVisible: true });
   }, []);
 
   const handleRestart = useCallback(() => {
@@ -230,6 +247,11 @@ export function TerminalPanel() {
             className="terminal-container"
             onContextMenu={handleContextMenu}
           />
+          {visibleSessions.length === 0 && (
+            <div className="terminal-empty-state" role="note">
+              {t("terminal.noWorkspaceSession")}
+            </div>
+          )}
           {searchVisible && (
             <TerminalSearchBar
               // Reset search state when switching terminal sessions so stale highlights are cleared.

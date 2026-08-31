@@ -34,6 +34,7 @@ import {
   initialTerminal,
   resetTerminalIdCounter,
 } from "./uiStore/terminalSlice";
+import { createTerminalScopeActions } from "./uiStore/terminalScopeActions";
 
 export type { SidebarViewMode, UIStore, FileSearchResult, EffectiveTerminalPosition, LineMatch } from "./uiStore/types";
 export { MAX_TERMINAL_SESSIONS } from "./uiStore/terminalSlice";
@@ -199,7 +200,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
     }),
   setDraggingFiles: (dragging) => set({ isDraggingFiles: dragging }),
   toggleTerminal: () => set((s) => ({ terminalVisible: !s.terminalVisible })),
-  // Only the absolute pixel floor is enforced here; the proportional 50% cap
+  // Only the absolute pixel floor is enforced here; the proportional cap
   // (TERMINAL_MAX_RATIO) is applied by the viewport-aware callers that know the
   // window size — useTerminalPosition (layout) and useTerminalResize (drag).
   setTerminalHeight: (h) =>
@@ -218,6 +219,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   ...createSearchActions(set, get),
   ...createContentSearchActions(set, get),
   ...createTerminalActions(set, get),
+  ...createTerminalScopeActions(set, get),
 }));
 
 /** Reset terminal slice + ID counter — for tests only. */

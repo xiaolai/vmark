@@ -53,6 +53,10 @@ AI clients opening documents through MCP never yank your visible workspace: `wor
 | Duplicate to a new window | The **⧉** button on hover |
 | Close a workspace | Right-click → Close (prompts per dirty tab) |
 
+## Terminal sessions
+
+Each railed workspace owns its own terminal sessions. A rail switch swaps the visible terminal tabs; hidden workspaces' shells keep running untouched — no `cd` is typed into them, busy or idle — and switching back reveals the same shells with the session you were on remembered per workspace. New sessions (the **+** button, "Open Terminal Here", "Run in Terminal") are created in the active workspace and start in its root; closing a workspace or moving it to its own window closes its sessions with it. Details in the [terminal guide](/guide/terminal#terminal-sessions-and-the-workspace-rail).
+
 ## Known limitation
 
 On macOS, two spellings of the same folder that differ only in letter case (possible on case-insensitive volumes) are treated as **different** workspaces. This is deliberate: workspace identity is byte-exact on macOS and Linux, and case-folded on Windows.

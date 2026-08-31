@@ -52,7 +52,10 @@ type WorkspaceActionFailureReason =
   | "disabled"
   | "missingInstance"
   | "invokeFailed"
-  | "timeout";
+  | "timeout"
+  /** A move/duplicate for this instance is already in flight (audit
+   *  20260831 #28 — mirrors closeWorkspaceInstance's `closing` guard). */
+  | "busy";
 
 export type WorkspaceWindowActionResult =
   | {

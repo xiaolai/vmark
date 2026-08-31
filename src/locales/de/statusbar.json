@@ -98,5 +98,6 @@
   "scrollTabsLeft": "Tabs nach links scrollen",
   "scrollTabsRight": "Tabs nach rechts scrollen",
   "terminal.sessionExited": "{{name}} (beendet)",
-  "terminal.backgroundActivity": "Hintergrundaktivität"
+  "terminal.backgroundActivity": "Hintergrundaktivität",
+  "terminal.noWorkspaceSession": "Öffnen Sie einen Ordner oder speichern Sie Ihre Datei, um das Terminal zu verwenden"
 }

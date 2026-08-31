@@ -1,6 +1,8 @@
 // @vitest-environment node
+// WI-TS2.3 — duplicate copies/kills NO terminal sessions (D-T6).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useDocumentStore } from "@/stores/documentStore";
+import { resetTerminalSessionStore, useUIStore } from "@/stores/uiStore";
 import {
   selectWindowWorkspaceState,
   useWorkspaceInstancesStore,
@@ -137,5 +139,30 @@ describe("workspace window duplicate and loose transfer actions", () => {
       reason: "timeout",
       targetWindowLabel: "doc-2",
     });
+  });
+});
+
+describe("terminal sessions on duplicate (WI-TS2.3, D-T6)", () => {
+  beforeEach(() => {
+    resetTerminalSessionStore();
+  });
+
+  it("copies and kills NOTHING — the source scope's sessions are untouched", async () => {
+    setRailMode(true);
+    addInstance("main", "wsi-repo", "/repo");
+    useWorkspaceInstancesStore.getState().activateWorkspaceInstance("main", "wsi-repo");
+    const s = useUIStore
+      .getState()
+      .terminalCreateSession({ ownerInstanceId: "wsi-repo" })!;
+    mockInvoke.mockResolvedValueOnce("doc-2");
+
+    const dup = duplicateWorkspaceInstanceToNewWindow("main", "wsi-repo");
+    await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalled());
+    ackTransfer(mockInvoke.mock.calls[0][1].data as WorkspaceTransferPayload);
+    await expect(dup).resolves.toMatchObject({ ok: true });
+
+    const sessions = useUIStore.getState().terminal.sessions;
+    expect(sessions.map((x) => x.id)).toEqual([s.id]);
+    expect(sessions[0]?.workspaceInstanceId).toBe("wsi-repo");
   });
 });

@@ -407,15 +407,14 @@ describe("spawnPty shell selection", () => {
     expect(spawnCalls).toEqual(["/usr/bin/nonexistent", "/bin/zsh"]);
   });
 
-  it("sets VMARK_WORKSPACE env when workspace root is available", async () => {
+  it("sets VMARK_WORKSPACE env from the caller-resolved workspaceRoot (WI-TS4.1)", async () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
     } as ReturnType<typeof useSettingsStore.getState>);
-    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
-      rootPath: "/my/workspace",
-    } as ReturnType<typeof useWorkspaceStore.getState>);
 
-    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+    // The root arrives as a PARAMETER (resolveTerminalSpawnContext, resolved
+    // once pre-await) — spawnPty no longer re-resolves it itself (WI-TS4.1).
+    await spawnPty({ term: mockTerm, workspaceRoot: "/my/workspace", onExit: vi.fn(), disposed: () => false });
 
     const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
     expect(spawnCallEnv.env.VMARK_WORKSPACE).toBe("/my/workspace");
@@ -429,16 +428,13 @@ describe("spawnPty shell selection", () => {
     vi.mocked(useSettingsStore.getState).mockReturnValue({
       terminal: { shell: "" },
     } as ReturnType<typeof useSettingsStore.getState>);
-    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
-      rootPath: "/my/workspace",
-    } as ReturnType<typeof useWorkspaceStore.getState>);
     vi.mocked(invoke).mockImplementation((cmd: string) => {
       if (cmd === "get_default_shell") return Promise.resolve("/bin/zsh");
       if (cmd === "get_login_shell_path") return Promise.resolve("/usr/local/bin:/bin");
       return Promise.resolve(null);
     });
 
-    await spawnPty({ term: mockTerm, onExit: vi.fn(), disposed: () => false });
+    await spawnPty({ term: mockTerm, workspaceRoot: "/my/workspace", onExit: vi.fn(), disposed: () => false });
 
     const spawnCallEnv = vi.mocked(spawn).mock.calls[0][2] as { env: Record<string, string> };
     expect(spawnCallEnv.env).toEqual({

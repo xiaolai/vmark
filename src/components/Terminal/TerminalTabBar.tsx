@@ -40,6 +40,9 @@ import { useTranslation } from "react-i18next";
 import { useUIStore, MAX_TERMINAL_SESSIONS, type EffectiveTerminalPosition } from "@/stores/uiStore";
 import type { TerminalSession } from "@/stores/uiStore/types";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { createTerminalSessionInScope } from "@/services/terminal/createTerminalSession";
+import { useVisibleTerminalSessions } from "./useVisibleTerminalSessions";
 import { oppositeTerminalPosition, isHorizontalTerminalAxis } from "./useTerminalPosition";
 import { TerminalTabRename } from "./TerminalTabRename";
 import "./TerminalTabBar.css";
@@ -90,11 +93,16 @@ function getTabDisplay(session: TerminalSession, displayName: string): string {
 /** Renders numbered buttons for switching between terminal sessions plus create/close/restart controls. */
 export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", position }: TerminalTabBarProps) {
   const { t } = useTranslation("statusbar");
-  const sessions = useUIStore((s) => s.terminal.sessions);
+  // WI-TS3.1: the tab bar renders the VISIBLE population — the active
+  // workspace scope's sessions ∪ window-scoped (everything with rail off).
+  const sessions = useVisibleTerminalSessions();
   const activeId = useUIStore((s) => s.terminal.activeSessionId);
 
   const handleCreate = useCallback(() => {
-    useUIStore.getState().terminalCreateSession();
+    // The ONE owner-aware creation service (D-T1; audit 20260831 #17) — it
+    // resolves the scope and applies the placeholder/restore/rail-off
+    // carve-outs, identically to every other creator.
+    createTerminalSessionInScope(getCurrentWindowLabel());
   }, []);
 
   // Swap flips the panel to the opposite end of its current axis. In auto
@@ -118,10 +126,20 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
 
   // Which tab is being renamed, if any (WI-4.1).
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  // A rename box must not survive its session leaving the VISIBLE set
+  // (audit 20260831 #34): a rail switch mid-rename would otherwise resurrect
+  // edit mode when the user returns to the scope. Adjusted during render (the
+  // guarded one-way pattern TerminalPanel's `activated` latch uses) — an
+  // effect calling setState synchronously trips the cascading-render lint.
+  if (renamingId && !sessions.some((s) => s.id === renamingId)) {
+    setRenamingId(null);
+  }
   const handleRename = useCallback((id: string, name: string) => {
     useUIStore.getState().terminalRenameSession(id, name);
   }, []);
 
+  // The cap gates on what the user can SEE (D-T5's visible union) — a hidden
+  // scope's sessions do not consume this scope's headroom.
   const isMaxed = sessions.length >= MAX_TERMINAL_SESSIONS;
 
   return (

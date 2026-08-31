@@ -1,7 +1,10 @@
 # Plan: Per-workspace-instance terminal session sets (WI-TS)
 
-**Status:** Phase 0 not started · v3 after refuter-panel round 1 + Codex
-cross-model review round 2 (see Review rounds; §6 requirement satisfied)
+**Status:** Phases 0–5 IMPLEMENTED, 2026-08-31 (all 19 WIs stamped DONE below;
+`check-tscope-phase.sh` 0–5 all green; WI linkage 19/19; `check:predelta`
+41/41; one confirming `pnpm check:all` exit 0; journeys 17/18/35 green against
+a live debug app) · v3 after refuter-panel round 1 + Codex cross-model review
+round 2 (see Review rounds; §6 requirement satisfied)
 **Home:** `.claude/tdd-guardian/` (tracked — committed on maintainer direction, 2026-08-31; DoD script lives in `scripts/`)
 **WI namespace:** `WI-TS<phase>.<n>` (§1 — bare `WI-N.M` collides across plans)
 **Release note:** Phases 1–4 are ONE release train — intermediate mains are
@@ -41,12 +44,12 @@ visibility/geometry stay window-global.
 |---|---|---|
 | D-T1 | **Ownership is a per-session field, stamped at creation** from `getActiveWorkspaceScope(windowLabel).workspaceInstanceId` — with THREE carve-outs, resolved by ONE shared helper `resolveTerminalOwnerInstanceId(windowLabel)` in `src/services/terminal/`: never stamp a **placeholder** instance's id (placeholders are deleted silently by `addWorkspaceInstance`/`ensureLooseInstance` with no lifecycle follower — `workspaceInstancesStore.ts:51-65`, `:216-227`); never stamp while **`isWindowContextRestoring(windowLabel)`** (a mid-restore auto-create would bind to the pre-reconcile active id — `restoreHelpers.ts:165` fires before reconcile can re-activate); never stamp while the **rail is off**. Field absent ⇒ *window-scoped*. On every rail switch (and on hydrate), window-scoped sessions are **adopted by the outgoing (resp. active) instance**, skipping placeholder targets. | Creation always happens under the active scope (`useTerminalShellLifecycle.ts:122-137`). The carve-outs close the round-1 blocker (placeholder-stranded PTY) and the restore race (stamped-too-early → hidden session + double-create). |
 | D-T2 | **Store shape: flat list + owner field + per-scope active memory.** `TerminalSession.workspaceInstanceId?: string` (optional-key pattern of `requestedCwd`, `terminalSlice.ts:113`); new `lastActiveByScope: Record<string, string \| null>`. `activeSessionId` KEEPS its meaning — *the session currently shown* — so all ~10 consumers (fit, search, getActiveTerminal, bell isActive, restart, reveal, Cmd+N) stay semantically correct unmodified. | Verified round 1: every listed consumer is null-safe. |
-| D-T3 | **Sessions NEVER leave the store on a switch; scoping lives in selectors + visibility.** The reconcile subscription treats "id left the array" as *dispose xterm + kill PTY* (pre-split `useTerminalSessions.ts:258-273` → the module WI-TS0.2 extracts; → `terminalSessionReconcile.ts:42-45` → `removeSessionEntry`), with no guard on the removed side. Hiding = `switchVisibility`'s existing `display:none` driven by the `activeSessionId` change; hidden entries keep PTY + buffer (`terminalSessionRegistry.ts:54-65`). | Both review rounds confirmed: no other code path removes sessions on workspace changes; `switchVisibility(null)` hides all while preserving PTYs; the panel never unmounts once activated. |
+| D-T3 | **Sessions NEVER leave the store on a switch; scoping lives in selectors + visibility.** The reconcile subscription treats "id left the array" as *dispose xterm + kill PTY* (`useTerminalSessionsInit.ts`, the WI-TS0.2 extraction → `terminalSessionReconcile.ts:42-45` → `removeSessionEntry`), with no guard on the removed side. Hiding = `switchVisibility`'s existing `display:none` driven by the `activeSessionId` change; hidden entries keep PTY + buffer (`terminalSessionRegistry.ts:54-65`). | Both review rounds confirmed: no other code path removes sessions on workspace changes; `switchVisibility(null)` hides all while preserving PTYs; the panel never unmounts once activated. |
 | D-T4 | **cd-follow applies ONLY to effectively-window-scoped sessions, at all THREE sites:** the syncRoot loop (`terminalSessionStoreSync.ts:172`, guard before `:179`), the post-spawn catch-up (`useTerminalShellLifecycle.ts:205-209`), and **`flushPendingRoot` (`terminalSessionStoreSync.ts:65-79`)** — the OSC-133 idle callback is an independent cd path and a `pendingRoot` recorded pre-adoption survives adoption. Owner resolved live from the store by session id. Guards are rail-aware (D-T15). | "Both sites" was refuted by BOTH review rounds independently — the flush is a third site; one guard inside `flushPendingRoot` covers every caller. |
 | D-T5 | **Cap and ordinals are per *visible population*; the cap is a CREATION-TIME GATE, not a population invariant.** Creation counts target scope ∪ window-scoped when rail on, all sessions when off; ordinal = smallest unused across the same union (no two visible "Terminal 1"). `terminalAdoptUnscopedSessions` renumbers on in-scope collision (labels untouched) and **never kills** — so a scope can transiently exceed 5 (reachable: sessions created under an active placeholder count no hidden scope, then get adopted later); the `+` stays disabled until the visible count drops below 5. **No window-level ceiling**: creation is one user click at a time behind the gate; a hidden idle session costs one PTY + a few MB of xterm buffer. If field feedback shows runaway populations, add a window ceiling then — measured, not guessed. | Round-1/round-2 convergent refutation of the v1 rule (per-scope smallest-unused breaks visible uniqueness and its own adoption AC). The Codex over-cap sequence is real via the placeholder path and is pinned by test rather than "prevented" by a kill nobody wants. |
 | D-T6 | **Instance lifecycle:** close → remove that instance's sessions (the reconcile's dispose-on-remove path is *correct* here), strictly after the re-validate point (`closeWorkspaceInstance.ts:117-122` — never before the dirty-check await); move-to-window → same kill on the source after ack (`workspaceWindowActions.ts:32-46`; the ack-timeout/cancel path kills nothing); duplicate → copies nothing; loose-instance **rekey merges**: re-stamp every oldId session to newId, renumber ordinals on in-scope collision, `lastActiveByScope` target-wins (mirror `workspaceInstanceUiStore.ts:204`), cap unaffected (creation gate). **Close/move of the ACTIVE instance must also realign:** `removeWorkspaceInstance` promotes `ids[0]` (`workspaceInstancesStore/helpers.ts:28-41`) with no switch event, so after removal the caller calls `terminalHydrateScope(successorId)` — otherwise `activeSessionId` stays null over the successor's hidden sessions and auto-create refuses (non-empty scope): a blank panel with live hidden PTYs. | PTY/xterm state cannot cross webviews (payload carries instance identity + tabs only, `workspace_transfer.rs:46-63`). Realign + merge semantics are round-1/round-2 convergent findings. |
 | D-T7 | **"Last session" panel-hide is computed on the VISIBLE population** at both sites (`TerminalPanel.tsx:183-189`, `useTerminalShellLifecycle.ts:69-79`). | Panel-hide is about what the user sees; hidden sessions keep running. |
-| D-T8 | **Auto-create is scope-aware, gate-checked against the INCOMING SCOPE, and BOTH creators go through ONE shared helper.** `canAutoCreateInScope(scope, activeTabHasSavedFile)` = `scope.isWorkspaceMode \|\| activeTabHasSavedFile`, evaluated on `getActiveWorkspaceScope(...)` (synchronous, instance-backed). `canOpenTerminal()` (`terminalGate.ts:10-22`) reads the LEGACY `useWorkspaceStore`, updated only by the *async* `syncLegacyWorkspaceContext` refresh and **never after a close** — gating on it races the scope it gates. The shared helper `maybeAutoCreateTerminalSession(windowLabel)` is used by the panel effect (re-fires on `[visible, activeInstanceId]`) AND the mount-time creator (pre-split `useTerminalSessions.ts:237-243`) — today the latter creates unconditionally, so a hot-exit-restored-visible panel over a refusing scope would spawn into `$HOME`. Gate refuses → i18n'd empty-state hint. Toggle-time gate (`requestToggleTerminal`) unchanged. | Round-1 showed the legacy gate makes the WI's own tests unimplementable; round-2 caught the second, ungated creator. |
+| D-T8 | **Auto-create is scope-aware, gate-checked against the INCOMING SCOPE, and BOTH creators go through ONE shared helper.** `canAutoCreateInScope(scope, activeTabHasSavedFile)` = `scope.isWorkspaceMode \|\| activeTabHasSavedFile`, evaluated on `getActiveWorkspaceScope(...)` (synchronous, instance-backed). `canOpenTerminal()` (`terminalGate.ts:10-22`) reads the LEGACY `useWorkspaceStore`, updated only by the *async* `syncLegacyWorkspaceContext` refresh and **never after a close** — gating on it races the scope it gates. The shared helper `maybeAutoCreateTerminalSession(windowLabel)` is used by the panel effect (re-fires on `[visible, activeInstanceId]`) AND the mount-time creator (`useTerminalSessionsInit.ts`, the WI-TS0.2 extraction) — today the latter creates unconditionally, so a hot-exit-restored-visible panel over a refusing scope would spawn into `$HOME`. Gate refuses → i18n'd empty-state hint. Toggle-time gate (`requestToggleTerminal`) unchanged. | Round-1 showed the legacy gate makes the WI's own tests unimplementable; round-2 caught the second, ungated creator. |
 | D-T9 | **A session's spawn env/cwd derive from a pure, named contract:** `resolveTerminalSpawnContext(windowLabel, session)` → `{ cwd, workspaceRoot }` = `requestedCwd` ?? same-scope sibling OSC-7 cwd ?? (owner instance's `rootPath` when stamped and the instance still exists; else active-scope resolution as today). Resolved ONCE pre-await; `spawnPty` takes `workspaceRoot` as a parameter and stops re-resolving post-await (`spawnPty.ts:189`). Missing owner (deleted mid-spawn) falls back to active scope — spawn only ever starts for a visible session, so this is the degenerate case, not the norm. | Kills the mid-spawn race (cwd pre-await vs `VMARK_WORKSPACE` post-await). Round-2 asked for the contract to be named rather than implied; here it is. |
 | D-T10 | **Run-in-Terminal / reveal pick from the visible population** (`revealTerminalSession.ts:35-44`). Deferred delivery stays pinned to the session id (`runInTerminal.ts:171-223`) — a command requested in workspace A lands in A's shell even if the user switches away mid-delivery. | Id-pinning is already deliberate; now stated. |
 | D-T11 | **Bell/attention stay window-level.** `hasActivity` still sets; OS notification + window attention fire regardless of scope (`terminalAttention.ts:117-134`). **Every action that activates a session — `terminalSetActiveSession`, `terminalSwitchScope`, `terminalHydrateScope` — applies the same `hasActivity` clear** (`terminalSlice.ts:139-155`), so a restored remembered session doesn't carry a stale dot. Rail-item activity badge = named follow-up. | Round-2 caught the switchScope/activity-clear bypass. |
@@ -115,6 +118,10 @@ hidden sessions or strand sessions on close/move.
 **Gate:** `pnpm check:all`; `bash scripts/check-tscope-phase.sh 0`.
 
 #### WI-TS0.1: Plan infrastructure
+
+**Status:** DONE — 2026-08-31
+**Changed:** scripts/check-tscope-phase.sh, scripts/check-tscope-phase.test.mjs
+**Verified:** pnpm vitest run --config vitest.gates.config.ts scripts/check-tscope-phase.test.mjs (5 passed)
 Copy `scripts/check-gha-phase.sh` → `scripts/check-tscope-phase.sh`; per-phase
 assertions. **WI linkage must be invoked as
 `bash scripts/check-wi-linkage.sh <plan> --phase=TS<N>`** — the filter regex
@@ -124,6 +131,10 @@ exits 1 against `WI-TS*` ids (verified by execution).
   that the linkage invocation finds ≥ 1 WI for phase TS0.
 
 #### WI-TS0.2: Split `useTerminalSessions.ts` (mechanical)
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/components/Terminal/useTerminalSessions.ts (295→241), src/components/Terminal/terminalSessionBell.ts (new), src/components/Terminal/useTerminalSessionsInit.ts (new), plan anchors D-T3/D-T8
+**Verified:** pnpm vitest related --run (214 files, 3237 passed)
 Extract the bell wiring (`:165-172`) and the mount/init + store-subscription
 block (`:230-281`) into sibling modules. No behavior change. **Update this
 plan's own line anchors in the same change** (D-T3/D-T8 cite ranges this WI
@@ -131,6 +142,10 @@ relocates).
 - AC: all existing terminal suites green unmodified; file < 250 lines.
 
 #### WI-TS0.3: Split `workspaceInstancesStore.ts` (mechanical)
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/stores/workspaceInstancesStore.ts (299→261), src/stores/workspaceInstancesStore/helpers.ts (applyAddWorkspaceInstance moved in verbatim)
+**Verified:** pnpm vitest related --run (214 files, 3237 passed — same run as WI-TS0.2)
 299/300, unbaselined; Phase 2's follower needs headroom. Move pure logic into
 `workspaceInstancesStore/helpers.ts` (or a second helper module).
 - AC: existing store suites green unmodified; file ≤ 280 lines.
@@ -142,6 +157,10 @@ relocates).
 **Gate:** `pnpm check:all`; `bash scripts/check-tscope-phase.sh 1`.
 
 #### WI-TS1.1: Owner field + stamping helper + union cap/ordinals
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/stores/uiStore/types.ts, src/stores/uiStore/terminalSlice.ts, src/services/terminal/resolveTerminalOwnerInstanceId.ts (new), src/stores/uiStore/terminalSlice.scope.test.ts (new), src/services/terminal/resolveTerminalOwnerInstanceId.test.ts (new)
+**Verified:** pnpm vitest run (4 files, 40 passed — Phase 1 batch)
 `TerminalSession.workspaceInstanceId?: string`; `terminalCreateSession` takes
 `ownerInstanceId?` (the slice never imports workspace stores — callers resolve
 via the ONE shared helper `resolveTerminalOwnerInstanceId(windowLabel)`
@@ -156,6 +175,10 @@ implementing D-T1's three carve-outs). Cap + ordinal allocation per D-T5
   today.
 
 #### WI-TS1.2: Scope-transition actions (the kernel)
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/stores/uiStore/terminalScopeActions.ts (new), src/stores/uiStore/types.ts (TerminalScopeActions), src/stores/uiStore.ts (merge), src/stores/uiStore/terminalSlice.ts (terminalRemoveSession visibleIds), src/stores/uiStore/terminalScopeActions.test.ts (new)
+**Verified:** pnpm vitest run (4 files, 40 passed — Phase 1 batch)
 `terminalAdoptUnscopedSessions(instanceId)` — absent→instanceId, renumbers on
 in-scope ordinal collision, never targets a placeholder (caller guarantees),
 idempotent; `terminalSwitchScope(outgoingId, incomingId)` — records
@@ -176,6 +199,10 @@ visible population.
   no outgoing memory.
 
 #### WI-TS1.3: Scoped selectors
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/stores/uiStore/terminalScopeSelectors.ts (new), src/stores/uiStore/terminalScopeSelectors.test.ts (new)
+**Verified:** pnpm vitest run (4 files, 40 passed — Phase 1 batch)
 `selectVisibleTerminalSessions(state, activeInstanceId, railEnabled)` =
 railEnabled ? (window-scoped ∪ active-instance-scoped) : ALL;
 `selectVisibleSessionCount` (invariant 7 — the only exported count).
@@ -190,6 +217,10 @@ railEnabled ? (window-scoped ∪ active-instance-scoped) : ALL;
 **Gate:** `pnpm check:all`; `bash scripts/check-tscope-phase.sh 2`.
 
 #### WI-TS2.1: Gate cd-follow at all three sites (BEFORE any wiring)
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/services/terminal/terminalCdFollow.ts (new), src/components/Terminal/terminalSessionStoreSync.ts (syncRoot guard + flushPendingRoot(sessionId, entry) + id-wired idle flush), src/components/Terminal/useTerminalShellLifecycle.ts (post-spawn guard), src/components/Terminal/terminalSessionStoreSync.scope.test.ts (new), src/components/Terminal/useTerminalShellLifecycle.scope.test.ts (new), terminalSessionStoreSync.root.test.ts (flush signature)
+**Verified:** pnpm vitest run (4 files, 35 passed). Note: the null-root invalidation loop deliberately clears pendingRoot for ALL sessions rather than skipping stamped ones — skipping would let a stale pending survive a later rail-off toggle and resurrect audit-#14 through the D-T15 branch; the D-T4 property (scoped sessions never cd) is held by the sync + flush guards.
 Owner-guard (rail-aware, D-T15) in: syncRoot loop body
 (`terminalSessionStoreSync.ts:172`, before `:179`), null-root invalidation
 loop (`:160`), post-spawn catch-up (`useTerminalShellLifecycle.ts:205-209`),
@@ -202,6 +233,10 @@ any future caller. Owner resolved from the store at check time.
   including stamped (D-T15).
 
 #### WI-TS2.2: Coordinator + hydrate
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/services/workspaces/switchWorkspaceInstance.ts (adopt outgoing + switchScope), src/services/workspaces/hydrateWorkspaceInstanceContext.ts (adopt + hydrateScope), switchWorkspaceInstance.test.ts (+4 tests), workspaceSwitchInterplay.test.ts (owner-exists invariant incl. placeholder churn)
+**Verified:** pnpm vitest related --run (217 files, 3262 passed)
 `switchWorkspaceInstance`: beside `stashOutgoingInstance` (`:177`)
 `terminalAdoptUnscopedSessions(outgoingId)` (skip placeholder outgoing);
 after `restoreIncomingInstance` (`:182`) `terminalSwitchScope(outgoingId,
@@ -219,6 +254,10 @@ idempotence.
   double-create; user-switch-then-hydrate converges (no clobber).
 
 #### WI-TS2.3: Instance lifecycle wiring (close / move / rekey / realign)
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/services/workspaces/closeWorkspaceInstance.ts (kill + memory-slot drop + removeClosedScope + realign-if-active), src/services/workspaces/workspaceWindowActions.ts (move: post-ack kill + removeClosedScope + realign; cancel path kills nothing; duplicate untouched), src/stores/workspaceInstancesStore.ts (terminalRekeyScope follower), src/stores/tabStoreClosedScopes.ts (removeClosedScope action — the adjacent closed-scopes leak, applied at BOTH lifecycle exits: close and move-out), tabStoreClosedScopes.test.ts (+2), workspaceSwitchInterplay.test.ts (close-of-active realign)
+**Verified:** pnpm vitest related --run (217 files, 3262 passed — same run as WI-TS2.2)
 Close (`closeWorkspaceInstance.ts:125-126` block, strictly after re-validate
 `:117-122`): `terminalRemoveScopeSessions(id)` + drop `lastActiveByScope`
 slot + **if the closed instance was active, `terminalHydrateScope(successor)`**
@@ -240,6 +279,10 @@ there creates NO cycle — verified round 1).
   line this WI edits; skipping would re-record the leak knowingly.
 
 #### WI-TS2.4: End-to-end store-chain integration test
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/components/Terminal/terminalSessionStoreSync.railswitch.test.ts (new — real stores + real coordinator + real scope resolver; mocks: Tauri invoke, window label)
+**Verified:** pnpm vitest run (3 passed) + bash scripts/check-tscope-phase.sh 2 (14 passed, 0 failed)
 Re-land the 2026-08-31 probe as a permanent test
 (`terminalSessionStoreSync.railswitch.test.ts`, real stores, minimal mocks):
 rail switch swaps the visible set, does NOT cd instance-scoped sessions, DOES
@@ -255,6 +298,10 @@ investigated bug class; the rail→terminal chain had zero non-mocked coverage.
 **Gate:** `pnpm check:all`; `bash scripts/check-tscope-phase.sh 3`.
 
 #### WI-TS3.1: UI filtering
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/components/Terminal/useVisibleTerminalSessions.ts (new React face), src/services/terminal/visibleTerminalSessions.ts (new imperative face), TerminalTabBar.tsx (visible population + stamped create + union isMaxed), terminalKeyHandler.ts (Cmd+1..5 over visible), TerminalTabBar.scope.test.tsx (new), terminalKeyHandler.scope.test.ts (new). data-terminal-action values untouched.
+**Verified:** pnpm vitest run (10 files, 153 passed incl. existing TabBar + a11y + keyHandler suites)
 `TerminalTabBar` renders `selectVisibleTerminalSessions`; `isMaxed` per the
 union rule; `terminalKeyHandler` Cmd+1..5 indexes the visible list;
 TerminalSearchBar key and `getActiveTerminal` consumers unchanged (D-T2).
@@ -264,6 +311,10 @@ Keep every `data-terminal-action` value verbatim (E2E contract).
   switch over the filtered list; rail-off renders all (invariant 4).
 
 #### WI-TS3.2: Shared auto-create helper + empty state
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/services/terminal/maybeAutoCreateTerminalSession.ts (new — canAutoCreateInScope on the instance-backed scope, never canOpenTerminal), TerminalPanel.tsx (visibility effect re-fires on [visible, activeInstanceId] + empty-state hint), useTerminalSessionsInit.ts (mount-time creator gated), terminal-panel.css (.terminal-empty-state), src/locales/*/statusbar.json (terminal.noWorkspaceSession ×10, genuinely translated), maybeAutoCreateTerminalSession.test.ts (new — incl. the legacy-gate-unresolvable RED case), useTerminalSessionsInit.scope.test.ts (new — no-$HOME-spawn case)
+**Verified:** pnpm vitest run (10 files, 153 passed) + pnpm lint:i18n (all checks passed, untranslated baseline EMPTY) + pnpm vitest run src/locales (12 passed)
 `maybeAutoCreateTerminalSession(windowLabel)` (D-T8) used by BOTH creators —
 the panel effect (re-fires on `[visible, activeInstanceId]`) and the
 mount-time creator. Gate = `canAutoCreateInScope` on the synchronous
@@ -279,6 +330,10 @@ covers statusbar `terminal.*` — verified; untranslated baseline stays EMPTY).
   `$HOME` spawn (round-2 case); no re-create when scope non-empty.
 
 #### WI-TS3.3: Visible-scope "last session" semantics
+
+**Status:** DONE — 2026-08-31
+**Changed:** TerminalPanel.tsx (handleClose last-ness + visibleIds fallback), useTerminalShellLifecycle.ts (closeSessionOnCleanExit last-ness + visibleIds fallback), useTerminalShellLifecycle.scope.test.ts (+2 clean-exit tests)
+**Verified:** pnpm vitest run (10 files, 153 passed — same batch)
 `TerminalPanel.handleClose` and `closeSessionOnCleanExit` compute last-ness
 on the visible population (D-T7).
 - Tests: clean exit of the visible population's only session hides the panel
@@ -292,6 +347,10 @@ on the visible population (D-T7).
 **Gate:** `pnpm check:all`; `bash scripts/check-tscope-phase.sh 4`.
 
 #### WI-TS4.1: Spawn context contract
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/components/Terminal/resolveTerminalSpawnContext.ts (new — the D-T9 contract), spawnPty.ts (workspaceRoot parameter; resolveActiveFileCwd extracted verbatim; stops re-resolving post-await; resolveTerminalWorkspaceRoot's missing isWorkspaceMode check preserved), useTerminalShellLifecycle.ts (resolves once pre-await), resolveTerminalSpawnContext.test.ts (new — full matrix), useTerminalShellLifecycle.scope.test.ts (L5 seam: env root == owner root under mid-spawn switch), spawnPty.test.ts (two tests pass workspaceRoot as the parameter)
+**Verified:** pnpm vitest run (9 files, 174 passed)
 Implement `resolveTerminalSpawnContext(windowLabel, session)` per D-T9 (pure;
 full matrix: requestedCwd / same-scope sibling / stamped owner present /
 owner deleted / unscoped / loose-with-file). Lifecycle resolves once
@@ -305,6 +364,10 @@ fallback — preserve, don't silently fix.
   mid-spawn switch (L5 on the spawn seam).
 
 #### WI-TS4.2: Out-of-tree pickers
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/services/terminal/revealTerminalSession.ts (reuse picks from the visible population; both creators stamp via resolveTerminalOwnerInstanceId), src/services/terminal/openTerminalHere.ts (canOpenTerminalHere caps per visible union), runInTerminal.ts unchanged, runInTerminal.test.ts (+ id-pinned delivery across a rail switch)
+**Verified:** pnpm vitest run (9 files, 174 passed — same batch)
 `reuseOrCreateTerminalSession` picks from the visible population (D-T10);
 `openTerminalHere`/`canOpenTerminalHere` cap per union; created sessions
 stamped via `resolveTerminalOwnerInstanceId`. `runInTerminal` unchanged — add
@@ -321,6 +384,10 @@ a test PINNING id-pinned delivery across a rail switch.
 `cd website && pnpm build`; `bash scripts/check-tscope-phase.sh 5`.
 
 #### WI-TS5.1: Rail e2e plumbing
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/components/WorkspaceRail/WorkspaceRail.tsx (data-rail-action="activate|duplicate" + data-instance-id), e2e/lib/rail.mjs (new — withRailMode via the verified StorageEvent pattern, clickRailInstance, getRailInstances, readRailMode/setRailMode), WorkspaceRail.test.tsx (attribute contract pinned)
+**Verified:** pnpm vitest run WorkspaceRail.test.tsx (32 passed); helpers exercised live by journey 35 (PASS)
 Stable selectors: `data-rail-action="activate|duplicate"` +
 `data-instance-id` on rail buttons. New `e2e/lib/rail.mjs`:
 `withRailMode(client, enabled, fn)` (StorageEvent settings patch — verified
@@ -329,6 +396,10 @@ live rehydration), `clickRailInstance(client, instanceId)`,
 - Tests: WorkspaceRail.test.tsx pins the new attributes.
 
 #### WI-TS5.2: Journeys
+
+**Status:** DONE — 2026-08-31
+**Changed:** e2e/journeys/35-terminal-rail-scoping.mjs (new), e2e/journeys/18-terminal-workspace-cd-sync.mjs (withRailMode(false) wrap + I15-is-legacy header), e2e/journeys/17-terminal-workspace-cwd.mjs (rail note), .github/workflows/tier0-e2e.yml (journey list + terminal-rail-scoping), dev-docs/e2e-tier0-matrix.md (I16 row). Diagnosed en route: the lazy-spawn rAF is SUSPENDED by WebKit while the app window is backgrounded (foreground dependency shared with 17/18 — documented in the journey header), and journey 35's first teardown exposed TerminalPanel.handleClose's blind toggle resurrecting a hidden panel (fixed + pinned, see WI-TS3.3 addendum in TerminalPanel.tsx/TerminalPanel.test.tsx).
+**Verified:** live debug app (pnpm tauri:dev, window foregrounded): terminal-rail-scoping PASS (2.8s), terminal-workspace-cwd PASS, terminal-workspace-cd-sync PASS — in sequence in one app instance, so 35's teardown provably leaves no residue
 (a) Journey 18 wrapped in `withRailMode(client, false, …)`; headers of 17/18
 updated — I15 is explicitly the *legacy/window-scoped* cd-follow.
 (b) New `35-terminal-rail-scoping.mjs`: rail ON; workspaces A+B; session in A
@@ -340,12 +411,20 @@ teardown restores rail setting + panel visibility, removes temp dirs.
 (d) Update `dev-docs/e2e-tier0-matrix.md`.
 
 #### WI-TS5.3: Website docs
+
+**Status:** DONE — 2026-08-31
+**Changed:** website/guide/terminal.md (new "Terminal sessions and the workspace rail" section), website/guide/workspace-rail.md (new "Terminal sessions" section), .claude/rules/21-website-docs.md (trigger + file-mapping rows for workspace-rail.md)
+**Verified:** cd website && pnpm build (build complete in 9.76s)
 `website/guide/terminal.md` + `website/guide/workspace-rail.md` (terminal
 section). Add the missing `workspace-rail.md` mapping row to
 `.claude/rules/21-website-docs.md` (page exists, unmapped — 1 line, same
 change). Verify `cd website && pnpm build`.
 
 #### WI-TS5.4: Locale sweep
+
+**Status:** DONE — 2026-08-31
+**Changed:** src/locales/{en,de,es,fr,it,ja,ko,pt-BR,zh-CN,zh-TW}/statusbar.json (terminal.noWorkspaceSession, vocabulary aligned with the existing toast.terminalNeedsWorkspace translations), src/locales/__tests__/terminalI18nCoverage.test.ts (WI citation — the identical-to-English gate guards the sweep)
+**Verified:** pnpm lint:i18n (all checks passed, untranslated baseline EMPTY) + terminalI18nCoverage.test.ts (6 passed)
 All new keys translated in de/es/fr/it/ja/ko/pt-BR/zh-CN/zh-TW. Use the
 `translate-docs` flow if the string count warrants it.
 

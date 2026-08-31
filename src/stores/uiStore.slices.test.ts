@@ -452,4 +452,14 @@ describe("terminal slice actions", () => {
     useUIStore.getState().terminalSetProgramTitle(s.id, "x".repeat(500));
     expect(useUIStore.getState().terminal.sessions[0].programTitle).toHaveLength(256);
   });
+
+  it("terminalSetProgramTitle strips C1 controls and bidi overrides too (audit 20260831 #3)", () => {
+    const s = useUIStore.getState().terminalCreateSession()!;
+    const C1 = "\u0085";
+    const RLO = "\u202E";
+    const LRI = "\u2066";
+    const PDI = "\u2069";
+    useUIStore.getState().terminalSetProgramTitle(s.id, `${RLO}dm.txet${PDI}${C1}vim ${LRI}\u65E5\u672C\u8A9E`);
+    expect(useUIStore.getState().terminal.sessions[0].programTitle).toBe("dm.txetvim \u65E5\u672C\u8A9E");
+  });
 });

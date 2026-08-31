@@ -89,6 +89,8 @@
   "toast.quarantineClearedDesc": "macOS marks files downloaded by some apps with a flag that silently blocks Finder double-click while VMark is running. VMark cleared it so those files open. Disable in Settings → Advanced.",
   "toast.failedToOpenFilesInNewWindow": "Failed to open files in new window",
   "toast.workspaceMoveFailed": "Failed to move workspace to a new window",
+  "toast.workspaceCloseBusy": "Workspace is busy with another operation — try closing it again",
+  "toast.workspaceCloseFailed": "Failed to close workspace",
   "toast.workspaceDuplicateFailed": "Failed to duplicate workspace",
   "toast.workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
   "toast.workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",

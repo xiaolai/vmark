@@ -67,6 +67,8 @@
   "toast.quarantineClearedDesc": "macOS 會在某些應用程式下載的檔案上加上一個標記，導致 VMark 執行時 Finder 雙擊開啟會被靜默攔截。VMark 已為你清除該標記，讓這些檔案可以正常開啟。可在設定 → 進階中關閉。",
   "toast.failedToOpenFilesInNewWindow": "無法在新視窗開啟檔案",
   "toast.workspaceMoveFailed": "將工作區移動到新視窗失敗",
+  "toast.workspaceCloseBusy": "工作區正忙於其他操作 — 請再次嘗試關閉",
+  "toast.workspaceCloseFailed": "無法關閉工作區",
   "toast.workspaceDuplicateFailed": "複製工作區失敗",
   "toast.workspaceDuplicateSkipped_one": "已複製工作區,並略過 1 個未儲存、未命名或遺失的分頁。",
   "toast.workspaceDuplicateSkipped_other": "已複製工作區,並略過 {{count}} 個未儲存、未命名或遺失的分頁。",

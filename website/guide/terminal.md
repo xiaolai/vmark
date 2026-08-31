@@ -28,6 +28,16 @@ Each tab reflects the running program's title (set by tools that emit a terminal
 
 **Open Terminal Here:** right-click any folder in the file explorer and choose **Open Terminal Here** to start a session in that directory. The new session opens there regardless of where your other sessions happen to be. At five sessions the item is greyed out.
 
+## Terminal sessions and the workspace rail
+
+With the [workspace rail](/guide/workspace-rail) enabled, each workspace on the rail owns its **own set** of terminal sessions. Switching workspaces swaps the visible terminal tabs — the hidden workspace's shells stay exactly where they were: alive, same working directory, nothing typed into them. Switching back reveals the same shells again, and the session you were looking at is remembered per workspace.
+
+- New sessions belong to the workspace that was active when they were created, and start in that workspace's root.
+- The 5-session cap and the `Terminal 1…5` numbering apply to the **visible** set — hidden workspaces' sessions do not consume the active workspace's headroom.
+- Opening the panel over a workspace with no sessions creates one there automatically; without a workspace (or a saved file to anchor a directory) the panel shows a hint instead.
+- Closing a workspace from the rail, or moving it to its own window, closes its terminal sessions with it.
+- With the rail **off**, everything behaves as before: one window-wide session set whose idle shells follow workspace switches with a `cd`.
+
 ## Keyboard Shortcuts
 
 These shortcuts work when the terminal panel is focused:

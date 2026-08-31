@@ -1,5 +1,8 @@
 // @vitest-environment node
 // WI-2.3 — Gate against untranslated terminal settings strings (T10).
+// WI-TS5.4 — the terminal-scoping locale sweep (terminal.noWorkspaceSession
+//   in every statusbar bundle) is guarded here: a locale shipping the English
+//   value verbatim fails this file's identical-to-English check.
 //
 // Six terminal settings strings shipped as verbatim English in all nine
 // non-English locales, plus the two WCAG contrast options and one statusbar

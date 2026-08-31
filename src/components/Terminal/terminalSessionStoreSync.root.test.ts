@@ -40,6 +40,25 @@ import {
   type SyncableSessionEntry,
 } from "./terminalSessionStoreSync";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { resetTerminalSessionStore, useUIStore } from "@/stores/uiStore";
+
+// The cd-follow predicate resolves each session in the STORE before writing
+// (a session missing from the store is mid-teardown and never followed —
+// audit 20260831 #16), so the harness seeds store records for the ids its
+// sessionsRef maps use. Rail mode stays off here: the legacy behavior.
+beforeEach(() => {
+  resetTerminalSessionStore();
+  useUIStore.setState({
+    terminal: {
+      sessions: [
+        { id: "s1", label: "s1", ordinal: 1, isAlive: true },
+        { id: "s2", label: "s2", ordinal: 2, isAlive: true },
+      ],
+      activeSessionId: "s1",
+      lastActiveByScope: {},
+    },
+  });
+});
 
 interface FakeInstance {
   busy: boolean;
@@ -206,21 +225,21 @@ describe("terminalSessionStoreSync — workspace root sync", () => {
 describe("flushPendingRoot", () => {
   it("returns false with no pending root", () => {
     const { entry } = makeEntry({ cwd: "/root/a" });
-    expect(flushPendingRoot(entry)).toBe(false);
+    expect(flushPendingRoot("s1", entry)).toBe(false);
   });
 
   it("returns false and clears pending when the PTY is gone", () => {
     const { entry } = makeEntry({ cwd: "/root/a" });
     entry.pendingRoot = "/root/b";
     entry.pty = null;
-    expect(flushPendingRoot(entry)).toBe(false);
+    expect(flushPendingRoot("s1", entry)).toBe(false);
     expect(entry.pendingRoot).toBeNull();
   });
 
   it("does not flush while the shell is busy", () => {
     const { entry, writes } = makeEntry({ busy: true, cwd: "/root/a" });
     entry.pendingRoot = "/root/b";
-    expect(flushPendingRoot(entry)).toBe(false);
+    expect(flushPendingRoot("s1", entry)).toBe(false);
     expect(writes).toHaveLength(0);
     // Still pending — will retry on a later idle.
     expect(entry.pendingRoot).toBe("/root/b");
@@ -229,7 +248,7 @@ describe("flushPendingRoot", () => {
   it("does not cd when the pending root equals current cwd", () => {
     const { entry, writes } = makeEntry({ cwd: "/root/b" });
     entry.pendingRoot = "/root/b";
-    expect(flushPendingRoot(entry)).toBe(false);
+    expect(flushPendingRoot("s1", entry)).toBe(false);
     expect(writes).toHaveLength(0);
     expect(entry.pendingRoot).toBeNull();
   });

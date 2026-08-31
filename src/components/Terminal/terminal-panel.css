@@ -148,3 +148,20 @@
 .vmark-cmd-fail {
   background: var(--error-color);
 }
+
+/* WI-TS3.2 — empty-state hint shown when the visible scope has no session
+   and the auto-create gate refused (no workspace, no saved file). Chrome
+   text: the UI face, never the reading font (R3). */
+.terminal-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  pointer-events: none;
+  text-align: center;
+}

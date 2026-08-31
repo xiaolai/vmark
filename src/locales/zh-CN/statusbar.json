@@ -98,5 +98,6 @@
   "scrollTabsLeft": "向左滚动标签页",
   "scrollTabsRight": "向右滚动标签页",
   "terminal.sessionExited": "{{name}}（已退出）",
-  "terminal.backgroundActivity": "后台活动"
+  "terminal.backgroundActivity": "后台活动",
+  "terminal.noWorkspaceSession": "打开文件夹或保存您的文件以使用终端"
 }

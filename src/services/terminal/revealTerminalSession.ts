@@ -17,6 +17,9 @@
  * @module services/terminal/revealTerminalSession
  */
 import { useUIStore } from "@/stores/uiStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { getVisibleTerminalSessions } from "./visibleTerminalSessions";
+import { createTerminalSessionInScope } from "./createTerminalSession";
 
 /** Make the panel visible. Revealing nothing looks like the command failed. */
 function revealPanel(): void {
@@ -26,30 +29,53 @@ function revealPanel(): void {
 }
 
 /**
- * Take the active session, or create one on an empty panel, and reveal the
- * panel. Returns a session id ALWAYS — the two outcomes are exhaustive: a
- * non-empty panel has a session to reuse, and an empty panel is by definition
- * below MAX_TERMINAL_SESSIONS so creation cannot fail. Typing it non-nullable
- * means callers have no dead "couldn't get one" branch to carry.
+ * Take the active session — verified to be VISIBLE — or the first visible
+ * one, or create one on an empty visible scope, and reveal the panel
+ * (WI-TS4.2/D-T10). The membership check matters (audit 20260831 #18): the
+ * active id is normally a member of the visible population (invariant 2),
+ * but a rail toggle sequence (off → activate another scope's session → on)
+ * can leave it pointing at a HIDDEN session, and reusing that would paste
+ * into a shell the user cannot see. A fallback pick is also activated, so
+ * the session that receives the command is the session on screen.
  */
 export function reuseOrCreateTerminalSession(): string {
   const store = useUIStore.getState();
+  const windowLabel = getCurrentWindowLabel();
+  const visible = getVisibleTerminalSessions(windowLabel);
+  const activeId = store.terminal.activeSessionId;
   const existing =
-    store.terminal.activeSessionId ?? store.terminal.sessions[0]?.id ?? null;
-  // Non-null assertion is sound: `sessions` is empty here, so the cap check
-  // inside terminalCreateSession cannot trip.
-  const sessionId = existing ?? store.terminalCreateSession()!.id;
+    activeId && visible.some((s) => s.id === activeId)
+      ? activeId
+      : visible[0]?.id ?? null;
+  if (existing) {
+    if (existing !== activeId) store.terminalSetActiveSession(existing);
+    revealPanel();
+    return existing;
+  }
+  const created = createTerminalSessionInScope(windowLabel);
+  if (!created) {
+    // Unreachable by construction: an empty visible population is below the
+    // creation-union cap in every state that resolves no owner (D-T5). Fail
+    // loud at the origin rather than dereferencing null if that argument
+    // ever stops holding (audit 20260831 #19).
+    throw new Error(
+      "reuseOrCreateTerminalSession: creation refused over an empty visible scope",
+    );
+  }
   revealPanel();
-  return sessionId;
+  return created.id;
 }
 
 /**
  * Create a NEW session pinned to `requestedCwd` and reveal the panel — what
- * "Open Terminal Here" means, even when other sessions are running. Returns
- * null at MAX_TERMINAL_SESSIONS, which is a state the user can really reach.
+ * "Open Terminal Here" means, even when other sessions are running. Stamped
+ * with the active scope's owner (D-T1). Returns null at the creation-union
+ * cap, which is a state the user can really reach.
  */
 export function createTerminalSessionAt(requestedCwd: string): string | null {
-  const created = useUIStore.getState().terminalCreateSession({ requestedCwd });
+  const created = createTerminalSessionInScope(getCurrentWindowLabel(), {
+    requestedCwd,
+  });
   if (!created) return null;
   revealPanel();
   return created.id;

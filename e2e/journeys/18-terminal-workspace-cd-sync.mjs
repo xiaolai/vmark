@@ -9,6 +9,12 @@
  * tree while the UI claims the new one — the most dangerous possible
  * disagreement between what is displayed and where commands land.
  *
+ * I15 is explicitly the LEGACY / WINDOW-SCOPED cd-follow (WI-TS5.2): with the
+ * workspace rail ON, sessions are scoped per workspace and a switch HIDES
+ * them instead of cd'ing (journey 35, terminal-rail-scoping). The rail is
+ * therefore forced OFF via withRailMode rather than silently inherited from
+ * the runner's default profile.
+ *
  * This is the COMPLEMENT of journey 17, and the two are deliberately disjoint:
  * 17 asserts a NEW pid (proving `spawnPty`'s create-time CWD, excluding this
  * `cd` path), while this journey asserts the SAME pid MOVED (proving the sync
@@ -34,6 +40,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { getPersistedWorkspaceRoot, poll } from "../lib/vmark.mjs";
 import { openWorkspaceViaMcp, closeWorkspace } from "../lib/workspace.mjs";
+import { withRailMode } from "../lib/rail.mjs";
 import {
   isTerminalOpen,
   openTerminal,
@@ -69,6 +76,8 @@ export default {
       };
     }
 
+    // Rail OFF, explicitly (WI-TS5.2): I15 is the window-scoped cd-follow.
+    return withRailMode(client, false, async () => {
     const terminalWasOpen = await isTerminalOpen(client);
     let dirA = null;
     let dirB = null;
@@ -120,5 +129,6 @@ export default {
         if (d) await rm(d, { recursive: true, force: true }).catch(() => {});
       }
     }
+    });
   },
 };

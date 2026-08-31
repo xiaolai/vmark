@@ -98,5 +98,6 @@
   "scrollTabsLeft": "Faire défiler les onglets vers la gauche",
   "scrollTabsRight": "Faire défiler les onglets vers la droite",
   "terminal.sessionExited": "{{name}} (terminé)",
-  "terminal.backgroundActivity": "Activité en arrière-plan"
+  "terminal.backgroundActivity": "Activité en arrière-plan",
+  "terminal.noWorkspaceSession": "Ouvrez un dossier ou enregistrez votre fichier pour utiliser le terminal"
 }
