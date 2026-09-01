@@ -31,14 +31,19 @@
 }
 
 /* Keep the application chrome legible around a native webpage even when the
-   editor is using a colored or dark theme. The page itself is not recolored. */
+   editor is using a colored or dark theme. The page itself is not recolored.
+
+   The strip is OPAQUE only here (the base rule above paints nothing), so it
+   must start where the leading column ends or it overpaints the card — a rule
+   that restated the offset as the bare rail width survived the leading-card
+   redesign and bit a white notch out of the card's rounded top corner.
+   --shell-side-width is the whole column (inset + rail + sidebar + inset),
+   published by AppShell from the same prop that sizes the aside, so this edge
+   tracks the card by construction. 0px when no leading column is mounted. */
 .browser-workspace-active .title-bar {
   background: var(--browser-bg-color);
   color: var(--browser-text-color);
-}
-
-.browser-workspace-active.workspace-rail-visible .title-bar {
-  left: var(--workspace-rail-width);
+  left: var(--shell-side-width, 0px);
 }
 
 .title-bar--browser {
@@ -54,20 +59,21 @@
    published from shell/trafficLights.ts so it follows the position the app asks
    AppKit for instead of being re-guessed here. It replaces a 72 here and a 70
    below, which disagreed with each other and were both too small once the
-   buttons moved onto Finder's line. */
+   buttons moved onto Finder's line.
+
+   The bar itself starts at --shell-side-width (rule above), so subtracting it
+   holds the content's absolute start on the lights' line for EVERY leading
+   column — the two rules this formula replaced encoded that invariant once per
+   rail state and could disagree. max() because a wide sidebar pushes the bar
+   past the zone entirely and a negative pad would drop the declaration; the
+   leading spacer element still provides the resting gap there. */
 .title-bar-browser {
   display: flex;
   align-items: stretch;
   width: 100%;
   min-width: 0;
   min-height: 0;
-  padding: 0 var(--space-2) 0 var(--traffic-lights-zone);
-}
-
-.workspace-rail-visible .title-bar-browser {
-  /* The same distance from the WINDOW's left edge, but the bar now starts beside
-     the rail, so the rail's width comes off the pad rather than adding to it. */
-  padding-left: calc(var(--traffic-lights-zone) - var(--workspace-rail-width));
+  padding: 0 var(--space-2) 0 max(0px, calc(var(--traffic-lights-zone) - var(--shell-side-width, 0px)));
 }
 
 .title-bar-browser-leading {

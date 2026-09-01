@@ -91,6 +91,30 @@ describe("AppShell", () => {
     expect(aside.style.width).toBe(`${TEST_SIDEBAR_WIDTH}px`);
   });
 
+  // The browser-mode title bar is opaque and must start where the leading
+  // column ends, so its stylesheet needs the column's width. Publishing it
+  // from the SAME prop that sizes the aside is what keeps the two from
+  // drifting: title-bar.css once restated the offset as the bare rail width,
+  // and when the leading-card redesign moved the rail 8px inboard the stale
+  // restatement overpainted the card's top corner (the white-notch defect).
+  it("publishes the side width as --shell-side-width for the chrome's stylesheet", () => {
+    const { container } = render(
+      <AppShell
+        sidebar={<div>rail</div>}
+        sidebarWidth={TEST_SIDEBAR_WIDTH}
+        primary={<div>main</div>}
+      />
+    );
+    const root = container.firstChild as HTMLElement;
+    expect(root.style.getPropertyValue("--shell-side-width")).toBe(`${TEST_SIDEBAR_WIDTH}px`);
+  });
+
+  it("publishes --shell-side-width: 0px when no sidebar is mounted", () => {
+    const { container } = render(<AppShell primary={<div>main</div>} />);
+    const root = container.firstChild as HTMLElement;
+    expect(root.style.getPropertyValue("--shell-side-width")).toBe("0px");
+  });
+
   // #1296 — the reserved strip and the thing that fills it must be one decision.
   // The shell reserved 40px unconditionally, so on Windows/Linux — where the OS
   // draws its own title bar and no chrome is passed — the top of every window

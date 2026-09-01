@@ -84,7 +84,15 @@ export function AppShell({
   const rootClass = ["app-shell", className].filter(Boolean).join(" ");
   // The caller's style wins on every key it sets; --chrome-height is the
   // shell's own, so it is applied after (see CHROME_HEIGHT).
-  const rootStyle: CSSProperties = { ...style, "--chrome-height": `${CHROME_HEIGHT}px` } as CSSProperties;
+  // --shell-side-width publishes the same number that sizes the aside below,
+  // because the browser-mode title bar must start where the leading column
+  // ends (title-bar.css) — restating that offset from parts is how the strip
+  // once overpainted the leading card's top corner.
+  const rootStyle: CSSProperties = {
+    ...style,
+    "--chrome-height": `${CHROME_HEIGHT}px`,
+    "--shell-side-width": `${sidebarWidth}px`,
+  } as CSSProperties;
 
   return (
     <div className={rootClass} style={rootStyle}>
