@@ -197,7 +197,7 @@
   content: "✓";
   position: absolute;
   left: 4px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--accent-primary);
 }

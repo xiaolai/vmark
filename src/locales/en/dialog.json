@@ -144,7 +144,6 @@
   "toast.genieNoProvider": "No AI provider available. Configure one in Settings.",
   "toast.genieCliNotFound": "{{name}} CLI not found. Install it or choose another provider in Settings.",
   "toast.genieApiKeyRequired": "{{name}} API key is required. Configure it in Settings → Integrations.",
-  "toast.updateReady": "v{{version}} ready to install",
   "toast.updateUpToDate": "You're up to date!",
   "toast.imagePathCopied": "Image path copied to clipboard",
   "toast.failedToChangeImage": "Failed to change image.",

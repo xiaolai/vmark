@@ -1,9 +1,10 @@
 /**
  * StatusBarRight
  *
- * Purpose: Right-hand section of the status bar — word/char count, update indicator,
- * auto-save/divergent/missing warnings, AI status indicator (running/error/success),
- * MCP connection status, terminal toggle, and editor mode toggle.
+ * Purpose: Right-hand section of the status bar — word/char count, lint badge,
+ * AI status indicator (running/error/success), MCP connection status, terminal
+ * toggle, and editor mode toggle. Rare states (update lifecycle, auto-save
+ * paused, divergent) are TOASTS since WI-UB3 — see hooks/useStatusToasts.
  *
  * Key decisions:
  *   - Split from StatusBar.tsx to isolate re-renders: props like wordCount
@@ -20,19 +21,18 @@
  *     and SR users aren't spammed every second.
  *
  * @coordinates-with StatusBar.tsx — parent passes all props
- * @coordinates-with UpdateIndicator.tsx — inline update badge
+ * @coordinates-with hooks/useStatusToasts.ts — rare states toast instead (WI-UB3)
  * @module components/StatusBar/StatusBarRight
  */
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { AlertTriangle, Code2, GitFork, Lock, LockOpen, Satellite, Save, Terminal, Type } from "lucide-react";
+import { Code2, Lock, LockOpen, Satellite, Save, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/settingsStore";
 import { ICON_SM } from "@/utils/iconSizes";
-import { UpdateIndicator } from "./UpdateIndicator";
 import { StatusBarCounts } from "./StatusBarCounts";
 import { StatusBarAiIndicator } from "./StatusBarAiIndicator";
 import { McpHistoryButton } from "@/components/McpHistory";
@@ -86,14 +86,15 @@ interface StatusBarRightProps {
   mcpError: string | null;
   mcpClients: McpClient[];
   openMcpSettings: () => void;
+  /** Suppresses the saved-time chip; the paused TOAST carries the story. */
   showAutoSavePaused: boolean;
+  /** Suppresses the saved-time chip; the divergent TOAST carries the story. */
   isDivergent: boolean;
   showAutoSave: boolean;
   lastAutoSave: number | null;
   autoSaveTime: string;
   terminalVisible: boolean;
   terminalShortcut: string;
-  saveShortcut: string;
   sourceMode: boolean;
   sourceModeShortcut: string;
   onToggleSourceMode: () => void;
@@ -128,7 +129,6 @@ export function StatusBarRight({
   autoSaveTime,
   terminalVisible,
   terminalShortcut,
-  saveShortcut,
   sourceMode,
   sourceModeShortcut,
   onToggleSourceMode,
@@ -140,26 +140,9 @@ export function StatusBarRight({
   const { t } = useTranslation("statusbar");
   return (
     <div className="status-bar-right">
-      {showAutoSavePaused && (
-        <span
-          className="status-autosave-paused"
-          title={t("autoSavePausedTitle", { shortcut: formatKeyForDisplay(saveShortcut) })}
-        >
-          <AlertTriangle size={ICON_SM} />
-          {t("autoSavePaused")}
-        </span>
-      )}
-
-      {isDivergent && !showAutoSavePaused && (
-        <span
-          className="status-divergent"
-          title={t("divergentTitle", { shortcut: formatKeyForDisplay(saveShortcut) })}
-        >
-          <GitFork size={ICON_SM} />
-          {t("divergent")}
-        </span>
-      )}
-
+      {/* Auto-save-paused and divergent are TOASTS now (WI-UB3,
+          useStatusToasts) — the props survive only to suppress a stale
+          "saved Xs ago" chip while either state is telling a truer story. */}
       {showAutoSave && lastAutoSave && !showAutoSavePaused && !isDivergent && (
         <span className="status-autosave" title={t("autoSavedAt", { time: formatExactTime(lastAutoSave) })}>
           <Save size={ICON_SM} />
@@ -174,8 +157,6 @@ export function StatusBarRight({
       {/* WI-UA11 (audit 20260901): hairline dividers split the cluster into
           role groups — document signals | connectivity | editor state. */}
       <span className="status-bar-divider" aria-hidden="true" />
-
-      <UpdateIndicator />
 
       <StatusBarAiIndicator
         aiRunning={aiRunning}

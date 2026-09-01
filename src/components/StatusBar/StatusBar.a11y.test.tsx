@@ -21,10 +21,6 @@ vi.mock("@/utils/dateUtils", () => ({
   formatExactTime: (ts: number) => `time:${ts}`,
 }));
 
-vi.mock("./UpdateIndicator", () => ({
-  UpdateIndicator: () => <span data-testid="update-indicator" />,
-}));
-
 vi.mock("./StatusBarCounts", () => ({
   StatusBarCounts: () => <span data-testid="status-counts" />,
 }));

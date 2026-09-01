@@ -19,6 +19,9 @@
 //          wrong and no consolidation happened.
 // WI-UA16 — the rail's full-name tooltip is the native title attribute,
 //          already present; the glyph is one grapheme by design.
+// WI-UB1 — re-audit 20260901: the elevated (1b) recipe is the .vm-btn BASE,
+//          app-wide — the outline-on-grey face is retired everywhere, and
+//          the --elevated variant is gone because it became the default.
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
@@ -91,5 +94,21 @@ describe("ui audit fixes (20260901)", () => {
 
   it("WI-UA16: the rail item's full name rides the native title tooltip", () => {
     expect(read("src/components/WorkspaceRail/WorkspaceRail.tsx")).toContain("title={displayLabel}");
+  });
+
+  it("WI-UB1: the .vm-btn BASE is the elevated recipe — raised face, ink hairline, lift", () => {
+    const css = read("src/styles/button-shared.css");
+    const i = css.indexOf(".vm-btn {");
+    const body = css.slice(i, css.indexOf("}", i));
+    expect(body).toContain("background: var(--surface-raised)");
+    expect(body).toContain("box-shadow: var(--shadow-sm)");
+    expect(body).toContain("color-mix(in srgb, var(--text-color) 8%, transparent)");
+    expect(body).not.toContain("var(--bg-secondary)");
+    // The variant was promoted into the base and must stay gone — a revived
+    // .vm-btn--elevated would mean two spellings of one recipe.
+    expect(css).not.toContain(".vm-btn--elevated");
+    // The chromeless variant must not inherit the lift.
+    const p = css.indexOf(".vm-btn--plain {");
+    expect(css.slice(p, css.indexOf("}", p))).toContain("box-shadow: none");
   });
 });

@@ -22,8 +22,6 @@
    pins that equality so a token retint cannot silently strand it.
    =========================================== */
 @theme inline {
-  --text-2xs: var(--font-size-2xs);
-  --text-2xs--line-height: var(--line-height-base);
   --text-xs: var(--font-size-sm);
   --text-xs--line-height: var(--line-height-base);
   --text-sm: var(--font-size-base);
@@ -338,7 +336,6 @@
   --border-thick: 4px;
 
   /* UI font sizes (separate from runtime --editor-font-size-*) */
-  --font-size-2xs: 10px;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-base: 13px;
@@ -380,7 +377,6 @@
   --duration-slower: 0.6s;
   --duration-1s: 1s;
   --duration-1-5s: 1.5s;
-  --duration-2s: 2s;
   --duration-5s: 5s;
 
   /* Z-index stack (mirrors 32-component-patterns.md hierarchy) */

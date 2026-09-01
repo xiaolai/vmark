@@ -49,11 +49,10 @@
   justify-content: center;
 }
 
-/* The actions are the canonical `.vm-btn` + `--pill` + `--elevated`
-   (WI-UI4.7 / WI-UA13; pill by maintainer direction 2026-08-31, elevated by
-   audit ratification 2026-09-01 — direction 1b of the button explorations).
-   The residual keeps only the front door's larger size — findability now
-   comes from the elevated face's lift, not a --control-border ring. A
+/* The actions are the canonical `.vm-btn` + `--pill` (WI-UI4.7 / WI-UA13;
+   pill by maintainer direction 2026-08-31). The elevated 1b recipe debuted
+   here as a variant and was promoted to the .vm-btn BASE by the re-audit
+   (WI-UB1), so the residual keeps only the front door's larger size. A
    capsule's round ends visually eat horizontal padding, hence the wider
    inset. */
 .welcome-action {

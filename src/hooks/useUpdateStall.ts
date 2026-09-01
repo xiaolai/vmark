@@ -23,7 +23,7 @@
  * quiet for a while legitimately.
  *
  * @coordinates-with useUpdateOperations.ts — recoverFromStall is the action
- * @coordinates-with UpdateIndicator.tsx — renders the escape hatch
+ * @coordinates-with hooks/useStatusToasts.ts — renders the escape hatch (stalled toast)
  * @module hooks/useUpdateStall
  */
 

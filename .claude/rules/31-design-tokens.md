@@ -26,7 +26,7 @@ authoritative values for those names live in the typed catalog.
 | `--hover-bg-dark` | Dark mode hover | `rgba(255,255,255,0.08)` |
 | `--subtle-bg` | Very subtle background (retuned with WI-UA5) | `rgba(0,0,0,0.03)` |
 | `--subtle-bg-hover` | Subtle background hover | `rgba(0,0,0,0.04)` |
-| `--surface-raised` | Elevated control face (`.vm-btn--elevated`, WI-UA13) — white on light themes, lifted `#383d46` under `.dark-theme` | `#ffffff` |
+| `--surface-raised` | Elevated control face — the `.vm-btn` BASE since WI-UB1 (debuted as the welcome variant, WI-UA13); white on light themes, lifted `#383d46` under `.dark-theme` | `#ffffff` |
 | `--cursor-interactive` | D7 cursor, platform-scoped (WI-UA15): `default` on macOS, `pointer` under `.platform-windows`/`.platform-linux` (root class set by `main.tsx` from `platformRootClass()`) | `default` |
 | `--text-color` | Primary text | `#1a1a1a` |
 | `--text-primary` | Alias for `--text-color` | - |
@@ -486,12 +486,12 @@ VMark's token system has **two layers**, both defined in `src/styles/index.css`:
 |---|---|---|
 | Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
 | Border widths | `--border-hairline` (0.5px), `--border-thin` (1px), `--border-medium` (2px), `--border-thick` (4px) | Setting `border-width`, `border-{top,right,bottom,left}-width` |
-| UI font sizes | `--font-size-2xs` (10), `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16), `--font-size-xl` (22 — identity/display text, WI-UA13) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. 10px (`2xs`) is retired from INTERACTIVE chrome (WI-UA8): informative/interactive text floors at `xs`. |
+| UI font sizes | `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16), `--font-size-xl` (22 — identity/display text, WI-UA13) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. 10px (`--font-size-2xs`) was RETIRED outright by the 20260901 re-audit (WI-UB2) — the token, its `text-2xs` Tailwind bridge and all consumers are gone; UI text floors at `xs`. |
 | Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20) | Width/height of small icons not covered by `--icon-size-*`. `--size-btn-sm` is gone — a 24px square is `.vm-icon-btn--sm`. |
 | Line heights | `--line-height-tight` (1.25), `--line-height-snug` (1.35), `--line-height-base` (1.4), `--line-height-normal` (1.5), `--line-height-relaxed` (1.6) | `line-height` on UI text |
 | Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px), `--letter-spacing-caps` (0.5px) | `caps` is THE tracking for every `text-transform: uppercase` micro-label (WI-UA6, pinned by `uiAuditFixes.test.ts`); tight/loose serve non-caps uses |
 | Opacity | `--opacity-disabled` (0.4), `--opacity-muted` (0.5), `--opacity-subtle` (0.6), `--opacity-half-faded` (0.7), `--opacity-mostly-opaque` (0.85) | Visual de-emphasis. **Not** for `0` or `1` — those stay literal. |
-| Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-2s`, `--duration-5s` | `transition`, `animation` durations |
+| Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-5s` | `transition`, `animation` durations |
 | Z-index | `--z-resize-handle` (10), `--z-panel-overlay` (12), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |
 
 ### What stays literal even with primitives

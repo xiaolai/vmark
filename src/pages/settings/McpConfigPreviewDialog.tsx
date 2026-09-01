@@ -234,7 +234,7 @@ function InfoRow({
       {copyable && <CopyButton text={fullValue || value} />}
       {badge && (
         <span
-          className={`text-2xs px-1.5 py-0.5 rounded font-medium ${
+          className={`text-xs px-1.5 py-0.5 rounded font-medium ${
             badgeColor === "amber"
               ? "bg-[var(--warning-bg)] text-[var(--warning-color)]"
               : "bg-[var(--success-color)]/10 text-[var(--success-color)]"

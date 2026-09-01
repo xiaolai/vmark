@@ -47,10 +47,6 @@ vi.mock("@/stores/settingsStore", () => ({
   formatKeyForDisplay: (s: string) => s.toUpperCase(),
 }));
 
-vi.mock("./UpdateIndicator", () => ({
-  UpdateIndicator: () => <span data-testid="update-indicator" />,
-}));
-
 vi.mock("./StatusBarCounts", () => ({
   StatusBarCounts: () => <span data-testid="status-counts" />,
 }));
@@ -152,7 +148,6 @@ const baseProps = {
   autoSaveTime: "",
   terminalVisible: false,
   terminalShortcut: "Mod-`",
-  saveShortcut: "Mod-s",
   sourceMode: false,
   sourceModeShortcut: "Mod-/",
   onToggleSourceMode: vi.fn(),
@@ -166,28 +161,22 @@ describe("StatusBarRight", () => {
     vi.clearAllMocks();
   });
 
-  it("renders StatusBarCounts and UpdateIndicator", () => {
+  it("renders StatusBarCounts", () => {
     render(<StatusBarRight {...baseProps} />);
     expect(screen.getByTestId("status-counts")).toBeInTheDocument();
-    expect(screen.getByTestId("update-indicator")).toBeInTheDocument();
   });
 
-  it("shows auto-save paused warning when showAutoSavePaused is true", () => {
-    render(<StatusBarRight {...baseProps} showAutoSavePaused={true} />);
-    expect(screen.getByText("Auto-save paused")).toBeInTheDocument();
-  });
-
-  it("shows divergent warning when isDivergent and not paused", () => {
-    render(<StatusBarRight {...baseProps} isDivergent={true} />);
-    expect(screen.getByText("Divergent")).toBeInTheDocument();
-  });
-
-  it("hides divergent warning when autoSavePaused takes priority", () => {
-    render(
+  // WI-UB3: paused/divergent are TOASTS (useStatusToasts.test.tsx owns them).
+  // The bar renders no badge for either state — only the saved-time chip
+  // suppression below survives here.
+  it("renders no inline badge for paused or divergent states", () => {
+    const { container } = render(
       <StatusBarRight {...baseProps} isDivergent={true} showAutoSavePaused={true} />
     );
+    expect(screen.queryByText("Auto-save paused")).not.toBeInTheDocument();
     expect(screen.queryByText("Divergent")).not.toBeInTheDocument();
-    expect(screen.getByText("Auto-save paused")).toBeInTheDocument();
+    expect(container.querySelector(".status-autosave-paused")).toBeNull();
+    expect(container.querySelector(".status-divergent")).toBeNull();
   });
 
   it("shows auto-save time when conditions met", () => {

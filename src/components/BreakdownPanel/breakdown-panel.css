@@ -258,7 +258,7 @@
 }
 
 .breakdown-confidence-badge {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   padding: 0 var(--spacing-1);
   border-radius: var(--radius-pill);
   border: var(--border-thin) dashed var(--text-tertiary);

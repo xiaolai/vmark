@@ -57,7 +57,7 @@
   background: var(--accent-primary);
   color: var(--contrast-text);
   border-radius: var(--radius-pill);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -163,7 +163,7 @@
 
 .mcp-history-popover__tool {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   background: var(--subtle-bg);
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);

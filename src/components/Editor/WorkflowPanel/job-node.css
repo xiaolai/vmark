@@ -99,7 +99,7 @@
   gap: var(--space-1);
   align-items: center;
   margin-top: auto;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 }
 
 .gha-job-node__badge {
@@ -138,7 +138,7 @@
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background var(--duration-fast), color var(--duration-fast);
@@ -178,7 +178,7 @@
   font-variant-numeric: tabular-nums;
   min-width: var(--space-3);
   text-align: right;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   flex-shrink: 0;
 }
 

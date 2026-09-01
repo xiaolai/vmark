@@ -251,8 +251,9 @@ describe("front door copy and buttons (WI-UI4.7, WI-UA13)", () => {
       // — never a per-wrapper radius override, which the shape-drift gate
       // would rightly flag.
       expect(btn.className, name).toContain("vm-btn--pill");
-      // Elevated face (WI-UA13) — findability by elevation, not border ink.
-      expect(btn.className, name).toContain("vm-btn--elevated");
+      // The elevated face (WI-UA13) lives on the .vm-btn BASE since WI-UB1 —
+      // no variant class to assert; buttonShared pins the recipe itself.
+      expect(btn.className, name).not.toContain("vm-btn--elevated");
     }
   });
 });

@@ -72,6 +72,6 @@
   position: absolute;
   bottom: 4px;
   right: 6px;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }

@@ -78,7 +78,7 @@ function ThemeSwatchRow({
             >
               {t(`appearance.theme.${id}`, id)}
             </span>
-            <span className="text-2xs text-[var(--text-secondary)]">
+            <span className="text-xs text-[var(--text-secondary)]">
               {tk.isDark ? t("appearance.theme.badge.dark") : t("appearance.theme.badge.light")}
             </span>
           </button>

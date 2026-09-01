@@ -141,7 +141,7 @@ export function SettingsPage() {
   // Bidirectional sync with the main window's updateStore. Settings now
   // runs Check / Download locally (so the button stays responsive when
   // main is destroyed), so it must also broadcast its local state changes
-  // back to main — otherwise main's StatusBar UpdateIndicator would stay
+  // back to main — otherwise main's update toast (useStatusToasts) would stay
   // stale after a Settings-side check finds a new version.
   useUpdateBroadcast();
   useUpdateListener();

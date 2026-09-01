@@ -583,7 +583,7 @@ describe("useUpdateChecker — toast notifications (lines 117-142)", () => {
     vi.useRealTimers();
   });
 
-  it("shows ready toast when status transitions to ready with updateInfo", () => {
+  it("does NOT toast on ready — the lifecycle is useStatusToasts' story since WI-UB3 (one owner, one toast)", () => {
     mocks.updateStatus = "downloading";
     const { rerender, unmount } = renderHook(() => useUpdateChecker());
 
@@ -591,7 +591,7 @@ describe("useUpdateChecker — toast notifications (lines 117-142)", () => {
     mocks.updateInfo = { version: "2.0.0" };
     act(() => { rerender(); });
 
-    expect(mocks.toast.success).toHaveBeenCalledWith("v2.0.0 ready to install", { duration: 5000 });
+    expect(mocks.toast.success).not.toHaveBeenCalled();
     unmount();
   });
 
