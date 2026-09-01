@@ -43,3 +43,22 @@ export function formatFileDisplayName(name: string, showExtensions: boolean): st
   const stripped = stripSupportedExtension(name);
   return stripped === "" ? name : stripped;
 }
+
+/** What a display label's trailing extension can look like: a dot plus a
+ *  short alphanumeric run. Deliberately shape-based, NOT the registered
+ *  list — truncation must preserve `.vue` and `.gz` too, since the point is
+ *  telling similarly-prefixed files apart, not knowing how to open them. */
+const DISPLAY_EXTENSION_RE = /\.[A-Za-z0-9]{1,8}$/;
+
+/**
+ * Split a display label so the tab strip can ellipsize the NAME while the
+ * extension stays visible (WI-UA12): `design-system.md` → `design-system` +
+ * `.md`. A label with no extension-shaped suffix — dotfiles, trailing dots,
+ * prose after the last dot, or a name that is ALL extension — stays whole in
+ * `base` (never an empty base; same rule as formatFileDisplayName).
+ */
+export function splitDisplayExtension(label: string): { base: string; ext: string } {
+  const match = DISPLAY_EXTENSION_RE.exec(label);
+  if (!match || match.index === 0) return { base: label, ext: "" };
+  return { base: label.slice(0, match.index), ext: match[0] };
+}

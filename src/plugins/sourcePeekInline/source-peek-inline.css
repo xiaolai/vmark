@@ -48,7 +48,7 @@
   background: var(--hover-bg);
   border-radius: var(--radius-sm);
   font-weight: 500;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   text-transform: capitalize;
   color: var(--text-secondary);
 }
@@ -86,7 +86,7 @@
 /* Hint text (keyboard shortcuts) */
 .source-peek-inline-hint {
   color: var(--text-tertiary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   margin-right: var(--space-1);
 }
 

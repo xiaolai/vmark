@@ -1,3 +1,5 @@
+// WI-UA13 — welcome front door: identity title, live-binding shortcut hint,
+// elevated (1b) action buttons (audit 20260901).
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -216,14 +218,31 @@ describe("WelcomeScreen — recent workspaces", () => {
 });
 
 // WI-UI4.7 — the front door says what to do, on canonical buttons.
-describe("front door copy and buttons (WI-UI4.7)", () => {
-  it("the title tells the user what to do, and the region is named Welcome", () => {
+// WI-UA13 — identity moment + shortcut education (audit 20260901): the h1 is
+// the app name at display size, the old instructional sentence survives as a
+// tagline, a hint line teaches the REAL bindings, and the actions wear the
+// elevated (1b) recipe — the one piece of new design the maintainer ratified.
+describe("front door copy and buttons (WI-UI4.7, WI-UA13)", () => {
+  it("the h1 is the identity moment; the instructional sentence survives as a tagline", () => {
     render(<WelcomeScreen />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Drop a Markdown file/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("VMark");
+    expect(screen.getByText(/Drop a Markdown file/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Welcome" })).toBeInTheDocument();
   });
 
-  it("all three actions are canonical .vm-btn pills", () => {
+  it("teaches the real bindings — command palette and quick open, from the live store", () => {
+    const { container } = render(<WelcomeScreen />);
+    // jsdom's navigator.platform is "" → non-mac formatting. The audit
+    // canvas's ⌘K/⌘P were WRONG (both taken: Link and Print); the hint must
+    // quote the shortcuts store, never hardcode a chord.
+    const hint = container.querySelector(".welcome-screen__hint");
+    expect(hint?.textContent).toContain("Ctrl+Shift+P");
+    expect(hint?.textContent).toContain("Command Palette");
+    expect(hint?.textContent).toContain("Ctrl+O");
+    expect(hint?.textContent).toContain("Quick Open");
+  });
+
+  it("all three actions are canonical .vm-btn pills wearing the elevated variant", () => {
     render(<WelcomeScreen />);
     for (const name of ["New File", "Open File", "Open Workspace…"]) {
       const btn = screen.getByRole("button", { name });
@@ -232,6 +251,9 @@ describe("front door copy and buttons (WI-UI4.7)", () => {
       // — never a per-wrapper radius override, which the shape-drift gate
       // would rightly flag.
       expect(btn.className, name).toContain("vm-btn--pill");
+      // The elevated face (WI-UA13) lives on the .vm-btn BASE since WI-UB1 —
+      // no variant class to assert; buttonShared pins the recipe itself.
+      expect(btn.className, name).not.toContain("vm-btn--elevated");
     }
   });
 });

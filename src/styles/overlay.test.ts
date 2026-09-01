@@ -1,5 +1,7 @@
 // WI-UI3.1 — the shared overlay/menu shells: one panel recipe, one backdrop,
 // one menu surface. Reads the CSS so a drifted copy fails here, not in review.
+// WI-UA3 — the finder backdrop is a real scrim step, never a hover token.
+// WI-UA8 — the kbd chip respects the 11px interactive-chrome text floor.
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
@@ -19,6 +21,18 @@ describe("vm-overlay (D14)", () => {
     expect(b).toContain("position: fixed");
     expect(b).toContain("inset: 0");
     expect(b).toContain("var(--z-popup)");
+  });
+
+  it("the finder backdrop is a real scrim, not a hover token (WI-UA3)", () => {
+    const b = rule(".vm-overlay");
+    // 8% --hover-bg-strong gave the panel no figure-ground separation over a
+    // busy document; the modal variant keeps its own darker 35% scrim.
+    expect(b).not.toContain("--hover-bg");
+    expect(b).toContain("color-mix(in srgb, black 22%, transparent)");
+  });
+
+  it("the kbd chip stays at or above the 11px chrome text floor (WI-UA8)", () => {
+    expect(rule(".vm-overlay__kbd")).toContain("var(--font-size-xs)");
   });
 
   it("the panel carries the shell triple and the viewport clamp", () => {

@@ -108,9 +108,15 @@
 }
 
 .dirty-indicator {
-  color: var(--primary-color);
-  font-size: var(--font-size-lg);
-  line-height: 1;
+  /* WI-UA9 (audit 20260901): a real dot with a soft accent halo, matching
+     .tab-dirty-dot — the text bullet it replaces was easy to miss. */
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+  flex-shrink: 0;
 }
 
 .title-bar-filename.missing {

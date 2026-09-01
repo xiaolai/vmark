@@ -55,11 +55,15 @@ describe("wait-ready argument validation", () => {
 
   it("treats an absent flag as a request for the default", () => {
     // The distinction that makes the rule usable: absent is fine, present-and-
-    // broken is not. No bridge is running here, so it fails to connect — the
-    // point is that it PROBED (exit 1) instead of refusing to start (exit 2).
+    // broken is not. The property is that it PROBED instead of refusing to
+    // start (exit 2). This used to also assert exit 1 ("no app"), which made
+    // the test a hostage of the ENVIRONMENT: on a maintainer machine with a
+    // dev VMark open, the default-port probe legitimately succeeds and the
+    // gate went red with nothing wrong. Either probe outcome proves the
+    // absent flag resolved to a usable default.
     const { code, output } = run("--timeout-ms", "1000");
-    expect(code, output).toBe(1);
-    expect(output).toContain("not ready");
+    expect(code, output).not.toBe(2);
+    expect(output, output).toMatch(/not ready|ready|drivable/);
   });
 
   it("honours the advertised timeout as an upper bound", () => {
@@ -78,8 +82,11 @@ describe("wait-ready argument validation", () => {
     // the bound TOGETHER — widening the margin alone puts the guard back to
     // sleep, because the broken variant's finish time scales with the
     // interval too.
+    // Hermetic port: the timing property needs the probe to FAIL every
+    // attempt, and the default 9323 answers whenever a dev VMark is open on
+    // this machine. Port 1 is reserved and never listening.
     const started = Date.now();
-    const { code } = run("--timeout-ms", "9100", "--poll-ms", "9000");
+    const { code } = run("--timeout-ms", "9100", "--poll-ms", "9000", "--port", "1");
     const elapsed = Date.now() - started;
     expect(code).toBe(1);
     expect(elapsed).toBeLessThan(13_600);

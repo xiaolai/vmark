@@ -58,6 +58,7 @@ import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { StatusBarRight } from "./StatusBarRight";
+import { useStatusToasts } from "@/hooks/useStatusToasts";
 import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
 import { ARIA_LIVE_STYLE, preventSelectAllOnButtons } from "./statusBarHelpers";
@@ -79,7 +80,6 @@ export function StatusBar() {
   const sourceModeShortcut = useShortcutsStore((state) => state.getShortcut("sourceMode"));
   const readOnlyShortcut = useShortcutsStore((state) => state.getShortcut("readOnly"));
   const terminalShortcut = useShortcutsStore((state) => state.getShortcut("toggleTerminal"));
-  const saveShortcut = useShortcutsStore((state) => state.getShortcut("save"));
   const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const aiRunning = useAiInvocationStore((state) => state.isRunning);
   const aiElapsed = useAiInvocationStore((state) => state.elapsedSeconds);
@@ -97,6 +97,7 @@ export function StatusBar() {
     useAiInvocationStore.getState().dismissError();
   }, []);
   const showAutoSavePaused = (isMissing || isDivergent) && autoSaveEnabled;
+  useStatusToasts(showAutoSavePaused, isDivergent, useShortcutsStore((s) => s.getShortcut("save"))); // WI-UB3 — toasts, not chrome
 
   /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
   const activeTabForcedSource = useLargeFileSessionStore((s) =>
@@ -268,7 +269,6 @@ export function StatusBar() {
               autoSaveTime={autoSaveTime}
               terminalVisible={terminalVisible}
               terminalShortcut={terminalShortcut}
-              saveShortcut={saveShortcut}
               sourceMode={sourceMode}
               sourceModeShortcut={sourceModeShortcut}
               onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}

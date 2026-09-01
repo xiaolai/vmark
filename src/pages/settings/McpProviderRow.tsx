@@ -56,7 +56,7 @@ export function ProviderRow(props: ProviderRowProps) {
                 {diagnostic.name}
               </span>
               {diagnostic.legacy && (
-                <span className="text-2xs px-1.5 py-0.5 rounded font-medium bg-[var(--warning-bg)] text-[var(--warning-color)] flex-shrink-0">
+                <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-[var(--warning-bg)] text-[var(--warning-color)] flex-shrink-0">
                   {t("integrations.installMcp.legacyBadge")}
                 </span>
               )}

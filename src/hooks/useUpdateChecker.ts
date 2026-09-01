@@ -13,7 +13,7 @@
  *   - check/download run inline in whichever window the user clicked from
  *     (pendingUpdate is window-local) — useUpdateOperations owns the
  *     single-flight gate so the same window can't issue parallel checks
- *   - Cross-window broadcast keeps StatusBar UpdateIndicator in sync;
+ *   - Cross-window broadcast keeps the update toast (useStatusToasts) in sync;
  *     retryChainActiveRef gates the retry effect so broadcast-driven
  *     status transitions don't get misclassified as part of an auto-chain
  *   - Exponential backoff retry (3 attempts, 5s base delay) for network failures
@@ -148,13 +148,14 @@ export function useUpdateChecker() {
     }
   }, [autoCheckEnabled, checkFrequency, lastCheckTimestamp, doCheckForUpdates]);
 
-  // Show toast notifications on status changes.
-  // Only show toasts for actionable states or manual check feedback.
-  // "available" / "downloading" stay silent (StatusBar shows them);
-  // "error" toasts only when the user manually triggered the check —
-  // background-retry errors stay quiet so a flapping network doesn't pop a
-  // notification every few seconds. The "retries exhausted" branch below
-  // surfaces a final toast if auto-retry truly gave up.
+  // Show toasts for MANUAL CHECK FEEDBACK only. The update LIFECYCLE
+  // (available/ready/stalled/transfer failures) is owned by
+  // hooks/useStatusToasts since WI-UB3 — one owner per concern, so a state
+  // change never raises two toasts. "error" toasts here only when the user
+  // manually triggered the check — background-retry errors stay quiet so a
+  // flapping network doesn't pop a notification every few seconds. The
+  // "retries exhausted" branch below surfaces a final toast if auto-retry
+  // truly gave up.
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     prevStatusRef.current = status;
@@ -163,14 +164,6 @@ export function useUpdateChecker() {
     if (prevStatus === null || prevStatus === status) return;
 
     switch (status) {
-      case "ready":
-        // Actionable: user can restart to apply update
-        if (updateInfo) {
-          toast.success(i18n.t("dialog:toast.updateReady", { version: updateInfo.version }), {
-            duration: 5000,
-          });
-        }
-        break;
       case "up-to-date":
         // Only show if user manually triggered the check
         if (prevStatus === "checking" && isManualCheck.current) {

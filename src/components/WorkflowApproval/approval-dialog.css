@@ -64,7 +64,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .approval-dialog__preview {

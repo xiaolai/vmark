@@ -49,7 +49,7 @@ import { tabFilePath } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabRenameStore } from "@/stores/tabRenameStore";
 import { getFileName } from "@/utils/pathUtils";
-import { formatFileDisplayName } from "@/utils/displayFileName";
+import { formatFileDisplayName, splitDisplayExtension } from "@/utils/displayFileName";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { TabRenameInput } from "./TabRenameInput";
 
@@ -119,6 +119,7 @@ export const Tab = memo(function Tab({
   // render, so flipping the setting relabels the tabs that are already open.
   const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
   const label = formatFileDisplayName(tab.title, showExtensions);
+  const labelParts = splitDisplayExtension(label);
 
   const tooltip = isMissing
     ? t("fileDeleted")
@@ -224,7 +225,12 @@ export const Tab = memo(function Tab({
             fileName={getFileName(filePath) || tab.title}
           />
         ) : (
-          <span className="tab-title">{label}</span>
+          /* WI-UA12: the NAME span ellipsizes; the extension span never
+             shrinks, so similarly-prefixed files stay tellable apart. */
+          <span className="tab-title">
+            <span className="tab-title__base">{labelParts.base}</span>
+            {labelParts.ext && <span className="tab-title__ext">{labelParts.ext}</span>}
+          </span>
         )}
 
         {/* Close button (shown on hover for non-pinned) */}

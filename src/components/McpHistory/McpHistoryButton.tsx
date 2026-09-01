@@ -25,6 +25,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { History, Undo2, Trash2 } from "lucide-react";
+import { ICON_SM } from "@/utils/iconSizes";
 import { useTranslation } from "react-i18next";
 import { useMcpStore } from "@/stores/mcpStore";
 import type { MCPCheckpoint } from "@/stores/mcpStore";
@@ -174,7 +175,7 @@ export function McpHistoryButton(): React.ReactElement {
         aria-label={t("mcpHistoryTitle", { count })}
         aria-expanded={open}
       >
-        <History size={12} />
+        <History size={ICON_SM} />
         {count > 0 && (
           <span className="status-mcp-history__badge">{count}</span>
         )}

@@ -121,7 +121,6 @@
   "toast.genieNoProvider": "Kein KI-Anbieter verfügbar. Konfigurieren Sie einen in den Einstellungen.",
   "toast.genieCliNotFound": "{{name}} CLI nicht gefunden. Installieren Sie es oder wählen Sie einen anderen Anbieter in den Einstellungen.",
   "toast.genieApiKeyRequired": "{{name}} API-Schlüssel ist erforderlich. Konfigurieren Sie ihn in Einstellungen → Integrationen.",
-  "toast.updateReady": "v{{version}} zur Installation bereit",
   "toast.updateUpToDate": "Sie sind auf dem neuesten Stand!",
   "toast.imagePathCopied": "Bildpfad in Zwischenablage kopiert",
   "toast.failedToChangeImage": "Bild konnte nicht geändert werden.",

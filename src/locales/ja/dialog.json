@@ -121,7 +121,6 @@
   "toast.genieNoProvider": "利用可能なAIプロバイダーがありません。設定で設定してください。",
   "toast.genieCliNotFound": "{{name}} CLIが見つかりません。インストールするか、設定で別のプロバイダーを選択してください。",
   "toast.genieApiKeyRequired": "{{name}} APIキーが必要です。設定 → インテグレーションで設定してください。",
-  "toast.updateReady": "v{{version}} インストール準備完了",
   "toast.updateUpToDate": "最新バージョンです！",
   "toast.imagePathCopied": "画像パスをクリップボードにコピーしました",
   "toast.failedToChangeImage": "画像の変更に失敗しました。",

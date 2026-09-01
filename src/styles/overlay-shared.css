@@ -25,7 +25,11 @@
   z-index: var(--z-popup);
   display: flex;
   justify-content: center;
-  background: var(--hover-bg-strong);
+  /* Finder scrim (WI-UA3, audit 20260901) — a real scrim step, not a hover
+     token doing scrim duty: 8% gave the panel almost no figure-ground
+     separation over a busy document. Black in both modes, like the 35%
+     modal scrim below (one owner each). */
+  background: color-mix(in srgb, black 22%, transparent);
 }
 
 .vm-overlay--top {
@@ -102,7 +106,7 @@
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   color: var(--text-color);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
 }
 
 .vm-overlay__row:hover {
@@ -132,7 +136,8 @@
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   font-family: var(--font-ui);
-  font-size: var(--font-size-2xs);
+  /* 11px floor for interactive-chrome text (WI-UA8, audit 20260901). */
+  font-size: var(--font-size-xs);
 }
 
 /* The context-menu surface (rule 32). The literal `-apple-system` stacks the

@@ -4,8 +4,11 @@
  * Tests the formatClientName, formatMcpTooltip pure functions
  * and the StatusBarRight component rendering with various prop combinations.
  */
+// WI-UA10 — the MCP state channel is a localized word, not a cryptic glyph.
+// WI-UA11 — right-cluster role groups are divided; glyphs are 14px.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactElement } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 // --- Mocks ---
@@ -42,10 +45,6 @@ vi.mock("@/stores/settingsStore", () => ({
     subscribe: () => () => {},
   },
   formatKeyForDisplay: (s: string) => s.toUpperCase(),
-}));
-
-vi.mock("./UpdateIndicator", () => ({
-  UpdateIndicator: () => <span data-testid="update-indicator" />,
 }));
 
 vi.mock("./StatusBarCounts", () => ({
@@ -149,7 +148,6 @@ const baseProps = {
   autoSaveTime: "",
   terminalVisible: false,
   terminalShortcut: "Mod-`",
-  saveShortcut: "Mod-s",
   sourceMode: false,
   sourceModeShortcut: "Mod-/",
   onToggleSourceMode: vi.fn(),
@@ -163,28 +161,22 @@ describe("StatusBarRight", () => {
     vi.clearAllMocks();
   });
 
-  it("renders StatusBarCounts and UpdateIndicator", () => {
+  it("renders StatusBarCounts", () => {
     render(<StatusBarRight {...baseProps} />);
     expect(screen.getByTestId("status-counts")).toBeInTheDocument();
-    expect(screen.getByTestId("update-indicator")).toBeInTheDocument();
   });
 
-  it("shows auto-save paused warning when showAutoSavePaused is true", () => {
-    render(<StatusBarRight {...baseProps} showAutoSavePaused={true} />);
-    expect(screen.getByText("Auto-save paused")).toBeInTheDocument();
-  });
-
-  it("shows divergent warning when isDivergent and not paused", () => {
-    render(<StatusBarRight {...baseProps} isDivergent={true} />);
-    expect(screen.getByText("Divergent")).toBeInTheDocument();
-  });
-
-  it("hides divergent warning when autoSavePaused takes priority", () => {
-    render(
+  // WI-UB3: paused/divergent are TOASTS (useStatusToasts.test.tsx owns them).
+  // The bar renders no badge for either state — only the saved-time chip
+  // suppression below survives here.
+  it("renders no inline badge for paused or divergent states", () => {
+    const { container } = render(
       <StatusBarRight {...baseProps} isDivergent={true} showAutoSavePaused={true} />
     );
+    expect(screen.queryByText("Auto-save paused")).not.toBeInTheDocument();
     expect(screen.queryByText("Divergent")).not.toBeInTheDocument();
-    expect(screen.getByText("Auto-save paused")).toBeInTheDocument();
+    expect(container.querySelector(".status-autosave-paused")).toBeNull();
+    expect(container.querySelector(".status-divergent")).toBeNull();
   });
 
   it("shows auto-save time when conditions met", () => {
@@ -396,6 +388,38 @@ describe("StatusBarRight", () => {
     );
     const btn = container.querySelector(".status-mcp");
     expect(btn?.className).toContain("error");
+  });
+
+  it("shows a state WORD only when something needs saying (WI-UA10; connected is quiet)", () => {
+    // The old ✓/⟳/✗/○ glyph set was 10px and cryptic without its tooltip.
+    // Connected already speaks through the tinted badge, so its word was
+    // redundant (maintainer, 2026-09-02); off/starting/error keep theirs.
+    const word = (ui: ReactElement) =>
+      render(ui).container.querySelector(".status-mcp__state")?.textContent;
+    expect(word(<StatusBarRight {...baseProps} />)).toBe("off");
+    expect(word(<StatusBarRight {...baseProps} mcpRunning={true} />)).toBeUndefined();
+    expect(word(<StatusBarRight {...baseProps} mcpLoading={true} />)).toBe("…");
+    expect(word(<StatusBarRight {...baseProps} mcpError="fail" />)).toBe("error");
+  });
+
+  it("the state word stays aria-hidden — the button's accessible name carries the state", () => {
+    const { container } = render(<StatusBarRight {...baseProps} />);
+    expect(container.querySelector(".status-mcp__state")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("divides the right cluster into role groups with two hairlines (WI-UA11)", () => {
+    const { container } = render(<StatusBarRight {...baseProps} />);
+    const dividers = container.querySelectorAll(".status-bar-divider");
+    expect(dividers).toHaveLength(2);
+    dividers.forEach((d) => expect(d).toHaveAttribute("aria-hidden", "true"));
+  });
+
+  it("right-cluster glyphs are 14px, up from 12 (WI-UA11)", () => {
+    const { container } = render(<StatusBarRight {...baseProps} mcpRunning={true} />);
+    const satellite = container.querySelector(".status-mcp svg");
+    expect(satellite).toHaveAttribute("width", "14");
+    const terminal = container.querySelector(".status-terminal svg");
+    expect(terminal).toHaveAttribute("width", "14");
   });
 
   it("calls openMcpSettings when MCP button clicked", () => {

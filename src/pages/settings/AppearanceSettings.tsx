@@ -21,18 +21,28 @@ import { isMacPlatform, usesOverlayTitleBar } from "@/utils/platform";
  *  typed catalog — an "Aa" specimen in the theme's ink on its paper, a
  *  hairline in its border and a 2px rule in its accent — so night/solarized
  *  stay legible on a night page (the specimen carries the identity where a
- *  flat fill would sit at 1.00:1). `selected` gets the accent ring. */
+ *  flat fill would sit at 1.00:1). The swatch is a MINI WINDOW, so its
+ *  radius is the popup/window family (--radius-lg), and `selected` is a
+ *  LIFT — the theme-adaptive popup shadow — not a box around the page
+ *  (maintainer direction 2026-09-02). */
 function ThemeSwatchRow({
   selected,
   onSelect,
+  mode,
 }: {
   selected: ThemeId;
   onSelect: (id: ThemeId) => void;
+  /** Paired rows (#1125) offer only THEIR mode — both rows listing all six
+   *  read as an inexplicable duplicate (maintainer, 2026-09-02). Absent in
+   *  manual mode, where one mixed row shows everything. */
+  mode?: "light" | "dark";
 }) {
   const { t } = useTranslation("settings");
   // Windows/Linux offer only the light/dark pair their native chrome can
   // actually match — see theme/themeAvailability.ts.
-  const available = selectableThemeIds(isMacPlatform());
+  const available = selectableThemeIds(isMacPlatform()).filter(
+    (id) => !mode || themeCatalog[id].isDark === (mode === "dark"),
+  );
   return (
     <div className="flex items-start gap-4 pb-3">
       {available.map((id) => {
@@ -42,15 +52,14 @@ function ThemeSwatchRow({
             key={id}
             type="button"
             onClick={() => onSelect(id)}
+            aria-pressed={selected === id}
             title={t(`appearance.theme.${id}.description`, "")}
             className="flex flex-col items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2"
           >
             <div
               data-theme-swatch={id}
-              className={`flex h-12 w-14 flex-col justify-between rounded-[var(--radius-sm)] p-1.5 transition-all ${
-                selected === id
-                  ? "ring-2 ring-[var(--accent-primary)] ring-offset-2 ring-offset-[var(--bg-color)]"
-                  : "hover:scale-105"
+              className={`flex h-12 w-14 flex-col justify-between rounded-[var(--radius-lg)] p-1.5 transition-all ${
+                selected === id ? "shadow-popup" : "hover:scale-105"
               }`}
               style={{
                 backgroundColor: tk.color.bg.primary,
@@ -78,9 +87,13 @@ function ThemeSwatchRow({
             >
               {t(`appearance.theme.${id}`, id)}
             </span>
-            <span className="text-2xs text-[var(--text-secondary)]">
-              {tk.isDark ? t("appearance.theme.badge.dark") : t("appearance.theme.badge.light")}
-            </span>
+            {/* In a filtered row the badge would say the same thing under
+                every swatch — it earns its place only in the mixed row. */}
+            {!mode && (
+              <span className="text-xs text-[var(--text-secondary)]">
+                {tk.isDark ? t("appearance.theme.badge.dark") : t("appearance.theme.badge.light")}
+              </span>
+            )}
           </button>
         );
       })}
@@ -106,6 +119,7 @@ export function AppearanceSettings() {
               {t("appearance.systemLightTheme.label")}
             </div>
             <ThemeSwatchRow
+              mode="light"
               selected={appearance.systemLightTheme}
               onSelect={(id) => updateSetting("systemLightTheme", id)}
             />
@@ -113,6 +127,7 @@ export function AppearanceSettings() {
               {t("appearance.systemDarkTheme.label")}
             </div>
             <ThemeSwatchRow
+              mode="dark"
               selected={appearance.systemDarkTheme}
               onSelect={(id) => updateSetting("systemDarkTheme", id)}
             />

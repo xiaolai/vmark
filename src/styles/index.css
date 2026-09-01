@@ -22,8 +22,6 @@
    pins that equality so a token retint cannot silently strand it.
    =========================================== */
 @theme inline {
-  --text-2xs: var(--font-size-2xs);
-  --text-2xs--line-height: var(--line-height-base);
   --text-xs: var(--font-size-sm);
   --text-xs--line-height: var(--line-height-base);
   --text-sm: var(--font-size-base);
@@ -49,7 +47,11 @@
   /* Core colors - Paper theme default */
   --bg-color: #eeeded;
   --text-color: #1a1a1a;
-  --primary-color: #0066cc;
+  /* One accent per theme: --primary-color is an alias of --accent-primary.
+     The runtime already emits both from the same catalog value
+     (legacyModeColors.ts); the static alias keeps the fallbacks from
+     drifting apart (audit 20260901, WI-UA7). */
+  --primary-color: var(--accent-primary);
 
   /* Browser chrome stays light and neutral around native web content. */
   --browser-bg-color: #ffffff;
@@ -231,16 +233,24 @@
   /* Contrast text (for colored backgrounds like primary buttons) */
   --contrast-text: white;
 
-  /* Hover states (standardized) */
-  --hover-bg: rgba(0, 0, 0, 0.04);
+  /* Hover states (standardized). Light hover was 4% and read below
+     perception on grey card surfaces (~1.02:1 on paper's #dedddd);
+     retuned to 6% by audit 20260901 (WI-UA5). Runtime values live in
+     tokens.ts (hoverLight/hoverDark) — keep both in sync. */
+  --hover-bg: rgba(0, 0, 0, 0.06);
   --hover-bg-strong: rgba(0, 0, 0, 0.08);
 
   /* Dark mode hover (use in .dark-theme selectors) */
   --hover-bg-dark: rgba(255, 255, 255, 0.08);
 
-  /* Subtle backgrounds */
-  --subtle-bg: rgba(0, 0, 0, 0.02);
-  --subtle-bg-hover: rgba(0, 0, 0, 0.03);
+  /* Subtle backgrounds (retuned 2%/3% → 3%/4%, WI-UA5 — same reasoning) */
+  --subtle-bg: rgba(0, 0, 0, 0.03);
+  --subtle-bg-hover: rgba(0, 0, 0, 0.04);
+
+  /* Raised control surface: the elevated button face (WI-UA13). Mode-level,
+     not per-theme — white lifts off every light page; #383d46 lifts off both
+     dark pages. */
+  --surface-raised: #ffffff;
 
   /* Spacing scale (common values) */
 
@@ -326,12 +336,12 @@
   --border-thick: 4px;
 
   /* UI font sizes (separate from runtime --editor-font-size-*) */
-  --font-size-2xs: 10px;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-base: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
+  --font-size-xl: 22px; /* identity/display text (welcome title, WI-UA13) */
 
   /* Component dimensions not covered by --icon-size-* */
   --size-icon-xs: 14px;     /* small inline icons (popup buttons, dropdown items) */
@@ -348,6 +358,10 @@
   /* Letter spacing (UI labels, uppercase headings) */
   --letter-spacing-tight: 0.3px;
   --letter-spacing-loose: 0.5px;
+  /* THE tracking for uppercase micro-labels (WI-UA6). Three values had grown
+     for one role (0.03em / 0.3px / 0.5px); every text-transform:uppercase
+     label uses this one. tight/loose remain for non-caps uses. */
+  --letter-spacing-caps: 0.5px;
 
   /* Opacity scale */
   --opacity-disabled: 0.4;
@@ -363,7 +377,6 @@
   --duration-slower: 0.6s;
   --duration-1s: 1s;
   --duration-1-5s: 1.5s;
-  --duration-2s: 2s;
   --duration-5s: 5s;
 
   /* Z-index stack (mirrors 32-component-patterns.md hierarchy) */
@@ -387,6 +400,9 @@
   /* A 10%-black shadow is invisible on a dark page — the active tab pill's
      elevation vanished on night/solarized (WI-UI3.6). */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+  /* Elevated button face, lifted off both dark pages (WI-UA13). */
+  --surface-raised: #383d46;
 
   /* Browser chrome, dark neutral. The light values above are a pure-white
      neutral; without these the chrome stayed white in Night and Solarized,
@@ -515,6 +531,21 @@ body {
   -webkit-app-region: drag;
   app-region: drag;
   cursor: default;
+}
+
+/* Cursor policy (D7, scoped per platform — audit 20260901, WI-UA15).
+   macOS chrome follows the Apple HIG: arrow on buttons and controls.
+   Windows/Linux users of a webview app expect pointer feedback, so the
+   interactive-chrome primitives consume this token instead of a literal.
+   The root platform class is applied at bootstrap (main.tsx) from
+   getRuntimePlatform(). `pointer` stays for links inside content. */
+:root {
+  --cursor-interactive: default;
+}
+
+:root.platform-windows,
+:root.platform-linux {
+  --cursor-interactive: pointer;
 }
 
 /* ===========================================

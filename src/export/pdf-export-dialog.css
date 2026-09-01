@@ -76,7 +76,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 500;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   cursor: pointer;
 }

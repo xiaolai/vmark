@@ -72,7 +72,7 @@ Most cases should NOT need overrides if using tokens correctly:
 
 /* WRONG - hardcoded rgba bypasses theme system */
 .item:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .dark-theme .item:hover {
@@ -110,7 +110,7 @@ Most cases should NOT need overrides if using tokens correctly:
 ### Subtle Backgrounds
 ```css
 .subtle-bg {
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .dark-theme .subtle-bg {
@@ -131,7 +131,7 @@ These tokens are automatically updated by `useTheme.ts`:
 | `--selection-color` | Blue tint (`rgba(0,102,204,0.2)`) | Blue tint (`rgba(90,168,255,0.22)`) |
 | `--md-char-color` | `#777777` | `#7aa874` |
 | `--accent-bg` | Blue 10% | Blue 12% |
-| `--hover-bg` | `rgba(0,0,0,0.04)` | `rgba(255,255,255,0.08)` |
+| `--hover-bg` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.08)` |
 | `--hover-bg-strong` | `rgba(0,0,0,0.08)` | `rgba(255,255,255,0.12)` |
 | `--error-color` | `#cf222e` | `#f85149` |
 | `--error-bg` | `#ffebe9` | Red 15% |

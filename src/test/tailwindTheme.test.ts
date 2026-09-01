@@ -24,7 +24,9 @@ function mapped(name: string): string {
 
 describe("@theme inline bridge (D1)", () => {
   it("maps the text scale onto the chrome type tokens — text-xs stays 12, text-sm becomes 13", () => {
-    expect(mapped("--text-2xs")).toBe("var(--font-size-2xs)");
+    // WI-UB2 (re-audit 20260901): 10px is retired — the token, its bridge
+    // utility and every consumer are gone; interactive text floors at 11px.
+    expect(themeBlock).not.toContain("--text-2xs");
     expect(mapped("--text-xs")).toBe("var(--font-size-sm)");
     expect(mapped("--text-sm")).toBe("var(--font-size-base)");
     expect(mapped("--text-base")).toBe("var(--font-size-md)");
@@ -33,7 +35,7 @@ describe("@theme inline bridge (D1)", () => {
   });
 
   it("every text step carries its line-height companion (mandatory — text-* sets leading too)", () => {
-    for (const step of ["2xs", "xs", "sm", "base", "lg", "xl"]) {
+    for (const step of ["xs", "sm", "base", "lg", "xl"]) {
       expect(mapped(`--text-${step}--line-height`)).toMatch(/^var\(--line-height-/);
     }
   });

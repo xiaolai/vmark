@@ -124,7 +124,7 @@
 .workflow-form__kind {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--text-secondary);
   font-weight: 600;
 }
@@ -504,7 +504,7 @@
 .workflow-diagnostics-banner__code {
   flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   background: var(--bg-color);
   border-radius: var(--radius-sm);
@@ -579,7 +579,7 @@
 
 .workflow-form__trigger-cron-raw {
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   background: var(--bg-secondary);
   padding: 0 var(--space-half);
   border-radius: var(--radius-sm);
@@ -605,7 +605,7 @@
 }
 
 .workflow-form__known-inputs-summary {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   cursor: pointer;
   padding: var(--space-half) 0;
@@ -633,7 +633,7 @@
   background: transparent;
   border-radius: var(--radius-sm);
   font: inherit;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-color);
   cursor: pointer;
   transition: background var(--duration-fast), color var(--duration-fast);
@@ -671,7 +671,7 @@
 }
 
 .workflow-form__known-input-desc {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   line-height: var(--line-height-snug);
   max-width: var(--workflow-form-input-desc-max-width);

@@ -49,7 +49,7 @@
   /* R5: an enabled control rests at secondary, not the decorative tier. */
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 
@@ -85,7 +85,7 @@
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 /* ---- Item ---- */
@@ -135,7 +135,7 @@
 }
 
 .genie-picker-item-scope {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   padding: var(--space-px) var(--space-1-5);
   border-radius: var(--radius-pill);
   border: var(--border-thin) solid var(--border-color);
@@ -216,7 +216,7 @@
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
@@ -333,11 +333,11 @@
 
 .provider-switcher-label {
   padding: var(--space-1) var(--space-2) var(--space-half);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .provider-switcher-item {
@@ -381,7 +381,7 @@
 }
 
 .provider-switcher-key {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   color: var(--text-tertiary);
 }

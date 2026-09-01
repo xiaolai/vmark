@@ -6,7 +6,6 @@
     "src/components/Editor/editor.css:.source-editor .cm-editor.cm-selection-pulse .cm-selectionBackground:background-color:var(--selection-color, rgba(0, 102, 204, 0.35)) !important",
     "src/components/Editor/editor.css:@keyframes selection-pulse 0%:background-color:var(--selection-color, rgba(0, 102, 204, 0.35))",
     "src/components/Editor/editor.css:@keyframes selection-pulse 100%:background-color:var(--selection-color, rgba(0, 102, 204, 0.15))",
-    "src/components/Editor/heading-picker.css:.heading-picker-item:hover:background:var(--hover-bg, rgba(0, 0, 0, 0.04))",
     "src/plugins/codemirror/source-blocks.css:.cm-details-line:background-color:rgba(0, 0, 0, 0.015)",
     "src/plugins/codemirror/source-blocks.css:.dark-theme .cm-details-line:background-color:rgba(255, 255, 255, 0.02)",
     "src/plugins/frontmatterPanel/frontmatter-panel.css:.dark-theme .frontmatter-panel-textarea:background:rgba(255, 255, 255, 0.03)"

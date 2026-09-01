@@ -48,14 +48,14 @@
   padding: var(--space-1-5) var(--space-3);
   border: none;
   background: none;
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
   text-align: left;
   color: var(--text-color);
   font-size: var(--font-size-base);
 }
 
 .heading-picker-item:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+  background: var(--hover-bg);
 }
 
 .heading-picker-item.selected {
@@ -86,7 +86,7 @@
 
 .heading-picker-id {
   flex-shrink: 0;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-family: var(--font-mono, monospace);
 }

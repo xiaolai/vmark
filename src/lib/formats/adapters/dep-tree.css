@@ -31,7 +31,7 @@
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--text-color);
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 

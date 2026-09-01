@@ -44,7 +44,9 @@ describe("vm-icon-btn (D2/R7/R9)", () => {
   it("rest/hover/pressed/disabled speak the state vocabulary", () => {
     const base = rule(".vm-icon-btn,");
     expect(base).toContain("color: var(--text-secondary)");
-    expect(base).toContain("cursor: default");
+    // WI-UA15: D7 platform-scoped — the token is `default` on macOS and
+    // `pointer` under .platform-windows/.platform-linux (index.css).
+    expect(base).toContain("cursor: var(--cursor-interactive, default)");
     expect(css).toMatch(/:hover:not\(:disabled\)[^}]*var\(--hover-bg\)/);
     expect(css).toMatch(/:active:not\(:disabled\)[^}]*var\(--hover-bg-strong\)/);
     expect(css).toMatch(/:disabled[^}]*var\(--opacity-disabled\)/);

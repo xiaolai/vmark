@@ -224,7 +224,13 @@ function DocumentTitleBar() {
             onDoubleClick={handleDoubleClick}
             title={isMissing ? t("fileDeleted") : undefined}
           >
-            {isDirty && <span className="dirty-indicator">•</span>}
+            {isDirty && (
+              // WI-UA9: a styled dot, not a text bullet — the bullet was below
+              // noticing threshold and read aloud as punctuation noise.
+              <span className="dirty-indicator">
+                <span className="sr-only">{t("tab.unsavedChanges")}</span>
+              </span>
+            )}
             {isMissing && <span className="missing-indicator">⚠</span>}
             {displayName}
           </span>

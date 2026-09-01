@@ -17,7 +17,7 @@
 .browser-history-title {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
   color: var(--text-secondary);
 }

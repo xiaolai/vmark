@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { formatFileDisplayName } from "./displayFileName";
+// WI-UA12 — tab titles truncate the NAME, never the extension: the label
+// splits into base + ext spans so `design-system.md` and `design-tokens.md`
+// stay distinguishable by suffix under a width cap (audit 20260901).
+// @vitest-environment node
+import { describe, it, expect } from "vitest";
+import { formatFileDisplayName, splitDisplayExtension } from "./displayFileName";
 
 describe("formatFileDisplayName", () => {
   it("keeps the extension when extensions are shown", () => {
@@ -44,5 +48,37 @@ describe("formatFileDisplayName", () => {
 
   it("passes an untitled tab title through untouched", () => {
     expect(formatFileDisplayName("Untitled-1", false)).toBe("Untitled-1");
+  });
+});
+
+describe("splitDisplayExtension", () => {
+  it.each([
+    // label, base, ext
+    ["note.md", "note", ".md"],
+    ["design-system.md", "design-system", ".md"],
+    ["archive.tar.gz", "archive.tar", ".gz"],
+    ["App.vue", "App", ".vue"],
+    ["photo.JPEG", "photo", ".JPEG"],
+  ])("splits %s → %s + %s", (label, base, ext) => {
+    expect(splitDisplayExtension(label)).toEqual({ base, ext });
+  });
+
+  it.each([
+    // Names with nothing that reads as an extension keep the whole label in
+    // base, so the ellipsis behaviour degrades to plain end-truncation.
+    ["README", "no dot"],
+    [".gitignore", "dotfile — the leading dot is not an extension"],
+    ["note.", "trailing dot"],
+    ["my.file with spaces", "last segment has a space — prose, not a suffix"],
+    ["v1.0-release-candidate", "last segment longer than an extension"],
+    ["写作笔记", "CJK, no dot"],
+    ["", "empty label"],
+    [".md", "all extension — never an empty base"],
+  ])("keeps %s whole (%s)", (label) => {
+    expect(splitDisplayExtension(label)).toEqual({ base: label, ext: "" });
+  });
+
+  it("splits a CJK name with a registered-style suffix", () => {
+    expect(splitDisplayExtension("写作笔记.md")).toEqual({ base: "写作笔记", ext: ".md" });
   });
 });

@@ -37,7 +37,6 @@ import { SettingsSearchResults, type SearchablePanel } from "./settings/Settings
 import { SettingsNav } from "./settings/SettingsNav";
 import { SETTINGS_PANELS, SEARCHABLE_PANEL_IDS, type Section } from "./settings/panels";
 import "./settings/settings-search.css";
-import "./settings/settings-shell.css";
 import { appError } from "@/utils/debug";
 import { voidAsync } from "@/utils/voidAsync";
 
@@ -142,7 +141,7 @@ export function SettingsPage() {
   // Bidirectional sync with the main window's updateStore. Settings now
   // runs Check / Download locally (so the button stays responsive when
   // main is destroyed), so it must also broadcast its local state changes
-  // back to main — otherwise main's StatusBar UpdateIndicator would stay
+  // back to main — otherwise main's update toast (useStatusToasts) would stay
   // stale after a Settings-side check finds a new version.
   useUpdateBroadcast();
   useUpdateListener();
@@ -233,7 +232,7 @@ export function SettingsPage() {
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
-            className="settings-scroll flex-1 overflow-auto p-6"
+            className="vm-scroll--thin flex-1 overflow-auto p-6"
             data-settings-searching={searching ? "" : undefined}
           >
             {searching ? (

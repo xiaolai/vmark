@@ -238,6 +238,8 @@ vi.mock("@/stores/settingsStore", () => {
     useSettingsStore: createZustandMock(state),
     useShortcutsStore: shortcutsMock,
     prosemirrorToTauri: (key: string) => key,
+    // WelcomeScreen's shortcut hint (WI-UA13) formats live bindings.
+    formatKeyForDisplay: (key: string) => key,
     DEFAULT_SHORTCUTS: [],
   };
 });

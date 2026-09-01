@@ -121,7 +121,6 @@
   "toast.genieNoProvider": "Nessun provider IA disponibile. Configurane uno nelle Impostazioni.",
   "toast.genieCliNotFound": "CLI {{name}} non trovata. Installala o scegli un altro provider nelle Impostazioni.",
   "toast.genieApiKeyRequired": "È richiesta la chiave API di {{name}}. Configurala in Impostazioni → Integrazioni.",
-  "toast.updateReady": "v{{version}} pronto per l'installazione",
   "toast.updateUpToDate": "Sei aggiornato!",
   "toast.imagePathCopied": "Percorso immagine copiato negli appunti",
   "toast.failedToChangeImage": "Modifica dell'immagine fallita.",

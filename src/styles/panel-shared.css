@@ -51,7 +51,7 @@
 
 .vm-chip--toggle {
   border-radius: var(--radius-sm);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
 }
 
 .vm-chip--toggle[aria-pressed="true"] {
@@ -65,12 +65,14 @@
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   font-family: var(--font-ui);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 }
 
-/* The switch: a 36×20 track whose OFF boundary must be findable (D8 — the
-   track border is --control-border, authored ≥ 3:1 on every theme). The knob
-   is the PAGE colour: a fixed white knob vanished on night's pastel accent. */
+/* The switch: a borderless 36×20 track (maintainer direction 2026-09-02,
+   superseding the D8 control-border ring here) — the off state is the
+   hover-strong fill, the on state the solid accent, and the page-colour
+   knob supplies the shape contrast on both. A fixed white knob vanished
+   on night's pastel accent, hence the PAGE colour. */
 .vm-switch {
   position: relative;
   display: inline-flex;
@@ -78,16 +80,15 @@
   width: 36px;
   height: 20px;
   padding: 0;
-  border: var(--border-thin) solid var(--control-border);
+  border: none;
   border-radius: var(--radius-pill);
-  background: var(--bg-tertiary);
-  cursor: default;
+  background: var(--hover-bg-strong);
+  cursor: var(--cursor-interactive, default);
   transition: background var(--duration-base);
 }
 
 .vm-switch[aria-checked="true"] {
   background: var(--accent-primary);
-  border-color: var(--accent-primary);
 }
 
 .vm-switch:disabled {

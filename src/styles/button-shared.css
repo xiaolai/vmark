@@ -37,29 +37,39 @@
      from the primitive layer (rule 31 sanctions that when no semantic token
      covers the case). 4px/8px reads as cramped at this font size. */
   padding: var(--space-1-5) var(--space-3);
-  border: var(--border-thin) solid var(--border-color);
+  /* Elevated base (WI-UB1, re-audit 20260901): findability by ELEVATION —
+     a raised --surface-raised face, an 8%-text-ink hairline and --shadow-sm —
+     replacing the outline-on-grey recipe the audit flagged. Ratified for the
+     welcome front door first (WI-UA13), then rolled out to every .vm-btn. */
+  border: var(--border-thin) solid color-mix(in srgb, var(--text-color) 8%, transparent);
   border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
   color: var(--text-color);
   font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-base);
-  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
   transition:
     background var(--duration-fast),
     color var(--duration-fast);
 }
 
+/* Hover deepens the face by mixing in text ink — a translucent --hover-bg
+   over a raised opaque face would just grey it back toward the page. Press
+   drops the shadow: the button visibly sits down. */
 .vm-btn:hover:not(:disabled) {
-  background: var(--hover-bg);
+  background: color-mix(in srgb, var(--text-color) 4%, var(--surface-raised));
 }
 
 .vm-btn:active:not(:disabled) {
-  background: var(--hover-bg-strong);
+  background: color-mix(in srgb, var(--text-color) 8%, var(--surface-raised));
+  box-shadow: none;
 }
 
 .vm-btn:disabled {
   opacity: var(--opacity-disabled);
+  box-shadow: none; /* a floating disabled control reads as pressable */
   cursor: not-allowed;
 }
 
@@ -130,6 +140,7 @@
   padding: var(--spacing-1) 0;
   border: none;
   background: transparent;
+  box-shadow: none; /* the chromeless variant must not float (WI-UB1) */
   color: var(--text-secondary);
 }
 

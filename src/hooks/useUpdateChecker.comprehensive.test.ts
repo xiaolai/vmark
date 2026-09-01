@@ -330,7 +330,7 @@ describe("useUpdateChecker hook", () => {
     expect(mockRestartWithHotExit).toHaveBeenCalled();
   });
 
-  it("shows ready toast when status changes to ready with update info", async () => {
+  it("does NOT toast on ready — useStatusToasts owns the lifecycle (WI-UB3)", async () => {
     const { toast } = await import("sonner");
 
     renderHook(() => useUpdateChecker());
@@ -350,10 +350,9 @@ describe("useUpdateChecker hook", () => {
       });
     });
 
-    expect(toast.success).toHaveBeenCalledWith(
-      expect.stringContaining("3.0.0"),
-      expect.any(Object)
-    );
+    // WI-UB3: the ready toast moved to useStatusToasts (sticky + Restart
+    // action); a second toast from the checker would double-announce.
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("shows up-to-date toast only for manual check", async () => {

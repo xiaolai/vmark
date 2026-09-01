@@ -62,7 +62,7 @@
   background: transparent;
   color: var(--text-color);
   font-size: var(--font-size-sm);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
 }
 
 .math-popup-btn:hover {

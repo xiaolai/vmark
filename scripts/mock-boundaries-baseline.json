@@ -1,10 +1,10 @@
 {
   "//": [
-    "Identity baseline of test-side mocks of src/stores/* — (file, mocking API, resolved target) triples, never counts (counts permit like-for-like swaps).",
+    "Identity baseline of test-side mocks of src/stores/* \u2014 (file, mocking API, resolved target) triples, never counts (counts permit like-for-like swaps).",
     "Checked by scripts/check-mock-boundaries.mjs (pnpm lint:mock-boundaries, in check:all); regenerate ONLY to remove entries via --write-baseline.",
-    "Two-way ratchet: an unbaselined store mock fails the gate, and a baselined mock that no longer exists also fails until its entry is deleted — record the win.",
+    "Two-way ratchet: an unbaselined store mock fails the gate, and a baselined mock that no longer exists also fails until its entry is deleted \u2014 record the win.",
     "Entries only get REMOVED, never added. Instead of mocking a store, use the real store (setState/reset in beforeEach) or an explicit store-factory seam with a recorded reason.",
-    "Registered in the WI-16 ratchet manifest (scripts/check-baseline-ratchet.mjs), which re-compares this file against the merge base in CI — so the commit that adds an entry cannot also be the commit that authorizes it."
+    "Registered in the WI-16 ratchet manifest (scripts/check-baseline-ratchet.mjs), which re-compares this file against the merge base in CI \u2014 so the commit that adds an entry cannot also be the commit that authorizes it."
   ],
   "entries": [
     {
@@ -326,16 +326,6 @@
       "file": "src/components/StatusBar/tabTransferActions.test.ts",
       "api": "vi.mock",
       "target": "src/stores/workspaceStore"
-    },
-    {
-      "file": "src/components/StatusBar/UpdateIndicator.test.tsx",
-      "api": "vi.mock",
-      "target": "src/stores/mcpStore"
-    },
-    {
-      "file": "src/components/StatusBar/UpdateIndicator.test.tsx",
-      "api": "vi.mock",
-      "target": "src/stores/settingsStore"
     },
     {
       "file": "src/components/Tabs/Tab.test.tsx",

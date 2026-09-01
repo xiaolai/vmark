@@ -21,10 +21,6 @@ vi.mock("@/utils/dateUtils", () => ({
   formatExactTime: (ts: number) => `time:${ts}`,
 }));
 
-vi.mock("./UpdateIndicator", () => ({
-  UpdateIndicator: () => <span data-testid="update-indicator" />,
-}));
-
 vi.mock("./StatusBarCounts", () => ({
   StatusBarCounts: () => <span data-testid="status-counts" />,
 }));
@@ -97,7 +93,10 @@ describe("StatusBar a11y (WI-UI4.5)", () => {
       const mcp = container.querySelector(".status-mcp");
       expect(mcp?.getAttribute("aria-label")).toBe(expected);
       expect(mcp?.getAttribute("aria-label")).toBe(mcp?.getAttribute("title"));
-      expect(mcp?.querySelector(".status-mcp__state")?.getAttribute("aria-hidden")).toBe("true");
+      // Connected renders no state word (its badge speaks); when the word
+      // exists it must stay aria-hidden — the NAME carries the state.
+      const stateWord = mcp?.querySelector(".status-mcp__state");
+      if (stateWord) expect(stateWord.getAttribute("aria-hidden")).toBe("true");
       seen.add(expected);
       unmount();
     }

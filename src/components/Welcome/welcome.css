@@ -27,11 +27,18 @@
   padding: var(--space-6);
 }
 
+/* WI-UA13 (audit 20260901): the identity moment — display size, full ink.
+   The old 16px secondary-ink title was quieter than the buttons under it. */
 .welcome-screen__title {
   margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  letter-spacing: var(--letter-spacing-loose);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.welcome-screen__tagline {
+  margin: 0;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
 }
 
@@ -42,14 +49,15 @@
   justify-content: center;
 }
 
-/* The actions are the canonical `.vm-btn` + `--pill` (WI-UI4.7; pill shape by
-   maintainer direction 2026-08-31); the residual keeps the front door's larger
-   size and its FINDABLE boundary (--control-border, D8). A capsule's round
-   ends visually eat horizontal padding, hence the wider inset. */
+/* The actions are the canonical `.vm-btn` + `--pill` (WI-UI4.7 / WI-UA13;
+   pill by maintainer direction 2026-08-31). The elevated 1b recipe debuted
+   here as a variant and was promoted to the .vm-btn BASE by the re-audit
+   (WI-UB1), so the residual keeps only the front door's larger size. A
+   capsule's round ends visually eat horizontal padding, hence the wider
+   inset. */
 .welcome-action {
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  border-color: var(--control-border);
   font-size: var(--font-size-md);
 }
 
@@ -61,6 +69,14 @@
 
 /* Both MRU lists together. They sit closer to each other than to the action
    row above, so they read as one block rather than two unrelated panels. */
+/* WI-UA13: shortcut education under the actions. Plain inline flow — a flex
+   container here drops the whitespace text nodes around the separator. */
+.welcome-screen__hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
 .welcome-screen__recents {
   width: 100%;
   display: flex;
@@ -80,7 +96,7 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--text-secondary);
 }
 

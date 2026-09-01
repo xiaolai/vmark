@@ -121,7 +121,6 @@
   "toast.genieNoProvider": "没有可用的 AI 提供程序。请在设置中配置。",
   "toast.genieCliNotFound": "{{name}} CLI 未找到。请安装它或在设置中选择另一个提供程序。",
   "toast.genieApiKeyRequired": "需要 {{name}} API 密钥。请在设置 → 集成中配置。",
-  "toast.updateReady": "v{{version}} 已准备安装",
   "toast.updateUpToDate": "您已是最新版本！",
   "toast.imagePathCopied": "图像路径已复制到剪贴板",
   "toast.failedToChangeImage": "无法更改图像。",

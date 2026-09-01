@@ -20,17 +20,22 @@ Standard patterns for UI components. Follow these for consistency.
 | Chip / pill / kbd hint | `.vm-chip` | `src/styles/panel-shared.css` |
 | Toggle switch | `.vm-switch` | `src/styles/panel-shared.css` |
 
-**The current-tab idiom is a second, named vocabulary — raised, not selected.**
-`.tab-pill.active` / `.browser-page-tab.active` fill with `--bg-color` so the
-current tab reads as a card raised to the page surface; that is deliberate and
-carries `ui-ok(state): current-tab` where the C9 gate would otherwise ask for
-`--accent-bg`. Selected LIST rows are the accent vocabulary (R6); the current
-tab is not a selected row. Since 2026-08-31 the STATUS-BAR pills are
-borderless (`--shadow-sm` is the active boundary; WI-UI3.6's ring is
-superseded there) and their hover is the NEGATIVE treatment — ink and page
-swap tokens (`--text-color` bg, `--bg-color` text), AA by construction. The
-embedded browser's `.browser-page-tab` keeps the control-border idiom. Pinned
-by `tabPillSurface.test.ts`.
+**The current-tab idiom is a second, named vocabulary — negative, not
+selected.** Since 2026-09-02 (WI-UC1, maintainer direction) the STATUS-BAR
+pill's active state is the NEGATIVE treatment: ink and page swap tokens
+(`--text-color` fill, `--bg-color` text), so the pair's contrast is the body
+ratio — AA by construction on every theme, and stronger than the 20260901
+audit's `--bg-tertiary` + ring version on exactly the dark themes that audit
+flagged. It carries `ui-ok(state): current-tab` where the C9 gate would ask
+for `--accent-bg`; selected LIST rows stay the accent vocabulary (R6). The
+inversion is unambiguous because hover speaks the ordinary R6 vocabulary
+(`--hover-bg-strong` + text ink, WI-UA2) — when hover was ALSO the negative
+(2026-08-31) the two states were indistinguishable. Inside the ink face,
+page ink carries the signals: dirty dot, focus bar (the active pill is the
+roving-tabindex stop), and the close affordance. The synthetic
+`.browser-workspace-tab.active` speaks the same language (one strip); the
+embedded browser's `.browser-page-tab` keeps its own control-border idiom.
+Pinned by `tabPillSurface.test.ts`.
 
 A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
 native bezel, native chevron, 5px pill radius — and author styling only partly
@@ -252,7 +257,8 @@ Position is calculated in JS based on selection/cursor coordinates.
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15):
+     arrow on macOS, pointer under .platform-windows/.platform-linux */
   transition: background 0.15s, color 0.15s;
 }
 

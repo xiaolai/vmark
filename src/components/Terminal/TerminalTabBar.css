@@ -114,7 +114,7 @@
   position: absolute;
   top: -2px;
   right: 0;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   line-height: 1;
 }
 
