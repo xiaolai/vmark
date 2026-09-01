@@ -10,7 +10,6 @@
   "mcpStopped": "MCP gestoppt · Klicken zum Starten",
   "mcpNoClients": "MCP bereit · Keine KI verbunden",
   "mcpConnected": "Verbunden: {{clients}}",
-  "mcpStateOn": "an",
   "mcpStateOff": "aus",
   "mcpStateStarting": "…",
   "mcpStateError": "Fehler",

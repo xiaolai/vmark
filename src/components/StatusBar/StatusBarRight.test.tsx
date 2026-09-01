@@ -390,19 +390,20 @@ describe("StatusBarRight", () => {
     expect(btn?.className).toContain("error");
   });
 
-  it("shows a state WORD beside the satellite icon, per state (WI-UA10)", () => {
-    // The old ✓/⟳/✗/○ glyph set was 10px and cryptic without its tooltip;
-    // R13's second channel is now a legible localized word at 11px.
+  it("shows a state WORD only when something needs saying (WI-UA10; connected is quiet)", () => {
+    // The old ✓/⟳/✗/○ glyph set was 10px and cryptic without its tooltip.
+    // Connected already speaks through the tinted badge, so its word was
+    // redundant (maintainer, 2026-09-02); off/starting/error keep theirs.
     const word = (ui: ReactElement) =>
       render(ui).container.querySelector(".status-mcp__state")?.textContent;
     expect(word(<StatusBarRight {...baseProps} />)).toBe("off");
-    expect(word(<StatusBarRight {...baseProps} mcpRunning={true} />)).toBe("on");
+    expect(word(<StatusBarRight {...baseProps} mcpRunning={true} />)).toBeUndefined();
     expect(word(<StatusBarRight {...baseProps} mcpLoading={true} />)).toBe("…");
     expect(word(<StatusBarRight {...baseProps} mcpError="fail" />)).toBe("error");
   });
 
   it("the state word stays aria-hidden — the button's accessible name carries the state", () => {
-    const { container } = render(<StatusBarRight {...baseProps} mcpRunning={true} />);
+    const { container } = render(<StatusBarRight {...baseProps} />);
     expect(container.querySelector(".status-mcp__state")).toHaveAttribute("aria-hidden", "true");
   });
 

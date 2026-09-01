@@ -102,8 +102,14 @@ describe("AppearanceSettings — follow system appearance (#1125)", () => {
     ).toBe(true);
     expect(screen.getByText("Light theme")).toBeInTheDocument();
     expect(screen.getByText("Dark theme")).toBeInTheDocument();
-    // Both rows render a full swatch set
-    expect(screen.getAllByText("Paper")).toHaveLength(2);
+    // Each row offers only ITS mode (maintainer, 2026-09-02): the rows used
+    // to both render all six, which read as an inexplicable duplicate.
+    expect(screen.getAllByText("Paper")).toHaveLength(1);
+    expect(screen.getAllByText("Night")).toHaveLength(1);
+    expect(screen.getAllByText("Solarized")).toHaveLength(1);
+    // A filtered row's mode badge would say the same thing six times — the
+    // badges render only in the unfiltered manual row.
+    expect(screen.queryByText("Light", { selector: "button span" })).not.toBeInTheDocument();
   });
 
   it("swatch clicks in the light/dark rows update the paired themes", () => {
@@ -114,19 +120,17 @@ describe("AppearanceSettings — follow system appearance (#1125)", () => {
       },
     });
     render(<AppearanceSettings />);
-    const [lightSepia, darkSepia] = screen.getAllByRole("button", {
-      name: /sepia/i,
-    });
-    fireEvent.click(lightSepia);
+    // Sepia is a LIGHT theme, so it exists only in the light row now.
+    fireEvent.click(screen.getByRole("button", { name: /sepia/i }));
     expect(useSettingsStore.getState().appearance.systemLightTheme).toBe(
       "sepia"
     );
     expect(useSettingsStore.getState().appearance.systemDarkTheme).toBe(
       "night"
     );
-    fireEvent.click(darkSepia);
+    fireEvent.click(screen.getByRole("button", { name: /solarized/i }));
     expect(useSettingsStore.getState().appearance.systemDarkTheme).toBe(
-      "sepia"
+      "solarized"
     );
     // Manual theme untouched by paired-row clicks
     expect(useSettingsStore.getState().appearance.theme).toBe("paper");
@@ -212,9 +216,11 @@ describe("AppearanceSettings — theme picker narrowing (Windows/Linux)", () => 
       },
     });
     render(<AppearanceSettings />);
-    // One swatch per row, two rows — light and dark.
-    expect(screen.getAllByRole("button", { name: /white/i })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: /night/i })).toHaveLength(2);
+    // Mode filtering composes with platform narrowing: the light row offers
+    // only white, the dark row only night — one swatch each, no cross-row
+    // duplicates (2026-09-02).
+    expect(screen.getAllByRole("button", { name: /white/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /night/i })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /sepia/i })).toBeNull();
   });
 

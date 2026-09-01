@@ -10,7 +10,6 @@
   "mcpStopped": "MCP 已停止 · 點擊以啟動",
   "mcpNoClients": "MCP 已就緒 · 無 AI 連線",
   "mcpConnected": "已連線：{{clients}}",
-  "mcpStateOn": "開",
   "mcpStateOff": "關",
   "mcpStateStarting": "…",
   "mcpStateError": "錯誤",

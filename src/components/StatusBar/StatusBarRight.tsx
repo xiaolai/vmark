@@ -176,11 +176,15 @@ export function StatusBarRight({
         aria-label={formatMcpTooltip(mcpRunning, mcpLoading, mcpError, mcpClients)}
       >
         <Satellite size={ICON_SM} />
-        {/* Second channel beside colour: a state WORD (WI-UA10) — the old
-            ✓/⟳/✗/○ glyph set was cryptic without its tooltip. */}
-        <span className="status-mcp__state" aria-hidden="true">
-          {mcpError ? t("mcpStateError") : mcpLoading ? t("mcpStateStarting") : mcpRunning ? t("mcpStateOn") : t("mcpStateOff")}
-        </span>
+        {/* Second channel beside colour: a state WORD (WI-UA10), but only
+            when something needs saying — connected already speaks through
+            the tinted badge, so its "on" was redundant (maintainer,
+            2026-09-02). off/starting/error still carry their word. */}
+        {(mcpError || mcpLoading || !mcpRunning) && (
+          <span className="status-mcp__state" aria-hidden="true">
+            {mcpError ? t("mcpStateError") : mcpLoading ? t("mcpStateStarting") : t("mcpStateOff")}
+          </span>
+        )}
       </button>
 
       <McpHistoryButton />

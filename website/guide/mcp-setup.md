@@ -258,12 +258,13 @@ VMark provides multiple ways to check the MCP server status:
 
 ### Status Bar Indicator
 
-The status bar shows an **MCP** indicator on the right side. Beside the
-satellite icon, a small state word says what the color means:
+The status bar shows an **MCP** indicator on the right side. When something
+needs your attention, a small state word appears beside the satellite icon;
+a healthy connection is just the green icon:
 
 | Color | Word | Status |
 |-------|------|--------|
-| Green | `on` | Connected and running |
+| Green | — | Connected and running |
 | Gray | `off` | Disconnected or stopped |
 | Pulsing (animated) | `…` | Starting up |
 | Red | `error` | Server failed — hover for the reason |

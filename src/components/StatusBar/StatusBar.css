@@ -666,10 +666,11 @@
 }
 
 .status-mcp.connected {
-  /* Badge treatment (WI-UI1.3): the tinted pill keeps the state readable at
-     11px — colour alone at this size was below 3:1 pre-retint. */
+  /* Flat (maintainer, 2026-09-02): the WI-UI1.3 badge tint predated the
+     retint — lint:theme-contrast now holds semantic.success ≥ 4.5:1 on every
+     theme, so the green satellite speaks alone, matching the bar's one
+     resting idiom (coloured icon = state, like the lock and terminal). */
   color: var(--success-color);
-  background-color: color-mix(in srgb, var(--success-color) 12%, transparent);
 }
 
 .status-mcp.loading {

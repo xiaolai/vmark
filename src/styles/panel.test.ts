@@ -26,11 +26,12 @@ describe("panel primitives (WI-UI3.4)", () => {
     expect(rule(".vm-chip--toggle")).toContain("var(--radius-sm)");
   });
 
-  it("vm-switch has the 36x20 track on --control-border with a page-colour knob", () => {
+  it("vm-switch is a BORDERLESS 36x20 track with a page-colour knob (maintainer 2026-09-02)", () => {
     const s = rule(".vm-switch");
     expect(s).toContain("width: 36px");
     expect(s).toContain("height: 20px");
-    expect(s).toContain("var(--control-border)");
+    expect(s).toContain("border: none");
+    expect(s).toContain("var(--hover-bg-strong)");
     expect(rule(".vm-switch__knob")).toContain("var(--bg-color)");
   });
 

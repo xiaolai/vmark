@@ -10,7 +10,6 @@
   "mcpStopped": "MCP停止中 · クリックして起動",
   "mcpNoClients": "MCP準備完了 · AI未接続",
   "mcpConnected": "接続中: {{clients}}",
-  "mcpStateOn": "オン",
   "mcpStateOff": "オフ",
   "mcpStateStarting": "…",
   "mcpStateError": "エラー",
