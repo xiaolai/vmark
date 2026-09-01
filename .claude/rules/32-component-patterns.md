@@ -20,16 +20,20 @@ Standard patterns for UI components. Follow these for consistency.
 | Chip / pill / kbd hint | `.vm-chip` | `src/styles/panel-shared.css` |
 | Toggle switch | `.vm-switch` | `src/styles/panel-shared.css` |
 
-**The current-tab idiom is a second, named vocabulary — raised, not selected.**
-The active tab is a card raised above the page, not a selected list row, so it
-carries `ui-ok(state): current-tab` where the C9 gate would otherwise ask for
-`--accent-bg`; selected LIST rows stay the accent vocabulary (R6). Since audit
-20260901 (WI-UA1/WI-UA2, reversing the short-lived 2026-08-31 exceptions) the
-STATUS-BAR pill's active state LIFTS onto `--bg-tertiary` and carries the D8
-`--control-border` ring as an inset box-shadow plus `--shadow-sm` — the
-borderless card measured ~1.05:1 page-vs-bar on night, findable only by its
-shadow — and pill hover speaks the ordinary R6 hover vocabulary
-(`--hover-bg-strong` + text ink) instead of the old ink/page inversion. The
+**The current-tab idiom is a second, named vocabulary — negative, not
+selected.** Since 2026-09-02 (WI-UC1, maintainer direction) the STATUS-BAR
+pill's active state is the NEGATIVE treatment: ink and page swap tokens
+(`--text-color` fill, `--bg-color` text), so the pair's contrast is the body
+ratio — AA by construction on every theme, and stronger than the 20260901
+audit's `--bg-tertiary` + ring version on exactly the dark themes that audit
+flagged. It carries `ui-ok(state): current-tab` where the C9 gate would ask
+for `--accent-bg`; selected LIST rows stay the accent vocabulary (R6). The
+inversion is unambiguous because hover speaks the ordinary R6 vocabulary
+(`--hover-bg-strong` + text ink, WI-UA2) — when hover was ALSO the negative
+(2026-08-31) the two states were indistinguishable. Inside the ink face,
+page ink carries the signals: dirty dot, focus bar (the active pill is the
+roving-tabindex stop), and the close affordance. The synthetic
+`.browser-workspace-tab.active` speaks the same language (one strip); the
 embedded browser's `.browser-page-tab` keeps its own control-border idiom.
 Pinned by `tabPillSurface.test.ts`.
 

@@ -70,9 +70,11 @@ describe("ui audit fixes (20260901)", () => {
   });
 
   it("WI-UA9: both dirty dots are 6px accent dots with the soft halo", () => {
+    // "\n." anchors the BASE rules — WI-UC1 adds an active-scoped
+    // `.tab-pill.active .tab-dirty-dot` flip that would otherwise match first.
     for (const [file, selector] of [
-      ["src/components/StatusBar/StatusBar.css", ".tab-dirty-dot {"],
-      ["src/components/TitleBar/title-bar.css", ".dirty-indicator {"],
+      ["src/components/StatusBar/StatusBar.css", "\n.tab-dirty-dot {"],
+      ["src/components/TitleBar/title-bar.css", "\n.dirty-indicator {"],
     ] as const) {
       const css = read(file);
       const i = css.indexOf(selector);

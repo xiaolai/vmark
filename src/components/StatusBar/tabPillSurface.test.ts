@@ -1,18 +1,23 @@
-// WI-UA1 — active tab pill: raised --bg-tertiary surface + --control-border
-//          ring (audit 20260901; reverses the 2026-08-31 borderless exception).
-// WI-UA2 — tab hover speaks the R6 hover vocabulary, not ink inversion.
+// WI-UC1 — active tab pill is the NEGATIVE treatment (maintainer direction
+//          2026-09-02): ink face, page-colour text — contrast is the body
+//          pair's own ratio, AA by construction on every theme. Supersedes
+//          WI-UA1's --bg-tertiary + ring version of 2026-09-01.
+// WI-UA2 — tab hover speaks the R6 hover vocabulary, not ink inversion —
+//          which is exactly why active-as-negative is unambiguous now.
 //
 // The tab-strip pill surface contract.
 //
-// History: WI-UI3.6 drew the active pill's boundary with a --control-border
-// ring; the maintainer superseded that on 2026-08-31 (borderless raised card,
-// negative hover). The 2026-09-01 UI audit measured the cost — ~1.05:1
-// page-vs-bar contrast on Night left the active tab findable only by a shadow —
-// and the maintainer ratified the reversal: the active pill lifts onto
-// --bg-tertiary and carries the control-border ring (authored ≥ 3:1 per theme,
-// D8) as an inset box-shadow so pill geometry does not change. Hover uses
-// --hover-bg-strong + text ink, the same vocabulary as every other hover in
-// the chrome (C9), instead of a one-off ink inversion.
+// History: WI-UI3.6 ringed the active pill with --control-border; 2026-08-31
+// made it a borderless raised card with NEGATIVE hover; the 2026-09-01 audit
+// (WI-UA1/UA2) restored a ring on a --bg-tertiary lift and moved hover to the
+// R6 vocabulary; 2026-09-02 the maintainer moved the NEGATIVE treatment onto
+// the ACTIVE state itself: ink face, page text, no ring, no shadow. That is
+// stronger than the ring on precisely the dark themes the audit flagged, and
+// unambiguous now that hover no longer uses the inversion. Inside the ink
+// face the dirty dot flips to page ink, and the focus bar paints in
+// --bg-color (the accent bar would sink into a near-black face on light
+// themes) — the ACTIVE pill is the roving-tabindex stop, so its focus
+// indicator is the keyboard-visible one.
 //
 // The embedded browser's own page tabs (.browser-page-tab) keep their
 // WI-UI3.6 control-border idiom — real-browser chrome, separate system.
@@ -28,15 +33,25 @@ function ruleBody(css: string, selector: string): string {
   return css.slice(i, css.indexOf("}", i));
 }
 
-describe("tab-strip pill surface (raised + ringed, audit 20260901)", () => {
-  it(".tab-pill.active lifts onto --bg-tertiary with a control-border ring and the shadow", () => {
+describe("tab-strip pill surface (negative active, maintainer 2026-09-02)", () => {
+  it(".tab-pill.active is the negative: ink face, page text, no ring, no shadow", () => {
     const body = ruleBody(statusBarCss(), ".tab-pill.active {");
-    expect(body).toContain("var(--bg-tertiary)");
-    expect(body).toContain("var(--control-border)");
-    expect(body).toContain("var(--shadow-sm)");
-    // The ring must be an inset box-shadow, not a border — a border would
-    // change the pill's box and make the strip jump on tab switch.
-    expect(body).not.toMatch(/(^|[^-])border:/);
+    expect(body).toContain("background-color: var(--text-color)");
+    expect(body).toContain("color: var(--bg-color)");
+    expect(body).not.toContain("var(--control-border)");
+    expect(body).not.toContain("var(--shadow-sm)");
+    expect(body).not.toContain("var(--bg-tertiary)");
+  });
+
+  it("the ACTIVE pill's focus bar and dirty dot flip to page ink — accent sinks into an ink face", () => {
+    const css = statusBarCss();
+    const focus = ruleBody(css, ".tab-pill.active:focus-visible {");
+    expect(focus).toContain("inset 0 -2px 0 var(--bg-color)");
+    // …and it must be declared AFTER the active rule, or active's own
+    // declarations swallow it for the roving-tabindex stop.
+    expect(css.indexOf(".tab-pill.active {")).toBeLessThan(css.indexOf(".tab-pill.active:focus-visible {"));
+    const dot = ruleBody(css, ".tab-pill.active .tab-dirty-dot {");
+    expect(dot).toContain("var(--bg-color)");
   });
 
   it(".tab-pill:hover uses the R6 hover vocabulary — no ink inversion", () => {
@@ -50,6 +65,13 @@ describe("tab-strip pill surface (raised + ringed, audit 20260901)", () => {
     const body = ruleBody(statusBarCss(), ".browser-workspace-tab:hover {");
     expect(body).toContain("var(--hover-bg-strong)");
     expect(body).not.toContain("background-color: var(--text-color)");
+  });
+
+  it(".browser-workspace-tab.active speaks the same ACTIVE language — one strip, one vocabulary", () => {
+    const body = ruleBody(statusBarCss(), ".browser-workspace-tab.active {");
+    expect(body).toContain("var(--text-color)");
+    expect(body).toContain("var(--bg-color)");
+    expect(body).not.toContain("var(--accent-bg)");
   });
 
   it("the active rule still OUTRANKS hover (declared later, equal specificity)", () => {

@@ -24,10 +24,6 @@
 .status-bar--browser {
   --bg-color: var(--browser-bg-color);
   --bg-secondary: var(--browser-bg-secondary);
-  /* WI-UA1: .tab-pill.active consumes --bg-tertiary now. Unreachable today
-     (an active document pill and browser mode are mutually exclusive), but
-     this block's contract is "every token the bar's descendants consume". */
-  --bg-tertiary: var(--browser-bg-tertiary);
   --text-color: var(--browser-text-color);
   --text-secondary: var(--browser-text-secondary);
   --text-tertiary: var(--browser-text-tertiary);
@@ -257,17 +253,46 @@
 }
 
 .tab-pill.active {
-  /* ui-ok(state): current-tab raised card (WI-UA1, audit 20260901) — not a
-     selected list row, so not the accent wash C9 would ask for. This reverses
-     the 2026-08-31 borderless exception: page-vs-bar contrast alone measured
-     ~1.05:1 on night, so the active pill now LIFTS onto --bg-tertiary and
-     carries the D8 --control-border ring (authored ≥ 3:1 per theme) as an
-     inset shadow — a border would change the pill's box and make the strip
-     jump on tab switch. --shadow-sm keeps the elevation cue (dark depth
-     pinned by tabPillSurface.test.ts). */
-  background-color: var(--bg-tertiary);
-  color: var(--text-color);
-  box-shadow: inset 0 0 0 1px var(--control-border), var(--shadow-sm);
+  /* ui-ok(state): current-tab is the NEGATIVE treatment (maintainer direction
+     2026-09-02, WI-UC1) — ink and page swap tokens, so the pair's contrast is
+     the body ratio, AA by construction on every theme; stronger than
+     WI-UA1's ring on exactly the dark themes the audit flagged. Not a
+     selected list row, so not the accent wash C9 would ask for. Unambiguous
+     because hover speaks the R6 vocabulary (WI-UA2), not the inversion. */
+  background-color: var(--text-color);
+  color: var(--bg-color);
+}
+
+/* Inside the ink face, page ink carries the signals: the accent dot/bar and
+   the grey close ink sink into a near-black surface on light themes. The
+   ACTIVE pill is the roving-tabindex stop, so its focus bar is the one
+   keyboard users actually see. */
+.tab-pill.active:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--bg-color);
+}
+
+.tab-pill.active .tab-dirty-dot {
+  /* ui-ok(state): dirty dot on the INVERTED face — the accent dot and its
+     halo sink into a near-black surface on light themes; page ink is the
+     guaranteed-contrast channel there. */
+  background-color: var(--bg-color);
+  box-shadow: none;
+}
+
+.tab-pill.active .tab-strip-close {
+  color: var(--bg-color);
+}
+
+.tab-pill.active .tab-strip-close:hover {
+  /* ui-ok(state): close affordance on the INVERTED face — the hover
+     vocabulary's ink tints vanish on an ink background; a page-ink wash is
+     the same treatment mirrored. */
+  background: color-mix(in srgb, var(--bg-color) 18%, transparent);
+  color: var(--bg-color);
+}
+
+.tab-pill.active .tab-strip-close:focus-visible::after {
+  background: var(--bg-color);
 }
 
 .browser-workspace-tab {
@@ -294,8 +319,18 @@
 }
 
 .browser-workspace-tab.active {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
+  /* ui-ok(state): same NEGATIVE current-tab treatment as .tab-pill.active
+     (WI-UC1) — the two share one strip and must speak one active language.
+     Under .status-bar--browser the pair resolves to the browser neutrals. */
+  color: var(--bg-color);
+  background: var(--text-color);
+}
+
+.browser-workspace-tab.active .browser-workspace-count {
+  /* ui-ok(state): count badge on the INVERTED face — page-ink wash, page-ink
+     text, mirroring the treatment its surface inverted. */
+  color: var(--bg-color);
+  background: color-mix(in srgb, var(--bg-color) 18%, transparent);
 }
 
 .browser-workspace-tab:focus-visible {
@@ -866,7 +901,12 @@
    mode with system inks + a real border. */
 @media (forced-colors: active) {
   .tab-pill.active {
+    /* ui-ok(state): forced-colors mode — the SYSTEM highlight pair is the
+       correct vocabulary here; the negative treatment collapses when the OS
+       flattens every theme token. */
     border: 1px solid CanvasText;
+    background: Highlight;
+    color: HighlightText;
   }
 
   .status-mcp.connected {

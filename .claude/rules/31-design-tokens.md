@@ -50,9 +50,11 @@ authoritative values for those names live in the typed catalog.
 backgrounds, with `--text-color` for the row's TEXT and `--accent-primary` for
 icons and indicators only. Accent-coloured text on the accent tint measures
 3.84:1 on paper — below AA — which is why the older "accent-primary for text"
-wording was retired. The raised-card current-tab idiom — a `--bg-tertiary`
-lift with an inset `--control-border` ring since audit 20260901 (WI-UA1) — is
-a named exception carrying `ui-ok(state): current-tab`.
+wording was retired. The current-tab idiom is the NEGATIVE treatment since
+2026-09-02 (WI-UC1): ink and page swap tokens (`--text-color` fill,
+`--bg-color` text), AA by construction on every theme — a named exception
+carrying `ui-ok(state): current-tab`. Inside the ink face, page ink carries
+the signals (dirty dot, focus bar, close affordance).
 
 **Font roles (R3, WI-UI2.1)**: `--font-sans` is the READING font — the user's
 choice, written from settings by `useTheme.ts`, consumed only under document
