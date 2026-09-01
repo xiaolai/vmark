@@ -25,6 +25,7 @@ import "./styles/select-shared.css";
 import "katex/dist/katex.min.css";
 import "./styles/katexFixes.css";
 import { appError } from "@/utils/debug";
+import { platformRootClass } from "@/utils/platform";
 
 // Pre-load secure storage cache BEFORE importing App.
 // App → aiProviderStore → Zustand persist() hydrates at module evaluation time.
@@ -32,6 +33,10 @@ import { appError } from "@/utils/debug";
 const SECURE_KEYS = ["vmark-ai-providers"];
 
 async function bootstrap() {
+  // WI-UA15: platform root class, before first paint — index.css keys the
+  // D7 cursor split off it (arrow on macOS, pointer elsewhere).
+  document.documentElement.classList.add(platformRootClass());
+
   await initSecureStorage(SECURE_KEYS);
 
   // C1 defense-in-depth: teach documentStore.initDocument to skip writes for

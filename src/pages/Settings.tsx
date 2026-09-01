@@ -37,7 +37,6 @@ import { SettingsSearchResults, type SearchablePanel } from "./settings/Settings
 import { SettingsNav } from "./settings/SettingsNav";
 import { SETTINGS_PANELS, SEARCHABLE_PANEL_IDS, type Section } from "./settings/panels";
 import "./settings/settings-search.css";
-import "./settings/settings-shell.css";
 import { appError } from "@/utils/debug";
 import { voidAsync } from "@/utils/voidAsync";
 
@@ -233,7 +232,7 @@ export function SettingsPage() {
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
-            className="settings-scroll flex-1 overflow-auto p-6"
+            className="vm-scroll--thin flex-1 overflow-auto p-6"
             data-settings-searching={searching ? "" : undefined}
           >
             {searching ? (

@@ -30,7 +30,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
   user-select: none;
   flex-shrink: 0;
   transition:
@@ -136,7 +136,7 @@
   border-radius: 50%;
   background: transparent;
   color: var(--text-secondary);
-  cursor: default;
+  cursor: var(--cursor-interactive, default);
   flex-shrink: 0;
   transition:
     background var(--duration-fast),

@@ -44,7 +44,7 @@
   font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-base);
-  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
   transition:
     background var(--duration-fast),
     color var(--duration-fast);
@@ -82,6 +82,29 @@
    shape drift in check-bespoke-buttons' maxShapeDriftClasses, and rightly so. */
 .vm-btn--pill {
   border-radius: var(--radius-pill);
+}
+
+/* Elevated face (WI-UA13, audit 20260901 — direction 1b of the button
+   explorations; ratified for the welcome front door only). Findability moves
+   from border ink to ELEVATION: a raised --surface-raised face (white on
+   light themes, lifted #383d46 on dark — index.css), an 8%-text-ink hairline
+   instead of a dark outline, and the per-theme --shadow-sm for lift. Hover
+   deepens the face by mixing in text ink — a translucent --hover-bg over a
+   raised opaque face would just grey it back toward the page. Press drops
+   the shadow: the button visibly sits down. */
+.vm-btn--elevated {
+  border-color: color-mix(in srgb, var(--text-color) 8%, transparent);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.vm-btn--elevated:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 4%, var(--surface-raised));
+}
+
+.vm-btn--elevated:active:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 8%, var(--surface-raised));
+  box-shadow: none;
 }
 
 /* Emphasised action (confirm, start, submit). */

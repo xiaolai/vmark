@@ -63,7 +63,7 @@ const PRIMITIVES = `
   --font-size-xs: 11px;
   --highlight-bg: #fff3a3;
   --highlight-text: inherit;
-  --hover-bg: rgba(0, 0, 0, 0.04);
+  --hover-bg: rgba(0, 0, 0, 0.06);
   --icon-size-sm: 24px;
   --target-min: 24px;
   --line-height-tight: 1.25;
@@ -74,7 +74,7 @@ const PRIMITIVES = `
   --opacity-muted: 0.5;
   --popup-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   --popup-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --primary-color: #0066cc;
+  --primary-color: var(--accent-primary);
   --radius-lg: 8px;
   --radius-md: 6px;
   --radius-pill: 100px;
@@ -89,8 +89,8 @@ const PRIMITIVES = `
   --space-3: 12px;
   --space-half: 2px;
   --strong-color: rgb(63, 86, 99);
-  --subtle-bg: rgba(0, 0, 0, 0.02);
-  --subtle-bg-hover: rgba(0, 0, 0, 0.03);
+  --subtle-bg: rgba(0, 0, 0, 0.03);
+  --subtle-bg-hover: rgba(0, 0, 0, 0.04);
   --success-color: #16a34a;
   --success-color-dark: #4ade80;
   --table-border-color: var(--border-color);

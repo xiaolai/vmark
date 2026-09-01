@@ -217,8 +217,10 @@ export const darkShadows: ThemeTokens["shadow"] = {
  *  Shared per MODE (an alpha tint composites correctly over any bg of its
  *  mode), unlike the colour fragments WI-UI1.2 unshares. */
 export const subtleLight: ThemeTokens["color"]["subtle"] = {
-  bg: "rgba(0, 0, 0, 0.02)",
-  bgHover: "rgba(0, 0, 0, 0.03)",
+  // 3%/4% — a 2% wash on paper's grey card measured ~1.02:1, below
+  // perception (audit 20260901, WI-UA5). index.css statics mirror these.
+  bg: "rgba(0, 0, 0, 0.03)",
+  bgHover: "rgba(0, 0, 0, 0.04)",
 };
 
 export const subtleDark: ThemeTokens["color"]["subtle"] = {
@@ -228,7 +230,8 @@ export const subtleDark: ThemeTokens["color"]["subtle"] = {
 
 /** Hover feedback tints — same mode-structural sharing as `subtle`. */
 export const hoverLight: ThemeTokens["color"]["hover"] = {
-  bg: "rgba(0, 0, 0, 0.04)",
+  // 6% base — 4% was below perception on grey surfaces (WI-UA5, as above).
+  bg: "rgba(0, 0, 0, 0.06)",
   strong: "rgba(0, 0, 0, 0.08)",
 };
 
@@ -272,10 +275,10 @@ export const legacyLight = {
   "--warning-bg-hover": "rgba(245, 158, 11, 0.15)",
   "--warning-bg-active": "rgba(245, 158, 11, 0.2)",
   "--contrast-text": "white",
-  "--hover-bg": "rgba(0, 0, 0, 0.04)",
+  "--hover-bg": "rgba(0, 0, 0, 0.06)",
   "--hover-bg-strong": "rgba(0, 0, 0, 0.08)",
-  "--subtle-bg": "rgba(0, 0, 0, 0.02)",
-  "--subtle-bg-hover": "rgba(0, 0, 0, 0.03)",
+  "--subtle-bg": "rgba(0, 0, 0, 0.03)",
+  "--subtle-bg-hover": "rgba(0, 0, 0, 0.04)",
   "--alert-note": "#0969da",
   "--alert-tip": "#1a7f37",
   "--alert-important": "#8250df",

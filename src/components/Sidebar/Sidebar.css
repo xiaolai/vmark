@@ -117,7 +117,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: var(--letter-spacing-caps);
   padding: var(--space-2) var(--space-2) var(--space-1);
 }
 
@@ -342,7 +342,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: var(--letter-spacing-caps);
   padding: var(--space-2) var(--space-2) var(--space-1);
 }
 
@@ -352,7 +352,7 @@
   justify-content: space-between;
   padding: var(--space-1-5) var(--space-2);
   border-radius: var(--radius-md);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
 }
 
 .history-item:hover {

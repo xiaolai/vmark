@@ -1,9 +1,13 @@
 // @vitest-environment node
+// WI-UA15 — cursor policy D7 scopes per platform via a root class
+//           (audit 20260901): platformRootClass() names the class main.tsx
+//           puts on <html>, which index.css maps to --cursor-interactive.
 import { describe, it, expect, afterEach } from "vitest";
 import {
   isMacPlatform,
   isWindowsPlatform,
   getRuntimePlatform,
+  platformRootClass,
   usesOverlayTitleBar,
 } from "./platform";
 
@@ -97,5 +101,25 @@ describe("getRuntimePlatform", () => {
   ])("platform=%s → %s", (value, expected) => {
     setPlatform(value);
     expect(getRuntimePlatform()).toBe(expected);
+  });
+});
+
+describe("platformRootClass (WI-UA15)", () => {
+  it.each([
+    ["MacIntel", "platform-macos"],
+    ["Win32", "platform-windows"],
+    ["Linux x86_64", "platform-linux"],
+    // jsdom / unknown platforms fall through to linux, like getRuntimePlatform.
+    ["", "platform-linux"],
+  ])("platform=%s → %s", (value, expected) => {
+    setPlatform(value);
+    expect(platformRootClass()).toBe(expected);
+  });
+
+  it("always agrees with getRuntimePlatform", () => {
+    for (const value of ["MacIntel", "Win32", "Linux x86_64", "Darwin", ""]) {
+      setPlatform(value);
+      expect(platformRootClass()).toBe(`platform-${getRuntimePlatform()}`);
+    }
   });
 });

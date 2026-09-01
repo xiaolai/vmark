@@ -21,16 +21,17 @@ Standard patterns for UI components. Follow these for consistency.
 | Toggle switch | `.vm-switch` | `src/styles/panel-shared.css` |
 
 **The current-tab idiom is a second, named vocabulary — raised, not selected.**
-`.tab-pill.active` / `.browser-page-tab.active` fill with `--bg-color` so the
-current tab reads as a card raised to the page surface; that is deliberate and
+The active tab is a card raised above the page, not a selected list row, so it
 carries `ui-ok(state): current-tab` where the C9 gate would otherwise ask for
-`--accent-bg`. Selected LIST rows are the accent vocabulary (R6); the current
-tab is not a selected row. Since 2026-08-31 the STATUS-BAR pills are
-borderless (`--shadow-sm` is the active boundary; WI-UI3.6's ring is
-superseded there) and their hover is the NEGATIVE treatment — ink and page
-swap tokens (`--text-color` bg, `--bg-color` text), AA by construction. The
-embedded browser's `.browser-page-tab` keeps the control-border idiom. Pinned
-by `tabPillSurface.test.ts`.
+`--accent-bg`; selected LIST rows stay the accent vocabulary (R6). Since audit
+20260901 (WI-UA1/WI-UA2, reversing the short-lived 2026-08-31 exceptions) the
+STATUS-BAR pill's active state LIFTS onto `--bg-tertiary` and carries the D8
+`--control-border` ring as an inset box-shadow plus `--shadow-sm` — the
+borderless card measured ~1.05:1 page-vs-bar on night, findable only by its
+shadow — and pill hover speaks the ordinary R6 hover vocabulary
+(`--hover-bg-strong` + text ink) instead of the old ink/page inversion. The
+embedded browser's `.browser-page-tab` keeps its own control-border idiom.
+Pinned by `tabPillSurface.test.ts`.
 
 A bare `<select>` keeps `appearance: auto`, so WebKit draws its own control —
 native bezel, native chevron, 5px pill radius — and author styling only partly
@@ -252,7 +253,8 @@ Position is calculated in JS based on selection/cursor coordinates.
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: default; /* D7 — chrome follows Apple HIG: arrow, not pointer */
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15):
+     arrow on macOS, pointer under .platform-windows/.platform-linux */
   transition: background 0.15s, color 0.15s;
 }
 

@@ -25,14 +25,16 @@
  */
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { AlertTriangle, Check, Code2, GitFork, Lock, LockOpen, Satellite, Save, Sparkles, Terminal, Type } from "lucide-react";
+import { AlertTriangle, Code2, GitFork, Lock, LockOpen, Satellite, Save, Terminal, Type } from "lucide-react";
 import { useImagePasteToastStore } from "@/stores/imagePasteToastStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { requestToggleTerminal } from "@/services/terminal/terminalGate";
 import { formatExactTime } from "@/utils/dateUtils";
 import { formatKeyForDisplay } from "@/stores/settingsStore";
+import { ICON_SM } from "@/utils/iconSizes";
 import { UpdateIndicator } from "./UpdateIndicator";
 import { StatusBarCounts } from "./StatusBarCounts";
+import { StatusBarAiIndicator } from "./StatusBarAiIndicator";
 import { McpHistoryButton } from "@/components/McpHistory";
 import { LintBadge } from "./LintBadge";
 import type { McpClient } from "@/hooks/useMcpClients";
@@ -143,7 +145,7 @@ export function StatusBarRight({
           className="status-autosave-paused"
           title={t("autoSavePausedTitle", { shortcut: formatKeyForDisplay(saveShortcut) })}
         >
-          <AlertTriangle size={12} />
+          <AlertTriangle size={ICON_SM} />
           {t("autoSavePaused")}
         </span>
       )}
@@ -153,14 +155,14 @@ export function StatusBarRight({
           className="status-divergent"
           title={t("divergentTitle", { shortcut: formatKeyForDisplay(saveShortcut) })}
         >
-          <GitFork size={12} />
+          <GitFork size={ICON_SM} />
           {t("divergent")}
         </span>
       )}
 
       {showAutoSave && lastAutoSave && !showAutoSavePaused && !isDivergent && (
         <span className="status-autosave" title={t("autoSavedAt", { time: formatExactTime(lastAutoSave) })}>
-          <Save size={12} />
+          <Save size={ICON_SM} />
           {autoSaveTime}
         </span>
       )}
@@ -169,70 +171,21 @@ export function StatusBarRight({
 
       <LintBadge />
 
+      {/* WI-UA11 (audit 20260901): hairline dividers split the cluster into
+          role groups — document signals | connectivity | editor state. */}
+      <span className="status-bar-divider" aria-hidden="true" />
+
       <UpdateIndicator />
 
-      {aiRunning && (
-        // Live region announces ONLY the static "AI is working" message
-        // once when the indicator mounts. The visible per-second elapsed
-        // text is marked aria-hidden so screen readers don't get spammed
-        // with "AI thinking 1s, AI thinking 2s, …" every second.
-        <span
-          className="status-ai-indicator status-ai-indicator--running"
-          role="status"
-          aria-live="polite"
-          title={t("aiWorking")}
-        >
-          <Sparkles size={12} className="status-ai-spinner" />
-          <span className="sr-only">{t("aiWorking")}</span>
-          <span className="status-ai-text" aria-hidden="true">
-            {elapsedSeconds < 10
-              ? t("aiThinking", { seconds: elapsedSeconds })
-              : t("aiStillWorking", { seconds: elapsedSeconds })}
-          </span>
-          <button
-            className="status-ai-cancel"
-            onClick={onCancelAi}
-            title={t("cancelAiTitle")}
-            aria-label={t("cancelAiRequest")}
-          >
-            ×
-          </button>
-        </span>
-      )}
-
-      {!aiRunning && aiError && (
-        <span
-          className="status-ai-indicator status-ai-indicator--error"
-          role="status"
-          aria-live="polite"
-          title={aiError}
-        >
-          <AlertTriangle size={12} />
-          <span className="status-ai-text">
-            {aiError.length > 30 ? `${aiError.slice(0, 30)}…` : aiError}
-          </span>
-          <button className="status-ai-action" onClick={onRetryAi}>{t("aiRetry")}</button>
-          <button
-            className="status-ai-cancel"
-            onClick={onDismissError}
-            title={t("dismissTitle")}
-            aria-label={t("dismissError")}
-          >
-            ×
-          </button>
-        </span>
-      )}
-
-      {!aiRunning && !aiError && showSuccess && (
-        <span
-          className="status-ai-indicator status-ai-indicator--success"
-          role="status"
-          aria-live="polite"
-        >
-          <Check size={12} />
-          <span className="status-ai-text">{t("aiDone")}</span>
-        </span>
-      )}
+      <StatusBarAiIndicator
+        aiRunning={aiRunning}
+        elapsedSeconds={elapsedSeconds}
+        aiError={aiError}
+        showSuccess={showSuccess}
+        onCancelAi={onCancelAi}
+        onRetryAi={onRetryAi}
+        onDismissError={onDismissError}
+      />
 
       <button
         className={`status-mcp ${mcpRunning ? "connected" : ""} ${mcpLoading ? "loading" : ""} ${mcpError ? "error" : ""}`}
@@ -241,14 +194,17 @@ export function StatusBarRight({
         // R13 (WI-UI4.5): the STATE rides in the accessible name, not colour.
         aria-label={formatMcpTooltip(mcpRunning, mcpLoading, mcpError, mcpClients)}
       >
-        <Satellite size={12} />
-        {/* Second channel beside colour: a state glyph. */}
+        <Satellite size={ICON_SM} />
+        {/* Second channel beside colour: a state WORD (WI-UA10) — the old
+            ✓/⟳/✗/○ glyph set was cryptic without its tooltip. */}
         <span className="status-mcp__state" aria-hidden="true">
-          {mcpError ? "✗" : mcpLoading ? "⟳" : mcpRunning ? "✓" : "○"}
+          {mcpError ? t("mcpStateError") : mcpLoading ? t("mcpStateStarting") : mcpRunning ? t("mcpStateOn") : t("mcpStateOff")}
         </span>
       </button>
 
       <McpHistoryButton />
+
+      <span className="status-bar-divider" aria-hidden="true" />
 
       <button
         className={`status-terminal ${terminalVisible ? "active" : ""}`}
@@ -257,7 +213,7 @@ export function StatusBarRight({
         aria-expanded={terminalVisible}
         onClick={() => requestToggleTerminal()}
       >
-        <Terminal size={12} />
+        <Terminal size={ICON_SM} />
       </button>
 
       {!modeToggleHidden && (
@@ -275,7 +231,7 @@ export function StatusBarRight({
             onToggleSourceMode();
           }}
         >
-          {sourceMode ? <Code2 size={12} /> : <Type size={12} />}
+          {sourceMode ? <Code2 size={ICON_SM} /> : <Type size={ICON_SM} />}
         </button>
       )}
 
@@ -286,7 +242,7 @@ export function StatusBarRight({
         aria-pressed={readOnly}
         onClick={onToggleReadOnly}
       >
-        {readOnly ? <Lock size={12} /> : <LockOpen size={12} />}
+        {readOnly ? <Lock size={ICON_SM} /> : <LockOpen size={ICON_SM} />}
       </button>
     </div>
   );

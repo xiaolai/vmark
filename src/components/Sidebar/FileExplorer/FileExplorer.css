@@ -13,7 +13,7 @@
   font-weight: 500;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .file-explorer-workspace-name {

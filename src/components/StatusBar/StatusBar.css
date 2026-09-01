@@ -24,6 +24,10 @@
 .status-bar--browser {
   --bg-color: var(--browser-bg-color);
   --bg-secondary: var(--browser-bg-secondary);
+  /* WI-UA1: .tab-pill.active consumes --bg-tertiary now. Unreachable today
+     (an active document pill and browser mode are mutually exclusive), but
+     this block's contract is "every token the bar's descendants consume". */
+  --bg-tertiary: var(--browser-bg-tertiary);
   --text-color: var(--browser-text-color);
   --text-secondary: var(--browser-text-secondary);
   --text-tertiary: var(--browser-text-tertiary);
@@ -55,6 +59,15 @@
 .status-item {
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* Role-group divider in the right cluster (WI-UA11, audit 20260901):
+   document signals | connectivity | editor state. */
+.status-bar-divider {
+  width: var(--border-thin);
+  height: 14px;
+  background: var(--border-color);
+  flex-shrink: 0;
 }
 
 .status-mode {
@@ -259,11 +272,11 @@
 }
 
 .tab-pill:hover {
-  /* ui-ok(state): negative hover (maintainer direction 2026-08-31) — the pill
-     inverts to ink-on-page: background and text swap tokens, so the contrast
-     is the body pair's own ratio, AA by construction in every theme. */
-  background-color: var(--text-color);
-  color: var(--bg-color);
+  /* R6 hover vocabulary (WI-UA2, audit 20260901) — this reverses the
+     2026-08-31 negative-hover exception: the ink inversion was the loudest
+     hover in the app and spoke a vocabulary nothing else used. */
+  background-color: var(--hover-bg-strong);
+  color: var(--text-color);
 }
 
 .tab-pill:focus-visible {
@@ -271,16 +284,17 @@
 }
 
 .tab-pill.active {
-  /* ui-ok(state): the active tab SHARES THE PAGE SURFACE it fronts — the
-     browser-tab idiom; an accent wash here would disconnect tab from page. */
-  /* Borderless by maintainer direction (2026-08-31), superseding WI-UI3.6's
-     --control-border ring. The trade is known: on night the page-vs-bar
-     contrast alone is ~1.05:1, so findability now rests on the raised
-     --shadow-sm surface (whose dark value is pinned deep enough to exist on a
-     dark page — tabPillSurface.test.ts) plus the negative hover affordance. */
-  background-color: var(--bg-color);
+  /* ui-ok(state): current-tab raised card (WI-UA1, audit 20260901) — not a
+     selected list row, so not the accent wash C9 would ask for. This reverses
+     the 2026-08-31 borderless exception: page-vs-bar contrast alone measured
+     ~1.05:1 on night, so the active pill now LIFTS onto --bg-tertiary and
+     carries the D8 --control-border ring (authored ≥ 3:1 per theme) as an
+     inset shadow — a border would change the pill's box and make the strip
+     jump on tab switch. --shadow-sm keeps the elevation cue (dark depth
+     pinned by tabPillSurface.test.ts). */
+  background-color: var(--bg-tertiary);
   color: var(--text-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 0 0 1px var(--control-border), var(--shadow-sm);
 }
 
 .browser-workspace-tab {
@@ -300,10 +314,10 @@
 }
 
 .browser-workspace-tab:hover {
-  /* ui-ok(state): negative hover — matches .tab-pill:hover; the two share
-     one strip and must speak one hover language (maintainer 2026-08-31). */
-  color: var(--bg-color);
-  background: var(--text-color);
+  /* Matches .tab-pill:hover — the two share one strip and must speak one
+     hover language (WI-UA2, audit 20260901). */
+  color: var(--text-color);
+  background: var(--hover-bg-strong);
 }
 
 .browser-workspace-tab.active {
@@ -322,21 +336,36 @@
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
   background: var(--hover-bg);
-  font-size: var(--font-size-2xs);
+  /* 11px floor for informative chrome text (WI-UA8, audit 20260901). */
+  font-size: var(--font-size-xs);
   text-align: center;
 }
 
 .tab-title {
-  max-width: 100px;
+  /* WI-UA12 (audit 20260901): cap raised 100 → 150px — at 12px, 100px was
+     ~12 characters, so similarly-prefixed files all read identically. The
+     BASE span ellipsizes; the extension span never shrinks. */
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 150px;
+}
+
+.tab-title__base {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tab-title__ext {
+  flex-shrink: 0;
 }
 
 /* Inline rename editor — borderless, caret is the focus indicator (per popup
    input convention); sized to match the title so the pill doesn't jump. */
 /* One rename treatment: `.vm-input` (WI-UI3.3). Residual = strip layout. */
 .tab-title-input {
-  max-width: 100px;
+  max-width: 150px;
   padding: 0;
   font: inherit;
 }
@@ -350,10 +379,13 @@
 }
 
 .tab-dirty-dot {
-  width: 5px;
-  height: 5px;
+  /* 6px + a soft accent halo (WI-UA9, audit 20260901): the old 5px dot was
+     below noticing threshold for the one state that protects user data. */
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background-color: var(--primary-color);
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-bg);
   flex-shrink: 0;
 }
 
@@ -940,10 +972,11 @@
 }
 
 
-/* WI-UI4.5 (R13): the tiny state glyph beside the satellite icon — the
-   second channel for the MCP state (R13). */
+/* WI-UI4.5 (R13) / WI-UA10: the state WORD beside the satellite icon — the
+   second channel for the MCP state. A word instead of the old ✓/⟳/✗/○ glyph
+   set (cryptic without the tooltip), at the 11px informative-text floor. */
 .status-mcp__state {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   line-height: 1;
 }
 

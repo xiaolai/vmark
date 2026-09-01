@@ -45,11 +45,9 @@
    rule 33 applies to focus ("focus must work without colour alone" — shape
    change helps colour-blind users), and with six hash-assigned rail colours two
    workspaces can share one, leaving colour ambiguous even for users who see it.
-   The left bar is the VS Code activity-bar pattern. */
-/* Active state carries BOTH colour and shape. Colour alone fails the same test
-   rule 33 applies to focus ("focus must work without colour alone" — shape
-   change helps colour-blind users), and with six hash-assigned rail colours two
-   workspaces can share one, leaving colour ambiguous even for users who see it.
+   The left bar is the VS Code activity-bar pattern — and it is a DIFFERENT
+   shape from the bottom-bar focus indicator below, so active and focus can
+   paint together without ambiguity (checked by audit 20260901, WI-UA14).
 
    The glyph text keeps a contrast-safe token rather than the workspace colour:
    it is real 11–12px text, so it needs 4.5:1, and several rail colours do not

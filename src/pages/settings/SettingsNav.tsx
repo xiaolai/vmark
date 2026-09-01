@@ -95,7 +95,7 @@ export function SettingsNav({
         />
         </div>
         {/* Nav items */}
-        <div className="settings-scroll flex-1 overflow-auto px-3 pb-3">
+        <div className="vm-scroll--thin flex-1 overflow-auto px-3 pb-3">
           <div className="space-y-1">
           {items.map((item) => (
             <NavItem

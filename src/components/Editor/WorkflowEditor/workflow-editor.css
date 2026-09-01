@@ -124,7 +124,7 @@
 .workflow-form__kind {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   color: var(--text-secondary);
   font-weight: 600;
 }

@@ -12,6 +12,7 @@
 
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Download, CheckCircle, AlertCircle } from "lucide-react";
+import { ICON_SM } from "@/utils/iconSizes";
 import { useMcpStore, type UpdateStatus } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUpdateOperations, recoverFromStall } from "@/hooks/useUpdateOperations";
@@ -155,7 +156,7 @@ export function UpdateIndicator() {
       aria-label={title}
       style={{ cursor: clickable ? "pointer" : "default" }}
     >
-      <Icon size={12} />
+      <Icon size={ICON_SM} />
       {config.showDot && <span className="status-update-dot" />}
     </button>
   );

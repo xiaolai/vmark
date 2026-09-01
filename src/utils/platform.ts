@@ -62,3 +62,15 @@ export function getRuntimePlatform(): RuntimePlatform {
   if (isWindowsPlatform()) return "windows";
   return "linux";
 }
+
+/**
+ * The root class main.tsx puts on `<html>` at bootstrap (WI-UA15). CSS keys
+ * platform-scoped policy off it — today only the D7 cursor split:
+ * `index.css` maps `.platform-windows` / `.platform-linux` to
+ * `--cursor-interactive: pointer`, so interactive chrome keeps the Apple HIG
+ * arrow on macOS and gives the pointer feedback webview-app users expect
+ * elsewhere. Derived, never authored: one source of platform truth.
+ */
+export function platformRootClass(): `platform-${RuntimePlatform}` {
+  return `platform-${getRuntimePlatform()}`;
+}

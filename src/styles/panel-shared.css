@@ -51,7 +51,7 @@
 
 .vm-chip--toggle {
   border-radius: var(--radius-sm);
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
 }
 
 .vm-chip--toggle[aria-pressed="true"] {
@@ -65,7 +65,7 @@
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   font-family: var(--font-ui);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 }
 
 /* The switch: a 36×20 track whose OFF boundary must be findable (D8 — the
@@ -81,7 +81,7 @@
   border: var(--border-thin) solid var(--control-border);
   border-radius: var(--radius-pill);
   background: var(--bg-tertiary);
-  cursor: default;
+  cursor: var(--cursor-interactive, default);
   transition: background var(--duration-base);
 }
 

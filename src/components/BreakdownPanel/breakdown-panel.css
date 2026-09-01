@@ -264,7 +264,7 @@
   border: var(--border-thin) dashed var(--text-tertiary);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-tight);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .breakdown-confidence-badge--unknown {

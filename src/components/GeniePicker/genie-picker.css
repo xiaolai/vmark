@@ -49,7 +49,7 @@
   /* R5: an enabled control rests at secondary, not the decorative tier. */
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 
@@ -85,7 +85,7 @@
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 /* ---- Item ---- */
@@ -216,7 +216,7 @@
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
   border-bottom: var(--border-thin) solid var(--border-color);
 }
 
@@ -337,7 +337,7 @@
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .provider-switcher-item {

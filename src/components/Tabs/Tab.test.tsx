@@ -220,5 +220,23 @@ describe("Tab", () => {
       const label = screen.getByRole("tab").querySelector(".tab-title");
       expect(label?.textContent).toBe("App.vue");
     });
+
+    // WI-UA12 — the label splits into base + ext spans so CSS can ellipsize
+    // the name while the extension never shrinks (extension-preserving
+    // truncation; similarly-prefixed files stay tellable apart).
+    it("renders the extension in its own non-shrinking span", () => {
+      renderTab();
+      const label = screen.getByRole("tab").querySelector(".tab-title");
+      expect(label?.querySelector(".tab-title__base")?.textContent).toBe("note");
+      expect(label?.querySelector(".tab-title__ext")?.textContent).toBe(".md");
+    });
+
+    it("renders no ext span when the label has no extension-shaped suffix", () => {
+      setShowExtensions(false); // "note.md" → "note"
+      renderTab();
+      const label = screen.getByRole("tab").querySelector(".tab-title");
+      expect(label?.querySelector(".tab-title__base")?.textContent).toBe("note");
+      expect(label?.querySelector(".tab-title__ext")).toBeNull();
+    });
   });
 });

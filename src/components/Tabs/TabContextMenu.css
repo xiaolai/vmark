@@ -25,7 +25,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  cursor: default;
+  cursor: var(--cursor-interactive, default); /* D7, platform-scoped (WI-UA15) */
   color: var(--text-color);
   text-align: left;
   user-select: none;

@@ -4,8 +4,11 @@
  * Tests the formatClientName, formatMcpTooltip pure functions
  * and the StatusBarRight component rendering with various prop combinations.
  */
+// WI-UA10 — the MCP state channel is a localized word, not a cryptic glyph.
+// WI-UA11 — right-cluster role groups are divided; glyphs are 14px.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactElement } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 // --- Mocks ---
@@ -396,6 +399,37 @@ describe("StatusBarRight", () => {
     );
     const btn = container.querySelector(".status-mcp");
     expect(btn?.className).toContain("error");
+  });
+
+  it("shows a state WORD beside the satellite icon, per state (WI-UA10)", () => {
+    // The old ✓/⟳/✗/○ glyph set was 10px and cryptic without its tooltip;
+    // R13's second channel is now a legible localized word at 11px.
+    const word = (ui: ReactElement) =>
+      render(ui).container.querySelector(".status-mcp__state")?.textContent;
+    expect(word(<StatusBarRight {...baseProps} />)).toBe("off");
+    expect(word(<StatusBarRight {...baseProps} mcpRunning={true} />)).toBe("on");
+    expect(word(<StatusBarRight {...baseProps} mcpLoading={true} />)).toBe("…");
+    expect(word(<StatusBarRight {...baseProps} mcpError="fail" />)).toBe("error");
+  });
+
+  it("the state word stays aria-hidden — the button's accessible name carries the state", () => {
+    const { container } = render(<StatusBarRight {...baseProps} mcpRunning={true} />);
+    expect(container.querySelector(".status-mcp__state")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("divides the right cluster into role groups with two hairlines (WI-UA11)", () => {
+    const { container } = render(<StatusBarRight {...baseProps} />);
+    const dividers = container.querySelectorAll(".status-bar-divider");
+    expect(dividers).toHaveLength(2);
+    dividers.forEach((d) => expect(d).toHaveAttribute("aria-hidden", "true"));
+  });
+
+  it("right-cluster glyphs are 14px, up from 12 (WI-UA11)", () => {
+    const { container } = render(<StatusBarRight {...baseProps} mcpRunning={true} />);
+    const satellite = container.querySelector(".status-mcp svg");
+    expect(satellite).toHaveAttribute("width", "14");
+    const terminal = container.querySelector(".status-terminal svg");
+    expect(terminal).toHaveAttribute("width", "14");
   });
 
   it("calls openMcpSettings when MCP button clicked", () => {

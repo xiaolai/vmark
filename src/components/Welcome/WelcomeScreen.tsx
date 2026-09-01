@@ -29,6 +29,8 @@ import { FilePlus, FileUp, FolderOpen, FileClock, FolderClock } from "lucide-rea
 import type { LucideIcon } from "lucide-react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useRecentFilesStore, useRecentWorkspacesStore } from "@/stores/workspaceStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { APP_NAME } from "@/utils/appName";
 import { handleNew, handleOpen } from "@/services/navigation/fileOpen";
 import { executeCommand } from "@/services/commands";
 import { fileOpsError } from "@/utils/debug";
@@ -106,29 +108,48 @@ export function WelcomeScreen() {
 
   const nothingRecent = recentFiles.length === 0 && recentWorkspaces.length === 0;
 
+  // WI-UA13: the hint quotes the LIVE bindings — a user who rebinds either
+  // shortcut must not be taught a chord that no longer works.
+  const paletteKey = useShortcutsStore((s) => s.getShortcut("commandPalette"));
+  const quickOpenKey = useShortcutsStore((s) => s.getShortcut("quickOpen"));
+
   return (
     <div className="welcome-screen" role="region" aria-label={t("emptyState.welcome")}>
       <div className="welcome-screen__inner">
-        <h1 className="welcome-screen__title">{t("emptyState.title")}</h1>
+        {/* WI-UA13 (audit 20260901): identity moment — the brand name, not
+            translated (see utils/appName.ts); the instruction moved into the
+            tagline below, keeping its key and every locale's translation. */}
+        <h1 className="welcome-screen__title">{APP_NAME}</h1>
+        <p className="welcome-screen__tagline">{t("emptyState.title")}</p>
 
         <div className="welcome-screen__actions">
           <button
             type="button"
-            className="vm-btn vm-btn--pill welcome-action"
+            className="vm-btn vm-btn--pill vm-btn--elevated welcome-action"
             onClick={() => handleNew(windowLabel)}
           >
             <FilePlus className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.newFile")}</span>
           </button>
-          <button type="button" className="vm-btn vm-btn--pill welcome-action" onClick={onOpenFile}>
+          <button type="button" className="vm-btn vm-btn--pill vm-btn--elevated welcome-action" onClick={onOpenFile}>
             <FileUp className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFile")}</span>
           </button>
-          <button type="button" className="vm-btn vm-btn--pill welcome-action" onClick={onOpenFolder}>
+          <button type="button" className="vm-btn vm-btn--pill vm-btn--elevated welcome-action" onClick={onOpenFolder}>
             <FolderOpen className="welcome-action__icon" aria-hidden="true" />
             <span>{t("emptyState.openFolder")}</span>
           </button>
         </div>
+
+        {/* WI-UA13: shortcut education, reusing the commands namespace's own
+            labels so the hint can never drift from the palette/finder names. */}
+        <p className="welcome-screen__hint">
+          <kbd className="vm-chip vm-chip--kbd">{formatKeyForDisplay(paletteKey)}</kbd>
+          {" "}{t("commands:app.commandPalette")}
+          <span aria-hidden="true"> · </span>
+          <kbd className="vm-chip vm-chip--kbd">{formatKeyForDisplay(quickOpenKey)}</kbd>
+          {" "}{t("commands:app.quickOpen")}
+        </p>
 
         {nothingRecent ? (
           <p className="welcome-screen__empty">{t("emptyState.noRecent")}</p>

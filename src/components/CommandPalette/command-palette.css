@@ -26,7 +26,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .command-palette__group-items {
@@ -48,7 +48,7 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-loose);
+  letter-spacing: var(--letter-spacing-caps);
 }
 
 .command-palette__empty {
