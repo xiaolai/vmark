@@ -44,8 +44,13 @@
 
 /* Browser pages are native content, so the VMark shell around them stays
    neutral even when the selected editor theme is colored or dark. Scope the
-   token aliases to the primary and document sidebar only: the workspace rail
-   remains the user's persistent colored identity strip. */
+   token aliases to the PRIMARY column only: the leading card — rail and
+   sidebar together — keeps the user's theme. The sidebar used to be
+   neutralized too, which painted an opaque pure-white column inside the
+   theme-grey card (the browser history pane read as a white slab against the
+   sidepane); the card owns the frame and its children go flat (rule 32), so
+   the sidebar now renders in browser mode exactly as it does in document
+   mode. */
 .browser-workspace-active .app-shell__primary {
   --bg-color: var(--browser-bg-color);
   --bg-secondary: var(--browser-bg-secondary);
@@ -61,21 +66,6 @@
   --primary-color: var(--browser-accent-primary);
   background-color: var(--browser-bg-color);
   color: var(--browser-text-color);
-}
-
-.browser-workspace-active .app-sidebar-stack__sidebar {
-  --sidebar-bg: var(--browser-bg-color);
-  --bg-color: var(--browser-bg-color);
-  --bg-secondary: var(--browser-bg-secondary);
-  --bg-tertiary: var(--browser-bg-tertiary);
-  --text-color: var(--browser-text-color);
-  --text-secondary: var(--browser-text-secondary);
-  --text-tertiary: var(--browser-text-tertiary);
-  --border-color: var(--browser-border-color);
-  --selection-color: var(--browser-accent-bg);
-  --accent-primary: var(--browser-accent-primary);
-  --primary-color: var(--browser-accent-primary);
-  background-color: var(--browser-bg-color);
 }
 
 /* THE LEADING CARD. The workspace rail and the sidebar are one surface, so they
