@@ -176,7 +176,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   gap: var(--space-half);
   padding: var(--space-1-5);                  /* 6px */
   border: var(--border-thin) solid var(--border-color);
-  border-radius: var(--radius-lg);            /* 8px */
+  border-radius: var(--radius-lg);            /* 8px — floating-surface tier */
   background: var(--bg-color);
   box-shadow: var(--popup-shadow);
   animation: popup-fade-in var(--duration-fast) ease-out;
@@ -200,7 +200,7 @@ Position is calculated in JS based on selection/cursor coordinates.
 **Rules:**
 - Compact padding (6px via `--space-1-5`; the older `--popup-padding` token still exists for legacy consumers but `.popup-container` no longer reads it)
 - 1px border with `--border-color`
-- Radius 8px (use `--radius-lg`)
+- Radius `--radius-lg` (8px — the floating-surface tier of the φ ladder)
 - Shadow via `--popup-shadow`
 - 0.1s fade-in animation
 
@@ -251,7 +251,7 @@ Position is calculated in JS based on selection/cursor coordinates.
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);            /* 4px */
+  border-radius: var(--radius-sm);            /* 3px — control tier */
   background: transparent;
   color: var(--text-secondary);
   display: flex;
@@ -379,7 +379,7 @@ Position is calculated in JS based on selection/cursor coordinates.
 
 .context-menu-item {
   padding: 5px 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm); /* row inside a floating lg surface */
   font-size: 13px;
   display: flex;
   align-items: center;

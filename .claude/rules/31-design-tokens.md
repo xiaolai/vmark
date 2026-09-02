@@ -165,7 +165,7 @@ no interactive element takes a smaller hit box; paint-small controls centre a
 | `--spacing-2` | `8px` | Standard gaps |
 | `--spacing-3` | `12px` | Larger spacing |
 
-**Use `--spacing-*` for `padding`, `margin`, and `gap` only.** A `4px` border-radius is `--radius-sm`, not `--spacing-1`. The numeric value coincidence does not imply semantic equivalence — see "Tokenize value vs. tokenize intent" below.
+**Use `--spacing-*` for `padding`, `margin`, and `gap` only.** A border-radius is a `--radius-*` token, never `--spacing-1`. The numeric value coincidence does not imply semantic equivalence — see "Tokenize value vs. tokenize intent" below.
 
 ## Icon Size Tokens
 
@@ -194,14 +194,21 @@ no interactive element takes a smaller hit box; paint-small controls centre a
 
 | Token | Value | Use For |
 |-------|-------|---------|
-| `--radius-sm` | `4px` | Small buttons, toggles |
-| `--radius-md` | `6px` | Inputs, medium containers |
-| `--radius-lg` | `8px` | Popups, dialogs, menus |
+| `--radius-sm` | `3px` | Controls: buttons, icon squares, selects, field inputs, chips — and rows INSIDE floating surfaces (near-concentric) |
+| `--radius-md` | `5px` | Content blocks (code, alerts, details…) and page/panel rows |
+| `--radius-lg` | `8px` | Floating surfaces: popups, dialogs, menus, dropdowns |
 | `--radius-pill` | `100px` | Pill shapes, tags, `.vm-btn--pill` capsule buttons |
+
+**The φ curvature ladder (2026-09-02)**: window `21` → shell card `13` →
+`--radius-lg 8` → `--radius-md 5` → `--radius-sm 3` — each step ≈ ×0.62
+(Fibonacci: 3, 5, 8, 13, 21). Pick radius by TIER, never by taste; pills and
+circles stay off-ladder. Bare Tailwind `rounded` (a 0.25rem literal) is
+BANNED — `tailwindTheme.test.ts` enforces it; use `rounded-sm/md/lg`, which
+resolve through these tokens.
 
 **Acceptable hardcoded values** (do not tokenize):
 - `0.5px` for retina sub-pixel borders
-- `1px` or `2px` for borders, dividers, and inline elements (code spans, cursor indicators, focus underlines)
+- `1px` or `2px` for borders, dividers, and inline elements (code spans, cursor indicators, focus underlines, scrollbar thumbs)
 - `3px` for fine positioning offsets (e.g., `top: 3px` on a dot indicator)
 - Focus indicator geometry (e.g., `0 0 4px 4px` for the U-shape underline)
 - `@media print` blocks (color-mix() may not render in all print pipelines)

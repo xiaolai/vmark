@@ -102,7 +102,7 @@
   background-color: var(--bg-secondary);
   border: var(--border-thin) solid var(--border-color);
   border-bottom: none;
-  border-radius: var(--radius-md) var(--radius-md, 6px) 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .code-block-edit-title {
@@ -168,7 +168,7 @@
   background-color: var(--bg-color);
   border: var(--border-thin) solid var(--border-color);
   border-top: var(--border-thin) dashed var(--border-color);
-  border-radius: 0 0 var(--radius-md, 6px) var(--radius-md, 6px);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   min-height: var(--space-15);
   display: flex;
   align-items: center;

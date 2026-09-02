@@ -176,7 +176,7 @@ export function IntegrationsSettings() {
           <div className="mt-4 pt-3 border-t border-[var(--border-color)]">
             <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
               <span>{t("integrations.mcpInfo.listeningOn")}</span>
-              <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] font-mono">
+              <code className="px-1 py-0.5 rounded-sm bg-[var(--bg-tertiary)] font-mono">
                 localhost:{port}
               </code>
               <CopyButton text={`localhost:${port}`} />

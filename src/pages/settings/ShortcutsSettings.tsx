@@ -111,7 +111,7 @@ export function ShortcutsSettings() {
       <div
         key={shortcut.id}
         className={`flex items-center justify-between py-2 px-2 -mx-2
-                   hover:bg-[var(--bg-secondary)]/50 rounded transition-colors`}
+                   hover:bg-[var(--bg-secondary)]/50 rounded-sm transition-colors`}
       >
         <div className="flex-1 min-w-0">
           <div className="text-sm text-[var(--text-color)]">
@@ -128,7 +128,7 @@ export function ShortcutsSettings() {
           {/* Key display/edit button */}
           <button
             onClick={() => setCapturing(shortcut)}
-            className={`px-3 py-1 rounded text-xs font-mono min-w-[90px] text-center
+            className={`px-3 py-1 rounded-sm text-xs font-mono min-w-[90px] text-center
                        ${customized
                          ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]/30"
                          : "bg-[var(--bg-tertiary)] text-[var(--text-secondary)]"

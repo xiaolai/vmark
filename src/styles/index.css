@@ -132,9 +132,13 @@
   --bg-primary: var(--bg-color); /* token-unused-ok: documented alias name — kept resolvable for consumers that reach for it */
   --text-primary: var(--text-color); /* token-unused-ok: documented alias name — kept resolvable for consumers that reach for it */
 
-  /* Border radius tokens */
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  /* Border radius tokens — the φ curvature ladder (maintainer, 2026-09-02):
+     window 21 → shell card 13 → lg 8 → md 5 → sm 3, each step ≈ ×0.62
+     (Fibonacci: 3, 5, 8, 13, 21). Pick by TIER — floating surface / content
+     block & page row / control — never by taste. Pills stay off-ladder.
+     Runtime values live in tokens.ts sharedPrimitives.radius — keep in sync. */
+  --radius-sm: 3px;
+  --radius-md: 5px;
   --radius-lg: 8px;
   --radius-pill: 100px;
 

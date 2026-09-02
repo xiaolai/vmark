@@ -217,7 +217,7 @@ export function ModelComboBox({
       {open && (
         <ul
           ref={listRef}
-          className={`absolute z-[var(--z-popup)] left-0 right-0 max-h-[140px] overflow-y-auto rounded border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--popup-shadow)] text-xs ${dropPositionClass}`}
+          className={`absolute z-[var(--z-popup)] left-0 right-0 max-h-[140px] overflow-y-auto rounded-sm border border-[var(--border-color)] bg-[var(--bg-color)] shadow-[var(--popup-shadow)] text-xs ${dropPositionClass}`}
           role="listbox"
         >
           {fetching && filtered.length === 0 && (

@@ -113,7 +113,7 @@
   height: 4px;
   background: transparent;
   border-bottom: var(--border-medium) solid var(--accent-primary);
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 /* Also show on :focus-visible for keyboard accessibility */
@@ -132,7 +132,7 @@
   height: 4px;
   background: transparent;
   border-bottom: var(--border-medium) solid var(--accent-primary);
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 /* Focused + Active: dot stays visible (same accent color) */
@@ -176,7 +176,7 @@
   padding: 0 var(--space-2);
   padding-left: var(--space-4); /* Space for checkmark */
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm); /* row inside a floating lg surface — near-concentric (radius ladder, 2026-09-02) */
   background: transparent;
   color: var(--text-color);
   cursor: pointer;
