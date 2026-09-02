@@ -48,6 +48,10 @@ menu:
 
   # === 편집 메뉴 ===
   edit: "편집"
+  edit.cut: "잘라내기"
+  edit.copy: "복사"
+  edit.paste: "붙여넣기"
+  edit.selectAll: "모두 선택"
   edit.undo: "실행 취소"
   edit.redo: "다시 실행"
   edit.find: "찾기"

@@ -194,5 +194,9 @@
   "tab.close": "탭 닫기",
   "commandPalette.hintNavigate": "이동",
   "commandPalette.hintRun": "실행",
-  "commandPalette.hintClose": "닫기"
+  "commandPalette.hintClose": "닫기",
+  "edit.cut": "잘라내기",
+  "edit.copy": "복사",
+  "edit.paste": "붙여넣기",
+  "edit.selectAll": "모두 선택"
 }

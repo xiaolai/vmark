@@ -24,6 +24,7 @@ import { mountMenuCommands, type MenuCommandBinding } from "@/services/commands/
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
 import { registerExportCommands, registerPandocFormatCommands } from "@/services/commands/exportCommands";
 import { registerMiscCommands } from "@/services/commands/miscCommands";
+import { registerClipboardCommands } from "@/services/commands/clipboardCommands";
 import { registerRecentFilesCommands } from "@/services/commands/recentFilesCommands";
 import { registerRecentWorkspacesCommands } from "@/services/commands/recentWorkspacesCommands";
 import { registerClaimCommands } from "@/services/commands/claimCommands";
@@ -57,6 +58,13 @@ const EXPORT_BINDINGS: MenuCommandBinding[] = [
 ];
 
 const MISC_BINDINGS: MenuCommandBinding[] = [
+  // #1354 — Windows-only menu items (macOS keeps PredefinedMenuItems, whose
+  // responder-chain path never emits these ids). Bound unconditionally: an id
+  // that never fires costs nothing, and the binding stays platform-symmetric.
+  { menuEvent: "menu:edit-cut", commandId: "edit.cut" },
+  { menuEvent: "menu:edit-copy", commandId: "edit.copy" },
+  { menuEvent: "menu:edit-paste", commandId: "edit.paste" },
+  { menuEvent: "menu:edit-select-all", commandId: "edit.selectAll" },
   { menuEvent: "menu:new", commandId: "file.new" },
   { menuEvent: "menu:open", commandId: "file.open" },
   { menuEvent: "menu:save", commandId: "file.save" },
@@ -136,6 +144,7 @@ const EDITOR_ACTION_BINDINGS: MenuCommandBinding[] = Object.entries(MENU_TO_ACTI
 export function useCommandBootstrap(): void {
   useEffect(() => {
     registerMiscCommands();
+    registerClipboardCommands();
     registerExportCommands();
     registerWorkspaceCommands();
     registerRecentFilesCommands();

@@ -194,5 +194,9 @@
   "tab.close": "关闭标签页",
   "commandPalette.hintNavigate": "导航",
   "commandPalette.hintRun": "执行",
-  "commandPalette.hintClose": "关闭"
+  "commandPalette.hintClose": "关闭",
+  "edit.cut": "剪切",
+  "edit.copy": "复制",
+  "edit.paste": "粘贴",
+  "edit.selectAll": "全选"
 }

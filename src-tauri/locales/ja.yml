@@ -48,6 +48,10 @@ menu:
 
   # === 編集メニュー ===
   edit: "編集"
+  edit.cut: "切り取り"
+  edit.copy: "コピー"
+  edit.paste: "貼り付け"
+  edit.selectAll: "すべて選択"
   edit.undo: "元に戻す"
   edit.redo: "やり直す"
   edit.find: "検索"

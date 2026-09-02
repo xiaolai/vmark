@@ -67,6 +67,15 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   // Placeholders for empty dynamic submenus
   "no-recent",
   "no-recent-workspace",
+  // #1354 — Windows-only clipboard menu items, routed through the CommandBus
+  // (menu:edit-cut → edit.cut, …). They replace muda's PredefinedMenuItems
+  // there: the predefined accelerators intercepted physical Ctrl+C/X/V/A in
+  // the Win32 accelerator table and re-emitted them via SendInput, whose
+  // synthetic Ctrl-up desynced WebView2's modifier state (swallowed keys).
+  "edit-cut",
+  "edit-copy",
+  "edit-paste",
+  "edit-select-all",
   // File operations (dedicated listeners)
   "new",
   "new-window",

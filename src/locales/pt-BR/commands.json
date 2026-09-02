@@ -194,5 +194,9 @@
   "tab.close": "Fechar aba",
   "commandPalette.hintNavigate": "navegar",
   "commandPalette.hintRun": "executar",
-  "commandPalette.hintClose": "fechar"
+  "commandPalette.hintClose": "fechar",
+  "edit.cut": "Recortar",
+  "edit.copy": "Copiar",
+  "edit.paste": "Colar",
+  "edit.selectAll": "Selecionar tudo"
 }
