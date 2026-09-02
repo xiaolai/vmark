@@ -48,6 +48,10 @@ menu:
 
   # === 編輯選單 ===
   edit: "編輯"
+  edit.cut: "剪下"
+  edit.copy: "複製"
+  edit.paste: "貼上"
+  edit.selectAll: "全選"
   edit.undo: "復原"
   edit.redo: "取消復原"
   edit.find: "尋找"

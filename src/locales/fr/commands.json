@@ -194,5 +194,9 @@
   "tab.close": "Fermer l'onglet",
   "commandPalette.hintNavigate": "naviguer",
   "commandPalette.hintRun": "exécuter",
-  "commandPalette.hintClose": "fermer"
+  "commandPalette.hintClose": "fermer",
+  "edit.cut": "Couper",
+  "edit.copy": "Copier",
+  "edit.paste": "Coller",
+  "edit.selectAll": "Tout sélectionner"
 }

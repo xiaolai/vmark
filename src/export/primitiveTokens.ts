@@ -76,9 +76,9 @@ const PRIMITIVES = `
   --popup-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.4);
   --primary-color: var(--accent-primary);
   --radius-lg: 8px;
-  --radius-md: 6px;
+  --radius-md: 5px;
   --radius-pill: 100px;
-  --radius-sm: 4px;
+  --radius-sm: 3px;
   --selection-color: rgba(0, 102, 204, 0.2);
   --space-1: 4px;
   --space-1-5: 6px;

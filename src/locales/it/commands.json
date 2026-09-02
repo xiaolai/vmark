@@ -194,5 +194,9 @@
   "tab.close": "Chiudi scheda",
   "commandPalette.hintNavigate": "naviga",
   "commandPalette.hintRun": "esegui",
-  "commandPalette.hintClose": "chiudi"
+  "commandPalette.hintClose": "chiudi",
+  "edit.cut": "Taglia",
+  "edit.copy": "Copia",
+  "edit.paste": "Incolla",
+  "edit.selectAll": "Seleziona tutto"
 }

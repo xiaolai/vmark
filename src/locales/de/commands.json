@@ -194,5 +194,9 @@
   "tab.close": "Tab schließen",
   "commandPalette.hintNavigate": "navigieren",
   "commandPalette.hintRun": "ausführen",
-  "commandPalette.hintClose": "schließen"
+  "commandPalette.hintClose": "schließen",
+  "edit.cut": "Ausschneiden",
+  "edit.copy": "Kopieren",
+  "edit.paste": "Einfügen",
+  "edit.selectAll": "Alles auswählen"
 }

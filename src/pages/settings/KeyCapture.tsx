@@ -117,7 +117,7 @@ export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptu
 
         <p className="text-xs text-[var(--text-secondary)] mt-4 text-center">
           {t("shortcuts.capture.pressEsc")}{" "}
-          <kbd className="px-1 bg-[var(--bg-secondary)] rounded">Esc</kbd>{" "}
+          <kbd className="px-1 bg-[var(--bg-secondary)] rounded-sm">Esc</kbd>{" "}
           {t("shortcuts.capture.toCancel")}
         </p>
       </div>

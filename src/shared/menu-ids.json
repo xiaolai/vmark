@@ -127,6 +127,10 @@
     "diagram",
     "diagram-preview",
     "duplicate-line",
+    "edit-copy",
+    "edit-cut",
+    "edit-paste",
+    "edit-select-all",
     "expand-selection",
     "export-html",
     "export-pandoc-docx",
@@ -252,5 +256,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-08-22T09:13:50.912Z"
+  "generatedAt": "2026-09-02T00:17:58.731Z"
 }

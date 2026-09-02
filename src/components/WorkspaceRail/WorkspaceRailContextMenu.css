@@ -21,7 +21,7 @@
   gap: var(--spacing-2);
   padding: var(--space-1-5) var(--space-2-5);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm); /* row inside a floating lg surface — near-concentric (radius ladder, 2026-09-02) */
   color: var(--text-color);
   background: transparent;
   font-family: var(--font-ui);

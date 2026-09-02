@@ -7,7 +7,7 @@
  * sessions) and asserts each namespace VMark uses resolves onto a token.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, globSync } from "node:fs";
 
 const css = readFileSync("src/styles/index.css", "utf8");
 const themeBlock = (() => {
@@ -49,11 +49,16 @@ describe("@theme inline bridge (D1)", () => {
     expect(mapped("--shadow-popup")).toBe("var(--shadow-popup)");
   });
 
-  it("bare `rounded` (a 0.25rem Tailwind literal) still equals --radius-sm", () => {
+  it("bare `rounded` is BANNED — the φ ladder moved --radius-sm off Tailwind's 0.25rem literal", () => {
     // rounded-sm/md/lg resolve through our identically-named :root tokens;
-    // bare `rounded` is the one literal. Pin the equality so a --radius-sm
-    // retint cannot silently strand 32 usages at the old 4px.
+    // bare `rounded` compiles to a hardcoded 0.25rem (4px), which equalled
+    // --radius-sm only until the 2026-09-02 φ retune (sm = 3px). The old pin
+    // asserted the equality; this one asserts the escape hatch stays closed.
     const m = /--radius-sm:\s*([^;]+);/.exec(css);
-    expect(m![1].trim()).toBe("4px"); // 0.25rem
+    expect(m![1].trim()).toBe("3px");
+    for (const file of globSync("src/**/*.tsx")) {
+      const src = readFileSync(file, "utf8");
+      expect(/\brounded\b(?!-)/.test(src), `${file} uses bare rounded (4px literal)`).toBe(false);
+    }
   });
 });

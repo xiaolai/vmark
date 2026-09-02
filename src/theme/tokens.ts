@@ -178,7 +178,7 @@ export const sharedPrimitives = {
     8: "32px",
     10: "40px",
   } satisfies ThemeTokens["space"],
-  radius: { sm: "4px", md: "6px", lg: "8px", pill: "100px" } satisfies ThemeTokens["radius"],
+  radius: { sm: "3px", md: "5px", lg: "8px", pill: "100px" } satisfies ThemeTokens["radius"],
   font: {
     // R3 (WI-UI2.1): sans/mono mirror buildFontStack's system output — the old
     // "SauceCodePro NF" stack was one the runtime never produced. `ui` is the

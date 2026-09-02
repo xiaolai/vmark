@@ -194,5 +194,9 @@
   "tab.close": "タブを閉じる",
   "commandPalette.hintNavigate": "移動",
   "commandPalette.hintRun": "実行",
-  "commandPalette.hintClose": "閉じる"
+  "commandPalette.hintClose": "閉じる",
+  "edit.cut": "切り取り",
+  "edit.copy": "コピー",
+  "edit.paste": "貼り付け",
+  "edit.selectAll": "すべて選択"
 }

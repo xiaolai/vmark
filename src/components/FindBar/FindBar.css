@@ -111,7 +111,7 @@
   height: 4px;
   background: transparent;
   border-bottom: var(--border-medium) solid var(--accent-primary);
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }
 
 .find-bar-nav {

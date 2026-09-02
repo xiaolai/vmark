@@ -206,9 +206,47 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 accel("redo", "CmdOrCtrl+Shift+Z"),
             )?,
             &PredefinedMenuItem::separator(app)?,
+            // #1354 — Windows gets accelerator-FREE custom items instead of
+            // the predefined ones. muda's predefined clipboard items carry
+            // built-in Ctrl+C/X/V/A accelerators that enter the Win32
+            // accelerator table (intercepting the user's PHYSICAL keystroke
+            // before WebView2 sees it) and then re-emit it via SendInput —
+            // whose synthetic Ctrl-up, while the user still holds Ctrl,
+            // desyncs the webview's modifier state: typed characters arrive
+            // as phantom-Ctrl chords and vanish, paste mistargets, and IME
+            // composition breaks until a focus cycle. With no accelerator,
+            // the shortcuts flow natively to WebView2; a menu CLICK emits
+            // menu:edit-* and the frontend routes it through the same
+            // clipboard bridge the editor context menu uses.
+            // macOS keeps the predefined items: its responder-chain path is
+            // correct and native-fidelity (never break macOS to fix Windows).
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(app, "edit-cut", &t!("menu.edit.cut"), true, None::<&str>)?,
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(app, "edit-copy", &t!("menu.edit.copy"), true, None::<&str>)?,
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(
+                app,
+                "edit-paste",
+                &t!("menu.edit.paste"),
+                true,
+                None::<&str>,
+            )?,
+            #[cfg(target_os = "windows")]
+            &MenuItem::with_id(
+                app,
+                "edit-select-all",
+                &t!("menu.edit.selectAll"),
+                true,
+                None::<&str>,
+            )?,
+            #[cfg(not(target_os = "windows"))]
             &PredefinedMenuItem::cut(app, None)?,
+            #[cfg(not(target_os = "windows"))]
             &PredefinedMenuItem::copy(app, None)?,
+            #[cfg(not(target_os = "windows"))]
             &PredefinedMenuItem::paste(app, None)?,
+            #[cfg(not(target_os = "windows"))]
             &PredefinedMenuItem::select_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
             &find_submenu,

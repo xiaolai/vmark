@@ -607,7 +607,7 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Dark theme**: Use `.dark-theme` selector (not `[data-theme]`).
 
-  - **Border radius**: `4px` (small), `6px` (medium), `8px` (popups/dialogs).
+  - **Border radius**: the φ ladder — `--radius-sm` 3px (controls), `--radius-md` 5px (blocks/rows), `--radius-lg` 8px (floating surfaces); window 21 → card 13 → 8 → 5 → 3, each ≈ ×0.62. Pick by tier (rule 31).
 
   - **Shadows**: Use `--popup-shadow` token, not hardcoded values.
 

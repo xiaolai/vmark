@@ -48,6 +48,10 @@ menu:
 
   # === Edit menu ===
   edit: "Bearbeiten"
+  edit.cut: "Ausschneiden"
+  edit.copy: "Kopieren"
+  edit.paste: "Einfügen"
+  edit.selectAll: "Alles auswählen"
   edit.undo: "Rückgängig"
   edit.redo: "Wiederholen"
   edit.find: "Suchen"

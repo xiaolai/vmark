@@ -194,5 +194,9 @@
   "tab.close": "Cerrar pestaña",
   "commandPalette.hintNavigate": "navegar",
   "commandPalette.hintRun": "ejecutar",
-  "commandPalette.hintClose": "cerrar"
+  "commandPalette.hintClose": "cerrar",
+  "edit.cut": "Cortar",
+  "edit.copy": "Copiar",
+  "edit.paste": "Pegar",
+  "edit.selectAll": "Seleccionar todo"
 }
