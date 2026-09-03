@@ -23,6 +23,11 @@
  *     delimiter (`/path?`) survives too — the server, not this module, decides
  *     whether it is meaningful.
  *
+ * The display-side helpers live here too, because they are the same leaf-pure
+ * URL parsing: `urlForAgent` / `originForAgent` (what an agent may be shown),
+ * `urlForPersistence`, and `hostLabel` (the strip label for a page with no
+ * title).
+ *
  * @module lib/browser/url
  */
 

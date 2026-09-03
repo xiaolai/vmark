@@ -38,6 +38,14 @@ interface QuarantineStripStats {
   error_count: number;
 }
 
+function isStripStats(value: unknown): value is QuarantineStripStats {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { stripped_count?: unknown }).stripped_count === "number"
+  );
+}
+
 const NOTICE_FLAG_KEY = "vmark-mac-quarantine-notice-shown";
 
 /** Has the one-time toast already been shown on this machine? */
@@ -63,22 +71,32 @@ function markNoticeShown(): void {
  * Best-effort strip of macOS quarantine on the workspace root and its direct
  * `.md` children. Safe to call on any platform — non-macOS bails immediately.
  *
- * Does not throw. Failures are logged via workspaceError.
+ * Does not throw — for ANY outcome of the IPC, including a payload that is not
+ * the stats object (null, undefined, a shape from an older or mocked backend).
+ * Callers fire this and move on (`void maybeStripMacQuarantine(...)`), so a
+ * throw here is an unhandled rejection nobody sees: 17 of them surfaced in the
+ * app test tier the day the tests started running under a macOS platform pin
+ * and every stub `invoke` answered `null`. Failures are logged via
+ * workspaceError.
  */
 export async function maybeStripMacQuarantine(rootPath: string): Promise<void> {
   if (!isMacPlatform()) return;
   if (!useSettingsStore.getState().advanced.clearMacQuarantineOnOpen) return;
   if (!rootPath) return;
 
-  let stats: QuarantineStripStats;
+  let payload: unknown;
   try {
-    stats = await invoke<QuarantineStripStats>("strip_workspace_quarantine_cmd", {
-      root: rootPath,
-    });
+    payload = await invoke<unknown>("strip_workspace_quarantine_cmd", { root: rootPath });
   } catch (error) {
     workspaceError("Failed to strip quarantine:", rootPath, error);
     return;
   }
+  // Zero trust at the IPC boundary: the stats are read off whatever came back.
+  if (!isStripStats(payload)) {
+    workspaceError("Quarantine strip returned an unexpected payload:", rootPath, payload);
+    return;
+  }
+  const stats = payload;
 
   if (stats.stripped_count > 0 && !hasShownNotice()) {
     markNoticeShown();

@@ -14,12 +14,18 @@
  * can reuse it. If the user DENIES, that record is an empty tab nobody asked to
  * keep, and `approvalDenied` discards it.
  *
+ * The third job is the one entry point for closing a browser tab BY ID through
+ * the store (`closeBrowserTabById`), so that everything above runs: it backs
+ * `approvalDenied` and is published as the DEV-only `__VMARK_DEBUG__.closeBrowserTab`
+ * seam the E2E teardown uses instead of a bare `browser_destroy`.
+ *
  * Started once per document window from `useCommandBootstrap`, like the other
  * browser wirings.
  *
  * @coordinates-with stores/tabRemovalBus — the removal signal
  * @coordinates-with services/browser/browserNativeViews — destroyBrowserNativeView
  * @coordinates-with components/Browser/BrowserApprovalDialog — approvalDenied
+ * @coordinates-with hooks/useCommandBootstrap — publishes closeBrowserTabById as the DEV seam
  * @module services/browser/browserTabLifecycle
  */
 import { onTabRemoved } from "@/stores/tabRemovalBus";

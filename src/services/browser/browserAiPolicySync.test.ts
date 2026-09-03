@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   start: vi.fn(),
   stop: vi.fn(),
   cancelPending: vi.fn(),
+  cancelTab: vi.fn(),
   warn: vi.fn(),
 }));
 
@@ -17,6 +18,10 @@ vi.mock("./browserEventBroker", () => ({
     start: (...args: unknown[]) => mocks.start(...args),
     stop: (...args: unknown[]) => mocks.stop(...args),
     cancelPending: (...args: unknown[]) => mocks.cancelPending(...args),
+    // `destroyBrowserNativeView` (real, reached through disable → dispose) calls
+    // this; a mock that lacks it turns every disposal into an unhandled rejection
+    // that the test itself never sees — the class the test-types gate describes.
+    cancelTab: (...args: unknown[]) => mocks.cancelTab(...args),
   },
 }));
 vi.mock("@/utils/debug", () => ({ browserWarn: (...args: unknown[]) => mocks.warn(...args) }));

@@ -38,6 +38,7 @@ vi.mock("@/utils/debug", () => ({
 }));
 
 import { maybeStripMacQuarantine } from "./macQuarantineNotice";
+import { workspaceError } from "@/utils/debug";
 
 const NOTICE_FLAG_KEY = "vmark-mac-quarantine-notice-shown";
 
@@ -46,6 +47,7 @@ describe("maybeStripMacQuarantine", () => {
     mocks.invoke.mockReset();
     mocks.isMac.mockReturnValue(true);
     mocks.toastInfo.mockReset();
+    vi.mocked(workspaceError).mockReset();
     mocks.settingsState.advanced.clearMacQuarantineOnOpen = true;
     globalThis.localStorage?.removeItem(NOTICE_FLAG_KEY);
   });
@@ -99,6 +101,24 @@ describe("maybeStripMacQuarantine", () => {
     await maybeStripMacQuarantine("/some/workspace");
     expect(mocks.toastInfo).not.toHaveBeenCalled();
   });
+
+  // The 17 unhandled rejections of 2026-09-03: every stub `invoke` answered null
+  // once the test tier ran under a macOS platform pin, and `null.stripped_count`
+  // threw inside a promise nobody awaited. The contract is "does not throw" for
+  // ANY payload, and a malformed one is logged, not trusted.
+  it.each([null, undefined, 42, "ok", {}, { stripped_count: "3" }])(
+    "neither throws nor toasts on an unexpected payload (%j), and logs it",
+    async (payload) => {
+      mocks.invoke.mockResolvedValue(payload);
+      await expect(maybeStripMacQuarantine("/ws")).resolves.toBeUndefined();
+      expect(mocks.toastInfo).not.toHaveBeenCalled();
+      expect(vi.mocked(workspaceError)).toHaveBeenCalledWith(
+        expect.stringContaining("unexpected payload"),
+        "/ws",
+        payload,
+      );
+    },
+  );
 
   it("swallows invoke errors without throwing", async () => {
     mocks.invoke.mockRejectedValue(new Error("boom"));
