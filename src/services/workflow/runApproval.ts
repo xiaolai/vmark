@@ -102,7 +102,10 @@ export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<
       try {
         throwIfAborted(signal);
       } catch (error) {
-        reject(error);
+        // `throwIfAborted` throws a WorkflowPause (an Error) or rethrows the
+        // signal's reason; a non-Error reason is wrapped so the rejection is
+        // always an Error (type-aware lint: prefer-promise-reject-errors).
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     };
     if (signal.aborted) return onAbort();

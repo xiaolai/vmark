@@ -250,7 +250,10 @@ describe("navigate", () => {
 
     await handleBrowserNavigate("window", { tabId, url: URL });
 
-    expect(lastResponse()).toMatchObject({ error: "WINDOW_UNAVAILABLE" });
+    // An untyped mount failure names the window AND carries the driver's reason.
+    expect(lastResponse()).toMatchObject({
+      error: "WINDOW_UNAVAILABLE: native view unavailable",
+    });
     expect(mocks.invoke).not.toHaveBeenCalledWith("browser_ai_navigate", expect.anything());
   });
 
@@ -318,8 +321,17 @@ describe("typed CommandError rejections", () => {
 
     expect(useBrowserApprovalStore.getState().pending).toEqual([]);
     // The typed refusal keeps its token (it used to be flattened to
-    // WINDOW_UNAVAILABLE, hiding the reason from the model).
-    expect(lastResponse()).toMatchObject({ error: "SSRF_BLOCKED" });
+    // WINDOW_UNAVAILABLE, hiding the reason from the model) and now travels with
+    // its message and the classifier's detail, not as a bare word.
+    expect(lastResponse()).toMatchObject({
+      error: "SSRF_BLOCKED: AI navigation to this destination is blocked by policy",
+      data: {
+        code: "permission-denied",
+        token: "SSRF_BLOCKED",
+        mcpCode: "SSRF_BLOCKED",
+        detail: { kind: "ssrf-blocked" },
+      },
+    });
   });
 
   it("reports the MCP token the client already knows, never [object Object]", async () => {
@@ -331,7 +343,11 @@ describe("typed CommandError rejections", () => {
 
     await handleBrowserOpen("typed-open-failed", { url: URL });
 
-    expect(lastResponse()).toMatchObject({ success: false, error: "SSRF_BLOCKED" });
+    expect(lastResponse()).toMatchObject({
+      success: false,
+      error: "SSRF_BLOCKED: AI navigation to this destination is blocked by policy",
+      data: { token: "SSRF_BLOCKED" },
+    });
     expect(Object.values(useTabStore.getState().tabs).flat()).toEqual([]);
   });
 
@@ -340,7 +356,11 @@ describe("typed CommandError rejections", () => {
 
     await handleBrowserOpen("typed-open-conflict", { url: URL });
 
-    expect(lastResponse()).toMatchObject({ success: false, error: "CONFLICT" });
+    expect(lastResponse()).toMatchObject({
+      success: false,
+      error: "CONFLICT: duplicate tab",
+      data: { code: "conflict", token: "CONFLICT" },
+    });
   });
 
   it("passes a typed browser_ai_navigate refusal through to the approval flow", async () => {

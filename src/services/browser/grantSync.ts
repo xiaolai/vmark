@@ -16,6 +16,10 @@
  *
  * Default-deny holds if this never runs: the driver starts with an empty set.
  *
+ * It is also the ONE mint path for single-use approvals (audit 2026-09-03 A-04):
+ * the subscription mints each new one-shot and records the promise, and callers
+ * await that mint through `mintOneShotConfirmed` instead of minting a second copy.
+ *
  * @coordinates-with stores/browserApprovalStore.ts — the source of truth for grants
  * @coordinates-with src-tauri browser_set_grants — the driver's mirror
  * @module services/browser/grantSync

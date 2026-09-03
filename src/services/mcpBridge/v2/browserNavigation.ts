@@ -36,7 +36,7 @@ import {
   waitForBrowserNativeView,
 } from "@/services/browser/browserNativeViews";
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
-import { browserFailureToken, needsNavigationApproval } from "./browserFailure";
+import { needsNavigationApproval } from "./browserFailure";
 import {
   activateBrowserTarget,
   ensureBrokerStarted,
@@ -51,8 +51,8 @@ import { browserGate } from "./browserAccess";
 import { readOperationArgs } from "./readOperationArgs";
 import {
   failure,
+  failureFrom,
   finishCreation,
-  mountFailureToken,
   remaining,
   requestNavigationApproval,
   waitForNavigation,
@@ -88,7 +88,7 @@ export async function handleBrowserNavigate(id: string, args: Record<string, unk
         await requestNavigationApproval(id, target.tabId, url, target.generation, "navigate");
         return;
       }
-      return failure(id, mountFailureToken(error));
+      return failureFrom(id, error, "WINDOW_UNAVAILABLE");
     }
     await ensureBrokerStarted();
     if (creationOwed) {
@@ -106,7 +106,7 @@ export async function handleBrowserNavigate(id: string, args: Record<string, unk
         await requestNavigationApproval(id, target.tabId, url, target.generation, "navigate");
         return;
       }
-      await failure(id, browserFailureToken(error));
+      await failureFrom(id, error);
       return;
     }
     await waitForNavigation(id, ticket.tabId, ticket.navigationId, deadline);

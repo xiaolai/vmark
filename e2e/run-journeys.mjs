@@ -118,6 +118,21 @@ async function main() {
   // Suite-level integrity: the tab bar must look identical after all journeys.
   const initialTabs = await getTabs(client);
 
+  // Run integrity: the webview must be the SAME document for the whole run. A
+  // Vite full reload mid-suite (a file added or removed under `src/` re-evaluates
+  // `import.meta.glob`; a Rust edit restarts the app) throws the tab store away
+  // underneath a journey, which then fails on some downstream symptom — "omnibox
+  // null", "Not connected" — that points at the wrong layer. Stamp the document
+  // once and check the stamp before every journey and after every failure, so a
+  // reload is reported as what it is.
+  const runNonce = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await evalJs(client, `(window.__vmarkE2eRunNonce = ${JSON.stringify(runNonce)}, "OK")`, cfg.timeoutMs);
+  const reloadedSinceStart = async () =>
+    (await evalJs(client, `window.__vmarkE2eRunNonce ?? null`, cfg.timeoutMs).catch(() => null)) !== runNonce;
+  const RELOAD_MSG =
+    "the webview RELOADED during the run (Vite full reload or app restart — was a " +
+    "file under src/ or src-tauri/ touched while the suite was running?)";
+
   const results = [];
   for (let i = 0; i < selected.length; i++) {
     const journey = selected[i];
@@ -148,6 +163,7 @@ async function main() {
     }
 
     try {
+      if (await reloadedSinceStart()) throw new Error(`refusing to start: ${RELOAD_MSG}`);
       const outcome = await withCap(journey.run(client, ctx), JOURNEY_CAP_MS, journey.name);
       const ms = Date.now() - start;
       if (outcome?.skip) {
@@ -168,6 +184,7 @@ async function main() {
       const shotPath = await captureFailureScreenshot(client, journey.name);
       console.error(`  FAIL  ${journey.name} (${ms}ms)`);
       console.error(`        ${err?.message ?? err}`);
+      if (await reloadedSinceStart()) console.error(`        NOTE: ${RELOAD_MSG}`);
       if (shotPath) console.error(`        screenshot: ${shotPath}`);
       results.push({ name: journey.name, status: "fail", ms });
       if (err?.isHardCap) {

@@ -12,8 +12,12 @@
  *     split view targets the focused pane, not the primary active tab.
  *   - APG roving tablist: Arrow/Home/End move focus (shared rovingTabFocus);
  *     a keydown bubbled from the close button must not activate the page.
+ *   - A page an AI run holds shows a dot on ITS tab (lease store): native views
+ *     stay alive in the background, so the driven page need not be the visible
+ *     one (audit 2026-09-03 #15).
  *
  * @coordinates-with BrowserChrome.tsx — parent placement wrapper
+ * @coordinates-with services/browser/lease.ts — the AI-hold indicator source
  * @coordinates-with services/navigation/activateTabInFocusedPane — pane-aware activation
  * @module components/Browser/BrowserPageTabs
  */

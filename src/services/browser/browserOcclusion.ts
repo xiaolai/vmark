@@ -18,7 +18,9 @@
  * @coordinates-with services/browser/occlusion — the controller (pure orchestration)
  * @coordinates-with src-tauri browser_freeze/browser_thaw — the native driver
  * @coordinates-with components/Browser/BrowserApprovalDialog — the approval occluder
- * @coordinates-with components/Browser/BrowserSurface — crash + page-dialog occluders
+ * @coordinates-with components/Browser/BrowserSurface — error occluder
+ * @coordinates-with services/browser/browserTabEvents — crash + page-dialog occluders
+ * @coordinates-with services/browser/browserNativeViews — the background occluder for off-screen tabs
  * @module services/browser/browserOcclusion
  */
 import { invoke } from "@tauri-apps/api/core";

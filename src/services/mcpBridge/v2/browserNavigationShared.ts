@@ -14,8 +14,7 @@ import { respond } from "@/services/mcpBridge/utils";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
-import { browserFailureToken } from "./browserFailure";
-import { bridgeErrorToken } from "./bridgeError";
+import { bridgeErrorEnvelope } from "./bridgeError";
 import { readAiState, redactUrl } from "./browserHelpers";
 import { probeGate } from "./browserGateProbe";
 
@@ -25,11 +24,20 @@ export function failure(id: string, error: string, data?: unknown): Promise<void
   return respond({ id, success: false, error, ...(data === undefined ? {} : { data }) });
 }
 
-/** A native-view creation/mount failure: a typed driver refusal keeps its token
- *  (an SSRF block on a creation-owed tab is `SSRF_BLOCKED`, not a mount problem);
- *  an untyped failure — the surface never registered, timed out — is the window. */
-export function mountFailureToken(error: unknown): string {
-  return bridgeErrorToken(error) ?? "WINDOW_UNAVAILABLE";
+/**
+ * Respond with a thrown value as the failure envelope — `TOKEN: message` plus the
+ * typed detail (`data.code`, `data.token`, `data.detail`) for a typed error. A
+ * bare token used to be all the model got: an `open` that died in the native
+ * layer read `INTERNAL`, with the classifier's `kind` and the driver's reason
+ * dropped on the floor. An UNTYPED failure (the surface never registered, a
+ * timeout) is reported under `fallbackToken` with its message.
+ */
+export function failureFrom(id: string, error: unknown, fallbackToken?: string): Promise<void> {
+  const envelope = bridgeErrorEnvelope(error);
+  if (!envelope.data && fallbackToken) {
+    return respond({ id, success: false, error: `${fallbackToken}: ${envelope.error}` });
+  }
+  return respond({ id, success: false, ...envelope });
 }
 
 /** Time left on a request's single wait budget (never below 1 ms). */
@@ -137,7 +145,7 @@ export async function finishCreation(id: string, tabId: string, deadline: number
   try {
     state = await readAiState(tabId);
   } catch (error) {
-    await failure(id, browserFailureToken(error));
+    await failureFrom(id, error);
     return;
   }
   const navigationId = typeof state.navigationId === "string" ? state.navigationId : undefined;

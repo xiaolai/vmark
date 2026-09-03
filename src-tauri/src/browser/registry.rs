@@ -2,7 +2,8 @@
 //!
 //! Purpose: the pure, platform-independent core of the embedded-browser surface.
 //! It owns the identity map — `tabId ↔ window ↔ navigation generation ↔ lifecycle
-//! state` — and the lifecycle state machine. The native surface (WKWebView on
+//! state` — the lifecycle state machine, and the live AI-tab count behind the
+//! `MAX_AI_TABS` cap (audit 2026-09-03 X-01). The native surface (WKWebView on
 //! macOS today; WebView2/webkit2gtk backends planned for Windows/Linux) is layered
 //! on top and holds the actual view handle; this module owns the invariants the
 //! native layer, the automation lease (R11), and the eval watchdog (WI-1.8) all

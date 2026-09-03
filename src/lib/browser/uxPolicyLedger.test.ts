@@ -26,9 +26,31 @@ describe("uxPolicy conformance ledger", () => {
     // Freeze the known gaps. Closing one (flip to `conforms`) is a passing
     // change that shrinks this; adding a new gap fails until it is recorded here
     // deliberately.
+    //
+    // 2026-09-03: the list GREW by six and shrank by one, deliberately. `confirm`
+    // was pending while confirm() had shipped; `basic-auth`, `find`, `zoom` and the
+    // four permission prompts were recorded as conforming with no implementation
+    // behind them. A shrink-only ratchet protects true records; those were false
+    // records, and correcting a false `conforms` to an honest `pending` is the
+    // ledger doing its job, not the gap growing.
     expect([...PENDING_SURFACES].sort()).toEqual(
-      ["confirm", "download", "prompt", "window-open"].sort(),
+      [
+        "basic-auth",
+        "download",
+        "find",
+        "permission-camera",
+        "permission-geolocation",
+        "permission-mic",
+        "permission-notifications",
+        "prompt",
+        "window-open",
+        "zoom",
+      ].sort(),
     );
+  });
+
+  it("confirm() is recorded as shipped — it is surfaced and answered", () => {
+    expect(UX_LEDGER.confirm.state).toBe("conforms");
   });
 
   it("the known window-open divergence is explicit, not silent (was: matrix said new-tab, native blocks)", () => {

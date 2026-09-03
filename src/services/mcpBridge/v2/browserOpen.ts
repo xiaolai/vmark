@@ -21,13 +21,14 @@ import { useBrowserSessionStore } from "@/stores/browserSessionStore";
 import { originForAgent } from "@/lib/browser/url";
 import { isOriginGranted } from "@/lib/browser/origin/originGuard";
 import { ensureBrowserNativeView } from "@/services/browser/browserNativeViews";
-import { browserFailureToken, needsNavigationApproval } from "./browserFailure";
+import { needsNavigationApproval } from "./browserFailure";
 import { aiMode, ensureBrokerStarted, validateNonEmptyString, validateTimeout } from "./browserHelpers";
 import { browserGate } from "./browserAccess";
 import { readOperationArgs } from "./readOperationArgs";
 import {
   discardUncreatedAiTab,
   failure,
+  failureFrom,
   finishCreation,
   requestNavigationApproval,
 } from "./browserNavigationShared";
@@ -101,7 +102,7 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
         return;
       }
       discardUncreatedAiTab(tabId, windowLabel);
-      await failure(id, browserFailureToken(error));
+      await failureFrom(id, error);
       return;
     }
     await finishCreation(id, tabId, deadline);

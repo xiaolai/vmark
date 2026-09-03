@@ -326,7 +326,6 @@
   "src/services/workspaces/closeWorkspaceInstance.test.ts": 3,
   "src/services/workspaces/fileOwnership.test.ts": 2,
   "src/services/workspaces/openWorkspaceByPath.test.ts": 1,
-  "src/services/workspaces/openWorkspaceWithConfig.test.ts": 4,
   "src/services/workspaces/workspaceSession.test.ts": 2,
   "src/services/workspaces/workspaceTabCollection.test.ts": 6,
   "src/stores/__tests__/aiBrowserProvenance.test.ts": 2,

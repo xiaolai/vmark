@@ -1,7 +1,7 @@
 // @vitest-environment node
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent } from "./url";
+import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent, hostLabel } from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -190,5 +190,17 @@ describe("urlForPersistence — a secret is not ours to write to disk", () => {
   it("passes an unparseable url through rather than inventing one", () => {
     expect(urlForPersistence("about:blank")).toBe("about:blank");
     expect(urlForPersistence("")).toBe("");
+  });
+});
+
+describe("hostLabel", () => {
+  it("names the host, keeping a non-default port", () => {
+    expect(hostLabel("http://127.0.0.1:59180/second?x=1#f")).toBe("127.0.0.1:59180");
+    expect(hostLabel("https://Example.com/path")).toBe("example.com");
+  });
+
+  it("falls back to the input when it is not a URL", () => {
+    expect(hostLabel("not a url")).toBe("not a url");
+    expect(hostLabel("")).toBe("");
   });
 });

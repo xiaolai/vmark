@@ -23,6 +23,7 @@
  *
  * @coordinates-with services/browser/lease.ts — a lost lease also pauses a workflow
  * @coordinates-with lib/browser/workflow/parser.ts — steps come from the parsed IR
+ * @coordinates-with services/workflow/workflowRunService.ts — idempotencyKey keys the completed-write ledger
  * @module lib/browser/workflow/safety
  */
 

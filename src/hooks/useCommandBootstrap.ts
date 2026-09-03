@@ -42,7 +42,7 @@ import { startGrantSync } from "@/services/browser/grantSync";
 import { browserAvailableHere } from "@/services/commands/browserCommands";
 import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
 import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
-import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
+import { closeBrowserTabById, startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { startRecorderWiring } from "@/services/browser/recorderWiring";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
@@ -178,6 +178,9 @@ export function useCommandBootstrap(): void {
       (commandId: string, payload?: unknown, windowLabel?: string) =>
         executeCommand(commandId, payload, { windowLabel: windowLabel ?? "main" }),
     );
+    // Same seam, for teardown: the harness closes the tabs it created through the
+    // app's own lifecycle instead of tearing the native view out from under it.
+    publishDebugHandle("closeBrowserTab", closeBrowserTabById);
 
     // Mirror the user's standing browser grants into the Rust driver, which is the
     // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays

@@ -8,7 +8,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockInvoke, mockOpenWorkspace } = vi.hoisted(() => ({
-  mockInvoke: vi.fn(() => Promise.resolve(null)),
+  // Typed as the real `invoke` is called here — (command, args) → a promise —
+  // so command-aware implementations and `mock.calls[i][0]` typecheck.
+  mockInvoke: vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>(() =>
+    Promise.resolve(null),
+  ),
   mockOpenWorkspace: vi.fn(),
 }));
 

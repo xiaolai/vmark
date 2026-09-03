@@ -172,6 +172,26 @@ describe('browser_read tool — integration via server.callTool', () => {
     });
   });
 
+  it('extract: omits tabId when none is given so the webview reads the focused tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.extract': () => ({ success: true, data: { title: 'T', markdown: '# T', truncated: false } }),
+    });
+    await server.callTool('browser_read', { action: 'extract' });
+    expect(bridge.getRequestsOfType('vmark.browser.extract')[0].request).toEqual({
+      type: 'vmark.browser.extract',
+    });
+  });
+
+  it('wait_for: a role without a name is forwarded as the role alone', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.wait_for': () => ({ success: true, data: { matched: true } }),
+    });
+    await server.callTool('browser_read', { action: 'wait_for', role: 'button' });
+    expect(bridge.getRequestsOfType('vmark.browser.wait_for')[0].request).toEqual({
+      type: 'vmark.browser.wait_for', role: 'button',
+    });
+  });
+
   it('extract: forwards to the reader-mode bridge op', async () => {
     const { server, bridge } = harness({
       'vmark.browser.extract': () => ({ success: true, data: { title: 'T', markdown: '# T', truncated: false } }),

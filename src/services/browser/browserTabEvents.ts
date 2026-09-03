@@ -13,7 +13,8 @@
  *    prompts and one-shots lapse (R7a), the tab record's url + generation (the
  *    driver stamps operations with the generation, so a stale one is refused).
  *  - loaded: spinner off, title into history, crash overlay released, tab
- *    record updated (an older generation is dropped by the store).
+ *    record updated with url, generation and title — the page's, or its host
+ *    (an older generation is dropped by the store).
  *  - failed: the error overlay text.
  *  - crashed: the crash overlay + occluder.
  *  - dialog: the dialog + occluder, AND the tab is brought forward — a `confirm()`
@@ -36,6 +37,7 @@ import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
 import { subscribeBrowserNavEvents } from "./browserNavEvents";
+import { hostLabel } from "@/lib/browser/url";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { browserOcclusion, OCCLUDER } from "./browserOcclusion";
@@ -93,7 +95,10 @@ export function startBrowserTabEvents(): () => void {
       }
       // Stamped with the generation of the page that finished: a late `loaded` for a page
       // this tab has already left carries an older generation, and the store drops it.
-      useTabStore.getState().updateBrowserTab(tabId, { url, generation });
+      // The tab record's title follows the page too — the page's own title, or its
+      // host when it has none. It was set once at creation and never updated, so the
+      // page-tab strip kept naming the FIRST page after every navigation.
+      useTabStore.getState().updateBrowserTab(tabId, { url, generation, title: title || hostLabel(url) });
     },
     // The webview owns the back/forward list; mirror it so the omnibox can disable
     // its history controls instead of offering no-op buttons (WI-S1.6).

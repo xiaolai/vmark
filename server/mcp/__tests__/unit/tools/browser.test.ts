@@ -265,6 +265,24 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.console')).toHaveLength(2);
   });
 
+  it('close: forwards the AI-owned tabId; refuses to guess a tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.close': () => ({ success: true, data: { closed: 'b1' } }),
+    });
+    const closed = await server.callTool('browser', { action: 'close', tabId: 'b1' });
+    expect(closed.isError).not.toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.close')[0].request).toEqual({
+      type: 'vmark.browser.close',
+      tabId: 'b1',
+    });
+    // Unlike navigate, close never falls back to the focused tab: an omitted id
+    // must not close whatever the user happens to be looking at.
+    const none = await server.callTool('browser', { action: 'close' });
+    expect(none.isError).toBe(true);
+    expect(none.content[0]?.type === 'text' ? none.content[0].text : '').toContain('tabId');
+    expect(bridge.getRequestsOfType('vmark.browser.close')).toHaveLength(1);
+  });
+
   it('workflow_run: forwards source/inputs/allowRepeat; rejects a blank source', async () => {
     const { server, bridge } = harness({
       'vmark.browser.workflow_run': () => ({ success: true, data: { runId: 'wfrun-1', steps: 2 } }),

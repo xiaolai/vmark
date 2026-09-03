@@ -59,7 +59,7 @@ function clickChrome(client, namePattern) {
   return evalJs(
     client,
     `(() => {
-       const btns = [...document.querySelectorAll('.browser-omnibox-btn')];
+       const btns = [...document.querySelectorAll('.browser-omnibox button')];
        const re = ${namePattern};
        const btn = btns.find((b) => re.test(
          (b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent || '').trim()
@@ -107,6 +107,11 @@ export default {
           timeoutMs: 10000,
         });
 
+        // Everything below runs against the page we just opened, and the page is
+        // closed in the `finally` — a journey that fails half-way used to leave it
+        // behind, and the NEXT journey's "no surfaces left over" baseline then
+        // reported the leak as its own failure.
+        try {
         // Build a two-entry history: "/" then "/second".
         if ((await navigateTo(client, fx.url("/"))) !== "SUBMITTED") {
           throw new Error("could not drive the omnibox");
@@ -142,21 +147,22 @@ export default {
           { timeoutMs: 12000 }
         );
         ctx.log(`reload re-fetched (${hitsBefore} -> ${fx.hits("/second")})`);
-
-        // Teardown: close the page we opened.
-        await evalJs(
-          client,
-          `(() => {
-             const tab = document.querySelector('.browser-page-tab.active') ||
-                         document.querySelector('.browser-page-tab');
-             const close = tab && tab.querySelector('.browser-page-tab-close');
-             if (close) close.click();
-             return true;
-           })()`
-        );
-        await poll(() => browserSurfaceCount(client), (n) => n === before, "surface torn down", {
-          timeoutMs: 10000,
-        });
+        } finally {
+          // Teardown: close the page we opened.
+          await evalJs(
+            client,
+            `(() => {
+               const tab = document.querySelector('.browser-page-tab.active') ||
+                           document.querySelector('.browser-page-tab');
+               const close = tab && tab.querySelector('.browser-page-tab-close');
+               if (close) close.click();
+               return true;
+             })()`
+          );
+          await poll(() => browserSurfaceCount(client), (n) => n === before, "surface torn down", {
+            timeoutMs: 10000,
+          });
+        }
       });
     } finally {
       await fx.close();

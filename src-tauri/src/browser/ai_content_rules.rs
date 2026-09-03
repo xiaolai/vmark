@@ -15,13 +15,20 @@
 //! blocked. `content_rules_macos.rs` compiles it with `WKContentRuleListStore`
 //! and attaches it to AI-owned webviews at configuration time.
 //!
-//! **The regex dialect is WebKit's, which is a subset.** The url-filter grammar
-//! supports `.`, `*`, `+`, `?`, `[a-z]` / `[^a-z]` classes, `( )` groups, `|`
-//! alternation and the `^` anchor, and nothing else: no `\d`, no `{n,m}` counted
-//! repetition, no lookaround, no backreferences, no lazy quantifiers. The test
-//! lints every filter for the forbidden constructs, so a pattern the `regex`
-//! crate accepts but WebKit would refuse fails the unit test rather than the
-//! first AI tab creation.
+//! **The regex dialect is WebKit's, which is a subset — and it was MEASURED, not
+//! read off a reference.** A `WKContentRuleListStore` probe compiled one rule per
+//! construct: `.`, `*`, `+`, `?`, `[a-z]` / `[^a-z]` classes, `( )` groups
+//! (including `( )?`), `\.` / `\[` escapes and the `^` / `$` anchors compile.
+//! `a|b` is refused — "Disjunctions are not supported yet." — and so is `a{2}`
+//! ("Arbitrary atom repetitions are not supported."); `\d`, lookaround,
+//! backreferences and lazy quantifiers are outside the grammar too. The first
+//! draft of this list carried `|` in nine filters because the `regex` crate
+//! accepted them; WebKit refused the whole list, and every AI `open` failed with
+//! `CONTENT_RULES_FAILED`. Alternation is therefore spelled as SEPARATE RULES:
+//! a rule list is already a union, so N block rules say exactly what one
+//! pattern with N alternatives would. The test lints every filter for the
+//! refused constructs, so a pattern the `regex` crate accepts but WebKit would
+//! not fails the unit test rather than the first AI tab creation.
 //!
 //! Filters match the URL as WebKit SERIALIZES it, which is what makes a small
 //! set of patterns sufficient: hosts are lowercased, IPv4 legacy spellings
@@ -71,8 +78,12 @@ const V4_HEX_HIGH_MAPPED: &str = "[ef][0-9a-f][0-9a-f][0-9a-f]";
 /// The same range in the COMPATIBLE form, minus `ffff` itself: there the group
 /// sits right after `::`, and a pattern admitting `ffff` would swallow every
 /// mapped address, public ones included (`[::ffff:808:808]` is 8.8.8.8).
-const V4_HEX_HIGH_COMPATIBLE: &str =
-    "e[0-9a-f][0-9a-f][0-9a-f]|f[0-9a-e][0-9a-f][0-9a-f]|ff[0-9a-e][0-9a-f]|fff[0-9a-e]";
+const V4_HEX_HIGH_COMPATIBLE: &[&str] = &[
+    "e[0-9a-f][0-9a-f][0-9a-f]",
+    "f[0-9a-e][0-9a-f][0-9a-f]",
+    "ff[0-9a-e][0-9a-f]",
+    "fff[0-9a-e]",
+];
 const V4_HEX_LOOPBACK: &str = "7f[0-9a-f][0-9a-f]"; // 127.0.0.0/8
 
 fn ipv4(first: &str) -> String {
@@ -94,32 +105,44 @@ fn hostname(pattern: &str) -> String {
     format!("{AUTHORITY}{pattern}{HOST_END}")
 }
 
+/// One filter per alternative. WebKit's url-filter has no `|`, and a rule list
+/// is a union: N block rules with one action are the alternation.
+fn each(alternatives: &[&str], make: impl Fn(&str) -> String) -> Vec<String> {
+    alternatives.iter().map(|alt| make(alt)).collect()
+}
+
 /// Every url-filter in the list, in order. Exposed for the tests, which compile
 /// each one with the `regex` crate and run the URL table against it.
 pub fn url_filters(allow_loopback: bool) -> Vec<String> {
-    let mut filters = vec![
-        ipv4("10"),
-        ipv4_two("172", "(1[6-9]|2[0-9]|3[01])"),
-        ipv4_two("192", "168"),
-        ipv4_two("169", "254"),
-        ipv4_two("100", "(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])"),
-        ipv4("0"),
-        ipv4("(22[4-9]|23[0-9])"),
-        ipv4("(24[0-9]|25[0-5])"),
-        // `[::]` — unspecified.
-        ipv6_prefix("::\\]"),
-        // Mapped and compatible forms of the private IPv4 ranges above.
-        ipv6_prefix(&format!(
-            "::ffff:({}|{V4_HEX_HIGH_MAPPED}):",
-            V4_HEX_ALWAYS.join("|")
-        )),
-        ipv6_prefix(&format!(
-            "::({}|{V4_HEX_HIGH_COMPATIBLE}):",
-            V4_HEX_ALWAYS.join("|")
-        )),
-        // `[::ffff]` — compatible 0.0.255.255, the one 0/8 spelling that ends the
-        // address instead of continuing with a `:`.
-        ipv6_prefix("::ffff\\]"),
+    let mut filters = vec![ipv4("10")];
+    // 172.16.0.0/12
+    filters.extend(each(&["1[6-9]", "2[0-9]", "3[01]"], |second| {
+        ipv4_two("172", second)
+    }));
+    filters.push(ipv4_two("192", "168"));
+    filters.push(ipv4_two("169", "254"));
+    // 100.64.0.0/10
+    filters.extend(each(
+        &["6[4-9]", "[7-9][0-9]", "1[01][0-9]", "12[0-7]"],
+        |second| ipv4_two("100", second),
+    ));
+    filters.push(ipv4("0"));
+    // 224.0.0.0/4 multicast and 240.0.0.0/4 reserved.
+    filters.extend(each(&["22[4-9]", "23[0-9]", "24[0-9]", "25[0-5]"], ipv4));
+    // `[::]` — unspecified.
+    filters.push(ipv6_prefix("::\\]"));
+    // Mapped (`::ffff:a.b.c.d`) and compatible (`::a.b.c.d`) forms of the
+    // private IPv4 ranges above, one rule per hex group pattern.
+    for hex in V4_HEX_ALWAYS.iter().chain([V4_HEX_HIGH_MAPPED].iter()) {
+        filters.push(ipv6_prefix(&format!("::ffff:{hex}:")));
+    }
+    for hex in V4_HEX_ALWAYS.iter().chain(V4_HEX_HIGH_COMPATIBLE.iter()) {
+        filters.push(ipv6_prefix(&format!("::{hex}:")));
+    }
+    // `[::ffff]` — compatible 0.0.255.255, the one 0/8 spelling that ends the
+    // address instead of continuing with a `:`.
+    filters.push(ipv6_prefix("::ffff\\]"));
+    filters.extend([
         // Transition prefixes, wholesale (see the module doc).
         ipv6_prefix("64:ff9b:"),
         ipv6_prefix("2002:"),
@@ -136,11 +159,13 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
         ipv6_prefix("2001:0:"),
         ipv6_prefix("2001:2:"),
         ipv6_prefix("2001:1[0-9a-f]:"),
-        // Cloud metadata names and the LAN-facing suffixes (`.local`, `home.arpa`,
-        // `.internal`), apex included.
-        hostname("(metadata|instance-data)"),
-        hostname("([^/?#@]*\\.)?(local|home\\.arpa|internal)"),
-    ];
+    ]);
+    // Cloud metadata names and the LAN-facing suffixes (`.local`, `home.arpa`,
+    // `.internal`), apex included.
+    filters.extend(each(&["metadata", "instance-data"], hostname));
+    filters.extend(each(&["local", "home\\.arpa", "internal"], |suffix| {
+        hostname(&format!("([^/?#@]*\\.)?{suffix}"))
+    }));
     if !allow_loopback {
         filters.push(ipv4("127"));
         filters.push(ipv6_prefix("::1\\]"));

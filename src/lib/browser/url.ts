@@ -143,3 +143,19 @@ export function urlForPersistence(url: string): string {
     return url;
   }
 }
+
+/**
+ * The label a tab wears for a page that has no `<title>`: the host (with a
+ * non-default port), never the full URL. A tab record's `title` used to be set
+ * once at creation and never again, so a tab that navigated away kept naming
+ * its FIRST page — the strip read `duckduckgo.com` over a fixture at
+ * `127.0.0.1` (seen in the chrome-controls journey's failure screenshot).
+ * Unparseable input is returned as-is: a wrong label beats a blank one.
+ */
+export function hostLabel(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}

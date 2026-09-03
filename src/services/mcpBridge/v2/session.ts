@@ -8,6 +8,9 @@
  * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-6.
  *
  * Key decisions:
+ *   - Human browser tabs are listed by id and origin only until the AI holds
+ *     an attachment for them (audit 2026-09-03 X-02): attachment is the gate for
+ *     AI access to a human tab, and title and path are page content.
  *   - Revisions are keyed per tab (revisionStore, WI-0.10). Each SessionTab
  *     reports its own tab's revision so STALE detection on a non-active tab
  *     is validated against the correct document.
@@ -24,6 +27,7 @@
  *     the responding window is frequently not the one the user is looking at.
  *
  * @coordinates-with stores/tabStore.ts — open tabs per window
+ * @coordinates-with stores/browserApprovalStore.ts — human-tab attachments gate what is listed
  * @coordinates-with stores/documentStore.ts — filePath, dirty, content
  * @coordinates-with stores/revisionStore.ts — revision token
  * @coordinates-with services/mcpBridge/focusedWindow.ts — real focused window

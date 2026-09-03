@@ -38,6 +38,33 @@ export function startBrowserTabLifecycle(): () => void {
   });
 }
 
+/** The window whose tab list holds `tabId`, if any. */
+function windowOf(tabId: string): string | undefined {
+  return Object.entries(useTabStore.getState().tabs).find(([, list]) =>
+    list.some((t) => t.id === tabId),
+  )?.[0];
+}
+
+/**
+ * Close a browser tab by id THROUGH the tab store, so the whole lifecycle runs:
+ * the removal bus fires, `destroyBrowserNativeView` withdraws the tab's prompts
+ * and one-shots, drops its omnibox entry and destroys the native view. Returns
+ * false when no browser tab has that id (a document tab is left alone).
+ *
+ * Published as the DEV-only `__VMARK_DEBUG__.closeBrowserTab` seam for the E2E
+ * harness, whose teardown used to call `browser_destroy` directly: Rust forgot
+ * the tab while the frontend kept its record and every prompt raised against it,
+ * and later journeys inherited ghost pages and a queue of prompts for tabs the
+ * driver no longer knew.
+ */
+export function closeBrowserTabById(tabId: string): boolean {
+  const tabs = useTabStore.getState();
+  const tab = tabs.findTabById(tabId);
+  if (!tab || !isBrowserTab(tab)) return false;
+  const windowLabel = windowOf(tabId);
+  return windowLabel !== undefined && tabs.closeTab(windowLabel, tabId);
+}
+
 /**
  * The user denied a prompt. Resolve it, and if it was the destination approval
  * for an AI tab that never loaded (an `open` still owed its creation), close
@@ -46,10 +73,8 @@ export function startBrowserTabLifecycle(): () => void {
 export function approvalDenied(request: PendingApproval): void {
   useBrowserApprovalStore.getState().resolveApproval(request.id, "deny");
   if (request.operation !== "navigate" || !request.tabId) return;
-  const tabs = useTabStore.getState();
-  const tab = tabs.findTabById(request.tabId);
+  const tab = useTabStore.getState().findTabById(request.tabId);
   if (!tab || !isBrowserTab(tab) || (tab.automationMode ?? "human") === "human") return;
   if (tab.generation !== undefined || hasBrowserNativeView(tab.id)) return;
-  const windowLabel = Object.entries(tabs.tabs).find(([, list]) => list.some((t) => t.id === tab.id))?.[0];
-  if (windowLabel) tabs.closeTab(windowLabel, tab.id);
+  closeBrowserTabById(tab.id);
 }

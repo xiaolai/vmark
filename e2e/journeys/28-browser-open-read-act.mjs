@@ -56,7 +56,7 @@ export default {
           throw new Error("the fixture page was never requested — open did not navigate");
         }
 
-        const read = await mcp.callTool("browser", { action: "read" });
+        const read = await mcp.callTool("browser_read", { action: "read" });
         if (read.isError) throw new Error(`read failed: ${read.text.slice(0, 300)}`);
         const names = (read.json?.snapshot ?? []).map((n) => n.name);
         if (!names.includes("Press Me")) {

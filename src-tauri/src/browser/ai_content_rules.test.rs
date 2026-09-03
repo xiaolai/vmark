@@ -221,9 +221,13 @@ fn the_rule_list_is_valid_json_of_block_actions_for_every_resource_type() {
 #[test]
 fn every_filter_stays_inside_webkits_regex_subset() {
     // WebKit's URLFilterParser refuses these outright; a filter using one would
-    // fail to compile on the first AI tab creation, not here.
+    // fail to compile on the first AI tab creation, not here. `|` is the one
+    // that shipped: the `regex` crate accepts a disjunction, WebKit answers
+    // "Disjunctions are not supported yet." (measured with a
+    // WKContentRuleListStore probe), and the whole list — every AI `open` — died
+    // with it. `$` is legal but kept out too: a filter matches the URL's prefix.
     let forbidden = [
-        "\\d", "\\w", "\\s", "\\b", "\\D", "\\W", "\\S", "{", "}", "(?", "*?", "+?", "??", "$",
+        "\\d", "\\w", "\\s", "\\b", "\\D", "\\W", "\\S", "{", "}", "(?", "*?", "+?", "??", "$", "|",
     ];
     for filter in url_filters(false) {
         for construct in forbidden {

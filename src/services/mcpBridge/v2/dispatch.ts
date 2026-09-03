@@ -1,7 +1,7 @@
 /**
- * Purpose: Route the pruned 5-tool MCP surface — `vmark.session.*`,
+ * Purpose: Route the pruned MCP surface — `vmark.session.*`,
  *   `vmark.workspace.*`, `vmark.document.*`, `vmark.workflow.*`,
- *   `vmark.selection.*` — to their handlers. Returns `true` iff the
+ *   `vmark.selection.*` and the `vmark.browser.*` tools — to their handlers. Returns `true` iff the
  *   request type matched. Also exports SUPPORTED_TOOL_PREFIXES as the
  *   single source of truth for the routed surface — anything that
  *   enumerates supported tools (diagnostic errors, capability docs)
@@ -36,27 +36,22 @@ import {
   handleWorkflowValidate,
 } from "./workflow";
 import { handleSelectionGet, handleSelectionSet } from "./selection";
-import {
-  handleBrowserRead,
-  handleBrowserAct,
-  handleBrowserOpen,
-  handleBrowserNavigate,
-  handleBrowserWait,
-  handleBrowserScreenshot,
-  handleBrowserWaitFor,
-  handleBrowserQuery,
-  handleBrowserStyle,
-  handleBrowserExecuteJs,
-  handleBrowserSessionSave,
-  handleBrowserSessionLoad,
-  handleBrowserConsole,
-  handleBrowserExtract,
-  handleBrowserWorkflowRun,
-  handleBrowserWorkflowStatus,
-  handleBrowserWorkflowCancel,
-  handleBrowserWorkflowRecord,
-  handleBrowserClose,
-} from "./browser";
+
+/**
+ * The browser handlers are the largest cluster behind this switch and run only
+ * when a `vmark.browser.*` request arrives — never at cold start, since the
+ * bridge connects after bootstrap. Loading them on first use keeps the whole
+ * cluster out of the eagerly preloaded App chunk (`EAGER: App` in
+ * `.size-limit.cjs`); the module system caches the import, so every request
+ * after the first pays nothing. The `case` labels stay HERE so
+ * `operationManifestParity.test.ts`, which reads this file's cases against the
+ * operation manifest, keeps seeing the whole routed surface.
+ */
+type BrowserHandlers = typeof import("./browser");
+async function viaBrowser(run: (m: BrowserHandlers) => Promise<void>): Promise<true> {
+  await run(await import("./browser"));
+  return true;
+}
 
 /**
  * App version used in the `session.get_state` capabilities payload.
@@ -138,62 +133,43 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
 
     case "vmark.browser.read":
-      await handleBrowserRead(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserRead(id, args));
     case "vmark.browser.act":
-      await handleBrowserAct(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserAct(id, args));
     case "vmark.browser.open":
-      await handleBrowserOpen(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserOpen(id, args));
     case "vmark.browser.navigate":
-      await handleBrowserNavigate(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserNavigate(id, args));
     case "vmark.browser.wait":
-      await handleBrowserWait(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWait(id, args));
     case "vmark.browser.screenshot":
-      await handleBrowserScreenshot(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserScreenshot(id, args));
     case "vmark.browser.wait_for":
-      await handleBrowserWaitFor(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWaitFor(id, args));
     case "vmark.browser.query":
-      await handleBrowserQuery(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserQuery(id, args));
     case "vmark.browser.extract":
-      await handleBrowserExtract(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserExtract(id, args));
     case "vmark.browser.workflow_run":
-      await handleBrowserWorkflowRun(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWorkflowRun(id, args));
     case "vmark.browser.workflow_status":
-      await handleBrowserWorkflowStatus(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWorkflowStatus(id, args));
     case "vmark.browser.workflow_cancel":
-      await handleBrowserWorkflowCancel(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWorkflowCancel(id, args));
     case "vmark.browser.workflow_record":
-      await handleBrowserWorkflowRecord(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserWorkflowRecord(id, args));
     case "vmark.browser.style":
-      await handleBrowserStyle(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserStyle(id, args));
     case "vmark.browser.execute_js":
-      await handleBrowserExecuteJs(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserExecuteJs(id, args));
     case "vmark.browser.session.save":
-      await handleBrowserSessionSave(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserSessionSave(id, args));
     case "vmark.browser.session.load":
-      await handleBrowserSessionLoad(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserSessionLoad(id, args));
     case "vmark.browser.console":
-      await handleBrowserConsole(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserConsole(id, args));
     case "vmark.browser.close":
-      await handleBrowserClose(id, args);
-      return true;
+      return viaBrowser((m) => m.handleBrowserClose(id, args));
 
     default:
       return false;
