@@ -53,10 +53,22 @@ export function redactUrl(url: string): string {
   return urlForAgent(url);
 }
 
+/**
+ * The longest a single handler may wait, in ms — and its default.
+ *
+ * Below the bridge's FIRST deadline on purpose: Rust waits 10 s for a response
+ * (`mcp_bridge/server.rs`) and then treats silence as a napping webview, wakes
+ * it and re-emits the request. A handler that legitimately waited 12 s tripped
+ * that recovery on every slow page (audit 2026-09-03, timing). Every wait in a
+ * handler shares ONE budget derived from this, so two stacked waits cannot
+ * exceed it either. The sidecar advertises the same bound (`browserArgs.ts`).
+ */
+export const MAX_WAIT_MS = 9_000;
+
 export function validateTimeout(value: unknown): number | null {
-  if (value === undefined) return 12_000;
+  if (value === undefined) return MAX_WAIT_MS;
   if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value)) return null;
-  return value >= 1 && value <= 12_000 ? value : null;
+  return value >= 1 && value <= MAX_WAIT_MS ? value : null;
 }
 
 export function validateNonEmptyString(value: unknown): value is string {

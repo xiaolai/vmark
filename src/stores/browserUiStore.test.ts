@@ -18,7 +18,25 @@ describe("browserUiStore", () => {
       canGoForward: false,
       frozen: false,
       error: null,
+      blockedPopup: null,
+      dialog: null,
+      crash: null,
     });
+  });
+
+  // Audit 2026-09-03 X-03 — a blocked popup is recorded per tab, not discarded.
+  it("records and clears the last blocked popup per tab", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://example.com/");
+    useBrowserUiStore.getState().setBlockedPopup("tab-1", { url: "https://auth.example/login", at: 42 });
+    expect(useBrowserUiStore.getState().entries["tab-1"].blockedPopup).toEqual({
+      url: "https://auth.example/login",
+      at: 42,
+    });
+    useBrowserUiStore.getState().setBlockedPopup("tab-1", null);
+    expect(useBrowserUiStore.getState().entries["tab-1"].blockedPopup).toBeNull();
+    // Guarded: an unknown tab is a no-op.
+    useBrowserUiStore.getState().setBlockedPopup("nope", { url: "x", at: 1 });
+    expect(useBrowserUiStore.getState().entries["nope"]).toBeUndefined();
   });
 
   // WI-S1.6 (Codex re-review D3#5): back/forward shipped as always-enabled no-ops.
@@ -96,6 +114,9 @@ describe("browserUiStore", () => {
       canGoForward: false,
       frozen: false,
       error: null,
+      blockedPopup: null,
+      dialog: null,
+      crash: null,
     });
   });
 

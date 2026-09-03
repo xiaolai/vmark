@@ -9,6 +9,8 @@ import {
 import {
   addGrant,
   decideApproval,
+  isApprovableOperation,
+  isGrantableOperation,
   revokeOrigin,
   type ApprovalDecision,
   type StandingGrant,
@@ -20,6 +22,7 @@ import {
   sameTarget,
   grantPatternFor,
 } from "./browserApprovalStore.helpers";
+import { resolveNonAttach } from "./browserApprovalStore.resolve";
 import type {
   ActionTarget,
   PendingApproval,
@@ -40,10 +43,8 @@ export type {
  *  (`rejected`) / queue full (`overloaded` — untrusted-client flooding). */
 type BrowserRequestApprovalResult = "queued" | "existing" | "rejected" | "overloaded";
 
-/** Cap on queued approval prompts. The AI client is untrusted and each pending
- *  entry may hold a full script; beyond this a further request is dropped rather
- *  than growing the store unbounded. Only one prompt shows at a time anyway. */
-export const MAX_PENDING_APPROVALS = 64;
+export { MAX_PENDING_APPROVALS } from "./browserApprovalStore.constants";
+import { MAX_PENDING_APPROVALS } from "./browserApprovalStore.constants";
 
 interface BrowserApprovalState {
   grants: StandingGrant[];
@@ -58,12 +59,16 @@ interface BrowserApprovalActions {
    *  An operation outside the known set is `denied` — never silently approvable. */
   decide: (targetUrl: string, operation: string) => ApprovalDecision;
   /** Add (or extend) a standing grant for an origin pattern. Returns whether it
-   *  was accepted: a malformed pattern, an empty operation list, or ANY unknown /
-   *  never-automatable operation rejects the whole grant (fail closed — a partial
-   *  grant is authority the user never reviewed). */
+   *  was accepted: a malformed pattern, an empty operation list, or ANY operation
+   *  that cannot be a standing grant (unknown, never-automatable, per-call-only)
+   *  rejects the whole grant and stores NOTHING (fail closed — a sanitized subset
+   *  would be authority the user never reviewed, and `true` over it was a lie). */
   grant: (originPattern: string, operations: string[]) => boolean;
   /** Revoke all grants for an origin pattern. */
   revoke: (originPattern: string) => void;
+  /** Revoke EVERY standing grant — the browser was switched off, and "withdraws
+   *  the AI automation surface" must include the authority it accumulated. */
+  revokeAll: () => void;
   /** Queue a pending approval request. Callers MUST NOT advertise
    *  `needsApproval` on `rejected`/`overloaded` — no prompt exists then. */
   requestApproval: (
@@ -81,6 +86,8 @@ interface BrowserApprovalActions {
     /** The workflow run that raised this prompt (WI-NB5.3), so ending the run
      *  can withdraw it. Omit for a one-off act's prompt. */
     runId?: string,
+    /** Display-only summary of a bound payload (`Text: "…"`, `Key: Enter`). */
+    payloadSummary?: string,
   ) => BrowserRequestApprovalResult;
   /** Withdraw every pending prompt raised by `runId` (WI-NB5.3) — end-of-run
    *  cleanup that closes the late-Allow race. No-op for runless prompts. */
@@ -99,9 +106,14 @@ interface BrowserApprovalActions {
     operation: string,
     target: ActionTarget | undefined,
     tabId: string,
-    /** The exact script (for `style`/`eval`); must equal what the one-shot bound,
-     *  so an approved script A refuses a substituted script B. Omit otherwise. */
+    /** The exact script (for `style`/`eval`/`type`/`key`/`scroll`); must equal what
+     *  the one-shot bound, so an approved script A refuses a substituted script B.
+     *  Omit for operations that bind no payload. */
     script?: string,
+    /** The tab's CURRENT generation. When supplied, a one-shot minted against an
+     *  older page does not match — the driver enforces this authoritatively; the
+     *  mirror agreeing keeps the two layers from disagreeing about a stale shot. */
+    generation?: number,
   ) => boolean;
   /**
    * The tab navigated: drop its pending prompts and its unspent one-shots (R7a).
@@ -144,7 +156,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     grant: (originPattern, operations) => {
       if (!isOriginPattern(originPattern)) return false;
       if (operations.length === 0) return false;
-      if (!operations.every((op) => KNOWN_OPERATIONS.has(op))) return false;
+      if (!operations.every(isGrantableOperation)) return false;
       set((state) => ({ grants: addGrant(state.grants, { originPattern, operations }) }));
       return true;
     },
@@ -153,8 +165,10 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       set((state) => ({ grants: revokeOrigin(state.grants, originPattern) }));
     },
 
-    requestApproval: (id, targetUrl, operation, target, tabId, generation, script, runId) => {
-      if (!KNOWN_OPERATIONS.has(operation)) return "rejected";
+    revokeAll: () => set({ grants: [] }),
+
+    requestApproval: (id, targetUrl, operation, target, tabId, generation, script, runId, payloadSummary) => {
+      if (!isApprovableOperation(operation)) return "rejected";
       // Duplicate ids would let `resolveApproval` authorize one action while
       // dropping the other; and the UNTRUSTED client must not grow the queue
       // unboundedly (each pending may retain a full script). (Sec review P5.)
@@ -167,7 +181,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         tabId,
         generation,
         ...(runId !== undefined ? { runId } : {}),
-        ...approvalBindings(target, script),
+        ...approvalBindings(target, script, payloadSummary),
       };
       set((state) => ({ pending: [...state.pending, req] }));
       return "queued";
@@ -199,66 +213,23 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
           });
         return;
       }
-      // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
-      // (profile, origin) — never a standing grant. Capped and de-duplicated so a
-      // stream of approvals can't grow `profileOpens` without bound (mirrors the
-      // pending cap and the Rust-side profile-open cap). (Re-verify WI-P6.1.)
-      if (request.profile !== undefined) {
-        const p = request.profile;
-        set((state) => ({
-          profileOpens:
-            outcome === "once" &&
-            pattern !== null &&
-            state.profileOpens.length < MAX_PENDING_APPROVALS &&
-            !state.profileOpens.some((g) => g.profile === p && g.originPattern === pattern)
-              ? [...state.profileOpens, { profile: p, originPattern: pattern }]
-              : state.profileOpens,
-          pending: state.pending.filter((r) => r.id !== id),
-        }));
-        return;
-      }
-      const remember = outcome === "remember" && pattern !== null;
-      const once = outcome === "once" && pattern !== null;
-      // One update: never expose a state where the grant exists but the request
-      // is still pending (subscribers — grantSync — would see it and push twice).
-      set((state) => ({
-        grants: remember
-          ? addGrant(state.grants, {
-              originPattern: pattern as string,
-              operations: [request.operation],
-            })
-          : state.grants,
-        oneShots: once
-          ? [
-              ...state.oneShots,
-              {
-                originPattern: pattern as string,
-                operation: request.operation,
-                tabId: request.tabId,
-                // The generation the prompt was RAISED against — not whatever is current
-                // when the driver eventually receives the mint. (Audit, High.)
-                generation: request.generation,
-                // Element + exact script approved, so a substituted retry is refused.
-                ...approvalBindings(request.target, request.script),
-              },
-            ]
-          : state.oneShots,
-        pending: state.pending.filter((p) => p.id !== id),
-      }));
+      set((state) => resolveNonAttach(state, request, outcome, pattern));
     },
 
-    consumeOneShot: (targetUrl, operation, target, tabId, script) => {
-      if (!KNOWN_OPERATIONS.has(operation)) return false;
+    consumeOneShot: (targetUrl, operation, target, tabId, script, generation) => {
+      if (!isApprovableOperation(operation)) return false;
       const { oneShots } = get();
       // Origin matching goes through the SAME guard as standing grants (no implicit
-      // subdomain wildcarding); the tab, target, AND script must match the exact
-      // action approved, so the two layers agree with the authoritative driver. The
-      // script comparison is what refuses an approved-A / run-B substitution for
-      // `style`/`eval`; it is `undefined === undefined` for target-based ops.
+      // subdomain wildcarding); the tab, generation (when the caller knows it),
+      // target, AND script must match the exact action approved, so the two layers
+      // agree with the authoritative driver. The script comparison is what refuses
+      // an approved-A / run-B substitution for the payload-binding ops; it is
+      // `undefined === undefined` for ops that bind no payload.
       const index = oneShots.findIndex(
         (s) =>
           s.operation === operation &&
           s.tabId === tabId &&
+          (generation === undefined || s.generation === generation) &&
           sameTarget(s.target, target) &&
           s.script === script &&
           isOriginGranted(targetUrl, [s.originPattern]),

@@ -9,16 +9,20 @@
 //! (no approval can unblock it).
 //!
 //! @coordinates-with browser/ai_commands.rs — the only caller
+//! @coordinates-with browser/surface_failure.rs — native-failure classification
 //! @module browser::ai_guards
 
 use crate::browser::ai_policy::{AiBrowserPolicy, AiSessionMode, AiUrlError};
 use crate::browser::one_shot;
-use crate::browser::origin_guard::is_operation_granted;
-use crate::browser::registry::AutomationMode;
+use crate::browser::registry::{AutomationMode, MAX_AI_TABS};
 use crate::browser::surface::BrowserSurface;
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use serde_json::json;
+
+#[path = "surface_failure.rs"]
+mod surface_failure_impl;
+pub(super) use surface_failure_impl::surface_failure;
 
 /// The token the MCP client already knows this refusal by.
 ///
@@ -51,76 +55,6 @@ pub(super) fn lock_failure(error: impl std::fmt::Display) -> CommandError {
         "errors.browser.stateUnavailable",
         detail = error.to_string()
     )
-}
-
-/// Does `error` begin with `token` as a whole tag (`TOKEN` or `TOKEN: …`)?
-///
-/// Anchored and delimited on purpose: a bare `contains()` would let a URL
-/// carrying the token in its query string reclassify its own failure, which is
-/// precisely the substring-sniff defect WI-14 exists to remove.
-fn tagged(error: &str, token: &str) -> bool {
-    match error.strip_prefix(token) {
-        Some("") => true,
-        Some(rest) => rest.starts_with(':'),
-        None => false,
-    }
-}
-
-/// Classify a native surface failure — `surface::create_with_mode`,
-/// `surface::navigate` — into the class the caller can actually act on.
-///
-/// Reads the stable tokens in [`crate::browser::surface::fail`]; anything
-/// unrecognised stays `internal`, so an untagged failure degrades to today's
-/// behavior rather than being guessed at. The `detail.kind` names the tag so
-/// the frontend never has to look at the prose.
-pub(super) fn surface_failure(error: &str) -> CommandError {
-    use crate::browser::surface::fail;
-    let (code, key, kind) = if tagged(error, fail::WINDOW_GONE) {
-        (
-            ErrorCode::NotFound,
-            "errors.browser.windowGone",
-            "window-gone",
-        )
-    } else if tagged(error, fail::NO_WEBVIEW) {
-        (
-            ErrorCode::NotFound,
-            "errors.browser.tabNotFound",
-            "no-webview",
-        )
-    } else if tagged(error, fail::INVALID_URL) {
-        (
-            ErrorCode::InvalidInput,
-            "errors.browser.invalidUrl",
-            "invalid-url",
-        )
-    } else if tagged(error, fail::PROFILE_STORE_LIMIT) {
-        (
-            ErrorCode::Conflict,
-            "errors.browser.profileLimit",
-            "profile-limit",
-        )
-    } else if tagged(error, fail::UNSUPPORTED_PLATFORM) {
-        (
-            ErrorCode::Unsupported,
-            "errors.browser.unsupportedPlatform",
-            "unsupported-platform",
-        )
-    } else if tagged(error, fail::MAIN_THREAD_TIMEOUT) {
-        (
-            ErrorCode::Timeout,
-            "errors.browser.surfaceTimeout",
-            "main-thread-timeout",
-        )
-    } else {
-        (
-            ErrorCode::Internal,
-            "errors.browser.surfaceFailed",
-            "surface-failed",
-        )
-    };
-    CommandError::new(code, rust_i18n::t!(key))
-        .with_i18n_key(key)
-        .with_detail(json!({ "kind": kind, "detail": error }))
 }
 
 /// The AI handed us something that is not a destination at all — a typo, an
@@ -206,6 +140,25 @@ pub(super) fn require_current_epoch(
     }
 }
 
+/// The AI already holds [`MAX_AI_TABS`] live tabs (audit 20260903 X-01). A
+/// conflict: closing one lifts it, and no approval can — so no prompt is raised.
+/// `detail.limit` carries the bound so the client need not parse the sentence.
+pub(super) fn require_ai_tab_capacity(live: usize) -> Result<(), CommandError> {
+    if live < MAX_AI_TABS {
+        Ok(())
+    } else {
+        Err(with_mcp_code(
+            localized_error!(
+                ErrorCode::Conflict,
+                "errors.browser.tabLimit",
+                limit = MAX_AI_TABS.to_string()
+            )
+            .with_detail(json!({ "limit": MAX_AI_TABS, "live": live })),
+            "TAB_LIMIT",
+        ))
+    }
+}
+
 /// Separate "no such tab" from "that tab belongs to the human". Both were
 /// opaque strings before; only the first means the caller should re-discover
 /// tabs.
@@ -264,17 +217,26 @@ pub(super) fn ai_policy(state: &BrowserSurface) -> Result<AiBrowserPolicy, Comma
         .map_err(lock_failure)
 }
 
+/// May a shared-posture tab navigate to `url` without a prompt? Standing
+/// `navigate` authority is read from the grants of the WINDOW that owns the tab
+/// (audit 20260903 A-03); failing that, a `navigate` one-shot for this exact tab
+/// and generation is consumed. An unknown tab has no window and so no grants —
+/// default-deny, then the one-shot path.
 pub(super) fn authorize_shared_navigation(
     state: &BrowserSurface,
     tab_id: &str,
     generation: u64,
     url: &str,
 ) -> Result<(), CommandError> {
-    let grants = state.grants.lock().map_err(lock_failure)?;
-    if is_operation_granted(url, "navigate", &grants) {
+    let window = state
+        .registry
+        .lock()
+        .map_err(lock_failure)?
+        .window_of(tab_id)
+        .map(str::to_owned);
+    if state.is_granted_in_window(window.as_deref(), url, "navigate") {
         return Ok(());
     }
-    drop(grants);
     let mut shots = state.one_shots.lock().map_err(lock_failure)?;
     if one_shot::consume_one_shot(&mut shots, tab_id, generation, url, "navigate", None, None) {
         Ok(())

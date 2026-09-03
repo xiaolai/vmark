@@ -15,13 +15,13 @@ vi.mock("@tauri-apps/api/event", () => ({
   },
 }));
 
-const isRecording = vi.fn(() => true);
-const recordNavigation = vi.fn(async () => {});
-const abortRecorderSession = vi.fn();
+const isRecording = vi.fn<(tabId: string) => boolean>(() => true);
+const recordNavigation = vi.fn<(tabId: string, url: string, generation: number) => Promise<void>>(async () => {});
+const abortRecorderSession = vi.fn<(tabId: string) => void>();
 vi.mock("@/services/workflow/recorderSession", () => ({
-  isRecording: (...a: unknown[]) => isRecording(...a),
-  recordNavigation: (...a: unknown[]) => recordNavigation(...a),
-  abortRecorderSession: (...a: unknown[]) => abortRecorderSession(...a),
+  isRecording: (...a: Parameters<typeof isRecording>) => isRecording(...a),
+  recordNavigation: (...a: Parameters<typeof recordNavigation>) => recordNavigation(...a),
+  abortRecorderSession: (...a: Parameters<typeof abortRecorderSession>) => abortRecorderSession(...a),
 }));
 
 import { startRecorderWiring } from "./recorderWiring";

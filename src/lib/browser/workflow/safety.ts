@@ -44,6 +44,12 @@ export interface StepOutcome {
   /** For a write: whether a postcondition check confirmed the write landed.
    *  `undefined` = not checked / inconclusive — the safe-but-blocking case. */
   postconditionMet?: boolean;
+  /** Why a step failed (`obscured`, `not-found`, a driver token…). Informational:
+   *  the decision core reads `outcome` + `postconditionMet` only. */
+  reason?: string;
+  /** Step output for the model (an `extract:` step's reader summary, a heal note).
+   *  Informational — never consulted by the decision core. */
+  data?: Record<string, unknown>;
 }
 
 /**

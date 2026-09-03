@@ -13,13 +13,21 @@
  *     managed Turnstile on ordinary checkouts) from reading as challenges.
  *     Where no layout engine exists (jsdom), both checks degrade to the
  *     attribute tier, mirroring actScript's `__vmarkHasLayout` convention.
+ *   - The probe is built on the shared perception core (audit 2026-09-03 S-02 /
+ *     S-05): hidden-ness is `__vmarkHidden` (one definition, composed-parent
+ *     aware), and the selectors run over the document AND every open shadow root
+ *     the composed walk finds — a login form or challenge widget rendered by a
+ *     web component is no longer invisible to gate detection.
  *   - Standalone ES5, no imports, ends in `return JSON.stringify(...)` — the
  *     `browser_eval` calling convention.
  *
  * @coordinates-with lib/browser/gates.ts — consumes these signals
+ * @coordinates-with lib/browser/agent/agentCore.src.js — hidden-ness and the composed walk
  * @coordinates-with services/mcpBridge/v2/browserGateProbe.ts — runs this script
  * @module lib/browser/agent/gateScript
  */
+
+import { AGENT_CORE_SRC } from "./agentCore";
 
 const GATE_LIB = `
 function __vmGateHasLayout(){
@@ -28,17 +36,8 @@ function __vmGateHasLayout(){
   var r=d.getBoundingClientRect();
   return r.width>0||r.height>0;
 }
-function __vmGateAttrHidden(el){
-  for(var n=el;n;n=n.parentElement){
-    if(n.hasAttribute('hidden')||n.hasAttribute('inert'))return true;
-    if(n.getAttribute('aria-hidden')==='true')return true;
-    var s=n.style;
-    if(s&&(s.display==='none'||s.visibility==='hidden'))return true;
-  }
-  return false;
-}
 function __vmGateWidgetVisible(el){
-  if(__vmGateAttrHidden(el))return false;
+  if(__vmarkHidden(el))return false;
   if(!__vmGateHasLayout())return true;
   var r=el.getBoundingClientRect();
   if(r.width<=40||r.height<=40)return false;
@@ -46,21 +45,30 @@ function __vmGateWidgetVisible(el){
   return cs.visibility!=='hidden'&&cs.display!=='none'&&cs.opacity!=='0';
 }
 function __vmGateFieldVisible(el){
-  if(__vmGateAttrHidden(el))return false;
+  if(__vmarkHidden(el))return false;
   if(!__vmGateHasLayout())return true;
   var r=el.getBoundingClientRect();
   return r.width>0&&r.height>0;
 }
+function __vmGateSelect(sel){
+  var roots=[document],all=__vmarkAll(document),out=[];
+  for(var i=0;i<all.length;i++)if(all[i].shadowRoot)roots.push(all[i].shadowRoot);
+  for(var r=0;r<roots.length;r++){
+    var found=roots[r].querySelectorAll(sel);
+    for(var j=0;j<found.length;j++)out.push(found[j]);
+  }
+  return out;
+}
 function __vmGateSignals(){
   var widget=false;
   try{
-    var frames=document.querySelectorAll(
+    var frames=__vmGateSelect(
       'iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],div.cf-turnstile,#challenge-form,iframe[title*="challenge" i]');
     for(var i=0;i<frames.length;i++){if(__vmGateWidgetVisible(frames[i])){widget=true;break;}}
   }catch(e){}
   var pw=false;
   try{
-    var fields=document.querySelectorAll('input[type="password"]');
+    var fields=__vmGateSelect('input[type="password"]');
     for(var j=0;j<fields.length;j++){if(__vmGateFieldVisible(fields[j])){pw=true;break;}}
   }catch(e){}
   var text='';
@@ -75,5 +83,5 @@ function __vmGateSignals(){
 
 /** Script: collect one `GateSignals` snapshot (see `lib/browser/gates.ts`). */
 export function buildGateSignalsScript(): string {
-  return `${GATE_LIB}\nreturn JSON.stringify(__vmGateSignals());`;
+  return `${AGENT_CORE_SRC}\n${GATE_LIB}\nreturn JSON.stringify(__vmGateSignals());`;
 }

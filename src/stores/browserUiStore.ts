@@ -19,6 +19,16 @@
  */
 import { create } from "zustand";
 
+/** How the native side is recovering from a content-process crash (WI-1.8):
+ *  it is already reloading, or the user has to act. */
+export type CrashAction = "auto-reload" | "manual";
+
+/** A page JS dialog. Only a `confirm` can be answered, and answering needs the
+ *  native completion-handler `id` — so the two travel together or not at all. */
+export type BrowserDialog =
+  | { kind: "alert"; message: string }
+  | { kind: "confirm"; message: string; id: number };
+
 /** Per-tab transient browser UI state. */
 export interface BrowserUiEntry {
   /** The address-bar text — editable by the user, re-synced on navigation. */
@@ -48,6 +58,24 @@ export interface BrowserUiEntry {
    * a slow page from a dead one, and neither can a support thread.
    */
   error: string | null;
+  /**
+   * The last popup the page tried to open and VMark blocked (audit 2026-09-03
+   * X-03), or null. `window.open` / `target=_blank` are refused by the UI
+   * delegate; before this the URL was discarded with a debug log and neither the
+   * user nor the AI learned that a click had led anywhere. The chrome offers to
+   * open it as a new tab; an act that raised it reports it.
+   */
+  blockedPopup: { url: string; at: number } | null;
+  /**
+   * Non-null while a page JS dialog (`alert`/`confirm`) is open (WI-1.7). Held in
+   * the store, not in the surface component (audit 2026-09-03): the event arrives
+   * for whichever tab the page belongs to, mounted or not, and a `confirm()` parks
+   * the page's JS until someone answers — so the tab is brought forward and the
+   * surface renders the dialog from here when it mounts.
+   */
+  dialog: BrowserDialog | null;
+  /** Non-null while the web content process is down (WI-1.8). Same reasoning. */
+  crash: { action: CrashAction } | null;
 }
 
 interface BrowserUiState {
@@ -71,6 +99,12 @@ interface BrowserUiActions {
   /** Record a failure (or clear it with null). Setting an error also stops the
    *  spinner — a load that died is not a load still running. Guarded. */
   setError: (tabId: string, error: string | null) => void;
+  /** Record (or clear with null) the last blocked popup for a tab (guarded). */
+  setBlockedPopup: (tabId: string, popup: { url: string; at: number } | null) => void;
+  /** Record (or clear with null) the open page dialog for a tab (guarded). */
+  setDialog: (tabId: string, dialog: BrowserDialog | null) => void;
+  /** Record (or clear with null) the crash state for a tab (guarded). */
+  setCrash: (tabId: string, crash: { action: CrashAction } | null) => void;
   /** Drop a tab's entry on close. */
   clearForTab: (tabId: string) => void;
 }
@@ -105,6 +139,9 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
                 canGoForward: false,
                 frozen: false,
                 error: null,
+                blockedPopup: null,
+                dialog: null,
+                crash: null,
               },
             },
           },
@@ -132,6 +169,15 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
         loading: error === null ? e.loading : false,
       })),
     ),
+
+  setBlockedPopup: (tabId, popup) =>
+    set((state) => updateEntry(state, tabId, (e) => ({ ...e, blockedPopup: popup }))),
+
+  setDialog: (tabId, dialog) =>
+    set((state) => updateEntry(state, tabId, (e) => ({ ...e, dialog }))),
+
+  setCrash: (tabId, crash) =>
+    set((state) => updateEntry(state, tabId, (e) => ({ ...e, crash }))),
 
   clearForTab: (tabId) =>
     set((state) => {

@@ -12,11 +12,20 @@
 //! the check and the enqueue — closing the window where another thread could
 //! navigate or destroy the tab — and the caller awaits unlocked.
 //!
+//! **Every outcome is typed** (audit 20260903 E-03/E-04). A timeout, a thrown
+//! exception, a `null` result and an oversized result used to come back as the
+//! strings `<timeout>` and `<null>` — a caller could not tell a page whose title
+//! is `<null>` from a script that failed, and reported a still-running script as
+//! "did not affect the target" before retrying it. `eval_outcome.rs` owns the
+//! vocabulary; `view::js_result_to_outcome` classifies the native completion.
+//!
 //! @coordinates-with browser/authorize.rs — the guarded submit
+//! @coordinates-with browser/eval_outcome.rs — the failure vocabulary
 //! @coordinates-with browser/no_bridge.rs — the R3 assertion this evaluates
 
-use super::view::js_result_to_string;
+use super::view::js_result_to_outcome;
 use super::{driver_loop::pump_until, on_main, WEBVIEWS};
+use crate::browser::eval_outcome::{EvalError, EvalFailure};
 use crate::browser::surface::BrowserSurface;
 use objc2::runtime::AnyObject;
 use objc2_foundation::{NSError, NSRunLoop, NSString};
@@ -26,21 +35,20 @@ use std::rc::Rc;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
+/// Where a completion handler leaves its verdict. `None` until it fires.
+type Sink = Rc<RefCell<Option<Result<String, EvalFailure>>>>;
+
 /// Enqueue a script and return the sink its completion handler will fill.
 ///
 /// Deliberately does NOT pump: this is the half that is safe to run while the
 /// registry guard is held (see `authorize::submit_if_fresh`). Pumping under that
 /// lock would deadlock against a re-entrant WebKit callback.
-fn submit_js(
-    webview: &WKWebView,
-    script: &str,
-    world: &WKContentWorld,
-) -> Rc<RefCell<Option<String>>> {
-    let out: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+fn submit_js(webview: &WKWebView, script: &str, world: &WKContentWorld) -> Sink {
+    let out: Sink = Rc::new(RefCell::new(None));
     let body = NSString::from_str(script);
     let sink = out.clone();
-    let handler = block2::RcBlock::new(move |value: *mut AnyObject, _e: *mut NSError| {
-        *sink.borrow_mut() = Some(js_result_to_string(value));
+    let handler = block2::RcBlock::new(move |value: *mut AnyObject, error: *mut NSError| {
+        *sink.borrow_mut() = Some(js_result_to_outcome(value, error));
     });
     unsafe {
         webview.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(
@@ -55,42 +63,28 @@ fn submit_js(
 }
 
 /// Pump the run loop until the sink fills, or the cap elapses. Runs UNLOCKED.
-fn await_js(run_loop: &NSRunLoop, out: Rc<RefCell<Option<String>>>) -> String {
+///
+/// A cap that elapses is `Timeout`, and nothing cancels the enqueued script — it
+/// may still run to completion, which is why the caller must not treat a timeout
+/// as "nothing happened".
+fn await_js(run_loop: &NSRunLoop, out: Sink) -> Result<String, EvalFailure> {
     // Real elapsed time, not a count of intended sleeps (see driver_loop).
     pump_until(run_loop, Duration::from_secs(5), 0.05, || {
         out.borrow().is_some()
     });
     let result = out.borrow_mut().take();
-    result.unwrap_or_else(|| "<timeout>".into())
+    result.unwrap_or(Err(EvalFailure::Timeout))
 }
 
+/// Submit and await in one turn — for callers with no registry guard to hold
+/// across the enqueue (the page-world no-bridge probe).
 pub(super) fn eval_js(
     webview: &WKWebView,
     script: &str,
     world: &WKContentWorld,
     run_loop: &NSRunLoop,
-) -> String {
-    let out: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
-    let body = NSString::from_str(script);
-    let sink = out.clone();
-    let handler = block2::RcBlock::new(move |value: *mut AnyObject, _e: *mut NSError| {
-        *sink.borrow_mut() = Some(js_result_to_string(value));
-    });
-    unsafe {
-        webview.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(
-            &body,
-            None,
-            None,
-            world,
-            Some(&handler),
-        );
-    }
-    // Real elapsed time, not a count of intended sleeps (see driver_loop).
-    pump_until(run_loop, Duration::from_secs(5), 0.05, || {
-        out.borrow().is_some()
-    });
-    let result = out.borrow_mut().take();
-    result.unwrap_or_else(|| "<timeout>".into())
+) -> Result<String, EvalFailure> {
+    await_js(run_loop, submit_js(webview, script, world))
 }
 
 /// Evaluate `script` in the driver's isolated world, re-verifying `expected_generation`
@@ -114,10 +108,10 @@ pub(super) fn eval_js(
 /// nearby, and that trade needs its own review rather than being smuggled into this fix.
 ///
 /// **Lock discipline (WI-2.2): no lock may be held across run-loop pumping.**
-/// `eval_js` pumps the main run loop while it waits for `callAsyncJavaScript`'s
+/// `await_js` pumps the main run loop while it waits for `callAsyncJavaScript`'s
 /// completion handler, and WebKit callbacks re-enter on this same thread and take the
 /// registry lock themselves (the nav delegate does exactly that). Holding the registry
-/// — or any `BrowserSurface` guard — across `eval_js` would deadlock immediately.
+/// — or any `BrowserSurface` guard — across it would deadlock immediately.
 /// `command_still_fresh` acquires and releases internally, so the guards are all gone
 /// before the dispatch below; keep it that way.
 pub fn eval(
@@ -125,9 +119,9 @@ pub fn eval(
     tab_id: String,
     script: String,
     expected_generation: u64,
-) -> Result<String, String> {
+) -> Result<String, EvalError> {
     let app_for_closure = app.clone();
-    on_main(app, move |mtm| {
+    let native = on_main(app, move |mtm| {
         // Re-verify against live state, not a snapshot: a snapshot taken on the command
         // thread is precisely what could not detect a navigation that landed since.
         let state = app_for_closure
@@ -138,7 +132,12 @@ pub fn eval(
         // it was inline here, deleting the check left every test green.
         let webview = WEBVIEWS
             .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+            .ok_or_else(|| {
+                format!(
+                    "{}: no webview: {tab_id}",
+                    crate::browser::surface::fail::NO_WEBVIEW
+                )
+            })?;
         let run_loop = NSRunLoop::mainRunLoop();
         let world =
             unsafe { WKContentWorld::worldWithName(&NSString::from_str("vmark-agent"), mtm) };
@@ -151,9 +150,10 @@ pub fn eval(
             expected_generation,
             || submit_js(&webview, &script, &world),
         )
-        // This closure returns String to its own caller; the gate is typed now,
-        // so flatten at the boundary rather than widen the whole eval path.
+        // This closure returns String to its own caller; the gate is typed, so
+        // flatten at the boundary rather than widen the whole main-thread hop.
         .map_err(|e| e.message().to_string())?;
         Ok(await_js(&run_loop, sink))
-    })
+    });
+    EvalError::flatten(native)
 }

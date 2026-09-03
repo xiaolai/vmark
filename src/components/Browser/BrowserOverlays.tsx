@@ -20,7 +20,8 @@
  * @module components/Browser/BrowserOverlays
  */
 import { useTranslation } from "react-i18next";
-import type { BrowserDialog, CrashAction } from "./useBrowserNavEvents";
+import type { BrowserDialog, CrashAction } from "@/stores/browserUiStore";
+import { urlForAgent } from "@/lib/browser/url";
 
 export interface BrowserOverlaysProps {
   /** The native view is hidden by an occluder — paint the opaque floor (WI-SOC.1b). */
@@ -31,9 +32,13 @@ export interface BrowserOverlaysProps {
   crash: { action: CrashAction } | null;
   /** Non-null while a page JS dialog is open (WI-1.7). */
   dialog: BrowserDialog | null;
+  /** The last popup the page tried to open and VMark blocked (audit X-03), or null. */
+  popup: { url: string; at: number } | null;
   onRetry: () => void;
   onCloseDialog: (accepted: boolean) => void;
   onRecover: () => void;
+  onOpenPopup: () => void;
+  onDismissPopup: () => void;
 }
 
 export function BrowserOverlays({
@@ -41,16 +46,40 @@ export function BrowserOverlays({
   error,
   crash,
   dialog,
+  popup,
   onRetry,
   onCloseDialog,
   onRecover,
+  onOpenPopup,
+  onDismissPopup,
 }: BrowserOverlaysProps): React.ReactElement | null {
   const { t } = useTranslation("common");
 
-  if (!frozen && !error && !crash && !dialog) return null;
+  if (!frozen && !error && !crash && !dialog && !popup) return null;
 
   return (
     <>
+      {/* A blocked popup used to vanish with a debug log — a click that "did nothing".
+          Not a full-cover overlay: the page stays live; this is a bar along the top of
+          the rect offering the URL the page wanted. Query/fragment are not shown. */}
+      {popup && (
+        <div className="browser-popup-notice" role="status">
+          <span className="browser-popup-notice-text">
+            {t("browser.popupBlocked")}: <bdi>{urlForAgent(popup.url)}</bdi>
+          </span>
+          <button type="button" className="vm-btn vm-btn--compact" onClick={onOpenPopup}>
+            {t("browser.popupOpen")}
+          </button>
+          <button
+            type="button"
+            className="vm-btn vm-btn--compact vm-btn--plain"
+            onClick={onDismissPopup}
+            aria-label={t("close")}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* The opaque floor: the native view is hidden, and without this the rect is a
           blank hole that a translucent overlay would composite over. */}
       {frozen && <div className="browser-frozen" aria-hidden="true" />}

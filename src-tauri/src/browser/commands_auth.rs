@@ -14,6 +14,7 @@
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
+use crate::browser::eval_outcome::eval_error;
 use crate::browser::mint::{
     attach_ai_tab, mint_one_shot, parse_act_target, script_hash, set_standing_grants,
 };
@@ -27,17 +28,20 @@ use crate::browser::surface::{self, BrowserSurface};
 use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
-/// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
+/// Mirror the invoking window's approval store into the driver (WI-2.1).
 ///
 /// The driver's copy is the **authoritative** one: `browser_eval` reads it, so a
 /// caller that never syncs simply gets default-deny. Passing an empty vec revokes
-/// everything. Validation lives in `mint::set_standing_grants` (WI-1.6).
+/// everything THIS window granted. The window is the invoking one, from Tauri —
+/// each document window syncs its own store, and the driver keeps one slice per
+/// window (audit 20260903 A-03). Validation lives in `mint::set_standing_grants`.
 #[tauri::command]
 pub async fn browser_set_grants(
+    webview: tauri::WebviewWindow,
     state: State<'_, BrowserSurface>,
     grants: Vec<StandingGrant>,
 ) -> Result<(), CommandError> {
-    set_standing_grants(&state, grants).map_err(CommandError::invalid_input)
+    set_standing_grants(&state, webview.label(), grants).map_err(CommandError::invalid_input)
 }
 
 /// Mint a single-use authorization from the user's "Allow once" (R5).
@@ -54,10 +58,11 @@ pub async fn browser_add_one_shot(
     origin_pattern: String,
     operation: String,
     target: Option<OneShotTarget>,
-    // The exact script a `style`/`eval` one-shot authorizes. Required for those
-    // payload-binding operations, ignored otherwise. The driver stores only its
-    // hash and binds the eval to it — an approved script cannot be swapped out on
-    // the retry. (Security review P5, High #1.)
+    // The exact script a payload-binding one-shot (`style`, `eval`, `session`,
+    // `type`, `key`, `scroll`) authorizes. Required for those operations, ignored
+    // otherwise. The driver stores only its hash and binds the eval to it — an
+    // approved script cannot be swapped out on the retry. (Security review P5,
+    // High #1; audit 20260903 A-05.)
     eval_script: Option<String>,
 ) -> Result<(), CommandError> {
     // Bound the payload before any authority is minted from it. A one-shot bound to
@@ -94,7 +99,8 @@ pub async fn browser_ai_attach(
 }
 
 /// Evaluate `script` in the driver's isolated content world and return its
-/// string result (WI-2.1). The script should `return` a JSON-serializable value.
+/// string result (WI-2.1). The script must `return` a JSON STRING; anything else
+/// is reported as an `EVAL_FAILED` script error.
 /// Authorization is delegated to `authorize_driver_op` (the shared gate); this
 /// command adds only the `act`-target validation and the eval side effect.
 #[tauri::command]
@@ -125,9 +131,9 @@ pub async fn browser_eval(
     ensure_script_within_limit("script", &script).map_err(CommandError::invalid_input)?;
     // A target is both halves or neither — see `mint::parse_act_target` (Audit, High).
     let target = parse_act_target(role, name).map_err(CommandError::invalid_input)?;
-    // A `style`/`eval` one-shot is bound to the EXACT script; hash it so the gate can
-    // match what the user approved against what is about to run. `None` for the
-    // target-only operations (click/type/…), which bind role+name instead.
+    // A payload-binding one-shot is bound to the EXACT script; hash it so the gate
+    // can match what the user approved against what is about to run. `None` for the
+    // target-only operations (click, read), which bind role+name or nothing.
     let payload_hash = operation::operation_binds_payload(&operation).then(|| script_hash(&script));
     authorize_driver_op(
         &state,
@@ -149,7 +155,10 @@ pub async fn browser_eval(
     if !command_still_fresh(&state, &tab_id, generation) {
         return Err(stale_command(&tab_id, "before the script could run"));
     }
-    surface::eval(&app, tab_id, script, generation).map_err(|e| surface_failure(&e))
+    // A timeout, a thrown exception, no value and an oversized result are typed
+    // failures (audit 20260903 E-03/E-04), never a `<timeout>`/`<null>` string
+    // returned as the script's result.
+    surface::eval(&app, tab_id, script, generation).map_err(eval_error)
 }
 
 /// Capture the tab's current rendering as a base64 JPEG (WI-P1.1).

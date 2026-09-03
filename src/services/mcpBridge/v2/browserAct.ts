@@ -11,15 +11,22 @@
  * origin and rejects a stale generation. `scroll`/`key` dispatch SYNTHETIC DOM
  * events (SPIKE-3), so a site gating on `event.isTrusted` ignores them.
  *
+ * Audit 2026-09-03: a `type`, `key` or `scroll` approval binds the BUILT script
+ * (so the text, key+modifiers or delta the user approved is what runs — A-05)
+ * and the prompt shows a one-line summary of it; the one-shot mint is awaited
+ * before acting (single mint path, A-04); a driver rejection propagates to
+ * `wrapHandler` as its typed token instead of "did not affect the target"
+ * (E-01/E-03); a popup the page tried to open during the act is reported (X-03);
+ * the attachment mirror follows the driver's consume (A-01).
+ *
  * @coordinates-with src-tauri browser/authorize.rs — the authoritative gate
  * @coordinates-with lib/browser/agent/actScript.ts / interactScript.ts — the scripts
+ * @coordinates-with services/mcpBridge/v2/browserActFlow.ts — approval + one-shot flow
  * @module services/mcpBridge/v2/browserAct
  */
 
-import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import {
   buildClickScript,
   buildClickByRefScript,
@@ -32,139 +39,16 @@ import {
   buildKeyScript,
   type KeyModifiers,
 } from "@/lib/browser/agent/interactScript";
-import { originForAgent, urlForAgent } from "@/lib/browser/url";
-import {
-  browserEnabled,
-  readTabIdArg,
-  resolveBrowserTab,
-  type BrowserTarget,
-} from "./browserHelpers";
-import { requireHumanAttachment, parseEvalResult } from "./browserReadClass";
+import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserGate } from "./browserAccess";
+import { requireHumanAttachment } from "./browserReadClass";
+import { approveAndAct, finishAct, refuseUngrantedRef } from "./browserActFlow";
+import { readOperationArgs } from "./readOperationArgs";
 
-type ActOp = "click" | "type" | "scroll" | "key";
-/** Which result flag means the action actually landed (not merely evaluated). */
-const SUCCESS_FLAG: Record<ActOp, string> = {
-  click: "clicked",
-  type: "typed",
-  scroll: "scrolled",
-  key: "dispatched",
-};
-
-function actionSucceeded(operation: ActOp, result: unknown): boolean {
-  if (typeof result !== "object" || result === null) return false;
-  return (result as Record<string, unknown>)[SUCCESS_FLAG[operation]] === true;
-}
-
-/** Invoke browser_eval for a built act `script` and report the ACTION outcome.
- *  `target` binds a one-shot on the role/name path; ref/scroll/key pass none. */
-async function finishAct(
-  id: string,
-  tab: BrowserTarget,
-  operation: ActOp,
-  script: string,
-  target?: { role: string; name: string },
-): Promise<void> {
-  const approvals = useBrowserApprovalStore.getState();
-  const raw = await invoke<string>("browser_eval", {
-    tabId: tab.tabId,
-    script,
-    operation,
-    generation: tab.generation,
-    ...(target ?? {}),
-  });
-  const humanAct =
-    tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation);
-  if (humanAct) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
-  const result = parseEvalResult(raw);
-  // Re-resolve AFTER the act (WI-NB1.3): a click that navigated may already have
-  // bumped the webview mirror, and the model needs the freshest page state it can
-  // get without a second round-trip. (A navigation landing later is still possible
-  // — that is what wait_for is for; the primer says so.)
-  const fresh = resolveBrowserTab(tab.tabId) ?? tab;
-  const page = { url: urlForAgent(fresh.url), generation: fresh.generation };
-  if (!actionSucceeded(operation, result)) {
-    await respond({
-      id,
-      success: false,
-      error: `${operation} did not affect the target${failureHint(result)}`,
-      data: { result, ...page },
-    });
-    return;
-  }
-  await respond({ id, success: true, data: { result, ...page } });
-}
-
-/** Turn a structured act failure into prose that names the next tool — the
- *  NeoBrowser lesson: a refusal the model can act on beats a bare false. */
-function failureHint(result: unknown): string {
-  if (typeof result !== "object" || result === null) return "";
-  const r = result as { reason?: string; by?: string; matchedTotal?: number };
-  if (r.reason === "obscured" && r.by) {
-    return `: covered by \`${r.by}\` — dismiss or hide the overlay (browser.style), then retry`;
-  }
-  if (r.reason === "hidden") {
-    const n = typeof r.matchedTotal === "number" ? r.matchedTotal : 0;
-    return `: matched ${n} element(s), none visibly rendered — the page may still be loading (browser_read wait_for), or the control lives in a collapsed section`;
-  }
-  if (r.reason === "disabled") return ": the target is disabled";
-  return "";
-}
-
-/** Run the approval flow (grant → one-shot → needs-approval), then act. `target`
- *  is the role/name binding, or undefined for a target-less op (scroll/key). */
-async function approveAndAct(
-  id: string,
-  tab: BrowserTarget,
-  operation: ActOp,
-  target: { role: string; name: string } | undefined,
-  script: string,
-): Promise<void> {
-  const approvals = useBrowserApprovalStore.getState();
-  const decision = approvals.decide(tab.url, operation);
-  if (decision === "denied") {
-    await respond({ id, success: false, error: `operation '${operation}' is not permitted` });
-    return;
-  }
-  if (decision === "needs-approval") {
-    const authorizedOnce = useBrowserApprovalStore.getState().consumeOneShot(tab.url, operation, target, tab.tabId);
-    if (!authorizedOnce) {
-      const queued = useBrowserApprovalStore
-        .getState()
-        .requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation);
-      // No prompt exists to approve: a needsApproval envelope would be a lie.
-      if (queued === "overloaded" || queued === "rejected") {
-        await respond({
-          id,
-          success: false,
-          error: "approval queue is full — resolve or deny pending approvals, then retry",
-        });
-        return;
-      }
-      await respond({
-        id,
-        success: false,
-        error: `approval required: '${operation}' on ${originForAgent(tab.url)}`,
-        data: { needsApproval: true, operation, url: originForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
-      });
-      return;
-    }
-  }
-  await finishAct(id, tab, operation, script, target);
-}
-
-/** Refuse a ref action that is not covered by a standing grant (an approval must
- *  show the user a legible element, not a bare ref). Returns whether it refused. */
-async function refuseUngrantedRef(id: string, tab: BrowserTarget, operation: ActOp): Promise<boolean> {
-  if (useBrowserApprovalStore.getState().decide(tab.url, operation) === "allowed") return false;
-  await respond({
-    id,
-    success: false,
-    error:
-      `ref actions need a standing grant for '${operation}' on ${originForAgent(tab.url)}; ` +
-      "for a one-time approval retry with role+name so the user can see the element",
-    data: { operation, url: originForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
-  });
-  return true;
+/** Clip a payload for the prompt's one-line summary. */
+const SUMMARY_MAX = 120;
+function clip(text: string): string {
+  return text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX)}…` : text;
 }
 
 function readModifiers(m: unknown): KeyModifiers | undefined {
@@ -173,9 +57,20 @@ function readModifiers(m: unknown): KeyModifiers | undefined {
   return { ctrl: o.ctrl === true, shift: o.shift === true, alt: o.alt === true, meta: o.meta === true };
 }
 
+function describeKey(key: string, modifiers: KeyModifiers | undefined): string {
+  const parts: string[] = [];
+  if (modifiers?.ctrl) parts.push("Ctrl");
+  if (modifiers?.alt) parts.push("Alt");
+  if (modifiers?.shift) parts.push("Shift");
+  if (modifiers?.meta) parts.push("Meta");
+  parts.push(key);
+  return `Key: ${parts.join("+")}`;
+}
+
 async function handleScroll(id: string, tab: BrowserTarget, args: Record<string, unknown>): Promise<void> {
-  const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : "";
-  const dy = typeof args.dy === "number" && Number.isFinite(args.dy) ? args.dy : undefined;
+  const wire = readOperationArgs("vmark.browser.act", args);
+  const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : "";
+  const dy = typeof wire.dy === "number" && Number.isFinite(wire.dy) ? wire.dy : undefined;
   if (ref && dy !== undefined) {
     await respond({ id, success: false, error: "scroll takes either {ref} or {dy}, not both" });
     return;
@@ -189,32 +84,32 @@ async function handleScroll(id: string, tab: BrowserTarget, args: Record<string,
     await finishAct(id, tab, "scroll", buildScrollToRefScript(ref, tab.generation));
     return;
   }
-  await approveAndAct(id, tab, "scroll", undefined, buildScrollByScript(dy as number));
+  const script = buildScrollByScript(dy as number);
+  await approveAndAct(id, tab, "scroll", undefined, script, `Scroll by ${dy} px`);
 }
 
 async function handleKey(id: string, tab: BrowserTarget, args: Record<string, unknown>): Promise<void> {
-  const key = typeof args.key === "string" && args.key.length > 0 ? args.key : "";
+  const wire = readOperationArgs("vmark.browser.act", args);
+  const key = typeof wire.key === "string" && wire.key.length > 0 ? wire.key : "";
   if (!key) {
     await respond({ id, success: false, error: "key requires a non-empty 'key' name (e.g. 'Enter', 'Escape', 'Tab')" });
     return;
   }
-  const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : null;
-  const script = buildKeyScript(key, ref, tab.generation, readModifiers(args.modifiers));
+  const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : null;
+  const modifiers = readModifiers(wire.modifiers);
+  const script = buildKeyScript(key, ref, tab.generation, modifiers);
   if (ref) {
     if (await refuseUngrantedRef(id, tab, "key")) return;
     await finishAct(id, tab, "key", script);
     return;
   }
-  await approveAndAct(id, tab, "key", undefined, script);
+  await approveAndAct(id, tab, "key", undefined, script, describeKey(key, modifiers));
 }
 
 /** `vmark.browser.act` — click / type / scroll / key by `{ref}` or `{role, name}`. */
 export async function handleBrowserAct(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    if (!(await browserGate(id))) return;
     const tabIdArg = readTabIdArg(args);
     if (tabIdArg === null) {
       await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -226,7 +121,8 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       return;
     }
     if (!(await requireHumanAttachment(id, tab))) return;
-    const operation = typeof args.operation === "string" ? args.operation : "";
+    const wire = readOperationArgs("vmark.browser.act", args);
+    const operation = typeof wire.operation === "string" ? wire.operation : "";
     if (operation !== "click" && operation !== "type" && operation !== "scroll" && operation !== "key") {
       await respond({ id, success: false, error: `act supports 'click', 'type', 'scroll', 'key', not '${operation}'` });
       return;
@@ -235,10 +131,10 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
     if (operation === "key") return handleKey(id, tab, args);
 
     // click / type — targeted by {ref} (granted-only) or {role, name} (approval-legible).
-    const role = typeof args.role === "string" ? args.role : "";
-    const name = typeof args.name === "string" ? args.name : "";
-    const ref = typeof args.ref === "string" ? args.ref : "";
-    if (operation === "type" && typeof args.text !== "string") {
+    const role = typeof wire.role === "string" ? wire.role : "";
+    const name = typeof wire.name === "string" ? wire.name : "";
+    const ref = typeof wire.ref === "string" ? wire.ref : "";
+    if (operation === "type" && typeof wire.text !== "string") {
       await respond({
         id,
         success: false,
@@ -246,6 +142,7 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       });
       return;
     }
+    const text = typeof wire.text === "string" ? wire.text : "";
     const wantsRef = ref.trim().length > 0;
     if (wantsRef && (role.trim() || name.trim())) {
       await respond({ id, success: false, error: "act takes either {ref} or {role, name}, not both" });
@@ -255,7 +152,7 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       if (await refuseUngrantedRef(id, tab, operation)) return;
       const script =
         operation === "type"
-          ? buildTypeByRefScript(ref, args.text as string, tab.generation)
+          ? buildTypeByRefScript(ref, text, tab.generation)
           : buildClickByRefScript(ref, tab.generation);
       await finishAct(id, tab, operation, script);
       return;
@@ -264,8 +161,12 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       await respond({ id, success: false, error: "act requires {ref} or a non-empty role and name" });
       return;
     }
-    const script =
-      operation === "type" ? buildTypeScript(role, name, args.text as string) : buildClickScript(role, name);
-    await approveAndAct(id, tab, operation, { role, name }, script);
+    if (operation === "type") {
+      // The built script embeds the text, so binding the script binds the text.
+      const script = buildTypeScript(role, name, text, tab.generation);
+      await approveAndAct(id, tab, "type", { role, name }, script, `Text: ${JSON.stringify(clip(text))}`);
+      return;
+    }
+    await approveAndAct(id, tab, "click", { role, name }, buildClickScript(role, name, tab.generation));
   });
 }

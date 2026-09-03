@@ -6,7 +6,7 @@
  * declaring an `outputSchema` newly makes possible:
  *
  *   1. The SDK accepts the Zod shapes `registerTool` is now handed directly.
- *   2. It validates input against them, so a bound like `timeoutMs <= 12000`
+ *   2. It validates input against them, so a bound like `timeoutMs <= 9000`
  *      is enforced before the handler runs — the whole point of WI-10.4.
  *   3. It validates `structuredContent` against the declared `outputSchema`
  *      and REJECTS a non-error result that omits or violates it. A document
@@ -182,7 +182,7 @@ describe('MCP SDK round trip (in-process transport pair)', () => {
     const content = result.content as Array<{ type: string; text: string }>;
     expect(content[0].text).toContain('Input validation error');
     expect(content[0].text).toContain('timeoutMs');
-    expect(content[0].text).toContain('12000');
+    expect(content[0].text).toContain('9000');
   });
 
   it('rejects an unknown action value against the declared enum', async () => {

@@ -7,8 +7,15 @@
 //! content worlds, so **no `WKScriptMessageHandler` is registered and the no-bridge
 //! invariant (R3) holds** (see `dev-docs/grills/browser-automation/phase7-console-design.md`).
 //!
-//! Sandbox tabs ONLY — a human's page is never reshaped. The captured output is
+//! **Every AI-owned posture, never a human's page** (audit 20260903 S-06): the shim
+//! used to be AiSandbox-only, so `browser_read console` on an `ai-shared` tab
+//! succeeded and read an empty buffer forever. The captured output is
 //! page-controlled and untrusted; the read handler treats it like any `read`.
+//!
+//! **Main frame only.** The driver reads the buffer from the main frame (evals
+//! target the main frame), so a copy in every subframe was written by pages and
+//! read by nobody — and re-serialized the whole buffer on every log call in every
+//! ad frame. Injecting into the main frame alone is what the reader can see.
 //!
 //! CONTRACT: the buffer element id is `__vmark_console_buffer` and its content
 //! is a JSON array of `{level, text}`.
@@ -27,14 +34,25 @@ use objc2_web_kit::{
 /// behaviour now means editing `consoleShim.src.js`, nothing here.
 const CONSOLE_SHIM_SRC: &str = include_str!("../../../src/lib/browser/agent/consoleShim.src.js");
 
-/// Inject the console-capture shim into an AiSandbox tab's page world at document
-/// start. A no-op for any other posture.
+/// Only the frame the driver reads gets a buffer (see the module doc). Pinned at
+/// compile time: flipping it back to every frame is a deliberate edit here, not a
+/// drive-by.
+const MAIN_FRAME_ONLY: bool = true;
+const _: () = assert!(MAIN_FRAME_ONLY);
+
+/// Which postures receive the shim: every AI-owned one, and never a human's page.
+pub(super) fn installs_for(mode: AutomationMode) -> bool {
+    mode != AutomationMode::Human
+}
+
+/// Inject the console-capture shim into an AI-owned tab's main-frame page world at
+/// document start. A no-op for a human tab.
 pub(super) fn configure(
     config: &WKWebViewConfiguration,
     mtm: MainThreadMarker,
     mode: AutomationMode,
 ) {
-    if !matches!(mode, AutomationMode::AiSandbox) {
+    if !installs_for(mode) {
         return;
     }
     let source = NSString::from_str(CONSOLE_SHIM_SRC);
@@ -44,7 +62,7 @@ pub(super) fn configure(
             WKUserScript::alloc(mtm),
             &source,
             WKUserScriptInjectionTime::AtDocumentStart,
-            false, // inject into all frames, not just the main frame
+            MAIN_FRAME_ONLY,
             &page_world,
         )
     };
@@ -54,7 +72,7 @@ pub(super) fn configure(
 
 #[cfg(test)]
 mod tests {
-    use super::CONSOLE_SHIM_SRC;
+    use super::*;
 
     /// The included asset is the real shim, not an empty or wrong file — the
     /// load-bearing invariants a bad include path or a gutted asset would break.
@@ -66,5 +84,14 @@ mod tests {
         // No message handler: the no-bridge invariant is about what the shim
         // does NOT do.
         assert!(!CONSOLE_SHIM_SRC.contains("webkit.messageHandlers"));
+    }
+
+    /// Audit 20260903 S-06: an `ai-shared` tab's console read returned nothing,
+    /// forever, because the shim was sandbox-only. A human's page is never reshaped.
+    #[test]
+    fn the_shim_installs_for_every_ai_posture_and_never_for_a_human() {
+        assert!(installs_for(AutomationMode::AiSandbox));
+        assert!(installs_for(AutomationMode::AiShared));
+        assert!(!installs_for(AutomationMode::Human));
     }
 }

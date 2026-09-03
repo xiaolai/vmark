@@ -33,6 +33,7 @@
  */
 
 import { useTabStore } from "@/stores/tabStore";
+import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore } from "@/stores/documentStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
@@ -52,7 +53,7 @@ import type {
   SessionWindow,
 } from "./types";
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
-import { urlForAgent } from "@/lib/browser/url";
+import { originForAgent, urlForAgent } from "@/lib/browser/url";
 
 // Bumped to 0.3.0 when browser tabs entered session state. Browser tabs are
 // gated: the client declares the protocol it speaks (`clientProtocol` on the
@@ -131,16 +132,26 @@ export function buildSessionState(
       .filter((tab) => includeBrowserTabs || tab.kind !== "browser")
       .map((tab) => {
       if (tab.kind === "browser") {
-        return {
+        const automationMode = tab.automationMode ?? "human";
+        const generation = tab.generation ?? 0;
+        const base = {
           id: tab.id,
           kind: "browser" as const,
           active: tab.id === tabState.activeTabId[label],
-          title: tab.title,
-          url: urlForAgent(tab.url),
           loading: browserEventBroker.isLoading(tab.id) ?? false,
-          generation: tab.generation ?? 0,
-          automationMode: tab.automationMode ?? "human",
+          generation,
+          automationMode,
         };
+        if (automationMode !== "human") {
+          return { ...base, title: tab.title, url: urlForAgent(tab.url) };
+        }
+        // A human tab is the user's browsing. Attachment is the gate for AI access
+        // to it (browser.md), so without one the listing carries only what the AI
+        // needs to ASK: the id and the origin. (Audit 2026-09-03 X-02.)
+        const attached = useBrowserApprovalStore.getState().isHumanTabAttached(tab.id, generation);
+        return attached
+          ? { ...base, attached, title: tab.title, url: urlForAgent(tab.url) }
+          : { ...base, attached, url: originForAgent(tab.url) };
       }
       const doc = docState.documents[tab.id];
       const content = doc?.content ?? "";

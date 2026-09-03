@@ -405,3 +405,69 @@ describe("attach approval failure (audit #24)", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+// Audit 2026-09-03 — #14 (grant() lied), #12 (revokeAll), #17 (generation), A-05.
+describe("store contracts (audit 2026-09-03)", () => {
+  it("grant() refuses a list with a non-grantable op and stores NOTHING", () => {
+    const s = useBrowserApprovalStore.getState();
+    expect(s.grant("https://blog.example.com", ["click", "eval"])).toBe(false);
+    expect(s.grant("https://blog.example.com", ["upload"])).toBe(false);
+    expect(s.grant("https://blog.example.com", ["publish"])).toBe(false);
+    expect(useBrowserApprovalStore.getState().grants).toEqual([]);
+    expect(s.grant("https://blog.example.com", ["click", "type"])).toBe(true);
+    expect(useBrowserApprovalStore.getState().grants).toEqual([
+      { originPattern: "https://blog.example.com", operations: ["click", "type"] },
+    ]);
+  });
+
+  it("revokeAll clears every standing grant", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.grant("https://a.example", ["click"]);
+    s.grant("https://b.example", ["read"]);
+    useBrowserApprovalStore.getState().revokeAll();
+    expect(useBrowserApprovalStore.getState().grants).toEqual([]);
+  });
+
+  it("an upload prompt is never queued — nothing the user answers could authorize it", () => {
+    const s = useBrowserApprovalStore.getState();
+    expect(s.requestApproval("u1", URL, "upload", undefined, "tab-1", 1)).toBe("rejected");
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    expect(s.consumeOneShot(URL, "upload", undefined, "tab-1")).toBe(false);
+  });
+
+  it("consumeOneShot refuses a shot minted against an older generation when told the current one", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("r1", URL, "click", { role: "button", name: "Publish" }, "tab-1", 3);
+    s.resolveApproval("r1", "once");
+    const target = { role: "button", name: "Publish" };
+    expect(useBrowserApprovalStore.getState().consumeOneShot(URL, "click", target, "tab-1", undefined, 4)).toBe(false);
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(1);
+    expect(useBrowserApprovalStore.getState().consumeOneShot(URL, "click", target, "tab-1", undefined, 3)).toBe(true);
+  });
+
+  it("a payload-binding request binds the script and carries a display summary", () => {
+    const s = useBrowserApprovalStore.getState();
+    const script = "return __vmarkType('textbox','Message','hello')";
+    s.requestApproval("t1", URL, "type", { role: "textbox", name: "Message" }, "tab-1", 1, script, undefined, 'Text: "hello"');
+    const pending = useBrowserApprovalStore.getState().pending[0];
+    expect(pending.script).toBe(script);
+    expect(pending.payloadSummary).toBe('Text: "hello"');
+    s.resolveApproval("t1", "once");
+    const shot = useBrowserApprovalStore.getState().oneShots[0];
+    expect(shot.script).toBe(script);
+    expect((shot as { payloadSummary?: string }).payloadSummary).toBeUndefined();
+    // A substituted text is a different script and does not spend the approval.
+    const other = "return __vmarkType('textbox','Message','wire $5000')";
+    expect(s.consumeOneShot(URL, "type", { role: "textbox", name: "Message" }, "tab-1", other)).toBe(false);
+    expect(s.consumeOneShot(URL, "type", { role: "textbox", name: "Message" }, "tab-1", script)).toBe(true);
+  });
+});
+
+// Audit 2026-09-03 #13 — the store's vocabulary IS the lib's, not a restatement.
+describe("operation vocabulary is shared, not copied", () => {
+  it("the store helper re-exports lib/browser/approval/grants' KNOWN_OPERATIONS by identity", async () => {
+    const { KNOWN_OPERATIONS: fromStore } = await import("./browserApprovalStore.helpers");
+    const { KNOWN_OPERATIONS: fromLib } = await import("@/lib/browser/approval/grants");
+    expect(fromStore).toBe(fromLib);
+  });
+});

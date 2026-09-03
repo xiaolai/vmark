@@ -1,23 +1,32 @@
 /**
  * Workflow self-healing — propose a locator fix when a step's target moves
- * (WI-4.4 / R8a).
+ * (WI-4.4 / R8a / WI-NB6.4 / P-3).
  *
- * ⚠️ **NOT WIRED — no production caller.** A repair re-targets an action to a DIFFERENT
- * same-role element than the one the user approved — exactly the escalation the one-shot
- * target binding defends against. A healed target MUST pass a fresh approval gate before
- * this is wired; today it returns an ordinary proposal with no such requirement. (Branch
- * audit.)
+ * WIRED: `services/workflow/runExecutor.ts` calls this after a not-found act and
+ * re-enters the approval gate with the healed descriptor (P-3): a standing grant
+ * for that op+origin covers it; anything else raises a NEW prompt showing the
+ * healed role+name, and the old one-shot cannot match it (Rust target binding).
  *
  * Purpose: sites change their markup and a role+name locator that used to match
  * stops matching. Rather than fail hard, this proposes the most similar
  * same-role element in the *current* page snapshot as a candidate fix, with a
- * confidence score. A proposal is never applied silently: per R8a a repair is a
- * NEW operation that must be re-approved (a write repair especially) — this
- * module only ranks candidates; the human/approval gate decides.
+ * confidence score. This module only ranks candidates; the approval gate decides.
  *
  * Confidence is a normalized edit-distance similarity on the accessible name;
  * the role must match exactly (a locator never heals across roles — a button is
  * not repaired to a link).
+ *
+ * **Antonyms are never a heal** (audit 2026-09-03 W-03). Heal fires when the
+ * original target is ABSENT — which is exactly the page state after the action
+ * already happened, where the inverse control ("Unpublish" for "Publish",
+ * "Unsubscribe" for "Subscribe") now stands in its place and scores 0.75–0.82 on
+ * edit distance. Under a standing grant that would run the inverse action with no
+ * prompt. So a candidate whose normalised name is the failed name with an added
+ * PREFIX is rejected outright, whatever it scores; and a candidate that does not
+ * START with the failed name (a typo, a different word) must clear 0.85, while
+ * suffix/decoration drift ("Publish now", "Publish…") keeps the 0.6 floor.
+ * Names are compared with Unicode format characters stripped (`\p{Cf}`: zero-width
+ * joiners, bidi overrides), so a mark the user cannot see cannot disguise one.
  *
  * A proposal must be UNAMBIGUOUS, because the executor resolves a role+name locator
  * to the FIRST matching element: a tie between two candidates, or a winning name that
@@ -25,7 +34,7 @@
  * element — so nothing is proposed rather than a coin-flip target.
  *
  * @coordinates-with lib/browser/agent/aria.ts — snapshot nodes ARE `AriaNode`s
- * @coordinates-with lib/browser/workflow/engine.ts — a paused step can offer this
+ * @coordinates-with services/workflow/runExecutor.ts — the caller, post not-found
  * @module lib/browser/workflow/selfHeal
  */
 import type { AriaNode } from "../agent/aria";
@@ -52,11 +61,33 @@ export interface LocatorProposal extends Locator {
  */
 const MAX_NAME_LEN = 512;
 
+/** Confidence a candidate must clear when the failed name is NOT a prefix of it
+ *  (a typo or a different word, as opposed to decoration appended to the same name). */
+const NON_PREFIX_FLOOR = 0.85;
+
 /** Normalize for comparison: NFC (so `café` composed and decomposed are the same
- *  text), case-folded, and split into CODE POINTS — an emoji is one character, not
- *  two surrogate halves that distort the score. */
+ *  text), format characters removed (`\p{Cf}` — a zero-width or bidi mark is not
+ *  drift, and must not disguise a prefix), case-folded, and split into CODE POINTS —
+ *  an emoji is one character, not two surrogate halves that distort the score. */
 function normalize(name: string): string[] {
-  return Array.from(name.normalize("NFC").trim().toLowerCase());
+  return Array.from(name.normalize("NFC").replace(/\p{Cf}/gu, "").trim().toLowerCase());
+}
+
+/** Whether `candidate` starts with every code point of `prefix`. */
+function startsWith(candidate: readonly string[], prefix: readonly string[]): boolean {
+  if (candidate.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i += 1) if (candidate[i] !== prefix[i]) return false;
+  return true;
+}
+
+/** Whether `candidate` is `failed` with something PREPENDED ("Unpublish" for
+ *  "publish", "Cancel publish"). Such a name is an inverse or a different action,
+ *  never a decoration of the same one. */
+function isPrefixedForm(candidate: readonly string[], failed: readonly string[]): boolean {
+  if (failed.length === 0 || candidate.length <= failed.length) return false;
+  const offset = candidate.length - failed.length;
+  for (let i = 0; i < failed.length; i += 1) if (candidate[offset + i] !== failed[i]) return false;
+  return true;
 }
 
 /**
@@ -95,9 +126,10 @@ function nameSimilarity(a: readonly string[], b: readonly string[], minConfidenc
 
 /**
  * Propose the best same-role replacement for a `failed` locator from the current
- * `snapshot`, or null when nothing clears `minConfidence` (default 0.6) or the best
- * candidate is ambiguous (a tie, or a name shared by several same-role nodes). Never
- * heals across roles.
+ * `snapshot`, or null when nothing clears the floor — `minConfidence` (default 0.6)
+ * for a candidate that starts with the failed name, 0.85 otherwise — or the best
+ * candidate is ambiguous (a tie, or a name shared by several same-role nodes), or
+ * the only candidates are prefixed (antonym) forms. Never heals across roles.
  */
 export function proposeLocatorFix(
   failed: Locator,
@@ -123,8 +155,13 @@ export function proposeLocatorFix(
 
     const candidate = normalize(node.name);
     if (candidate.length > MAX_NAME_LEN) continue;
-    const confidence = nameSimilarity(failedName, candidate, minConfidence);
-    if (confidence < minConfidence) continue;
+    // W-03: the inverse control is the failed name with a prefix — never a heal.
+    if (isPrefixedForm(candidate, failedName)) continue;
+    // Decoration appended to the same name keeps the caller's floor; anything
+    // else (a typo, another word) must be nearly identical.
+    const floor = startsWith(candidate, failedName) ? minConfidence : Math.max(minConfidence, NON_PREFIX_FLOOR);
+    const confidence = nameSimilarity(failedName, candidate, floor);
+    if (confidence < floor) continue;
 
     if (!best || confidence > best.confidence) {
       best = { role: node.role, name: node.name, confidence };

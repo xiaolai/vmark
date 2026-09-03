@@ -1,6 +1,6 @@
 //! Committed-page authority, lifecycle transitions, and registry queries.
 
-use super::{BrowserError, BrowserRegistry, Entry, Lifecycle};
+use super::{AutomationMode, BrowserError, BrowserRegistry, Entry, Lifecycle};
 
 impl BrowserRegistry {
     pub fn set_committed_url(&mut self, tab_id: &str, url: &str) -> Result<(), BrowserError> {
@@ -84,9 +84,26 @@ impl BrowserRegistry {
         self.tabs.get(tab_id).map(|entry| entry.policy_epoch)
     }
 
-    #[allow(dead_code, reason = "consumer is the per-window teardown WI")]
+    /// The window that owns `tab_id` — what routes its events, scopes its standing
+    /// grants (audit 20260903 A-03) and decides who may answer its dialogs.
     pub fn window_of(&self, tab_id: &str) -> Option<&str> {
         self.tabs.get(tab_id).map(|e| e.window_label.as_str())
+    }
+
+    /// Does `tab_id` belong to `window_label`? Exact, and `false` for an unknown
+    /// tab — a dialog for a tab the registry has forgotten has no window entitled
+    /// to answer it.
+    pub fn tab_belongs_to_window(&self, tab_id: &str, window_label: &str) -> bool {
+        self.window_of(tab_id) == Some(window_label)
+    }
+
+    /// How many AI-owned tabs are alive: not human, and not in a terminal state
+    /// (audit 20260903 X-01 — `browser_ai_create` refuses at `MAX_AI_TABS`).
+    pub fn live_ai_tab_count(&self) -> usize {
+        self.tabs
+            .values()
+            .filter(|e| e.automation_mode != AutomationMode::Human && !e.state.is_terminal())
+            .count()
     }
 
     #[allow(dead_code, reason = "observation seam for the lifecycle tests")]
@@ -110,7 +127,6 @@ impl BrowserRegistry {
         self.tabs.remove(tab_id);
     }
 
-    #[allow(dead_code, reason = "consumer is the per-window teardown WI")]
     pub fn tabs_in_window(&self, window_label: &str) -> Vec<String> {
         self.tabs
             .iter()

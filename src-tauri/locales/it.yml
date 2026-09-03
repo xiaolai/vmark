@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "L'IA non può farlo su questa pagina"
   browser.attachmentRequired: "Collega l'IA a questa scheda prima che possa agire su di essa"
   browser.profileOriginConfined: "L'IA può leggere solo la pagina approvata per questo profilo"
+  browser.evalTimeout: "Lo script della pagina non è terminato in tempo"
+  browser.evalFailed: "Lo script della pagina non è riuscito"
+  browser.evalNoValue: "Lo script della pagina non ha restituito alcun valore"
+  browser.evalResultTooLarge: "Il risultato dello script della pagina è troppo grande per essere restituito"
+  browser.tabLimit: "L'IA ha già %{limit} schede del browser aperte: chiudine una prima"
+  browser.dialogNotOwned: "Questa finestra di dialogo della pagina appartiene a un'altra finestra"
+  browser.contentRulesFailed: "Non è stato possibile installare le regole di destinazione del browser IA"
 
   # === Hot exit ===
   hotExit.noWindows: "Nessuna finestra documento da catturare"

@@ -15,6 +15,7 @@ import {
 } from "./recorderSession";
 
 const noSchedule = () => () => {}; // never auto-fire the timer — tests drive drains
+const START = "https://x.test/start?session=SECRET#frag";
 
 function deps(overrides: Partial<RecorderDeps> = {}): RecorderDeps {
   return {
@@ -30,9 +31,9 @@ afterEach(() => __resetRecorderSessions());
 
 describe("recorder session lifecycle", () => {
   it("refuses a duplicate start on the same tab", () => {
-    expect(startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: deps() })).toEqual({ ok: true });
+    expect(startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: deps() })).toEqual({ ok: true });
     expect(isRecording("t1")).toBe(true);
-    expect(startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: deps() })).toEqual({
+    expect(startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: deps() })).toEqual({
       ok: false,
       error: "recording-already-active",
     });
@@ -48,11 +49,11 @@ describe("recorder session lifecycle", () => {
       { type: "type", role: "textbox", name: "Title" },
     ];
     const d = deps({ drainOnce: vi.fn(async () => events) });
-    startRecorderSession({ tabId: "t1", site: "blog", generation: 3, deps: d });
+    startRecorderSession({ tabId: "t1", site: "blog", generation: 3, startUrl: START, deps: d });
     await drainActiveRecording("t1");
     const result = await stopRecorderSession("t1");
     expect(result).not.toBeNull();
-    expect(result!.eventCount).toBe(4); // 2 from the tick + 2 from the final stop drain
+    expect(result!.eventCount).toBe(5); // the entry navigate + 2 from the tick + 2 from the final stop drain
     expect(result!.source).toContain('action: click "Publish"');
     expect(result!.inputs).toContain("Title");
     expect(d.disarm).toHaveBeenCalledWith("t1", 3); // capture stopped immediately
@@ -60,7 +61,7 @@ describe("recorder session lifecycle", () => {
 
   it("records a navigation host-side and re-arms the new document", async () => {
     const d = deps();
-    startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: d });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });
     await recordNavigation("t1", "https://x.test/step2?token=SECRET", 2);
     const result = await stopRecorderSession("t1");
     // The navigate event was recorded, its URL stripped by the redactor at finalize.
@@ -73,22 +74,30 @@ describe("recorder session lifecycle", () => {
   it("caps a session at 1000 events", async () => {
     const flood: RecordedEvent[] = Array.from({ length: 600 }, () => ({ type: "click", role: "button", name: "x" }));
     const d = deps({ drainOnce: vi.fn(async () => flood) });
-    startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: d });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });
     await drainActiveRecording("t1"); // 600
     await drainActiveRecording("t1"); // +600 -> would be 1200, capped at 1000
     const result = await stopRecorderSession("t1");
     expect(result!.eventCount).toBeLessThanOrEqual(1000);
   });
 
+  it("records a host-side entry navigate at start so the workflow has an entry point (W11)", async () => {
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: deps() });
+    const result = await stopRecorderSession("t1");
+    expect(result!.source).toMatch(/^---[\s\S]*?---\n1\. action: navigate to https:\/\/x\.test\/start\n/);
+    expect(result!.source).not.toContain("SECRET");
+    expect(result!.source).not.toContain("frag");
+  });
+
   it("a drain error does not tear down the session", async () => {
     const d = deps({ drainOnce: vi.fn(async () => { throw new Error("eval failed"); }) });
-    startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: d });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });
     await drainActiveRecording("t1");
     expect(isRecording("t1")).toBe(true);
   });
 
   it("abort discards the recording without finalizing", () => {
-    startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: deps() });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: deps() });
     abortRecorderSession("t1");
     expect(isRecording("t1")).toBe(false);
   });
@@ -97,7 +106,8 @@ describe("recorder session lifecycle", () => {
     vi.useFakeTimers();
     try {
       const tick = vi.fn(async () => []);
-      startRecorderSession({ tabId: "t1", site: "x", generation: 1, deps: deps({ drainOnce: tick, schedule: undefined }) });
+      const realTimerDeps: RecorderDeps = { rearm: vi.fn(async () => {}), disarm: vi.fn(async () => {}), drainOnce: tick };
+      startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: realTimerDeps });
       await stopRecorderSession("t1");
       tick.mockClear();
       vi.advanceTimersByTime(5000);

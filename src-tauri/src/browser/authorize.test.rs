@@ -126,15 +126,60 @@ fn an_unknown_operation_is_refused_even_on_an_ai_owned_tab() {
     assert_eq!(mcp_code(&err), "NOT_GRANTED");
 }
 
+/// Grant `ops` on `pattern` to the window `commit_tab` registers its tabs in.
 fn grant(surface: &BrowserSurface, pattern: &str, ops: &[&str]) {
+    grant_in_window(surface, "main", pattern, ops);
+}
+
+/// Grants belong to a WINDOW (audit 20260903 A-03); a tab reads its owner's slice.
+fn grant_in_window(surface: &BrowserSurface, window: &str, pattern: &str, ops: &[&str]) {
     surface
         .grants
         .lock()
         .unwrap()
+        .entry(window.to_string())
+        .or_default()
         .push(crate::browser::origin_guard::StandingGrant {
             origin_pattern: pattern.into(),
             operations: ops.iter().map(|s| s.to_string()).collect(),
         });
+}
+
+// Audit 20260903 A-03 — one process-wide grant vector let window B's sync clobber
+// window A's grants; now a tab is authorized only by the grants of the window that
+// owns it.
+#[test]
+fn a_tab_is_authorized_only_by_its_own_windows_grants() {
+    let surface = enabled_surface();
+    {
+        let mut reg = surface.registry.lock().unwrap();
+        for (tab, window) in [("ta", "a"), ("tb", "b")] {
+            reg.create_with_mode(tab, window, AutomationMode::AiSandbox)
+                .unwrap();
+            reg.begin_navigation(tab, "https://ex.com/").unwrap();
+            reg.set_committed_url(tab, "https://ex.com/").unwrap();
+            reg.set_policy_epoch(tab, 0).unwrap();
+        }
+    }
+    grant_in_window(&surface, "a", "https://ex.com", &["click"]);
+
+    assert!(
+        authorize_driver_op(&surface, "ta", 0, "click", None, None).is_ok(),
+        "window A's tab is authorized by window A's grant"
+    );
+    let err = authorize_driver_op(&surface, "tb", 0, "click", None, None).unwrap_err();
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(
+        mcp_code(&err),
+        "NOT_GRANTED",
+        "window B's tab must not be authorized by window A's grant"
+    );
+
+    // And granting in B leaves A's authority exactly as it was.
+    grant_in_window(&surface, "b", "https://ex.com", &["read"]);
+    assert!(authorize_driver_op(&surface, "tb", 0, "read", None, None).is_ok());
+    assert!(authorize_driver_op(&surface, "tb", 0, "click", None, None).is_err());
+    assert!(authorize_driver_op(&surface, "ta", 0, "click", None, None).is_ok());
 }
 
 #[test]

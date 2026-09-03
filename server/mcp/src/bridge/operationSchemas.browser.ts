@@ -78,11 +78,16 @@ export const BROWSER_OPERATION_SCHEMAS = {
   'vmark.browser.session.load': z.object({ tabId: optionalTabId, handle: id }),
   'vmark.browser.console': z.object({ tabId: optionalTabId, clear: z.boolean().optional() }),
   'vmark.browser.extract': z.object({ tabId: optionalTabId }),
+  // Close an AI-owned tab (audit 2026-09-03 X-01). Never approval-gated.
+  'vmark.browser.close': z.object({ tabId: id }),
   'vmark.browser.workflow_run': z.object({
     tabId: optionalTabId,
     source: id,
     inputs: z.record(z.string(), z.string()).optional(),
     allowRepeat: z.boolean().optional(),
+    // Resume a PAUSED run (audit 2026-09-03 W-05): the new run inherits its
+    // completed steps and treats the paused-at step as done by the human.
+    resumeRunId: z.string().optional(),
   }),
   'vmark.browser.workflow_status': z.object({ tabId: optionalTabId, runId: id }),
   'vmark.browser.workflow_cancel': z.object({ tabId: optionalTabId, runId: id }),

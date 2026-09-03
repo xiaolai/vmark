@@ -13,14 +13,19 @@
 //!
 //! Authority is dropped too, and deliberately: a one-shot is bound to a tab, and a tab
 //! whose window is gone can never be acted on again. Leaving the grant behind would be
-//! authority with no way to observe what it authorized.
+//! authority with no way to observe what it authorized. The window's standing grants
+//! go the same way (audit 20260903 A-03): they were mirrored from THAT window's store,
+//! which no longer exists to revoke them.
 //!
 //! @coordinates-with app_setup.rs — WindowEvent::Destroyed calls destroy_window
 //! @coordinates-with browser/registry.rs — tabs_in_window / remove
 //! @module browser/teardown
 
+use std::collections::HashMap;
+
 use tauri::{AppHandle, Manager};
 
+use crate::browser::origin_guard::StandingGrant;
 use crate::browser::registry::BrowserRegistry;
 use crate::browser::surface::{self, BrowserSurface};
 
@@ -37,12 +42,31 @@ pub fn forget_window_tabs(registry: &mut BrowserRegistry, window_label: &str) ->
     tabs
 }
 
-/// Tear down every browser tab owned by `window_label`. Safe to call for a window that
-/// never had one (the overwhelmingly common case) — it does nothing.
+/// Drop the standing grants `window_label` synced. Returns whether there were any.
+/// Other windows' slices are untouched — they were granted in stores that still exist.
+pub fn forget_window_grants(
+    grants: &mut HashMap<String, Vec<StandingGrant>>,
+    window_label: &str,
+) -> bool {
+    grants.remove(window_label).is_some()
+}
+
+/// Tear down every browser tab owned by `window_label`, and the window's grants. Safe
+/// to call for a window that never had either (the overwhelmingly common case) — it
+/// does nothing.
 pub fn destroy_window(app: &AppHandle, window_label: &str) {
     let Some(state) = app.try_state::<BrowserSurface>() else {
         return; // the browser feature was never initialised in this process
     };
+
+    // Grants first, and independently of whether the window had tabs: a window can
+    // have synced grants and closed every browser tab before it went away.
+    match state.grants.lock() {
+        Ok(mut grants) => {
+            forget_window_grants(&mut grants, window_label);
+        }
+        Err(e) => log::warn!("[browser] grants lock poisoned during window teardown: {e}"),
+    }
 
     // Take the tab list and drop the registry entries under one lock, so a concurrent
     // command cannot see a window that is half gone.

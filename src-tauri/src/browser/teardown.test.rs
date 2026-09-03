@@ -51,3 +51,29 @@ fn returns_the_tabs_so_the_caller_can_tear_down_their_native_views() {
     let dropped = forget_window_tabs(&mut reg, "main");
     assert_eq!(dropped, vec!["t1".to_string()]);
 }
+
+// Audit 20260903 A-03 — grants are the window's, so they die with the window.
+#[test]
+fn closing_a_window_drops_its_standing_grants_and_no_other_windows() {
+    use crate::browser::origin_guard::StandingGrant;
+    let grant = |origin: &str| StandingGrant {
+        origin_pattern: origin.into(),
+        operations: vec!["click".into()],
+    };
+    let mut grants = HashMap::new();
+    grants.insert("main".to_string(), vec![grant("https://a.com")]);
+    grants.insert("doc-2".to_string(), vec![grant("https://b.com")]);
+
+    assert!(forget_window_grants(&mut grants, "main"));
+    assert!(
+        !grants.contains_key("main"),
+        "the closed window's slice is gone"
+    );
+    assert_eq!(
+        grants.get("doc-2").map(Vec::len),
+        Some(1),
+        "another window's grants must survive"
+    );
+    // A window that never synced: nothing to drop, and saying so is not an error.
+    assert!(!forget_window_grants(&mut grants, "doc-9"));
+}

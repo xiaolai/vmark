@@ -4,6 +4,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { destroyBrowserNativeView } from "./browserNativeViews";
 import { browserEventBroker } from "./browserEventBroker";
 import { browserWarn } from "@/utils/debug";
 
@@ -22,17 +23,28 @@ function currentPolicy(): BrowserPolicy {
   };
 }
 
+/**
+ * Close every browser tab (or every AI-owned one) and drop the authority that went
+ * with them. Detaching the tab fires the removal bus, whose lifecycle subscriber
+ * destroys the native view; the explicit destroy here is idempotent and covers a
+ * window whose bootstrap has not started that subscriber yet.
+ *
+ * Switching the browser OFF also revokes every standing grant (audit 2026-09-03
+ * #12): "withdraws the AI automation surface" must include the authority it had
+ * accumulated, or switching it back on resumes acting with no fresh prompt.
+ */
 function destroyBrowserViews(onlyAi = false): void {
   const store = useTabStore.getState();
   for (const [windowLabel, tabs] of Object.entries(store.tabs)) {
     for (const tab of tabs) {
       if (!isBrowserTab(tab)) continue;
       if (onlyAi && tab.automationMode === "human") continue;
-      void invoke("browser_destroy", { tabId: tab.id }).catch(() => {});
+      void destroyBrowserNativeView(tab.id);
       store.detachTab(windowLabel, tab.id);
     }
   }
   useBrowserApprovalStore.getState().clearEphemeral();
+  if (!onlyAi) useBrowserApprovalStore.getState().revokeAll();
   browserEventBroker.cancelPending();
 }
 

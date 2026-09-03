@@ -105,6 +105,71 @@ describe("buildConsoleReadScript", () => {
     return JSON.parse(fn(doc) as string) as { entries: Entry[] };
   }
 
+  /** The shipped shim installed into a fresh document; returns its `console`. */
+  function installInto(doc: Document): Record<string, (...a: unknown[]) => void> {
+    const consoleObj: Record<string, (...a: unknown[]) => void> = {};
+    new Function("document", "console", "window", CONSOLE_SHIM_SRC)(doc, consoleObj, {
+      addEventListener: () => {},
+    });
+    return consoleObj;
+  }
+
+  const texts = (r: { entries: Entry[] }) => r.entries.map((e) => e.text);
+
+  // S-01: the shim's closure array was the source of truth and was rewritten into
+  // the element on every event, so a host clear only blanked the element and the
+  // very next log re-published everything already drained. The clearing read now
+  // stamps a drain counter on the element and the shim drops its closure copy
+  // when the counter it last saw has moved.
+  describe("drained entries are never re-published (S-01)", () => {
+    it("log A → read(clear) → log B → read returns only B", () => {
+      const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+      const c = installInto(doc);
+      c.log("A");
+      expect(texts(runRead(doc, true))).toEqual(["A"]);
+      c.log("B");
+      expect(texts(runRead(doc, true))).toEqual(["B"]);
+      c.log("C");
+      c.log("D");
+      expect(texts(runRead(doc, false))).toEqual(["C", "D"]);
+      expect(texts(runRead(doc, true))).toEqual(["C", "D"]);
+      expect(texts(runRead(doc, false))).toEqual([]);
+    });
+
+    it("a clearing read before any log is harmless, and later entries still land", () => {
+      const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+      const c = installInto(doc);
+      expect(texts(runRead(doc, true))).toEqual([]);
+      c.log("later");
+      expect(texts(runRead(doc, false))).toEqual(["later"]);
+    });
+
+    it("the clear stamps a monotonic drain counter on the buffer element", () => {
+      const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+      const c = installInto(doc);
+      c.log("x");
+      runRead(doc, true);
+      runRead(doc, true);
+      expect(doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain")).toBe("2");
+      // A non-clearing read never touches the counter.
+      runRead(doc, false);
+      expect(doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain")).toBe("2");
+    });
+
+    it("a page-forged non-numeric counter cannot pin the stamp (no NaN forever)", () => {
+      const doc = new DOMParser().parseFromString("<body></body>", "text/html");
+      const c = installInto(doc);
+      c.log("A");
+      doc.getElementById(CONSOLE_BUFFER_ID)!.setAttribute("data-drain", "forged");
+      runRead(doc, true);
+      const stamped = doc.getElementById(CONSOLE_BUFFER_ID)!.getAttribute("data-drain");
+      expect(stamped).not.toBe("NaN");
+      c.log("B");
+      // Whatever the page wrote, the host's clear still moved the stamp, so A stays drained.
+      expect(texts(runRead(doc, false))).toEqual(["B"]);
+    });
+  });
+
   it("reads the buffer element and returns entries", () => {
     const doc = new DOMParser().parseFromString("<body></body>", "text/html");
     const consoleObj: Record<string, (...a: unknown[]) => void> = {};

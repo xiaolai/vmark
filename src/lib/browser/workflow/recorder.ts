@@ -29,6 +29,11 @@
  * clean ARIA token, else dropped; front-matter scalars are validated, not escaped, so
  * a bad `site` fails loudly rather than corrupting the file.
  *
+ * A click the shim could not map to an ARIA role becomes a `confirm:` human gate
+ * (audit 2026-09-03 S-02): the replayer resolves a click by role + name, so a
+ * role-less `click` step would fail on every replay. A role-less `type` keeps its
+ * `{input}` form — the executor resolves a field's role from a fresh snapshot.
+ *
  * An empty recording yields front-matter with no steps, which the parser reports as
  * `no-steps` — an empty recording is not a runnable workflow.
  *
@@ -74,10 +79,12 @@ function fold(value: string): string {
 }
 
 /** A recorded role is page data, appended unquoted as `(role)`. Keep only a clean ARIA
- *  token; anything else (a newline, `)`, `"`) drops the role so the locator degrades to
- *  name-only rather than corrupting the file. */
+ *  token — lowercased, because that is the replayer's vocabulary (`aria.ts` lowercases
+ *  an explicit `role` attribute and the executor grammar accepts `[a-z]+` only); anything
+ *  else (a newline, `)`, `"`, a hyphen) drops the role so the line cannot be corrupted. */
 function safeRole(role: string | undefined): string {
-  return role && /^[a-zA-Z-]+$/.test(role) ? role : "";
+  const lowered = role?.trim().toLowerCase() ?? "";
+  return /^[a-z]+$/.test(lowered) ? lowered : "";
 }
 
 /** `"name" (role)` — the one target format for click AND type. */
@@ -172,9 +179,19 @@ export function recordingToWorkflow(
         stepLines.push(url ? `action: navigate to ${url}` : "action: navigate");
         break;
       }
-      case "click":
+      case "click": {
+        // A role-less click is a dead production for the replayer: `role:""` never
+        // matches an element and heal never crosses roles (audit S-02). Hand it to the
+        // human instead of recording a step that fails on every replay.
+        if (safeRole(ev.role) === "") {
+          stepLines.push(
+            `confirm: click ${quote(fold(ev.name ?? ""))} by hand — the recorder could not map it to an ARIA control`,
+          );
+          break;
+        }
         stepLines.push(`action: click ${locator(ev.name, ev.role)}`);
         break;
+      }
       case "type": {
         if (ev.sensitive) {
           // A secret: a human gate, never a variable and never a literal. The label is

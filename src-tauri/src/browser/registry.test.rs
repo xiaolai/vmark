@@ -549,3 +549,44 @@ fn window_of_is_none_for_an_unknown_tab_so_an_event_is_dropped_not_broadcast() {
     let reg = BrowserRegistry::default();
     assert_eq!(reg.window_of("ghost"), None);
 }
+
+// Audit 20260903 X-01 — the input to the AI-tab cap.
+#[test]
+fn live_ai_tab_count_excludes_human_and_terminal_tabs() {
+    let mut reg = BrowserRegistry::default();
+    assert_eq!(reg.live_ai_tab_count(), 0);
+    reg.create("human", "main").unwrap();
+    reg.create_with_mode("s1", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    reg.create_with_mode("s2", "main", AutomationMode::AiShared)
+        .unwrap();
+    reg.create_with_mode("gone", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    reg.transition("gone", Lifecycle::Destroyed).unwrap();
+    assert_eq!(
+        reg.live_ai_tab_count(),
+        2,
+        "a human tab and a destroyed AI tab occupy no AI slot"
+    );
+    reg.remove("s1");
+    assert_eq!(reg.live_ai_tab_count(), 1, "a closed tab frees its slot");
+}
+
+// Audit 20260903 — `browser_dialog_respond` may only be answered by the window
+// that owns the dialog's tab.
+#[test]
+fn tab_belongs_to_window_is_exact_and_false_for_unknown_tabs() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.create("t2", "doc-2").unwrap();
+    assert!(reg.tab_belongs_to_window("t1", "main"));
+    assert!(!reg.tab_belongs_to_window("t1", "doc-2"));
+    assert!(!reg.tab_belongs_to_window("t2", "main"));
+    assert!(reg.tab_belongs_to_window("t2", "doc-2"));
+    assert!(
+        !reg.tab_belongs_to_window("ghost", "main"),
+        "an unknown tab has no window entitled to answer for it"
+    );
+    reg.remove("t1");
+    assert!(!reg.tab_belongs_to_window("t1", "main"));
+}

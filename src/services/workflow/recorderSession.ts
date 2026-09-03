@@ -8,8 +8,9 @@
  *
  *   - it drains the shim buffer on a timer (default 500 ms) and at stop, so most
  *     events are captured before a navigation discards the buffer;
- *   - it records each NAVIGATION host-side (from the native `browser://navigated`
- *     event, not the page) and RE-ARMS the shim in the fresh document;
+ *   - it records each NAVIGATION host-side — the entry URL at start, then every
+ *     native `browser://navigated` event, never a page claim — and RE-ARMS the shim
+ *     in the fresh document;
  *   - it caps the session at 1000 events, whatever the per-document shim cap; and
  *   - it owns the lifecycle: one recording per tab, duplicate start refused, stop
  *     without start refused, tab close/disable discards.
@@ -66,6 +67,10 @@ export interface StartRecorderArgs {
   tabId: string;
   site: string;
   generation: number;
+  /** The tab's committed URL at start. Recorded host-side as the workflow's ENTRY
+   *  `navigate to` step (the redactor strips it to origin+path), so a replay
+   *  begins on the page the recording did. */
+  startUrl: string;
   deps: RecorderDeps;
 }
 
@@ -88,7 +93,8 @@ export function startRecorderSession(args: StartRecorderArgs): { ok: true } | { 
     tabId: args.tabId,
     site: args.site,
     generation: args.generation,
-    events: [],
+    // The entry point is a host-side record (D2v2) — the page never supplies a URL.
+    events: [{ type: "navigate", url: args.startUrl }],
     capped: false,
     deps: args.deps,
     cancel: () => {},

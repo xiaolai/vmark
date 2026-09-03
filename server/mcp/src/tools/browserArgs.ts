@@ -25,6 +25,15 @@ import type { ArgCheck } from './toolArgs.js';
 /** Cap on a caller-supplied script / injected CSS, in UTF-8 BYTES. */
 export const MAX_SCRIPT_BYTES = 64 * 1024;
 
+/**
+ * The longest wait a browser action accepts, in ms — the app-side twin is
+ * `MAX_WAIT_MS` in `src/services/mcpBridge/v2/browserHelpers.ts`. It sits below
+ * the bridge's first 10 s deadline on purpose: a wait that outlived that
+ * deadline tripped the bridge's wake-and-retry recovery on every slow page
+ * (audit 2026-09-03). Keep the two numbers in sync.
+ */
+export const MAX_WAIT_MS = 9_000;
+
 /** Named persistent contexts are filesystem-safe and short. */
 const PROFILE_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
@@ -50,13 +59,13 @@ export function scriptSchema(description: string) {
     .describe(description);
 }
 
-/** A wait bound: an integer 1..12000 ms, or undefined when omitted. */
+/** A wait bound: an integer 1..MAX_WAIT_MS, or undefined when omitted. */
 export function boundedTimeout(value: unknown): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
     return undefined;
   }
-  return value >= 1 && value <= 12_000 ? value : undefined;
+  return value >= 1 && value <= MAX_WAIT_MS ? value : undefined;
 }
 
 /**

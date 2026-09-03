@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "AI 无权在此页面执行该操作"
   browser.attachmentRequired: "请先将 AI 连接到此标签页再进行操作"
   browser.profileOriginConfined: "AI 只能读取此配置文件已批准的页面"
+  browser.evalTimeout: "页面脚本未能及时完成"
+  browser.evalFailed: "页面脚本执行失败"
+  browser.evalNoValue: "页面脚本没有返回任何值"
+  browser.evalResultTooLarge: "页面脚本的结果过大，无法返回"
+  browser.tabLimit: "AI 已打开 %{limit} 个浏览器标签页，请先关闭一个"
+  browser.dialogNotOwned: "该页面对话框属于另一个窗口"
+  browser.contentRulesFailed: "无法安装 AI 浏览器的目标规则"
 
   # === Hot exit ===
   hotExit.noWindows: "没有需要捕获的文档窗口"

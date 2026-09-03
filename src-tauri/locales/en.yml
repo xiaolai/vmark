@@ -322,6 +322,13 @@ errors:
   browser.notGranted: "The AI is not allowed to do that on this page"
   browser.attachmentRequired: "Attach the AI to this tab before it can act on it"
   browser.profileOriginConfined: "The AI may only read the page this profile was approved for"
+  browser.evalTimeout: "The page script did not finish in time"
+  browser.evalFailed: "The page script failed"
+  browser.evalNoValue: "The page script returned no value"
+  browser.evalResultTooLarge: "The page script's result is too large to return"
+  browser.tabLimit: "The AI already has %{limit} browser tabs open — close one first"
+  browser.dialogNotOwned: "That page dialog belongs to another window"
+  browser.contentRulesFailed: "The AI browser's destination rules could not be installed"
 
   # === Hot exit ===
   hotExit.noWindows: "No document windows to capture"

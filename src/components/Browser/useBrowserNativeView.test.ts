@@ -23,10 +23,23 @@ vi.mock("@/services/browser/browserOcclusion", () => ({
     removeOccluder: vi.fn(),
     isFrozen: () => false,
   },
-  OCCLUDER: { crash: "crash-overlay", dialog: "page-dialog", approval: "approval-dialog", error: "error-overlay" },
+  OCCLUDER: {
+    crash: "crash-overlay",
+    dialog: "page-dialog",
+    approval: "approval-dialog",
+    error: "error-overlay",
+    background: "background-tab",
+  },
 }));
 
-import { ensureBrowserNativeView, useBrowserNativeView } from "./useBrowserNativeView";
+import {
+  __resetNativeViews,
+  destroyBrowserNativeView,
+  ensureBrowserNativeView,
+  hasBrowserNativeView,
+  useBrowserNativeView,
+} from "./useBrowserNativeView";
+import { browserOcclusion } from "@/services/browser/browserOcclusion";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 // jsdom has no ResizeObserver. The hook observes the reserved rect, so it needs one; the
@@ -41,6 +54,8 @@ vi.stubGlobal("ResizeObserver", StubResizeObserver);
 beforeEach(() => {
   invoke.mockReset().mockResolvedValue(undefined);
   resync.mockReset();
+  // Native-view records now outlive a surface (audit L-01), so tests reset them.
+  __resetNativeViews();
   useBrowserUiStore.setState({ entries: {} });
 });
 
@@ -149,15 +164,45 @@ describe("useBrowserNativeView — create/destroy", () => {
     expect(invoke).toHaveBeenCalledTimes(2);
   });
 
-  it("destroys the native view on unmount", async () => {
+  // Audit 2026-09-03 L-01 — unmount HIDES (background occluder); the tab keeps its page.
+  it("hides the native view on unmount instead of destroying it, and shows it on remount", async () => {
     const { unmount } = renderHook(() =>
       useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()),
     );
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
     act(() => unmount());
-    await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: "t1" }),
+    expect(browserOcclusion.addOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+    expect(hasBrowserNativeView("t1")).toBe(true);
+
+    invoke.mockClear();
+    renderHook(() => useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()));
+    expect(browserOcclusion.removeOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    await Promise.resolve();
+    // One view, created once: no second browser_create.
+    expect(invoke).not.toHaveBeenCalledWith("browser_create", expect.anything());
+  });
+
+  it("destroyBrowserNativeView waits for a create in flight, tears down, and forgets the tab", async () => {
+    let settle: (() => void) | undefined;
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create"
+        ? new Promise<void>((r) => {
+            settle = r;
+          })
+        : Promise.resolve(undefined),
     );
+    void ensureBrowserNativeView("t1", "https://example.com", "human");
+    const destroyed = destroyBrowserNativeView("t1");
+    await Promise.resolve();
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+    settle?.();
+    await destroyed;
+    expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: "t1" });
+    expect(hasBrowserNativeView("t1")).toBe(false);
+    expect(browserOcclusion.removeTab).toHaveBeenCalledWith("t1");
+    // Idempotent: a second destroy is harmless.
+    await destroyBrowserNativeView("t1");
   });
 });
 
@@ -179,7 +224,10 @@ describe("useBrowserNativeView — occlusion is enforced against the view that e
     expect(resync).not.toHaveBeenCalled();
   });
 
-  it("does not resync a tab whose surface already unmounted", async () => {
+  // Audit 2026-09-03 L-01: the view outlives the surface, so a create that settles
+  // AFTER unmount produces a live view that must be HIDDEN — the background occluder
+  // is added and the controller re-driven, rather than nothing happening.
+  it("a create that settles after unmount hides the new view under the background occluder", async () => {
     let settle: (() => void) | undefined;
     invoke.mockImplementation((cmd: string) =>
       cmd === "browser_create"
@@ -195,7 +243,9 @@ describe("useBrowserNativeView — occlusion is enforced against the view that e
     await act(async () => {
       settle?.();
     });
-    expect(resync).not.toHaveBeenCalled();
+    expect(browserOcclusion.addOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    expect(resync).toHaveBeenCalledWith("t1");
+    expect(hasBrowserNativeView("t1")).toBe(true);
   });
 });
 

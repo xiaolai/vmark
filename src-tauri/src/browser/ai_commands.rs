@@ -16,8 +16,8 @@
 
 use super::ai_guards::{
     ai_policy, authorize_shared_navigation, invalid_profile_name, lock_failure, parse_session_mode,
-    rejected_destination, require_ai_owned, require_browser_enabled, require_current_epoch,
-    surface_failure, tab_not_found, with_mcp_code,
+    rejected_destination, require_ai_owned, require_ai_tab_capacity, require_browser_enabled,
+    require_current_epoch, surface_failure, tab_not_found, with_mcp_code,
 };
 use crate::browser::ai_policy::{validate_ai_navigation_url, AiSessionMode};
 use crate::browser::registry::AutomationMode;
@@ -104,6 +104,9 @@ pub async fn browser_ai_create(
             reg.navigation_ticket(&tab_id)
                 .map(|existing| existing.id.clone())
         } else {
+            // Bounded (audit 20260903 X-01): every AI `open` is an unprompted content
+            // process, and URL dedupe is defeated by distinct paths.
+            require_ai_tab_capacity(reg.live_ai_tab_count())?;
             reg.create_with_mode(&tab_id, &window_label, mode)?;
             reg.set_policy_epoch(&tab_id, policy.epoch)?;
             None
@@ -165,6 +168,9 @@ pub async fn browser_ai_create(
         }
         _ => None,
     };
+    // `allow_loopback` reaches the native layer so the AI webview's content rule
+    // list (audit 20260903 P-01) is compiled for the same posture the URL was
+    // validated against.
     if let Err(error) = surface::create_with_mode(
         &app,
         tab_id.clone(),
@@ -172,6 +178,7 @@ pub async fn browser_ai_create(
         url,
         mode,
         create_profile,
+        policy.allow_loopback,
     ) {
         state.forget_tab(&tab_id).map_err(lock_failure)?;
         return Err(surface_failure(&error));

@@ -57,10 +57,18 @@ beforeEach(() => {
 });
 
 import { BrowserSurface } from "./BrowserSurface";
+import { __resetNativeViews } from "./useBrowserNativeView";
+import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
+import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
+
+// The window-level services the surface now relies on (audit 2026-09-03 L-01): nav
+// events are consumed once per window and written to the store the surface reads;
+// the removal bus is what destroys a native view.
+let stopServices: (() => void) | null = null;
 
 function seedBrowserTab(url: string): string {
   useTabStore.setState({
@@ -73,9 +81,17 @@ function seedBrowserTab(url: string): string {
 }
 
 beforeEach(() => {
+  stopServices?.();
   invoke.mockClear();
   eventListeners.clear();
+  __resetNativeViews();
   useBrowserUiStore.setState({ entries: {} });
+  const stopEvents = startBrowserTabEvents();
+  const stopLifecycle = startBrowserTabLifecycle();
+  stopServices = () => {
+    stopEvents();
+    stopLifecycle();
+  };
   useBrowserHistoryStore.setState({ byWindow: {} });
   // Layout state is global: a previous test that opened the terminal would otherwise make
   // the next one's "open the terminal" a no-op, and its bounds re-report never fire.
@@ -176,18 +192,40 @@ describe("BrowserSurface", () => {
     expect(useBrowserUiStore.getState().entries[id]?.frozen).toBe(false);
   });
 
-  it("destroys the native webview on unmount", async () => {
+  // Audit 2026-09-03 L-01 — a tab that leaves the screen keeps its page. The view is
+  // hidden under the background occluder on unmount and shown again on remount; it is
+  // destroyed only when the TAB goes (the removal bus → browserTabLifecycle).
+  it("hides the native webview on unmount and shows it again on remount — never destroys it", async () => {
     const id = seedBrowserTab("https://example.com/");
-    const { unmount } = render(<BrowserSurface tabId={id} />);
+    const first = render(<BrowserSurface tabId={id} />);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
     invoke.mockClear();
-    unmount();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
+    first.unmount();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_freeze", { tabId: id }));
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+    // The page's own state survived: the omnibox entry is still there.
+    expect(useBrowserUiStore.getState().entries[id]).toBeDefined();
+
+    invoke.mockClear();
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id }));
+    // No second create: the view was alive the whole time.
+    expect(invoke).not.toHaveBeenCalledWith("browser_create", expect.anything());
   });
 
-  it("destroys only after create settles, so a rapid unmount cannot orphan the webview", async () => {
-    // Hold browser_create pending, unmount, then let create resolve. If destroy
-    // ran before create registered the native view, the view would be orphaned.
+  it("destroys the native webview when the tab is closed", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
+    invoke.mockClear();
+    act(() => {
+      useTabStore.getState().closeTab("main", id);
+    });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
+    expect(useBrowserUiStore.getState().entries[id]).toBeUndefined();
+  });
+
+  it("a close while create is still in flight waits for the create, then destroys — nothing is orphaned", async () => {
     let resolveCreate: () => void = () => {};
     invoke.mockImplementation((cmd: string) =>
       cmd === "browser_create"
@@ -197,11 +235,13 @@ describe("BrowserSurface", () => {
         : Promise.resolve(undefined),
     );
     const id = seedBrowserTab("https://example.com/");
-    const { unmount } = render(<BrowserSurface tabId={id} />);
+    render(<BrowserSurface tabId={id} />);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
     invoke.mockClear();
 
-    unmount();
+    act(() => {
+      useTabStore.getState().closeTab("main", id);
+    });
     await Promise.resolve();
     // create is still pending → destroy must be deferred, not fired against a
     // not-yet-registered webview.
@@ -210,40 +250,6 @@ describe("BrowserSurface", () => {
     resolveCreate();
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: id }));
     invoke.mockImplementation(() => Promise.resolve(undefined)); // restore default
-  });
-
-  // WI-S0.10 — a rapid switch away and back remounts the surface. The first mount's
-  // destroy is deferred until its create settles; if it fires after the SECOND mount
-  // created a new native view for the same tab id, it would tear down the live one and
-  // leave a browser tab showing nothing.
-  it("a stale deferred destroy does not tear down a newer mount's webview", async () => {
-    let resolveCreate: () => void = () => {};
-    invoke.mockImplementation((cmd: string) =>
-      cmd === "browser_create"
-        ? new Promise<void>((r) => {
-            resolveCreate = () => r();
-          })
-        : Promise.resolve(undefined),
-    );
-    const id = seedBrowserTab("https://example.com/");
-
-    // Mount, switch away (unmount with create still in flight), switch back.
-    const first = render(<BrowserSurface tabId={id} />);
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
-    first.unmount();
-    render(<BrowserSurface tabId={id} />);
-
-    invoke.mockClear();
-    // The first mount's create now settles, releasing its deferred destroy.
-    resolveCreate();
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    // That destroy belongs to a mount that no longer owns the tab — it must not fire.
-    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", { tabId: id });
-    invoke.mockImplementation(() => Promise.resolve(undefined));
   });
 
   // WI-S0.9 — every browser command used to `.catch(() => {})`. A failed load was

@@ -170,6 +170,40 @@ describe("vmark.session.get_state", () => {
     });
   });
 
+  // Audit 2026-09-03 X-02: a human tab is the user's browsing; without an
+  // attachment the AI sees only what it needs to ASK for one.
+  it("lists an unattached human tab by id and origin only, and the full page once attached", async () => {
+    const { useBrowserApprovalStore } = await import("@/stores/browserApprovalStore");
+    const id = useTabStore.getState().createBrowserTab(
+      "main",
+      "https://bank.example.com/reset/TOKEN-123?code=abc",
+      "Reset your password",
+      "human",
+    );
+    useTabStore.getState().updateBrowserTab(id, { generation: 2 });
+    useBrowserApprovalStore.setState({ attachments: [] });
+    const before = buildSessionState("0.7.0", "0.3.0").windows[0].tabs.find((t) => t.id === id);
+    expect(before).toEqual({
+      id,
+      kind: "browser",
+      active: true,
+      loading: false,
+      generation: 2,
+      automationMode: "human",
+      attached: false,
+      url: "https://bank.example.com",
+    });
+    expect(before).not.toHaveProperty("title");
+
+    useBrowserApprovalStore.setState({ attachments: [{ tabId: id, generation: 2, once: false }] });
+    const after = buildSessionState("0.7.0", "0.3.0").windows[0].tabs.find((t) => t.id === id);
+    expect(after).toMatchObject({
+      attached: true,
+      title: "Reset your password",
+      url: "https://bank.example.com/reset/TOKEN-123",
+    });
+  });
+
   it("marks only the focused browser webpage active while enumerating every page", () => {
     const first = useTabStore.getState().createBrowserTab(
       "main",

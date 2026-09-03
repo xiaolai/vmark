@@ -43,6 +43,14 @@ export interface PendingApproval {
    * binds role+name instead). (Security review P5, High #1.)
    */
   script?: string;
+  /**
+   * Human-readable form of a bound payload for the prompt (audit 2026-09-03 A-05).
+   * A `type` binds the text it will enter and a `key` the key it will press by
+   * hashing the BUILT script; the script itself is not something to show a user,
+   * so the handler supplies this one-line summary alongside it. Display only —
+   * the binding is `script`.
+   */
+  payloadSummary?: string;
   /** For a profile-OPEN approval (WI-P6.1 H1): the named profile the AI wants to
    *  open. Present only for that approval kind; on "Allow once" it mints a
    *  ProfileOpenApproval instead of a tab-bound one-shot. */

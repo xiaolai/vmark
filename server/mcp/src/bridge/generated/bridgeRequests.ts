@@ -22,6 +22,10 @@ export type BridgeRequest =
       text?: string;
     }
   | {
+      type: 'vmark.browser.close';
+      tabId: string;
+    }
+  | {
       type: 'vmark.browser.console';
       clear?: boolean;
       tabId?: string;
@@ -112,6 +116,7 @@ export type BridgeRequest =
       type: 'vmark.browser.workflow_run';
       allowRepeat?: boolean;
       inputs?: Record<string, string>;
+      resumeRunId?: string;
       source: string;
       tabId?: string;
     }

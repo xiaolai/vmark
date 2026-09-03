@@ -185,13 +185,28 @@ describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
     // First call raises approval; user clicks Allow once; retry runs.
     await handleBrowserExecuteJs("x-a", { tabId: id, script: "return 2+2;" });
     useBrowserApprovalStore.getState().resolveApproval("x-a", "once");
-    invoke.mockResolvedValue(JSON.stringify(4));
+    // The driver returns the WRAPPER's JSON (audit E-04): the user script runs
+    // inside a wrapper that JSON-encodes its value and reports a throw.
+    invoke.mockResolvedValue(JSON.stringify({ ok: true, value: 4 }));
     await handleBrowserExecuteJs("x-b", { tabId: id, script: "return 2+2;" });
     expect(evalCall()).toMatchObject({ operation: "eval", generation: 1 });
-    expect(evalCall()?.script).toBe("return 2+2;");
+    expect(evalCall()?.script).toContain("return 2+2;");
+    expect(evalCall()?.script).toContain("JSON.stringify({ ok: true");
     const res = lastResponse();
     expect(res).toMatchObject({ id: "x-b", success: true });
-    expect((res.data as { untrusted?: boolean }).untrusted).toBe(true);
+    expect((res.data as { untrusted?: boolean; result?: unknown }).untrusted).toBe(true);
+    expect((res.data as { result?: unknown }).result).toBe(4);
+  });
+
+  it("reports a script throw as a failure, never as a value (audit E-04)", async () => {
+    const id = seed();
+    await handleBrowserExecuteJs("x-t1", { tabId: id, script: "return document.foo.bar" });
+    useBrowserApprovalStore.getState().resolveApproval("x-t1", "once");
+    invoke.mockResolvedValue(JSON.stringify({ ok: false, error: "Cannot read properties of undefined" }));
+    await handleBrowserExecuteJs("x-t2", { tabId: id, script: "return document.foo.bar" });
+    const res = lastResponse();
+    expect(res).toMatchObject({ id: "x-t2", success: false });
+    expect(String(res.error)).toContain("script threw");
   });
 
   it("refuses a missing script", async () => {

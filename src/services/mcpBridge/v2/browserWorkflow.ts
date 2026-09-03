@@ -8,6 +8,14 @@
  * allowed). The run itself authorizes every act it performs individually, so
  * `workflow_run` needs no new authorization token — it is orchestration.
  *
+ * Status contract (D1v2, audit 2026-09-03 W-09): `{runId, status, stepCount,
+ * firstStep, completedSteps, skippedSteps, pausedAt?, reasonCode?, reason?,
+ * pendingApproval?, resumedFrom?, stepResults, url}`; the run response carries
+ * `firstStep`. `resumeRunId` continues a paused run (W-05). Cancel answers
+ * `RUN_NOT_FOUND` for an unknown run and `already-terminal` for a finished one
+ * (W-08). A `navigate to` step's loaded page is mirrored onto the tab record so
+ * the next step sees the new generation (W-02).
+ *
  * @coordinates-with services/workflow/workflowRunService.ts — the orchestrator
  * @module services/mcpBridge/v2/browserWorkflow
  */
@@ -16,6 +24,7 @@ import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
 import { urlForAgent } from "@/lib/browser/url";
+import { useTabStore } from "@/stores/tabStore";
 
 // Lazy-loaded: the workflow run engine (executor, registry, reader, sites,
 // selfHeal, …) is only reached when the AI drives a workflow, so it is a
@@ -23,18 +32,22 @@ import { urlForAgent } from "@/lib/browser/url";
 // loads whether or not they ever touch the AI browser.
 const workflowService = () => import("@/services/workflow/workflowRunService");
 
+/** Own-property record of string inputs, or null when malformed. Built on a
+ *  null prototype so a `__proto__` / `constructor` key is an ordinary input name
+ *  (refused downstream as undeclared) rather than a prototype write. */
 function readInputs(raw: unknown): Record<string, string> | null {
   if (raw === undefined) return {};
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (typeof v !== "string") return null;
-    out[k] = v;
+  const out: Record<string, string> = Object.create(null) as Record<string, string>;
+  for (const key of Object.keys(raw)) {
+    const value = (raw as Record<string, unknown>)[key];
+    if (typeof value !== "string") return null;
+    Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
   }
   return out;
 }
 
-/** `vmark.browser.workflow_run` — start a run; returns {runId, steps}. */
+/** `vmark.browser.workflow_run` — start a run; returns {runId, steps, firstStep}. */
 export async function handleBrowserWorkflowRun(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
     if (!browserEnabled()) {
@@ -72,13 +85,21 @@ export async function handleBrowserWorkflowRun(id: string, args: Record<string, 
         return t ? { url: t.url, generation: t.generation } : null;
       },
       inputs,
+      // The store ignores an older generation, so this never regresses a tab the
+      // surface's own navigation mirror already advanced.
+      onNavigated: ({ url, generation }) => useTabStore.getState().updateBrowserTab(tab.tabId, { url, generation }),
       ...(args.allowRepeat === true ? { allowRepeat: true } : {}),
+      ...(typeof args.resumeRunId === "string" && args.resumeRunId !== "" ? { resumeRunId: args.resumeRunId } : {}),
     });
     if (!result.ok) {
       await respond({ id, success: false, error: result.error });
       return;
     }
-    await respond({ id, success: true, data: { runId: result.runId, steps: result.steps, status: "running" } });
+    await respond({
+      id,
+      success: true,
+      data: { runId: result.runId, steps: result.steps, firstStep: result.firstStep, status: "running" },
+    });
   });
 }
 
@@ -96,7 +117,7 @@ export async function handleBrowserWorkflowStatus(id: string, args: Record<strin
     const { workflowRunStatus } = await workflowService();
     const state = workflowRunStatus(args.runId);
     if (state === null) {
-      await respond({ id, success: false, error: "unknown runId" });
+      await respond({ id, success: false, error: "RUN_NOT_FOUND" });
       return;
     }
     await respond({
@@ -105,11 +126,15 @@ export async function handleBrowserWorkflowStatus(id: string, args: Record<strin
       data: {
         runId: state.runId,
         status: state.status,
-        completedSteps: state.completedSteps,
         stepCount: state.stepCount,
+        firstStep: state.firstStep,
+        completedSteps: state.completedSteps,
+        skippedSteps: state.skippedSteps,
         ...(state.pausedAt !== undefined ? { pausedAt: state.pausedAt } : {}),
         ...(state.reasonCode !== undefined ? { reasonCode: state.reasonCode } : {}),
         ...(state.reason !== undefined ? { reason: state.reason } : {}),
+        ...(state.pendingApproval !== undefined ? { pendingApproval: state.pendingApproval } : {}),
+        ...(state.resumedFrom !== undefined ? { resumedFrom: state.resumedFrom } : {}),
         stepResults: state.stepResults,
         url: urlForAgent(resolveBrowserTab(state.tabId)?.url ?? ""),
       },
@@ -129,7 +154,19 @@ export async function handleBrowserWorkflowCancel(id: string, args: Record<strin
       return;
     }
     const { cancelWorkflowRun } = await workflowService();
-    cancelWorkflowRun(args.runId);
-    await respond({ id, success: true, data: { runId: args.runId, status: "cancelled" } });
+    const result = cancelWorkflowRun(args.runId);
+    if (result.outcome === "not-found") {
+      await respond({ id, success: false, error: "RUN_NOT_FOUND" });
+      return;
+    }
+    await respond({
+      id,
+      success: true,
+      data: {
+        runId: args.runId,
+        status: result.outcome === "cancelled" ? "cancelled" : result.status,
+        result: result.outcome,
+      },
+    });
   });
 }

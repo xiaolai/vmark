@@ -103,8 +103,9 @@ impl NavDelegate {
             }
         }
         log::debug!(
-            "[browser] same-document navigation on {}: {url}",
-            ivars.tab_id
+            "[browser] same-document navigation on {}: {}",
+            ivars.tab_id,
+            crate::browser::redact::redact(&url)
         );
         let generation = self.expire_authority(Some(&url));
         let (can_go_back, can_go_forward) = history_state(web_view);

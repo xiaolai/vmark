@@ -3,6 +3,8 @@
 // approval-gated act path, re-deciding authorization PER ATTEMPT (a one-shot
 // spent on step N can never authorize step N+1). Non-executable steps (goal,
 // confirm, api, unparseable action) throw, which the engine turns into a pause.
+// Audit 2026-09-03: W3 (no heal on a ledgered step), W9 (extract data, type
+// script binding), W10 (role-less locators resolve their role from a snapshot).
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const invoke = vi.fn();
@@ -12,7 +14,8 @@ vi.mock("@/services/browser/grantSync", () => ({
   mintOneShotConfirmed: (...a: unknown[]) => mintOneShotConfirmed(...a),
 }));
 
-import { makeRunExecutor } from "./runExecutor";
+import { makeRunExecutor, type RunExecutorContext } from "./runExecutor";
+import { createRunClock } from "./runClock";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import type { WorkflowStep } from "@/lib/browser/workflow/types";
 
@@ -23,15 +26,31 @@ function step(kind: WorkflowStep["kind"], text: string, index = 1): WorkflowStep
   return { kind, text, index, line: index };
 }
 
-function ctx(over: Partial<Parameters<typeof makeRunExecutor>[0]> = {}) {
+function ctx(over: Partial<RunExecutorContext> = {}): RunExecutorContext {
   return {
     tabId: TAB,
     runId: "run-1",
     inputs: {},
     resolveTab: () => ({ url: URL, generation: 3 }),
-    deadlineAt: Number.MAX_SAFE_INTEGER,
+    clock: createRunClock(120_000),
+    signal: new AbortController().signal,
+    leaseEpoch: 0,
+    pollMs: 1,
     ...over,
   };
+}
+
+/** A snapshot eval result in the current `{nodes, truncated, unreachable}` shape. */
+const snapshotOf = (nodes: Array<[string, string]>, extra: Record<string, unknown> = {}) =>
+  JSON.stringify({ nodes: nodes.map(([role, name], i) => ({ role, name, ref: `e${i}` })), truncated: false, unreachable: 0, ...extra });
+
+/** Route `browser_eval` calls: reads answer with `snapshot`, acts with `act(args)`. */
+function routeEval(snapshot: string, act: (args: { role?: string; name?: string; script?: string }) => unknown) {
+  invoke.mockImplementation((cmd: string, args?: { operation?: string; role?: string; name?: string; script?: string }) => {
+    if (cmd !== "browser_eval") return Promise.resolve({});
+    if (args?.operation === "read") return Promise.resolve(snapshot);
+    return Promise.resolve(JSON.stringify(act(args ?? {})));
+  });
 }
 
 beforeEach(() => {
@@ -41,11 +60,13 @@ beforeEach(() => {
 });
 
 describe("extract steps", () => {
-  it("run as a read and succeed without any approval", async () => {
-    invoke.mockResolvedValue(JSON.stringify({ html: "<html><body><p>hi there friend</p></body></html>", truncated: false }));
+  it("run as a read, succeed without any approval, and keep the reader summary as step data (W9)", async () => {
+    invoke.mockResolvedValue(JSON.stringify({ html: "<html><head><title>My Post</title></head><body><article><h1>My Post</h1><p>hi there friend, this is the body</p></article></body></html>", truncated: false }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("extract", "the article body"), 0);
     expect(out.outcome).toBe("success");
+    expect(out.data).toMatchObject({ title: "My Post", truncated: false });
+    expect(typeof out.data?.textLength).toBe("number");
     expect(invoke).toHaveBeenCalledWith("browser_eval", expect.objectContaining({ operation: "read" }));
   });
 });
@@ -60,20 +81,28 @@ describe("action steps — granted origin", () => {
     expect(mintOneShotConfirmed).not.toHaveBeenCalled();
   });
 
-  it("maps an obscured click to failed + postconditionMet:false (retryable)", async () => {
+  it("maps an obscured click to failed + postconditionMet:false (retryable) with the reason", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
     invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x" }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
-    expect(out).toEqual({ outcome: "failed", postconditionMet: false });
+    expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "obscured" });
+  });
+
+  it("maps a disabled target to a stop-and-ask failure", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "disabled" }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    expect(out).toEqual({ outcome: "failed", reason: "disabled" });
   });
 
   it("maps a not-found click to failed + postconditionMet:false", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 }));
+    routeEval(snapshotOf([]), () => ({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Ghost" (button)'), 0);
-    expect(out.outcome).toBe("failed");
+    expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "not-found" });
   });
 
   it("substitutes an {input} into a type value", async () => {
@@ -85,10 +114,12 @@ describe("action steps — granted origin", () => {
     expect(evalCall.script).toContain("Hello World");
   });
 
-  it("throws (→ pause) when an {input} is not supplied", async () => {
+  it("throws (→ pause) when an {input} is not supplied — inherited keys do not count (W9)", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
     const exec = makeRunExecutor(ctx({ inputs: {} }));
-    await expect(exec(step("action", 'type {missing} into "Title"'), 0)).rejects.toThrow(/input/i);
+    await expect(exec(step("action", 'type {missing} into "Title" (textbox)'), 0)).rejects.toThrow(/input/i);
+    await expect(exec(step("action", 'type {constructor} into "Title" (textbox)'), 0)).rejects.toThrow(/input/i);
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
 
@@ -103,11 +134,32 @@ describe("action steps — approval required (P-1)", () => {
     expect(out.outcome).toBe("success");
   });
 
-  it("pauses (throws) at the deadline when no authorization arrives", async () => {
-    const exec = makeRunExecutor(ctx({ deadlineAt: 0 })); // already past
-    await expect(exec(step("action", 'click "Pay" (button)'), 0)).rejects.toThrow(/approval/i);
-    // it raised a run-scoped prompt for the human to act on
-    expect(useBrowserApprovalStore.getState().pending.some((p) => p.runId === "run-1")).toBe(true);
+  it("a type step binds the BUILT script into its prompt and shows the text (A-05)", async () => {
+    const controller = new AbortController();
+    const exec = makeRunExecutor(ctx({ signal: controller.signal, inputs: { title: "Hello" } }));
+    const run = exec(step("action", 'type {title} into "Title" (textbox)'), 0);
+    await new Promise((r) => setTimeout(r, 5));
+    const prompt = useBrowserApprovalStore.getState().pending.find((p) => p.runId === "run-1");
+    expect(prompt).toMatchObject({ operation: "type", target: { role: "textbox", name: "Title" }, payloadSummary: 'Text: "Hello"' });
+    expect(prompt?.script).toContain("Hello");
+    controller.abort();
+    await expect(run).rejects.toBeInstanceOf(Error);
+  });
+
+  it("an already-aborted run raises no prompt and acts on nothing", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const exec = makeRunExecutor(ctx({ signal: controller.signal }));
+    await expect(exec(step("action", 'click "Pay" (button)'), 0)).rejects.toBeInstanceOf(Error);
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("a spent run budget pauses as deadline before any act", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    const exec = makeRunExecutor(ctx({ clock: createRunClock(0) }));
+    await expect(exec(step("action", 'click "Pay" (button)'), 0)).rejects.toMatchObject({ reasonCode: "deadline" });
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
 
@@ -121,6 +173,13 @@ describe("non-executable steps pause the run", () => {
     const exec = makeRunExecutor(ctx());
     await expect(exec(step(kind, text), 0)).rejects.toThrow();
   });
+
+  it("a malformed target names the defect instead of acting on an empty name (W12)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    const exec = makeRunExecutor(ctx());
+    await expect(exec(step("action", 'click ""'), 0)).rejects.toThrow(/malformed-target/);
+    expect(invoke).not.toHaveBeenCalled();
+  });
 });
 
 // WI-NB6.4 / P-3 — self-heal: a not-found click retries against a same-role
@@ -130,18 +189,12 @@ describe("non-executable steps pause the run", () => {
 describe("self-heal (WI-NB6.4 / P-3)", () => {
   it("retries a not-found click against a fuzzy-matched same-role locator", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockImplementation((cmd: string, args?: { script?: string; operation?: string; name?: string }) => {
-      if (cmd === "browser_eval" && args?.operation === "read") {
-        return Promise.resolve(JSON.stringify([{ role: "button", name: "Publish now", ref: "e1" }]));
-      }
-      if (cmd === "browser_eval" && args?.name === "Publish now") {
-        return Promise.resolve(JSON.stringify({ found: true, clicked: true }));
-      }
-      return Promise.resolve(JSON.stringify({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 }));
-    });
+    routeEval(snapshotOf([["button", "Publish now"]]), (args) =>
+      args.name === "Publish now" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
+    );
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
-    expect(out.outcome).toBe("success");
+    expect(out).toMatchObject({ outcome: "success", data: { healedFrom: "Publish", healedTo: "Publish now" } });
   });
 
   it("does not heal an obscured click (page state, not a drifted locator)", async () => {
@@ -150,13 +203,13 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
     invoke.mockImplementation((cmd: string, args?: { operation?: string }) => {
       if (args?.operation === "read") {
         snapshot();
-        return Promise.resolve(JSON.stringify([]));
+        return Promise.resolve(snapshotOf([]));
       }
       return Promise.resolve(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x" }));
     });
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
-    expect(out).toEqual({ outcome: "failed", postconditionMet: false });
+    expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "obscured" });
     expect(snapshot).not.toHaveBeenCalled(); // heal never attempted
   });
 
@@ -167,6 +220,105 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
     expect(out.outcome).toBe("failed");
     expect(invoke.mock.calls.some((c) => (c[1] as { operation?: string })?.operation === "read")).toBe(false);
+  });
+
+  it("never heals a step whose write is already in the ledger — the post-action page shows the antonym (W3)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    const reads = vi.fn();
+    invoke.mockImplementation((cmd: string, args?: { operation?: string }) => {
+      if (args?.operation === "read") {
+        reads();
+        return Promise.resolve(snapshotOf([["button", "Publish now"]]));
+      }
+      return Promise.resolve(JSON.stringify({ found: false, clicked: false }));
+    });
+    const exec = makeRunExecutor(ctx({ isWriteLedgered: (index) => index === 1 }));
+    const out = await exec(step("action", 'click "Publish" (button)', 1), 0);
+    expect(out).toMatchObject({ outcome: "failed", postconditionMet: false });
+    expect(reads).not.toHaveBeenCalled();
+  });
+
+  it("does not heal onto an antonym (W3): the failed control's inverse is left alone", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    const acted: string[] = [];
+    routeEval(snapshotOf([["button", "Unpublish"]]), (args) => {
+      acted.push(args.name ?? "");
+      return { found: false, clicked: false };
+    });
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    expect(out.outcome).toBe("failed");
+    expect(acted).toEqual(["Publish"]);
+  });
+});
+
+// Audit 2026-09-03 S-02 / W10 — a role-less `click "name"` resolves its role
+// from a fresh snapshot before authorising, so the prompt names a real control
+// and the act script never receives the unmatchable `role:""`.
+describe("role-less locators (W10)", () => {
+  it("resolves the single role carrying the name and acts with it", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([["link", "Home"], ["button", "Publish"]]), (args) => ({ found: true, clicked: args.role === "button" }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish"'), 0);
+    expect(out).toEqual({ outcome: "success", postconditionMet: true });
+    const act = invoke.mock.calls.find((c) => (c[1] as { operation?: string }).operation === "click")?.[1] as { role: string };
+    expect(act.role).toBe("button");
+  });
+
+  it("a type step with no role resolves the field's role the same way", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
+    routeEval(snapshotOf([["searchbox", "Search"]]), (args) => ({ found: true, typed: args.role === "searchbox" }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'type "cats" into "Search"'), 0);
+    expect(out).toEqual({ outcome: "success", postconditionMet: true });
+  });
+
+  it("several roles share the name → failed as ambiguous, stop and ask (no coin flip, no act)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([["link", "Publish"], ["button", "Publish"]]), () => ({ found: true, clicked: true }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish"'), 0);
+    expect(out.outcome).toBe("failed");
+    expect(out.postconditionMet).toBeUndefined();
+    expect(out.reason).toMatch(/^ambiguous/);
+    expect(invoke.mock.calls.filter((c) => (c[1] as { operation?: string }).operation === "click")).toHaveLength(0);
+  });
+
+  it("no node carries the name → the ordinary not-found failure, nothing acted", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([["button", "Other"]]), () => ({ found: true, clicked: true }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish"'), 0);
+    expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "not-found" });
+    expect(invoke.mock.calls.filter((c) => (c[1] as { operation?: string }).operation === "click")).toHaveLength(0);
+  });
+
+  it("a miss on a truncated or partly unreachable snapshot stops and asks", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([], { truncated: true }), () => ({ found: true, clicked: true }));
+    const exec = makeRunExecutor(ctx());
+    expect(await exec(step("action", 'click "Publish"'), 0)).toEqual({ outcome: "failed", reason: "snapshot-truncated" });
+    routeEval(snapshotOf([], { unreachable: 2 }), () => ({ found: true, clicked: true }));
+    expect(await exec(step("action", 'click "Publish"'), 0)).toEqual({ outcome: "failed", reason: "snapshot-unreachable" });
+  });
+
+  it("an unreadable snapshot (eval timeout) is unknown → pause, never an act", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(JSON.stringify("<timeout>"), () => ({ found: true, clicked: true }));
+    const exec = makeRunExecutor(ctx());
+    await expect(exec(step("action", 'click "Publish"'), 0)).rejects.toThrow(/snapshot/);
+  });
+
+  it("the role is resolved BEFORE authorising, so the prompt names the real control", async () => {
+    const controller = new AbortController();
+    routeEval(snapshotOf([["button", "Publish"]]), () => ({ found: true, clicked: true }));
+    const exec = makeRunExecutor(ctx({ signal: controller.signal }));
+    const run = exec(step("action", 'click "Publish"'), 0);
+    await new Promise((r) => setTimeout(r, 5));
+    expect(useBrowserApprovalStore.getState().pending.find((p) => p.runId === "run-1")?.target).toEqual({ role: "button", name: "Publish" });
+    controller.abort();
+    await expect(run).rejects.toBeInstanceOf(Error);
   });
 });
 
@@ -188,10 +340,16 @@ describe("P-1: one-shot does not carry between acts (WI-NB6.5)", () => {
     expect(first.outcome).toBe("success");
     expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(0);
 
-    // A SECOND Pay click has no authorization: with a past deadline it must
-    // raise a fresh prompt and pause, never silently re-use the spent one-shot.
-    const exec2 = makeRunExecutor(ctx({ deadlineAt: 0 }));
-    await expect(exec2(step("action", 'click "Pay" (button)'), 1)).rejects.toThrow(/approval/i);
+    // A SECOND Pay click has no authorization: it must raise a fresh prompt and
+    // wait, never silently re-use the spent one-shot.
+    const controller = new AbortController();
+    const exec2 = makeRunExecutor(ctx({ signal: controller.signal }));
+    const second = exec2(step("action", 'click "Pay" (button)'), 1);
+    await new Promise((r) => setTimeout(r, 5));
+    expect(useBrowserApprovalStore.getState().pending.some((p) => p.runId === "run-1")).toBe(true);
+    expect(invoke.mock.calls.filter((c) => (c[1] as { operation?: string }).operation === "click")).toHaveLength(1);
+    controller.abort();
+    await expect(second).rejects.toBeInstanceOf(Error);
   });
 
   it("a granted standing origin authorizes every attempt (retry re-decides, still allowed)", async () => {

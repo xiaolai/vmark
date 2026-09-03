@@ -23,22 +23,24 @@ import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useBrowserSessionStore } from "@/stores/browserSessionStore";
 import { originForAgent } from "@/lib/browser/url";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
+import { mintOneShotConfirmed } from "@/services/browser/grantSync";
+import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserGate, invokeAttached } from "./browserAccess";
 import { requireHumanAttachment } from "./browserReadClass";
+import { readOperationArgs } from "./readOperationArgs";
 
 /** A handle is a short label (keychain account + AI-facing token); keep it to the
  *  same safe charset the Rust layer enforces so a rejection is caught up front. */
-function readHandle(args: Record<string, unknown>): string | null {
-  const h = typeof args.handle === "string" ? args.handle.trim() : "";
+function readHandle(operation: "vmark.browser.session.save" | "vmark.browser.session.load", args: Record<string, unknown>): string | null {
+  const wire = readOperationArgs(operation, args);
+  const h = typeof wire.handle === "string" ? wire.handle.trim() : "";
   if (!h || h.length > 128) return null;
   return /^[A-Za-z0-9._-]+$/.test(h) ? h : null;
 }
 
 async function resolveForSession(id: string, args: Record<string, unknown>): Promise<BrowserTarget | null> {
-  if (!browserEnabled()) {
-    await respond({ id, success: false, error: "BROWSER_DISABLED" });
-    return null;
-  }
+  if (!(await browserGate(id))) return null;
   const tabIdArg = readTabIdArg(args);
   if (tabIdArg === null) {
     await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -58,7 +60,7 @@ async function resolveForSession(id: string, args: Record<string, unknown>): Pro
 async function approveSession(id: string, tab: BrowserTarget, action: string, handle: string): Promise<boolean> {
   const payload = `${action}:${handle}`;
   const store = useBrowserApprovalStore.getState();
-  const ok = store.consumeOneShot(tab.url, "session", undefined, tab.tabId, payload);
+  const ok = store.consumeOneShot(tab.url, "session", undefined, tab.tabId, payload, tab.generation);
   if (!ok) {
     const queued = store.requestApproval(id, tab.url, "session", undefined, tab.tabId, tab.generation, payload);
     // No prompt exists to approve: a needsApproval envelope would be a lie.
@@ -80,6 +82,26 @@ async function approveSession(id: string, tab: BrowserTarget, action: string, ha
     });
     return false;
   }
+  // One mint path (audit A-04): await the driver's confirmation of the mirror's
+  // spent copy before invoking, else the command is refused as unauthorized.
+  const pattern = grantPatternFor(tab.url);
+  const minted =
+    pattern !== null &&
+    (await mintOneShotConfirmed({
+      originPattern: pattern,
+      operation: "session",
+      tabId: tab.tabId,
+      generation: tab.generation,
+      script: payload,
+    }));
+  if (!minted) {
+    await respond({
+      id,
+      success: false,
+      error: `the driver refused the 'session' authorization — the page may have navigated; retry to be prompted again`,
+    });
+    return false;
+  }
   return true;
 }
 
@@ -88,18 +110,21 @@ export async function handleBrowserSessionSave(id: string, args: Record<string, 
   return wrapHandler(id, async () => {
     const tab = await resolveForSession(id, args);
     if (!tab) return;
-    const handle = readHandle(args);
+    const handle = readHandle("vmark.browser.session.save", args);
     if (!handle) {
       await respond({ id, success: false, error: "session.save requires a 'handle' matching [A-Za-z0-9._-] (1..128)" });
       return;
     }
     if (!(await approveSession(id, tab, "save", handle))) return;
     // Returns a value-free summary (counts) — never a cookie/localStorage value.
-    const summary = await invoke<string>("browser_save_storage_state", {
-      tabId: tab.tabId,
-      generation: tab.generation,
-      handle,
-    });
+    // The attachment mirror follows the driver's consume (`invokeAttached`).
+    const summary = await invokeAttached(tab, () =>
+      invoke<string>("browser_save_storage_state", {
+        tabId: tab.tabId,
+        generation: tab.generation,
+        handle,
+      }),
+    );
     // Record in the metadata-only registry so the management UI can list it.
     useBrowserSessionStore.getState().recordSession(handle, summary, Date.now());
     await respond({ id, success: true, data: { handle, summary } });
@@ -111,14 +136,16 @@ export async function handleBrowserSessionLoad(id: string, args: Record<string, 
   return wrapHandler(id, async () => {
     const tab = await resolveForSession(id, args);
     if (!tab) return;
-    const handle = readHandle(args);
+    const handle = readHandle("vmark.browser.session.load", args);
     if (!handle) {
       await respond({ id, success: false, error: "session.load requires a 'handle' matching [A-Za-z0-9._-] (1..128)" });
       return;
     }
     if (!(await approveSession(id, tab, "load", handle))) return;
     // The AI gets no values back — just confirmation the session was restored.
-    await invoke("browser_load_storage_state", { tabId: tab.tabId, generation: tab.generation, handle });
+    await invokeAttached(tab, () =>
+      invoke("browser_load_storage_state", { tabId: tab.tabId, generation: tab.generation, handle }),
+    );
     await respond({ id, success: true, data: { loaded: true, handle } });
   });
 }

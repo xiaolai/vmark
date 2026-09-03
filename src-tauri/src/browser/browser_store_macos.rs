@@ -16,7 +16,8 @@
 //!   goal not met — stated in `store_policy`). This costs existing Human-tab
 //!   logins a one-time migration.
 //!
-//! `dataStoreForIdentifier:` is macOS 14+ (VMark's floor is 10.15). Below 14 a
+//! `dataStoreForIdentifier:` is macOS 14+ (VMark's floor is 13.4 —
+//! `tauri.conf.json` `minimumSystemVersion`). Below 14 a
 //! named profile gets a SEPARATE non-persistent store — isolated, just not
 //! persistent — NEVER the shared singleton (a pre-14 collapse into the singleton
 //! would break cross-profile isolation; sec review WI-P6.1 H2).

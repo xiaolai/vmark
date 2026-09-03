@@ -3,8 +3,8 @@
 // finalize stop. Mocks the approval store, the recorder session, and the bridge.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const respondMock = vi.fn(async () => {});
-const invokeMock = vi.fn(async () => "ok");
+const respondMock = vi.fn<(...a: unknown[]) => Promise<void>>(async () => {});
+const invokeMock = vi.fn<(...a: unknown[]) => Promise<unknown>>(async () => "ok");
 
 vi.mock("@/services/mcpBridge/utils", () => ({ respond: (...a: unknown[]) => respondMock(...a) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...a) }));
@@ -38,16 +38,23 @@ vi.mock("./browserHelpers", () => ({
   resolveBrowserTab: () => tab,
 }));
 
-const isRecording = vi.fn(() => false);
-const startRecorderSession = vi.fn(() => ({ ok: true }));
-const stopRecorderSession = vi.fn(async () => ({ source: "SRC", inputs: ["a"], eventCount: 3, capped: false }));
+type StopResult = { source: string; inputs: string[]; eventCount: number; capped: boolean } | null;
+const isRecording = vi.fn<(tabId: string) => boolean>(() => false);
+const startRecorderSession = vi.fn<(args: StartRecorderArgs) => { ok: true } | { ok: false; error: string }>(() => ({ ok: true }));
+const stopRecorderSession = vi.fn<(tabId: string) => Promise<StopResult>>(async () => ({
+  source: "SRC",
+  inputs: ["a"],
+  eventCount: 3,
+  capped: false,
+}));
 vi.mock("@/services/workflow/recorderSession", () => ({
-  isRecording: (...a: unknown[]) => isRecording(...a),
-  startRecorderSession: (...a: unknown[]) => startRecorderSession(...a),
-  stopRecorderSession: (...a: unknown[]) => stopRecorderSession(...a),
+  isRecording: (...a: Parameters<typeof isRecording>) => isRecording(...a),
+  startRecorderSession: (...a: Parameters<typeof startRecorderSession>) => startRecorderSession(...a),
+  stopRecorderSession: (...a: Parameters<typeof stopRecorderSession>) => stopRecorderSession(...a),
 }));
 
 import { handleBrowserWorkflowRecord } from "./browserRecord";
+import type { RecorderDeps, StartRecorderArgs } from "@/services/workflow/recorderSession";
 
 function lastRespond(): { success?: boolean; error?: string; data?: Record<string, unknown> } {
   return respondMock.mock.calls.at(-1)?.[0] as never;
@@ -104,9 +111,26 @@ describe("workflow_record — start (consent-gated)", () => {
       expect.objectContaining({ tabId: "t1", operation: "record", generation: 5 }),
     );
     expect(startRecorderSession).toHaveBeenCalledWith(
-      expect.objectContaining({ tabId: "t1", site: "blog", generation: 5 }),
+      expect.objectContaining({ tabId: "t1", site: "blog", generation: 5, startUrl: "https://x.test/app" }),
     );
     expect(lastRespond()).toMatchObject({ success: true, data: { status: "recording", tabId: "t1" } });
+  });
+
+  it("wires a drain that drops page-forged navigate events and never reads a url (S-03)", async () => {
+    seedRecordOneShot();
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    const deps: RecorderDeps = startRecorderSession.mock.calls[0][0].deps;
+    invokeMock.mockResolvedValueOnce(
+      JSON.stringify({
+        events: [
+          { type: "navigate", url: "https://evil.example/pwn" },
+          { type: "click", role: "button", name: "Go", url: "https://evil.example/x" },
+        ],
+      }),
+    );
+    const events = await deps.drainOnce("t1", 5);
+    expect(events).toEqual([{ type: "click", role: "button", name: "Go" }]);
+    expect(invokeMock).toHaveBeenLastCalledWith("browser_eval", expect.objectContaining({ operation: "read", generation: 5 }));
   });
 
   it("refuses a duplicate start before arming", async () => {

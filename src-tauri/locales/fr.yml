@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "L'IA n'est pas autorisée à faire cela sur cette page"
   browser.attachmentRequired: "Attachez l'IA à cet onglet avant qu'elle puisse agir dessus"
   browser.profileOriginConfined: "L'IA ne peut lire que la page approuvée pour ce profil"
+  browser.evalTimeout: "Le script de la page n'a pas terminé à temps"
+  browser.evalFailed: "Le script de la page a échoué"
+  browser.evalNoValue: "Le script de la page n'a renvoyé aucune valeur"
+  browser.evalResultTooLarge: "Le résultat du script de la page est trop volumineux pour être renvoyé"
+  browser.tabLimit: "L'IA a déjà %{limit} onglets de navigateur ouverts : fermez-en un d'abord"
+  browser.dialogNotOwned: "Cette boîte de dialogue de la page appartient à une autre fenêtre"
+  browser.contentRulesFailed: "Les règles de destination du navigateur IA n'ont pas pu être installées"
 
   # === Hot exit ===
   hotExit.noWindows: "Aucune fenêtre de document à capturer"

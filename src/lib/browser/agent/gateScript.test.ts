@@ -56,3 +56,29 @@ describe("buildGateSignalsScript", () => {
     expect(s).toMatchObject({ challengeWidget: false, passwordField: false });
   });
 });
+
+// S-05: the probe used `document.querySelectorAll`, which never enters a shadow
+// root, so a login form or challenge widget rendered by a web component was
+// invisible to gate detection. It now walks the composed tree.
+describe("gate signals through open shadow roots (S-05)", () => {
+  function execLive(): GateSignals {
+    const fn = new Function("document", "location", buildGateSignalsScript());
+    return JSON.parse(fn(document, { href: "https://x.example.com/p" }) as string) as GateSignals;
+  }
+
+  it("sees a password field inside an open shadow root", () => {
+    document.body.innerHTML = `<div id="host"></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<form><input type="password"></form>`;
+    expect(execLive().passwordField).toBe(true);
+  });
+
+  it("sees a challenge frame inside an open shadow root, unless its host is hidden", () => {
+    document.body.innerHTML = `<div id="host"></div>`;
+    const host = document.getElementById("host")!;
+    host.attachShadow({ mode: "open" }).innerHTML =
+      `<iframe src="https://challenges.cloudflare.com/turnstile/v0/x" title="challenge"></iframe>`;
+    expect(execLive().challengeWidget).toBe(true);
+    host.setAttribute("hidden", "");
+    expect(execLive().challengeWidget).toBe(false);
+  });
+});

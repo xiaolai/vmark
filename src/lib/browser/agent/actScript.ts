@@ -33,6 +33,15 @@
  * ref store (`LIB_REFS`) mirrors `refs.ts` on the same `document.__vmarkRefStore`,
  * so the two agree and `actScript.test.ts` keeps them from drifting.
  *
+ * Audit 2026-09-03: every walk is the COMPOSED tree through open shadow roots
+ * (S-05); the snapshot is an object `{nodes, truncated, unreachable}` (S-05/S-06);
+ * a role/name that resolves to more than one interactable element is refused as
+ * `ambiguous` with ref'd `candidates` instead of clicking the first in DOM order
+ * (S-03); `offscreen`, `disabled`+`detail:'inert'`, `upload` and `rejected-value`
+ * are the new refusals (S-04/S-08/S-10). The role/name builders take an optional
+ * `generation` so candidate refs are minted in the tab's store; without one they
+ * are minted against the store's live generation, never resetting it.
+ *
  * @coordinates-with lib/browser/agent/aria.ts — same role/name/state/visibility rules
  * @coordinates-with lib/browser/agent/refs.ts — the mirrored per-node ref store
  * @coordinates-with src-tauri browser_eval — evaluates these scripts
@@ -45,28 +54,60 @@ import { AGENT_LIB } from "./agentLib";
 // keep their import path.
 export { AGENT_LIB };
 
-/** Script: read the page as a flat ARIA snapshot (`[{role,name,ref,…},…]`).
- *  `generation` scopes the ref store, so refs reset across a navigation. */
+/**
+ * Script: read the page as a flat ARIA snapshot. `generation` scopes the ref
+ * store, so refs reset across a navigation.
+ *
+ * Returns `JSON.stringify({nodes, truncated, unreachable})` (S-05 / S-06):
+ *   - `nodes: [{role, name, ref, level?, checked?, disabled?, upload?}, …]` — at
+ *     most 2000, in composed document order (an element, its open shadow tree,
+ *     then its light children); `name` is at most 200 chars and is the exact
+ *     string a `{role, name}` act matches; `upload:true` marks a file input,
+ *     which is perceivable but never actable;
+ *   - `truncated: boolean` — true when the node cap or a name cap bit;
+ *   - `unreachable: {closedShadowRoots, frames}` — what the walk could not
+ *     enter: `<iframe>`/`<frame>` elements (evals target the main frame), and
+ *     custom-element hosts exposing no open shadow root (a closed root is
+ *     undetectable, so this is the population where one can hide, not a count).
+ * The TypeScript twin of a node is `AriaNode` / `AriaSnapshot` in `aria.ts`.
+ */
 export function buildSnapshotScript(generation = 0): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkSnapshot(${Number(generation)}));`;
 }
 
+/** `generation` for a role/name act: the tab's generation when the caller has
+ *  it, else `null` so candidate refs are minted against the store's live one. */
+function genArg(generation: number | undefined): string {
+  return generation === undefined ? "null" : String(Number(generation));
+}
+
 /** Script: click the element with `role` + accessible `name` (exact). Reports
- *  `{found, clicked, reason?}` — a disabled target is never a click. */
-export function buildClickScript(role: string, name: string): string {
-  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkClick(${JSON.stringify(role)}, ${JSON.stringify(name)}));`;
+ *  `{found, clicked, matchedTotal, matchedVisible, reason?, detail?, by?,
+ *  candidates?}`. Refusals: `disabled` (with `detail:'inert'` for an inert or
+ *  pointer-events:none target), `hidden`, `ambiguous` (more than one interactable
+ *  match — `candidates:[{ref,text}]` name them for a ref act under a standing
+ *  grant), `upload` (a file input, or a click that would reach one), `offscreen`,
+ *  `obscured` (+ `by`). Pass the tab's `generation` so candidate refs live in its
+ *  ref store. */
+export function buildClickScript(role: string, name: string, generation?: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkClick(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${genArg(generation)}));`;
 }
 
 /** Script: replace the value of the field with `role` + `name` and fire
- *  input/change. Reports `{found, typed, reason?}` — a disabled, readonly, or
- *  non-editable target is refused, never silently mutated. */
-export function buildTypeScript(role: string, name: string, text: string): string {
-  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkType(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${JSON.stringify(text)}));`;
+ *  input/change. Reports `{found, typed, matchedTotal, matchedVisible, reason?,
+ *  detail?, candidates?}`. Refusals: `disabled` (+ `detail:'inert'`), `hidden`,
+ *  `ambiguous`, `upload`, `readonly`, `not-editable`, `no-such-option`, and
+ *  `rejected-value` when the engine sanitised the text away (the prior value is
+ *  restored and no event fires). A contenteditable whose editor cancels
+ *  `beforeinput` reports `typed:true, detail:'editor-handled'`. */
+export function buildTypeScript(role: string, name: string, text: string, generation?: number): string {
+  return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkType(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${JSON.stringify(text)}, ${genArg(generation)}));`;
 }
 
 /** Script: click the element bound to `ref` at `generation` (exact, order-
  *  independent). Resolves nothing — reports `{found:false}` — if the ref is stale
- *  (the store reset on navigation), so an old handle can never hit a new element. */
+ *  (the store reset on navigation), so an old handle can never hit a new element.
+ *  Same refusal vocabulary as `buildClickScript` minus `ambiguous` and the counts. */
 export function buildClickByRefScript(ref: string, generation: number): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkClickRef(${JSON.stringify(ref)}, ${Number(generation)}));`;
 }
@@ -89,7 +130,8 @@ export interface WaitCondition {
 
 /** Script: a single SYNCHRONOUS check of `condition` (no observer, no blocking —
  *  the frontend polls this). Reports `{matched}` and, for a ref/role condition,
- *  the matched `ref`. A stale ref (store reset on navigation) is `matched:false`. */
+ *  the matched `ref`. A stale ref (store reset on navigation) is `matched:false`.
+ *  Role and text conditions see through open shadow roots (S-05). */
 export function buildWaitConditionScript(condition: WaitCondition, generation: number): string {
   const gen = Number(generation);
   let expr: string;
@@ -100,7 +142,7 @@ export function buildWaitConditionScript(condition: WaitCondition, generation: n
     expr = `(function(){var m=__vmarkQuery(${JSON.stringify(condition.role)},${nameArg});return m.length?{matched:true,ref:__vmarkRefFor(m[0],${gen})}:{matched:false};})()`;
   } else {
     const text = JSON.stringify(condition.text ?? "");
-    expr = `(function(){var b=document.body,t=(b&&(b.innerText||b.textContent))||'';return {matched:t.indexOf(${text})>=0};})()`;
+    expr = `(function(){return {matched:__vmarkPageText().indexOf(${text})>=0};})()`;
   }
   return `${AGENT_LIB}\nreturn JSON.stringify(${expr});`;
 }

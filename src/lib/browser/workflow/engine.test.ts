@@ -1,7 +1,7 @@
 // @vitest-environment node
 // WI-4.2 / R8a — workflow execution engine: tiers, retry, write-safety, lease
 import { describe, it, expect, vi } from "vitest";
-import { runWorkflow, type EngineStep } from "./engine";
+import { runWorkflow, WorkflowPause, type EngineStep } from "./engine";
 
 const read = (id: string): EngineStep => ({ id, write: false });
 const write = (id: string): EngineStep => ({ id, write: true });
@@ -192,5 +192,50 @@ describe("runWorkflow — non-retryable steps (human gates)", () => {
     const exec = vi.fn().mockResolvedValue({ outcome: "success" });
     const res = await runWorkflow([gate], exec);
     expect(res).toEqual({ status: "completed", completedSteps: 1 });
+  });
+});
+
+// Audit 2026-09-03 W1/W6 — an executor can pause the run with a SPECIFIC code by
+// throwing `WorkflowPause` (deadline, queue-full, dropped-by-navigation, denied,
+// lease-lost, cancelled). A plain throw stays the generic UNKNOWN → needs-human.
+describe("WorkflowPause (executor-signalled pause)", () => {
+  it("pauses with the executor's own reasonCode and message, without retrying", async () => {
+    const exec = vi.fn().mockRejectedValue(new WorkflowPause("deadline", "the run's 120 s budget is spent"));
+    const res = await runWorkflow([read("a"), write("b")], exec, { maxRetries: 2 });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(res).toEqual({
+      status: "paused",
+      reasonCode: "deadline",
+      reason: "the run's 120 s budget is spent",
+      completedSteps: 0,
+      pausedAt: "a",
+    });
+  });
+
+  it("a pause on a READ step is never retried either (a pause is not a failure)", async () => {
+    const exec = vi
+      .fn()
+      .mockResolvedValueOnce({ outcome: "success" })
+      .mockRejectedValueOnce(new WorkflowPause("queue-full", "no prompt could be raised"));
+    const res = await runWorkflow([read("a"), read("b")], exec, { maxRetries: 2 });
+    expect(exec).toHaveBeenCalledTimes(2);
+    expect(res).toMatchObject({ status: "paused", reasonCode: "queue-full", pausedAt: "b", completedSteps: 1 });
+  });
+
+  it("a plain error still maps to the generic needs-human pause", async () => {
+    const exec = vi.fn().mockRejectedValue(new Error("boom"));
+    const res = await runWorkflow([write("a")], exec);
+    expect(res).toMatchObject({ status: "paused", reasonCode: "needs-human" });
+    expect(res.reason).toContain("boom");
+  });
+
+  it("a lease lost during the attempt outranks the executor's pause code", async () => {
+    let held = true;
+    const exec = vi.fn().mockImplementation(async () => {
+      held = false;
+      throw new WorkflowPause("denied", "the user denied the click");
+    });
+    const res = await runWorkflow([write("a")], exec, { leaseHeld: () => held });
+    expect(res).toMatchObject({ status: "paused", reasonCode: "lease-lost" });
   });
 });

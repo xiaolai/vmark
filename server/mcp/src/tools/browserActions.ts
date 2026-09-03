@@ -10,6 +10,7 @@ import { VMarkMcpServer } from '../server.js';
 import type { ToolArgs } from './toolArgs.js';
 import {
   MAX_SCRIPT_BYTES,
+  MAX_WAIT_MS,
   boundedTimeout,
   readProfile,
   withinScriptBytes,
@@ -98,7 +99,7 @@ export async function runBrowserAction(
         }
         const wait = boundedTimeout(args.timeoutMs);
         if (args.timeoutMs !== undefined && wait === undefined) {
-          return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          return VMarkMcpServer.errorResult(`timeoutMs must be an integer from 1 to ${MAX_WAIT_MS}`);
         }
         // A supplied-but-invalid profile is refused, never dropped: silently
         // opening an anonymous tab loses the login the caller asked to reuse.
@@ -119,7 +120,7 @@ export async function runBrowserAction(
         }
         const wait = boundedTimeout(args.timeoutMs);
         if (args.timeoutMs !== undefined && wait === undefined) {
-          return VMarkMcpServer.errorResult('timeoutMs must be an integer from 1 to 12000');
+          return VMarkMcpServer.errorResult(`timeoutMs must be an integer from 1 to ${MAX_WAIT_MS}`);
         }
         const data = await server.sendBridgeRequest({
           type: 'vmark.browser.navigate',
@@ -127,6 +128,13 @@ export async function runBrowserAction(
           url: args.url,
           ...(wait === undefined ? {} : { timeoutMs: wait }),
         });
+        return VMarkMcpServer.successJsonResult(data);
+      }
+      if (args.action === 'close') {
+        if (tabId === undefined) {
+          return VMarkMcpServer.errorResult('close requires the `tabId` of an AI-owned tab');
+        }
+        const data = await server.sendBridgeRequest({ type: 'vmark.browser.close', tabId });
         return VMarkMcpServer.successJsonResult(data);
       }
       if (args.action === 'style') {
@@ -198,6 +206,7 @@ export async function runBrowserAction(
           source: args.source,
           ...(args.inputs !== undefined ? { inputs: args.inputs as Record<string, string> } : {}),
           ...(args.allowRepeat === true ? { allowRepeat: true } : {}),
+          ...(typeof args.resumeRunId === 'string' && args.resumeRunId !== '' ? { resumeRunId: args.resumeRunId } : {}),
         });
         return VMarkMcpServer.successJsonResult(data);
       }

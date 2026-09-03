@@ -80,10 +80,15 @@ fn read_only_browser_operations() {
     assert!(is_read_only_operation("vmark.browser.wait_for"));
     assert!(is_read_only_operation("vmark.browser.query"));
     assert!(is_read_only_operation("vmark.browser.screenshot"));
-    // `vmark.browser.wait` is write-class (audit 20260729): its frontend
-    // handler activates the target window and creates/attaches the native
-    // browser view — real mutations that must serialize.
-    assert!(!is_read_only_operation("vmark.browser.wait"));
+    // `vmark.browser.wait` was write-class (audit 20260729) while its frontend
+    // handler activated the target window and created the native view. Since
+    // the 2026-09-03 audit (L-03) it only observes a navigation ticket, so it is
+    // read-class like its siblings — and the manifest parity test on the TS side
+    // (operationManifestParity.test.ts) pins the two lists against each other.
+    assert!(is_read_only_operation("vmark.browser.wait"));
+    // Write-class browser ops stay serialized.
+    assert!(!is_read_only_operation("vmark.browser.act"));
+    assert!(!is_read_only_operation("vmark.browser.close"));
 }
 
 #[test]

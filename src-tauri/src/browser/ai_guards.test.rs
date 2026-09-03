@@ -160,17 +160,33 @@ fn the_approval_refusal_serializes_to_a_branchable_wire_value() {
     );
 }
 
+/// Register `tab_id` as a shared AI tab owned by `window`, and give that window a
+/// standing `navigate` grant for `origin`.
+fn shared_tab_with_navigate_grant(
+    surface: &BrowserSurface,
+    tab_id: &str,
+    window: &str,
+    origin: &str,
+) {
+    surface
+        .registry
+        .lock()
+        .expect("lock registry")
+        .create_with_mode(tab_id, window, AutomationMode::AiShared)
+        .expect("register tab");
+    surface.grants.lock().expect("lock grants").insert(
+        window.to_string(),
+        vec![StandingGrant {
+            origin_pattern: origin.into(),
+            operations: vec!["navigate".into()],
+        }],
+    );
+}
+
 #[test]
 fn a_standing_grant_authorizes_shared_navigation_without_approval() {
     let surface = BrowserSurface::default();
-    surface
-        .grants
-        .lock()
-        .expect("lock grants")
-        .push(StandingGrant {
-            origin_pattern: "https://example.com".into(),
-            operations: vec!["navigate".into()],
-        });
+    shared_tab_with_navigate_grant(&surface, "tab-1", "main", "https://example.com");
     authorize_shared_navigation(&surface, "tab-1", 0, "https://example.com/page")
         .expect("a matching standing grant authorizes navigation");
 }
@@ -178,16 +194,45 @@ fn a_standing_grant_authorizes_shared_navigation_without_approval() {
 #[test]
 fn a_grant_for_another_origin_still_requires_approval() {
     let surface = BrowserSurface::default();
-    surface
-        .grants
-        .lock()
-        .expect("lock grants")
-        .push(StandingGrant {
-            origin_pattern: "https://example.com".into(),
-            operations: vec!["navigate".into()],
-        });
+    shared_tab_with_navigate_grant(&surface, "tab-1", "main", "https://example.com");
     let err = authorize_shared_navigation(&surface, "tab-1", 0, "https://evil.test/page")
         .expect_err("a grant is bound to its origin");
+    assert_eq!(err.code(), ErrorCode::ApprovalRequired);
+}
+
+// Audit 20260903 A-03 — grants are the WINDOW's, and a tab reads only its owner's.
+#[test]
+fn a_grant_in_another_window_does_not_authorize_this_windows_tab() {
+    let surface = BrowserSurface::default();
+    shared_tab_with_navigate_grant(&surface, "tab-a", "a", "https://example.com");
+    // Window B owns tab-b and has synced NOTHING: default-deny for its tabs, even
+    // though window A granted the very same origin.
+    surface
+        .registry
+        .lock()
+        .expect("lock registry")
+        .create_with_mode("tab-b", "b", AutomationMode::AiShared)
+        .expect("register tab");
+    authorize_shared_navigation(&surface, "tab-a", 0, "https://example.com/page")
+        .expect("A's tab is authorized by A's grant");
+    let err = authorize_shared_navigation(&surface, "tab-b", 0, "https://example.com/page")
+        .expect_err("B's tab is not authorized by A's grant");
+    assert_eq!(err.code(), ErrorCode::ApprovalRequired);
+}
+
+#[test]
+fn an_unregistered_tab_has_no_window_and_therefore_no_grants() {
+    // The lookup must not fall back to "any window": an unknown tab is default-deny.
+    let surface = BrowserSurface::default();
+    surface.grants.lock().expect("lock grants").insert(
+        "main".into(),
+        vec![StandingGrant {
+            origin_pattern: "https://example.com".into(),
+            operations: vec!["navigate".into()],
+        }],
+    );
+    let err = authorize_shared_navigation(&surface, "ghost", 0, "https://example.com/")
+        .expect_err("no tab, no window, no grant");
     assert_eq!(err.code(), ErrorCode::ApprovalRequired);
 }
 
@@ -357,6 +402,19 @@ fn every_native_failure_class_gets_its_own_code() {
             ErrorCode::Timeout,
             "main-thread-timeout",
         ),
+        (
+            native(fail::CONTENT_RULES_FAILED, "timed out compiling"),
+            ErrorCode::Internal,
+            "content-rules-failed",
+        ),
+        (
+            native(
+                fail::DIALOG_NOT_OWNED,
+                "dialog #3 belongs to another window",
+            ),
+            ErrorCode::PermissionDenied,
+            "dialog-not-owned",
+        ),
     ];
     let mut kinds = Vec::new();
     for (message, expected, kind) in cases {
@@ -451,4 +509,105 @@ fn an_invalid_profile_name_is_translated_and_names_the_profile() {
         Some("profile name contains a path separator"),
         "the validator's own reason stays reachable"
     );
+}
+
+// ── Audit 20260903 X-04 — the token the tool description promises ─────────────
+
+#[test]
+fn an_unsupported_platform_carries_the_mcp_token_the_tool_description_names() {
+    // `server/mcp/src/tools/browser.ts` tells the model an `open` off macOS reports
+    // UNSUPPORTED_PLATFORM. The class was `unsupported` but no mcpCode travelled,
+    // so the promised token never reached the client.
+    use crate::browser::surface::fail;
+    let err = surface_failure(&format!(
+        "{}: macOS-only in this build",
+        fail::UNSUPPORTED_PLATFORM
+    ));
+    assert_eq!(err.code(), ErrorCode::Unsupported);
+    assert_eq!(
+        err.detail()
+            .and_then(|d| d.get("mcpCode"))
+            .and_then(|v| v.as_str()),
+        Some("UNSUPPORTED_PLATFORM")
+    );
+    // The classification detail survives alongside the token.
+    assert_eq!(
+        err.detail()
+            .and_then(|d| d.get("kind"))
+            .and_then(|v| v.as_str()),
+        Some("unsupported-platform")
+    );
+}
+
+#[test]
+fn a_dialog_answered_from_the_wrong_window_is_denied_with_its_token() {
+    use crate::browser::surface::fail;
+    let err = surface_failure(&format!(
+        "{}: dialog #7 belongs to another window",
+        fail::DIALOG_NOT_OWNED
+    ));
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(err.i18n_key(), Some("errors.browser.dialogNotOwned"));
+    assert_eq!(
+        err.detail()
+            .and_then(|d| d.get("mcpCode"))
+            .and_then(|v| v.as_str()),
+        Some("DIALOG_NOT_OWNED")
+    );
+}
+
+#[test]
+fn a_failed_content_rule_compile_is_internal_and_translated() {
+    // Fail closed: the AI webview was NOT created, and the user is told why.
+    use crate::browser::surface::fail;
+    let err = surface_failure(fail::CONTENT_RULES_FAILED);
+    assert_eq!(err.code(), ErrorCode::Internal);
+    assert_eq!(err.i18n_key(), Some("errors.browser.contentRulesFailed"));
+}
+
+#[test]
+fn classes_without_a_promised_token_carry_none() {
+    // `with_mcp_code` is reserved for tokens a client is documented to match on; a
+    // token nobody documented is a token nobody can rely on.
+    use crate::browser::surface::fail;
+    for message in [
+        format!("{}: gone", fail::WINDOW_GONE),
+        format!("{}: no webview", fail::NO_WEBVIEW),
+        "untagged".to_string(),
+    ] {
+        assert!(
+            surface_failure(&message)
+                .detail()
+                .and_then(|d| d.get("mcpCode"))
+                .is_none(),
+            "{message} grew an undocumented token"
+        );
+    }
+}
+
+// ── Audit 20260903 X-01 — the AI-tab cap ───────────────────────────────────────
+
+#[test]
+fn the_ai_tab_cap_refuses_at_the_limit_with_a_conflict() {
+    use crate::browser::registry::MAX_AI_TABS;
+    assert!(require_ai_tab_capacity(0).is_ok());
+    assert!(require_ai_tab_capacity(MAX_AI_TABS - 1).is_ok());
+    let err = require_ai_tab_capacity(MAX_AI_TABS).expect_err("at the cap");
+    assert_eq!(
+        err.code(),
+        ErrorCode::Conflict,
+        "closing a tab lifts it; no prompt can"
+    );
+    assert_eq!(err.i18n_key(), Some("errors.browser.tabLimit"));
+    assert!(err.message().contains(&MAX_AI_TABS.to_string()));
+    let detail = err.detail().expect("detail present");
+    assert_eq!(
+        detail.get("mcpCode").and_then(|v| v.as_str()),
+        Some("TAB_LIMIT")
+    );
+    assert_eq!(
+        detail.get("limit").and_then(|v| v.as_u64()),
+        Some(MAX_AI_TABS as u64)
+    );
+    assert!(require_ai_tab_capacity(MAX_AI_TABS + 1).is_err());
 }

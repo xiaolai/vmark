@@ -15,11 +15,13 @@
 //!   - **origin + operation + target** stop lateral escalation: an approval for
 //!     "click Publish" cannot be spent on "click Delete", a different origin, or a
 //!     different operation.
-//!   - **payload hash** (for `style`/`eval`, which run a caller-supplied script):
-//!     the one-shot binds a hash of the exact script the user approved, so an
-//!     "Allow once" for `return document.title` cannot be spent on a substituted
+//!   - **payload hash** (for `style`/`eval`, which run a caller-supplied script,
+//!     and for `type`/`key`/`scroll`, whose built script embeds the text, key or
+//!     delta): the one-shot binds a hash of the exact script the user approved, so
+//!     an "Allow once" for `return document.title` cannot be spent on a substituted
 //!     `steal-the-session` retry — the AI chooses what it re-sends, and without
-//!     this the approved-A-runs-B escalation is open. (Security review P5, High #1.)
+//!     this the approved-A-runs-B escalation is open. (Security review P5, High #1;
+//!     audit 20260903 A-05 for the act operations.)
 //!
 //! Consumption is deliberately not separable from the check: a one-shot authorizes
 //! exactly ONE action, so `consume_one_shot` removes it as it answers.
@@ -40,8 +42,8 @@ pub struct OneShotTarget {
 }
 
 /// A single-use authorization bound to (tab, generation, origin, operation, target,
-/// payload_hash). `payload_hash` is `Some` only for `style`/`eval` — the operations
-/// that run a caller-supplied script — and is a hex SHA-256 of that exact script.
+/// payload_hash). `payload_hash` is `Some` only for the payload-binding operations
+/// (`operation_binds_payload`) and is a hex SHA-256 of the exact script.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct OneShot {
     #[serde(rename = "tabId")]
@@ -52,11 +54,29 @@ pub struct OneShot {
     pub operation: String,
     #[serde(default)]
     pub target: Option<OneShotTarget>,
-    /// Hex SHA-256 of the exact script this one-shot authorizes — `Some` for
-    /// `style`/`eval`, `None` otherwise. Binds the approval to the payload so an
-    /// approved-A cannot be spent on a substituted-B. (Security review P5, High #1.)
+    /// Hex SHA-256 of the exact script this one-shot authorizes — `Some` for the
+    /// payload-binding operations, `None` otherwise. Binds the approval to the
+    /// payload so an approved-A cannot be spent on a substituted-B. (Security
+    /// review P5, High #1.)
     #[serde(default)]
     pub payload_hash: Option<String>,
+}
+
+impl OneShot {
+    /// Does `other` authorize exactly the same action — the same tab, generation,
+    /// origin pattern, operation, target and payload?
+    ///
+    /// Minting is idempotent on this (audit 20260903 A-04): the frontend mints one
+    /// approval through two paths, and a second identical entry would be a second
+    /// authorization for an action the user approved once.
+    pub fn same_binding(&self, other: &OneShot) -> bool {
+        self.tab_id == other.tab_id
+            && self.generation == other.generation
+            && self.origin_pattern == other.origin_pattern
+            && self.operation == other.operation
+            && same_target(self.target.as_ref(), other.target.as_ref())
+            && self.payload_hash == other.payload_hash
+    }
 }
 
 /// Same element? Both target-less (a read), or both naming the same role + name.

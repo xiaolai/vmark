@@ -160,7 +160,7 @@ describe("useBrowserNavEvents", () => {
     await Promise.resolve();
     await Promise.resolve();
     const callsAfterMount = listenCalls;
-    expect(callsAfterMount).toBe(5); // five events, subscribed once
+    expect(callsAfterMount).toBe(6); // six events (incl. popup), subscribed once
 
     rerender({ h: { onNavigated: second } });
     await Promise.resolve();
@@ -179,7 +179,7 @@ describe("useBrowserNavEvents", () => {
     const { unmount } = await mount("t1", {});
     unmount();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalledTimes(5);
+    expect(unlisten).toHaveBeenCalledTimes(6);
   });
 });
 
@@ -227,12 +227,37 @@ describe("subscription failures", () => {
       expect.any(Error),
     );
 
-    // The other four still work — one failed registration is not a dead surface.
+    // The other five still work — one failed registration is not a dead surface.
     emit("browser://loaded", { tabId: "t1", url: "https://x/", title: "X", generation: 1 });
     expect(onLoaded).toHaveBeenCalledWith("https://x/", "X", 1);
 
     unmount();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalledTimes(4); // only the ones that registered
+    expect(unlisten).toHaveBeenCalledTimes(5); // only the ones that registered
+  });
+});
+
+// Audit 2026-09-03 L-01 / X-03 — the window-level subscription tells every handler
+// WHICH tab, so one subscriber can track tabs whose surface is not mounted, and a
+// blocked popup reaches the chrome instead of a debug log.
+describe("subscribeBrowserNavEvents (window-level)", () => {
+  it("dispatches every event with the tabId first, including blocked popups", async () => {
+    const { subscribeBrowserNavEvents } = await import("./useBrowserNavEvents");
+    const onNavigated = vi.fn();
+    const onDialog = vi.fn();
+    const onPopupBlocked = vi.fn();
+    const stop = subscribeBrowserNavEvents(() => ({ onNavigated, onDialog, onPopupBlocked }));
+    await Promise.resolve();
+    emit("browser://navigated", { tabId: "t9", url: "https://x/", generation: 3, redirected: true });
+    emit("browser://dialog", { tabId: "t9", kind: "confirm", message: "Sure?", id: 7 });
+    emit("browser://popup", { tabId: "t9", url: "https://auth.example/login" });
+    emit("browser://popup", { tabId: "t9" }); // malformed: no url → ignored
+    expect(onNavigated).toHaveBeenCalledWith("t9", "https://x/", 3, true);
+    expect(onDialog).toHaveBeenCalledWith("t9", { kind: "confirm", message: "Sure?", id: 7 });
+    expect(onPopupBlocked).toHaveBeenCalledTimes(1);
+    expect(onPopupBlocked).toHaveBeenCalledWith("t9", "https://auth.example/login");
+    stop();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(6);
   });
 });

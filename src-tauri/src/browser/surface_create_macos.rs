@@ -19,7 +19,16 @@ pub fn create(
     window_label: String,
     url: String,
 ) -> Result<(), String> {
-    create_with_mode(app, tab_id, window_label, url, AutomationMode::Human, None)
+    // A human tab gets no AI destination rules, so the loopback posture is moot.
+    create_with_mode(
+        app,
+        tab_id,
+        window_label,
+        url,
+        AutomationMode::Human,
+        None,
+        false,
+    )
 }
 
 /// Create a browser webview with an explicit data-store posture. The store is
@@ -27,6 +36,11 @@ pub fn create(
 /// `profile` (AiSandbox, per-use user-approved) selects an isolated store so a login
 /// persists for later reuse (WI-P6.1). Authorization for the profile is enforced by
 /// the caller (`browser_ai_create`) BEFORE this runs.
+///
+/// `allow_loopback` is the AI destination posture the caller validated the URL
+/// against; an AI-owned webview gets a content rule list compiled for the same
+/// posture (audit 20260903 P-01), so subframes and subresources are held to the
+/// policy the main frame was.
 pub fn create_with_mode(
     app: &AppHandle,
     tab_id: String,
@@ -34,6 +48,7 @@ pub fn create_with_mode(
     url: String,
     mode: AutomationMode,
     profile: Option<String>,
+    allow_loopback: bool,
 ) -> Result<(), String> {
     let app_handle = app.clone();
     super::on_main(app, move |mtm| {
@@ -47,10 +62,14 @@ pub fn create_with_mode(
         // Fails closed if the named-store cap is exceeded (never shares the sandbox
         // store) — WI-P6.1 H2. Checked before any native object is registered.
         super::browser_store::configure(&config, mtm, mode, profile.as_deref())?;
-        // Page-world console-capture shim (WI-P7.1) — AiSandbox only; no message handler.
+        // The AI destination policy for every load the nav delegate cannot see —
+        // subframes and subresources (audit 20260903 P-01). Fails closed: an AI
+        // webview is never created without its rules.
+        super::content_rules::configure(&config, mtm, mode, allow_loopback)?;
+        // Page-world console-capture shim (WI-P7.1) — AI-owned tabs only; no message handler.
         super::console_shim::configure(&config, mtm, mode);
-        // Dormant page-world recorder-capture shim (WI-NB7.1) — AiSandbox only; armed at
-        // runtime by the isolated-world driver, no message handler.
+        // Dormant page-world recorder-capture shim (WI-NB7.1) — AI-owned tabs only; armed
+        // at runtime by the isolated-world driver, no message handler.
         super::recorder_shim::configure(&config, mtm, mode);
         // Native takeover signal (WI-NB5.2): installed once, at the first browser
         // surface creation — before that no browser view exists to click into.

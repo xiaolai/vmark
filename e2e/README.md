@@ -6,7 +6,7 @@ its Tauri MCP automation bridge (`ws://127.0.0.1:9323`):
 | Harness | Command | Scope |
 |---------|---------|-------|
 | Smoke | `pnpm e2e:smoke` | Minimal happy path: connect → scratch tab → type → round-trip → screenshot → discard |
-| Journeys | `pnpm e2e:journeys` | 21 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, terminal workspace cwd/cd-sync, and the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk, line-ending preservation, failed-save document preservation, external-change auto-reload) |
+| Journeys | `pnpm e2e:journeys` | 35 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, terminal workspace cwd/cd-sync, the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk, line-ending preservation, failed-save document preservation, external-change auto-reload), and the macOS-only embedded-browser set (open/read/act, approvals and their invalidation, SSRF policy per hop, no-bridge, occlusion, session round-trip, disabled gate, human takeover) |
 
 Shared bridge client: `e2e/lib/bridge.mjs`. App-level driving/observation
 helpers: `e2e/lib/vmark.mjs`. Disk fixtures: `e2e/lib/fixtures.mjs`.

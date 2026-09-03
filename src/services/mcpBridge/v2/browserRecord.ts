@@ -13,7 +13,12 @@
  * The arm is authoritatively gated (a `record` one-shot the Rust driver consumes);
  * re-arm and drain are read-class — the recorder is never a security boundary
  * (redaction is), so continuing an already-consented session needs no re-prompt.
+ * The drained buffer IS page data: `parseDrainedEvents` drops page-supplied
+ * navigate events and urls (navigation records are host-side only, D2v2) and caps
+ * a drain; the session records the entry URL itself so the workflow has an entry
+ * point.
  *
+ * @coordinates-with lib/browser/workflow/drainedEvents.ts — the drain trust boundary
  * @coordinates-with services/workflow/recorderSession.ts — the host-owned session
  * @coordinates-with lib/browser/agent/recorderShim.ts — the arm/drain scripts
  * @coordinates-with src-tauri browser/authorize.rs — consumes the `record` one-shot
@@ -26,8 +31,9 @@ import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { originForAgent } from "@/lib/browser/url";
 import { buildArmScript, buildDisarmScript, buildRecorderDrainScript } from "@/lib/browser/agent/recorderShim";
-import type { RecordedEvent } from "@/lib/browser/workflow/recorder";
+import { parseDrainedEvents } from "@/lib/browser/workflow/drainedEvents";
 import type { RecorderDeps } from "@/services/workflow/recorderSession";
+import { browserWarn } from "@/utils/debug";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 
 const RECORD_OP = "record";
@@ -41,33 +47,6 @@ const recorderService = () => import("@/services/workflow/recorderSession");
 function normalizeSite(raw: unknown): string {
   const s = typeof raw === "string" ? raw.trim().replace(/[\r\n]+/g, " ") : "";
   return s ? s.slice(0, MAX_SITE) : "recording";
-}
-
-/** Parse the (page-controlled, untrusted) drained buffer into typed events, dropping
- *  anything malformed. Values never appear here — only locators and the hint. */
-function parseDrainedEvents(raw: string): RecordedEvent[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  const arr = (parsed as { events?: unknown } | null)?.events;
-  if (!Array.isArray(arr)) return [];
-  const out: RecordedEvent[] = [];
-  for (const raw of arr) {
-    if (typeof raw !== "object" || raw === null) continue;
-    const e = raw as Record<string, unknown>;
-    const type = e.type;
-    if (type !== "click" && type !== "type" && type !== "extract" && type !== "navigate") continue;
-    const ev: RecordedEvent = { type };
-    if (typeof e.role === "string") ev.role = e.role;
-    if (typeof e.name === "string") ev.name = e.name;
-    if (typeof e.url === "string") ev.url = e.url;
-    if (typeof e.sensitive === "boolean") ev.sensitive = e.sensitive;
-    out.push(ev);
-  }
-  return out;
 }
 
 /** The real host operations for a session: re-arm and drain are read-class evals. */
@@ -86,7 +65,12 @@ function makeDeps(): RecorderDeps {
         operation: "read",
         generation,
       });
-      return parseDrainedEvents(raw);
+      // The trust boundary: page-supplied navigate events and urls are dropped,
+      // and a drain is capped (S-03). A cap firing is a page misbehaving — say so.
+      const drained = parseDrainedEvents(raw);
+      if (drained.oversized) browserWarn("recorder drain refused: payload over the size cap", { tabId });
+      else if (drained.truncated) browserWarn("recorder drain truncated to the event cap", { tabId });
+      return drained.events;
     },
   };
 }
@@ -142,7 +126,13 @@ async function startRecording(id: string, tab: BrowserTarget, site: string): Pro
     await respond({ id, success: false, error: "the driver refused to start recording" });
     return;
   }
-  const started = startRecorderSession({ tabId: tab.tabId, site, generation: tab.generation, deps: makeDeps() });
+  const started = startRecorderSession({
+    tabId: tab.tabId,
+    site,
+    generation: tab.generation,
+    startUrl: tab.url,
+    deps: makeDeps(),
+  });
   if (!started.ok) {
     await respond({ id, success: false, error: started.error });
     return;

@@ -233,3 +233,98 @@ fn public_hostnames_that_merely_contain_the_suffixes_are_still_allowed() {
         );
     }
 }
+
+// Audit 20260903 P-01 — a subframe on an AI-owned tab meets the same destination
+// policy as the main frame; a human tab keeps today's behaviour.
+#[test]
+fn ai_owned_subframes_run_the_destination_policy() {
+    let policy = AiBrowserPolicy {
+        enabled: true,
+        ..AiBrowserPolicy::default()
+    };
+    for mode in [AutomationMode::AiSandbox, AutomationMode::AiShared] {
+        assert!(subframe_load_allowed(
+            mode,
+            &policy,
+            "https://example.com/frame"
+        ));
+        for blocked in [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://10.0.0.1/",
+            "http://[::1]/",
+            "http://localhost:3000/",
+            "http://printer.local/",
+            "file:///etc/passwd",
+            "https://user:pw@example.com/",
+        ] {
+            assert!(
+                !subframe_load_allowed(mode, &policy, blocked),
+                "{mode:?} subframe to {blocked} must be refused"
+            );
+        }
+    }
+}
+
+#[test]
+fn human_subframes_are_untouched_by_the_policy() {
+    let policy = AiBrowserPolicy::default(); // even disabled
+    for url in [
+        "http://10.0.0.1/",
+        "http://localhost/",
+        "https://example.com/",
+    ] {
+        assert!(subframe_load_allowed(AutomationMode::Human, &policy, url));
+    }
+}
+
+#[test]
+fn network_free_frames_stay_allowed_on_ai_tabs() {
+    // about:blank / srcdoc / blob / data frames are how pages build portals and ad
+    // slots; they reach no network, so refusing them breaks pages for nothing.
+    let policy = AiBrowserPolicy {
+        enabled: true,
+        ..AiBrowserPolicy::default()
+    };
+    for url in [
+        "about:blank",
+        "about:srcdoc",
+        "blob:https://example.com/3f2a",
+        "data:text/html,<p>hi</p>",
+        "ABOUT:BLANK",
+    ] {
+        assert!(
+            subframe_load_allowed(AutomationMode::AiSandbox, &policy, url),
+            "{url}"
+        );
+    }
+    // javascript: and every other scheme still meet the validator.
+    assert!(!subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "javascript:alert(1)"
+    ));
+}
+
+#[test]
+fn ai_subframes_honour_the_loopback_opt_in_and_a_disabled_browser() {
+    let mut policy = AiBrowserPolicy {
+        enabled: true,
+        allow_loopback: true,
+        ..AiBrowserPolicy::default()
+    };
+    assert!(subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "http://127.0.0.1:5173/"
+    ));
+    assert!(!subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "http://10.0.0.1/"
+    ));
+    policy.enabled = false;
+    assert!(
+        !subframe_load_allowed(AutomationMode::AiSandbox, &policy, "https://example.com/"),
+        "a disabled browser grants an AI tab nothing, subframes included"
+    );
+}

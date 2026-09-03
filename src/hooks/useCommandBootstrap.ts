@@ -39,7 +39,10 @@ import { registerGenieCommands } from "@/services/commands/genieCommands";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
+import { browserAvailableHere } from "@/services/commands/browserCommands";
 import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
+import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
+import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { startRecorderWiring } from "@/services/browser/recorderWiring";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
@@ -183,6 +186,11 @@ export function useCommandBootstrap(): void {
     // Lease event sources (WI-NB5.1): native page input reclaims an AI-held
     // tab; tab close drops lease state.
     const stopLeaseWiring = startBrowserLeaseWiring();
+    // Native views stay alive while their tab exists (audit 2026-09-03 L-01): one
+    // window-level consumer keeps every tab's mirror honest, and the removal bus
+    // is what finally destroys a view.
+    const stopBrowserTabEvents = startBrowserTabEvents();
+    const stopBrowserTabLifecycle = startBrowserTabLifecycle();
     // Recorder event sources (WI-NB7.1): a navigation re-arms the capture shim in
     // the new document; tab close discards the recording.
     const stopRecorderWiring = startRecorderWiring();
@@ -203,10 +211,12 @@ export function useCommandBootstrap(): void {
         // item. Not worth surfacing: the command still works from the palette.
       });
     };
-    pushBrowserMenuEnabled(useSettingsStore.getState().browser.enabled);
+    // Setting AND platform: off macOS the surface is a stub, and an enabled menu item
+    // there is the permanently-dead item the Rust side warns about (audit X-04).
+    pushBrowserMenuEnabled(browserAvailableHere());
     const stopBrowserMenuSync = useSettingsStore.subscribe((state, prev) => {
       if (state.browser.enabled !== prev.browser.enabled) {
-        pushBrowserMenuEnabled(state.browser.enabled);
+        pushBrowserMenuEnabled(browserAvailableHere());
       }
     });
 
@@ -266,6 +276,8 @@ export function useCommandBootstrap(): void {
       disposeEditorCommands();
       stopGrantSync();
       stopLeaseWiring();
+      stopBrowserTabEvents();
+      stopBrowserTabLifecycle();
       stopRecorderWiring();
       stopCoherenceScan();
       stopWindowWorkspaceSync();

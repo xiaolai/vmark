@@ -1,7 +1,12 @@
-//! Policy checks for committed AI navigation URLs.
+//! Policy checks for AI navigation URLs at the native seam: top-level candidates
+//! (`prepare_navigation_action`), subframe loads (`subframe_load_allowed`, audit
+//! 20260903 P-01) and the commit-time re-check (`ai_commit_allowed`).
+//!
+//! Standing `navigate` authority is read from the grants of the WINDOW that owns
+//! the tab (audit 20260903 A-03), through `BrowserSurface::is_granted_in_window`,
+//! with the registry guard held in the established registry → grants order.
 
-use crate::browser::ai_policy::validate_ai_navigation_url;
-use crate::browser::origin_guard::is_operation_granted;
+use crate::browser::ai_policy::{self, validate_ai_navigation_url};
 use crate::browser::registry::{AutomationMode, Lifecycle};
 use crate::browser::surface::BrowserSurface;
 use objc2::DefinedClass;
@@ -10,6 +15,46 @@ use tauri::Manager;
 use super::NavDelegate;
 
 impl NavDelegate {
+    /// Is this tab mid-navigation per the registry? Decides whether a refused
+    /// main-frame candidate is reported as a failed load or merely logged.
+    pub(crate) fn is_navigating(&self) -> bool {
+        let ivars = self.ivars();
+        ivars
+            .app
+            .try_state::<BrowserSurface>()
+            .and_then(|state| {
+                state
+                    .registry
+                    .lock()
+                    .ok()
+                    .map(|reg| reg.state(&ivars.tab_id) == Some(Lifecycle::Navigating))
+            })
+            .unwrap_or(false)
+    }
+
+    /// May a SUBFRAME of this tab load `url`? An AI-owned tab runs the same
+    /// destination check as its main frame; a human tab is untouched. No ticket is
+    /// minted and nothing is emitted either way — the pure decision is
+    /// `ai_policy::subframe_load_allowed`, tested there.
+    pub(crate) fn subframe_load_allowed(&self, url: &str) -> bool {
+        let ivars = self.ivars();
+        let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
+            return false;
+        };
+        let Ok(policy) = state.ai_policy.lock().map(|policy| *policy) else {
+            return false;
+        };
+        let Some(mode) = state
+            .registry
+            .lock()
+            .ok()
+            .and_then(|reg| reg.automation_mode(&ivars.tab_id))
+        else {
+            return false;
+        };
+        ai_policy::subframe_load_allowed(mode, &policy, url)
+    }
+
     /// Validate a top-level candidate and associate it with a registry ticket
     /// before WebKit starts the load. Programmatic AI commands already create a
     /// ticket; user/link/history navigations create one here.
@@ -42,15 +87,15 @@ impl NavDelegate {
             return false;
         }
 
+        // Standing `navigate` authority: the owning window's grants, nobody else's.
+        let navigate_granted =
+            || state.is_granted_in_window(registry.window_of(&ivars.tab_id), url, "navigate");
+
         if continuing {
             let ticket = current_ticket.expect("checked above");
             if mode == AutomationMode::AiShared
                 && !registry.shared_navigation_approved(&ivars.tab_id, url)
-                && !state
-                    .grants
-                    .lock()
-                    .map(|grants| is_operation_granted(url, "navigate", grants.as_slice()))
-                    .unwrap_or(false)
+                && !navigate_granted()
             {
                 return false;
             }
@@ -62,11 +107,7 @@ impl NavDelegate {
             let ticket = current_ticket.expect("a navigating tab has a ticket");
             if mode == AutomationMode::AiShared
                 && !registry.shared_navigation_approved(&ivars.tab_id, url)
-                && !state
-                    .grants
-                    .lock()
-                    .map(|grants| is_operation_granted(url, "navigate", grants.as_slice()))
-                    .unwrap_or(false)
+                && !navigate_granted()
             {
                 return false;
             }
@@ -74,18 +115,11 @@ impl NavDelegate {
             return true;
         }
 
-        if mode == AutomationMode::AiShared {
+        if mode == AutomationMode::AiShared && !navigate_granted() {
             // A page-initiated shared navigation has no approval dialog surface
             // at this native seam. Standing `navigate` authority is the only
             // safe way to permit it; MCP one-shots are consumed by the command.
-            let granted = state
-                .grants
-                .lock()
-                .map(|grants| is_operation_granted(url, "navigate", grants.as_slice()))
-                .unwrap_or(false);
-            if !granted {
-                return false;
-            }
+            return false;
         }
 
         let ticket = match registry.begin_navigation(&ivars.tab_id, url) {
@@ -131,17 +165,14 @@ pub(super) fn ai_commit_allowed(
             if validate_ai_navigation_url(url, policy.allow_loopback).is_err() {
                 return false;
             }
-            let approved = state
-                .registry
-                .lock()
-                .map(|reg| reg.shared_navigation_approved(tab_id, url))
-                .unwrap_or(false);
-            let grant = state
-                .grants
-                .lock()
-                .map(|grants| is_operation_granted(url, "navigate", &grants))
-                .unwrap_or(false);
-            approved || grant
+            let (approved, window) = match state.registry.lock() {
+                Ok(reg) => (
+                    reg.shared_navigation_approved(tab_id, url),
+                    reg.window_of(tab_id).map(str::to_owned),
+                ),
+                Err(_) => return false,
+            };
+            approved || state.is_granted_in_window(window.as_deref(), url, "navigate")
         }
     }
 }

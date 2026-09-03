@@ -62,10 +62,12 @@ export const BRIDGE_OPERATIONS = Object.freeze({
   "vmark.selection.set": { owner: "webview", effect: "write" },
 
   // ── Browser ──
-  // `wait` is write-class although it sounds like a read: its handler
-  // activates the target window and creates/attaches the native browser
-  // view (audit 20260729).
+  // `wait` USED to be write-class: its handler activated the target window and
+  // created the native view (audit 20260729). Since the 2026-09-03 audit (L-03)
+  // it only observes — no focus change, no activation, no view creation — so it
+  // is read-class, matching the `browser_read` tool that carries it.
   "vmark.browser.read": { owner: "webview", effect: "read" },
+  "vmark.browser.wait": { owner: "webview", effect: "read" },
   "vmark.browser.wait_for": { owner: "webview", effect: "read" },
   "vmark.browser.query": { owner: "webview", effect: "read" },
   "vmark.browser.screenshot": { owner: "webview", effect: "read" },
@@ -77,12 +79,14 @@ export const BRIDGE_OPERATIONS = Object.freeze({
   "vmark.browser.workflow_record": { owner: "webview", effect: "write" },
   "vmark.browser.open": { owner: "webview", effect: "write" },
   "vmark.browser.navigate": { owner: "webview", effect: "write" },
-  "vmark.browser.wait": { owner: "webview", effect: "write" },
   "vmark.browser.style": { owner: "webview", effect: "write" },
   "vmark.browser.execute_js": { owner: "webview", effect: "write" },
   "vmark.browser.session.save": { owner: "webview", effect: "write" },
   "vmark.browser.session.load": { owner: "webview", effect: "write" },
   "vmark.browser.console": { owner: "webview", effect: "write" },
+  // Closing an AI-owned tab (audit 2026-09-03 X-01): removes a tab, so write-class,
+  // but never approval-gated — stopping is always allowed.
+  "vmark.browser.close": { owner: "webview", effect: "write" },
 
   // ── Coherence (Rust-answered; lock policy in answer_coherence_async) ──
   // `edges` runs scan reconciliation (appends provenance) and `resolve`

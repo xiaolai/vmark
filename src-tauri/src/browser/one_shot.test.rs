@@ -354,3 +354,31 @@ fn a_known_operation_is_still_consumable() {
     ));
     assert!(shots.is_empty());
 }
+
+// Audit 20260903 A-04 — the binding equality `mint_one_shot` dedupes on.
+#[test]
+fn same_binding_is_every_dimension_the_consume_matches_on() {
+    let base = click_shot("t1", 3, "button", "Publish");
+    assert!(base.same_binding(&click_shot("t1", 3, "button", "Publish")));
+    assert!(!base.same_binding(&click_shot("t2", 3, "button", "Publish")));
+    assert!(!base.same_binding(&click_shot("t1", 4, "button", "Publish")));
+    assert!(!base.same_binding(&click_shot("t1", 3, "button", "Delete")));
+    assert!(!base.same_binding(&click_shot("t1", 3, "link", "Publish")));
+    let mut other_origin = click_shot("t1", 3, "button", "Publish");
+    other_origin.origin_pattern = "https://evil.example".into();
+    assert!(!base.same_binding(&other_origin));
+    let mut other_op = click_shot("t1", 3, "button", "Publish");
+    other_op.operation = "type".into();
+    assert!(!base.same_binding(&other_op));
+    let mut other_payload = click_shot("t1", 3, "button", "Publish");
+    other_payload.payload_hash = Some("abc".into());
+    assert!(!base.same_binding(&other_payload));
+    // A target-less read matches only another target-less read.
+    let mut read = click_shot("t1", 3, "button", "Publish");
+    read.operation = "read".into();
+    read.target = None;
+    let mut read_again = read.clone();
+    read_again.target = None;
+    assert!(read.same_binding(&read_again));
+    assert!(!read.same_binding(&base));
+}

@@ -9,7 +9,7 @@
  * 2. Schemas were authored as hand-written JSON Schema, converted to Zod by a
  *    lossy in-house converter, and converted BACK to JSON Schema by the SDK.
  *    Everything the converter did not model was dropped silently — live loss:
- *    `browser.timeoutMs` declared {minimum:1, maximum:12000} and the
+ *    `browser.timeoutMs` declared {minimum:1, maximum:9000} and the
  *    client-visible schema had neither bound. Schemas are now authored in Zod
  *    directly, so what the tool declares is what the client sees.
  */
@@ -120,7 +120,7 @@ describe('client-visible input schemas', () => {
     expect(schema.properties.timeoutMs).toMatchObject({
       type: 'integer',
       minimum: 1,
-      maximum: 12000,
+      maximum: 9000,
     });
   });
 
@@ -164,7 +164,7 @@ describe('client-visible input schemas', () => {
       'read', 'screenshot', 'query', 'extract', 'console', 'wait', 'wait_for', 'workflow_status',
     ]);
     expect(actions('browser')).toEqual([
-      'act', 'open', 'navigate', 'style', 'execute_js',
+      'act', 'open', 'navigate', 'close', 'style', 'execute_js',
       'session_save', 'session_load', 'console_clear',
       'workflow_run', 'workflow_cancel', 'workflow_record',
     ]);

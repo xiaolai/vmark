@@ -35,11 +35,22 @@ describe("proposeLocatorFix", () => {
   });
 
   it("picks the most similar among several same-role candidates", () => {
+    // "Sign in nowx" vs "Sign in now": one edit in 12 code points (0.917) clears the
+    // non-prefix floor; "Sign out" does not.
     const fix = proposeLocatorFix(
-      { role: "button", name: "Loginn" },
-      snap([["button", "Log out"], ["button", "Login"]]),
+      { role: "button", name: "Sign in nowx" },
+      snap([["button", "Sign out"], ["button", "Sign in now"]]),
     );
-    expect(fix).toMatchObject({ name: "Login" });
+    expect(fix).toMatchObject({ name: "Sign in now" });
+  });
+
+  it("a short typo'd name that is not a prefix of the candidate needs ≥ 0.85 (W3)", () => {
+    // "Loginn" → "Login" is 0.833: below the non-prefix floor, so nothing is proposed.
+    expect(proposeLocatorFix({ role: "button", name: "Loginn" }, snap([["button", "Login"]]))).toBeNull();
+    // "Publsh" → "Publish" is 0.857: above it.
+    expect(proposeLocatorFix({ role: "button", name: "Publsh" }, snap([["button", "Publish"]]))).toMatchObject({
+      name: "Publish",
+    });
   });
 
   it("is case-insensitive on the name", () => {
@@ -99,9 +110,10 @@ describe("proposeLocatorFix", () => {
   });
 
   it("measures distance in code points, not UTF-16 units (emoji count once)", () => {
-    const fix = proposeLocatorFix({ role: "button", name: "Send 🚀" }, snap([["button", "Send 🎉"]]));
-    // 6 code points, one substitution → 5/6. Counting UTF-16 units would say 5/7.
-    expect(fix?.confidence).toBeCloseTo(5 / 6, 5);
+    const fix = proposeLocatorFix({ role: "button", name: "Send it now 🚀" }, snap([["button", "Send it now 🎉"]]));
+    // 13 code points, one substitution → 12/13. Counting UTF-16 units would say 12/14
+    // (both surrogate halves differ), which is below the 0.85 non-prefix floor.
+    expect(fix?.confidence).toBeCloseTo(12 / 13, 5);
   });
 
   it("rejects a minConfidence outside the documented [0,1] domain", () => {
@@ -141,5 +153,73 @@ describe("proposeLocatorFix", () => {
     ).toMatchObject({ confidence: 1 });
     // Empty vs non-empty → dissimilar, below threshold.
     expect(proposeLocatorFix({ role: "button", name: "" }, snap([["button", "Save"]]))).toBeNull();
+  });
+});
+
+// Audit 2026-09-03 W-03 — self-heal must never repair a locator onto its
+// ANTONYM. The inverse control ("Unpublish") appears exactly in the state after
+// the action already happened, and under a standing grant it would run with no
+// prompt. Rule: a candidate whose normalised name is the failed name with an
+// added PREFIX is rejected; suffix/decoration drift ("Publish now") still heals.
+describe("proposeLocatorFix — antonym rejection (W3)", () => {
+  it.each([
+    ["Publish", "Unpublish"],
+    ["Subscribe", "Unsubscribe"],
+    ["Delete", "Undelete"],
+    ["Post", "Repost"],
+    ["Approve", "Disapprove"],
+    ["Follow", "Unfollow"],
+    ["Like", "Unlike"],
+    ["Mute", "Unmute"],
+    ["Lock", "Unlock"],
+    ["Archive", "Unarchive"],
+    ["Hide", "Unhide"],
+    ["Check", "Uncheck"],
+    ["Pin", "Unpin"],
+    ["Star", "Unstar"],
+    ["Block", "Unblock"],
+    ["Allow", "Disallow"],
+    ["Connect", "Disconnect"],
+    ["Install", "Uninstall"],
+    ["Register", "Deregister"],
+    ["Select", "Deselect"],
+    ["Activate", "Deactivate"],
+    ["Publish", "Republish"],
+    ["publish", "Cancel publish"],
+    ["Enable", "Disable"],
+    ["Accept", "Reject"],
+  ])("never heals %s → %s", (failed, antonym) => {
+    expect(proposeLocatorFix({ role: "button", name: failed }, snap([["button", antonym]]))).toBeNull();
+  });
+
+  it("does not heal in the reverse direction either (Unpublish → Publish)", () => {
+    expect(proposeLocatorFix({ role: "button", name: "Unpublish" }, snap([["button", "Publish"]]))).toBeNull();
+  });
+
+  it("still heals suffix/decoration drift on the same name", () => {
+    for (const decorated of ["Publish now", "Publish…", "Publish (1)", "Publish ▸"]) {
+      const fix = proposeLocatorFix({ role: "button", name: "Publish" }, snap([["button", decorated]]));
+      expect(fix).toMatchObject({ name: decorated });
+      expect(fix!.confidence).toBeGreaterThanOrEqual(0.6);
+    }
+  });
+
+  it("prefers the decorated same-name control over the antonym when both are present", () => {
+    const fix = proposeLocatorFix(
+      { role: "button", name: "Publish" },
+      snap([["button", "Unpublish"], ["button", "Publish now"]]),
+    );
+    expect(fix).toMatchObject({ name: "Publish now" });
+  });
+
+  it("strips Unicode format characters before comparing (a zero-width or bidi mark is not drift)", () => {
+    expect(
+      proposeLocatorFix({ role: "button", name: "Publish" }, snap([["button", "Pub\u200Blish"]])),
+    ).toMatchObject({ confidence: 1 });
+    expect(
+      proposeLocatorFix({ role: "button", name: "Publish" }, snap([["button", "\u202EPublish\u202C"]])),
+    ).toMatchObject({ confidence: 1 });
+    // …and a format character cannot disguise an antonym as decoration.
+    expect(proposeLocatorFix({ role: "button", name: "Publish" }, snap([["button", "Un\u200Bpublish"]]))).toBeNull();
   });
 });

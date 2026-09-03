@@ -23,13 +23,19 @@ import { aiMayChooseUploadFile } from "../uxPolicy";
 /** Every operation the AI can ask to perform in the browser. An operation string
  *  is an authorization token, so the vocabulary is closed: anything outside this
  *  list is rejected rather than silently becoming a standing permission. */
-const BROWSER_OPERATIONS = [
-  "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish", "upload", "eval", "session", "record",
+export const BROWSER_OPERATIONS = [
+  "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "upload", "eval", "session", "record",
 ] as const;
 
-type BrowserOperation = (typeof BROWSER_OPERATIONS)[number];
+export type BrowserOperation = (typeof BROWSER_OPERATIONS)[number];
 
-const KNOWN_OPERATIONS: ReadonlySet<string> = new Set(BROWSER_OPERATIONS);
+/** The ONE TypeScript copy of the vocabulary. `browserApprovalStore.helpers`
+ *  re-exports it rather than restating it, and `operationVocabulary.test.ts`
+ *  compares it against the Rust `BrowserOperation::from_wire` arms — the third
+ *  copy — so the three can no longer drift apart silently. `publish` left the
+ *  set with its last consumer (plan D5v2); a grantable token nothing enforces is
+ *  authority the user can approve and nothing honours. */
+export const KNOWN_OPERATIONS: ReadonlySet<string> = new Set(BROWSER_OPERATIONS);
 
 /** Operations the AI may NEVER perform autonomously, even with a grant. An
  *  AI-chosen file upload is an exfiltration path — upload targets are always
@@ -53,8 +59,22 @@ export const NEVER_GRANTABLE: ReadonlySet<string> = new Set<BrowserOperation>(["
 /** Is `operation` a known browser operation? Misspellings and case variants
  *  (`"Upload"`) are NOT — treating them as opaque strings is how a hard denial
  *  gets bypassed. */
-function isBrowserOperation(operation: string): operation is BrowserOperation {
+export function isBrowserOperation(operation: string): operation is BrowserOperation {
   return KNOWN_OPERATIONS.has(operation);
+}
+
+/** Can the AI ASK for `operation` at all? Known and not never-automatable. An
+ *  `upload` prompt must never be queued: no answer to it could authorize anything,
+ *  so the queue entry would be a button that lies. */
+export function isApprovableOperation(operation: string): boolean {
+  return isBrowserOperation(operation) && !NEVER_AUTOMATED.has(operation);
+}
+
+/** Can `operation` be carried by a STANDING grant? Known, automatable, and not
+ *  per-call-only. The store's `grant()` refuses a list containing anything else
+ *  rather than storing a sanitized subset the user never saw. */
+export function isGrantableOperation(operation: string): boolean {
+  return isBrowserOperation(operation) && !NEVER_AUTOMATED.has(operation) && !NEVER_GRANTABLE.has(operation);
 }
 
 /** A scoped standing grant: an origin pattern + the operations it authorizes. */

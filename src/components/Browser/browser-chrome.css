@@ -216,3 +216,16 @@
   color: var(--accent-primary);
   white-space: nowrap;
 }
+
+/* An AI run holds this page (audit 2026-09-03 #15). A dot on the page tab, because
+   the page may not be the one on screen while it is being driven. */
+.browser-page-tab-ai {
+  /* ui-ok(target): a decorative status dot inside the page tab, not a control —
+     the tab itself is the 24px hit target */
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex: none;
+}

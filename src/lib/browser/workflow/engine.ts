@@ -1,15 +1,10 @@
 /**
  * Web workflow execution engine (WI-4.2 / R8/R8a/R11).
  *
- *
- * ⚠️ **NOT WIRED. The entire web-workflow engine has no production entry point.** Nothing
- * outside tests calls `runWorkflow`/`runWebWorkflow`, and the MCP bridge does not reach it.
- * So the R8a write-safety gate, the R11 lease coupling, and the retry/self-heal paths below
- * do not run in the product. **In particular: this engine re-executes recorded steps without
- * a fresh per-attempt approval gate — which would be a serious authorization flaw if it were
- * live, and must be built BEFORE it is wired.** An approval is for one action, once; replay
- * must not launder it into standing automation. Treat everything here as an unfinished spec,
- * not a deployed guarantee. (Branch audit.)
+ * WIRED: `runner.ts` → `services/workflow/workflowRunService.ts` drives every
+ * `workflow_run` through this engine, and the per-attempt approval gate lives in
+ * `services/workflow/runExecutor.ts` (P-1) — a replay never launders a one-shot
+ * into standing automation because every attempt re-decides authorization.
  *
  * Purpose: run a parsed workflow's steps in order against an injected executor
  * (the driver in production, a mock in tests), applying the write-safety
@@ -21,7 +16,10 @@
  * bound, the human-gate rule (a non-retryable step is never re-run), and the R11
  * lease check — re-evaluated before every attempt, so a lease lost mid-step cannot
  * be followed by a retry that acts on a page the AI no longer owns. A thrown
- * executor becomes an UNKNOWN outcome (pause), never an escaped exception.
+ * executor becomes an UNKNOWN outcome (pause), never an escaped exception — except
+ * a `WorkflowPause`, which is the executor deliberately pausing the run with a
+ * specific `reasonCode` (deadline, queue-full, dropped-by-navigation, denied,
+ * lease-lost, cancelled) so the status the model reads names the real cause.
  *
  * Pure orchestration: no I/O of its own. The executor performs the tiered
  * driver/agent work and returns the three-valued outcome + optional postcondition
@@ -30,6 +28,7 @@
  *
  * @coordinates-with lib/browser/workflow/safety.ts — the R8a decision core
  * @coordinates-with services/browser/lease.ts — the R11 automation lease
+ * @coordinates-with services/workflow/runExecutor.ts — throws WorkflowPause
  * @module lib/browser/workflow/engine
  */
 
@@ -57,8 +56,32 @@ export interface RunOptions {
 
 /** Stable, language-independent stop code. `reason` is the developer-facing English
  *  detail (for logs/tests); the UI localizes by `reasonCode` — the same convention the
- *  parser uses for its diagnostics, so no `t()` leaks into this pure layer. */
-type RunStopCode = "lease-lost" | "needs-human" | "retries-exhausted";
+ *  parser uses for its diagnostics, so no `t()` leaks into this pure layer. The first
+ *  three are decided here; the rest are signalled by the executor via `WorkflowPause`. */
+export type RunStopCode =
+  | "lease-lost"
+  | "needs-human"
+  | "retries-exhausted"
+  | "deadline"
+  | "queue-full"
+  | "dropped-by-navigation"
+  | "denied"
+  | "cancelled";
+
+/**
+ * Thrown by a step executor to pause the run with a specific `reasonCode` instead
+ * of the generic UNKNOWN → `needs-human` conversion every other throw gets. A pause
+ * is not a failure: it is never retried, whatever the step's write-ness.
+ */
+export class WorkflowPause extends Error {
+  readonly reasonCode: RunStopCode;
+
+  constructor(reasonCode: RunStopCode, message: string) {
+    super(message);
+    this.name = "WorkflowPause";
+    this.reasonCode = reasonCode;
+  }
+}
 
 export interface WorkflowRunResult {
   status: "completed" | "paused" | "failed";
@@ -105,16 +128,23 @@ function retryCap(value: number | undefined): number {
 
 /** Run the executor once, converting a thrown/rejected executor into the UNKNOWN
  *  outcome: a driver crash or network error leaves the step's effect unobserved,
- *  which is exactly the outcome R8a forbids retrying. The run keeps its structure —
- *  a rejection never escapes `runWorkflow` as a bare throw. */
+ *  which is exactly the outcome R8a forbids retrying. A `WorkflowPause` is the one
+ *  exception — it is a deliberate, coded pause and is returned as such. The run keeps
+ *  its structure — a rejection never escapes `runWorkflow` as a bare throw. */
 async function attempt(
   step: EngineStep,
   index: number,
   execute: StepExecutor,
-): Promise<{ result: StepOutcome; error?: string }> {
+): Promise<{ result: StepOutcome; error?: string; pause?: StepStop }> {
   try {
     return { result: await execute(step, index) };
   } catch (error) {
+    if (error instanceof WorkflowPause) {
+      return {
+        result: { outcome: "unknown" },
+        pause: { status: "paused", reasonCode: error.reasonCode, reason: error.message },
+      };
+    }
     return {
       result: { outcome: "unknown" },
       error: error instanceof Error ? error.message : String(error),
@@ -136,12 +166,15 @@ async function runStep(
     // AI no longer owns.
     if (!leaseHeld()) return LEASE_LOST;
 
-    const { result, error } = await attempt(step, index, execute);
+    const { result, error, pause } = await attempt(step, index, execute);
 
     // R11 — re-check AFTER the await too: ownership can be lost while the executor is
     // pending. Even a step that resolved success must pause (not complete) if the lease
     // is gone, so the rest of the workflow never runs on a page the AI no longer owns.
     if (!leaseHeld()) return LEASE_LOST;
+
+    // A coded pause from the executor is final for this run — never retried.
+    if (pause) return pause;
 
     const action = decideAfterResult(step.write, result);
 

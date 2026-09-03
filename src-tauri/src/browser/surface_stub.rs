@@ -9,6 +9,7 @@
 //! `browser/surface.test.rs` pins these signatures against the macOS ones — a
 //! drift there compiles fine on macOS and breaks these targets.
 
+use crate::browser::eval_outcome::EvalError;
 use tauri::AppHandle;
 const MSG: &str = "UNSUPPORTED_PLATFORM: embedded browser surface is macOS-only in this build";
 pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
@@ -21,6 +22,7 @@ pub fn create_with_mode(
     _u: String,
     _mode: crate::browser::registry::AutomationMode,
     _profile: Option<String>,
+    _allow_loopback: bool,
 ) -> Result<(), String> {
     Err(MSG.into())
 }
@@ -39,7 +41,12 @@ pub fn go_history(_a: &AppHandle, _t: String, _forward: bool) -> Result<(), Stri
 pub fn stop(_a: &AppHandle, _t: String) -> Result<(), String> {
     Err(MSG.into())
 }
-pub fn dialog_respond(_a: &AppHandle, _id: u64, _accepted: bool) -> Result<(), String> {
+pub fn dialog_respond(
+    _a: &AppHandle,
+    _id: u64,
+    _accepted: bool,
+    _window_label: String,
+) -> Result<(), String> {
     Err(MSG.into())
 }
 pub fn set_bounds(
@@ -55,16 +62,16 @@ pub fn set_bounds(
 pub fn destroy(_a: &AppHandle, _t: String) -> Result<(), String> {
     Err(MSG.into())
 }
-pub fn assert_no_bridge(_a: &AppHandle, _t: String) -> Result<String, String> {
-    Err(MSG.into())
+pub fn assert_no_bridge(_a: &AppHandle, _t: String) -> Result<String, EvalError> {
+    Err(EvalError::Surface(MSG.into()))
 }
 pub fn eval(
     _a: &AppHandle,
     _t: String,
     _s: String,
     _expected_generation: u64,
-) -> Result<String, String> {
-    Err(MSG.into())
+) -> Result<String, EvalError> {
+    Err(EvalError::Surface(MSG.into()))
 }
 pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
     Err(MSG.into())

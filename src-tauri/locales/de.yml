@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "Die KI darf das auf dieser Seite nicht tun"
   browser.attachmentRequired: "Verbinde die KI mit diesem Tab, bevor sie darauf zugreifen kann"
   browser.profileOriginConfined: "Die KI darf nur die für dieses Profil freigegebene Seite lesen"
+  browser.evalTimeout: "Das Seitenskript wurde nicht rechtzeitig fertig"
+  browser.evalFailed: "Das Seitenskript ist fehlgeschlagen"
+  browser.evalNoValue: "Das Seitenskript hat keinen Wert zurückgegeben"
+  browser.evalResultTooLarge: "Das Ergebnis des Seitenskripts ist zu groß, um zurückgegeben zu werden"
+  browser.tabLimit: "Die KI hat bereits %{limit} Browser-Tabs geöffnet – schließen Sie zuerst einen"
+  browser.dialogNotOwned: "Dieser Seitendialog gehört zu einem anderen Fenster"
+  browser.contentRulesFailed: "Die Zielregeln des KI-Browsers konnten nicht installiert werden"
 
   # === Hot exit ===
   hotExit.noWindows: "Keine Dokumentfenster zum Erfassen"

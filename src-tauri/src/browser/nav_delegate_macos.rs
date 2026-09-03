@@ -13,6 +13,7 @@ use objc2_web_kit::{
 use tauri::Manager;
 
 use crate::browser::recovery::RecoveryAction;
+use crate::browser::redact;
 use crate::browser::registry::Lifecycle;
 use crate::browser::surface::BrowserSurface;
 
@@ -74,6 +75,9 @@ define_class!(
                 .map(|url| url.to_string())
                 .unwrap_or_default();
             // Nil target frames are blocked popups; they must not mint navigation tickets.
+            // A SUBFRAME on an AI-owned tab meets the same destination policy as the
+            // main frame (audit 20260903 P-01) — no ticket, no failure event, just a
+            // cancelled frame load.
             let target_frame = unsafe { navigation_action.targetFrame() };
             let main_frame = target_frame
                 .as_ref()
@@ -81,28 +85,17 @@ define_class!(
                 .unwrap_or(false);
             let allowed = match target_frame.as_ref() {
                 Some(_) if main_frame => self.prepare_navigation_action(&url),
-                Some(_) => true,
+                Some(_) => self.subframe_load_allowed(&url),
                 None => false,
             };
             if !allowed {
-                let report_failure = target_frame.is_some() && self
-                    .ivars()
-                    .app
-                    .try_state::<BrowserSurface>()
-                    .and_then(|state| {
-                        state
-                            .registry
-                            .lock()
-                            .ok()
-                            .map(|reg| reg.state(&self.ivars().tab_id) == Some(Lifecycle::Navigating))
-                    })
-                    .unwrap_or(false);
-                if report_failure {
+                if main_frame && self.is_navigating() {
                     self.emit_policy_failed("navigation destination blocked by policy");
                 } else {
                     log::debug!(
-                        "[browser] navigation policy cancelled for {}: {url}",
-                        self.ivars().tab_id
+                        "[browser] navigation policy cancelled for {}: {}",
+                        self.ivars().tab_id,
+                        redact::redact(&url)
                     );
                 }
             }
@@ -238,7 +231,11 @@ define_class!(
                 .and_then(|u| u.absoluteString())
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            log::debug!("[browser] popup blocked for {} → {url}", ivars.tab_id);
+            log::debug!(
+                "[browser] popup blocked for {} → {}",
+                ivars.tab_id,
+                redact::redact(&url)
+            );
             let _ = self.emit_owned(
                 "browser://popup",
                 PopupPayload {

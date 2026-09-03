@@ -1,6 +1,6 @@
 /**
- * MCP v2 scripted power tools (WI-P5.1 / P5.2 / P5.3): `query`, `style`,
- * `execute_js`.
+ * MCP v2 scripted power tools (WI-P5.2 / P5.3): `style` and `execute_js`
+ * (`query` moved to `browserQuery.ts` for the file-size gate and is re-exported).
  *
  * All three run in the driver's ISOLATED content world (DOM + CSS, never the
  * page's JS heap/globals). `query` is read-class; `style` is act-class (op
@@ -21,15 +21,18 @@ import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import {
-  buildQueryScript,
-  buildStyleScript,
-  type QueryFields,
-} from "@/lib/browser/agent/powerScript";
-import { urlForAgent, originForAgent } from "@/lib/browser/url";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { buildStyleScript } from "@/lib/browser/agent/powerScript";
+import { originForAgent } from "@/lib/browser/url";
+import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
+import { mintOneShotConfirmed } from "@/services/browser/grantSync";
+import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserGate, invokeAttached } from "./browserAccess";
 import { readStyleOps } from "./browserStyleOps";
-import { requireHumanAttachment, runReadClass, parseEvalResult } from "./browserReadClass";
+import { requireHumanAttachment, parseEvalResult } from "./browserReadClass";
+
+export { handleBrowserQuery } from "./browserQuery";
+import { readOperationArgs } from "./readOperationArgs";
+import { unwrapExecuteJsResult, wrapExecuteJsScript } from "./browserExecuteJs";
 
 /**
  * Cap on a caller-supplied script / CSS payload. The AI client is UNTRUSTED, and
@@ -53,53 +56,10 @@ function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-function readFields(f: unknown): QueryFields | undefined {
-  if (typeof f !== "object" || f === null) return undefined;
-  const o = f as Record<string, unknown>;
-  const out: QueryFields = {};
-  if (o.attributes === true) out.attributes = true;
-  if (o.box === true) out.box = true;
-  if (Array.isArray(o.styles)) out.styles = o.styles.filter((s): s is string => typeof s === "string");
-  return out;
-}
-
-/** `vmark.browser.query` — structured DOM detection by CSS selector (read-class). */
-export async function handleBrowserQuery(id: string, args: Record<string, unknown>): Promise<void> {
-  return wrapHandler(id, async () => {
-    const selector = typeof args.selector === "string" && args.selector.trim() ? args.selector : "";
-    if (!selector) {
-      await respond({ id, success: false, error: "query requires a non-empty CSS 'selector'" });
-      return;
-    }
-    const fields = readFields(args.fields);
-    await runReadClass<string>(id, args, {
-      invoke: (tab) =>
-        invoke<string>("browser_eval", {
-          tabId: tab.tabId,
-          script: buildQueryScript(selector, tab.generation, fields),
-          operation: "read",
-          generation: tab.generation,
-        }),
-      data: (tab, raw) => {
-        const r = parseEvalResult(raw);
-        // A script-level failure (invalid selector, …) must be a FAILED
-        // response, not a success envelope with an `error` field inside.
-        if (typeof r === "object" && r !== null && "error" in r) {
-          throw new Error(String((r as { error: unknown }).error));
-        }
-        return { url: urlForAgent(tab.url), ...(typeof r === "object" && r !== null ? r : { result: r }) };
-      },
-    });
-  });
-}
-
 /** Feature gate + tab resolution for the write-class tools. Payload validation
  *  and the attachment gate come AFTER this (see runWriteOp's ordering rule). */
 async function resolveWriteTab(id: string, args: Record<string, unknown>): Promise<BrowserTarget | null> {
-  if (!browserEnabled()) {
-    await respond({ id, success: false, error: "BROWSER_DISABLED" });
-    return null;
-  }
+  if (!(await browserGate(id))) return null;
   const tabIdArg = readTabIdArg(args);
   if (tabIdArg === null) {
     await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -132,7 +92,7 @@ async function approveOp(
   if (decision === "needs-approval") {
     const ok = useBrowserApprovalStore
       .getState()
-      .consumeOneShot(tab.url, operation, undefined, tab.tabId, script);
+      .consumeOneShot(tab.url, operation, undefined, tab.tabId, script, tab.generation);
     if (!ok) {
       const queued = useBrowserApprovalStore
         .getState()
@@ -160,17 +120,36 @@ async function approveOp(
       });
       return false;
     }
+    // The mirror copy is spent; act only once the driver confirms its copy exists
+    // (one mint path — audit A-04), else the eval is refused as unauthorized.
+    const pattern = grantPatternFor(tab.url);
+    const minted =
+      pattern !== null &&
+      (await mintOneShotConfirmed({
+        originPattern: pattern,
+        operation,
+        tabId: tab.tabId,
+        generation: tab.generation,
+        ...(script !== undefined ? { script } : {}),
+      }));
+    if (!minted) {
+      await respond({
+        id,
+        success: false,
+        error: `the driver refused the '${operation}' authorization — the page may have navigated; retry to be prompted again`,
+      });
+      return false;
+    }
   }
   return true;
 }
 
 /**
  * The shared tail of both write-class tools: attachment gate → approval →
- * native invoke → response. The frontend's one-use attachment mirror is
- * consumed in `finally`: Rust consumes ITS attachment during authorization,
- * so a post-authorization failure must still spend the mirror — otherwise the
- * two layers drift permanently out of sync (frontend says attached, Rust
- * refuses).
+ * native invoke → response. The attachment mirror follows the driver's consume
+ * through `invokeAttached` (`browserAccess.ts`): spent on success and on any
+ * post-authorization failure, kept on a pre-authorization refusal. A driver
+ * rejection propagates to `wrapHandler` as its typed token.
  */
 async function runWriteOp(
   id: string,
@@ -182,20 +161,15 @@ async function runWriteOp(
 ): Promise<void> {
   if (!(await requireHumanAttachment(id, tab))) return;
   if (!(await approveOp(id, tab, operation, script, extraEnvelope))) return;
-  try {
-    const raw = await invoke<string>("browser_eval", {
+  const raw = await invokeAttached(tab, () =>
+    invoke<string>("browser_eval", {
       tabId: tab.tabId,
       script,
       operation,
       generation: tab.generation,
-    });
-    await respond({ id, success: true, data: data(raw) });
-  } finally {
-    const approvals = useBrowserApprovalStore.getState();
-    if (tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation)) {
-      approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
-    }
-  }
+    }),
+  );
+  await respond({ id, success: true, data: data(raw) });
 }
 
 /** `vmark.browser.style` — isolated-world CSS manipulation (act-class, op `style`). */
@@ -203,8 +177,9 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
   return wrapHandler(id, async () => {
     const tab = await resolveWriteTab(id, args);
     if (!tab) return;
-    const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : undefined;
-    const selector = typeof args.selector === "string" && args.selector.trim() ? args.selector : undefined;
+    const wire = readOperationArgs("vmark.browser.style", args);
+    const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : undefined;
+    const selector = typeof wire.selector === "string" && wire.selector.trim() ? wire.selector : undefined;
     if (ref && selector) {
       await respond({ id, success: false, error: "style takes {ref} OR {selector}, not both" });
       return;
@@ -247,12 +222,20 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
 
 /** `vmark.browser.execute_js` — the escape hatch. An arbitrary isolated-world
  *  script, op `eval`: approved PER CALL only (never a standing grant), the
- *  script shown in the approval envelope, the result flagged untrusted (ADR-A6). */
+ *  script shown in the approval envelope, the result flagged untrusted (ADR-A6).
+ *
+ *  The USER'S script is what the prompt shows and what the one-shot binds — but
+ *  what runs is `wrapExecuteJsScript(script)`: the driver returns strings only
+ *  (a non-string result came back as Apple's `description` text and a throw as
+ *  `<null>` with success — audit E-04), so the wrapper JSON-encodes the value and
+ *  reports a throw as a failure. Both layers bind the WRAPPED script's hash: the
+ *  wrapper is deterministic, so an approved script still cannot be swapped. */
 export async function handleBrowserExecuteJs(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
     const tab = await resolveWriteTab(id, args);
     if (!tab) return;
-    const script = typeof args.script === "string" && args.script.trim() ? args.script : "";
+    const wire = readOperationArgs("vmark.browser.execute_js", args);
+    const script = typeof wire.script === "string" && wire.script.trim() ? wire.script : "";
     if (!script) {
       await respond({ id, success: false, error: "execute_js requires a non-empty 'script' string" });
       return;
@@ -261,14 +244,20 @@ export async function handleBrowserExecuteJs(id: string, args: Record<string, un
       await respond({ id, success: false, error: `execute_js script exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
       return;
     }
+    const wrapped = wrapExecuteJsScript(script);
+    if (utf8ByteLength(wrapped) > MAX_SCRIPT_BYTES) {
+      await respond({ id, success: false, error: `execute_js script (wrapped) exceeds the ${MAX_SCRIPT_BYTES}-byte limit` });
+      return;
+    }
     // The approval envelope shows the exact script (truncated) — the user must see
-    // what they authorize — and the FULL script is bound into the one-shot, so an
-    // approved script cannot be swapped for another on the retry. `eval` is never
-    // grantable, so this is always per-call. (Security review P5, High #1.)
+    // what they authorize — and the FULL wrapped script is bound into the one-shot,
+    // so an approved script cannot be swapped for another on the retry. `eval` is
+    // never grantable, so this is always per-call. (Security review P5, High #1.)
     // The result is page-derived and UNTRUSTED — never auto-feed it into a later act.
-    await runWriteOp(id, tab, "eval", script, { script: script.slice(0, 2000) }, (raw) => ({
-      result: parseEvalResult(raw),
-      untrusted: true,
-    }));
+    await runWriteOp(id, tab, "eval", wrapped, { script: script.slice(0, 2000) }, (raw) => {
+      const outcome = unwrapExecuteJsResult(raw);
+      if (!outcome.ok) throw new Error(`script threw: ${outcome.error}`);
+      return { result: outcome.value, untrusted: true };
+    });
   });
 }

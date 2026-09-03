@@ -13,11 +13,19 @@
  * `read`. It POLLS rather than blocking one long eval, because the driver's
  * per-eval run-loop pump is short — polling also keeps each eval well under that
  * cap and lets the wait track a navigation (the tab is re-resolved each round, so
- * its current committed generation is used). A human tab needs an attachment, as
- * for `read`.
+ * its current committed generation is used).
+ *
+ * Audit 2026-09-03: a human tab attached with "Allow once" holds ONE authorized
+ * read, and a poll loop is many — the first poll spent it and every later poll
+ * was refused, reported as `matched:false` (A-01). Such a tab is now refused up
+ * front with `ATTACHMENT_ONCE_INSUFFICIENT`; "Allow until navigation" covers a
+ * wait. A driver rejection during a poll propagates as its typed token instead of
+ * a success envelope (E-01). `urlContains` matches the REDACTED url — query and
+ * fragment are stripped so a redirect-set token cannot be probed — so a needle
+ * containing `?` or `#` can never match and is refused with a reason (A-06).
  *
  * @coordinates-with lib/browser/agent/actScript.ts — buildWaitConditionScript
- * @coordinates-with services/mcpBridge/v2/browserReadClass.ts — requireHumanAttachment
+ * @coordinates-with services/mcpBridge/v2/browserAccess.ts — gate + attachment mirror
  * @module services/mcpBridge/v2/browserWaitFor
  */
 
@@ -26,8 +34,10 @@ import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { urlForAgent } from "@/lib/browser/url";
 import { buildWaitConditionScript, type WaitCondition } from "@/lib/browser/agent/actScript";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, validateTimeout } from "./browserHelpers";
+import { readTabIdArg, resolveBrowserTab, validateTimeout } from "./browserHelpers";
+import { browserGate, hasOnceAttachment, invokeAttached } from "./browserAccess";
 import { requireHumanAttachment } from "./browserReadClass";
+import { readOperationArgs } from "./readOperationArgs";
 
 const POLL_INTERVAL_MS = 200;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -38,12 +48,13 @@ type WaitMode = { kind: "script"; condition: WaitCondition } | { kind: "url"; ne
 
 /** Parse exactly one condition from the args, or null if zero or more than one. */
 function readCondition(args: Record<string, unknown>): WaitMode | null {
-  const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : undefined;
-  const role = typeof args.role === "string" && args.role.trim() ? args.role : undefined;
-  const name = typeof args.name === "string" ? args.name : undefined;
-  const text = typeof args.text === "string" && args.text.length > 0 ? args.text : undefined;
+  const wire = readOperationArgs("vmark.browser.wait_for", args);
+  const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : undefined;
+  const role = typeof wire.role === "string" && wire.role.trim() ? wire.role : undefined;
+  const name = typeof wire.name === "string" ? wire.name : undefined;
+  const text = typeof wire.text === "string" && wire.text.length > 0 ? wire.text : undefined;
   const urlContains =
-    typeof args.urlContains === "string" && args.urlContains.length > 0 ? args.urlContains : undefined;
+    typeof wire.urlContains === "string" && wire.urlContains.length > 0 ? wire.urlContains : undefined;
   const modes = [ref, role, text, urlContains].filter((m) => m !== undefined).length;
   if (modes !== 1) return null;
   if (ref !== undefined) return { kind: "script", condition: { ref } };
@@ -58,10 +69,7 @@ function readCondition(args: Record<string, unknown>): WaitMode | null {
 /** `vmark.browser.wait_for` — poll until a condition holds or the timeout elapses. */
 export async function handleBrowserWaitFor(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    if (!(await browserGate(id))) return;
     const tabIdArg = readTabIdArg(args);
     if (tabIdArg === null) {
       await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -81,12 +89,33 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
       });
       return;
     }
+    if (mode.kind === "url" && /[?#]/.test(mode.needle)) {
+      await respond({
+        id,
+        success: false,
+        error:
+          "urlContains is matched against the redacted URL (query and fragment stripped), so a needle " +
+          "containing '?' or '#' can never match — wait for the path, or for page content instead",
+      });
+      return;
+    }
     const initial = resolveBrowserTab(tabIdArg);
     if (!initial) {
       await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
     if (!(await requireHumanAttachment(id, initial))) return;
+    if (mode.kind === "script" && hasOnceAttachment(initial)) {
+      await respond({
+        id,
+        success: false,
+        error:
+          "ATTACHMENT_ONCE_INSUFFICIENT: wait_for polls the page repeatedly, and this tab is attached for " +
+          "one read only — ask the user for 'Allow until navigation', or use browser_read read once",
+        data: { token: "ATTACHMENT_ONCE_INSUFFICIENT", tabId: initial.tabId, generation: initial.generation },
+      });
+      return;
+    }
 
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -96,44 +125,38 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
         await respond({ id, success: true, data: { matched: false, reason: "tab-gone" } });
         return;
       }
-      let matched: boolean;
-      let matchedRef: string | undefined;
       if (mode.kind === "url") {
         // Answered from the webview mirror: the same redacted URL the model
         // already sees on every navigation result. No eval round-trip.
-        matched = urlForAgent(tab.url).includes(mode.needle);
-        if (matched) {
-          await respond({ id, success: true, data: { matched: true, url: urlForAgent(tab.url) } });
+        const url = urlForAgent(tab.url);
+        if (url.includes(mode.needle)) {
+          await respond({ id, success: true, data: { matched: true, url } });
           return;
         }
         if (Date.now() >= deadline) {
-          await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url) } });
+          await respond({ id, success: true, data: { matched: false, url } });
           return;
         }
         await sleep(POLL_INTERVAL_MS);
         continue;
       }
-      try {
-        const raw = await invoke<string>("browser_eval", {
+      // A driver rejection here (the tab navigated away, the browser was disabled,
+      // an eval failure) is thrown to `wrapHandler` and reaches the model as its
+      // typed token — never as a `matched:false` that looks like a patient wait.
+      const raw = await invokeAttached(tab, () =>
+        invoke<string>("browser_eval", {
           tabId: tab.tabId,
           script: buildWaitConditionScript(mode.condition, tab.generation),
           operation: "read",
           generation: tab.generation,
-        });
-        const parsed = JSON.parse(raw) as { matched?: boolean; ref?: string };
-        matched = parsed.matched === true;
-        matchedRef = parsed.ref;
-      } catch {
-        // The tab navigated/closed mid-wait (a stale generation), or the eval did
-        // not return JSON: stop rather than spin on errors.
-        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url), reason: "unavailable" } });
-        return;
-      }
-      if (matched) {
+        }),
+      );
+      const parsed = JSON.parse(raw) as { matched?: boolean; ref?: string };
+      if (parsed.matched === true) {
         await respond({
           id,
           success: true,
-          data: { matched: true, url: urlForAgent(tab.url), ...(matchedRef ? { ref: matchedRef } : {}) },
+          data: { matched: true, url: urlForAgent(tab.url), ...(parsed.ref ? { ref: parsed.ref } : {}) },
         });
         return;
       }

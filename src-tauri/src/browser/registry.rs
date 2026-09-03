@@ -120,6 +120,12 @@ impl Lifecycle {
     }
 }
 
+/// Cap on live AI-owned tabs (audit 20260903 X-01). Each `open` is an unprompted
+/// `WKWebView` content process, and dedupe by URL is defeated by distinct paths, so
+/// without a bound an AI could grow processes without limit. `browser_ai_create`
+/// refuses past this with `TAB_LIMIT`; a closed tab frees its slot.
+pub const MAX_AI_TABS: usize = 8;
+
 /// Error from a registry operation.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BrowserError {
@@ -136,8 +142,8 @@ pub enum BrowserError {
 }
 
 struct Entry {
-    /// Read by `window_of`/`tabs_in_window` — the per-window teardown WI's hook.
-    #[allow(dead_code, reason = "consumer is the per-window teardown WI")]
+    /// Read by `window_of`/`tabs_in_window`: event routing, per-window grants,
+    /// dialog ownership, and window teardown.
     window_label: String,
     generation: u64,
     state: Lifecycle,

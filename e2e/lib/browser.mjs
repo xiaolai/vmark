@@ -120,6 +120,26 @@ export async function withBrowserEnabled(client, opts, fn) {
   }
 }
 
+/**
+ * Run `fn` with the embedded browser DISABLED, restoring the prior setting.
+ *
+ * The browser ships ON by default (maintainer decision 2026-08-15), so a journey
+ * that asserts the feature gate must create the OFF state itself and put things
+ * back — exactly the discipline `withBrowserEnabled` applies in the other
+ * direction. Disabling closes every browser tab and revokes every site permission
+ * (browserAiPolicySync), so the caller should expect a clean browser slate.
+ */
+export async function withBrowserDisabled(client, fn) {
+  const before = (await readBrowserSettings(client)) ?? {};
+  const snapshot = { enabled: before.enabled ?? true };
+  await patchBrowserSettings(client, { enabled: false });
+  try {
+    return await fn();
+  } finally {
+    await patchBrowserSettings(client, snapshot).catch(() => {});
+  }
+}
+
 /** Browser tabs currently open, from the app's own tab store view in the DOM. */
 export async function listBrowserTabs(client) {
   const raw = await evalJs(

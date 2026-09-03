@@ -198,13 +198,13 @@ pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
             // session.save/load, console with its buffer drain) stay
             // serialized through WRITE_LOCK.
             //
-            // `vmark.browser.wait` is deliberately NOT here (audit 20260729):
-            // unlike its read-class siblings, its frontend handler activates
-            // the target window and creates/attaches the native browser view
-            // (`activateBrowserTarget` + `ensureBrowserNativeView` in
-            // src/hooks/mcpBridge/v2/browserNavigation.ts) — real mutations
-            // that must serialize through WRITE_LOCK.
+            // `vmark.browser.wait` joined the read-class set on 2026-09-03 (audit
+            // L-03): its handler used to activate the target window and create the
+            // native view — real mutations — and was therefore kept out (audit
+            // 20260729). It now only observes a navigation ticket, matching the
+            // `browser_read` tool that carries it.
             | "vmark.browser.read"
+            | "vmark.browser.wait"
             | "vmark.browser.wait_for"
             | "vmark.browser.query"
             | "vmark.browser.screenshot"

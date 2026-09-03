@@ -26,6 +26,7 @@ import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFoc
 import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { isRovingNavKey, moveRovingTabFocus } from "@/utils/rovingTabFocus";
 import { NEW_BROWSER_TAB_URL } from "@/services/commands/browserCommands";
+import { useBrowserLeaseStore } from "@/services/browser/lease";
 
 interface BrowserPageTabsProps {
   pages: BrowserTab[];
@@ -35,6 +36,11 @@ interface BrowserPageTabsProps {
 
 export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPageTabsProps): React.ReactElement {
   const { t } = useTranslation("common");
+  // Pages an AI run currently holds (audit 2026-09-03 #15). Native views stay
+  // alive in the background, so a run can be driving a page that is not the one
+  // on screen; the indicator has to live on the page's tab, not only in the chrome
+  // of the active page.
+  const leases = useBrowserLeaseStore((s) => s.leases);
 
   const createPage = () => {
     const id = useTabStore.getState().createBrowserPage(windowLabel, NEW_BROWSER_TAB_URL);
@@ -50,6 +56,7 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
       {pages.map((page) => {
         const active = page.id === activePageId;
         const pageLabel = page.title && page.title !== page.url ? page.title : t("browser.newPage");
+        const aiHolds = leases[page.id]?.holder === "ai";
         return (
           <div
             key={page.id}
@@ -73,6 +80,14 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
             title={pageLabel}
           >
             <Globe2 size={14} aria-hidden="true" />
+            {aiHolds && (
+              <span
+                className="browser-page-tab-ai"
+                role="img"
+                aria-label={t("browser.aiControlling")}
+                title={t("browser.aiControlling")}
+              />
+            )}
             <span className="browser-page-tab-title">{pageLabel}</span>
             <TabStripButton
               kind="close"

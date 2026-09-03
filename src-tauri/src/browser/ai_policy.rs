@@ -118,6 +118,38 @@ pub fn validate_ai_navigation_url(input: &str, allow_loopback: bool) -> Result<S
     Ok(value.to_string())
 }
 
+/// May a tab load `url` in a SUBFRAME (audit 20260903 P-01)?
+///
+/// The navigation delegate sees every frame's navigation, and used to allow any
+/// non-main-frame load unconditionally — so an iframe on a public page an AI opened
+/// with zero approval could point at a LAN or metadata address. An AI-owned tab now
+/// runs the same destination check for a subframe as for its main frame; a human
+/// tab keeps its behaviour. Nothing is minted and nothing is emitted for a refused
+/// subframe: it is cancelled, and the page simply has a frame that did not load.
+///
+/// `about:`, `blob:` and `data:` frames are allowed: they reach no network, and
+/// `about:blank` / `srcdoc` frames are how ordinary pages build portals and ad
+/// slots — refusing them would break the page for nothing. Every other scheme goes
+/// through the validator, which refuses `file:`, `ftp:` and the private ranges.
+/// Subresources (images, scripts, fetches) never reach the delegate at all; the
+/// content rule list in `ai_content_rules.rs` covers those.
+pub fn subframe_load_allowed(mode: AutomationMode, policy: &AiBrowserPolicy, url: &str) -> bool {
+    if mode == AutomationMode::Human {
+        return true;
+    }
+    if !policy.enabled {
+        return false;
+    }
+    let lower = url.trim().to_ascii_lowercase();
+    if ["about:", "blob:", "data:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+    {
+        return true;
+    }
+    validate_ai_navigation_url(url, policy.allow_loopback).is_ok()
+}
+
 fn blocked_hostname(host: &str, allow_loopback: bool) -> bool {
     (matches!(host, "localhost") || host.ends_with(".localhost")) && !allow_loopback
         || matches!(host, "metadata" | "instance-data")

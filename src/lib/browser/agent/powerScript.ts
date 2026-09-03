@@ -1,7 +1,8 @@
 /**
  * Injected DOM-detection (`query`) and CSS-manipulation (`style`) scripts
  * (WI-P5.1 / WI-P5.2). Prepend `AGENT_LIB` to reuse `__vmarkRefFor` /
- * `__vmarkQueryByRef` / `__vmarkNorm`.
+ * `__vmarkQueryByRef` / `__vmarkNorm` / `__vmarkAll`. `query` walks the composed
+ * tree, so elements inside open shadow roots are found and counted (S-05).
  *
  * Both run in the driver's ISOLATED content world — they share the DOM (so
  * `querySelector`, `element.style`, an injected `<style>` all work) but cannot
@@ -16,7 +17,12 @@ import { AGENT_LIB } from "./actScript";
 
 const QUERY_LIB = `
 function __vmarkQueryDom(sel,gen,opts){
-  var els; try{els=document.querySelectorAll(sel);}catch(e){return {error:'invalid-selector'};}
+  try{document.querySelectorAll(sel);}catch(e){return {error:'invalid-selector'};}
+  // Composed order through open shadow roots (S-05): \`matches\` per element rather
+  // than one querySelectorAll, which never enters a shadow tree. Combinators do
+  // not cross a shadow boundary; a selector matches within each tree.
+  var all=__vmarkAll(document),els=[];
+  for(var k=0;k<all.length;k++){try{if(all[k].matches(sel))els.push(all[k]);}catch(e){}}
   var cap=50,n=Math.min(els.length,cap),out=[];
   for(var i=0;i<n;i++){
     var el=els[i],o={ref:__vmarkRefFor(el,gen),tag:el.tagName.toLowerCase(),text:__vmarkNorm(el.textContent).slice(0,500)};

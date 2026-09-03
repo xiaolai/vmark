@@ -18,7 +18,7 @@
 
 use crate::browser::ai_policy::AiBrowserPolicy;
 use crate::browser::one_shot::OneShot;
-use crate::browser::origin_guard::StandingGrant;
+use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::ProfileOpen;
 use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
@@ -33,12 +33,15 @@ pub struct BrowserSurface {
     /// Per-tab consecutive-crash state (WI-1.8). The navigation delegate records
     /// crashes/clean-loads here to decide auto-reload vs. manual (recovery.rs).
     pub crash_trackers: Mutex<HashMap<String, CrashTracker>>,
-    /// Standing origin grants (R4/R5), mirrored from the frontend approval store
-    /// via `browser_set_grants`. **Default-deny**: an empty set authorizes nothing,
-    /// so a driver command is refused until the user has actually granted the
-    /// origin+operation. This is the authoritative copy — the TS store is a cache
-    /// for UX, not the enforcement point (WI-2.1).
-    pub grants: Mutex<Vec<StandingGrant>>,
+    /// Standing origin grants (R4/R5), mirrored from each window's frontend
+    /// approval store via `browser_set_grants` and keyed by that window's label
+    /// (audit 20260903 A-03 — one process-wide vector let whichever window synced
+    /// last clobber the rest). A tab is authorized by the grants of the window that
+    /// owns it, per the registry. **Default-deny**: an absent or empty slice
+    /// authorizes nothing, so a driver command is refused until the user has
+    /// actually granted the origin+operation. This is the authoritative copy — the
+    /// TS store is a cache for UX, not the enforcement point (WI-2.1).
+    pub grants: Mutex<HashMap<String, Vec<StandingGrant>>>,
     /// Single-use authorizations from the user's "Allow once" (R5). They live here
     /// rather than only in the TS store because the driver is the authority: a
     /// one-shot the frontend held alone would be checked there and then refused
@@ -86,6 +89,11 @@ pub mod fail {
     pub const UNSUPPORTED_PLATFORM: &str = "UNSUPPORTED_PLATFORM";
     /// The main-thread hop did not answer within its deadline.
     pub const MAIN_THREAD_TIMEOUT: &str = "MAIN_THREAD_TIMEOUT";
+    /// The AI destination rule list did not compile, so no AI webview was created
+    /// (audit 20260903 P-01 — fail closed, never an unguarded AI tab).
+    pub const CONTENT_RULES_FAILED: &str = "CONTENT_RULES_FAILED";
+    /// A page dialog was answered from a window that does not own its tab.
+    pub const DIALOG_NOT_OWNED: &str = "DIALOG_NOT_OWNED";
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +103,41 @@ pub struct TabAttachment {
     pub uses: Option<u8>,
 }
 
+/// The standing grants of one window, as a slice. `None` (an unknown tab) or a
+/// window that never synced reads as EMPTY — default-deny, the same answer the
+/// old process-wide vector gave before its first sync.
+pub(crate) fn grants_of<'a>(
+    by_window: &'a HashMap<String, Vec<StandingGrant>>,
+    window_label: Option<&str>,
+) -> &'a [StandingGrant] {
+    window_label
+        .and_then(|label| by_window.get(label))
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+}
+
 impl BrowserSurface {
+    /// Does the window `window_label` grant `operation` on `url`? The navigation
+    /// delegate's question, asked with the registry guard held (registry → grants
+    /// is the established lock order). A poisoned lock answers `false`: deny.
+    pub fn is_granted_in_window(
+        &self,
+        window_label: Option<&str>,
+        url: &str,
+        operation: &str,
+    ) -> bool {
+        self.grants
+            .lock()
+            .map(|by_window| {
+                origin_guard::is_operation_granted(
+                    url,
+                    operation,
+                    grants_of(&by_window, window_label),
+                )
+            })
+            .unwrap_or(false)
+    }
+
     /// Drop every trace of a tab: its registry entry **and** its crash budget.
     ///
     /// Both halves must go together. Removing only the registry entry (what

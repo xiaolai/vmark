@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "La IA no tiene permiso para hacer eso en esta página"
   browser.attachmentRequired: "Conecta la IA a esta pestaña antes de que pueda actuar en ella"
   browser.profileOriginConfined: "La IA solo puede leer la página aprobada para este perfil"
+  browser.evalTimeout: "El script de la página no terminó a tiempo"
+  browser.evalFailed: "El script de la página falló"
+  browser.evalNoValue: "El script de la página no devolvió ningún valor"
+  browser.evalResultTooLarge: "El resultado del script de la página es demasiado grande para devolverlo"
+  browser.tabLimit: "La IA ya tiene %{limit} pestañas del navegador abiertas: cierra una primero"
+  browser.dialogNotOwned: "Ese diálogo de la página pertenece a otra ventana"
+  browser.contentRulesFailed: "No se pudieron instalar las reglas de destino del navegador de la IA"
 
   # === Hot exit ===
   hotExit.noWindows: "No hay ventanas de documento para capturar"

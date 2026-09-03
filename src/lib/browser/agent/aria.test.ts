@@ -283,3 +283,39 @@ describe("ariaSnapshot", () => {
     expect(ariaSnapshot(p2)[0].ref).toBe("e1");
   });
 });
+
+describe("audit 2026-09-03 additions", () => {
+  it("maps <summary> to button (a disclosure control the agent must be able to target)", () => {
+    expect(computeRole(el(`<summary>More</summary>`))).toBe("button");
+  });
+
+  it("names a landmark from label/title only, never from its content (S-06)", () => {
+    expect(accessibleName(el(`<nav>Home About</nav>`))).toBe("");
+    expect(accessibleName(el(`<nav aria-label="Primary">Home</nav>`))).toBe("Primary");
+  });
+
+  it("normalises Unicode format characters and NFC in every source (S-09)", () => {
+    expect(accessibleName(el(`<button>Publ\u200Bish</button>`))).toBe("Publish");
+    expect(accessibleName(el(`<button aria-label="\u202Eevil\u202C">x</button>`))).toBe("evil");
+    expect(accessibleName(el(`<button>café</button>`))).toBe("café");
+  });
+
+  it("marks file inputs with upload:true and nothing else (S-10)", () => {
+    const snap = ariaSnapshot(root(`<input type="file" aria-label="Attachment"><input type="text" aria-label="Name">`));
+    expect(snap.find((n) => n.name === "Attachment")?.upload).toBe(true);
+    expect("upload" in snap.find((n) => n.name === "Name")!).toBe(false);
+  });
+
+  it("walks the composed tree: nodes inside an open shadow root are perceived, in shadow-first order (S-05)", () => {
+    document.body.innerHTML = `<div id="host"><button>Light</button></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<button>Shadow</button><slot></slot>`;
+    expect(ariaSnapshot(document.body).map((n) => n.name)).toEqual(["Shadow", "Light"]);
+    expect(queryByRole(document.body, "button", { name: "Shadow" })).toHaveLength(1);
+    document.body.innerHTML = "";
+  });
+
+  it("caps the snapshot at 2000 nodes (S-06)", () => {
+    const page = root(Array.from({ length: 2001 }, () => `<button>b</button>`).join(""));
+    expect(ariaSnapshot(page)).toHaveLength(2000);
+  });
+});

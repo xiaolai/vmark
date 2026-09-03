@@ -15,7 +15,14 @@ import { useUIStore } from "@/stores/uiStore";
 describe("clipboard commands (#1354)", () => {
   const execSpy = vi.fn();
 
+  let originalPlatform = "";
+
   beforeEach(() => {
+    // This suite exercises the NON-mac fallback, so it says so: the test tier models
+    // macOS by default (src/test/platformDefault.ts), where the native edit menu
+    // handles these and the fallback is never reached.
+    originalPlatform = navigator.platform;
+    Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
     registerClipboardCommands();
     // jsdom has no execCommand; the bridge's non-mac fallback calls it, so
     // the DOM API is the boundary we fake — every store and service runs real.
@@ -26,6 +33,7 @@ describe("clipboard commands (#1354)", () => {
 
   afterEach(() => {
     delete (document as { execCommand?: unknown }).execCommand;
+    Object.defineProperty(navigator, "platform", { value: originalPlatform, configurable: true });
   });
 
   it("registers all four edit commands exactly once", () => {

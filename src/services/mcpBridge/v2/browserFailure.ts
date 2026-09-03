@@ -7,9 +7,11 @@
  * by matching text.
  *
  * @coordinates-with src-tauri/src/browser/ai_guards.rs — the producer
+ * @coordinates-with services/mcpBridge/v2/bridgeError — the one token derivation
  * @module services/mcpBridge/v2/browserFailure
  */
 import { parseCommandError } from "@/services/commands/commandError";
+import { bridgeErrorToken } from "./bridgeError";
 
 /**
  * Does this refusal mean "ask the user, then retry"? (WI-14)
@@ -46,10 +48,5 @@ export function needsNavigationApproval(error: unknown): boolean {
  * a typed rejection would have sent the AI the literal text "[object Object]".
  */
 export function browserFailureToken(error: unknown): string {
-  const parsed = parseCommandError(error);
-  if (!parsed) return String(error);
-  const token = parsed.detail?.mcpCode;
-  if (typeof token === "string") return token;
-  return parsed.code.toUpperCase().replace(/-/g, "_");
+  return bridgeErrorToken(error) ?? String(error);
 }
-

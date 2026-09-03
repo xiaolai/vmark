@@ -10,19 +10,23 @@
  * `no-circular` error).
  *
  * This layer keeps the human in the loop; the Rust driver is the authoritative
- * gate (browser/authorize.rs). A post-authorization data response passes URLs
+ * gate (browser/authorize.rs). The feature/platform gate and the attachment
+ * mirror discipline live in `browserAccess.ts` and are shared with the act-class
+ * handlers. A post-authorization data response passes URLs
  * through `urlForAgent` (path kept); a PRE-authorization approval envelope uses
  * `originForAgent` (origin only) so a credential-bearing path can't leak.
  *
  * @coordinates-with services/mcpBridge/v2/browser.ts — handleBrowserRead / handleBrowserAct
  * @coordinates-with services/mcpBridge/v2/browserScreenshot.ts — handleBrowserScreenshot
+ * @coordinates-with services/mcpBridge/v2/browserAccess.ts — gate + attachment mirror
  * @module services/mcpBridge/v2/browserReadClass
  */
 
 import { respond } from "@/services/mcpBridge/utils";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { originForAgent } from "@/lib/browser/url";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserGate, invokeAttached } from "./browserAccess";
 
 /** Parse a `browser_eval` string result as JSON, falling back to the raw string
  *  (shared by read and act). A completed eval returns a JSON payload; anything
@@ -95,10 +99,7 @@ export async function runReadClass<T>(
   args: Record<string, unknown>,
   op: ReadClassOp<T>,
 ): Promise<void> {
-  if (!browserEnabled()) {
-    await respond({ id, success: false, error: "BROWSER_DISABLED" });
-    return;
-  }
+  if (!(await browserGate(id))) return;
   const tabIdArg = readTabIdArg(args);
   if (tabIdArg === null) {
     await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
@@ -110,13 +111,10 @@ export async function runReadClass<T>(
     return;
   }
   if (!(await requireHumanAttachment(id, tab))) return;
-  const approvals = useBrowserApprovalStore.getState();
-  const humanRead =
-    tab.automationMode === "human" && approvals.isHumanTabAttached(tab.tabId, tab.generation);
-  const result = await op.invoke(tab);
-  // Rust consumes the one-shot attachment while authorizing; mirror that after the
-  // command succeeds so the next action cannot pass the frontend check then fail
-  // in the driver. On an invoke rejection this is skipped — consent is not spent.
-  if (humanRead) approvals.consumeHumanTabAttachment(tab.tabId, tab.generation);
+  // The attachment mirror follows the driver's consume exactly — spent on success
+  // and on any post-authorization failure, kept on a pre-authorization refusal
+  // (`browserAccess`). A rejection propagates to `wrapHandler`, which renders the
+  // typed refusal; it is never swallowed into a success envelope.
+  const result = await invokeAttached(tab, () => op.invoke(tab));
   await respond({ id, success: true, data: op.data(tab, result) });
 }

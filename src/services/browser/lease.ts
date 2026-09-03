@@ -16,8 +16,13 @@
  * (`authorize.rs`). One clock per question.
  *
  * Rules (all unit-tested):
- *   - Human input ALWAYS reclaims the lease, immediately and unconditionally —
- *     the AI can only acquire a *free* tab.
+ *   - Human input reclaims an AI-held lease immediately and unconditionally —
+ *     the AI can only acquire a *free* tab. A human hold is the INTERRUPTION of an
+ *     AI tenure, nothing more: reclaiming a tab the AI does not hold is a no-op, and
+ *     the run service releases the hold (`release(tab, "human")`) when the
+ *     interrupted run ends. Before audit 2026-09-03 W-04 a hold was permanent —
+ *     nothing released it, so one accidental scroll refused every later
+ *     `workflow_run` on that tab until it was closed.
  *   - A run's envelope carries `{holder, epoch}`. `validate` rejects it as
  *     `lease-lost` when the holder changed, `stale` when the epoch moved (the
  *     authority was reclaimed/released and re-granted since).
@@ -58,8 +63,10 @@ interface LeaseActions {
   /** AI requests control. Succeeds only if the tab is free or already AI-held
    *  (a human holder always wins). Returns whether the AI now holds the lease. */
   acquireForAi: (tabId: string) => boolean;
-  /** Human input reclaims the lease unconditionally: bumps the epoch and
-   *  cancels the AI's in-flight step. Always succeeds. */
+  /** Human input reclaims an AI-held lease: bumps the epoch, moves the holder to
+   *  the human and cancels the AI's in-flight step. A no-op when the AI does not
+   *  hold the tab — there is nothing to interrupt, and a hold nothing will release
+   *  would lock the tab (W-04). */
   reclaimForHuman: (tabId: string) => void;
   /** Release the lease if (and only if) `holder` currently holds it — bumps the
    *  epoch, so envelopes from the ended tenure cannot validate again. */
@@ -142,7 +149,10 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
       return true;
     },
 
-    reclaimForHuman: (tabId) => invalidate(tabId, "human"),
+    reclaimForHuman: (tabId) => {
+      if (get().leases[tabId]?.holder !== "ai") return;
+      invalidate(tabId, "human");
+    },
 
     release: (tabId, holder) => {
       const lease = get().leases[tabId];

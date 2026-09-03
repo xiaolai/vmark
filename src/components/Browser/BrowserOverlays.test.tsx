@@ -18,9 +18,12 @@ describe("BrowserOverlays", () => {
         error={null}
         crash={null}
         dialog={null}
+        popup={null}
         onRetry={noop}
         onCloseDialog={noop}
         onRecover={noop}
+        onOpenPopup={noop}
+        onDismissPopup={noop}
       />,
     );
     expect(container).toBeEmptyDOMElement();
@@ -33,9 +36,12 @@ describe("BrowserOverlays", () => {
         error={null}
         crash={null}
         dialog={null}
+        popup={null}
         onRetry={noop}
         onCloseDialog={noop}
         onRecover={noop}
+        onOpenPopup={noop}
+        onDismissPopup={noop}
       />,
     );
     expect(container.querySelector(".browser-frozen")).not.toBeNull();
@@ -49,9 +55,12 @@ describe("BrowserOverlays", () => {
         error="A server with the specified hostname could not be found."
         crash={null}
         dialog={null}
+        popup={null}
         onRetry={onRetry}
         onCloseDialog={noop}
         onRecover={noop}
+        onOpenPopup={noop}
+        onDismissPopup={noop}
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(/could not be found/i);
@@ -66,9 +75,12 @@ describe("BrowserOverlays", () => {
         error="offline"
         crash={{ action: "manual" }}
         dialog={null}
+        popup={null}
         onRetry={noop}
         onCloseDialog={noop}
         onRecover={noop}
+        onOpenPopup={noop}
+        onDismissPopup={noop}
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(/crashed/i);
@@ -83,13 +95,46 @@ describe("BrowserOverlays", () => {
         error={null}
         crash={null}
         dialog={{ kind: "confirm", message: "Delete?", id: 3 }}
+        popup={null}
         onRetry={noop}
         onCloseDialog={onCloseDialog}
         onRecover={noop}
+        onOpenPopup={noop}
+        onDismissPopup={noop}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /^ok$/i }));
     expect(onCloseDialog).toHaveBeenCalledWith(true);
+    cleanup();
+  });
+});
+
+// Audit 2026-09-03 X-03 — a blocked popup is offered, not discarded.
+describe("BrowserOverlays — blocked popup notice", () => {
+  it("names the redacted URL and offers to open it in a new tab or dismiss it", async () => {
+    const open = vi.fn();
+    const dismiss = vi.fn();
+    render(
+      <BrowserOverlays
+        frozen={false}
+        error={null}
+        crash={null}
+        dialog={null}
+        popup={{ url: "https://auth.example/login?state=SECRET#frag", at: 1 }}
+        onRetry={noop}
+        onCloseDialog={noop}
+        onRecover={noop}
+        onOpenPopup={open}
+        onDismissPopup={dismiss}
+      />,
+    );
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent("https://auth.example/login");
+    expect(notice).not.toHaveTextContent("SECRET");
+    await userEvent.click(screen.getByRole("button", { name: /open in new tab/i }));
+    expect(open).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: /close/i }));
+    expect(dismiss).toHaveBeenCalledTimes(1);
     cleanup();
   });
 });

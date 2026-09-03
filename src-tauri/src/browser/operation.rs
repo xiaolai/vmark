@@ -7,6 +7,10 @@
 //! opaque permission — that is how a hard denial or an operation-scoped grant
 //! cannot be bypassed by a misspelled or case-variant spelling (`"Upload"`).
 //!
+//! `publish` was removed from the set (audit 20260903): it had no consumer on
+//! either side, so it was a grantable token that authorized nothing — inert
+//! authority the user could be shown and could never observe.
+//!
 //! @coordinates-with src/lib/browser/approval/grants.ts — the mirrored vocabulary
 
 /// Operations the AI may NEVER perform autonomously, even with a matching grant.
@@ -29,15 +33,27 @@ pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session", "record"];
 
 /// Operations whose one-shot must bind the exact PAYLOAD that will run, not merely
-/// `(origin, operation)`. `style` and `eval` carry a caller-supplied script/CSS, so
-/// an "Allow once" the user approved for payload A must NOT authorize a substituted
-/// payload B on the retry. The driver binds a hash of the exact script the eval will
-/// run and refuses a mismatched retry. (Security review P5 — High #1, Medium #4.)
+/// `(origin, operation, target)`.
+///
+/// `style` and `eval` carry a caller-supplied script/CSS, so an "Allow once" the
+/// user approved for payload A must NOT authorize a substituted payload B on the
+/// retry. The driver binds a hash of the exact script the eval will run and
+/// refuses a mismatched retry. (Security review P5 — High #1, Medium #4.)
+///
+/// `type`, `key` and `scroll` bind too (audit 20260903 A-05): the built script
+/// EMBEDS the text to type, the key plus its modifiers, or the scroll delta, so
+/// binding the script hash binds the payload. Before this an "Allow once" for
+/// `key` authorized any key with any modifiers on the retry, and one for `type`
+/// bound the element but not the text. `click` stays target-only — its script
+/// carries nothing beyond the descriptor the prompt already showed.
 pub(crate) fn operation_binds_payload(operation: &str) -> bool {
     // `session` binds an `action:handle` descriptor, so an "Allow once" for
     // "load work_login" cannot be spent on loading a different saved session
     // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
-    matches!(operation, "style" | "eval" | "session")
+    matches!(
+        operation,
+        "style" | "eval" | "session" | "type" | "key" | "scroll"
+    )
 }
 
 /// The closed browser-operation vocabulary. The `Deserialize` impl is the
@@ -54,7 +70,6 @@ pub enum BrowserOperation {
     Key,
     Style,
     Navigate,
-    Publish,
     Upload,
     Eval,
     Session,
@@ -73,7 +88,6 @@ impl BrowserOperation {
             "key" => Some(Self::Key),
             "style" => Some(Self::Style),
             "navigate" => Some(Self::Navigate),
-            "publish" => Some(Self::Publish),
             "upload" => Some(Self::Upload),
             "eval" => Some(Self::Eval),
             "session" => Some(Self::Session),

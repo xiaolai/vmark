@@ -100,11 +100,15 @@ pub(crate) fn authorize_driver_op(
         _ => true,
     };
     let attached = state.is_tab_attached(tab_id, generation);
+    // Standing grants are the WINDOW's (audit 20260903 A-03): the slice read here is
+    // the one the window that owns this tab synced, per the registry — never
+    // another window's, and never a process-wide vector the last sync replaced.
+    let window = reg.window_of(tab_id);
     let grants = state.grants.lock().map_err(lock_failure)?;
     let allowed = origin_guard::is_driver_operation_allowed_for_mode(
         committed,
         operation,
-        &grants,
+        surface::grants_of(&grants, window),
         mode,
         attached,
         shared_origin_approved,

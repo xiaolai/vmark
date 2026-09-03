@@ -1,6 +1,6 @@
 //! Unit tests for the `BrowserSurface` state container (WI-1.2 / WI-1.8).
 //!
-//! `BrowserSurface` is plain `Send` state (two mutexes + a grant list) — no
+//! `BrowserSurface` is plain `Send` state (mutexes + a per-window grant map) — no
 //! AppHandle, no native handles — so its teardown contract is testable here.
 
 use super::*;
@@ -105,14 +105,62 @@ mod unsupported_platform {
             let _: fn(&tauri::AppHandle, String, String) -> Result<(), String> =
                 super::super::navigate;
             let _: fn(&tauri::AppHandle, String) -> Result<(), String> = super::super::destroy;
-            // 4 args: eval gained `expected_generation` in WI-2.1. A stale
-            // signature here compiles fine on macOS (where this module is cfg'd
-            // out) and breaks the Windows/Linux build — the one thing this test
-            // exists to protect.
-            let _: fn(&tauri::AppHandle, String, String, u64) -> Result<String, String> =
-                super::super::eval;
+            // 4 args: eval gained `expected_generation` in WI-2.1, and a typed
+            // error in audit 20260903 E-03. A stale signature here compiles fine
+            // on macOS (where this module is cfg'd out) and breaks the
+            // Windows/Linux build — the one thing this test exists to protect.
+            let _: fn(
+                &tauri::AppHandle,
+                String,
+                String,
+                u64,
+            ) -> Result<String, crate::browser::eval_outcome::EvalError> = super::super::eval;
+            // The 7-argument creation signature (mode, profile, and the loopback
+            // posture the content rule list is compiled for — audit 20260903 P-01).
+            type CreateWithMode = fn(
+                &tauri::AppHandle,
+                String,
+                String,
+                String,
+                crate::browser::registry::AutomationMode,
+                Option<String>,
+                bool,
+            ) -> Result<(), String>;
+            let _: CreateWithMode = super::super::create_with_mode;
+            let _: fn(&tauri::AppHandle, u64, bool, String) -> Result<(), String> =
+                super::super::dialog_respond;
             let _: fn(&tauri::AppHandle, String) -> Result<String, String> =
                 super::super::screenshot;
         }
     }
+}
+
+// Audit 20260903 A-03 — grants are per window, read by the tab's owner.
+#[test]
+fn grants_of_reads_one_windows_slice_and_denies_everything_else() {
+    use crate::browser::origin_guard::StandingGrant;
+    let mut by_window: HashMap<String, Vec<StandingGrant>> = HashMap::new();
+    by_window.insert(
+        "a".into(),
+        vec![StandingGrant {
+            origin_pattern: "https://ex.com".into(),
+            operations: vec!["click".into()],
+        }],
+    );
+    assert_eq!(grants_of(&by_window, Some("a")).len(), 1);
+    assert!(
+        grants_of(&by_window, Some("b")).is_empty(),
+        "a window that never synced"
+    );
+    assert!(
+        grants_of(&by_window, None).is_empty(),
+        "an unknown tab has no window"
+    );
+
+    let s = BrowserSurface::default();
+    *s.grants.lock().unwrap() = by_window;
+    assert!(s.is_granted_in_window(Some("a"), "https://ex.com/p", "click"));
+    assert!(!s.is_granted_in_window(Some("a"), "https://ex.com/p", "type"));
+    assert!(!s.is_granted_in_window(Some("b"), "https://ex.com/p", "click"));
+    assert!(!s.is_granted_in_window(None, "https://ex.com/p", "click"));
 }

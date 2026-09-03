@@ -25,6 +25,21 @@ vi.mock("@/stores/workspaceStore", () => ({
 }));
 
 import { openWorkspaceWithConfig } from "./openWorkspaceWithConfig";
+
+/**
+ * Answer `read_workspace_config` with `value` (or reject it) and every OTHER
+ * command with null. Command-aware on purpose: the test tier models macOS
+ * (src/test/platformDefault.ts), where `openWorkspaceWithConfig` also fires the
+ * quarantine strip through the same `invoke` — an order-based
+ * `mockResolvedValueOnce` was consumed by that call and the config read saw
+ * nothing, which is a test that depended on the host platform, not on the code.
+ */
+function answerConfigRead(value: unknown, reject = false) {
+  mockInvoke.mockImplementation((cmd: string) => {
+    if (cmd !== "read_workspace_config") return Promise.resolve(null);
+    return reject ? Promise.reject(value) : Promise.resolve(value);
+  });
+}
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   selectWindowWorkspaceState,
@@ -41,7 +56,7 @@ describe("openWorkspaceWithConfig", () => {
   });
 
   it("reads workspace config from disk via invoke", async () => {
-    mockInvoke.mockResolvedValueOnce(null);
+    answerConfigRead(null);
 
     await openWorkspaceWithConfig("/workspace/root");
 
@@ -57,7 +72,7 @@ describe("openWorkspaceWithConfig", () => {
       lastOpenTabs: [],
       showHiddenFiles: false,
     };
-    mockInvoke.mockResolvedValueOnce(config);
+    answerConfigRead(config);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
@@ -66,7 +81,7 @@ describe("openWorkspaceWithConfig", () => {
   });
 
   it("opens workspace with null config when no config on disk", async () => {
-    mockInvoke.mockResolvedValueOnce(null);
+    answerConfigRead(null);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
@@ -75,7 +90,7 @@ describe("openWorkspaceWithConfig", () => {
   });
 
   it("opens workspace without config on invoke error", async () => {
-    mockInvoke.mockRejectedValueOnce(new Error("File not found"));
+    answerConfigRead(new Error("File not found"), true);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
@@ -84,7 +99,7 @@ describe("openWorkspaceWithConfig", () => {
   });
 
   it("opens workspace without config on non-Error rejection", async () => {
-    mockInvoke.mockRejectedValueOnce("string error");
+    answerConfigRead("string error", true);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
@@ -99,7 +114,7 @@ describe("openWorkspaceWithConfig", () => {
       lastOpenTabs: ["/workspace/root/file.md"],
       showHiddenFiles: false,
     };
-    mockInvoke.mockResolvedValueOnce(config);
+    answerConfigRead(config);
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 
@@ -110,7 +125,7 @@ describe("openWorkspaceWithConfig", () => {
     useSettingsStore.setState({
       general: { ...useSettingsStore.getState().general, workspaceRailMode: true },
     });
-    mockInvoke.mockResolvedValueOnce(null);
+    answerConfigRead(null);
 
     await openWorkspaceWithConfig("/workspace/root", { windowLabel: "doc-1" });
 
@@ -124,7 +139,7 @@ describe("openWorkspaceWithConfig", () => {
   it("opens with defaults (no config) on a malformed non-null payload (T1/ADR-2)", async () => {
     // tabs/folders wrong-typed and required fields missing — must be rejected
     // loudly rather than propagated into the workspace store.
-    mockInvoke.mockResolvedValueOnce({ version: 1, excludeFolders: "evil" });
+    answerConfigRead({ version: 1, excludeFolders: "evil" });
 
     const result = await openWorkspaceWithConfig("/workspace/root");
 

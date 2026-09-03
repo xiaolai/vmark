@@ -210,7 +210,7 @@ describe('browser_read tool — integration via server.callTool', () => {
     for (const timeoutMs of [0, 12_001, 1.5, 'soon']) {
       const result = await server.callTool('browser_read', { ...args, timeoutMs });
       expect(result.isError, String(timeoutMs)).toBe(true);
-      expect(toolText(result)).toContain('timeoutMs must be an integer from 1 to 12000');
+      expect(toolText(result)).toContain('timeoutMs must be an integer from 1 to 9000');
     }
     expect(bridge.requests).toHaveLength(0);
   });

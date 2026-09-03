@@ -13,20 +13,34 @@
  * a drained buffer cannot leak a secret. Trusted host-side redaction (`recorder.ts`)
  * makes the final serialization decision.
  *
- * **One canonical asset.** The shim source lives in `recorderShim.src.js`, consumed
- * byte-identical twice: Rust `include_str!`s it for injection
- * (`src-tauri/src/browser/recorder_shim_macos.rs`), and `recorderShim.test.ts` executes
- * it in jsdom.
+ * **Two canonical assets, one assembly** (audit 2026-09-03 S-02). The shim is a BODY
+ * that assumes the shared perception core is in scope, so both hosts wrap the pair
+ * identically: Rust `concat!`s `"(function(){\n"`, `agentCore.src.js`, `"\n"`,
+ * `recorderShim.src.js`, `"\n})();"` (`src-tauri/src/browser/recorder_shim_macos.rs`),
+ * and `RECORDER_SHIM_SRC` below is the same string, so `recorderShim.test.ts` and
+ * `recorder.webkit.test.ts` execute the shipped bytes.
  *
- * @coordinates-with src-tauri/src/browser/recorder_shim_macos.rs — injects the asset
+ * **Drained events are never re-published** (S-01): the clearing drain stamps
+ * `data-drain` on the buffer element, and the shim drops its closure copy when the
+ * stamp it last saw has moved.
+ *
+ * @coordinates-with src-tauri/src/browser/recorder_shim_macos.rs — injects the same assembly
+ * @coordinates-with lib/browser/agent/agentCore.ts — the core asset
+ * @coordinates-with lib/browser/agent/shimDrain.ts — the drain stamp
  * @coordinates-with services/workflow/recorderSession.ts — the drain/arm orchestrator
  * @module lib/browser/agent/recorderShim
  */
 
-import RECORDER_SHIM_SRC from "./recorderShim.src.js?raw";
+import RECORDER_SHIM_BODY from "./recorderShim.src.js?raw";
+import { AGENT_CORE_SRC } from "./agentCore";
+import { bumpDrainStamp } from "./shimDrain";
 
-/** The page-world shim source — the exact bytes Rust injects. */
-export { RECORDER_SHIM_SRC };
+/** The shim BODY — the exact bytes of `recorderShim.src.js`, which assume the core. */
+export { RECORDER_SHIM_BODY };
+
+/** The page-world shim as injected: core + body in one IIFE, byte-identical to
+ *  Rust's `concat!` in `recorder_shim_macos.rs`. */
+export const RECORDER_SHIM_SRC = `(function(){\n${AGENT_CORE_SRC}\n${RECORDER_SHIM_BODY}\n})();`;
 
 /** Id of the hidden DOM element that holds the JSON ring buffer of captured events. */
 export const RECORDER_BUFFER_ID = "__vmark_recorder_buffer";
@@ -61,13 +75,15 @@ export function buildDisarmScript(): string {
 /**
  * Isolated-world script that reads (and optionally clears) the recorder ring buffer.
  * Returns `JSON.stringify({events:[{type,role?,name?,sensitive?},...]})`. A page that
- * cleared or corrupted the buffer just yields `[]` — the reader never throws.
+ * cleared or corrupted the buffer just yields `[]` — the reader never throws. A
+ * clearing drain also bumps the drain stamp, which is what makes the clear stick
+ * (S-01): the shim resets its closure copy when it sees the stamp move.
  */
 export function buildRecorderDrainScript(clear: boolean): string {
   return (
     `var e=document.getElementById(${JSON.stringify(RECORDER_BUFFER_ID)});var b=[];` +
     `if(e){try{b=JSON.parse(e.textContent||"[]");}catch(x){}}` +
-    (clear ? 'if(e)e.textContent="[]";' : "") +
+    (clear ? `if(e){e.textContent="[]";${bumpDrainStamp("e")}}` : "") +
     `return JSON.stringify({events:b});`
   );
 }

@@ -1,32 +1,37 @@
 /**
  * Journey: browser-disabled-refuses  (WI-5.1 · AI browser feature gate)
  *
- * The embedded browser is OFF by default. Every MCP action must refuse with
+ * With the embedded browser switched OFF, every MCP browser action must refuse with
  * `BROWSER_DISABLED` and no native view may be created.
  *
- * WHY THE ARGUMENTS ARE VALID. The obvious version of this test sends
- * `{action:"read"}` with nothing else and calls the refusal a pass. But most of
- * these actions also reject missing/blank arguments, and an argument-validation
- * error is indistinguishable from the feature gate if you only assert "it failed".
- * Every call below therefore carries arguments that would be ACCEPTED if the
- * feature were on, so the only thing left to refuse them is the gate itself.
+ * WHY THIS JOURNEY CREATES ITS OWN PRECONDITION. The browser has shipped ON by
+ * default since 2026-08-15, so the earlier version of this journey — which asserted
+ * "the default-off gate" and skipped when the setting was on — skipped on every run
+ * and the refusal path had no live test at all (audit 2026-09-03). It now switches
+ * the browser off for its duration through the app's own settings mechanism and
+ * restores the prior value in a `finally`, the way every browser journey does in the
+ * other direction.
  *
- * WHY THE ERROR STRING IS ASSERTED EXACTLY. `BROWSER_DISABLED` is raised by the
- * Rust policy (`authorize.rs`) and mirrored by the frontend handler. Matching the
- * token — not merely `isError` — is what distinguishes "the gate refused" from
- * "something went wrong".
+ * WHY THE ARGUMENTS ARE VALID. Most of these actions also reject missing/blank
+ * arguments, and an argument-validation error is indistinguishable from the feature
+ * gate if you only assert "it failed". Every call below carries arguments that would
+ * be ACCEPTED if the feature were on, so the only thing left to refuse them is the
+ * gate itself. Read-class actions go through `browser_read`, the rest through
+ * `browser` — the surface has been split since this journey was first written.
  *
- * SEEN TO FAIL: verified by flipping `browser.enabled` on before the loop; the
- * read/open/navigate cases then return "no active browser tab" / a navigation
- * result instead of `BROWSER_DISABLED`, and the journey goes red.
+ * WHY THE ERROR TOKEN IS ASSERTED. `BROWSER_DISABLED` is raised by the Rust policy
+ * and mirrored by the frontend gate (`browserAccess.ts`). Matching the token — not
+ * merely `isError` — is what distinguishes "the gate refused" from "something went
+ * wrong".
  *
- * Safety: reads the browser setting but never changes it — this journey asserts
- * the DEFAULT state, so it must not create the state it is testing. It opens no
- * tabs and touches no documents.
+ * SEEN TO FAIL: with the `withBrowserDisabled` wrapper removed, `open` opens a tab and
+ * `read` returns "no active browser tab"; the journey goes red on the token check.
+ *
+ * Safety: restores the browser setting; opens no tabs (the gate refuses them).
  */
 
 import { startVmarkMcp, bridgeReady } from "../lib/vmarkMcp.mjs";
-import { readBrowserSettings, nativeBrowserTabIds } from "../lib/browser.mjs";
+import { withBrowserDisabled, nativeBrowserTabIds } from "../lib/browser.mjs";
 
 export default {
   name: "browser-disabled-refuses",
@@ -41,51 +46,48 @@ export default {
       return { skip: "VMark MCP bridge is not advertising a port" };
     }
 
-    const settings = await readBrowserSettings(client);
-    if (settings?.enabled === true) {
-      // Do not silently turn it off: that would rewrite the user's configuration
-      // to manufacture the precondition, and the assertion would then be about a
-      // state this journey created rather than the shipped default.
-      return { skip: "browser.enabled is ON; this journey asserts the default-off gate" };
-    }
-
-    // Native map, not the DOM surface: a leaked or replaced WKWebView with an
-    // unchanged DOM count would otherwise pass (audit).
-    const nativeBefore = await nativeBrowserTabIds(client);
     const mcp = await startVmarkMcp();
     try {
-      // Every call is fully-formed: valid URL, valid operation, valid target.
-      const cases = [
-        ["read", {}],
-        ["open", { url: "https://example.com/" }],
-        ["navigate", { url: "https://example.com/" }],
-        ["act", { operation: "click", role: "button", name: "Press Me" }],
-        ["wait", {}],
-        ["screenshot", {}],
-        ["query", { selector: "body" }],
-        ["console", {}],
-      ];
+      await withBrowserDisabled(client, async () => {
+        // Native map, not the DOM surface: a leaked or replaced WKWebView with an
+        // unchanged DOM count would otherwise pass (audit).
+        const nativeBefore = await nativeBrowserTabIds(client);
 
-      for (const [action, args] of cases) {
-        const res = await mcp.callTool("browser", { action, ...args });
-        if (!res.isError) {
-          throw new Error(`action '${action}' succeeded while the browser is disabled`);
+        // Every call is fully-formed: valid URL, valid operation, valid target.
+        const cases = [
+          ["browser", { action: "open", url: "https://example.com/" }],
+          ["browser", { action: "navigate", url: "https://example.com/" }],
+          ["browser", { action: "act", operation: "click", role: "button", name: "Press Me" }],
+          ["browser", { action: "execute_js", script: "return 1" }],
+          ["browser_read", { action: "read" }],
+          ["browser_read", { action: "wait" }],
+          ["browser_read", { action: "screenshot" }],
+          ["browser_read", { action: "query", selector: "body" }],
+          ["browser_read", { action: "console" }],
+          ["browser_read", { action: "wait_for", text: "anything" }],
+        ];
+
+        for (const [tool, args] of cases) {
+          const res = await mcp.callTool(tool, args);
+          if (!res.isError) {
+            throw new Error(`${tool} '${args.action}' succeeded while the browser is disabled`);
+          }
+          if (!/BROWSER_DISABLED/.test(res.text)) {
+            throw new Error(
+              `${tool} '${args.action}' failed for the WRONG reason — expected BROWSER_DISABLED, got: ${res.text.slice(0, 200)}`
+            );
+          }
         }
-        if (!/BROWSER_DISABLED/.test(res.text)) {
+
+        // A refused action must not have constructed a native view on the way out.
+        const nativeAfter = await nativeBrowserTabIds(client);
+        const created = nativeAfter.filter((id) => !nativeBefore.includes(id));
+        if (created.length) {
           throw new Error(
-            `action '${action}' failed for the WRONG reason — expected BROWSER_DISABLED, got: ${res.text.slice(0, 200)}`
+            `a native WKWebView was constructed while the browser is disabled: ${created.join(", ")}`
           );
         }
-      }
-
-      // A refused action must not have constructed a native view on the way out.
-      const nativeAfter = await nativeBrowserTabIds(client);
-      const created = nativeAfter.filter((id) => !nativeBefore.includes(id));
-      if (created.length) {
-        throw new Error(
-          `a native WKWebView was constructed while the browser is disabled: ${created.join(", ")}`
-        );
-      }
+      });
     } finally {
       await mcp.close();
     }

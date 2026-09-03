@@ -364,6 +364,11 @@ session state.
 Annotated `readOnlyHint: false, destructiveHint: true` — accurate rather than merely
 conservative, because every action here mutates something.
 
+**Errors are typed.** A refusal arrives as `TOKEN: message` (`STALE_COMMAND`,
+`NOT_GRANTED`, `EVAL_TIMEOUT`, `TAB_LIMIT`, …) with the same token — and any structured
+data the app attached (a navigation ticket, an act's `reason`, the retry verb) — in
+`structuredContent`. Match on the token, not the prose.
+
 ### `act`
 
 Arguments: `tabId?`, `operation: "click" | "type" | "scroll" | "key"`, and per-operation
@@ -381,40 +386,62 @@ targets:
 a site gating on `event.isTrusted` may ignore them. Mutating operations require an
 origin-scoped approval; AI-chosen uploads are never permitted.
 
-**A click verifies its effect before reporting success.** The target is scrolled into
-view, must be visibly rendered (computed styles and collapsed ancestors are checked, so a
-duplicate button inside a closed accordion step is skipped, not clicked), and the click
-point is hit-tested — a target covered by an overlay is refused with the occluder named
-(`covered by div.cmp-overlay`) rather than clicked through. Role + name results carry
-`matchedTotal` / `matchedVisible` counts so ambiguity is visible, and every act response
-includes the tab's current `url` and `generation`. `type` handles text fields,
-`<select>` controls (pass the option's label or value; a missing option is refused as
-`no-such-option`), and `contenteditable` regions.
+**A click verifies its effect before reporting success, and refuses rather than
+guesses.** The target is scrolled into view, must be visibly rendered (computed styles
+and collapsed or transparent ancestors are checked, so a duplicate button inside a closed
+accordion step is skipped, not clicked), and the click point is hit-tested — a target
+covered by an overlay is refused with the occluder named (`covered by div.cmp-overlay`,
+page data) rather than clicked through. When several visible elements share the role and
+name the act is refused as `ambiguous` and `candidates` lists their refs — it never picks
+one by document order. Other refusal reasons: `hidden`, `offscreen` (cannot be scrolled
+into the viewport), `disabled` (including `pointer-events: none` and inert subtrees),
+`upload` (file inputs are never automated) and `rejected-value` (the field sanitised the
+text). Open shadow roots are walked; the response includes `matchedTotal` /
+`matchedVisible` counts, the tab's current `url` and `generation` on success **and**
+failure, and `popup: {url}` when the page tried to open a window during the act (VMark
+blocks popups; the URL is what it wanted). `type` handles text fields, `<select>`
+controls (pass the option's label or value; a missing option is refused as
+`no-such-option`), and `contenteditable` regions. `key` emulates the default actions
+synthetic events lack — Enter inside a form submits it, Tab moves focus — and reports
+`defaultAction`.
+
+**What an approval binds.** A `click` approval binds the element (role + name). A
+`type`, `key` or `scroll` approval also binds the exact text, key (with modifiers) or
+delta you asked for — the prompt shows it — so a retry with different content asks again.
 
 ### `workflow_run` / `workflow_cancel`
 
 `workflow_run` runs a workflow you supply as `source` text on an AI-owned tab. Arguments:
 `tabId?`, `source` (the workflow text — a small line-oriented grammar; you write it, the AI
 does, or [`workflow_record`](#workflow-record) captures it from your own actions), `inputs?`
-(a `{name: value}` map substituted into `{name}` references),
-`allowRepeat?`. It returns `{runId, steps}` **immediately** — the run executes
+(a `{name: value}` map substituted into `{name}` references; every declared input must be
+supplied and undeclared ones are refused), `allowRepeat?`, and `resumeRunId?` (see below).
+It returns `{runId, steps, firstStep}` **immediately** — the run executes
 **asynchronously**, because a multi-step run can outlive a single request. Poll
-[`browser_read`](#browser-read)'s `workflow_status` for progress.
+[`browser_read`](#browser-read)'s `workflow_status` for progress; while the run is waiting
+on you it reports `pendingApproval`.
 
 Deterministic steps — `click` / `type` / `navigate` in that grammar, and `extract`
 — run inside VMark and are **individually approval-gated**, exactly like a hand-issued
 `act`: the run authorizes each one on its own, so a workflow is not a way around the
 approval prompts. `goal`, `confirm`, `api`, and any free-prose step **pause** the run for
-the AI to handle by hand. A re-run **skips write steps that already succeeded** this session
-(the completed-write ledger), unless `allowRepeat` is set — so re-running after a pause does
-not double-submit.
+the AI to handle by hand. **Resuming after a pause:** do the paused step (or have the AI
+help you), then start a new run with `resumeRunId` set to the paused run — it inherits the
+completed steps and treats the paused step as done, so nothing is submitted twice. A
+re-run of the **same source and the same inputs** also skips write steps that already
+succeeded this session (the completed-write ledger; skipped steps are reported as
+`skipped`), unless `allowRepeat` is set. Different inputs are a different job and run in
+full.
 
 `workflow_cancel {tabId?, runId}` stops a run. It is **never approval-gated** — stopping is
-always allowed — and it withdraws the run's pending prompts and hands the tab back to you.
-The run also stops the moment you take over the browser (any interaction with the page or
-its chrome reclaims control).
+always allowed — and it withdraws the run's pending prompts, aborts a step that is waiting
+for your approval, and hands the tab back to you. A finished run reports `already-terminal`
+and is left as it was; an unknown `runId` is `RUN_NOT_FOUND`. The run also stops the
+moment you take over the browser (any interaction with the page or its chrome reclaims
+control) — including while it is waiting on a prompt.
 
-Runs are bounded (≤ 25 steps, ≤ 120 s, source ≤ 64 KiB) and one at a time per tab.
+Runs are bounded (≤ 25 steps, source ≤ 64 KiB, and 120 s of **running** time — time spent
+waiting on you does not count) and one at a time per tab.
 
 ### `workflow_record`
 
@@ -440,15 +467,26 @@ bounded (200 events per page, 1,000 per session).
 
 ### `open`
 
-Arguments: `url` and optional `timeoutMs` (1–12,000 ms). Creates an AI-owned tab using the
-current Sandbox or Shared posture and returns its `tabId`, `navigationId`, URL, title, and
-generation after the load completes.
+Arguments: `url`, optional `timeoutMs` (1–9,000 ms), and optional `profile`
+(`[A-Za-z0-9._-]`, macOS 14+, sandbox posture): a **named persistent context** so a login
+can be reused by name — opening one needs a fresh per-use approval, and the AI never sees
+the credentials. Creates an AI-owned tab using the current Sandbox or Shared posture,
+brings it to the front, and returns its `tabId`, `navigationId`, URL, title, and generation
+after the load completes. At most **8 AI-owned tabs** may be open (`TAB_LIMIT`); the AI
+closes what it is done with. In Shared posture an `open` that needs your destination
+approval keeps its tab and tells the AI to retry with `navigate` on that `tabId`
+(`data.retry`) — a fresh `open` would create a tab the approval cannot cover.
 
 ### `navigate`
 
-Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab and returns
-the navigation ticket result. A timeout still returns the ticket so a later `wait` can
-retrieve the terminal result.
+Arguments: `tabId?`, `url`, and optional `timeoutMs`. Navigates an AI-owned tab (bringing
+it to the front) and returns the navigation ticket result. A `TIMEOUT` still carries the
+ticket so a later `wait` can retrieve the terminal result.
+
+### `close`
+
+Arguments: `tabId`. Closes an AI-owned tab the AI opened. **Never approval-gated** —
+stopping is always allowed. A human tab is refused (`TAB_NOT_AI_OWNED`).
 
 **Gate detection.** A loaded `open` / `navigate` / `wait` result may carry
 `gate: {kind, hint}` when the landed page reads as a **login wall**, **consent
@@ -468,12 +506,15 @@ target, etc. **Act-class** (approval-gated, op `style`). Isolated content world.
 
 ### `execute_js`
 
-Arguments: `tabId?`, `script` (must `return` a JSON-serializable value). The escape hatch
-for what the structured verbs cannot express. It runs in the **isolated content world** —
-it shares the DOM (so `querySelector`, `element.style` work) but **cannot** see the page's
-own JS heap/globals. It is approved **per call only** (never a standing grant, enforced in
-the Rust driver), the approval shows the script, and the return value is flagged
-**untrusted** and never auto-fed into a later `act`. Prefer `query`/`style` first.
+Arguments: `tabId?`, `script` — an async function body that `return`s (or awaits) a
+JSON-serializable value. The escape hatch for what the structured verbs cannot express.
+It runs in the **isolated content world** — it shares the DOM (so `querySelector`,
+`element.style` work) but **cannot** see the page's own JS heap/globals. The value comes
+back as `result` (`undefined` becomes `null`); a throw, or a value JSON cannot encode, is a
+**failure naming the error**, never a result. It is approved **per call only** (never a
+standing grant, enforced in the Rust driver), the approval shows the script, and the
+return value is flagged **untrusted** and never auto-fed into a later `act`. Prefer
+`query`/`style` first.
 
 ### `session_save` / `session_load`
 
@@ -485,8 +526,8 @@ only applies to a page with the **same origin** the session was saved from. This
 credential-**by-reference** (ADR-A7): the AI names a saved session and never receives
 cookie/token values, which are never logged. Both are the `session` permission —
 **never a standing grant** (approved per call), and an approval for one handle cannot
-be spent on another. *Today this covers `localStorage`; cookie capture is a
-live-testing follow-up.*
+be spent on another. A saved session covers `localStorage` **and cookies**, both scoped
+to the origin the page was committed to when you saved.
 
 ### `console_clear`
 
@@ -514,9 +555,13 @@ never feed a result straight back as a `browser` act target.
 
 ### `read`
 
-Returns `{url, snapshot}` for the focused browser tab, or the tab named by `tabId`.
-`snapshot` is an ARIA-oriented list of `{role, name, ref}` — each `ref` (e.g. `"e5"`) is a
-stable handle for that element, valid for the life of the current view.
+Returns `{url, snapshot, truncated?, unreachable?}` for the focused browser tab, or the
+tab named by `tabId`. `snapshot` is an ARIA-oriented list of `{role, name, ref}` nodes —
+plus `level` for headings, `checked`, `disabled`, and `upload: true` for a file input the
+AI can never operate — each `ref` (e.g. `"e5"`) a stable handle for that element, valid for
+the life of the current view. The walk enters open shadow roots; `unreachable` counts the
+closed shadow roots and frames it could not enter, and `truncated: true` means the node cap
+(2,000) or the name cap (200 characters) bit.
 
 ### `screenshot`
 
@@ -525,12 +570,16 @@ the tab's current rendering, plus a text line naming the page — a visual chann
 layout and rendered state the ARIA snapshot cannot describe. It is captured natively
 (`takeSnapshot`) and reads no page DOM or JavaScript. Read-class: authorized exactly like
 `read` (allowed on an AI-owned tab; a human tab needs an attachment, consumed on capture).
+A tab that is not the visible page may render blank — `open` and `navigate` bring a tab
+to the front.
 
 ### `query`
 
 Arguments: `tabId?`, `selector` (CSS), and optional `fields: {attributes, box, styles:[...]}`.
-Returns `{count, elements: [{ref, tag, text, …}]}` — structured DOM data the ARIA snapshot
-cannot name (tables, computed values). **Read-class.** Runs in the isolated content world.
+Returns `{count, elements: [{ref, tag, text, …}], truncated?}` — structured DOM data the
+ARIA snapshot cannot name (tables, computed values) — capped at 50 elements and 500
+characters of text each (`truncated: true` when the selector matched more). **Read-class.**
+Runs in the isolated content world.
 
 ### `extract`
 
@@ -546,19 +595,24 @@ name), and a generic density-heuristic reader is the fallback for every other si
 ### `workflow_status`
 
 Arguments: `tabId?`, `runId` (from `workflow_run`). Returns `{status, completedSteps,
-stepCount, pausedAt?, reasonCode?, reason?, stepResults}` where `status` is one of
-`running` / `paused` / `completed` / `failed` / `cancelled`. A `paused` status names the
-step that needs you in `pausedAt`. **Read-class** — poll it freely.
+skippedSteps, stepCount, firstStep, pausedAt?, pendingApproval?, reasonCode?, reason?,
+resumedFrom?, stepResults}` where `status` is one of `running` / `paused` / `completed` /
+`failed` / `cancelled` / `superseded`, `stepResults` holds one entry per step
+(`{index, status, attempts, reason?, data?}`), and `pendingApproval` is present while the
+run is waiting for your decision. A `paused` status names the step that needs you in
+`pausedAt`. **Read-class** — poll it freely.
 
 ### `console`
 
 Arguments: `tabId?`. Returns `{entries: [{level, text}], url}` — the page's captured
 `console.*` output, plus **uncaught errors and unhandled promise rejections** (recorded as
 `level: "error"` entries prefixed `Uncaught` / `Unhandled rejection:` — the signal
-`console.*` patching alone never sees). Sandbox-tabs only. The capture works by a page-world shim that writes
-into a hidden DOM buffer which the driver reads from the isolated world — so **no
-messaging channel** is opened back into VMark (the no-bridge guarantee holds). The output
-is page-controlled and **untrusted** — treat it like a `read`, never as an `act` target.
+`console.*` patching alone never sees). AI-owned tabs only (Sandbox and Shared posture
+alike; a human tab carries no capture shim), main frame only. The capture works by a
+page-world shim that writes into a hidden DOM buffer which the driver reads from the
+isolated world — so **no messaging channel** is opened back into VMark (the no-bridge
+guarantee holds). The output is page-controlled and **untrusted** — treat it like a
+`read`, never as an `act` target.
 
 The buffer is a bounded ring, so consecutive reads overlap. To drain it as you read, use
 [`browser`](#browser)'s `console_clear` — draining writes `[]` into the page's buffer
@@ -566,19 +620,27 @@ element, which is a DOM write and therefore cannot live under `readOnlyHint: tru
 
 ### `wait`
 
-Arguments: `tabId?`, optional `navigationId`, and optional `timeoutMs`. It never starts a
-navigation. It returns a buffered load/failure result, `NAVIGATION_SUPERSEDED`, or
-`TIMEOUT` when the ticket does not finish within the bound.
+Arguments: `tabId?`, optional `navigationId` (omit it for the tab's latest ticket), and
+optional `timeoutMs` (1–9,000 ms). It never starts a navigation, never changes focus or
+the active tab, and never creates a view — it only observes, which is what lets it live
+on the read-only tool. AI-owned tabs only. It returns a buffered load/failure result,
+`NAVIGATION_SUPERSEDED`, or `TIMEOUT` when the ticket does not finish within the bound.
 
 ### `wait_for`
 
 Arguments: `tabId?`, exactly one of `ref` (from a read), `role` (+ optional `name`),
 `text` (a substring of visible text), or `urlContains` (a substring the tab's URL must
 contain — confirms a click-triggered navigation landed, answered from the tab state with
-no page round-trip), and optional `timeoutMs` (1–12,000 ms). Polls until the condition
+no page round-trip), and optional `timeoutMs` (1–9,000 ms). Polls until the condition
 holds or the timeout elapses and returns `{matched: true|false}` (plus the matched
 element's `ref` for a ref/role condition) — so you can tell "found" from "timed out".
 Read-class. Use it to make a flow deterministic: act, `wait_for` the result, then read.
+
+Two rules follow from what it may see. `urlContains` matches the **redacted** URL — the
+query string and fragment are stripped, because a token a redirect planted there must not
+be probeable — so a needle containing `?` or `#` is refused up front. And on a human tab
+attached with **Allow once** it is refused (`ATTACHMENT_ONCE_INSUFFICIENT`): polling is many
+reads, and a one-read attachment cannot cover it — ask for **Allow until navigation**.
 
 ---
 

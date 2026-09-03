@@ -234,15 +234,22 @@ describe("driver-gate stamping (WI-2.1)", () => {
     });
     // The driver is the authority: even with a local grant, it can refuse (e.g. the
     // page navigated). That refusal must reach the AI as a failure.
-    invoke.mockRejectedValue(
-      "stale command: tab navigated or closed since this operation was authorized",
-    );
+    // The shape src-tauri/src/command_error.rs serialises — a plain object, which
+    // `String()` renders as "[object Object]" (audit 2026-09-03 E-01).
+    invoke.mockRejectedValue({
+      code: "conflict",
+      message: "stale command: tab navigated or closed since this operation was authorized",
+      detail: { mcpCode: "STALE_COMMAND" },
+    });
 
     await handleBrowserAct("a-stale", { tabId: id, operation: "click", role: "button", name: "Publish" });
 
     const res = lastResponse();
     expect(res).toMatchObject({ id: "a-stale", success: false });
-    expect(String(res.error)).toContain("stale command");
+    expect(String(res.error)).toBe(
+      "STALE_COMMAND: stale command: tab navigated or closed since this operation was authorized",
+    );
+    expect(String(res.error)).not.toContain("[object Object]");
   });
 });
 

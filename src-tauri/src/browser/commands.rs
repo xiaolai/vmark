@@ -12,6 +12,7 @@
 //! the origin gate is enforced.
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
+use crate::browser::eval_outcome::eval_error;
 use crate::browser::registry::{validate_navigation_url, AutomationMode, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
 use crate::command_error::CommandError;
@@ -123,13 +124,21 @@ pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), CommandE
 }
 
 /// Answer a page `confirm()` dialog surfaced via `browser://dialog` (WI-1.7).
+///
+/// Only the window that OWNS the dialog's tab may answer it (audit 20260903): the
+/// window is the invoking one, taken from Tauri, and the native layer refuses
+/// (`DIALOG_NOT_OWNED`) when the parked dialog's tab belongs to another window —
+/// a dialog id is a small integer, and a guessed one must not answer a page the
+/// caller cannot even see.
 #[tauri::command]
 pub async fn browser_dialog_respond(
     app: AppHandle,
+    webview: tauri::WebviewWindow,
     id: u64,
     accepted: bool,
 ) -> Result<(), CommandError> {
-    surface::dialog_respond(&app, id, accepted).map_err(|e| surface_failure(&e))
+    let window_label = webview.label().to_string();
+    surface::dialog_respond(&app, id, accepted, window_label).map_err(|e| surface_failure(&e))
 }
 
 /// Reject a rect the native layer cannot honour.
@@ -208,7 +217,7 @@ pub async fn browser_assert_no_bridge(
     app: AppHandle,
     tab_id: String,
 ) -> Result<String, CommandError> {
-    surface::assert_no_bridge(&app, tab_id).map_err(|e| surface_failure(&e))
+    surface::assert_no_bridge(&app, tab_id).map_err(eval_error)
 }
 
 /// Tab ids holding a live native webview (debug builds only).

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   latestNavigationId: vi.fn(),
   ensureNative: vi.fn(),
   nativeReady: vi.fn(),
+  hasNative: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => mocks.invoke(...args) }));
@@ -24,9 +25,10 @@ vi.mock("@/services/browser/browserEventBroker", () => ({
     latestNavigationId: (...args: unknown[]) => mocks.latestNavigationId(...args),
   },
 }));
-vi.mock("@/components/Browser/useBrowserNativeView", () => ({
+vi.mock("@/services/browser/browserNativeViews", () => ({
   ensureBrowserNativeView: (...args: unknown[]) => mocks.ensureNative(...args),
   waitForBrowserNativeView: (...args: unknown[]) => mocks.nativeReady(...args),
+  hasBrowserNativeView: (...args: unknown[]) => mocks.hasNative(...args),
 }));
 
 import wire from "@/test/fixtures/commandErrorWire.json";
@@ -69,6 +71,7 @@ beforeEach(() => {
   mocks.latestNavigationId.mockReset().mockReturnValue("nav-1");
   mocks.ensureNative.mockReset().mockResolvedValue(undefined);
   mocks.nativeReady.mockReset().mockResolvedValue(undefined);
+  mocks.hasNative.mockReset().mockReturnValue(true);
   resetTabs();
   useBrowserApprovalStore.setState({
     grants: [],
@@ -171,10 +174,29 @@ describe("open", () => {
     await handleBrowserOpen("approval", { url: URL });
 
     expect(lastResponse()).toMatchObject({ error: "APPROVAL_REQUIRED" });
-    expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({
-      operation: "navigate",
-      targetUrl: URL,
-    });
+    const pending = useBrowserApprovalStore.getState().pending[0];
+    expect(pending).toMatchObject({ operation: "navigate", targetUrl: URL });
+    // Audit L-02: the tab RECORD stays — the prompt is about this page and the
+    // one-shot it mints is bound to this tabId — and the client is told the retry
+    // verb, because a fresh `open` would create a tab the one-shot cannot match.
+    const tabs = Object.values(useTabStore.getState().tabs).flat();
+    expect(tabs).toHaveLength(1);
+    expect(pending.tabId).toBe(tabs[0].id);
+    expect(lastResponse().data).toMatchObject({ retry: { action: "navigate", tabId: tabs[0].id } });
+  });
+
+  it("navigate on a tab whose creation is still owed completes it and waits on the creation ticket (L-02)", async () => {
+    useSettingsStore.getState().updateBrowserSetting("aiSession", "shared");
+    const tabId = seed("ai-shared");
+    mocks.hasNative.mockReturnValue(false);
+
+    await handleBrowserNavigate("nav-owed", { tabId, url: URL, timeoutMs: 1000 });
+
+    expect(mocks.ensureNative).toHaveBeenCalledWith(tabId, URL, "ai-shared");
+    // Creating IS the navigation the user approved; a second navigate would ask again.
+    expect(mocks.invoke).not.toHaveBeenCalledWith("browser_ai_navigate", expect.anything());
+    expect(mocks.invoke).toHaveBeenCalledWith("browser_ai_state", { tabId });
+    expect(lastResponse()).toMatchObject({ id: "nav-owed", success: true });
   });
 
   it("removes the provisional tab when native AI creation fails", async () => {
@@ -193,7 +215,12 @@ describe("navigate", () => {
     const tabId = seed();
     await handleBrowserNavigate("nav-1", { tabId, url: URL, timeoutMs: 1000 });
 
-    expect(mocks.nativeReady).toHaveBeenCalledWith(tabId, 1000);
+    // One budget: the native-view wait and the navigation wait both draw on the
+    // request's single deadline (audit, timing), so neither may exceed timeoutMs.
+    const nativeWait = mocks.nativeReady.mock.calls[0];
+    expect(nativeWait[0]).toBe(tabId);
+    expect(nativeWait[1]).toBeLessThanOrEqual(1000);
+    expect(mocks.wait.mock.calls[0][2]).toBeLessThanOrEqual(1000);
     expect(mocks.ensureNative).toHaveBeenCalledWith(tabId, URL, "ai-sandbox");
     expect(mocks.invoke).toHaveBeenCalledWith(
       "browser_ai_navigate",
@@ -290,7 +317,9 @@ describe("typed CommandError rejections", () => {
     await handleBrowserNavigate("typed-denied", { tabId, url: URL });
 
     expect(useBrowserApprovalStore.getState().pending).toEqual([]);
-    expect(lastResponse()).toMatchObject({ error: "WINDOW_UNAVAILABLE" });
+    // The typed refusal keeps its token (it used to be flattened to
+    // WINDOW_UNAVAILABLE, hiding the reason from the model).
+    expect(lastResponse()).toMatchObject({ error: "SSRF_BLOCKED" });
   });
 
   it("reports the MCP token the client already knows, never [object Object]", async () => {
@@ -358,6 +387,30 @@ describe("wait", () => {
     await handleBrowserWait("bad-navigation", { tabId, navigationId: " " });
     expect(lastResponse()).toMatchObject({ error: "INVALID_NAVIGATION" });
     expect(mocks.invoke).not.toHaveBeenCalledWith("browser_ai_state", expect.anything());
+  });
+
+  // Audit L-03: `wait` is advertised read-only. It must observe, never focus a
+  // window, activate a tab, or create a native view.
+  it("observes only: no focus change, no activation, no view creation", async () => {
+    const other = useTabStore.getState().createTab("main");
+    const tabId = seed();
+    useTabStore.getState().setActiveTab("main", other);
+
+    await handleBrowserWait("observe", { tabId, navigationId: "nav-1" });
+
+    expect(mocks.invoke).not.toHaveBeenCalledWith("focus_window", expect.anything());
+    expect(mocks.ensureNative).not.toHaveBeenCalled();
+    expect(mocks.nativeReady).not.toHaveBeenCalled();
+    expect(useTabStore.getState().activeTabId.main).toBe(other);
+    expect(lastResponse()).toMatchObject({ id: "observe", success: true });
+  });
+
+  it("reports a tab with no native view as idle instead of creating one", async () => {
+    const tabId = seed();
+    mocks.hasNative.mockReturnValue(false);
+    await handleBrowserWait("no-view", { tabId });
+    expect(mocks.ensureNative).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ id: "no-view", success: true, data: { tabId, loading: false } });
   });
 });
 

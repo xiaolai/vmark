@@ -331,3 +331,54 @@ describe("mintOneShotConfirmed (awaitable)", () => {
     ).resolves.toBe(false);
   });
 });
+
+// Audit 2026-09-03 A-04 — ONE mint path. The subscription used to fire-and-forget
+// while the workflow executor minted the same approval again to be able to await
+// it, leaving an orphan one-shot in the driver per approved step.
+describe("one mint per approval (audit 2026-09-03 A-04)", () => {
+  it("mintOneShotConfirmed awaits the subscription's own mint instead of minting again", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    const stop = startGrantSync();
+    await flush();
+    invoke.mockClear();
+
+    const target = { role: "button", name: "Publish" };
+    useBrowserApprovalStore.getState().requestApproval("p1", "https://a.com/x", "click", target, "tab-1", 2);
+    useBrowserApprovalStore.getState().resolveApproval("p1", "once");
+    const shot = useBrowserApprovalStore.getState().oneShots[0];
+    expect(shot).toBeDefined();
+
+    const ok = await mintOneShotConfirmed(shot);
+    await flush();
+
+    expect(ok).toBe(true);
+    const mints = invoke.mock.calls.filter((c) => c[0] === "browser_add_one_shot");
+    expect(mints).toHaveLength(1);
+    expect(mints[0][1]).toMatchObject({ tabId: "tab-1", generation: 2, operation: "click", target });
+    stop();
+  });
+
+  it("a refused driver mint is reported to the awaiting caller", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_add_one_shot" ? Promise.reject(new Error("stale approval")) : Promise.resolve(undefined),
+    );
+    const stop = startGrantSync();
+    await flush();
+    useBrowserApprovalStore.getState().requestApproval("p2", "https://a.com/x", "click", undefined, "tab-1", 2);
+    useBrowserApprovalStore.getState().resolveApproval("p2", "once");
+    const shot = useBrowserApprovalStore.getState().oneShots[0];
+    expect(await mintOneShotConfirmed(shot)).toBe(false);
+    stop();
+  });
+
+  it("without a running subscription the caller mints exactly once itself", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    const shot = { tabId: "tab-9", generation: 1, originPattern: "https://a.com", operation: "click" as const };
+    expect(await mintOneShotConfirmed(shot)).toBe(true);
+    expect(invoke.mock.calls.filter((c) => c[0] === "browser_add_one_shot")).toHaveLength(1);
+  });
+});
