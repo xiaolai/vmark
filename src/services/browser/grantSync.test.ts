@@ -200,14 +200,22 @@ describe("grant-sync ordering and fail-closed retry", () => {
       return Promise.reject(new Error("driver down"));
     });
 
-    const stop = startGrantSync();
-    // Let the bounded retries flush.
-    for (let i = 0; i < 12; i += 1) await Promise.resolve();
-    stop();
-
-    // A single one-and-done push would leave the driver on stale (permissive) state
-    // after a revocation. The syncer retries before giving up.
-    expect(calls).toBeGreaterThan(1);
+    vi.useFakeTimers();
+    try {
+      const stop = startGrantSync();
+      // Retries are timer-backed (exponential backoff from 100 ms); advance past several.
+      await vi.advanceTimersByTimeAsync(2_000);
+      stop();
+      // A single one-and-done push would leave the driver on stale (permissive) state
+      // after a revocation. The syncer keeps retrying until it converges or is disposed.
+      expect(calls).toBeGreaterThan(3);
+      const afterStop = calls;
+      await vi.advanceTimersByTimeAsync(20_000);
+      // Disposed: no further attempts.
+      expect(calls).toBe(afterStop);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

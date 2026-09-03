@@ -9,24 +9,30 @@ function bump(el: Element): void {
 }
 
 describe("bumpDrainStamp", () => {
-  it("writes a monotonic counter to data-drain, starting from an absent attribute", () => {
+  it("writes a fresh, distinct nonce to data-drain on every bump", () => {
+    // A nonce, not a counter (audit 2026-09-03 round 1): a counter a page could
+    // forge, or drive past 2^53 where Number arithmetic stops changing, let a
+    // clear re-publish drained entries.
     expect(DRAIN_ATTR).toBe("data-drain");
     const el = document.createElement("script");
-    bump(el);
-    expect(el.getAttribute(DRAIN_ATTR)).toBe("1");
-    bump(el);
-    bump(el);
-    expect(el.getAttribute(DRAIN_ATTR)).toBe("3");
+    const seen = new Set<string>();
+    for (let i = 0; i < 50; i += 1) {
+      bump(el);
+      const stamp = el.getAttribute(DRAIN_ATTR);
+      expect(stamp).toBeTruthy();
+      expect(seen.has(stamp as string)).toBe(false);
+      seen.add(stamp as string);
+    }
   });
 
-  it("recovers from a page-forged non-numeric value instead of sticking at NaN", () => {
+  it("replaces whatever the page forged, numeric or not", () => {
     const el = document.createElement("script");
-    el.setAttribute(DRAIN_ATTR, "forged");
-    bump(el);
-    expect(el.getAttribute(DRAIN_ATTR)).toBe("1");
-    el.setAttribute(DRAIN_ATTR, "Infinity");
-    bump(el);
-    expect(el.getAttribute(DRAIN_ATTR)).toBe("1");
+    for (const forged of ["forged", "Infinity", "NaN", String(Number.MAX_SAFE_INTEGER)]) {
+      el.setAttribute(DRAIN_ATTR, forged);
+      bump(el);
+      expect(el.getAttribute(DRAIN_ATTR)).not.toBe(forged);
+      expect(el.getAttribute(DRAIN_ATTR)).not.toBe("NaN");
+    }
   });
 
   it("always changes the stamp — the property the shims rely on", () => {

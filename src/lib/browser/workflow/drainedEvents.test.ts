@@ -9,18 +9,19 @@ import { MAX_DRAIN_BYTES, MAX_DRAIN_EVENTS, parseDrainedEvents } from "./drained
 const drain = (events: unknown[]) => JSON.stringify({ events });
 
 describe("parseDrainedEvents", () => {
-  it("keeps click / type / extract with their locator fields and the sensitivity hint", () => {
+  it("keeps click / type with their locator fields and the sensitivity hint, and drops a forged extract", () => {
     const r = parseDrainedEvents(
       drain([
         { type: "click", role: "button", name: "Publish" },
         { type: "type", role: "textbox", name: "Password", sensitive: true },
+        // The recorder shim never produces `extract`; page-written buffer data
+        // that claims one must not become an extraction step.
         { type: "extract", name: "article" },
       ]),
     );
     expect(r.events).toEqual([
       { type: "click", role: "button", name: "Publish" },
       { type: "type", role: "textbox", name: "Password", sensitive: true },
-      { type: "extract", name: "article" },
     ]);
     expect(r.truncated).toBe(false);
     expect(r.oversized).toBe(false);

@@ -134,9 +134,10 @@ describe("urlForAgent — credentials never cross to the AI", () => {
     );
   });
 
-  it("passes through a url it cannot parse rather than inventing one", () => {
+  it("fails closed on a url it cannot parse — a placeholder, never the raw value", () => {
+    // The raw value can itself carry a credential; `about:` pages carry nothing.
     expect(urlForAgent("about:blank")).toBe("about:blank");
-    expect(urlForAgent("")).toBe("");
+    expect(urlForAgent("")).toBe("(unparseable url)");
   });
 });
 
@@ -202,5 +203,32 @@ describe("hostLabel", () => {
   it("falls back to the input when it is not a URL", () => {
     expect(hostLabel("not a url")).toBe("not a url");
     expect(hostLabel("")).toBe("");
+  });
+});
+
+describe("urlForAgent fails closed", () => {
+  it("never hands the model an unparseable value or an opaque payload", () => {
+    expect(urlForAgent("not a url")).toBe("(unparseable url)");
+    expect(urlForAgent("data:text/html,<script>secret</script>")).toBe("data:(opaque)");
+    // A blob URL has its creator's origin and no payload; about: pages carry nothing.
+    expect(urlForAgent("blob:https://a.example/uuid")).toBe("blob:https://a.example/uuid");
+    expect(urlForAgent("about:blank")).toBe("about:blank");
+  });
+});
+
+describe("urlForPersistence drops credential-bearing parameters", () => {
+  it("removes token-like query and fragment parameters but keeps the rest", () => {
+    expect(urlForPersistence("https://a.example/cb?access_token=abc&state=x&q=hello")).toBe(
+      "https://a.example/cb?state=x&q=hello",
+    );
+    expect(urlForPersistence("https://a.example/#access_token=abc&expires=3600")).toBe(
+      "https://a.example/#expires=3600",
+    );
+    expect(urlForPersistence("https://a.example/reset?token=t&user_password=p")).toBe("https://a.example/reset");
+  });
+
+  it("returns the input unchanged when nothing credential-like is present", () => {
+    const url = "https://a.example/search?q=vmark&page=2#results";
+    expect(urlForPersistence(url)).toBe(url);
   });
 });

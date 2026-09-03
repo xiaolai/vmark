@@ -24,6 +24,7 @@
  * @module services/browser/browserOcclusion
  */
 import { invoke } from "@tauri-apps/api/core";
+import { browserWarn } from "@/utils/debug";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { OcclusionController, type OcclusionDriver } from "./occlusion";
 
@@ -63,7 +64,14 @@ export const OCCLUDER = {
 } as const;
 
 /** The one controller. Do not construct another — reference counts must be shared. */
-const controller = new OcclusionController(tauriDriver);
+const controller = new OcclusionController(tauriDriver, (tabId, error) => {
+  // The retry budget is spent: the native view may be LIVE under an overlay that
+  // believes it is hidden. Loud, because nothing else will say so.
+  browserWarn("browser occlusion: freeze/thaw kept failing; the view may be visible under an overlay", {
+    tabId,
+    error,
+  });
+});
 
 /**
  * Mirror the controller's *intent* into `browserUiStore` so React can paint an opaque

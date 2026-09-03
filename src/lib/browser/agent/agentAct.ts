@@ -110,13 +110,21 @@ function __vmarkFireEdit(el){
 function __vmarkNewlines(s){return String(s).replace(/\\r\\n?/g,'\\n');}
 function __vmarkTypeEditable(el,text,extra){
   if(el.focus){try{el.focus();}catch(e){}}
+  var was=(typeof el.innerText==='string')?el.innerText:String(el.textContent||'');
   var accepted=true;
   try{
     if(typeof InputEvent==='function'){
       accepted=el.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:'insertText',data:text}));
     }
   }catch(e){accepted=true;}
-  if(!accepted)return __vmarkAssign({found:true,typed:true,detail:'editor-handled'},extra);
+  if(!accepted){
+    // The editor cancelled the insertion and owns what happens next. That is a
+    // success only if it visibly did something; unchanged content is a refusal,
+    // not a typed value (it used to be reported as typed:true regardless).
+    var now=(typeof el.innerText==='string')?el.innerText:String(el.textContent||'');
+    if(__vmarkNewlines(now)!==__vmarkNewlines(was))return __vmarkAssign({found:true,typed:true,detail:'editor-handled'},extra);
+    return __vmarkAssign({found:true,typed:false,reason:'rejected-value',detail:'editor-cancelled'},extra);
+  }
   var ok=false;
   try{
     if(typeof document.execCommand==='function'&&document.getSelection&&document.createRange){
@@ -138,6 +146,12 @@ function __vmarkDoType(el,text,extra){
   var tag=String(el.tagName||'').toLowerCase();
   if(__vmarkDisabled(el))return __vmarkAssign({found:true,typed:false,reason:'disabled'},extra);
   if(__vmarkNotActable(el)==='inert')return __vmarkAssign({found:true,typed:false,reason:'disabled',detail:'inert'},extra);
+  // The same reachability a click has: bring the field on screen and refuse one a
+  // user could not reach because something covers it. Typing used to edit
+  // off-screen and overlay-obscured controls programmatically.
+  if(el.scrollIntoView&&__vmarkHasLayout())el.scrollIntoView({block:'center',inline:'center'});
+  var occ=__vmarkOcclusion(el);
+  if(occ)return __vmarkAssign(__vmarkAssign({found:true,typed:false},occ),extra);
   try{
     if(tag==='select'){
       var opts=el.options||[],pick=null;

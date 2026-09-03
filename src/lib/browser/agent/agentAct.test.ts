@@ -228,14 +228,16 @@ describe("type verifies the value the engine kept (S-08)", () => {
     expect(seen).toEqual(["beforeinput:insertText:new:true:old", "input:insertText:new"]);
   });
 
-  it("contenteditable: an editor that cancels beforeinput owns the insertion — no mutation, detail 'editor-handled'", () => {
+  it("contenteditable: an editor that cancels beforeinput owns the insertion — no visible change is a refusal", () => {
     const doc = parse(`<div role="textbox" aria-label="Body" contenteditable="true">model</div>`);
     const el = editable(doc);
     let inputs = 0;
     el.addEventListener("beforeinput", (ev) => ev.preventDefault());
     el.addEventListener("input", () => (inputs += 1));
     const res = exec(doc, buildTypeScript("textbox", "Body", "new")) as ActResult;
-    expect(res).toMatchObject({ found: true, typed: true, detail: "editor-handled" });
+    // The editor cancelled the insertion and changed nothing visible: that is a
+    // refusal now, not a typed value (audit 2026-09-03 round 1).
+    expect(res).toMatchObject({ found: true, typed: false, reason: "rejected-value", detail: "editor-cancelled" });
     expect(el.textContent).toBe("model");
     expect(inputs).toBe(0);
   });

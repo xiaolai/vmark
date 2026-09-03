@@ -43,7 +43,7 @@
     try {
       t = Array.prototype.map.call(args, function (a) {
         if (typeof a === "string") return a;
-        try { return JSON.stringify(a); } catch (e) { return String(a); }
+        try { var j = JSON.stringify(a); return j === undefined ? String(a) : j; } catch (e) { return String(a); }
       }).join(" ");
     } catch (e) { t = ""; }
     var e = null;

@@ -30,6 +30,7 @@
  * @module services/browser/browserNativeViews
  */
 import { invoke } from "@tauri-apps/api/core";
+import { browserWarn } from "@/utils/debug";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import type { BrowserAutomationMode } from "@/stores/tabStoreTypes";
@@ -47,6 +48,9 @@ const activeMounts = new Set<string>();
  * an AI tab is first opened; sharing this promise makes one of them the owner
  * without allowing the other to issue a second approval-gated command.
  */
+/** Tabs whose native view is being torn down right now (see `ensureBrowserNativeView`). */
+const destroying = new Set<string>();
+
 export function ensureBrowserNativeView(
   tabId: string,
   url: string,
@@ -57,6 +61,12 @@ export function ensureBrowserNativeView(
 ): Promise<void> {
   const existing = nativeReady.get(tabId);
   if (existing) return existing;
+  if (destroying.has(tabId)) {
+    // A destroy is in flight for this tab. Creating now would race it: the new
+    // view could be the one the older destroy removes, while the registry still
+    // says the tab is ready.
+    throw new Error("TAB_DESTROYING: the tab's native view is being torn down");
+  }
   const command = automationMode === "human" ? "browser_create" : "browser_ai_create";
   const created = invoke<void>(command, {
     tabId,
@@ -115,8 +125,20 @@ export async function destroyBrowserNativeView(tabId: string): Promise<void> {
   const created = nativeReady.get(tabId);
   nativeReady.delete(tabId);
   activeMounts.delete(tabId);
-  if (created) await created.catch(() => {});
-  await invoke("browser_destroy", { tabId }).catch(() => {});
+  destroying.add(tabId);
+  try {
+    if (created) await created.catch(() => {});
+    // The per-tab records below are dropped even when the native teardown fails:
+    // the TAB is gone from the store either way, and keeping records for it would
+    // leak the other way (occlusion state, prompts, waiters for a tab nobody can
+    // reach). What must not happen is silence — a failure here can mean a live,
+    // untracked WKWebView, so it is reported rather than swallowed.
+    await invoke("browser_destroy", { tabId }).catch((error: unknown) => {
+      browserWarn("browser_destroy failed; a native view may be left running", { tabId, error });
+    });
+  } finally {
+    destroying.delete(tabId);
+  }
   browserOcclusion.removeTab(tabId);
   browserEventBroker.cancelTab(tabId);
   // Any prompt raised against this tab describes a page that no longer exists.
@@ -128,6 +150,7 @@ export async function destroyBrowserNativeView(tabId: string): Promise<void> {
 /** Test-only: forget every native view record without touching the driver. */
 export function __resetNativeViews(): void {
   nativeReady.clear();
+  destroying.clear();
   activeMounts.clear();
 }
 

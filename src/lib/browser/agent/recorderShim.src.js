@@ -46,7 +46,22 @@ var ARMED_ID = "__vmark_recorder_armed";
 var CAP = 200;
 var buf = [];
 var seenDrain = "";
-var SENSITIVE_NAME = /\b(otp|token|cvv|cvc|csc|ssn|secret|pin|passcode)\b/i;
+// Identifier TOKENS that mark a field sensitive. Matched per token after splitting
+// on punctuation, underscores and camelCase — \b never split `user_password` or
+// `otpCode`, and `password` itself was missing.
+var SENSITIVE_TOKENS = ["password", "passwd", "pwd", "otp", "totp", "mfa", "2fa", "token", "cvv", "cvv2", "cvc", "csc", "ssn", "secret", "pin", "passcode"];
+function sensitiveIdentifier(s) {
+  var raw = String(s || "");
+  // Two tokenizations: punctuation only (so `PassCode`/`passcode` stay one token) and
+  // punctuation plus camelCase (so `otpCode`/`userPassword` split into their words).
+  var plain = raw.toLowerCase().split(/[^a-z0-9]+/);
+  var camel = raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/);
+  var parts = plain.concat(camel);
+  for (var i = 0; i < parts.length; i++) {
+    for (var j = 0; j < SENSITIVE_TOKENS.length; j++) if (parts[i] === SENSITIVE_TOKENS[j]) return true;
+  }
+  return false;
+}
 var sticky = typeof WeakMap === "function" ? new WeakMap() : null;
 
 function armed() {
@@ -121,6 +136,19 @@ function target(e) {
 // walk up to the nearest interactive/role-bearing ancestor, bounded, crossing a
 // shadow boundary into the host.
 function control(el) {
+  // A click on a <label> (or inside one) operates its control: record the
+  // checkbox, radio or input the user actually toggled, not a roleless label.
+  try {
+    var lab = el.closest ? el.closest("label") : null;
+    if (lab) {
+      var c = lab.control;
+      if (c === undefined) {
+        var f = lab.getAttribute("for");
+        c = f ? __vmarkRootOf(lab).getElementById(f) : lab.querySelector("input,select,textarea,button");
+      }
+      if (c) return c;
+    }
+  } catch (x) {}
   var n = el,
     hops = 0;
   while (n && n.nodeType === 1 && hops++ < 8) {
@@ -150,7 +178,7 @@ function isSensitiveNow(el) {
       var tok = ac[i];
       if (tok.indexOf("cc-") === 0 || tok === "new-password" || tok === "current-password" || tok === "one-time-code") return true;
     }
-    if (SENSITIVE_NAME.test(attr(el, "name") + " " + attr(el, "id") + " " + attr(el, "aria-label"))) return true;
+    if (sensitiveIdentifier(attr(el, "name") + " " + attr(el, "id") + " " + attr(el, "aria-label"))) return true;
   } catch (e) {}
   return false;
 }
@@ -199,6 +227,35 @@ try {
   );
   document.addEventListener("focusin", onMark, true);
   document.addEventListener("input", onMark, true);
+  // contenteditable never fires `change`: track edits and emit ONE value-free
+  // type event when the region loses focus, so what the replayer can type into
+  // is also what the recorder captures.
+  var dirtyEditable = typeof WeakMap === "function" ? new WeakMap() : null;
+  document.addEventListener(
+    "input",
+    function (e) {
+      try {
+        var el = target(e);
+        if (el && el.nodeType === 1 && el.isContentEditable === true && dirtyEditable) dirtyEditable.set(el, true);
+      } catch (x) {}
+    },
+    true,
+  );
+  document.addEventListener(
+    "focusout",
+    function (e) {
+      try {
+        var el = target(e);
+        if (!el || el.nodeType !== 1 || !dirtyEditable || !dirtyEditable.get(el)) return;
+        dirtyEditable.delete(el);
+        var ev = locator("type", el);
+        ev.sensitive = wasSensitive(el) || isSensitiveNow(el);
+        clearSensitive(el);
+        record(ev);
+      } catch (x) {}
+    },
+    true,
+  );
   document.addEventListener(
     "focusout",
     function (e) {

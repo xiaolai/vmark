@@ -59,27 +59,22 @@ function __vmarkQueryByRef(ref,gen){
  *  self-disables without one (jsdom), leaving the attribute tier. Its walks use
  *  the composed parent, so a shadow tree inherits its host's fate. */
 const LIB_QUERY = `
-function __vmarkQuery(role,name){
+function __vmarkQueryBy(role,name,includeHidden){
   var all=__vmarkAll(document),out=[];
   for(var i=0;i<all.length;i++){
     var el=all[i];
     if(__vmarkRole(el)!==role)continue;
-    if(__vmarkHidden(el))continue;
+    // Rendered visibility, not attributes alone: a stylesheet-hidden control must not
+    // be reported present to a wait or offered as a target. (Without a layout engine
+    // \`__vmarkRendered\` is true, so the attribute tier still decides.)
+    if(!includeHidden&&(__vmarkHidden(el)||!__vmarkRendered(el)))continue;
     if(name!=null&&__vmarkName(el)!==name)continue;
     out.push(el);
   }
   return out;
 }
-function __vmarkQueryAll(role,name){
-  var all=__vmarkAll(document),out=[];
-  for(var i=0;i<all.length;i++){
-    var el=all[i];
-    if(__vmarkRole(el)!==role)continue;
-    if(name!=null&&__vmarkName(el)!==name)continue;
-    out.push(el);
-  }
-  return out;
-}
+function __vmarkQuery(role,name){return __vmarkQueryBy(role,name,false);}
+function __vmarkQueryAll(role,name){return __vmarkQueryBy(role,name,true);}
 function __vmarkHasLayout(){
   var d=document.documentElement;
   if(!d||!d.getBoundingClientRect)return false;
@@ -123,7 +118,6 @@ function __vmarkNotActable(el){
   if(__vmarkHasLayout()&&getComputedStyle(el).pointerEvents==='none')return 'inert';
   return null;
 }
-function __vmarkActable(el){return __vmarkNotActable(el)===null;}
 function __vmarkToken(s){return /^[A-Za-z0-9_-]{1,32}$/.test(s)?s:'';}
 function __vmarkDescribe(el){
   var out=__vmarkToken(String(el.tagName||'').toLowerCase())||'element',n=0;
@@ -177,7 +171,6 @@ function __vmarkOcclusion(el){
   if(hit===el||__vmarkRelated(el,hit))return null;
   return {reason:'obscured',by:__vmarkDescribe(hit)};
 }
-function __vmarkObscuredBy(el){var o=__vmarkOcclusion(el);return (o&&o.by)||null;}
 function __vmarkPageText(){
   var b=document.body,t=String((b&&(b.innerText||b.textContent))||'');
   var all=__vmarkAll(document);

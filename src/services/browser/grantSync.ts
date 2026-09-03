@@ -33,62 +33,25 @@ import {
 } from "@/stores/browserApprovalStore";
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
+import { makeSerializedPusher, type SerializedPusher } from "./serializedPusher";
 
 /** How many times a failed grant push is retried before giving up loudly. Bounds
  *  a permanently-unreachable driver from spinning while still healing the common
  *  transient failure — the next legitimate change re-pushes the full state anyway. */
-const MAX_PUSH_ATTEMPTS = 3;
 
 /**
- * A serialized, coalescing pusher for the full grant snapshot.
- *
- * `browser_set_grants` replaces the driver's whole grant vector, so only the
- * LATEST snapshot matters — but Tauri does not guarantee two concurrently
- * dispatched commands complete in call order. A fire-and-forget push therefore
- * risks an older snapshot landing after a newer revocation, leaving the authority
- * permissive. This runs at most one push at a time and always re-reads the latest
- * desired snapshot, so the driver observes changes in order and converges on the
- * final state. A failed push is retried (bounded) rather than silently abandoned,
- * so a revocation whose sync failed is not left stale.
+ * The grant pusher: the driver must hold exactly the frontend's standing grants.
+ * A shared `makeSerializedPusher` — sends are serialized so an older snapshot
+ * can never land after a newer revocation, only the latest snapshot is sent,
+ * and a failed push is retried with backoff until it converges or the session is
+ * disposed. The bounded three-try version this replaced gave up and left the
+ * driver on a possibly stale (permissive) grant set for the rest of the session.
  */
-function makeGrantPusher(): (grants: StandingGrant[]) => void {
-  let desired: StandingGrant[] | null = null;
-  let running = false;
-  let attempts = 0;
-
-  async function drain(): Promise<void> {
-    if (running) return; // the running loop will pick up the newer `desired`
-    running = true;
-    try {
-      while (desired !== null) {
-        const snapshot = desired;
-        desired = null;
-        try {
-          await invoke("browser_set_grants", { grants: snapshot });
-          attempts = 0;
-        } catch (error) {
-          browserWarn("grant sync failed; retrying", error);
-          if (desired !== null) {
-            attempts = 0; // a newer snapshot supersedes this one — push that instead
-          } else if (++attempts < MAX_PUSH_ATTEMPTS) {
-            desired = snapshot; // re-queue: never silently abandon a revocation
-          } else {
-            attempts = 0;
-            browserWarn(
-              "grant sync giving up after retries; the driver may hold a stale grant set",
-            );
-          }
-        }
-      }
-    } finally {
-      running = false;
-    }
-  }
-
-  return (grants) => {
-    desired = grants;
-    void drain();
-  };
+function makeGrantPusher(): SerializedPusher<StandingGrant[]> {
+  return makeSerializedPusher(
+    (grants) => invoke("browser_set_grants", { grants }),
+    (error, attempt) => browserWarn(`grant sync failed (attempt ${attempt}); retrying`, error),
+  );
 }
 
 /** The identity of a one-shot mint: every field the driver binds. Two mints with
@@ -250,13 +213,14 @@ export async function mintProfileOpenConfirmed(grant: ProfileOpenApproval): Prom
 export function startGrantSync(): () => void {
   // One serialized pusher per sync session — its lifecycle matches the
   // subscription, so a torn-down session leaves no in-flight drain behind.
-  const push = makeGrantPusher();
+  const pusher = makeGrantPusher();
+  const push = pusher.push;
   push(useBrowserApprovalStore.getState().grants);
 
   let previousGrants = useBrowserApprovalStore.getState().grants;
   let previousShots = useBrowserApprovalStore.getState().oneShots;
   let previousProfileOpens = useBrowserApprovalStore.getState().profileOpens;
-  return useBrowserApprovalStore.subscribe((state) => {
+  const unsubscribe = useBrowserApprovalStore.subscribe((state) => {
     // Reference compare: the store's actions always produce new arrays, and
     // unrelated churn (pending approvals) must not spam the driver.
     if (state.grants !== previousGrants) {
@@ -278,4 +242,10 @@ export function startGrantSync(): () => void {
       for (const grant of added) pushProfileOpen(grant);
     }
   });
+  return () => {
+    unsubscribe();
+    // A disposed session sends nothing further: an old in-flight snapshot cannot
+    // be re-queued after a restarted session has pushed its own (newer) state.
+    pusher.dispose();
+  };
 }

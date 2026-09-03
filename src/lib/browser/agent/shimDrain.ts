@@ -29,8 +29,35 @@ export const DRAIN_ATTR = "data-drain";
  */
 export function bumpDrainStamp(elVar: string): string {
   const attr = JSON.stringify(DRAIN_ATTR);
+  // A fresh random nonce, not a counter: the shim only asks "did the stamp move
+  // since I last looked?", and a counter a page could forge (or drive past 2^53,
+  // where Number arithmetic stops changing) let a clear re-publish drained entries.
+  return `${elVar}.setAttribute(${attr},String(Math.random()).slice(2)+"-"+String(Date.now()));`;
+}
+
+/** Longest buffer text the reader will parse. A page owns the buffer element, so
+ *  its size is page-controlled; the bound is applied to the RAW text before
+ *  `JSON.parse` — the host-side parser limit came too late to stop the allocation. */
+export const MAX_DRAIN_CHARS = 256 * 1024;
+
+/**
+ * Isolated-world script that reads (and optionally clears) a page-world ring
+ * buffer element. Returns `JSON.stringify({[key]: [...]})`, or
+ * `{[key]: [], oversized: true}` when the raw text exceeds `MAX_DRAIN_CHARS`. A
+ * page that cleared or corrupted the buffer just yields `[]` — the reader never
+ * throws. A clearing read also bumps the drain stamp, which is what makes the
+ * clear stick (audit 2026-09-03 S-01): the shim's closure array is its source of
+ * truth and used to re-publish every drained entry on the next log.
+ *
+ * ONE builder for the console and recorder buffers — the two copies had already
+ * started to drift.
+ */
+export function buildDrainScript(bufferId: string, key: "entries" | "events", clear: boolean): string {
+  const id = JSON.stringify(bufferId);
   return (
-    `var __n=Number(${elVar}.getAttribute(${attr}));` +
-    `${elVar}.setAttribute(${attr},String(isFinite(__n)&&__n>=0?Math.floor(__n)+1:1));`
+    `var e=document.getElementById(${id});var b=[];var o=false;` +
+    `if(e){var r=e.textContent||"[]";if(r.length>${MAX_DRAIN_CHARS}){o=true;}else{try{b=JSON.parse(r);}catch(x){}}}` +
+    (clear ? `if(e){e.textContent="[]";${bumpDrainStamp("e")}}` : "") +
+    `return JSON.stringify(o?{${key}:[],oversized:true}:{${key}:b});`
   );
 }

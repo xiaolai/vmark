@@ -227,14 +227,18 @@ describe("recorder shim — drained events are never re-published (S-01)", () =>
     expect(drain(false)).toEqual([]);
   });
 
-  it("the clearing drain stamps a monotonic counter; a plain drain does not", () => {
+  it("the clearing drain stamps a fresh nonce each time; a plain drain does not touch it", () => {
     const a = mount(`<button id="a">A</button>`, "a");
     a.click();
     drain(true);
+    const first = document.getElementById(RECORDER_BUFFER_ID)!.getAttribute("data-drain");
+    expect(first).toBeTruthy();
     drain(true);
-    expect(document.getElementById(RECORDER_BUFFER_ID)!.getAttribute("data-drain")).toBe("2");
+    const second = document.getElementById(RECORDER_BUFFER_ID)!.getAttribute("data-drain");
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
     drain(false);
-    expect(document.getElementById(RECORDER_BUFFER_ID)!.getAttribute("data-drain")).toBe("2");
+    expect(document.getElementById(RECORDER_BUFFER_ID)!.getAttribute("data-drain")).toBe(second);
   });
 });
 

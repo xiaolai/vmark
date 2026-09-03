@@ -144,16 +144,20 @@ describe("buildConsoleReadScript", () => {
       expect(texts(runRead(doc, false))).toEqual(["later"]);
     });
 
-    it("the clear stamps a monotonic drain counter on the buffer element", () => {
+    it("the clear stamps a fresh nonce on the buffer element each time", () => {
       const doc = new DOMParser().parseFromString("<body></body>", "text/html");
       const c = installInto(doc);
       c.log("x");
       runRead(doc, true);
+      const first = doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain");
+      expect(first).toBeTruthy();
       runRead(doc, true);
-      expect(doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain")).toBe("2");
-      // A non-clearing read never touches the counter.
+      const second = doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain");
+      expect(second).toBeTruthy();
+      expect(second).not.toBe(first);
+      // A non-clearing read never touches the stamp.
       runRead(doc, false);
-      expect(doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain")).toBe("2");
+      expect(doc.getElementById(CONSOLE_BUFFER_ID)?.getAttribute("data-drain")).toBe(second);
     });
 
     it("a page-forged non-numeric counter cannot pin the stamp (no NaN forever)", () => {

@@ -18,7 +18,6 @@ describe("AGENT_LIB assembly", () => {
     "__vmarkSnapshot",
     "__vmarkHidden",
     "__vmarkRendered",
-    "__vmarkObscuredBy",
     "__vmarkClick",
     "__vmarkType",
     "__vmarkClickRef",

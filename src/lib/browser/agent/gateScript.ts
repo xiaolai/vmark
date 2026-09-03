@@ -48,7 +48,10 @@ function __vmGateFieldVisible(el){
   if(__vmarkHidden(el))return false;
   if(!__vmGateHasLayout())return true;
   var r=el.getBoundingClientRect();
-  return r.width>0&&r.height>0;
+  if(!(r.width>0&&r.height>0))return false;
+  // A box alone is not visibility: visibility:hidden, display:none up the tree and
+  // opacity:0 all keep a box, and a hidden password field is not a login gate.
+  return __vmarkRendered(el);
 }
 function __vmGateSelect(sel){
   var roots=[document],all=__vmarkAll(document),out=[];
@@ -74,7 +77,9 @@ function __vmGateSignals(){
   var text='';
   try{
     var b=document.body;
-    text=String((b&&(b.innerText||b.textContent))||'').slice(0,4000);
+    // innerText is what a user sees; an EMPTY innerText means nothing is visible
+    // and must not fall through to textContent (hidden text). Only its absence does.
+    text=String((b&&(typeof b.innerText==='string'?b.innerText:b.textContent))||'').slice(0,4000);
   }catch(e){}
   var href='';
   try{href=String(location.href||'');}catch(e){}

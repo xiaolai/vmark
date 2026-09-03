@@ -32,6 +32,10 @@ const WIDE_FIXTURE = `
     <div role="none">deco</div>
     <div role="button link" title="Multi token">t</div>
     <div role="  BUTTON  ">Spaced case</div>
+    <div role="bogus button">Unknown first token</div>
+    <button role="none">Focusable keeps its role</button>
+    <a href="/x" role="presentation">Focusable link keeps its role</a>
+    <div role="constructor">Prototype key</div>
     <p id="lbl">Save changes</p>
     <button aria-labelledby="lbl">x</button>
     <p id="lbl2">Referenced name</p>
@@ -157,5 +161,17 @@ describe("aria.ts ⇔ agentCore.src.js parity", () => {
         .map(([role, name]) => ({ role, name }));
       expect(mirror.map(({ role, name }) => ({ role, name }))).toEqual(injectedNodes);
     });
+  });
+});
+
+// The two resolvers recognize ONE role vocabulary. The page script cannot import
+// it, so the list is spelled twice — and pinned here.
+describe("role vocabulary parity", () => {
+  it("agentCore.src.js and ariaRole.ts recognize the same roles", async () => {
+    const { KNOWN_ROLES } = await import("./ariaRole");
+    const match = /function __vmarkKnownRoles\(\) \{\n {2}return (\[[^\]]*\]);/.exec(AGENT_CORE_SRC);
+    expect(match).not.toBeNull();
+    const inCore = JSON.parse(match![1]) as string[];
+    expect([...inCore].sort()).toEqual([...KNOWN_ROLES].sort());
   });
 });

@@ -17,6 +17,21 @@ export const HEADING_TAGS: Record<string, number> = { h1: 1, h2: 2, h3: 3, h4: 4
 /** Roles that explicitly REMOVE semantics — such an element is not a node. */
 const PRESENTATIONAL: ReadonlySet<string> = new Set(["presentation", "none"]);
 
+/** The role vocabulary the resolver recognizes — MUST match `__vmarkKnownRoles`
+ *  in agentCore.src.js (pinned by ariaParity.test.ts). An explicit `role` token
+ *  outside it is ignored rather than exposed as a nonexistent role. */
+export const KNOWN_ROLES: ReadonlySet<string> = new Set(["alert","alertdialog","application","article","banner","button","cell","checkbox","columnheader","combobox","complementary","contentinfo","definition","dialog","directory","document","feed","figure","form","grid","gridcell","group","heading","img","link","list","listbox","listitem","log","main","marquee","math","menu","menubar","menuitem","menuitemcheckbox","menuitemradio","navigation","none","note","option","presentation","progressbar","radio","radiogroup","region","row","rowgroup","rowheader","scrollbar","search","searchbox","separator","slider","spinbutton","status","switch","tab","table","tablist","tabpanel","term","textbox","timer","toolbar","tooltip","tree","treegrid","treeitem"]);
+
+/** Natively focusable, or made focusable by the author (ARIA §5.3 conflict rule). */
+function focusable(el: Element): boolean {
+  if (el.hasAttribute("tabindex")) return true;
+  const tag = el.tagName.toLowerCase();
+  if (tag === "button" || tag === "select" || tag === "textarea" || tag === "summary") return true;
+  if (tag === "input") return (el.getAttribute("type") ?? "text").toLowerCase() !== "hidden";
+  if (tag === "a") return el.hasAttribute("href");
+  return (el as Partial<HTMLElement>).isContentEditable === true;
+}
+
 /**
  * Implicit role per `<input type>`. Types absent from this map keep the textbox
  * fallback: strict ARIA exposes no role for `color`/`file`/`date`, but an agent
@@ -53,13 +68,33 @@ const LANDMARKS: ReadonlySet<string> = new Set([
 export function computeRole(el: Element): string | null {
   const explicit = el.getAttribute("role")?.trim().toLowerCase();
   if (explicit) {
-    // `role` is a token list — the first token wins (`role="button link"`).
-    const first = explicit.split(/\s+/)[0];
-    return PRESENTATIONAL.has(first) ? null : first;
+    // `role` is a token list — the first RECOGNIZED token wins (`role="button link"`);
+    // `role="bogus button"` is a button, not the nonexistent role "bogus".
+    for (const token of explicit.split(/\s+/)) {
+      if (!KNOWN_ROLES.has(token)) continue;
+      if (PRESENTATIONAL.has(token)) {
+        // Presentational-role conflict resolution: a focusable element keeps its
+        // implicit semantics (a `<button role="none">` is still a button).
+        if (focusable(el)) break;
+        return null;
+      }
+      return token;
+    }
   }
 
   const tag = el.tagName.toLowerCase();
-  if (HEADING_TAGS[tag]) return "heading";
+  // An editable region with no explicit role is the agent's typing target.
+  if (
+    (el as Partial<HTMLElement>).isContentEditable === true &&
+    tag !== "input" &&
+    tag !== "textarea" &&
+    tag !== "select"
+  ) {
+    return "textbox";
+  }
+  // `hasOwn`, not `in`/index: `constructor` or `toString` as a tag or type must not
+  // resolve an inherited property into a role.
+  if (Object.hasOwn(HEADING_TAGS, tag)) return "heading";
   switch (tag) {
     case "button":
     case "summary": // a disclosure control the agent must be able to target
@@ -81,7 +116,7 @@ export function computeRole(el: Element): string | null {
       return "img";
     case "input": {
       const type = (el.getAttribute("type") ?? "text").toLowerCase();
-      return type in INPUT_ROLES ? INPUT_ROLES[type] : "textbox";
+      return Object.hasOwn(INPUT_ROLES, type) ? INPUT_ROLES[type] : "textbox";
     }
     default:
       return null;

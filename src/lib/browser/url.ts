@@ -80,19 +80,24 @@ export function canonicalizeBrowserUrl(input: string): string | null {
  * where it is; if it legitimately needs a query value it can read the rendered page.
  * (Security review P5, Medium #3 — extends the earlier userinfo-only redaction.)
  *
- * A URL that will not parse is returned unchanged: this is a redactor, not a validator, and
- * inventing a value here would hide the real one from the caller. (Audit, High.)
+ * FAILS CLOSED (audit 2026-09-03 round 1): a URL that will not parse yields a placeholder,
+ * not the raw string — an unparseable value can still carry a credential — and an OPAQUE
+ * origin (`data:`/`blob:`/`about:`) exposes only its scheme, because a `data:` URL carries
+ * its whole payload in what `URL` calls the path. The earlier rule returned both whole.
  */
 export function urlForAgent(url: string): string {
   try {
     const parsed = new URL(url);
+    // `about:blank` / `about:srcdoc` carry nothing; every other opaque origin
+    // (`data:` above all) is reduced to its scheme.
+    if (parsed.origin === "null" && parsed.protocol !== "about:") return `${parsed.protocol}(opaque)`;
     parsed.username = "";
     parsed.password = "";
     parsed.search = "";
     parsed.hash = "";
     return parsed.href;
   } catch {
-    return url;
+    return "(unparseable url)";
   }
 }
 
@@ -141,13 +146,31 @@ export function originForAgent(url: string): string {
 export function urlForPersistence(url: string): string {
   try {
     const parsed = new URL(url);
-    if (!parsed.password) return url;
-    parsed.password = "";
-    return parsed.href;
+    let changed = false;
+    if (parsed.password) {
+      parsed.password = "";
+      changed = true;
+    }
+    // Query and fragment parameters that NAME a credential are dropped too: OAuth
+    // callbacks, magic links and reset URLs put the secret there, and a cleartext
+    // session file outlives the reason for it. The rest of the query stays — a
+    // search-results tab must still restore to its results.
+    for (const params of [parsed.searchParams, new URLSearchParams(parsed.hash.replace(/^#/, ""))]) {
+      const drop = [...params.keys()].filter((k) => CREDENTIAL_PARAM.test(k));
+      if (drop.length === 0) continue;
+      for (const k of drop) params.delete(k);
+      changed = true;
+      if (params === parsed.searchParams) continue;
+      parsed.hash = params.toString();
+    }
+    return changed ? parsed.href : url;
   } catch {
     return url;
   }
 }
+
+/** Query/fragment parameter names that carry a credential rather than an address. */
+const CREDENTIAL_PARAM = /(^|_|-)(token|access_token|id_token|refresh_token|secret|password|passwd|otp|auth|authorization|session|sessionid|api_?key|signature|sig|code)($|_|-)/i;
 
 /**
  * The label a tab wears for a page that has no `<title>`: the host (with a

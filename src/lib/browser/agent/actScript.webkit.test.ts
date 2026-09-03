@@ -283,7 +283,9 @@ describe("contenteditable in a real engine (S-08)", () => {
     ed.addEventListener("beforeinput", (ev) => ev.preventDefault());
     ed.addEventListener("input", () => (inputs += 1));
     const res = exec(buildTypeScript("textbox", "Body", "fresh")) as ActResult & { detail?: string };
-    expect(res).toMatchObject({ found: true, typed: true, detail: "editor-handled" });
+    // The editor cancelled the insertion and changed nothing visible: that is a
+    // refusal now, not a typed value (audit 2026-09-03 round 1).
+    expect(res).toMatchObject({ found: true, typed: false, reason: "rejected-value", detail: "editor-cancelled" });
     expect(ed.textContent).toBe("model");
     expect(inputs).toBe(0);
   });

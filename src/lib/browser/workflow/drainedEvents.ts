@@ -30,7 +30,9 @@ export const MAX_DRAIN_EVENTS = 200;
 /** Per-drain raw payload cap, in UTF-8 bytes. */
 export const MAX_DRAIN_BYTES = 256 * 1024;
 
-const PAGE_EVENT_TYPES: ReadonlySet<string> = new Set(["click", "type", "extract"]);
+// Only what the recorder shim PRODUCES. `extract` was listed too, so page-written
+// buffer data could forge an extraction step no trusted producer ever emits.
+const PAGE_EVENT_TYPES: ReadonlySet<string> = new Set(["click", "type"]);
 
 export interface DrainedEvents {
   events: RecordedEvent[];
@@ -51,12 +53,18 @@ export function parseDrainedEvents(raw: string): DrainedEvents {
   } catch {
     return { events: [], truncated: false, oversized: false };
   }
+  if (typeof parsed === "object" && parsed !== null && (parsed as { oversized?: unknown }).oversized === true) {
+    // The drain script refused to parse an over-long buffer in the page (shimDrain.ts).
+    return { events: [], truncated: false, oversized: true };
+  }
   const arr = typeof parsed === "object" && parsed !== null ? (parsed as { events?: unknown }).events : undefined;
   if (!Array.isArray(arr)) return { events: [], truncated: false, oversized: false };
 
   const events: RecordedEvent[] = [];
-  for (const entry of arr) {
-    if (events.length >= MAX_DRAIN_EVENTS) break;
+  // Inspect at most MAX_DRAIN_EVENTS ENTRIES — not "accept at most that many": the
+  // documented cap is on what is consumed, and counting accepted events let a
+  // hostile page push validation past it with junk entries.
+  for (const entry of arr.slice(0, MAX_DRAIN_EVENTS)) {
     if (typeof entry !== "object" || entry === null) continue;
     const e = entry as Record<string, unknown>;
     const type = e.type;

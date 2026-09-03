@@ -133,6 +133,13 @@ export interface WaitCondition {
  *  the matched `ref`. A stale ref (store reset on navigation) is `matched:false`.
  *  Role and text conditions see through open shadow roots (S-05). */
 export function buildWaitConditionScript(condition: WaitCondition, generation: number): string {
+  // Exactly one of ref / role / text, and `name` only alongside `role`. The type
+  // could not say so; an empty object used to become a search for "" (always
+  // matched) and a multi-field one silently picked by priority.
+  const set = [condition.ref, condition.role, condition.text].filter((v) => v !== undefined).length;
+  if (set !== 1 || (condition.name !== undefined && condition.role === undefined)) {
+    throw new Error("wait condition must set exactly one of ref, role (+optional name), or text");
+  }
   const gen = Number(generation);
   let expr: string;
   if (condition.ref !== undefined) {

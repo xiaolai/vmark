@@ -41,6 +41,7 @@ import { hostLabel } from "@/lib/browser/url";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { browserOcclusion, OCCLUDER } from "./browserOcclusion";
+import { browserEventBroker } from "./browserEventBroker";
 import { takeNavIntent } from "./navIntent";
 
 /** Is `tabId` a browser tab of this window? */
@@ -49,10 +50,24 @@ function owned(tabId: string): boolean {
   return tab !== undefined && isBrowserTab(tab);
 }
 
+/**
+ * Is an event stamped `generation` about the page this tab is CURRENTLY on?
+ * Events cross the IPC boundary and can arrive out of order; a late one from a
+ * page the tab has left must not touch the omnibox, history, prompts, dialogs
+ * or spinner. The store already rejects the tab-record patch for an older
+ * generation — but only that patch; every other side effect used to run.
+ */
+function current(tabId: string, generation: number | undefined): boolean {
+  if (generation === undefined) return true;
+  const tab = useTabStore.getState().tabs[getCurrentWindowLabel()]?.find((t) => t.id === tabId);
+  if (!tab || !isBrowserTab(tab) || tab.generation === undefined) return true;
+  return generation >= tab.generation;
+}
+
 export function startBrowserTabEvents(): () => void {
   return subscribeBrowserNavEvents(() => ({
     onNavigated: (tabId, url, generation, redirected) => {
-      if (!owned(tabId)) return;
+      if (!owned(tabId) || !current(tabId, generation)) return;
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
       ui.ensureEntry(tabId, url);
@@ -79,7 +94,7 @@ export function startBrowserTabEvents(): () => void {
       useTabStore.getState().updateBrowserTab(tabId, { url, generation });
     },
     onLoaded: (tabId, url, title, generation) => {
-      if (!owned(tabId)) return;
+      if (!owned(tabId) || !current(tabId, generation)) return;
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
       ui.ensureEntry(tabId, url);
@@ -102,13 +117,20 @@ export function startBrowserTabEvents(): () => void {
     },
     // The webview owns the back/forward list; mirror it so the omnibox can disable
     // its history controls instead of offering no-op buttons (WI-S1.6).
-    onHistoryChanged: (tabId, canGoBack, canGoForward) => {
-      if (owned(tabId)) useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward);
+    onHistoryChanged: (tabId, canGoBack, canGoForward, generation) => {
+      if (owned(tabId) && current(tabId, generation)) {
+        useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward);
+      }
     },
-    onFailed: (tabId, message) => {
+    onFailed: (tabId, message, navigationId) => {
       // Offline, DNS failure, TLS rejection, a refused connection: the native side knows
-      // exactly what went wrong and used to tell nobody (WI-S0.9).
-      if (owned(tabId)) useBrowserUiStore.getState().setError(tabId, message);
+      // exactly what went wrong and used to tell nobody (WI-S0.9). A failure that names
+      // a navigation the tab has already superseded is about a page nobody is looking
+      // at — it must not paint an error over the newer page that loaded fine.
+      if (!owned(tabId)) return;
+      const latest = browserEventBroker.latestNavigationId(tabId);
+      if (navigationId !== undefined && latest !== undefined && navigationId !== latest) return;
+      useBrowserUiStore.getState().setError(tabId, message);
     },
     onCrashed: (tabId, action) => {
       if (!owned(tabId)) return;

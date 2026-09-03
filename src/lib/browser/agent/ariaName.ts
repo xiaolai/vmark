@@ -28,7 +28,12 @@ export const NAME_CAP = 200;
 /** Unicode FORMAT characters a page can hide in a name: zero-width space/joiners
  *  and marks, bidi embeddings/overrides/pop, word joiner and invisible operators,
  *  BOM, soft hyphen (S-09). */
-const FORMAT_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/g;
+const FORMAT_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u00AD\u061C]/g;
+
+/** Raw text gathered before normalization stops: many times the name cap, so a
+ *  whitespace-heavy name still fills it, but a hostile page's megabyte of text
+ *  never becomes one string. */
+const CONTENT_BUDGET = NAME_CAP * 16;
 
 export function normalize(s: string): string {
   return s.normalize("NFC").replace(FORMAT_CHARS, "").replace(/\s+/g, " ").trim();
@@ -46,14 +51,20 @@ const SKIPPED_IN_CONTENT: ReadonlySet<string> = new Set(["script", "style", "tem
 /** Text alternative from content. `all` keeps hidden descendants (a labelledby
  *  traversal whose referenced node was itself hidden). */
 function contentText(el: Element, all: boolean): string {
+  // Iterative, document-order walk with a budget: the recursive version built the
+  // entire descendant text before the cap applied, so a deep or enormous subtree
+  // could overflow the stack or allocate without bound before anything was capped.
   let out = "";
-  for (let c = el.firstChild; c; c = c.nextSibling) {
-    if (c.nodeType === 3) {
-      out += (c as Text).data;
+  const stack: Node[] = [];
+  for (let c = el.lastChild; c; c = c.previousSibling) stack.push(c);
+  while (stack.length > 0 && out.length < CONTENT_BUDGET) {
+    const node = stack.pop() as Node;
+    if (node.nodeType === 3) {
+      out += (node as Text).data;
       continue;
     }
-    if (c.nodeType !== 1) continue;
-    const child = c as Element;
+    if (node.nodeType !== 1) continue;
+    const child = node as Element;
     const tag = child.tagName.toLowerCase();
     if (SKIPPED_IN_CONTENT.has(tag)) continue;
     if (!all && selfHidden(child)) continue;
@@ -65,9 +76,9 @@ function contentText(el: Element, all: boolean): string {
       out += child.getAttribute("alt") ?? "";
       continue;
     }
-    out += contentText(child, all);
+    for (let c = child.lastChild; c; c = c.previousSibling) stack.push(c);
   }
-  return out;
+  return out.slice(0, CONTENT_BUDGET);
 }
 
 interface IdScope {
@@ -146,7 +157,11 @@ function accessibleNameFull(el: Element): string {
 
   const tag = el.tagName.toLowerCase();
   if (tag === "img") return normalize(el.getAttribute("alt") ?? "");
-  if (tag === "input" || tag === "textarea" || tag === "select") return formControlName(el);
+  if (tag === "input" || tag === "textarea" || tag === "select") {
+    // A control named only by its title still gets a locator name (accname §4.3.1
+    // step 2I applies to controls too); it used to come back empty.
+    return formControlName(el) || normalize(el.getAttribute("title") ?? "");
+  }
 
   const text = normalize(contentText(el, false));
   return text || normalize(el.getAttribute("title") ?? "");

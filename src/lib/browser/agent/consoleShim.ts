@@ -29,7 +29,7 @@
  */
 
 import CONSOLE_SHIM_SRC from "./consoleShim.src.js?raw";
-import { bumpDrainStamp } from "./shimDrain";
+import { buildDrainScript } from "./shimDrain";
 
 /** The page-world shim source — the exact bytes Rust injects. */
 export { CONSOLE_SHIM_SRC };
@@ -46,10 +46,5 @@ export const CONSOLE_BUFFER_ID = "__vmark_console_buffer";
  * used to re-publish every drained entry on the next log.
  */
 export function buildConsoleReadScript(clear: boolean): string {
-  return (
-    `var e=document.getElementById(${JSON.stringify(CONSOLE_BUFFER_ID)});var b=[];` +
-    `if(e){try{b=JSON.parse(e.textContent||"[]");}catch(x){}}` +
-    (clear ? `if(e){e.textContent="[]";${bumpDrainStamp("e")}}` : "") +
-    `return JSON.stringify({entries:b});`
-  );
+  return buildDrainScript(CONSOLE_BUFFER_ID, "entries", clear);
 }

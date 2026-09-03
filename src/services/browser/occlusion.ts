@@ -48,6 +48,9 @@ export interface OcclusionDriver {
   thaw(tabId: string): Promise<void>;
 }
 
+/** Backoff between retries of a failed freeze/thaw; the budget is its length. */
+const RETRY_DELAYS_MS = [100, 200, 400, 800, 1_600] as const;
+
 export class OcclusionController {
   private readonly occluders = new Map<string, Set<string>>();
   /** Intent: should the tab's native view be hidden right now? */
@@ -59,7 +62,16 @@ export class OcclusionController {
   /** Tabs whose native view changed under an in-flight op — see `pump`. */
   private readonly stale = new Set<string>();
 
-  constructor(private readonly driver: OcclusionDriver) {}
+  /** Failed attempts since the last success, per tab — drives the retry backoff. */
+  private readonly failures = new Map<string, number>();
+  private readonly retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  constructor(
+    private readonly driver: OcclusionDriver,
+    /** Called when a tab's op keeps failing past the retry budget: the view may be
+     *  visible under an overlay that believes it is hidden. */
+    private readonly onGiveUp: (tabId: string, error: unknown) => void = () => {},
+  ) {}
 
   /** An overlay/drag now covers the browser tab. */
   addOccluder(tabId: string, occluderId: string): void {
@@ -110,6 +122,28 @@ export class OcclusionController {
     this.desired.delete(tabId);
     this.confirmed.delete(tabId);
     this.stale.delete(tabId);
+    this.failures.delete(tabId);
+    const timer = this.retryTimers.get(tabId);
+    if (timer !== undefined) clearTimeout(timer);
+    this.retryTimers.delete(tabId);
+  }
+
+  /** Retry a failed op after a growing delay; report when the budget is spent. */
+  private scheduleRetry(tabId: string, error: unknown): void {
+    const attempt = (this.failures.get(tabId) ?? 0) + 1;
+    this.failures.set(tabId, attempt);
+    if (attempt > RETRY_DELAYS_MS.length) {
+      this.failures.delete(tabId);
+      this.onGiveUp(tabId, error);
+      return;
+    }
+    if (this.retryTimers.has(tabId)) return;
+    const timer = setTimeout(() => {
+      this.retryTimers.delete(tabId);
+      if (!this.occluders.has(tabId)) return;
+      this.resync(tabId);
+    }, RETRY_DELAYS_MS[attempt - 1]);
+    this.retryTimers.set(tabId, timer);
   }
 
   private setFor(tabId: string): Set<string> {
@@ -152,14 +186,19 @@ export class OcclusionController {
         this.stale.delete(tabId);
         try {
           await (want ? this.driver.freeze(tabId) : this.driver.thaw(tabId));
-        } catch {
+        } catch (error) {
           // Unconfirmed: leave `confirmed` as-is so no thaw is ever sent for a view the
           // driver never actually froze. The intent stands — a failed freeze must not
           // reveal a live frame.
           if (this.stale.has(tabId)) continue; // the view arrived mid-flight: try again
+          // Otherwise retry on a backoff. A rejected freeze used to be attempted once
+          // and then only when something ELSE changed — so a view could sit live
+          // under a persistent overlay while `isFrozen` said hidden.
+          this.scheduleRetry(tabId, error);
           return;
         }
         if (!this.occluders.has(tabId)) return; // closed while the op was in flight
+        this.failures.delete(tabId);
         this.confirmed.set(tabId, want);
       }
     } finally {

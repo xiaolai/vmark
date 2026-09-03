@@ -111,8 +111,13 @@ function isHidden(el: Element): boolean {
 }
 
 /** Every element under `root` (excluded) in composed pre-order — mirrors `__vmarkAll`. */
-function composedDescendants(root: ParentNode): Element[] {
-  const out: Element[] = [];
+/** Elements a snapshot may visit before it stops looking. Distinct from the
+ *  NODE cap on the output: that only bounded what was emitted, while the whole
+ *  hostile-page DOM was still materialized as an array first. */
+export const SNAPSHOT_VISIT_BUDGET = 50_000;
+
+function* composedDescendants(root: ParentNode): Generator<Element> {
+  let visited = 0;
   const stack: Element[] = [];
   const push = (node: ParentNode): void => {
     const kids = node.children;
@@ -121,11 +126,12 @@ function composedDescendants(root: ParentNode): Element[] {
   push(root);
   while (stack.length) {
     const el = stack.pop()!;
-    out.push(el);
+    visited += 1;
+    if (visited > SNAPSHOT_VISIT_BUDGET) return;
+    yield el;
     push(el);
     if (el.shadowRoot) push(el.shadowRoot);
   }
-  return out;
 }
 
 function nameMatches(actual: string, wanted: string, exact: boolean): boolean {
@@ -141,7 +147,7 @@ export function queryByRole(
   opts: { name?: string; exact?: boolean } = {},
 ): Element[] {
   const exact = opts.exact !== false;
-  return composedDescendants(root).filter(
+  return [...composedDescendants(root)].filter(
     (el) =>
       computeRole(el) === role &&
       !isHidden(el) &&

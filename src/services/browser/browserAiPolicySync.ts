@@ -7,6 +7,7 @@ import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { destroyBrowserNativeView } from "./browserNativeViews";
 import { browserEventBroker } from "./browserEventBroker";
 import { browserWarn } from "@/utils/debug";
+import { makeSerializedPusher } from "./serializedPusher";
 
 type BrowserPolicy = {
   enabled: boolean;
@@ -53,11 +54,16 @@ function destroyBrowserViews(onlyAi = false): void {
  * so the initial push is required before either manual or AI native creation.
  */
 export function startBrowserAiPolicySync(): () => void {
-  const push = (policy: BrowserPolicy) => {
-    void invoke("browser_ai_policy", policy).catch((error: unknown) => {
-      browserWarn("browser policy sync failed; Rust remains fail-closed", error);
-    });
-  };
+  // Serialized, latest-wins, retried until acknowledged: two rapid updates used
+  // to be fired concurrently (the older, more permissive one could land last),
+  // and a failed TIGHTENING push left Rust permanently more permissive than the
+  // settings. Rust starts fail-closed, so a push that has not landed yet only ever
+  // errs on the strict side.
+  const pusher = makeSerializedPusher<BrowserPolicy>(
+    (policy) => invoke("browser_ai_policy", policy),
+    (error, attempt) => browserWarn(`browser policy sync failed (attempt ${attempt}); retrying`, error),
+  );
+  const push = pusher.push;
 
   const initial = currentPolicy();
   push(initial);
@@ -92,6 +98,9 @@ export function startBrowserAiPolicySync(): () => void {
 
   return () => {
     unsubscribe();
+    // A disposed session pushes nothing further, so a stale in-flight policy can
+    // never be re-queued after a restarted session has pushed its own.
+    pusher.dispose();
     void browserEventBroker.stop();
   };
 }

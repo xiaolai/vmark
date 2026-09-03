@@ -21,8 +21,17 @@ function __vmarkQueryDom(sel,gen,opts){
   // Composed order through open shadow roots (S-05): \`matches\` per element rather
   // than one querySelectorAll, which never enters a shadow tree. Combinators do
   // not cross a shadow boundary; a selector matches within each tree.
-  var all=__vmarkAll(document),els=[];
-  for(var k=0;k<all.length;k++){try{if(all[k].matches(sel))els.push(all[k]);}catch(e){}}
+  // querySelectorAll INSIDE each tree (document, then every open shadow root), so
+  // \`:scope\` and combinators keep their meaning — \`matches\` per element made
+  // \`:scope\` match everything — then re-ordered into composed order by one bounded
+  // walk. The walk stops after SCAN elements so a hostile page cannot make the
+  // query allocate without limit before the 50-result cap applies.
+  var SCAN=20000,hits=typeof Set==='function'?new Set():null,list=[];
+  function collect(root){try{var f=root.querySelectorAll(sel);for(var q=0;q<f.length;q++){if(hits){if(!hits.has(f[q])){hits.add(f[q]);list.push(f[q]);}}else list.push(f[q]);}}catch(e){}}
+  var all=__vmarkAll(document),els=[],scanned=0;
+  collect(document);
+  for(var k=0;k<all.length&&scanned<SCAN;k++){if(all[k].shadowRoot)collect(all[k].shadowRoot);scanned++;}
+  if(hits){for(var m=0;m<all.length&&els.length<SCAN;m++){if(hits.has(all[m]))els.push(all[m]);}}else els=list;
   var cap=50,n=Math.min(els.length,cap),out=[];
   for(var i=0;i<n;i++){
     var el=els[i],o={ref:__vmarkRefFor(el,gen),tag:el.tagName.toLowerCase(),text:__vmarkNorm(el.textContent).slice(0,500)};

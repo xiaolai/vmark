@@ -307,6 +307,7 @@ describe("BrowserSurface", () => {
       tabId: id,
       url: "https://www.iana.org/help/example-domains",
       title: "Example Domains",
+      generation: 1,
     });
     // The omnibox reads urlInput from browserUiStore (the chrome moved to the bar).
     expect(useBrowserUiStore.getState().entries[id]?.urlInput).toBe(
@@ -408,7 +409,7 @@ describe("BrowserSurface", () => {
     await emitNav("browser://crashed", { tabId: id, action: "auto-reload" });
     expect(screen.getByRole("alert")).toBeInTheDocument();
     // The auto-reload succeeded → a loaded event arrives and the overlay clears.
-    await emitNav("browser://loaded", { tabId: id, url: "https://example.com/", title: "Example" });
+    await emitNav("browser://loaded", { tabId: id, url: "https://example.com/", title: "Example", generation: 1 });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
   });

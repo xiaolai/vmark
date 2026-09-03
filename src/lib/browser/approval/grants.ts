@@ -107,13 +107,9 @@ function patternIdentity(pattern: string): string | null {
  *  never-automatable (`upload`) AND never-grantable (`eval`) ops, so a standing
  *  grant can never carry them. */
 function sanitizeOperations(operations: readonly string[]): string[] {
-  return [
-    ...new Set(
-      operations.filter(
-        (op) => isBrowserOperation(op) && !NEVER_AUTOMATED.has(op) && !NEVER_GRANTABLE.has(op),
-      ),
-    ),
-  ];
+  // The ONE definition of grantable — a second inline predicate here drifted from
+  // `isGrantableOperation` once already.
+  return [...new Set(operations.filter(isGrantableOperation))];
 }
 
 /**

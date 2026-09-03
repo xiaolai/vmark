@@ -33,7 +33,7 @@
 
 import RECORDER_SHIM_BODY from "./recorderShim.src.js?raw";
 import { AGENT_CORE_SRC } from "./agentCore";
-import { bumpDrainStamp } from "./shimDrain";
+import { buildDrainScript } from "./shimDrain";
 
 /** The shim BODY — the exact bytes of `recorderShim.src.js`, which assume the core. */
 export { RECORDER_SHIM_BODY };
@@ -80,10 +80,5 @@ export function buildDisarmScript(): string {
  * (S-01): the shim resets its closure copy when it sees the stamp move.
  */
 export function buildRecorderDrainScript(clear: boolean): string {
-  return (
-    `var e=document.getElementById(${JSON.stringify(RECORDER_BUFFER_ID)});var b=[];` +
-    `if(e){try{b=JSON.parse(e.textContent||"[]");}catch(x){}}` +
-    (clear ? `if(e){e.textContent="[]";${bumpDrainStamp("e")}}` : "") +
-    `return JSON.stringify({events:b});`
-  );
+  return buildDrainScript(RECORDER_BUFFER_ID, "events", clear);
 }

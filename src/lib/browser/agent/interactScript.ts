@@ -110,11 +110,27 @@ function __vmarkTabbable(el){
   if(t==='button'||t==='select'||t==='textarea'||t==='summary'||t==='iframe')return true;
   return !!el.isContentEditable;
 }
+function __vmarkRadioGroupStop(el,all){
+  // Sequential focus exposes ONE stop per same-name radio group: the checked radio,
+  // else the first in the group (within the same form owner).
+  var name=el.getAttribute('name');if(!name)return true;
+  var first=null,checked=null;
+  for(var i=0;i<all.length;i++){
+    var o=all[i];
+    if(String(o.tagName||'').toLowerCase()!=='input'||(o.getAttribute('type')||'').toLowerCase()!=='radio')continue;
+    if(o.getAttribute('name')!==name||o.form!==el.form)continue;
+    if(!__vmarkTabbable(o)||!__vmarkHasBox(o))continue;
+    if(first===null)first=o;
+    if(o.checked&&checked===null)checked=o;
+  }
+  return (checked||first)===el;
+}
 function __vmarkTabOrder(){
   var all=__vmarkAll(document),pos=[],zero=[];
   for(var i=0;i<all.length;i++){
     var el=all[i];
     if(!__vmarkTabbable(el)||!__vmarkHasBox(el))continue;
+    if(String(el.tagName||'').toLowerCase()==='input'&&(el.getAttribute('type')||'').toLowerCase()==='radio'&&!__vmarkRadioGroupStop(el,all))continue;
     var ti=Number(el.getAttribute('tabindex')||0);
     if(ti>0)pos.push({el:el,ti:ti,i:pos.length});else zero.push(el);
   }
@@ -142,12 +158,19 @@ function __vmarkKey(ref,gen,key,mods){
   if(ref&&!el)return {found:false,dispatched:false};
   var t=el||document.body;
   if(t.focus){try{t.focus();}catch(e){}}
+  var focusedBefore=__vmarkActiveElement();
   mods=mods||{};
   var info=__vmarkKeyInfo(key);
   var proceed=t.dispatchEvent(__vmarkKeyEvent('keydown',info,mods,0));
-  if(proceed&&info.printable)t.dispatchEvent(__vmarkKeyEvent('keypress',info,mods,info.key.length===1?info.key.charCodeAt(0):13));
+  // preventDefault on keypress suppresses the default action too (it used to be ignored).
+  if(proceed&&info.printable)proceed=t.dispatchEvent(__vmarkKeyEvent('keypress',info,mods,info.key.length===1?info.key.charCodeAt(0):13))&&proceed;
   var action=proceed?__vmarkKeyDefault(t,info,mods):null;
-  t.dispatchEvent(__vmarkKeyEvent('keyup',info,mods,0));
+  // keyup follows FOCUS, as the real keyboard does: after Tab (or a keydown handler
+  // that moved focus) it lands on the newly focused element. When focus did not move
+  // it stays on the target, focusable or not.
+  var focusedAfter=__vmarkActiveElement();
+  var up=(focusedAfter&&focusedAfter!==focusedBefore)?focusedAfter:t;
+  up.dispatchEvent(__vmarkKeyEvent('keyup',info,mods,0));
   return {found:true,dispatched:true,defaultAction:action};
 }`;
 
