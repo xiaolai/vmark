@@ -59,7 +59,9 @@ export async function handleBrowserQuery(id: string, args: Record<string, unknow
     // Sized before the attachment gate: the selector and style names are embedded
     // in the script, and an oversized query must fail here, not after a human-tab
     // attachment was spent on it.
-    const tooLarge = scriptTooLarge(buildQueryScript(selector, 0, fields), "query script");
+    // Sized with the widest generation the script could embed, so a boundary-sized
+    // query cannot pass here and exceed the limit once rebuilt with a real one.
+    const tooLarge = scriptTooLarge(buildQueryScript(selector, Number.MAX_SAFE_INTEGER, fields), "query script");
     if (tooLarge) {
       await respond({ id, success: false, error: tooLarge });
       return;

@@ -193,6 +193,25 @@ describe("grant-sync ordering and fail-closed retry", () => {
     stop();
   });
 
+  it("a restarted session's first push waits for the previous session's in-flight send (#91)", async () => {
+    const resolvers: Array<() => void> = [];
+    invoke.mockImplementation(() => new Promise<void>((resolve) => resolvers.push(() => resolve())));
+    useBrowserApprovalStore.getState().grant("https://a.com", ["click"]);
+    const stopA = startGrantSync(); // invoke #1 in flight: the permissive snapshot
+    expect(invoke).toHaveBeenCalledTimes(1);
+    stopA();
+    useBrowserApprovalStore.getState().revoke("https://a.com");
+    const stopB = startGrantSync(); // the revocation — must not overtake #1
+    await flush();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    resolvers[0]();
+    await flush();
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenLastCalledWith("browser_set_grants", { grants: [] });
+    resolvers[1]?.();
+    stopB();
+  });
+
   it("retries a failed grant sync rather than silently abandoning it (fail-closed)", async () => {
     let calls = 0;
     invoke.mockImplementation(() => {

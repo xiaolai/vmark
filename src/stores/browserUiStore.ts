@@ -183,7 +183,7 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
 
   clearForTab: (tabId) =>
     set((state) => {
-      if (!state.entries[tabId]) return state;
+      if (!Object.hasOwn(state.entries, tabId)) return state;
       const { [tabId]: _removed, ...rest } = state.entries;
       return { entries: rest };
     }),

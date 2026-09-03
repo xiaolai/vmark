@@ -22,10 +22,10 @@ import {
   applyOutputBound,
   jsonResult,
   sliceUtf8,
-  structuredErrorResult,
   structuredJsonResult,
   utf8ByteLength,
 } from '../../../src/utils/toolOutput.js';
+import { structuredErrorResult } from '../../../src/utils/errorOutput.js';
 
 /** A string survives a UTF-8 round trip only if it holds no lone surrogate. */
 function isWellFormed(text: string): boolean {
@@ -280,7 +280,7 @@ describe('structuredErrorResult', () => {
 // page-derived message or record could grow to the bridge frame limit.
 describe('structuredErrorResult is bounded', () => {
   it('truncates an oversized message and marks the cut', async () => {
-    const { structuredErrorResult, MAX_ERROR_MESSAGE_BYTES } = await import('../../../src/utils/toolOutput.js');
+    const { structuredErrorResult, MAX_ERROR_MESSAGE_BYTES } = await import('../../../src/utils/errorOutput.js');
     const res = structuredErrorResult('x'.repeat(MAX_ERROR_MESSAGE_BYTES * 2), { token: 'BOOM' });
     const text = res.content[0]?.type === 'text' ? (res.content[0].text as string) : '';
     expect(Buffer.byteLength(text, 'utf8')).toBeLessThan(MAX_ERROR_MESSAGE_BYTES + 64);
@@ -289,7 +289,7 @@ describe('structuredErrorResult is bounded', () => {
   });
 
   it('collapses an oversized structured record to its branchable fields', async () => {
-    const { structuredErrorResult, MAX_ERROR_STRUCTURED_BYTES } = await import('../../../src/utils/toolOutput.js');
+    const { structuredErrorResult, MAX_ERROR_STRUCTURED_BYTES } = await import('../../../src/utils/errorOutput.js');
     const res = structuredErrorResult('APPROVAL_REQUIRED: big', {
       token: 'APPROVAL_REQUIRED',
       code: 'approval-required',
@@ -305,7 +305,7 @@ describe('structuredErrorResult is bounded', () => {
   });
 
   it('leaves an ordinary error untouched', async () => {
-    const { structuredErrorResult } = await import('../../../src/utils/toolOutput.js');
+    const { structuredErrorResult } = await import('../../../src/utils/errorOutput.js');
     const res = structuredErrorResult('STALE_COMMAND: moved on', { token: 'STALE_COMMAND', current_revision: 4 });
     expect(res.content[0]).toEqual({ type: 'text', text: 'STALE_COMMAND: moved on' });
     expect(res.structuredContent).toEqual({ token: 'STALE_COMMAND', current_revision: 4 });

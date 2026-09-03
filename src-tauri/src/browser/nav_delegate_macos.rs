@@ -123,13 +123,8 @@ define_class!(
         }
         #[unsafe(method(webView:didReceiveServerRedirectForProvisionalNavigation:))]
         fn did_receive_redirect(&self, _wv: &WKWebView, nav: Option<&WKNavigation>) {
-            // A late redirect callback from a SUPERSEDED load must not mark the
-            // current one as redirected. WebKit hands us the navigation it belongs
-            // to; when we can resolve it, only the current ticket's redirect counts.
-            if let Some(navigation_id) = self.navigation_id_for(nav) {
-                if !self.is_current_navigation(&navigation_id) {
-                    return;
-                }
+            if !self.callback_is_current(nav) {
+                return; // a late redirect from a superseded load
             }
             self.ivars().redirected.set(true);
         }
@@ -140,11 +135,7 @@ define_class!(
                 return;
             };
             if !self.is_current_navigation(&navigation_id) {
-                // A stale commit from a load this tab has already left: it says
-                // nothing about the CURRENT load, so it must not clear `loading` —
-                // doing so made the live navigation look idle and let its next KVO
-                // URL change pass as same-document.
-                return;
+                return; // a stale commit must not clear `loading` for the live navigation
             }
             ivars.loading.set(false); // committed: a URL change after this is same-document
             let url = current_url(web_view);

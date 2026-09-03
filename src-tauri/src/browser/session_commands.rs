@@ -28,6 +28,9 @@ use crate::browser::refusals::stale_command;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
 use crate::command_error::{CommandError, ErrorCode};
+
+#[path = "session_restore_script.rs"]
+mod restore_script;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
@@ -189,40 +192,24 @@ fn apply(
     // different origin. Both sides use the browser's own origin normalization.
     let pairs = serde_json::to_string(&items).map_err(|e| surface_failure(&e.to_string()))?;
     let expected = serde_json::to_string(committed).map_err(|e| surface_failure(&e.to_string()))?;
-    // Every write is checked. A rejected `setItem` (quota, a sandboxed or
-    // storage-disabled origin) used to be swallowed and the restore still reported
-    // applied:true — a partial session presented as a complete one. Now the
-    // preceding writes are put back to their previous values and the failure is
-    // reported, with the FAILING KEY'S INDEX only (never the key or value).
-    let script = format!(
-        "if(new URL({expected}).origin!==location.origin){{return JSON.stringify({{applied:false,reason:'origin-changed'}});}}\
-         var d={pairs},prev=[];\
-         for(var i=0;i<d.length;i++){{\
-           var k=d[i][0],old=null;try{{old=localStorage.getItem(k);}}catch(e){{}}\
-           try{{localStorage.setItem(k,d[i][1]);prev.push([k,old]);}}\
-           catch(e){{for(var j=prev.length-1;j>=0;j--){{try{{if(prev[j][1]===null){{localStorage.removeItem(prev[j][0]);}}else{{localStorage.setItem(prev[j][0],prev[j][1]);}}}}catch(_){{}}}}\
-             return JSON.stringify({{applied:false,reason:'write-failed',index:i}});}}\
-         }}return JSON.stringify({{applied:true,count:d.length}});"
-    );
+    let script = restore_script::restore_script(&pairs, &expected);
     let raw = surface::eval(app, tab_id.to_string(), script, generation).map_err(eval_error)?;
-    let outcome: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|_| surface_failure("session restore returned an unreadable result"))?;
-    if outcome.get("applied").and_then(|v| v.as_bool()) == Some(true) {
-        return Ok(());
-    }
-    match outcome.get("reason").and_then(|v| v.as_str()) {
+    match restore_script::parse_restore_outcome(&raw) {
+        restore_script::RestoreOutcome::Applied => Ok(()),
         // The page's origin changed before the write: refuse rather than plant a
         // credential in a different origin.
-        Some("origin-changed") => Err(stale_command(
+        restore_script::RestoreOutcome::OriginChanged => Err(stale_command(
             tab_id,
             "before the session could be restored",
         )),
-        Some("write-failed") => Err(CommandError::new(
+        restore_script::RestoreOutcome::WriteFailed { index } => Err(CommandError::new(
             ErrorCode::Io,
             "the page refused a localStorage write (quota or storage policy); the restore was rolled back",
         )
-        .with_detail(serde_json::json!({ "index": outcome.get("index").cloned().unwrap_or(serde_json::Value::Null) }))),
-        _ => Err(surface_failure("session restore reported an unknown outcome")),
+        .with_detail(serde_json::json!({ "index": index }))),
+        restore_script::RestoreOutcome::Unreadable => {
+            Err(surface_failure("session restore returned an unreadable result"))
+        }
     }
 }
 

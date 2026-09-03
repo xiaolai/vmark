@@ -279,7 +279,6 @@
   "src/services/mcpBridge/v2/__tests__/browserAct.test.ts": 1,
   "src/services/mcpBridge/v2/__tests__/browserConsole.test.ts": 1,
   "src/services/mcpBridge/v2/__tests__/browserExtract.test.ts": 1,
-  "src/services/mcpBridge/v2/__tests__/browserNavigation.test.ts": 3,
   "src/services/mcpBridge/v2/__tests__/browserPower.test.ts": 1,
   "src/services/mcpBridge/v2/__tests__/browserReadClass.test.ts": 2,
   "src/services/mcpBridge/v2/__tests__/browserScreenshot.test.ts": 2,

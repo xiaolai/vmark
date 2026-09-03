@@ -45,22 +45,23 @@ interface QuarantineStripStats {
 }
 
 function isStripStats(value: unknown): value is QuarantineStripStats {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { stripped_count?: unknown }).stripped_count === "number"
-  );
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as { stripped_count?: unknown; error_count?: unknown };
+  return typeof v.stripped_count === "number" && (v.error_count === undefined || typeof v.error_count === "number");
 }
 
 const NOTICE_FLAG_KEY = "vmark-mac-quarantine-notice-shown";
 
 /** Has the one-time toast already been shown on this machine? */
 function hasShownNotice(): boolean {
-  // No storage at all (not merely a throwing one): the notice could never be
-  // suppressed, so treat it as shown rather than toast on every open.
-  if (typeof globalThis.localStorage === "undefined") return true;
   try {
-    return globalThis.localStorage.getItem(NOTICE_FLAG_KEY) === "1";
+    // No storage at all (not merely a throwing one): the notice could never be
+    // suppressed, so treat it as shown rather than toast on every open. The
+    // getter itself can throw (a sandboxed origin), so even the presence check
+    // stays inside the try.
+    const storage = globalThis.localStorage;
+    if (typeof storage === "undefined") return true;
+    return storage.getItem(NOTICE_FLAG_KEY) === "1";
   } catch {
     // localStorage unavailable (private mode, sandbox) — treat as shown so
     // we don't pester users with a toast we can't suppress later.

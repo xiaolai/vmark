@@ -24,7 +24,11 @@
  *    report it (X-03).
  *
  * Only tabs of THIS window are handled: the tab store may hold other windows'
- * tabs, and each window runs its own copy of this service.
+ * tabs, and each window runs its own copy of this service. And only CURRENT
+ * events: one stamped with an older generation than the tab's (or a failure for
+ * a superseded navigationId) is ignored whole, before any side effect — the
+ * store rejected only the tab-record patch, while the omnibox, history, prompts
+ * and spinner were still rewritten by a late event.
  *
  * @coordinates-with services/browser/browserNavEvents — the event decoder
  * @coordinates-with components/Browser/BrowserSurface — renders dialog/crash/popup from the store

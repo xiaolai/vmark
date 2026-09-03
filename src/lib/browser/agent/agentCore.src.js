@@ -33,7 +33,7 @@ function __vmarkNorm(s) {
   // ISOLATES (U+2066–U+2069) and the Arabic letter mark (U+061C), word joiner and
   // invisible operators, BOM, soft hyphen. The isolates were missing: an isolate
   // pair reorders a name's display exactly like an override does.
-  return s.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u00AD\u061C]/g, "").replace(/\s+/g, " ").trim();
+  return s.replace(/[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g, "").replace(/\s+/g, " ").trim();
 }
 
 /** Accessible-name cap (S-06): the name the snapshot shows AND the name a locator
@@ -87,26 +87,6 @@ function __vmarkInputRole(ty) {
   return Object.prototype.hasOwnProperty.call(map, ty) ? map[ty] : "textbox";
 }
 
-/** The role vocabulary this resolver recognizes. MUST match `KNOWN_ROLES` in
- *  ariaRole.ts (ariaParity.test.ts pins it): the two resolvers are one perception. */
-function __vmarkKnownRoles() {
-  return ["alert","alertdialog","application","article","banner","button","cell","checkbox","columnheader","combobox","complementary","contentinfo","definition","dialog","directory","document","feed","figure","form","grid","gridcell","group","heading","img","link","list","listbox","listitem","log","main","marquee","math","menu","menubar","menuitem","menuitemcheckbox","menuitemradio","navigation","none","note","option","presentation","progressbar","radio","radiogroup","region","row","rowgroup","rowheader","scrollbar","search","searchbox","separator","slider","spinbutton","status","switch","tab","table","tablist","tabpanel","term","textbox","timer","toolbar","tooltip","tree","treegrid","treeitem"];
-}
-function __vmarkKnownRole(token) {
-  var roles = __vmarkKnownRoles();
-  for (var i = 0; i < roles.length; i++) if (roles[i] === token) return true;
-  return false;
-}
-/** Natively focusable, or made focusable by the author — a presentational role on
- *  such an element is a conflict, resolved in favour of the implicit role (ARIA §5.3). */
-function __vmarkFocusable(el) {
-  if (el.hasAttribute("tabindex")) return true;
-  var t = String(el.tagName || "").toLowerCase();
-  if (t === "button" || t === "select" || t === "textarea" || t === "summary") return true;
-  if (t === "input") return (el.getAttribute("type") || "text").toLowerCase() !== "hidden";
-  if (t === "a") return el.hasAttribute("href");
-  return el.isContentEditable === true;
-}
 /** ARIA role, or null when the element has no meaningful role. An explicit `role`
  *  is a token list — the first RECOGNIZED token wins, case-insensitively; a list
  *  with no recognized token falls back to the implicit role (role="bogus button"
@@ -118,16 +98,15 @@ function __vmarkRole(el) {
     for (var i = 0; i < tokens.length; i++) {
       if (!__vmarkKnownRole(tokens[i])) continue;
       if (tokens[i] === "presentation" || tokens[i] === "none") {
-        // Presentational-role conflict resolution: a focusable element keeps its
-        // implicit semantics, otherwise its role is removed.
-        if (__vmarkFocusable(el)) break;
+        // Presentational-role conflict resolution (mirrors ariaRole.ts).
+        if (__vmarkPresentationalConflict(el)) break;
         return null;
       }
       return tokens[i];
     }
   }
   var t = String(el.tagName || "").toLowerCase();
-  if (el.isContentEditable === true && t !== "input" && t !== "textarea" && t !== "select") return "textbox";
+  if (__vmarkEditingHost(el) && t !== "input" && t !== "textarea" && t !== "select") return "textbox";
   if (/^h[1-6]$/.test(t)) return "heading";
   switch (t) {
     case "button": case "summary": return "button";

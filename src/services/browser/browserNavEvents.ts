@@ -148,7 +148,15 @@ export function subscribeBrowserNavEvents(current: () => TabNavHandlers): () => 
    *  handed downstream as `undefined` generation and URL, which would bypass the
    *  store's stale-generation rejection. */
   const wellFormed = (p: { url?: unknown; generation?: unknown }, event: string): boolean => {
-    if (typeof p.url === "string" && typeof p.generation === "number") return true;
+    if (
+      typeof p.url === "string" &&
+      URL.canParse(p.url) &&
+      typeof p.generation === "number" &&
+      Number.isInteger(p.generation) &&
+      p.generation >= 0
+    ) {
+      return true;
+    }
     browserWarn(`browser: dropped malformed ${event} payload`, p);
     return false;
   };

@@ -18,21 +18,29 @@ import { AGENT_LIB } from "./actScript";
 const QUERY_LIB = `
 function __vmarkQueryDom(sel,gen,opts){
   try{document.querySelectorAll(sel);}catch(e){return {error:'invalid-selector'};}
-  // Composed order through open shadow roots (S-05): \`matches\` per element rather
-  // than one querySelectorAll, which never enters a shadow tree. Combinators do
-  // not cross a shadow boundary; a selector matches within each tree.
-  // querySelectorAll INSIDE each tree (document, then every open shadow root), so
-  // \`:scope\` and combinators keep their meaning — \`matches\` per element made
-  // \`:scope\` match everything — then re-ordered into composed order by one bounded
-  // walk. The walk stops after SCAN elements so a hostile page cannot make the
-  // query allocate without limit before the 50-result cap applies.
-  var SCAN=20000,hits=typeof Set==='function'?new Set():null,list=[];
-  function collect(root){try{var f=root.querySelectorAll(sel);for(var q=0;q<f.length;q++){if(hits){if(!hits.has(f[q])){hits.add(f[q]);list.push(f[q]);}}else list.push(f[q]);}}catch(e){}}
-  var all=__vmarkAll(document),els=[],scanned=0;
-  collect(document);
-  for(var k=0;k<all.length&&scanned<SCAN;k++){if(all[k].shadowRoot)collect(all[k].shadowRoot);scanned++;}
-  if(hits){for(var m=0;m<all.length&&els.length<SCAN;m++){if(hits.has(all[m]))els.push(all[m]);}}else els=list;
-  var cap=50,n=Math.min(els.length,cap),out=[];
+  // \`:scope\` inside \`matches()\` names the element itself, so it would match
+  // everything; refuse it rather than answer wrong.
+  if(/:scope\\b/i.test(sel))return {error:'invalid-selector'};
+  // ONE streaming walk in composed order through open shadow roots (S-05), testing
+  // \`matches\` per element: combinators keep their meaning (a selector matches
+  // within the element's own tree, as querySelectorAll would), while nothing is
+  // materialised up front — no array of every element, no list of every match.
+  // The walk visits at most SCAN elements and keeps at most \`cap\` results; a
+  // hostile page can make the answer incomplete (reported as truncated), never
+  // make the webview allocate without limit (#119).
+  var SCAN=20000,cap=50,visited=0,count=0,els=[],stack=[];
+  function push(root){var k=root.children||[];for(var i=k.length-1;i>=0;i--)stack.push(k[i]);}
+  push(document);
+  while(stack.length&&visited<SCAN){
+    var el=stack.pop();visited++;
+    var hit=false;try{hit=el.matches(sel);}catch(e){}
+    if(hit){count++;if(els.length<cap)els.push(el);}
+    push(el);
+    var sr=null;try{sr=el.shadowRoot;}catch(e){}
+    if(sr)push(sr);
+  }
+  var exhausted=stack.length>0&&visited>=SCAN;
+  var n=els.length,out=[];
   for(var i=0;i<n;i++){
     var el=els[i],o={ref:__vmarkRefFor(el,gen),tag:el.tagName.toLowerCase(),text:__vmarkNorm(el.textContent).slice(0,500)};
     if(opts&&opts.attributes){o.attributes={};for(var a=0;a<el.attributes.length;a++){o.attributes[el.attributes[a].name]=el.attributes[a].value;}}
@@ -40,7 +48,7 @@ function __vmarkQueryDom(sel,gen,opts){
     if(opts&&opts.styles&&opts.styles.length&&typeof getComputedStyle==='function'){var cs=getComputedStyle(el);o.styles={};for(var s=0;s<opts.styles.length;s++){o.styles[opts.styles[s]]=cs.getPropertyValue(opts.styles[s]);}}
     out.push(o);
   }
-  return {count:els.length,truncated:els.length>n,elements:out};
+  return {count:count,truncated:count>n||exhausted,elements:out};
 }`;
 
 const STYLE_LIB = `

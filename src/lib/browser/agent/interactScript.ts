@@ -108,7 +108,8 @@ function __vmarkTabbable(el){
   if(t==='a'||t==='area')return el.hasAttribute('href');
   if(t==='input')return (el.getAttribute('type')||'').toLowerCase()!=='hidden';
   if(t==='button'||t==='select'||t==='textarea'||t==='summary'||t==='iframe')return true;
-  return !!el.isContentEditable;
+  var ce=el.getAttribute&&el.getAttribute('contenteditable');
+  return ce!==null&&ce!==undefined&&String(ce).toLowerCase()!=='false';
 }
 function __vmarkRadioGroupStop(el,all){
   // Sequential focus exposes ONE stop per same-name radio group: the checked radio,
@@ -118,7 +119,7 @@ function __vmarkRadioGroupStop(el,all){
   for(var i=0;i<all.length;i++){
     var o=all[i];
     if(String(o.tagName||'').toLowerCase()!=='input'||(o.getAttribute('type')||'').toLowerCase()!=='radio')continue;
-    if(o.getAttribute('name')!==name||o.form!==el.form)continue;
+    if(o.getAttribute('name')!==name||o.form!==el.form||__vmarkRootOf(o)!==__vmarkRootOf(el))continue;
     if(!__vmarkTabbable(o)||!__vmarkHasBox(o))continue;
     if(first===null)first=o;
     if(o.checked&&checked===null)checked=o;

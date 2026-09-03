@@ -87,6 +87,30 @@ describe("BrowserOverlays", () => {
     expect(screen.queryByText(/offline/)).toBeNull();
   });
 
+  it("takes focus on OK while a dialog is shown and hands it back when the dialog closes (#161)", () => {
+    const outside = document.createElement("button");
+    outside.textContent = "outside";
+    document.body.appendChild(outside);
+    outside.focus();
+    const props = {
+      frozen: false,
+      error: null,
+      crash: null,
+      popup: null,
+      onRetry: noop,
+      onCloseDialog: noop,
+      onRecover: noop,
+      onOpenPopup: noop,
+      onDismissPopup: noop,
+    };
+    const { rerender } = render(<BrowserOverlays {...props} dialog={{ kind: "alert", message: "Saved" }} />);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /^ok$/i }));
+    rerender(<BrowserOverlays {...props} dialog={null} />);
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+    cleanup();
+  });
+
   it("answers a confirm dialog", async () => {
     const onCloseDialog = vi.fn();
     render(

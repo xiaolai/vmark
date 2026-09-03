@@ -15,7 +15,10 @@
  * @module lib/browser/agent/agentCore
  */
 
-import AGENT_CORE_SRC from "./agentCore.src.js?raw";
+import CORE from "./agentCore.src.js?raw";
+import ROLES from "./agentCoreRoles.src.js?raw";
 
 /** The core asset — function declarations only, `__vmark`-prefixed, ES5. */
-export { AGENT_CORE_SRC };
+/** The core asset: the core script followed by its role vocabulary — one string,
+ *  so every builder that prepends it still ships one role/name implementation. */
+export const AGENT_CORE_SRC: string = `${CORE}\n${ROLES}`;

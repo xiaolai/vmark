@@ -61,6 +61,23 @@ impl NavDelegate {
             .replace(Some(navigation_id));
     }
 
+    /// Does a delegate callback carrying `navigation` belong to the CURRENT
+    /// navigation? A callback with no `WKNavigation` at all cannot be attributed
+    /// and is taken as current. One that CARRIES a navigation we never mapped is
+    /// not: every load we started or observed was recorded at its provisional
+    /// start, so an unmapped object is a superseded load evicted from the ring —
+    /// exactly the late callback this guard exists to ignore (audit round 2, #19).
+    /// Used by the redirect and commit callbacks so neither can mark or un-load
+    /// the live navigation.
+    pub(crate) fn callback_is_current(&self, navigation: Option<&WKNavigation>) -> bool {
+        match navigation {
+            None => true,
+            Some(nav) => self
+                .navigation_id_for(Some(nav))
+                .is_some_and(|id| self.is_current_navigation(&id)),
+        }
+    }
+
     pub(crate) fn is_current_navigation(&self, navigation_id: &str) -> bool {
         self.ivars()
             .app

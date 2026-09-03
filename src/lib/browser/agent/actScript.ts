@@ -121,12 +121,7 @@ export function buildTypeByRefScript(ref: string, text: string, generation: numb
 
 /** A `wait_for` condition: a ref present, a role (+optional name) present, or a
  *  substring present in the page's visible text. Exactly one is set. */
-export interface WaitCondition {
-  ref?: string;
-  role?: string;
-  name?: string;
-  text?: string;
-}
+export type WaitCondition = { ref: string } | { role: string; name?: string } | { text: string };
 
 /** Script: a single SYNCHRONOUS check of `condition` (no observer, no blocking —
  *  the frontend polls this). Reports `{matched}` and, for a ref/role condition,
@@ -136,19 +131,25 @@ export function buildWaitConditionScript(condition: WaitCondition, generation: n
   // Exactly one of ref / role / text, and `name` only alongside `role`. The type
   // could not say so; an empty object used to become a search for "" (always
   // matched) and a multi-field one silently picked by priority.
-  const set = [condition.ref, condition.role, condition.text].filter((v) => v !== undefined).length;
-  if (set !== 1 || (condition.name !== undefined && condition.role === undefined)) {
-    throw new Error("wait condition must set exactly one of ref, role (+optional name), or text");
+  const c = condition as { ref?: unknown; role?: unknown; name?: unknown; text?: unknown };
+  const set = [c.ref, c.role, c.text].filter((v) => v !== undefined).length;
+  const stringOrAbsent = (v: unknown) => v === undefined || typeof v === "string";
+  if (
+    set !== 1 ||
+    (c.name !== undefined && c.role === undefined) ||
+    ![c.ref, c.role, c.name, c.text].every(stringOrAbsent)
+  ) {
+    throw new Error("wait condition must set exactly one of ref, role (+optional name), or text, as strings");
   }
   const gen = Number(generation);
   let expr: string;
-  if (condition.ref !== undefined) {
-    expr = `(function(){var el=__vmarkQueryByRef(${JSON.stringify(condition.ref)},${gen});return el?{matched:true,ref:${JSON.stringify(condition.ref)}}:{matched:false};})()`;
-  } else if (condition.role !== undefined) {
-    const nameArg = condition.name !== undefined ? JSON.stringify(condition.name) : "null";
-    expr = `(function(){var m=__vmarkQuery(${JSON.stringify(condition.role)},${nameArg});return m.length?{matched:true,ref:__vmarkRefFor(m[0],${gen})}:{matched:false};})()`;
+  if (typeof c.ref === "string") {
+    expr = `(function(){var el=__vmarkQueryByRef(${JSON.stringify(c.ref)},${gen});return el?{matched:true,ref:${JSON.stringify(c.ref)}}:{matched:false};})()`;
+  } else if (typeof c.role === "string") {
+    const nameArg = typeof c.name === "string" ? JSON.stringify(c.name) : "null";
+    expr = `(function(){var m=__vmarkQuery(${JSON.stringify(c.role)},${nameArg});return m.length?{matched:true,ref:__vmarkRefFor(m[0],${gen})}:{matched:false};})()`;
   } else {
-    const text = JSON.stringify(condition.text ?? "");
+    const text = JSON.stringify(c.text ?? "");
     expr = `(function(){return {matched:__vmarkPageText().indexOf(${text})>=0};})()`;
   }
   return `${AGENT_LIB}\nreturn JSON.stringify(${expr});`;

@@ -13,12 +13,15 @@
  * sits underneath everything as the opaque floor.
  *
  * Split from BrowserSurface, which owns the native view's lifecycle. This is pure
- * presentation — no stores, no invoke, no effects — so it is cheap to test and cheap to
- * reason about, and the surface stays about the webview.
+ * presentation — no stores, no invoke — so it is cheap to test and cheap to reason
+ * about, and the surface stays about the webview. Its one effect is the modal focus
+ * contract: a page dialog takes focus on open (OK, the safe default) and hands it back
+ * to whatever had it when it closes (audit 2026-09-03 round 2, #161).
  *
  * @coordinates-with components/Browser/BrowserSurface — owns the state, passes it down
  * @module components/Browser/BrowserOverlays
  */
+import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { BrowserDialog, CrashAction } from "@/stores/browserUiStore";
 import { urlForAgent } from "@/lib/browser/url";
@@ -54,6 +57,19 @@ export function BrowserOverlays({
   onDismissPopup,
 }: BrowserOverlaysProps): React.ReactElement | null {
   const { t } = useTranslation("common");
+  const okRef = useRef<HTMLButtonElement>(null);
+  // A crash outranks a dialog (see below), so the modal contract follows the SHOWN dialog.
+  const shownDialog = dialog && !crash ? dialog : null;
+  useLayoutEffect(() => {
+    if (!shownDialog) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    okRef.current?.focus();
+    return () => {
+      // Restore only what is still in the document: a control unmounted meanwhile
+      // has nothing to return to, and focusing it would silently do nothing anyway.
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [shownDialog]);
 
   if (!frozen && !error && !crash && !dialog && !popup) return null;
 
@@ -127,9 +143,9 @@ export function BrowserOverlays({
             <button
               type="button"
               className="browser-dialog-btn browser-dialog-btn--primary"
-              // The safe default takes focus: Enter answers OK/dismiss, never a stray
-              // control behind the modal.
-              autoFocus
+              // The safe default takes focus (see the layout effect above): Enter
+              // answers OK/dismiss, never a stray control behind the modal.
+              ref={okRef}
               onClick={() => onCloseDialog(true)}
             >
               {t("ok")}

@@ -49,7 +49,7 @@ const activeMounts = new Set<string>();
  * without allowing the other to issue a second approval-gated command.
  */
 /** Tabs whose native view is being torn down right now (see `ensureBrowserNativeView`). */
-const destroying = new Set<string>();
+const destroying = new Map<string, Promise<void>>();
 
 export function ensureBrowserNativeView(
   tabId: string,
@@ -122,10 +122,43 @@ export async function waitForBrowserNativeView(tabId: string, timeoutMs: number)
  * navigation intent, the omnibox entry. Idempotent.
  */
 export async function destroyBrowserNativeView(tabId: string): Promise<void> {
+  // Concurrent destroys join the one in flight: a second call used to clear the
+  // shared marker while the first was still tearing down.
+  const inFlight = destroying.get(tabId);
+  if (inFlight) return inFlight;
+  const run = destroyOnce(tabId).finally(() => {
+    destroying.delete(tabId);
+  });
+  destroying.set(tabId, run);
+  return run;
+}
+
+/** Backoff between teardown attempts; three tries in all. */
+const DESTROY_RETRY_MS = [100, 300];
+
+/** `browser_destroy`, retried on failure: a transient refusal (the main thread
+ *  busy, a teardown racing the window) must not leave a live, untracked
+ *  WKWebView behind one warning. What survives every attempt is reported. */
+async function destroyNativeWithRetry(tabId: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await invoke("browser_destroy", { tabId });
+      return;
+    } catch (error) {
+      const delay = DESTROY_RETRY_MS[attempt];
+      if (delay === undefined) {
+        browserWarn("browser_destroy failed after retries; a native view may be left running", { tabId, error });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+async function destroyOnce(tabId: string): Promise<void> {
   const created = nativeReady.get(tabId);
   nativeReady.delete(tabId);
   activeMounts.delete(tabId);
-  destroying.add(tabId);
   try {
     if (created) await created.catch(() => {});
     // The per-tab records below are dropped even when the native teardown fails:
@@ -133,11 +166,9 @@ export async function destroyBrowserNativeView(tabId: string): Promise<void> {
     // leak the other way (occlusion state, prompts, waiters for a tab nobody can
     // reach). What must not happen is silence — a failure here can mean a live,
     // untracked WKWebView, so it is reported rather than swallowed.
-    await invoke("browser_destroy", { tabId }).catch((error: unknown) => {
-      browserWarn("browser_destroy failed; a native view may be left running", { tabId, error });
-    });
+    await destroyNativeWithRetry(tabId);
   } finally {
-    destroying.delete(tabId);
+    /* the shared marker is released by the caller's promise */
   }
   browserOcclusion.removeTab(tabId);
   browserEventBroker.cancelTab(tabId);

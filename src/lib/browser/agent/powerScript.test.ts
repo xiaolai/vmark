@@ -23,6 +23,24 @@ describe("buildQueryScript (WI-P5.1)", () => {
     expect(res.elements[0].ref).toMatch(/^e\d+$/);
   });
 
+  it("counts every match but keeps only the first 50, in composed order, and reports truncation (#119)", () => {
+    const doc = parse(Array.from({ length: 60 }, (_, i) => `<button>${i}</button>`).join(""));
+    const host = doc.createElement("div");
+    host.attachShadow({ mode: "open" }).innerHTML = `<button>shadow</button>`;
+    doc.body.prepend(host);
+    const res = exec(doc, buildQueryScript("button", 1)) as { count: number; truncated: boolean; elements: Array<{ text: string }> };
+    expect(res.count).toBe(61);
+    expect(res.elements).toHaveLength(50);
+    expect(res.truncated).toBe(true);
+    // The shadow tree's button comes first: its host precedes every light button.
+    expect(res.elements[0].text).toBe("shadow");
+  });
+
+  it("refuses :scope, which matches() would resolve to every element", () => {
+    const res = exec(parse(`<p><b>x</b></p>`), buildQueryScript(":scope > b", 1));
+    expect(res).toEqual({ error: "invalid-selector" });
+  });
+
   it("includes attributes when requested", () => {
     const doc = parse(`<a href="/x" data-id="7">link</a>`);
     const res = exec(doc, buildQueryScript("a", 1, { attributes: true })) as {

@@ -49,9 +49,34 @@ import { makeSerializedPusher, type SerializedPusher } from "./serializedPusher"
  */
 function makeGrantPusher(): SerializedPusher<StandingGrant[]> {
   return makeSerializedPusher(
-    (grants) => invoke("browser_set_grants", { grants }),
+    sendGrants,
     (error, attempt) => browserWarn(`grant sync failed (attempt ${attempt}); retrying`, error),
   );
+}
+
+/** Grant sends still in the air, across every sync session in this window. */
+let grantSendsInFlight = 0;
+/** The most recent grant send, settled or not. */
+let grantSendTail: Promise<unknown> = Promise.resolve();
+
+/**
+ * One grant send, ordered ACROSS sessions as well as within one (#91): a disposed
+ * session cannot cancel a send already in flight, and Tauri does not promise
+ * call-order completion — so a restarted session's first push (possibly a
+ * revocation) is chained behind whatever the previous session still has in the
+ * air and lands after it. With nothing in flight the send starts synchronously,
+ * exactly as before.
+ */
+function sendGrants(grants: StandingGrant[]): Promise<void> {
+  const run = grantSendsInFlight === 0 ? invoke("browser_set_grants", { grants }) : grantSendTail.then(() => invoke("browser_set_grants", { grants }));
+  grantSendsInFlight += 1;
+  const settle = () => {
+    grantSendsInFlight -= 1;
+  };
+  // Registered BEFORE the caller's own handlers, so the count is already down when
+  // a serialized pusher decides how to start its next send.
+  grantSendTail = run.then(settle, settle);
+  return run.then(() => undefined);
 }
 
 /** The identity of a one-shot mint: every field the driver binds. Two mints with

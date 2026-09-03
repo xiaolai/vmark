@@ -64,6 +64,8 @@ interface RecorderSession {
   chain: Promise<void>;
   /** The single stop in flight, so two concurrent stops finalize once. */
   stopping: Promise<{ source: string; inputs: string[]; eventCount: number; capped: boolean }> | null;
+  /** True only while the stop performs its own final drain. */
+  finalDrain: boolean;
 }
 
 /** Run `work` after everything already queued on the session, and keep the chain alive
@@ -114,6 +116,7 @@ export function startRecorderSession(args: StartRecorderArgs): { ok: true } | { 
     cancel: () => {},
     chain: Promise.resolve(),
     stopping: null,
+    finalDrain: false,
   };
   sessions.set(args.tabId, session);
   session.cancel = schedule(() => {
@@ -138,6 +141,7 @@ function appendCapped(session: RecorderSession, events: readonly RecordedEvent[]
 export async function drainActiveRecording(tabId: string): Promise<void> {
   const session = sessions.get(tabId);
   if (!session) return;
+  if (session.stopping && !session.finalDrain) return; // only the stop's own drain runs now
   await enqueue(session, async () => {
     let events: RecordedEvent[];
     try {
@@ -154,7 +158,7 @@ export async function drainActiveRecording(tabId: string): Promise<void> {
  *  becomes the one drains and re-arms use. */
 export async function recordNavigation(tabId: string, url: string, newGeneration: number): Promise<void> {
   const session = sessions.get(tabId);
-  if (!session) return;
+  if (!session || session.stopping) return; // a stopping session takes no new work
   // Queued behind any drain in flight: the old document's remaining events belong
   // BEFORE the navigation, and the drain must still run against the old generation.
   await enqueue(session, async () => {
@@ -178,8 +182,10 @@ export async function stopRecorderSession(
   if (session.stopping) return session.stopping; // a second stop joins the first
   // Cancel the schedule synchronously, so no periodic drain is queued after the final one.
   session.cancel();
+  session.finalDrain = true;
   session.stopping = (async () => {
     await drainActiveRecording(tabId);
+    session.finalDrain = false;
     // Stop capture immediately — best-effort; a failure only leaves an inert marker.
     try {
       await session.deps.disarm(tabId, session.generation);

@@ -89,6 +89,20 @@ describe("recorder session lifecycle", () => {
     expect(result!.source).not.toContain("frag");
   });
 
+  it("a navigation that arrives while the session is stopping is not recorded or re-armed (#188)", async () => {
+    let releaseDrain: (v: RecordedEvent[]) => void = () => {};
+    const d = deps({ drainOnce: vi.fn(() => new Promise<RecordedEvent[]>((r) => (releaseDrain = r))) });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });
+    const stopping = stopRecorderSession("t1");
+    const nav = recordNavigation("t1", "https://x.test/late", 2);
+    await vi.waitFor(() => expect(d.drainOnce).toHaveBeenCalled());
+    releaseDrain([]);
+    await nav;
+    const result = await stopping;
+    expect(result!.source).not.toContain("late");
+    expect(d.rearm).not.toHaveBeenCalledWith("t1", 2);
+  });
+
   it("a drain error does not tear down the session", async () => {
     const d = deps({ drainOnce: vi.fn(async () => { throw new Error("eval failed"); }) });
     startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });

@@ -26,6 +26,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { bridgeErrorEnvelope } from "./bridgeError";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
@@ -79,7 +80,24 @@ function makeDeps(): RecorderDeps {
 }
 
 /** Consent-gate on `record`, then arm and open the session. Mirrors the act path. */
+/** Tabs whose recording start is in progress: the check-then-arm below crosses
+ *  awaits, and two concurrent starts used to both pass the active check. */
+const starting = new Set<string>();
+
 async function startRecording(id: string, tab: BrowserTarget, site: string): Promise<void> {
+  if (starting.has(tab.tabId)) {
+    await respond({ id, success: false, error: "recording-already-active" });
+    return;
+  }
+  starting.add(tab.tabId);
+  try {
+    await startRecordingReserved(id, tab, site);
+  } finally {
+    starting.delete(tab.tabId);
+  }
+}
+
+async function startRecordingReserved(id: string, tab: BrowserTarget, site: string): Promise<void> {
   // Guard BEFORE the approval flow, not merely before arming: a duplicate start
   // used to raise a prompt (or spend an "Allow once") for a recording that was
   // already running and then perform nothing.
@@ -97,7 +115,7 @@ async function startRecording(id: string, tab: BrowserTarget, site: string): Pro
   if (decision === "needs-approval") {
     const authorized = useBrowserApprovalStore
       .getState()
-      .consumeOneShot(tab.url, RECORD_OP, undefined, tab.tabId);
+      .consumeOneShot(tab.url, RECORD_OP, undefined, tab.tabId, undefined, tab.generation);
     if (!authorized) {
       const queued = useBrowserApprovalStore
         .getState()
@@ -147,8 +165,10 @@ async function startRecording(id: string, tab: BrowserTarget, site: string): Pro
       operation: RECORD_OP,
       generation: tab.generation,
     });
-  } catch {
-    await respond({ id, success: false, error: "the driver refused to start recording" });
+  } catch (error) {
+    // The driver's typed refusal (STALE_COMMAND, EVAL_TIMEOUT, a permission
+    // failure) reaches the model as its token and message, not one generic line.
+    await respond({ id, success: false, ...bridgeErrorEnvelope(error) });
     return;
   }
   const started = startRecorderSession({

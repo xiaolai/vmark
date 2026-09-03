@@ -114,7 +114,7 @@ function isHidden(el: Element): boolean {
 /** Elements a snapshot may visit before it stops looking. Distinct from the
  *  NODE cap on the output: that only bounded what was emitted, while the whole
  *  hostile-page DOM was still materialized as an array first. */
-export const SNAPSHOT_VISIT_BUDGET = 50_000;
+const SNAPSHOT_VISIT_BUDGET = 50_000;
 
 function* composedDescendants(root: ParentNode): Generator<Element> {
   let visited = 0;

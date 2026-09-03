@@ -23,7 +23,7 @@
 
 import { VMarkMcpServer } from '../server.js';
 import type { ToolCallResult } from '../types.js';
-import { structuredErrorResult } from '../utils/toolOutput.js';
+import { structuredErrorResult } from '../utils/errorOutput.js';
 
 /** The bridge's structured refusals travel as a JSON string in `error`. */
 function parseBridgeError(message: string): Record<string, unknown> | null {

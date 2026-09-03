@@ -2,7 +2,10 @@
  * Tool output construction: the single choke point for serialization,
  * the output bound, and structured content.
  *
- * Purpose: before this module the sidecar had NO output bound anywhere —
+ * Purpose (error results are bounded too — see `structuredErrorResult`, whose
+ * message and record are capped separately, since a page-derived error could
+ * otherwise grow to the bridge frame limit):
+ * before this module the sidecar had NO output bound anywhere —
  * `document.read` serialized a whole document into one text block and shipped
  * it. The ecosystem convention is a ~25,000-token cap plus a steering message,
  * because a silent cut is worse than useless: the agent cannot distinguish a
@@ -268,50 +271,3 @@ export function structuredJsonResult(
   };
 }
 
-/**
- * Error result that also carries machine-readable detail.
- *
- * For refusals an agent is expected to BRANCH on rather than read — a STALE
- * write, whose `current_revision` is the whole point of the response. The SDK
- * skips output-schema validation for `isError` results, so this cannot turn a
- * refusal into a protocol error.
- */
-/** Byte caps for an error result. An error is small by nature; a page-derived
- *  message or record that is not gets bounded like every other output — the
- *  bridge frame limit was the only thing stopping it before. */
-export const MAX_ERROR_MESSAGE_BYTES = 8 * 1024;
-export const MAX_ERROR_STRUCTURED_BYTES = 32 * 1024;
-
-export function structuredErrorResult(
-  message: string,
-  structured: Record<string, unknown>,
-): ToolCallResult {
-  const text =
-    utf8ByteLength(message) > MAX_ERROR_MESSAGE_BYTES
-      ? `${sliceUtf8(message, MAX_ERROR_MESSAGE_BYTES)}… [error text truncated]`
-      : message;
-  // Keep the branchable fields when the record itself is oversized — or cannot be
-  // serialized at all (a cyclic value): a client matches on `token`/`code`, never
-  // on a multi-kilobyte payload.
-  let oversized = false;
-  let unserializable = false;
-  try {
-    oversized = utf8ByteLength(serialize(structured)) > MAX_ERROR_STRUCTURED_BYTES;
-  } catch {
-    unserializable = true;
-  }
-  const structuredContent = oversized || unserializable
-    ? {
-        ...(oversized ? { truncated: true } : { unserializable: true }),
-        ...(typeof structured.token === 'string' ? { token: structured.token } : {}),
-        ...(typeof structured.code === 'string' ? { code: structured.code } : {}),
-        ...(structured.needsApproval === true ? { needsApproval: true } : {}),
-      }
-    : structured;
-  return {
-    success: false,
-    content: [{ type: 'text', text }],
-    structuredContent,
-    isError: true,
-  };
-}

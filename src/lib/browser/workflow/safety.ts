@@ -16,6 +16,9 @@
  *     not-applied → retry; confirmed applied → treat as an idempotent success;
  *     inconclusive → stop and ask. A write that *reports* success while its
  *     postcondition says it did not land contradicts itself → stop and ask.
+ *   - (The tier-escalation ladder and the genie-loop bounds that used to live
+ *     here were removed in the 2026-09-03 audit-fix round: neither had a
+ *     production consumer.)
  *   - **Writes never auto-escalate** to a higher (more autonomous) tier — an
  *     escalation is a new, human-approved operation, not an automatic fallback.
  *   - Idempotency keys make a repeated write detectable.
@@ -138,7 +141,7 @@ function canonical(value: unknown, seen: Set<object>, depth: number): string {
       if (Object.getPrototypeOf(obj) !== Array.prototype) {
         throw new TypeError(`idempotencyKey: cannot encode a "${obj.constructor?.name ?? "array"}" value.`);
       }
-      if (Object.getOwnPropertySymbols(obj).length > 0 || Object.keys(obj).some((k) => !/^(0|[1-9]\d*)$/.test(k))) {
+      if (Reflect.ownKeys(obj).some((k) => typeof k === "symbol" || (k !== "length" && !/^(0|[1-9]\d*)$/.test(k)))) {
         throw new TypeError("idempotencyKey: cannot encode an array with non-index properties.");
       }
       return encodeArray(obj, seen, depth);

@@ -70,6 +70,16 @@ describe("subscribeBrowserNavEvents", () => {
     expect(browserWarn).toHaveBeenCalledTimes(2);
   });
 
+  it("drops a payload whose url does not parse or whose generation is not a non-negative integer (#81)", async () => {
+    const onNavigated = vi.fn();
+    await subscribe({ onNavigated });
+    emit("browser://navigated", { tabId: "t1", url: "not a url", generation: 1 });
+    emit("browser://navigated", { tabId: "t1", url: "https://a.example/", generation: -1 });
+    emit("browser://navigated", { tabId: "t1", url: "https://a.example/", generation: 1.5 });
+    expect(onNavigated).not.toHaveBeenCalled();
+    expect(browserWarn).toHaveBeenCalledTimes(3);
+  });
+
   it("forwards a finished load, defaulting a missing title to the empty string", async () => {
     const onLoaded = vi.fn();
     await subscribe({ onLoaded });

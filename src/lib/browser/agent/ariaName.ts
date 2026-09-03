@@ -28,7 +28,7 @@ export const NAME_CAP = 200;
 /** Unicode FORMAT characters a page can hide in a name: zero-width space/joiners
  *  and marks, bidi embeddings/overrides/pop, word joiner and invisible operators,
  *  BOM, soft hyphen (S-09). */
-const FORMAT_CHARS = /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u00AD\u061C]/g;
+const FORMAT_CHARS = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g;
 
 /** Raw text gathered before normalization stops: many times the name cap, so a
  *  whitespace-heavy name still fills it, but a hostile page's megabyte of text
@@ -56,11 +56,21 @@ function contentText(el: Element, all: boolean): string {
   // could overflow the stack or allocate without bound before anything was capped.
   let out = "";
   const stack: Node[] = [];
+  // Whitespace is collapsed as it is gathered, so a run of spaces cannot spend the
+  // budget (3,200 leading spaces used to erase a valid name), and each text node is
+  // sliced to what the budget still allows BEFORE it is appended.
+  const take = (text: string): void => {
+    const room = CONTENT_BUDGET - out.length;
+    if (room <= 0) return;
+    const collapsed = text.replace(/\s+/g, " ");
+    const piece = collapsed.length > room ? collapsed.slice(0, room) : collapsed;
+    out += out.endsWith(" ") && piece.startsWith(" ") ? piece.slice(1) : piece;
+  };
   for (let c = el.lastChild; c; c = c.previousSibling) stack.push(c);
   while (stack.length > 0 && out.length < CONTENT_BUDGET) {
     const node = stack.pop() as Node;
     if (node.nodeType === 3) {
-      out += (node as Text).data;
+      take((node as Text).data);
       continue;
     }
     if (node.nodeType !== 1) continue;
@@ -69,16 +79,16 @@ function contentText(el: Element, all: boolean): string {
     if (SKIPPED_IN_CONTENT.has(tag)) continue;
     if (!all && selfHidden(child)) continue;
     if (tag === "br") {
-      out += " ";
+      take(" ");
       continue;
     }
     if (tag === "img") {
-      out += child.getAttribute("alt") ?? "";
+      take(child.getAttribute("alt") ?? "");
       continue;
     }
     for (let c = child.lastChild; c; c = c.previousSibling) stack.push(c);
   }
-  return out.slice(0, CONTENT_BUDGET);
+  return out;
 }
 
 interface IdScope {

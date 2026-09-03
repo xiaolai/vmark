@@ -13,7 +13,8 @@
  * tab of the window — mounted or not, since native views now stay alive in the
  * background. This surface reads that store for its tab and paints the overlays:
  * the frozen placeholder, a load failure with retry, the crash overlay, a page
- * `alert`/`confirm` (answered via `browser_dialog_respond`), and a blocked-popup
+ * `alert`/`confirm` (answered via `browser_dialog_respond` — the dialog and its
+ * occluder stay up until that answer succeeded, one submission at a time), and a blocked-popup
  * notice with "open in new tab".
  *
  * Freezing goes through `browserOcclusion` (WI-S0.8), never a raw `browser_freeze`:

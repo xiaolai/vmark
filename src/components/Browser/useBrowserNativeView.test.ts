@@ -8,7 +8,7 @@
 // correctly. Nothing then retried, because the controller only reconciles when an occluder
 // is added or removed, and none was. The view finished creating and came up LIVE on top of
 // the overlay: precisely the failure occlusion exists to prevent.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
 const invoke = vi.fn().mockResolvedValue(undefined);
@@ -47,11 +47,18 @@ class StubResizeObserver {
 vi.stubGlobal("ResizeObserver", StubResizeObserver);
 
 beforeEach(() => {
+  // The hook retries a rejected bounds report on a timer; the clock is controlled so
+  // that timer cannot fire between a mock reset and an assertion.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   invoke.mockReset().mockResolvedValue(undefined);
   resync.mockReset();
   // Native-view records now outlive a surface (audit L-01), so tests reset them.
   __resetNativeViews();
   useBrowserUiStore.setState({ entries: {} });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 /** The rect the surface reserves; the hook reports it so Rust can align the native view. */

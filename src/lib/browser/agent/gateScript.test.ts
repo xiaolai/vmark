@@ -60,6 +60,17 @@ describe("buildGateSignalsScript", () => {
 // S-05: the probe used `document.querySelectorAll`, which never enters a shadow
 // root, so a login form or challenge widget rendered by a web component was
 // invisible to gate detection. It now walks the composed tree.
+describe("rendered visibility inside the gate script (#114)", () => {
+  it("is self-contained: the script ships without the agent library", () => {
+    expect(buildGateSignalsScript()).not.toContain("__vmarkRendered");
+  });
+  it("does not report a password field hidden by computed style", () => {
+    expect(exec(parse(`<input type="password" style="visibility:hidden">`)).passwordField).toBe(false);
+    expect(exec(parse(`<div style="display:none"><input type="password"></div>`)).passwordField).toBe(false);
+    expect(exec(parse(`<div style="opacity:0"><input type="password"></div>`)).passwordField).toBe(false);
+  });
+});
+
 describe("gate signals through open shadow roots (S-05)", () => {
   function execLive(): GateSignals {
     const fn = new Function("document", "location", buildGateSignalsScript());

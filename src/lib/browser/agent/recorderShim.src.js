@@ -46,24 +46,7 @@ var ARMED_ID = "__vmark_recorder_armed";
 var CAP = 200;
 var buf = [];
 var seenDrain = "";
-// Identifier TOKENS that mark a field sensitive. Matched per token after splitting
-// on punctuation, underscores and camelCase — \b never split `user_password` or
-// `otpCode`, and `password` itself was missing.
-var SENSITIVE_TOKENS = ["password", "passwd", "pwd", "otp", "totp", "mfa", "2fa", "token", "cvv", "cvv2", "cvc", "csc", "ssn", "secret", "pin", "passcode"];
-function sensitiveIdentifier(s) {
-  var raw = String(s || "");
-  // Two tokenizations: punctuation only (so `PassCode`/`passcode` stay one token) and
-  // punctuation plus camelCase (so `otpCode`/`userPassword` split into their words).
-  var plain = raw.toLowerCase().split(/[^a-z0-9]+/);
-  var camel = raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/);
-  var parts = plain.concat(camel);
-  for (var i = 0; i < parts.length; i++) {
-    for (var j = 0; j < SENSITIVE_TOKENS.length; j++) if (parts[i] === SENSITIVE_TOKENS[j]) return true;
-  }
-  return false;
-}
-var sticky = typeof WeakMap === "function" ? new WeakMap() : null;
-
+var lastClick = null;
 function armed() {
   try {
     return !!document.getElementById(ARMED_ID);
@@ -169,43 +152,6 @@ function locator(type, el) {
   return ev;
 }
 
-function isSensitiveNow(el) {
-  try {
-    var it = (attr(el, "type") || "").toLowerCase();
-    if (it === "password" || it === "file") return true;
-    var ac = (attr(el, "autocomplete") || "").toLowerCase().split(/\s+/);
-    for (var i = 0; i < ac.length; i++) {
-      var tok = ac[i];
-      if (tok.indexOf("cc-") === 0 || tok === "new-password" || tok === "current-password" || tok === "one-time-code") return true;
-    }
-    if (sensitiveIdentifier(attr(el, "name") + " " + attr(el, "id") + " " + attr(el, "aria-label"))) return true;
-  } catch (e) {}
-  return false;
-}
-
-function markSensitive(el) {
-  if (!isSensitiveNow(el)) return;
-  try {
-    if (sticky) sticky.set(el, true);
-    else el.__vmarkSensitive = true;
-  } catch (e) {}
-}
-
-function wasSensitive(el) {
-  try {
-    return sticky ? !!sticky.get(el) : !!el.__vmarkSensitive;
-  } catch (e) {
-    return false;
-  }
-}
-
-function clearSensitive(el) {
-  try {
-    if (sticky) sticky["delete"](el);
-    else delete el.__vmarkSensitive;
-  } catch (e) {}
-}
-
 function onMark(e) {
   try {
     var el = target(e);
@@ -220,7 +166,13 @@ try {
       try {
         var el = target(e);
         if (!el || el.nodeType !== 1) return;
-        record(locator("click", control(el)));
+        var ctrl = control(el);
+        // A click on a <label> resolves to its control AND the browser then fires
+        // the control's own activation click: one user action, recorded once.
+        var now = Date.now();
+        if (lastClick && lastClick.el === ctrl && now - lastClick.at < 100) return;
+        lastClick = { el: ctrl, at: now };
+        record(locator("click", ctrl));
       } catch (x) {}
     },
     true,
@@ -231,12 +183,24 @@ try {
   // type event when the region loses focus, so what the replayer can type into
   // is also what the recorder captures.
   var dirtyEditable = typeof WeakMap === "function" ? new WeakMap() : null;
+  /** The element that OWNS an editable region: the nearest ancestor-or-self with a
+   *  `contenteditable` attribute (any value but "false"). The attribute, not
+   *  `isContentEditable` — that property is inherited by every descendant, and
+   *  the host is the one element a replayer can focus and type into. */
+  function editingHost(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      var ce = n.getAttribute("contenteditable");
+      if (ce !== null) return String(ce).toLowerCase() === "false" ? null : n;
+    }
+    return null;
+  }
   document.addEventListener(
     "input",
     function (e) {
       try {
         var el = target(e);
-        if (el && el.nodeType === 1 && el.isContentEditable === true && dirtyEditable) dirtyEditable.set(el, true);
+        var host = el && el.nodeType === 1 ? editingHost(el) : null;
+        if (host && dirtyEditable) dirtyEditable.set(host, true);
       } catch (x) {}
     },
     true,
@@ -246,7 +210,8 @@ try {
     function (e) {
       try {
         var el = target(e);
-        if (!el || el.nodeType !== 1 || !dirtyEditable || !dirtyEditable.get(el)) return;
+        el = el && el.nodeType === 1 ? editingHost(el) : null;
+        if (!el || !dirtyEditable || !dirtyEditable.get(el)) return;
         dirtyEditable.delete(el);
         var ev = locator("type", el);
         ev.sensitive = wasSensitive(el) || isSensitiveNow(el);

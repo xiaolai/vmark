@@ -50,6 +50,11 @@ use sha2::{Digest, Sha256};
 /// `scheme://` then an optional `user:pass@`. `[^:/]+` is the scheme; the
 /// userinfo class excludes every delimiter that ends the authority, so a `@` in
 /// a path or query can never pull a later host into the match.
+#[path = "ai_content_rules_cidr.rs"]
+mod cidr;
+
+use super::ai_policy_addr::{BLOCKED_IPV4_RANGES, IPV4_LOOPBACK};
+
 const AUTHORITY: &str = "^[^:/]+://([^/?#@]*@)?";
 
 /// What follows a hostname: an optional trailing dot, an optional port, then the
@@ -86,18 +91,6 @@ const V4_HEX_HIGH_COMPATIBLE: &[&str] = &[
 ];
 const V4_HEX_LOOPBACK: &str = "7f[0-9a-f][0-9a-f]"; // 127.0.0.0/8
 
-fn ipv4(first: &str) -> String {
-    format!("{AUTHORITY}{first}\\.{OCTET}\\.{OCTET}\\.{OCTET}{HOST_END}")
-}
-
-fn ipv4_two(first: &str, second: &str) -> String {
-    format!("{AUTHORITY}{first}\\.{second}\\.{OCTET}\\.{OCTET}{HOST_END}")
-}
-
-fn ipv4_three(first: &str, second: &str, third: &str) -> String {
-    format!("{AUTHORITY}{first}\\.{second}\\.{third}\\.{OCTET}{HOST_END}")
-}
-
 /// A mapped (`[::ffff:g1:g2]`) or compatible (`[::g1:g2]`) IPv6 literal whose two
 /// low 16-bit groups match `g1` and `g2` — the hex spelling WebKit gives a /24 (or
 /// narrower) IPv4 range, where the FIRST group alone is not selective enough.
@@ -126,33 +119,17 @@ fn each(alternatives: &[&str], make: impl Fn(&str) -> String) -> Vec<String> {
 /// Every url-filter in the list, in order. Exposed for the tests, which compile
 /// each one with the `regex` crate and run the URL table against it.
 pub fn url_filters(allow_loopback: bool) -> Vec<String> {
-    let mut filters = vec![ipv4("10")];
-    // 172.16.0.0/12
-    filters.extend(each(&["1[6-9]", "2[0-9]", "3[01]"], |second| {
-        ipv4_two("172", second)
-    }));
-    filters.push(ipv4_two("192", "168"));
-    filters.push(ipv4_two("169", "254"));
-    // 100.64.0.0/10
-    filters.extend(each(
-        &["6[4-9]", "[7-9][0-9]", "1[01][0-9]", "12[0-7]"],
-        |second| ipv4_two("100", second),
-    ));
-    filters.push(ipv4("0"));
-    // 224.0.0.0/4 multicast and 240.0.0.0/4 reserved.
-    filters.extend(each(&["22[4-9]", "23[0-9]", "24[0-9]", "25[0-5]"], ipv4));
-    // The IETF special-purpose /24s and the benchmarking /15 that the navigation
-    // policy refuses (`BLOCKED_IPV4_RANGES`); the first list lacked all six, so a
-    // page could still fetch from them as subresources. Dotted spellings first.
-    filters.push(ipv4_three("192", "0", "0")); // 192.0.0.0/24
-    filters.push(ipv4_three("192", "0", "2")); // 192.0.2.0/24 TEST-NET-1
-    filters.push(ipv4_three("192", "88", "99")); // 192.88.99.0/24 6to4 relay anycast
-    filters.extend(each(&["18", "19"], |second| ipv4_two("198", second))); // 198.18.0.0/15
-    filters.push(ipv4_three("198", "51", "100")); // 198.51.100.0/24 TEST-NET-2
-    filters.push(ipv4_three("203", "0", "113")); // 203.0.113.0/24 TEST-NET-3
-                                                 // …and their hex-embedded IPv6 spellings. A /24 is one value of the high
-                                                 // group plus the high byte of the low group; WebKit strips leading zeros per
-                                                 // group, so 192.0.0.x is `c000:x` (1–2 hex digits) and 192.0.2.x is `c000:2xx`.
+    // Dotted-decimal spellings of every range the navigation policy refuses, DERIVED
+    // from its table (`BLOCKED_IPV4_RANGES`) so the two cannot drift: the first
+    // hand-written list lacked six of them, and a page could still fetch from
+    // those ranges as subresources while navigation refused them.
+    let mut filters: Vec<String> = BLOCKED_IPV4_RANGES
+        .iter()
+        .flat_map(|&(network, prefix)| cidr::dotted_filters(network, prefix))
+        .collect();
+    // …and their hex-embedded IPv6 spellings. A /24 is one value of the high
+    // group plus the high byte of the low group; WebKit strips leading zeros per
+    // group, so 192.0.0.x is `c000:x` (1–2 hex digits) and 192.0.2.x is `c000:2xx`.
     for mapped in [true, false] {
         filters.push(ipv6_embedded(mapped, "c000", "[0-9a-f]?[0-9a-f]"));
         filters.push(ipv6_embedded(mapped, "c000", "2[0-9a-f][0-9a-f]"));
@@ -206,7 +183,7 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
         hostname(&format!("([^/?#@]*\\.)?{suffix}"))
     }));
     if !allow_loopback {
-        filters.push(ipv4("127"));
+        filters.extend(cidr::dotted_filters(IPV4_LOOPBACK.0, IPV4_LOOPBACK.1));
         filters.push(ipv6_prefix("::1\\]"));
         filters.push(ipv6_prefix(&format!("::(ffff:)?{V4_HEX_LOOPBACK}:")));
         filters.push(hostname("([^/?#@]*\\.)?localhost"));

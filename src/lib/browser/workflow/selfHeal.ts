@@ -24,7 +24,9 @@
  * prompt. So a candidate whose normalised name is the failed name with an added
  * PREFIX is rejected outright, whatever it scores; and a candidate that does not
  * START with the failed name (a typo, a different word) must clear 0.85, while
- * suffix/decoration drift ("Publish now", "Publish…") keeps the 0.6 floor.
+ * suffix/decoration drift ("Publish now", "Publish…") keeps the 0.6 floor — for a
+ * READ. A write (`options.write`) holds the strict floor for prefix candidates too:
+ * "Delete" healing to "Delete all" under a standing grant is a different action.
  * Names are compared with Unicode format characters stripped (`\p{Cf}`: zero-width
  * joiners, bidi overrides), so a mark the user cannot see cannot disguise one.
  *

@@ -38,7 +38,7 @@ export function bumpDrainStamp(elVar: string): string {
 /** Longest buffer text the reader will parse. A page owns the buffer element, so
  *  its size is page-controlled; the bound is applied to the RAW text before
  *  `JSON.parse` — the host-side parser limit came too late to stop the allocation. */
-export const MAX_DRAIN_CHARS = 256 * 1024;
+const MAX_DRAIN_CHARS = 256 * 1024;
 
 /**
  * Isolated-world script that reads (and optionally clears) a page-world ring

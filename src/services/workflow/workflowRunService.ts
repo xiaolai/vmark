@@ -107,13 +107,16 @@ export function startWorkflowRun(source: string, ctx: StartRunContext): StartRun
   });
   if ("error" in checked) return { ok: false, error: checked.error };
   const { workflow, identity, resume } = checked;
+  // Wall-clock for timestamps the registry records; the RUN CLOCK below is
+  // monotonic by default (`createRunClock`'s own source) — a system-clock
+  // rollback must not extend the execution budget (#191).
   const now = ctx.now ?? Date.now;
   // Validate the budget BEFORE anything is mutated: a bad deadline used to throw
   // after the lease was acquired, the run registered and a resumed run superseded,
   // leaving a permanent live run and AI lease behind a function that returns a result.
   let clock: RunClock;
   try {
-    clock = createRunClock(ctx.deadlineMs ?? DEFAULT_BUDGET_MS, now);
+    clock = createRunClock(ctx.deadlineMs ?? DEFAULT_BUDGET_MS, ctx.now);
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }

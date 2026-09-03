@@ -90,7 +90,9 @@ export function urlForAgent(url: string): string {
     const parsed = new URL(url);
     // `about:blank` / `about:srcdoc` carry nothing; every other opaque origin
     // (`data:` above all) is reduced to its scheme.
-    if (parsed.origin === "null" && parsed.protocol !== "about:") return `${parsed.protocol}(opaque)`;
+    if (parsed.origin === "null" && !(parsed.protocol === "about:" && (parsed.pathname === "blank" || parsed.pathname === "srcdoc"))) {
+      return `${parsed.protocol}(opaque)`;
+    }
     parsed.username = "";
     parsed.password = "";
     parsed.search = "";

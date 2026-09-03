@@ -33,13 +33,22 @@ use objc2_web_kit::{
     WKContentWorld, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration,
 };
 
-/// The page-world recorder shim: the shared core helpers, then the shim body, in
-/// one IIFE. Editing the capture behaviour means editing `recorderShim.src.js`;
-/// editing how a role or name is computed means editing `agentCore.src.js` — which
-/// changes the replayer in the same stroke, which is the point.
+/// The page-world recorder shim: the shared core helpers (two files), the shim's
+/// sensitivity helpers, then the shim body, in one IIFE — the SAME four assets in
+/// the same order as `recorderShim.ts` (`RECORDER_SHIM_ASSETS`), pinned by
+/// `recorderShimRustParity.test.ts`. Editing the capture behaviour means editing
+/// `recorderShim.src.js`; editing how a role or name is computed means editing
+/// `agentCore.src.js` — which changes the replayer in the same stroke, which is
+/// the point. When the core was split into two files this list was not updated,
+/// and the injected shim referenced helpers it did not carry; the parity test is
+/// what makes that class fail here instead of in a page.
 const RECORDER_SHIM_SRC: &str = concat!(
     "(function(){\n",
     include_str!("../../../src/lib/browser/agent/agentCore.src.js"),
+    "\n",
+    include_str!("../../../src/lib/browser/agent/agentCoreRoles.src.js"),
+    "\n",
+    include_str!("../../../src/lib/browser/agent/recorderShimSensitivity.src.js"),
     "\n",
     include_str!("../../../src/lib/browser/agent/recorderShim.src.js"),
     "\n})();"

@@ -155,6 +155,14 @@ describe("act by ref (WI-P2.2)", () => {
   });
 });
 
+describe("wait condition shape (#93)", () => {
+  it("refuses non-string fields instead of embedding them", () => {
+    expect(() => buildWaitConditionScript({ text: 5 } as never, 1)).toThrow(/as strings/);
+    expect(() => buildWaitConditionScript({ role: "button", name: ["x"] } as never, 1)).toThrow(/as strings/);
+    expect(() => buildWaitConditionScript({ ref: {} } as never, 1)).toThrow(/as strings/);
+  });
+});
+
 describe("buildWaitConditionScript (WI-P3.1)", () => {
   it("matches when the page text contains the target", () => {
     const res = run(`<main><h1>Order confirmed</h1></main>`, buildWaitConditionScript({ text: "confirmed" }, 1)) as {

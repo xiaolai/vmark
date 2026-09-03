@@ -23,6 +23,29 @@ describe("computeRole", () => {
   });
 });
 
+describe("contenteditable is the editing HOST only (#110)", () => {
+  it.each([
+    [`<div contenteditable="">x</div>`, "textbox"],
+    [`<div contenteditable="true">x</div>`, "textbox"],
+    [`<div contenteditable="plaintext-only">x</div>`, "textbox"],
+    [`<div contenteditable="false">x</div>`, null],
+  ])("%s → %s", (html, role) => {
+    expect(computeRole(el(html))).toBe(role);
+  });
+  it("a descendant of an editable host is not its own textbox", () => {
+    const host = el(`<div contenteditable="true"><span>child</span></div>`);
+    expect(computeRole(host)).toBe("textbox");
+    expect(computeRole(host.firstElementChild!)).toBe(null);
+  });
+});
+
+describe("presentational conflict resolution (#107)", () => {
+  it("a global ARIA property keeps the implicit role, like focusability does", () => {
+    expect(computeRole(el(`<h2 role="none" aria-label="Section">x</h2>`))).toBe("heading");
+    expect(computeRole(el(`<h2 role="none">x</h2>`))).toBe(null);
+  });
+});
+
 describe("isLandmarkRole", () => {
   it.each(["main", "navigation", "banner", "contentinfo", "complementary", "region", "form", "search"])(
     "%s is a landmark",

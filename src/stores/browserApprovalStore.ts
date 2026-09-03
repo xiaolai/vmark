@@ -214,12 +214,13 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         // fail, so the prompt stays raised until the attach is CONFIRMED —
         // dropping it first left a failure with no prompt, no attachment and no
         // message (audit 20260815-163607 #24).
-        if (outcome === "deny") return drop();
         // Single-flight: while the attach IPC is pending the prompt is still
         // raised, so a second click used to launch a second attach whose completion
-        // order decided the final authority. The dialog disables its buttons on
-        // `resolving`; this is the guard behind it.
+        // order decided the final authority — and a Deny could drop the prompt while
+        // the attach still succeeded. The dialog disables its buttons on
+        // `resolving`; this is the guard behind it, for every outcome.
         if (get().resolving.includes(id)) return;
+        if (outcome === "deny") return drop();
         set((s) => ({ resolving: [...s.resolving, id] }));
         void get()
           .attachHumanTab(request.tabId, request.generation, outcome === "once")

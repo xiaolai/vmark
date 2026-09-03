@@ -15,8 +15,9 @@
  *
  * **Two canonical assets, one assembly** (audit 2026-09-03 S-02). The shim is a BODY
  * that assumes the shared perception core is in scope, so both hosts wrap the pair
- * identically: Rust `concat!`s `"(function(){\n"`, `agentCore.src.js`, `"\n"`,
- * `recorderShim.src.js`, `"\n})();"` (`src-tauri/src/browser/recorder_shim_macos.rs`),
+ * identically: Rust `concat!`s `"(function(){\n"`, `agentCore.src.js`, `agentCoreRoles.src.js`,
+ * `recorderShimSensitivity.src.js`, `recorderShim.src.js` (each `"\n"`-joined) and
+ * `"\n})();"` (`src-tauri/src/browser/recorder_shim_macos.rs`),
  * and `RECORDER_SHIM_SRC` below is the same string, so `recorderShim.test.ts` and
  * `recorder.webkit.test.ts` execute the shipped bytes.
  *
@@ -31,6 +32,7 @@
  * @module lib/browser/agent/recorderShim
  */
 
+import RECORDER_SHIM_SENSITIVITY from "./recorderShimSensitivity.src.js?raw";
 import RECORDER_SHIM_BODY from "./recorderShim.src.js?raw";
 import { AGENT_CORE_SRC } from "./agentCore";
 import { buildDrainScript } from "./shimDrain";
@@ -40,7 +42,16 @@ export { RECORDER_SHIM_BODY };
 
 /** The page-world shim as injected: core + body in one IIFE, byte-identical to
  *  Rust's `concat!` in `recorder_shim_macos.rs`. */
-export const RECORDER_SHIM_SRC = `(function(){\n${AGENT_CORE_SRC}\n${RECORDER_SHIM_BODY}\n})();`;
+export const RECORDER_SHIM_SRC = `(function(){\n${AGENT_CORE_SRC}\n${RECORDER_SHIM_SENSITIVITY}\n${RECORDER_SHIM_BODY}\n})();`;
+
+/** The assets Rust must `include_str!`, in this order, to inject the identical shim
+ *  (`recorder_shim_macos.rs`); `recorderShimRustParity.test.ts` reads both sides. */
+export const RECORDER_SHIM_ASSETS = [
+  "agentCore.src.js",
+  "agentCoreRoles.src.js",
+  "recorderShimSensitivity.src.js",
+  "recorderShim.src.js",
+] as const;
 
 /** Id of the hidden DOM element that holds the JSON ring buffer of captured events. */
 export const RECORDER_BUFFER_ID = "__vmark_recorder_buffer";

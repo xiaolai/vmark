@@ -99,7 +99,7 @@ function toOutcome(result: Record<string, unknown>, flag: "clicked" | "typed"): 
   // flag must be a boolean, and `found:false` with the flag true is a contradiction.
   // Anything malformed or contradictory is UNKNOWN — the engine asks a human rather
   // than treating it as success or as a confirmed miss eligible for a write retry.
-  if (typeof result[flag] !== "boolean" || typeof result.found !== "boolean") {
+  if (typeof result !== "object" || result === null || typeof result[flag] !== "boolean" || typeof result.found !== "boolean") {
     return { outcome: "unknown", reason: "malformed-act-result" };
   }
   if (result[flag] === true && result.found === false) return { outcome: "unknown", reason: "contradictory-act-result" };
@@ -178,7 +178,10 @@ export function makeRunExecutor(ctx: RunExecutorContext): WorkflowStepExecutor {
       role,
       name,
     });
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Page-adjacent data: anything that is not an object becomes an empty record,
+    // which `toOutcome` reports as malformed — nothing downstream reads a null.
+    const decoded: unknown = JSON.parse(raw);
+    const parsed = typeof decoded === "object" && decoded !== null ? (decoded as Record<string, unknown>) : {};
     return { ...toOutcome(parsed, op === "type" ? "typed" : "clicked"), raw: parsed };
   }
 

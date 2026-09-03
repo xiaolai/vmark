@@ -189,7 +189,7 @@ function __vmarkSnapshot(gen){
   var all=__vmarkAll(document),out=[],truncated=false;
   for(var i=0;i<all.length;i++){
     var el=all[i],role=__vmarkRole(el);
-    if(!role||__vmarkHidden(el))continue;
+    if(!role||__vmarkHidden(el)||!__vmarkRendered(el))continue;
     if(out.length>=2000){truncated=true;break;}
     var full=__vmarkNameFull(el);
     if(full.length>__vmarkNameMax())truncated=true;

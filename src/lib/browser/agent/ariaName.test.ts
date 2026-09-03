@@ -48,4 +48,9 @@ describe("accessibleName", () => {
     );
     expect(accessibleName(doc.querySelector("button")!)).toBe("Alpha");
   });
+  it("leading whitespace does not spend the content budget, and a huge first node is sliced, not appended (#105)", () => {
+    expect(accessibleName(el(`<button>${" ".repeat(5000)}Save</button>`))).toBe("Save");
+    expect(accessibleName(el(`<button>${"x".repeat(NAME_CAP * 40)}<span>tail</span></button>`))).toHaveLength(NAME_CAP);
+    expect(accessibleName(el(`<button>${"\n\t ".repeat(2000)}<span>Deep</span> name</button>`))).toBe("Deep name");
+  });
 });

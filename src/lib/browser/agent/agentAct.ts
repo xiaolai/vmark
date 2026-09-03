@@ -142,42 +142,46 @@ function __vmarkTypeEditable(el,text,extra){
   }
   return __vmarkAssign({found:true,typed:true},extra);
 }
+function __vmarkTypeSelect(el,text,extra){
+  var opts=el.options||[],pick=null;
+  for(var i=0;i<opts.length;i++){
+    if(__vmarkNorm(opts[i].textContent)===text||opts[i].value===text){pick=opts[i];break;}
+  }
+  if(!pick)return __vmarkAssign({found:true,typed:false,reason:'no-such-option'},extra);
+  if(el.focus)el.focus();
+  __vmarkSetValue(el,pick.value);
+  __vmarkFireEdit(el);
+  return __vmarkAssign({found:true,typed:true},extra);
+}
+function __vmarkTypeField(el,tag,text,extra){
+  if(__vmarkIsFileInput(el))return __vmarkAssign({found:true,typed:false,reason:'upload'},extra);
+  var ty=(el.getAttribute('type')||'text').toLowerCase();
+  if(tag==='input'&&/^(checkbox|radio|submit|button|reset|image)$/.test(ty))return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
+  if(el.readOnly)return __vmarkAssign({found:true,typed:false,reason:'readonly'},extra);
+  if(el.focus){try{el.focus();}catch(e){}}
+  var before=el.value;
+  __vmarkSetValue(el,text);
+  var want=(tag==='textarea')?__vmarkNewlines(text):text;
+  if(el.value!==want){__vmarkSetValue(el,before);return __vmarkAssign({found:true,typed:false,reason:'rejected-value'},extra);}
+  __vmarkFireEdit(el);
+  return __vmarkAssign({found:true,typed:true},extra);
+}
+// The type entry point: reachability first (the same rules a click has), then one
+// helper per control family — select, text field, editable region.
 function __vmarkDoType(el,text,extra){
   var tag=String(el.tagName||'').toLowerCase();
   if(__vmarkDisabled(el))return __vmarkAssign({found:true,typed:false,reason:'disabled'},extra);
   if(__vmarkNotActable(el)==='inert')return __vmarkAssign({found:true,typed:false,reason:'disabled',detail:'inert'},extra);
-  // The same reachability a click has: bring the field on screen and refuse one a
-  // user could not reach because something covers it. Typing used to edit
-  // off-screen and overlay-obscured controls programmatically.
+  // Bring the field on screen and refuse one a user could not reach because
+  // something covers it. Typing used to edit off-screen and overlay-obscured
+  // controls programmatically.
   if(el.scrollIntoView&&__vmarkHasLayout())el.scrollIntoView({block:'center',inline:'center'});
   var occ=__vmarkOcclusion(el);
   if(occ)return __vmarkAssign(__vmarkAssign({found:true,typed:false},occ),extra);
   try{
-    if(tag==='select'){
-      var opts=el.options||[],pick=null;
-      for(var i=0;i<opts.length;i++){
-        if(__vmarkNorm(opts[i].textContent)===text||opts[i].value===text){pick=opts[i];break;}
-      }
-      if(!pick)return __vmarkAssign({found:true,typed:false,reason:'no-such-option'},extra);
-      if(el.focus)el.focus();
-      __vmarkSetValue(el,pick.value);
-      __vmarkFireEdit(el);
-      return __vmarkAssign({found:true,typed:true},extra);
-    }
-    if(tag==='input'||tag==='textarea'){
-      if(__vmarkIsFileInput(el))return __vmarkAssign({found:true,typed:false,reason:'upload'},extra);
-      var ty=(el.getAttribute('type')||'text').toLowerCase();
-      if(tag==='input'&&/^(checkbox|radio|submit|button|reset|image)$/.test(ty))return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
-      if(el.readOnly)return __vmarkAssign({found:true,typed:false,reason:'readonly'},extra);
-      if(el.focus){try{el.focus();}catch(e){}}
-      var before=el.value;
-      __vmarkSetValue(el,text);
-      var want=(tag==='textarea')?__vmarkNewlines(text):text;
-      if(el.value!==want){__vmarkSetValue(el,before);return __vmarkAssign({found:true,typed:false,reason:'rejected-value'},extra);}
-      __vmarkFireEdit(el);
-      return __vmarkAssign({found:true,typed:true},extra);
-    }
-    if(el.isContentEditable)return __vmarkTypeEditable(el,text,extra);
+    if(tag==='select')return __vmarkTypeSelect(el,text,extra);
+    if(tag==='input'||tag==='textarea')return __vmarkTypeField(el,tag,text,extra);
+    if(__vmarkEditingHost(el))return __vmarkTypeEditable(el,text,extra);
     return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
   }catch(e){
     return __vmarkAssign({found:true,typed:false,reason:String((e&&e.message)||e)},extra);

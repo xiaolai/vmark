@@ -46,12 +46,16 @@ function __vmGateWidgetVisible(el){
 }
 function __vmGateFieldVisible(el){
   if(__vmarkHidden(el))return false;
-  if(!__vmGateHasLayout())return true;
-  var r=el.getBoundingClientRect();
-  if(!(r.width>0&&r.height>0))return false;
   // A box alone is not visibility: visibility:hidden, display:none up the tree and
   // opacity:0 all keep a box, and a hidden password field is not a login gate.
-  return __vmarkRendered(el);
+  // Computed style needs no layout, so this tier runs everywhere. It is LOCAL —
+  // this script ships with the perception core only, not the agent library.
+  var cs=getComputedStyle(el);
+  if(cs.visibility==='hidden'||cs.display==='none'||cs.opacity==='0')return false;
+  for(var p=el.parentElement;p;p=p.parentElement){var ps=getComputedStyle(p);if(ps.display==='none'||ps.opacity==='0')return false;}
+  if(!__vmGateHasLayout())return true;
+  var r=el.getBoundingClientRect();
+  return r.width>0&&r.height>0;
 }
 function __vmGateSelect(sel){
   var roots=[document],all=__vmarkAll(document),out=[];

@@ -2,6 +2,7 @@
 // WI-2.5 / R5 — browser approval store: standing grants + pending approvals
 // WI-S0.8 — dismissForNavigation: authority and prompts lapse when the page changes
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { MAX_ONE_SHOTS } from "./browserApprovalStore.constants";
 import { useBrowserApprovalStore } from "./browserApprovalStore";
 import { __setAttachInvoker } from "@/services/browser/humanTabAttach";
 
@@ -115,6 +116,27 @@ describe("pending approval flow", () => {
     s.resolveApproval("req1", "deny");
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     expect(useBrowserApprovalStore.getState().decide(URL, "click")).toBe("needs-approval");
+  });
+
+  it("a Deny while the attach is in flight is ignored like any other click (#153)", () => {
+    const s = useBrowserApprovalStore.getState();
+    s.requestApproval("req1", URL, "attach", undefined, "tab-1", 1);
+    useBrowserApprovalStore.setState({ resolving: ["req1"] });
+    useBrowserApprovalStore.getState().resolveApproval("req1", "deny");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+    useBrowserApprovalStore.setState({ resolving: [] });
+  });
+
+  it("minting past MAX_ONE_SHOTS evicts the oldest one-shot, never the newest (#151)", () => {
+    for (let i = 0; i < MAX_ONE_SHOTS + 1; i++) {
+      const id = `cap-${i}`;
+      useBrowserApprovalStore.getState().requestApproval(id, `https://cap${i}.example/p`, "click", undefined, "tab-1", 1);
+      useBrowserApprovalStore.getState().resolveApproval(id, "once");
+    }
+    const shots = useBrowserApprovalStore.getState().oneShots;
+    expect(shots).toHaveLength(MAX_ONE_SHOTS);
+    expect(shots.some((s) => s.originPattern === "https://cap0.example")).toBe(false);
+    expect(shots.some((s) => s.originPattern === `https://cap${MAX_ONE_SHOTS}.example`)).toBe(true);
   });
 
   it("resolving an unknown id is a no-op", () => {

@@ -153,4 +153,11 @@ describe("browserUiStore", () => {
   it("clearForTab on a missing tab is a no-op", () => {
     expect(() => useBrowserUiStore.getState().clearForTab("ghost")).not.toThrow();
   });
+  it("clearForTab on a prototype-named tab is a no-op, not a lookup up the chain (#155)", () => {
+    useBrowserUiStore.getState().ensureEntry("tab-1", "https://a.com/");
+    const before = useBrowserUiStore.getState().entries;
+    useBrowserUiStore.getState().clearForTab("constructor");
+    useBrowserUiStore.getState().clearForTab("toString");
+    expect(useBrowserUiStore.getState().entries).toBe(before);
+  });
 });

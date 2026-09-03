@@ -138,6 +138,15 @@ describe("idempotencyKey", () => {
     expect(() => idempotencyKey("s", { o })).toThrow(TypeError);
   });
 
+  it("rejects an array carrying a symbol key or a non-enumerable extra (#141)", () => {
+    const withSymbol: unknown[] = [1];
+    (withSymbol as unknown as Record<symbol, number>)[Symbol("k")] = 2;
+    expect(() => idempotencyKey("s", { a: withSymbol })).toThrow(TypeError);
+    const hidden: unknown[] = [1];
+    Object.defineProperty(hidden, "extra", { value: 1, enumerable: false });
+    expect(() => idempotencyKey("s", { a: hidden })).toThrow(TypeError);
+  });
+
   it("fails closed on input nested past the encoder's depth bound", () => {
     let deep: unknown = 1;
     for (let i = 0; i < 200; i++) deep = { n: deep };

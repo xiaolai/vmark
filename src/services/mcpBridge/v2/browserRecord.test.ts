@@ -116,6 +116,27 @@ describe("workflow_record — start (consent-gated)", () => {
     expect(lastRespond()).toMatchObject({ success: true, data: { status: "recording", tabId: "t1" } });
   });
 
+  it("consumes the one-shot against the tab's generation (#63)", async () => {
+    seedRecordOneShot();
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(1);
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(lastRespond()).toMatchObject({ success: true });
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(0);
+  });
+
+  it("two concurrent starts arm once: the second is refused while the first is in flight (#64)", async () => {
+    seedRecordOneShot();
+    let release: (v: unknown) => void = () => {};
+    invokeMock.mockImplementationOnce(() => new Promise((r) => (release = r)));
+    const first = handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    await handleBrowserWorkflowRecord("2", { recordOp: "start", site: "blog" });
+    expect(lastRespond()).toMatchObject({ success: false, error: "recording-already-active" });
+    release("ok");
+    await first;
+    expect(startRecorderSession).toHaveBeenCalledTimes(1);
+  });
+
   it("wires a drain that drops page-forged navigate events and never reads a url (S-03)", async () => {
     seedRecordOneShot();
     await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });

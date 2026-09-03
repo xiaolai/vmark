@@ -60,11 +60,14 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
     // single-use (profile, origin) grant, raise the prompt and DON'T create the tab,
     // so a guessed profile can't silently open authenticated content. The driver
     // (browser_ai_create) re-enforces this authoritatively.
+    // The posture is read ONCE: it is awaited across below, and a setting change
+    // mid-flight must not let a profile slip into a shared creation.
+    const mode = aiMode();
     if (profile) {
       // Rust applies a named profile to SANDBOX tabs only and silently ignores it
       // otherwise; accepting it here in shared posture reported a profile that was
       // never in effect.
-      if (aiMode() !== "ai-sandbox") {
+      if (mode !== "ai-sandbox") {
         return failure(
           id,
           "PROFILE_REQUIRES_SANDBOX: a named profile applies to sandbox tabs only — the AI session posture is 'shared'",
@@ -82,7 +85,13 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
         // envelope is sent only when a prompt actually exists: over the cap the
         // request is refused as such, never described as "awaiting approval".
         const pending = approvals.getState().pending;
-        if (!pending.some((p) => p.id === id)) {
+        const existing = pending.find((p) => p.id === id);
+        if (existing && (existing.profile !== profile || existing.targetUrl !== url || existing.operation !== "session")) {
+          // The same request id with a different request: not "your prompt is
+          // already up" but a client bug (or a probe) — refuse, never confuse.
+          return failure(id, "a different approval is already pending under this request id");
+        }
+        if (!existing) {
           if (pending.length >= MAX_PENDING_APPROVALS) {
             return failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
           }
@@ -109,9 +118,9 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
       }
       approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((g) => g !== grant) }));
     }
-    const tabId = useTabStore.getState().createBrowserTab(windowLabel, url, undefined, aiMode());
+    const tabId = useTabStore.getState().createBrowserTab(windowLabel, url, undefined, mode);
     try {
-      await ensureBrowserNativeView(tabId, url, aiMode(), profile);
+      await ensureBrowserNativeView(tabId, url, mode, profile);
       if (profile) useBrowserSessionStore.getState().recordProfileUse(profile, Date.now());
     } catch (error) {
       if (needsNavigationApproval(error)) {

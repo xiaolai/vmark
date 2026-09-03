@@ -134,6 +134,27 @@ describe("recorder shim — capture shape", () => {
     expect(drain()[0]).toMatchObject({ type: "type", sensitive: true });
   });
 
+  it("records a click on a <label> once, as its control — not again for the activation click (#122)", () => {
+    evalIsolated(buildArmScript());
+    const label = mount<HTMLLabelElement>(`<label id="l" for="cb">Agree</label><input id="cb" type="checkbox">`, "l");
+    label.click(); // the browser then fires the control's own activation click
+    const events = drain();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "click", role: "checkbox", name: "Agree" });
+  });
+
+  it("a contenteditable edit is recorded as a type on the editing host when focus leaves it (#123)", () => {
+    evalIsolated(buildArmScript());
+    const host = mount(`<div id="ed" contenteditable="true" aria-label="Body"><p>draft</p></div>`, "ed");
+    host.focus();
+    host.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "x" }));
+    fire(host, "focusout");
+    const events = drain();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "type", role: "textbox", name: "Body" });
+    expect(JSON.stringify(events[0])).not.toContain("draft");
+  });
+
   it("does not double-record a checkbox (click covers it; change is skipped)", () => {
     const cb = document.createElement("input");
     cb.type = "checkbox";

@@ -259,6 +259,16 @@ describe("Tab emulates focus movement (S-07)", () => {
     expect(focusedId()).toBe("b");
   });
 
+  it("a radio group is scoped to its tree root: a same-named radio in a shadow root is its own stop (#116)", () => {
+    document.body.innerHTML = `<input type="radio" name="g" id="r1"><div id="host"></div><input id="after">`;
+    const host = document.getElementById("host")!;
+    host.attachShadow({ mode: "open" }).innerHTML = `<input type="radio" name="g" id="r2">`;
+    document.getElementById("r1")!.focus();
+    const res = run(buildKeyScript("Tab", null, 1));
+    expect(res.defaultAction).toBe("focus-moved");
+    expect(host.shadowRoot!.activeElement?.id).toBe("r2");
+  });
+
   it("Shift+Tab moves focus backwards", () => {
     document.body.innerHTML = `<input id="a"><input id="b">`;
     document.getElementById("b")!.focus();

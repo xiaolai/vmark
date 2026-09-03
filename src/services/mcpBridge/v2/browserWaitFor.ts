@@ -40,8 +40,8 @@ import { requireHumanAttachment } from "./browserReadClass";
 import { readOperationArgs } from "./readOperationArgs";
 
 const POLL_INTERVAL_MS = 200;
-/** Floor under which a new script poll is not started (see the loop). */
-const MIN_POLL_BUDGET_MS = 1_500;
+/** The answer a poll that outlives the request deadline is replaced with. */
+const DEADLINE_PASSED: unique symbol = Symbol("deadline-passed");
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** A wait mode: a page condition checked by eval, or a URL check answered from
@@ -147,17 +147,19 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
         await sleep(POLL_INTERVAL_MS);
         continue;
       }
-      // A poll that cannot finish inside the request budget is not started: the
-      // eval itself can take seconds on a busy page, and a late answer lands
-      // after the bridge deadline as a redelivery, not as a result.
-      if (deadline - Date.now() < MIN_POLL_BUDGET_MS) {
-        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url), reason: "timeout" } });
-        return;
-      }
-      // A driver rejection here (the tab navigated away, the browser was disabled,
-      // an eval failure) is thrown to `wrapHandler` and reaches the model as its
-      // typed token — never as a `matched:false` that looks like a patient wait.
-      const raw = await invokeAttached(tab, () =>
+      // The deadline is honoured by RACING the poll against it, not by refusing
+      // to poll near it: the native eval has its own timeout (seconds on a busy
+      // page), so a poll may answer after the request budget — a late answer
+      // would land after the bridge deadline as a redelivery, not as a result.
+      // The abandoned poll's outcome is discarded (and its rejection swallowed:
+      // nothing is listening any more). A floor on the remaining budget was the
+      // earlier shape, and it made every wait shorter than the floor a single
+      // poll — a 3 s wait_for could never observe a second sample.
+      // A driver rejection that arrives in time (the tab navigated away, the
+      // browser was disabled, an eval failure) is thrown to `wrapHandler` and
+      // reaches the model as its typed token — never as a `matched:false` that
+      // looks like a patient wait.
+      const poll = invokeAttached(tab, () =>
         invoke<string>("browser_eval", {
           tabId: tab.tabId,
           script: buildWaitConditionScript(mode.condition, tab.generation),
@@ -165,6 +167,15 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
           generation: tab.generation,
         }),
       );
+      const raw = await Promise.race([
+        poll,
+        sleep(Math.max(0, deadline - Date.now())).then((): typeof DEADLINE_PASSED => DEADLINE_PASSED),
+      ]);
+      if (raw === DEADLINE_PASSED) {
+        poll.catch(() => undefined);
+        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url), reason: "timeout" } });
+        return;
+      }
       const parsed = JSON.parse(raw) as { matched?: boolean; ref?: string };
       if (parsed.matched === true) {
         await respond({

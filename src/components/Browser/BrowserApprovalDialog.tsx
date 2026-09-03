@@ -9,6 +9,10 @@
  * was permanent-deny and the "human in the loop" had no way to be in the loop. This
  * closes that.
  *
+ * An attach approval is an IPC in flight until confirmed; the buttons are disabled
+ * while it is (`resolving` in the store), so a second click cannot start a
+ * concurrent attach whose completion order would decide the final authority.
+ *
  * **It shows the descriptor, not the page.** The authorization is bound to exactly
  * (origin, operation, element role+name) — so that is what the user is asked to
  * approve. Rendering the page instead would be strictly *weaker*: the page controls

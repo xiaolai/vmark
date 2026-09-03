@@ -120,6 +120,31 @@ describe("maybeStripMacQuarantine", () => {
     },
   );
 
+  it("a storage getter that throws counts as shown: no toast, no rejection (#185)", async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("SecurityError: denied");
+      },
+    });
+    try {
+      mocks.invoke.mockResolvedValue({ stripped_count: 2 });
+      await expect(maybeStripMacQuarantine("/ws")).resolves.toBeUndefined();
+      expect(mocks.toastInfo).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(globalThis, "localStorage", original);
+      else delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+  });
+
+  it("rejects a payload whose error_count is present but not a number (#184)", async () => {
+    mocks.invoke.mockResolvedValue({ stripped_count: 1, error_count: "many" });
+    await maybeStripMacQuarantine("/ws");
+    expect(mocks.toastInfo).not.toHaveBeenCalled();
+    expect(workspaceError).toHaveBeenCalledWith(expect.stringContaining("unexpected payload"), "/ws", expect.anything());
+  });
+
   it("swallows invoke errors without throwing", async () => {
     mocks.invoke.mockRejectedValue(new Error("boom"));
     await expect(maybeStripMacQuarantine("/some/workspace")).resolves.toBeUndefined();

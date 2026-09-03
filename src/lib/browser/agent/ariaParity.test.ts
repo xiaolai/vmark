@@ -36,6 +36,10 @@ const WIDE_FIXTURE = `
     <button role="none">Focusable keeps its role</button>
     <a href="/x" role="presentation">Focusable link keeps its role</a>
     <div role="constructor">Prototype key</div>
+    <h2 role="none" aria-label="Global prop keeps heading">x</h2>
+    <div contenteditable="true"><span>Descendant is not a textbox</span></div>
+    <div contenteditable="false">Not editable</div>
+    <div contenteditable="">Editable host</div>
     <p id="lbl">Save changes</p>
     <button aria-labelledby="lbl">x</button>
     <p id="lbl2">Referenced name</p>

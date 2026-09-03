@@ -20,7 +20,7 @@
 
 import { VMarkMcpServer } from '../server.js';
 import { isNeedsApproval } from '../bridge/core-types.js';
-import { structuredErrorResult } from '../utils/toolOutput.js';
+import { structuredErrorResult } from '../utils/errorOutput.js';
 
 /** Longest JSON rendering of failure data appended to the error text. The full
  *  object always travels in `structuredContent`; this keeps the text readable. */

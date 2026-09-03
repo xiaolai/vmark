@@ -104,11 +104,20 @@ impl NavDelegate {
         let generation = match reg.bump_generation(&ivars.tab_id) {
             Ok(g) => g,
             Err(e) => {
+                // A generation that cannot advance cannot distinguish this page from
+                // the last one, so nothing stamped for the old page may stay fresh:
+                // the commit is refused and the tab's authority dropped, the same
+                // fail-closed shape as a disallowed destination. Substituting 0 used
+                // to commit anyway while every stale stamp remained valid (#28).
                 log::warn!(
-                    "[browser] generation bump refused for {}: {e:?}",
+                    "[browser] generation bump refused for {}: {e:?}; commit refused",
                     ivars.tab_id
                 );
-                0
+                let _ = reg.clear_committed_url(&ivars.tab_id);
+                drop(reg);
+                state.clear_tab_one_shots(&ivars.tab_id);
+                state.clear_tab_attachment(&ivars.tab_id);
+                return None;
             }
         };
         if let Err(e) = reg.transition(&ivars.tab_id, Lifecycle::Navigating) {

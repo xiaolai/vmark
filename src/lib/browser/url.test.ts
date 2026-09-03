@@ -231,4 +231,9 @@ describe("urlForPersistence drops credential-bearing parameters", () => {
     const url = "https://a.example/search?q=vmark&page=2#results";
     expect(urlForPersistence(url)).toBe(url);
   });
+  it("shows only about:blank and about:srcdoc; any other about: payload is opaque (#129)", () => {
+    expect(urlForAgent("about:srcdoc")).toBe("about:srcdoc");
+    expect(urlForAgent("about:settings#secret")).toBe("about:(opaque)");
+    expect(urlForAgent("about:blank?x=token")).toBe("about:blank");
+  });
 });

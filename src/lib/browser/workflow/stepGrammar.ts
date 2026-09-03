@@ -36,7 +36,7 @@
 export type ActionValue = { kind: "literal"; text: string } | { kind: "input"; name: string };
 
 /** A parsed, executable action. */
-export type ParsedAction =
+type ParsedAction =
   | { kind: "click"; name: string; role: string | undefined }
   | { kind: "type"; value: ActionValue; name: string; role: string | undefined }
   | { kind: "navigate"; url: string };

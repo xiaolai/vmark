@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   wait: vi.fn(),
   latestNavigationId: vi.fn(),
   ensureNative: vi.fn(),
-  destroyNative: vi.fn(() => Promise.resolve()),
+  destroyNative: vi.fn<(tabId: string) => Promise<void>>(() => Promise.resolve()),
   nativeReady: vi.fn(),
   hasNative: vi.fn(),
 }));
@@ -28,7 +28,7 @@ vi.mock("@/services/browser/browserEventBroker", () => ({
 }));
 vi.mock("@/services/browser/browserNativeViews", () => ({
   ensureBrowserNativeView: (...args: unknown[]) => mocks.ensureNative(...args),
-  destroyBrowserNativeView: (...args: unknown[]) => mocks.destroyNative(...args),
+  destroyBrowserNativeView: (tabId: string) => mocks.destroyNative(tabId),
   waitForBrowserNativeView: (...args: unknown[]) => mocks.nativeReady(...args),
   hasBrowserNativeView: (...args: unknown[]) => mocks.hasNative(...args),
 }));
@@ -47,7 +47,7 @@ import { useTabStore } from "@/stores/tabStore";
 const URL = "https://example.com/start";
 
 function resetTabs(): void {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
 }
 
 function seed(mode: "ai-sandbox" | "ai-shared" | "human" = "ai-sandbox"): string {
@@ -112,6 +112,17 @@ describe("open", () => {
     expect(lastResponse()).toMatchObject({ id: "open-1", success: true });
   });
 
+  it("refuses a request id already pending for a DIFFERENT request instead of reporting it queued (#56)", async () => {
+    useBrowserApprovalStore.getState().requestApproval("dup", "https://evil.example/", "click", undefined, "tab-1", 1);
+    await handleBrowserOpen("dup", { url: URL, profile: "github_work" });
+    expect(lastResponse().success).toBe(false);
+    expect(String(lastResponse().error)).toContain("different approval");
+    expect(mocks.ensureNative).not.toHaveBeenCalled();
+    // The original prompt is untouched: nothing was added or replaced under that id.
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+    expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({ operation: "click" });
+  });
+
   it("opening a named profile without approval raises a prompt and creates NO tab (WI-P6.1 H1)", async () => {
     await handleBrowserOpen("p-1", { url: URL, profile: "github_work" });
     expect(lastResponse()).toMatchObject({ success: false });
@@ -155,7 +166,7 @@ describe("open", () => {
     // driver rejects the very first read/act as a stale command until some
     // unrelated navigation happens to sync it.
     await handleBrowserOpen("open-gen", { url: URL });
-    expect(useTabStore.getState().tabs.main[0].generation).toBe(1);
+    expect((useTabStore.getState().tabs.main[0] as { generation?: number }).generation).toBe(1);
   });
 
   it.each([
@@ -239,7 +250,7 @@ describe("navigate", () => {
   it("stamps the committed generation when a navigation completes", async () => {
     const tabId = seed();
     await handleBrowserNavigate("nav-gen", { tabId, url: URL, timeoutMs: 1000 });
-    expect(useTabStore.getState().findTabById(tabId)?.generation).toBe(1);
+    expect((useTabStore.getState().findTabById(tabId) as { generation?: number } | null)?.generation).toBe(1);
   });
 
   it("refuses human-owned tabs and missing targets", async () => {

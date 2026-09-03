@@ -105,6 +105,14 @@ describe("makeGuardedExecutor — recording and the ledger", () => {
     expect(writeStepAlreadyDone(TAB, LEDGER, "step-1")).toBe(false);
   });
 
+  it("a success the engine will not treat as done is recorded as unknown, and not ledgered (#134)", async () => {
+    const { run, executor, guarded } = setup();
+    executor.mockResolvedValue({ outcome: "success", postconditionMet: false });
+    await guarded(step(1), 0).catch(() => undefined);
+    expect(getRun(run.runId)!.stepResults[0]).toMatchObject({ index: 1, status: "unknown" });
+    expect(writeStepAlreadyDone(TAB, LEDGER, "step-1")).toBe(false);
+  });
+
   it("keeps step data (an extract summary) on the entry", async () => {
     const { run, executor, guarded } = setup();
     executor.mockResolvedValue({ outcome: "success", data: { title: "T", textLength: 9, truncated: false } });

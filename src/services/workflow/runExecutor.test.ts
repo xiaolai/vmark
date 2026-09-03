@@ -81,6 +81,14 @@ describe("action steps — granted origin", () => {
     expect(mintOneShotConfirmed).not.toHaveBeenCalled();
   });
 
+  it("a null act result is unknown (malformed), never a success or a retryable miss (#193)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    invoke.mockResolvedValue("null");
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    expect(out).toMatchObject({ outcome: "unknown", reason: "malformed-act-result" });
+  });
+
   it("maps an obscured click to failed + postconditionMet:false (retryable) with the reason", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
     invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x" }));

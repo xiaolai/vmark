@@ -22,6 +22,20 @@ const PRESENTATIONAL: ReadonlySet<string> = new Set(["presentation", "none"]);
  *  outside it is ignored rather than exposed as a nonexistent role. */
 export const KNOWN_ROLES: ReadonlySet<string> = new Set(["alert","alertdialog","application","article","banner","button","cell","checkbox","columnheader","combobox","complementary","contentinfo","definition","dialog","directory","document","feed","figure","form","grid","gridcell","group","heading","img","link","list","listbox","listitem","log","main","marquee","math","menu","menubar","menuitem","menuitemcheckbox","menuitemradio","navigation","none","note","option","presentation","progressbar","radio","radiogroup","region","row","rowgroup","rowheader","scrollbar","search","searchbox","separator","slider","spinbutton","status","switch","tab","table","tablist","tabpanel","term","textbox","timer","toolbar","tooltip","tree","treegrid","treeitem"]);
 
+/** The element that OWNS a contenteditable region: `contenteditable` set on itself
+ *  (any value but "false"), not inherited from an ancestor. */
+function editingHost(el: Element): boolean {
+  if (!el.hasAttribute("contenteditable")) return false;
+  return (el.getAttribute("contenteditable") ?? "").toLowerCase() !== "false";
+}
+
+/** A presentational role is ignored when the element is focusable OR carries a
+ *  global ARIA property (ARIA §5.3 conflict resolution). */
+function presentationalConflict(el: Element): boolean {
+  return focusable(el) || GLOBAL_ARIA.some((attr) => el.hasAttribute(attr));
+}
+const GLOBAL_ARIA = ["aria-label", "aria-labelledby", "aria-describedby", "aria-live", "aria-owns", "aria-controls"];
+
 /** Natively focusable, or made focusable by the author (ARIA §5.3 conflict rule). */
 function focusable(el: Element): boolean {
   if (el.hasAttribute("tabindex")) return true;
@@ -29,7 +43,7 @@ function focusable(el: Element): boolean {
   if (tag === "button" || tag === "select" || tag === "textarea" || tag === "summary") return true;
   if (tag === "input") return (el.getAttribute("type") ?? "text").toLowerCase() !== "hidden";
   if (tag === "a") return el.hasAttribute("href");
-  return (el as Partial<HTMLElement>).isContentEditable === true;
+  return editingHost(el);
 }
 
 /**
@@ -73,9 +87,9 @@ export function computeRole(el: Element): string | null {
     for (const token of explicit.split(/\s+/)) {
       if (!KNOWN_ROLES.has(token)) continue;
       if (PRESENTATIONAL.has(token)) {
-        // Presentational-role conflict resolution: a focusable element keeps its
-        // implicit semantics (a `<button role="none">` is still a button).
-        if (focusable(el)) break;
+        // Presentational-role conflict resolution: a focusable element, or one
+        // carrying a global ARIA property, keeps its implicit semantics.
+        if (presentationalConflict(el)) break;
         return null;
       }
       return token;
@@ -83,15 +97,10 @@ export function computeRole(el: Element): string | null {
   }
 
   const tag = el.tagName.toLowerCase();
-  // An editable region with no explicit role is the agent's typing target.
-  if (
-    (el as Partial<HTMLElement>).isContentEditable === true &&
-    tag !== "input" &&
-    tag !== "textarea" &&
-    tag !== "select"
-  ) {
-    return "textbox";
-  }
+  // An editable HOST with no explicit role is the agent's typing target. The
+  // attribute, not `isContentEditable`: that property is inherited, so every
+  // descendant of an editor would have become its own textbox.
+  if (editingHost(el) && tag !== "input" && tag !== "textarea" && tag !== "select") return "textbox";
   // `hasOwn`, not `in`/index: `constructor` or `toString` as a tag or type must not
   // resolve an inherited property into a role.
   if (Object.hasOwn(HEADING_TAGS, tag)) return "heading";

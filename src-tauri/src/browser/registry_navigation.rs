@@ -2,6 +2,15 @@
 
 use super::{BrowserError, BrowserRegistry, Lifecycle, NavigationTicket};
 
+/// The registry state a navigation replaces (see `snapshot_navigation`).
+#[derive(Debug, Clone)]
+pub struct NavigationSnapshot {
+    pub state: Lifecycle,
+    pub committed_url: Option<String>,
+    pub ticket: Option<NavigationTicket>,
+    pub shared_origin: Option<String>,
+}
+
 impl BrowserRegistry {
     /// Start or supersede a top-level navigation and return its ticket. The
     /// ticket is independent of generation because provisional failures do not
@@ -85,6 +94,39 @@ impl BrowserRegistry {
         entry.active_navigation = previous_ticket;
         entry.shared_navigation_origin = previous_shared_origin;
         Ok(true)
+    }
+
+    /// Everything `begin_navigation` is about to change, captured so a native
+    /// failure can put it back. One definition for the human and the AI navigate
+    /// commands — the human path used to snapshot nothing and rolled back nothing.
+    pub fn snapshot_navigation(&self, tab_id: &str) -> Result<NavigationSnapshot, BrowserError> {
+        let state = self
+            .state(tab_id)
+            .ok_or_else(|| BrowserError::UnknownTab(tab_id.to_string()))?;
+        Ok(NavigationSnapshot {
+            state,
+            committed_url: self.committed_url(tab_id).map(str::to_owned),
+            ticket: self.navigation_ticket(tab_id).cloned(),
+            shared_origin: self.shared_navigation_origin(tab_id),
+        })
+    }
+
+    /// Restore a snapshot taken by `snapshot_navigation` if `navigation_id` is
+    /// still the active navigation (a concurrent navigation is left alone).
+    pub fn restore_navigation(
+        &mut self,
+        tab_id: &str,
+        navigation_id: &str,
+        snapshot: NavigationSnapshot,
+    ) -> Result<bool, BrowserError> {
+        self.rollback_navigation(
+            tab_id,
+            navigation_id,
+            snapshot.state,
+            snapshot.committed_url,
+            snapshot.ticket,
+            snapshot.shared_origin,
+        )
     }
 
     pub fn set_shared_navigation_approval(

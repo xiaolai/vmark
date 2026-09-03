@@ -55,30 +55,32 @@ pub async fn browser_ai_policy(
     allow_loopback: bool,
 ) -> Result<(), CommandError> {
     let session = parse_session_mode(&session)?;
+    let changed = {
+        let policy = state.ai_policy.lock().map_err(lock_failure)?;
+        policy.enabled != enabled
+            || policy.session != session
+            || policy.allow_loopback != allow_loopback
+    };
+    // The reset runs BEFORE the new posture is published (audit round 2, #1): a
+    // sandbox tab created between a published posture and its reset would reuse
+    // storage from the previous one. While the reset runs the OLD policy is still
+    // the one in force, so a concurrent creation is consistent with the store it
+    // gets; and a failed reset is a failed activation — nothing changes and the
+    // caller learns about it instead of hearing "done".
+    if changed && (!enabled || session == AiSessionMode::Sandbox) {
+        if let Err(error) = surface::clear_ai_sandbox_store(&app) {
+            return Err(surface_failure(&error));
+        }
+    }
     let mut policy = state.ai_policy.lock().map_err(lock_failure)?;
-    let previous = (policy.enabled, policy.session, policy.allow_loopback);
-    let changed = policy.enabled != enabled
-        || policy.session != session
-        || policy.allow_loopback != allow_loopback;
     if changed {
+        // Bumped whether or not another setter interleaved: an epoch only
+        // invalidates tabs, never widens anything.
         policy.epoch = policy.epoch.saturating_add(1);
     }
     policy.enabled = enabled;
     policy.session = session;
     policy.allow_loopback = allow_loopback;
-    drop(policy);
-    if changed && (!enabled || session == AiSessionMode::Sandbox) {
-        // The reset is part of the posture change: a sandbox tab created after a
-        // failed reset would reuse storage from the previous posture. So a failed
-        // reset is a failed activation — the policy goes back (the epoch stays
-        // bumped, which only invalidates tabs, never widens anything) and the
-        // caller learns about it instead of hearing "done".
-        if let Err(error) = surface::clear_ai_sandbox_store(&app) {
-            let mut policy = state.ai_policy.lock().map_err(lock_failure)?;
-            (policy.enabled, policy.session, policy.allow_loopback) = previous;
-            return Err(surface_failure(&error));
-        }
-    }
     Ok(())
 }
 
@@ -210,21 +212,12 @@ pub async fn browser_ai_navigate(
     require_browser_enabled(&policy)?;
     let url = validate_ai_navigation_url(&url, policy.allow_loopback)
         .map_err(|error| rejected_destination(error, &url))?;
-    let (mode, previous_state, previous_committed_url, previous_ticket, previous_shared_origin) = {
+    let (mode, snapshot) = {
         let reg = state.registry.lock().map_err(lock_failure)?;
         let mode = require_ai_owned(reg.automation_mode(&tab_id))?;
         require_current_epoch(reg.policy_epoch(&tab_id), policy.epoch)?;
-        let previous_state = reg.state(&tab_id).ok_or_else(tab_not_found)?;
-        let previous_committed_url = reg.committed_url(&tab_id).map(str::to_owned);
-        let previous_ticket = reg.navigation_ticket(&tab_id).cloned();
-        let previous_shared_origin = reg.shared_navigation_origin(&tab_id);
-        (
-            mode,
-            previous_state,
-            previous_committed_url,
-            previous_ticket,
-            previous_shared_origin,
-        )
+        let snapshot = reg.snapshot_navigation(&tab_id)?;
+        (mode, snapshot)
     };
     let generation = {
         let reg = state.registry.lock().map_err(lock_failure)?;
@@ -243,14 +236,7 @@ pub async fn browser_ai_navigate(
     };
     if let Err(error) = surface::navigate(&app, tab_id.clone(), url) {
         let mut reg = state.registry.lock().map_err(lock_failure)?;
-        let _ = reg.rollback_navigation(
-            &tab_id,
-            &ticket.id,
-            previous_state,
-            previous_committed_url,
-            previous_ticket,
-            previous_shared_origin,
-        );
+        let _ = reg.restore_navigation(&tab_id, &ticket.id, snapshot);
         return Err(surface_failure(&error));
     }
     Ok(AiNavigationResult {

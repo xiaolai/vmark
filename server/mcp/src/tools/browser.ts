@@ -95,6 +95,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             alt: z.boolean().optional(),
             meta: z.boolean().optional(),
           })
+          .strict()
           .optional()
           .describe('Optional keyboard modifiers {ctrl,shift,alt,meta} (act, operation=key).'),
         role: z

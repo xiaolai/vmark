@@ -86,11 +86,14 @@ export function makeGuardedExecutor(args: StepGuardArgs): WorkflowStepExecutor {
     // Ledger a write only when the engine's own verdict is "done": a success whose
     // postcondition says it did NOT land is not done (and was being ledgered), and a
     // failed write whose postcondition says it DID land is done (and was not).
-    if (stepWrites(step) && decideAfterResult(true, outcome) === "done") {
+    const verdict = decideAfterResult(stepWrites(step), outcome);
+    if (stepWrites(step) && verdict === "done") {
       markWriteStepDone(args.tabId, args.ledgerId, stepId(step));
     }
     noteStepResult(args.runId, step.index, {
-      status: outcome.outcome,
+      // A "success" the engine will NOT treat as done (postcondition says it did not
+      // land) is recorded as unknown — the status a reader can act on.
+      status: outcome.outcome === "success" && verdict !== "done" ? "unknown" : outcome.outcome,
       ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
       ...(outcome.data !== undefined ? { data: outcome.data } : {}),
     });

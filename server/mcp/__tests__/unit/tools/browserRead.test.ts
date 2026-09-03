@@ -51,6 +51,27 @@ describe('browser_read tool — integration via server.callTool', () => {
     expect(bridge.requests).toHaveLength(0);
   });
 
+  it.each([
+    { text: 'Done', role: 'button' },
+    { ref: 'e1', text: 'Done' },
+    { ref: 'e1', urlContains: '/next' },
+    {},
+  ])('wait_for: refuses %j — exactly one mode, never a silent pick', async (modes) => {
+    const { server, bridge } = harness({ 'vmark.browser.waitFor': () => ({ success: true, data: { matched: true } }) });
+    const result = await server.callTool('browser_read', { action: 'wait_for', ...modes });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('exactly one');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('wait_for: refuses a name without a role instead of ignoring it', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.waitFor': () => ({ success: true, data: { matched: true } }) });
+    const result = await server.callTool('browser_read', { action: 'wait_for', text: 'Done', name: 'Save' });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('`name`');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
   it('reports an ordinary bridge failure (no approval data) as a plain error', async () => {
     const { server } = harness({
       'vmark.browser.read': () => ({ success: false, error: 'no active browser tab' }),

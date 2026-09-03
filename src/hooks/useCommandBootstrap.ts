@@ -36,10 +36,7 @@ import { registerEditorCommands } from "@/services/commands/editorCommandBridge"
 import { registerTabCommands } from "@/services/commands/tabCommands";
 import { registerFileCommands } from "@/services/commands/fileCommands";
 import { registerGenieCommands } from "@/services/commands/genieCommands";
-import { invoke } from "@tauri-apps/api/core";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { startGrantSync } from "@/services/browser/grantSync";
-import { browserAvailableHere } from "@/services/commands/browserCommands";
 import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
 import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
 import { closeBrowserTabById, startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
@@ -49,7 +46,7 @@ import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSy
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
-import { makeSerializedPusher } from "@/services/browser/serializedPusher";
+import { startBrowserMenuSync } from "@/services/browser/browserMenuSync";
 import { executeCommand } from "@/services/commands/CommandBus";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 
@@ -206,27 +203,7 @@ export function useCommandBootstrap(): void {
     const stopWorkflowEnginePolicySync = startWorkflowEnginePolicySync();
 
     // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
-    // The item exists natively so its accelerator survives the browser taking keyboard
-    // focus; it starts disabled because the feature is off by default, and a
-    // permanently-dead menu item is worse than no item.
-    // Serialized and latest-wins: two rapid toggles were fired concurrently and the
-    // older could land last, leaving the native item out of step with the setting.
-    const menuPusher = makeSerializedPusher<boolean>(
-      (enabled) => invoke("set_browser_menu_enabled", { enabled }),
-      () => {
-        // The menu may not exist yet (early boot) or on a platform branch without the
-        // item; the pusher retries. Not worth surfacing: the palette still works.
-      },
-    );
-    const pushBrowserMenuEnabled = (enabled: boolean) => menuPusher.push(enabled);
-    // Setting AND platform: off macOS the surface is a stub, and an enabled menu item
-    // there is the permanently-dead item the Rust side warns about (audit X-04).
-    pushBrowserMenuEnabled(browserAvailableHere());
-    const stopBrowserMenuSync = useSettingsStore.subscribe((state, prev) => {
-      if (state.browser.enabled !== prev.browser.enabled) {
-        pushBrowserMenuEnabled(browserAvailableHere());
-      }
-    });
+    const stopBrowserMenuSync = startBrowserMenuSync();
 
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
@@ -289,7 +266,6 @@ export function useCommandBootstrap(): void {
       stopLeaseWiring();
       stopBrowserTabEvents();
       stopBrowserTabLifecycle();
-      menuPusher.dispose();
       stopRecorderWiring();
       stopCoherenceScan();
       stopWindowWorkspaceSync();

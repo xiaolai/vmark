@@ -116,6 +116,15 @@ describe('browser tool — integration via server.callTool', () => {
     });
   });
 
+  it('act key: refuses an unknown modifier key instead of dropping it silently (#171)', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', {
+      action: 'act', operation: 'key', key: 'Enter', modifiers: { ctrl: true, hyper: true },
+    });
+    expect(r.isError).toBe(true);
+    expect(bridge.requests).toHaveLength(0);
+  });
+
   it('act key: refuses a missing key name', async () => {
     const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
     const r = await server.callTool('browser', { action: 'act', operation: 'key' });
