@@ -121,14 +121,20 @@ async function consumeAndMint(ctx: ApprovalWaitContext, req: ApprovalRequest, pa
   throwIfAborted(ctx.signal); // never mint after control was taken
   const pattern = grantPatternFor(page.url);
   if (pattern === null) throw new Error(`no grantable origin for ${originForAgent(page.url)}`);
-  const ok = await mintOneShotConfirmed({
-    originPattern: pattern,
-    operation: req.operation,
-    tabId: ctx.tabId,
-    generation: page.generation,
-    ...(req.target ? { target: req.target } : {}),
-    ...(req.script !== undefined ? { script: req.script } : {}),
-  });
+  // Raced against the run's signal: a cancellation or lease loss must settle the
+  // run even while the driver's mint is pending. A late authorization for a run
+  // that is gone is withdrawn with the run's other one-shots (withdrawByRun).
+  const ok = await raceAbort(
+    mintOneShotConfirmed({
+      originPattern: pattern,
+      operation: req.operation,
+      tabId: ctx.tabId,
+      generation: page.generation,
+      ...(req.target ? { target: req.target } : {}),
+      ...(req.script !== undefined ? { script: req.script } : {}),
+    }),
+    ctx.signal,
+  );
   if (!ok) throw new Error(`the driver refused the '${req.operation}' authorization`);
   throwIfAborted(ctx.signal); // never act after control was taken
   return true;

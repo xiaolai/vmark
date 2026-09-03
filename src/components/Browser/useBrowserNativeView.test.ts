@@ -32,13 +32,8 @@ vi.mock("@/services/browser/browserOcclusion", () => ({
   },
 }));
 
-import {
-  __resetNativeViews,
-  destroyBrowserNativeView,
-  ensureBrowserNativeView,
-  hasBrowserNativeView,
-  useBrowserNativeView,
-} from "./useBrowserNativeView";
+import { useBrowserNativeView } from "./useBrowserNativeView";
+import { __resetNativeViews, destroyBrowserNativeView, ensureBrowserNativeView, hasBrowserNativeView } from "@/services/browser/browserNativeViews";
 import { browserOcclusion } from "@/services/browser/browserOcclusion";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 

@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: mocks.invoke,
 }));
 
-vi.mock("@/utils/shortcutMatch", () => ({
+vi.mock("@/utils/platform", () => ({
   isMacPlatform: mocks.isMac,
 }));
 

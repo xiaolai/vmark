@@ -81,7 +81,10 @@ type WorkflowStepExecutor = (step: WorkflowStep, index: number) => Promise<StepO
 type ActOp = "click" | "type";
 
 const SUMMARY_MAX = 120;
-const clip = (text: string): string => (text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX)}…` : text);
+const clip = (text: string): string => {
+  const points = Array.from(text); // never split a surrogate pair
+  return points.length > SUMMARY_MAX ? `${points.slice(0, SUMMARY_MAX).join("")}…` : text;
+};
 
 function resolveValue(value: ActionValue, inputs: Record<string, string>): string {
   if (value.kind === "literal") return value.text;
@@ -92,6 +95,14 @@ function resolveValue(value: ActionValue, inputs: Record<string, string>): strin
 
 /** Map an act script's result object onto a `StepOutcome`. */
 function toOutcome(result: Record<string, unknown>, flag: "clicked" | "typed"): StepOutcome {
+  // The act script's result is page-adjacent data and is validated, not trusted: the
+  // flag must be a boolean, and `found:false` with the flag true is a contradiction.
+  // Anything malformed or contradictory is UNKNOWN — the engine asks a human rather
+  // than treating it as success or as a confirmed miss eligible for a write retry.
+  if (typeof result[flag] !== "boolean" || typeof result.found !== "boolean") {
+    return { outcome: "unknown", reason: "malformed-act-result" };
+  }
+  if (result[flag] === true && result.found === false) return { outcome: "unknown", reason: "contradictory-act-result" };
   if (result[flag] === true) return { outcome: "success", postconditionMet: true };
   const reason = typeof result.reason === "string" ? result.reason : result.found === false ? "not-found" : undefined;
   if (reason === "disabled" || reason === "ambiguous") return { outcome: "failed", reason }; // stop-and-ask
@@ -183,7 +194,8 @@ export function makeRunExecutor(ctx: RunExecutorContext): WorkflowStepExecutor {
     } catch {
       return null;
     }
-    const fix = proposeLocatorFix({ role, name }, snapshot.nodes);
+    // Every healed act here is a write (click/type): hold it to the strict floor.
+    const fix = proposeLocatorFix({ role, name }, snapshot.nodes, { write: true });
     if (fix === null || fix.name === name) return null;
     const { raw: _raw, ...healed } = await actOnce(op, fix.role, fix.name, text, url);
     return { ...healed, data: { healedFrom: name, healedTo: fix.name } };

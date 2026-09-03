@@ -20,7 +20,7 @@ describe('SERVER_INSTRUCTIONS', () => {
   it('states the approval contract: surface and wait, never retry-spin', () => {
     expect(SERVER_INSTRUCTIONS).toContain('needsApproval');
     expect(SERVER_INSTRUCTIONS).toMatch(/WAIT/);
-    expect(SERVER_INSTRUCTIONS).toContain('re-raises the same prompt');
+    expect(SERVER_INSTRUCTIONS).toContain('queues ANOTHER prompt');
     expect(SERVER_INSTRUCTIONS).toContain('Uploads are never permitted');
   });
 

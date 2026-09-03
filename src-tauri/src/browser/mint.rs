@@ -147,7 +147,12 @@ pub(crate) fn mint_one_shot(
         return Ok(()); // the same approval, arriving again — see the doc comment
     }
     if shots.len() >= MAX_ONE_SHOTS {
-        return Err("too many pending single-use authorizations".into());
+        // Evict the OLDEST unspent one-shot rather than refuse the newest: the old one
+        // is bound to a generation its tab has almost certainly left, the new one is
+        // the approval the user just gave. The frontend mirror applies the same rule
+        // (`MAX_ONE_SHOTS` in browserApprovalStore.constants.ts, parity-tested), so
+        // the two lists can no longer diverge at the cap.
+        shots.remove(0);
     }
     shots.push(candidate);
     drop(shots);

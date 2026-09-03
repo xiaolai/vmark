@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 import { BrowserSurface } from "./BrowserSurface";
-import { __resetNativeViews } from "./useBrowserNativeView";
+import { __resetNativeViews } from "@/services/browser/browserNativeViews";
 import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
 import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { useTabStore } from "@/stores/tabStore";

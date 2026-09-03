@@ -43,7 +43,7 @@ vi.mock("@/contexts/WindowContext", () => ({ useWindowLabel: () => "main" }));
 vi.mock("@/contexts/PaneContext", () => ({ usePaneContext: () => null }));
 
 import { BrowserWorkspaceSurface } from "./BrowserWorkspaceSurface";
-import { __resetNativeViews } from "./useBrowserNativeView";
+import { __resetNativeViews } from "@/services/browser/browserNativeViews";
 import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";

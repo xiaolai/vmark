@@ -11,7 +11,9 @@
 //! only these *driver* commands are capability-scoped, and `browser_eval` is where
 //! the origin gate is enforced.
 
-use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure, tab_not_found};
+use crate::browser::ai_guards::{
+    lock_failure, require_browser_enabled, surface_failure, tab_not_found,
+};
 use crate::browser::eval_outcome::eval_error;
 use crate::browser::registry::{validate_navigation_url, AutomationMode, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
@@ -108,7 +110,13 @@ pub async fn browser_navigate(
         if reg.automation_mode(&tab_id) == Some(AutomationMode::AiShared) {
             reg.set_shared_navigation_approval(&tab_id, &url)?;
         }
-        (previous_state, previous_committed_url, previous_ticket, previous_shared_origin, ticket)
+        (
+            previous_state,
+            previous_committed_url,
+            previous_ticket,
+            previous_shared_origin,
+            ticket,
+        )
     };
     if let Err(error) = surface::navigate(&app, tab_id.clone(), url) {
         let mut reg = state.registry.lock().map_err(lock_failure)?;

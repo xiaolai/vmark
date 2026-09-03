@@ -84,8 +84,35 @@ export function BrowserOverlays({
           blank hole that a translucent overlay would composite over. */}
       {frozen && <div className="browser-frozen" aria-hidden="true" />}
 
-      {dialog && (
-        <div className="browser-dialog" role="alertdialog" aria-modal="true" aria-label={dialog.message}>
+      {/* A crash outranks a dialog: Rust has already drained the dialog when the process
+          died, so a dialog left in state would sit ABOVE the recovery UI it no longer
+          belongs to. */}
+      {dialog && !crash && (
+        <div
+          className="browser-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={dialog.message}
+          onKeyDown={(e) => {
+            // A modal owns Escape and Tab: Escape cancels a confirm (dismisses an alert),
+            // Tab cycles within the dialog's own buttons instead of wandering into the
+            // hidden native view or unrelated chrome.
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onCloseDialog(dialog.kind !== "confirm");
+              return;
+            }
+            if (e.key !== "Tab") return;
+            const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+            if (buttons.length === 0) return;
+            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+            const next = e.shiftKey
+              ? buttons[(index - 1 + buttons.length) % buttons.length]
+              : buttons[(index + 1) % buttons.length];
+            e.preventDefault();
+            next?.focus();
+          }}
+        >
           <p className="browser-dialog-message">{dialog.message}</p>
           <div className="browser-dialog-actions">
             {dialog.kind === "confirm" && (
@@ -100,6 +127,9 @@ export function BrowserOverlays({
             <button
               type="button"
               className="browser-dialog-btn browser-dialog-btn--primary"
+              // The safe default takes focus: Enter answers OK/dismiss, never a stray
+              // control behind the modal.
+              autoFocus
               onClick={() => onCloseDialog(true)}
             >
               {t("ok")}

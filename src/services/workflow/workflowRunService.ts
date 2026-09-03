@@ -36,7 +36,7 @@ import type { WorkflowStep } from "@/lib/browser/workflow/types";
 import { useBrowserLeaseStore } from "@/services/browser/lease";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { makeRunExecutor } from "./runExecutor";
-import { createRunClock } from "./runClock";
+import { createRunClock, type RunClock } from "./runClock";
 import { makeGuardedExecutor, stepWillBeSkipped, type SkipPolicy } from "./runStepGuard";
 import { validateRunRequest } from "./workflowRunValidate";
 import {
@@ -46,6 +46,7 @@ import {
   getRunAbort,
   isTerminalStatus,
   registerRunAbort,
+  unregisterRunAbort,
   releaseLeaseClaim,
   setPendingApproval,
   updateRun,
@@ -107,6 +108,15 @@ export function startWorkflowRun(source: string, ctx: StartRunContext): StartRun
   if ("error" in checked) return { ok: false, error: checked.error };
   const { workflow, identity, resume } = checked;
   const now = ctx.now ?? Date.now;
+  // Validate the budget BEFORE anything is mutated: a bad deadline used to throw
+  // after the lease was acquired, the run registered and a resumed run superseded,
+  // leaving a permanent live run and AI lease behind a function that returns a result.
+  let clock: RunClock;
+  try {
+    clock = createRunClock(ctx.deadlineMs ?? DEFAULT_BUDGET_MS, now);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 
   const lease = useBrowserLeaseStore.getState();
   if (!lease.acquireForAi(ctx.tabId)) return { ok: false, error: "the human is currently driving this tab" };
@@ -140,8 +150,6 @@ export function startWorkflowRun(source: string, ctx: StartRunContext): StartRun
   lease.setInflightCancel(ctx.tabId, () =>
     controller.abort(new WorkflowPause("lease-lost", "automation lease lost — a human took control")),
   );
-  const clock = createRunClock(ctx.deadlineMs ?? DEFAULT_BUDGET_MS, now);
-
   const executor = makeRunExecutor({
     tabId: ctx.tabId,
     runId: run.runId,
@@ -196,6 +204,7 @@ function finish(runId: string, result: EngineResult): void {
   setPendingApproval(runId, null);
   releaseRunLease(run);
   useBrowserApprovalStore.getState().withdrawByRun(runId);
+  unregisterRunAbort(runId);
 }
 
 /** The current state of a run, for `workflow_status`. */
@@ -213,6 +222,7 @@ export function cancelWorkflowRun(runId: string): CancelResult {
   updateRun(runId, { status: "cancelled", reasonCode: "cancelled", reason: "cancelled by user" });
   setPendingApproval(runId, null);
   getRunAbort(runId)?.abort(new WorkflowPause("cancelled", "cancelled by user"));
+  unregisterRunAbort(runId);
   useBrowserApprovalStore.getState().withdrawByRun(runId);
   releaseRunLease(run);
   return { outcome: "cancelled" };

@@ -58,6 +58,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // One prompt at a time: each request is a separate decision, and stacking them
   // would invite the user to click through a queue.
   const request = useBrowserApprovalStore((s) => s.pending[0] ?? null);
+  const resolving = useBrowserApprovalStore((s) => s.resolving);
   const denyRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   // Prompt-swap protection — see the header. `armedAt` is when THIS request
@@ -134,6 +135,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // "Allow on this site" would be a button that silently does nothing (the grant is
   // sanitized away), which is misleading security UX (Security review P5, Low #5).
   const grantable = !NEVER_GRANTABLE.has(request.operation);
+  // An attach approval is an IPC in flight until it is confirmed; while it is, a
+  // second click must not start a concurrent attach (the store guards it too).
+  const busy = resolving.includes(request.id);
 
   return (
     <div className="browser-approval-backdrop">
@@ -214,7 +218,11 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
         </dl>
 
         <p className="browser-approval-note">
-          {t("browser.approval.note")} {t("browser.approval.sessionNote")}
+          {t("browser.approval.note")}
+          {/* "Site permissions last until VMark quits" describes a standing grant: it
+              is wrong for an attachment ("until navigation") and for a one-shot-only
+              operation, which offers no such button. */}
+          {grantable && !attachment ? ` ${t("browser.approval.sessionNote")}` : ""}
         </p>
 
         <div className="browser-approval-actions">
@@ -222,6 +230,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             type="button"
             ref={denyRef}
             className="vm-btn"
+            disabled={busy}
             onClick={() => resolve("deny")}
           >
             {t("browser.approval.deny")}
@@ -229,6 +238,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           <button
             type="button"
             className="vm-btn"
+            disabled={busy}
             onPointerDown={armPointer}
             onClick={(e) => resolve("once", e)}
           >
@@ -238,6 +248,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             <button
               type="button"
               className="vm-btn vm-btn--primary"
+              disabled={busy}
               onPointerDown={armPointer}
               onClick={(e) => resolve("remember", e)}
             >

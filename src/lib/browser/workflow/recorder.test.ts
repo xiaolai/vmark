@@ -5,7 +5,13 @@
 import { describe, it, expect } from "vitest";
 import { recordingToWorkflow, type RecordedEvent } from "./recorder";
 import { parseWorkflow } from "./parser";
-import { parseActionText } from "./stepGrammar";
+import { parseAction } from "./stepGrammar";
+
+/** Test convenience: the parsed action, or null when the text is not executable. */
+function parseActionText(text: string) {
+  const r = parseAction(text);
+  return r.ok ? r.action : null;
+}
 import { parseDrainedEvents } from "./drainedEvents";
 
 describe("recordingToWorkflow — round-trip", () => {

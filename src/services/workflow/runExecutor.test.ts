@@ -189,12 +189,15 @@ describe("non-executable steps pause the run", () => {
 describe("self-heal (WI-NB6.4 / P-3)", () => {
   it("retries a not-found click against a fuzzy-matched same-role locator", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(snapshotOf([["button", "Publish now"]]), (args) =>
-      args.name === "Publish now" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
+    // A healed act is a WRITE, so only a near-identical name qualifies (the
+    // permissive prefix floor no longer applies: "Publish" must not heal to
+    // "Publish now", which is a different action).
+    routeEval(snapshotOf([["button", "Publish!"]]), (args) =>
+      args.name === "Publish!" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
     );
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
-    expect(out).toMatchObject({ outcome: "success", data: { healedFrom: "Publish", healedTo: "Publish now" } });
+    expect(out).toMatchObject({ outcome: "success", data: { healedFrom: "Publish", healedTo: "Publish!" } });
   });
 
   it("does not heal an obscured click (page state, not a drifted locator)", async () => {

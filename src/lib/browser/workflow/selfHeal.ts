@@ -38,6 +38,7 @@
  * @module lib/browser/workflow/selfHeal
  */
 import type { AriaNode } from "../agent/aria";
+import { normalize as ariaNormalize } from "../agent/ariaName";
 
 /** A role + accessible-name locator. */
 export interface Locator {
@@ -70,7 +71,10 @@ const NON_PREFIX_FLOOR = 0.85;
  *  drift, and must not disguise a prefix), case-folded, and split into CODE POINTS —
  *  an emoji is one character, not two surrogate halves that distort the score. */
 function normalize(name: string): string[] {
-  return Array.from(name.normalize("NFC").replace(/\p{Cf}/gu, "").trim().toLowerCase());
+  // The SAME normalization the ARIA snapshot applies to the names it produces
+  // (format characters, whitespace collapse), then case-folded and split into
+  // code points — a local copy had drifted (no whitespace collapse).
+  return Array.from(ariaNormalize(name).toLowerCase());
 }
 
 /** Whether `candidate` starts with every code point of `prefix`. */
@@ -134,7 +138,7 @@ function nameSimilarity(a: readonly string[], b: readonly string[], minConfidenc
 export function proposeLocatorFix(
   failed: Locator,
   snapshot: readonly SnapshotNode[],
-  options: { minConfidence?: number } = {},
+  options: { minConfidence?: number; write?: boolean } = {},
 ): LocatorProposal | null {
   const minConfidence = options.minConfidence ?? 0.6;
   if (!Number.isFinite(minConfidence) || minConfidence < 0 || minConfidence > 1) {
@@ -159,7 +163,10 @@ export function proposeLocatorFix(
     if (isPrefixedForm(candidate, failedName)) continue;
     // Decoration appended to the same name keeps the caller's floor; anything
     // else (a typo, another word) must be nearly identical.
-    const floor = startsWith(candidate, failedName) ? minConfidence : Math.max(minConfidence, NON_PREFIX_FLOOR);
+    // A WRITE never heals on the permissive prefix floor: "Delete" healing to
+    // "Delete all" under a standing grant is a different action, not decoration.
+    const prefixFloor = options.write ? Math.max(minConfidence, NON_PREFIX_FLOOR) : minConfidence;
+    const floor = startsWith(candidate, failedName) ? prefixFloor : Math.max(minConfidence, NON_PREFIX_FLOOR);
     const confidence = nameSimilarity(failedName, candidate, floor);
     if (confidence < floor) continue;
 

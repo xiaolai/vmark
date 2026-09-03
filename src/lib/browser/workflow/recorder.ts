@@ -44,6 +44,7 @@
  * @module lib/browser/workflow/recorder
  */
 import { isValidInputName } from "./parser";
+import { urlForAgent } from "../url";
 
 /** One recorded user action, as drained from the page-world shim (click/type) or
  *  synthesized host-side from a navigation event. Deliberately carries NO typed
@@ -98,14 +99,29 @@ function locator(name: string | undefined, role: string | undefined): string {
  *  bare `navigate`), never passed through. */
 function stripUrl(raw: string | undefined): string {
   if (!raw) return "";
+  let u: URL;
   try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
-    return `${u.origin}${u.pathname}`;
+    u = new URL(raw);
   } catch {
     return "";
   }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+  // The same redactor the agent sees (userinfo, query and fragment gone), so the two
+  // security-sensitive implementations cannot drift. Then the PATH: a reset, magic-login
+  // or invite link carries its token there, and a recorded workflow is an artifact that
+  // outlives the session — such a navigation is kept as its origin only.
+  const redacted = urlForAgent(u.href);
+  const path = u.pathname;
+  if (CREDENTIAL_PATH.test(path) || path.split("/").some((seg) => TOKEN_SEGMENT.test(seg))) {
+    return u.origin;
+  }
+  return redacted;
 }
+
+/** Path words that name a credential-bearing flow. */
+const CREDENTIAL_PATH = /(^|\/)(reset|reset-password|magic|magic-link|magic-login|token|verify|confirm|invite|activate|auth|callback|sso)(\/|$)/i;
+/** A long opaque segment: hex, base64url or a random id — the shape a token takes. */
+const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/;
 
 /** Derive a variable name from a field label. NFKC-normalized, non-alphanumerics
  *  collapsed to `_`, forced to start with a letter/underscore. The result satisfies

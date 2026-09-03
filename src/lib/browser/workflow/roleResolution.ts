@@ -47,6 +47,10 @@ export type RoleResolution =
 function hasUnreachable(value: unknown): boolean {
   if (typeof value === "number") return value > 0;
   if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object" && value !== null) {
+    // The production shape: counts of what the walk could not enter.
+    return Object.values(value as Record<string, unknown>).some((v) => typeof v === "number" && v > 0);
+  }
   return value === true;
 }
 
@@ -70,11 +74,11 @@ export function parseSnapshotResult(raw: string): SnapshotRead | null {
   } catch {
     return null;
   }
-  if (Array.isArray(parsed)) {
-    const nodes = toNodes(parsed);
-    return nodes ? { nodes, truncated: false, unreachable: false } : null;
-  }
-  if (typeof parsed !== "object" || parsed === null) return null;
+  // A bare array carries no completeness signal at all, and inventing
+  // truncated:false / unreachable:false for it let a role be resolved with confidence
+  // from data that may have been incomplete. The snapshot handler has emitted the
+  // object form for a long time; anything else is not a snapshot.
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
   const obj = parsed as Record<string, unknown>;
   const nodes = toNodes(obj.nodes);
   if (!nodes) return null;

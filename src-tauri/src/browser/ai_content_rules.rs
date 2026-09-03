@@ -150,9 +150,9 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     filters.extend(each(&["18", "19"], |second| ipv4_two("198", second))); // 198.18.0.0/15
     filters.push(ipv4_three("198", "51", "100")); // 198.51.100.0/24 TEST-NET-2
     filters.push(ipv4_three("203", "0", "113")); // 203.0.113.0/24 TEST-NET-3
-    // …and their hex-embedded IPv6 spellings. A /24 is one value of the high
-    // group plus the high byte of the low group; WebKit strips leading zeros per
-    // group, so 192.0.0.x is `c000:x` (1–2 hex digits) and 192.0.2.x is `c000:2xx`.
+                                                 // …and their hex-embedded IPv6 spellings. A /24 is one value of the high
+                                                 // group plus the high byte of the low group; WebKit strips leading zeros per
+                                                 // group, so 192.0.0.x is `c000:x` (1–2 hex digits) and 192.0.2.x is `c000:2xx`.
     for mapped in [true, false] {
         filters.push(ipv6_embedded(mapped, "c000", "[0-9a-f]?[0-9a-f]"));
         filters.push(ipv6_embedded(mapped, "c000", "2[0-9a-f][0-9a-f]"));

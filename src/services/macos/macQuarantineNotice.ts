@@ -32,7 +32,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { isMacPlatform } from "@/utils/shortcutMatch";
+import { isMacPlatform } from "@/utils/platform";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
@@ -40,7 +40,8 @@ import { workspaceError } from "@/utils/debug";
 
 interface QuarantineStripStats {
   stripped_count: number;
-  error_count: number;
+  /** Reported by Rust; not consulted here (a partial strip still clears what it could). */
+  error_count?: number;
 }
 
 function isStripStats(value: unknown): value is QuarantineStripStats {
@@ -55,8 +56,11 @@ const NOTICE_FLAG_KEY = "vmark-mac-quarantine-notice-shown";
 
 /** Has the one-time toast already been shown on this machine? */
 function hasShownNotice(): boolean {
+  // No storage at all (not merely a throwing one): the notice could never be
+  // suppressed, so treat it as shown rather than toast on every open.
+  if (typeof globalThis.localStorage === "undefined") return true;
   try {
-    return globalThis.localStorage?.getItem(NOTICE_FLAG_KEY) === "1";
+    return globalThis.localStorage.getItem(NOTICE_FLAG_KEY) === "1";
   } catch {
     // localStorage unavailable (private mode, sandbox) — treat as shown so
     // we don't pester users with a toast we can't suppress later.

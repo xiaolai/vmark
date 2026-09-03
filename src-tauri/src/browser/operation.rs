@@ -84,12 +84,17 @@ impl BrowserOperation {
             // `session` binds an `action:handle` descriptor, so an "Allow once" for
             // "load work_login" cannot be spent on loading a different saved session
             // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
-            Self::Style | Self::Eval | Self::Session | Self::Type | Self::Key | Self::Scroll => true,
+            Self::Style | Self::Eval | Self::Session | Self::Type | Self::Key | Self::Scroll => {
+                true
+            }
             // `click` is target-only: its script carries nothing beyond the
             // descriptor the prompt already showed. The rest carry no script.
-            Self::Read | Self::Attach | Self::Click | Self::Navigate | Self::Upload | Self::Record => {
-                false
-            }
+            Self::Read
+            | Self::Attach
+            | Self::Click
+            | Self::Navigate
+            | Self::Upload
+            | Self::Record => false,
         }
     }
 

@@ -134,9 +134,16 @@ export function startBrowserTabEvents(): () => void {
     },
     onCrashed: (tabId, action) => {
       if (!owned(tabId)) return;
+      const ui = useBrowserUiStore.getState();
+      // The process that owned an open page dialog is gone, and the driver drained
+      // its completion handler; a dialog left in state would sit above the recovery UI.
+      if (ui.entries[tabId]?.dialog) {
+        ui.setDialog(tabId, null);
+        browserOcclusion.removeOccluder(tabId, OCCLUDER.dialog);
+      }
       // The native view still paints over the DOM after a crash; freeze it so the
       // recovery overlay is visible in its place (WI-1.4 occlusion / WI-1.8).
-      useBrowserUiStore.getState().setCrash(tabId, { action });
+      ui.setCrash(tabId, { action });
       browserOcclusion.addOccluder(tabId, OCCLUDER.crash);
     },
     onDialog: (tabId, dialog) => {

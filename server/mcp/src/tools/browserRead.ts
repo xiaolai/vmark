@@ -200,6 +200,11 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
             );
           }
           const name = typeof args.name === 'string' ? args.name : undefined;
+          if (name !== undefined && role === undefined) {
+            // A name qualifies a role; with any other mode it was silently ignored,
+            // so the caller waited for something other than what they asked for.
+            return VMarkMcpServer.errorResult('wait_for: `name` is only valid together with `role`');
+          }
           const condition =
             ref !== undefined
               ? { ref }

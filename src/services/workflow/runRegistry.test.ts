@@ -14,7 +14,7 @@ import {
   getRunAbort,
   hasLiveRun,
   isTerminalStatus,
-  leaseOwnerRunId,
+  __leaseOwnerRunId,
   markWriteStepDone,
   noteStepAttempt,
   noteStepResult,
@@ -151,11 +151,11 @@ describe("lease ownership (W-08): the lease is released only by the run that hol
   it("records the owner and lets only that run release the claim", () => {
     const a = createRun({ tabId: "t1", ...base });
     claimLease("t1", a.runId);
-    expect(leaseOwnerRunId("t1")).toBe(a.runId);
+    expect(__leaseOwnerRunId("t1")).toBe(a.runId);
     expect(releaseLeaseClaim("t1", "someone-else")).toBe(false);
-    expect(leaseOwnerRunId("t1")).toBe(a.runId);
+    expect(__leaseOwnerRunId("t1")).toBe(a.runId);
     expect(releaseLeaseClaim("t1", a.runId)).toBe(true);
-    expect(leaseOwnerRunId("t1")).toBeNull();
+    expect(__leaseOwnerRunId("t1")).toBeNull();
     expect(releaseLeaseClaim("t1", a.runId)).toBe(false);
   });
 });

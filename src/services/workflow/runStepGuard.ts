@@ -21,7 +21,7 @@
 
 import { stepWrites } from "@/lib/browser/workflow/classify";
 import { WorkflowPause } from "@/lib/browser/workflow/engine";
-import type { StepOutcome } from "@/lib/browser/workflow/safety";
+import { decideAfterResult, type StepOutcome } from "@/lib/browser/workflow/safety";
 import type { WorkflowStep } from "@/lib/browser/workflow/types";
 import type { RunClock } from "./runClock";
 import { markWriteStepDone, noteStepAttempt, noteStepResult, writeStepAlreadyDone } from "./runRegistry";
@@ -83,7 +83,10 @@ export function makeGuardedExecutor(args: StepGuardArgs): WorkflowStepExecutor {
       });
       throw error;
     }
-    if (outcome.outcome === "success" && stepWrites(step)) {
+    // Ledger a write only when the engine's own verdict is "done": a success whose
+    // postcondition says it did NOT land is not done (and was being ledgered), and a
+    // failed write whose postcondition says it DID land is done (and was not).
+    if (stepWrites(step) && decideAfterResult(true, outcome) === "done") {
       markWriteStepDone(args.tabId, args.ledgerId, stepId(step));
     }
     noteStepResult(args.runId, step.index, {

@@ -4,7 +4,13 @@
 // round-trip) — click/type with a "name" (role) target, navigate to <url> —
 // and reject anything it cannot execute deterministically so the runner pauses.
 import { describe, it, expect } from "vitest";
-import { parseAction, parseActionText } from "./stepGrammar";
+import { parseAction } from "./stepGrammar";
+
+/** Test convenience: the parsed action, or null when the text is not executable. */
+function parseActionText(text: string) {
+  const r = parseAction(text);
+  return r.ok ? r.action : null;
+}
 import { expectBoundedTime } from "@/test/timeBudget";
 
 describe("parseActionText — click", () => {

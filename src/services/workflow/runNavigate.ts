@@ -89,7 +89,9 @@ export async function runNavigateStep(ctx: NavigateStepContext, url: string): Pr
       return { outcome: "failed", postconditionMet: false, reason: "NAVIGATION_SUPERSEDED" };
     case "timeout":
       if (ctx.clock.expired()) throw new WorkflowPause("deadline", "the run budget was spent waiting for the navigation");
-      return { outcome: "failed", postconditionMet: false, reason: "TIMEOUT" };
+      // The ticket is still live and may yet load: "confirmed not applied" would let the
+      // engine issue the same navigation again on top of it. Inconclusive → a human.
+      return { outcome: "unknown", reason: "TIMEOUT" };
     case "disabled":
       return { outcome: "failed", reason: "BROWSER_DISABLED" };
     case "unmounted":

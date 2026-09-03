@@ -49,6 +49,9 @@ import { MAX_PENDING_APPROVALS } from "./browserApprovalStore.constants";
 interface BrowserApprovalState {
   grants: StandingGrant[];
   pending: PendingApproval[];
+  /** Prompts whose approval IPC (attach) is in flight — the dialog disables its
+   *  buttons for these and the store ignores a second decision. */
+  resolving: string[];
   oneShots: OneShotApproval[];
   attachments: HumanTabAttachment[];
   profileOpens: ProfileOpenApproval[];
@@ -144,6 +147,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
   (set, get) => ({
     grants: [],
     pending: [],
+    resolving: [],
     oneShots: [],
     attachments: [],
     profileOpens: [],
@@ -191,7 +195,12 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     // lease-lost) withdraws its own pending prompts, so a "Allow" clicked after
     // the run is gone cannot mint a one-shot for a run that will never use it.
     withdrawByRun: (runId) =>
-      set((state) => ({ pending: state.pending.filter((p) => p.runId !== runId) })),
+      set((state) => ({
+        pending: state.pending.filter((p) => p.runId !== runId),
+        // An "Allow once" that won the race against the cancellation minted a
+        // one-shot the run will never spend; it must not stay consumable.
+        oneShots: state.oneShots.filter((s) => s.runId !== runId),
+      })),
 
     resolveApproval: (id, outcome) => {
       const request = get().pending.find((p) => p.id === id);
@@ -206,11 +215,18 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         // dropping it first left a failure with no prompt, no attachment and no
         // message (audit 20260815-163607 #24).
         if (outcome === "deny") return drop();
+        // Single-flight: while the attach IPC is pending the prompt is still
+        // raised, so a second click used to launch a second attach whose completion
+        // order decided the final authority. The dialog disables its buttons on
+        // `resolving`; this is the guard behind it.
+        if (get().resolving.includes(id)) return;
+        set((s) => ({ resolving: [...s.resolving, id] }));
         void get()
           .attachHumanTab(request.tabId, request.generation, outcome === "once")
           .then((ok) => {
             if (ok) drop();
-          });
+          })
+          .finally(() => set((s) => ({ resolving: s.resolving.filter((r) => r !== id) })));
         return;
       }
       set((state) => resolveNonAttach(state, request, outcome, pattern));
@@ -249,7 +265,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       }));
     },
 
-    clearEphemeral: () => set({ pending: [], oneShots: [], attachments: [], profileOpens: [] }),
+    clearEphemeral: () => set({ pending: [], resolving: [], oneShots: [], attachments: [], profileOpens: [] }),
 
     attachHumanTab: (tabId, generation, once) =>
       performHumanTabAttach(tabId, generation, once).then((ok) => {

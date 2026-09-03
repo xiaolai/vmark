@@ -115,7 +115,9 @@ function updateEntry(
   tabId: string,
   updater: (entry: BrowserUiEntry) => BrowserUiEntry,
 ): BrowserUiState {
-  const entry = state.entries[tabId];
+  // `hasOwn`: a tab id such as "constructor" or "toString" must not resolve an
+  // inherited property into an entry.
+  const entry = Object.hasOwn(state.entries, tabId) ? state.entries[tabId] : undefined;
   if (!entry) return state;
   return { entries: { ...state.entries, [tabId]: updater(entry) } };
 }
@@ -126,7 +128,7 @@ export const useBrowserUiStore = create<BrowserUiState & BrowserUiActions>((set)
 
   ensureEntry: (tabId, initialUrl) =>
     set((state) =>
-      state.entries[tabId]
+      Object.hasOwn(state.entries, tabId)
         ? state
         : {
             entries: {

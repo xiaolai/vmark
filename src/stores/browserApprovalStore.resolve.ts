@@ -7,7 +7,7 @@
  * @module stores/browserApprovalStore.resolve
  */
 import { addGrant, type StandingGrant } from "@/lib/browser/approval/grants";
-import { MAX_PENDING_APPROVALS } from "./browserApprovalStore.constants";
+import { MAX_ONE_SHOTS, MAX_PENDING_APPROVALS } from "./browserApprovalStore.constants";
 import { approvalBindings } from "./browserApprovalStore.helpers";
 import type {
   ApprovalOutcome,
@@ -65,11 +65,13 @@ export function resolveNonAttach(
       : state.grants,
     oneShots: once
       ? [
-          ...state.oneShots,
+          // At the cap the OLDEST unspent one-shot goes (see MAX_ONE_SHOTS).
+          ...(state.oneShots.length >= MAX_ONE_SHOTS ? state.oneShots.slice(1) : state.oneShots),
           {
             originPattern: pattern as string,
             operation: request.operation,
             tabId: request.tabId,
+            ...(request.runId !== undefined ? { runId: request.runId } : {}),
             // The generation the prompt was RAISED against — not whatever is current
             // when the driver eventually receives the mint. (Audit, High.)
             generation: request.generation,

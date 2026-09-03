@@ -32,6 +32,7 @@
 
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { browserWarn } from "@/utils/debug";
 import { useBrowserNativeView } from "./useBrowserNativeView";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
@@ -98,13 +99,28 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // Answer (or dismiss) the open page dialog, then release its occluder. Only a
   // `confirm` can be answered — the type carries the completion-handler id, so
   // there is no unanswerable-confirm case to guard against here.
+  const respondingRef = useRef(false);
   const closeDialog = (accepted: boolean) => {
     const current = useBrowserUiStore.getState().entries[tabId]?.dialog ?? null;
-    useBrowserUiStore.getState().setDialog(tabId, null);
-    browserOcclusion.removeOccluder(tabId, OCCLUDER.dialog);
-    if (current?.kind === "confirm") {
-      void invoke("browser_dialog_respond", { id: current.id, accepted }).catch(() => {});
-    }
+    if (!current) return;
+    const dismiss = () => {
+      useBrowserUiStore.getState().setDialog(tabId, null);
+      browserOcclusion.removeOccluder(tabId, OCCLUDER.dialog);
+    };
+    if (current.kind !== "confirm") return dismiss();
+    // The dialog and its occluder stay up until the native confirm has actually been
+    // answered: dismissing first and swallowing a rejection left a parked confirm() with
+    // no UI to answer it. One submission at a time.
+    if (respondingRef.current) return;
+    respondingRef.current = true;
+    invoke("browser_dialog_respond", { id: current.id, accepted })
+      .then(dismiss)
+      .catch((error: unknown) => {
+        browserWarn("browser_dialog_respond failed; the page dialog stays open for a retry", { tabId, error });
+      })
+      .finally(() => {
+        respondingRef.current = false;
+      });
   };
 
   const recover = () => {

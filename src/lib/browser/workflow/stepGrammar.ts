@@ -68,12 +68,14 @@ function scanQuoted(text: string, start: number): { inner: string; end: number }
   return null;
 }
 
-/** Reverse `recorder.quote` (JSON string escaping). An invalid escape is kept literally. */
-function unquote(inner: string): string {
+/** Reverse `recorder.quote` (JSON string escaping). An invalid escape or a raw
+ *  control character is a MALFORMED value (null), not text kept literally — kept
+ *  literally, it became an executable action the recorder never wrote. */
+function unquote(inner: string): string | null {
   try {
     return JSON.parse(`"${inner}"`) as string;
   } catch {
-    return inner;
+    return null;
   }
 }
 
@@ -84,10 +86,12 @@ function parseTarget(raw: string): { name: string; role: string | undefined } | 
   const quoted = scanQuoted(text, 0);
   if (!quoted) return fail("malformed-target", "unterminated quoted name");
   const name = unquote(quoted.inner);
+  if (name === null) return fail("malformed-target", "invalid escape or control character in the target name");
   if (name.trim() === "") return fail("malformed-target", "empty target name");
   const rest = text.slice(quoted.end).trim();
   if (rest === "") return { name, role: undefined };
-  const role = /^\(([a-z]+)\)$/.exec(rest);
+  // The ARIA resolver accepts hyphenated roles (`doc-pagebreak`); so does this.
+  const role = /^\(([a-z]+(?:-[a-z]+)*)\)$/.exec(rest);
   if (!role) return fail("malformed-target", `unexpected text after the target name: ${rest.slice(0, 40)}`);
   return { name, role: role[1] };
 }
@@ -98,7 +102,9 @@ function parseValueAt(text: string): { value: ActionValue; end: number } | Actio
   if (text[0] === '"') {
     const quoted = scanQuoted(text, 0);
     if (!quoted) return fail("malformed-value", "unterminated quoted value");
-    return { value: { kind: "literal", text: unquote(quoted.inner) }, end: quoted.end };
+    const literal = unquote(quoted.inner);
+    if (literal === null) return fail("malformed-value", "invalid escape or control character in the value");
+    return { value: { kind: "literal", text: literal }, end: quoted.end };
   }
   const input = /^\{([A-Za-z_][A-Za-z0-9_]*)\}/.exec(text);
   if (input) return { value: { kind: "input", name: input[1] }, end: input[0].length };
@@ -136,8 +142,3 @@ export function parseAction(text: string): ActionParseResult {
   return fail("not-executable", "not a click / type / navigate action");
 }
 
-/** Parse the text of an `action:` step, or null if it is not executable. */
-export function parseActionText(text: string): ParsedAction | null {
-  const r = parseAction(text);
-  return r.ok ? r.action : null;
-}

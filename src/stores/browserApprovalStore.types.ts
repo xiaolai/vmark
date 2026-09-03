@@ -69,6 +69,10 @@ export interface OneShotApproval {
   /** Canonical bare origin pattern the approval was granted on. */
   originPattern: string;
   operation: string;
+  /** The workflow run whose prompt minted this, so the run's end can withdraw an
+   *  unspent one-shot with its pending prompts — "Allow once" clicked as the run
+   *  was cancelled used to leave a consumable one-shot behind for any later request. */
+  runId?: string;
   /** The generation the user approved against — see `PendingApproval.generation`. */
   generation: number;
   /**

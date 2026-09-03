@@ -33,7 +33,14 @@ export interface RunClock {
   readonly paused: boolean;
 }
 
-export function createRunClock(budgetMs: number, now: () => number = Date.now): RunClock {
+/** Monotonic where the platform offers it: a wall-clock rollback must not extend
+ *  the budget, nor a forward adjustment expire it early. */
+const monotonicNow: () => number =
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? () => performance.now()
+    : Date.now;
+
+export function createRunClock(budgetMs: number, now: () => number = monotonicNow): RunClock {
   if (!Number.isFinite(budgetMs) || budgetMs < 0) {
     throw new RangeError(`run budget must be a finite non-negative number of ms (got ${budgetMs})`);
   }

@@ -63,13 +63,23 @@ describe("runNavigateStep — awaits the ticket (W-02)", () => {
 
   it.each([
     ["failed", { kind: "failed", tabId: TAB, navigationId: "nav-1", message: "DNS" }, "NAVIGATION_FAILED"],
-    ["timeout", { kind: "timeout", tabId: TAB, navigationId: "nav-1" }, "TIMEOUT"],
     ["superseded", { kind: "superseded", tabId: TAB, navigationId: "nav-1" }, "NAVIGATION_SUPERSEDED"],
   ] as const)("%s → failed + postconditionMet:false (retry-eligible)", async (_kind, result, reason) => {
     const { ctx, onNavigated } = harness({ waitForNavigation: vi.fn(async () => result as BrowserWaitResult) });
     const out = await runNavigateStep(ctx, DEST);
     expect(out).toMatchObject({ outcome: "failed", postconditionMet: false });
     expect(out.reason).toContain(reason);
+    expect(onNavigated).not.toHaveBeenCalled();
+  });
+
+  it("timeout → unknown: the ticket may still load, so it is never a retry-eligible miss", async () => {
+    // A "confirmed not applied" here let the engine issue the same navigation again on
+    // top of a load that was still in flight (audit 2026-09-03 round 1).
+    const { ctx, onNavigated } = harness({
+      waitForNavigation: vi.fn(async () => ({ kind: "timeout", tabId: TAB, navigationId: "nav-1" }) as BrowserWaitResult),
+    });
+    const out = await runNavigateStep(ctx, DEST);
+    expect(out).toEqual({ outcome: "unknown", reason: "TIMEOUT" });
     expect(onNavigated).not.toHaveBeenCalled();
   });
 

@@ -211,16 +211,27 @@ fn minting_is_bounded() {
     // vector (audit 20260903 A-04), so it cannot exercise the cap.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
-    let mut last = Ok(());
     for i in 0..(MAX_ONE_SHOTS + 8) {
         let target = Some(OneShotTarget {
             role: "button".into(),
             name: format!("b{i}"),
         });
-        last = mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target, None);
+        mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target, None)
+            .expect("at the cap the OLDEST unspent one-shot is evicted, the new one is kept");
     }
-    assert!(last.is_err(), "expected the cap to refuse further mints");
-    assert!(surface.one_shots.lock().unwrap().len() <= MAX_ONE_SHOTS);
+    let shots = surface.one_shots.lock().unwrap();
+    assert_eq!(shots.len(), MAX_ONE_SHOTS);
+    let has = |name: &str| {
+        shots
+            .iter()
+            .any(|s| s.target.as_ref().is_some_and(|t| t.name == name))
+    };
+    // FIFO: the first eight are gone, the newest is present (parity with the frontend mirror).
+    assert!(
+        !has("b0") && !has("b7"),
+        "the oldest one-shots must have been evicted"
+    );
+    assert!(has("b8") && has(&format!("b{}", MAX_ONE_SHOTS + 7)));
 }
 
 // -------------------------------------------------------------- WI-1.3 attach

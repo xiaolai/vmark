@@ -20,8 +20,8 @@
  */
 import { useEffect, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { browserWarn } from "@/utils/debug";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
-import { browserOcclusion } from "@/services/browser/browserOcclusion";
 import {
   ensureBrowserNativeView,
   markSurfaceMounted,
@@ -33,12 +33,9 @@ import {
 } from "@/services/commands/commandError";
 import type { BrowserAutomationMode } from "@/stores/tabStoreTypes";
 
-export {
-  __resetNativeViews,
-  destroyBrowserNativeView,
-  ensureBrowserNativeView,
-  hasBrowserNativeView,
-} from "@/services/browser/browserNativeViews";
+/** A rejected bounds report is retried this many times, spaced by the delay. */
+const BOUNDS_RETRIES = 3;
+const BOUNDS_RETRY_MS = 150;
 
 export function useBrowserNativeView(
   tabId: string,
@@ -54,12 +51,10 @@ export function useBrowserNativeView(
     let active = true;
     useBrowserUiStore.getState().ensureEntry(tabId, url);
     markSurfaceMounted(tabId);
+    // `ensureBrowserNativeView` re-drives occlusion itself once the view exists; a
+    // second resync here was the same work twice.
     const created = ensureBrowserNativeView(tabId, url, automationMode);
     void created
-      .then(() => {
-        // The native view exists NOW — not when the store entry above was seeded.
-        if (active) browserOcclusion.resync(tabId);
-      })
       .catch((e: unknown) => {
         // A create that fails leaves NO native view at all — the tab would sit there as an
         // empty rect forever. Say so (WI-S0.9).
@@ -86,19 +81,38 @@ export function useBrowserNativeView(
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
+    // Bounds are coalesced (only the latest rect is ever sent) and a rejection is
+    // retried once the view can exist: a create/layout race used to drop the rect
+    // silently and leave the native view misaligned over unrelated UI for good.
+    let latest: DOMRect | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const send = (attempt: number) => {
+      const r = latest;
+      if (!r) return;
+      void invoke("browser_set_bounds", { tabId, x: r.x, y: r.y, width: r.width, height: r.height }).catch(
+        (error: unknown) => {
+          if (attempt < BOUNDS_RETRIES) {
+            retry = setTimeout(() => send(attempt + 1), BOUNDS_RETRY_MS * (attempt + 1));
+            return;
+          }
+          browserWarn("browser_set_bounds kept failing; the native view may be misaligned", { tabId, error });
+        },
+      );
+    };
     const report = () => {
-      const r = el.getBoundingClientRect();
-      void invoke("browser_set_bounds", {
-        tabId,
-        x: r.x,
-        y: r.y,
-        width: r.width,
-        height: r.height,
-      }).catch(() => {});
+      latest = el.getBoundingClientRect();
+      if (retry !== null) {
+        clearTimeout(retry);
+        retry = null;
+      }
+      send(0);
     };
     const observer = new ResizeObserver(report);
     observer.observe(el);
     report();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (retry !== null) clearTimeout(retry);
+    };
   }, [tabId, layoutVersion, viewportRef]);
 }

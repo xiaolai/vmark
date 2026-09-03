@@ -168,6 +168,7 @@ export function noteStepAttempt(runId: string, index: number): void {
   entry.attempts += 1;
   entry.status = "running";
   delete entry.reason;
+  delete entry.data; // an earlier attempt's output must not decorate this one
   state.stepResults = [...state.stepResults];
   recount(state);
 }
@@ -185,6 +186,7 @@ export function noteStepResult(
   if (result.reason !== undefined) entry.reason = result.reason;
   else delete entry.reason;
   if (result.data !== undefined) entry.data = result.data;
+  else delete entry.data;
   state.stepResults = [...state.stepResults];
   recount(state);
 }
@@ -205,12 +207,18 @@ export function getRunAbort(runId: string): AbortController | null {
   return aborts.get(runId) ?? null;
 }
 
+/** Forget a finished run's controller — they accumulated for the whole session. */
+export function unregisterRunAbort(runId: string): void {
+  aborts.delete(runId);
+}
+
 /** Record that `runId` acquired the tab's AI lease. */
 export function claimLease(tabId: string, runId: string): void {
   leaseOwners.set(tabId, runId);
 }
 
-export function leaseOwnerRunId(tabId: string): string | null {
+/** Test seam only: production reads the owner through the release path. */
+export function __leaseOwnerRunId(tabId: string): string | null {
   return leaseOwners.get(tabId) ?? null;
 }
 

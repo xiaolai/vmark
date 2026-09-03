@@ -35,9 +35,6 @@ type Outcome = "success" | "failed" | "unknown";
  *  silent fall-through into the retry path. */
 export type NextAction = "done" | "retry" | "stop-and-ask";
 
-/** Execution tiers, from least to most autonomous. */
-export const TIER_ORDER = ["api", "action", "goal", "vision"] as const;
-export type Tier = (typeof TIER_ORDER)[number];
 
 /** The result of running a step. */
 export interface StepOutcome {
@@ -87,16 +84,6 @@ export function decideAfterResult(write: boolean, result: StepOutcome): NextActi
   return "stop-and-ask"; // inconclusive — never risk a double write
 }
 
-/**
- * The next tier to try, or null when escalation is not allowed. Writes never
- * auto-escalate (R8a): a more-autonomous retry of a write is a new operation
- * that must be re-approved, not an automatic fallback.
- */
-export function nextTier(current: Tier, write: boolean): Tier | null {
-  if (write) return null;
-  const i = TIER_ORDER.indexOf(current);
-  return i >= 0 && i < TIER_ORDER.length - 1 ? TIER_ORDER[i + 1] : null;
-}
 
 /**
  * Deterministic, order-independent encoding for idempotency keys.
@@ -144,7 +131,18 @@ function canonical(value: unknown, seen: Set<object>, depth: number): string {
   if (seen.has(obj)) throw new TypeError("idempotencyKey: cannot encode a cyclic value.");
   seen.add(obj);
   try {
-    if (Array.isArray(obj)) return encodeArray(obj, seen, depth);
+    if (Array.isArray(obj)) {
+      // An array is validated like an object: a subclass, a symbol key or an own
+      // non-index property would otherwise be ignored, so two distinct inputs could
+      // share one idempotency key.
+      if (Object.getPrototypeOf(obj) !== Array.prototype) {
+        throw new TypeError(`idempotencyKey: cannot encode a "${obj.constructor?.name ?? "array"}" value.`);
+      }
+      if (Object.getOwnPropertySymbols(obj).length > 0 || Object.keys(obj).some((k) => !/^(0|[1-9]\d*)$/.test(k))) {
+        throw new TypeError("idempotencyKey: cannot encode an array with non-index properties.");
+      }
+      return encodeArray(obj, seen, depth);
+    }
     if (obj instanceof Date) return encodeDate(obj);
     const proto: unknown = Object.getPrototypeOf(obj);
     if (proto !== Object.prototype && proto !== null) {
@@ -207,33 +205,6 @@ export function idempotencyKey(stepId: string, inputs: Record<string, unknown>):
   return `${stepId}:${canonical(inputs, new Set(), 0)}`;
 }
 
-/** Live loop counters. */
-export interface LoopState {
-  iterations: number;
-  elapsedMs: number;
-  cancelled: boolean;
-}
 
 /** Configured loop bounds. */
-export interface LoopBounds {
-  maxIterations: number;
-  timeoutMs: number;
-}
 
-/** Why the genie/agent loop should stop, or null to continue. Cancellation
- *  takes precedence, then the iteration cap, then the timeout. */
-export function loopStopReason(
-  state: LoopState,
-  bounds: LoopBounds,
-): "cancelled" | "max-iterations" | "timeout" | null {
-  if (state.cancelled) return "cancelled";
-  // Fail closed: a NaN or negative bound/counter silently defeats every `>=` guard
-  // (NaN comparisons are always false), which would let the loop run unbounded. Treat
-  // it as "stop now". `>= 0` rejects NaN and negatives while still allowing Infinity as
-  // an explicit "no limit" — the other bound then governs.
-  if (!(state.iterations >= 0) || !(bounds.maxIterations >= 0)) return "max-iterations";
-  if (state.iterations >= bounds.maxIterations) return "max-iterations";
-  if (!(state.elapsedMs >= 0) || !(bounds.timeoutMs >= 0)) return "timeout";
-  if (state.elapsedMs >= bounds.timeoutMs) return "timeout";
-  return null;
-}

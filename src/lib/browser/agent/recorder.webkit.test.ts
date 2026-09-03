@@ -14,7 +14,13 @@ import {
 } from "./recorderShim";
 import { recordingToWorkflow, type RecordedEvent } from "@/lib/browser/workflow/recorder";
 import { parseWorkflow } from "@/lib/browser/workflow/parser";
-import { parseActionText } from "@/lib/browser/workflow/stepGrammar";
+import { parseAction } from "@/lib/browser/workflow/stepGrammar";
+
+/** Test convenience: the parsed action, or null when the text is not executable. */
+function parseActionText(text: string) {
+  const r = parseAction(text);
+  return r.ok ? r.action : null;
+}
 
 const frames: HTMLIFrameElement[] = [];
 

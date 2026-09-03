@@ -29,6 +29,9 @@ export const BROWSER_OPERATION_SCHEMAS = {
     ref: z.string().optional(),
     dy: z.number().optional(),
     key: z.string().optional(),
+    // `.strict()` does not recurse from the outer schema: an unknown modifier such
+    // as `command` passed contract checking and was silently dropped, dispatching an
+    // UNMODIFIED key action. The nested object rejects unknown keys itself.
     modifiers: z
       .object({
         ctrl: z.boolean().optional(),
@@ -36,6 +39,7 @@ export const BROWSER_OPERATION_SCHEMAS = {
         alt: z.boolean().optional(),
         meta: z.boolean().optional(),
       })
+      .strict()
       .optional(),
   }),
   'vmark.browser.open': z.object({

@@ -49,6 +49,7 @@ import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSy
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
+import { makeSerializedPusher } from "@/services/browser/serializedPusher";
 import { executeCommand } from "@/services/commands/CommandBus";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 
@@ -208,12 +209,16 @@ export function useCommandBootstrap(): void {
     // The item exists natively so its accelerator survives the browser taking keyboard
     // focus; it starts disabled because the feature is off by default, and a
     // permanently-dead menu item is worse than no item.
-    const pushBrowserMenuEnabled = (enabled: boolean) => {
-      void invoke("set_browser_menu_enabled", { enabled }).catch(() => {
+    // Serialized and latest-wins: two rapid toggles were fired concurrently and the
+    // older could land last, leaving the native item out of step with the setting.
+    const menuPusher = makeSerializedPusher<boolean>(
+      (enabled) => invoke("set_browser_menu_enabled", { enabled }),
+      () => {
         // The menu may not exist yet (early boot) or on a platform branch without the
-        // item. Not worth surfacing: the command still works from the palette.
-      });
-    };
+        // item; the pusher retries. Not worth surfacing: the palette still works.
+      },
+    );
+    const pushBrowserMenuEnabled = (enabled: boolean) => menuPusher.push(enabled);
     // Setting AND platform: off macOS the surface is a stub, and an enabled menu item
     // there is the permanently-dead item the Rust side warns about (audit X-04).
     pushBrowserMenuEnabled(browserAvailableHere());
@@ -269,7 +274,10 @@ export function useCommandBootstrap(): void {
         // constant could bound it. Signalled in a `finally` because a mount
         // that THREW will never become mounted: hanging the handshake on it
         // would turn dead menus into a window that never reports ready at all.
-        signalMenuCommandsMounted();
+        // Only from a setup that is still LIVE: a StrictMode-cancelled first pass
+        // used to signal readiness after removing its listener and before the
+        // replay mounted one.
+        if (!cancelled) signalMenuCommandsMounted();
       }
     })().catch((err) => appError("Command bootstrap failed:", err));
 
@@ -281,6 +289,7 @@ export function useCommandBootstrap(): void {
       stopLeaseWiring();
       stopBrowserTabEvents();
       stopBrowserTabLifecycle();
+      menuPusher.dispose();
       stopRecorderWiring();
       stopCoherenceScan();
       stopWindowWorkspaceSync();

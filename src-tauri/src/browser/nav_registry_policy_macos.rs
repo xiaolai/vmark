@@ -97,7 +97,8 @@ impl NavDelegate {
         // One branch for both, matched safely: a navigating tab without a ticket
         // is an invariant violation and falls through to a fresh ticket rather
         // than panicking on `expect`.
-        let riding_ticket = continuing || (ivars.loading.get() && current_state == Some(Lifecycle::Navigating));
+        let riding_ticket =
+            continuing || (ivars.loading.get() && current_state == Some(Lifecycle::Navigating));
         if riding_ticket {
             if let Some(ticket) = current_ticket {
                 if mode == AutomationMode::AiShared

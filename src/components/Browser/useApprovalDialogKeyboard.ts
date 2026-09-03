@@ -14,7 +14,7 @@
  * @coordinates-with components/Browser/BrowserApprovalDialog — the consumer
  * @module components/Browser/useApprovalDialogKeyboard
  */
-import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import {useLayoutEffect, useRef, type RefObject } from "react";
 
 export function useApprovalDialogKeyboard(
   requestId: string | undefined,
@@ -33,7 +33,10 @@ export function useApprovalDialogKeyboard(
   // focused BEFORE the prompt is remembered so it can be restored on close —
   // otherwise resolving a prompt dropped focus to <body> and a keyboard user lost
   // their place in the app (audit 20260815-163607 #22).
-  useEffect(() => {
+  // Layout effects, not passive ones: the prompt must own focus and the keyboard
+  // BEFORE it is painted. A passive effect left a post-render window in which the
+  // security prompt was visible while background focus and sibling handlers were live.
+  useLayoutEffect(() => {
     if (!requestId) return;
     const restoreTo = document.activeElement as HTMLElement | null;
     denyRef.current?.focus();
@@ -42,7 +45,7 @@ export function useApprovalDialogKeyboard(
     };
   }, [requestId, denyRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!requestId) return;
     const onKeyDown = (e: KeyboardEvent) => {
       // Fail closed. Dismissing a security prompt is a denial, never an approval.

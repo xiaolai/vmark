@@ -24,9 +24,11 @@ describe("parseSnapshotResult", () => {
     expect(parseSnapshotResult(JSON.stringify({ nodes: [] }))!.unreachable).toBe(false);
   });
 
-  it("still accepts the legacy bare-array encoding (the nodes themselves)", () => {
+  it("refuses the legacy bare-array encoding — it carries no completeness signal", () => {
+    // Inventing truncated:false / unreachable:false for a bare array let a role be
+    // resolved with confidence from data that may have been incomplete.
     const r = parseSnapshotResult(JSON.stringify([{ role: "link", name: "Home", ref: "e0" }]));
-    expect(r).toEqual({ nodes: [{ role: "link", name: "Home", ref: "e0" }], truncated: false, unreachable: false });
+    expect(r).toBeNull();
   });
 
   it("drops malformed nodes and returns null for an unusable payload", () => {
