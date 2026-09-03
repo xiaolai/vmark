@@ -79,6 +79,12 @@ pub(in crate::browser) fn surface_failure(error: &str) -> CommandError {
             "content-rules-failed",
             None,
         )
+    } else if tagged(error, fail::STALE_COMMAND) {
+        (
+            localized_error!(ErrorCode::Conflict, "errors.browser.staleCommand"),
+            "stale-command",
+            Some("STALE_COMMAND"),
+        )
     } else if tagged(error, fail::DIALOG_NOT_OWNED) {
         (
             localized_error!(ErrorCode::PermissionDenied, "errors.browser.dialogNotOwned"),

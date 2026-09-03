@@ -70,12 +70,37 @@ impl OneShot {
     /// approval through two paths, and a second identical entry would be a second
     /// authorization for an action the user approved once.
     pub fn same_binding(&self, other: &OneShot) -> bool {
-        self.tab_id == other.tab_id
-            && self.generation == other.generation
-            && self.origin_pattern == other.origin_pattern
-            && self.operation == other.operation
-            && same_target(self.target.as_ref(), other.target.as_ref())
-            && self.payload_hash == other.payload_hash
+        self.origin_pattern == other.origin_pattern
+            && self.binds_action(
+                &other.tab_id,
+                other.generation,
+                &other.operation,
+                other.target.as_ref(),
+                other.payload_hash.as_deref(),
+            )
+    }
+
+    /// Does this one-shot describe exactly this action — same tab, generation,
+    /// operation, target element and payload? The origin is compared by the
+    /// caller, because the two callers compare it differently: `same_binding`
+    /// pattern-to-pattern, `consume_one_shot` a URL against the pattern. One
+    /// definition of "the same action" for both, so they cannot drift.
+    pub fn binds_action(
+        &self,
+        tab_id: &str,
+        generation: u64,
+        operation: &str,
+        target: Option<&OneShotTarget>,
+        payload_hash: Option<&str>,
+    ) -> bool {
+        self.tab_id == tab_id
+            && self.generation == generation
+            && self.operation == operation
+            && same_target(self.target.as_ref(), target)
+            // The payload must match exactly: a `style`/`eval` approval binds the
+            // script's hash, and a substituted retry (approved-A, run-B) is refused.
+            // Both `None` for a target-only op leaves this a no-op. (Sec review P5.)
+            && self.payload_hash.as_deref() == payload_hash
     }
 }
 
@@ -121,14 +146,7 @@ pub fn consume_one_shot(
         return false;
     };
     let Some(index) = shots.iter().position(|s| {
-        s.tab_id == tab_id
-            && s.generation == generation
-            && s.operation == operation
-            && same_target(s.target.as_ref(), target)
-            // The payload must match exactly: a `style`/`eval` approval binds the
-            // script's hash, and a substituted retry (approved-A, run-B) is refused.
-            // Both `None` for a target-only op leaves this a no-op. (Sec review P5.)
-            && s.payload_hash.as_deref() == payload_hash
+        s.binds_action(tab_id, generation, operation, target, payload_hash)
             && origin_matches_pattern(&origin, &s.origin_pattern)
     }) else {
         return false;

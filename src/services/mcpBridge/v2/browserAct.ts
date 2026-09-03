@@ -67,8 +67,9 @@ function describeKey(key: string, modifiers: KeyModifiers | undefined): string {
   return `Key: ${parts.join("+")}`;
 }
 
-async function handleScroll(id: string, tab: BrowserTarget, args: Record<string, unknown>): Promise<void> {
-  const wire = readOperationArgs("vmark.browser.act", args);
+type ActWire = ReturnType<typeof readOperationArgs<"vmark.browser.act">>;
+
+async function handleScroll(id: string, tab: BrowserTarget, wire: ActWire): Promise<void> {
   const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : "";
   const dy = typeof wire.dy === "number" && Number.isFinite(wire.dy) ? wire.dy : undefined;
   if (ref && dy !== undefined) {
@@ -88,8 +89,7 @@ async function handleScroll(id: string, tab: BrowserTarget, args: Record<string,
   await approveAndAct(id, tab, "scroll", undefined, script, `Scroll by ${dy} px`);
 }
 
-async function handleKey(id: string, tab: BrowserTarget, args: Record<string, unknown>): Promise<void> {
-  const wire = readOperationArgs("vmark.browser.act", args);
+async function handleKey(id: string, tab: BrowserTarget, wire: ActWire): Promise<void> {
   const key = typeof wire.key === "string" && wire.key.length > 0 ? wire.key : "";
   if (!key) {
     await respond({ id, success: false, error: "key requires a non-empty 'key' name (e.g. 'Enter', 'Escape', 'Tab')" });
@@ -127,8 +127,8 @@ export async function handleBrowserAct(id: string, args: Record<string, unknown>
       await respond({ id, success: false, error: `act supports 'click', 'type', 'scroll', 'key', not '${operation}'` });
       return;
     }
-    if (operation === "scroll") return handleScroll(id, tab, args);
-    if (operation === "key") return handleKey(id, tab, args);
+    if (operation === "scroll") return handleScroll(id, tab, wire);
+    if (operation === "key") return handleKey(id, tab, wire);
 
     // click / type — targeted by {ref} (granted-only) or {role, name} (approval-legible).
     const role = typeof wire.role === "string" ? wire.role : "";

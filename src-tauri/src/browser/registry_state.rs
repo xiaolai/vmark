@@ -55,7 +55,12 @@ impl BrowserRegistry {
 
     pub fn bump_generation(&mut self, tab_id: &str) -> Result<u64, BrowserError> {
         let entry = self.live_entry_mut(tab_id)?;
-        entry.generation = entry.generation.saturating_add(1);
+        // A saturated counter would leave every command stamped with u64::MAX
+        // fresh forever; refusing is the loud alternative (unreachable in practice).
+        entry.generation = entry
+            .generation
+            .checked_add(1)
+            .ok_or_else(|| BrowserError::GenerationExhausted(tab_id.to_string()))?;
         Ok(entry.generation)
     }
 

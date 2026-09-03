@@ -47,13 +47,9 @@ pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session", "record"];
 /// bound the element but not the text. `click` stays target-only — its script
 /// carries nothing beyond the descriptor the prompt already showed.
 pub(crate) fn operation_binds_payload(operation: &str) -> bool {
-    // `session` binds an `action:handle` descriptor, so an "Allow once" for
-    // "load work_login" cannot be spent on loading a different saved session
-    // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
-    matches!(
-        operation,
-        "style" | "eval" | "session" | "type" | "key" | "scroll"
-    )
+    // An UNKNOWN spelling binds nothing because it authorizes nothing: every
+    // route refuses it before a binding question is asked.
+    BrowserOperation::from_wire(operation).is_some_and(BrowserOperation::binds_payload)
 }
 
 /// The closed browser-operation vocabulary. The `Deserialize` impl is the
@@ -77,6 +73,26 @@ pub enum BrowserOperation {
 }
 
 impl BrowserOperation {
+    /// Does an approval for this operation bind the exact payload (script hash)?
+    ///
+    /// EXHAUSTIVE on purpose: a new payload-carrying operation added to the enum
+    /// fails to compile until it says which side it is on. The old string match
+    /// silently defaulted a new operation to "unbound", and the vocabulary loop
+    /// test could not tell.
+    pub(crate) fn binds_payload(self) -> bool {
+        match self {
+            // `session` binds an `action:handle` descriptor, so an "Allow once" for
+            // "load work_login" cannot be spent on loading a different saved session
+            // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
+            Self::Style | Self::Eval | Self::Session | Self::Type | Self::Key | Self::Scroll => true,
+            // `click` is target-only: its script carries nothing beyond the
+            // descriptor the prompt already showed. The rest carry no script.
+            Self::Read | Self::Attach | Self::Click | Self::Navigate | Self::Upload | Self::Record => {
+                false
+            }
+        }
+    }
+
     /// Parse a wire operation string, or `None` for unknown/variant spellings.
     fn from_wire(s: &str) -> Option<Self> {
         match s {

@@ -10,19 +10,35 @@
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
+import { scriptTooLarge } from "./browserHelpers";
 import { buildQueryScript, type QueryFields } from "@/lib/browser/agent/powerScript";
 import { urlForAgent } from "@/lib/browser/url";
 import { runReadClass, parseEvalResult } from "./browserReadClass";
 import { readOperationArgs } from "./readOperationArgs";
 
-function readFields(f: unknown): QueryFields | undefined {
-  if (typeof f !== "object" || f === null) return undefined;
+const FIELDS_SHAPE = "query `fields` must be {attributes?: true, box?: true, styles?: string[]}";
+
+/** Parse `fields` strictly: an unknown key, a non-`true` flag or a non-string
+ *  style name is a refusal, not a field quietly dropped from a "successful" query. */
+function readFields(f: unknown): { ok: true; fields: QueryFields | undefined } | { ok: false; error: string } {
+  if (f === undefined) return { ok: true, fields: undefined };
+  if (typeof f !== "object" || f === null || Array.isArray(f)) return { ok: false, error: FIELDS_SHAPE };
   const o = f as Record<string, unknown>;
   const out: QueryFields = {};
-  if (o.attributes === true) out.attributes = true;
-  if (o.box === true) out.box = true;
-  if (Array.isArray(o.styles)) out.styles = o.styles.filter((s): s is string => typeof s === "string");
-  return out;
+  for (const [key, value] of Object.entries(o)) {
+    if (key === "attributes" || key === "box") {
+      if (value !== true) return { ok: false, error: `${FIELDS_SHAPE} — '${key}' must be true when present` };
+      out[key] = true;
+    } else if (key === "styles") {
+      if (!Array.isArray(value) || !value.every((s) => typeof s === "string")) {
+        return { ok: false, error: `${FIELDS_SHAPE} — 'styles' must be an array of CSS property names` };
+      }
+      out.styles = value as string[];
+    } else {
+      return { ok: false, error: `${FIELDS_SHAPE} — unknown field '${key}'` };
+    }
+  }
+  return { ok: true, fields: out };
 }
 
 /** `vmark.browser.query` — structured DOM detection by CSS selector (read-class). */
@@ -34,7 +50,20 @@ export async function handleBrowserQuery(id: string, args: Record<string, unknow
       await respond({ id, success: false, error: "query requires a non-empty CSS 'selector'" });
       return;
     }
-    const fields = readFields(wire.fields);
+    const parsedFields = readFields(wire.fields);
+    if (!parsedFields.ok) {
+      await respond({ id, success: false, error: parsedFields.error });
+      return;
+    }
+    const fields = parsedFields.fields;
+    // Sized before the attachment gate: the selector and style names are embedded
+    // in the script, and an oversized query must fail here, not after a human-tab
+    // attachment was spent on it.
+    const tooLarge = scriptTooLarge(buildQueryScript(selector, 0, fields), "query script");
+    if (tooLarge) {
+      await respond({ id, success: false, error: tooLarge });
+      return;
+    }
     await runReadClass<string>(id, args, {
       invoke: (tab) =>
         invoke<string>("browser_eval", {

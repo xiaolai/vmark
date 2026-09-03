@@ -9,7 +9,6 @@
  * @coordinates-with services/mcpBridge/v2/browserOpen — open
  * @module services/mcpBridge/v2/browserNavigationShared
  */
-import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
@@ -17,6 +16,9 @@ import { browserEventBroker } from "@/services/browser/browserEventBroker";
 import { bridgeErrorEnvelope } from "./bridgeError";
 import { readAiState, redactUrl } from "./browserHelpers";
 import { probeGate } from "./browserGateProbe";
+import type { BrowserTarget } from "./browserHelpers";
+import { mintOneShotConfirmed } from "@/services/browser/grantSync";
+import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
 
 export type NavigationResult = { tabId: string; navigationId: string };
 
@@ -45,22 +47,23 @@ export function remaining(deadline: number): number {
   return Math.max(1, deadline - Date.now());
 }
 
-export function requestNavigationApproval(
+export async function requestNavigationApproval(
   id: string,
   tabId: string,
   url: string,
   generation: number,
   /** The verb the client should retry with once the user approves. */
   retry: "navigate" | "open",
-): Promise<void> {
+): Promise<boolean> {
   const queued = useBrowserApprovalStore
     .getState()
     .requestApproval(id, url, "navigate", undefined, tabId, generation);
   // No prompt exists to approve: a needsApproval envelope would be a lie.
   if (queued === "overloaded" || queued === "rejected") {
-    return failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
+    await failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
+    return false;
   }
-  return failure(id, "APPROVAL_REQUIRED", {
+  await failure(id, "APPROVAL_REQUIRED", {
     needsApproval: true,
     operation: "navigate",
     url: redactUrl(url),
@@ -70,11 +73,38 @@ export function requestNavigationApproval(
     // match. The sidecar renders this into its "then try again" prose.
     retry: { action: retry, tabId },
   });
+  return true;
 }
 
+/**
+ * Drop a provisional AI tab whose creation never completed. Detaching runs the
+ * tab-removal lifecycle, which destroys whatever native view exists — a direct
+ * `browser_destroy` here issued the same teardown twice and bypassed that path.
+ */
 export function discardUncreatedAiTab(tabId: string, windowLabel: string): void {
   useTabStore.getState().detachTab(windowLabel, tabId);
-  void invoke("browser_destroy", { tabId }).catch(() => {});
+}
+
+/**
+ * If the user approved THIS navigation with "Allow once", spend the mirror's copy
+ * and wait until the driver holds the authorization. Without the wait a fast
+ * retry reached `browser_ai_navigate` before `grantSync` had pushed the mint and
+ * was refused despite the approval. Returns false only when the driver REFUSED the
+ * mint (a stale generation); with no local one-shot the driver decides on its own.
+ */
+export async function confirmNavigationOneShot(tab: BrowserTarget, url: string): Promise<boolean> {
+  const spent = useBrowserApprovalStore
+    .getState()
+    .consumeOneShot(url, "navigate", undefined, tab.tabId, undefined, tab.generation);
+  if (!spent) return true;
+  const pattern = grantPatternFor(url);
+  if (pattern === null) return false;
+  return mintOneShotConfirmed({
+    originPattern: pattern,
+    operation: "navigate",
+    tabId: tab.tabId,
+    generation: tab.generation,
+  });
 }
 
 function eventData(result: Awaited<ReturnType<typeof browserEventBroker.wait>>, tabId: string) {
@@ -110,8 +140,13 @@ export async function waitForNavigation(
       generation: result.generation,
     });
     // Advisory gate verdict (WI-NB2.2): best-effort, absent for ordinary pages
-    // and on any probe failure — a gate must never degrade a loaded result.
-    const gate = await probeGate(tabId, result.generation);
+    // and on any probe failure — a gate must never degrade a loaded result. It
+    // is also bounded by what is LEFT of the request's budget: a slow page could
+    // hold the eval for seconds and push the response past the bridge deadline.
+    const gate = await Promise.race([
+      probeGate(tabId, result.generation),
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), remaining(deadline))),
+    ]);
     await respond({
       id,
       success: true,

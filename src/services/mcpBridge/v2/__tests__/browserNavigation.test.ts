@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   wait: vi.fn(),
   latestNavigationId: vi.fn(),
   ensureNative: vi.fn(),
+  destroyNative: vi.fn(() => Promise.resolve()),
   nativeReady: vi.fn(),
   hasNative: vi.fn(),
 }));
@@ -27,12 +28,18 @@ vi.mock("@/services/browser/browserEventBroker", () => ({
 }));
 vi.mock("@/services/browser/browserNativeViews", () => ({
   ensureBrowserNativeView: (...args: unknown[]) => mocks.ensureNative(...args),
+  destroyBrowserNativeView: (...args: unknown[]) => mocks.destroyNative(...args),
   waitForBrowserNativeView: (...args: unknown[]) => mocks.nativeReady(...args),
   hasBrowserNativeView: (...args: unknown[]) => mocks.hasNative(...args),
 }));
 
 import wire from "@/test/fixtures/commandErrorWire.json";
 import { handleBrowserNavigate, handleBrowserOpen, handleBrowserWait } from "@/services/mcpBridge/v2/browserNavigation";
+import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
+
+// Production wiring: a discarded provisional tab is torn down by the tab-removal
+// lifecycle, not by a direct browser_destroy from the handler.
+startBrowserTabLifecycle();
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -205,7 +212,7 @@ describe("open", () => {
     await handleBrowserOpen("open-failed", { url: URL });
 
     expect(Object.values(useTabStore.getState().tabs).flat()).toEqual([]);
-    expect(mocks.invoke).toHaveBeenCalledWith("browser_destroy", expect.anything());
+    expect(mocks.destroyNative).toHaveBeenCalledWith(expect.any(String));
     expect(lastResponse()).toMatchObject({ success: false, error: "SSRF_BLOCKED" });
   });
 });

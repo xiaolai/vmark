@@ -30,7 +30,16 @@ export function wrapExecuteJsScript(script: string): string {
   return (
     "try {\n" +
     `  const __vmarkValue = await (async () => {\n${script}\n  })();\n` +
-    "  return JSON.stringify({ ok: true, value: __vmarkValue === undefined ? null : __vmarkValue });\n" +
+    // JSON.stringify silently turns functions and symbols into nothing and
+    // non-finite numbers into null — a returned function would come back as
+    // ok:true/null instead of the documented failure. The replacer refuses them.
+    "  var __vmarkRefuse = function (k, v) {\n" +
+    "    var t = typeof v;\n" +
+    "    if (t === 'function' || t === 'symbol' || t === 'bigint') throw new Error('unserializable value: ' + t + (k ? ' at ' + k : ''));\n" +
+    "    if (t === 'number' && !isFinite(v)) throw new Error('unserializable value: non-finite number' + (k ? ' at ' + k : ''));\n" +
+    "    return v;\n" +
+    "  };\n" +
+    "  return JSON.stringify({ ok: true, value: __vmarkValue === undefined ? null : __vmarkValue }, __vmarkRefuse);\n" +
     "} catch (__vmarkError) {\n" +
     "  var __vmarkText;\n" +
     "  try { __vmarkText = String(__vmarkError && __vmarkError.message !== undefined ? __vmarkError.message : __vmarkError); }\n" +

@@ -70,7 +70,15 @@ where
     F: FnOnce(MainThreadMarker) -> Result<T, String> + Send + 'static,
 {
     let (tx, rx) = mpsc::channel();
+    // Set when the caller has given up. A closure still queued behind a busy main
+    // thread then runs as a no-op instead of creating, navigating or destroying a
+    // view AFTER the caller rolled back and reported failure.
+    let abandoned = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let abandoned_in_closure = abandoned.clone();
     app.run_on_main_thread(move || {
+        if abandoned_in_closure.load(std::sync::atomic::Ordering::Acquire) {
+            return;
+        }
         let result = match MainThreadMarker::new() {
             Some(mtm) => f(mtm),
             None => Err("no MainThreadMarker".to_string()),
@@ -79,6 +87,7 @@ where
     })
     .map_err(|e| format!("run_on_main_thread: {e}"))?;
     rx.recv_timeout(Duration::from_secs(20)).map_err(|_| {
+        abandoned.store(true, std::sync::atomic::Ordering::Release);
         format!(
             "{fail}: main-thread op timed out",
             fail = crate::browser::surface::fail::MAIN_THREAD_TIMEOUT
@@ -192,16 +201,16 @@ pub fn dialog_respond(
         let Some(tab_id) = dialogs::tab_of(id) else {
             return Ok(());
         };
-        let owned = app_for_closure
-            .try_state::<BrowserSurface>()
-            .and_then(|state| {
-                state
-                    .registry
-                    .lock()
-                    .ok()
-                    .map(|reg| reg.tab_belongs_to_window(&tab_id, &window_label))
-            })
-            .unwrap_or(false);
+        let Some(state) = app_for_closure.try_state::<BrowserSurface>() else {
+            return Err("browser state is not managed".to_string());
+        };
+        let owned = {
+            let reg = state
+                .registry
+                .lock()
+                .map_err(|_| "browser registry lock poisoned".to_string())?;
+            reg.tab_belongs_to_window(&tab_id, &window_label)
+        };
         if !owned {
             return Err(format!(
                 "{}: dialog #{id} belongs to another window",

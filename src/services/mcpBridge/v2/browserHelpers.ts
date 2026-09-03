@@ -79,13 +79,42 @@ export async function ensureBrokerStarted(): Promise<void> {
   await browserEventBroker.start();
 }
 
-/** Activate the owning tab before an AI operation can depend on its surface. */
-export async function activateBrowserTarget(target: BrowserTarget): Promise<void> {
+/**
+ * Activate the owning tab before an AI operation can depend on its surface.
+ * Returns the tab as it is AFTER activation, or null when it was closed or moved
+ * while `focus_window` was awaited — the caller must not go on with a snapshot of
+ * a tab that no longer exists (it would create a native view for a removed tab).
+ */
+export async function activateBrowserTarget(target: BrowserTarget): Promise<BrowserTarget | null> {
   const currentWindow = getCurrentWindowLabel();
   if (target.windowLabel !== currentWindow) {
     await invoke("focus_window", { label: target.windowLabel });
   }
-  useTabStore.getState().setActiveTab(target.windowLabel, target.tabId);
+  const fresh = resolveBrowserTab(target.tabId);
+  if (!fresh) return null;
+  useTabStore.getState().setActiveTab(fresh.windowLabel, fresh.tabId);
+  return fresh;
+}
+
+/**
+ * Bound on any script handed to `browser_eval`, in UTF-8 BYTES. Rust's
+ * `browser/script_limit.rs` is the authoritative limit; this exists so a
+ * near-limit payload fails HERE with a clear client-side error — and, for the
+ * approval-gated ops, BEFORE it is parked in the approval queue, where an
+ * oversized script the driver will always refuse could otherwise be approved
+ * repeatedly. 64 KiB is far above any legitimate automation snippet.
+ */
+export const MAX_SCRIPT_BYTES = 64 * 1024;
+
+/** Measure a string in UTF-8 bytes: `String.length` counts UTF-16 code units, so a
+ *  CJK or emoji payload passes a `.length` check at up to ~3x the byte cap. */
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+/** The refusal for a script over `MAX_SCRIPT_BYTES`, or null when it fits. */
+export function scriptTooLarge(script: string, what: string): string | null {
+  return utf8ByteLength(script) > MAX_SCRIPT_BYTES ? `${what} exceeds the ${MAX_SCRIPT_BYTES}-byte limit` : null;
 }
 
 export async function readAiState(tabId: string): Promise<Record<string, unknown>> {

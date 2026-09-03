@@ -113,6 +113,10 @@ impl From<BrowserError> for CommandError {
                 ErrorCode::InvalidInput,
                 json!({ "kind": "invalid-url", "url": url }),
             ),
+            BrowserError::GenerationExhausted(tab_id) => (
+                ErrorCode::Internal,
+                json!({ "kind": "generation-exhausted", "tabId": tab_id }),
+            ),
         };
         CommandError::new(code, message).with_detail(detail)
     }

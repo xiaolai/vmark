@@ -39,6 +39,18 @@ export async function handleBrowserClose(id: string, args: Record<string, unknow
       return;
     }
     const closed = useTabStore.getState().closeTab(tab.windowLabel, tab.tabId);
+    if (!closed) {
+      // `closeTab` refuses a pinned tab (and an unknown one). Reporting success
+      // here left the tab open AND its MAX_AI_TABS slot taken while the model
+      // believed it had freed it.
+      await respond({
+        id,
+        success: false,
+        error: "TAB_PINNED: the tab is pinned and cannot be closed by the AI — unpin it or close it yourself",
+        data: { token: "TAB_PINNED", tabId: tab.tabId },
+      });
+      return;
+    }
     await respond({ id, success: true, data: { tabId: tab.tabId, closed } });
   });
 }

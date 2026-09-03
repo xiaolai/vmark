@@ -56,6 +56,7 @@ pub async fn browser_ai_policy(
 ) -> Result<(), CommandError> {
     let session = parse_session_mode(&session)?;
     let mut policy = state.ai_policy.lock().map_err(lock_failure)?;
+    let previous = (policy.enabled, policy.session, policy.allow_loopback);
     let changed = policy.enabled != enabled
         || policy.session != session
         || policy.allow_loopback != allow_loopback;
@@ -67,7 +68,16 @@ pub async fn browser_ai_policy(
     policy.allow_loopback = allow_loopback;
     drop(policy);
     if changed && (!enabled || session == AiSessionMode::Sandbox) {
-        let _ = surface::clear_ai_sandbox_store(&app);
+        // The reset is part of the posture change: a sandbox tab created after a
+        // failed reset would reuse storage from the previous posture. So a failed
+        // reset is a failed activation — the policy goes back (the epoch stays
+        // bumped, which only invalidates tabs, never widens anything) and the
+        // caller learns about it instead of hearing "done".
+        if let Err(error) = surface::clear_ai_sandbox_store(&app) {
+            let mut policy = state.ai_policy.lock().map_err(lock_failure)?;
+            (policy.enabled, policy.session, policy.allow_loopback) = previous;
+            return Err(surface_failure(&error));
+        }
     }
     Ok(())
 }

@@ -51,7 +51,9 @@ async function resolveForSession(id: string, args: Record<string, unknown>): Pro
     await respond({ id, success: false, error: "no active browser tab" });
     return null;
   }
-  if (!(await requireHumanAttachment(id, tab))) return null;
+  // The attachment prompt is raised by the caller AFTER the handle has been
+  // validated: a malformed request must fail on its own, not after the user has
+  // attached the tab for it.
   return tab;
 }
 
@@ -115,6 +117,7 @@ export async function handleBrowserSessionSave(id: string, args: Record<string, 
       await respond({ id, success: false, error: "session.save requires a 'handle' matching [A-Za-z0-9._-] (1..128)" });
       return;
     }
+    if (!(await requireHumanAttachment(id, tab))) return;
     if (!(await approveSession(id, tab, "save", handle))) return;
     // Returns a value-free summary (counts) — never a cookie/localStorage value.
     // The attachment mirror follows the driver's consume (`invokeAttached`).
@@ -141,6 +144,7 @@ export async function handleBrowserSessionLoad(id: string, args: Record<string, 
       await respond({ id, success: false, error: "session.load requires a 'handle' matching [A-Za-z0-9._-] (1..128)" });
       return;
     }
+    if (!(await requireHumanAttachment(id, tab))) return;
     if (!(await approveSession(id, tab, "load", handle))) return;
     // The AI gets no values back — just confirmation the session was restored.
     await invokeAttached(tab, () =>

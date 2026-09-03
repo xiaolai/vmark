@@ -22,7 +22,8 @@
 
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { browserEnabled, readTabIdArg, resolveBrowserTab } from "./browserHelpers";
+import { browserGate } from "./browserAccess";
+import { readTabIdArg, resolveBrowserTab } from "./browserHelpers";
 import { urlForAgent } from "@/lib/browser/url";
 import { useTabStore } from "@/stores/tabStore";
 
@@ -50,10 +51,10 @@ function readInputs(raw: unknown): Record<string, string> | null {
 /** `vmark.browser.workflow_run` — start a run; returns {runId, steps, firstStep}. */
 export async function handleBrowserWorkflowRun(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    // The same gate as every other browser handler: UNSUPPORTED_PLATFORM before
+    // BROWSER_DISABLED, so an off-macOS client learns why instead of receiving a
+    // runId for a run that fails in the background.
+    if (!(await browserGate(id))) return;
     if (typeof args.source !== "string" || args.source.trim() === "") {
       await respond({ id, success: false, error: "workflow_run requires a non-empty `source`" });
       return;
@@ -106,10 +107,9 @@ export async function handleBrowserWorkflowRun(id: string, args: Record<string, 
 /** `vmark.browser.workflow_status` — the current state of a run. */
 export async function handleBrowserWorkflowStatus(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    // Deliberately NOT gated on the browser setting: observing a run is never the
+    // thing a feature gate should refuse, and a run that outlived a disable must
+    // stay inspectable (the same rule 60-ai-governance §12 states for stopping).
     if (typeof args.runId !== "string" || args.runId === "") {
       await respond({ id, success: false, error: "workflow_status requires a `runId`" });
       return;
@@ -145,10 +145,9 @@ export async function handleBrowserWorkflowStatus(id: string, args: Record<strin
 /** `vmark.browser.workflow_cancel` — stop a run (never approval-gated). */
 export async function handleBrowserWorkflowCancel(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    // Never gated: "stop" must always be allowed. Refusing it while the setting is
+    // off made a detached run unmanageable after policy teardown — the exact
+    // failure §12 of 60-ai-governance records for the Rust gate.
     if (typeof args.runId !== "string" || args.runId === "") {
       await respond({ id, success: false, error: "workflow_cancel requires a `runId`" });
       return;

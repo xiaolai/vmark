@@ -140,6 +140,10 @@ pub enum BrowserError {
     TerminalTab(String),
     /// The navigation URL is not a navigable http(s) URL.
     InvalidUrl(String),
+    /// The tab's navigation generation cannot advance any further (u64::MAX).
+    /// Unreachable in practice; refusing loudly beats a counter that stops
+    /// moving and leaves every command stamped with it fresh forever.
+    GenerationExhausted(String),
 }
 
 struct Entry {

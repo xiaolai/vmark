@@ -210,10 +210,14 @@ pub(super) fn configure(
 /// while its login survives on disk. Below macOS 14 the per-profile store is
 /// non-persistent, so dropping the cached handle above is a complete revocation.
 pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), String> {
-    NAMED_STORES.with(|m| {
-        m.borrow_mut().remove(name);
-    });
+    let evict = || {
+        NAMED_STORES.with(|m| {
+            m.borrow_mut().remove(name);
+        })
+    };
     if current_macos_major() < MIN_IDENTIFIED_STORE_MACOS {
+        // Non-persistent per-profile store: dropping the cached handle IS the revocation.
+        evict();
         return Ok(());
     }
     let Some(uuid) = uuid_for_profile(name) else {
@@ -238,8 +242,17 @@ pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), St
     super::pump_until(&run_loop, Duration::from_secs(5), 0.05, || {
         result.borrow().is_some()
     });
-    let outcome = result.borrow_mut().take();
-    outcome.unwrap_or_else(|| Err("timed out confirming the profile store was removed".into()))
+    let outcome = result
+        .borrow_mut()
+        .take()
+        .unwrap_or_else(|| Err("timed out confirming the profile store was removed".into()));
+    // Evict only on CONFIRMED deletion. Evicting first let a failed or timed-out
+    // removal leave a live, persistent store uncounted, so repeated failures could
+    // walk past MAX_NAMED_STORES.
+    if outcome.is_ok() {
+        evict();
+    }
+    outcome
 }
 
 /// Release the shared sandbox profile after AI views are torn down or posture

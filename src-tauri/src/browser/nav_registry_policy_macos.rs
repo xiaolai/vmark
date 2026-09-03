@@ -91,28 +91,24 @@ impl NavDelegate {
         let navigate_granted =
             || state.is_granted_in_window(registry.window_of(&ivars.tab_id), url, "navigate");
 
-        if continuing {
-            let ticket = current_ticket.expect("checked above");
-            if mode == AutomationMode::AiShared
-                && !registry.shared_navigation_approved(&ivars.tab_id, url)
-                && !navigate_granted()
-            {
-                return false;
+        // A load that already holds a ticket — the continuation of the current
+        // navigation, or a navigating tab whose load is in flight — rides that
+        // ticket: shared posture still needs the approval or standing authority.
+        // One branch for both, matched safely: a navigating tab without a ticket
+        // is an invariant violation and falls through to a fresh ticket rather
+        // than panicking on `expect`.
+        let riding_ticket = continuing || (ivars.loading.get() && current_state == Some(Lifecycle::Navigating));
+        if riding_ticket {
+            if let Some(ticket) = current_ticket {
+                if mode == AutomationMode::AiShared
+                    && !registry.shared_navigation_approved(&ivars.tab_id, url)
+                    && !navigate_granted()
+                {
+                    return false;
+                }
+                self.remember_pending_navigation(ticket.id);
+                return true;
             }
-            self.remember_pending_navigation(ticket.id);
-            return true;
-        }
-
-        if ivars.loading.get() && current_state == Some(Lifecycle::Navigating) {
-            let ticket = current_ticket.expect("a navigating tab has a ticket");
-            if mode == AutomationMode::AiShared
-                && !registry.shared_navigation_approved(&ivars.tab_id, url)
-                && !navigate_granted()
-            {
-                return false;
-            }
-            self.remember_pending_navigation(ticket.id);
-            return true;
         }
 
         if mode == AutomationMode::AiShared && !navigate_granted() {

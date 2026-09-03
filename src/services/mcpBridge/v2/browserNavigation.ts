@@ -46,12 +46,14 @@ import {
   resolveBrowserTab,
   validateNonEmptyString,
   validateTimeout,
+  type BrowserTarget,
 } from "./browserHelpers";
 import { browserGate } from "./browserAccess";
 import { readOperationArgs } from "./readOperationArgs";
 import {
   failure,
   failureFrom,
+  confirmNavigationOneShot,
   finishCreation,
   remaining,
   requestNavigationApproval,
@@ -78,11 +80,19 @@ export async function handleBrowserNavigate(id: string, args: Record<string, unk
     // A tab whose creation is still owed (an `open` that waited for the user):
     // creating it IS the navigation the user approved.
     const creationOwed = !hasBrowserNativeView(target.tabId);
+    // "Allow once" for THIS destination: spend the mirror's copy and wait for the
+    // driver to hold it before the driver is asked, or a fast retry is refused.
+    if (!(await confirmNavigationOneShot(target, url))) {
+      return failure(id, "the driver refused the 'navigate' authorization — the page may have navigated; retry to be prompted again");
+    }
+    let active: BrowserTarget;
     try {
       // The page must be visible while the AI drives it (browser.md, co-driving).
-      await activateBrowserTarget(target);
-      await ensureBrowserNativeView(target.tabId, creationOwed ? url : target.url, target.automationMode);
-      await waitForBrowserNativeView(target.tabId, remaining(deadline));
+      const fresh = await activateBrowserTarget(target);
+      if (!fresh) return failure(id, "TAB_NOT_FOUND");
+      active = fresh;
+      await ensureBrowserNativeView(active.tabId, creationOwed ? url : active.url, active.automationMode);
+      await waitForBrowserNativeView(active.tabId, remaining(deadline));
     } catch (error) {
       if (needsNavigationApproval(error)) {
         await requestNavigationApproval(id, target.tabId, url, target.generation, "navigate");
@@ -92,13 +102,13 @@ export async function handleBrowserNavigate(id: string, args: Record<string, unk
     }
     await ensureBrokerStarted();
     if (creationOwed) {
-      await finishCreation(id, target.tabId, deadline);
+      await finishCreation(id, active.tabId, deadline);
       return;
     }
     let ticket: NavigationResult;
     try {
       ticket = await invoke<NavigationResult>("browser_ai_navigate", {
-        tabId: target.tabId,
+        tabId: active.tabId,
         url,
       });
     } catch (error) {

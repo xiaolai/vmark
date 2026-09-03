@@ -94,6 +94,11 @@ pub mod fail {
     pub const CONTENT_RULES_FAILED: &str = "CONTENT_RULES_FAILED";
     /// A page dialog was answered from a window that does not own its tab.
     pub const DIALOG_NOT_OWNED: &str = "DIALOG_NOT_OWNED";
+    /// The authorized generation was superseded between authorization and the
+    /// main-thread submit (`authorize::submit_if_fresh`). Carried through the
+    /// String boundary as a tag so the classifier can restore the typed
+    /// `STALE_COMMAND` conflict instead of reporting an internal surface failure.
+    pub const STALE_COMMAND: &str = "STALE_COMMAND";
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

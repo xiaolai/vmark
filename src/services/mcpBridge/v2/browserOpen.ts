@@ -22,6 +22,7 @@ import { originForAgent } from "@/lib/browser/url";
 import { isOriginGranted } from "@/lib/browser/origin/originGuard";
 import { ensureBrowserNativeView } from "@/services/browser/browserNativeViews";
 import { needsNavigationApproval } from "./browserFailure";
+import { mintProfileOpenConfirmed } from "@/services/browser/grantSync";
 import { aiMode, ensureBrokerStarted, validateNonEmptyString, validateTimeout } from "./browserHelpers";
 import { browserGate } from "./browserAccess";
 import { readOperationArgs } from "./readOperationArgs";
@@ -60,25 +61,35 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
     // so a guessed profile can't silently open authenticated content. The driver
     // (browser_ai_create) re-enforces this authoritatively.
     if (profile) {
-      const approvals = useBrowserApprovalStore;
-      const grantIdx = approvals
-        .getState()
-        .profileOpens.findIndex((g) => g.profile === profile && isOriginGranted(url, [g.originPattern]));
-      if (grantIdx === -1) {
-        // Queue the prompt — but honor the same dedup + cap as `requestApproval`, so
-        // an untrusted client cannot grow `pending` without bound by flooding
-        // profile-open requests (sec review WI-P6.1 regression). Over-cap requests
-        // are dropped (fail-safe: no tab, no grant).
-        approvals.setState((s) =>
-          s.pending.some((p) => p.id === id) || s.pending.length >= MAX_PENDING_APPROVALS
-            ? s
-            : {
-                pending: [
-                  ...s.pending,
-                  { id, targetUrl: url, operation: "session", tabId: "", generation: 0, profile },
-                ],
-              },
+      // Rust applies a named profile to SANDBOX tabs only and silently ignores it
+      // otherwise; accepting it here in shared posture reported a profile that was
+      // never in effect.
+      if (aiMode() !== "ai-sandbox") {
+        return failure(
+          id,
+          "PROFILE_REQUIRES_SANDBOX: a named profile applies to sandbox tabs only — the AI session posture is 'shared'",
+          { token: "PROFILE_REQUIRES_SANDBOX" },
         );
+      }
+      const approvals = useBrowserApprovalStore;
+      const grant = approvals
+        .getState()
+        .profileOpens.find((g) => g.profile === profile && isOriginGranted(url, [g.originPattern]));
+      if (!grant) {
+        // Queue the prompt — honoring the same dedup + cap as `requestApproval`, so
+        // an untrusted client cannot grow `pending` without bound by flooding
+        // profile-open requests (sec review WI-P6.1 regression). A needsApproval
+        // envelope is sent only when a prompt actually exists: over the cap the
+        // request is refused as such, never described as "awaiting approval".
+        const pending = approvals.getState().pending;
+        if (!pending.some((p) => p.id === id)) {
+          if (pending.length >= MAX_PENDING_APPROVALS) {
+            return failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
+          }
+          approvals.setState((s) => ({
+            pending: [...s.pending, { id, targetUrl: url, operation: "session", tabId: "", generation: 0, profile }],
+          }));
+        }
         const origin = originForAgent(url);
         await respond({
           id,
@@ -88,7 +99,15 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
         });
         return;
       }
-      approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((_, i) => i !== grantIdx) }));
+      // The driver is the authority: wait until it holds the grant before spending
+      // the mirror's copy and creating the tab, or `browser_ai_create` can race the
+      // mint, fail PROFILE_NOT_APPROVED and lose the user's approval.
+      if (!(await mintProfileOpenConfirmed(grant))) {
+        return failure(id, "PROFILE_NOT_APPROVED: the driver refused the profile authorization — retry to be prompted again", {
+          token: "PROFILE_NOT_APPROVED",
+        });
+      }
+      approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((g) => g !== grant) }));
     }
     const tabId = useTabStore.getState().createBrowserTab(windowLabel, url, undefined, aiMode());
     try {
@@ -98,7 +117,11 @@ export async function handleBrowserOpen(id: string, args: Record<string, unknown
       if (needsNavigationApproval(error)) {
         // Shared posture: keep the tab — the prompt is about this page, and the
         // one-shot it mints is bound to this tabId. The retry is `navigate {tabId}`.
-        await requestNavigationApproval(id, tabId, url, 0, "navigate");
+        // Unless no prompt could be queued: then nothing can ever authorize the
+        // provisional tab, and keeping it leaks a tab and a registry slot.
+        if (!(await requestNavigationApproval(id, tabId, url, 0, "navigate"))) {
+          discardUncreatedAiTab(tabId, windowLabel);
+        }
         return;
       }
       discardUncreatedAiTab(tabId, windowLabel);

@@ -11,7 +11,7 @@
  * @module services/mcpBridge/v2/browserFailure
  */
 import { parseCommandError } from "@/services/commands/commandError";
-import { bridgeErrorToken } from "./bridgeError";
+import { bridgeErrorEnvelope, bridgeErrorToken } from "./bridgeError";
 
 /**
  * Does this refusal mean "ask the user, then retry"? (WI-14)
@@ -48,5 +48,7 @@ export function needsNavigationApproval(error: unknown): boolean {
  * a typed rejection would have sent the AI the literal text "[object Object]".
  */
 export function browserFailureToken(error: unknown): string {
-  return bridgeErrorToken(error) ?? String(error);
+  // An UNTYPED object rejection has no token; its message is still the useful
+  // part, and `String(object)` would print "[object Object]" (the WI-14 class).
+  return bridgeErrorToken(error) ?? bridgeErrorEnvelope(error).error;
 }

@@ -94,6 +94,18 @@ fn ipv4_two(first: &str, second: &str) -> String {
     format!("{AUTHORITY}{first}\\.{second}\\.{OCTET}\\.{OCTET}{HOST_END}")
 }
 
+fn ipv4_three(first: &str, second: &str, third: &str) -> String {
+    format!("{AUTHORITY}{first}\\.{second}\\.{third}\\.{OCTET}{HOST_END}")
+}
+
+/// A mapped (`[::ffff:g1:g2]`) or compatible (`[::g1:g2]`) IPv6 literal whose two
+/// low 16-bit groups match `g1` and `g2` — the hex spelling WebKit gives a /24 (or
+/// narrower) IPv4 range, where the FIRST group alone is not selective enough.
+fn ipv6_embedded(mapped: bool, g1: &str, g2: &str) -> String {
+    let head = if mapped { "::ffff:" } else { "::" };
+    format!("{AUTHORITY}\\[{head}{g1}:{g2}\\]")
+}
+
 /// A bracketed IPv6 literal whose text begins with `prefix` (already in
 /// WebKit's compressed lowercase form). The rule matches the URL's prefix only:
 /// a url-filter is a search, so nothing after the address needs to be spelled.
@@ -129,6 +141,28 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     filters.push(ipv4("0"));
     // 224.0.0.0/4 multicast and 240.0.0.0/4 reserved.
     filters.extend(each(&["22[4-9]", "23[0-9]", "24[0-9]", "25[0-5]"], ipv4));
+    // The IETF special-purpose /24s and the benchmarking /15 that the navigation
+    // policy refuses (`BLOCKED_IPV4_RANGES`); the first list lacked all six, so a
+    // page could still fetch from them as subresources. Dotted spellings first.
+    filters.push(ipv4_three("192", "0", "0")); // 192.0.0.0/24
+    filters.push(ipv4_three("192", "0", "2")); // 192.0.2.0/24 TEST-NET-1
+    filters.push(ipv4_three("192", "88", "99")); // 192.88.99.0/24 6to4 relay anycast
+    filters.extend(each(&["18", "19"], |second| ipv4_two("198", second))); // 198.18.0.0/15
+    filters.push(ipv4_three("198", "51", "100")); // 198.51.100.0/24 TEST-NET-2
+    filters.push(ipv4_three("203", "0", "113")); // 203.0.113.0/24 TEST-NET-3
+    // …and their hex-embedded IPv6 spellings. A /24 is one value of the high
+    // group plus the high byte of the low group; WebKit strips leading zeros per
+    // group, so 192.0.0.x is `c000:x` (1–2 hex digits) and 192.0.2.x is `c000:2xx`.
+    for mapped in [true, false] {
+        filters.push(ipv6_embedded(mapped, "c000", "[0-9a-f]?[0-9a-f]"));
+        filters.push(ipv6_embedded(mapped, "c000", "2[0-9a-f][0-9a-f]"));
+        filters.push(ipv6_embedded(mapped, "c058", "63[0-9a-f][0-9a-f]"));
+        filters.push(ipv6_embedded(mapped, "c633", "64[0-9a-f][0-9a-f]"));
+        filters.push(ipv6_embedded(mapped, "cb00", "71[0-9a-f][0-9a-f]"));
+    }
+    // 198.18.0.0/15 is a whole high group: `c612` or `c613`, any low group.
+    filters.push(ipv6_prefix("::ffff:c61[23]:"));
+    filters.push(ipv6_prefix("::c61[23]:"));
     // `[::]` — unspecified.
     filters.push(ipv6_prefix("::\\]"));
     // Mapped (`::ffff:a.b.c.d`) and compatible (`::a.b.c.d`) forms of the
@@ -142,6 +176,11 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     // `[::ffff]` — compatible 0.0.255.255, the one 0/8 spelling that ends the
     // address instead of continuing with a `:`.
     filters.push(ipv6_prefix("::ffff\\]"));
+    // `[::ffff:xxxx]` — compatible 255.255.0.0/16 (inside 240/4). Exactly ONE group
+    // after `ffff` and then the bracket: a mapped address always carries a further
+    // `:group`, so this cannot swallow `[::ffff:808:808]` the way an unanchored
+    // `ffff` in the compatible list would. Found by the policy-parity test.
+    filters.push(ipv6_embedded(false, "ffff", "[0-9a-f]+"));
     filters.extend([
         // Transition prefixes, wholesale (see the module doc).
         ipv6_prefix("64:ff9b:"),

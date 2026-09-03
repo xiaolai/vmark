@@ -34,7 +34,10 @@ import { buildArmScript, buildDisarmScript, buildRecorderDrainScript } from "@/l
 import { parseDrainedEvents } from "@/lib/browser/workflow/drainedEvents";
 import type { RecorderDeps } from "@/services/workflow/recorderSession";
 import { browserWarn } from "@/utils/debug";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserGate } from "./browserAccess";
+import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
+import { mintOneShotConfirmed } from "@/services/browser/grantSync";
 
 const RECORD_OP = "record";
 const MAX_SITE = 64;
@@ -77,6 +80,14 @@ function makeDeps(): RecorderDeps {
 
 /** Consent-gate on `record`, then arm and open the session. Mirrors the act path. */
 async function startRecording(id: string, tab: BrowserTarget, site: string): Promise<void> {
+  // Guard BEFORE the approval flow, not merely before arming: a duplicate start
+  // used to raise a prompt (or spend an "Allow once") for a recording that was
+  // already running and then perform nothing.
+  const { isRecording, startRecorderSession } = await recorderService();
+  if (isRecording(tab.tabId)) {
+    await respond({ id, success: false, error: "recording-already-active" });
+    return;
+  }
   const approvals = useBrowserApprovalStore.getState();
   const decision = approvals.decide(tab.url, RECORD_OP);
   if (decision === "denied") {
@@ -107,14 +118,28 @@ async function startRecording(id: string, tab: BrowserTarget, site: string): Pro
       });
       return;
     }
+    // One mint path (audit A-04): the mirror's copy is spent above; wait for the
+    // driver to hold its own before arming, or the authoritative `browser_eval`
+    // races the push and refuses a recording the user just approved.
+    const pattern = grantPatternFor(tab.url);
+    const minted =
+      pattern !== null &&
+      (await mintOneShotConfirmed({
+        originPattern: pattern,
+        operation: RECORD_OP,
+        tabId: tab.tabId,
+        generation: tab.generation,
+      }));
+    if (!minted) {
+      await respond({
+        id,
+        success: false,
+        error: "the driver refused the 'record' authorization — the page may have navigated; retry to be prompted again",
+      });
+      return;
+    }
   }
 
-  const { isRecording, startRecorderSession } = await recorderService();
-  // Guard BEFORE arming, so a duplicate start neither re-arms nor spends the consent.
-  if (isRecording(tab.tabId)) {
-    await respond({ id, success: false, error: "recording-already-active" });
-    return;
-  }
   try {
     await invoke("browser_eval", {
       tabId: tab.tabId,
@@ -163,10 +188,7 @@ async function stopRecording(id: string, tab: BrowserTarget): Promise<void> {
 /** `vmark.browser.workflow_record` — start or stop a workflow recording. */
 export async function handleBrowserWorkflowRecord(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    if (!(await browserGate(id))) return;
     const recordOp = args.recordOp;
     if (recordOp !== "start" && recordOp !== "stop") {
       await respond({ id, success: false, error: "workflow_record requires recordOp 'start' or 'stop'" });

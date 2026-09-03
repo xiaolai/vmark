@@ -151,8 +151,21 @@ pub fn eval(
             || submit_js(&webview, &script, &world),
         )
         // This closure returns String to its own caller; the gate is typed, so
-        // flatten at the boundary rather than widen the whole main-thread hop.
-        .map_err(|e| e.message().to_string())?;
+        // flatten at the boundary rather than widen the whole main-thread hop —
+        // but keep the class: a `STALE_COMMAND` refusal is re-tagged so
+        // `surface_failure` restores the typed conflict the frontend branches on,
+        // instead of an "internal" surface failure with the reason in prose.
+        .map_err(|e| {
+            let mcp = e
+                .detail()
+                .and_then(|d| d.get("mcpCode"))
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            match mcp {
+                Some(code) => format!("{code}: {}", e.message()),
+                None => e.message().to_string(),
+            }
+        })?;
         Ok(await_js(&run_loop, sink))
     });
     EvalError::flatten(native)

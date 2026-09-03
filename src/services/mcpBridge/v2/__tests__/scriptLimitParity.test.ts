@@ -5,7 +5,7 @@
  * The 64 KiB bound exists in THREE places that cannot share a constant
  * surface (Rust crate, React app, npm sidecar):
  *   - src-tauri/src/browser/script_limit.rs   (authoritative gate)
- *   - src/services/mcpBridge/v2/browserPower.ts  (webview mirror)
+ *   - src/services/mcpBridge/v2/browserHelpers.ts  (webview mirror)
  *   - server/mcp/src/tools/browserArgs.ts     (sidecar mirror)
  *
  * The duplication is structural (documented in script_limit.rs), but until
@@ -39,7 +39,7 @@ describe("MAX_SCRIPT_BYTES parity across Rust, webview, and sidecar", () => {
       /const MAX_SCRIPT_BYTES:\s*usize\s*=\s*([0-9*\s]+);/
     );
     const webview = extractLimit(
-      "src/services/mcpBridge/v2/browserPower.ts",
+      "src/services/mcpBridge/v2/browserHelpers.ts",
       /const MAX_SCRIPT_BYTES\s*=\s*([0-9*\s]+);/
     );
     const sidecar = extractLimit(

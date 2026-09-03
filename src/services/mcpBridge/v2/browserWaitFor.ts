@@ -40,6 +40,8 @@ import { requireHumanAttachment } from "./browserReadClass";
 import { readOperationArgs } from "./readOperationArgs";
 
 const POLL_INTERVAL_MS = 200;
+/** Floor under which a new script poll is not started (see the loop). */
+const MIN_POLL_BUDGET_MS = 1_500;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** A wait mode: a page condition checked by eval, or a URL check answered from
@@ -119,12 +121,17 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
 
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      // Re-resolve each round so the wait tracks navigation (current generation).
-      const tab = resolveBrowserTab(tabIdArg);
+      // Re-resolve each round so the wait tracks navigation (current generation) —
+      // but ALWAYS the tab the wait started on: an omitted tabId must not follow
+      // the active tab to whichever page the user switches to mid-wait.
+      const tab = resolveBrowserTab(initial.tabId);
       if (!tab) {
         await respond({ id, success: true, data: { matched: false, reason: "tab-gone" } });
         return;
       }
+      // A navigation changes the generation, and an attachment is per generation:
+      // the page that was attached is gone, so re-ask rather than keep reading.
+      if (tab.generation !== initial.generation && !(await requireHumanAttachment(id, tab))) return;
       if (mode.kind === "url") {
         // Answered from the webview mirror: the same redacted URL the model
         // already sees on every navigation result. No eval round-trip.
@@ -139,6 +146,13 @@ export async function handleBrowserWaitFor(id: string, args: Record<string, unkn
         }
         await sleep(POLL_INTERVAL_MS);
         continue;
+      }
+      // A poll that cannot finish inside the request budget is not started: the
+      // eval itself can take seconds on a busy page, and a late answer lands
+      // after the bridge deadline as a redelivery, not as a result.
+      if (deadline - Date.now() < MIN_POLL_BUDGET_MS) {
+        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url), reason: "timeout" } });
+        return;
       }
       // A driver rejection here (the tab navigated away, the browser was disabled,
       // an eval failure) is thrown to `wrapHandler` and reaches the model as its

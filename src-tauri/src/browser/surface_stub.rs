@@ -11,9 +11,22 @@
 
 use crate::browser::eval_outcome::EvalError;
 use tauri::AppHandle;
-const MSG: &str = "UNSUPPORTED_PLATFORM: embedded browser surface is macOS-only in this build";
+/// The one unsupported-platform failure, tagged with the SAME token
+/// `surface_failure` classifies (`fail::UNSUPPORTED_PLATFORM`), so the stub can
+/// never drift from the classifier by spelling its own.
+fn unsupported_message() -> String {
+    format!(
+        "{}: embedded browser surface is macOS-only in this build",
+        crate::browser::surface::fail::UNSUPPORTED_PLATFORM
+    )
+}
+
+/// Every stub entry point returns this — one definition, not fourteen.
+fn unsupported<T>() -> Result<T, String> {
+    Err(unsupported_message())
+}
 pub fn create(_a: &AppHandle, _t: String, _w: String, _u: String) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn create_with_mode(
     _a: &AppHandle,
@@ -24,22 +37,22 @@ pub fn create_with_mode(
     _profile: Option<String>,
     _allow_loopback: bool,
 ) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn forget_profile(_a: &AppHandle, _p: String) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn clear_ai_sandbox_store(_a: &AppHandle) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn navigate(_a: &AppHandle, _t: String, _u: String) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn go_history(_a: &AppHandle, _t: String, _forward: bool) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn stop(_a: &AppHandle, _t: String) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn dialog_respond(
     _a: &AppHandle,
@@ -47,7 +60,7 @@ pub fn dialog_respond(
     _accepted: bool,
     _window_label: String,
 ) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn set_bounds(
     _a: &AppHandle,
@@ -57,13 +70,13 @@ pub fn set_bounds(
     _w: f64,
     _h: f64,
 ) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn destroy(_a: &AppHandle, _t: String) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn assert_no_bridge(_a: &AppHandle, _t: String) -> Result<String, EvalError> {
-    Err(EvalError::Surface(MSG.into()))
+    Err(EvalError::Surface(unsupported_message()))
 }
 pub fn eval(
     _a: &AppHandle,
@@ -71,17 +84,17 @@ pub fn eval(
     _s: String,
     _expected_generation: u64,
 ) -> Result<String, EvalError> {
-    Err(EvalError::Surface(MSG.into()))
+    Err(EvalError::Surface(unsupported_message()))
 }
 pub fn screenshot(_a: &AppHandle, _t: String) -> Result<String, String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn capture_cookies(
     _a: &AppHandle,
     _t: String,
     _host: String,
 ) -> Result<Vec<crate::browser::session_state::StoredCookie>, String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn apply_cookies(
     _a: &AppHandle,
@@ -90,10 +103,10 @@ pub fn apply_cookies(
     _origin: String,
     _c: Vec<crate::browser::session_state::StoredCookie>,
 ) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 pub fn set_hidden(_a: &AppHandle, _t: String, _h: bool) -> Result<(), String> {
-    Err(MSG.into())
+    unsupported()
 }
 /// No native surface on this platform, so no live views — an empty list is the
 /// truthful answer, not an error.
@@ -113,5 +126,5 @@ pub fn debug_hit_test(
     _x: f64,
     _y: f64,
 ) -> Result<(bool, String), String> {
-    Err(MSG.into())
+    unsupported()
 }

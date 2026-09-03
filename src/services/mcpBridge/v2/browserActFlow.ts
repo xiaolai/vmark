@@ -26,7 +26,7 @@ import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { mintOneShotConfirmed } from "@/services/browser/grantSync";
 import { originForAgent, urlForAgent } from "@/lib/browser/url";
-import { resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { resolveBrowserTab, type BrowserTarget, scriptTooLarge } from "./browserHelpers";
 import { invokeAttached } from "./browserAccess";
 import { parseEvalResult } from "./browserReadClass";
 
@@ -71,10 +71,19 @@ function failureHint(result: unknown): string {
   }
 }
 
+type BlockedPopup = NonNullable<ReturnType<typeof useBrowserUiStore.getState>["entries"][string]>["blockedPopup"];
+
+/** The popup record on the tab right now — captured BEFORE an act so the one
+ *  reported afterwards is compared by identity, not by a millisecond timestamp
+ *  that a popup recorded in the same millisecond as the act would share. */
+function currentPopup(tabId: string): BlockedPopup {
+  return useBrowserUiStore.getState().entries[tabId]?.blockedPopup ?? null;
+}
+
 /** A popup the page tried to open during this act, if the event arrived. */
-function popupDuring(tabId: string, startedAt: number): { url: string } | undefined {
-  const popup = useBrowserUiStore.getState().entries[tabId]?.blockedPopup;
-  if (!popup || popup.at < startedAt) return undefined;
+function popupDuring(tabId: string, before: BlockedPopup): { url: string } | undefined {
+  const popup = currentPopup(tabId);
+  if (!popup || popup === before) return undefined;
   return { url: urlForAgent(popup.url) };
 }
 
@@ -87,7 +96,12 @@ export async function finishAct(
   script: string,
   target?: { role: string; name: string },
 ): Promise<void> {
-  const startedAt = Date.now();
+  const tooLarge = scriptTooLarge(script, `${operation} script`);
+  if (tooLarge) {
+    await respond({ id, success: false, error: tooLarge });
+    return;
+  }
+  const popupBefore = currentPopup(tab.tabId);
   // A driver rejection (stale generation, eval timeout, not granted…) is thrown
   // to `wrapHandler`, which renders its token; it is NOT a "did not affect" result.
   const raw = await invokeAttached(tab, () =>
@@ -105,7 +119,7 @@ export async function finishAct(
   // get without a second round-trip. (A navigation landing later is still possible
   // — that is what wait_for is for; the primer says so.)
   const fresh = resolveBrowserTab(tab.tabId) ?? tab;
-  const popup = popupDuring(tab.tabId, startedAt);
+  const popup = popupDuring(tab.tabId, popupBefore);
   const page = {
     url: urlForAgent(fresh.url),
     generation: fresh.generation,
@@ -137,6 +151,13 @@ export async function approveAndAct(
   script: string,
   payloadSummary?: string,
 ): Promise<void> {
+  // Refused BEFORE the approval queue: an oversized script the driver will always
+  // reject must not be parked in the queue and approved repeatedly.
+  const tooLarge = scriptTooLarge(script, `${operation} script`);
+  if (tooLarge) {
+    await respond({ id, success: false, error: tooLarge });
+    return;
+  }
   const approvals = useBrowserApprovalStore.getState();
   const decision = approvals.decide(tab.url, operation);
   if (decision === "denied") {

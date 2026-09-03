@@ -25,7 +25,13 @@ import { buildStyleScript } from "@/lib/browser/agent/powerScript";
 import { originForAgent } from "@/lib/browser/url";
 import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
 import { mintOneShotConfirmed } from "@/services/browser/grantSync";
-import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import {
+  MAX_SCRIPT_BYTES,
+  readTabIdArg,
+  resolveBrowserTab,
+  utf8ByteLength,
+  type BrowserTarget,
+} from "./browserHelpers";
 import { browserGate, invokeAttached } from "./browserAccess";
 import { readStyleOps } from "./browserStyleOps";
 import { requireHumanAttachment, parseEvalResult } from "./browserReadClass";
@@ -34,27 +40,6 @@ export { handleBrowserQuery } from "./browserQuery";
 import { readOperationArgs } from "./readOperationArgs";
 import { unwrapExecuteJsResult, wrapExecuteJsScript } from "./browserExecuteJs";
 
-/**
- * Cap on a caller-supplied script / CSS payload. The AI client is UNTRUSTED, and
- * an approved payload is retained verbatim in `PendingApproval` and rendered in the
- * approval dialog — so an unbounded stream of large scripts would grow the store
- * and make the dialog expensive to render. 64 KiB is far above any legitimate
- * automation snippet. (Security review P5 re-verify — High #1 availability.)
- */
-const MAX_SCRIPT_BYTES = 64 * 1024;
-
-/**
- * Measure a string in UTF-8 BYTES, which is what `MAX_SCRIPT_BYTES` names.
- *
- * `String.length` counts UTF-16 code units, so a CJK or emoji payload passes a
- * `.length` check at up to ~3x the stated byte cap. Rust's `browser_eval` has
- * the authoritative limit (browser/script_limit.rs); this check exists so a
- * near-limit payload fails HERE with a clear client-side error instead of an
- * opaque driver rejection.
- */
-function utf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).length;
-}
 
 /** Feature gate + tab resolution for the write-class tools. Payload validation
  *  and the attachment gate come AFTER this (see runWriteOp's ordering rule). */

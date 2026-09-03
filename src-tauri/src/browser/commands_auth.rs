@@ -35,6 +35,11 @@ use tauri::{AppHandle, State};
 /// everything THIS window granted. The window is the invoking one, from Tauri —
 /// each document window syncs its own store, and the driver keeps one slice per
 /// window (audit 20260903 A-03). Validation lives in `mint::set_standing_grants`.
+/// Cap on driver-side profile-open approvals. Mirrors the frontend's
+/// `MAX_PENDING_APPROVALS` (`browserApprovalStore.constants.ts`); the TS test
+/// `approvalCapParity.test.ts` reads this line, so the two cannot drift apart.
+pub(crate) const MAX_PENDING_PROFILE_OPENS: usize = 64;
+
 #[tauri::command]
 pub async fn browser_set_grants(
     webview: tauri::WebviewWindow,
@@ -206,7 +211,7 @@ pub async fn browser_add_profile_open(
     }
     let mut opens = state.profile_opens.lock().map_err(lock_failure)?;
     // Bound an untrusted client from piling up pending approvals.
-    if opens.len() >= 64 {
+    if opens.len() >= MAX_PENDING_PROFILE_OPENS {
         // A bound, not a fault in this request: the client must let earlier
         // approvals resolve first.
         return Err(CommandError::conflict("too many pending profile approvals"));

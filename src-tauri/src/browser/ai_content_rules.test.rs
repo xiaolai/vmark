@@ -218,6 +218,61 @@ fn the_rule_list_is_valid_json_of_block_actions_for_every_resource_type() {
     }
 }
 
+/// WebKit's serialization of an IPv4-mapped (`::ffff:a.b.c.d`) address: hex groups,
+/// leading zeros stripped, the zero run compressed.
+fn mapped_hex(v4: std::net::Ipv4Addr) -> String {
+    let o = v4.octets();
+    format!("::ffff:{:x}:{:x}", (o[0] as u32) << 8 | o[1] as u32, (o[2] as u32) << 8 | o[3] as u32)
+}
+
+/// The deprecated IPv4-compatible spelling (`::a.b.c.d`), when its high group is
+/// non-zero (a zero high group folds into the `::` run and is not this form).
+fn compatible_hex(v4: std::net::Ipv4Addr) -> Option<String> {
+    let o = v4.octets();
+    let hi = (o[0] as u32) << 8 | o[1] as u32;
+    (hi != 0).then(|| format!("::{:x}:{:x}", hi, (o[2] as u32) << 8 | o[3] as u32))
+}
+
+// The rule list and the navigation policy must refuse the SAME address space.
+// Both are consulted from the one declarative table (`BLOCKED_IPV4_RANGES`), so a
+// range added to the policy without a url-filter fails here — the first list
+// shipped six ranges short and nothing said so.
+#[test]
+fn the_rule_list_blocks_every_ipv4_range_the_navigation_policy_blocks() {
+    use super::super::ai_policy_addr::{blocked_ipv4, BLOCKED_IPV4_RANGES, IPV4_LOOPBACK};
+    let filters = compiled(false);
+    let mut probes: Vec<std::net::Ipv4Addr> = Vec::new();
+    for &(network, prefix) in BLOCKED_IPV4_RANGES.iter().chain(std::iter::once(&IPV4_LOOPBACK)) {
+        let size: u64 = 1u64 << (32 - prefix);
+        let first = network as u64;
+        let last = first + size - 1;
+        for value in [first, first + 1, first + size / 2, last] {
+            probes.push(std::net::Ipv4Addr::from(value as u32));
+        }
+        // The neighbours just outside the range must AGREE too (both allow or both
+        // block, when another range happens to cover them).
+        if first > 0 {
+            probes.push(std::net::Ipv4Addr::from((first - 1) as u32));
+        }
+        if last < u32::MAX as u64 {
+            probes.push(std::net::Ipv4Addr::from((last + 1) as u32));
+        }
+    }
+    // Ordinary public addresses, which neither side may touch.
+    probes.extend(["8.8.8.8", "1.1.1.1", "93.184.216.34", "104.16.0.1"].map(|a| a.parse::<std::net::Ipv4Addr>().unwrap()));
+    for v4 in probes {
+        let policy = blocked_ipv4(v4, false);
+        let dotted = format!("http://{v4}/x");
+        assert_eq!(blocked(&filters, &dotted), policy, "{dotted}: rules vs policy disagree");
+        let mapped = format!("http://[{}]/x", mapped_hex(v4));
+        assert_eq!(blocked(&filters, &mapped), policy, "{mapped}: rules vs policy disagree");
+        if let Some(compat) = compatible_hex(v4) {
+            let url = format!("http://[{compat}]/x");
+            assert_eq!(blocked(&filters, &url), policy, "{url}: rules vs policy disagree");
+        }
+    }
+}
+
 #[test]
 fn every_filter_stays_inside_webkits_regex_subset() {
     // WebKit's URLFilterParser refuses these outright; a filter using one would

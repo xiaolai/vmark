@@ -62,9 +62,11 @@ describe("browserFailureToken", () => {
     ).toBe("CONFLICT");
   });
 
-  it("passes a legacy rejection through unchanged", () => {
+  it("passes a legacy string rejection through unchanged, and renders others by message", () => {
     expect(browserFailureToken("SSRF_BLOCKED")).toBe("SSRF_BLOCKED");
-    expect(browserFailureToken(new Error("boom"))).toBe("Error: boom");
+    expect(browserFailureToken(new Error("boom"))).toBe("boom");
+    // An untyped OBJECT rejection used to print "[object Object]" (the WI-14 class).
+    expect(browserFailureToken({ reason: "socket closed" })).not.toBe("[object Object]");
   });
 
   it("never emits [object Object] for a typed rejection", () => {

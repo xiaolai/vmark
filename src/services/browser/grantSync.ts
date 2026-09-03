@@ -183,6 +183,7 @@ export async function mintOneShotConfirmed(shot: OneShotApproval): Promise<boole
 /** Test-only: forget every recorded mint. */
 export function __resetPendingMints(): void {
   pendingMints.clear();
+  pendingProfileMints.clear();
 }
 
 /** Send a newly minted profile-open grant (WI-P6.1 H1) to the driver, which is the
@@ -190,12 +191,49 @@ export function __resetPendingMints(): void {
  *  applies a named profile. Without this leg, an approved profile-open authorizes the
  *  frontend and is then refused by the driver. */
 function pushProfileOpen(grant: ProfileOpenApproval): void {
-  void invoke("browser_add_profile_open", {
-    profile: grant.profile,
-    originPattern: grant.originPattern,
-  }).catch((error: unknown) => {
+  const key = profileOpenKey(grant);
+  if (pendingProfileMints.has(key)) return;
+  if (pendingProfileMints.size >= MAX_PENDING_MINTS) {
+    const oldest = pendingProfileMints.keys().next().value;
+    if (oldest !== undefined) pendingProfileMints.delete(oldest);
+  }
+  pendingProfileMints.set(key, mintProfileOpen(grant));
+}
+
+/** The identity of a profile-open grant: the (profile, origin pattern) the driver binds. */
+function profileOpenKey(grant: ProfileOpenApproval): string {
+  return JSON.stringify([grant.profile, grant.originPattern]);
+}
+
+/** Every profile-open mint in flight or settled-but-unconsumed, by identity — the
+ *  same discipline as `pendingMints`: `browserOpen` awaits the driver's confirmation
+ *  before it spends the frontend grant and creates the tab, so a fast create can no
+ *  longer race the mint, fail PROFILE_NOT_APPROVED and lose the user's approval. */
+const pendingProfileMints = new Map<string, Promise<boolean>>();
+
+async function mintProfileOpen(grant: ProfileOpenApproval): Promise<boolean> {
+  try {
+    await invoke("browser_add_profile_open", {
+      profile: grant.profile,
+      originPattern: grant.originPattern,
+    });
+    return true;
+  } catch (error) {
     browserWarn("profile-open sync failed; the driver will refuse the open", error);
-  });
+    return false;
+  }
+}
+
+/** Await the driver's confirmation that `grant` is minted; mints once itself when
+ *  no subscription recorded one (a test harness). The recorded outcome is consumed. */
+export async function mintProfileOpenConfirmed(grant: ProfileOpenApproval): Promise<boolean> {
+  const key = profileOpenKey(grant);
+  const recorded = pendingProfileMints.get(key);
+  if (recorded) {
+    pendingProfileMints.delete(key);
+    return recorded;
+  }
+  return mintProfileOpen(grant);
 }
 
 /**
