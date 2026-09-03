@@ -16,6 +16,11 @@
  *   - Setting-gated: respects `advanced.clearMacQuarantineOnOpen` toggle.
  *   - Fire-and-forget: callers don't await; failures are logged, never
  *     surfaced as errors. Workspace open must succeed even if strip fails.
+ *   - Zero trust at the IPC boundary: the stats payload is validated before it
+ *     is read. Because callers do not await, a throw here is an unhandled
+ *     rejection nobody sees — 17 of them surfaced the day the test tier began
+ *     running under a macOS platform pin — so a malformed payload is logged
+ *     and ignored rather than trusted.
  *   - One-time toast: first time the strip actually clears anything (count > 0),
  *     show a pinned toast explaining what happened. After that, silent.
  *     Persistence via localStorage so the notice doesn't re-appear after a
@@ -23,7 +28,7 @@
  *     reset).
  *
  * @coordinates-with src-tauri/src/quarantine.rs — strip_workspace_quarantine_cmd
- * @module utils/macQuarantineNotice
+ * @module services/macos/macQuarantineNotice
  */
 
 import { invoke } from "@tauri-apps/api/core";
