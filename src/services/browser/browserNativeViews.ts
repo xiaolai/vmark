@@ -20,7 +20,10 @@
  * Teardown is shared and retried (audit round 2, #78/#79): concurrent destroys of
  * one tab join a single in-flight promise, and `browser_destroy` is attempted three
  * times with backoff before the failure is reported — bookkeeping is dropped either
- * way, because the tab is gone from the store either way.
+ * way, because the tab is gone from the store either way. A view whose teardown
+ * kept failing is NEVER forgotten: it stays in `leakedViews` and is swept in the
+ * background; when the sweep budget is spent the timer pauses and the next
+ * successful teardown of any tab re-arms it (round 3).
  *
  * Hazard handled here: occlusion must be enforced against the view that EXISTS. The
  * store entry is seeded before `browser_create` is invoked and `useBrowserOccluder`

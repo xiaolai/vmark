@@ -24,6 +24,8 @@
  * It is also the ONE mint path for single-use approvals (audit 2026-09-03 A-04):
  * the subscription mints each new one-shot and records the promise, and callers
  * await that mint through `mintOneShotConfirmed` instead of minting a second copy.
+ * Its counterpart `revokeOneShot` withdraws a mint that confirmed after its run
+ * was cancelled, by the mint's FULL identity (script included) — round 3, #124.
  *
  * @coordinates-with stores/browserApprovalStore.ts — the source of truth for grants
  * @coordinates-with src-tauri browser_set_grants — the driver's mirror
