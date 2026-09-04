@@ -29,6 +29,7 @@ mod external_editor;
 mod file_open;
 mod file_ops;
 mod file_tree;
+mod file_tree_walk;
 mod file_write;
 mod fs_scope;
 pub mod genies;

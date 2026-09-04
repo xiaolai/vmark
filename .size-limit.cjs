@@ -178,7 +178,12 @@ module.exports = [
     // boundary (type-aware gate: String(detail) on a typed rejection renders
     // "[object Object]") — landed the chunk 23 B over. Kept tight so the next
     // unjustified growth still trips.
-    limit: "612 kB",
+    // 612 → 614 kB (2026-09-05, #1357): the file explorer's rescan scheduler —
+    // debounce, no-starvation bound and back-off under churn, replacing the
+    // rescan-per-event loop that pinned a core — landed the chunk 1.17 kB over.
+    // Same discipline: the smallest raise that fits, so growth without a reason
+    // still trips.
+    limit: "614 kB",
     brotli: false,
   },
 

@@ -78,6 +78,7 @@ macro_rules! all_commands {
             watcher::start_watching,
             watcher::stop_watching,
             file_tree::list_directory_entries,
+            file_tree_walk::list_directory_tree,
             file_ops::get_file_size_bytes,
             file_ops::move_paths_to_trash,
             live_docs::collect_live_document_refs,

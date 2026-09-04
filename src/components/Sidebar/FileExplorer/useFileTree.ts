@@ -6,9 +6,24 @@
  * created, renamed, or deleted.
  *
  * Key decisions:
+ *   - ONE listing per refresh (#1357): `list_directory_tree` walks the whole tree
+ *     in Rust, off the IPC thread, with the always-skipped directories (the same
+ *     floor the workspace search applies), the workspace's `excludeFolders` and —
+ *     unless hidden entries are shown — hidden directories pruned before they are
+ *     read. The hook used to recurse here with one IPC round trip per directory,
+ *     serially awaited: seconds per scan on a large root, and that slowness was
+ *     the fuel of the rescan loop below.
+ *   - WHEN to re-list is `rescanScheduler`'s decision, not this hook's: events are
+ *     debounced, a stream that never goes quiet still gets a scan within a bound,
+ *     and a scan that saw events while it ran is followed by a rest that doubles
+ *     while the churn continues. The previous policy — rescan per event batch,
+ *     and rescan again at once if anything arrived meanwhile — restarted back to
+ *     back for as long as something in the workspace kept writing (36 minutes at
+ *     ~20 full scans a minute in the report), one core pinned.
  *   - By default only includes markdown files (via mdFilter). When showAllFiles
  *     is enabled, all file types are shown — non-markdown files open with the
- *     system default app.
+ *     system default app. The file-type filter stays client-side: it is a
+ *     registry-driven predicate; Rust prunes directories only.
  *   - Node labels come from formatFileDisplayName — the same formatter the tab
  *     strip uses, so the two never disagree. The name on disk by default, since
  *     a hidden extension turned `requirements.txt` into an unexplained
@@ -19,7 +34,8 @@
  *   - Watch events are scoped by watchId (window label) to prevent cross-window
  *     interference when multiple windows watch the same directory.
  *   - Folders are always included (even if empty) so users can right-click to
- *     add files into them.
+ *     add files into them. An unreadable subfolder renders empty and is logged;
+ *     an unreadable ROOT is an error, never an empty workspace (#1224).
  *   - Window-focus refresh is a defensive safety net: macOS FSEvents (and
  *     equivalent native watchers on other platforms) occasionally miss
  *     externally-created files — Finder operations, externally-mounted
@@ -28,6 +44,8 @@
  *     back to VMark, regardless of whether fs:changed fired.
  *
  * @coordinates-with FileExplorer.tsx — consumes the tree data and refresh callback
+ * @coordinates-with components/Sidebar/FileExplorer/rescanScheduler.ts — decides when a scan runs
+ * @coordinates-with src-tauri/src/file_tree_walk.rs — the one-call listing this invokes
  * @coordinates-with services/workspaceEvents/subscribeWorkspaceEvents.ts — the shared, scoped fs-event source it subscribes to
  * @module components/Sidebar/FileExplorer/useFileTree
  */
@@ -35,7 +53,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { FileNode, DirectoryEntry } from "./types";
+import type { FileNode, TreeEntry, TreeListing } from "./types";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
 import {
   isMarkdownFileName,
@@ -44,25 +62,19 @@ import {
 } from "@/utils/dropPaths";
 import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
+import { createRescanScheduler, type RescanScheduler } from "./rescanScheduler";
 import { formatFileDisplayName } from "@/utils/displayFileName";
 import { fileExplorerError } from "@/utils/debug";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 type LoadOptions = FileTreeFilterOptions & { showExtensions: boolean };
 
-async function listDirectoryEntries(dirPath: string): Promise<DirectoryEntry[]> {
-  return invoke<DirectoryEntry[]>("list_directory_entries", { path: dirPath });
-}
-
-/** One directory entry as a tree node; folders carry their loaded children. */
-function toNode(entry: DirectoryEntry, options: LoadOptions, children: FileNode[]): FileNode {
-  return entry.isDirectory
-    ? { id: entry.path, name: entry.name, isFolder: true, children }
-    : {
-        id: entry.path,
-        name: formatFileDisplayName(entry.name, options.showExtensions),
-        isFolder: false,
-      };
+/** The whole tree under `rootPath`, in ONE round trip. THROWS when the root cannot be read. */
+async function listDirectoryTree(rootPath: string, options: LoadOptions): Promise<TreeListing> {
+  return invoke<TreeListing>("list_directory_tree", {
+    path: rootPath,
+    options: { excludeFolders: options.excludeFolders, showHidden: options.showHidden },
+  });
 }
 
 /** Folders first, then by name. */
@@ -72,34 +84,24 @@ function byFolderThenName(a: FileNode, b: FileNode): number {
 }
 
 /**
- * List one directory and its descendants. THROWS when this directory cannot be
- * read — the caller decides what that means.
+ * The listed entries as tree nodes: the client-side file filter applied at
+ * every level, folders always kept (so users can right-click to add files into
+ * them), an unreadable subfolder logged and shown empty — one locked folder deep
+ * in a workspace must not blank the tree (the #1224 failure mode is the ROOT,
+ * handled in loadTree).
  */
-async function loadDirectory(dirPath: string, options: LoadOptions): Promise<FileNode[]> {
-  const entries = await listDirectoryEntries(dirPath);
+function toNodes(entries: TreeEntry[], options: LoadOptions): FileNode[] {
   const nodes: FileNode[] = [];
   for (const entry of entries) {
     if (!shouldIncludeEntry(entry, options)) continue;
-    // Always include folders so users can right-click to add files into them.
-    const children = entry.isDirectory ? await loadSubtree(entry.path, options) : [];
-    nodes.push(toNode(entry, options, children));
+    if (entry.isDirectory) {
+      if (entry.unreadable) fileExplorerError(" Failed to read directory:", entry.path);
+      nodes.push({ id: entry.path, name: entry.name, isFolder: true, children: toNodes(entry.children ?? [], options) });
+    } else {
+      nodes.push({ id: entry.path, name: formatFileDisplayName(entry.name, options.showExtensions), isFolder: false });
+    }
   }
   return nodes.sort(byFolderThenName);
-}
-
-/**
- * A SUBDIRECTORY's subtree: one unreadable folder deep in a workspace must not
- * blank the whole tree, so its failure is logged and it renders as empty. The
- * ROOT is different — see loadTree, which surfaces that as an error rather than
- * telling the user their workspace is empty (the #1224 failure mode).
- */
-async function loadSubtree(dirPath: string, options: LoadOptions): Promise<FileNode[]> {
-  try {
-    return await loadDirectory(dirPath, options);
-  } catch (error) {
-    fileExplorerError(" Failed to read directory:", dirPath, error);
-    return [];
-  }
 }
 
 // Phase 1B: file explorer surfaces every registered format. The
@@ -139,17 +141,15 @@ export function useFileTree(
   const [tree, setTree] = useState<FileNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The listing hit the walker's node or depth bound: the tree shown is partial. */
+  const [truncated, setTruncated] = useState(false);
   const requestIdRef = useRef(0);
-  // In-flight guard: a focus event and an fs batch arriving together used to
-  // launch two full recursive scans of the same workspace. One runs; a request
-  // that arrives meanwhile sets `rerunPendingRef` and is coalesced into a
-  // single follow-up pass.
-  const inFlightRef = useRef(false);
-  const rerunPendingRef = useRef(false);
+  const schedulerRef = useRef<RescanScheduler | null>(null);
   // JSON, not join(","): ["a,b"] and ["a","b"] flatten to the same comma string,
   // so a switch between them kept the previous loader and its exclusions.
   const excludeFoldersKey = JSON.stringify(excludeFolders);
 
+  /** ONE scan. Single flight and timing belong to the scheduler, never here. */
   const loadTree = useCallback(async () => {
     // Bump the request id even when clearing: a listing already in flight must
     // not repopulate a tree the user just closed (or an unmounted hook).
@@ -160,13 +160,7 @@ export function useFileTree(
       setIsLoading(false);
       return;
     }
-    if (inFlightRef.current) {
-      rerunPendingRef.current = true;
-      return;
-    }
-    inFlightRef.current = true;
     setIsLoading(true);
-
     try {
       const loadOptions: LoadOptions = {
         filter: mdFilter,
@@ -175,9 +169,11 @@ export function useFileTree(
         showAllFiles,
         showExtensions,
       };
-      const nodes = await loadDirectory(rootPath, loadOptions);
+      const listing = await listDirectoryTree(rootPath, loadOptions);
+      if (listing.truncated) fileExplorerError(" Tree listing truncated at the walker's bound:", rootPath);
       if (currentRequestId === requestIdRef.current) {
-        setTree(nodes);
+        setTree(toNodes(listing.entries, loadOptions));
+        setTruncated(listing.truncated);
         setError(null);
       }
     } catch (err) {
@@ -186,16 +182,12 @@ export function useFileTree(
       fileExplorerError(" Failed to load tree:", err);
       if (currentRequestId === requestIdRef.current) {
         setTree([]);
-        setError(errorMessage(err));
+        setTruncated(false);
+        setError(commandErrorMessage(err));
       }
     } finally {
-      inFlightRef.current = false;
       if (currentRequestId === requestIdRef.current) {
         setIsLoading(false);
-      }
-      if (rerunPendingRef.current) {
-        rerunPendingRef.current = false;
-        void loadTree();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- excludeFoldersKey is stable serialization
@@ -212,23 +204,30 @@ export function useFileTree(
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTree([]);
       setError(null);
+      setTruncated(false);
       return;
     }
 
-    void loadTree();
+    // The scheduler owns single flight, debounce and back-off (#1357); one per
+    // (root, options) so a switch starts from a clean slate.
+    const scheduler = createRescanScheduler(loadTree);
+    schedulerRef.current = scheduler;
+    void scheduler.refreshNow();
 
     // Subscribe to the shared, already-scoped workspace event stream: any
-    // in-scope batch (create / delete / rename / real modify) triggers a
-    // reload. Scoping + self-write filtering + no-op suppression are done by
-    // the source, so this stays a one-liner.
+    // in-scope batch (create / delete / rename / real modify) asks for a scan.
+    // Scoping + self-write filtering + no-op suppression are done by the source;
+    // coalescing and pacing by the scheduler, so this stays a one-liner.
     const unsubscribe = subscribeWorkspaceEvents(watchId, () => {
-      void loadTree();
+      scheduler.request();
     });
 
     return () => {
       // Unmount, or a switch to another workspace: the same invalidation.
       requestIdRef.current += 1;
       unsubscribe();
+      scheduler.dispose();
+      if (schedulerRef.current === scheduler) schedulerRef.current = null;
     };
   }, [rootPath, loadTree, watchId]);
 
@@ -241,7 +240,7 @@ export function useFileTree(
     let cancelled = false;
     getCurrentWebviewWindow()
       .onFocusChanged(({ payload: focused }) => {
-        if (focused) void loadTree();
+        if (focused) void schedulerRef.current?.refreshNow();
       })
       .then((u) => {
         if (cancelled) {
@@ -252,13 +251,19 @@ export function useFileTree(
       })
       .catch((error: unknown) => {
         fileExplorerError(" Failed to listen for window focus:",
-          errorMessage(error));
+          commandErrorMessage(error));
       });
     return () => {
       cancelled = true;
       if (unlisten) unlisten();
     };
-  }, [rootPath, loadTree]);
+  }, [rootPath]);
 
-  return { tree, isLoading, error, refresh: loadTree };
+  /** Manual refresh: scan now (coalesced with a running scan), resolved once it has run. */
+  const refresh = useCallback(
+    () => schedulerRef.current?.refreshNow() ?? loadTree(),
+    [loadTree],
+  );
+
+  return { tree, isLoading, error, truncated, refresh };
 }
