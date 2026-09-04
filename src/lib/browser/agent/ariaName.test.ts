@@ -2,7 +2,7 @@
 // normalisation, the content-walk rules, the landmark rule and the cap. The
 // injected core is held to the same answers by `ariaParity.test.ts`.
 import { describe, it, expect, vi } from "vitest";
-import { normalize, accessibleName, NAME_CAP, CONTENT_BUDGET } from "./ariaName";
+import { normalize, accessibleName, accessibleNameFull, NAME_CAP, CONTENT_BUDGET, ID_LIST_MAX } from "./ariaName";
 
 function el(html: string): Element {
   return new DOMParser().parseFromString(`<body>${html}</body>`, "text/html").body.firstElementChild!;
@@ -69,6 +69,60 @@ describe("accessibleName", () => {
 describe("content walk bounds (#105)", () => {
   it("the content budget is many times the cap, so a whitespace-heavy name still fills it", () => {
     expect(CONTENT_BUDGET).toBe(NAME_CAP * 16);
+  });
+
+  it("aria-labelledby naming thousands of elements gathers ONE budget, not thousands (#105 round 5)", () => {
+    // 5,000 referenced spans of 100 chars each would be 500k chars if every one
+    // were read before the cap; the aggregate stops at CONTENT_BUDGET and ids past
+    // ID_LIST_MAX are never looked up.
+    const ids: string[] = [];
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < 5_000; i++) {
+      const span = document.createElement("span");
+      span.id = `ref-${i}`;
+      span.textContent = "q".repeat(100);
+      frag.appendChild(span);
+      ids.push(span.id);
+    }
+    document.body.appendChild(frag);
+    const btn = document.createElement("button");
+    btn.setAttribute("aria-labelledby", ids.join(" "));
+    document.body.appendChild(btn);
+    const looked: string[] = [];
+    const original = document.getElementById.bind(document);
+    const spy = vi.spyOn(document, "getElementById").mockImplementation((id: string) => {
+      looked.push(id);
+      return original(id);
+    });
+    try {
+      const nameB = accessibleName(btn);
+      const wantB = `${"q".repeat(100)} ${"q".repeat(100)} ${"q".repeat(100)}`.slice(0, NAME_CAP);
+      const diffB = [...nameB].findIndex((ch, i) => ch !== wantB[i]);
+      expect(nameB, `len=${nameB.length} first-diff=${diffB} around=${JSON.stringify(nameB.slice(Math.max(0, diffB - 3), diffB + 5))}`).toBe(wantB);
+      expect(looked.length).toBeLessThanOrEqual(ID_LIST_MAX);
+      expect(accessibleNameFull(btn).length).toBeLessThanOrEqual(CONTENT_BUDGET + 1);
+    } finally {
+      spy.mockRestore();
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("a control with thousands of <label for> gathers ONE budget of label text (#105 round 5)", () => {
+    const input = document.createElement("input");
+    input.id = "many-labels";
+    document.body.appendChild(input);
+    for (let i = 0; i < 3_000; i++) {
+      const label = document.createElement("label");
+      label.htmlFor = input.id;
+      label.textContent = "w".repeat(100);
+      document.body.appendChild(label);
+    }
+    try {
+      expect(accessibleName(input)).toBe(`${"w".repeat(100)} ${"w".repeat(100)} ${"w".repeat(100)}`.slice(0, NAME_CAP));
+      expect(accessibleNameFull(input).length).toBeLessThanOrEqual(CONTENT_BUDGET + 1);
+    } finally {
+      document.body.innerHTML = "";
+    }
   });
 
   it("a button a billion text children wide costs a cursor: at most CONTENT_BUDGET+1 children are ever read", () => {

@@ -54,6 +54,7 @@ pub mod geometry;
 pub mod main_thread_hop;
 pub mod mint;
 pub mod native_failure;
+pub mod nav_api_navigation;
 pub mod nav_decision;
 pub mod nav_ring;
 pub mod no_bridge;

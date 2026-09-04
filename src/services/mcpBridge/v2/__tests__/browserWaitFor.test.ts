@@ -91,7 +91,7 @@ describe("handleBrowserWaitFor", () => {
   it("resolves the tab first, then validates, then gates the attachment", async () => {
     seed();
     await handleBrowserWaitFor("w-order", { tabId: "nope", timeoutMs: 0 });
-    expect(lastResponse()).toMatchObject({ success: false, error: "no active browser tab" });
+    expect(lastResponse()).toMatchObject({ success: false, error: "TAB_NOT_FOUND" });
     const human = seed("human");
     await handleBrowserWaitFor("w-bad-human", { tabId: human, timeoutMs: 0, text: "x" });
     expect(lastResponse()).toMatchObject({ success: false, error: "INVALID_TIMEOUT" });

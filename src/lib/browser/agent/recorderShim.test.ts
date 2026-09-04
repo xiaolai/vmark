@@ -155,6 +155,24 @@ describe("recorder shim — capture shape", () => {
     expect(JSON.stringify(events[0])).not.toContain("draft");
   });
 
+  it("a click on a WRAPPING label's text resolves to the control inside it, recorded once", () => {
+    evalIsolated(buildArmScript());
+    const label = mount<HTMLLabelElement>(`<label id="l">Agree <input id="cb" type="checkbox"></label>`, "l");
+    label.click();
+    const events = drain();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "click", role: "checkbox", name: "Agree" });
+  });
+
+  it("a click on a CHILD of a label (a span) resolves to the label's control, recorded once", () => {
+    evalIsolated(buildArmScript());
+    mount(`<label id="l" for="cb"><span id="txt">Agree</span></label><input id="cb" type="checkbox">`, "l");
+    document.getElementById("txt")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const events = drain();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "click", role: "checkbox", name: "Agree" });
+  });
+
   it("a CANCELLED label click never swallows a later genuine click on its control", async () => {
     evalIsolated(buildArmScript());
     const label = mount<HTMLLabelElement>(`<label id="l" for="cb">Agree</label><input id="cb" type="checkbox">`, "l");

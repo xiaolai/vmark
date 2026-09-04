@@ -19,6 +19,11 @@
 //!   - Every native call goes through `create_native` / `navigate_native`, which
 //!     own the compensation: forget the tab, or restore the snapshot.
 //!
+//! The native calls (`create_native_with`, `navigate_native_with`) run the
+//! resolved-address pre-flight (`ai_transactions_preflight.rs`) before issuing the
+//! load, with the resolver injected; a refusal takes the same compensation as a
+//! failed native call (round 4, #7/#8).
+//!
 //! @coordinates-with browser/ai_commands.rs — the composition, the only caller
 //! @coordinates-with browser/registry_ai.rs — the reservation decision
 //! @coordinates-with browser/ai_guards.rs — the refusal vocabulary these raise
@@ -89,6 +94,14 @@ pub(super) fn reserve_ai_tab(
             AiReservationRefusal::ProvenanceMismatch => provenance_mismatch(),
             AiReservationRefusal::Terminal => tab_not_found(),
             AiReservationRefusal::Mismatch(kind) => request_mismatch(kind),
+            // The window-gone class the native layer already speaks: a reservation
+            // under a window in teardown is refused before anything is recorded.
+            AiReservationRefusal::WindowClosed => {
+                surface_failure(&NativeSurfaceError::WindowGone(format!(
+                    "window '{}' is closing; nothing to attach a browser to",
+                    request.window_label
+                )))
+            }
         })
 }
 

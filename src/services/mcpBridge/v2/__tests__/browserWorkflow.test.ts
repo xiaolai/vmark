@@ -50,7 +50,7 @@ const flush = async () => {
 const tick = () => new Promise((r) => setTimeout(r, 10));
 
 beforeEach(() => {
-  invoke.mockReset().mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+  invoke.mockReset().mockResolvedValue(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
   vi.mocked(respond).mockClear();
   __resetRunRegistry();
   useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [], profileOpens: [] });
@@ -127,7 +127,7 @@ describe("workflow_run", () => {
   it("a `navigate to` step awaits the ticket and the tab store learns the new page (W-02)", async () => {
     const id = seed();
     invoke.mockImplementation((cmd: string) =>
-      cmd === "browser_ai_navigate" ? Promise.resolve({ tabId: id, navigationId: "nav-1" }) : Promise.resolve(JSON.stringify({ found: true, clicked: true })),
+      cmd === "browser_ai_navigate" ? Promise.resolve({ tabId: id, navigationId: "nav-1" }) : Promise.resolve(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 })),
     );
     const src = ["---", "site: blog", "---", "1. action: navigate to https://blog.example.com/new"].join("\n");
     await handleBrowserWorkflowRun("r1", { tabId: id, source: src });

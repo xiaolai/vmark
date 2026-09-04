@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { AGENT_CORE_SRC } from "./agentCore";
 import { computeRole, accessibleName, ariaSnapshot, SNAPSHOT_VISIT_BUDGET } from "./aria";
-import { CONTENT_BUDGET, NAME_CAP } from "./ariaName";
+import { CONTENT_BUDGET, NAME_CAP, CONTENT_VISIT_BUDGET, ID_LIST_MAX } from "./ariaName";
 
 interface Core {
   role(el: Element): string | null;
@@ -130,6 +130,32 @@ function describeEl(e: Element): string {
   return e.outerHTML.slice(0, 80);
 }
 
+describe("content visit budget parity (#105/#119)", () => {
+  it("both sides stop after CONTENT_VISIT_BUDGET nodes, so a million empty spans cannot pin the walk", () => {
+    const m = /function __vmarkContentVisitBudget\(\) \{\n {2}return (\d+);/.exec(AGENT_CORE_SRC);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBe(CONTENT_VISIT_BUDGET);
+    const host = document.createElement("button");
+    let reads = 0;
+    const kids = new Proxy([] as Node[], {
+      get(t, key) {
+        if (key === "length") return 1_000_000_000;
+        const i = typeof key === "string" ? Number(key) : NaN;
+        if (!Number.isInteger(i)) return Reflect.get(t, key);
+        reads += 1;
+        return document.createElement("span"); // empty: contributes no characters
+      },
+    }) as unknown as NodeListOf<ChildNode>;
+    Object.defineProperty(host, "childNodes", { value: kids });
+    const started = Date.now();
+    expect(accessibleName(host)).toBe("");
+    expect(reads).toBeLessThanOrEqual(CONTENT_VISIT_BUDGET + 1);
+    expect(core.name(host)).toBe("");
+    expect(reads).toBeLessThanOrEqual(2 * (CONTENT_VISIT_BUDGET + 1));
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+});
+
 describe("aria.ts ⇔ agentCore.src.js parity", () => {
   it("agrees on role and accessible name for EVERY element of the widened fixture", () => {
     const doc = parse(WIDE_FIXTURE);
@@ -226,6 +252,12 @@ describe("budget parity", () => {
     expect(match).not.toBeNull();
     expect(Number(match![1])).toBe(SNAPSHOT_VISIT_BUDGET);
     expect(core.visitBudget()).toBe(SNAPSHOT_VISIT_BUDGET);
+  });
+
+  it("the id-list cap is ONE number: the core and ariaName.ts agree (#105 round 5)", () => {
+    const match = /function __vmarkIdListMax\(\) \{\n {2}return (\d+);/.exec(AGENT_CORE_SRC);
+    expect(match, "__vmarkIdListMax() must return a literal").not.toBeNull();
+    expect(Number(match![1])).toBe(ID_LIST_MAX);
   });
 
   it("the content budget is ONE number: the core and ariaName.ts agree", () => {

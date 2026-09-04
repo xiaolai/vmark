@@ -90,6 +90,10 @@ pub enum AiReservationRefusal {
     Terminal,
     /// The tab exists, but this is not the request that reserved it.
     Mismatch(AiRequestMismatch),
+    /// The window is being torn down: no reservation may land under it (the
+    /// dying window's own frontend re-creating a view after the native teardown —
+    /// journey 37).
+    WindowClosed,
 }
 
 impl BrowserRegistry {
@@ -100,6 +104,9 @@ impl BrowserRegistry {
         tab_id: &str,
         request: &AiTabRequest<'_>,
     ) -> Result<AiReservation, AiReservationRefusal> {
+        if self.window_closed(request.window_label) {
+            return Err(AiReservationRefusal::WindowClosed);
+        }
         let Some(entry) = self.tabs.get(tab_id) else {
             let mut entry = Entry::new(request.window_label, request.mode);
             entry.policy_epoch = request.policy_epoch;

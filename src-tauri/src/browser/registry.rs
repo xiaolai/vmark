@@ -48,6 +48,11 @@
 //! the crash overlay). A *failed* load has no state of its own — the webview is
 //! idle on whatever it was showing, which is `Live`; the committed URL stays
 //! cleared, so the driver is granted nothing on a page that never loaded.
+//!
+//! A window that is being torn down is remembered in `closed_windows` (audit
+//! 20260903, journey 37): `create_with_mode` and `reserve_ai_tab` refuse a tab under
+//! that label with `BrowserError::WindowClosed`, so a view registered around a
+//! teardown cannot outlive its window.
 
 use std::collections::HashMap;
 
@@ -151,6 +156,11 @@ pub enum BrowserError {
     /// Unreachable in practice; refusing loudly beats a counter that stops
     /// moving and leaves every command stamped with it fresh forever.
     GenerationExhausted(String),
+    /// The window named is being torn down (or already was): nothing may be
+    /// registered under it any more. Journey 37 found the race this closes — the
+    /// dying window's own frontend re-creating a native view AFTER the native
+    /// teardown had run, leaving a live WKWebView the app could no longer reach.
+    WindowClosed(String),
 }
 
 struct Entry {
@@ -208,6 +218,11 @@ impl Entry {
 #[derive(Default)]
 pub struct BrowserRegistry {
     tabs: HashMap<String, Entry>,
+    /// Labels whose window teardown has begun (`mark_window_closed`), kept for the
+    /// process lifetime — Tauri never reuses a document-window label, so the set is
+    /// bounded by windows ever created. Checked under this guard by every
+    /// registration path, which is what makes teardown authoritative.
+    closed_windows: std::collections::HashSet<String>,
 }
 
 #[path = "registry_navigation.rs"]
@@ -242,6 +257,9 @@ impl BrowserRegistry {
         window_label: &str,
         automation_mode: AutomationMode,
     ) -> Result<(), BrowserError> {
+        if self.window_closed(window_label) {
+            return Err(BrowserError::WindowClosed(window_label.to_string()));
+        }
         if self.tabs.contains_key(tab_id) {
             return Err(BrowserError::DuplicateTab(tab_id.to_string()));
         }

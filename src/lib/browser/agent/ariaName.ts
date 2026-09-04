@@ -48,6 +48,10 @@ const FORMAT_CHARS = /\p{Cf}/gu;
  *  name cap, so a whitespace-heavy name still fills it, but a hostile page's
  *  megabyte of text never becomes one string. Mirrors `__vmarkContentBudget()`. */
 export const CONTENT_BUDGET = NAME_CAP * 16;
+/** Nodes the content walk may visit — the bound a character budget cannot give
+ *  against empty or format-only descendants. Mirrored by the injected core
+ *  (`__vmarkContentVisitBudget`), pinned equal by `ariaParity.test.ts`. */
+export const CONTENT_VISIT_BUDGET = 20_000;
 
 export function normalize(s: string): string {
   return s.normalize("NFC").replace(FORMAT_CHARS, "").replace(/\s+/g, " ").trim();
@@ -90,11 +94,13 @@ interface ChildCursor {
 /** Text alternative from content. `all` keeps hidden descendants (a labelledby
  *  traversal whose referenced node was itself hidden). Mirrors `__vmarkContentText`. */
 function contentText(el: Element, all: boolean): string {
-  // Iterative cursor walk with a budget: the recursive version built the entire
-  // descendant text before the cap applied, so a deep or enormous subtree could
-  // overflow the stack or allocate without bound before anything was capped; the
-  // stack is bounded by depth and nothing is pushed before the budget is checked.
+  // Iterative cursor walk with TWO budgets: characters gathered (CONTENT_BUDGET)
+  // and nodes visited (CONTENT_VISIT_BUDGET) — a hostile subtree of a million
+  // empty or format-only spans yields no characters, so a character budget alone
+  // never stops it (round 4, #105). The stack is bounded by depth and nothing is
+  // pushed before either budget is checked.
   let out = "";
+  let visited = 0;
   const stack: ChildCursor[] = [{ kids: el.childNodes, i: 0 }];
   while (stack.length > 0 && out.length < CONTENT_BUDGET) {
     const top = stack[stack.length - 1];
@@ -104,6 +110,8 @@ function contentText(el: Element, all: boolean): string {
     }
     const node = top.kids[top.i];
     top.i += 1;
+    visited += 1;
+    if (visited > CONTENT_VISIT_BUDGET) break;
     if (node.nodeType === 3) {
       out = take(out, (node as Text).data, CONTENT_BUDGET);
       continue;
@@ -137,27 +145,43 @@ function rootOf(el: Element): IdScope | null {
   return el.ownerDocument;
 }
 
-/** Text of the elements referenced by an id-list attribute (aria-labelledby). */
+/** Text of the elements referenced by an id-list attribute (aria-labelledby).
+ *  The AGGREGATE is budgeted too (#105): each reference contributes at most
+ *  CONTENT_BUDGET characters, and the list stops once the whole has gathered
+ *  CONTENT_BUDGET — an attribute naming ten thousand elements cannot build ten
+ *  thousand bounded strings before the cap applies. Ids past `ID_LIST_MAX` are
+ *  not even looked up; accname lists a handful. */
 function idListText(el: Element, idList: string): string {
   const root = rootOf(el);
-  const parts: string[] = [];
-  for (const id of idList.trim().split(/\s+/)) {
+  let out = "";
+  const ids = idList.trim().split(/\s+/, ID_LIST_MAX);
+  for (const id of ids) {
+    if (out.length >= CONTENT_BUDGET) break;
     const ref = id && root ? root.getElementById(id) : null;
     if (!ref) continue;
     const label = ref.getAttribute("aria-label");
-    parts.push(label?.trim() ? label : contentText(ref, selfHidden(ref)));
+    out = take(out, label?.trim() ? label : contentText(ref, selfHidden(ref)), CONTENT_BUDGET);
+    out = take(out, " ", CONTENT_BUDGET);
   }
-  return normalize(parts.join(" "));
+  return normalize(out);
 }
+
+/** How many ids of an id-list attribute are ever looked up (mirrors the core). */
+export const ID_LIST_MAX = 64;
 
 /** The text of every `<label>` associated with a form control, in document order.
  *  Uses the platform's own `labels` association (both `for=` and wrapping); a
  *  custom control the platform associates nothing with can still be named by a
- *  wrapping <label>. */
+ *  wrapping <label>. Budgeted across labels like `idListText` (#105). */
 function labelFor(el: Element): string {
   const labels = (el as Partial<HTMLInputElement>).labels;
   if (labels && labels.length > 0) {
-    return normalize(Array.from(labels, (label) => contentText(label, false)).join(" "));
+    let out = "";
+    for (let i = 0; i < labels.length && out.length < CONTENT_BUDGET; i++) {
+      out = take(out, contentText(labels[i], false), CONTENT_BUDGET);
+      out = take(out, " ", CONTENT_BUDGET);
+    }
+    return normalize(out);
   }
   const wrapping = el.closest("label");
   return wrapping ? normalize(contentText(wrapping, false)) : "";
@@ -185,7 +209,8 @@ function formControlName(el: Element): string {
 }
 
 /** The uncapped accessible name ("" when none is derivable). */
-function accessibleNameFull(el: Element): string {
+/** The uncapped name — exported so tests can bound the AGGREGATE a hostile page can make it gather. */
+export function accessibleNameFull(el: Element): string {
   // aria-labelledby outranks aria-label (WAI-ARIA accname): a non-empty reference
   // wins, and aria-label is the fallback when it names nothing.
   const labelledby = el.getAttribute("aria-labelledby");

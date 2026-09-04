@@ -89,6 +89,7 @@ describe("action steps — granted origin", () => {
     [{ found: true, clicked: false, matchedTotal: 1, matchedVisible: 2 }, "contradictory-act-result"],
     [{ found: true, clicked: true, by: "div.overlay" }, "contradictory-act-result"],
     [{ found: true, clicked: true, candidates: [] }, "contradictory-act-result"],
+    [{ found: false, clicked: true, matchedTotal: 0, matchedVisible: 0 }, "contradictory-act-result"],
   ])("the whole act result is schema-checked: %j → %s (#193)", async (result, reason) => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
     invoke.mockResolvedValue(JSON.stringify(result));
@@ -97,9 +98,24 @@ describe("action steps — granted origin", () => {
     expect(out).toMatchObject({ outcome: "unknown", reason });
   });
 
+  it("a contradictory {found:false, clicked:true} never triggers a heal (a second write) (#193)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    const snapshot = vi.fn(() => snapshotOf([["button", "Publish!"]]));
+    invoke.mockImplementation((cmd: string, args?: { operation?: string }) => {
+      if (cmd !== "browser_eval") return Promise.resolve({});
+      if (args?.operation === "read") return Promise.resolve(snapshot());
+      return Promise.resolve(JSON.stringify({ found: false, clicked: true, matchedTotal: 0, matchedVisible: 0 }));
+    });
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    expect(out).toMatchObject({ outcome: "unknown", reason: "contradictory-act-result" });
+    expect(snapshot).not.toHaveBeenCalled(); // no heal attempted
+    expect(invoke.mock.calls.filter(([, a]) => (a as { operation?: string })?.operation === "click")).toHaveLength(1);
+  });
+
   it("a success carrying a failure reason is contradictory → unknown, never success (#193)", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, reason: "disabled" }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, reason: "disabled", matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
     expect(out).toMatchObject({ outcome: "unknown", reason: "contradictory-act-result" });
@@ -115,7 +131,7 @@ describe("action steps — granted origin", () => {
 
   it("maps an obscured click to failed + postconditionMet:false (retryable) with the reason", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x" }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x", matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
     expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "obscured" });
@@ -123,7 +139,7 @@ describe("action steps — granted origin", () => {
 
   it("maps a disabled target to a stop-and-ask failure", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "disabled" }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: false, reason: "disabled", matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
     expect(out).toEqual({ outcome: "failed", reason: "disabled" });
@@ -137,9 +153,117 @@ describe("action steps — granted origin", () => {
     expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "not-found" });
   });
 
+  it("a count-less {found:false, clicked:false} is malformed → unknown, never a healable not-found (#193 round 5)", async () => {
+    // The act script emits matchedTotal/matchedVisible on every miss; a miss without
+    // them is not the script's verdict, so it must not qualify for a heal retry.
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    let evals = 0;
+    routeEval(snapshotOf([]), () => {
+      evals += 1;
+      return { found: false, clicked: false };
+    });
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Ghost" (button)'), 0);
+    expect(out).toEqual({ outcome: "unknown", reason: "malformed-act-result" });
+    expect(evals).toBe(1);
+  });
+
+  it("a miss that reports matches ({found:false, matchedTotal:1, matchedVisible:1}) is contradictory → unknown, never healed (#193 round 6)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    let evals = 0;
+    routeEval(snapshotOf([]), () => {
+      evals += 1;
+      return { found: false, clicked: false, matchedTotal: 1, matchedVisible: 1 };
+    });
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Ghost" (button)'), 0);
+    expect(out).toEqual({ outcome: "unknown", reason: "contradictory-act-result" });
+    expect(evals).toBe(1);
+  });
+
+  it.each([
+    [{ found: true, clicked: false, reason: "not-found" }, "a refusal with a reason the producer never emits"],
+    [{ found: true, clicked: false, matchedTotal: 1, matchedVisible: 1 }, "a refusal with no reason at all"],
+    [{ found: true, clicked: false, reason: "hidden", candidates: [{ ref: "r1", text: "x" }], matchedTotal: 1, matchedVisible: 0 }, "candidates on a non-ambiguous refusal"],
+    [{ found: true, clicked: false, reason: "hidden", by: "overlay", matchedTotal: 1, matchedVisible: 0 }, "`by` on a non-obscured refusal"],
+    [{ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0, reason: "hidden" }, "a miss carrying a reason"],
+    [{ found: true, clicked: false, reason: "hidden" }, "a count-less refusal (every producer path carries counts)"],
+    [{ found: true, clicked: true }, "a count-less success"],
+    [{ found: true, clicked: true, matchedTotal: 1, matchedVisible: 0 }, "a success with no visible match"],
+    [{ found: true, clicked: false, reason: "ambiguous", candidates: [{ ref: "r1", text: "x" }], matchedTotal: 2, matchedVisible: 1 }, "ambiguity with one visible match"],
+    [{ found: true, clicked: false, reason: "hidden", matchedTotal: 0, matchedVisible: 0 }, "found:true with no match"],
+    [{ found: true, clicked: true, matchedTotal: 2, matchedVisible: 2 }, "a success with two visible matches (that is an ambiguity)"],
+    [{ found: true, clicked: false, reason: "hidden", matchedTotal: 1, matchedVisible: 1 }, "hidden with a visible match"],
+    [{ found: true, clicked: false, reason: "obscured", by: "div.x", matchedTotal: 2, matchedVisible: 2 }, "obscured judged on two visible matches"],
+    [{ found: true, clicked: false, reason: "readonly", matchedTotal: 1, matchedVisible: 0 }, "readonly with no visible match"],
+    [{ found: true, clicked: true, detail: "editor-handled", matchedTotal: 1, matchedVisible: 1 }, "a click success carrying a detail (only a typed success may)"],
+    [{ found: true, clicked: false, reason: "hidden", detail: "inert", matchedTotal: 1, matchedVisible: 0 }, "a detail on a reason that never carries one"],
+    [{ found: true, clicked: false, reason: "disabled", detail: "elsewhere", matchedTotal: 1, matchedVisible: 1 }, "a detail the producer never writes"],
+    [{ found: true, clicked: false, reason: "obscured", matchedTotal: 1, matchedVisible: 1 }, "obscured without the occluder (`by`)"],
+    [{ found: true, clicked: false, reason: "ambiguous", matchedTotal: 2, matchedVisible: 2 }, "an ambiguity without its candidates"],
+    [{ found: true, clicked: false, reason: "ambiguous", candidates: [{ ref: "r1", text: "a" }], matchedTotal: 2, matchedVisible: 2 }, "an ambiguity with fewer candidates than visible matches"],
+    [{ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0, constructor: "x" }, "a prototype-named key (\"constructor\") — must not resolve through Object.prototype"],
+    [{ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0, toString: "x" }, "a prototype-named key (\"toString\")"],
+    [{ found: true, clicked: false, reason: "constructor", matchedTotal: 1, matchedVisible: 1 }, "a prototype-named reason"],
+    [{ found: true, clicked: false, reason: "hasOwnProperty", matchedTotal: 1, matchedVisible: 1 }, "another prototype-named reason"],
+    [{ found: true, clicked: false, reason: "readonly", matchedTotal: 1, matchedVisible: 1 }, "a typing-only reason on a click"],
+    [{ found: true, clicked: false, reason: "error", detail: "boom", matchedTotal: 1, matchedVisible: 1 }, "a typing exception reported by a click"],
+  ])("a result outside the producer's three shapes is malformed → unknown, never healed (#193 round 8): %j — %s", async (payload, _why) => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    let evals = 0;
+    routeEval(snapshotOf([]), () => {
+      evals += 1;
+      return payload;
+    });
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Ghost" (button)'), 0);
+    expect(out).toEqual({ outcome: "unknown", reason: "malformed-act-result" });
+    expect(evals).toBe(1);
+  });
+
+  it("typing-only refusals stay valid on a TYPE step; a typing exception is unknown, not a retryable miss (#193 rounds 14–15)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
+    routeEval(snapshotOf([]), () => ({ found: true, typed: false, reason: "readonly", matchedTotal: 1, matchedVisible: 1 }));
+    const exec = makeRunExecutor(ctx());
+    expect(await exec(step("action", 'type "hello" into "Body" (textbox)'), 0)).toEqual({ outcome: "failed", postconditionMet: false, reason: "readonly" });
+    routeEval(snapshotOf([]), () => ({ found: true, typed: false, reason: "error", detail: "setter threw", matchedTotal: 1, matchedVisible: 1 }));
+    // An exception may follow a partial mutation: unknown, never a retryable miss.
+    expect(await exec(step("action", 'type "hello" into "Body" (textbox)'), 1)).toEqual({ outcome: "unknown", reason: "act-threw" });
+    routeEval(snapshotOf([]), () => ({ found: true, typed: false, reason: "error", matchedTotal: 1, matchedVisible: 1 }));
+    expect(await exec(step("action", 'type "hello" into "Body" (textbox)'), 2)).toEqual({ outcome: "unknown", reason: "malformed-act-result" });
+  });
+
+  it("a real ambiguity — one candidate per visible match — is the stop-and-ask failure (#193 round 12)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([]), () => ({
+      found: true, clicked: false, reason: "ambiguous",
+      candidates: [{ ref: "r1", text: "Publish" }, { ref: "r2", text: "Publish" }],
+      matchedTotal: 2, matchedVisible: 2,
+    }));
+    const exec = makeRunExecutor(ctx());
+    expect(await exec(step("action", 'click "Publish" (button)'), 0)).toEqual({ outcome: "failed", reason: "ambiguous" });
+  });
+
+  it("the producer's annotated shapes stay valid: an inert-disabled refusal and an editor-handled typed success (#193 round 11)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click", "type"]);
+    routeEval(snapshotOf([]), () => ({ found: true, clicked: false, reason: "disabled", detail: "inert", matchedTotal: 1, matchedVisible: 0 }));
+    const exec = makeRunExecutor(ctx());
+    expect(await exec(step("action", 'click "Ghost" (button)'), 0)).toEqual({ outcome: "failed", reason: "disabled" });
+    routeEval(snapshotOf([]), () => ({ found: true, typed: true, detail: "editor-handled", matchedTotal: 1, matchedVisible: 1 }));
+    expect(await exec(step("action", 'type "hello" into "Body" (textbox)'), 1)).toEqual({ outcome: "success", postconditionMet: true });
+  });
+
+  it("a hidden refusal WITH its counts is the ordinary failed outcome (#193 round 8)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([]), () => ({ found: true, clicked: false, reason: "hidden", matchedTotal: 1, matchedVisible: 0 }));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Ghost" (button)'), 0);
+    expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "hidden" });
+  });
+
   it("substitutes an {input} into a type value", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: true, typed: true }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, typed: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx({ inputs: { title: "Hello World" } }));
     await exec(step("action", 'type {title} into "Title" (textbox)'), 0);
     const evalCall = invoke.mock.calls.find((c) => c[0] === "browser_eval")?.[1] as { script: string };
@@ -159,7 +283,7 @@ describe("action steps — approval required (P-1)", () => {
   it("consumes a one-shot per attempt and awaits the Rust mint before acting", async () => {
     useBrowserApprovalStore.getState().requestApproval("p", URL, "click", { role: "button", name: "Pay" }, TAB, 3);
     useBrowserApprovalStore.getState().resolveApproval("p", "once"); // user granted once
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Pay" (button)'), 0);
     expect(mintOneShotConfirmed).toHaveBeenCalledTimes(1);
@@ -225,7 +349,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
     // permissive prefix floor no longer applies: "Publish" must not heal to
     // "Publish now", which is a different action).
     routeEval(snapshotOf([["button", "Publish!"]]), (args) =>
-      args.name === "Publish!" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
+      args.name === "Publish!" ? { found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
     );
     const exec = makeRunExecutor(ctx());
     const run = exec(step("action", 'click "Publish" (button)'), 0);
@@ -265,7 +389,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
         snapshot();
         return Promise.resolve(snapshotOf([]));
       }
-      return Promise.resolve(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x" }));
+      return Promise.resolve(JSON.stringify({ found: true, clicked: false, reason: "obscured", by: "div.x", matchedTotal: 1, matchedVisible: 1 }));
     });
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
@@ -275,7 +399,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
 
   it("respects selfHeal:false", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: false, clicked: false }));
+    invoke.mockResolvedValue(JSON.stringify({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 }));
     const exec = makeRunExecutor(ctx({ selfHeal: false }));
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
     expect(out.outcome).toBe("failed");
@@ -290,7 +414,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
         reads();
         return Promise.resolve(snapshotOf([["button", "Publish now"]]));
       }
-      return Promise.resolve(JSON.stringify({ found: false, clicked: false }));
+      return Promise.resolve(JSON.stringify({ found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 }));
     });
     const exec = makeRunExecutor(ctx({ isWriteLedgered: (index) => index === 1 }));
     const out = await exec(step("action", 'click "Publish" (button)', 1), 0);
@@ -303,7 +427,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
     const acted: string[] = [];
     routeEval(snapshotOf([["button", "Unpublish"]]), (args) => {
       acted.push(args.name ?? "");
-      return { found: false, clicked: false };
+      return { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 };
     });
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish" (button)'), 0);
@@ -318,7 +442,7 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
 describe("role-less locators (W10)", () => {
   it("resolves the single role carrying the name and acts with it", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(snapshotOf([["link", "Home"], ["button", "Publish"]]), (args) => ({ found: true, clicked: args.role === "button" }));
+    routeEval(snapshotOf([["link", "Home"], ["button", "Publish"]]), (args) => ({ found: true, clicked: args.role === "button", matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish"'), 0);
     expect(out).toEqual({ outcome: "success", postconditionMet: true });
@@ -328,7 +452,7 @@ describe("role-less locators (W10)", () => {
 
   it("a type step with no role resolves the field's role the same way", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["type"]);
-    routeEval(snapshotOf([["searchbox", "Search"]]), (args) => ({ found: true, typed: args.role === "searchbox" }));
+    routeEval(snapshotOf([["searchbox", "Search"]]), (args) => ({ found: true, typed: args.role === "searchbox", matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'type "cats" into "Search"'), 0);
     expect(out).toEqual({ outcome: "success", postconditionMet: true });
@@ -336,7 +460,7 @@ describe("role-less locators (W10)", () => {
 
   it("several roles share the name → failed as ambiguous, stop and ask (no coin flip, no act)", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(snapshotOf([["link", "Publish"], ["button", "Publish"]]), () => ({ found: true, clicked: true }));
+    routeEval(snapshotOf([["link", "Publish"], ["button", "Publish"]]), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish"'), 0);
     expect(out.outcome).toBe("failed");
@@ -347,7 +471,7 @@ describe("role-less locators (W10)", () => {
 
   it("no node carries the name → the ordinary not-found failure, nothing acted", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(snapshotOf([["button", "Other"]]), () => ({ found: true, clicked: true }));
+    routeEval(snapshotOf([["button", "Other"]]), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     const out = await exec(step("action", 'click "Publish"'), 0);
     expect(out).toEqual({ outcome: "failed", postconditionMet: false, reason: "not-found" });
@@ -356,23 +480,23 @@ describe("role-less locators (W10)", () => {
 
   it("a miss on a truncated or partly unreachable snapshot stops and asks", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(snapshotOf([], { truncated: true }), () => ({ found: true, clicked: true }));
+    routeEval(snapshotOf([], { truncated: true }), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     expect(await exec(step("action", 'click "Publish"'), 0)).toEqual({ outcome: "failed", reason: "snapshot-truncated" });
-    routeEval(snapshotOf([], { unreachable: 2 }), () => ({ found: true, clicked: true }));
+    routeEval(snapshotOf([], { unreachable: 2 }), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     expect(await exec(step("action", 'click "Publish"'), 0)).toEqual({ outcome: "failed", reason: "snapshot-unreachable" });
   });
 
   it("an unreadable snapshot (eval timeout) is unknown → pause, never an act", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    routeEval(JSON.stringify("<timeout>"), () => ({ found: true, clicked: true }));
+    routeEval(JSON.stringify("<timeout>"), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     await expect(exec(step("action", 'click "Publish"'), 0)).rejects.toThrow(/snapshot/);
   });
 
   it("the role is resolved BEFORE authorising, so the prompt names the real control", async () => {
     const controller = new AbortController();
-    routeEval(snapshotOf([["button", "Publish"]]), () => ({ found: true, clicked: true }));
+    routeEval(snapshotOf([["button", "Publish"]]), () => ({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx({ signal: controller.signal }));
     const run = exec(step("action", 'click "Publish"'), 0);
     await new Promise((r) => setTimeout(r, 5));
@@ -392,7 +516,7 @@ describe("P-1: one-shot does not carry between acts (WI-NB6.5)", () => {
     // User granted ONE click on Pay.
     useBrowserApprovalStore.getState().requestApproval("p", URL, "click", { role: "button", name: "Pay" }, TAB, 3);
     useBrowserApprovalStore.getState().resolveApproval("p", "once");
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
 
     const exec = makeRunExecutor(ctx());
     // First Pay click consumes the one-shot and succeeds.
@@ -414,7 +538,7 @@ describe("P-1: one-shot does not carry between acts (WI-NB6.5)", () => {
 
   it("a granted standing origin authorizes every attempt (retry re-decides, still allowed)", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
-    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true }));
+    invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 }));
     const exec = makeRunExecutor(ctx());
     // Two separate invocations (as the engine would on retry) both succeed with
     // no prompt — a standing grant is what carries, not a one-shot.

@@ -187,6 +187,18 @@ impl BrowserRegistry {
         self.tabs.remove(tab_id);
     }
 
+    /// Record that `window_label`'s teardown has begun. From this point every
+    /// registration under the label — human `create`, AI `reserve_ai_tab` — is
+    /// refused as `WindowClosed`, so a frontend still running in the dying window
+    /// cannot re-create a view the native teardown has already destroyed.
+    pub fn mark_window_closed(&mut self, window_label: &str) {
+        self.closed_windows.insert(window_label.to_string());
+    }
+
+    pub fn window_closed(&self, window_label: &str) -> bool {
+        self.closed_windows.contains(window_label)
+    }
+
     pub fn tabs_in_window(&self, window_label: &str) -> Vec<String> {
         self.tabs
             .iter()

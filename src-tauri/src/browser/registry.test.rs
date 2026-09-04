@@ -691,3 +691,15 @@ fn tab_belongs_to_window_is_exact_and_false_for_unknown_tabs() {
     reg.remove("t1");
     assert!(!reg.tab_belongs_to_window("t1", "main"));
 }
+
+#[test]
+fn a_closed_window_refuses_every_new_registration_and_leaves_other_windows_alone() {
+    let mut reg = BrowserRegistry::default();
+    reg.mark_window_closed("doc-1");
+    assert!(reg.window_closed("doc-1"));
+    assert_eq!(
+        reg.create("t1", "doc-1"),
+        Err(BrowserError::WindowClosed("doc-1".into()))
+    );
+    assert!(reg.create("t2", "main").is_ok());
+}

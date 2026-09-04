@@ -48,7 +48,12 @@ impl NavDelegate {
             .map(str::to_owned)
     }
 
+    /// A provisional start was reported: count it (`api_navigation` compares the
+    /// count across a call, `nav_api_navigation.rs`) and pair the native navigation
+    /// with its ticket.
     pub(crate) fn mark_navigation_started(&self, navigation: Option<&WKNavigation>) -> String {
+        let starts = &self.ivars().starts;
+        starts.set(starts.get().wrapping_add(1));
         let id = self
             .ivars()
             .pending_navigation_id

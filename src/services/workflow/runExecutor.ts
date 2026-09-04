@@ -98,12 +98,16 @@ export function makeRunExecutor(ctx: RunExecutorContext): WorkflowStepExecutor {
       if (typeof resolved !== "string") return resolved;
       role = resolved;
     }
-    const { raw, ...first } = await actOnce(action.kind, role, action.name, value, tab.url);
+    const { raw: _raw, ...first } = await actOnce(action.kind, role, action.name, value, tab.url);
     // A not-found act is the healable case: the locator drifted. An obscured or
     // disabled target is a page-state problem heal cannot fix — and a step whose
     // write is already ledgered is looking at the POST-action page (W3).
     const ledgered = ctx.isWriteLedgered?.(step.index) ?? false;
-    if (raw.found === false && ctx.selfHeal !== false && !ledgered) {
+    // Heal on the VALIDATED outcome — a confirmed not-found — never on the raw
+    // flag: `{found:false, clicked:true}` is contradictory (unknown), and healing
+    // it would be a second write on the strength of page-adjacent garbage.
+    const notFound = first.outcome === "failed" && first.reason === "not-found";
+    if (notFound && ctx.selfHeal !== false && !ledgered) {
       const healed = await healAndRetry(env, action.kind, role, action.name, value, tab.url, tab.generation);
       if (healed !== null) return healed;
     }

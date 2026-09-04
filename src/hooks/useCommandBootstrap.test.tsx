@@ -58,6 +58,7 @@ const signalMenuReady = vi.fn();
 vi.mock("@/services/commands/menuCommandsReady", () => ({ signalMenuCommandsMounted: () => signalMenuReady() }));
 
 import { useCommandBootstrap } from "./useCommandBootstrap";
+import { useRecentWorkspacesStore } from "@/stores/recentsStore";
 
 beforeEach(() => {
   mountMenuCommandsMock.mockReset();
@@ -208,5 +209,20 @@ describe("useCommandBootstrap", () => {
     await Promise.resolve();
 
     expect(off).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("DEV seam: forgetRecentWorkspace", () => {
+  it("removes a workspace from the recents through the store's own action", () => {
+    const path = "/tmp/vmark-e2e-second-window-seam";
+    useRecentWorkspacesStore.getState().addWorkspace(path);
+    expect(useRecentWorkspacesStore.getState().workspaces.some((w) => w.path === path)).toBe(true);
+    renderHook(() => useCommandBootstrap());
+    const seam = (window as unknown as { __VMARK_DEBUG__?: Record<string, unknown> }).__VMARK_DEBUG__;
+    const forget = seam?.forgetRecentWorkspace as ((p: string) => void) | undefined;
+    expect(typeof forget).toBe("function");
+    forget?.(path);
+    expect(useRecentWorkspacesStore.getState().workspaces.some((w) => w.path === path)).toBe(false);
   });
 });

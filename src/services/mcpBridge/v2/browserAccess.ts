@@ -76,8 +76,10 @@ export async function browserGate(id: string): Promise<boolean> {
 /**
  * The gate, then the tab the request names: `tabId` when supplied (refused when
  * supplied but not a non-empty string — an explicit tabId must never fall back to
- * the active tab, which could act on an unintended page), else this window's
- * active browser tab. Returns null once a refusal has been sent.
+ * the active tab, which could act on an unintended page; refused as
+ * `TAB_NOT_FOUND` when it names no live browser tab), else this window's active
+ * browser tab ("no active browser tab" when there is none). Returns null once a
+ * refusal has been sent.
  */
 export async function resolveBrowserTarget(
   id: string,
@@ -91,7 +93,16 @@ export async function resolveBrowserTarget(
   }
   const tab = resolveBrowserTab(tabIdArg);
   if (!tab) {
-    await respond({ id, success: false, error: "no active browser tab" });
+    // A NAMED tab that resolves to nothing is `TAB_NOT_FOUND` — the token `close`
+    // and `navigate` already speak — not "no active browser tab": the caller named
+    // a tab, and an AI holding the id of a tab whose window has since closed must
+    // learn that the tab is gone, not that nothing is active here (the
+    // secondary-window teardown journey found the two conflated).
+    await respond(
+      tabIdArg === undefined
+        ? { id, success: false, error: "no active browser tab" }
+        : { id, success: false, error: "TAB_NOT_FOUND", data: { token: "TAB_NOT_FOUND" } },
+    );
     return null;
   }
   return tab;

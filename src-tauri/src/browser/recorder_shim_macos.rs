@@ -38,8 +38,8 @@ use objc2_web_kit::{
     WKContentWorld, WKUserScript, WKUserScriptInjectionTime, WKWebViewConfiguration,
 };
 
-/// The page-world recorder shim: the shared core helpers (two files), the shim's
-/// sensitivity helpers, then the shim body, in one IIFE — the SAME four assets in
+/// The page-world recorder shim: the shared core helpers (three files), the shim's
+/// sensitivity helpers, then the shim body, in one IIFE — the SAME five assets in
 /// the same order as `recorderShim.ts` (`RECORDER_SHIM_ASSETS`), pinned by
 /// `recorderShimRustParity.test.ts`. Editing the capture behaviour means editing
 /// `recorderShim.src.js`; editing how a role or name is computed means editing
@@ -50,6 +50,8 @@ use objc2_web_kit::{
 const RECORDER_SHIM_SRC: &str = concat!(
     "(function(){\n",
     include_str!("../../../src/lib/browser/agent/agentCore.src.js"),
+    "\n",
+    include_str!("../../../src/lib/browser/agent/agentCoreWalk.src.js"),
     "\n",
     include_str!("../../../src/lib/browser/agent/agentCoreRoles.src.js"),
     "\n",

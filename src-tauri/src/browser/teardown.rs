@@ -46,6 +46,11 @@ use crate::browser::surface::{self, BrowserSurface};
 /// be tested without a live AppKit window.
 pub fn forget_window(state: &BrowserSurface, window_label: &str) -> Result<Vec<String>, String> {
     let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
+    // FIRST, under the same guard: from here on no create or reservation may land
+    // under this label. Journey 37 showed the dying window's own frontend
+    // re-creating a view after the native teardown had run — a live WKWebView
+    // nothing could reach — because the label was still open for business.
+    reg.mark_window_closed(window_label);
     let tabs = reg.tabs_in_window(window_label);
     for tab_id in &tabs {
         state.forget_tab_in(&mut reg, tab_id)?;

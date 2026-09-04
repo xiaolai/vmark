@@ -96,9 +96,9 @@ function __vmarkClick(role,name,gen){
   return __vmarkDoClick(r.el,r.counts);
 }
 function __vmarkClickRef(ref,gen){
-  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
-  if(__vmarkNotActable(el)==='hidden')return {found:true,clicked:false,reason:'hidden'};
-  return __vmarkDoClick(el,null);
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false,matchedTotal:0,matchedVisible:0};
+  if(__vmarkNotActable(el)==='hidden')return {found:true,clicked:false,reason:'hidden',matchedTotal:1,matchedVisible:0};
+  return __vmarkDoClick(el,{matchedTotal:1,matchedVisible:1});
 }`;
 
 /** The type path: value-bearing controls, selects, contenteditable. */
@@ -193,7 +193,7 @@ function __vmarkDoType(el,text,extra){
     if(__vmarkEditingHost(el))return __vmarkTypeEditable(el,text,extra);
     return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
   }catch(e){
-    return __vmarkAssign({found:true,typed:false,reason:String((e&&e.message)||e)},extra);
+    return __vmarkAssign({found:true,typed:false,reason:'error',detail:String((e&&e.message)||e)},extra);
   }
 }
 function __vmarkType(role,name,text,gen){
@@ -202,9 +202,9 @@ function __vmarkType(role,name,text,gen){
   return __vmarkDoType(r.el,text,r.counts);
 }
 function __vmarkTypeRef(ref,gen,text){
-  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};
-  if(__vmarkNotActable(el)==='hidden')return {found:true,typed:false,reason:'hidden'};
-  return __vmarkDoType(el,text,null);
+  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false,matchedTotal:0,matchedVisible:0};
+  if(__vmarkNotActable(el)==='hidden')return {found:true,typed:false,reason:'hidden',matchedTotal:1,matchedVisible:0};
+  return __vmarkDoType(el,text,{matchedTotal:1,matchedVisible:1});
 }`;
 
 /** The act section of the agent library — appended by `agentLib.ts`. */

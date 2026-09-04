@@ -106,8 +106,15 @@ fn a_closed_windows_tabs_lose_their_attachment_one_shots_and_crash_budget() {
         s.one_shots.lock().unwrap().is_empty(),
         "a one-shot survived"
     );
-    // The id's next tenant starts clean, exactly as after `forget_tab`.
-    s.registry.lock().unwrap().create("t1", "main").unwrap();
+    // The id's next tenant starts clean, exactly as after `forget_tab` — in a LIVE
+    // window: the closed label itself refuses registrations from now on.
+    assert_eq!(
+        s.registry.lock().unwrap().create("t1", "main"),
+        Err(crate::browser::registry::BrowserError::WindowClosed(
+            "main".into()
+        ))
+    );
+    s.registry.lock().unwrap().create("t1", "doc-9").unwrap();
     assert!(!s.is_tab_attached("t1", 0));
     assert_eq!(
         s.crash_trackers
@@ -193,4 +200,37 @@ fn closing_a_window_drops_its_standing_grants_and_no_other_windows() {
     );
     // A window that never synced: nothing to drop, and saying so is not an error.
     assert!(!forget_window_grants(&mut grants, "doc-9"));
+}
+
+/// The race journey 37 found: the closed window's own frontend re-creating a view
+/// after the native teardown. `forget_window` closes the label under the guard, so
+/// a create or reservation that arrives afterwards is refused, while the surviving
+/// window keeps working.
+#[test]
+fn after_forget_window_nothing_can_be_registered_under_that_label_again() {
+    let s = surface_with(&[("t1", "doc-1"), ("t2", "main")]);
+    let dropped = forget_window(&s, "doc-1").unwrap();
+    assert_eq!(dropped, vec!["t1".to_string()]);
+    let mut reg = s.registry.lock().unwrap();
+    assert!(reg.window_closed("doc-1"));
+    assert_eq!(
+        reg.create("t1", "doc-1"),
+        Err(crate::browser::registry::BrowserError::WindowClosed(
+            "doc-1".into()
+        ))
+    );
+    assert_eq!(
+        reg.reserve_ai_tab(
+            "t3",
+            &crate::browser::registry::AiTabRequest {
+                window_label: "doc-1",
+                mode: crate::browser::registry::AutomationMode::AiSandbox,
+                url: "https://a.example/",
+                profile: None,
+                policy_epoch: 0,
+            }
+        ),
+        Err(crate::browser::registry::AiReservationRefusal::WindowClosed)
+    );
+    assert!(reg.create("t4", "main").is_ok());
 }

@@ -10,12 +10,10 @@ use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
     WKUIDelegate, WKWebView, WKWebViewConfiguration, WKWindowFeatures,
 };
-use tauri::Manager;
 
 use crate::browser::recovery::RecoveryAction;
 use crate::browser::redact;
 use crate::browser::registry::Lifecycle;
-use crate::browser::surface::BrowserSurface;
 
 #[path = "nav_payloads_macos.rs"]
 mod payloads;
@@ -113,13 +111,7 @@ define_class!(
             self.mark_navigation_started(nav);
             // Release any outgoing page dialog before the new load runs.
             super::dialogs::drain_for(&ivars.tab_id);
-            if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-                if let Ok(mut reg) = state.registry.lock() {
-                    let _ = reg.clear_committed_url(&ivars.tab_id);
-                }
-                state.clear_tab_one_shots(&ivars.tab_id);
-                state.clear_tab_attachment(&ivars.tab_id);
-            }
+            self.revoke_for_new_load();
         }
         #[unsafe(method(webView:didReceiveServerRedirectForProvisionalNavigation:))]
         fn did_receive_redirect(&self, _wv: &WKWebView, nav: Option<&WKNavigation>) {

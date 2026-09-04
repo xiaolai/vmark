@@ -27,6 +27,7 @@ import { BridgeClient, evalJs } from "./lib/bridge.mjs";
 import { parseArgs } from "./lib/config.mjs";
 import { writeScreenshot } from "./lib/artifacts.mjs";
 import { getTabs } from "./lib/vmark.mjs";
+import { checkRunningAppIdentity } from "./lib/staleBinary.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JOURNEYS_DIR = join(__dirname, "journeys");
@@ -102,6 +103,15 @@ async function main() {
   if (selected.length === 0) {
     console.error(`No journeys match --only "${cfg.only}". Available: ${all.map((j) => j.name).join(", ")}`);
     process.exit(2);
+  }
+
+  // Refuse an app whose executable was rebuilt under it (staleBinary.mjs): its
+  // keychain identity is broken and every result would describe code that is
+  // not the built code.
+  const stale = checkRunningAppIdentity(cfg.port);
+  if (stale) {
+    console.error(`REFUSING TO RUN: ${stale}`);
+    process.exit(3);
   }
 
   const client = new BridgeClient({ idPrefix: "journey" });

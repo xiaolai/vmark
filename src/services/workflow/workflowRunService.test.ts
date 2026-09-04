@@ -49,7 +49,7 @@ beforeEach(() => {
   // One act result per OPERATION — a click script never emits `typed` and a type
   // script never emits `clicked`; the executor schema-checks the whole result.
   invoke.mockReset().mockImplementation((_cmd: string, args?: { operation?: string }) =>
-    Promise.resolve(JSON.stringify(args?.operation === "type" ? { found: true, typed: true } : { found: true, clicked: true })),
+    Promise.resolve(JSON.stringify(args?.operation === "type" ? { found: true, typed: true, matchedTotal: 1, matchedVisible: 1 } : { found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 })),
   );
   mint.mockReset().mockResolvedValue(true);
   __resetRunRegistry();

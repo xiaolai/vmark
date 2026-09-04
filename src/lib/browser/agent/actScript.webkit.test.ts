@@ -197,7 +197,7 @@ describe("ambiguity in a real engine (S-03)", () => {
     expect(hits()).toEqual([]);
     expect(res.candidates).toHaveLength(2);
     const second = exec(buildClickByRefScript(res.candidates![1].ref, 3)) as ActResult;
-    expect(second).toEqual({ found: true, clicked: true });
+    expect(second).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
     expect(hits()).toEqual(["c2"]);
   });
 });

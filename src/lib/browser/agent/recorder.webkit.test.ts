@@ -156,3 +156,20 @@ describe("recorder — drained events are never re-published (S-01), real WebKit
     expect(events[2]).toMatchObject({ type: "type", role: "spinbutton", name: "Qty", sensitive: false });
   });
 });
+
+describe("label activation in real WebKit (#122)", () => {
+  it("a label click records ONE click on its control; two direct clicks record two", () => {
+    const win = newDocument(`<label id="l" for="cb">Agree</label><input id="cb" type="checkbox">`);
+    installAndArm(win);
+    const doc = win.document;
+    (doc.getElementById("l") as HTMLLabelElement).click(); // WebKit fires the control's activation click
+    let events = drain(win);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "click", role: "checkbox", name: "Agree" });
+    const cb = doc.getElementById("cb") as HTMLInputElement;
+    cb.click();
+    cb.click();
+    events = drain(win);
+    expect(events).toHaveLength(2);
+  });
+});

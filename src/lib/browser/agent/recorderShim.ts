@@ -48,6 +48,7 @@ export const RECORDER_SHIM_SRC = `(function(){\n${AGENT_CORE_SRC}\n${RECORDER_SH
  *  (`recorder_shim_macos.rs`); `recorderShimRustParity.test.ts` reads both sides. */
 export const RECORDER_SHIM_ASSETS = [
   "agentCore.src.js",
+  "agentCoreWalk.src.js",
   "agentCoreRoles.src.js",
   "recorderShimSensitivity.src.js",
   "recorderShim.src.js",

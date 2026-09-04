@@ -126,7 +126,7 @@ describe("act by ref (WI-P2.2)", () => {
     let clicked = "";
     doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (clicked = b.id)));
     const res = exec(doc, buildClickByRefScript(two.ref, 5)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: true });
+    expect(res).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
     expect(clicked).toBe("b");
   });
 
@@ -151,7 +151,7 @@ describe("act by ref (WI-P2.2)", () => {
     const doc = parse(`<button id="a" disabled>Go</button>`);
     const ref = nodes(doc, 1)[0].ref;
     const res = exec(doc, buildClickByRefScript(ref, 1)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
+    expect(res).toEqual({ found: true, clicked: false, reason: "disabled", matchedTotal: 1, matchedVisible: 1 });
   });
 });
 
@@ -318,7 +318,7 @@ describe("act truthfulness (WI-NB1.1)", () => {
     let clicked = false;
     doc.getElementById("a")!.addEventListener("click", () => (clicked = true));
     const res = exec(doc, buildClickByRefScript(ref, 3)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: false, reason: "hidden" });
+    expect(res).toEqual({ found: true, clicked: false, reason: "hidden", matchedTotal: 1, matchedVisible: 0 });
     expect(clicked).toBe(false);
   });
 

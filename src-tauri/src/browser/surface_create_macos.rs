@@ -120,13 +120,17 @@ fn create_webview(
         delegate.observe_url(&webview);
         // BOTH maps, together, BEFORE anything can pump the run loop — the pairing
         // invariant that makes teardown sound. See surface_lifecycle_macos.rs.
-        super::DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate));
+        super::DELEGATES.with(|m| m.borrow_mut().insert(tab_id.clone(), delegate.clone()));
         super::WEBVIEWS.with(|m| m.borrow_mut().insert(tab_id.clone(), webview.clone()));
-        let _ = unsafe { webview.loadRequest(&req) };
         parent.addSubview(&webview);
-        // Drive the first navigation + paint with a bounded run-loop pump.
-        let run_loop = NSRunLoop::mainRunLoop();
-        super::drive_load(&webview, &run_loop);
+        // The first load is an API-initiated navigation like any other: the delegate
+        // owns the URL change it publishes synchronously and drives it to first
+        // paint with a bounded run-loop pump (nav_api_navigation.rs).
+        delegate.api_navigation(
+            &webview,
+            || unsafe { webview.loadRequest(&req) }.is_some(),
+            |wv| super::drive_load(wv, &NSRunLoop::mainRunLoop()),
+        );
         Ok(())
     })
 }

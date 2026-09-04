@@ -68,6 +68,14 @@ use user_input_resolve::{tab_id_at_window_point, tab_id_for_responder};
 /// the body's, the hop's, the scheduler's — is a typed `NativeSurfaceError`
 /// (round 4, #31); nothing on this path renders a `fail::` string.
 ///
+/// **Already on the main thread → run inline.** `run_on_main_thread` always
+/// ENQUEUES on the event loop, so a caller that is itself inside an event-loop
+/// callback (the window-destroyed handler that tears down a closed window's
+/// browser tabs, a menu handler) would block on a job that cannot start until it
+/// returns — a 20 s stall, then an abandoned closure and a LEAKED native view.
+/// Journey 37 (`browser-secondary-window-teardown`) caught exactly that: the
+/// teardown logged its intent and the view stayed in the native map.
+///
 /// What happens when the cap fires is `main_thread_hop::hop`'s protocol: a closure
 /// that has not started never runs (the caller rolled back and reported failure;
 /// nothing may mutate native state after that), and a closure that HAS started is
@@ -78,6 +86,9 @@ where
     T: Send + 'static,
     F: FnOnce(MainThreadMarker) -> Result<T, NativeSurfaceError> + Send + 'static,
 {
+    if let Some(mtm) = MainThreadMarker::new() {
+        return f(mtm);
+    }
     hop(
         |job| {
             app.run_on_main_thread(job)
@@ -133,10 +144,10 @@ pub fn navigate(app: &AppHandle, tab_id: String, url: String) -> Result<(), Nati
         let webview = webview_for(&tab_id)?;
         let url_obj = ns_url(&url)?;
         let req = NSURLRequest::requestWithURL(&url_obj);
-        let _ = unsafe { webview.loadRequest(&req) };
-        // Drive the navigation + first paint (see create()).
-        let run_loop = NSRunLoop::mainRunLoop();
-        drive_load(&webview, &run_loop);
+        // Drive the navigation + first paint (see create()), owned by the delegate.
+        api_navigation(&tab_id, &webview, || {
+            unsafe { webview.loadRequest(&req) }.is_some()
+        });
         Ok(())
     })
 }
@@ -150,16 +161,42 @@ pub fn go_history(
 ) -> Result<(), NativeSurfaceError> {
     on_main(app, move |_mtm| {
         let wv = webview_for(&tab_id)?;
-        let nav = if forward {
-            unsafe { wv.goForward() }
-        } else {
-            unsafe { wv.goBack() }
-        };
-        if nav.is_some() {
-            drive_load(&wv, &NSRunLoop::mainRunLoop());
-        }
+        api_navigation(&tab_id, &wv, || {
+            if forward {
+                unsafe { wv.goForward() }.is_some()
+            } else {
+                unsafe { wv.goBack() }.is_some()
+            }
+        });
         Ok(())
     })
+}
+
+/// Run an API-initiated navigation call through the tab's delegate, which owns the
+/// URL change the call publishes synchronously and drives the load to first paint
+/// (`nav_api_navigation.rs`). Returns whether WebKit created a navigation. A webview
+/// without its delegate cannot happen — `create` registers both together — but if it
+/// does, the call is still made and driven, so a user's back button never goes dead
+/// over a bookkeeping fault.
+fn api_navigation(tab_id: &str, webview: &WKWebView, start: impl FnOnce() -> bool) -> bool {
+    let pump = |wv: &WKWebView| drive_load(wv, &NSRunLoop::mainRunLoop());
+    match delegate_for(tab_id) {
+        Some(delegate) => delegate.api_navigation(webview, start, pump),
+        None => {
+            log::error!("[browser] {tab_id}: webview with no delegate — navigating unowned");
+            let created = start();
+            if created {
+                pump(webview);
+            }
+            created
+        }
+    }
+}
+
+/// The tab's navigation delegate, cloned out of the map so no `RefCell` borrow is
+/// held while the call it serves pumps the run loop (see `webview_for`).
+fn delegate_for(tab_id: &str) -> Option<Retained<NavDelegate>> {
+    DELEGATES.with(|m| m.borrow().get(tab_id).cloned())
 }
 
 /// Reposition/resize the native webview within the window (points).

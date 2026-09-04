@@ -64,7 +64,7 @@ describe("ambiguity is refused, never resolved by DOM order (S-03)", () => {
     }
     // The refs disambiguate: a ref act at the same generation lands on the chosen one.
     const r2 = exec(doc, buildClickByRefScript(res.candidates![1].ref, 4)) as ActResult;
-    expect(r2).toEqual({ found: true, clicked: true });
+    expect(r2).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
     expect(hits).toEqual(["b"]);
   });
 
@@ -74,7 +74,7 @@ describe("ambiguity is refused, never resolved by DOM order (S-03)", () => {
     const res = exec(doc, buildClickScript("button", "Go")) as ActResult;
     expect(res.reason).toBe("ambiguous");
     expect(res.candidates!.map((c) => c.ref)).toEqual(snap.nodes.map((n) => n.ref));
-    expect(exec(doc, buildClickByRefScript(snap.nodes[0].ref, 7)) as ActResult).toEqual({ found: true, clicked: true });
+    expect(exec(doc, buildClickByRefScript(snap.nodes[0].ref, 7)) as ActResult).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
   });
 
   it("context names an id'd ancestor, and a hostile class token never reaches the text", () => {
@@ -95,7 +95,7 @@ describe("ambiguity is refused, never resolved by DOM order (S-03)", () => {
     expect((doc.getElementById("x") as HTMLInputElement).value).toBe("");
     expect((doc.getElementById("y") as HTMLInputElement).value).toBe("");
     const r2 = exec(doc, buildTypeByRefScript(res.candidates![1].ref, "a@b.c", 2)) as ActResult;
-    expect(r2).toEqual({ found: true, typed: true });
+    expect(r2).toEqual({ found: true, typed: true, matchedTotal: 1, matchedVisible: 1 });
     expect((doc.getElementById("y") as HTMLInputElement).value).toBe("a@b.c");
   });
 
@@ -143,7 +143,7 @@ describe("inert subtrees are 'disabled', not 'hidden' (S-04, attribute tier)", (
     const ref = (exec(doc, buildSnapshotScript(3)) as Snapshot).nodes[0].ref;
     doc.getElementById("wrap")!.setAttribute("inert", "");
     const hits = wire(doc);
-    expect(exec(doc, buildClickByRefScript(ref, 3))).toEqual({ found: true, clicked: false, reason: "disabled", detail: "inert" });
+    expect(exec(doc, buildClickByRefScript(ref, 3))).toEqual({ found: true, clicked: false, reason: "disabled", detail: "inert", matchedTotal: 1, matchedVisible: 1 });
     expect(hits).toEqual([]);
   });
 
@@ -264,14 +264,14 @@ describe("uploads are refused (S-10)", () => {
   it("click on a label[for] that resolves to a file input → 'upload'", () => {
     const doc = parse(`<label id="l" for="f">Choose</label><input id="f" type="file">`);
     const hits = wire(doc);
-    expect(exec(doc, buildClickByRefScript(refOf(doc, "label", 1), 1))).toEqual({ found: true, clicked: false, reason: "upload" });
+    expect(exec(doc, buildClickByRefScript(refOf(doc, "label", 1), 1))).toEqual({ found: true, clicked: false, reason: "upload", matchedTotal: 1, matchedVisible: 1 });
     expect(hits).toEqual([]);
   });
 
   it("click on a non-interactive element inside a label wrapping a file input → 'upload'", () => {
     const doc = parse(`<label><span id="s">Choose</span><input type="file"></label>`);
     const hits = wire(doc);
-    expect(exec(doc, buildClickByRefScript(refOf(doc, "span", 1), 1))).toEqual({ found: true, clicked: false, reason: "upload" });
+    expect(exec(doc, buildClickByRefScript(refOf(doc, "span", 1), 1))).toEqual({ found: true, clicked: false, reason: "upload", matchedTotal: 1, matchedVisible: 1 });
     expect(hits).toEqual([]);
   });
 
@@ -284,7 +284,7 @@ describe("uploads are refused (S-10)", () => {
 
   it("a label for a text input is not an upload", () => {
     const doc = parse(`<label for="t">Name</label><input id="t" type="text">`);
-    expect(exec(doc, buildClickByRefScript(refOf(doc, "label", 1), 1))).toEqual({ found: true, clicked: true });
+    expect(exec(doc, buildClickByRefScript(refOf(doc, "label", 1), 1))).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
   });
 
   it("snapshot nodes for file inputs carry upload:true, others do not", () => {

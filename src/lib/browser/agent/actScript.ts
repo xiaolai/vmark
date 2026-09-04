@@ -48,6 +48,11 @@
  * @coordinates-with lib/browser/agent/refs.ts — the mirrored per-node ref store
  * @coordinates-with src-tauri browser_eval — evaluates these scripts
  * @module lib/browser/agent/actScript
+ *
+ * Every result — the ref paths included — carries `matchedTotal`/`matchedVisible`,
+ * and a typing exception reports `reason:'error'` with the message as `detail`, so
+ * the result grammar is a CLOSED set of shapes; `runExecutorEnv.ts` validates the
+ * workflow executor's act results against exactly that set (audit 20260903, #193).
  */
 
 import { AGENT_LIB } from "./agentLib";
@@ -98,9 +103,10 @@ export function buildClickScript(role: string, name: string, generation?: number
 /** Script: replace the value of the field with `role` + `name` and fire
  *  input/change. Reports `{found, typed, matchedTotal, matchedVisible, reason?,
  *  detail?, candidates?}`. Refusals: `disabled` (+ `detail:'inert'`), `hidden`,
- *  `ambiguous`, `upload`, `readonly`, `not-editable`, `no-such-option`, and
+ *  `ambiguous`, `upload`, `readonly`, `not-editable`, `no-such-option`,
  *  `rejected-value` when the engine sanitised the text away (the prior value is
- *  restored and no event fires). A contenteditable whose editor cancels
+ *  restored and no event fires), and `error` (+ `detail`: the message) when the
+ *  engine threw while typing. A contenteditable whose editor cancels
  *  `beforeinput` reports `typed:true, detail:'editor-handled'`. */
 export function buildTypeScript(role: string, name: string, text: string, generation?: number): string {
   return `${AGENT_LIB}\nreturn JSON.stringify(__vmarkType(${JSON.stringify(role)}, ${JSON.stringify(name)}, ${JSON.stringify(text)}, ${genArg(generation)}));`;

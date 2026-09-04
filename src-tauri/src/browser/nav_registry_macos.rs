@@ -46,7 +46,16 @@ pub struct NavDelegateIvars {
     /// Read by the `URL` KVO observer to tell the two kinds of URL change apart: a normal
     /// load changes `URL` too — at commit — and `did_commit` owns that path. A change seen
     /// while NO navigation is in flight is same-document.
+    ///
+    /// An API-initiated call (`loadRequest`, `goBack`, `goForward`) publishes its URL
+    /// SYNCHRONOUSLY, before `did_start_provisional` can raise this, so those calls
+    /// go through `api_navigation`, which raises it across the call
+    /// (`nav_api_navigation.rs`).
     pub(super) loading: std::cell::Cell<bool>,
+    /// How many provisional starts WebKit has reported. `api_navigation` compares it
+    /// across a call to learn whether the call's navigation was cross-document
+    /// (`nav_api_navigation.rs`).
+    pub(super) starts: std::cell::Cell<u64>,
     /// Native navigation identity paired with the registry ticket. WebKit can
     /// deliver a late callback for an older `WKNavigation` after a newer load
     /// has started; pointer identity lets the delegate drop that callback.
@@ -86,10 +95,10 @@ impl NavDelegate {
             .and_then(|reg| reg.automation_mode(&ivars.tab_id));
         if let Some(mode) = mode {
             if !ai_commit_allowed(&state, mode, &ivars.tab_id, url) {
-                state.clear_tab_one_shots(&ivars.tab_id);
-                state.clear_tab_attachment(&ivars.tab_id);
+                // Committed page and authority go together, under one guard (#35).
                 if let Ok(mut reg) = state.registry.lock() {
                     let _ = reg.clear_committed_url(&ivars.tab_id);
+                    state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
                 }
                 return None;
             }
@@ -114,9 +123,7 @@ impl NavDelegate {
                     ivars.tab_id
                 );
                 let _ = reg.clear_committed_url(&ivars.tab_id);
-                drop(reg);
-                state.clear_tab_one_shots(&ivars.tab_id);
-                state.clear_tab_attachment(&ivars.tab_id);
+                state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
                 return None;
             }
         };
@@ -133,6 +140,22 @@ impl NavDelegate {
             );
         }
         Some(generation)
+    }
+
+    /// A load STARTED: the committed page and the authority granted against it go
+    /// together, under ONE registry guard (#35) — a command that reads the registry
+    /// in a gap between the two would see a page with no authority, or authority
+    /// with no page.
+    pub(super) fn revoke_for_new_load(&self) {
+        let ivars = self.ivars();
+        let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
+            return;
+        };
+        let Ok(mut reg) = state.registry.lock() else {
+            return;
+        };
+        let _ = reg.clear_committed_url(&ivars.tab_id);
+        state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
     }
 
     /// A load finished cleanly: reset the tab's crash budget, the mirror of `record_crash`.
@@ -173,6 +196,7 @@ impl NavDelegate {
             app,
             redirected: std::cell::Cell::new(false),
             loading: std::cell::Cell::new(false),
+            starts: std::cell::Cell::new(0),
             native_navigation: std::cell::RefCell::new(Vec::new()),
             pending_navigation_id: std::cell::RefCell::new(None),
         });

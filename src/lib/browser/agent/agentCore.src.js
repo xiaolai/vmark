@@ -1,8 +1,9 @@
 // The shared perception core (audit 2026-09-03, S-02) — THE ONLY COPY of the
-// accessible-name / visibility / composed-walk rules the AI-facing scripts run in
-// a page. Role resolution and its vocabulary follow in `agentCoreRoles.src.js`,
-// which every host concatenates straight after this file (one script, so the
-// declarations hoist across the seam in both directions).
+// accessible-name / visibility rules the AI-facing scripts run in a page. The
+// composed walk follows in `agentCoreWalk.src.js` and role resolution with its
+// vocabulary in `agentCoreRoles.src.js`; every host concatenates the three straight
+// after one another (one script, so the declarations hoist across the seams in
+// both directions).
 //
 // Two hosts execute these exact bytes:
 //   - the isolated-world agent library: `agentLib.ts` prepends this file (via
@@ -124,12 +125,18 @@ function __vmarkTake(out, text, budget) {
  *  `all` (a labelledby traversal whose referenced node was itself hidden). An
  *  iterative cursor walk — the stack is bounded by depth, never a copied child
  *  list — that stops once `__vmarkContentBudget()` collapsed characters are in hand. */
+/** Nodes a content walk may visit — mirrors ariaName.ts CONTENT_VISIT_BUDGET. */
+function __vmarkContentVisitBudget() {
+  return 20000;
+}
 function __vmarkContentText(el, all) {
-  var out = "", budget = __vmarkContentBudget(), stack = [{ kids: el.childNodes, i: 0 }];
+  var out = "", budget = __vmarkContentBudget(), visits = __vmarkContentVisitBudget(), visited = 0;
+  var stack = [{ kids: el.childNodes, i: 0 }];
   while (stack.length && out.length < budget) {
     var top = stack[stack.length - 1];
     if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
     var c = top.kids[top.i++];
+    if (++visited > visits) break;
     if (c.nodeType === 3) { out = __vmarkTake(out, c.data, budget); continue; }
     if (c.nodeType !== 1) continue;
     var t = String(c.tagName || "").toLowerCase();
@@ -147,11 +154,12 @@ function __vmarkContentText(el, all) {
  *  characters are in hand, so summarising a match that holds megabytes costs `max`
  *  characters, and textContent itself is never read (#119). */
 function __vmarkTextHead(el, max) {
-  var out = "", stack = [{ kids: el.childNodes, i: 0 }];
+  var out = "", visits = __vmarkContentVisitBudget(), visited = 0, stack = [{ kids: el.childNodes, i: 0 }];
   while (stack.length && out.length < max) {
     var top = stack[stack.length - 1];
     if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
     var c = top.kids[top.i++];
+    if (++visited > visits) break;
     if (c.nodeType === 3) out = __vmarkTake(out, c.data, max);
     else if (c.nodeType === 1) stack.push({ kids: c.childNodes, i: 0 });
   }
@@ -164,15 +172,24 @@ function __vmarkTextHead(el, max) {
  *  reference's own aria-labelledby is NOT followed (accname forbids the recursion). */
 function __vmarkIdListText(el, ids) {
   var root = __vmarkRootOf(el),
-    out = [],
-    parts = String(ids).trim().split(/\s+/);
-  for (var i = 0; i < parts.length; i++) {
+    out = "",
+    budget = __vmarkContentBudget(),
+    parts = String(ids).trim().split(/\s+/, __vmarkIdListMax());
+  // The AGGREGATE is budgeted too (#105): the list stops once the whole has
+  // gathered a budget of text, and ids past the cap are never looked up.
+  for (var i = 0; i < parts.length && out.length < budget; i++) {
     var ref = parts[i] && root ? root.getElementById(parts[i]) : null;
     if (!ref) continue;
     var al = ref.getAttribute("aria-label");
-    out.push(al && al.trim() ? al : __vmarkContentText(ref, __vmarkSelfHidden(ref)));
+    out = __vmarkTake(out, al && al.trim() ? al : __vmarkContentText(ref, __vmarkSelfHidden(ref)), budget);
+    out = __vmarkTake(out, " ", budget);
   }
-  return __vmarkNorm(out.join(" "));
+  return __vmarkNorm(out);
+}
+
+/** How many ids of an id-list attribute are ever looked up. Mirrors ID_LIST_MAX. */
+function __vmarkIdListMax() {
+  return 64;
 }
 
 /** Every <label> associated with a control, in document order — the platform's
@@ -182,9 +199,12 @@ function __vmarkLabelText(el) {
   var labels = null;
   try { labels = el.labels; } catch (e) {}
   if (labels && labels.length) {
-    var parts = [];
-    for (var i = 0; i < labels.length; i++) parts.push(__vmarkContentText(labels[i], false));
-    return __vmarkNorm(parts.join(" "));
+    var out = "", budget = __vmarkContentBudget();
+    for (var i = 0; i < labels.length && out.length < budget; i++) {
+      out = __vmarkTake(out, __vmarkContentText(labels[i], false), budget);
+      out = __vmarkTake(out, " ", budget);
+    }
+    return __vmarkNorm(out);
   }
   var wrap = el.closest ? el.closest("label") : null;
   return wrap ? __vmarkNorm(__vmarkContentText(wrap, false)) : "";
@@ -244,57 +264,4 @@ function __vmarkDisabled(el) {
 function __vmarkChecked(el) {
   if (String(el.tagName || "").toUpperCase() === "INPUT") return !!el.checked;
   return el.getAttribute("aria-checked") === "true";
-}
-
-/** The composed walk every perception path runs on: each element under `root` (a
- *  Document, ShadowRoot or Element; root itself excluded) in composed pre-order —
- *  an element, then its OPEN shadow tree, then its light children (S-05) — is
- *  handed to `visit`. Lazy in both dimensions (#103): a cursor per open node reads
- *  children by index (a node a billion wide costs one cursor) and the walk stops
- *  after `budget` visited elements, returning true when it ran out with elements
- *  still unvisited so a consumer can say its answer is incomplete. Closed roots are
- *  invisible by definition — `__vmarkCountUnreachable` tallies what it cannot enter. */
-function __vmarkWalk(root, budget, visit) {
-  var visited = 0, stack = [{ kids: (root || document).children, i: 0 }];
-  while (stack.length) {
-    var top = stack[stack.length - 1];
-    if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
-    var el = top.kids[top.i++];
-    if (++visited > budget) return true;
-    visit(el);
-    stack.push({ kids: el.children, i: 0 });
-    var sr = null;
-    try { sr = el.shadowRoot; } catch (e) {}
-    if (sr) stack.push({ kids: sr.children, i: 0 });
-  }
-  return false;
-}
-
-/** Every element the budgeted walk reaches under `root`, as a list, for the
- *  consumers that need one (`gateScript`, `interactScript`, `__vmarkPageText`) —
- *  at most `__vmarkVisitBudget()` long, never the whole of a hostile page. */
-function __vmarkAll(root) {
-  var out = [];
-  __vmarkWalk(root, __vmarkVisitBudget(), function (el) { out.push(el); });
-  return out;
-}
-
-/** Tally into `counts` ({closedShadowRoots, frames}) what the composed walk could
- *  not enter at `el`, so the model knows the snapshot is not the whole page: a
- *  frame (evals target the main frame only), or a custom-element host exposing no
- *  open shadow root — where a closed root hides. A closed root cannot be observed
- *  from outside, so `closedShadowRoots` is a proxy, not a count: a light-DOM custom
- *  element is counted too, a plain `<div>` hosting a closed root is not. Per
- *  element, so a walk tallies as it goes with no element list. */
-function __vmarkCountUnreachable(counts, el) {
-  var t = String(el.tagName || "").toLowerCase();
-  if (t === "iframe" || t === "frame") counts.frames++;
-  else if (t.indexOf("-") > 0 && !el.shadowRoot) counts.closedShadowRoots++;
-}
-
-/** The tally over an element list (what `__vmarkAll` returns). */
-function __vmarkUnreachable(all) {
-  var counts = { closedShadowRoots: 0, frames: 0 };
-  for (var i = 0; i < all.length; i++) __vmarkCountUnreachable(counts, all[i]);
-  return counts;
 }

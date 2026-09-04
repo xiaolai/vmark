@@ -28,6 +28,7 @@ import { registerPandocFormatCommands } from "@/services/commands/exportCommands
 import { registerAllCommands } from "@/services/commands/registerAllCommands";
 import { startRuntimeServices } from "@/services/runtimeWiring";
 import { closeBrowserTabById } from "@/services/browser/browserTabLifecycle";
+import { useRecentWorkspacesStore } from "@/stores/recentsStore";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
 import { executeCommand } from "@/services/commands/CommandBus";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
@@ -146,6 +147,12 @@ export function useCommandBootstrap(): void {
     // Same seam, for teardown: the harness closes the tabs it created through the
     // app's own lifecycle instead of tearing the native view out from under it.
     publishDebugHandle("closeBrowserTab", closeBrowserTabById);
+    // Same seam, for hygiene: a journey that opened a temporary workspace in a
+    // second window removes it from the persisted recents through the store's own
+    // action, so a run leaves no dead entry behind in the dev profile's menu.
+    publishDebugHandle("forgetRecentWorkspace", (path: string) =>
+      useRecentWorkspacesStore.getState().removeWorkspace(path),
+    );
 
     // The window-lifetime services (grant/policy mirrors, tab events and
     // lifecycle, recorder, coherence, workspace sync, menu mirror) — one list,

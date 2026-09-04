@@ -759,3 +759,13 @@ fn the_production_wrappers_resolve_with_the_system_resolver() {
     reserved_for(&state, "http://localhost:3000/");
     create_native(&state, "t", || Ok(())).unwrap();
 }
+
+#[test]
+fn a_reservation_under_a_closing_window_is_the_window_gone_class() {
+    let state = BrowserSurface::default();
+    state.registry.lock().unwrap().mark_window_closed("doc-1");
+    let err = reserve_ai_tab(&state, "t", &request("doc-1", "https://a.example/")).unwrap_err();
+    assert_eq!(err.code(), ErrorCode::NotFound);
+    assert_eq!(kind(&err), "window-gone");
+    assert!(state.registry.lock().unwrap().tab_status("t").is_none());
+}

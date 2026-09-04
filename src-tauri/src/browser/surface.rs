@@ -189,9 +189,20 @@ impl BrowserSurface {
             .map_err(|e| e.to_string())?
             .remove(tab_id);
         // A destroyed tab's one-shots must not linger to authorize a reused id.
+        self.clear_tab_authority_in(reg, tab_id);
+        Ok(())
+    }
+
+    /// Drop every "Allow once" and the human-tab attachment of `tab_id` while the
+    /// caller HOLDS the registry guard (round 4, #35): the guard is taken by `&mut`
+    /// so holding it is a type-level requirement, and the lock order — registry
+    /// outermost, then one-shots, then attachments — is the one every other path
+    /// uses. Clearing with the guard released left a gap in which a `create` +
+    /// `attach_tab` for a reused id could land and have its fresh authority erased
+    /// by a late delegate callback for the tab that had just gone.
+    pub(crate) fn clear_tab_authority_in(&self, _reg: &mut BrowserRegistry, tab_id: &str) {
         self.clear_tab_one_shots(tab_id);
         self.clear_tab_attachment(tab_id);
-        Ok(())
     }
 
     /// Revoke every "Allow once" for `tab_id` (R7a). Called when the tab starts a

@@ -313,3 +313,30 @@ fn grants_of_reads_one_windows_slice_and_denies_everything_else() {
     assert!(!s.is_granted_in_window(Some("b"), "https://ex.com/p", "click"));
     assert!(!s.is_granted_in_window(None, "https://ex.com/p", "click"));
 }
+
+#[test]
+fn clear_tab_authority_in_drops_one_shots_and_the_attachment_under_the_callers_guard() {
+    use crate::browser::one_shot::OneShot;
+    let s = surface_with_tab("t");
+    navigate_to_generation(&s, "t", 1);
+    s.one_shots.lock().unwrap().push(OneShot {
+        tab_id: "t".into(),
+        generation: 1,
+        origin_pattern: "https://a.example".into(),
+        operation: "click".into(),
+        target: None,
+        payload_hash: None,
+    });
+    s.attach_tab("t".into(), 1, true).unwrap();
+    assert!(
+        s.is_tab_attached("t", 1),
+        "the attachment exists before the clear"
+    );
+    assert_eq!(s.one_shots.lock().unwrap().len(), 1);
+    // The guard is the caller's: taken here, handed in by `&mut`, released after.
+    let mut reg = s.registry.lock().unwrap();
+    s.clear_tab_authority_in(&mut reg, "t");
+    drop(reg);
+    assert!(!s.is_tab_attached("t", 1));
+    assert!(s.one_shots.lock().unwrap().is_empty());
+}

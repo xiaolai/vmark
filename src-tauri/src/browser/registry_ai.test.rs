@@ -228,3 +228,18 @@ fn mismatch_kinds_have_stable_wire_names() {
     assert_eq!(AiRequestMismatch::Profile.kind(), "profile");
     assert_eq!(AiRequestMismatch::Navigation.kind(), "navigation");
 }
+
+#[test]
+fn a_reservation_under_a_closing_window_is_refused_before_anything_is_recorded() {
+    let mut reg = BrowserRegistry::default();
+    reg.mark_window_closed("doc-1");
+    assert_eq!(
+        reg.reserve_ai_tab("t", &request("doc-1", "https://a.example/")),
+        Err(AiReservationRefusal::WindowClosed)
+    );
+    assert!(reg.tab_status("t").is_none());
+    assert_eq!(
+        reg.reserve_ai_tab("t", &request("main", "https://a.example/")),
+        Ok(AiReservation::Reserved)
+    );
+}

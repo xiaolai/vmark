@@ -210,11 +210,24 @@ describe("resolveBrowserTarget", () => {
     }
   });
 
-  it("refuses when nothing resolves: an unknown id, a document tab, or no active browser tab", async () => {
+  it("refuses a NAMED tab that resolves to nothing as TAB_NOT_FOUND: an unknown id, a document tab", async () => {
+    // The token `close` and `navigate` speak. An AI holding the id of a tab whose
+    // window has closed must learn the tab is gone, not that nothing is active here.
     const docId = useTabStore.getState().createTab("main", "/a.md");
-    for (const args of [{ tabId: "nope" }, { tabId: docId }, {}]) {
+    for (const args of [{ tabId: "nope" }, { tabId: docId }]) {
       expect(await resolveBrowserTarget("none", args)).toBeNull();
-      expect(lastResponse()).toEqual({ id: "none", success: false, error: "no active browser tab" });
+      expect(lastResponse()).toEqual({
+        id: "none",
+        success: false,
+        error: "TAB_NOT_FOUND",
+        data: { token: "TAB_NOT_FOUND" },
+      });
     }
+  });
+
+  it("refuses with 'no active browser tab' only when no tab was named and none is active", async () => {
+    useTabStore.getState().createTab("main", "/a.md");
+    expect(await resolveBrowserTarget("none", {})).toBeNull();
+    expect(lastResponse()).toEqual({ id: "none", success: false, error: "no active browser tab" });
   });
 });
