@@ -369,6 +369,11 @@ conservative, because every action here mutates something.
 data the app attached (a navigation ticket, an act's `reason`, the retry verb) — in
 `structuredContent`. Match on the token, not the prose.
 
+An `EVAL_TIMEOUT` is **indeterminate**, not a clean failure: the submitted script may
+still have run to completion after the driver stopped waiting, so it carries
+`data.detail.indeterminate: true` and must not be retried as though nothing happened —
+read the page (`browser_read`) to learn what state it is in before acting again.
+
 ### `act`
 
 Arguments: `tabId?`, `operation: "click" | "type" | "scroll" | "key"`, and per-operation

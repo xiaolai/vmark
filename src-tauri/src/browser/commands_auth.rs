@@ -103,7 +103,13 @@ pub async fn browser_revoke_one_shot(
     origin_pattern: String,
     operation: String,
     target: Option<OneShotTarget>,
+    // The exact script a payload-binding mint authorized, so the revoke names the
+    // SAME one-shot the mint created and no other for that target.
+    eval_script: Option<String>,
 ) -> Result<u32, CommandError> {
+    let payload_hash = eval_script
+        .as_deref()
+        .map(crate::browser::mint::script_hash);
     let mut shots = state
         .one_shots
         .lock()
@@ -115,6 +121,7 @@ pub async fn browser_revoke_one_shot(
         &origin_pattern,
         &operation,
         target.as_ref(),
+        payload_hash.as_deref(),
     );
     Ok(removed as u32)
 }

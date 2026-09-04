@@ -41,6 +41,7 @@ fn revoke_withdraws_exactly_the_identity_and_nothing_else() {
         "https://blog.example.com",
         "click",
         Some(&target("button", "Publish")),
+        None,
     );
     assert_eq!(removed, 1);
     assert_eq!(shots.len(), 3);
@@ -55,6 +56,7 @@ fn revoke_withdraws_exactly_the_identity_and_nothing_else() {
             3,
             "https://blog.example.com",
             "click",
+            None,
             None
         ),
         0
@@ -417,4 +419,37 @@ fn same_binding_is_every_dimension_the_consume_matches_on() {
     read_again.target = None;
     assert!(read.same_binding(&read_again));
     assert!(!read.same_binding(&base));
+}
+
+#[test]
+fn revoke_is_bound_to_the_payload_hash_too() {
+    let mut a = click_shot("t1", 3, "textbox", "Title");
+    a.operation = "type".into();
+    a.payload_hash = Some("hash-a".into());
+    let mut b = a.clone();
+    b.payload_hash = Some("hash-b".into());
+    let mut shots = vec![a, b];
+    // Revoking A's mint leaves B's — the same target, a different approved payload.
+    let removed = revoke_one_shot(
+        &mut shots,
+        "t1",
+        3,
+        "https://blog.example.com",
+        "type",
+        Some(&target("textbox", "Title")),
+        Some("hash-a"),
+    );
+    assert_eq!(removed, 1);
+    assert_eq!(shots[0].payload_hash.as_deref(), Some("hash-b"));
+    // An identity WITHOUT a hash does not match a payload-bound one-shot.
+    let removed = revoke_one_shot(
+        &mut shots,
+        "t1",
+        3,
+        "https://blog.example.com",
+        "type",
+        Some(&target("textbox", "Title")),
+        None,
+    );
+    assert_eq!(removed, 0);
 }

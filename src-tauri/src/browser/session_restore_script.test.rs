@@ -117,11 +117,12 @@ fn the_asset_speaks_the_shape_the_parser_reads() {
     // The contract names, on both sides of the string boundary.
     for needle in [
         r#"reason: "origin-changed""#,
+        r#"reason: "read-failed", index: s"#,
         r#"reason: "write-failed", index: i, rollbackFailed: rollbackFailed"#,
         "applied: true, count: d.length",
         "rollbackFailed.push(j)",
         "localStorage.removeItem(prev[j][0])",
-        "localStorage.getItem(k)",
+        "snapshot.push(localStorage.getItem(d[s][0]))",
     ] {
         assert!(RESTORE_SRC.contains(needle), "asset lost `{needle}`");
     }
@@ -183,4 +184,19 @@ fn each_outcome_reports_itself_at_the_command_boundary() {
         detail(&unreadable, "kind"),
         Some(&serde_json::json!("surface-failed"))
     );
+}
+
+#[test]
+fn a_read_failure_before_any_write_is_its_own_outcome() {
+    assert_eq!(
+        parse_restore_outcome(r#"{"applied":false,"reason":"read-failed","index":1}"#),
+        RestoreOutcome::ReadFailed { index: Some(1) }
+    );
+    let err = RestoreOutcome::ReadFailed { index: Some(1) }
+        .into_result("t1")
+        .unwrap_err();
+    assert_eq!(err.code(), ErrorCode::Io);
+    assert_eq!(detail(&err, "written"), Some(&serde_json::json!(false)));
+    assert_eq!(detail(&err, "index"), Some(&serde_json::json!(1)));
+    assert!(err.message().contains("nothing was written"));
 }

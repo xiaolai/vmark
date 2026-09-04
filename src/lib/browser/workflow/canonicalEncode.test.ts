@@ -167,6 +167,19 @@ describe("idempotencyKey composes on encodeCanonical", () => {
 });
 
 describe("array elements must be data properties (round 3)", () => {
+  it("refuses the non-index key 4294967295 on an array (2^32 − 1 is never an index)", () => {
+    const arr: unknown[] = [];
+    (arr as unknown as Record<string, unknown>)["4294967295"] = "x";
+    expect(() => encodeCanonical({ a: arr })).toThrow(TypeError);
+  });
+
+  it("refuses a huge sparse array before iterating it slot by slot", () => {
+    const started = Date.now();
+    expect(() => encodeCanonical({ a: new Array(50_000_000) })).toThrow(/longer than/);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(() => encodeCanonical({ a: new Array(3) })).not.toThrow(); // holes are fine
+  });
+
   it("refuses an array whose index is an accessor instead of invoking the getter", () => {
     const arr: unknown[] = [1];
     let reads = 0;

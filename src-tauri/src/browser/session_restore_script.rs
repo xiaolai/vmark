@@ -32,6 +32,11 @@ const RESTORE_SRC: &str = include_str!("session_restore.src.js");
 pub(super) enum RestoreOutcome {
     Applied,
     OriginChanged,
+    /// Storage could not be READ at data index `index`, before any write: nothing
+    /// was written, so there is nothing to roll back.
+    ReadFailed {
+        index: Option<u64>,
+    },
     /// Write `index` was rejected; every earlier write was put back.
     WriteFailed {
         index: Option<u64>,
@@ -61,6 +66,9 @@ pub(super) fn parse_restore_outcome(raw: &str) -> RestoreOutcome {
     }
     match outcome.get("reason").and_then(|v| v.as_str()) {
         Some("origin-changed") => RestoreOutcome::OriginChanged,
+        Some("read-failed") => RestoreOutcome::ReadFailed {
+            index: outcome.get("index").and_then(|v| v.as_u64()),
+        },
         Some("write-failed") => {
             let index = outcome.get("index").and_then(|v| v.as_u64());
             match rollback_failures(&outcome) {
@@ -101,6 +109,11 @@ impl RestoreOutcome {
                 tab_id,
                 "before the session could be restored",
             )),
+            RestoreOutcome::ReadFailed { index } => Err(CommandError::new(
+                ErrorCode::Io,
+                "the page's localStorage could not be read (storage policy); nothing was written",
+            )
+            .with_detail(serde_json::json!({ "index": index, "written": false }))),
             RestoreOutcome::WriteFailed { index } => Err(CommandError::new(
                 ErrorCode::Io,
                 "the page refused a localStorage write (quota or storage policy); the restore was rolled back",

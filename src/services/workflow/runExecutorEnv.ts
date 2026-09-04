@@ -75,6 +75,8 @@ function toOutcome(result: Record<string, unknown>, flag: "clicked" | "typed"): 
     return { outcome: "unknown", reason: "malformed-act-result" };
   }
   if (result[flag] === true && result.found === false) return { outcome: "unknown", reason: "contradictory-act-result" };
+  // A success that also carries a failure reason is a contradiction, not a success.
+  if (result[flag] === true && result.reason !== undefined) return { outcome: "unknown", reason: "contradictory-act-result" };
   // A reason, when present, is a string — `{found:true, clicked:false, reason:42}` is
   // page-adjacent garbage, not a confirmed failure the engine may retry a write on.
   if (result.reason !== undefined && typeof result.reason !== "string") return { outcome: "unknown", reason: "malformed-act-result" };

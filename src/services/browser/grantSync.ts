@@ -183,6 +183,9 @@ export async function revokeOneShot(shot: OneShotApproval): Promise<void> {
       originPattern: shot.originPattern,
       operation: shot.operation,
       target: shot.target ?? null,
+      // The full mint identity: a payload-bound one-shot is named by its script too,
+      // so revoking it cannot take an unrelated one-shot for the same target.
+      evalScript: shot.script ?? null,
     });
   } catch (error) {
     browserWarn("one-shot revoke failed; a stale authorization may remain until navigation", error);

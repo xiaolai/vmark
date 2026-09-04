@@ -10,6 +10,10 @@
 // Returns a JSON string the Rust side parses without trusting its shape:
 //   {applied:true, count}                      every write landed
 //   {applied:false, reason:"origin-changed"}   the page moved on; nothing was written
+//   {applied:false, reason:"read-failed", index}  storage could not be READ at data
+//       index `index` before any write: nothing was written (a rollback that does
+//       not know the previous value could only guess, and guessing "absent" deleted
+//       real data)
 //   {applied:false, reason:"write-failed", index, rollbackFailed}
 //       write `index` was rejected (quota, a storage-disabled origin). Every earlier
 //       write was put back to its previous value, and `rollbackFailed` lists the
@@ -20,19 +24,23 @@
   if (new URL(expected).origin !== location.origin) {
     return JSON.stringify({ applied: false, reason: "origin-changed" });
   }
+  // Snapshot FIRST: every previous value is read before the first write, so a
+  // rollback always knows what to put back. A read that throws aborts here, with
+  // nothing written — rolling back to a guessed "absent" used to delete a value.
+  var snapshot = [];
+  for (var s = 0; s < d.length; s++) {
+    try {
+      snapshot.push(localStorage.getItem(d[s][0]));
+    } catch (e) {
+      return JSON.stringify({ applied: false, reason: "read-failed", index: s });
+    }
+  }
   var prev = [];
   for (var i = 0; i < d.length; i++) {
     var k = d[i][0];
-    var old = null;
-    try {
-      old = localStorage.getItem(k);
-    } catch (e) {
-      // A storage that cannot be read is put back as "absent" if the write below
-      // somehow lands; in practice a read that throws means the write throws too.
-    }
     try {
       localStorage.setItem(k, d[i][1]);
-      prev.push([k, old]);
+      prev.push([k, snapshot[i]]);
     } catch (e) {
       var rollbackFailed = [];
       for (var j = prev.length - 1; j >= 0; j--) {

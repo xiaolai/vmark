@@ -7,7 +7,8 @@
  * layer cannot drift. A grant confers authority (read, and via plugins, publish), so
  * every rule below is a security boundary:
  *   - scheme + host + port only (userinfo/path/query/hash discarded)
- *   - host is IDN→punycode, lowercased, trailing dot stripped
+ *   - host is IDN→punycode, lowercased, trailing dot stripped — via the ONE
+ *     navigable-URL parser, `parseNavigableUrl` in lib/browser/url (round 3)
  *   - default ports normalized (443/80)
  *   - only http/https are navigable origins; data:/blob:/about:/file:/ws: are opaque → null
  *   - NO implicit subdomain wildcarding — a pattern must write `*.host` to cover subdomains

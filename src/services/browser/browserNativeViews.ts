@@ -165,14 +165,22 @@ function scheduleLeakSweep(): void {
         leakedViews.delete(tabId);
       } catch (error) {
         if (leakSweepsRun >= LEAK_SWEEP_ATTEMPTS) {
-          leakedViews.delete(tabId);
-          browserWarn("browser_destroy never succeeded; giving up on a native view that may still be running", { tabId, error });
+          // The record STAYS (a possibly live view is never forgotten); the timer
+          // pauses until the next teardown of any tab re-arms the sweep.
+          browserWarn("browser_destroy still failing after the sweep budget; the view stays tracked and is retried on the next teardown", { tabId, error });
         }
       }
     }
     if (leakedViews.size === 0) leakSweepsRun = 0;
-    scheduleLeakSweep();
+    if (leakSweepsRun < LEAK_SWEEP_ATTEMPTS) scheduleLeakSweep();
   }, LEAK_SWEEP_MS);
+}
+
+/** A teardown just ran: give the tracked leaks a fresh sweep budget. */
+function rearmLeakSweep(): void {
+  if (leakedViews.size === 0) return;
+  leakSweepsRun = 0;
+  scheduleLeakSweep();
 }
 
 /** `browser_destroy`, retried on failure: a transient refusal (the main thread
@@ -182,6 +190,7 @@ async function destroyNativeWithRetry(tabId: string): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
       await invoke("browser_destroy", { tabId });
+      rearmLeakSweep();
       return;
     } catch (error) {
       const delay = DESTROY_RETRY_MS[attempt];

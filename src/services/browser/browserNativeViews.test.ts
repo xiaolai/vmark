@@ -68,6 +68,21 @@ describe("destroyBrowserNativeView", () => {
     expect(invoke.mock.calls.filter(([cmd, a]) => cmd === "browser_destroy" && a?.tabId === "t5").length).toBeGreaterThanOrEqual(5);
   });
 
+  it("a leak that outlives the sweep budget stays tracked and is retried after the next teardown", async () => {
+    invoke.mockRejectedValue(new Error("gone"));
+    await Promise.all([destroyBrowserNativeView("t7"), vi.advanceTimersByTimeAsync(1_000)]);
+    await vi.advanceTimersByTimeAsync(6 * 10_000 + 1_000); // the whole sweep budget fails
+    expect(leakedNativeViews().has("t7")).toBe(true);
+    const before = invoke.mock.calls.filter(([cmd, a]) => cmd === "browser_destroy" && a?.tabId === "t7").length;
+    await vi.advanceTimersByTimeAsync(60_000); // paused: no further attempts on their own
+    expect(invoke.mock.calls.filter(([cmd, a]) => cmd === "browser_destroy" && a?.tabId === "t7").length).toBe(before);
+    // Another tab's successful teardown re-arms the sweep; the driver now accepts.
+    invoke.mockResolvedValue(undefined);
+    await destroyBrowserNativeView("t8");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(leakedNativeViews().has("t7")).toBe(false);
+  });
+
   it("creating a view for a tab whose destroy is in flight is refused (#78)", async () => {
     let release: () => void = () => {};
     invoke.mockImplementation(() => new Promise<void>((r) => (release = r)));

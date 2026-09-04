@@ -47,8 +47,10 @@ var CAP = 200;
 var buf = [];
 var seenDrain = "";
 /** The control a <label> click just resolved to: the browser fires that control's
- *  own activation click next, and the pair is ONE user action. Only a label-origin
- *  click arms this — two direct clicks on the same control are two actions. */
+ *  own activation click SYNCHRONOUSLY, in the same task, and the pair is ONE user
+ *  action. Armed only by a label-origin click and cleared on the next task, so a
+ *  cancelled label click (no activation follows) cannot swallow a later genuine
+ *  click on the control, and two direct clicks are always two actions. */
 var labelActivation = null;
 function armed() {
   try {
@@ -170,13 +172,16 @@ try {
         var el = target(e);
         if (!el || el.nodeType !== 1) return;
         var ctrl = control(el);
-        var now = Date.now();
         var fromLabel = ctrl !== el && !!(el.closest && el.closest("label"));
         if (fromLabel) {
           // A click on a <label> resolves to its control AND the browser then fires
-          // the control's own activation click: one user action, recorded once — here.
-          labelActivation = { el: ctrl, at: now };
-        } else if (labelActivation && labelActivation.el === ctrl && now - labelActivation.at < 100) {
+          // the control's own activation click within this task: one user action,
+          // recorded once — here. The arm dies with the task.
+          labelActivation = ctrl;
+          setTimeout(function () {
+            labelActivation = null;
+          }, 0);
+        } else if (labelActivation === ctrl) {
           // The activation click the label just caused: already recorded.
           labelActivation = null;
           return;

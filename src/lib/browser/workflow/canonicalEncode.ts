@@ -33,6 +33,8 @@ export type ObjectKind = "plain" | "array" | "date";
  *  raw key. Workflow inputs are flat records, so this ceiling is far above any real one. */
 const MAX_ENCODE_DEPTH = 100;
 
+/** Bound on an encodable array: above this the input is not a step's data. */
+const MAX_ARRAY_LENGTH = 1_000_000;
 const ARRAY_INDEX_RE = /^(0|[1-9]\d*)$/;
 
 export function isPrimitive(value: unknown): value is Primitive {
@@ -67,7 +69,16 @@ export function classifyObject(obj: object): ObjectKind {
     if (proto !== Array.prototype) {
       throw new TypeError(`encodeCanonical: cannot encode a "${obj.constructor?.name ?? "array"}" value.`);
     }
-    if (Reflect.ownKeys(obj).some((k) => typeof k === "symbol" || (k !== "length" && !ARRAY_INDEX_RE.test(k)))) {
+    // An idempotency-key input never legitimately carries a million elements; a
+    // sparse array with a huge `length` would otherwise be iterated slot by slot.
+    if ((obj as unknown[]).length > MAX_ARRAY_LENGTH) {
+      throw new TypeError(`encodeCanonical: cannot encode an array longer than ${MAX_ARRAY_LENGTH}.`);
+    }
+    // An array index is a canonical numeric string BELOW 2^32 − 1: "4294967295" is a
+    // plain property on an array (it is never reached by `length`), so it would be
+    // silently dropped and `[]` and `{4294967295: x}`-on-an-array would collide.
+    const isIndex = (k: string) => ARRAY_INDEX_RE.test(k) && Number(k) < 4294967295;
+    if (Reflect.ownKeys(obj).some((k) => typeof k === "symbol" || (k !== "length" && !isIndex(k)))) {
       throw new TypeError("encodeCanonical: cannot encode an array with non-index properties.");
     }
     // An index that is an ACCESSOR is a side effect wearing an array slot: reading it

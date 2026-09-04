@@ -29,12 +29,14 @@ interface Outcome {
 class ThrowingStorage {
   readonly items = new Map<string, string>();
   readonly rejectSet = new Set<string>();
+  /** Keys whose READ throws (a per-key storage policy) — the write would have landed. */
+  readonly rejectGet = new Set<string>();
   readonly rejectRemove = new Set<string>();
   /** A storage-disabled origin: every read and write throws. */
   disabled = false;
 
   getItem(key: string): string | null {
-    if (this.disabled) throw new Error("SecurityError: storage is disabled");
+    if (this.disabled || this.rejectGet.has(key)) throw new Error("SecurityError: storage is disabled");
     return this.items.get(key) ?? null;
   }
   setItem(key: string, value: string): void {
@@ -65,6 +67,16 @@ describe("session restore script (the real asset, executed)", () => {
     const storage = new ThrowingStorage();
     expect(restore(storage, [["a", "1"], ["b", "2"]])).toEqual({ applied: true, count: 2 });
     expect([...storage.items]).toEqual([["a", "1"], ["b", "2"]]);
+  });
+
+  it("a read that throws aborts BEFORE the first write — nothing is written and nothing is guessed (round 3)", () => {
+    const storage = new ThrowingStorage();
+    storage.items.set("b", "kept");
+    storage.rejectGet.add("b");
+    expect(restore(storage, [["a", "1"], ["b", "2"]])).toEqual({ applied: false, reason: "read-failed", index: 1 });
+    // Neither write happened, and the unreadable key's real value was never touched.
+    expect(storage.items.get("a")).toBeUndefined();
+    expect(storage.items.get("b")).toBe("kept");
   });
 
   it("writes nothing when the page's origin changed under the restore", () => {
@@ -120,15 +132,12 @@ describe("session restore script (the real asset, executed)", () => {
     expect([...storage.items]).toEqual([["a", "old"], ["b", "2"]]);
   });
 
-  it("a storage-disabled origin fails the first write with nothing to roll back", () => {
+  it("a storage-disabled origin fails at the first READ, before any write (nothing to roll back)", () => {
     const storage = new ThrowingStorage();
     storage.disabled = true;
-    expect(restore(storage, [["a", "1"]])).toEqual({
-      applied: false,
-      reason: "write-failed",
-      index: 0,
-      rollbackFailed: [],
-    });
+    // The snapshot read comes first and throws on a disabled origin: the outcome is
+    // read-failed, and no write was ever attempted.
+    expect(restore(storage, [["a", "1"]])).toEqual({ applied: false, reason: "read-failed", index: 0 });
     expect(storage.items.size).toBe(0);
   });
 

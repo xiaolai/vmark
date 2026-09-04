@@ -4,6 +4,8 @@
  *   See dev-docs/plans/20260504-mcp-pruning.md for the full ADR set.
  *   These types are exposed as part of the MCP server's public schema —
  *   changes to shape are breaking and must bump the action version.
+ *   `BrowserSessionTab` is the browser-tab record `sessionSerializers.ts`
+ *   builds for session.get_state (round 3 split of session.ts).
  *
  * @module services/mcpBridge/v2/types
  */

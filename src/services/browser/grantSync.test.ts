@@ -419,7 +419,12 @@ describe("revokeOneShot (round 3, #124)", () => {
       originPattern: "https://a.com",
       operation: "click",
       target: { role: "button", name: "Go" },
+      evalScript: null,
     });
+  });
+  it("a payload-bound one-shot is revoked by its script as well", async () => {
+    await revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "type", target: { role: "textbox", name: "T" }, script: "S" });
+    expect(invoke).toHaveBeenLastCalledWith("browser_revoke_one_shot", expect.objectContaining({ operation: "type", evalScript: "S" }));
   });
   it("a target-less one-shot sends target: null, and a failed revoke does not throw", async () => {
     invoke.mockRejectedValueOnce(new Error("gone"));

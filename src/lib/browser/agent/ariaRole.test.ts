@@ -40,6 +40,14 @@ describe("contenteditable is the editing HOST only (#110)", () => {
   });
 });
 
+describe("explicit role token lists (#108)", () => {
+  it("skips unknown leading tokens and takes the first recognized one", () => {
+    expect(computeRole(el(`<div role="bogus button">x</div>`))).toBe("button");
+    expect(computeRole(el(`<div role="unsupported nothing link">x</div>`))).toBe("link");
+    expect(computeRole(el(`<div role="bogus">x</div>`))).toBe(null);
+  });
+});
+
 describe("presentational conflict resolution (#107)", () => {
   it("a global ARIA property keeps the implicit role, like focusability does", () => {
     expect(computeRole(el(`<h2 role="none" aria-label="Section">x</h2>`))).toBe("heading");

@@ -155,6 +155,16 @@ describe("recorder shim — capture shape", () => {
     expect(JSON.stringify(events[0])).not.toContain("draft");
   });
 
+  it("a CANCELLED label click never swallows a later genuine click on its control", async () => {
+    evalIsolated(buildArmScript());
+    const label = mount<HTMLLabelElement>(`<label id="l" for="cb">Agree</label><input id="cb" type="checkbox">`, "l");
+    label.addEventListener("click", (e) => e.preventDefault()); // no activation click follows
+    label.click();
+    await new Promise((r) => setTimeout(r, 0)); // the next task: the arm has died
+    (document.getElementById("cb") as HTMLInputElement).click();
+    expect(drain()).toHaveLength(2);
+  });
+
   it("two rapid direct clicks on the same control are two actions (only a label activation is folded)", () => {
     evalIsolated(buildArmScript());
     const cb = mount<HTMLInputElement>(`<input id="cb" type="checkbox" aria-label="Agree">`, "cb");

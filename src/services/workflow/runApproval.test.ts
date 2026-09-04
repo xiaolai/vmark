@@ -285,6 +285,21 @@ describe("awaitAuthorization — cancel and takeover interrupt the wait (W-01)",
     expect(revoke).toHaveBeenCalledWith(expect.objectContaining({ tabId: TAB, generation: 3, operation: "click", target: TARGET, originPattern: ORIGIN }));
   });
 
+  it("a late payload-bound mint is revoked WITH its script — the identity the driver bound", async () => {
+    let confirm: (ok: boolean) => void = () => {};
+    mint.mockImplementationOnce(() => new Promise<boolean>((r) => (confirm = r)));
+    useBrowserApprovalStore.getState().requestApproval("seed", URL, "type", TARGET, TAB, 3, "SCRIPT");
+    useBrowserApprovalStore.getState().resolveApproval("seed", "once");
+    const { ctx, controller } = harness();
+    const wait = awaitAuthorization(ctx, { url: URL, operation: "type", target: TARGET, script: "SCRIPT" });
+    await sleep(5);
+    controller.abort(new WorkflowPause("cancelled", "stop"));
+    await expect(wait).rejects.toBeInstanceOf(WorkflowPause);
+    confirm(true);
+    await sleep(5);
+    expect(revoke).toHaveBeenCalledWith(expect.objectContaining({ operation: "type", script: "SCRIPT" }));
+  });
+
   it("a late mint that the driver REFUSED has nothing to revoke", async () => {
     let confirm: (ok: boolean) => void = () => {};
     mint.mockImplementationOnce(() => new Promise<boolean>((r) => (confirm = r)));

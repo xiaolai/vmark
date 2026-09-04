@@ -23,7 +23,9 @@
  *     the act path distinguishes it (S-04).
  *   - The walk is the COMPOSED tree: an element, then its open shadow tree, then
  *     its light children (S-05) — so web components are perceived, in the same
- *     order the injected `__vmarkAll` produces.
+ *     order the injected `__vmarkAll` produces. It is LAZY in both dimensions
+ *     (round 3): a cursor per open node, so a hostile node with a million
+ *     children costs one cursor, and a visited-element budget bounds the walk.
  *   - State (checked/disabled) is read from the LIVE DOM (property, `:disabled`),
  *     not from the initial attributes, which never move after user interaction.
  *   - The snapshot is bounded (S-06): at most `SNAPSHOT_NODE_CAP` nodes, names at

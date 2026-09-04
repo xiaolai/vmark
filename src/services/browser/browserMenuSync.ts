@@ -9,7 +9,8 @@
  *
  * Pushes go through the serialized, latest-wins pusher: two rapid toggles used to be
  * fired concurrently and the older could land last, leaving the native item out of
- * step with the setting; a failure is retried rather than dropped.
+ * step with the setting; a failure is retried (with backoff, until the window
+ * disposes the sync) rather than dropped, and every failed attempt is logged.
  *
  * @coordinates-with hooks/useCommandBootstrap — starts and stops this with the window
  * (lives in services/, the store-aware tier: it is a wiring, not a React adapter)
