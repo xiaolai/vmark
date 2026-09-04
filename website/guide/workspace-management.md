@@ -79,12 +79,18 @@ Both settings are saved per-workspace and persist across sessions.
 
 ### Excluded Folders
 
-Certain folders are excluded from the tree by default:
+Some directories are never listed into, whatever the workspace settings say — the
+same floor the workspace search applies: `.git`, `node_modules`, `.obsidian`,
+`.svn`, `__pycache__`, `.DS_Store`, `.vscode`, `.idea`, `target`, `.next`,
+`dist`, `.superpowers`. They still appear as folders so you know they exist; their
+contents are not read. Add your own names under **Exclude folders** in the
+workspace settings (a new workspace starts with `.git` and `node_modules` there).
 
-- `.git`
-- `node_modules`
-
-These defaults are applied when a workspace is first opened.
+The tree is listed in one pass and refreshed when files change. A burst of
+changes refreshes it once, shortly after the burst ends; a folder that never
+stops changing (an in-progress download, a build, a sync) refreshes on a
+widening interval instead of continuously, so the explorer never pins a CPU core
+re-reading a busy workspace.
 
 ## Quick Open
 

@@ -2,7 +2,8 @@
 //!
 //! Purpose: Lists directory contents for the sidebar file explorer.
 //!
-//! Pipeline: Frontend invoke("list_directory_entries") → this module → filesystem readdir
+//! Pipeline: Frontend invoke("list_directory_entries") → this module → filesystem readdir.
+//! `file_tree_walk.rs` (the one-call tree listing, #1357) reuses `compute_is_hidden`.
 //!
 //! Key decisions:
 //!   - Hidden file detection is cross-platform: dot-prefix on all OSes,
@@ -42,7 +43,7 @@ fn is_hidden_by_metadata(metadata: &fs::Metadata) -> bool {
 /// Cross-platform hidden check: dot-prefix everywhere, plus the
 /// FILE_ATTRIBUTE_HIDDEN/SYSTEM attributes on Windows (stat only when the
 /// cheap name check didn't already decide).
-fn compute_is_hidden(name: &str, entry: &fs::DirEntry) -> bool {
+pub(crate) fn compute_is_hidden(name: &str, entry: &fs::DirEntry) -> bool {
     if is_hidden_by_name(name) {
         return true;
     }

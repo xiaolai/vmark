@@ -44,6 +44,9 @@ const entry = (name: string) => ({
   isHidden: false,
 });
 
+/** The one-call listing's wire shape (#1357). */
+const listing = (entries: unknown[], truncated = false) => ({ entries, truncated });
+
 beforeEach(() => {
   invokeMock.mockReset();
 });
@@ -61,7 +64,7 @@ describe("stale responses", () => {
     // Close the workspace while the listing is still in flight.
     rerender({ root: null });
     await act(async () => {
-      first.resolve([entry("late.md")]);
+      first.resolve(listing([entry("late.md")]));
       await first.promise;
     });
 
@@ -73,7 +76,7 @@ describe("excludeFolders key", () => {
   it("distinguishes folder lists that flatten to the same comma string", async () => {
     // ["a,b"] and ["a","b"] both joined to "a,b", so switching between them
     // kept the previous loader and the previous exclusions.
-    invokeMock.mockResolvedValue([]);
+    invokeMock.mockResolvedValue(listing([]));
     const { rerender } = renderHook(
       ({ folders }: { folders: string[] }) => useFileTree("/root", { excludeFolders: folders }),
       { initialProps: { folders: ["a,b"] } },
@@ -101,16 +104,14 @@ describe("unreadable directories", () => {
   });
 
   it("keeps the rest of the tree when ONE subdirectory is unreadable", async () => {
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd !== "list_directory_entries") return undefined;
-      const path = (args as { path: string }).path;
-      if (path === "/root") {
-        return [
-          { name: "locked", path: "/root/locked", isDirectory: true, isHidden: false },
-          entry("visible.md"),
-        ];
-      }
-      throw new Error("EACCES");
+    // The walker reports a locked subfolder as an empty, flagged directory (#1357);
+    // the tree keeps everything else and reports no error.
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd !== "list_directory_tree") return undefined;
+      return listing([
+        { name: "locked", path: "/root/locked", isDirectory: true, isHidden: false, unreadable: true, children: [] },
+        entry("visible.md"),
+      ]);
     });
 
     const { result } = renderHook(() => useFileTree("/root"));

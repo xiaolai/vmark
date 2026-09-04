@@ -25,3 +25,20 @@ export interface DirectoryEntry {
   isDirectory: boolean;
   isHidden: boolean;
 }
+
+/**
+ * One node of the one-call tree listing (`list_directory_tree`, #1357): a
+ * `DirectoryEntry` plus its pruned children. `unreadable` marks a directory the
+ * walker could not read (shown empty, logged); a pruned directory has `children:
+ * []` and is not unreadable.
+ */
+export interface TreeEntry extends DirectoryEntry {
+  unreadable?: boolean;
+  children?: TreeEntry[];
+}
+
+/** The listing: the root's children and whether a walker bound was hit. */
+export interface TreeListing {
+  entries: TreeEntry[];
+  truncated: boolean;
+}

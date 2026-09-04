@@ -45,7 +45,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 #[path = "content_search_match.rs"]
-mod matching;
+pub(crate) mod matching; // `ALWAYS_SKIP` is shared with the file-tree walker (#1357)
 pub(crate) use matching::LineMatch;
 use matching::{build_regex, is_binary, matches_extensions, search_line, should_skip_dir};
 

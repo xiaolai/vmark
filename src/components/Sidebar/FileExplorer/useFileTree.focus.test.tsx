@@ -7,7 +7,7 @@
  * operations, externally-mounted volumes, and symlinked workspace paths.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -45,10 +45,32 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 
 import { useFileTree } from "./useFileTree";
 
+/**
+ * The one-call listing (#1357), built from a per-directory map so a fixture still
+ * reads as "what each directory contains": directories get their children from
+ * the map (none listed → empty), and an entry without `isHidden` is visible.
+ */
+type RawEntry = { name: string; path: string; isDirectory: boolean; isHidden?: boolean };
+function mockTree(byDir: Record<string, RawEntry[]>) {
+  const build = (dir: string): unknown[] =>
+    (byDir[dir] ?? []).map((e) => ({
+      ...e,
+      isHidden: e.isHidden ?? false,
+      ...(e.isDirectory ? { children: build(e.path) } : {}),
+    }));
+  invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+    if (cmd !== "list_directory_tree") return undefined;
+    const root = (args as { path: string }).path;
+    if (!(root in byDir)) return { entries: [], truncated: false };
+    return { entries: build(root), truncated: false };
+  });
+}
+
+
 beforeEach(() => {
   invokeMock.mockReset();
   invokeMock.mockImplementation(async (cmd: string) => {
-    if (cmd === "list_directory_entries") return [];
+    if (cmd === "list_directory_tree") return { entries: [], truncated: false };
     return undefined;
   });
   onFocusChangedMock.mockClear();
@@ -75,11 +97,14 @@ describe("useFileTree — window-focus refresh", () => {
 
   it("re-lists the directory when the window regains focus", async () => {
     renderHook(() => useFileTree("/Users/me/notes"));
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    // Let the initial listing settle (the scheduler marks itself idle a few
+    // microtasks after the listing resolves); a focus during a scan is coalesced
+    // into a paced follow-up instead (#1357), which is the other test's subject.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
     const initialListCalls = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
+      ([cmd]) => cmd === "list_directory_tree",
     ).length;
     expect(initialListCalls).toBeGreaterThanOrEqual(1);
     expect(focusCallback).toBeTypeOf("function");
@@ -89,7 +114,7 @@ describe("useFileTree — window-focus refresh", () => {
     await Promise.resolve();
 
     const afterFocusCalls = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
+      ([cmd]) => cmd === "list_directory_tree",
     ).length;
     expect(afterFocusCalls).toBeGreaterThan(initialListCalls);
   });
@@ -100,14 +125,14 @@ describe("useFileTree — window-focus refresh", () => {
     await Promise.resolve();
     await Promise.resolve();
     const initialListCalls = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
+      ([cmd]) => cmd === "list_directory_tree",
     ).length;
 
     focusCallback!({ payload: false });
     await Promise.resolve();
 
     const afterBlurCalls = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
+      ([cmd]) => cmd === "list_directory_tree",
     ).length;
     expect(afterBlurCalls).toBe(initialListCalls);
   });
@@ -169,19 +194,25 @@ describe("useFileTree — workspace event subscription", () => {
     await Promise.resolve();
     expect(wsEventCallback).toBeTypeOf("function");
     const initial = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
+      ([cmd]) => cmd === "list_directory_tree",
     ).length;
 
     // Scope + watchId filtering + suppression are the source's job; useFileTree
-    // simply re-lists on any delivered batch.
+    // re-lists on a delivered batch — after the debounce window (#1357), never
+    // per batch.
     wsEventCallback!([{ kind: "created", path: "/root/new.md", rootPath: "/root", selfWrite: false }]);
     await Promise.resolve();
     await Promise.resolve();
+    const rightAway = invokeMock.mock.calls.filter(([cmd]) => cmd === "list_directory_tree").length;
+    expect(rightAway).toBe(initial); // debounced, not immediate
 
-    const after = invokeMock.mock.calls.filter(
-      ([cmd]) => cmd === "list_directory_entries",
-    ).length;
-    expect(after).toBeGreaterThan(initial);
+    await waitFor(
+      () => {
+        const after = invokeMock.mock.calls.filter(([cmd]) => cmd === "list_directory_tree").length;
+        expect(after).toBeGreaterThan(initial);
+      },
+      { timeout: 3_000 },
+    );
   });
 
   it("does not subscribe when rootPath is null", async () => {
@@ -209,23 +240,15 @@ describe("useFileTree — workspace event subscription", () => {
 
 describe("useFileTree — directory listing", () => {
   it("lists files and folders, filtering markdown by default", async () => {
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries") {
-        const path = (args as { path: string }).path;
-        if (path === "/root") {
-          return [
+    mockTree({
+      "/root": [
             { name: "notes.md", path: "/root/notes.md", isDirectory: false },
             { name: "image.png", path: "/root/image.png", isDirectory: false },
             { name: "drafts", path: "/root/drafts", isDirectory: true },
-          ];
-        }
-        if (path === "/root/drafts") {
-          return [
+          ],
+      "/root/drafts": [
             { name: "wip.md", path: "/root/drafts/wip.md", isDirectory: false },
-          ];
-        }
-      }
-      return undefined;
+          ],
     });
 
     const { result } = renderHook(() => useFileTree("/root"));
@@ -246,14 +269,11 @@ describe("useFileTree — directory listing", () => {
   // that file said `requirements`. showAllFiles decides what is LISTED, never
   // how a listed name is spelled.
   it("hides a registered non-markdown extension even with all files shown", async () => {
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries" && (args as { path: string }).path === "/root") {
-        return [
+    mockTree({
+      "/root": [
           { name: "requirements.txt", path: "/root/requirements.txt", isDirectory: false },
           { name: "App.vue", path: "/root/App.vue", isDirectory: false },
-        ];
-      }
-      return undefined;
+        ],
     });
 
     const { result } = renderHook(() =>
@@ -274,11 +294,8 @@ describe("useFileTree — directory listing", () => {
     useSettingsStore.setState((s) => ({
       general: { ...s.general, showFileExtensions: false },
     }));
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries" && (args as { path: string }).path === "/root") {
-        return [{ name: "notes.md", path: "/root/notes.md", isDirectory: false }];
-      }
-      return undefined;
+    mockTree({
+      "/root": [{ name: "notes.md", path: "/root/notes.md", isDirectory: false }],
     });
 
     try {
@@ -297,20 +314,14 @@ describe("useFileTree — directory listing", () => {
   });
 
   it("sorts files before folders correctly regardless of input order", async () => {
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries") {
-        const path = (args as { path: string }).path;
-        if (path === "/sorted") {
-          // Files first in the raw input — sort must still put folder first.
-          return [
-            { name: "a.md", path: "/sorted/a.md", isDirectory: false },
-            { name: "folder", path: "/sorted/folder", isDirectory: true },
-            { name: "b.md", path: "/sorted/b.md", isDirectory: false },
-          ];
-        }
-        if (path === "/sorted/folder") return [];
-      }
-      return undefined;
+    mockTree({
+      // Files first in the raw input — sort must still put the folder first.
+      "/sorted": [
+        { name: "a.md", path: "/sorted/a.md", isDirectory: false },
+        { name: "folder", path: "/sorted/folder", isDirectory: true },
+        { name: "b.md", path: "/sorted/b.md", isDirectory: false },
+      ],
+      "/sorted/folder": [],
     });
 
     const { result } = renderHook(() => useFileTree("/sorted"));
@@ -324,7 +335,7 @@ describe("useFileTree — directory listing", () => {
 
   it("returns an empty tree without throwing when listing fails", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === "list_directory_entries") {
+      if (cmd === "list_directory_tree") {
         throw new Error("EACCES");
       }
       return undefined;
@@ -343,16 +354,10 @@ describe("useFileTree — directory listing", () => {
     useSettingsStore.setState((s) => ({
       advanced: { ...s.advanced, workflowEngine: true },
     }));
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries") {
-        const path = (args as { path: string }).path;
-        if (path === "/wf") {
-          return [
+    mockTree({
+      "/wf": [
             { name: "flow.vmark.yml", path: "/wf/flow.vmark.yml", isDirectory: false },
-          ];
-        }
-      }
-      return undefined;
+          ],
     });
 
     const { result } = renderHook(() => useFileTree("/wf"));
@@ -366,17 +371,11 @@ describe("useFileTree — directory listing", () => {
   });
 
   it("includes all file types when showAllFiles is true", async () => {
-    invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
-      if (cmd === "list_directory_entries") {
-        const path = (args as { path: string }).path;
-        if (path === "/root") {
-          return [
+    mockTree({
+      "/root": [
             { name: "notes.md", path: "/root/notes.md", isDirectory: false },
             { name: "image.png", path: "/root/image.png", isDirectory: false },
-          ];
-        }
-      }
-      return undefined;
+          ],
     });
 
     const { result } = renderHook(() => useFileTree("/root", { showAllFiles: true }));
